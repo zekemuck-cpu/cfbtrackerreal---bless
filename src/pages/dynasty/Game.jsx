@@ -6,6 +6,7 @@ import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeam
 import { getTeamColors } from '../../data/teamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear } from '../../context/DynastyContext'
+import PlayerCardFlip from '../../components/PlayerCardFlip'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 // useTeamColors not needed - using neutral colors for game recap
 import { getBowlLogo } from '../../data/bowlLogos'
@@ -634,6 +635,16 @@ export default function Game() {
   const autoDefaultTab = game.aiRecap ? 'gamecast' : 'boxscore'
   const effectiveDefaultTab = defaultTabPref === 'auto' ? autoDefaultTab : defaultTabPref
   const activeTab = searchParams.get('tab') || effectiveDefaultTab
+
+  // Trading cards tagged to this specific game. Walks dynasty.players
+  // looking for `cardGameId === game.id` so a "Cards" tab appears
+  // automatically when any player has a card linked here.
+  const cardsForGame = useMemo(() => {
+    if (!game?.id || !currentDynasty?.players) return []
+    return currentDynasty.players.filter(p =>
+      p && String(p.cardGameId || '') === String(game.id) && (p.cardFront || p.cardBack)
+    )
+  }, [game?.id, currentDynasty?.players])
 
   // Get user perspective for this game (if user's team was in it)
   const perspective = getUserGamePerspective(game, currentDynasty)
@@ -1614,6 +1625,7 @@ export default function Game() {
                 { key: 'stats', label: 'Team Stats', shortLabel: 'Stats', show: game.boxScore?.teamStats && (game.boxScore.teamStats.home || game.boxScore.teamStats.away) },
                 { key: 'ratings', label: 'Ratings', shortLabel: 'Rtg', show: !isCPUGame && (game.team1Overall || game.team1Offense || game.team1Defense || game.team2Overall || game.opponentOverall) },
                 { key: 'awards', label: 'Awards', shortLabel: 'Awards', show: !isCPUGame && (game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW) },
+                { key: 'cards', label: 'Cards', shortLabel: 'Cards', show: cardsForGame.length > 0 },
               ].filter(tab => tab.show).map(tab => (
                 <button
                   key={tab.key}
@@ -2854,6 +2866,37 @@ export default function Game() {
               </div>
             )
           })()}
+
+          {/* Cards tab — flip cards for every player whose card is
+              tagged to this game (player.cardGameId === game.id). */}
+          {activeTab === 'cards' && cardsForGame.length > 0 && (
+            <div className="px-3 sm:px-5 py-5 sm:py-6">
+              <h3 className="text-base font-bold text-txt-primary mb-1">
+                Cards from this game
+              </h3>
+              <p className="text-xs text-txt-tertiary mb-5">
+                {cardsForGame.length} player{cardsForGame.length === 1 ? '' : 's'} {cardsForGame.length === 1 ? 'has a card' : 'have cards'} tagged to this matchup. Click any name to open their player page.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {cardsForGame.map(p => (
+                  <div key={p.pid} className="flex flex-col items-center">
+                    <Link
+                      to={`${pathPrefix}/player/${p.pid}?tab=card`}
+                      className="text-sm font-semibold text-txt-primary hover:underline mb-2"
+                    >
+                      {p.name}
+                      {p.position ? <span className="text-txt-tertiary"> · {p.position}</span> : null}
+                    </Link>
+                    <PlayerCardFlip
+                      frontUrl={p.cardFront || ''}
+                      backUrl={p.cardBack || ''}
+                      sizeWidth="min(280px, 100%)"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
         </div>
       )}

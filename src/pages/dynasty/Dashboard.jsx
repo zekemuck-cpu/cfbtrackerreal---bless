@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
-import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord, getCurrentTeamRanking, getEncourageTransfers, getRecruitingCommitments, getConferenceChampionshipData, createOrUpdateCFPGameShells, getUserCFPGameStatus, getCFPRoundDisplayName, propagateCFPWinner, findUserCFPGameShell, isPlayerOnRoster, getPlayerClassForYear, lookupByTeamYear } from '../../context/DynastyContext'
+import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord, getCurrentTeamRanking, getEncourageTransfers, getRecruitingCommitments, getConferenceChampionshipData, createOrUpdateCFPGameShells, getUserCFPGameStatus, getCFPRoundDisplayName, propagateCFPWinner, findUserCFPGameShell, isPlayerOnRoster, getPlayerClassForYear, lookupByTeamYear, getTeamConferenceForDynasty } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
@@ -119,6 +119,72 @@ export default function Dashboard() {
       })
       .filter(Boolean)
   }, [currentDynasty?.games, currentDynasty?.currentYear, currentDynasty?.coachTeamByYear])
+
+  // Around-the-conference scoreboard data. Shows other conference games
+  // from the most recent week with multiple played non-user games — the
+  // dashboard widget pictured in the redesign mockup. Filters to the
+  // user's conference when available, falls back to "all played games"
+  // otherwise so a non-FBS / Independent dynasty still gets a view.
+  const scoreboardData = useMemo(() => {
+    const games = currentDynasty?.games || []
+    const yr = Number(currentDynasty?.currentYear)
+    if (!Number.isFinite(yr)) return { week: null, games: [] }
+
+    const userTid = currentDynasty?.currentTid != null ? Number(currentDynasty.currentTid) : null
+    // Find the latest week where there are at least 2 non-user played games.
+    let chosenWeek = -1
+    const weekBuckets = new Map()
+    for (const g of games) {
+      if (!g || Number(g.year) !== yr) continue
+      if (typeof g.team1Score !== 'number' || typeof g.team2Score !== 'number') continue
+      const wk = typeof g.week === 'number' ? g.week : parseInt(g.week, 10)
+      if (!Number.isFinite(wk)) continue
+      const t1 = Number(g.team1Tid)
+      const t2 = Number(g.team2Tid)
+      if (userTid != null && (t1 === userTid || t2 === userTid)) continue
+      if (!weekBuckets.has(wk)) weekBuckets.set(wk, [])
+      weekBuckets.get(wk).push(g)
+    }
+    for (const [wk, list] of weekBuckets.entries()) {
+      if (list.length >= 2 && wk > chosenWeek) chosenWeek = wk
+    }
+    if (chosenWeek < 0) return { week: null, games: [] }
+
+    const teamsSrc = currentDynasty?.teams || currentDynasty?.customTeams
+    const userConference = (() => {
+      if (!userTid) return null
+      const userAbbr = teamsSrc?.[userTid]?.abbr
+      if (!userAbbr) return null
+      const customConfs = getCurrentCustomConferences(currentDynasty)
+      return getTeamConferenceForDynasty(currentDynasty, userAbbr, yr) ||
+             getTeamConference(userAbbr, customConfs, teamsSrc) ||
+             null
+    })()
+
+    let pool = weekBuckets.get(chosenWeek)
+    if (userConference) {
+      const customConfs = getCurrentCustomConferences(currentDynasty)
+      const inConf = (tid) => {
+        if (tid == null) return false
+        const abbr = teamsSrc?.[Number(tid)]?.abbr
+        if (!abbr) return false
+        const conf = getTeamConferenceForDynasty(currentDynasty, abbr, yr) ||
+                     getTeamConference(abbr, customConfs, teamsSrc)
+        return conf === userConference
+      }
+      const confGames = pool.filter(g => inConf(g.team1Tid) || inConf(g.team2Tid))
+      if (confGames.length > 0) pool = confGames
+    }
+
+    // Sort by tid pair so the order is stable across renders.
+    const sorted = [...pool].sort((a, b) => {
+      const aKey = `${Math.min(Number(a.team1Tid) || 0, Number(a.team2Tid) || 0)}-${Math.max(Number(a.team1Tid) || 0, Number(a.team2Tid) || 0)}`
+      const bKey = `${Math.min(Number(b.team1Tid) || 0, Number(b.team2Tid) || 0)}-${Math.max(Number(b.team1Tid) || 0, Number(b.team2Tid) || 0)}`
+      return aKey.localeCompare(bKey)
+    })
+
+    return { week: chosenWeek, games: sorted, conference: userConference }
+  }, [currentDynasty?.games, currentDynasty?.currentYear, currentDynasty?.currentTid, currentDynasty?.teams, currentDynasty?.customConferencesByYear])
 
   // Use centralized single-source-of-truth record (used in schedule section)
   const scheduleRecord = getCurrentTeamRecord(currentDynasty)
@@ -8698,6 +8764,113 @@ export default function Dashboard() {
         )}
         </div>
       </div>
+
+      {/* Around the Conference / Scoreboard widget. Sits below the
+          schedule and surfaces other played games from the most recent
+          week — feature parity with the dashboard mockup the user
+          shared. Hidden when there's no week with at least 2 played
+          non-user games yet. */}
+      {scoreboardData.week != null && scoreboardData.games.length > 0 && (
+        <div className="mt-8">
+          <div className="py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-1 h-12 rounded-full" style={{ backgroundColor: teamColors.primary }} />
+              <div className="min-w-0">
+                <div className="label-xs text-txt-tertiary uppercase tracking-wider">
+                  Wk {scoreboardData.week} · Around the {scoreboardData.conference || 'Country'}
+                </div>
+                <div
+                  className="font-display font-black leading-none mt-1"
+                  style={{
+                    fontSize: 'clamp(1.5rem, 1.9vw, 2rem)',
+                    color: 'var(--text-primary)',
+                    letterSpacing: '-0.01em'
+                  }}
+                >
+                  Scoreboard
+                </div>
+              </div>
+            </div>
+            <Link
+              to={`${pathPrefix}/weekly-scores?year=${currentDynasty.currentYear}&week=${scoreboardData.week}`}
+              className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+              title="View all weekly scores"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+            {scoreboardData.games.slice(0, 12).map((g) => {
+              const teamsSrc = currentDynasty?.teams || currentDynasty?.customTeams || {}
+              const homeTid = g.homeTeamTid != null ? Number(g.homeTeamTid) : null
+              const isNeutral = g.homeTeamTid == null
+              const t1 = Number(g.team1Tid)
+              const t2 = Number(g.team2Tid)
+              // Away on top, home on bottom (matches the WeeklyScores card convention).
+              const topTid = isNeutral ? t1 : (homeTid === t1 ? t2 : t1)
+              const bottomTid = isNeutral ? t2 : homeTid
+              const topScore = topTid === t1 ? g.team1Score : g.team2Score
+              const bottomScore = bottomTid === t1 ? g.team1Score : g.team2Score
+              const topAbbr = teamsSrc[topTid]?.abbr || ''
+              const bottomAbbr = teamsSrc[bottomTid]?.abbr || ''
+              const topName = teamsSrc[topTid]?.name || ''
+              const bottomName = teamsSrc[bottomTid]?.name || ''
+              const topLogo = topName ? getTeamLogo(topName, teamsSrc) : null
+              const bottomLogo = bottomName ? getTeamLogo(bottomName, teamsSrc) : null
+              const topWon = topScore > bottomScore
+              const bottomWon = bottomScore > topScore
+              return (
+                <Link
+                  key={g.id}
+                  to={`${pathPrefix}/game/${g.id}`}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 transition-colors border border-surface-4"
+                >
+                  <div className="flex flex-col gap-1 flex-1 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-5 h-5 rounded bg-white p-0.5 flex-shrink-0">
+                        {topLogo ? (
+                          <img src={topLogo} alt="" className="w-full h-full object-contain" />
+                        ) : null}
+                      </div>
+                      <span className={`text-xs font-semibold truncate ${topWon ? 'text-zinc-100' : 'text-zinc-400'}`}>
+                        {topAbbr}
+                      </span>
+                      <span className={`ml-auto text-sm font-bold tabular-nums ${topWon ? 'text-zinc-100' : 'text-zinc-500'}`}>
+                        {topScore}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-5 h-5 rounded bg-white p-0.5 flex-shrink-0">
+                        {bottomLogo ? (
+                          <img src={bottomLogo} alt="" className="w-full h-full object-contain" />
+                        ) : null}
+                      </div>
+                      <span className={`text-xs font-semibold truncate ${bottomWon ? 'text-zinc-100' : 'text-zinc-400'}`}>
+                        {bottomAbbr}
+                      </span>
+                      <span className={`ml-auto text-sm font-bold tabular-nums ${bottomWon ? 'text-zinc-100' : 'text-zinc-500'}`}>
+                        {bottomScore}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+          {scoreboardData.games.length > 12 && (
+            <div className="mt-2 text-center">
+              <Link
+                to={`${pathPrefix}/weekly-scores?year=${currentDynasty.currentYear}&week=${scoreboardData.week}`}
+                className="text-xs text-txt-tertiary hover:text-txt-secondary transition-colors"
+              >
+                View all {scoreboardData.games.length} games →
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
         </div>
         {/* End Right Column */}
 

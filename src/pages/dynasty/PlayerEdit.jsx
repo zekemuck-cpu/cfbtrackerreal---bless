@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useDynasty, getPlayerBoxScoreTotals } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
@@ -7,6 +7,9 @@ import { getContrastTextColor } from '../../utils/colorUtils'
 import { TEAMS, getTidFromAbbr } from '../../data/teamRegistry'
 import { getTeamLogoByTid, getMascotName } from '../../data/teams'
 import { useToast } from '../../components/ui/Toast'
+import ImageUpload from '../../components/ImageUpload'
+import CardPromptBuilder from '../../components/CardPromptBuilder'
+import { getCardGameOptions, getDefaultCardSeason } from '../../utils/buildCardPrompt'
 
 // Helper to check if a stint reason indicates a transfer
 const isTransferReason = (reason) => ['portal_in', 'transfer', 'juco_in'].includes(reason)
@@ -319,7 +322,12 @@ export default function PlayerEdit() {
   const secondaryText = getContrastTextColor(teamColors.secondary)
 
   // State
-  const [activeTab, setActiveTab] = useState('profile')
+  // Honour ?tab=<id> from the URL so deep-links into a specific tab
+  // (e.g. the player page's "Trading Card" button → edit?tab=card) land
+  // the user there without an extra click.
+  const [searchParams] = useSearchParams()
+  const initialTab = searchParams.get('tab') || 'profile'
+  const [activeTab, setActiveTab] = useState(initialTab)
   const [formData, setFormData] = useState({})
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -412,6 +420,15 @@ export default function PlayerEdit() {
       jerseyNumber: player.jerseyNumber || '',
       devTrait: player.devTrait || '',
       pictureUrl: player.pictureUrl || '',
+
+      // Trading-card image URLs (front + back), used by the Card tab
+      // and rendered on the Player page when present. cardGameId is
+      // optional — when set, the card is linked to a specific game so
+      // the game page can surface "cards from this game" + the card
+      // can show a "View game →" link on the player page.
+      cardFront: player.cardFront || '',
+      cardBack: player.cardBack || '',
+      cardGameId: player.cardGameId || '',
 
       // Background
       hometown: player.hometown || '',
@@ -699,6 +716,9 @@ export default function PlayerEdit() {
       jerseyNumber: formData.jerseyNumber,
       devTrait: formData.devTrait,
       pictureUrl: formData.pictureUrl,
+      cardFront: formData.cardFront || '',
+      cardBack: formData.cardBack || '',
+      cardGameId: formData.cardGameId || '',
       hometown: formData.hometown,
       state: formData.state,
       height: formData.height,
@@ -821,6 +841,7 @@ export default function PlayerEdit() {
     { id: 'career', label: 'Career' },
     { id: 'stats', label: 'Stats' },
     { id: 'awards', label: 'Awards' },
+    { id: 'card', label: 'Card' },
   ]
 
   return (
@@ -2514,6 +2535,126 @@ export default function PlayerEdit() {
             </div>
           </div>
         )}
+
+        {/* Card Tab — front/back image uploads + AI prompt builder */}
+        {activeTab === 'card' && (() => {
+          // Player's games — used for the optional "tag this card to a
+          // game" dropdown. We list every season's games; the user
+          // probably knows which one the card represents.
+          const tagSeason = getDefaultCardSeason(player, dynasty)
+          const tagGameOptions = []
+          // Walk every year the player has games for, not just the
+          // default season, since users might create cards for
+          // older games too.
+          if (player?.statsByYear) {
+            for (const yr of Object.keys(player.statsByYear).sort((a, b) => Number(b) - Number(a))) {
+              const games = getCardGameOptions(player, dynasty, Number(yr))
+              for (const g of games) tagGameOptions.push({ ...g, year: Number(yr) })
+            }
+          } else if (tagSeason) {
+            const games = getCardGameOptions(player, dynasty, tagSeason)
+            for (const g of games) tagGameOptions.push({ ...g, year: tagSeason })
+          }
+
+          return (
+            <div className="space-y-6">
+              <div className="card">
+                <div className="px-5 py-3 flex items-center justify-between border-b border-surface-4 bg-surface-3">
+                  <h2 className="text-sm font-bold uppercase tracking-wide text-txt-secondary">
+                    Trading Card
+                  </h2>
+                </div>
+
+                {/* OPTION 1 — UPLOAD YOUR OWN. The fastest path: a CFB 26
+                    screenshot or any image the user has. Made prominent
+                    with its own labeled section so it's clear this is
+                    a valid path that doesn't require the AI builder. */}
+                <div className="p-5 space-y-5 border-b border-surface-4">
+                  <div>
+                    <div className="label-xs text-txt-tertiary mb-1" style={{ letterSpacing: '1.5px' }}>
+                      Step 1
+                    </div>
+                    <h3 className="text-base font-bold text-txt-primary">Upload your card images</h3>
+                    <p className="text-xs text-txt-tertiary mt-1">
+                      Drop in a screenshot from CFB 26, an AI-generated card, or any image you want to use.
+                      Front fills the player-page Card tab; back appears when you flip the card. Both are optional.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                      <label className="block label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '1.5px' }}>
+                        Front of Card
+                      </label>
+                      <ImageUpload
+                        value={formData.cardFront || ''}
+                        onChange={(url) => setFormData(prev => ({ ...prev, cardFront: url }))}
+                        teamColors={teamColors}
+                        placeholder="Paste image (Ctrl+V), drop a file, or paste a URL"
+                      />
+                    </div>
+                    <div>
+                      <label className="block label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '1.5px' }}>
+                        Back of Card
+                      </label>
+                      <ImageUpload
+                        value={formData.cardBack || ''}
+                        onChange={(url) => setFormData(prev => ({ ...prev, cardBack: url }))}
+                        teamColors={teamColors}
+                        placeholder="Paste image (Ctrl+V), drop a file, or paste a URL"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Optional game tag — links the card to a specific
+                      game so the game page can show a Cards tab with
+                      every player's card from that game. */}
+                  <div>
+                    <label className="block label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '1.5px' }}>
+                      Tag this card to a game (optional)
+                    </label>
+                    <select
+                      value={formData.cardGameId || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, cardGameId: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-md bg-surface-3 border border-surface-4 text-txt-primary text-sm"
+                    >
+                      <option value="">— No game tagged —</option>
+                      {tagGameOptions.map(g => {
+                        const loc = g.location === 'home' ? 'vs' : g.location === 'away' ? '@' : 'vs (neutral)'
+                        const result = `${g.won ? 'W' : 'L'} ${g.playerScore}–${g.oppScore}`
+                        return (
+                          <option key={g.gameId} value={g.gameId}>
+                            {g.year} · Wk {g.week ?? '?'} · {loc} {g.opponentAbbr || g.opponentName} · {result}
+                          </option>
+                        )
+                      })}
+                    </select>
+                    <div className="text-[11px] text-txt-tertiary mt-1.5">
+                      Linking a card to a game adds it to that game's "Cards" tab and shows a "View Game →" link below the flip.
+                    </div>
+                  </div>
+                </div>
+
+                {/* OPTION 2 — AI PROMPT BUILDER. Secondary path; for
+                    users who want to generate the card image. The prompt
+                    is what they paste into ChatGPT / their AI of choice. */}
+                <div className="p-5 space-y-3">
+                  <div>
+                    <div className="label-xs text-txt-tertiary mb-1" style={{ letterSpacing: '1.5px' }}>
+                      Optional · Step 2 (skip if you already uploaded above)
+                    </div>
+                    <h3 className="text-base font-bold text-txt-primary">Generate the card with AI</h3>
+                    <p className="text-xs text-txt-tertiary mt-1">
+                      If you don't have a screenshot ready, build a prompt below, paste it into your AI image tool of choice,
+                      and upload the result back into Step 1.
+                    </p>
+                  </div>
+                  <CardPromptBuilder player={player} dynasty={dynasty} />
+                </div>
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Mobile action bar */}

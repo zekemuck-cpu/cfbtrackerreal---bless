@@ -5163,15 +5163,23 @@ export default function TeamYear() {
           total: commits.filter(c => Number(c.stars) === n).length
         }))
 
+        // Use the VIEWED team's actual primary color, not the global
+        // --team-primary CSS var (set to the user's dynasty team — was
+        // why every team's recruiting tab showed up Kentucky-blue) and
+        // not viewedTeamColors.primary (which on this page is wired to
+        // the team's secondary color and would render as white for
+        // teams like Hawaii).
+        const viewedPrimary = teamInfo.backgroundColor
+        const viewedPrimaryText = getContrastTextColor(viewedPrimary)
         return (
           <div className="space-y-4">
             <div className="card overflow-hidden">
-              <div className="h-[3px] w-full" style={{ backgroundColor: 'var(--team-primary)' }} aria-hidden="true" />
+              <div className="h-[3px] w-full" style={{ backgroundColor: viewedPrimary }} aria-hidden="true" />
               <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="flex items-center gap-3 sm:gap-5">
                   <div
                     className="flex items-center gap-3 sm:gap-4 px-4 py-3 rounded-sm"
-                    style={{ backgroundColor: 'var(--surface-3)', borderLeft: '3px solid var(--team-primary)' }}
+                    style={{ backgroundColor: 'var(--surface-3)', borderLeft: `3px solid ${viewedPrimary}` }}
                   >
                     <div className="text-4xl sm:text-5xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                       {nationalRank ? `#${nationalRank}` : '—'}
@@ -5183,7 +5191,7 @@ export default function TeamYear() {
                   </div>
                   <div
                     className="flex items-center gap-3 sm:gap-4 px-4 py-3 rounded-sm"
-                    style={{ backgroundColor: 'var(--surface-3)', borderLeft: '3px solid var(--team-primary)' }}
+                    style={{ backgroundColor: 'var(--surface-3)', borderLeft: `3px solid ${viewedPrimary}` }}
                   >
                     <div className="text-4xl sm:text-5xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                       {formatRecruitingClassScore(classScore)}
@@ -5199,8 +5207,8 @@ export default function TeamYear() {
                     to={`${pathPrefix}/recruiting/${tid}/${selectedYear}`}
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-sm label-sm transition-colors hover:opacity-90"
                     style={{
-                      backgroundColor: 'var(--team-primary)',
-                      color: 'var(--team-primary-text, #ffffff)',
+                      backgroundColor: viewedPrimary,
+                      color: viewedPrimaryText,
                       letterSpacing: '1.5px'
                     }}
                   >
@@ -5235,8 +5243,8 @@ export default function TeamYear() {
                   to={`${pathPrefix}/recruiting/${tid}/${selectedYear}`}
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-sm label-sm transition-colors hover:opacity-90"
                   style={{
-                    backgroundColor: 'var(--team-primary)',
-                    color: 'var(--team-primary-text, #ffffff)',
+                    backgroundColor: viewedPrimary,
+                    color: viewedPrimaryText,
                     letterSpacing: '1.5px'
                   }}
                 >

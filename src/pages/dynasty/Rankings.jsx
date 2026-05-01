@@ -94,16 +94,10 @@ export default function Rankings() {
   if (currentDynasty.currentYear) yearsCombined.add(Number(currentDynasty.currentYear))
 
   const availableYears = Array.from(yearsCombined).sort((a, b) => b - a)
-  // First-season dynasties have no prior year — default to current
-  // year so a 2025-start dynasty doesn't open showing "2024".
-  const isFirstSeason = Number(currentDynasty.currentYear) <= Number(currentDynasty.startYear)
-  const displayYear = urlYear
-    ? parseInt(urlYear)
-    : (isFirstSeason
-        ? currentDynasty.currentYear
-        : (yearsCombined.has(Number(currentDynasty.currentYear) - 1)
-            ? currentDynasty.currentYear - 1
-            : currentDynasty.currentYear))
+  // Default to the dynasty's CURRENT year — the page derives a live
+  // Top 25 from games so the in-season view always has data, and the
+  // saved final poll seeds it once the season ends.
+  const displayYear = urlYear ? parseInt(urlYear) : Number(currentDynasty.currentYear)
 
   // Source priority: saved final media poll → live Top 25 derived from
   // the latest week's game-level ranks. Final poll wins because it's
