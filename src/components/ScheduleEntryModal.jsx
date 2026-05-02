@@ -192,11 +192,52 @@ FINAL CHECK before you send the answer
         creatingSheetRef.current = true
         setCreatingSheet(true)
         try {
-          // Get existing schedule to pre-fill the sheet
-          // Use team-specific schedule if teamTid is provided, otherwise use current team's schedule
-          const existingSchedule = teamTid
+          // Get existing schedule to pre-fill the sheet.
+          // Use team-specific schedule if teamTid is provided, otherwise
+          // use current team's schedule.
+          let existingSchedule = teamTid
             ? getScheduleForTeam(currentDynasty, teamTid, currentYear) || []
             : getCurrentSchedule(currentDynasty) || []
+
+          // For non-user teams (e.g. opening Auburn's "Edit Schedule"
+          // when the user coaches Kentucky), no schedule was ever saved
+          // — but the dynasty likely already has Auburn's games via
+          // weekly-scores entries. Synthesize a schedule from the
+          // games array so the sheet opens with what we already know,
+          // not blanks.
+          if ((!existingSchedule || existingSchedule.length === 0) && teamTid) {
+            const games = currentDynasty?.games || []
+            const teams = currentDynasty?.teams || {}
+            const myTid = Number(teamTid)
+            const myAbbr = teams[myTid]?.abbr || targetTeamAbbr
+            const yr = Number(currentYear)
+            const synthesized = []
+            for (const g of games) {
+              if (!g || Number(g.year) !== yr) continue
+              if (g.gameType && g.gameType !== 'regular') continue
+              const t1 = Number(g.team1Tid)
+              const t2 = Number(g.team2Tid)
+              if (t1 !== myTid && t2 !== myTid) continue
+              const oppTid = t1 === myTid ? t2 : t1
+              const oppAbbr = teams[oppTid]?.abbr || ''
+              if (!oppAbbr) continue
+              const homeT = g.homeTeamTid == null ? null : Number(g.homeTeamTid)
+              let location = 'neutral'
+              if (homeT === myTid) location = 'home'
+              else if (homeT === oppTid) location = 'away'
+              synthesized.push({
+                week: Number(g.week),
+                userTeam: myAbbr,
+                opponent: oppAbbr,
+                location,
+              })
+            }
+            // Dedup by week — prefer the entry with a defined opponent
+            // and most recent (last write wins is fine here).
+            const byWeek = new Map()
+            synthesized.forEach(e => byWeek.set(Number(e.week), e))
+            existingSchedule = Array.from(byWeek.values()).sort((a, b) => a.week - b.week)
+          }
 
           // Always create a fresh sheet, but pre-fill with existing data if available
           const sheetInfo = await createScheduleSheet(

@@ -4457,12 +4457,7 @@ export default function TeamYear() {
               Available on any team (not just the user's), so a coach
               can populate Florida's schedule from Florida's page. */}
           {!isViewOnly && (
-            <div className="flex items-center justify-between gap-3 flex-wrap px-1">
-              <p className="text-xs text-txt-tertiary">
-                {teamYearGames.length > 0
-                  ? `${teamYearGames.length} game${teamYearGames.length === 1 ? '' : 's'} on the ${selectedYear} schedule.`
-                  : `No games scheduled for ${selectedYear} yet.`}
-              </p>
+            <div className="flex items-center justify-end gap-3 flex-wrap px-1">
               <button
                 type="button"
                 onClick={() => setShowScheduleModal(true)}
