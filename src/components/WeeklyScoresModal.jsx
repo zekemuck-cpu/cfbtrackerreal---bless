@@ -76,7 +76,7 @@ The most common way you fail this task is by under-reporting games. A full FBS w
 
 Treat every visible matchup as in-scope. Specifically:
 
-1. PROCESS EVERY SCREENSHOT. If the user attached more than one image, every image is a different view of the same week. Walk through ALL of them in order. Do NOT stop after the first. Do NOT assume later screenshots duplicate earlier ones — they almost never do. Combine the games into ONE deduplicated list (a game seen twice = one row, not two).
+1. PROCESS EVERY SCREENSHOT. If the user attached more than one image, every image is a different view of the same week. Walk through ALL of them in order. Do NOT stop after the first. Do NOT assume later screenshots duplicate earlier ones — they almost never do. Combine the games into ONE deduplicated list. Two rows are the SAME game ONLY if BOTH teams match (in either home/away order) AND the year+week match. Two rows with the same teams but DIFFERENT scores are NOT the same game — they're a misread you need to resolve, not a duplicate. When in doubt, KEEP both rows; the importer collapses true duplicates by team-pair downstream, but it cannot recover a game you silently dropped.
 
 2. IF YOU SEE A LIST, EVERY ROW IN THE LIST IS A GAME. The CFB26 SCORES/SCHEDULES screen is a list of matchups — every row in that list is a separate FBS game with its own final score. Do not pick "the interesting ones" or "the highlight games" or "the ones with rankings." Output every row.
 
@@ -100,6 +100,13 @@ C. Your TSV output MUST contain EXACTLY N rows (ONE per game, including FBS-vs-F
 D. Common skip-trap to watch: Week 0 (and many early-season weeks) routinely have multiple FBS-vs-FCS warm-up games. Those games are NOT optional. The FCS opponent is in the team mapping below. INCLUDE every one of them.
 
 E. If N > ${WEEKLY_SCORES_MAX_ROWS}, you have more games than the sheet supports — emit the first ${WEEKLY_SCORES_MAX_ROWS} games in the order they appear and add a one-line note AFTER the TSV block reporting how many were dropped.
+
+F. TEAM-COVERAGE CHECK. After your initial pass, build a mental SET of every team mentioned in the screenshots — any logo or abbreviation you saw, even briefly, even in a corner widget or sidebar. For each team in that set, EXACTLY ONE of these must be true:
+     (i)  the team appears in your row list (as Col A or Col D), OR
+     (ii) you affirmatively confirmed the team is on bye this week (no game visible anywhere, and bye-status confirmed by a "BYE" tag, an empty schedule slot, or its absence from a complete league-wide list).
+   If a team appears in your set but in NEITHER (i) nor (ii), you missed its game. Re-walk the screenshots specifically for that team — the missing game is almost always near a list edge (top/bottom fade, scroll cutoff) or in a conference filter you breezed past.
+
+   This check exists because the most common "missing 1–5 games per conference" failure happens at the bottom of long lists where attention drifts. Don't skip it — it's cheap to run and catches the long-tail misses that the count step (B/C above) silently allows.
 
 ═══════════════════════════════════════════════════════════
 COMMON SCREENSHOT FORMATS — recognize these layouts
@@ -166,6 +173,47 @@ CRITICAL RULES — output format
    When TRULY ambiguous (no @/vs, no Home/Away tag, no clear left/right
    convention), mark Col G = "Y" (neutral) — that's better than guessing
    wrong, since neutral-site games don't show home/away on team pages.
+
+6.5. SCORE-FOLLOWS-TEAM, ALWAYS. If you swap which team goes in Col A vs
+   Col D (because the screenshot's left team is the visitor and the
+   right team is the host), you MUST also swap the SCORES. The score
+   belongs to the TEAM, not to the screen position. The single biggest
+   source of "wrong team won" rows in this prompt's history is an AI
+   that swapped the team labels but kept the scores in left-to-right
+   screen order.
+
+   Walk this procedure for EVERY row:
+     a. Identify TEAM_LEFT and TEAM_RIGHT from the logos/abbreviations.
+     b. Identify SCORE_LEFT (the score nearest TEAM_LEFT) and SCORE_RIGHT
+        (the score nearest TEAM_RIGHT). Pair (TEAM_LEFT ↔ SCORE_LEFT)
+        and (TEAM_RIGHT ↔ SCORE_RIGHT) in your head — DO NOT lose this
+        pairing.
+     c. Apply the home/away rule from #6 to decide which team is HOME.
+     d. Output:  Col A = HOME team,    Col C = HOME team's score
+                 Col D = AWAY team,    Col F = AWAY team's score
+        — i.e., the score from step (b) attached to that team, NOT the
+        score that visually sat on the same side of the screen as Col A
+        does in the output.
+
+   WORKED EXAMPLE — Auburn at Georgia, Auburn won 31–21:
+     • Screen shows: [AUB logo] 31    [UGA logo] 21    "@" symbol present
+     • TEAM_LEFT=AUB, SCORE_LEFT=31; TEAM_RIGHT=UGA, SCORE_RIGHT=21
+     • "@" rule: visitor @ host → AUB is visitor, UGA is host (HOME)
+     • CORRECT output:  UGA  [blank]  21  AUB  [blank]  31  [blank]
+     • Sanity-check: is "21" the score that was next to the UGA logo? Yes. ✓
+
+   COUNTEREXAMPLE — what NOT to do (this is the bug):
+     • Same screenshot, WRONG output:  UGA  [blank]  31  AUB  [blank]  21
+     • This row claims UGA scored 31 — but the UGA logo had 21 next to it.
+       The AI swapped the teams (correctly) but left the scores in their
+       original screen order (wrong). Result: wrong winner. FIX it before
+       emitting.
+
+   If you find yourself confused mid-row, the safe move is: write the team
+   name and the score it was paired with ON THE SCREEN in the SAME column
+   you put that team. If TEAM_LEFT goes to Col A, then SCORE_LEFT goes to
+   Col C. If TEAM_LEFT goes to Col D (because it was the visitor), then
+   SCORE_LEFT goes to Col F. Score moves with the team, period.
 7. NEUTRAL FLAG: column G is "Y" only when the game is explicitly at a neutral site (kickoff games, neutral-site classics, conference championship venues). For ordinary home games leave column G BLANK. Do NOT write "N".
 8. FCS OPPONENTS — INCLUDE THEM. EA College Football 26 represents real FCS schools as one of four generic FCS placeholders, and those placeholders ARE in the team mapping at the bottom of this prompt (typically FCSE, FCSM, FCSN, FCSW — but follow whatever appears in your mapping). When a Power-or-Group-of-5 FBS team plays an FCS opponent in Week 0 (or later), that game IS in scope — find the matching FCS placeholder abbreviation in the mapping and write the row. Do NOT drop FCS games — they're part of the user's records.
 9. UNKNOWN ABBREVIATIONS — never invent. If you cannot find a team in the mapping AT ALL after a careful re-scan, OMIT that game (rare — almost everything an in-game screenshot shows is in the mapping, including all FBS teams, FCS placeholders, and any user-renamed teambuilder teams). Re-check the mapping CAREFULLY before omitting — it includes every valid abbreviation for this dynasty.
@@ -215,6 +263,8 @@ Don't just glance at this list. Physically execute each check on your draft.
 [ ] Column G is exactly "Y" or BLANK — never "N", never "neutral", never anything else.
 [ ] HOME team correctly identified per game. Re-read rule 6 if you skipped it. The team in Col A is the team whose stadium hosted the game — NOT the team listed first on the screen. CFB26 layouts put the visitor on the LEFT and the home team on the RIGHT, so swap as needed. If your draft has the same team in Col A for the majority of rows (e.g. Auburn in Col A for every Auburn game), you've biased home/away — go re-read each row and fix before sending.
 [ ] No same-team-in-Col-A bias. Within this single week's slate, scan your Col A values: if any team appears more than once in Col A, that's an error (a team plays at most one game per week). Across many weeks of separate entries, the same team should NOT appear in Col A for every game it plays — half its games are home, half are away.
+[ ] SCORE-FOLLOWS-TEAM (per-row, rule 6.5). Pick THREE rows from your draft at random. For each, mentally re-read the screenshot at that exact row position. Confirm that the value in Col C is the score that was visually next to the team you put in Col A — and the value in Col F is the score next to the team in Col D. If your home/away decision swapped which side of the screen Col A came from, the score MUST have swapped with it. Any row that fails this check has the WINNER WRONG — fix it before sending. This is the most common source of "wrong team won" bug reports.
+[ ] TEAM COVERAGE (rule F in PRE-EXTRACTION COUNT). Every team you saw in the screenshots is now either (a) in a row of your output, or (b) confirmed on bye. No team silently disappeared. If you can name a team you remember seeing that doesn't appear in EITHER place, you have a missing game — go find it.
 [ ] No header row, no commentary, no follow-up text (except the optional "X games dropped" note ONLY if N > ${WEEKLY_SCORES_MAX_ROWS}).`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
