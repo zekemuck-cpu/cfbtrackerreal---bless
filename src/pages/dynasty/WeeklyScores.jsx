@@ -58,7 +58,6 @@ function GameCard({ game, teams, pathPrefix, recordsByTid }) {
   const bottomWon = isPlayed && !isTie && bottomScore > topScore
   const topTeam = teams[topTid] || TEAMS[topTid] || null
   const bottomTeam = teams[bottomTid] || TEAMS[bottomTid] || null
-  const winnerColor = topWon ? topTeam?.primaryColor : bottomWon ? bottomTeam?.primaryColor : null
 
   const wk = Number(game.week)
   const topRecord = formatRecord(recordsByTid?.[topTid]?.[wk])
@@ -74,36 +73,44 @@ function GameCard({ game, teams, pathPrefix, recordsByTid }) {
     }
   }
 
-  const statusLabel = !isPlayed
-    ? 'Not yet played'
-    : isTie
-      ? 'Tie'
-      : isNeutral
-        ? 'Neutral site'
-        : null
+  const statusLabel = !isPlayed ? 'Scheduled' : isTie ? 'Tie · Final' : 'Final'
 
   const TeamRow = ({ tid, team, score, won, lost, record, rank }) => {
     const mascot = getMascotNameFromTeams(tid, teams) || team?.name || ''
     const school = getSchoolName(mascot) || team?.abbr || `TID ${tid}`
     return (
-      <div className="flex items-center gap-3 px-4 py-3">
+      <div className="flex items-center gap-2.5 pl-2 pr-4 py-2.5">
+        {/* ESPN-style winner indicator: small filled triangle pointing at the row */}
+        <span
+          aria-hidden="true"
+          className="flex-shrink-0 transition-opacity"
+          style={{
+            width: 0,
+            height: 0,
+            borderTop: '4px solid transparent',
+            borderBottom: '4px solid transparent',
+            borderLeft: '5px solid var(--text-primary)',
+            opacity: won ? 1 : 0,
+          }}
+        />
         <TeamLogo tid={tid} teams={teams} size="sm" className="flex-shrink-0" />
         <div className="flex-1 min-w-0 flex items-baseline gap-2">
           {rank != null && (
             <span
               className="tabular-nums flex-shrink-0"
-              style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}
+              style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 700 }}
             >
-              #{rank}
+              {rank}
             </span>
           )}
           <Link
             to={`${pathPrefix}/team/${tid}/${game.year}`}
             onClick={(e) => e.stopPropagation()}
-            className={`text-[15px] truncate hover:underline transition-colors ${
-              won ? 'font-bold' : 'font-semibold'
-            } ${won ? 'text-txt-primary' : lost ? 'text-txt-tertiary' : 'text-txt-secondary'}`}
-            style={won ? { color: '#fafafa' } : undefined}
+            className="text-[15px] truncate hover:underline transition-colors"
+            style={{
+              fontWeight: won ? 700 : 600,
+              color: lost ? 'var(--text-tertiary)' : 'var(--text-primary)',
+            }}
           >
             {school}
           </Link>
@@ -117,14 +124,14 @@ function GameCard({ game, teams, pathPrefix, recordsByTid }) {
           )}
         </div>
         <span
-          className={`font-display tabular-nums leading-none flex-shrink-0 ${
-            won ? 'font-black' : 'font-bold'
-          }`}
+          className="font-display tabular-nums leading-none flex-shrink-0"
           style={{
             fontSize: '22px',
-            color: won ? '#fafafa' : lost ? 'var(--text-tertiary)' : 'var(--text-secondary)',
-            minWidth: '2.5rem',
+            fontWeight: won ? 800 : 600,
+            color: lost ? 'var(--text-tertiary)' : 'var(--text-primary)',
+            minWidth: '2.25rem',
             textAlign: 'right',
+            letterSpacing: '-0.02em',
           }}
         >
           {score ?? '—'}
@@ -139,16 +146,42 @@ function GameCard({ game, teams, pathPrefix, recordsByTid }) {
       tabIndex={0}
       onClick={handleCardClick}
       onKeyDown={handleCardKey}
-      className="game-card relative rounded-xl overflow-hidden bg-surface-2 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-surface-5"
+      className="game-card relative rounded-md overflow-hidden bg-surface-2 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-surface-5"
       style={{ border: '1px solid var(--rule-soft, var(--surface-4))' }}
     >
-      {winnerColor && (
+      {/* Sports-page status strip: FINAL / Scheduled, with neutral marker on the right */}
+      <div
+        className="flex items-center justify-between px-3 py-1.5"
+        style={{
+          backgroundColor: 'var(--surface-1)',
+          borderBottom: '1px solid var(--surface-4)',
+        }}
+      >
         <span
-          aria-hidden="true"
-          className="absolute left-0 top-0 bottom-0 w-[3px]"
-          style={{ backgroundColor: winnerColor }}
-        />
-      )}
+          style={{
+            fontSize: '10px',
+            fontWeight: 700,
+            color: isPlayed ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+            letterSpacing: '1.6px',
+            textTransform: 'uppercase',
+          }}
+        >
+          {statusLabel}
+        </span>
+        {isNeutral && (
+          <span
+            style={{
+              fontSize: '10px',
+              fontWeight: 600,
+              color: 'var(--text-tertiary)',
+              letterSpacing: '1.4px',
+              textTransform: 'uppercase',
+            }}
+          >
+            Neutral
+          </span>
+        )}
+      </div>
       <TeamRow
         tid={topTid}
         team={topTeam}
@@ -158,7 +191,7 @@ function GameCard({ game, teams, pathPrefix, recordsByTid }) {
         record={topRecord}
         rank={topRank}
       />
-      <div style={{ borderTop: '1px solid var(--surface-4)' }}>
+      <div style={{ borderTop: '1px solid var(--surface-3)' }}>
         <TeamRow
           tid={bottomTid}
           team={bottomTeam}
@@ -169,18 +202,6 @@ function GameCard({ game, teams, pathPrefix, recordsByTid }) {
           rank={bottomRank}
         />
       </div>
-      {statusLabel && (
-        <div
-          className="px-4 py-1.5 text-[10px] uppercase text-txt-tertiary"
-          style={{
-            borderTop: '1px solid var(--surface-4)',
-            backgroundColor: 'var(--surface-1)',
-            letterSpacing: '1.5px',
-          }}
-        >
-          {statusLabel}
-        </div>
-      )}
     </div>
   )
 }
