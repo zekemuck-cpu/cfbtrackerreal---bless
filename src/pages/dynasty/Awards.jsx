@@ -232,7 +232,11 @@ export default function Awards() {
     )
   }
 
-  // Heisman Trophy — featured, large card with subtle gold accent
+  // Heisman Trophy — broadcast-scorebug feature card. Editorial year +
+  // award lockup on top, then the winner with logo, name, and meta row.
+  // Gold left rail replaces the soft top gradient — it scans cleaner and
+  // matches the design language's "team color is an accent, never a fill"
+  // rule (gold here is the prestige accent).
   const HeismanCard = ({ awardData }) => {
     const mascotName = getMascotName(awardData.team, currentDynasty?.teams || currentDynasty?.customTeams)
     const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
@@ -243,13 +247,31 @@ export default function Awards() {
     return (
       <Card padding="none" className="relative overflow-hidden">
         <div
-          className="absolute top-0 left-0 right-0 h-[3px]"
-          style={{ background: 'linear-gradient(90deg, transparent 0%, #d4af37 50%, transparent 100%)' }}
+          aria-hidden="true"
+          className="absolute top-0 bottom-0 left-0 w-[4px]"
+          style={{ backgroundColor: '#d4af37' }}
         />
-        <div className="px-5 py-6 sm:px-8 sm:py-8">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="label-xs" style={{ color: '#d4af37' }}>
-              {displayYear} Heisman Trophy
+        <div className="px-5 py-5 sm:px-8 sm:py-7 pl-6 sm:pl-10">
+          <div className="flex items-baseline gap-3 mb-4">
+            <span
+              className="font-display font-black tabular leading-none"
+              style={{
+                fontSize: '14px',
+                color: '#d4af37',
+                letterSpacing: '0.05em',
+              }}
+            >
+              {displayYear}
+            </span>
+            <span
+              className="label-xs"
+              style={{
+                color: '#d4af37',
+                letterSpacing: '2.5px',
+                fontSize: '10px',
+              }}
+            >
+              HEISMAN TROPHY
             </span>
           </div>
 
@@ -278,17 +300,24 @@ export default function Awards() {
                 <Link
                   to={`${pathPrefix}/player/${matchingPlayer.pid}`}
                   className="display-md text-txt-primary hover:text-white transition-colors truncate block"
+                  style={{ letterSpacing: '-0.02em' }}
                 >
                   {awardData.player}
                 </Link>
               ) : (
-                <span className="display-md text-txt-primary truncate block">
+                <span
+                  className="display-md text-txt-primary truncate block"
+                  style={{ letterSpacing: '-0.02em' }}
+                >
                   {awardData.player}
                 </span>
               )}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-sm">
                 {awardData.position && (
-                  <span className="font-semibold" style={{ color: '#d4af37' }}>
+                  <span
+                    className="font-bold tabular"
+                    style={{ color: '#d4af37', letterSpacing: '0.05em' }}
+                  >
                     {awardData.position}
                   </span>
                 )}
@@ -467,7 +496,21 @@ export default function Awards() {
 
           {eliteAwards.length > 0 && (
             <div className="space-y-3">
-              <h2 className="label-xs text-txt-tertiary">Major Awards</h2>
+              <div className="flex items-center gap-3">
+                <h2
+                  className="label-xs text-txt-secondary"
+                  style={{ letterSpacing: '2.5px', fontSize: '10px' }}
+                >
+                  Major Awards
+                </h2>
+                <div className="flex-1 h-px bg-surface-4" />
+                <span
+                  className="label-xs tabular text-txt-tertiary"
+                  style={{ letterSpacing: '1.5px', fontSize: '10px' }}
+                >
+                  {eliteAwards.length}
+                </span>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {eliteAwards.map(({ key, data }) => (
                   <EliteAwardCard key={key} awardKey={key} awardData={data} />
@@ -478,7 +521,21 @@ export default function Awards() {
 
           {positionAwards.length > 0 && (
             <div className="space-y-3">
-              <h2 className="label-xs text-txt-tertiary">Position Awards</h2>
+              <div className="flex items-center gap-3">
+                <h2
+                  className="label-xs text-txt-secondary"
+                  style={{ letterSpacing: '2.5px', fontSize: '10px' }}
+                >
+                  Position Awards
+                </h2>
+                <div className="flex-1 h-px bg-surface-4" />
+                <span
+                  className="label-xs tabular text-txt-tertiary"
+                  style={{ letterSpacing: '1.5px', fontSize: '10px' }}
+                >
+                  {positionAwards.length}
+                </span>
+              </div>
               <Card padding="none">
                 {positionAwards.map(({ key, data }) => (
                   <PositionAwardRow key={key} awardKey={key} awardData={data} />

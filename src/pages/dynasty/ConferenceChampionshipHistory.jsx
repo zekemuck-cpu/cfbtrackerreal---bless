@@ -226,6 +226,18 @@ export default function ConferenceChampionshipHistory() {
 
   const totalCCGames = getTotalCCGames()
   const seasonCount = getSeasonCount()
+  // Distinct conferences that have crowned a champion at least once —
+  // useful third stat for power-five vs. group-of-five history.
+  const distinctConferences = (() => {
+    const games = currentDynasty.games || []
+    const set = new Set()
+    games.forEach(g => {
+      if (detectGameType(g) === GAME_TYPES.CONFERENCE_CHAMPIONSHIP && g.conference) {
+        set.add(g.conference)
+      }
+    })
+    return set.size
+  })()
 
   return (
     <div className="space-y-4 page-enter">
@@ -241,6 +253,60 @@ export default function ConferenceChampionshipHistory() {
           </>
         }
       >
+        {/* Broadcast stat strip — three tiles: games / seasons / leagues. */}
+        <div className="flex items-stretch gap-3 sm:gap-6 mb-4">
+          <div className="flex-1 sm:flex-none sm:min-w-[110px]">
+            <div
+              className="font-display font-black tabular text-txt-primary leading-none"
+              style={{ fontSize: '40px', letterSpacing: '-0.03em' }}
+            >
+              {totalCCGames}
+            </div>
+            <div
+              className="label-xs text-txt-tertiary mt-1.5"
+              style={{ letterSpacing: '2px', fontSize: '10px' }}
+            >
+              {totalCCGames === 1 ? 'GAME' : 'GAMES'}
+            </div>
+          </div>
+          <div
+            className="hidden sm:block w-px"
+            style={{ backgroundColor: 'var(--surface-4)' }}
+          />
+          <div className="flex-1 sm:flex-none sm:min-w-[110px]">
+            <div
+              className="font-display font-black tabular text-txt-primary leading-none"
+              style={{ fontSize: '40px', letterSpacing: '-0.03em' }}
+            >
+              {seasonCount}
+            </div>
+            <div
+              className="label-xs text-txt-tertiary mt-1.5"
+              style={{ letterSpacing: '2px', fontSize: '10px' }}
+            >
+              {seasonCount === 1 ? 'SEASON' : 'SEASONS'}
+            </div>
+          </div>
+          <div
+            className="hidden sm:block w-px"
+            style={{ backgroundColor: 'var(--surface-4)' }}
+          />
+          <div className="flex-1 sm:flex-none sm:min-w-[110px]">
+            <div
+              className="font-display font-black tabular text-txt-primary leading-none"
+              style={{ fontSize: '40px', letterSpacing: '-0.03em' }}
+            >
+              {distinctConferences}
+            </div>
+            <div
+              className="label-xs text-txt-tertiary mt-1.5"
+              style={{ letterSpacing: '2px', fontSize: '10px' }}
+            >
+              {distinctConferences === 1 ? 'CONFERENCE' : 'CONFERENCES'}
+            </div>
+          </div>
+        </div>
+
         <div className="max-w-md">
           <Input
             type="text"

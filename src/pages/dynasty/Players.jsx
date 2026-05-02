@@ -260,65 +260,90 @@ export default function Players() {
                 </tr>
               </thead>
               <tbody>
-                {filteredPlayers.map((player, idx) => (
-                  <tr
-                    key={player.pid || player.id || idx}
-                    className="player-row transition-colors"
-                    style={{ borderBottom: idx < filteredPlayers.length - 1 ? '1px solid var(--rule-soft, var(--surface-4))' : 'none' }}
-                  >
-                    <td className="px-4 py-3">
-                      <Link
-                        to={`${pathPrefix}/player/${player.pid}`}
-                        className="font-semibold hover:underline flex items-center gap-2 group"
-                        style={{ color: 'var(--text-primary)' }}
-                      >
-                        {player.jerseyNumber && (
+                {filteredPlayers.map((player, idx) => {
+                  // Tiered OVR color treatment — broadcast scorebug data
+                  // emphasis: elite ratings stand out at a glance, sub-80s
+                  // recede. Same tier drives the jersey-chip color so the
+                  // row reads as a unit.
+                  const ovr = player.overall || 0
+                  const tier = ovr >= 90 ? 'elite' : ovr >= 85 ? 'star' : ovr >= 80 ? 'starter' : ovr > 0 ? 'depth' : 'none'
+                  const ovrColor = tier === 'elite' ? '#34d399'
+                    : tier === 'star' ? 'var(--text-primary)'
+                    : tier === 'starter' ? 'var(--text-primary)'
+                    : tier === 'depth' ? 'var(--text-tertiary)'
+                    : 'var(--text-muted)'
+                  const ovrSize = tier === 'elite' ? '20px' : tier === 'star' ? '18px' : '17px'
+
+                  return (
+                    <tr
+                      key={player.pid || player.id || idx}
+                      className="player-row transition-colors"
+                      style={{ borderBottom: idx < filteredPlayers.length - 1 ? '1px solid var(--rule-soft, var(--surface-4))' : 'none' }}
+                    >
+                      <td className="px-4 py-3">
+                        <Link
+                          to={`${pathPrefix}/player/${player.pid}`}
+                          className="font-semibold hover:underline flex items-center gap-2 group"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          {player.jerseyNumber && (
+                            <span
+                              className="label-xs tabular px-1.5 py-0.5 rounded flex-shrink-0"
+                              style={{
+                                fontSize: '10px',
+                                backgroundColor: 'var(--surface-3)',
+                                color: 'var(--text-secondary)',
+                                fontWeight: 700,
+                                minWidth: '28px',
+                                textAlign: 'center',
+                              }}
+                            >
+                              {player.jerseyNumber}
+                            </span>
+                          )}
+                          <span className="transition-transform duration-200 group-hover:translate-x-0.5">{player.name}</span>
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm font-bold text-txt-primary tabular">
+                        {player.position}
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm text-txt-secondary tabular">
+                        {player.classByYear?.[currentDynasty.currentYear] || player.year || '-'}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {player.overall ? (
                           <span
-                            className="label-xs tabular px-1.5 py-0.5 rounded flex-shrink-0"
+                            className="tabular font-display font-black"
                             style={{
-                              fontSize: '10px',
-                              backgroundColor: 'var(--surface-3)',
-                              color: 'var(--text-secondary)',
+                              color: ovrColor,
+                              fontSize: ovrSize,
+                              letterSpacing: '-0.02em',
                             }}
                           >
-                            #{player.jerseyNumber}
+                            {player.overall}
                           </span>
+                        ) : (
+                          <span className="text-txt-tertiary">-</span>
                         )}
-                        <span className="transition-transform duration-200 group-hover:translate-x-0.5">{player.name}</span>
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-center text-sm font-medium text-txt-primary tabular">
-                      {player.position}
-                    </td>
-                    <td className="px-4 py-3 text-center text-sm text-txt-secondary">
-                      {player.classByYear?.[currentDynasty.currentYear] || player.year || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {player.overall ? (
-                        <span className="tabular font-display font-black text-base text-txt-primary">
-                          {player.overall}
-                        </span>
-                      ) : (
-                        <span className="text-txt-tertiary">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {player.devTrait && (
-                        <Badge variant="outline" size="sm">
-                          {player.devTrait}
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 hidden md:table-cell text-sm text-txt-secondary">
-                      {player.archetype || '-'}
-                    </td>
-                    <td className="px-4 py-3 hidden lg:table-cell text-sm text-txt-secondary">
-                      {player.hometown && player.state
-                        ? `${player.hometown}, ${player.state}`
-                        : player.hometown || player.state || '-'}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {player.devTrait && (
+                          <Badge variant={DEV_TRAIT_VARIANT[player.devTrait] || 'outline'} size="sm">
+                            {player.devTrait}
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 hidden md:table-cell text-sm text-txt-secondary">
+                        {player.archetype || '-'}
+                      </td>
+                      <td className="px-4 py-3 hidden lg:table-cell text-sm text-txt-secondary">
+                        {player.hometown && player.state
+                          ? `${player.hometown}, ${player.state}`
+                          : player.hometown || player.state || '-'}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

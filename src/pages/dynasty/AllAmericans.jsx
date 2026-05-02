@@ -307,17 +307,32 @@ export default function AllAmericans() {
 
     return (
       <div
-        className="group flex items-center gap-3 px-3 py-2 hover:bg-surface-3 transition-colors"
-        style={{ borderBottom: '1px solid var(--surface-4)' }}
+        className="group relative flex items-center gap-3 pl-4 pr-3 py-2.5 hover:bg-surface-3 transition-colors"
+        style={{ borderBottom: '1px solid var(--rule-soft, var(--surface-4))' }}
       >
-        <span className="w-8 text-center label-xs flex-shrink-0 text-txt-secondary">
+        <span
+          aria-hidden="true"
+          className="absolute left-0 top-0 bottom-0 w-0 group-hover:w-[3px] transition-all duration-200"
+          style={{ backgroundColor: 'var(--surface-5)' }}
+        />
+        {/* Position chip — broadcast lower-third style: tracked uppercase */}
+        <span
+          className="label-xs tabular flex-shrink-0 text-center"
+          style={{
+            width: '34px',
+            color: 'var(--text-secondary)',
+            letterSpacing: '1.5px',
+            fontSize: '10px',
+            fontWeight: 700,
+          }}
+        >
           {player.position}
         </span>
 
         {teamLogo ? (
           <Link
             to={`${pathPrefix}/team/${resolveTid(player.school, currentDynasty?.teams || TEAMS)}/${displayYear}`}
-            className="w-7 h-7 rounded-full bg-white p-0.5 flex-shrink-0"
+            className="w-7 h-7 rounded-full bg-white p-0.5 flex-shrink-0 transition-transform duration-150 group-hover:scale-110"
           >
             <img src={teamLogo} alt="" className="w-full h-full object-contain" />
           </Link>
@@ -329,12 +344,12 @@ export default function AllAmericans() {
           {matchingPlayer ? (
             <Link
               to={`${pathPrefix}/player/${matchingPlayer.pid}`}
-              className="font-medium text-sm text-txt-primary hover:text-white transition-colors truncate block"
+              className="font-semibold text-sm text-txt-primary hover:text-white transition-colors truncate block"
             >
               {cleanPlayerName(player.player)}
             </Link>
           ) : (
-            <span className="font-medium text-sm text-txt-primary truncate block">
+            <span className="font-semibold text-sm text-txt-primary truncate block">
               {cleanPlayerName(player.player)}
             </span>
           )}
@@ -346,18 +361,45 @@ export default function AllAmericans() {
     )
   }
 
+  // Editorial section header — big tracked-uppercase team designation
+  // ("FIRST TEAM ALL-AMERICANS") that scans like a magazine spread
+  // rather than a generic "Section Title" label.
   const TeamSection = ({ designation, players }) => {
     if (players.length === 0) return null
 
     return (
-      <div className="space-y-3">
-        <div className="flex items-center gap-3">
-          <h2 className="label-xs text-txt-secondary">{DESIGNATION_LABEL[designation]}</h2>
-          <div className="flex-1 h-px bg-surface-4" />
-          <Badge variant="outline" size="sm">{players.length}</Badge>
-        </div>
+      <section className="space-y-3">
+        <header className="flex items-end gap-4 pb-1">
+          <div className="flex-shrink-0">
+            <div
+              className="font-display font-black text-txt-primary leading-none"
+              style={{
+                fontSize: '32px',
+                letterSpacing: '-0.02em',
+                lineHeight: 1,
+              }}
+            >
+              {DESIGNATION_LABEL[designation].split(' ')[0]}
+            </div>
+            <div
+              className="label-xs text-txt-tertiary mt-1"
+              style={{ letterSpacing: '2.5px', fontSize: '10px' }}
+            >
+              {designation === 'first' && 'TEAM ALL-AMERICAN'}
+              {designation === 'second' && 'TEAM ALL-AMERICAN'}
+              {designation === 'freshman' && 'ALL-AMERICAN'}
+            </div>
+          </div>
+          <div className="flex-1 h-px bg-surface-4 mb-2" />
+          <span
+            className="label-xs tabular text-txt-tertiary mb-1"
+            style={{ letterSpacing: '1.5px', fontSize: '10px' }}
+          >
+            {players.length} {players.length === 1 ? 'PLAYER' : 'PLAYERS'}
+          </span>
+        </header>
 
-        <Card padding="none">
+        <Card padding="none" className="overflow-hidden">
           {players.map((player, idx) => (
             <PlayerRow
               key={`${designation}-${player.position}-${player.player}-${idx}`}
@@ -365,7 +407,7 @@ export default function AllAmericans() {
             />
           ))}
         </Card>
-      </div>
+      </section>
     )
   }
 

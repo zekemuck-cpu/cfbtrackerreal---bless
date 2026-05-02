@@ -158,64 +158,6 @@ export default function Rankings() {
     )
   }
 
-  const PlayoffTeamCard = ({ rank, teamAbbr, teamTid, year }) => {
-    const teamsSource = currentDynasty?.teams || currentDynasty?.customTeams
-    // Tid-first resolution — survives teambuilder renames since the abbr
-    // stored on the poll row may have drifted.
-    const teamFromTid = teamTid != null ? teamsSource?.[teamTid] : null
-    const resolvedAbbr = teamFromTid?.abbr || teamAbbr
-    const mascotName = teamFromTid?.name || getMascotName(resolvedAbbr, teamsSource)
-    const teamLogo = mascotName ? getTeamLogo(mascotName, teamsSource) : null
-    const colors = mascotName ? getTeamColors(mascotName, teamsSource) : { primary: '#6e6e78', secondary: '#fff' }
-    const record = lookupRecord(resolvedAbbr, teamTid)
-    const schoolName = getSchoolName(mascotName) || resolvedAbbr
-
-    const linkTid = teamTid != null ? Number(teamTid) : resolveTid(resolvedAbbr, teamsSource || TEAMS)
-
-    return (
-      <Link
-        to={`${pathPrefix}/team/${linkTid}/${year}`}
-        className="playoff-card group relative flex flex-col items-center text-center px-3 pt-5 pb-4 rounded-lg bg-surface-2 transition-all duration-200 overflow-hidden"
-        style={{ border: '1px solid var(--rule-soft, var(--surface-4))' }}
-      >
-        <span
-          aria-hidden="true"
-          className="absolute top-0 left-0 right-0 h-[3px] transition-all duration-200 group-hover:h-[5px]"
-          style={{ backgroundColor: 'var(--surface-5)' }}
-        />
-        <span
-          className="font-display font-black tabular leading-none mb-2"
-          style={{
-            fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)',
-            color: 'var(--text-primary)',
-            letterSpacing: '-0.02em',
-          }}
-        >
-          <span className="text-txt-tertiary">#</span>{rank}
-        </span>
-        <div className="logo-container logo-container-xl mb-2 transition-transform duration-200 group-hover:scale-110">
-          {teamLogo ? (
-            <img src={teamLogo} alt="" />
-          ) : (
-            <div
-              className="w-full h-full rounded-full flex items-center justify-center font-bold"
-              style={{ backgroundColor: colors.primary, color: colors.secondary }}
-            >
-              {(resolvedAbbr || '').charAt(0)}
-            </div>
-          )}
-        </div>
-        <div className="font-semibold text-sm text-txt-primary truncate w-full transition-colors group-hover:text-white">
-          {schoolName}
-        </div>
-        {record && (
-          <div className="text-xs text-txt-tertiary tabular mt-0.5">
-            {record.wins}-{record.losses}
-          </div>
-        )}
-      </Link>
-    )
-  }
 
   const RankingRow = ({ rank, teamAbbr, teamTid, year }) => {
     const teamsSource = currentDynasty?.teams || currentDynasty?.customTeams
@@ -226,25 +168,47 @@ export default function Rankings() {
     const colors = mascotName ? getTeamColors(mascotName, teamsSource) : { primary: '#6e6e78', secondary: '#fff' }
     const record = lookupRecord(resolvedAbbr, teamTid)
     const linkTid = teamTid != null ? Number(teamTid) : resolveTid(resolvedAbbr, teamsSource || TEAMS)
+    const isLeader = rank === 1
+    const isTopFive = rank <= 5
 
     return (
       <Link
         to={`${pathPrefix}/team/${linkTid}/${year}`}
-        className="ranking-row group relative flex items-center gap-3 px-3 py-2.5 transition-all duration-150"
-        style={{ borderBottom: '1px solid var(--rule-soft, var(--surface-4))' }}
+        className="ranking-row group relative flex items-center gap-3 px-3 transition-all duration-150"
+        style={{
+          borderBottom: '1px solid var(--rule-soft, var(--surface-4))',
+          paddingTop: isLeader ? '12px' : '10px',
+          paddingBottom: isLeader ? '12px' : '10px',
+          backgroundColor: isLeader ? 'color-mix(in srgb, var(--surface-3) 50%, transparent)' : 'transparent',
+        }}
       >
+        <span
+          aria-hidden="true"
+          className="absolute left-0 top-0 bottom-0 transition-all duration-200"
+          style={{
+            width: isLeader ? '3px' : '0',
+            backgroundColor: 'var(--surface-5)',
+          }}
+        />
         <span
           aria-hidden="true"
           className="absolute left-0 top-0 bottom-0 w-0 group-hover:w-[3px] transition-all duration-200"
           style={{ backgroundColor: 'var(--surface-5)' }}
         />
         <span
-          className="w-8 text-right font-display font-black tabular text-sm"
-          style={{ color: 'var(--text-tertiary)' }}
+          className="text-right font-display font-black tabular leading-none flex-shrink-0"
+          style={{
+            width: isLeader ? '40px' : '32px',
+            fontSize: isLeader ? '24px' : isTopFive ? '17px' : '14px',
+            color: isLeader ? 'var(--text-primary)' : isTopFive ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+            letterSpacing: '-0.02em',
+          }}
         >
           {rank}
         </span>
-        <div className="logo-container logo-container-md flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+        <div
+          className={`logo-container ${isLeader ? 'logo-container-lg' : 'logo-container-md'} flex-shrink-0 transition-transform duration-200 group-hover:scale-110`}
+        >
           {teamLogo ? (
             <img src={teamLogo} alt="" />
           ) : (
@@ -256,11 +220,26 @@ export default function Rankings() {
             </div>
           )}
         </div>
-        <span className="flex-1 font-medium text-sm text-txt-primary truncate transition-colors group-hover:text-white">
+        <span
+          className="flex-1 truncate transition-colors group-hover:text-white"
+          style={{
+            color: 'var(--text-primary)',
+            fontSize: isLeader ? '17px' : '14px',
+            fontWeight: isLeader ? 700 : isTopFive ? 600 : 500,
+            letterSpacing: isLeader ? '-0.01em' : 0,
+          }}
+        >
           {getSchoolName(mascotName) || resolvedAbbr}
         </span>
         {record && (
-          <span className="text-xs text-txt-tertiary tabular flex-shrink-0">
+          <span
+            className="tabular flex-shrink-0"
+            style={{
+              fontSize: isLeader ? '14px' : '12px',
+              color: isLeader ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+              fontWeight: isLeader ? 600 : 500,
+            }}
+          >
             {record.wins}-{record.losses}
           </span>
         )}
@@ -268,70 +247,36 @@ export default function Rankings() {
     )
   }
 
-  const PollColumn = ({ title, data, pollType }) => {
-    const top4 = data.filter(e => e.rank <= 4).sort((a, b) => a.rank - b.rank)
-    const rest = data.filter(e => e.rank > 4).sort((a, b) => a.rank - b.rank)
+  // Single clean Top 25 list — no playoff split, no two-column carving.
+  // Just a column of rows where #1 reads loudest and the rest cascade
+  // down. Broadcast weight comes from the rank typography, not layout.
+  const PollColumn = ({ data, pollType }) => {
+    const sorted = [...data].sort((a, b) => a.rank - b.rank)
+
+    if (sorted.length === 0) {
+      return (
+        <Card>
+          <EmptyState
+            variant="compact"
+            title="No rankings yet"
+            message={`Enter weekly scores with team ranks, or save a final poll, for ${displayYear}.`}
+          />
+        </Card>
+      )
+    }
 
     return (
-      <section className="space-y-4 reveal">
-        <header className="flex items-end justify-between">
-          <div>
-            <div
-              className="label-xs text-txt-tertiary mb-1"
-              style={{ letterSpacing: '2px', fontSize: '10px' }}
-            >
-              {sourceLabel}
-            </div>
-            <h2 className="text-display-md text-txt-primary m-0 leading-none">{title}</h2>
-          </div>
-          <span
-            className="label-xs text-txt-tertiary tabular"
-            style={{ letterSpacing: '1.5px', fontSize: '10px' }}
-          >
-            {data.length} TEAMS
-          </span>
-        </header>
-
-        {data.length > 0 ? (
-          <>
-            {top4.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 stagger-reveal">
-                {top4.map((entry) => (
-                  <PlayoffTeamCard
-                    key={`${pollType}-top-${entry.rank}`}
-                    rank={entry.rank}
-                    teamAbbr={entry.team}
-                    teamTid={entry.tid}
-                    year={displayYear}
-                  />
-                ))}
-              </div>
-            )}
-
-            {rest.length > 0 && (
-              <Card padding="none" className="overflow-hidden">
-                {rest.map((entry) => (
-                  <RankingRow
-                    key={`${pollType}-${entry.rank}`}
-                    rank={entry.rank}
-                    teamAbbr={entry.team}
-                    teamTid={entry.tid}
-                    year={displayYear}
-                  />
-                ))}
-              </Card>
-            )}
-          </>
-        ) : (
-          <Card>
-            <EmptyState
-              variant="compact"
-              title="No rankings yet"
-              message={`Enter weekly scores with team ranks, or save a final poll, for ${displayYear}.`}
-            />
-          </Card>
-        )}
-      </section>
+      <Card padding="none" className="overflow-hidden reveal">
+        {sorted.map((entry) => (
+          <RankingRow
+            key={`${pollType}-${entry.rank}`}
+            rank={entry.rank}
+            teamAbbr={entry.team}
+            teamTid={entry.tid}
+            year={displayYear}
+          />
+        ))}
+      </Card>
     )
   }
 
@@ -356,16 +301,11 @@ export default function Rankings() {
         }
       />
 
-      <div className="grid gap-8 grid-cols-1 max-w-2xl mx-auto">
-        <PollColumn title="Top 25" data={top25} pollType="media" />
+      <div className="max-w-2xl mx-auto">
+        <PollColumn data={top25} pollType="media" />
       </div>
 
       <style>{`
-        .playoff-card:hover {
-          background-color: var(--surface-3);
-          transform: translateY(-2px);
-          border-color: color-mix(in srgb, var(--surface-5) 60%, transparent);
-        }
         .ranking-row:hover {
           background-color: var(--surface-3);
         }

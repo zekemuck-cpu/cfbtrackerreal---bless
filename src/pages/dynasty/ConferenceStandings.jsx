@@ -253,21 +253,36 @@ export default function ConferenceStandings() {
     const calc = linkTid ? calculateTeamRecordFromGames(currentDynasty, linkTid, displayYear) : null
     const liveWins = calc && (calc.wins > 0 || calc.losses > 0) ? calc.wins : (team.wins || 0)
     const liveLosses = calc && (calc.wins > 0 || calc.losses > 0) ? calc.losses : (team.losses || 0)
+    const isLeader = rank === 1
 
     return (
       <Link
         to={`${pathPrefix}/team/${linkTid}/${displayYear}`}
         className="standings-row group relative flex items-center gap-3 py-2 px-3 transition-all duration-150"
-        style={{ borderTop: '1px solid var(--rule-soft, var(--surface-4))' }}
+        style={{
+          borderTop: '1px solid var(--rule-soft, var(--surface-4))',
+          backgroundColor: isLeader ? 'color-mix(in srgb, var(--surface-3) 60%, transparent)' : 'transparent',
+        }}
       >
+        <span
+          aria-hidden="true"
+          className="absolute left-0 top-0 bottom-0 transition-all duration-200"
+          style={{
+            width: isLeader ? '3px' : '0',
+            backgroundColor: 'var(--surface-5)',
+          }}
+        />
         <span
           aria-hidden="true"
           className="absolute left-0 top-0 bottom-0 w-0 group-hover:w-[3px] transition-all duration-200"
           style={{ backgroundColor: 'var(--surface-5)' }}
         />
         <div
-          className="w-6 text-right font-display font-black tabular text-sm leading-none flex-shrink-0"
-          style={{ color: 'var(--text-tertiary)' }}
+          className="w-6 text-right font-display font-black tabular leading-none flex-shrink-0"
+          style={{
+            color: isLeader ? 'var(--text-primary)' : 'var(--text-tertiary)',
+            fontSize: isLeader ? '15px' : '14px',
+          }}
         >
           {rank}
         </div>
@@ -282,7 +297,13 @@ export default function ConferenceStandings() {
           )}
         </div>
 
-        <span className="flex-1 text-sm font-medium text-txt-primary truncate group-hover:text-white transition-colors">
+        <span
+          className="flex-1 text-sm truncate group-hover:text-white transition-colors"
+          style={{
+            fontWeight: isLeader ? 700 : 500,
+            color: 'var(--text-primary)',
+          }}
+        >
           {getSchoolName(mascotName) || teamAbbr}
         </span>
 
