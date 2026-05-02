@@ -712,8 +712,12 @@ export default function PlayerEdit() {
       jerseyNumber: formData.jerseyNumber,
       devTrait: formData.devTrait,
       pictureUrl: formData.pictureUrl,
-      // New canonical storage — array of card records.
-      cards: Array.isArray(formData.cards) ? formData.cards.filter(c => c && (c.front || c.back)) : [],
+      // New canonical storage — array of card records. Cards with no
+      // photo AND no legacy front/back URL get pruned so empty
+      // placeholders don't accumulate.
+      cards: Array.isArray(formData.cards)
+        ? formData.cards.filter(c => c && (c.photoUrl || c.front || c.back))
+        : [],
       // Clear legacy single-card fields once the array is the truth.
       cardFront: '',
       cardBack: '',
@@ -2536,31 +2540,41 @@ export default function PlayerEdit() {
         )}
 
         {/* Card Tab — multi-card collection editor backed by templates */}
-        {activeTab === 'card' && (
-          <div className="space-y-6">
-            <div className="card">
-              <div className="px-5 py-3 flex items-center justify-between border-b border-surface-4 bg-surface-3">
-                <h2 className="text-sm font-bold uppercase tracking-wide text-txt-secondary">
-                  Trading Cards
-                </h2>
-              </div>
-              <div className="p-5">
-                <p className="text-xs text-txt-tertiary mb-4">
-                  Pick a template, drop in a CFB 26 screenshot, and the player's name, jersey, position, class, and team logo
-                  auto-fit into each zone. Add as many cards per player as you want — different seasons, different game moments,
-                  different templates.
-                </p>
-                <PlayerCardListEditor
-                  cards={formData.cards || []}
-                  onChange={(next) => setFormData(prev => ({ ...prev, cards: next }))}
-                  player={player}
-                  dynasty={dynasty}
-                  teamColors={teamColors}
-                />
+        {activeTab === 'card' && (() => {
+          // Cheap dirty check vs. the saved-on-player array. Shallow
+          // JSON compare is fine here — cards have a small surface
+          // area and recompute only when this tab renders.
+          const savedCards = Array.isArray(player?.cards) ? player.cards : []
+          const liveCards = Array.isArray(formData.cards) ? formData.cards : []
+          const cardsDirty = JSON.stringify(savedCards) !== JSON.stringify(liveCards)
+          return (
+            <div className="space-y-6">
+              <div className="card overflow-visible">
+                <div className="px-5 py-3 flex items-center justify-between border-b border-surface-4 bg-surface-3">
+                  <h2 className="text-sm font-bold uppercase tracking-wide text-txt-secondary">
+                    Trading Cards
+                  </h2>
+                </div>
+                <div className="p-5">
+                  <p className="text-xs text-txt-tertiary mb-5">
+                    Pick a template, drop in a CFB 26 screenshot, and the player's name, jersey, position, class, and team logo
+                    auto-fit into each zone. Add as many cards as you want.
+                  </p>
+                  <PlayerCardListEditor
+                    cards={formData.cards || []}
+                    onChange={(next) => setFormData(prev => ({ ...prev, cards: next }))}
+                    player={player}
+                    dynasty={dynasty}
+                    teamColors={teamColors}
+                    onSave={handleSave}
+                    saving={saving}
+                    dirty={cardsDirty}
+                  />
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
       </div>
 
       {/* Mobile action bar */}

@@ -57,6 +57,10 @@ export function normalizeCard(card) {
     year: card.year ?? null,
     label: card.label || '',
     gameId: card.gameId || '',
+    // Per-card photo transform — scale 1 + zero offsets means
+    // straight object-cover (the default cropping behavior).
+    // The editor's zoom slider + drag-to-pan write here.
+    photoTransform: card.photoTransform || { scale: 1, offsetX: 0, offsetY: 0 },
     createdAt: card.createdAt || null,
   }
 }
@@ -102,6 +106,7 @@ export function makeBlankCard() {
     year: null,
     label: '',
     gameId: '',
+    photoTransform: { scale: 1, offsetX: 0, offsetY: 0 },
     createdAt: new Date().toISOString(),
   }
 }

@@ -19,6 +19,11 @@ export default function CardComposer({
   dynasty,
   width = '100%',
   className = '',
+  // When `editable` is true, the photo zone accepts pointer-drag
+  // pan and emits transform updates back through onPhotoTransformChange.
+  // The zoom slider in the editor wires the same callback for scale.
+  editable = false,
+  onPhotoTransformChange,
 }) {
   const template = useMemo(() => getCardTemplate(card?.templateId), [card?.templateId])
 
@@ -38,6 +43,8 @@ export default function CardComposer({
     )
   }
 
+  const photoTransform = card?.photoTransform || { scale: 1, offsetX: 0, offsetY: 0 }
+
   return (
     <div
       className={`relative ${className}`}
@@ -56,7 +63,14 @@ export default function CardComposer({
 
       {/* Per-zone overlays */}
       {template.zones.map((zone, idx) => (
-        <ZoneRender key={idx} zone={zone} value={slotValues[zone.slot]} />
+        <ZoneRender
+          key={idx}
+          zone={zone}
+          value={slotValues[zone.slot]}
+          photoTransform={zone.slot === 'photo' ? photoTransform : null}
+          editable={editable && zone.slot === 'photo'}
+          onPhotoTransformChange={onPhotoTransformChange}
+        />
       ))}
     </div>
   )
@@ -67,7 +81,7 @@ export default function CardComposer({
  * `<img>`; everything else is treated as a text slot with auto-fit
  * size and the styling hints from the registry entry.
  */
-function ZoneRender({ zone, value }) {
+function ZoneRender({ zone, value, photoTransform, editable, onPhotoTransformChange }) {
   const isImage = zone.slot === 'photo' || zone.slot === 'team_logo'
 
   const baseStyle = {
@@ -83,6 +97,19 @@ function ZoneRender({ zone, value }) {
 
   if (isImage) {
     if (!value) return null
+    // Photo zone gets pannable + zoomable behavior in the editor.
+    if (zone.slot === 'photo' && (photoTransform || editable)) {
+      return (
+        <PhotoZone
+          zone={zone}
+          baseStyle={baseStyle}
+          src={value}
+          transform={photoTransform || { scale: 1, offsetX: 0, offsetY: 0 }}
+          editable={!!editable}
+          onTransformChange={onPhotoTransformChange}
+        />
+      )
+    }
     return (
       <div style={baseStyle}>
         <img
@@ -123,6 +150,99 @@ function ZoneRender({ zone, value }) {
       />
     </div>
   )
+}
+
+/**
+ * Photo zone with optional editor controls. Always renders the image
+ * scaled + offset by `transform`. When `editable` is true the user
+ * can grab the image and pan within the zone; the offset is reported
+ * back through onTransformChange in the same shape that's saved on
+ * the card record.
+ *
+ * Offsets are stored as percentages of the zone's width/height so
+ * they're scale-independent and survive any size of preview.
+ */
+function PhotoZone({ zone, baseStyle, src, transform, editable, onTransformChange }) {
+  const wrapRef = useRef(null)
+  const [dragging, setDragging] = useState(false)
+  const dragStateRef = useRef(null)
+
+  const scale = Number(transform?.scale ?? 1) || 1
+  const offsetX = Number(transform?.offsetX ?? 0) || 0
+  const offsetY = Number(transform?.offsetY ?? 0) || 0
+
+  const handlePointerDown = (e) => {
+    if (!editable || !onTransformChange) return
+    const rect = wrapRef.current?.getBoundingClientRect()
+    if (!rect) return
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+    dragStateRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startOffsetX: offsetX,
+      startOffsetY: offsetY,
+      width: rect.width,
+      height: rect.height,
+    }
+    setDragging(true)
+  }
+
+  const handlePointerMove = (e) => {
+    const s = dragStateRef.current
+    if (!s || s.pointerId !== e.pointerId) return
+    const dx = e.clientX - s.startX
+    const dy = e.clientY - s.startY
+    // Convert pixel delta to percentage of the zone — keeps pan
+    // identical regardless of preview size.
+    const dxPct = (dx / s.width) * 100
+    const dyPct = (dy / s.height) * 100
+    onTransformChange({
+      scale,
+      offsetX: clamp(s.startOffsetX + dxPct, -100, 100),
+      offsetY: clamp(s.startOffsetY + dyPct, -100, 100),
+    })
+  }
+
+  const handlePointerUp = (e) => {
+    const s = dragStateRef.current
+    if (!s || s.pointerId !== e.pointerId) return
+    e.currentTarget.releasePointerCapture?.(e.pointerId)
+    dragStateRef.current = null
+    setDragging(false)
+  }
+
+  return (
+    <div
+      ref={wrapRef}
+      style={{
+        ...baseStyle,
+        cursor: editable ? (dragging ? 'grabbing' : 'grab') : 'default',
+        touchAction: editable ? 'none' : undefined,
+      }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+    >
+      <img
+        src={src}
+        alt=""
+        className="w-full h-full select-none pointer-events-none"
+        style={{
+          objectFit: zone.objectFit || 'cover',
+          borderRadius: zone.radius != null ? `${zone.radius}px` : undefined,
+          transform: `translate(${offsetX}%, ${offsetY}%) scale(${scale})`,
+          transformOrigin: 'center center',
+        }}
+        draggable={false}
+      />
+    </div>
+  )
+}
+
+function clamp(n, lo, hi) {
+  return Math.max(lo, Math.min(hi, n))
 }
 
 /**

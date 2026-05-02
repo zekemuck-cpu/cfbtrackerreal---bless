@@ -127,12 +127,45 @@ CRITICAL RULES — output format
 3. TEAM ABBREVIATIONS ONLY (columns A and D). Use ONLY values from the TEAM ABBREVIATIONS mapping at the bottom of this prompt. Columns A and D are STRICT dropdowns — wrong text is rejected by the sheet.
 4. INTEGERS ONLY for scores — no decimals, no "pts", no commas. "24" never "1,234" never "24.0".
 5. RANKS — read directly from the screenshot. If a team's name is preceded by "#11" or shown as a ranked team in the matchup line (e.g. "#7 Texas vs Oklahoma"), put 11 / 7 in the rank column. If the team is unranked (no number shown), LEAVE THE RANK COLUMN BLANK. Do not guess. Do not write "NR" or "—" — blank means unranked.
-6. HOME / AWAY ORIENTATION matters. Identify the home team from the screenshot:
-   - "VISITOR @ HOME" notation: the team after the "@" is HOME.
-   - "HOME vs VISITOR" notation: the team before "vs" is HOME.
-   - Logos on a TV scoreboard: the team listed BELOW (or on the right in some layouts) is typically HOME — confirm with the matchup line if shown.
-   - In CFB26's SCORES/SCHEDULES list, the team listed SECOND (right side) is the HOME team. The team listed FIRST (left side) is the AWAY team. If you cannot tell, mark Col G = "Y" (neutral) and pick either team for Col A.
-   - If a game is at a neutral site, put EITHER team in column A (it doesn't matter which) and put "Y" in column G.
+6. HOME / AWAY ORIENTATION — single most common failure point, read SLOWLY.
+
+   COLUMN A IS THE HOME TEAM. Always. The HOME team is whichever team
+   PHYSICALLY HOSTED the game (the one whose stadium it was played in).
+
+   PRIMARY signals — use these first when present:
+     • "@" symbol → VISITOR @ HOST. After the @ is HOME.
+       "Auburn @ Georgia" → Georgia in Col A, Auburn in Col D.
+     • "vs" or "v" → HOST vs VISITOR. Before vs is HOME.
+       "Auburn vs Georgia" → Auburn in Col A, Georgia in Col D.
+     • Explicit "Home" or "Away" labels next to a team name — trust them.
+     • A team's own schedule page in CFB26 shows "vs OPP" for home games
+       and "@ OPP" / "at OPP" for away games. If the row reads
+       "vs Georgia", THIS team was home; "at Georgia", THIS team was away.
+
+   SECONDARY signals — only when no explicit @/vs:
+     • CFB26 Around-the-Country / scoreboard ticker layout: the team
+       listed on the RIGHT side (or BELOW in stacked layouts) is the
+       HOME team. The team on the LEFT (or above) is the VISITOR.
+     • TV broadcast scoreboard: home team is the lower / right team.
+
+   ⚠ ANTI-BIAS CHECK — the most common AI mistake on this prompt:
+     The AI's natural reading order is LEFT-to-RIGHT, and it tends to
+     drop the FIRST-listed team into Col A. THAT IS WRONG when the
+     screenshot's left-side convention means "away/visitor". You MUST
+     swap so the actual HOME team lands in Col A.
+
+     If you're parsing a single team's season schedule (e.g. "Auburn's
+     2034 Schedule"), DO NOT put Auburn in Col A for every row. Half of
+     Auburn's games are away — those rows put the OPPONENT in Col A.
+
+     If your draft has the same team in Col A more than ~half the rows
+     within a single week's slate, you've likely gotten orientation
+     wrong. Re-read each row's @/vs marker and swap as needed before
+     emitting.
+
+   When TRULY ambiguous (no @/vs, no Home/Away tag, no clear left/right
+   convention), mark Col G = "Y" (neutral) — that's better than guessing
+   wrong, since neutral-site games don't show home/away on team pages.
 7. NEUTRAL FLAG: column G is "Y" only when the game is explicitly at a neutral site (kickoff games, neutral-site classics, conference championship venues). For ordinary home games leave column G BLANK. Do NOT write "N".
 8. FCS OPPONENTS — INCLUDE THEM. EA College Football 26 represents real FCS schools as one of four generic FCS placeholders, and those placeholders ARE in the team mapping at the bottom of this prompt (typically FCSE, FCSM, FCSN, FCSW — but follow whatever appears in your mapping). When a Power-or-Group-of-5 FBS team plays an FCS opponent in Week 0 (or later), that game IS in scope — find the matching FCS placeholder abbreviation in the mapping and write the row. Do NOT drop FCS games — they're part of the user's records.
 9. UNKNOWN ABBREVIATIONS — never invent. If you cannot find a team in the mapping AT ALL after a careful re-scan, OMIT that game (rare — almost everything an in-game screenshot shows is in the mapping, including all FBS teams, FCS placeholders, and any user-renamed teambuilder teams). Re-check the mapping CAREFULLY before omitting — it includes every valid abbreviation for this dynasty.
@@ -180,7 +213,8 @@ Don't just glance at this list. Physically execute each check on your draft.
 [ ] Scores in columns C and F are INTEGERS only — no commas, no decimals, no "pts".
 [ ] Ranks in columns B and E are integers 1–25 or BLANK — never "NR", never "—", never 0.
 [ ] Column G is exactly "Y" or BLANK — never "N", never "neutral", never anything else.
-[ ] HOME team correctly identified per game (visitor @ HOME convention; in CFB26 lists, RIGHT side = home) — when in doubt, mark Y in column G and pick either team for column A.
+[ ] HOME team correctly identified per game. Re-read rule 6 if you skipped it. The team in Col A is the team whose stadium hosted the game — NOT the team listed first on the screen. CFB26 layouts put the visitor on the LEFT and the home team on the RIGHT, so swap as needed. If your draft has the same team in Col A for the majority of rows (e.g. Auburn in Col A for every Auburn game), you've biased home/away — go re-read each row and fix before sending.
+[ ] No same-team-in-Col-A bias. Within this single week's slate, scan your Col A values: if any team appears more than once in Col A, that's an error (a team plays at most one game per week). Across many weeks of separate entries, the same team should NOT appear in Col A for every game it plays — half its games are home, half are away.
 [ ] No header row, no commentary, no follow-up text (except the optional "X games dropped" note ONLY if N > ${WEEKLY_SCORES_MAX_ROWS}).`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
