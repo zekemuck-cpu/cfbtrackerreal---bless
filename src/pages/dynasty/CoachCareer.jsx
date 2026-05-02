@@ -555,15 +555,15 @@ export default function CoachCareer() {
     : '0.0'
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       {/* Career hero — editorial split. Identity (eyebrow + name + range)
           stacks on the left; lifetime totals sit in a unified broadcast
           stat strip below the name, full-width on mobile. The strip
           replaces the previous comma-list meta + side stat cluster so
           the page leads with one cohesive lockup instead of two. */}
       <section className="card overflow-hidden reveal">
-        <div className="px-6 py-7 sm:px-8 sm:py-8">
-          <div className="label-xs text-txt-tertiary mb-3 flex items-center gap-2 flex-wrap" style={{ letterSpacing: '2.5px', fontSize: '10px' }}>
+        <div className="px-5 py-4 sm:px-6 sm:py-5">
+          <div className="label-xs text-txt-tertiary mb-2 flex items-center gap-2 flex-wrap" style={{ letterSpacing: '2.5px', fontSize: '10px' }}>
             <span>CAREER</span>
             {userOptions.length > 1 && (
               <>
@@ -586,37 +586,41 @@ export default function CoachCareer() {
               </>
             )}
           </div>
-          <h1
-            className="m-0 text-txt-primary leading-[0.95] uppercase break-words"
-            style={{
-              fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: 'clamp(2.5rem, 6vw, 4.5rem)',
-              letterSpacing: '0.5px',
-            }}
-          >
-            {selectedDisplayName}
-          </h1>
-          <div
-            className="label-xs text-txt-tertiary mt-2 tabular-nums"
-            style={{ letterSpacing: '1.8px', fontSize: '10px' }}
-          >
-            {careerRange}
+          <div className="flex items-end gap-x-6 gap-y-2 flex-wrap">
+            <div className="min-w-0">
+              <h1
+                className="m-0 text-txt-primary leading-[0.9] uppercase break-words"
+                style={{
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  fontSize: 'clamp(2rem, 4.5vw, 3.25rem)',
+                  letterSpacing: '0.5px',
+                }}
+              >
+                {selectedDisplayName}
+              </h1>
+              <div
+                className="label-xs text-txt-tertiary mt-1.5 tabular-nums"
+                style={{ letterSpacing: '1.8px', fontSize: '10px' }}
+              >
+                {careerRange}
+              </div>
+            </div>
           </div>
 
           {/* Broadcast-style stat strip — one row, hairline separators,
               tabular numerals. Replaces the bordered tile-cluster that
               competed with the headline. */}
           <div
-            className="mt-6 flex items-stretch gap-5 sm:gap-8 flex-wrap"
+            className="mt-3 flex items-stretch gap-5 sm:gap-8 flex-wrap"
             style={{
               borderTop: '1px solid var(--rule-soft, var(--surface-4))',
-              paddingTop: '20px',
+              paddingTop: '12px',
             }}
           >
             <div>
               <div
                 className="font-display font-black tabular-nums text-txt-primary leading-none"
-                style={{ fontSize: 'clamp(2rem, 4.5vw, 3.25rem)', letterSpacing: '-0.03em' }}
+                style={{ fontSize: 'clamp(1.5rem, 3vw, 2.25rem)', letterSpacing: '-0.03em' }}
               >
                 {careerTotals.wins}–{careerTotals.losses}
               </div>
@@ -626,7 +630,7 @@ export default function CoachCareer() {
             <div>
               <div
                 className="font-display font-black tabular-nums text-txt-primary leading-none"
-                style={{ fontSize: 'clamp(2rem, 4.5vw, 3.25rem)', letterSpacing: '-0.03em' }}
+                style={{ fontSize: 'clamp(1.5rem, 3vw, 2.25rem)', letterSpacing: '-0.03em' }}
               >
                 {careerWinPct}<span className="text-txt-tertiary" style={{ fontSize: '0.55em' }}>%</span>
               </div>
@@ -636,7 +640,7 @@ export default function CoachCareer() {
             <div>
               <div
                 className="font-display font-black tabular-nums text-txt-primary leading-none"
-                style={{ fontSize: 'clamp(2rem, 4.5vw, 3.25rem)', letterSpacing: '-0.03em' }}
+                style={{ fontSize: 'clamp(1.5rem, 3vw, 2.25rem)', letterSpacing: '-0.03em' }}
               >
                 {coachingHistory.length}
               </div>
@@ -688,11 +692,11 @@ export default function CoachCareer() {
         // (no more individual tile borders fighting each other).
         const StatCell = ({ value, label, accent = false, onClick, last = false }) => {
           const inner = (
-            <div className={`px-4 py-3 ${last ? '' : 'border-r'}`} style={!last ? { borderRight: '1px solid var(--rule-soft, var(--surface-4))' } : {}}>
+            <div className={`px-3.5 py-2 ${last ? '' : 'border-r'}`} style={!last ? { borderRight: '1px solid var(--rule-soft, var(--surface-4))' } : {}}>
               <div
                 className="font-display font-black tabular-nums leading-none"
                 style={{
-                  fontSize: 'clamp(1.5rem, 2.5vw, 2rem)',
+                  fontSize: 'clamp(1.25rem, 2vw, 1.6rem)',
                   color: accent ? 'var(--accent-warning, #f59e0b)' : 'var(--text-primary)',
                   letterSpacing: '-0.02em',
                 }}
@@ -700,8 +704,8 @@ export default function CoachCareer() {
                 {value}
               </div>
               <div
-                className="label-xs text-txt-tertiary mt-1.5"
-                style={{ letterSpacing: '1.8px', fontSize: '10px' }}
+                className="label-xs text-txt-tertiary mt-1"
+                style={{ letterSpacing: '1.5px', fontSize: '9px' }}
               >
                 {label}
               </div>
@@ -725,13 +729,13 @@ export default function CoachCareer() {
             padding="none"
             className={stint.isCurrent ? '' : 'opacity-[0.94]'}
           >
-            <div className="p-5 sm:p-6">
+            <div className="p-4 sm:p-5">
               {/* Stint header — wider logo, Bebas Neue display name,
                   meta below with semantic separators. Current vs past
                   distinguished by the parent Card's accent + a more
                   prominent "Current" badge here. Past stints stay
                   visually muted (parent card is at 96% opacity). */}
-              <div className="flex items-center gap-4 sm:gap-5 mb-5">
+              <div className="flex items-center gap-3 sm:gap-4 mb-3">
                 {stint.teamTid && (
                   <div className="flex-shrink-0">
                     <TeamLogo tid={stint.teamTid} teams={teamsData} size="xl" />
@@ -744,7 +748,7 @@ export default function CoachCareer() {
                       className="text-txt-primary hover:opacity-80 transition-opacity m-0 leading-[0.95] uppercase break-words"
                       style={{
                         fontFamily: "'Bebas Neue', sans-serif",
-                        fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)',
+                        fontSize: 'clamp(1.4rem, 2.5vw, 1.85rem)',
                         letterSpacing: '0.5px',
                       }}
                     >
@@ -753,7 +757,7 @@ export default function CoachCareer() {
                     {stint.isCurrent && <Badge variant="default" size="md">Current</Badge>}
                     {!stint.isCurrent && <Badge variant="outline" size="sm">Past</Badge>}
                   </div>
-                  <div className="flex items-center gap-2 label-sm text-txt-tertiary mt-2 flex-wrap">
+                  <div className="flex items-center gap-2 label-sm text-txt-tertiary mt-1 flex-wrap">
                     <span className="font-semibold text-txt-secondary uppercase" style={{ letterSpacing: '1px', fontSize: '11px' }}>
                       {getPositionLabel(stint.position)}
                     </span>
@@ -817,7 +821,7 @@ export default function CoachCareer() {
                 }
                 return (
                   <div
-                    className="mb-5 flex flex-wrap rounded-lg overflow-hidden"
+                    className="mb-3 flex flex-wrap rounded-lg overflow-hidden"
                     style={{
                       border: '1px solid var(--rule-soft, var(--surface-4))',
                       backgroundColor: 'var(--surface-2)',
@@ -845,8 +849,8 @@ export default function CoachCareer() {
               />
 
               {stint.coachAwards && stint.coachAwards.length > 0 && (
-                <div className="mt-4">
-                  <div className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '1.5px' }}>Coaching Awards</div>
+                <div className="mt-3">
+                  <div className="label-xs text-txt-tertiary mb-1.5" style={{ letterSpacing: '1.5px' }}>Coaching Awards</div>
                   <div className="flex flex-wrap gap-2">
                     {stint.coachAwards.map((award, idx) => (
                       <Badge key={idx} variant="warning" size="md">
