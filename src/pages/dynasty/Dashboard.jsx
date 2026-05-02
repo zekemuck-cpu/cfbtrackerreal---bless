@@ -3484,8 +3484,38 @@ export default function Dashboard() {
                             </div>
                           </div>
                         </div>
-                        {/* CTA */}
-                        {!isViewOnly && (
+                        {/* CTA — once the game's been played, show
+                            View + Edit side-by-side so the user can
+                            jump straight into the game page (matches
+                            the weekly-scores to-do pattern). Pre-game
+                            it's still a single full-width Enter Game. */}
+                        {!isViewOnly && (playedGame ? (
+                          <div className="mt-3 sm:mt-4 flex gap-2">
+                            <Link
+                              to={`${pathPrefix}/game/${playedGame.id}`}
+                              className="flex-1 sm:flex-none rounded-lg font-display font-black uppercase tracking-widest py-2 sm:py-3 px-4 text-xs sm:text-[13px] transition-all hover:opacity-90 active:translate-y-px text-center"
+                              style={{
+                                backgroundColor: 'var(--surface-4)',
+                                color: 'var(--text-secondary)',
+                                letterSpacing: '2px',
+                              }}
+                            >
+                              View
+                            </Link>
+                            <button
+                              onClick={handleEnterGame}
+                              className="flex-1 rounded-lg font-display font-black uppercase tracking-widest py-2 sm:py-3 text-xs sm:text-[13px] transition-all hover:opacity-90 active:translate-y-px"
+                              style={{
+                                backgroundColor: teamColors.primary,
+                                color: primaryBgText,
+                                letterSpacing: '2px',
+                                boxShadow: `0 6px 24px -8px ${teamColors.primary}66`
+                              }}
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        ) : (
                           <button
                             onClick={handleEnterGame}
                             className="mt-3 sm:mt-4 w-full rounded-lg font-display font-black uppercase tracking-widest py-2 sm:py-3 text-xs sm:text-[13px] transition-all hover:opacity-90 active:translate-y-px"
@@ -3496,9 +3526,9 @@ export default function Dashboard() {
                               boxShadow: `0 6px 24px -8px ${teamColors.primary}66`
                             }}
                           >
-                            {playedGame ? 'Edit Game' : 'Enter Game'}
+                            Enter Game
                           </button>
-                        )}
+                        ))}
                         {isViewOnly && <div className="mt-4 flex justify-center"><ViewOnlyBadge /></div>}
                       </div>
                     )}
