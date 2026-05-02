@@ -243,16 +243,24 @@ export default function ConferenceStandings() {
     const mascotName = teamFromTid?.name || getMascotName(teamAbbr, teamsSource)
     const logo = mascotName ? getTeamLogo(mascotName, teamsSource) : null
     const colors = mascotName ? getTeamColors(mascotName, teamsSource) : { primary: '#666', secondary: '#fff' }
-    const pointDiff = (team.pointsFor || 0) - (team.pointsAgainst || 0)
-    const diffColor = pointDiff !== 0 ? 'var(--text-primary)' : 'var(--text-tertiary)'
     const linkTid = team.tid != null ? Number(team.tid) : resolveTid(teamAbbr, teamsSource || TEAMS)
     // Source-of-truth record: prefer games[] over the saved standings row
     // so both this page and the team page show the same numbers as soon
     // as weekly scores land. Falls back to the saved value when the
     // dynasty has no games entered for that year.
     const calc = linkTid ? calculateTeamRecordFromGames(currentDynasty, linkTid, displayYear) : null
-    const liveWins = calc && (calc.wins > 0 || calc.losses > 0) ? calc.wins : (team.wins || 0)
-    const liveLosses = calc && (calc.wins > 0 || calc.losses > 0) ? calc.losses : (team.losses || 0)
+    const hasLive = !!calc && (calc.wins > 0 || calc.losses > 0)
+    const liveWins = hasLive ? calc.wins : (team.wins || 0)
+    const liveLosses = hasLive ? calc.losses : (team.losses || 0)
+    const liveConfWins = hasLive ? (calc.confWins || 0) : (team.confWins || 0)
+    const liveConfLosses = hasLive ? (calc.confLosses || 0) : (team.confLosses || 0)
+    // Live PF/PA: prefer game-derived numbers so the diff updates as soon
+    // as a score is entered. The saved-standings fallback only applies
+    // when no games have been logged for the year.
+    const livePointsFor = hasLive ? (calc.pointsFor || 0) : (team.pointsFor || 0)
+    const livePointsAgainst = hasLive ? (calc.pointsAgainst || 0) : (team.pointsAgainst || 0)
+    const livePointDiff = livePointsFor - livePointsAgainst
+    const diffColor = livePointDiff !== 0 ? 'var(--text-primary)' : 'var(--text-tertiary)'
     const isLeader = rank === 1
 
     return (
@@ -307,8 +315,22 @@ export default function ConferenceStandings() {
           {getSchoolName(mascotName) || teamAbbr}
         </span>
 
-        <span className="text-sm font-display font-black text-txt-primary tabular flex-shrink-0">
-          {liveWins}<span className="text-txt-tertiary font-normal">–</span>{liveLosses}
+        {/* Conference record — primary sort key, so it gets the bold
+            broadcast treatment. Overall record sits next to it as muted
+            secondary info. */}
+        <span
+          className="text-sm font-display font-black text-txt-primary tabular flex-shrink-0 text-right"
+          style={{ width: '52px' }}
+          title="Conference record"
+        >
+          {liveConfWins}<span className="text-txt-tertiary font-normal">–</span>{liveConfLosses}
+        </span>
+        <span
+          className="hidden sm:inline-block text-xs tabular text-txt-tertiary flex-shrink-0 text-right"
+          style={{ width: '54px' }}
+          title="Overall record"
+        >
+          {liveWins}-{liveLosses}
         </span>
 
         <div className="relative flex-shrink-0 group/diff">
@@ -316,15 +338,15 @@ export default function ConferenceStandings() {
             className="text-xs font-semibold tabular w-12 text-right block cursor-help"
             style={{ color: diffColor }}
           >
-            {pointDiff > 0 ? '+' : ''}{pointDiff}
+            {livePointDiff > 0 ? '+' : ''}{livePointDiff}
           </span>
           <div
             className="absolute bottom-full right-0 mb-1.5 px-2 py-1 text-[10px] opacity-0 group-hover/diff:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10"
             style={{ backgroundColor: 'var(--surface-4)', color: 'var(--text-secondary)', borderRadius: '4px' }}
           >
-            <span style={{ color: 'var(--text-primary)' }}>{team.pointsFor || 0} PF</span>
+            <span style={{ color: 'var(--text-primary)' }}>{livePointsFor} PF</span>
             <span className="mx-1" style={{ color: 'var(--text-muted)' }}>|</span>
-            <span style={{ color: 'var(--text-tertiary)' }}>{team.pointsAgainst || 0} PA</span>
+            <span style={{ color: 'var(--text-tertiary)' }}>{livePointsAgainst} PA</span>
           </div>
         </div>
       </Link>
@@ -417,6 +439,37 @@ export default function ConferenceStandings() {
 
         {hasData ? (
           <div>
+            {/* Column header strip — broadcast lower-third style. Hides
+                the OVR column on small screens to match the row layout. */}
+            <div
+              className="flex items-center gap-3 px-3 py-1.5"
+              style={{
+                borderBottom: '1px solid var(--rule-soft, var(--surface-4))',
+                backgroundColor: 'var(--surface-1)',
+              }}
+            >
+              <span style={{ width: '24px' }} />
+              <span style={{ width: '24px' }} />
+              <span className="flex-1" />
+              <span
+                className="label-xs text-txt-tertiary text-right flex-shrink-0"
+                style={{ width: '52px', letterSpacing: '1.5px', fontSize: '9px' }}
+              >
+                CONF
+              </span>
+              <span
+                className="hidden sm:inline-block label-xs text-txt-tertiary text-right flex-shrink-0"
+                style={{ width: '54px', letterSpacing: '1.5px', fontSize: '9px' }}
+              >
+                OVR
+              </span>
+              <span
+                className="label-xs text-txt-tertiary text-right flex-shrink-0"
+                style={{ width: '48px', letterSpacing: '1.5px', fontSize: '9px' }}
+              >
+                DIFF
+              </span>
+            </div>
             {(() => {
               // Re-sort by live games[]-derived record so the standings
               // reorder as weekly scores come in. Falls back to the saved
@@ -427,22 +480,31 @@ export default function ConferenceStandings() {
                 const tid = t.tid != null ? Number(t.tid) : resolveTid(t.team, teamsSrc || TEAMS)
                 const calc = tid ? calculateTeamRecordFromGames(currentDynasty, tid, displayYear) : null
                 const hasLive = !!calc && (calc.wins > 0 || calc.losses > 0)
+                const liveDiff = hasLive
+                  ? (calc.pointsFor || 0) - (calc.pointsAgainst || 0)
+                  : (t.pointsFor || 0) - (t.pointsAgainst || 0)
                 return {
                   ...t,
                   _liveWins: hasLive ? calc.wins : (t.wins || 0),
                   _liveLosses: hasLive ? calc.losses : (t.losses || 0),
                   _liveConfWins: hasLive ? (calc.confWins || 0) : (t.confWins || 0),
                   _liveConfLosses: hasLive ? (calc.confLosses || 0) : (t.confLosses || 0),
+                  _liveDiff: liveDiff,
                   _isLive: hasLive,
                 }
               })
               const anyLive = enriched.some(t => t._isLive)
+              // Sort by conference record first (the primary standings
+              // metric in CFB), with overall record as the next tier of
+              // tiebreaker, then point differential. Matches how every
+              // real conference publishes its standings.
               const sortFn = anyLive
                 ? (a, b) => {
-                    if (b._liveWins !== a._liveWins) return b._liveWins - a._liveWins
-                    if (a._liveLosses !== b._liveLosses) return a._liveLosses - b._liveLosses
                     if (b._liveConfWins !== a._liveConfWins) return b._liveConfWins - a._liveConfWins
                     if (a._liveConfLosses !== b._liveConfLosses) return a._liveConfLosses - b._liveConfLosses
+                    if (b._liveWins !== a._liveWins) return b._liveWins - a._liveWins
+                    if (a._liveLosses !== b._liveLosses) return a._liveLosses - b._liveLosses
+                    if (b._liveDiff !== a._liveDiff) return b._liveDiff - a._liveDiff
                     return 0
                   }
                 : (a, b) => (a.rank || 0) - (b.rank || 0)

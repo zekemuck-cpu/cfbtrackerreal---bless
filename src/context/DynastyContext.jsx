@@ -929,11 +929,15 @@ export function calculateTeamRecordFromGames(dynasty, tid, year, options = {}) {
 
   let wins = 0, losses = 0
   let confWins = 0, confLosses = 0
+  let pointsFor = 0, pointsAgainst = 0
 
   teamGames.forEach(g => {
     const { teamScore, opponentScore, isConfGame } = getTeamScoreInfo(g, tid, abbr)
 
     if (teamScore === undefined || opponentScore === undefined) return
+
+    pointsFor += Number(teamScore) || 0
+    pointsAgainst += Number(opponentScore) || 0
 
     if (teamScore > opponentScore) {
       wins++
@@ -945,7 +949,7 @@ export function calculateTeamRecordFromGames(dynasty, tid, year, options = {}) {
     // No ties in college football - games always have a winner
   })
 
-  return { wins, losses, confWins, confLosses }
+  return { wins, losses, confWins, confLosses, pointsFor, pointsAgainst }
 }
 
 /**
