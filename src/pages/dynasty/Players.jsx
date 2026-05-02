@@ -24,7 +24,7 @@ const POSITION_GROUPS = {
 
 const DEV_TRAIT_VARIANT = {
   'Elite': 'warning',
-  'Star': 'accent',
+  'Star': 'default',
   'Impact': 'default',
   'Normal': 'outline'
 }

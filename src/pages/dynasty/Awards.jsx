@@ -370,10 +370,10 @@ export default function Awards() {
           style={{ borderTop: '1px solid var(--surface-4)' }}
         >
           {awardData.position && (
-            <Badge variant="accent" size="sm">{awardData.position}</Badge>
+            <Badge variant="default" size="sm">{awardData.position}</Badge>
           )}
           {isCoachAward && !awardData.position && (
-            <Badge variant="accent" size="sm">HC</Badge>
+            <Badge variant="default" size="sm">HC</Badge>
           )}
           <div className="flex-1 min-w-0">
             {matchingPlayer && !isCoachAward ? (
