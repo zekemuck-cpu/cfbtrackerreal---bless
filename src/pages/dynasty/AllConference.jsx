@@ -15,9 +15,8 @@ import {
   Button,
   Badge,
   EmptyState,
-  Select,
   Tabs,
-  TitleWithYear,
+  InlineYearSelect,
 } from '../../components/ui'
 
 // Map abbreviation to mascot name for logo lookup
@@ -429,40 +428,58 @@ export default function AllConference() {
 
   const hasAnyPlayers = allConference.length > 0
 
-  const heroActions = (
-    <div className="flex flex-wrap items-center gap-2">
-      <Select
-        value={displayConference}
-        onChange={(e) => handleConferenceChange(e.target.value)}
-        size="sm"
-      >
-        {availableConferences.map((conf) => (
-          <option key={conf} value={conf}>{conf}</option>
-        ))}
-      </Select>
-      {!isViewOnly && (
-        <Button variant="primary" size="sm" onClick={() => setShowEditModal(true)}>
-          Edit
-        </Button>
-      )}
-    </div>
+  const heroActions = !isViewOnly ? (
+    <Button variant="primary" size="sm" onClick={() => setShowEditModal(true)}>
+      Edit
+    </Button>
+  ) : null
+
+  // Custom title: year + "All-" + conference, both dropdowns inlined as
+  // part of the headline. Mirrors the InlineYearSelect pattern so the
+  // conference picker reads as plain text with a small chevron, not a
+  // chrome-y form control.
+  const titleNode = (
+    <h1 className="group display-lg text-txt-primary leading-none m-0 break-words inline-flex items-baseline flex-wrap gap-x-3">
+      <InlineYearSelect
+        value={displayYear}
+        years={availableYears}
+        onChange={handleYearChange}
+        ariaLabel="Select year for All-Conference"
+      />
+      <span className="inline-flex items-baseline">
+        <span>All-</span>
+        <span className="relative inline-flex items-baseline">
+          <span aria-hidden="true">{displayConference}</span>
+          <svg
+            className="ml-1 self-center w-[0.5em] h-[0.5em] opacity-60 transition-opacity group-hover:opacity-100"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              fillRule="evenodd"
+              d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <select
+            value={displayConference}
+            onChange={(e) => handleConferenceChange(e.target.value)}
+            aria-label="Select conference"
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none"
+          >
+            {availableConferences.map((conf) => (
+              <option key={conf} value={conf}>{conf}</option>
+            ))}
+          </select>
+        </span>
+      </span>
+    </h1>
   )
 
   return (
     <div className="space-y-6">
-      <PageHero
-        eyebrow={`${displayYear} Season`}
-        title={
-          <TitleWithYear
-            year={displayYear}
-            years={availableYears}
-            onChange={handleYearChange}
-            label={`All-${displayConference}`}
-          />
-        }
-        meta={<span>Conference team honors</span>}
-        actions={heroActions}
-      />
+      <PageHero title={titleNode} actions={heroActions} />
 
       {hasAnyPlayers && (
         <Tabs

@@ -422,7 +422,6 @@ export default function AllAmericans() {
   return (
     <div className="space-y-6">
       <PageHero
-        eyebrow={`${displayYear} Season`}
         title={
           <TitleWithYear
             year={displayYear}
@@ -431,7 +430,6 @@ export default function AllAmericans() {
             label="All-Americans"
           />
         }
-        meta={<span>National team honors</span>}
         actions={heroActions}
       />
 
