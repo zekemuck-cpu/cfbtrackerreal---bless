@@ -5,7 +5,7 @@ import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear } from '../../context/DynastyContext'
+import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear, getCustomConferencesForYear } from '../../context/DynastyContext'
 import CardComposer from '../../components/CardComposer'
 import { getCardsForGame } from '../../utils/playerCards'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -994,7 +994,15 @@ export default function Game() {
   const confName = game.conference || currentDynasty?.conference || (displayTeamAbbr ? getTeamConference(displayTeamAbbr) : null)
   const bowlLogo = game.bowlName ? getBowlLogo(game.bowlName) : null
   const confLogo = game.isConferenceChampionship && confName ? getConferenceLogo(confName) : null
-  const eventLogo = bowlLogo || confLogo
+  // For regular conference matchups (both teams in the same conference), surface
+  // the conference logo in the header so it reads like an ESPN scoreboard.
+  const customConfs = currentDynasty ? getCustomConferencesForYear(currentDynasty, game.year) : null
+  const userConf = displayTeamAbbr ? getTeamConference(displayTeamAbbr, customConfs, currentDynasty?.teams) : null
+  const oppConf = opponentAbbr ? getTeamConference(opponentAbbr, customConfs, currentDynasty?.teams) : null
+  const isConferenceMatchup = !!(userConf && oppConf && userConf === oppConf) && !game.isConferenceChampionship && !game.bowlName
+  const conferenceMatchupLogo = isConferenceMatchup ? getConferenceLogo(userConf) : null
+  const eventLogo = bowlLogo || confLogo || conferenceMatchupLogo
+  const eventLogoAlt = bowlLogo ? game.bowlName : (confLogo ? `${confName} Championship` : (conferenceMatchupLogo ? `${userConf}` : 'Event'))
 
   // Get rankings. For CPU games, displayTeam is the viewing perspective (often
   // the winner) which is independent of visual side — so we have to resolve
@@ -1129,82 +1137,127 @@ export default function Game() {
       ? `linear-gradient(90deg, ${leftData.colors.primary} 0%, ${leftData.colors.primary} 55%, ${rightData.colors.primary} 85%, ${rightData.colors.primary} 100%)`
       : `linear-gradient(90deg, ${leftData.colors.primary} 0%, ${leftData.colors.primary} 15%, ${rightData.colors.primary} 45%, ${rightData.colors.primary} 100%)`
 
+  // Title-cluster contents (logo + text). Wrapped in the appropriate Link for
+  // championship/bowl/CFP contexts so the title is also a navigation hint.
+  const titleCluster = (
+    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+      {eventLogo && (
+        <div
+          className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-md flex items-center justify-center p-1"
+          style={{
+            backgroundColor: '#fff',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.4)',
+          }}
+        >
+          <img src={eventLogo} alt={eventLogoAlt} className="w-full h-full object-contain" />
+        </div>
+      )}
+      <div className="text-left min-w-0">
+        <div
+          className="uppercase truncate"
+          style={{
+            fontSize: '10px',
+            fontWeight: 700,
+            letterSpacing: '1.6px',
+            color: 'var(--text-tertiary)',
+            lineHeight: 1,
+          }}
+        >
+          {gameSubtitle}
+        </div>
+        <div
+          className="truncate"
+          style={{
+            fontSize: '15px',
+            fontWeight: 700,
+            letterSpacing: '-0.01em',
+            color: 'var(--text-primary)',
+            lineHeight: 1.2,
+            marginTop: '3px',
+          }}
+        >
+          {gameTitle}
+        </div>
+      </div>
+    </div>
+  )
+
+  const isCFPRound = game.isCFPFirstRound || game.isCFPQuarterfinal || game.isCFPSemifinal || game.isCFPChampionship ||
+    game.gameType === GAME_TYPES.CFP_FIRST_ROUND || game.gameType === GAME_TYPES.CFP_QUARTERFINAL ||
+    game.gameType === GAME_TYPES.CFP_SEMIFINAL || game.gameType === GAME_TYPES.CFP_CHAMPIONSHIP
+
+  const titleLinkTo = isCFPRound
+    ? `${pathPrefix}/cfp-bracket/${game.year}`
+    : game.isConferenceChampionship
+      ? `${pathPrefix}/conference-championship-history?conference=${encodeURIComponent(game.conference || '')}`
+      : game.isBowlGame
+        ? `${pathPrefix}/bowl-history?bowl=${encodeURIComponent(game.bowlName || gameTitle)}`
+        : null
+
   return (
     <div className="space-y-4 overflow-x-hidden">
       {/* Hero Scoreboard */}
       <div className="bg-surface-1 rounded-2xl overflow-hidden shadow-2xl">
-        {/* Top bar with game info and navigation */}
+        {/* Top bar — clean dark strip with a thin team-color accent line.
+            Replaces the full-width team gradient (too loud) with a sports-
+            webpage-style header: subtle accent + structured title cluster. */}
         <div
-          className="px-3 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between"
-          style={{ background: headerGradient }}
+          className="relative px-3 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between gap-3"
+          style={{
+            backgroundColor: 'var(--surface-2)',
+            borderBottom: '1px solid var(--surface-4)',
+          }}
         >
-          {/* Invisible placeholder to balance Edit button on right */}
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 invisible">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-            <span className="hidden sm:inline">Edit</span>
-          </div>
+          {/* Thin team-color accent line at the very top — keeps a hint of
+              identity without flooding the strip. */}
+          <div
+            aria-hidden="true"
+            className="absolute top-0 left-0 right-0"
+            style={{
+              height: '2px',
+              background: !gameIsPlayed
+                ? `linear-gradient(90deg, ${leftData.colors.primary} 0%, ${leftData.colors.primary} 45%, ${rightData.colors.primary} 55%, ${rightData.colors.primary} 100%)`
+                : leftWon
+                  ? `linear-gradient(90deg, ${leftData.colors.primary} 0%, ${leftData.colors.primary} 60%, ${rightData.colors.primary} 80%, ${rightData.colors.primary} 100%)`
+                  : `linear-gradient(90deg, ${leftData.colors.primary} 0%, ${leftData.colors.primary} 20%, ${rightData.colors.primary} 40%, ${rightData.colors.primary} 100%)`,
+              opacity: 0.9,
+            }}
+          />
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            {eventLogo && (
-              <div className="w-7 h-7 sm:w-9 sm:h-9 bg-white rounded-lg p-0.5 shadow-lg">
-                <img src={eventLogo} alt="Event" className="w-full h-full object-contain" />
-              </div>
-            )}
-            {/* CFP games link to CFP Bracket page */}
-            {(game.isCFPFirstRound || game.isCFPQuarterfinal || game.isCFPSemifinal || game.isCFPChampionship ||
-              game.gameType === GAME_TYPES.CFP_FIRST_ROUND || game.gameType === GAME_TYPES.CFP_QUARTERFINAL ||
-              game.gameType === GAME_TYPES.CFP_SEMIFINAL || game.gameType === GAME_TYPES.CFP_CHAMPIONSHIP) ? (
-              <Link
-                to={`${pathPrefix}/cfp-bracket/${game.year}`}
-                className="text-white text-center hover:underline"
-              >
-                <div className="text-sm sm:text-lg font-bold drop-shadow-md">{gameTitle}</div>
-                <div className="text-[10px] sm:text-xs opacity-90">{gameSubtitle}</div>
-              </Link>
-            ) : game.isConferenceChampionship ? (
-              <Link
-                to={`${pathPrefix}/conference-championship-history?conference=${encodeURIComponent(game.conference || '')}`}
-                className="text-white text-center hover:underline"
-              >
-                <div className="text-sm sm:text-lg font-bold drop-shadow-md">{gameTitle}</div>
-                <div className="text-[10px] sm:text-xs opacity-90">{gameSubtitle}</div>
-              </Link>
-            ) : game.isBowlGame ? (
-              <Link
-                to={`${pathPrefix}/bowl-history?bowl=${encodeURIComponent(game.bowlName || gameTitle)}`}
-                className="text-white text-center hover:underline"
-              >
-                <div className="text-sm sm:text-lg font-bold drop-shadow-md">{gameTitle}</div>
-                <div className="text-[10px] sm:text-xs opacity-90">{gameSubtitle}</div>
-              </Link>
-            ) : (
-              <div className="text-white text-center">
-                <div className="text-sm sm:text-lg font-bold drop-shadow-md">{gameTitle}</div>
-                <div className="text-[10px] sm:text-xs opacity-90">{gameSubtitle}</div>
-              </div>
-            )}
-          </div>
+          {/* Left-aligned title cluster (logo + subtitle/title) */}
+          {titleLinkTo ? (
+            <Link to={titleLinkTo} className="hover:opacity-90 transition-opacity min-w-0">
+              {titleCluster}
+            </Link>
+          ) : (
+            <div className="min-w-0">{titleCluster}</div>
+          )}
 
+          {/* Right: edit / spacer */}
           {!isViewOnly ? (
             <button
               onClick={() => navigate(`${pathPrefix}/game/${gameId}/edit`, { state: { from: routeLocation.pathname } })}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium text-xs sm:text-sm bg-white/20 text-white hover:bg-white/30 transition-colors backdrop-blur-sm"
+              className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium text-xs transition-colors"
+              style={{
+                backgroundColor: 'var(--surface-3)',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--surface-4)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--surface-4)'
+                e.currentTarget.style.color = 'var(--text-primary)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--surface-3)'
+                e.currentTarget.style.color = 'var(--text-secondary)'
+              }}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
               <span className="hidden sm:inline">Edit</span>
             </button>
-          ) : (
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 invisible">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back
-            </div>
-          )}
+          ) : null}
         </div>
 
         {/* Desktop: ESPN-style integrated layout with quarter table in center */}
