@@ -4649,6 +4649,53 @@ export function DynastyProvider({ children }) {
         migrated = migrateDynastyToEditors(migrated)
       }
 
+      // Drop 0-0 shell duplicates: if two games match on
+      // year + week + gameType + team-pair (either order) and one is a
+      // blank shell (no scores, not played) while the other has data,
+      // remove the shell. Caused by a race in GameEdit where /game/new
+      // could create a fresh shell instead of finding the existing game.
+      if (Array.isArray(migrated.games) && migrated.games.length > 1) {
+        const groups = new Map()
+        migrated.games.forEach((g, idx) => {
+          if (!g) return
+          const t1 = g.team1Tid != null ? Number(g.team1Tid) : null
+          const t2 = g.team2Tid != null ? Number(g.team2Tid) : null
+          if (t1 == null || t2 == null) return
+          const year = g.year != null ? Number(g.year) : null
+          if (year == null || Number.isNaN(year)) return
+          const week = g.week === '' || g.week == null ? '' : Number(g.week)
+          const gameType = g.gameType || 'regular'
+          const pair = t1 < t2 ? `${t1}-${t2}` : `${t2}-${t1}`
+          const key = `${year}|${week}|${gameType}|${pair}`
+          if (!groups.has(key)) groups.set(key, [])
+          groups.get(key).push(idx)
+        })
+        const dropIdx = new Set()
+        for (const idxs of groups.values()) {
+          if (idxs.length < 2) continue
+          const isShell = (g) => {
+            if (!g) return true
+            const s1 = parseInt(g.team1Score) || 0
+            const s2 = parseInt(g.team2Score) || 0
+            return s1 === 0 && s2 === 0 && !g.isPlayed
+          }
+          const enriched = idxs.map(i => ({ i, g: migrated.games[i], shell: isShell(migrated.games[i]) }))
+          const hasReal = enriched.some(e => !e.shell)
+          if (!hasReal) continue
+          // Keep all non-shell games; drop every shell duplicate.
+          for (const e of enriched) {
+            if (e.shell) dropIdx.add(e.i)
+          }
+        }
+        if (dropIdx.size > 0) {
+          console.log(`[applyMigrations] Removing ${dropIdx.size} duplicate shell game(s)`)
+          migrated = {
+            ...migrated,
+            games: migrated.games.filter((_, idx) => !dropIdx.has(idx))
+          }
+        }
+      }
+
       return migrated
     })
   }
@@ -5882,9 +5929,32 @@ export function DynastyProvider({ children }) {
           g => g.isCFPChampionship && Number(g.year) === Number(cleanGameData.year)
         )
       } else {
-        existingGameIndex = dynasty.games?.findIndex(
-          g => Number(g.week) === Number(cleanGameData.week) && Number(g.year) === Number(cleanGameData.year)
-        )
+        // Regular games: match by year + week + team-pair (either order).
+        // Without a team-pair check, multiple non-user games in the same week
+        // would all collide on the first match, and a missing/blank week
+        // would silently match an unrelated week-0 game.
+        const cgWeek = cleanGameData.week === '' || cleanGameData.week == null
+          ? null
+          : Number(cleanGameData.week)
+        const cgYear = Number(cleanGameData.year)
+        const cgT1 = cleanGameData.team1Tid != null ? Number(cleanGameData.team1Tid) : null
+        const cgT2 = cleanGameData.team2Tid != null ? Number(cleanGameData.team2Tid) : null
+        if (cgT1 != null && cgT2 != null) {
+          existingGameIndex = dynasty.games?.findIndex(g => {
+            if (Number(g.year) !== cgYear) return false
+            const gw = g.week === '' || g.week == null ? null : Number(g.week)
+            if (cgWeek != null && gw !== cgWeek) return false
+            if (cgWeek == null && gw != null) return false
+            const gT1 = g.team1Tid != null ? Number(g.team1Tid) : null
+            const gT2 = g.team2Tid != null ? Number(g.team2Tid) : null
+            return (gT1 === cgT1 && gT2 === cgT2) || (gT1 === cgT2 && gT2 === cgT1)
+          }) ?? -1
+        } else if (cgWeek != null) {
+          // Legacy fallback when team tids aren't available on the incoming game
+          existingGameIndex = dynasty.games?.findIndex(
+            g => Number(g.week) === cgWeek && Number(g.year) === cgYear
+          ) ?? -1
+        }
       }
     }
 

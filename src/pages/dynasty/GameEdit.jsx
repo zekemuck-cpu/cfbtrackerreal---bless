@@ -550,15 +550,32 @@ export default function GameEdit() {
       const targetYear = queryYear ? parseInt(queryYear) : currentDynasty.currentYear
       const targetGameType = queryGameType || 'regular'
 
-      // Guard 3: Check if a game already exists for this week/year/gameType
-      // This prevents duplicates even if the ref guard somehow fails
+      // Guard 3: Check if a game already exists for this week/year/gameType.
+      // Match on the team-PAIR (either order) using Number-coerced tids so
+      // a number-vs-string round-trip from Firestore can't slip a duplicate
+      // through. The previous version only checked one team, which let
+      // 0-0 shell duplicates land next to fully-played games.
       const existingGames = currentDynasty.games || []
-      const duplicateGame = existingGames.find(g =>
-        Number(g.week) === targetWeek &&
-        Number(g.year) === targetYear &&
-        g.gameType === targetGameType &&
-        (g.team1Tid === team1Tid || g.team2Tid === team1Tid || g.userTid === team1Tid)
-      )
+      const t1 = team1Tid != null ? Number(team1Tid) : null
+      const t2 = team2Tid != null ? Number(team2Tid) : null
+      const duplicateGame = existingGames.find(g => {
+        if (Number(g.year) !== targetYear) return false
+        if ((g.gameType || 'regular') !== targetGameType) return false
+        // Week match — tolerant of '' (treated as null) so a missing
+        // queryWeek doesn't accidentally match week 0.
+        const gw = g.week === '' || g.week == null ? null : Number(g.week)
+        if (targetWeek != null && gw !== targetWeek) return false
+        if (targetWeek == null && gw != null) return false
+        // Team-pair match — both teams must be in the game (either order).
+        const gT1 = g.team1Tid != null ? Number(g.team1Tid) : null
+        const gT2 = g.team2Tid != null ? Number(g.team2Tid) : null
+        if (t1 != null && t2 != null) {
+          return (gT1 === t1 && gT2 === t2) || (gT1 === t2 && gT2 === t1)
+        }
+        // Fallback: any team match if we only have one tid
+        if (t1 != null) return gT1 === t1 || gT2 === t1 || Number(g.userTid) === t1
+        return false
+      })
 
       if (duplicateGame) {
         console.log('[GameEdit] Game already exists for this week/year/gameType, using existing:', duplicateGame.id)
