@@ -1210,7 +1210,12 @@ export default function Game() {
       ? `${pathPrefix}/conference-championship-history?conference=${encodeURIComponent(game.conference || '')}`
       : game.isBowlGame
         ? `${pathPrefix}/bowl-history?bowl=${encodeURIComponent(game.bowlName || gameTitle)}`
-        : null
+        : isConferenceMatchup
+          // Regular-season conference matchup: jump to standings for the
+          // year and auto-scroll/highlight that conference (the standings
+          // page reads ?conf=… and scrolls into view).
+          ? `${pathPrefix}/conference-standings/${game.year}?conf=${encodeURIComponent(userConf)}`
+          : null
 
   return (
     <div className="space-y-4 overflow-x-hidden">
