@@ -42,6 +42,7 @@ export const ADMIN_EMAILS = new Set(['alex.guess1999@gmail.com']);
 // Includes ADMIN_EMAILS implicitly (admins can do everything beta can).
 // Keep alphabetised for easy auditing when the list grows.
 export const BETA_GRANT_EMAILS = new Set([
+  'alabamaprince@gmail.com',
   'skater1932@gmail.com',
   'zekemuck@gmail.com',
 ]);

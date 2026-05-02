@@ -34,6 +34,7 @@ const ADMIN_EMAILS = new Set(['alex.guess1999@gmail.com'])
 // api/_verifyAuth.js — the server is the actual gate; this client list
 // only controls whether the "Beta Access" card is shown. Keep in sync.
 const BETA_GRANT_EMAILS = new Set([
+  'alabamaprince@gmail.com',
   'skater1932@gmail.com',
   'zekemuck@gmail.com',
 ])
