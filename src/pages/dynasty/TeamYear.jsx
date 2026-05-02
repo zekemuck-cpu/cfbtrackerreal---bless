@@ -672,9 +672,22 @@ export default function TeamYear() {
       }
 
       if (isCPUGame) {
-        // CPU game - convert to display format for this team's perspective
-        // Get opponent rank from unified format (team1Rank/team2Rank)
+        // CPU game (neither team is the user's team for this year) —
+        // most of the games on a non-user team's page hit this branch.
+        // We MUST emit a `location` field here, otherwise the schedule
+        // renderer's fallback paints every game as "Home" by default.
+        // (The "every game shows Home" bug was traced to this missing
+        // field — Number-coercion fixes elsewhere don't help here
+        // because there's nothing for the renderer to read at all.)
         const opponentRank = isTeam1 ? g.team2Rank : g.team1Rank
+        const cpuLocation = (() => {
+          const homeT = g.homeTeamTid == null ? null : Number(g.homeTeamTid)
+          const myT = Number(tid)
+          const oppT = opponentTid == null ? null : Number(opponentTid)
+          if (homeT === myT) return 'home'
+          if (homeT === oppT) return 'away'
+          return 'neutral'
+        })()
         result.push({
           ...g,
           // For display compatibility with legacy UI code
@@ -683,6 +696,7 @@ export default function TeamYear() {
           teamScore: thisTeamScore,
           opponentScore: otherTeamScore,
           result: isGamePlayed ? (teamWon ? 'win' : 'loss') : null,
+          location: cpuLocation,
           opponentRank: opponentRank || g.opponentRank,
           _fromCPUPostseason: true
         })
