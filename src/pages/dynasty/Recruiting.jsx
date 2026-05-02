@@ -1070,9 +1070,13 @@ export default function Recruiting() {
                     </div>
                   )}
 
-                  {/* === SCOUTING BAND === archetype, size, hometown */}
+                  {/* === SCOUTING BAND === archetype, size, hometown.
+                      Centered so the rhythm matches the centered identity
+                      photo + name above and the centered footer chips
+                      below — left-aligned text in a centered card felt
+                      orphaned. */}
                   {(recruit.archetype || sizeOnly || hometownText) && (
-                    <div className="text-[12px] leading-snug space-y-0.5">
+                    <div className="text-[12px] leading-snug space-y-0.5 text-center">
                       {recruit.archetype && (
                         <div className="font-semibold text-txt-primary truncate">
                           {recruit.archetype}
@@ -1091,8 +1095,8 @@ export default function Recruiting() {
 
                   {/* === CONTEXT BAND === fixed two-row footer so chip
                       positions line up across the grid:
-                        Row A: dev trait + gem/bust (always one line, no wrap)
-                        Row B: transfer source (portal-only, own line)
+                        Row A: dev trait (centered)
+                        Row B: transfer source (portal-only, centered)
                       Empty rows are omitted, but pinning the whole block to
                       mt-auto keeps the band welded to the bottom of every
                       card so align-stretch keeps the rows in register. */}
@@ -1102,7 +1106,7 @@ export default function Recruiting() {
                       style={{ borderTop: '1px solid var(--rule-soft, var(--surface-4))' }}
                     >
                       {hasMetaChips && (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center justify-center gap-1">
                           {recruit.devTrait && (
                             <Badge variant="default" size="sm">
                               {recruit.devTrait}
@@ -1111,7 +1115,7 @@ export default function Recruiting() {
                         </div>
                       )}
                       {showFromChip && (
-                        <div className="flex">
+                        <div className="flex justify-center">
                           <span
                             className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest min-w-0"
                             style={{
