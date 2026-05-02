@@ -4,7 +4,7 @@ import { useDynasty, getRecruitingCommitments, lookupByTeamYear } from '../../co
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import RecruitingCommitmentsModal from '../../components/RecruitingCommitmentsModal'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getTidFromAbbr, getOriginalTeamAbbr } from '../../data/teamRegistry'
-import { getTeamLogoByTid } from '../../data/teams'
+import { getTeamLogoByTid, stripMascotFromName } from '../../data/teams'
 import { PageHero, Card, Badge, Button, Select, EmptyState, TeamLogo } from '../../components/ui'
 import Modal from '../../components/ui/Modal'
 import { calculateRecruitingClassScore, formatRecruitingClassScore, flattenClassCommitments } from '../../utils/recruitingScore'
@@ -910,11 +910,24 @@ export default function Recruiting() {
               ? `${recruit.height || ''}${recruit.height && recruit.weight ? ', ' : ''}${recruit.weight ? `${recruit.weight} lbs` : ''}`
               : null
             const previousTeamTid = recruit.previousTeam ? getTidFromAbbr(recruit.previousTeam, teamsData) : null
-            const previousTeamName = previousTeamTid && teamsSource[previousTeamTid]?.name
+            // School only — strip the mascot ("Syracuse Orange" → "Syracuse")
+            // so the FROM chip stays compact.
+            const rawPreviousTeamName = previousTeamTid && teamsSource[previousTeamTid]?.name
               ? teamsSource[previousTeamTid].name
               : recruit.previousTeam
+            const previousTeamName = rawPreviousTeamName
+              ? (stripMascotFromName(rawPreviousTeamName) || rawPreviousTeamName)
+              : null
             const devTraitKey = recruit.devTrait?.toLowerCase()
-            const showBottomChips = recruit.devTrait || recruit.gemBust || recruit.previousTeam
+            // FROM chip is portal-only — non-portal HS recruits with a
+            // previous-school field (e.g. their high school being filled
+            // in by the importer) shouldn't surface a transfer chip.
+            const isPortalRecruit = recruit.isPortal === true
+            const showFromChip = isPortalRecruit && !!previousTeamName
+            // Gem/bust is intentionally omitted from the tile — it adds
+            // visual noise and isn't load-bearing in the directory view.
+            const hasMetaChips = !!recruit.devTrait
+            const showBottomChips = hasMetaChips || showFromChip
 
             const starCount = Number(recruit.stars) || 0
             const archAndSize = [recruit.archetype, sizeText].filter(Boolean).join(' · ')
@@ -1017,7 +1030,7 @@ export default function Recruiting() {
                           className="font-display font-black tabular-nums text-txt-primary leading-none mt-1"
                           style={{ fontSize: '17px', letterSpacing: '-0.02em' }}
                         >
-                          {recruit.nationalRank ? recruit.nationalRank : '—'}
+                          {recruit.nationalRank ? `#${recruit.nationalRank}` : '—'}
                         </div>
                       </div>
                       <div
@@ -1037,7 +1050,7 @@ export default function Recruiting() {
                           className="font-display font-black tabular-nums text-txt-primary leading-none mt-1"
                           style={{ fontSize: '17px', letterSpacing: '-0.02em' }}
                         >
-                          {recruit.positionRank ? recruit.positionRank : '—'}
+                          {recruit.positionRank ? `#${recruit.positionRank}` : '—'}
                         </div>
                       </div>
                       <div className="text-center">
@@ -1051,7 +1064,7 @@ export default function Recruiting() {
                           className="font-display font-black tabular-nums text-txt-primary leading-none mt-1"
                           style={{ fontSize: '17px', letterSpacing: '-0.02em' }}
                         >
-                          {recruit.stateRank ? recruit.stateRank : '—'}
+                          {recruit.stateRank ? `#${recruit.stateRank}` : '—'}
                         </div>
                       </div>
                     </div>
@@ -1076,38 +1089,42 @@ export default function Recruiting() {
                     </div>
                   )}
 
-                  {/* === CONTEXT BAND === dev / gem-bust / transfer source */}
+                  {/* === CONTEXT BAND === fixed two-row footer so chip
+                      positions line up across the grid:
+                        Row A: dev trait + gem/bust (always one line, no wrap)
+                        Row B: transfer source (portal-only, own line)
+                      Empty rows are omitted, but pinning the whole block to
+                      mt-auto keeps the band welded to the bottom of every
+                      card so align-stretch keeps the rows in register. */}
                   {showBottomChips && (
                     <div
-                      className="flex items-center flex-wrap gap-1 mt-auto pt-2"
+                      className="mt-auto pt-2 space-y-1.5"
                       style={{ borderTop: '1px solid var(--rule-soft, var(--surface-4))' }}
                     >
-                      {recruit.devTrait && (
-                        <Badge variant="default" size="sm">
-                          {recruit.devTrait}
-                        </Badge>
+                      {hasMetaChips && (
+                        <div className="flex items-center gap-1">
+                          {recruit.devTrait && (
+                            <Badge variant="default" size="sm">
+                              {recruit.devTrait}
+                            </Badge>
+                          )}
+                        </div>
                       )}
-                      {recruit.gemBust && (
-                        <Badge
-                          variant={recruit.gemBust.toLowerCase() === 'gem' ? 'success' : 'danger'}
-                          size="sm"
-                        >
-                          {recruit.gemBust}
-                        </Badge>
-                      )}
-                      {recruit.previousTeam && (
-                        <span
-                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest"
-                          style={{
-                            letterSpacing: '1.5px',
-                            color: 'var(--text-secondary)',
-                            border: '1px solid var(--surface-5)',
-                          }}
-                        >
-                          <span className="text-txt-tertiary">FROM</span>
-                          {transferLogo && <img src={transferLogo} alt="" className="w-3.5 h-3.5 object-contain" />}
-                          <span className="truncate max-w-[100px]">{previousTeamName}</span>
-                        </span>
+                      {showFromChip && (
+                        <div className="flex">
+                          <span
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest min-w-0"
+                            style={{
+                              letterSpacing: '1.5px',
+                              color: 'var(--text-secondary)',
+                              border: '1px solid var(--surface-5)',
+                            }}
+                          >
+                            <span className="text-txt-tertiary flex-shrink-0">FROM</span>
+                            {transferLogo && <img src={transferLogo} alt="" className="w-3.5 h-3.5 object-contain flex-shrink-0" />}
+                            <span className="truncate">{previousTeamName}</span>
+                          </span>
+                        </div>
                       )}
                     </div>
                   )}

@@ -556,88 +556,112 @@ export default function CoachCareer() {
 
   return (
     <div className="space-y-5">
-      {/* Career hero — name as a heavy display headline with the win
-          record as a separate emphatic stat cluster on the right. The
-          old PageHero collapsed everything into a comma-separated
-          meta line which buried the most important number on the page
-          (the lifetime W-L). Now the headline carries the identity
-          and the stat block carries the math. */}
+      {/* Career hero — editorial split. Identity (eyebrow + name + range)
+          stacks on the left; lifetime totals sit in a unified broadcast
+          stat strip below the name, full-width on mobile. The strip
+          replaces the previous comma-list meta + side stat cluster so
+          the page leads with one cohesive lockup instead of two. */}
       <section className="card overflow-hidden reveal">
-        <div className="px-6 py-7 sm:px-8 sm:py-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
-          <div className="min-w-0 flex-1">
-            <div className="label-xs text-txt-tertiary mb-2 flex items-center gap-2 flex-wrap" style={{ letterSpacing: '2px' }}>
-              <span>Career</span>
-              {userOptions.length > 1 && (
-                <>
-                  <span className="text-txt-muted">·</span>
-                  <span className="text-txt-tertiary normal-case" style={{ letterSpacing: '0' }}>Viewing</span>
-                  <select
-                    value={effectiveSelectedUid || ''}
-                    onChange={e => setSelectedUid(e.target.value)}
-                    aria-label="Switch career view"
-                    className="text-xs font-semibold px-2 py-1 rounded-md bg-surface-2 border border-surface-4 text-txt-primary cursor-pointer focus:outline-none focus:border-blue-500 normal-case"
-                    style={{ letterSpacing: '0' }}
-                  >
-                    {userOptions.map(opt => (
-                      <option key={opt.uid} value={opt.uid}>
-                        {opt.label}{opt.isYou ? ' (you)' : ''}
-                        {opt.role === ROLE_COMMISH ? ' · Commish' : opt.role === ROLE_COCOMMISH ? ' · Co-Commish' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </>
-              )}
-            </div>
-            <h1
-              className="m-0 text-txt-primary leading-[0.95] uppercase break-words"
-              style={{
-                fontFamily: "'Bebas Neue', sans-serif",
-                fontSize: 'clamp(2.5rem, 6vw, 4.5rem)',
-                letterSpacing: '0.5px',
-              }}
-            >
-              {selectedDisplayName}
-            </h1>
-            <div className="flex items-center gap-2 mt-3 label-sm text-txt-tertiary flex-wrap">
-              <span>{coachingHistory.length} {coachingHistory.length === 1 ? 'team' : 'teams'}</span>
-              <span>·</span>
-              <span className="tabular">{careerRange}</span>
-              {careerTotals.coachOfYearAwards > 0 && (
-                <>
-                  <span>·</span>
-                  <Badge variant="warning" size="sm">
-                    {careerTotals.coachOfYearAwards}× Coach of the Year
-                  </Badge>
-                </>
-              )}
-            </div>
+        <div className="px-6 py-7 sm:px-8 sm:py-8">
+          <div className="label-xs text-txt-tertiary mb-3 flex items-center gap-2 flex-wrap" style={{ letterSpacing: '2.5px', fontSize: '10px' }}>
+            <span>CAREER</span>
+            {userOptions.length > 1 && (
+              <>
+                <span className="text-txt-muted">·</span>
+                <span className="text-txt-tertiary normal-case" style={{ letterSpacing: '0' }}>Viewing</span>
+                <select
+                  value={effectiveSelectedUid || ''}
+                  onChange={e => setSelectedUid(e.target.value)}
+                  aria-label="Switch career view"
+                  className="text-xs font-semibold px-2 py-1 rounded-md bg-surface-2 border border-surface-4 text-txt-primary cursor-pointer focus:outline-none focus:border-blue-500 normal-case"
+                  style={{ letterSpacing: '0' }}
+                >
+                  {userOptions.map(opt => (
+                    <option key={opt.uid} value={opt.uid}>
+                      {opt.label}{opt.isYou ? ' (you)' : ''}
+                      {opt.role === ROLE_COMMISH ? ' · Commish' : opt.role === ROLE_COCOMMISH ? ' · Co-Commish' : ''}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
           </div>
-          <div className="flex items-baseline gap-5 flex-shrink-0">
-            <div className="text-right">
+          <h1
+            className="m-0 text-txt-primary leading-[0.95] uppercase break-words"
+            style={{
+              fontFamily: "'Bebas Neue', sans-serif",
+              fontSize: 'clamp(2.5rem, 6vw, 4.5rem)',
+              letterSpacing: '0.5px',
+            }}
+          >
+            {selectedDisplayName}
+          </h1>
+          <div
+            className="label-xs text-txt-tertiary mt-2 tabular-nums"
+            style={{ letterSpacing: '1.8px', fontSize: '10px' }}
+          >
+            {careerRange}
+          </div>
+
+          {/* Broadcast-style stat strip — one row, hairline separators,
+              tabular numerals. Replaces the bordered tile-cluster that
+              competed with the headline. */}
+          <div
+            className="mt-6 flex items-stretch gap-5 sm:gap-8 flex-wrap"
+            style={{
+              borderTop: '1px solid var(--rule-soft, var(--surface-4))',
+              paddingTop: '20px',
+            }}
+          >
+            <div>
               <div
-                className="text-txt-primary leading-none tabular"
-                style={{
-                  fontFamily: "'Bebas Neue', sans-serif",
-                  fontSize: 'clamp(2.25rem, 4.5vw, 3.5rem)',
-                  letterSpacing: '-0.01em',
-                }}
+                className="font-display font-black tabular-nums text-txt-primary leading-none"
+                style={{ fontSize: 'clamp(2rem, 4.5vw, 3.25rem)', letterSpacing: '-0.03em' }}
               >
                 {careerTotals.wins}–{careerTotals.losses}
               </div>
-              <div className="label-xs text-txt-tertiary mt-1" style={{ letterSpacing: '1.5px' }}>Record</div>
+              <div className="label-xs text-txt-tertiary mt-1.5" style={{ letterSpacing: '2px', fontSize: '10px' }}>RECORD</div>
             </div>
-            <div className="text-right">
+            <div className="hidden sm:block w-px self-stretch" style={{ backgroundColor: 'var(--surface-4)' }} />
+            <div>
               <div
-                className="text-txt-secondary leading-none tabular"
-                style={{
-                  fontFamily: "'Bebas Neue', sans-serif",
-                  fontSize: 'clamp(1.75rem, 3vw, 2.5rem)',
-                }}
+                className="font-display font-black tabular-nums text-txt-primary leading-none"
+                style={{ fontSize: 'clamp(2rem, 4.5vw, 3.25rem)', letterSpacing: '-0.03em' }}
               >
-                {careerWinPct}%
+                {careerWinPct}<span className="text-txt-tertiary" style={{ fontSize: '0.55em' }}>%</span>
               </div>
-              <div className="label-xs text-txt-tertiary mt-1" style={{ letterSpacing: '1.5px' }}>Win&nbsp;pct</div>
+              <div className="label-xs text-txt-tertiary mt-1.5" style={{ letterSpacing: '2px', fontSize: '10px' }}>WIN PCT</div>
             </div>
+            <div className="hidden sm:block w-px self-stretch" style={{ backgroundColor: 'var(--surface-4)' }} />
+            <div>
+              <div
+                className="font-display font-black tabular-nums text-txt-primary leading-none"
+                style={{ fontSize: 'clamp(2rem, 4.5vw, 3.25rem)', letterSpacing: '-0.03em' }}
+              >
+                {coachingHistory.length}
+              </div>
+              <div className="label-xs text-txt-tertiary mt-1.5" style={{ letterSpacing: '2px', fontSize: '10px' }}>
+                {coachingHistory.length === 1 ? 'TEAM' : 'TEAMS'}
+              </div>
+            </div>
+            {careerTotals.coachOfYearAwards > 0 && (
+              <>
+                <div className="hidden sm:block w-px self-stretch" style={{ backgroundColor: 'var(--surface-4)' }} />
+                <div>
+                  <div
+                    className="font-display font-black tabular-nums leading-none"
+                    style={{
+                      fontSize: 'clamp(2rem, 4.5vw, 3.25rem)',
+                      letterSpacing: '-0.03em',
+                      color: 'var(--accent-warning, #f59e0b)',
+                    }}
+                  >
+                    {careerTotals.coachOfYearAwards}
+                  </div>
+                  <div className="label-xs text-txt-tertiary mt-1.5" style={{ letterSpacing: '2px', fontSize: '10px' }}>COTY</div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -658,45 +682,37 @@ export default function CoachCareer() {
 
         const showsBowls = bowlWins > 0 || bowlLosses > 0
 
-        // Mini stat-tile presentation. Each tile is value + label; the
-        // value is the eye magnet and the label sits below in small
-        // tracking. Replaces the previous comma-separated row of
-        // "<n> Seasons · <record> (<pct>%) · <bowls>". The previous
-        // version was scannable but generic; this version gives the
-        // page a signature.
-        const StatTile = ({ value, label, accent = false, onClick }) => {
+        // Stint stat strip — broadcast-bar style. Each cell is a big
+        // tabular numeral over a tracked label. Cells share a single
+        // hairline-bordered frame with vertical dividers between them
+        // (no more individual tile borders fighting each other).
+        const StatCell = ({ value, label, accent = false, onClick, last = false }) => {
           const inner = (
-            <>
+            <div className={`px-4 py-3 ${last ? '' : 'border-r'}`} style={!last ? { borderRight: '1px solid var(--rule-soft, var(--surface-4))' } : {}}>
               <div
-                className="leading-none tabular"
+                className="font-display font-black tabular-nums leading-none"
                 style={{
-                  fontFamily: "'Bebas Neue', sans-serif",
                   fontSize: 'clamp(1.5rem, 2.5vw, 2rem)',
-                  color: accent ? 'var(--accent-warning)' : 'var(--text-primary)',
+                  color: accent ? 'var(--accent-warning, #f59e0b)' : 'var(--text-primary)',
+                  letterSpacing: '-0.02em',
                 }}
               >
                 {value}
               </div>
               <div
-                className="label-xs text-txt-tertiary mt-1"
-                style={{ letterSpacing: '1.5px' }}
+                className="label-xs text-txt-tertiary mt-1.5"
+                style={{ letterSpacing: '1.8px', fontSize: '10px' }}
               >
                 {label}
               </div>
-            </>
+            </div>
           )
-          if (!onClick) {
-            return (
-              <div className="px-3 py-2 rounded-md" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
-                {inner}
-              </div>
-            )
-          }
+          if (!onClick) return inner
           return (
             <button
               onClick={onClick}
-              className="px-3 py-2 rounded-md text-left transition-colors hover:bg-surface-3"
-              style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
+              className="text-left transition-colors hover:bg-surface-3"
+              style={{ flex: '1 1 auto' }}
             >
               {inner}
             </button>
@@ -734,7 +750,7 @@ export default function CoachCareer() {
                     >
                       {stint.teamName}
                     </Link>
-                    {stint.isCurrent && <Badge variant="accent" size="md">Current</Badge>}
+                    {stint.isCurrent && <Badge variant="default" size="md">Current</Badge>}
                     {!stint.isCurrent && <Badge variant="outline" size="sm">Past</Badge>}
                   </div>
                   <div className="flex items-center gap-2 label-sm text-txt-tertiary mt-2 flex-wrap">
@@ -753,48 +769,73 @@ export default function CoachCareer() {
                 </div>
               </div>
 
-              {/* Stat tiles — wrap on narrow viewports, stay on one row
-                  on tablet+. Clickable tiles open the games modal for
-                  that subset; informational tiles (Seasons) just
-                  display. National-championship tile gets the warning
-                  accent. */}
-              <div className="flex flex-wrap gap-2 mb-5">
-                <StatTile value={numSeasons} label={numSeasons === 1 ? 'Season' : 'Seasons'} />
-                <StatTile
-                  value={stint.overallRecord}
-                  label={`Record · ${winPct}%`}
-                  onClick={() => openGamesModal('all', stint.teamName)}
-                />
-                {stint.nationalChampionships > 0 && (
-                  <StatTile
-                    value={stint.nationalChampionships}
-                    label={stint.nationalChampionships === 1 ? 'Natl Title' : 'Natl Titles'}
-                    accent
-                    onClick={() => openGamesModal('cfp', stint.teamName)}
-                  />
-                )}
-                {stint.confChampionships > 0 && (
-                  <StatTile
-                    value={stint.confChampionships}
-                    label={stint.confChampionships === 1 ? 'Conf Title' : 'Conf Titles'}
-                    onClick={() => openGamesModal('confChamp', stint.teamName)}
-                  />
-                )}
-                {stint.playoffAppearances > 0 && (
-                  <StatTile
-                    value={stint.playoffAppearances}
-                    label={stint.playoffAppearances === 1 ? 'CFP App' : 'CFP Apps'}
-                    onClick={() => openGamesModal('cfp', stint.teamName)}
-                  />
-                )}
-                {showsBowls && (
-                  <StatTile
-                    value={`${bowlWins}-${bowlLosses}`}
-                    label="Bowls"
-                    onClick={() => openGamesModal('bowl', stint.teamName)}
-                  />
-                )}
-              </div>
+              {/* Unified broadcast stat strip — single bordered card with
+                  vertical hairline dividers between cells. Clickable
+                  cells open the games modal for that subset. Cells flow
+                  to a second row on narrow viewports. */}
+              {(() => {
+                const cells = []
+                cells.push({ key: 'seasons', value: numSeasons, label: numSeasons === 1 ? 'SEASON' : 'SEASONS' })
+                cells.push({
+                  key: 'record',
+                  value: stint.overallRecord,
+                  label: `RECORD · ${winPct}%`,
+                  onClick: () => openGamesModal('all', stint.teamName),
+                })
+                if (stint.nationalChampionships > 0) {
+                  cells.push({
+                    key: 'natl',
+                    value: stint.nationalChampionships,
+                    label: stint.nationalChampionships === 1 ? 'NATL TITLE' : 'NATL TITLES',
+                    accent: true,
+                    onClick: () => openGamesModal('cfp', stint.teamName),
+                  })
+                }
+                if (stint.confChampionships > 0) {
+                  cells.push({
+                    key: 'conf',
+                    value: stint.confChampionships,
+                    label: stint.confChampionships === 1 ? 'CONF TITLE' : 'CONF TITLES',
+                    onClick: () => openGamesModal('confChamp', stint.teamName),
+                  })
+                }
+                if (stint.playoffAppearances > 0) {
+                  cells.push({
+                    key: 'cfp',
+                    value: stint.playoffAppearances,
+                    label: stint.playoffAppearances === 1 ? 'CFP APP' : 'CFP APPS',
+                    onClick: () => openGamesModal('cfp', stint.teamName),
+                  })
+                }
+                if (showsBowls) {
+                  cells.push({
+                    key: 'bowls',
+                    value: `${bowlWins}-${bowlLosses}`,
+                    label: 'BOWLS',
+                    onClick: () => openGamesModal('bowl', stint.teamName),
+                  })
+                }
+                return (
+                  <div
+                    className="mb-5 flex flex-wrap rounded-lg overflow-hidden"
+                    style={{
+                      border: '1px solid var(--rule-soft, var(--surface-4))',
+                      backgroundColor: 'var(--surface-2)',
+                    }}
+                  >
+                    {cells.map((c, idx) => (
+                      <StatCell
+                        key={c.key}
+                        value={c.value}
+                        label={c.label}
+                        accent={c.accent}
+                        onClick={c.onClick}
+                        last={idx === cells.length - 1}
+                      />
+                    ))}
+                  </div>
+                )
+              })()}
 
               <YearByYearTable
                 stint={stint}
