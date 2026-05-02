@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useDynasty, detectGameType, GAME_TYPES, getTeamGamePerspective } from '../../context/DynastyContext'
+import { useDynasty, detectGameType, GAME_TYPES, getTeamGamePerspective, getTeamRanking } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName, getTidFromAbbr } from '../../data/teamRegistry'
@@ -974,8 +974,14 @@ function YearByYearTable({ stint, currentDynasty, pathPrefix, navigate }) {
     return null
   }
 
-  const isStintTeamInGame = (g) => g && (g.team1Tid === stint.teamTid || g.team2Tid === stint.teamTid || g.team1 === stint.teamAbbr || g.team2 === stint.teamAbbr)
-  const didStintTeamWin = (g) => g && (g.winnerTid === stint.teamTid || g.winner === stint.teamAbbr)
+  // Round labels for the postseason cell. Indexed by GAME_TYPES.* so we
+  // can derive directly from each game's resolved gameType.
+  const ROUND_LABELS = {
+    [GAME_TYPES.CFP_FIRST_ROUND]: 'First Round',
+    [GAME_TYPES.CFP_QUARTERFINAL]: 'Quarterfinal',
+    [GAME_TYPES.CFP_SEMIFINAL]: 'Semifinal',
+    [GAME_TYPES.CFP_CHAMPIONSHIP]: 'National Championship',
+  }
 
   const years = []
   for (let year = startYear; year <= endYear; year++) {
@@ -984,51 +990,62 @@ function YearByYearTable({ stint, currentDynasty, pathPrefix, navigate }) {
     const losses = yearGames.filter(g => g.perspective && !g.perspective.userWon).length
     const hasRecord = yearGames.length > 0
 
-    const ccWins = currentDynasty.conferenceChampionshipsByYear?.[year] || []
-    const wonCC = ccWins.some(cc => cc.winnerTid === stint.teamTid || cc.winner === stint.teamAbbr)
-
+    // Source-of-truth final rank: getTeamRanking reads finalPollsByYear
+    // first (end-of-season authoritative), then falls back to the most
+    // recent game's poll position. Same helper Rankings.jsx uses.
     let finalRank = null
-    const rankings = currentDynasty.rankingsByYear?.[year]
-    if (rankings?.final) {
-      const teamRank = rankings.final.find(r => {
-        const rankTid = r.tid || resolveTid(r.team || r.abbr, currentDynasty?.teams || TEAMS)
-        return rankTid === stint.teamTid || r.team === stint.teamAbbr
-      })
-      if (teamRank) finalRank = teamRank.rank
+    if (stint.teamTid != null) {
+      const ranking = getTeamRanking(currentDynasty, Number(stint.teamTid), year)
+      if (ranking?.rank) finalRank = ranking.rank
     }
 
-    const cfpResults = currentDynasty.cfpResultsByYear?.[year]
+    // Postseason: derive from the stint's CFP/bowl games (already
+    // pre-filtered to this team). Walk the CFP rounds in order and
+    // record the deepest the team reached. The legacy
+    // cfpResultsByYear/bowlGamesByYear maps are no longer the source
+    // of truth — games[] is.
+    const yearStintGames = stint.games?.filter(g => Number(g.year) === year) || []
+    const cfpYearGames = yearStintGames
+      .map(g => ({ g, type: detectGameType(g) }))
+      .filter(({ type }) =>
+        type === GAME_TYPES.CFP_FIRST_ROUND ||
+        type === GAME_TYPES.CFP_QUARTERFINAL ||
+        type === GAME_TYPES.CFP_SEMIFINAL ||
+        type === GAME_TYPES.CFP_CHAMPIONSHIP
+      )
+
     let cfpResult = null
-    if (cfpResults) {
-      const rounds = ['firstRound', 'quarterfinals', 'semifinals', 'championship']
-      const roundLabels = { firstRound: 'First Round', quarterfinals: 'Quarterfinals', semifinals: 'Semifinals', championship: 'Championship' }
-      for (const round of rounds) {
-        const roundGames = cfpResults[round] || []
-        for (const game of roundGames) {
-          if (!game) continue
-          if (isStintTeamInGame(game)) {
-            if (didStintTeamWin(game)) {
-              if (round === 'championship') {
-                cfpResult = { type: 'champion' }
-              }
-            } else if (game.winner || game.winnerTid) {
-              cfpResult = { type: 'lost', round: roundLabels[round] }
-            }
-          }
-        }
+    if (cfpYearGames.length > 0) {
+      // Order rounds shallow → deep so the deepest entry wins.
+      const order = [
+        GAME_TYPES.CFP_FIRST_ROUND,
+        GAME_TYPES.CFP_QUARTERFINAL,
+        GAME_TYPES.CFP_SEMIFINAL,
+        GAME_TYPES.CFP_CHAMPIONSHIP,
+      ]
+      const sorted = [...cfpYearGames].sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type))
+      const lastGame = sorted[sorted.length - 1]
+      const lastWon = lastGame.g.perspective?.userWon === true
+      if (lastGame.type === GAME_TYPES.CFP_CHAMPIONSHIP && lastWon) {
+        cfpResult = { type: 'champion' }
+      } else if (!lastWon) {
+        cfpResult = { type: 'lost', round: ROUND_LABELS[lastGame.type] || 'CFP' }
+      } else {
+        // Won their last game but it wasn't the final — they advanced
+        // but the next round game isn't recorded yet.
+        cfpResult = { type: 'advanced', round: ROUND_LABELS[lastGame.type] || 'CFP' }
       }
     }
     const isNationalChamp = cfpResult?.type === 'champion'
 
     let bowlResult = null
     if (!cfpResult) {
-      const bowlGamesData = currentDynasty.bowlGamesByYear?.[year]
-      const bowlGames = Array.isArray(bowlGamesData) ? bowlGamesData : []
-      const teamBowl = bowlGames.find(b => isStintTeamInGame(b))
-      if (teamBowl && (teamBowl.winner || teamBowl.winnerTid)) {
+      const bowlGame = yearStintGames.find(g => detectGameType(g) === GAME_TYPES.BOWL)
+      if (bowlGame && bowlGame.perspective) {
+        const stripped = bowlGame.bowlName ? bowlGame.bowlName.replace(/\s+Bowl$/i, '') : 'Bowl'
         bowlResult = {
-          bowlName: teamBowl.bowlName?.replace(' Bowl', '') || 'Bowl',
-          won: didStintTeamWin(teamBowl)
+          bowlName: stripped || 'Bowl',
+          won: bowlGame.perspective.userWon === true,
         }
       }
     }
@@ -1038,11 +1055,15 @@ function YearByYearTable({ stint, currentDynasty, pathPrefix, navigate }) {
       postseasonText = 'Won the National Championship'
     } else if (cfpResult?.type === 'lost') {
       postseasonText = `Lost in ${cfpResult.round}`
+    } else if (cfpResult?.type === 'advanced') {
+      postseasonText = `Advanced past ${cfpResult.round}`
     } else if (bowlResult) {
-      postseasonText = bowlResult.won ? `Won the ${bowlResult.bowlName}` : `Lost the ${bowlResult.bowlName}`
+      postseasonText = bowlResult.won
+        ? `Won the ${bowlResult.bowlName} Bowl`
+        : `Lost the ${bowlResult.bowlName} Bowl`
     }
 
-    years.push({ year, wins, losses, hasRecord, wonCC, cfpResult, bowlResult, isNationalChamp, finalRank, postseasonText })
+    years.push({ year, wins, losses, hasRecord, cfpResult, bowlResult, isNationalChamp, finalRank, postseasonText })
   }
 
   if (years.length === 0) return null
