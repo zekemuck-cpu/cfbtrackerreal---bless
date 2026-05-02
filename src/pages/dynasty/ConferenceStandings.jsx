@@ -201,7 +201,7 @@ export default function ConferenceStandings() {
   })
 
   const heroActions = !isViewOnly ? (
-    <Button variant="primary" size="sm" onClick={() => setShowConferencesModal(true)}>
+    <Button variant="secondary" size="sm" onClick={() => setShowConferencesModal(true)}>
       Edit
     </Button>
   ) : null

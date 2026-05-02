@@ -360,7 +360,7 @@ export default function Players() {
             action={
               allPlayers.length > 0 && (
                 <Button
-                  variant="primary"
+                  variant="secondary"
                   onClick={() => { setSearchQuery(''); setPositionFilter('All'); }}
                 >
                   Clear Filters

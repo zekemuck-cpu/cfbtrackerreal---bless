@@ -457,7 +457,7 @@ export default function Awards() {
   const hasAnyAwards = heismanData || eliteAwards.length > 0 || positionAwards.length > 0
 
   const heroActions = !isViewOnly ? (
-    <Button variant="primary" size="sm" onClick={() => setShowAwardsModal(true)}>
+    <Button variant="secondary" size="sm" onClick={() => setShowAwardsModal(true)}>
       Edit
     </Button>
   ) : null
@@ -484,7 +484,7 @@ export default function Awards() {
             title="No Awards Yet"
             message={`Award winners for the ${displayYear} season haven't been recorded yet.`}
             action={!isViewOnly && (
-              <Button variant="primary" onClick={() => setShowAwardsModal(true)}>
+              <Button variant="secondary" onClick={() => setShowAwardsModal(true)}>
                 Add Awards
               </Button>
             )}

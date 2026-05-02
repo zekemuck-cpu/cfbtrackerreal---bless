@@ -414,7 +414,7 @@ export default function AllAmericans() {
   const hasAnyPlayers = allAmericans.length > 0
 
   const heroActions = !isViewOnly ? (
-    <Button variant="primary" size="sm" onClick={() => setShowEditModal(true)}>
+    <Button variant="secondary" size="sm" onClick={() => setShowEditModal(true)}>
       Edit
     </Button>
   ) : null
@@ -453,7 +453,7 @@ export default function AllAmericans() {
             title="No All-Americans Yet"
             message={`All-American selections for the ${displayYear} season haven't been recorded yet.`}
             action={!isViewOnly && (
-              <Button variant="primary" onClick={() => setShowEditModal(true)}>
+              <Button variant="secondary" onClick={() => setShowEditModal(true)}>
                 Add All-Americans
               </Button>
             )}
