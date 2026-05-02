@@ -918,31 +918,43 @@ export default function Recruiting() {
 
             const starCount = Number(recruit.stars) || 0
             const archAndSize = [recruit.archetype, sizeText].filter(Boolean).join(' · ')
+            // Scouting-report card. Three vertical bands separated by hairline
+            // rules so the eye can scan: identity → scouting → context.
+            const sizeOnly = (recruit.height || recruit.weight)
+              ? `${recruit.height || ''}${recruit.height && recruit.weight ? ', ' : ''}${recruit.weight ? `${recruit.weight} lbs` : ''}`
+              : null
             const cardContent = (
               <Card
                 padding="none"
                 variant="bordered"
                 interactive={!!player}
-                className="h-full overflow-hidden group"
+                className="h-full overflow-hidden group relative"
               >
-                <div className="p-2.5 flex flex-col h-full">
-                  {/* Top row — photo, name, position+class+stars (2 rows of content) */}
-                  <div className="flex items-start gap-2.5">
+                {/* Top accent stripe — neutral surface, not team-colored */}
+                <span
+                  aria-hidden="true"
+                  className="absolute top-0 left-0 right-0 h-[2px]"
+                  style={{ backgroundColor: 'var(--surface-5)' }}
+                />
+
+                <div className="p-3 flex flex-col h-full gap-2.5">
+                  {/* === IDENTITY BAND === photo + name + pos·class + stars */}
+                  <div className="flex items-start gap-3">
                     {player?.pictureUrl ? (
                       <img
                         src={player.pictureUrl}
                         alt={recruit.name}
-                        className="w-11 h-11 object-cover rounded-sm flex-shrink-0"
+                        className="w-12 h-12 object-cover rounded-md flex-shrink-0"
                         style={{ border: '1px solid var(--surface-4)' }}
                       />
                     ) : (
                       <div
-                        className="w-11 h-11 rounded-sm flex-shrink-0 flex items-center justify-center"
+                        className="w-12 h-12 rounded-md flex-shrink-0 flex items-center justify-center"
                         style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
                       >
                         <span
-                          className="text-base font-black uppercase tracking-wide text-txt-muted"
-                          style={{ fontFamily: "'Bebas Neue', sans-serif" }}
+                          className="text-sm font-black uppercase tracking-wide text-txt-secondary tabular-nums"
+                          style={{ letterSpacing: '0.05em' }}
                         >
                           {(recruit.position || 'ATH').slice(0, 3)}
                         </span>
@@ -950,80 +962,128 @@ export default function Recruiting() {
                     )}
                     <div className="flex-1 min-w-0">
                       <h3
-                        className="text-sm font-black uppercase tracking-wide text-txt-primary leading-tight truncate"
-                        style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1px' }}
+                        className="font-display font-black text-txt-primary leading-tight truncate"
+                        style={{ fontSize: '16px', letterSpacing: '-0.02em' }}
                       >
                         {recruit.name || 'Unknown'}
                       </h3>
-                      {/* Position + class + stars on one row to keep the
-                          card top tight (was 3 stacked rows). */}
-                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                        <Badge variant="accent" size="sm">{recruit.position || 'ATH'}</Badge>
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
-                          {recruit.class || 'HS'}
-                          {isAllSeasons && recruit.recruitYear ? ` · ${recruit.recruitYear}` : ''}
-                        </span>
-                        <span className="flex items-center gap-0.5 ml-auto">
-                          {[...Array(5)].map((_, i) => (
-                            <svg
-                              key={i}
-                              className="w-2.5 h-2.5"
-                              fill={i < starCount ? 'var(--accent-warning)' : 'var(--surface-4)'}
-                              viewBox="0 0 20 20"
-                            >
-                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                            </svg>
-                          ))}
-                        </span>
+                      <div
+                        className="flex items-center gap-1.5 mt-0.5 label-xs text-txt-secondary"
+                        style={{ letterSpacing: '1.5px', fontSize: '10px' }}
+                      >
+                        <span className="font-bold">{recruit.position || 'ATH'}</span>
+                        <span className="text-txt-muted">·</span>
+                        <span>{recruit.class || 'HS'}</span>
+                        {isAllSeasons && recruit.recruitYear && (
+                          <>
+                            <span className="text-txt-muted">·</span>
+                            <span className="tabular-nums">{recruit.recruitYear}</span>
+                          </>
+                        )}
                       </div>
+                      {/* Stars — broadcast-style yellow, more prominent than before */}
+                      <span className="flex items-center gap-0.5 mt-1">
+                        {[...Array(5)].map((_, i) => (
+                          <svg
+                            key={i}
+                            className="w-3 h-3"
+                            fill={i < starCount ? 'var(--accent-warning, #f59e0b)' : 'var(--surface-4)'}
+                            viewBox="0 0 20 20"
+                          >
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                        ))}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Rank strip — editorial, tabular */}
+                  {/* === RANK BAND === editorial-magazine grid, no inner borders */}
                   {(recruit.nationalRank || recruit.stateRank || recruit.positionRank) && (
                     <div
-                      className="mt-1.5 grid grid-cols-3 text-center rounded-sm overflow-hidden"
-                      style={{ backgroundColor: 'var(--surface-1)', border: '1px solid var(--surface-4)' }}
+                      className="grid grid-cols-3 gap-2 py-2"
+                      style={{
+                        borderTop: '1px solid var(--rule-soft, var(--surface-4))',
+                        borderBottom: '1px solid var(--rule-soft, var(--surface-4))',
+                      }}
                     >
-                      <div className="py-0.5 px-1" style={{ borderRight: '1px solid var(--surface-4)' }}>
-                        <div className="text-[9px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Natl</div>
-                        <div className="text-xs font-black tabular text-txt-primary leading-none mt-0.5" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-                          {recruit.nationalRank ? `#${recruit.nationalRank}` : '—'}
+                      <div className="text-center">
+                        <div
+                          className="label-xs text-txt-tertiary"
+                          style={{ letterSpacing: '1.5px', fontSize: '9px' }}
+                        >
+                          NATL
+                        </div>
+                        <div
+                          className="font-display font-black tabular-nums text-txt-primary leading-none mt-1"
+                          style={{ fontSize: '17px', letterSpacing: '-0.02em' }}
+                        >
+                          {recruit.nationalRank ? recruit.nationalRank : '—'}
                         </div>
                       </div>
-                      <div className="py-0.5 px-1" style={{ borderRight: '1px solid var(--surface-4)' }}>
-                        <div className="text-[9px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{recruit.position || 'Pos'}</div>
-                        <div className="text-xs font-black tabular text-txt-primary leading-none mt-0.5" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-                          {recruit.positionRank ? `#${recruit.positionRank}` : '—'}
+                      <div
+                        className="text-center"
+                        style={{
+                          borderLeft: '1px solid var(--rule-soft, var(--surface-4))',
+                          borderRight: '1px solid var(--rule-soft, var(--surface-4))',
+                        }}
+                      >
+                        <div
+                          className="label-xs text-txt-tertiary"
+                          style={{ letterSpacing: '1.5px', fontSize: '9px' }}
+                        >
+                          {recruit.position || 'POS'}
+                        </div>
+                        <div
+                          className="font-display font-black tabular-nums text-txt-primary leading-none mt-1"
+                          style={{ fontSize: '17px', letterSpacing: '-0.02em' }}
+                        >
+                          {recruit.positionRank ? recruit.positionRank : '—'}
                         </div>
                       </div>
-                      <div className="py-0.5 px-1">
-                        <div className="text-[9px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{recruit.state || 'St'}</div>
-                        <div className="text-xs font-black tabular text-txt-primary leading-none mt-0.5" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-                          {recruit.stateRank ? `#${recruit.stateRank}` : '—'}
+                      <div className="text-center">
+                        <div
+                          className="label-xs text-txt-tertiary"
+                          style={{ letterSpacing: '1.5px', fontSize: '9px' }}
+                        >
+                          {recruit.state || 'ST'}
+                        </div>
+                        <div
+                          className="font-display font-black tabular-nums text-txt-primary leading-none mt-1"
+                          style={{ fontSize: '17px', letterSpacing: '-0.02em' }}
+                        >
+                          {recruit.stateRank ? recruit.stateRank : '—'}
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Meta — archetype + size on one line, hometown on another.
-                      Labels dropped (the values are self-explanatory). */}
-                  {(archAndSize || hometownText) && (
-                    <div className="mt-1.5 text-[11px] leading-snug">
-                      {archAndSize && (
-                        <div className="truncate font-semibold text-txt-primary">{archAndSize}</div>
+                  {/* === SCOUTING BAND === archetype, size, hometown */}
+                  {(recruit.archetype || sizeOnly || hometownText) && (
+                    <div className="text-[12px] leading-snug space-y-0.5">
+                      {recruit.archetype && (
+                        <div className="font-semibold text-txt-primary truncate">
+                          {recruit.archetype}
+                        </div>
+                      )}
+                      {sizeOnly && (
+                        <div className="text-txt-secondary tabular-nums truncate">
+                          {sizeOnly}
+                        </div>
                       )}
                       {hometownText && (
-                        <div className="truncate text-txt-tertiary">{hometownText}</div>
+                        <div className="text-txt-tertiary truncate">{hometownText}</div>
                       )}
                     </div>
                   )}
 
-                  {/* Bottom chips */}
+                  {/* === CONTEXT BAND === dev / gem-bust / transfer source */}
                   {showBottomChips && (
-                    <div className="flex items-center flex-wrap gap-1 mt-auto pt-1.5">
+                    <div
+                      className="flex items-center flex-wrap gap-1 mt-auto pt-2"
+                      style={{ borderTop: '1px solid var(--rule-soft, var(--surface-4))' }}
+                    >
                       {recruit.devTrait && (
-                        <Badge variant="outline" size="sm">
+                        <Badge variant="default" size="sm">
                           {recruit.devTrait}
                         </Badge>
                       )}
@@ -1037,12 +1097,16 @@ export default function Recruiting() {
                       )}
                       {recruit.previousTeam && (
                         <span
-                          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest bg-surface-3 text-txt-secondary"
-                          style={{ letterSpacing: '1.5px' }}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest"
+                          style={{
+                            letterSpacing: '1.5px',
+                            color: 'var(--text-secondary)',
+                            border: '1px solid var(--surface-5)',
+                          }}
                         >
-                          <span className="text-txt-tertiary">From</span>
+                          <span className="text-txt-tertiary">FROM</span>
                           {transferLogo && <img src={transferLogo} alt="" className="w-3.5 h-3.5 object-contain" />}
-                          <span>{previousTeamName}</span>
+                          <span className="truncate max-w-[100px]">{previousTeamName}</span>
                         </span>
                       )}
                     </div>
