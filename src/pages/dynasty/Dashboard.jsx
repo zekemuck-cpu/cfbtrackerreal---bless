@@ -8400,7 +8400,7 @@ export default function Dashboard() {
                         </span>
                       </div>
                       <span className="text-[10px] text-white/70">
-                        {entry.location === 'away' ? 'Away' : 'Home'}
+                        {entry.location === 'away' ? 'Away' : entry.location === 'neutral' ? 'Neutral' : 'Home'}
                       </span>
                     </div>
 
@@ -9017,7 +9017,7 @@ export default function Dashboard() {
                               </span>
                             </div>
                             <span className="text-[10px] text-white/70">
-                              {entry.location === 'away' ? 'Away' : 'Home'}
+                              {entry.location === 'away' ? 'Away' : entry.location === 'neutral' ? 'Neutral' : 'Home'}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">

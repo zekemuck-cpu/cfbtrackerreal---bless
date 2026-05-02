@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, getEncourageTransfers, getRecruitingCommitments } from '../../context/DynastyContext'
-import PlayerCardFlip from '../../components/PlayerCardFlip'
+import CardComposer from '../../components/CardComposer'
 import { getPlayerCards } from '../../utils/playerCards'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
@@ -5175,12 +5175,15 @@ export default function Player() {
                           )}
                         </div>
                       )}
-                      <PlayerCardFlip
-                        frontUrl={card.front || ''}
-                        backUrl={card.back || ''}
-                        accentColor={teamInfo.backgroundColor}
-                        sizeWidth="min(300px, 100%)"
-                      />
+                      <div style={{ width: 'min(300px, 100%)' }}>
+                        <CardComposer
+                          card={card}
+                          player={player}
+                          dynasty={currentDynasty}
+                          width="100%"
+                          className="rounded-xl shadow-2xl overflow-hidden"
+                        />
+                      </div>
                       {linkedGame && (
                         <Link
                           to={`${pathPrefix}/game/${linkedGame.id}`}

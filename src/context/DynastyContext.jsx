@@ -259,9 +259,13 @@ export function getTeamGamePerspective(game, tid) {
     won: teamScore > opponentScore,
     teamRank: isTeam1 ? game.team1Rank : game.team2Rank,
     opponentRank: isTeam1 ? game.team2Rank : game.team1Rank,
-    isHome: game.homeTeamTid === tid,
-    isAway: game.homeTeamTid !== null && game.homeTeamTid !== tid,
-    isNeutral: game.homeTeamTid === null
+    // Number-coerce both sides — legacy game records can store tids
+    // as strings and number-vs-string strict-eq silently misclassifies
+    // the home side (was the "every game shows Home" bug across the
+    // app). Null/undefined → neutral.
+    isHome: game.homeTeamTid != null && Number(game.homeTeamTid) === Number(tid),
+    isAway: game.homeTeamTid != null && Number(game.homeTeamTid) !== Number(tid),
+    isNeutral: game.homeTeamTid == null
   }
 }
 

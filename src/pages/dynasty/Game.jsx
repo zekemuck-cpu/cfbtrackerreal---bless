@@ -6,7 +6,7 @@ import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeam
 import { getTeamColors } from '../../data/teamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear } from '../../context/DynastyContext'
-import PlayerCardFlip from '../../components/PlayerCardFlip'
+import CardComposer from '../../components/CardComposer'
 import { getCardsForGame } from '../../utils/playerCards'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 // useTeamColors not needed - using neutral colors for game recap
@@ -607,6 +607,16 @@ export default function Game() {
 
   const game = findGame()
 
+  // IMPORTANT: All hooks must run on every render (Rules of Hooks).
+  // The early-return guards below would skip this useMemo on
+  // loading/missing-dynasty paths and trigger React error #310
+  // ("rendered more hooks than the previous render"). Compute the
+  // cards-for-game list here, before any conditional returns. The
+  // helper is null-safe so it's fine if game is still undefined.
+  const cardsForGame = useMemo(() => {
+    return getCardsForGame(currentDynasty, game?.id)
+  }, [currentDynasty, game?.id])
+
   if (!currentDynasty) {
     return <LoadingState message="Loading dynasty..." />
   }
@@ -636,13 +646,6 @@ export default function Game() {
   const autoDefaultTab = game.aiRecap ? 'gamecast' : 'boxscore'
   const effectiveDefaultTab = defaultTabPref === 'auto' ? autoDefaultTab : defaultTabPref
   const activeTab = searchParams.get('tab') || effectiveDefaultTab
-
-  // Trading cards tagged to this specific game — walks every
-  // player's cards[] array for one matching this game.id. Falls back
-  // to the legacy single-card fields via getCardsForGame.
-  const cardsForGame = useMemo(() => {
-    return getCardsForGame(currentDynasty, game?.id)
-  }, [currentDynasty, game?.id])
 
   // Get user perspective for this game (if user's team was in it)
   const perspective = getUserGamePerspective(game, currentDynasty)
@@ -2894,11 +2897,15 @@ export default function Game() {
                         {card.label}
                       </div>
                     )}
-                    <PlayerCardFlip
-                      frontUrl={card.front || ''}
-                      backUrl={card.back || ''}
-                      sizeWidth="min(280px, 100%)"
-                    />
+                    <div style={{ width: 'min(280px, 100%)' }}>
+                      <CardComposer
+                        card={card}
+                        player={p}
+                        dynasty={currentDynasty}
+                        width="100%"
+                        className="rounded-xl shadow-2xl overflow-hidden"
+                      />
+                    </div>
                   </div>
                 ))}
               </div>

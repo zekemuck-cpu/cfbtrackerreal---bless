@@ -3313,7 +3313,11 @@ export function isBowlInWeek2(bowlName) {
 // preserved on save (we never overwrite scores the user entered through the
 // schedule flow).
 // ============================================================================
-export const WEEKLY_SCORES_MAX_ROWS = 75
+// 130 rows comfortably covers a full Week 0/Week 1 slate (~90+ FBS
+// games when ranked vs unranked + FCS warm-ups all hit the same
+// week). Was 75; users hit the cap and Add-Row in Sheets snapped
+// back without saving, so we lost rows past 75.
+export const WEEKLY_SCORES_MAX_ROWS = 130
 
 export async function createWeeklyScoresSheet(dynastyName, year, week, existingGames = [], dynastyTeams = null) {
   try {

@@ -8,7 +8,6 @@ import { TEAMS, getTidFromAbbr } from '../../data/teamRegistry'
 import { getTeamLogoByTid, getMascotName } from '../../data/teams'
 import { useToast } from '../../components/ui/Toast'
 import ImageUpload from '../../components/ImageUpload'
-import CardPromptBuilder from '../../components/CardPromptBuilder'
 import PlayerCardListEditor from '../../components/PlayerCardListEditor'
 import { getPlayerCards } from '../../utils/playerCards'
 
@@ -2536,7 +2535,7 @@ export default function PlayerEdit() {
           </div>
         )}
 
-        {/* Card Tab — multi-card collection editor + AI prompt builder */}
+        {/* Card Tab — multi-card collection editor backed by templates */}
         {activeTab === 'card' && (
           <div className="space-y-6">
             <div className="card">
@@ -2545,12 +2544,11 @@ export default function PlayerEdit() {
                   Trading Cards
                 </h2>
               </div>
-
-              {/* The card list editor — each card is its own panel
-                  with front/back uploads, year, label, and game tag. */}
-              <div className="p-5 border-b border-surface-4">
+              <div className="p-5">
                 <p className="text-xs text-txt-tertiary mb-4">
-                  A player can have as many cards as you want — different seasons, different brands, different game moments. Drop a CFB 26 screenshot, an AI-generated image, or any URL into each card's front/back, then optionally tag it to a year, give it a label, and link it to a specific game.
+                  Pick a template, drop in a CFB 26 screenshot, and the player's name, jersey, position, class, and team logo
+                  auto-fit into each zone. Add as many cards per player as you want — different seasons, different game moments,
+                  different templates.
                 </p>
                 <PlayerCardListEditor
                   cards={formData.cards || []}
@@ -2559,23 +2557,6 @@ export default function PlayerEdit() {
                   dynasty={dynasty}
                   teamColors={teamColors}
                 />
-              </div>
-
-              {/* AI PROMPT BUILDER — paste-into-your-AI workflow for
-                  generating new card art. Independent of the cards
-                  list above; the user uploads the AI's output as a
-                  new card after generating it. */}
-              <div className="p-5 space-y-3">
-                <div>
-                  <div className="label-xs text-txt-tertiary mb-1" style={{ letterSpacing: '1.5px' }}>
-                    Need card art? Use the prompt builder
-                  </div>
-                  <h3 className="text-base font-bold text-txt-primary">Generate a card with AI</h3>
-                  <p className="text-xs text-txt-tertiary mt-1">
-                    Build a prompt below, paste it into your AI image tool of choice, and add the result as a new card in the collection above.
-                  </p>
-                </div>
-                <CardPromptBuilder player={player} dynasty={dynasty} />
               </div>
             </div>
           </div>

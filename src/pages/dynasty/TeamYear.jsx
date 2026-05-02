@@ -707,7 +707,19 @@ export default function TeamYear() {
             teamScore: thisTeamScore,
             opponentScore: otherTeamScore,
             result: isGamePlayed ? (teamWon ? 'win' : 'loss') : null,
-            location: g.homeTeamTid === tid ? 'home' : (g.homeTeamTid === opponentTid ? 'away' : 'neutral'),
+            // Coerce to Number on both sides — Firestore round-trips
+            // can leave tids as strings on legacy records and a 5 vs
+            // "5" strict-eq returns false, which silently flipped
+            // every saved game to 'neutral' and then "Home" by display
+            // fallback (the "everyone played all home games" bug).
+            location: (() => {
+              const homeT = g.homeTeamTid == null ? null : Number(g.homeTeamTid)
+              const myT = Number(tid)
+              const oppT = opponentTid == null ? null : Number(opponentTid)
+              if (homeT === myT) return 'home'
+              if (homeT === oppT) return 'away'
+              return 'neutral'
+            })(),
             opponentRank: opponentRank || g.opponentRank
           })
         } else if (g.opponent) {
@@ -727,7 +739,14 @@ export default function TeamYear() {
       // Game played AGAINST this team - flip perspective
       const flippedResult = isGamePlayed ? (teamWon ? 'win' : 'loss') : null
       const flippedLocation = hasUnifiedFormat
-        ? (g.homeTeamTid === tid ? 'home' : (g.homeTeamTid === opponentTid ? 'away' : 'neutral'))
+        ? (() => {
+            const homeT = g.homeTeamTid == null ? null : Number(g.homeTeamTid)
+            const myT = Number(tid)
+            const oppT = opponentTid == null ? null : Number(opponentTid)
+            if (homeT === myT) return 'home'
+            if (homeT === oppT) return 'away'
+            return 'neutral'
+          })()
         : (g.location === 'home' ? 'away' : (g.location === 'away' ? 'home' : g.location))
 
       // Get the other team's info for display
@@ -1619,16 +1638,23 @@ export default function TeamYear() {
 
         // Record win/loss
         const isWin = teamScore > oppScore
+        // Coerce to Number for the home-team check — Firestore can
+        // round-trip tids as strings on legacy game records and a
+        // number-vs-string strict-eq silently mis-classifies every
+        // game as away (or, with the location renderer's fallback,
+        // every game as Home).
+        const _homeIsThisTeam = game.homeTeamTid != null && Number(game.homeTeamTid) === Number(tid)
+        const _hasHome = game.homeTeamTid != null
         if (isWin) {
           wins++
           if (game.isConferenceGame) confWins++
-          if (game.homeTeamTid === tid) homeWins++
-          else if (game.homeTeamTid !== null) awayWins++
+          if (_homeIsThisTeam) homeWins++
+          else if (_hasHome) awayWins++
         } else {
           losses++
           if (game.isConferenceGame) confLosses++
-          if (game.homeTeamTid === tid) homeLosses++
-          else if (game.homeTeamTid !== null) awayLosses++
+          if (_homeIsThisTeam) homeLosses++
+          else if (_hasHome) awayLosses++
         }
 
         // Calculate favorite/underdog status (same logic as TeamStats.jsx)
@@ -1738,9 +1764,11 @@ export default function TeamYear() {
           opponentTid,
           opponentAbbr,
           favoriteStatus,
-          isHome: game.homeTeamTid === tid,
-          isAway: game.homeTeamTid !== null && game.homeTeamTid !== tid,
-          isNeutral: game.homeTeamTid === null
+          // Number-coerce both sides so legacy string tids don't
+          // misclassify (was the "every game is Home" bug).
+          isHome: game.homeTeamTid != null && Number(game.homeTeamTid) === Number(tid),
+          isAway: game.homeTeamTid != null && Number(game.homeTeamTid) !== Number(tid),
+          isNeutral: game.homeTeamTid == null
         }
 
         // Add to games arrays
@@ -1757,8 +1785,9 @@ export default function TeamYear() {
       if (!game.boxScore) return
 
       let teamSide = null
-      if (isTeam1) teamSide = game.homeTeamTid === tid ? 'home' : 'away'
-      else if (isTeam2) teamSide = game.homeTeamTid === tid ? 'away' : 'home'
+      const _isMyHome = game.homeTeamTid != null && Number(game.homeTeamTid) === Number(tid)
+      if (isTeam1) teamSide = _isMyHome ? 'home' : 'away'
+      else if (isTeam2) teamSide = _isMyHome ? 'away' : 'home'
 
       if (!teamSide) {
         const homeAbbr = game.boxScore.teamStats?.home?.teamAbbr?.toUpperCase()
@@ -4678,7 +4707,7 @@ export default function TeamYear() {
                         {game.isCFPFirstRound ? (
                           /* CFP R1 games are hosted by higher seed - show Home/Away */
                           <span className="text-[10px]" style={{ color: accentColorMuted }}>
-                            {displayLocation === 'away' ? 'Away' : 'Home'}
+                            {displayLocation === 'away' ? 'Away' : displayLocation === 'neutral' ? 'Neutral' : 'Home'}
                           </span>
                         ) : (game.isBowlGame || game.isConferenceChampionship || game.isCFPSemifinal || game.isCFPQuarterfinal || game.isCFPChampionship) ? (
                           <span className="text-[10px]" style={{ color: accentColorMuted }}>
@@ -4686,7 +4715,7 @@ export default function TeamYear() {
                           </span>
                         ) : (
                           <span className="text-[10px]" style={{ color: accentColorMuted }}>
-                            {displayLocation === 'away' ? 'Away' : 'Home'}
+                            {displayLocation === 'away' ? 'Away' : displayLocation === 'neutral' ? 'Neutral' : 'Home'}
                           </span>
                         )}
                       </div>
