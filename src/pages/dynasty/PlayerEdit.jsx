@@ -839,12 +839,14 @@ export default function PlayerEdit() {
   const teamLogo = getTeamLogoByTid(playerTeamTid, dynasty?.teams)
 
   // Tab configuration
+  // Note: the 'card' tab (Trading Cards) is hidden until the feature is
+  // production-ready. The renderer below still handles activeTab === 'card'
+  // so legacy deep-links don't crash, but no UI exposes the tab.
   const tabs = [
     { id: 'profile', label: 'Profile' },
     { id: 'career', label: 'Career' },
     { id: 'stats', label: 'Stats' },
     { id: 'awards', label: 'Awards' },
-    { id: 'card', label: 'Card' },
   ]
 
   return (
