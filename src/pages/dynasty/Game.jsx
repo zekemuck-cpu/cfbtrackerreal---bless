@@ -1031,8 +1031,6 @@ export default function Game() {
   const getTeamData = (side) => {
     const isDisplayTeam = side === 'user'
 
-    // For CPU games, get record and rating from team1/team2 fields
-    let record = null
     let overall = null
     let offense = null
     let defense = null
@@ -1042,23 +1040,15 @@ export default function Game() {
       const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
       const team1Abbr = team1Info?.abbr || game.team1
       const isTeam1 = isDisplayTeam ? (displayTeamAbbr === team1Abbr) : (opponentAbbr === team1Abbr)
-      record = isTeam1 ? game.team1Record : game.team2Record
       overall = isTeam1 ? game.team1Overall : game.team2Overall
       offense = isTeam1 ? game.team1Offense : game.team2Offense
       defense = isTeam1 ? game.team1Defense : game.team2Defense
     } else {
-      // User game - for unified format, user is team1, opponent is team2
-      // For opponent record: check team2Record (unified) then opponentRecord (legacy)
-      const opponentRecordStr = game.team2Record || game.opponentRecord
-      const opponentConfStr = game.team2ConfRecord || ''
-      record = isDisplayTeam && userRecord
-        ? `${userRecord.overall} (${userRecord.conference})`
-        : (opponentRecordStr ? `${opponentRecordStr}${opponentConfStr ? ` (${opponentConfStr})` : ''}` : null)
       // For unified format: user ratings in team1*, opponent ratings in team2*
       // For legacy format: opponent ratings in opponent* fields
       overall = isDisplayTeam
-        ? (game.team1Overall ?? null)  // User's overall from unified format
-        : (game.team2Overall ?? game.opponentOverall ?? null)  // Opponent's overall
+        ? (game.team1Overall ?? null)
+        : (game.team2Overall ?? game.opponentOverall ?? null)
       offense = isDisplayTeam
         ? (game.team1Offense ?? null)
         : (game.team2Offense ?? game.opponentOffense ?? null)
@@ -1080,6 +1070,34 @@ export default function Game() {
       tid = isTeam1 ? team1Tid : team2Tid
     } else {
       tid = isDisplayTeam ? (game.team1Tid ?? game.userTid ?? null) : (game.team2Tid ?? game.opponentTid ?? null)
+    }
+
+    // Records always come from the single source of truth — the dynasty's
+    // games array via getRecordAsOfGame. This guarantees both teams (CPU or
+    // user) display identical records to the rest of the app, regardless of
+    // whatever stale strings might be saved on the game record itself.
+    let record = null
+    if (tid != null && currentDynasty) {
+      const r = getRecordAsOfGame(currentDynasty, game, tid)
+      if (r && (r.wins > 0 || r.losses > 0 || r.confWins > 0 || r.confLosses > 0)) {
+        record = `${r.overall} (${r.conference})`
+      }
+    }
+    if (!record) {
+      // Fallback when tid is missing or the team has no recorded games yet
+      // (e.g. season opener viewed pre-save) — use the saved string fields.
+      if (isCPUGame) {
+        const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
+        const team1Abbr = team1Info?.abbr || game.team1
+        const isTeam1 = isDisplayTeam ? (displayTeamAbbr === team1Abbr) : (opponentAbbr === team1Abbr)
+        record = isTeam1 ? game.team1Record : game.team2Record
+      } else if (isDisplayTeam && userRecord) {
+        record = `${userRecord.overall} (${userRecord.conference})`
+      } else {
+        const oppRec = game.team2Record || game.opponentRecord
+        const oppConf = game.team2ConfRecord || ''
+        record = oppRec ? `${oppRec}${oppConf ? ` (${oppConf})` : ''}` : null
+      }
     }
 
     return {
