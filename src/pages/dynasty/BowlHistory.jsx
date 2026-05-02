@@ -291,14 +291,7 @@ export default function BowlHistory() {
   return (
     <div className="space-y-4 page-enter">
       <PageHero
-        eyebrow="Postseason"
         title="Bowl History"
-        meta={
-          <>
-            <span className="tabular">{totalBowlGames}</span>
-            <span>bowl game{totalBowlGames !== 1 ? 's' : ''} played</span>
-          </>
-        }
         actions={
           !isViewOnly && (
             <Button variant="secondary" size="sm" onClick={() => setShowEditModal(true)}>
@@ -307,44 +300,6 @@ export default function BowlHistory() {
           )
         }
       >
-        {/* Broadcast-style stat strip: big tabular numerals over tracked
-            uppercase labels. Two tiles balance the hero without inflating
-            it. */}
-        <div className="flex items-stretch gap-3 sm:gap-6 mb-4">
-          <div className="flex-1 sm:flex-none sm:min-w-[120px]">
-            <div
-              className="font-display font-black tabular text-txt-primary leading-none"
-              style={{ fontSize: '40px', letterSpacing: '-0.03em' }}
-            >
-              {totalBowlGames}
-            </div>
-            <div
-              className="label-xs text-txt-tertiary mt-1.5"
-              style={{ letterSpacing: '2px', fontSize: '10px' }}
-            >
-              GAMES PLAYED
-            </div>
-          </div>
-          <div
-            className="hidden sm:block w-px"
-            style={{ backgroundColor: 'var(--surface-4)' }}
-          />
-          <div className="flex-1 sm:flex-none sm:min-w-[120px]">
-            <div
-              className="font-display font-black tabular text-txt-primary leading-none"
-              style={{ fontSize: '40px', letterSpacing: '-0.03em' }}
-            >
-              {distinctBowlsPlayed}
-            </div>
-            <div
-              className="label-xs text-txt-tertiary mt-1.5"
-              style={{ letterSpacing: '2px', fontSize: '10px' }}
-            >
-              {distinctBowlsPlayed === 1 ? 'BOWL VISITED' : 'BOWLS VISITED'}
-            </div>
-          </div>
-        </div>
-
         <div className="max-w-md">
           <Input
             type="text"

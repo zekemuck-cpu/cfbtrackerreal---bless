@@ -241,72 +241,7 @@ export default function ConferenceChampionshipHistory() {
 
   return (
     <div className="space-y-4 page-enter">
-      <PageHero
-        eyebrow="Postseason"
-        title="Conference Championships"
-        meta={
-          <>
-            <span className="tabular">{totalCCGames}</span>
-            <span>game{totalCCGames !== 1 ? 's' : ''} across</span>
-            <span className="tabular">{seasonCount}</span>
-            <span>season{seasonCount !== 1 ? 's' : ''}</span>
-          </>
-        }
-      >
-        {/* Broadcast stat strip — three tiles: games / seasons / leagues. */}
-        <div className="flex items-stretch gap-3 sm:gap-6 mb-4">
-          <div className="flex-1 sm:flex-none sm:min-w-[110px]">
-            <div
-              className="font-display font-black tabular text-txt-primary leading-none"
-              style={{ fontSize: '40px', letterSpacing: '-0.03em' }}
-            >
-              {totalCCGames}
-            </div>
-            <div
-              className="label-xs text-txt-tertiary mt-1.5"
-              style={{ letterSpacing: '2px', fontSize: '10px' }}
-            >
-              {totalCCGames === 1 ? 'GAME' : 'GAMES'}
-            </div>
-          </div>
-          <div
-            className="hidden sm:block w-px"
-            style={{ backgroundColor: 'var(--surface-4)' }}
-          />
-          <div className="flex-1 sm:flex-none sm:min-w-[110px]">
-            <div
-              className="font-display font-black tabular text-txt-primary leading-none"
-              style={{ fontSize: '40px', letterSpacing: '-0.03em' }}
-            >
-              {seasonCount}
-            </div>
-            <div
-              className="label-xs text-txt-tertiary mt-1.5"
-              style={{ letterSpacing: '2px', fontSize: '10px' }}
-            >
-              {seasonCount === 1 ? 'SEASON' : 'SEASONS'}
-            </div>
-          </div>
-          <div
-            className="hidden sm:block w-px"
-            style={{ backgroundColor: 'var(--surface-4)' }}
-          />
-          <div className="flex-1 sm:flex-none sm:min-w-[110px]">
-            <div
-              className="font-display font-black tabular text-txt-primary leading-none"
-              style={{ fontSize: '40px', letterSpacing: '-0.03em' }}
-            >
-              {distinctConferences}
-            </div>
-            <div
-              className="label-xs text-txt-tertiary mt-1.5"
-              style={{ letterSpacing: '2px', fontSize: '10px' }}
-            >
-              {distinctConferences === 1 ? 'CONFERENCE' : 'CONFERENCES'}
-            </div>
-          </div>
-        </div>
-
+      <PageHero title="Conference Championships">
         <div className="max-w-md">
           <Input
             type="text"
