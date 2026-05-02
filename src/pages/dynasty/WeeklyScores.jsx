@@ -73,7 +73,10 @@ function GameCard({ game, teams, pathPrefix, recordsByTid }) {
     }
   }
 
-  const statusLabel = !isPlayed ? 'Scheduled' : isTie ? 'Tie · Final' : 'Final'
+  // Only surface a header strip for non-default states (tie, scheduled).
+  // "Final" is implied by a played game's score, so we don't repeat it.
+  const statusLabel = !isPlayed ? 'Scheduled' : isTie ? 'Tie' : null
+  const showStatusStrip = statusLabel != null || isNeutral
 
   const TeamRow = ({ tid, team, score, won, lost, record, rank }) => {
     const mascot = getMascotNameFromTeams(tid, teams) || team?.name || ''
@@ -149,39 +152,41 @@ function GameCard({ game, teams, pathPrefix, recordsByTid }) {
       className="game-card relative rounded-md overflow-hidden bg-surface-2 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-surface-5"
       style={{ border: '1px solid var(--rule-soft, var(--surface-4))' }}
     >
-      {/* Sports-page status strip: FINAL / Scheduled, with neutral marker on the right */}
-      <div
-        className="flex items-center justify-between px-3 py-1.5"
-        style={{
-          backgroundColor: 'var(--surface-1)',
-          borderBottom: '1px solid var(--surface-4)',
-        }}
-      >
-        <span
+      {/* Header strip only renders for non-default states (tie, scheduled, neutral) */}
+      {showStatusStrip && (
+        <div
+          className="flex items-center justify-between px-3 py-1.5"
           style={{
-            fontSize: '10px',
-            fontWeight: 700,
-            color: isPlayed ? 'var(--text-secondary)' : 'var(--text-tertiary)',
-            letterSpacing: '1.6px',
-            textTransform: 'uppercase',
+            backgroundColor: 'var(--surface-1)',
+            borderBottom: '1px solid var(--surface-4)',
           }}
         >
-          {statusLabel}
-        </span>
-        {isNeutral && (
           <span
             style={{
               fontSize: '10px',
-              fontWeight: 600,
-              color: 'var(--text-tertiary)',
-              letterSpacing: '1.4px',
+              fontWeight: 700,
+              color: 'var(--text-secondary)',
+              letterSpacing: '1.6px',
               textTransform: 'uppercase',
             }}
           >
-            Neutral
+            {statusLabel || ''}
           </span>
-        )}
-      </div>
+          {isNeutral && (
+            <span
+              style={{
+                fontSize: '10px',
+                fontWeight: 600,
+                color: 'var(--text-tertiary)',
+                letterSpacing: '1.4px',
+                textTransform: 'uppercase',
+              }}
+            >
+              Neutral
+            </span>
+          )}
+        </div>
+      )}
       <TeamRow
         tid={topTid}
         team={topTeam}
