@@ -926,8 +926,13 @@ export default function Recruiting() {
             const showFromChip = isPortalRecruit && !!previousTeamName
             // Gem/bust is intentionally omitted from the tile — it adds
             // visual noise and isn't load-bearing in the directory view.
-            const hasMetaChips = !!recruit.devTrait
-            const showBottomChips = hasMetaChips || showFromChip
+            // Dev trait now rides along inline in the identity row instead
+            // of sitting in its own footer chip. Footer chip is now a
+            // single unified marker: FROM-school for portal guys,
+            // "HIGH SCHOOL" for everyone else, so every tile ends with
+            // the same visual element.
+            const showHsMarker = !showFromChip
+            const showBottomChips = showFromChip || showHsMarker
 
             const starCount = Number(recruit.stars) || 0
             const archAndSize = [recruit.archetype, sizeText].filter(Boolean).join(' · ')
@@ -987,6 +992,12 @@ export default function Recruiting() {
                         <span className="font-bold">{recruit.position || 'ATH'}</span>
                         <span className="text-txt-muted">·</span>
                         <span>{recruit.class || 'HS'}</span>
+                        {recruit.devTrait && (
+                          <>
+                            <span className="text-txt-muted">·</span>
+                            <span>{recruit.devTrait}</span>
+                          </>
+                        )}
                         {isAllSeasons && recruit.recruitYear && (
                           <>
                             <span className="text-txt-muted">·</span>
@@ -1093,42 +1104,42 @@ export default function Recruiting() {
                     </div>
                   )}
 
-                  {/* === CONTEXT BAND === fixed two-row footer so chip
-                      positions line up across the grid:
-                        Row A: dev trait (centered)
-                        Row B: transfer source (portal-only, centered)
-                      Empty rows are omitted, but pinning the whole block to
-                      mt-auto keeps the band welded to the bottom of every
-                      card so align-stretch keeps the rows in register. */}
+                  {/* === CONTEXT BAND === one unified marker so every
+                      tile ends with the same shape:
+                        - Portal recruits: FROM-school chip (school logo + name)
+                        - HS recruits:     "HIGH SCHOOL" chip
+                      Dev trait moved up into the identity row, so this
+                      band is now a single centered chip on every card,
+                      keeping vertical heights in sync across the grid. */}
                   {showBottomChips && (
                     <div
-                      className="mt-auto pt-2 space-y-1.5"
+                      className="mt-auto pt-2 flex justify-center"
                       style={{ borderTop: '1px solid var(--rule-soft, var(--surface-4))' }}
                     >
-                      {hasMetaChips && (
-                        <div className="flex items-center justify-center gap-1">
-                          {recruit.devTrait && (
-                            <Badge variant="default" size="sm">
-                              {recruit.devTrait}
-                            </Badge>
-                          )}
-                        </div>
-                      )}
-                      {showFromChip && (
-                        <div className="flex justify-center">
-                          <span
-                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest min-w-0"
-                            style={{
-                              letterSpacing: '1.5px',
-                              color: 'var(--text-secondary)',
-                              border: '1px solid var(--surface-5)',
-                            }}
-                          >
-                            <span className="text-txt-tertiary flex-shrink-0">FROM</span>
-                            {transferLogo && <img src={transferLogo} alt="" className="w-3.5 h-3.5 object-contain flex-shrink-0" />}
-                            <span className="truncate">{previousTeamName}</span>
-                          </span>
-                        </div>
+                      {showFromChip ? (
+                        <span
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest min-w-0"
+                          style={{
+                            letterSpacing: '1.5px',
+                            color: 'var(--text-secondary)',
+                            border: '1px solid var(--surface-5)',
+                          }}
+                        >
+                          <span className="text-txt-tertiary flex-shrink-0">FROM</span>
+                          {transferLogo && <img src={transferLogo} alt="" className="w-3.5 h-3.5 object-contain flex-shrink-0" />}
+                          <span className="truncate">{previousTeamName}</span>
+                        </span>
+                      ) : (
+                        <span
+                          className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest"
+                          style={{
+                            letterSpacing: '1.5px',
+                            color: 'var(--text-tertiary)',
+                            border: '1px solid var(--surface-5)',
+                          }}
+                        >
+                          High School
+                        </span>
                       )}
                     </div>
                   )}
