@@ -28,81 +28,124 @@
 //   - 'year'         — the season year ("2034")
 //   - 'label'        — the user's optional card label
 
-// Holo Teal — chrome refractor with teal accent ribbons. Zones
-// estimated from the user-supplied template; can be fine-tuned by
-// nudging the percentages once the template image is in place.
-const HOLO_TEAL_IMAGE = 'https://i.ibb.co/CONFIGURE_ME/holo_teal.png'
-
+// Holo Teal — pure-CSS card frame. No external PNG dependency: the
+// composer renders the frame from the `cssFrame` config below and
+// each zone draws its own styled container (banner, logo plate,
+// jersey chip, etc.) so the card renders correctly regardless of
+// asset hosting. Originally pointed at a placeholder ibb URL that
+// never got configured, leaving cards as floating text on an empty
+// background.
 export const CARD_TEMPLATES = {
   holo_teal: {
     id: 'holo_teal',
     label: 'Holo Teal',
-    imageUrl: HOLO_TEAL_IMAGE,
     aspectRatio: 5 / 7,
+    // CSS frame: rendered by the composer instead of an <img>
+    // background. Layered: deep navy base, holographic teal sheen,
+    // hairline border, subtle inner shadow. Doesn't compete with the
+    // photo for attention — the player is the hero.
+    cssFrame: {
+      background: [
+        // Dim teal radial sheen behind the photo for depth
+        'radial-gradient(ellipse at 50% 38%, rgba(20, 184, 166, 0.35) 0%, rgba(20, 184, 166, 0) 55%)',
+        // Diagonal holographic streaks
+        'linear-gradient(135deg, rgba(94, 234, 212, 0.10) 0%, rgba(15, 23, 42, 0) 35%, rgba(94, 234, 212, 0.08) 65%, rgba(15, 23, 42, 0) 100%)',
+        // Base — dark navy with a subtle vertical fade
+        'linear-gradient(180deg, #0b1424 0%, #0a1f2e 60%, #050d18 100%)',
+      ].join(', '),
+      border: '1px solid rgba(94, 234, 212, 0.28)',
+      borderRadius: '14px',
+      boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 18px 42px rgba(0, 0, 0, 0.55)',
+    },
     // Each zone: { x, y, w, h } in percentages of the card; optional
-    // `rotate` (degrees), `slot`, `style` (text only).
+    // `rotate`, `slot`, plus a `container` style for the chip itself
+    // (background/border/radius — drawn under the slot content).
     zones: [
-      // Top banner — player name (long horizontal slab top center)
+      // Top name banner — wide teal slab with white block letters.
       {
         slot: 'last_name',
-        x: 13.5, y: 4.0, w: 60.0, h: 9.0,
-        textAlign: 'center',
-        color: '#0f172a',
-        fontWeight: 900,
-        fontFamily: "'Bebas Neue', sans-serif",
-        autoFit: true,
-        letterSpacing: '2px',
-      },
-      // Top-right small rounded box — team logo
-      {
-        slot: 'team_logo',
-        x: 79.0, y: 4.0, w: 16.0, h: 9.5,
-        objectFit: 'contain',
-      },
-      // Top-left angled shield — class
-      {
-        slot: 'class',
-        x: 6.5, y: 14.0, w: 14.0, h: 11.5,
-        textAlign: 'center',
-        color: '#0f172a',
-        fontWeight: 800,
-        fontFamily: "'Bebas Neue', sans-serif",
-        autoFit: true,
-      },
-      // Main center photo zone
-      {
-        slot: 'photo',
-        x: 8.5, y: 14.0, w: 82.0, h: 64.0,
-        objectFit: 'cover',
-        radius: 12,
-      },
-      // Bottom-left hexagon — team logo (larger emblem)
-      {
-        slot: 'team_logo',
-        x: 6.0, y: 80.0, w: 18.5, h: 13.0,
-        objectFit: 'contain',
-      },
-      // Bottom angled ribbon — school + position
-      {
-        slot: 'school',
-        x: 26.0, y: 88.5, w: 49.0, h: 8.0,
-        rotate: -7,
+        x: 4.0, y: 4.0, w: 92.0, h: 8.5,
         textAlign: 'center',
         color: '#ffffff',
-        fontWeight: 800,
-        fontFamily: "'Bebas Neue', sans-serif",
-        autoFit: true,
-        letterSpacing: '1.5px',
-      },
-      // Bottom-right small rounded box — jersey number
-      {
-        slot: 'jersey',
-        x: 79.0, y: 80.5, w: 16.0, h: 9.0,
-        textAlign: 'center',
-        color: '#0f172a',
         fontWeight: 900,
         fontFamily: "'Bebas Neue', sans-serif",
-        autoFit: true,
+        letterSpacing: '4px',
+        container: {
+          background: 'linear-gradient(90deg, rgba(20, 184, 166, 0.15) 0%, rgba(20, 184, 166, 0.45) 50%, rgba(20, 184, 166, 0.15) 100%)',
+          borderTop: '1px solid rgba(94, 234, 212, 0.45)',
+          borderBottom: '1px solid rgba(94, 234, 212, 0.45)',
+        },
+      },
+      // Main photo — large window with a thin teal frame and corner
+      // glow. The radius matches the card's outer radius so it sits
+      // cleanly inside.
+      {
+        slot: 'photo',
+        x: 5.0, y: 15.5, w: 90.0, h: 60.0,
+        objectFit: 'cover',
+        radius: 8,
+        container: {
+          border: '1px solid rgba(94, 234, 212, 0.5)',
+          boxShadow: '0 0 16px rgba(20, 184, 166, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.05)',
+          borderRadius: '8px',
+          overflow: 'hidden',
+        },
+      },
+      // Bottom school banner — full-width slab with the school name.
+      {
+        slot: 'school',
+        x: 4.0, y: 78.0, w: 92.0, h: 8.5,
+        textAlign: 'center',
+        color: '#ffffff',
+        fontWeight: 900,
+        fontFamily: "'Bebas Neue', sans-serif",
+        letterSpacing: '3px',
+        container: {
+          background: 'linear-gradient(90deg, rgba(15, 23, 42, 0.85) 0%, rgba(20, 184, 166, 0.35) 50%, rgba(15, 23, 42, 0.85) 100%)',
+          borderTop: '1px solid rgba(94, 234, 212, 0.45)',
+          borderBottom: '1px solid rgba(94, 234, 212, 0.45)',
+        },
+      },
+      // Bottom-left team logo — small white plate.
+      {
+        slot: 'team_logo',
+        x: 5.0, y: 88.5, w: 14.0, h: 9.0,
+        objectFit: 'contain',
+        container: {
+          background: '#ffffff',
+          borderRadius: '6px',
+          padding: '6%',
+          border: '1px solid rgba(94, 234, 212, 0.35)',
+        },
+      },
+      // Bottom-center jersey chip.
+      {
+        slot: 'jersey',
+        x: 43.0, y: 88.5, w: 14.0, h: 9.0,
+        textAlign: 'center',
+        color: '#5eead4',
+        fontWeight: 900,
+        fontFamily: "'Bebas Neue', sans-serif",
+        container: {
+          background: 'rgba(15, 23, 42, 0.85)',
+          border: '1px solid rgba(94, 234, 212, 0.5)',
+          borderRadius: '6px',
+        },
+      },
+      // Bottom-right class chip.
+      {
+        slot: 'class',
+        x: 81.0, y: 88.5, w: 14.0, h: 9.0,
+        textAlign: 'center',
+        color: '#5eead4',
+        fontWeight: 800,
+        fontFamily: "'Bebas Neue', sans-serif",
+        letterSpacing: '1px',
+        container: {
+          background: 'rgba(15, 23, 42, 0.85)',
+          border: '1px solid rgba(94, 234, 212, 0.5)',
+          borderRadius: '6px',
+        },
       },
     ],
   },

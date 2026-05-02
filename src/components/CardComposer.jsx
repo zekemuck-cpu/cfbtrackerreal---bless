@@ -45,21 +45,41 @@ export default function CardComposer({
 
   const photoTransform = card?.photoTransform || { scale: 1, offsetX: 0, offsetY: 0 }
 
+  // Card frame: prefer the template's `cssFrame` (pure-CSS layered
+  // backgrounds + border + shadow). Fall back to an `<img>` template
+  // if a legacy template still ships a PNG URL.
+  const frameStyle = template.cssFrame
+    ? {
+        ...template.cssFrame,
+        position: 'absolute',
+        inset: 0,
+      }
+    : null
+
   return (
     <div
       className={`relative ${className}`}
       style={{
         width,
         aspectRatio: String(template.aspectRatio || 5 / 7),
+        // Outer card surface — match cssFrame radius so per-zone
+        // containers don't bleed past the card's rounded corners.
+        borderRadius: template.cssFrame?.borderRadius || undefined,
+        overflow: 'hidden',
       }}
     >
-      {/* Template background */}
-      <img
-        src={template.imageUrl}
-        alt={template.label}
-        className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
-        draggable={false}
-      />
+      {frameStyle ? (
+        <div aria-hidden="true" style={frameStyle} />
+      ) : (
+        template.imageUrl && (
+          <img
+            src={template.imageUrl}
+            alt={template.label}
+            className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
+            draggable={false}
+          />
+        )
+      )}
 
       {/* Per-zone overlays */}
       {template.zones.map((zone, idx) => (
@@ -95,6 +115,13 @@ function ZoneRender({ zone, value, photoTransform, editable, onPhotoTransformCha
     overflow: 'hidden',
   }
 
+  // Optional per-zone chip styling (banner/badge backgrounds, borders,
+  // padding). Merged into the base style so the chip frames the slot
+  // content. Padding is intentionally stripped from the chip wrapper
+  // when we render images — we let the inner <img> handle insets via
+  // its own padding instead.
+  const containerStyle = zone.container ? { ...baseStyle, ...zone.container } : baseStyle
+
   if (isImage) {
     if (!value) return null
     // Photo zone gets pannable + zoomable behavior in the editor.
@@ -102,7 +129,7 @@ function ZoneRender({ zone, value, photoTransform, editable, onPhotoTransformCha
       return (
         <PhotoZone
           zone={zone}
-          baseStyle={baseStyle}
+          baseStyle={containerStyle}
           src={value}
           transform={photoTransform || { scale: 1, offsetX: 0, offsetY: 0 }}
           editable={!!editable}
@@ -111,7 +138,7 @@ function ZoneRender({ zone, value, photoTransform, editable, onPhotoTransformCha
       )
     }
     return (
-      <div style={baseStyle}>
+      <div style={containerStyle}>
         <img
           src={value}
           alt=""
@@ -131,13 +158,13 @@ function ZoneRender({ zone, value, photoTransform, editable, onPhotoTransformCha
   return (
     <div
       style={{
-        ...baseStyle,
+        ...containerStyle,
         display: 'flex',
         alignItems: 'center',
         justifyContent: zone.textAlign === 'left' ? 'flex-start'
           : zone.textAlign === 'right' ? 'flex-end'
           : 'center',
-        padding: '0 4%',
+        padding: zone.container?.padding || '0 4%',
       }}
     >
       <FittedText
