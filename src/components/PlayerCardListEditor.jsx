@@ -13,6 +13,7 @@
 import { useMemo, useEffect, useState } from 'react'
 import ImageUpload from './ImageUpload'
 import CardComposer from './CardComposer'
+import CardZoneEditor from './CardZoneEditor'
 import { listCardTemplates, DEFAULT_TEMPLATE_ID } from '../data/cardTemplates'
 import { newCardId, listPlayerGames } from '../utils/playerCards'
 
@@ -321,6 +322,9 @@ function CardRow({
   const hasPhoto = !!card.photoUrl
   const transform = card.photoTransform || DEFAULT_TRANSFORM
 
+  // Visual layout-editor modal — keyed off the active card's template id.
+  const [layoutEditorOpen, setLayoutEditorOpen] = useState(false)
+
   const setTransform = (next) => onChange({ photoTransform: next })
   const resetTransform = () => onChange({ photoTransform: { ...DEFAULT_TRANSFORM } })
   const setScale = (s) =>
@@ -453,15 +457,25 @@ function CardRow({
         {/* Inputs column */}
         <div className="space-y-5 min-w-0">
           <Field label="Template">
-            <select
-              value={card.templateId || DEFAULT_TEMPLATE_ID}
-              onChange={(e) => onChange({ templateId: e.target.value })}
-              className="pcle-input w-full px-3 py-2.5 rounded-lg bg-surface-3 border border-surface-4 text-txt-primary text-sm"
-            >
-              {templates.map(t => (
-                <option key={t.id} value={t.id}>{t.label}</option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2">
+              <select
+                value={card.templateId || DEFAULT_TEMPLATE_ID}
+                onChange={(e) => onChange({ templateId: e.target.value })}
+                className="pcle-input flex-1 px-3 py-2.5 rounded-lg bg-surface-3 border border-surface-4 text-txt-primary text-sm"
+              >
+                {templates.map(t => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setLayoutEditorOpen(true)}
+                className="px-3 py-2.5 rounded-lg bg-surface-3 border border-surface-4 text-txt-secondary hover:text-txt-primary hover:bg-surface-4 transition-colors text-xs font-semibold whitespace-nowrap"
+                title="Visually drag zones into place"
+              >
+                Edit layout
+              </button>
+            </div>
           </Field>
 
           <Field label="Player photo" hint="A CFB 26 screenshot, dropped, pasted, or any image URL.">
@@ -514,6 +528,15 @@ function CardRow({
           </Field>
         </div>
       </div>
+
+      {/* Visual zone editor modal. Mounts unconditionally so it can manage
+          its own open/close state via `isOpen`; the portal renders to
+          document.body so it isn't clipped by this row's overflow rules. */}
+      <CardZoneEditor
+        templateId={card.templateId || DEFAULT_TEMPLATE_ID}
+        isOpen={layoutEditorOpen}
+        onClose={() => setLayoutEditorOpen(false)}
+      />
     </li>
   )
 }
