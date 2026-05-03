@@ -154,7 +154,7 @@ export function listPlayerGames(player, dynasty) {
     if (!g) continue
     const yr = Number(g.year)
     if (!Number.isFinite(yr)) continue
-    if (typeof g.team1Score !== 'number' || typeof g.team2Score !== 'number') continue
+    if (!isGamePlayed(g)) continue
 
     const teamTid = teamForYear(player, yr)
     if (teamTid == null) continue
@@ -188,6 +188,22 @@ export function listPlayerGames(player, dynasty) {
     if (a.year !== b.year) return b.year - a.year
     return Number(b.week ?? 0) - Number(a.week ?? 0)
   })
+}
+
+/**
+ * Has this game actually been played? Mirrors the heuristic used in
+ * DynastyContext (isPlayed flag → result string → boxScore presence →
+ * non-zero score). Scheduled-but-unplayed games carry null or 0
+ * scores and must be excluded from the card editor's game picker.
+ */
+function isGamePlayed(g) {
+  if (!g) return false
+  if (g.isPlayed === true) return true
+  const r = g.result
+  if (r === 'win' || r === 'loss' || r === 'W' || r === 'L' || r === 'tie') return true
+  if (g.boxScore && typeof g.boxScore === 'object' && Object.keys(g.boxScore).length > 0) return true
+  if ((Number(g.team1Score) || 0) !== 0 || (Number(g.team2Score) || 0) !== 0) return true
+  return false
 }
 
 function teamForYear(player, year) {
