@@ -344,107 +344,171 @@ function buildContextStatBlock({
   weeklyAwardName, gameStatsLine,
 }) {
   const lines = []
-  // Push a line. null/undefined skip; empty strings are pushed verbatim
-  // so callers can use `push('')` to insert a blank-line separator.
-  // Optional fields are guarded explicitly with `if (val) push(...)`.
   const push = (s) => { if (s != null) lines.push(s) }
 
+  // Shared "vitals strip" — height/weight/hometown/class — so each
+  // context can include the same condensed identity line a real card
+  // header carries.
+  const vitalsParts = []
+  if (height) vitalsParts.push(height)
+  if (weight) vitalsParts.push(`${weight} lbs`)
+  if (cls) vitalsParts.push(cls)
+  if (hometown) vitalsParts.push(hometown)
+  const vitals = vitalsParts.join(' · ')
+
+  // Identity header used at the top of every context block.
+  const idLine = `${name}${positionFull ? `  ·  ${positionFull}` : (position ? `  ·  ${position}` : '')}${school ? `  ·  ${school}` : ''}${year ? `  ·  ${year}` : ''}`
+
   if (ctx === 'game') {
-    if (weeklyAwardName) {
-      push(`=== PLAYER OF THE WEEK CARD — ${weeklyAwardName.toUpperCase()} ===`)
-    } else {
-      push(`=== GAME CARD — STRICTLY THIS GAME ONLY ===`)
-    }
-    push(`Player: ${name}${positionFull ? ` (${positionFull})` : ''}${school ? `, ${school}` : ''}`)
-    if (weeklyAwardName) push(`Honor: ${weeklyAwardName}`)
-    if (week) push(`Week: ${week}`)
-    if (contextLabel) push(`Game: ${contextLabel}`)
-    if (opponent) push(`Opponent: ${opponent}`)
-    if (score) push(`Final: ${school || 'Team'} vs ${opponent || 'Opponent'} — ${score}${result ? ` (${result})` : ''}`)
-    if (result) push(`Result: ${result === 'W' ? 'Win' : 'Loss'}`)
+    push(weeklyAwardName
+      ? `CARD TYPE: Player of the Week commemorative (${weeklyAwardName})`
+      : `CARD TYPE: Single-game memento — strict, this one game only`)
+    push('')
+    push('PLAYER:')
+    push(`  ${idLine}`)
+    if (vitals) push(`  ${vitals}`)
+    push('')
+    push('THE GAME:')
+    if (week) push(`  Week ${week}`)
+    if (contextLabel) push(`  ${contextLabel}`)
+    if (score) push(`  Final: ${school || 'Team'} ${score.split('-')[0]}, ${opponent || 'Opponent'} ${score.split('-')[1] || ''}${result ? ` (${result === 'W' ? 'Win' : 'Loss'})` : ''}`)
     if (gameStatsLine) {
       push('')
-      push(`${name}'s line in this game:`)
-      push(`  ${gameStatsLine}`)
+      push(`${name}'s box-score line:`)
+      // Each "category: stats" pair is already pipe-separated (" • ");
+      // expose them as discrete data points so the AI lays them out as a
+      // tight stat strip rather than copying the bulleted list verbatim.
+      for (const part of gameStatsLine.split(' • ')) {
+        push(`  ${part}`)
+      }
     }
     push('')
+    push('HOW TO RENDER THIS DATA ON THE BACK:')
     if (weeklyAwardName) {
-      push(`INSTRUCTION: This card commemorates ${name}'s ${weeklyAwardName} honor for the game above. The back must prominently feature the "${weeklyAwardName}" title (large headline, badge, or seal — era-appropriate styling). Render the single-game matchup line above AND the player's individual stat line from this game (in the stat panel area) as the supporting evidence for why the honor was earned, plus a 1-2 sentence narrative tying the performance to the honor. DO NOT include season totals, career stats, year-by-year tables, or content from any other game. Wherever the design below describes a "stat panel" or "career totals", instead render the player's per-game line from above.`)
-    } else {
-      push(`INSTRUCTION: This card commemorates ONLY this single game. Render the matchup details (week, opponent, final score, result) AND ${name}'s individual stat line from this game in the stat panel area, plus a brief 1-2 sentence game narrative. DO NOT include season totals, career stats, year-by-year tables, or content from any other game. Wherever the design below describes a "stat panel" or "year-by-year stats" or "career totals", instead render the per-game stat line shown above.`)
+      push(`  • The "${weeklyAwardName}" honor is the headline of the back — render it large and prominent (era-appropriate badge/seal/banner styling).`)
     }
+    push('  • Render the box-score line as a TIGHT STAT PANEL the way real cards do — a small tabular block (column headers across the top, one row of numbers beneath), or a single inline ribbon ("33/37 · 431 YDS · 7 TD"). NOT a vertical list of "Passing: X / Rushing: Y" labeled rows.')
+    push('  • The matchup goes in a small game-info ribbon or strip, NOT as a stack of separate "WEEK / GAME / FINAL / RESULT" labeled rows.')
+    push(`  • A 1-2 sentence factual recap is fine; longer is not. Do NOT pad with phrases like "carved up", "controlled the game throughout", "dominant performance".`)
+    push('  • DO NOT include season totals, career stats, year-by-year tables, or any other game.')
     if (!gameStatsLine) {
-      push('')
-      push('NOTE: No per-game box-score data is recorded for this matchup yet. If a stat panel is needed, render only the matchup line (opponent, score, result) — do NOT invent statistics for the player.')
+      push('  • No box-score data is on file for this game — render only the matchup ribbon. Do NOT invent statistics.')
     }
     return lines.join('\n')
   }
 
   if (ctx === 'rookie') {
-    push(`=== ROOKIE / DEBUT CARD ===`)
-    push(`Player: ${name}${positionFull ? ` (${positionFull})` : ''}${school ? `, ${school}` : ''}`)
-    push(`First season: ${year}${cls ? ` (${cls})` : ''}`)
-    if (height) push(`Height: ${height}`)
-    if (weight) push(`Weight: ${weight}`)
-    if (hometown) push(`Hometown: ${hometown}`)
-    if (stars) push(`Recruiting: ${stars}-star${recruitingRank ? `, national ${recruitingRank}` : ''}`)
-    if (statsLine) push(`${year} rookie season stats: ${statsLine}`)
-    if (recordLine) push(`${year} team record: ${recordLine}`)
-    if (ranking) push(`${year} team ranking: ${ranking}`)
+    push('CARD TYPE: Rookie / debut card — first season at the school')
     push('')
-    push(`INSTRUCTION: This is a rookie / debut card. Render only the recruiting profile and the ${year} rookie-season stats above. DO NOT include later-year stats or career totals (those years have not happened yet from this card's perspective).`)
+    push('PLAYER:')
+    push(`  ${idLine}`)
+    if (vitals) push(`  ${vitals}`)
+    if (stars) push(`  Recruiting: ${stars}-star${recruitingRank ? `, national ${recruitingRank}` : ''}`)
+    push('')
+    push(`${year} ROOKIE SEASON:`)
+    if (statsLine) push(`  Stat line: ${statsLine}`)
+    if (recordLine) push(`  Team record: ${recordLine}`)
+    if (ranking) push(`  Team ranking: ${ranking}`)
+    push('')
+    push('HOW TO RENDER THIS DATA ON THE BACK:')
+    push('  • This is a debut/rookie card — content is the recruiting profile + the rookie-year stats only. No later years exist from this card\'s perspective.')
+    push('  • Render the rookie-season stats as a small tabular block (column headers + one row of numbers), the way the brand\'s actual rookie cards from this era did.')
+    push('  • A short scouting-style bio (2-3 sentences) is appropriate. Keep it factual; do NOT pad with generic AI prose.')
     return lines.join('\n')
   }
 
   if (ctx === 'championship') {
-    push(`=== ${year} ${championshipName || 'CHAMPIONSHIP'} ===`)
-    push(`Player: ${name}${positionFull ? ` (${positionFull})` : ''}${school ? `, ${school}` : ''}${cls ? `, ${cls}` : ''}`)
-    if (statsLine) push(`${year} season stats: ${statsLine}`)
-    if (recordLine) push(`${year} team record: ${recordLine}`)
-    if (ranking) push(`${year} team ranking: ${ranking}`)
+    push(`CARD TYPE: ${championshipName || 'Championship'} commemorative`)
     push('')
-    push(`INSTRUCTION: This is a commemorative championship card. The "${championshipName || 'championship'}" should be prominent in the back design. Include the team's record and the player's ${year} season stats. Add a 2-3 sentence narrative tying the player to the title run. Do not include other-year stats.`)
+    push('PLAYER:')
+    push(`  ${idLine}`)
+    if (vitals) push(`  ${vitals}`)
+    push('')
+    push(`${year} SEASON:`)
+    if (statsLine) push(`  Stat line: ${statsLine}`)
+    if (recordLine) push(`  Team record: ${recordLine}`)
+    if (ranking) push(`  Team ranking: ${ranking}`)
+    push('')
+    push('HOW TO RENDER THIS DATA ON THE BACK:')
+    push(`  • The "${championshipName || 'championship'}" title is the visual headline of the back — render it large/prominent in era-appropriate styling.`)
+    push(`  • Render the ${year} season stats as a small tabular block (column headers + one row of numbers).`)
+    push(`  • A 2-3 sentence factual narrative tying the player to the title run is appropriate.`)
+    push('  • Do NOT include other-year stats.')
     return lines.join('\n')
   }
 
   if (ctx === 'award') {
-    push(`=== ${year} ${awardName || 'AWARD'} ===`)
-    push(`Player: ${name}${positionFull ? ` (${positionFull})` : ''}${school ? `, ${school}` : ''}${cls ? `, ${cls}` : ''}`)
-    if (statsLine) push(`${year} season stats: ${statsLine}`)
-    if (recordLine) push(`${year} team record: ${recordLine}`)
+    push(`CARD TYPE: ${awardName || 'Award'} commemorative`)
     push('')
-    push(`INSTRUCTION: This is a commemorative ${awardName || 'award'} card. The award name should be prominent. Include the qualifying ${year} season stats and a brief narrative explaining the player's case for the award. Do not include other-year stats.`)
+    push('PLAYER:')
+    push(`  ${idLine}`)
+    if (vitals) push(`  ${vitals}`)
+    push('')
+    push(`${year} (AWARD-WINNING) SEASON:`)
+    if (statsLine) push(`  Stat line: ${statsLine}`)
+    if (recordLine) push(`  Team record: ${recordLine}`)
+    push('')
+    push('HOW TO RENDER THIS DATA ON THE BACK:')
+    push(`  • The "${awardName || 'award'}" name is the visual headline — render it large/prominent in era-appropriate styling (trophy, seal, ribbon).`)
+    push(`  • Render the ${year} season stats as a small tabular block — these are the numbers that earned the honor.`)
+    push('  • A 2-3 sentence factual narrative on the case for the award is appropriate.')
+    push('  • Do NOT include other-year stats.')
     return lines.join('\n')
   }
 
   if (ctx === 'custom') {
-    push(`=== CUSTOM CARD: ${customLabel || 'Custom'} ===`)
-    push(`Player: ${name}${positionFull ? ` (${positionFull})` : ''}${school ? `, ${school}` : ''}${cls ? `, ${cls}` : ''}`)
-    if (statsLine) push(`${year} stats: ${statsLine}`)
-    if (recordLine) push(`${year} team record: ${recordLine}`)
+    push(`CARD TYPE: Custom — "${customLabel || 'Custom'}"`)
     push('')
-    push(`INSTRUCTION: Render the back around the user-supplied theme: "${customLabel || ''}". Use only the stats listed above. Do not invent additional achievements.`)
+    push('PLAYER:')
+    push(`  ${idLine}`)
+    if (vitals) push(`  ${vitals}`)
+    push('')
+    push(`${year} STATS:`)
+    if (statsLine) push(`  Stat line: ${statsLine}`)
+    if (recordLine) push(`  Team record: ${recordLine}`)
+    push('')
+    push('HOW TO RENDER THIS DATA ON THE BACK:')
+    push(`  • Render the back around the user-supplied theme: "${customLabel || ''}".`)
+    push('  • Use only the data above — do NOT invent additional achievements.')
     return lines.join('\n')
   }
 
-  // Default: 'season' — highlight selected year, but show full career below.
-  push(`=== ${year} SEASON CARD — ${school || 'Team'} ===`)
-  push(`Player: ${name}${positionFull ? ` (${positionFull})` : ''}${cls ? `, ${cls}` : ''}`)
-  if (height) push(`Height: ${height}`)
-  if (weight) push(`Weight: ${weight}`)
-  if (hometown) push(`Hometown: ${hometown}`)
+  // ── Default: 'season' — highlight selected year, render full career
+  // table the way the brand's real backs did.
+  push('CARD TYPE: Season card — highlight one year, show the full career')
   push('')
-  push(`HIGHLIGHT YEAR — ${year}:`)
-  if (statsLine) push(`  Stats: ${statsLine}`)
+  push('PLAYER:')
+  push(`  ${idLine}`)
+  if (vitals) push(`  ${vitals}`)
+  push('')
+  push(`HIGHLIGHT SEASON — ${year}:`)
+  if (statsLine) push(`  Stat line: ${statsLine}`)
   if (recordLine) push(`  Team record: ${recordLine}`)
   if (ranking) push(`  Team ranking: ${ranking}`)
   if (careerStatsTable) {
     push('')
-    push(`FULL CAREER YEAR-BY-YEAR (${careerYearsLine || ''}):`)
-    for (const row of careerStatsTable.split('\n')) push(`  ${row}`)
+    push(`CAREER (${careerYearsLine || ''}) — render as a multi-row stat TABLE on the back:`)
+    push('')
+    push('  Year   Class   Stat line')
+    push('  ────   ─────   ──────────────────────────────────────────────')
+    for (const row of careerStatsTable.split('\n')) {
+      // careerStatsTable rows look like "2028 (SO): 290/410, 3800 yds, 32 TD, 9 INT".
+      // Re-emit them in column-aligned form so the AI sees an actual table.
+      const m = row.match(/^(\d{4})\s*(?:\(([^)]+)\))?\s*:\s*(.*)$/)
+      if (m) {
+        const [, yr, classToken = '', statLine = ''] = m
+        push(`  ${yr.padEnd(6)} ${(classToken || '').padEnd(7)} ${statLine}`)
+      } else {
+        push(`  ${row}`)
+      }
+    }
   }
   push('')
-  push(`INSTRUCTION: This is a season card. Render the FULL year-by-year career table above on the back stat panel. Visually emphasize the ${year} highlight row (bold / color / asterisk per the card-set's era). Where the design below mentions "year-by-year stats", "career totals", or a "stat table", populate it from the career table above. DO NOT invent years, totals, or stats not listed above.`)
+  push('HOW TO RENDER THIS DATA ON THE BACK:')
+  push(`  • Render the career data as a multi-column STAT TABLE the way ${school ? school + "'s era of " : ''}real production cards did — column headers across the top (Year, GP, and the position-specific stat columns), one row per season, totals row in bold at the bottom.`)
+  push(`  • Visually EMPHASIZE the ${year} highlight row — bold type, accent color, asterisk, or whatever device the era's actual cards used to call out a featured season.`)
+  push('  • A 2-3 sentence career-arc bio in the era\'s typical tone is appropriate. Keep it factual; no AI-recap clichés.')
+  push('  • Do NOT invent years, totals, or stats not listed above. The career years are exactly what is shown.')
   return lines.join('\n')
 }
 

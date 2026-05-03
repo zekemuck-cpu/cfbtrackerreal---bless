@@ -309,20 +309,45 @@ function transformFront(prompt) {
 }
 
 // Prepended to every back template. The {{contextStatBlock}} variable is
-// resolved by cardPromptVariables.js into a context-aware multi-line data
-// block (season → year-by-year career table; game → single-game line;
-// rookie → recruiting profile + rookie stats; championship/award → title
-// or award detail; custom → user theme). Whatever it expands to is the
-// authoritative content for the back; the design language that follows
-// only governs visual layout / cardstock / typography.
+// resolved by cardPromptVariables.js into a context-aware data block
+// (season → career table; game → single-game line; rookie → recruiting
+// profile + rookie stats; championship/award → title or award detail;
+// custom → user theme).
+//
+// CRITICAL: the goal is a back that looks like a real production sports
+// card, not a phone-app stat screen. Earlier versions of this preamble
+// just said "use this content"; the AI dutifully rendered the labelled
+// data block VERBATIM, producing dashboard-style backs with cartoon
+// icons next to "WEEK / GAME / FINAL / RESULT / PASSING / RUSHING"
+// rows. The anti-pattern list below is the bulk of the fix.
 const BACK_PREAMBLE = [
-  'BACK CONTENT (this is the authoritative content for the back of the card — overrides any specific stat reference in the design below):',
+  'BACK CONTENT (data only — translate this into the visual language of the real-world set described in BACK DESIGN below):',
   '',
   '{{contextStatBlock}}',
   '',
-  'BACK DESIGN: Apply the visual design described below — layout, cardstock, ink colors, typography, panels, cartoons, footers, etc. — and populate every stat panel, biographical paragraph, and content area using the BACK CONTENT block above. Do not fabricate stats, totals, or claims that are not listed there. If the BACK CONTENT block contains a year-by-year career table, render it as a multi-row table even if the design language describes a one-line stats panel. If the BACK CONTENT block describes a single game, render only that game even if the design language describes year-by-year stats.',
+  'BACK DESIGN — render the back the way the real-world set actually looked',
+  '─────────────────────────────────────────────────────────────────────',
+  'The text under "BACK DESIGN" further down describes the era, brand, color palette, layout, typography, and finish. Match it.',
   '',
-  '---',
+  'CRITICAL ANTI-PATTERNS — these are the AI mistakes that make the back look fake; do NOT do any of these:',
+  '',
+  '✗ DO NOT add stock clipart / cartoon icons next to stat rows (calendar icon for week, helmet icon for game, whistle icon for result, football icon for passing, cleat icon for rushing, etc.). REAL production sports cards do not put cartoon icons in front of stat rows. Ever.',
+  '',
+  '✗ DO NOT lay out the back as a vertical "LABEL : value" dashboard, e.g. "WEEK : Week 8 / GAME : vs UTEP / FINAL : 63-3 / RESULT : Win / PASSING : 33/37 / RUSHING : 4 car". That is a phone-app screen, not a trading card. On real cards, the matchup goes in a small game-info ribbon and the player\'s numbers go in a tight tabular STAT PANEL with column headers across the top.',
+  '',
+  '✗ DO NOT render the BACK CONTENT block above verbatim. It is REFERENCE DATA. Translate it into the visual language of the era:',
+  '    – Multi-year career data → render as a multi-row STAT TABLE with column headers (Year, GP, and position-specific stat columns) and one row per year, the way the brand\'s actual cards did. Bold/accent the highlight row.',
+  '    – Single-game data → render as a small TIGHT STAT PANEL: a tabular block (column headers + one row of numbers) or a single inline ribbon ("33/37 · 431 YDS · 7 TD"). Not a vertical labelled list.',
+  '    – Bio → render as a flowing 1-3 sentence paragraph in the era\'s typical tone, not as labeled fields.',
+  '',
+  '✗ DO NOT generate filler AI-recap prose ("carved up", "controlled the game throughout", "dominant performance", "took the field with conviction"). Either keep recap copy short and factual, or omit it.',
+  '',
+  '✓ DO match the brand\'s actual era — typography, color palette, panel shapes, photo treatment (or absence), card-stock color, finish. A 2017 Donruss Optic back looks different from a 1972 Topps back; respect that difference.',
+  '',
+  '✓ DO use the data in the BACK CONTENT block as the source of truth for every number, name, and date on the back. Do not invent stats or claims not listed there.',
+  '',
+  '─────────────────────────────────────────────────────────────────────',
+  'BACK DESIGN (the original set\'s visual language — populate it with the data above):',
   '',
 ].join('\n')
 
