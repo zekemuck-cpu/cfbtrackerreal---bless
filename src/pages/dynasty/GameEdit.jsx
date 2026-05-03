@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate, useSearchParams, useLocation } from 'reac
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName, getTidFromAbbr, getOriginalTeamAbbr } from '../../data/teamRegistry'
-import { useDynasty, GAME_TYPES, getCurrentCustomConferences, buildRecordUpdatePayload, calculateTeamRecordFromGames, propagateCFPWinner, isPlayerOnRoster } from '../../context/DynastyContext'
+import { useDynasty, GAME_TYPES, getCurrentCustomConferences, buildRecordUpdatePayload, calculateTeamRecordFromGames, getTeamRecord, propagateCFPWinner, isPlayerOnRoster } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getFullRecapPrompt } from '../../services/geminiService'
@@ -223,6 +223,13 @@ export default function GameEdit() {
     nationalPOW: '',        // National Offensive Player of the Week
     natlDefensePOW: ''      // National Defensive Player of the Week
   })
+
+  // When ON, opponent Record and Conf inputs are read-only and show the
+  // live "after this game finished" computation from `liveRecordFor`.
+  // When OFF, they become editable and the user's manual entry is saved.
+  // Default ON so the on-screen note ("Record and Conf are the opponent's
+  // record after this game finished") is actually true out of the box.
+  const [autoFillRecords, setAutoFillRecords] = useState(true)
 
   // Find existing game or set up new game data
   const existingGame = useMemo(() => {
@@ -490,6 +497,63 @@ export default function GameEdit() {
     if (record.wins === 0 && record.losses === 0) return ''
 
     return `${record.wins}-${record.losses}`
+  }
+
+  // Live POST-game record helper. Computes overall and conference records
+  // for `tid` AS OF the end of this game, using:
+  //   1) saved games minus the current one as the pregame baseline,
+  //   2) when no saved games are found, the standings/byYear data the
+  //      user has uploaded (e.g. via Weekly Scores) — minus the current
+  //      game if it's already counted in those snapshots,
+  //   3) plus the in-progress current game's score from formData.
+  // This is what the "after this game finished" label promises.
+  const liveRecordFor = (tid) => {
+    if (!tid || !currentDynasty) return { record: '', confRecord: '' }
+
+    // Step 1: pregame baseline from saved games (current game excluded).
+    let baseline = calculateTeamRecordFromGames(currentDynasty, tid, gameYear, {
+      upToGameId: existingGame?.id,
+    })
+    let { wins = 0, losses = 0, confWins = 0, confLosses = 0 } = baseline
+
+    // Step 2: if we have no saved games for this team, fall back to the
+    // record in standings / byYear (uploaded via Weekly Scores). Subtract
+    // the current game from that snapshot if it's already been counted.
+    if (wins === 0 && losses === 0 && confWins === 0 && confLosses === 0) {
+      const stored = getTeamRecord(currentDynasty, tid, gameYear)
+      if (stored) {
+        wins = stored.wins || 0
+        losses = stored.losses || 0
+        confWins = stored.confWins || 0
+        confLosses = stored.confLosses || 0
+      }
+      if (existingGame?.team1Score != null && existingGame?.team2Score != null) {
+        const t1 = Number(existingGame.team1Tid)
+        const isT1 = Number(tid) === t1
+        const teamScore = isT1 ? existingGame.team1Score : existingGame.team2Score
+        const oppScore  = isT1 ? existingGame.team2Score : existingGame.team1Score
+        const wasConf   = !!(existingGame.isConferenceGame)
+        if (teamScore > oppScore)      { wins = Math.max(0, wins - 1);     if (wasConf) confWins   = Math.max(0, confWins - 1) }
+        else if (teamScore < oppScore) { losses = Math.max(0, losses - 1); if (wasConf) confLosses = Math.max(0, confLosses - 1) }
+      }
+    }
+
+    // Step 3: apply the in-progress current game from formData.
+    const t1Score = parseInt(formData.team1Score, 10)
+    const t2Score = parseInt(formData.team2Score, 10)
+    const confNow = !!(formData.isConferenceGame || isConferenceGame)
+    if (Number.isFinite(t1Score) && Number.isFinite(t2Score) && t1Score !== t2Score) {
+      const isT1 = Number(tid) === Number(team1Tid)
+      const teamScore = isT1 ? t1Score : t2Score
+      const oppScore  = isT1 ? t2Score : t1Score
+      if (teamScore > oppScore)      { wins++;   if (confNow) confWins++ }
+      else if (teamScore < oppScore) { losses++; if (confNow) confLosses++ }
+    }
+
+    return {
+      record:     (wins > 0 || losses > 0)         ? `${wins}-${losses}`         : '',
+      confRecord: (confWins > 0 || confLosses > 0) ? `${confWins}-${confLosses}` : '',
+    }
   }
 
   // Get team ratings from dynasty data - checks multiple possible storage locations
@@ -886,6 +950,16 @@ export default function GameEdit() {
         else if (formData.location === 'away') homeTeamTid = team2Tid
       }
 
+      // When auto-fill is on, replace the manually-entered Record / Conf
+      // values with the live "post-game" computation so what gets saved
+      // matches what the user is looking at on screen.
+      const live1 = autoFillRecords ? liveRecordFor(team1Tid) : null
+      const live2 = autoFillRecords ? liveRecordFor(team2Tid) : null
+      const team1RecordToSave     = autoFillRecords ? (live1.record     || '') : formData.team1Record
+      const team2RecordToSave     = autoFillRecords ? (live2.record     || '') : formData.team2Record
+      const team1ConfRecordToSave = autoFillRecords ? (live1.confRecord || '') : formData.team1ConfRecord
+      const team2ConfRecordToSave = autoFillRecords ? (live2.confRecord || '') : formData.team2ConfRecord
+
       const gameData = {
         id: currentGameId || existingGame?.id || `game-${Date.now()}`,
         week: gameWeek,
@@ -905,10 +979,10 @@ export default function GameEdit() {
         team2Overall: formData.team2Overall ? parseInt(formData.team2Overall) : null,
         team2Offense: formData.team2Offense ? parseInt(formData.team2Offense) : null,
         team2Defense: formData.team2Defense ? parseInt(formData.team2Defense) : null,
-        team1Record: formData.team1Record,
-        team2Record: formData.team2Record,
-        team1ConfRecord: formData.team1ConfRecord,
-        team2ConfRecord: formData.team2ConfRecord,
+        team1Record: team1RecordToSave,
+        team2Record: team2RecordToSave,
+        team1ConfRecord: team1ConfRecordToSave,
+        team2ConfRecord: team2ConfRecordToSave,
         homeTeamTid,
         isConferenceGame: formData.isConferenceGame || isConferenceGame,
         aiRecap: formData.aiRecap,
@@ -1024,6 +1098,15 @@ export default function GameEdit() {
         else if (formData.location === 'away') homeTeamTid = team2Tid
       }
 
+      // Same auto-fill override as handleSave — keep what's saved in
+      // sync with what the user is looking at on screen.
+      const live1 = autoFillRecords ? liveRecordFor(team1Tid) : null
+      const live2 = autoFillRecords ? liveRecordFor(team2Tid) : null
+      const team1RecordToSave     = autoFillRecords ? (live1.record     || '') : formData.team1Record
+      const team2RecordToSave     = autoFillRecords ? (live2.record     || '') : formData.team2Record
+      const team1ConfRecordToSave = autoFillRecords ? (live1.confRecord || '') : formData.team1ConfRecord
+      const team2ConfRecordToSave = autoFillRecords ? (live2.confRecord || '') : formData.team2ConfRecord
+
       const gameData = {
         id: currentGameId || existingGame?.id || `game-${Date.now()}`,
         week: gameWeek,
@@ -1043,10 +1126,10 @@ export default function GameEdit() {
         team2Overall: formData.team2Overall ? parseInt(formData.team2Overall) : null,
         team2Offense: formData.team2Offense ? parseInt(formData.team2Offense) : null,
         team2Defense: formData.team2Defense ? parseInt(formData.team2Defense) : null,
-        team1Record: formData.team1Record,
-        team2Record: formData.team2Record,
-        team1ConfRecord: formData.team1ConfRecord,
-        team2ConfRecord: formData.team2ConfRecord,
+        team1Record: team1RecordToSave,
+        team2Record: team2RecordToSave,
+        team1ConfRecord: team1ConfRecordToSave,
+        team2ConfRecord: team2ConfRecordToSave,
         homeTeamTid,
         isConferenceGame: formData.isConferenceGame || isConferenceGame,
         aiRecap: formData.aiRecap,
@@ -1573,9 +1656,21 @@ export default function GameEdit() {
           Avoids the cramped 4-input grid the previous design forced. */}
       <Card>
         <h3 className="label-sm text-txt-primary mb-1">Team Details</h3>
-        <p className="text-[11px] text-txt-tertiary mb-4">
+        <p className="text-[11px] text-txt-tertiary mb-3">
           <span className="font-semibold text-txt-secondary">Note:</span> Record and Conf are the opponent's record <span className="italic">after</span> this game finished — not the pregame record.
         </p>
+        <label className="flex items-center gap-2 mb-4 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={autoFillRecords}
+            onChange={(e) => setAutoFillRecords(e.target.checked)}
+            className="w-4 h-4 rounded border-surface-5 cursor-pointer"
+          />
+          <span className="text-[12px] text-txt-secondary">
+            <span className="font-semibold">Auto-fill from team data</span>
+            <span className="text-txt-tertiary"> — Record and Conf update automatically as the score above is entered. Uncheck to enter records by hand.</span>
+          </span>
+        </label>
         <div className="divide-y divide-surface-4">
           {[
             { prefix: displayLeftTeam, name: leftTeamName, abbr: leftTeamAbbr, logo: leftTeamLogo, isUser: isLeftUserTeam },
@@ -1622,30 +1717,46 @@ export default function GameEdit() {
                     />
                   </StatField>
                 ))}
-                {!isUser && (
-                  <>
-                    <StatField label="Record">
-                      <Input
-                        type="text"
-                        value={formData[`${prefix}Record`]}
-                        onChange={(e) => setFormData({ ...formData, [`${prefix}Record`]: e.target.value })}
-                        size="sm"
-                        className="w-16 text-center tabular"
-                        placeholder="0–0"
-                      />
-                    </StatField>
-                    <StatField label="Conf">
-                      <Input
-                        type="text"
-                        value={formData[`${prefix}ConfRecord`]}
-                        onChange={(e) => setFormData({ ...formData, [`${prefix}ConfRecord`]: e.target.value })}
-                        size="sm"
-                        className="w-16 text-center tabular"
-                        placeholder="0–0"
-                      />
-                    </StatField>
-                  </>
-                )}
+                {!isUser && (() => {
+                  const oppTid = prefix === 'team1' ? team1Tid : team2Tid
+                  const live = autoFillRecords ? liveRecordFor(oppTid) : null
+                  const recordValue = autoFillRecords
+                    ? (live.record || '')
+                    : formData[`${prefix}Record`]
+                  const confValue = autoFillRecords
+                    ? (live.confRecord || '')
+                    : formData[`${prefix}ConfRecord`]
+                  return (
+                    <>
+                      <StatField label="Record">
+                        <Input
+                          type="text"
+                          value={recordValue}
+                          onChange={(e) => setFormData({ ...formData, [`${prefix}Record`]: e.target.value })}
+                          size="sm"
+                          className="w-16 text-center tabular"
+                          placeholder="0–0"
+                          readOnly={autoFillRecords}
+                          disabled={autoFillRecords}
+                          title={autoFillRecords ? 'Auto-filled from team data — uncheck "Auto-fill from team data" to edit.' : ''}
+                        />
+                      </StatField>
+                      <StatField label="Conf">
+                        <Input
+                          type="text"
+                          value={confValue}
+                          onChange={(e) => setFormData({ ...formData, [`${prefix}ConfRecord`]: e.target.value })}
+                          size="sm"
+                          className="w-16 text-center tabular"
+                          placeholder="0–0"
+                          readOnly={autoFillRecords}
+                          disabled={autoFillRecords}
+                          title={autoFillRecords ? 'Auto-filled from team data — uncheck "Auto-fill from team data" to edit.' : ''}
+                        />
+                      </StatField>
+                    </>
+                  )
+                })()}
               </div>
             </div>
           ))}
