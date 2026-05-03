@@ -726,11 +726,18 @@ export default function PlayerEdit() {
       highlights: Array.isArray(formData.highlights)
         ? Array.from(new Set(formData.highlights.map(s => (typeof s === 'string' ? s.trim() : '')).filter(Boolean)))
         : [],
-      // New canonical storage — array of card records. Cards with no
-      // photo AND no legacy front/back URL get pruned so empty
-      // placeholders don't accumulate.
+      // New canonical storage — array of card records. Two shapes coexist:
+      // legacy (templateId + photoUrl) and prompt-driven (styleId +
+      // frontImageUrl/backImageUrl). Prune empty scaffolds under either
+      // shape so unsaved blank "Add card" rows don't pile up.
       cards: Array.isArray(formData.cards)
-        ? formData.cards.filter(c => c && (c.photoUrl || c.front || c.back))
+        ? formData.cards.filter(c => {
+            if (!c) return false
+            if (c.styleId !== undefined && c.templateId === undefined) {
+              return !!(c.frontImageUrl || c.backImageUrl)
+            }
+            return !!(c.photoUrl || c.front || c.back)
+          })
         : [],
       // Clear legacy single-card fields once the array is the truth.
       cardFront: '',

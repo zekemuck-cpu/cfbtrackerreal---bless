@@ -14,7 +14,9 @@ import { useMemo, useEffect, useState } from 'react'
 import ImageUpload from './ImageUpload'
 import CardComposer from './CardComposer'
 import CardZoneEditor from './CardZoneEditor'
+import CardStyleWizard from './CardStyleWizard'
 import { listCardTemplates, DEFAULT_TEMPLATE_ID } from '../data/cardTemplates'
+import { CARD_STYLES, getCardStyle } from '../data/cardStyles'
 import { newCardId, listPlayerGames } from '../utils/playerCards'
 
 const DEFAULT_TRANSFORM = { scale: 1, offsetX: 0, offsetY: 0 }
@@ -42,17 +44,22 @@ export default function PlayerCardListEditor({
     if (!confirm('Delete this card? This cannot be undone.')) return
     onChange(list.filter((_, i) => i !== idx))
   }
+  // New cards default to the prompt-driven flow (styleId + front/back
+  // image URLs). Legacy cards (templateId-based) continue to render via
+  // the old CardComposer path for backward compatibility, but no new
+  // ones are produced from this button.
   const addCard = () => {
     onChange([
       ...list,
       {
         id: newCardId(),
-        templateId: DEFAULT_TEMPLATE_ID,
-        photoUrl: '',
-        year: null,
+        styleId: CARD_STYLES[0]?.id || '',
+        contextType: 'season',
+        contextDetails: {},
+        year: dynasty?.currentYear || null,
+        frontImageUrl: '',
+        backImageUrl: '',
         label: '',
-        gameId: '',
-        photoTransform: { ...DEFAULT_TRANSFORM },
         createdAt: new Date().toISOString(),
       }
     ])
@@ -96,21 +103,41 @@ export default function PlayerCardListEditor({
         <EmptyState accent={accent} onAdd={addCard} />
       ) : (
         <ol className="space-y-6">
-          {list.map((card, idx) => (
-            <CardRow
-              key={card.id || idx}
-              idx={idx}
-              card={card}
-              templates={templates}
-              playerGames={playerGames}
-              player={player}
-              dynasty={dynasty}
-              teamColors={teamColors}
-              accent={accent}
-              onChange={(partial) => updateAt(idx, partial)}
-              onDelete={() => removeAt(idx)}
-            />
-          ))}
+          {list.map((card, idx) => {
+            // Branch: prompt-driven (new) cards use the wizard row; legacy
+            // PNG-template cards keep rendering through CardRow so old
+            // saves don't disappear.
+            if (card?.styleId !== undefined && card?.templateId === undefined) {
+              return (
+                <CardRowNew
+                  key={card.id || idx}
+                  idx={idx}
+                  card={card}
+                  player={player}
+                  dynasty={dynasty}
+                  teamColors={teamColors}
+                  accent={accent}
+                  onChange={(partial) => updateAt(idx, partial)}
+                  onDelete={() => removeAt(idx)}
+                />
+              )
+            }
+            return (
+              <CardRow
+                key={card.id || idx}
+                idx={idx}
+                card={card}
+                templates={templates}
+                playerGames={playerGames}
+                player={player}
+                dynasty={dynasty}
+                teamColors={teamColors}
+                accent={accent}
+                onChange={(partial) => updateAt(idx, partial)}
+                onDelete={() => removeAt(idx)}
+              />
+            )
+          })}
         </ol>
       )}
 
@@ -537,6 +564,97 @@ function CardRow({
         isOpen={layoutEditorOpen}
         onClose={() => setLayoutEditorOpen(false)}
       />
+    </li>
+  )
+}
+
+/**
+ * Row component for prompt-driven (new) cards — the wizard runs inline
+ * inside an expandable panel. Top strip shows the front-image preview +
+ * style label so the list stays scannable when there are several cards.
+ */
+function CardRowNew({ idx, card, player, dynasty, teamColors, accent, onChange, onDelete }) {
+  const [expanded, setExpanded] = useState(true)
+  const accentSoft = `${accent}33`
+  const inlineVars = { '--pcle-accent': accent, '--pcle-accent-soft': accentSoft }
+  const style = getCardStyle(card.styleId)
+  const styleLabel = style?.label || 'Pick a style'
+  const subtitle = [styleLabel, card.year ? String(card.year) : null, card.label || null]
+    .filter(Boolean)
+    .join(' · ')
+
+  return (
+    <li
+      className="card-row relative rounded-2xl overflow-hidden"
+      style={{
+        backgroundColor: 'var(--surface-2)',
+        border: '1px solid var(--rule-soft, var(--surface-4))',
+        boxShadow: card.frontImageUrl
+          ? `0 1px 0 var(--rule-soft, var(--surface-4)), 0 18px 40px -28px ${accent}55`
+          : `0 1px 0 var(--rule-soft, var(--surface-4))`,
+        ...inlineVars,
+      }}
+    >
+      <span
+        aria-hidden="true"
+        className="card-accent absolute left-0 top-0 bottom-0 w-[3px]"
+        style={{ backgroundColor: accent }}
+      />
+
+      {/* Header strip — preview + meta + collapse/delete controls */}
+      <header className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--surface-4)' }}>
+        <span
+          className="inline-flex items-center justify-center px-2.5 py-1 rounded-md font-display tabular-nums leading-none flex-shrink-0"
+          style={{
+            fontFamily: "'Bebas Neue', sans-serif",
+            fontSize: 14,
+            backgroundColor: accent,
+            color: '#fff',
+          }}
+        >
+          {idx + 1}
+        </span>
+        <div className="w-10 aspect-[5/7] rounded overflow-hidden flex-shrink-0" style={{ backgroundColor: 'var(--surface-1)' }}>
+          {card.frontImageUrl ? (
+            <img src={card.frontImageUrl} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full" />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-bold text-txt-primary truncate">{styleLabel}</div>
+          <div className="text-[11px] text-txt-tertiary truncate">{subtitle || '—'}</div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setExpanded(e => !e)}
+          className="px-2.5 py-1.5 rounded-md text-xs font-medium bg-surface-3 border border-surface-4 text-txt-secondary hover:text-txt-primary transition-colors"
+        >
+          {expanded ? 'Collapse' : 'Edit'}
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="pcle-delete-btn p-2 rounded-md hover:bg-surface-4 transition-colors"
+          title="Delete card"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M5 7h14M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+          </svg>
+        </button>
+      </header>
+
+      {expanded && (
+        <div className="p-4">
+          <CardStyleWizard
+            card={card}
+            onChange={(updated) => onChange(updated)}
+            player={player}
+            dynasty={dynasty}
+            teamColors={teamColors}
+          />
+        </div>
+      )}
     </li>
   )
 }

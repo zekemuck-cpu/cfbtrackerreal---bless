@@ -16,18 +16,27 @@
 import { DEFAULT_TEMPLATE_ID } from '../data/cardTemplates'
 
 /**
- * Returns the player's cards as an array. Each entry is in the
- * canonical new shape. Falls back to a single legacy entry derived
- * from cardFront/cardBack/cardGameId when no cards array exists.
+ * Returns the player's cards as an array. Two shapes coexist:
+ *   • Legacy (PNG-template-based): { templateId, photoUrl, ... }
+ *   • New (prompt-driven):         { styleId, frontImageUrl, backImageUrl, ... }
+ * The list filter keeps anything that's "real" under either shape so the
+ * Player profile Cards tab and the editor list show both kinds. Empty
+ * scaffolds (e.g. an unsaved new-style card with no images yet) drop out
+ * of the read view but stay in the editor's working state.
  */
 export function getPlayerCards(player) {
   if (!player) return []
   if (Array.isArray(player.cards) && player.cards.length > 0) {
-    // Normalize: older array entries may have used `front`/`back`
-    // (image URLs from the previous design). Map those to the new
-    // photoUrl + default templateId so they still render.
     return player.cards
-      .filter(c => c && (c.photoUrl || c.front || c.back))
+      .filter(c => {
+        if (!c) return false
+        // Prompt-driven card: at least one image side present.
+        if (c.styleId !== undefined && c.templateId === undefined) {
+          return !!(c.frontImageUrl || c.backImageUrl)
+        }
+        // Legacy: photoUrl / front / back URL present.
+        return !!(c.photoUrl || c.front || c.back)
+      })
       .map(c => normalizeCard(c))
   }
   if (player.cardFront || player.cardBack) {
@@ -45,11 +54,30 @@ export function getPlayerCards(player) {
 }
 
 /**
- * Coerce a card record (possibly in an older shape) into the
- * canonical new shape. Idempotent on already-canonical cards.
+ * Coerce a card record into a canonical shape. Idempotent on already-
+ * canonical cards. Detects the prompt-driven shape via the presence of
+ * `styleId` (without `templateId`) so it doesn't accidentally merge
+ * legacy fields onto a new-style record.
  */
 export function normalizeCard(card) {
   if (!card) return null
+  // Prompt-driven (new) shape — passes through verbatim with sensible
+  // fallbacks. Doesn't pick up `templateId` so the renderer's branch
+  // stays clean.
+  if (card.styleId !== undefined && card.templateId === undefined) {
+    return {
+      id: card.id || newCardId(),
+      styleId: card.styleId || '',
+      contextType: card.contextType || 'season',
+      contextDetails: card.contextDetails || {},
+      year: card.year ?? null,
+      frontImageUrl: card.frontImageUrl || '',
+      backImageUrl: card.backImageUrl || '',
+      label: card.label || '',
+      createdAt: card.createdAt || null,
+    }
+  }
+  // Legacy (PNG-template) shape.
   return {
     id: card.id || newCardId(),
     templateId: card.templateId || DEFAULT_TEMPLATE_ID,
@@ -57,9 +85,6 @@ export function normalizeCard(card) {
     year: card.year ?? null,
     label: card.label || '',
     gameId: card.gameId || '',
-    // Per-card photo transform — scale 1 + zero offsets means
-    // straight object-cover (the default cropping behavior).
-    // The editor's zoom slider + drag-to-pan write here.
     photoTransform: card.photoTransform || { scale: 1, offsetX: 0, offsetY: 0 },
     createdAt: card.createdAt || null,
   }
