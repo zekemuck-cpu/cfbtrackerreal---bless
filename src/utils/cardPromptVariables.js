@@ -215,7 +215,7 @@ function resolveTeamForYear(player, year) {
  * when the prompt template wants prose rather than a stat dump. Keeps it
  * short (one sentence) so it slots naturally into a card-back layout.
  */
-function buildBioText({ player, position, school, year, statsLine, recordLine, contextLabel }) {
+function buildBioText({ player, position, school, year, statsLine, recordLine, contextLabel, seasonInProgress }) {
   const parts = []
   if (player.classByYear?.[year] || player.year) {
     const cls = player.classByYear?.[year] || player.year
@@ -224,7 +224,7 @@ function buildBioText({ player, position, school, year, statsLine, recordLine, c
     parts.push(POSITION_FULL[position] || position)
   }
   if (school) parts.push(`at ${school}`)
-  if (statsLine) parts.push(`Posted ${statsLine}`)
+  if (statsLine) parts.push(seasonInProgress ? `Through this point: ${statsLine}` : `Posted ${statsLine}`)
   if (recordLine) parts.push(`(${recordLine})`)
   if (contextLabel) parts.push(`— ${contextLabel}`)
   return parts.join(' ')
@@ -342,9 +342,20 @@ function buildContextStatBlock({
   opponent, score, result, week, contextLabel,
   awardName, championshipName, customLabel,
   weeklyAwardName, gameStatsLine,
+  seasonInProgress, seasonProgressNote,
 }) {
   const lines = []
   const push = (s) => { if (s != null) lines.push(s) }
+
+  // Wording instruction added to every non-game context when the card's
+  // year is the in-progress season. Tells the AI to phrase numbers as
+  // "through this point" rather than as completed-season totals.
+  const throughLabel = seasonProgressNote && seasonProgressNote.includes('Week')
+    ? seasonProgressNote.replace(/^IN PROGRESS — through /i, '').replace(/ of \d+$/, '')
+    : 'this point in the season'
+  const inProgressGuidance = seasonInProgress
+    ? `  • SEASON-IN-PROGRESS — the ${year} season is currently being played${seasonProgressNote ? ` (${seasonProgressNote.toLowerCase()})` : ''}. Word the bio and any narrative as ONGOING, not completed. Use phrasing like "through ${throughLabel}", "currently leads the team in…", ${recordLine ? `"the team is currently ${recordLine}"` : '"the team is in the middle of its season"'}. DO NOT say "${school || 'the team'} went ${recordLine || 'X-Y'}", "posted N yards", "finished with…", "${year} totals", or anything that frames the season as complete.`
+    : ''
 
   // Shared "vitals strip" — height/weight/hometown/class — so each
   // context can include the same condensed identity line a real card
@@ -405,7 +416,8 @@ function buildContextStatBlock({
     if (vitals) push(`  ${vitals}`)
     if (stars) push(`  Recruiting: ${stars}-star${recruitingRank ? `, national ${recruitingRank}` : ''}`)
     push('')
-    push(`${year} ROOKIE SEASON:`)
+    push(`${year} ROOKIE SEASON${seasonInProgress ? ' (in progress)' : ''}:`)
+    if (seasonProgressNote) push(`  ${seasonProgressNote}`)
     if (statsLine) push(`  Stat line: ${statsLine}`)
     if (recordLine) push(`  Team record: ${recordLine}`)
     if (ranking) push(`  Team ranking: ${ranking}`)
@@ -414,6 +426,7 @@ function buildContextStatBlock({
     push('  • This is a debut/rookie card — content is the recruiting profile + the rookie-year stats only. No later years exist from this card\'s perspective.')
     push('  • Render the rookie-season stats as a small tabular block (column headers + one row of numbers), the way the brand\'s actual rookie cards from this era did.')
     push('  • A short scouting-style bio (2-3 sentences) is appropriate. Keep it factual; do NOT pad with generic AI prose.')
+    if (inProgressGuidance) push(inProgressGuidance)
     return lines.join('\n')
   }
 
@@ -424,7 +437,8 @@ function buildContextStatBlock({
     push(`  ${idLine}`)
     if (vitals) push(`  ${vitals}`)
     push('')
-    push(`${year} SEASON:`)
+    push(`${year} SEASON${seasonInProgress ? ' (in progress)' : ''}:`)
+    if (seasonProgressNote) push(`  ${seasonProgressNote}`)
     if (statsLine) push(`  Stat line: ${statsLine}`)
     if (recordLine) push(`  Team record: ${recordLine}`)
     if (ranking) push(`  Team ranking: ${ranking}`)
@@ -434,6 +448,7 @@ function buildContextStatBlock({
     push(`  • Render the ${year} season stats as a small tabular block (column headers + one row of numbers).`)
     push(`  • A 2-3 sentence factual narrative tying the player to the title run is appropriate.`)
     push('  • Do NOT include other-year stats.')
+    if (inProgressGuidance) push(inProgressGuidance)
     return lines.join('\n')
   }
 
@@ -444,7 +459,8 @@ function buildContextStatBlock({
     push(`  ${idLine}`)
     if (vitals) push(`  ${vitals}`)
     push('')
-    push(`${year} (AWARD-WINNING) SEASON:`)
+    push(`${year} (AWARD-WINNING) SEASON${seasonInProgress ? ' (in progress)' : ''}:`)
+    if (seasonProgressNote) push(`  ${seasonProgressNote}`)
     if (statsLine) push(`  Stat line: ${statsLine}`)
     if (recordLine) push(`  Team record: ${recordLine}`)
     push('')
@@ -453,6 +469,7 @@ function buildContextStatBlock({
     push(`  • Render the ${year} season stats as a small tabular block — these are the numbers that earned the honor.`)
     push('  • A 2-3 sentence factual narrative on the case for the award is appropriate.')
     push('  • Do NOT include other-year stats.')
+    if (inProgressGuidance) push(inProgressGuidance)
     return lines.join('\n')
   }
 
@@ -463,13 +480,15 @@ function buildContextStatBlock({
     push(`  ${idLine}`)
     if (vitals) push(`  ${vitals}`)
     push('')
-    push(`${year} STATS:`)
+    push(`${year} STATS${seasonInProgress ? ' (in progress)' : ''}:`)
+    if (seasonProgressNote) push(`  ${seasonProgressNote}`)
     if (statsLine) push(`  Stat line: ${statsLine}`)
     if (recordLine) push(`  Team record: ${recordLine}`)
     push('')
     push('HOW TO RENDER THIS DATA ON THE BACK:')
     push(`  • Render the back around the user-supplied theme: "${customLabel || ''}".`)
     push('  • Use only the data above — do NOT invent additional achievements.')
+    if (inProgressGuidance) push(inProgressGuidance)
     return lines.join('\n')
   }
 
@@ -481,13 +500,14 @@ function buildContextStatBlock({
   push(`  ${idLine}`)
   if (vitals) push(`  ${vitals}`)
   push('')
-  push(`HIGHLIGHT SEASON — ${year}:`)
+  push(`HIGHLIGHT SEASON — ${year}${seasonInProgress ? ' (in progress)' : ''}:`)
+  if (seasonProgressNote) push(`  ${seasonProgressNote}`)
   if (statsLine) push(`  Stat line: ${statsLine}`)
   if (recordLine) push(`  Team record: ${recordLine}`)
   if (ranking) push(`  Team ranking: ${ranking}`)
   if (careerStatsTable) {
     push('')
-    push(`CAREER (${careerYearsLine || ''}) — render as a multi-row stat TABLE on the back:`)
+    push(`CAREER (${careerYearsLine || ''}) — render as a multi-row stat TABLE on the back${seasonInProgress ? ` (the ${year} row is partial — through this point in the season)` : ''}:`)
     push('')
     push('  Year   Class   Stat line')
     push('  ────   ─────   ──────────────────────────────────────────────')
@@ -497,11 +517,13 @@ function buildContextStatBlock({
       const m = row.match(/^(\d{4})\s*(?:\(([^)]+)\))?\s*:\s*(.*)$/)
       if (m) {
         const [, yr, classToken = '', statLine = ''] = m
-        push(`  ${yr.padEnd(6)} ${(classToken || '').padEnd(7)} ${statLine}`)
+        const partialMarker = seasonInProgress && yr === String(year) ? ' *' : ''
+        push(`  ${yr.padEnd(6)} ${(classToken || '').padEnd(7)} ${statLine}${partialMarker}`)
       } else {
         push(`  ${row}`)
       }
     }
+    if (seasonInProgress) push('  (* = season still in progress; numbers are through-this-point partials, not final season totals)')
   }
   push('')
   push('HOW TO RENDER THIS DATA ON THE BACK:')
@@ -509,6 +531,7 @@ function buildContextStatBlock({
   push(`  • Visually EMPHASIZE the ${year} highlight row — bold type, accent color, asterisk, or whatever device the era's actual cards used to call out a featured season.`)
   push('  • A 2-3 sentence career-arc bio in the era\'s typical tone is appropriate. Keep it factual; no AI-recap clichés.')
   push('  • Do NOT invent years, totals, or stats not listed above. The career years are exactly what is shown.')
+  if (inProgressGuidance) push(inProgressGuidance)
   return lines.join('\n')
 }
 
@@ -625,8 +648,26 @@ export function buildCardPromptVariables({ player, dynasty, card }) {
     ? (WEEKLY_AWARDS.find(a => a.id === weeklyAwardId)?.label || '')
     : ''
 
+  // Detect "season in progress" — if the card's year is the dynasty's
+  // current active year and we're still inside the regular-season phase
+  // (or postseason hasn't completed). Stops cards from talking about a
+  // currently-being-played season as if it had already finished.
+  const dynastyYearNum = Number(dynasty?.currentYear)
+  const dynastyPhase = dynasty?.currentPhase || ''
+  const dynastyWeek = Number(dynasty?.currentWeek)
+  const seasonInProgress =
+    Number.isFinite(dynastyYearNum) &&
+    Number(year) === dynastyYearNum &&
+    dynastyPhase !== 'offseason'
+  const seasonProgressNote = seasonInProgress
+    ? (Number.isFinite(dynastyWeek) && dynastyWeek > 0
+        ? `IN PROGRESS — through Week ${dynastyWeek} of ${year}`
+        : `IN PROGRESS — ${year} season is still being played`)
+    : ''
+
   const bioText = buildBioText({
     player, position, school, year, statsLine, recordLine, contextLabel,
+    seasonInProgress,
   })
 
   // Career-wide stats (used by season-context cards on the back).
@@ -653,6 +694,7 @@ export function buildCardPromptVariables({ player, dynasty, card }) {
     opponent, score, result, week, contextLabel,
     awardName, championshipName, customLabel,
     weeklyAwardName, gameStatsLine,
+    seasonInProgress, seasonProgressNote,
   })
 
   // Optional front-of-card overlay instruction. Only populated when a
