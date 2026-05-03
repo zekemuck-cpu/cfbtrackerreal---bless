@@ -21,6 +21,34 @@ import {
 // client-side check just hides the UI; spoofing it gains nothing.
 const ADMIN_EMAILS = new Set(['alex.guess1999@gmail.com'])
 
+// localStorage key for caching the last known premium status. Used to
+// optimistically restore premium UI on app reopen / cold start before
+// Firestore confirms — fixes the "had to swipe out and back in to be
+// recognized as premium" issue on mobile, where a backgrounded tab's
+// Firestore listener drops the connection and the next render flashes
+// non-premium until the listener reconnects.
+const PREMIUM_CACHE_KEY_PREFIX = 'cfbtracker_premium_v1:'
+
+function readCachedIsPremium(uid) {
+  if (!uid) return false
+  try {
+    return localStorage.getItem(PREMIUM_CACHE_KEY_PREFIX + uid) === 'true'
+  } catch {
+    return false
+  }
+}
+
+function writeCachedIsPremium(uid, value) {
+  if (!uid) return
+  try {
+    if (value) localStorage.setItem(PREMIUM_CACHE_KEY_PREFIX + uid, 'true')
+    else localStorage.removeItem(PREMIUM_CACHE_KEY_PREFIX + uid)
+  } catch {
+    // Storage may be unavailable (private mode, quota); the cache is a
+    // best-effort optimization, not load-bearing.
+  }
+}
+
 const AuthContext = createContext()
 
 export function useAuth() {
@@ -70,6 +98,12 @@ export function AuthProvider({ children }) {
 
       // Restore access token from localStorage if available
       if (user) {
+        // Optimistically restore premium UI from the cache while the
+        // Firestore subscription listener wakes up. On mobile reopens
+        // the listener can take a beat to reconnect; without this the
+        // app flashes non-premium for paying users.
+        setIsPremium(readCachedIsPremium(user.uid))
+
         const storedToken = localStorage.getItem('google_access_token')
         const tokenExpiry = localStorage.getItem('google_token_expiry')
 
@@ -118,10 +152,15 @@ export function AuthProvider({ children }) {
       return
     }
 
-    // Subscribe to real-time subscription updates
+    // Subscribe to real-time subscription updates. Cache the resolved
+    // premium status to localStorage so the next cold start can serve
+    // it optimistically — keeps premium users from flashing non-premium
+    // on mobile reopens while the listener reconnects.
     subscriptionUnsubRef.current = subscribeToUserSubscription(user.uid, (subData) => {
       setSubscription(subData)
-      setIsPremium(isPremiumSubscription(subData))
+      const premium = isPremiumSubscription(subData)
+      setIsPremium(premium)
+      writeCachedIsPremium(user.uid, premium)
     })
 
     return () => {
@@ -241,6 +280,11 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     try {
+      // Clear the cached premium flag for the current user before we
+      // tear down auth — otherwise a different user signing in on the
+      // same device would briefly see the previous user's premium UI.
+      const uid = auth.currentUser?.uid
+      if (uid) writeCachedIsPremium(uid, false)
       await firebaseSignOut(auth)
       // Clear stored tokens
       localStorage.removeItem('google_access_token')

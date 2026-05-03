@@ -32,8 +32,15 @@ export function subscribeToUserSubscription(userId, callback) {
   return onSnapshot(userRef, (snap) => {
     callback(snap.exists() ? snap.data() : null);
   }, (error) => {
-    console.error('[Subscription] Error subscribing to updates:', error);
-    callback(null);
+    // Mobile devices regularly drop the Firestore connection when the
+    // app backgrounds. The listener auto-reconnects, but if we treat
+    // every transient error as "no subscription" we'd flip a paying
+    // user back to free until the next snapshot arrives — exactly the
+    // "open the app, get downgraded, swipe out and back in to fix it"
+    // experience users report. Log the error and let the previous
+    // state stand; the next snapshot will overwrite it once we're back
+    // online.
+    console.error('[Subscription] Listener error (keeping last known state):', error);
   });
 }
 
