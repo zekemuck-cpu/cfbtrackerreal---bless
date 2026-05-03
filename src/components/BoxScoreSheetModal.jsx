@@ -365,96 +365,166 @@ FINAL CHECK before you send
     if (sheetType === 'teamStats') {
       return buildAIPrompt({
         title: `${baseTitle} — Team Stats`,
-        structure: `This sheet has ONE tab: "Team Stats". It has 30 rows (one per stat category) and 3 columns. Column A is the stat label (pre-filled, PROTECTED). Column B is the AWAY team's value (${awayTeamAbbr}). Column C is the HOME team's value (${homeTeamAbbr}).
+        structure: `This sheet has ONE tab: "Team Stats". 30 rows × 3 columns. Column A (stat label) is PRE-FILLED and PROTECTED — never output it. Column B = AWAY team ${awayTeamAbbr}. Column C = HOME team ${homeTeamAbbr}. Your output is exactly 30 lines, each "<away_value>\\t<home_value>".
 
 ═══════════════════════════════════════════════════════════
-HOW TO READ THE TEAM-STATS SCREENSHOT — do this first
+WHAT YOU ARE LOOKING AT
 ═══════════════════════════════════════════════════════════
-The user pastes CFB26's "Team Stats" post-game screen. That screen shows TWO columns, one per team, with the stat label down the middle. Before writing any TSV row:
+The user is uploading screenshots of EA College Football 26's post-game "Team Stats" screen. The screen has the AWAY team's values down the LEFT, the HOME team's values down the RIGHT, and the stat label centered between them. The list is longer than fits on one screen, so the user typically uploads 2-3 screenshots scrolled to different positions. Some lines OVERLAP between screenshots — that's fine, treat them as confirmations, not duplicates.
 
-1. IDENTIFY TEAM ORDER: the screenshot usually shows home team on ONE side (often right) and away on the other. ${awayTeamAbbr} = AWAY (your output column B). ${homeTeamAbbr} = HOME (your output column C). Confirm by reading the team names/helmets in the header of the screenshot. If you cannot reliably tell which side is which, stop and say so — do not guess.
-
-2. POSSESSION TIME: CFB26 shows possession as "MM:SS" (e.g. "32:14"). Split into TWO separate rows in the sheet: Row 29 "Poss Minutes" (integer) and Row 30 "Poss Seconds" (integer). "32:14" → row 29 = 32, row 30 = 14.
-
-3. RED ZONE: CFB26 shows red-zone conversions (e.g. "3/4 · 75%"). The sheet has separate rows for attempts, successes, and percent. Red Zone Pct row takes the PERCENT AS A WHOLE NUMBER (75, not 0.75 and not "75%").
-
-4. PENALTIES / 3RD DOWNS / 4TH DOWNS: shown as "fraction (percent)" in game. Put attempts and conversions in separate rows as the label requires.
-
-5. THIRD/FOURTH DOWN EFFICIENCY: if shown as "6/14" split into two rows: "3rd Down Conversions" = 6, "3rd Down Attempts" = 14.
-
-6. YARDS BREAKDOWN: Total Offense, Rush Yards, Pass Yards, Net Passing may differ slightly from Total Offense. Copy each separately — do NOT derive Pass Yards as Total Offense minus Rush Yards.
-
-7. BLANKS: if a stat isn't visible in the screenshot, leave the cell BLANK. Do not invent. Do not copy another team's value into the missing one.
+⚠️ The two teams in this game are:
+   • AWAY = "${awayTeamAbbr}" → your output column B (LEFT in your TSV row)
+   • HOME = "${homeTeamAbbr}" → your output column C (RIGHT in your TSV row)
+At the top of every CFB26 Team Stats screenshot, the away team's logo+abbr appears on one side and the home team's on the other. READ THAT HEADER FIRST. CFB26 conventionally puts AWAY on the left and HOME on the right, but always confirm against the abbreviations above. If the screenshot shows the home/away order reversed (e.g. user took the screenshot from the home team's perspective), STILL output AWAY value first, HOME value second on each row.
 
 ═══════════════════════════════════════════════════════════
-CRITICAL RULES — read before anything else
+CRITICAL RULES — non-negotiable
 ═══════════════════════════════════════════════════════════
-1. OUTPUT COLUMNS B AND C ONLY. Column A (stat label) is PROTECTED and pre-filled — never output it.
-2. ROW ORDER IS FIXED — the 30 rows match the exact stat order below. Row 1 of your output = "First Downs", row 2 = "Total Offense", ..., row 30 = "Poss Seconds". Never reorder, never skip, never add.
-3. Output EXACTLY 30 data rows, each with EXACTLY 2 tab-separated values (away value, home value).
-4. NO COMMAS in numbers. "1234" never "1,234".
-5. ENTER EVERY NUMBER YOU CAN SEE. If a stat is visible in the screenshots (even if it's only the combined-format number or average), extract and enter it per the rules below. Only leave a cell BLANK if the stat is GENUINELY not visible anywhere in the provided screenshots.
-6. INTEGERS for all rows EXCEPT row 26 (Punt Avg), which is a one-decimal number (e.g. 42.7). Red Zone Pct is a whole-number percent (e.g. 75 means 75%). Possession time is split into separate Poss Minutes and Poss Seconds rows (both integers).
-7. Use 0 for a stat that is genuinely zero. Use a BLANK cell only if the stat is truly unknown/unreported.
-8. Column B = AWAY team (${awayTeamAbbr}), Column C = HOME team (${homeTeamAbbr}). Never swap.
-9. No header row, no stat labels, no commentary. SINGLE TSV block.
+1. EXACTLY 30 rows of output. Count them before you send.
+2. EACH row = "<away>\\t<home>" — exactly ONE tab character per line. No header row. No labels. No commentary.
+3. Row order is FIXED — see the 30-row table below. Row 1 = First Downs, row 2 = Total Offense, …, row 30 = Poss Seconds. Never reorder, skip, or add.
+4. Use INTEGERS everywhere EXCEPT row 26 (Punt Avg), which is a one-decimal number like 42.7.
+5. NO COMMAS in numbers ("1234", never "1,234"). NO percent signs. NO units.
+6. Use "0" for a stat that is genuinely zero on the screenshot. Use a BLANK cell (empty between the tabs) ONLY when the stat is not visible anywhere in any provided screenshot. Never substitute "N/A", "—", "?", or another team's value.
+7. Column B is ${awayTeamAbbr} (AWAY); Column C is ${homeTeamAbbr} (HOME). Never swap.
 
 ═══════════════════════════════════════════════════════════
-DATA-INTERPRETATION RULES (read before reading rows)
+SKIP LIST — these CFB26 lines are NOT rows in this sheet
 ═══════════════════════════════════════════════════════════
-A. CFB26 shows several stats as pipe-separated combined labels. You MUST split each one into the separate rows shown:
-     • "Rushes | Yards | TDs" (e.g. "18 | 73 | 1") → Row 4 Rush Attempts=18, Row 5 Rush Yards=73, Row 6 Rush TDs=1
-     • "Comp | Att | TDs" (e.g. "21 | 31 | 3") → Row 7 Completions=21, Row 8 Pass Attempts=31, Row 9 Pass TDs=3
-     • "3rd Down Conv." (e.g. "7 | 12 (58%)") → Row 11 =7, Row 12 =12. Ignore the % — it's derived.
-     • "4th Down Conv." (e.g. "1 | 2 (50%)") → Row 13 =1, Row 14 =2. Ignore the %.
-     • "2-Point Conv." (e.g. "0 | 0 (0%)") → Row 15 =0, Row 16 =0. Ignore the %.
-     • "Red Zone TD | FG | %" (e.g. "3 | 0 | 60%") → Row 17 =3, Row 18 =0, Row 19 =60 (integer percent).
-     • "Penalties" (e.g. "1 | 10") → Row 27 Penalties =1, Row 28 Penalty Yards =10.
-B. "Turnovers" in CFB26 shows as "2 (-1)" — the "2" is the turnover COUNT (enter 2). The "(-1)" is turnover margin — IGNORE it.
-C. Row 26 (Punt Avg): CFB26's "Punts" stat is the punt AVERAGE, shown as a decimal (e.g. "42.7"). Enter it as a decimal. Do NOT try to derive punt count — the screen doesn't show it. Do NOT leave it blank when the average is visible.
-D. Calculated/derived fields ("Yards Per Play", "Yards Per Rush", "Yards Per Pass") are NOT rows in this sheet — skip them. Do not try to fit them anywhere.
-E. "Total Offense" (Row 2) = the value CFB26 labels "Total Offense". If only rushing and passing yards are visible, sum them for Total Offense.
-F. Percentage rows want an integer 0-100. "75%" → "75". Never "0.75" or "75.00".
-G. Possession Time displayed as "MM:SS" (e.g. "26:12") splits into Poss Minutes "26" and Poss Seconds "12". Never put "26:12" in a single row.
-H. Blank only when truly not visible across ALL provided screenshots. Never insert "N/A", "—", or "0" to substitute for a missing value.
+Do not try to place any of these into the output. They are derived/redundant and the sheet does not have rows for them:
+   • "Score" (the final score is tracked elsewhere)
+   • "Yards Per Play"
+   • "Yards Per Rush"
+   • "Yards Per Pass"
+If CFB26 shows a stat the sheet doesn't have, drop it. Do not invent a row to hold it.
 
 ═══════════════════════════════════════════════════════════
-TAB: "Team Stats" — 30 rows × 2 editable columns
-Paste your block at cell B2 of the "Team Stats" tab
+SPLIT LIST — combined CFB26 lines that map to MULTIPLE sheet rows
 ═══════════════════════════════════════════════════════════
+Several CFB26 labels pack 2-3 numbers into one line using "|" or "(...)". You MUST split each into the separate rows shown:
 
-Row | Col A (PROTECTED / pre-filled) | Col B (${awayTeamAbbr} — AWAY) | Col C (${homeTeamAbbr} — HOME) | Format
-----+--------------------------------+--------------------------------+--------------------------------+---------------------------
-  1 | First Downs                    | away first downs               | home first downs               | integer
-  2 | Total Offense                  | away total offense yards       | home total offense yards       | integer
-  3 | Total Plays                    | away total plays               | home total plays               | integer
-  4 | Rush Attempts                  | away rush attempts             | home rush attempts             | integer
-  5 | Rush Yards                     | away rush yards                | home rush yards                | integer
-  6 | Rush TDs                       | away rushing TDs               | home rushing TDs               | integer
-  7 | Completions                    | away pass completions          | home pass completions          | integer
-  8 | Pass Attempts                  | away pass attempts             | home pass attempts             | integer
-  9 | Pass TDs                       | away passing TDs               | home passing TDs               | integer
- 10 | Passing Yards                  | away passing yards             | home passing yards             | integer
- 11 | 3rd Down Conv                  | away 3rd down conversions      | home 3rd down conversions      | integer
- 12 | 3rd Down Att                   | away 3rd down attempts         | home 3rd down attempts         | integer
- 13 | 4th Down Conv                  | away 4th down conversions      | home 4th down conversions      | integer
- 14 | 4th Down Att                   | away 4th down attempts         | home 4th down attempts         | integer
- 15 | 2PT Conv                       | away 2PT conversions           | home 2PT conversions           | integer
- 16 | 2PT Att                        | away 2PT attempts              | home 2PT attempts              | integer
- 17 | Red Zone TD                    | away red-zone TDs              | home red-zone TDs              | integer
- 18 | Red Zone FG                    | away red-zone FGs              | home red-zone FGs              | integer
- 19 | Red Zone Pct                   | away red-zone percent          | home red-zone percent          | integer whole-number percent (e.g. 75 for 75%)
- 20 | Turnovers                      | away turnovers                 | home turnovers                 | integer
- 21 | Fumbles Lost                   | away fumbles lost              | home fumbles lost              | integer
- 22 | Interceptions                  | away interceptions thrown      | home interceptions thrown      | integer
- 23 | Punt Ret Yards                 | away punt return yards         | home punt return yards         | integer
- 24 | Kick Ret Yards                 | away kick return yards         | home kick return yards         | integer
- 25 | Total Yards                    | away total yards               | home total yards               | integer
- 26 | Punt Avg                       | away punt average (yds)        | home punt average (yds)        | decimal, one digit (e.g. 42.7) — the number CFB26 shows next to "Punts"
- 27 | Penalties                      | away penalties count           | home penalties count           | integer
- 28 | Penalty Yards                  | away penalty yards             | home penalty yards             | integer
- 29 | Poss Minutes                   | away possession minutes        | home possession minutes        | integer (0-60)
- 30 | Poss Seconds                   | away possession seconds        | home possession seconds        | integer (0-59)
+   CFB26 line                                  Sheet rows
+   ─────────────────────────────────────────────────────────────────────
+   "Rushes | Yards | TDs"   "28 | 8 | 0"   →   row 4 (28), row 5 (8),  row 6 (0)
+   "Comp | Att | TDs"       "19 | 25 | 0"  →   row 7 (19), row 8 (25), row 9 (0)
+   "3rd Down Conv."         "5 | 13 (38%)" →   row 11 (5), row 12 (13). Ignore the percent.
+   "4th Down Conv."         "1 | 1 (100%)" →   row 13 (1), row 14 (1). Ignore the percent.
+   "2-Point Conv."          "0 | 0 (0%)"   →   row 15 (0), row 16 (0). Ignore the percent.
+   "Red Zone TD | FG | %"   "4 | 0 | 44%"  →   row 17 (4), row 18 (0), row 19 (44 — integer percent, no % sign)
+   "Penalties"              "1 | 15"       →   row 27 (1 — penalty count), row 28 (15 — penalty yards)
+   "Possession Time"        "26:28"        →   row 29 (26 — minutes), row 30 (28 — seconds)
+   "Turnovers"              "1 (-1)"       →   row 20 (1). The "(-1)" is turnover margin — IGNORE it.
+
+═══════════════════════════════════════════════════════════
+SPECIAL CASES — read carefully
+═══════════════════════════════════════════════════════════
+• PUNT AVG (row 26): CFB26 labels this just "Punts" but the value is the AVERAGE punt distance, shown as a decimal (e.g. "42.7", "35.2", "0.0"). Copy the decimal exactly. If the value is "0.0", enter "0.0" — do NOT leave blank. Do NOT try to derive punt count. The sheet has no punt-count row.
+
+• RED ZONE PCT (row 19): integer 0-100. "44%" → 44. Never "0.44" or "44.00" or "44%". If CFB26 shows the percent ungrouped (e.g. "100 %"), still enter the integer (100).
+
+• POSSESSION TIME (rows 29-30): CFB26 shows "MM:SS" (e.g. "26:28"). Split: minutes → row 29, seconds → row 30. Never put "26:28" in a single row.
+
+• TURNOVERS (row 20): the count comes BEFORE the parenthesis. "1 (-1)" → 1. "0 (+1)" → 0. The parenthesized number is turnover margin — drop it.
+
+• TOTAL OFFENSE (row 2) vs TOTAL YARDS (row 25): CFB26 shows BOTH. Total Offense = offensive yards only (rushing + passing). Total Yards = Total Offense + return yards. They are DIFFERENT rows. Copy each from its own line — do not derive one from the other.
+
+• ZEROS: CFB26 displays a true zero as "0" or "0.0". Treat any visible zero as a real value (output 0 or 0.0, not blank). Blank is reserved for stats not displayed in any screenshot.
+
+═══════════════════════════════════════════════════════════
+THE 30 ROWS — exact order, exact format
+═══════════════════════════════════════════════════════════
+Row | Stat label (Col A, pre-filled)  | What CFB26 calls it                | Format
+----+---------------------------------+------------------------------------+-----------------------------
+  1 | First Downs                     | "First Downs"                      | integer
+  2 | Total Offense                   | "Total Offense"                    | integer
+  3 | Total Plays                     | "Total Plays"                      | integer
+  4 | Rush Attempts                   | "Rushes | Yards | TDs" — 1st num   | integer
+  5 | Rush Yards                      | "Rushes | Yards | TDs" — 2nd num   | integer
+  6 | Rush TDs                        | "Rushes | Yards | TDs" — 3rd num   | integer
+  7 | Completions                     | "Comp | Att | TDs" — 1st num       | integer
+  8 | Pass Attempts                   | "Comp | Att | TDs" — 2nd num       | integer
+  9 | Pass TDs                        | "Comp | Att | TDs" — 3rd num       | integer
+ 10 | Passing Yards                   | "Passing Yards"                    | integer
+ 11 | 3rd Down Conv                   | "3rd Down Conv." — before "|"      | integer
+ 12 | 3rd Down Att                    | "3rd Down Conv." — after "|"       | integer
+ 13 | 4th Down Conv                   | "4th Down Conv." — before "|"      | integer
+ 14 | 4th Down Att                    | "4th Down Conv." — after "|"       | integer
+ 15 | 2PT Conv                        | "2-Point Conv." — before "|"       | integer
+ 16 | 2PT Att                         | "2-Point Conv." — after "|"        | integer
+ 17 | Red Zone TD                     | "Red Zone TD | FG | %" — 1st       | integer
+ 18 | Red Zone FG                     | "Red Zone TD | FG | %" — 2nd       | integer
+ 19 | Red Zone Pct                    | "Red Zone TD | FG | %" — 3rd       | integer percent (44, not 0.44, not "44%")
+ 20 | Turnovers                       | "Turnovers" — number BEFORE "("    | integer
+ 21 | Fumbles Lost                    | "Fumble Lost"                      | integer
+ 22 | Interceptions                   | "Interceptions"                    | integer
+ 23 | Punt Ret Yards                  | "PR Yards"                         | integer
+ 24 | Kick Ret Yards                  | "KR Yards"                         | integer
+ 25 | Total Yards                     | "Total Yards"                      | integer
+ 26 | Punt Avg                        | "Punts" (the decimal, e.g. 42.7)   | decimal one digit (e.g. 42.7, 0.0)
+ 27 | Penalties                       | "Penalties" — before "|"           | integer
+ 28 | Penalty Yards                   | "Penalties" — after "|"            | integer
+ 29 | Poss Minutes                    | "Possession Time" — minutes (MM)   | integer (0-60)
+ 30 | Poss Seconds                    | "Possession Time" — seconds (SS)   | integer (0-59)
+
+═══════════════════════════════════════════════════════════
+WORKED EXAMPLE — make sure your output matches THIS structure
+═══════════════════════════════════════════════════════════
+This example uses MADE-UP numbers ONLY to show shape and format. Use the user's actual screenshot values, not these.
+
+If the screenshots showed (away → home):
+   First Downs:           "12 | 27"            (yes, this label is plain — no pipes here, just two numbers in two columns)
+   Total Offense:         "202 | 529"
+   Total Plays:           "53 | 46"
+   Rushes | Yards | TDs:  "28 | 8 | 0" vs "9 | 98 | 1"
+   Comp | Att | TDs:      "19 | 25 | 0" vs "34 | 37 | 7"
+   Passing Yards:         "194 | 431"
+   3rd Down Conv.:        "5 | 13 (38%)" vs "6 | 7 (85%)"
+   4th Down Conv.:        "0 | 0 (0%)"   vs "1 | 1 (100%)"
+   2-Point Conv.:         "0 | 0 (0%)"   vs "0 | 0 (0%)"
+   Red Zone TD | FG | %:  "0 | 1 | 100%" vs "4 | 0 | 44%"
+   Turnovers:             "1 (-1)"       vs "0 (+1)"
+   Fumble Lost:           "1"            vs "0"
+   Interceptions:         "0"            vs "0"
+   PR Yards:              "0"            vs "21"
+   KR Yards:              "141"          vs "25"
+   Total Yards:           "343"          vs "575"
+   Punts:                 "35.2"         vs "0.0"
+   Penalties:             "1 | 15"       vs "1 | 5"
+   Possession Time:       "26:28"        vs "21:32"
+
+…then your TSV output would be these 30 lines (each "<away>\\ttab\\t<home>"):
+   12\\t27
+   202\\t529
+   53\\t46
+   28\\t9
+   8\\t98
+   0\\t1
+   19\\t34
+   25\\t37
+   0\\t7
+   194\\t431
+   5\\t6
+   13\\t7
+   0\\t1
+   0\\t1
+   0\\t0
+   0\\t0
+   0\\t4
+   1\\t0
+   100\\t44
+   1\\t0
+   1\\t0
+   0\\t0
+   0\\t21
+   141\\t25
+   343\\t575
+   35.2\\t0.0
+   1\\t1
+   15\\t5
+   26\\t21
+   28\\t32
+
+(Each \\t above represents a LITERAL TAB character — use actual tab characters in your output, not the text "\\t".)
 
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
@@ -462,22 +532,23 @@ REQUIRED OUTPUT FORMAT
 === TEAM STATS — paste at cell B2 of "Team Stats" tab ===
 <row1 away>\\t<row1 home>
 <row2 away>\\t<row2 home>
-... (30 total rows in the exact stat order above)
-
-(Each \\t above represents a LITERAL TAB character — use actual tab characters, not the text "\\t".)
+... (30 total rows, in the exact order above, no header, no commentary)
 
 ═══════════════════════════════════════════════════════════
-FINAL CHECK before you send
+SELF-CHECK BEFORE YOU SEND — run every line
 ═══════════════════════════════════════════════════════════
-[ ] Exactly 30 data rows (count them)
-[ ] Exactly 2 tab-separated values per row (1 tab character per line)
-[ ] Row order matches the 30-row list above EXACTLY
-[ ] Column B is ${awayTeamAbbr} (away); Column C is ${homeTeamAbbr} (home) — not swapped
-[ ] All values INTEGERS — no commas, no decimals — EXCEPT row 26 (Punt Avg), which is a one-decimal number (e.g. 42.7)
-[ ] Every pipe-separated CFB26 stat was SPLIT into its rows (Rushes|Yds|TDs, Comp|Att|TDs, 3rd/4th down, 2PT, Red Zone, Penalties)
-[ ] Row 26 Punt Avg filled with the decimal shown next to "Punts" in CFB26 (not blank, not a count)
-[ ] 0 used for genuine zeros; blank only for truly unknown stats
-[ ] No header row, no stat labels, no commentary`,
+[ ] I confirmed which side of the screenshot is ${awayTeamAbbr} (AWAY) and which is ${homeTeamAbbr} (HOME) by reading the team headers.
+[ ] My output has EXACTLY 30 lines (I counted).
+[ ] Every line has EXACTLY ONE tab character (so 2 fields per line).
+[ ] Line N matches stat row N from the table above (no reorder, no skip, no extra).
+[ ] Column B (left of the tab) is ${awayTeamAbbr}; Column C (right of the tab) is ${homeTeamAbbr}.
+[ ] Every pipe-separated CFB26 line was SPLIT into its sheet rows: Rushes|Yards|TDs (rows 4-6), Comp|Att|TDs (rows 7-9), 3rd Down (11-12), 4th Down (13-14), 2PT (15-16), Red Zone (17-19), Penalties (27-28), Possession (29-30).
+[ ] Row 19 (Red Zone Pct) is an integer like 44 — not "44%" or 0.44.
+[ ] Row 20 (Turnovers) is the number BEFORE the parenthesis — not the margin.
+[ ] Row 26 (Punt Avg) is the decimal next to "Punts" (e.g. 42.7 or 0.0) — not a count, not blank.
+[ ] No commas, no percent signs, no units, no "N/A", no "—".
+[ ] I did NOT include rows for "Score", "Yards Per Play", "Yards Per Rush", or "Yards Per Pass" — those are not in this sheet.
+[ ] Genuine zeros are output as "0" (or "0.0" for Punt Avg). Blank cells only when the stat is truly not visible anywhere in any screenshot.`,
         includeTeamMap: true,
         dynastyTeams: currentDynasty?.teams,
       })
