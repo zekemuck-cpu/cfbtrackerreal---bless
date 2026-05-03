@@ -178,6 +178,100 @@ COMMON SCREENSHOT FORMATS — recognize these layouts
 If the screenshot shows pagination (e.g. "1 of 2" badge, page indicator), there are MORE images. The user attached them. Use them.
 
 ═══════════════════════════════════════════════════════════
+CFB26 SCORES/SCHEDULES — EXACT FORMAT (the most common view)
+═══════════════════════════════════════════════════════════
+This is what almost every weekly-score screenshot in this app looks like. The format is COMPLETELY DETERMINISTIC — there's no left/right convention to second-guess, no orientation ambiguity. Read the structure below carefully; it's the strongest defense against score-swap and missed-game errors.
+
+Each row is a sortable table line with these columns left-to-right:
+
+  MATCHUP                                  | DATE       | TIME(ET)/RESULT       | TV   | PLAY
+  ─────────────────────────────────────────────────────────────────────────────────────────────
+  [logo] LeftTeamName  at  [logo] RightTeamName  | Sat, Oct 7 | XXX 38, YYY 17       | icon | 0
+
+═══ HOME / AWAY: the literal word "at" ═══
+
+The matchup column always reads "LeftTeamName at RightTeamName" with the literal word "at" between the two team names.
+  • LEFT team is the VISITOR (away).
+  • RIGHT team is the HOST (home).
+
+This is unambiguous on every row. Don't second-guess it. If the row shows "Missouri State at Kennesaw State", Kennesaw State is HOME, Missouri State is the visitor — every time.
+
+═══ RANKINGS: numeric prefix ═══
+
+Rankings appear as a number prefix on the team name. Examples from real screenshots:
+  • "12 Georgia at Kentucky"           → Georgia is #12 (visitor), Kentucky unranked (host)
+  • "20 Nebraska at Minnesota"         → Nebraska #20, Minnesota unranked
+  • "9 Washington at 21 Ohio State"    → Washington #9 (visitor), Ohio State #21 (host)
+  • "Stanford at 4 Clemson"            → Stanford unranked, Clemson #4 (host)
+
+Pull the rank from the integer prefix. No prefix → unranked → leave the rank cell BLANK in the TSV.
+
+═══ SCORES: the result column is winner-first ═══
+
+The TIME(ET)/RESULT column, after a game is played, reads:
+        "WINNER_ABBR  WINNER_SCORE,  LOSER_ABBR  LOSER_SCORE"
+THE WINNER COMES FIRST. The loser comes after the comma.
+
+Real examples taken straight from CFB26 screenshots:
+  • "UK 17, UGA 14"     →  UK won 17, UGA lost 14    (Kentucky beat Georgia)
+  • "OKLA 28, TAMU 26"  →  Oklahoma 28, Texas A&M 26  (Oklahoma won)
+  • "MIST 38, KENN 17"  →  Missouri State 38, Kennesaw State 17
+  • "ND 51, FRES 10"    →  Notre Dame 51, Fresno State 10
+  • "USC 38, IOWA 33"   →  USC 38, Iowa 33 (USC won)
+  • "ECU 51, WVU 10"    →  East Carolina 51, West Virginia 10
+
+This is the score-swap defense: you do NOT have to look at logos and try to pair scores visually. The result text directly tells you who won and who lost. If you read the comma-separated string correctly, score-swap cannot happen.
+
+═══ ABBREVIATION MISMATCH: result text ≠ dropdown ═══
+
+CFB26's result-column abbreviations are the game's internal short codes. They MAY NOT match the dropdown abbreviations in your TEAM ABBREVIATIONS mapping. Examples I've personally seen:
+
+  Result-text abbr → Dropdown abbr
+  ────────────────────────────────────
+    CUSE          →  SYR    (Syracuse / 'Cuse)
+    MIST          →  MZST   (Missouri State)
+    JXST          →  JKST   (Jacksonville State)
+    M-OH          →  M-OH   (Miami OH — same)
+    UF            →  UF     (Florida — same)
+    OKLA          →  OU     (Oklahoma — sometimes either form is used)
+    TAMU          →  TAMU   (Texas A&M — same)
+    MASS          →  MASS   (UMass — same)
+    CONN          →  CONN   (UConn — same)
+    BAMA          →  BAMA   (Alabama — same)
+    GASO          →  GASO   (Georgia Southern — same)
+    SCAR          →  SCAR   (South Carolina — same)
+    KENN          →  KENN   (Kennesaw State — same)
+
+When the result-text abbr doesn't match a dropdown entry, **do NOT use the result-text abbr in the TSV**. Match the team's FULL NAME from the matchup column to the dropdown instead. This is critical — using "CUSE" or "MIST" verbatim breaks the import.
+
+═══ THE STEP-BY-STEP STRATEGY (use this for every row) ═══
+
+1. Read the FULL TEAM NAMES from the matchup column. Examples:
+   "Missouri State", "Kennesaw State", "Notre Dame", "Fresno State".
+2. Look up each full name in your TEAM ABBREVIATIONS mapping at the bottom of this prompt. Use the dropdown abbr you find there. The matchup column's text is the SOURCE OF TRUTH for team identity.
+3. Read the result text: "XXX score1, YYY score2".
+4. Match each result-text abbr (XXX, YYY) back to one of the two team names in the matchup column. There are only two teams in the row — one of them is XXX, the other is YYY. Use abbr similarity + position-in-the-row as the matching cue.
+5. Pair each team with its score: the team matched to XXX scored score1, the team matched to YYY scored score2.
+6. Apply the "at" rule: LEFT team = AWAY/visitor, RIGHT team = HOME/host. Both team's scores are now known from step 5; just put them in the right columns.
+
+Example, end-to-end on the "Missouri State at Kennesaw State | MIST 38, KENN 17" row:
+  Step 1: Left full name = "Missouri State". Right full name = "Kennesaw State".
+  Step 2: Look up "Missouri State" in dropdown → MZST. Look up "Kennesaw State" → KENN.
+  Step 3: Result text = "MIST 38, KENN 17". Winner is MIST with 38; loser is KENN with 17.
+  Step 4: MIST result-abbr corresponds to "Missouri State" (left, the visitor). KENN result-abbr corresponds to "Kennesaw State" (right, the host).
+  Step 5: Missouri State scored 38. Kennesaw State scored 17.
+  Step 6: HOME = right team = Kennesaw State = KENN with score 17. AWAY = left team = Missouri State = MZST with score 38.
+
+  Worksheet line: WSn | img1 | MZST 38 @ KENN 17 | HOME=KENN | WINNER=MZST | NEUTRAL=N
+  TSV row:        KENN  [blank]  17  MZST  [blank]  38  [blank]
+
+═══ Other things on the screen — IGNORE these ═══
+
+  • The "PLAY" column number (0, 1, 5, etc.) is a per-user highlight counter. Has nothing to do with scoring. Ignore it.
+  • The right-side panel (the big card showing one highlighted game with logos stacked vertically and an arrow → next to one score) duplicates information already in the row. Don't extract from this panel — work the table rows. The panel only shows ONE game at a time.
+  • The records in parentheses on the right panel ("3-4 (2-3)" / "1-5 (0-2)") are season-to-date team records, NOT game scores. Don't confuse these with scores.
+
+═══════════════════════════════════════════════════════════
 CRITICAL RULES — output format
 ═══════════════════════════════════════════════════════════
 1. OUTPUT 7 COLUMNS PER ROW, in this exact order:
