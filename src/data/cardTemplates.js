@@ -228,6 +228,222 @@ export const CARD_TEMPLATES = {
       },
     ],
   },
+
+  // Chrome Gold — ornate art-deco silver/gold frame. The most decorative
+  // template; rich metallic detail with a curved tray at the bottom and a
+  // pointed shield at the very top. No team-color zones (pure decorative
+  // frame). Photo well is generous, leaving room for the player to be the
+  // hero.
+  chrome_gold: {
+    id: 'chrome_gold',
+    label: 'Chrome Gold',
+    imageUrl: '/cards/templates/chrome_gold.png',
+    aspectRatio: 5 / 7,
+    zones: [
+      // Top-center pointed shield — position chip.
+      {
+        slot: 'position',
+        x: 46.0, y: 2.5, w: 11.0, h: 5.5,
+        textAlign: 'center',
+        color: '#0f172a',
+        fontWeight: 900,
+        fontFamily: "'Bebas Neue', sans-serif",
+      },
+      // Top-right small angled box — team logo.
+      {
+        slot: 'team_logo',
+        x: 83.0, y: 4.0, w: 14.0, h: 7.5,
+        objectFit: 'contain',
+      },
+      // Wide hexagonal banner across the top — last name.
+      {
+        slot: 'last_name',
+        x: 24.0, y: 9.5, w: 52.0, h: 6.5,
+        textAlign: 'center',
+        color: '#0f172a',
+        fontWeight: 900,
+        fontFamily: "'Bebas Neue', sans-serif",
+        letterSpacing: '2px',
+      },
+      // Center photo — generous, slightly inset from the metallic frame.
+      {
+        slot: 'photo',
+        x: 18.5, y: 19.0, w: 63.0, h: 55.0,
+        objectFit: 'cover',
+        radius: 4,
+      },
+      // Bottom-left small shield — class.
+      {
+        slot: 'class',
+        x: 1.0, y: 51.5, w: 11.0, h: 7.5,
+        textAlign: 'center',
+        color: '#0f172a',
+        fontWeight: 900,
+        fontFamily: "'Bebas Neue', sans-serif",
+      },
+      // Mid-right hexagon — second team logo emblem.
+      {
+        slot: 'team_logo',
+        x: 86.5, y: 64.0, w: 11.5, h: 8.0,
+        objectFit: 'contain',
+      },
+      // Bottom banner inside the curved tray — school name.
+      {
+        slot: 'school',
+        x: 16.0, y: 90.5, w: 57.0, h: 5.5,
+        textAlign: 'center',
+        color: '#0f172a',
+        fontWeight: 900,
+        fontFamily: "'Bebas Neue', sans-serif",
+        letterSpacing: '2px',
+      },
+      // Small box right of the curved tray — jersey number.
+      {
+        slot: 'jersey',
+        x: 76.0, y: 89.0, w: 10.0, h: 6.5,
+        textAlign: 'center',
+        color: '#0f172a',
+        fontWeight: 900,
+        fontFamily: "'Bebas Neue', sans-serif",
+      },
+    ],
+  },
+
+  // Crystal Holo — full holographic crystal/diamond frame. No teal accents,
+  // pure rainbow refractor borders. Both top and bottom have arrow-tip
+  // banners; the symmetry is the defining trait. No team-color zones.
+  crystal_holo: {
+    id: 'crystal_holo',
+    label: 'Crystal Holo',
+    imageUrl: '/cards/templates/crystal_holo.png',
+    aspectRatio: 5 / 7,
+    zones: [
+      // Top arrow-tipped banner — last name.
+      {
+        slot: 'last_name',
+        x: 17.0, y: 3.5, w: 58.0, h: 7.5,
+        textAlign: 'center',
+        color: '#0f172a',
+        fontWeight: 900,
+        fontFamily: "'Bebas Neue', sans-serif",
+        letterSpacing: '2px',
+      },
+      // Top-right small box — team logo.
+      {
+        slot: 'team_logo',
+        x: 80.5, y: 3.5, w: 14.0, h: 7.5,
+        objectFit: 'contain',
+      },
+      // Center photo — slightly cropped at the corners (template has
+      // angled cuts at the top corners of the photo well).
+      {
+        slot: 'photo',
+        x: 13.0, y: 14.0, w: 73.0, h: 56.0,
+        objectFit: 'cover',
+        radius: 4,
+      },
+      // Mid-left small shield — class.
+      {
+        slot: 'class',
+        x: 4.5, y: 50.5, w: 10.5, h: 7.0,
+        textAlign: 'center',
+        color: '#0f172a',
+        fontWeight: 900,
+        fontFamily: "'Bebas Neue', sans-serif",
+      },
+      // Mid-right hexagon — jersey number.
+      {
+        slot: 'jersey',
+        x: 75.0, y: 63.5, w: 12.0, h: 8.5,
+        textAlign: 'center',
+        color: '#0f172a',
+        fontWeight: 900,
+        fontFamily: "'Bebas Neue', sans-serif",
+      },
+      // Bottom arrow-tipped banner (mirrors the top one) — school name.
+      {
+        slot: 'school',
+        x: 17.0, y: 89.0, w: 58.0, h: 7.5,
+        textAlign: 'center',
+        color: '#0f172a',
+        fontWeight: 900,
+        fontFamily: "'Bebas Neue', sans-serif",
+        letterSpacing: '2px',
+      },
+    ],
+  },
+
+  // Vector Teal — bold black/white/teal modern. The diagonal teal banners
+  // (bottom and partway up the right side) are the team-color identity
+  // areas — same template, different team color reads as a distinct card.
+  // For v1 the teal stays as teal; tint-zone overlay support is a v2.
+  vector_teal: {
+    id: 'vector_teal',
+    label: 'Vector Teal',
+    imageUrl: '/cards/templates/vector_teal.png',
+    aspectRatio: 5 / 7,
+    zones: [
+      // Top-left shield — class.
+      {
+        slot: 'class',
+        x: 4.0, y: 4.0, w: 11.0, h: 8.0,
+        textAlign: 'center',
+        color: '#0f172a',
+        fontWeight: 900,
+        fontFamily: "'Bebas Neue', sans-serif",
+      },
+      // Top long angled banner — last name.
+      {
+        slot: 'last_name',
+        x: 18.0, y: 4.0, w: 60.0, h: 7.0,
+        textAlign: 'center',
+        color: '#0f172a',
+        fontWeight: 900,
+        fontFamily: "'Bebas Neue', sans-serif",
+        letterSpacing: '2px',
+      },
+      // Top-right small angled box — team logo.
+      {
+        slot: 'team_logo',
+        x: 82.0, y: 3.5, w: 13.0, h: 8.5,
+        objectFit: 'contain',
+      },
+      // Center photo — large, with the template's slight diagonal cut at
+      // the bottom-right edge.
+      {
+        slot: 'photo',
+        x: 9.0, y: 15.5, w: 84.0, h: 58.5,
+        objectFit: 'cover',
+        radius: 2,
+      },
+      // Bottom-left hex — team logo (larger emblem).
+      {
+        slot: 'team_logo',
+        x: 6.0, y: 80.0, w: 14.0, h: 11.0,
+        objectFit: 'contain',
+      },
+      // Bottom angled banner across the teal stripe — school name.
+      // White text reads cleanly against black/teal.
+      {
+        slot: 'school',
+        x: 20.0, y: 89.5, w: 56.0, h: 7.0,
+        textAlign: 'center',
+        color: '#ffffff',
+        fontWeight: 900,
+        fontFamily: "'Bebas Neue', sans-serif",
+        letterSpacing: '2px',
+      },
+      // Bottom-right small box on the teal banner — jersey number.
+      {
+        slot: 'jersey',
+        x: 80.0, y: 84.0, w: 13.0, h: 7.5,
+        textAlign: 'center',
+        color: '#0f172a',
+        fontWeight: 900,
+        fontFamily: "'Bebas Neue', sans-serif",
+      },
+    ],
+  },
 }
 
 /**
