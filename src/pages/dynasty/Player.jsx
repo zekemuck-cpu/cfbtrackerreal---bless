@@ -1290,18 +1290,45 @@ export default function Player() {
   })() : null
 
   // Award plates — aggregated career honors rendered as compact pills in the hero.
-  // Inspired by basketball-gm: "3x MVP", "7x Champion" — quick-scan career summary.
+  // Inspired by basketball-gm: "3x MVP ('27, '28, '29)" — quick-scan career
+  // summary with the years for context.
+  //
+  // The award-key map below covers BOTH the canonical keys saved by
+  // AwardsModal/Awards.jsx today (e.g. "maxwell", "walterCamp") AND the
+  // legacy "*Award"/"*Trophy" keys that earlier versions of the app or
+  // sheet importers may have written. Without the canonical keys, the
+  // major-award plates silently never rendered (Maxwell / O'Brien / etc.
+  // were saved as accolades but never matched on display) — that's the
+  // bug JayServesYah reported.
   const awardPlates = (() => {
     const accolades = player?.accolades || []
     const allAmericans = player?.allAmericans || []
     const allConference = player?.allConference || []
 
-    // Tier 1 — gold/highlighted (most prestigious)
-    const heismanAwardKeys = new Set(['heisman', 'heismanTrophy'])
-    const heismanCount = accolades.filter(a => heismanAwardKeys.has(a.award)).length
-
-    // Tier 2 — major named awards (aggregate by award key, sort by count desc)
-    const majorAwardLabels = {
+    // Map each known award-key form (canonical AND legacy) to its
+    // display label. The reducer below normalizes either form to the
+    // same label so "maxwell" and "maxwellAward" merge into one plate.
+    const AWARD_LABELS = {
+      // Canonical keys (Awards.jsx AWARD_DISPLAY) — current source of truth
+      maxwell: 'Maxwell',
+      walterCamp: 'Walter Camp',
+      daveyObrien: "Davey O'Brien",
+      chuckBednarik: 'Bednarik',
+      broncoNagurski: 'Nagurski',
+      dickButkus: 'Butkus',
+      lombardi: 'Lombardi',
+      outland: 'Outland',
+      jimThorpe: 'Thorpe',
+      fredBiletnikoff: 'Biletnikoff',
+      johnMackey: 'Mackey',
+      rimington: 'Rimington',
+      rayGuy: 'Ray Guy',
+      louGroza: 'Lou Groza',
+      doakWalker: 'Doak Walker',
+      unitasGoldenArm: 'Unitas Golden Arm',
+      edgeRusherOfTheYear: 'Edge Rusher of the Year',
+      returnerOfTheYear: 'Returner of the Year',
+      // Legacy keys still in some saved data
       maxwellAward: 'Maxwell',
       walterCampAward: 'Walter Camp',
       daveyObrienAward: "Davey O'Brien",
@@ -1311,22 +1338,37 @@ export default function Player() {
       lombardiAward: 'Lombardi',
       outlandTrophy: 'Outland',
       jimThorpeAward: 'Thorpe',
-      tedHendricksAward: 'Hendricks',
       biletnikoffAward: 'Biletnikoff',
       johnMackeyAward: 'Mackey',
       rimingtonTrophy: 'Rimington',
       rayGuyAward: 'Ray Guy',
       louGrozaAward: 'Lou Groza',
       doakWalkerAward: 'Doak Walker',
+      // Other player honors (already worked, kept for completeness)
+      tedHendricksAward: 'Hendricks',
       paulHornungAward: 'Paul Hornung',
       bowlMVP: 'Bowl MVP',
       cfpChampMVP: 'CFP Title MVP',
     }
-    const majorCounts = {}
-    accolades.forEach(a => {
-      if (majorAwardLabels[a.award]) {
-        majorCounts[a.award] = (majorCounts[a.award] || 0) + 1
-      }
+
+    // Tier 1 — gold/highlighted (Heisman is its own bucket)
+    const HEISMAN_KEYS = new Set(['heisman', 'heismanTrophy'])
+    const heismanYears = accolades
+      .filter(a => HEISMAN_KEYS.has(a.award))
+      .map(a => Number(a.year))
+      .filter(Number.isFinite)
+      .sort((a, b) => a - b)
+    const heismanCount = heismanYears.length
+
+    // Tier 2 — major named awards. Aggregate by display label so
+    // "maxwell" and "maxwellAward" both land in the same Maxwell plate.
+    const majorByLabel = {} // label -> { years: number[], firstSeen: idx for stable sort }
+    accolades.forEach((a, idx) => {
+      const label = AWARD_LABELS[a.award]
+      if (!label) return
+      if (!majorByLabel[label]) majorByLabel[label] = { years: [], firstSeen: idx }
+      const yr = Number(a.year)
+      if (Number.isFinite(yr)) majorByLabel[label].years.push(yr)
     })
 
     // Tier 3 — honors teams (aggregate by designation)
@@ -1345,34 +1387,52 @@ export default function Player() {
     const confPOW = powHonors?.confPOW || 0
     const nationalPOW = powHonors?.nationalPOW || 0
 
-    const fmt = (count, label) => count > 1 ? `${count}x ${label}` : label
+    // Format years for the parenthetical: ('27) for one, ('27, '28) for many.
+    // Uses two-digit shorthand to keep the plate compact even for 4–5 years.
+    const fmtYears = (years) => {
+      if (!years || years.length === 0) return ''
+      const sorted = [...years].sort((a, b) => a - b)
+      const yy = sorted.map(y => `'${String(y).slice(-2)}`)
+      return ` (${yy.join(', ')})`
+    }
+    const plateLabel = (count, label, years) =>
+      count > 1
+        ? `${count}× ${label}${fmtYears(years)}`
+        : `${label}${fmtYears(years)}`
 
     const tiers = []
 
     // Prestige tier — gold
     if (heismanCount > 0) {
-      tiers.push({ label: fmt(heismanCount, 'Heisman'), variant: 'gold' })
+      tiers.push({ label: plateLabel(heismanCount, 'Heisman', heismanYears), variant: 'gold' })
     }
 
-    // Major-award tier — subtle team-accent outline
-    Object.entries(majorCounts)
-      .sort((a, b) => b[1] - a[1])
-      .forEach(([key, n]) => {
-        tiers.push({ label: fmt(n, majorAwardLabels[key]), variant: 'accent' })
+    // Major-award tier — sort by frequency desc (most-decorated first),
+    // then by first-seen-index for a stable order across renders.
+    Object.entries(majorByLabel)
+      .sort((a, b) => {
+        const diff = b[1].years.length - a[1].years.length
+        if (diff !== 0) return diff
+        return a[1].firstSeen - b[1].firstSeen
+      })
+      .forEach(([label, { years }]) => {
+        tiers.push({ label: plateLabel(years.length, label, years), variant: 'accent' })
       })
 
-    // Honors-team tier — neutral
-    if (aaFirst > 0) tiers.push({ label: fmt(aaFirst, '1st-Team All-American'), variant: 'accent' })
-    if (aaSecond > 0) tiers.push({ label: fmt(aaSecond, '2nd-Team All-American'), variant: 'neutral' })
-    if (aaFreshman > 0) tiers.push({ label: fmt(aaFreshman, 'Freshman All-American'), variant: 'neutral' })
-    if (acFirst > 0) tiers.push({ label: fmt(acFirst, '1st-Team All-Conf'), variant: 'neutral' })
-    if (acSecond > 0) tiers.push({ label: fmt(acSecond, '2nd-Team All-Conf'), variant: 'neutral' })
-    if (acFreshman > 0) tiers.push({ label: fmt(acFreshman, 'Freshman All-Conf'), variant: 'neutral' })
+    // Honors-team tier — neutral. Years aren't tracked here at the same
+    // granularity; keep these as count-only plates.
+    const fmtCount = (count, label) => count > 1 ? `${count}× ${label}` : label
+    if (aaFirst > 0) tiers.push({ label: fmtCount(aaFirst, '1st-Team All-American'), variant: 'accent' })
+    if (aaSecond > 0) tiers.push({ label: fmtCount(aaSecond, '2nd-Team All-American'), variant: 'neutral' })
+    if (aaFreshman > 0) tiers.push({ label: fmtCount(aaFreshman, 'Freshman All-American'), variant: 'neutral' })
+    if (acFirst > 0) tiers.push({ label: fmtCount(acFirst, '1st-Team All-Conf'), variant: 'neutral' })
+    if (acSecond > 0) tiers.push({ label: fmtCount(acSecond, '2nd-Team All-Conf'), variant: 'neutral' })
+    if (acFreshman > 0) tiers.push({ label: fmtCount(acFreshman, 'Freshman All-Conf'), variant: 'neutral' })
 
-    if (confPOY > 0) tiers.push({ label: fmt(confPOY, 'Conf POY'), variant: 'neutral' })
-    if (confFrosh > 0) tiers.push({ label: fmt(confFrosh, 'Conf Frosh of the Year'), variant: 'neutral' })
-    if (nationalPOW > 0) tiers.push({ label: fmt(nationalPOW, 'National POW'), variant: 'neutral' })
-    if (confPOW > 0) tiers.push({ label: fmt(confPOW, 'Conf POW'), variant: 'neutral' })
+    if (confPOY > 0) tiers.push({ label: fmtCount(confPOY, 'Conf POY'), variant: 'neutral' })
+    if (confFrosh > 0) tiers.push({ label: fmtCount(confFrosh, 'Conf Frosh of the Year'), variant: 'neutral' })
+    if (nationalPOW > 0) tiers.push({ label: fmtCount(nationalPOW, 'National POW'), variant: 'neutral' })
+    if (confPOW > 0) tiers.push({ label: fmtCount(confPOW, 'Conf POW'), variant: 'neutral' })
 
     return tiers
   })()
