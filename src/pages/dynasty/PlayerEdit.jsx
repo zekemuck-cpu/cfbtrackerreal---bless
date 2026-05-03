@@ -421,6 +421,16 @@ export default function PlayerEdit() {
       devTrait: player.devTrait || '',
       pictureUrl: player.pictureUrl || '',
 
+      // Highlights — array of URLs (YouTube clips, Imgur albums, direct
+      // image links). Stored verbatim so the renderer can auto-detect
+      // and embed each provider. Edited via a one-URL-per-line textarea
+      // so users can paste a list in one shot.
+      highlights: Array.isArray(player.highlights)
+        ? player.highlights.filter(Boolean)
+        : (typeof player.highlights === 'string'
+          ? player.highlights.split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
+          : []),
+
       // Trading-card collection — array of card records. Migrated
       // from legacy single-card fields (cardFront/cardBack/cardGameId)
       // on first edit so existing cards aren't lost.
@@ -712,6 +722,10 @@ export default function PlayerEdit() {
       jerseyNumber: formData.jerseyNumber,
       devTrait: formData.devTrait,
       pictureUrl: formData.pictureUrl,
+      // Highlights — persist as a deduped, trimmed array of URLs.
+      highlights: Array.isArray(formData.highlights)
+        ? Array.from(new Set(formData.highlights.map(s => (typeof s === 'string' ? s.trim() : '')).filter(Boolean)))
+        : [],
       // New canonical storage — array of card records. Cards with no
       // photo AND no legacy front/back URL get pruned so empty
       // placeholders don't accumulate.
@@ -1296,6 +1310,37 @@ export default function PlayerEdit() {
                   className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary resize-none"
                   placeholder="Add notes about this player..."
                 />
+              </div>
+            </div>
+
+            {/* Highlights — paste any mix of YouTube clips, Imgur albums,
+                or direct image URLs (one per line). The Player profile
+                renders a "Highlights" tab that auto-embeds each link. */}
+            <div className="bg-surface-2 rounded-xl border border-surface-4 overflow-hidden">
+              <div className="px-5 py-3 bg-surface-1 border-b border-surface-4">
+                <h2 className="text-sm font-bold uppercase tracking-wide text-txt-secondary">
+                  Highlights
+                </h2>
+                <p className="mt-1 text-xs text-txt-tertiary">
+                  One URL per line — YouTube clips, Imgur albums, or direct image links. They'll auto-embed on the Highlights tab of the player page.
+                </p>
+              </div>
+              <div className="p-5">
+                <textarea
+                  value={(formData.highlights || []).join('\n')}
+                  onChange={(e) => {
+                    const lines = e.target.value.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+                    setFormData(prev => ({ ...prev, highlights: lines }))
+                  }}
+                  rows={5}
+                  className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary resize-none font-mono text-xs"
+                  placeholder={`https://youtu.be/abc123\nhttps://imgur.com/a/xyz789\nhttps://i.imgur.com/clip.mp4`}
+                />
+                {(formData.highlights || []).length > 0 && (
+                  <div className="mt-2 text-[11px] tabular-nums text-txt-tertiary">
+                    {(formData.highlights || []).length} highlight{(formData.highlights || []).length === 1 ? '' : 's'}
+                  </div>
+                )}
               </div>
             </div>
           </div>

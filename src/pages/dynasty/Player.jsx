@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, getEncourageTransfers, getRecruitingCommitments } from '../../context/DynastyContext'
 import CardComposer from '../../components/CardComposer'
+import MediaList from '../../components/MediaList'
 import { getPlayerCards } from '../../utils/playerCards'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
@@ -1957,6 +1958,13 @@ export default function Player() {
           { key: 'gamelog', label: 'Game Log' },
           { key: 'timeline', label: 'Timeline' },
           { key: 'awards', label: 'Awards' },
+          // Highlights tab — only renders once the player has at least
+          // one highlight URL saved. Uses the same link-and-embed
+          // pattern as the per-game Media section, so YouTube clips,
+          // Imgur albums, and direct images all auto-render inline.
+          ...((Array.isArray(player.highlights) ? player.highlights : []).filter(Boolean).length > 0
+            ? [{ key: 'highlights', label: 'Highlights' }]
+            : []),
           // The Cards tab only appears once at least one card exists
           // for this player. Pulls from player.cards[] with a fallback
           // to the legacy single-card fields.
@@ -4771,6 +4779,26 @@ export default function Player() {
           )}
         </div>
       )}
+
+      {/* Highlights Tab — renders the player's highlight URLs as inline
+          YouTube/Imgur/image embeds via MediaList. Editing happens in the
+          Player Editor (a `Highlights` section adds/removes URLs). */}
+      {activeTab === 'highlights' && (() => {
+        const highlights = Array.isArray(player.highlights) ? player.highlights.filter(Boolean) : []
+        if (highlights.length === 0) {
+          return (
+            <div className="text-center py-8" style={{ color: 'var(--text-tertiary)' }}>
+              <p>No highlights yet</p>
+              <p className="text-xs mt-1">Add YouTube clips, Imgur albums, or image URLs from the Player Editor.</p>
+            </div>
+          )
+        }
+        return (
+          <div className="max-w-3xl">
+            <MediaList links={highlights} accentColor={teamInfo.backgroundColor} />
+          </div>
+        )
+      })()}
 
       {/* Game Log Tab */}
       {activeTab === 'gamelog' && (() => {
