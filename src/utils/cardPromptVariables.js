@@ -167,6 +167,153 @@ function buildStatsLine(player, year) {
 }
 
 /**
+ * Build a multi-line year-by-year career stats table for the player.
+ * One row per year that has stats, formatted like:
+ *   `2028 (Sophomore): 290/410, 3800 yds, 32 TD`
+ * Returns '' if the player has no stat data at all.
+ */
+function buildCareerStatsTable(player) {
+  if (!player?.statsByYear) return ''
+  const years = Object.keys(player.statsByYear)
+    .map(Number)
+    .filter(n => Number.isFinite(n) && n > 0)
+    .sort((a, b) => a - b)
+  if (years.length === 0) return ''
+
+  const rows = []
+  for (const yr of years) {
+    const line = buildStatsLine(player, yr)
+    if (!line) continue
+    const cls = player.classByYear?.[yr] || player.classByYear?.[String(yr)] || ''
+    rows.push(cls ? `${yr} (${cls}): ${line}` : `${yr}: ${line}`)
+  }
+  return rows.join('\n')
+}
+
+/**
+ * "2027–2030" style label of the career span. Single year if only one.
+ */
+function buildCareerYearsLine(player) {
+  if (!player?.statsByYear) return ''
+  const years = Object.keys(player.statsByYear)
+    .map(Number)
+    .filter(n => Number.isFinite(n) && n > 0)
+    .sort((a, b) => a - b)
+  if (years.length === 0) return ''
+  if (years.length === 1) return String(years[0])
+  return `${years[0]}–${years[years.length - 1]}`
+}
+
+/**
+ * Build the context-aware data block that drives back-of-card content.
+ * The interpolator drops this whole multi-line block in wherever the
+ * back template references {{contextStatBlock}}. The block itself
+ * contains an INSTRUCTION line so the AI knows how to render it
+ * relative to the design language elsewhere in the prompt.
+ *
+ * - season       → highlight year + full year-by-year career table
+ * - game         → strict single-game line, no season/career content
+ * - rookie       → recruiting profile + rookie-year stats only
+ * - championship → title-year stats + championship name
+ * - award        → award-year stats + award name
+ * - custom       → user theme + selected-year stats
+ */
+function buildContextStatBlock({
+  ctx, year, name, school, position, positionFull, cls,
+  height, weight, hometown, stars, recruitingRank,
+  statsLine, recordLine, ranking,
+  careerYearsLine, careerStatsTable,
+  opponent, score, result, week, contextLabel,
+  awardName, championshipName, customLabel,
+}) {
+  const lines = []
+  // Push a line. null/undefined skip; empty strings are pushed verbatim
+  // so callers can use `push('')` to insert a blank-line separator.
+  // Optional fields are guarded explicitly with `if (val) push(...)`.
+  const push = (s) => { if (s != null) lines.push(s) }
+
+  if (ctx === 'game') {
+    push(`=== GAME CARD — STRICTLY THIS GAME ONLY ===`)
+    push(`Player: ${name}${positionFull ? ` (${positionFull})` : ''}${school ? `, ${school}` : ''}`)
+    if (week) push(`Week: ${week}`)
+    if (contextLabel) push(`Game: ${contextLabel}`)
+    if (opponent) push(`Opponent: ${opponent}`)
+    if (score) push(`Final: ${school || 'Team'} vs ${opponent || 'Opponent'} — ${score}${result ? ` (${result})` : ''}`)
+    if (result) push(`Result: ${result === 'W' ? 'Win' : 'Loss'}`)
+    push('')
+    push(`INSTRUCTION: This card commemorates ONLY this single game. Render only this matchup — week, opponent, final score, result, and a brief 1-2 sentence game narrative. DO NOT include season totals, career stats, year-by-year tables, or content from any other game. Wherever the design below describes a "stat panel" or "year-by-year stats" or "career totals", instead render the single game line above.`)
+    return lines.join('\n')
+  }
+
+  if (ctx === 'rookie') {
+    push(`=== ROOKIE / DEBUT CARD ===`)
+    push(`Player: ${name}${positionFull ? ` (${positionFull})` : ''}${school ? `, ${school}` : ''}`)
+    push(`First season: ${year}${cls ? ` (${cls})` : ''}`)
+    if (height) push(`Height: ${height}`)
+    if (weight) push(`Weight: ${weight}`)
+    if (hometown) push(`Hometown: ${hometown}`)
+    if (stars) push(`Recruiting: ${stars}-star${recruitingRank ? `, national ${recruitingRank}` : ''}`)
+    if (statsLine) push(`${year} rookie season stats: ${statsLine}`)
+    if (recordLine) push(`${year} team record: ${recordLine}`)
+    if (ranking) push(`${year} team ranking: ${ranking}`)
+    push('')
+    push(`INSTRUCTION: This is a rookie / debut card. Render only the recruiting profile and the ${year} rookie-season stats above. DO NOT include later-year stats or career totals (those years have not happened yet from this card's perspective).`)
+    return lines.join('\n')
+  }
+
+  if (ctx === 'championship') {
+    push(`=== ${year} ${championshipName || 'CHAMPIONSHIP'} ===`)
+    push(`Player: ${name}${positionFull ? ` (${positionFull})` : ''}${school ? `, ${school}` : ''}${cls ? `, ${cls}` : ''}`)
+    if (statsLine) push(`${year} season stats: ${statsLine}`)
+    if (recordLine) push(`${year} team record: ${recordLine}`)
+    if (ranking) push(`${year} team ranking: ${ranking}`)
+    push('')
+    push(`INSTRUCTION: This is a commemorative championship card. The "${championshipName || 'championship'}" should be prominent in the back design. Include the team's record and the player's ${year} season stats. Add a 2-3 sentence narrative tying the player to the title run. Do not include other-year stats.`)
+    return lines.join('\n')
+  }
+
+  if (ctx === 'award') {
+    push(`=== ${year} ${awardName || 'AWARD'} ===`)
+    push(`Player: ${name}${positionFull ? ` (${positionFull})` : ''}${school ? `, ${school}` : ''}${cls ? `, ${cls}` : ''}`)
+    if (statsLine) push(`${year} season stats: ${statsLine}`)
+    if (recordLine) push(`${year} team record: ${recordLine}`)
+    push('')
+    push(`INSTRUCTION: This is a commemorative ${awardName || 'award'} card. The award name should be prominent. Include the qualifying ${year} season stats and a brief narrative explaining the player's case for the award. Do not include other-year stats.`)
+    return lines.join('\n')
+  }
+
+  if (ctx === 'custom') {
+    push(`=== CUSTOM CARD: ${customLabel || 'Custom'} ===`)
+    push(`Player: ${name}${positionFull ? ` (${positionFull})` : ''}${school ? `, ${school}` : ''}${cls ? `, ${cls}` : ''}`)
+    if (statsLine) push(`${year} stats: ${statsLine}`)
+    if (recordLine) push(`${year} team record: ${recordLine}`)
+    push('')
+    push(`INSTRUCTION: Render the back around the user-supplied theme: "${customLabel || ''}". Use only the stats listed above. Do not invent additional achievements.`)
+    return lines.join('\n')
+  }
+
+  // Default: 'season' — highlight selected year, but show full career below.
+  push(`=== ${year} SEASON CARD — ${school || 'Team'} ===`)
+  push(`Player: ${name}${positionFull ? ` (${positionFull})` : ''}${cls ? `, ${cls}` : ''}`)
+  if (height) push(`Height: ${height}`)
+  if (weight) push(`Weight: ${weight}`)
+  if (hometown) push(`Hometown: ${hometown}`)
+  push('')
+  push(`HIGHLIGHT YEAR — ${year}:`)
+  if (statsLine) push(`  Stats: ${statsLine}`)
+  if (recordLine) push(`  Team record: ${recordLine}`)
+  if (ranking) push(`  Team ranking: ${ranking}`)
+  if (careerStatsTable) {
+    push('')
+    push(`FULL CAREER YEAR-BY-YEAR (${careerYearsLine || ''}):`)
+    for (const row of careerStatsTable.split('\n')) push(`  ${row}`)
+  }
+  push('')
+  push(`INSTRUCTION: This is a season card. Render the FULL year-by-year career table above on the back stat panel. Visually emphasize the ${year} highlight row (bold / color / asterisk per the card-set's era). Where the design below mentions "year-by-year stats", "career totals", or a "stat table", populate it from the career table above. DO NOT invent years, totals, or stats not listed above.`)
+  return lines.join('\n')
+}
+
+/**
  * Main entry. Returns a flat string-keyed map of every variable the
  * prompt templates may reference. Empty strings for anything that can't
  * be resolved — the interpolator handles those gracefully.
@@ -270,6 +417,26 @@ export function buildCardPromptVariables({ player, dynasty, card }) {
     player, position, school, year, statsLine, recordLine, contextLabel,
   })
 
+  // Career-wide stats (used by season-context cards on the back).
+  const careerStatsTable = buildCareerStatsTable(player)
+  const careerYearsLine = buildCareerYearsLine(player)
+
+  // Context-aware data block — drives the back of the card.
+  const contextStatBlock = buildContextStatBlock({
+    ctx, year: String(year), name: fullName, school,
+    position, positionFull, cls,
+    height: emptyToBlank(player.height),
+    weight: emptyToBlank(player.weight),
+    hometown: emptyToBlank(player.hometown),
+    stars: emptyToBlank(player.stars),
+    recruitingRank: player.nationalRank ? `#${player.nationalRank}` : '',
+    statsLine, recordLine,
+    ranking: ranking ? `#${ranking}` : '',
+    careerYearsLine, careerStatsTable,
+    opponent, score, result, week, contextLabel,
+    awardName, championshipName, customLabel,
+  })
+
   return {
     // Identity
     name: fullName,
@@ -316,6 +483,11 @@ export function buildCardPromptVariables({ player, dynasty, card }) {
 
     // Bio
     bioText,
+
+    // Career & context-aware back content
+    careerStatsTable,
+    careerYearsLine,
+    contextStatBlock,
 
     // Dynasty
     dynastyName: dynasty?.name || '',

@@ -264,9 +264,27 @@ function transformFront(prompt) {
   return PREAMBLE + clean(prompt)
 }
 
+// Prepended to every back template. The {{contextStatBlock}} variable is
+// resolved by cardPromptVariables.js into a context-aware multi-line data
+// block (season → year-by-year career table; game → single-game line;
+// rookie → recruiting profile + rookie stats; championship/award → title
+// or award detail; custom → user theme). Whatever it expands to is the
+// authoritative content for the back; the design language that follows
+// only governs visual layout / cardstock / typography.
+const BACK_PREAMBLE = [
+  'BACK CONTENT (this is the authoritative content for the back of the card — overrides any specific stat reference in the design below):',
+  '',
+  '{{contextStatBlock}}',
+  '',
+  'BACK DESIGN: Apply the visual design described below — layout, cardstock, ink colors, typography, panels, cartoons, footers, etc. — and populate every stat panel, biographical paragraph, and content area using the BACK CONTENT block above. Do not fabricate stats, totals, or claims that are not listed there. If the BACK CONTENT block contains a year-by-year career table, render it as a multi-row table even if the design language describes a one-line stats panel. If the BACK CONTENT block describes a single game, render only that game even if the design language describes year-by-year stats.',
+  '',
+  '---',
+  '',
+].join('\n')
+
 function transformBack(prompt) {
   if (typeof prompt !== 'string') return prompt
-  return clean(prompt)
+  return BACK_PREAMBLE + clean(prompt)
 }
 
 const raw = JSON.parse(fs.readFileSync(SRC, 'utf8'))
