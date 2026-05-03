@@ -11,7 +11,6 @@
 
 import { useMemo, useRef, useEffect, useState } from 'react'
 import { getCardTemplate } from '../data/cardTemplates'
-import { applyOverridesToTemplate } from '../utils/cardTemplateOverrides'
 import { stripMascotFromName, getTeamLogo } from '../data/teams'
 
 export default function CardComposer({
@@ -26,19 +25,13 @@ export default function CardComposer({
   editable = false,
   onPhotoTransformChange,
 }) {
-  // Apply any locally-stored zone overrides on top of the canonical
-  // template definition. The override store is bumped via the
-  // `cardLayoutOverridesUpdated` event so the editor can ask every
-  // mounted CardComposer to re-read after a save.
-  const [overrideTick, setOverrideTick] = useState(0)
-  useEffect(() => {
-    const handler = () => setOverrideTick(t => t + 1)
-    window.addEventListener('cardLayoutOverridesUpdated', handler)
-    return () => window.removeEventListener('cardLayoutOverridesUpdated', handler)
-  }, [])
+  // Legacy render path only — composes a card from the PNG-template +
+  // zone-overlay system. The new prompt-driven flow doesn't go through
+  // here; this component exists solely to keep cards saved under the
+  // old shape rendering when the user views them on the player profile.
   const template = useMemo(
-    () => applyOverridesToTemplate(getCardTemplate(card?.templateId)),
-    [card?.templateId, overrideTick]
+    () => getCardTemplate(card?.templateId),
+    [card?.templateId]
   )
 
   const slotValues = useMemo(() => {

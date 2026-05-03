@@ -8,7 +8,7 @@ import { TEAMS, getTidFromAbbr } from '../../data/teamRegistry'
 import { getTeamLogoByTid, getMascotName } from '../../data/teams'
 import { useToast } from '../../components/ui/Toast'
 import ImageUpload from '../../components/ImageUpload'
-import PlayerCardListEditor from '../../components/PlayerCardListEditor'
+import PlayerCards from '../../components/PlayerCards'
 import { getPlayerCards } from '../../utils/playerCards'
 
 // Helper to check if a stint reason indicates a transfer
@@ -2600,30 +2600,25 @@ export default function PlayerEdit() {
           const liveCards = Array.isArray(formData.cards) ? formData.cards : []
           const cardsDirty = JSON.stringify(savedCards) !== JSON.stringify(liveCards)
           return (
-            <div className="space-y-6">
-              <div className="card overflow-visible">
-                <div className="px-5 py-3 flex items-center justify-between border-b border-surface-4 bg-surface-3">
-                  <h2 className="text-sm font-bold uppercase tracking-wide text-txt-secondary">
-                    Trading Cards
-                  </h2>
-                </div>
-                <div className="p-5">
-                  <p className="text-xs text-txt-tertiary mb-5">
-                    Pick a template, drop in a CFB 26 screenshot, and the player's name, jersey, position, class, and team logo
-                    auto-fit into each zone. Add as many cards as you want.
-                  </p>
-                  <PlayerCardListEditor
-                    cards={formData.cards || []}
-                    onChange={(next) => setFormData(prev => ({ ...prev, cards: next }))}
-                    player={player}
-                    dynasty={dynasty}
-                    teamColors={teamColors}
-                    onSave={handleSave}
-                    saving={saving}
-                    dirty={cardsDirty}
-                  />
-                </div>
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-sm font-bold uppercase tracking-wide text-txt-secondary mb-1" style={{ letterSpacing: '1.5px' }}>
+                  Trading Cards
+                </h2>
+                <p className="text-xs text-txt-tertiary leading-relaxed max-w-3xl">
+                  Build a trading-card collection. Pick a real-world brand and year (1952 Bowman, 1989 Score, 2012 Prizm, etc.), the app fills the AI image-gen prompt with this player's data, you generate the front and back externally, and upload them here.
+                </p>
               </div>
+              <PlayerCards
+                cards={formData.cards || []}
+                onChange={(next) => setFormData(prev => ({ ...prev, cards: next }))}
+                player={player}
+                dynasty={dynasty}
+                teamColors={teamColors}
+                onSave={handleSave}
+                saving={saving}
+                dirty={cardsDirty}
+              />
             </div>
           )
         })()}
