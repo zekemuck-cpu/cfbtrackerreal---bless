@@ -33,19 +33,42 @@ import {
 } from '../utils/cardPromptVariables'
 import { listPlayerGames } from '../utils/playerCards'
 
-// Era ordering — tells the picker which group label to show first.
+// Era labels + ordering — covers every era key emitted by the brand-
+// research catalog. Add new keys here when extending the catalog into
+// new decades or specialty sub-eras (e.g. 'modern_topps_now').
 const ERA_LABELS = {
-  vintage: 'Vintage (pre-1990)',
-  early_modern: 'Early Modern (1989–1995)',
-  mid_90s: 'Premium 90s (1996–2000)',
-  modern: 'Modern Panini Era',
-  modern_panini: 'Modern Panini Era',
+  vintage_1950s: 'Vintage · 1950s',
+  vintage_1960s: 'Vintage · 1960s',
+  vintage_1970s: 'Vintage · 1970s',
+  early_80s: 'Early 80s',
+  mid_80s: 'Mid 80s',
   late_80s: 'Late 80s',
+  early_modern: 'Early Modern',
+  early_90s: 'Early 90s',
+  early_90s_premium: 'Early 90s · Premium',
+  mid_90s: 'Mid 90s',
+  mid_90s_premium: 'Mid 90s · Premium',
+  late_90s_premium: 'Late 90s · Premium',
   early_2000s: 'Early 2000s',
+  early_2000s_premium: 'Early 2000s · Premium',
+  mid_2000s: 'Mid 2000s',
+  mid_2000s_premium: 'Mid 2000s · Premium',
+  late_2000s_premium: 'Late 2000s · Premium',
+  early_2010s: 'Early 2010s',
+  modern_panini: 'Modern · Panini Era',
   college: 'College-Specific',
   misc: 'Misc',
 }
-const ERA_ORDER = ['vintage', 'late_80s', 'early_modern', 'mid_90s', 'early_2000s', 'modern', 'modern_panini', 'college', 'misc']
+const ERA_ORDER = [
+  'vintage_1950s', 'vintage_1960s', 'vintage_1970s',
+  'early_80s', 'mid_80s', 'late_80s',
+  'early_modern', 'early_90s', 'early_90s_premium',
+  'mid_90s', 'mid_90s_premium', 'late_90s_premium',
+  'early_2000s', 'early_2000s_premium',
+  'mid_2000s', 'mid_2000s_premium', 'late_2000s_premium',
+  'early_2010s', 'modern_panini',
+  'college', 'misc',
+]
 
 export default function CardStyleWizard({
   card,

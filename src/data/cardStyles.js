@@ -12,11 +12,12 @@
  *     and uploads the front + back images. The card record stores those
  *     URLs and renders as two flippable images — no live composition.
  *
- * Why empty for now:
- *   The full prompt set is being researched separately (a Claude session
- *   building a 40+ entry catalog of brand-accurate descriptions). Once
- *   the JSON output is in hand, paste the entries into CARD_STYLES below
- *   and they're immediately wired into the wizard.
+ * Data source:
+ *   `cardStylesRaw.json` is the brand-research catalog (40+ entries
+ *   covering the iconic real-world football card sets from 1952 to
+ *   present). The transform below maps the research field shape onto
+ *   the registry shape the wizard expects. To add a new style, append
+ *   to the JSON — no code changes needed here.
  *
  * Style entry shape:
  *   {
@@ -24,23 +25,41 @@
  *     label: string                // human label for dropdown
  *     brand: string                // 'Topps' | 'Panini' | etc.
  *     year: number                 // year of the real-world set
- *     era: string                  // 'late_80s' | 'modern_panini' | etc.
+ *     era: string                  // era key (see ERA_LABELS in the wizard)
  *     description: string          // one-paragraph overview
  *     iconicExamples?: string      // famous cards from the set
  *     notes?: string               // prompt-writer guidance
  *     frontPrompt: string          // template with {{vars}}
  *     backPrompt: string           // template with {{vars}}
- *     // Optional: a sample image URL for the picker preview thumbnail.
- *     // Helps users recognize the style at a glance before committing.
- *     samplePreviewUrl?: string
+ *     samplePreviewUrl?: string    // optional thumbnail for the picker
  *   }
  */
 
-export const CARD_STYLES = [
-  // PASTE RESEARCH OUTPUT HERE — the array stays empty until the prompt
-  // catalog is generated. The wizard already handles an empty registry
-  // gracefully (shows a "no styles yet" empty state).
-]
+import rawStyles from './cardStylesRaw.json'
+
+/**
+ * Transform a research-shape entry into the registry shape. Drops the
+ * front/back description blocks (those are human-reference, not used at
+ * runtime) and renames snake_case keys to camelCase.
+ */
+function transformRawStyle(s) {
+  return {
+    id: s.id,
+    label: s.label,
+    brand: s.brand,
+    year: s.year,
+    era: s.era,
+    description: s.description,
+    iconicExamples: s.iconic_examples,
+    notes: s.ai_generation_notes,
+    frontPrompt: s.front_prompt_template,
+    backPrompt: s.back_prompt_template,
+  }
+}
+
+export const CARD_STYLES = Array.isArray(rawStyles)
+  ? rawStyles.filter(Boolean).map(transformRawStyle)
+  : []
 
 /** Lookup helper. */
 export function getCardStyle(styleId) {
@@ -60,6 +79,10 @@ export function listCardStylesByEra() {
     const era = s.era || 'misc'
     if (!grouped[era]) grouped[era] = []
     grouped[era].push(s)
+  }
+  // Sort each era group by year ascending so 1952 → 2023 reads naturally.
+  for (const era of Object.keys(grouped)) {
+    grouped[era].sort((a, b) => (a.year || 0) - (b.year || 0))
   }
   return grouped
 }
