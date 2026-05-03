@@ -149,6 +149,85 @@ export const CARD_TEMPLATES = {
       },
     ],
   },
+
+  // Holo Chrome Teal — PNG-backed template. Holographic chrome border with
+  // a teal diagonal banner. The PNG carries the visual frame; data slots
+  // are positioned over the gray placeholder rectangles in the template
+  // and cover them entirely (so the gray never peeks through).
+  //
+  // Zone coordinates were measured from the 1060×1484 source PNG and
+  // expressed as percentages so the same map works at any preview size.
+  // Iterate the percentages here if any slot looks misaligned at render
+  // time — every other instance of this template renders against the
+  // same canvas dimensions.
+  holo_chrome_teal: {
+    id: 'holo_chrome_teal',
+    label: 'Holo Chrome Teal',
+    imageUrl: '/cards/templates/holo_chrome_teal.png',
+    aspectRatio: 5 / 7,
+    zones: [
+      // Top long banner — player last name, dark text on the light-gray plate.
+      {
+        slot: 'last_name',
+        x: 11.0, y: 3.5, w: 60.0, h: 7.5,
+        textAlign: 'center',
+        color: '#0f172a',
+        fontWeight: 900,
+        fontFamily: "'Bebas Neue', sans-serif",
+        letterSpacing: '2px',
+      },
+      // Top-right small box — team logo plate.
+      {
+        slot: 'team_logo',
+        x: 79.0, y: 3.5, w: 16.0, h: 7.5,
+        objectFit: 'contain',
+      },
+      // Top-left shield — class (Fr / So / Jr / Sr / RS Sr).
+      {
+        slot: 'class',
+        x: 4.0, y: 13.5, w: 13.0, h: 8.5,
+        textAlign: 'center',
+        color: '#0f172a',
+        fontWeight: 900,
+        fontFamily: "'Bebas Neue', sans-serif",
+        letterSpacing: '1px',
+      },
+      // Center large rectangle — main photo. Slightly inset from the
+      // template's photo well so the inner border stays visible.
+      {
+        slot: 'photo',
+        x: 11.5, y: 14.5, w: 77.0, h: 56.5,
+        objectFit: 'cover',
+        radius: 6,
+      },
+      // Bottom-left hexagon — team logo.
+      {
+        slot: 'team_logo',
+        x: 5.5, y: 78.0, w: 17.0, h: 11.5,
+        objectFit: 'contain',
+      },
+      // Bottom-right small box on the diagonal teal banner — jersey number.
+      // White text reads cleanly against the teal.
+      {
+        slot: 'jersey',
+        x: 80.5, y: 81.0, w: 14.0, h: 7.0,
+        textAlign: 'center',
+        color: '#ffffff',
+        fontWeight: 900,
+        fontFamily: "'Bebas Neue', sans-serif",
+      },
+      // Bottom long banner — school name.
+      {
+        slot: 'school',
+        x: 13.0, y: 91.5, w: 78.0, h: 6.5,
+        textAlign: 'center',
+        color: '#0f172a',
+        fontWeight: 900,
+        fontFamily: "'Bebas Neue', sans-serif",
+        letterSpacing: '1.5px',
+      },
+    ],
+  },
 }
 
 /**
