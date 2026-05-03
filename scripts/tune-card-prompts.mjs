@@ -247,11 +247,48 @@ const ORPHAN_CLEANUPS = [
   [/\s+for\s*\./g, '.'],
 ]
 
+// The source catalog mostly describes NFL trading cards, so its prompts
+// are full of "Panini, NFL, NFLPA logos" footers, "NFL shield" callouts,
+// and "the official NFL card" tagline lines. This app produces COLLEGE
+// football cards, so those references would steer the AI to render NFL
+// branding on a college player. Replace them with the NCAA / team-
+// conference equivalents.
+//
+// NB: leave alone the prompts that already say "NO NFL/NFLPA logos
+// because this is a college-licensed product" — those are correct
+// guardrails for the AI and should stay verbatim. The negative
+// lookbehinds enforce that.
+const NFL_REPLACEMENTS = [
+  // "Footer: Panini, NFL, and NFLPA logos" / "Topps, NFL, NFLPA logos" /
+  // "<BRAND>, NFL, NFLPA logos" — the most common footer pattern.
+  [/(?<!\b[Nn][Oo]\s)([A-Z][A-Za-z]+),\s*NFL,?\s*(?:and\s+)?NFLPA logos\b/g,
+   '$1, NCAA, and team-conference logos'],
+
+  // Bare "NFL and NFLPA logos" / "NFL, NFLPA logos" / "NFL/NFLPA logos"
+  [/(?<!\b[Nn][Oo]\s)\bNFL\s*(?:,\s*and\s+|,\s*|\s+and\s+|\/)\s*NFLPA logos\b/g,
+   'NCAA and team-conference logos'],
+
+  // Misc NFL branding callouts
+  [/\bNFL shield(?:\s+logo)?\b/g, 'NCAA logo'],
+  [/\bNFL crest\b/g, 'NCAA logo'],
+  [/\bNFL wordmark\b/gi, 'NCAA wordmark'],
+  [/THE OFFICIAL NFL CARD/g, 'THE OFFICIAL COLLEGE FOOTBALL CARD'],
+  [/the official NFL card/gi, 'the official college football card'],
+]
+
+function replaceNFLReferences(text) {
+  if (typeof text !== 'string') return text
+  let out = text
+  for (const [re, rep] of NFL_REPLACEMENTS) out = out.replace(re, rep)
+  return out
+}
+
 function clean(text) {
   if (typeof text !== 'string') return text
   let out = text
   for (const [re, rep] of NOUN_REPLACEMENTS) out = out.replace(re, rep)
   for (const re of STRIP_PATTERNS) out = out.replace(re, '')
+  out = replaceNFLReferences(out)
   // Multiple cleanup passes, since one pass can expose new orphans.
   for (let i = 0; i < 3; i++) {
     for (const [re, rep] of ORPHAN_CLEANUPS) out = out.replace(re, rep)

@@ -74,6 +74,121 @@ function emptyToBlank(v) {
 }
 
 /**
+ * Same name normalization the box-score aggregator uses — case-insensitive,
+ * collapses whitespace. Player names in box scores often look slightly
+ * different from `player.name` (e.g. "T. Smith" vs "Tyler Smith"), so we
+ * also expose a fallback that matches on last name + first initial.
+ */
+function normalizeName(name) {
+  if (!name) return ''
+  return String(name).toLowerCase().trim().replace(/\s+/g, ' ')
+}
+
+function namesMatch(boxName, playerName) {
+  if (!boxName || !playerName) return false
+  const a = normalizeName(boxName)
+  const b = normalizeName(playerName)
+  if (a === b) return true
+  // "T. Smith" / "T Smith" → match against "Tyler Smith"
+  const aParts = a.split(' ')
+  const bParts = b.split(' ')
+  if (aParts.length >= 2 && bParts.length >= 2) {
+    const aLast = aParts[aParts.length - 1]
+    const bLast = bParts[bParts.length - 1]
+    if (aLast === bLast) {
+      const aFirst = aParts[0].replace('.', '')
+      const bFirst = bParts[0].replace('.', '')
+      // First-initial match when one side is abbreviated.
+      if (aFirst[0] === bFirst[0]) return true
+    }
+  }
+  return false
+}
+
+/**
+ * Find the player's per-game stats inside a game's box score and format
+ * them as a single human-readable line ("Passing: 28/40, 312 yds, 4 TD •
+ * Rushing: 6 car, 24 yds, 1 TD"). Returns '' when the player isn't found
+ * in the box score (older games without box-score data, walk-on with no
+ * recorded stats, etc.).
+ */
+function buildPlayerGameStatsLine(player, game) {
+  if (!player?.name || !game?.boxScore) return ''
+
+  const categories = ['passing', 'rushing', 'receiving', 'defense', 'kicking', 'kickReturn', 'puntReturn']
+  let found = null
+
+  for (const side of ['home', 'away']) {
+    const sideBoxScore = game.boxScore[side]
+    if (!sideBoxScore) continue
+    const collected = {}
+    for (const cat of categories) {
+      const list = sideBoxScore[cat]
+      if (!Array.isArray(list)) continue
+      const row = list.find(r => namesMatch(r?.playerName, player.name))
+      if (row) collected[cat] = row
+    }
+    if (Object.keys(collected).length > 0) {
+      found = collected
+      break
+    }
+  }
+
+  if (!found) return ''
+
+  const parts = []
+  if (found.passing) {
+    const p = found.passing
+    if (Number(p.attempts) > 0 || Number(p.yards) > 0 || Number(p.tD) > 0) {
+      parts.push(`Passing: ${p.comp ?? 0}/${p.attempts ?? 0}, ${p.yards ?? 0} yds, ${p.tD ?? 0} TD${Number(p.iNT) ? `, ${p.iNT} INT` : ''}`)
+    }
+  }
+  if (found.rushing) {
+    const r = found.rushing
+    if (Number(r.carries) > 0 || Number(r.yards) > 0 || Number(r.tD) > 0) {
+      parts.push(`Rushing: ${r.carries ?? 0} car, ${r.yards ?? 0} yds, ${r.tD ?? 0} TD`)
+    }
+  }
+  if (found.receiving) {
+    const c = found.receiving
+    if (Number(c.receptions) > 0 || Number(c.yards) > 0 || Number(c.tD) > 0) {
+      parts.push(`Receiving: ${c.receptions ?? 0} rec, ${c.yards ?? 0} yds, ${c.tD ?? 0} TD`)
+    }
+  }
+  if (found.defense) {
+    const d = found.defense
+    const tackles = (Number(d.solo) || 0) + (Number(d.assists) || 0)
+    const sub = []
+    if (tackles > 0) sub.push(`${tackles} tkl`)
+    if (Number(d.sack) > 0) sub.push(`${d.sack} sk`)
+    if (Number(d.tFL) > 0) sub.push(`${d.tFL} TFL`)
+    if (Number(d.iNT) > 0) sub.push(`${d.iNT} INT`)
+    if (Number(d.fF) > 0) sub.push(`${d.fF} FF`)
+    if (Number(d.fR) > 0) sub.push(`${d.fR} FR`)
+    if (Number(d.tD) > 0) sub.push(`${d.tD} TD`)
+    if (sub.length) parts.push(`Defense: ${sub.join(', ')}`)
+  }
+  if (found.kicking) {
+    const k = found.kicking
+    const sub = []
+    if (Number(k.fGA) > 0) sub.push(`${k.fGM ?? 0}/${k.fGA} FG`)
+    if (Number(k.xPA) > 0) sub.push(`${k.xPM ?? 0}/${k.xPA} XP`)
+    if (Number(k.fGLong) > 0) sub.push(`Long ${k.fGLong}`)
+    if (sub.length) parts.push(`Kicking: ${sub.join(', ')}`)
+  }
+  if (found.kickReturn) {
+    const kr = found.kickReturn
+    if (Number(kr.kR) > 0) parts.push(`KR: ${kr.kR} ret, ${kr.yards ?? 0} yds${Number(kr.tD) ? `, ${kr.tD} TD` : ''}`)
+  }
+  if (found.puntReturn) {
+    const pr = found.puntReturn
+    if (Number(pr.pR) > 0) parts.push(`PR: ${pr.pR} ret, ${pr.yards ?? 0} yds${Number(pr.tD) ? `, ${pr.tD} TD` : ''}`)
+  }
+
+  return parts.join(' • ')
+}
+
+/**
  * Determine which team a player was on for a given year — same resolution
  * the rest of the app uses (stint-based teamHistory[] first, then
  * teamsByYear[] fallback).
@@ -226,7 +341,7 @@ function buildContextStatBlock({
   careerYearsLine, careerStatsTable,
   opponent, score, result, week, contextLabel,
   awardName, championshipName, customLabel,
-  weeklyAwardName,
+  weeklyAwardName, gameStatsLine,
 }) {
   const lines = []
   // Push a line. null/undefined skip; empty strings are pushed verbatim
@@ -247,11 +362,20 @@ function buildContextStatBlock({
     if (opponent) push(`Opponent: ${opponent}`)
     if (score) push(`Final: ${school || 'Team'} vs ${opponent || 'Opponent'} — ${score}${result ? ` (${result})` : ''}`)
     if (result) push(`Result: ${result === 'W' ? 'Win' : 'Loss'}`)
+    if (gameStatsLine) {
+      push('')
+      push(`${name}'s line in this game:`)
+      push(`  ${gameStatsLine}`)
+    }
     push('')
     if (weeklyAwardName) {
-      push(`INSTRUCTION: This card commemorates ${name}'s ${weeklyAwardName} honor for the game above. The back must prominently feature the "${weeklyAwardName}" title (large headline, badge, or seal — era-appropriate styling). Render the single-game matchup line as the supporting evidence: week, opponent, final score, result, and a 1-2 sentence narrative explaining the performance that earned the honor. DO NOT include season totals, career stats, or year-by-year tables. Wherever the design below describes a "stat panel" or "career totals", instead render the weekly-honor headline plus the single game line.`)
+      push(`INSTRUCTION: This card commemorates ${name}'s ${weeklyAwardName} honor for the game above. The back must prominently feature the "${weeklyAwardName}" title (large headline, badge, or seal — era-appropriate styling). Render the single-game matchup line above AND the player's individual stat line from this game (in the stat panel area) as the supporting evidence for why the honor was earned, plus a 1-2 sentence narrative tying the performance to the honor. DO NOT include season totals, career stats, year-by-year tables, or content from any other game. Wherever the design below describes a "stat panel" or "career totals", instead render the player's per-game line from above.`)
     } else {
-      push(`INSTRUCTION: This card commemorates ONLY this single game. Render only this matchup — week, opponent, final score, result, and a brief 1-2 sentence game narrative. DO NOT include season totals, career stats, year-by-year tables, or content from any other game. Wherever the design below describes a "stat panel" or "year-by-year stats" or "career totals", instead render the single game line above.`)
+      push(`INSTRUCTION: This card commemorates ONLY this single game. Render the matchup details (week, opponent, final score, result) AND ${name}'s individual stat line from this game in the stat panel area, plus a brief 1-2 sentence game narrative. DO NOT include season totals, career stats, year-by-year tables, or content from any other game. Wherever the design below describes a "stat panel" or "year-by-year stats" or "career totals", instead render the per-game stat line shown above.`)
+    }
+    if (!gameStatsLine) {
+      push('')
+      push('NOTE: No per-game box-score data is recorded for this matchup yet. If a stat panel is needed, render only the matchup line (opponent, score, result) — do NOT invent statistics for the player.')
     }
     return lines.join('\n')
   }
@@ -382,37 +506,42 @@ export function buildCardPromptVariables({ player, dynasty, card }) {
   const ctx = card.contextType || 'season'
   const details = card.contextDetails || {}
 
+  // Resolve the per-game record once up-front so the per-game stat-line
+  // extraction below has access to it (and we don't re-find it twice).
+  let gameRecord = null
+  if (ctx === 'game' && details.gameId && dynasty?.games) {
+    gameRecord = dynasty.games.find(x => x?.id === details.gameId) || null
+  }
+
   if (ctx === 'rookie') {
     contextLabel = 'Rookie Year'
   } else if (ctx === 'season') {
     contextLabel = `${year} Season`
-  } else if (ctx === 'game' && details.gameId && dynasty?.games) {
-    const g = dynasty.games.find(x => x?.id === details.gameId)
-    if (g) {
-      const t1 = Number(g.team1Tid)
-      const t2 = Number(g.team2Tid)
-      const playerIsT1 = t1 === teamTid
-      const oppTid = playerIsT1 ? t2 : t1
-      const opp = teamsSrc[oppTid]
-      opponent = (opp?.name && stripMascotFromName(opp.name)) || opp?.abbr || ''
-      opponentLogoUrl = opp?.logo || ''
-      const myScore = playerIsT1 ? g.team1Score : g.team2Score
-      const oppScore = playerIsT1 ? g.team2Score : g.team1Score
-      if (myScore != null && oppScore != null) {
-        score = `${myScore}-${oppScore}`
-        result = myScore > oppScore ? 'W' : 'L'
-      }
-      week = emptyToBlank(g.week)
-      const gType = detectGameType(g)
-      const gameLabel = gType === GAME_TYPES.BOWL ? (g.bowlName || 'Bowl') :
-        gType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP ? `${g.conference || ''} Championship` :
-        gType === GAME_TYPES.CFP_CHAMPIONSHIP ? 'National Championship' :
-        gType === GAME_TYPES.CFP_SEMIFINAL ? 'CFP Semifinal' :
-        gType === GAME_TYPES.CFP_QUARTERFINAL ? 'CFP Quarterfinal' :
-        gType === GAME_TYPES.CFP_FIRST_ROUND ? 'CFP First Round' :
-        week ? `Week ${week}` : 'Game'
-      contextLabel = opponent ? `${gameLabel} vs ${opponent} (${score} ${result})` : gameLabel
+  } else if (ctx === 'game' && gameRecord) {
+    const g = gameRecord
+    const t1 = Number(g.team1Tid)
+    const t2 = Number(g.team2Tid)
+    const playerIsT1 = t1 === teamTid
+    const oppTid = playerIsT1 ? t2 : t1
+    const opp = teamsSrc[oppTid]
+    opponent = (opp?.name && stripMascotFromName(opp.name)) || opp?.abbr || ''
+    opponentLogoUrl = opp?.logo || ''
+    const myScore = playerIsT1 ? g.team1Score : g.team2Score
+    const oppScore = playerIsT1 ? g.team2Score : g.team1Score
+    if (myScore != null && oppScore != null) {
+      score = `${myScore}-${oppScore}`
+      result = myScore > oppScore ? 'W' : 'L'
     }
+    week = emptyToBlank(g.week)
+    const gType = detectGameType(g)
+    const gameLabel = gType === GAME_TYPES.BOWL ? (g.bowlName || 'Bowl') :
+      gType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP ? `${g.conference || ''} Championship` :
+      gType === GAME_TYPES.CFP_CHAMPIONSHIP ? 'National Championship' :
+      gType === GAME_TYPES.CFP_SEMIFINAL ? 'CFP Semifinal' :
+      gType === GAME_TYPES.CFP_QUARTERFINAL ? 'CFP Quarterfinal' :
+      gType === GAME_TYPES.CFP_FIRST_ROUND ? 'CFP First Round' :
+      week ? `Week ${week}` : 'Game'
+    contextLabel = opponent ? `${gameLabel} vs ${opponent} (${score} ${result})` : gameLabel
   } else if (ctx === 'championship') {
     championshipName = details.championshipName || details.championshipKey || 'Championship'
     contextLabel = `${year} ${championshipName}`
@@ -440,6 +569,11 @@ export function buildCardPromptVariables({ player, dynasty, card }) {
   const careerStatsTable = buildCareerStatsTable(player)
   const careerYearsLine = buildCareerYearsLine(player)
 
+  // For game-context cards, pull the player's per-game stat line from
+  // the box score so the back of the card can show what they actually
+  // did in that single game (instead of repeating season totals).
+  const gameStatsLine = gameRecord ? buildPlayerGameStatsLine(player, gameRecord) : ''
+
   // Context-aware data block — drives the back of the card.
   const contextStatBlock = buildContextStatBlock({
     ctx, year: String(year), name: fullName, school,
@@ -454,7 +588,7 @@ export function buildCardPromptVariables({ player, dynasty, card }) {
     careerYearsLine, careerStatsTable,
     opponent, score, result, week, contextLabel,
     awardName, championshipName, customLabel,
-    weeklyAwardName,
+    weeklyAwardName, gameStatsLine,
   })
 
   // Optional front-of-card overlay instruction. Only populated when a
@@ -520,6 +654,10 @@ export function buildCardPromptVariables({ player, dynasty, card }) {
     weeklyAward: weeklyAwardId,
     weeklyAwardName,
     frontOverlay,
+
+    // Per-game player stats (populated for game-context cards when the
+    // game's box score has a row for this player — empty otherwise).
+    gameStatsLine,
 
     // Dynasty
     dynastyName: dynasty?.name || '',
