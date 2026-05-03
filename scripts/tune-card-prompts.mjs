@@ -259,9 +259,16 @@ function clean(text) {
   return out.trim()
 }
 
+// Appended to every front prompt. The {{frontOverlay}} variable resolves
+// to an empty string for normal cards, or to a "Player of the Week banner"
+// instruction when the user attaches a weekly award to a game-context card.
+// Putting it at the end keeps the design language above intact and lets
+// the overlay stack on top as a context-aware addendum.
+const FRONT_OVERLAY_SUFFIX = '\n\n{{frontOverlay}}'
+
 function transformFront(prompt) {
   if (typeof prompt !== 'string') return prompt
-  return PREAMBLE + clean(prompt)
+  return PREAMBLE + clean(prompt) + FRONT_OVERLAY_SUFFIX
 }
 
 // Prepended to every back template. The {{contextStatBlock}} variable is

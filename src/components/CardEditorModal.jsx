@@ -3,16 +3,24 @@
  * card. Opened from PlayerCards' grid (for both adding new cards and
  * editing existing ones).
  *
- * Layout:
- *   • Header — "Add card" / "Edit card" + close button
- *   • Body  — two-pane on wide viewports, stacked on narrow:
- *               LEFT  — CardStylePicker + ContextPanel
- *               RIGHT — Front prompt + Front upload
- *                       Back prompt  + Back upload
- *   • Footer — Cancel + Save card
+ * Wizard layout — three phases, one per screen, to avoid the long
+ * scrolling page the original layout produced:
+ *
+ *   1. STYLE     — pick the brand/year card design (CardStylePicker)
+ *   2. CONTEXT   — what does this card commemorate (season / rookie /
+ *                  game / championship / award / custom) + year + label
+ *   3. GENERATE  — populated front + back prompts to copy into an AI
+ *                  image generator, plus upload fields for the result
+ *
+ * Step pills at the top show progress and let the user jump back to any
+ * earlier phase. Footer has Back / Next, with Save only on phase 3.
+ *
+ * For new cards we start on phase 1 (Style). For edits we start on
+ * phase 3 (Generate) since the user most likely wants to replace one
+ * of the images.
  *
  * Variables resolve live: as the user picks a different style or
- * changes the context, the prompts on the right re-interpolate using
+ * changes the context, the phase-3 prompts re-interpolate using
  * cardPromptVariables.js. Copy + paste into the user's AI image-gen
  * tool, generate, paste/upload the result back into either side.
  *
@@ -23,12 +31,18 @@ import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import CardStylePicker from './CardStylePicker'
 import ImageUpload from './ImageUpload'
-import { CARD_CONTEXTS, getCardStyle } from '../data/cardStyles'
+import { CARD_CONTEXTS, WEEKLY_AWARDS, getCardStyle } from '../data/cardStyles'
 import {
   buildCardPromptVariables,
   interpolatePrompt,
 } from '../utils/cardPromptVariables'
 import { listPlayerGames } from '../utils/playerCards'
+
+const PHASES = [
+  { id: 'style',    label: 'Style',    short: '1' },
+  { id: 'context',  label: 'Context',  short: '2' },
+  { id: 'generate', label: 'Generate', short: '3' },
+]
 
 export default function CardEditorModal({
   card,
@@ -41,6 +55,9 @@ export default function CardEditorModal({
 }) {
   // Local working copy. The parent only sees the final card on Save.
   const [working, setWorking] = useState(() => ({ ...card }))
+
+  // Wizard phase. New cards start at Style; edits start at Generate.
+  const [phaseIdx, setPhaseIdx] = useState(isNew ? 0 : 2)
 
   const update = (patch) => setWorking(w => ({ ...w, ...patch }))
   const updateContextDetails = (patch) =>
@@ -78,10 +95,33 @@ export default function CardEditorModal({
   const availableYears = useMemo(() => collectAvailableYears(player, dynasty), [player, dynasty])
   const availableAwards = useMemo(() => collectAvailableAwards(player), [player])
 
-  const canSave = !!(working.frontImageUrl || working.backImageUrl)
+  // What does each phase need before the user can move to the next one?
+  // (The user can always jump backward.)
+  const phaseComplete = (idx) => {
+    if (idx === 0) return !!working.styleId
+    if (idx === 1) {
+      if (!working.contextType || !working.year) return false
+      const d = working.contextDetails || {}
+      if (working.contextType === 'game'         && !d.gameId) return false
+      if (working.contextType === 'award'        && !d.awardKey) return false
+      if (working.contextType === 'championship' && !d.championshipKey) return false
+      if (working.contextType === 'custom'       && !d.customLabel) return false
+      return true
+    }
+    if (idx === 2) return !!(working.frontImageUrl || working.backImageUrl)
+    return true
+  }
+
+  const canSave = phaseComplete(2)
+  const canAdvance = phaseComplete(phaseIdx)
+
+  const goNext = () => { if (canAdvance && phaseIdx < PHASES.length - 1) setPhaseIdx(phaseIdx + 1) }
+  const goBack = () => { if (phaseIdx > 0) setPhaseIdx(phaseIdx - 1) }
 
   const portalTarget = typeof document !== 'undefined' ? document.body : null
   if (!portalTarget) return null
+
+  const phase = PHASES[phaseIdx]
 
   return createPortal(
     <div
@@ -90,7 +130,7 @@ export default function CardEditorModal({
       onClick={onCancel}
     >
       <div
-        className="w-full max-w-6xl max-h-screen flex flex-col my-4 mx-4 rounded-xl overflow-hidden"
+        className="w-full max-w-5xl max-h-screen flex flex-col my-4 mx-4 rounded-xl overflow-hidden"
         style={{ backgroundColor: 'var(--surface-1)', border: '1px solid var(--surface-4)', boxShadow: '0 28px 80px rgba(0,0,0,0.7)' }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -99,21 +139,23 @@ export default function CardEditorModal({
           className="flex items-center justify-between gap-3 px-5 py-3 flex-shrink-0"
           style={{ backgroundColor: 'var(--surface-2)', borderBottom: '1px solid var(--surface-4)' }}
         >
-          <div>
+          <div className="min-w-0">
             <div
               className="label-xs text-txt-tertiary"
               style={{ letterSpacing: '2px', fontSize: '10px' }}
             >
-              {isNew ? 'NEW CARD' : 'EDIT CARD'}
+              {isNew ? 'NEW CARD' : 'EDIT CARD'} · {phaseIdx + 1} OF {PHASES.length}
             </div>
-            <h2 className="text-base font-bold text-txt-primary leading-tight">
-              {style?.label || 'Pick a style'}
+            <h2 className="text-base font-bold text-txt-primary leading-tight truncate">
+              {phaseIdx === 0 && 'Pick a card style'}
+              {phaseIdx === 1 && 'What does this card commemorate?'}
+              {phaseIdx === 2 && (style?.label || 'Generate the card')}
             </h2>
           </div>
           <button
             type="button"
             onClick={onCancel}
-            className="p-2 rounded-md hover:bg-surface-4 text-txt-secondary hover:text-txt-primary transition-colors"
+            className="p-2 rounded-md hover:bg-surface-4 text-txt-secondary hover:text-txt-primary transition-colors flex-shrink-0"
             aria-label="Close"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -122,63 +164,65 @@ export default function CardEditorModal({
           </button>
         </header>
 
-        {/* Body — two pane on wide, stacked on narrow */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 lg:divide-x divide-surface-4">
-            {/* Left pane — style picker + context */}
-            <div className="p-5 space-y-5 min-w-0">
-              <Section title="Card style" hint="Pick a real-world brand and year. The prompt below auto-fills with this player's data.">
-                <CardStylePicker
-                  value={working.styleId}
-                  onChange={(styleId) => update({ styleId })}
-                />
-              </Section>
+        {/* Phase pills — clickable to jump backward; forward only when prior phases complete */}
+        <nav
+          className="flex items-stretch flex-shrink-0"
+          style={{ backgroundColor: 'var(--surface-2)', borderBottom: '1px solid var(--surface-4)' }}
+        >
+          {PHASES.map((p, i) => {
+            const active = i === phaseIdx
+            const complete = phaseComplete(i)
+            const reachable = i <= phaseIdx || (i > phaseIdx && phaseComplete(i - 1))
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => { if (reachable) setPhaseIdx(i) }}
+                disabled={!reachable}
+                className="flex-1 px-4 py-2.5 text-xs font-bold border-r last:border-r-0 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                style={{
+                  borderRightColor: 'var(--surface-4)',
+                  backgroundColor: active ? 'var(--surface-1)' : 'transparent',
+                  color: active ? 'var(--text-primary)' : (complete ? '#3b82f6' : 'var(--text-tertiary)'),
+                  borderBottom: active ? '2px solid #3b82f6' : '2px solid transparent',
+                }}
+              >
+                <span className="opacity-70 mr-1.5">{p.short}</span>
+                {p.label}
+                {complete && !active && <span className="ml-2 text-[#22c55e]">✓</span>}
+              </button>
+            )
+          })}
+        </nav>
 
-              <Section title="What does this card commemorate?" hint="Sets the storyline that fills the prompt — opponent, score, award, etc.">
-                <ContextPanel
-                  contextType={working.contextType}
-                  contextDetails={working.contextDetails}
-                  year={working.year}
-                  onChangeContext={(t) => update({ contextType: t })}
-                  onChangeYear={(y) => update({ year: Number(y) || null })}
-                  onChangeDetails={updateContextDetails}
-                  availableYears={availableYears}
-                  availableGames={playerGames}
-                  availableAwards={availableAwards}
-                />
-              </Section>
-
-              <Section title="Label (optional)" hint="A short tag shown under the card thumbnail.">
-                <input
-                  type="text"
-                  value={working.label || ''}
-                  onChange={(e) => update({ label: e.target.value })}
-                  placeholder="e.g. Heisman Trophy, Iron Bowl Win, Senior Day"
-                  className="w-full px-3 py-2 rounded-md bg-surface-3 border border-surface-4 text-txt-primary text-sm focus:border-blue-500 focus:outline-none"
-                />
-              </Section>
-            </div>
-
-            {/* Right pane — prompts + uploads */}
-            <div className="p-5 space-y-4 min-w-0">
-              <PromptColumn
-                side="front"
-                prompt={filledFrontPrompt}
-                imageUrl={working.frontImageUrl}
-                onChangeImage={(url) => update({ frontImageUrl: url })}
-                teamColors={teamColors}
-                styleSelected={!!style}
-              />
-              <PromptColumn
-                side="back"
-                prompt={filledBackPrompt}
-                imageUrl={working.backImageUrl}
-                onChangeImage={(url) => update({ backImageUrl: url })}
-                teamColors={teamColors}
-                styleSelected={!!style}
-              />
-            </div>
-          </div>
+        {/* Phase body */}
+        <div className="flex-1 overflow-y-auto p-5">
+          {phase.id === 'style' && (
+            <PhaseStyle
+              styleId={working.styleId}
+              onChange={(styleId) => update({ styleId })}
+            />
+          )}
+          {phase.id === 'context' && (
+            <PhaseContext
+              working={working}
+              onChange={update}
+              onChangeContextDetails={updateContextDetails}
+              availableYears={availableYears}
+              availableGames={playerGames}
+              availableAwards={availableAwards}
+            />
+          )}
+          {phase.id === 'generate' && (
+            <PhaseGenerate
+              style={style}
+              filledFrontPrompt={filledFrontPrompt}
+              filledBackPrompt={filledBackPrompt}
+              working={working}
+              onChange={update}
+              teamColors={teamColors}
+            />
+          )}
         </div>
 
         {/* Footer */}
@@ -187,7 +231,9 @@ export default function CardEditorModal({
           style={{ backgroundColor: 'var(--surface-2)', borderTop: '1px solid var(--surface-4)' }}
         >
           <div className="text-xs text-txt-tertiary">
-            {canSave ? 'Ready to save.' : 'Upload at least the front image to save.'}
+            {phaseIdx === 0 && (working.styleId ? `Picked: ${style?.label}` : 'Pick a style to continue.')}
+            {phaseIdx === 1 && (canAdvance ? 'Context set.' : 'Pick a context type, year, and any required detail.')}
+            {phaseIdx === 2 && (canSave ? 'Ready to save.' : 'Upload at least the front image to save.')}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -197,23 +243,246 @@ export default function CardEditorModal({
             >
               Cancel
             </button>
-            <button
-              type="button"
-              disabled={!canSave}
-              onClick={() => onSave(working)}
-              className="px-4 py-1.5 rounded-md text-xs font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{
-                backgroundColor: canSave ? '#3b82f6' : 'var(--surface-3)',
-                color: '#fff',
-              }}
-            >
-              {isNew ? 'Save card' : 'Save changes'}
-            </button>
+            {phaseIdx > 0 && (
+              <button
+                type="button"
+                onClick={goBack}
+                className="px-3 py-1.5 rounded-md text-xs font-semibold bg-surface-3 border border-surface-5 text-txt-secondary hover:text-txt-primary transition-colors"
+              >
+                Back
+              </button>
+            )}
+            {phaseIdx < PHASES.length - 1 && (
+              <button
+                type="button"
+                disabled={!canAdvance}
+                onClick={goNext}
+                className="px-4 py-1.5 rounded-md text-xs font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  backgroundColor: canAdvance ? '#3b82f6' : 'var(--surface-3)',
+                  color: '#fff',
+                }}
+              >
+                Next →
+              </button>
+            )}
+            {phaseIdx === PHASES.length - 1 && (
+              <button
+                type="button"
+                disabled={!canSave}
+                onClick={() => onSave(working)}
+                className="px-4 py-1.5 rounded-md text-xs font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  backgroundColor: canSave ? '#3b82f6' : 'var(--surface-3)',
+                  color: '#fff',
+                }}
+              >
+                {isNew ? 'Save card' : 'Save changes'}
+              </button>
+            )}
           </div>
         </footer>
       </div>
     </div>,
     portalTarget
+  )
+}
+
+/* ---------- Phase panels ---------- */
+
+function PhaseStyle({ styleId, onChange }) {
+  return (
+    <div className="space-y-3 max-w-3xl mx-auto">
+      <p className="text-xs text-txt-tertiary leading-snug">
+        Pick a real-world brand and year. Each style controls how the front and back of
+        the card look. The prompt populates with this player's data on the next step.
+      </p>
+      <CardStylePicker value={styleId} onChange={onChange} />
+    </div>
+  )
+}
+
+/**
+ * Context phase — six type chips, year select, per-context detail
+ * input, plus the optional thumbnail label. All consolidated here so
+ * the user fills out the entire storyline before moving to Generate.
+ */
+function PhaseContext({
+  working, onChange, onChangeContextDetails,
+  availableYears, availableGames, availableAwards,
+}) {
+  return (
+    <div className="space-y-5 max-w-3xl mx-auto">
+      <Section title="Type" hint="Tells the prompt what storyline to build — season, specific game, award, etc.">
+        <div className="flex flex-wrap gap-1.5">
+          {CARD_CONTEXTS.map(ctx => {
+            const active = working.contextType === ctx.id
+            return (
+              <button
+                key={ctx.id}
+                type="button"
+                onClick={() => onChange({ contextType: ctx.id })}
+                className="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors"
+                style={{
+                  backgroundColor: active ? '#3b82f6' : 'var(--surface-3)',
+                  color: active ? '#fff' : 'var(--text-secondary)',
+                  border: '1px solid ' + (active ? '#3b82f6' : 'var(--surface-4)'),
+                }}
+              >
+                {ctx.label}
+              </button>
+            )
+          })}
+        </div>
+        {working.contextType && (
+          <p className="text-[11px] text-txt-tertiary leading-snug mt-2">
+            {CARD_CONTEXTS.find(c => c.id === working.contextType)?.hint}
+          </p>
+        )}
+      </Section>
+
+      <Section title="Year" hint="Drives stats, team, classification, and team record on the card.">
+        <select
+          value={working.year || ''}
+          onChange={(e) => onChange({ year: Number(e.target.value) || null })}
+          className="w-full px-3 py-2 rounded bg-surface-3 border border-surface-4 text-txt-primary text-sm focus:border-blue-500 focus:outline-none"
+        >
+          <option value="">Select a season…</option>
+          {availableYears.map(y => (
+            <option key={y} value={y}>{y}</option>
+          ))}
+        </select>
+      </Section>
+
+      {working.contextType === 'game' && (
+        <>
+          <Section title="Game" hint="Specific game memento. Back of card will show only this game.">
+            <select
+              value={working.contextDetails?.gameId || ''}
+              onChange={(e) => onChangeContextDetails({ gameId: e.target.value })}
+              className="w-full px-3 py-2 rounded bg-surface-3 border border-surface-4 text-txt-primary text-sm focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">Select a game…</option>
+              {availableGames.map(g => (
+                <option key={g.gameId} value={g.gameId}>
+                  {g.year} W{g.week} · {g.won ? 'W' : 'L'} {g.playerScore}-{g.oppScore} {g.location === 'home' ? 'vs' : g.location === 'away' ? '@' : 'vs (N)'} {g.opponentName}
+                </option>
+              ))}
+            </select>
+          </Section>
+
+          <Section title="Weekly award (optional)" hint="If the player won a Player-of-the-Week honor for this game, the card becomes a POTW commemorative — front gets a banner, back features the honor.">
+            <select
+              value={working.contextDetails?.weeklyAward || ''}
+              onChange={(e) => onChangeContextDetails({ weeklyAward: e.target.value })}
+              className="w-full px-3 py-2 rounded bg-surface-3 border border-surface-4 text-txt-primary text-sm focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">— None —</option>
+              <optgroup label="National">
+                {WEEKLY_AWARDS.filter(a => a.id.startsWith('national_')).map(a => (
+                  <option key={a.id} value={a.id}>{a.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Conference">
+                {WEEKLY_AWARDS.filter(a => a.id.startsWith('conference_')).map(a => (
+                  <option key={a.id} value={a.id}>{a.label}</option>
+                ))}
+              </optgroup>
+            </select>
+          </Section>
+        </>
+      )}
+
+      {working.contextType === 'championship' && (
+        <Section title="Championship" hint="Title or trophy this card commemorates.">
+          <select
+            value={working.contextDetails?.championshipKey || ''}
+            onChange={(e) => onChangeContextDetails({
+              championshipKey: e.target.value,
+              championshipName: e.target.options[e.target.selectedIndex].text,
+            })}
+            className="w-full px-3 py-2 rounded bg-surface-3 border border-surface-4 text-txt-primary text-sm focus:border-blue-500 focus:outline-none"
+          >
+            <option value="">Select…</option>
+            <option value="natty">National Championship</option>
+            <option value="cfp_semi">CFP Semifinal Win</option>
+            <option value="conf">Conference Championship</option>
+            <option value="bowl">Bowl Win</option>
+          </select>
+        </Section>
+      )}
+
+      {working.contextType === 'award' && (
+        <Section title="Award" hint="Heisman, Maxwell, etc. Back of card features the award.">
+          <select
+            value={working.contextDetails?.awardKey || ''}
+            onChange={(e) => onChangeContextDetails({ awardKey: e.target.value })}
+            className="w-full px-3 py-2 rounded bg-surface-3 border border-surface-4 text-txt-primary text-sm focus:border-blue-500 focus:outline-none"
+          >
+            <option value="">Select…</option>
+            {availableAwards.map(a => (
+              <option key={a.key} value={a.key}>{a.label} ({a.year})</option>
+            ))}
+            {availableAwards.length === 0 && <option disabled>No awards on this player</option>}
+          </select>
+        </Section>
+      )}
+
+      {working.contextType === 'custom' && (
+        <Section title="Custom storyline" hint="Type the storyline yourself.">
+          <input
+            type="text"
+            value={working.contextDetails?.customLabel || ''}
+            onChange={(e) => onChangeContextDetails({ customLabel: e.target.value })}
+            placeholder="e.g. Walk-on to All-American, Bowl MVP, etc."
+            className="w-full px-3 py-2 rounded bg-surface-3 border border-surface-4 text-txt-primary text-sm focus:border-blue-500 focus:outline-none"
+          />
+        </Section>
+      )}
+
+      <Section title="Label (optional)" hint="A short tag shown under the card thumbnail in the collection grid.">
+        <input
+          type="text"
+          value={working.label || ''}
+          onChange={(e) => onChange({ label: e.target.value })}
+          placeholder="e.g. Heisman Trophy, Iron Bowl Win, Senior Day"
+          className="w-full px-3 py-2 rounded-md bg-surface-3 border border-surface-4 text-txt-primary text-sm focus:border-blue-500 focus:outline-none"
+        />
+      </Section>
+    </div>
+  )
+}
+
+/**
+ * Generate phase — show the populated front + back prompts side-by-
+ * side (or stacked on narrow viewports), each paired with an upload
+ * field for the AI-generated result.
+ */
+function PhaseGenerate({ style, filledFrontPrompt, filledBackPrompt, working, onChange, teamColors }) {
+  if (!style) {
+    return (
+      <div className="max-w-3xl mx-auto text-center text-sm text-txt-tertiary py-12">
+        Pick a card style first to see the prompts.
+      </div>
+    )
+  }
+  return (
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <PromptColumn
+        side="front"
+        prompt={filledFrontPrompt}
+        imageUrl={working.frontImageUrl}
+        onChangeImage={(url) => onChange({ frontImageUrl: url })}
+        teamColors={teamColors}
+      />
+      <PromptColumn
+        side="back"
+        prompt={filledBackPrompt}
+        imageUrl={working.backImageUrl}
+        onChangeImage={(url) => onChange({ backImageUrl: url })}
+        teamColors={teamColors}
+      />
+    </div>
   )
 }
 
@@ -239,129 +508,11 @@ function Section({ title, hint, children }) {
 }
 
 /**
- * ContextPanel — the "what does this commemorate" picker. Six chips +
- * a year selector + per-context detail fields that swap in based on
- * the active chip.
+ * PromptColumn — single side (front or back) of the card editor.
+ * Shows the populated prompt with a copy button, and an upload field
+ * for the resulting image.
  */
-function ContextPanel({
-  contextType, contextDetails, year,
-  onChangeContext, onChangeYear, onChangeDetails,
-  availableYears, availableGames, availableAwards,
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-1.5">
-        {CARD_CONTEXTS.map(ctx => {
-          const active = contextType === ctx.id
-          return (
-            <button
-              key={ctx.id}
-              type="button"
-              onClick={() => onChangeContext(ctx.id)}
-              className="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors"
-              style={{
-                backgroundColor: active ? '#3b82f6' : 'var(--surface-3)',
-                color: active ? '#fff' : 'var(--text-secondary)',
-                border: '1px solid ' + (active ? '#3b82f6' : 'var(--surface-4)'),
-              }}
-            >
-              {ctx.label}
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <label className="block">
-          <span className="text-[10px] uppercase tracking-wider text-txt-tertiary">Season year</span>
-          <select
-            value={year || ''}
-            onChange={(e) => onChangeYear(e.target.value)}
-            className="mt-1 w-full px-2 py-1.5 rounded bg-surface-3 border border-surface-4 text-txt-primary text-xs focus:border-blue-500 focus:outline-none"
-          >
-            <option value="">Select…</option>
-            {availableYears.map(y => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      {/* Per-context detail input */}
-      {contextType === 'game' && (
-        <label className="block">
-          <span className="text-[10px] uppercase tracking-wider text-txt-tertiary">Game</span>
-          <select
-            value={contextDetails?.gameId || ''}
-            onChange={(e) => onChangeDetails({ gameId: e.target.value })}
-            className="mt-1 w-full px-2 py-1.5 rounded bg-surface-3 border border-surface-4 text-txt-primary text-xs focus:border-blue-500 focus:outline-none"
-          >
-            <option value="">Select a game…</option>
-            {availableGames.map(g => (
-              <option key={g.gameId} value={g.gameId}>
-                {g.year} W{g.week} · {g.won ? 'W' : 'L'} {g.playerScore}-{g.oppScore} {g.location === 'home' ? 'vs' : g.location === 'away' ? '@' : 'vs (N)'} {g.opponentName}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      {contextType === 'championship' && (
-        <label className="block">
-          <span className="text-[10px] uppercase tracking-wider text-txt-tertiary">Championship</span>
-          <select
-            value={contextDetails?.championshipKey || ''}
-            onChange={(e) => onChangeDetails({
-              championshipKey: e.target.value,
-              championshipName: e.target.options[e.target.selectedIndex].text,
-            })}
-            className="mt-1 w-full px-2 py-1.5 rounded bg-surface-3 border border-surface-4 text-txt-primary text-xs focus:border-blue-500 focus:outline-none"
-          >
-            <option value="">Select…</option>
-            <option value="natty">National Championship</option>
-            <option value="cfp_semi">CFP Semifinal Win</option>
-            <option value="conf">Conference Championship</option>
-            <option value="bowl">Bowl Win</option>
-          </select>
-        </label>
-      )}
-      {contextType === 'award' && (
-        <label className="block">
-          <span className="text-[10px] uppercase tracking-wider text-txt-tertiary">Award</span>
-          <select
-            value={contextDetails?.awardKey || ''}
-            onChange={(e) => onChangeDetails({ awardKey: e.target.value })}
-            className="mt-1 w-full px-2 py-1.5 rounded bg-surface-3 border border-surface-4 text-txt-primary text-xs focus:border-blue-500 focus:outline-none"
-          >
-            <option value="">Select…</option>
-            {availableAwards.map(a => (
-              <option key={a.key} value={a.key}>{a.label} ({a.year})</option>
-            ))}
-            {availableAwards.length === 0 && <option disabled>No awards on this player</option>}
-          </select>
-        </label>
-      )}
-      {contextType === 'custom' && (
-        <label className="block">
-          <span className="text-[10px] uppercase tracking-wider text-txt-tertiary">Custom context</span>
-          <input
-            type="text"
-            value={contextDetails?.customLabel || ''}
-            onChange={(e) => onChangeDetails({ customLabel: e.target.value })}
-            placeholder="e.g. Walk-on to All-American, Bowl MVP, etc."
-            className="mt-1 w-full px-2 py-1.5 rounded bg-surface-3 border border-surface-4 text-txt-primary text-xs focus:border-blue-500 focus:outline-none"
-          />
-        </label>
-      )}
-    </div>
-  )
-}
-
-/**
- * PromptColumn — single side (front or back) of the card editor's
- * right pane. Shows the populated prompt with a copy button, and an
- * upload field for the resulting image.
- */
-function PromptColumn({ side, prompt, imageUrl, onChangeImage, teamColors, styleSelected }) {
+function PromptColumn({ side, prompt, imageUrl, onChangeImage, teamColors }) {
   const [copied, setCopied] = useState(false)
   const onCopy = async () => {
     try {
@@ -402,20 +553,17 @@ function PromptColumn({ side, prompt, imageUrl, onChangeImage, teamColors, style
         </button>
       </header>
 
-      {/* Body — two columns at sm+: prompt textarea | image preview/upload */}
+      {/* Body — prompt textarea + image preview/upload */}
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 p-3">
-        {/* Prompt */}
         <div className="min-w-0">
           <textarea
             value={prompt}
             readOnly
-            rows={8}
-            placeholder={styleSelected ? '' : `Pick a style on the left to see the ${side} prompt.`}
+            rows={6}
             className="w-full px-2.5 py-2 text-[11px] font-mono leading-snug bg-surface-1 text-txt-primary rounded border border-surface-4 resize-vertical focus:outline-none"
-            style={{ minHeight: 160 }}
+            style={{ minHeight: 140 }}
           />
         </div>
-        {/* Image preview + upload */}
         <div className="space-y-2 sm:w-44">
           {imageUrl ? (
             <div className="rounded-md overflow-hidden" style={{ border: '1px solid var(--surface-4)' }}>

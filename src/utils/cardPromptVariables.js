@@ -32,6 +32,7 @@
 import { stripMascotFromName } from '../data/teams'
 import { TEAMS } from '../data/teamRegistry'
 import { detectGameType, GAME_TYPES, getTeamRanking, calculateTeamRecordFromGames } from '../context/DynastyContext'
+import { WEEKLY_AWARDS } from '../data/cardStyles'
 
 // Award keys → human display name. Mirrors the labels the player profile
 // surfaces so the prompt language reads consistently across the app.
@@ -225,6 +226,7 @@ function buildContextStatBlock({
   careerYearsLine, careerStatsTable,
   opponent, score, result, week, contextLabel,
   awardName, championshipName, customLabel,
+  weeklyAwardName,
 }) {
   const lines = []
   // Push a line. null/undefined skip; empty strings are pushed verbatim
@@ -233,15 +235,24 @@ function buildContextStatBlock({
   const push = (s) => { if (s != null) lines.push(s) }
 
   if (ctx === 'game') {
-    push(`=== GAME CARD — STRICTLY THIS GAME ONLY ===`)
+    if (weeklyAwardName) {
+      push(`=== PLAYER OF THE WEEK CARD — ${weeklyAwardName.toUpperCase()} ===`)
+    } else {
+      push(`=== GAME CARD — STRICTLY THIS GAME ONLY ===`)
+    }
     push(`Player: ${name}${positionFull ? ` (${positionFull})` : ''}${school ? `, ${school}` : ''}`)
+    if (weeklyAwardName) push(`Honor: ${weeklyAwardName}`)
     if (week) push(`Week: ${week}`)
     if (contextLabel) push(`Game: ${contextLabel}`)
     if (opponent) push(`Opponent: ${opponent}`)
     if (score) push(`Final: ${school || 'Team'} vs ${opponent || 'Opponent'} — ${score}${result ? ` (${result})` : ''}`)
     if (result) push(`Result: ${result === 'W' ? 'Win' : 'Loss'}`)
     push('')
-    push(`INSTRUCTION: This card commemorates ONLY this single game. Render only this matchup — week, opponent, final score, result, and a brief 1-2 sentence game narrative. DO NOT include season totals, career stats, year-by-year tables, or content from any other game. Wherever the design below describes a "stat panel" or "year-by-year stats" or "career totals", instead render the single game line above.`)
+    if (weeklyAwardName) {
+      push(`INSTRUCTION: This card commemorates ${name}'s ${weeklyAwardName} honor for the game above. The back must prominently feature the "${weeklyAwardName}" title (large headline, badge, or seal — era-appropriate styling). Render the single-game matchup line as the supporting evidence: week, opponent, final score, result, and a 1-2 sentence narrative explaining the performance that earned the honor. DO NOT include season totals, career stats, or year-by-year tables. Wherever the design below describes a "stat panel" or "career totals", instead render the weekly-honor headline plus the single game line.`)
+    } else {
+      push(`INSTRUCTION: This card commemorates ONLY this single game. Render only this matchup — week, opponent, final score, result, and a brief 1-2 sentence game narrative. DO NOT include season totals, career stats, year-by-year tables, or content from any other game. Wherever the design below describes a "stat panel" or "year-by-year stats" or "career totals", instead render the single game line above.`)
+    }
     return lines.join('\n')
   }
 
@@ -413,6 +424,14 @@ export function buildCardPromptVariables({ player, dynasty, card }) {
     contextLabel = customLabel || `${year} Season`
   }
 
+  // Weekly award (optional, currently scoped to game-context cards).
+  // Stored as { weeklyAward: id } in contextDetails; we resolve to a
+  // human-readable name from the WEEKLY_AWARDS catalog.
+  const weeklyAwardId = details.weeklyAward || ''
+  const weeklyAwardName = weeklyAwardId
+    ? (WEEKLY_AWARDS.find(a => a.id === weeklyAwardId)?.label || '')
+    : ''
+
   const bioText = buildBioText({
     player, position, school, year, statsLine, recordLine, contextLabel,
   })
@@ -435,7 +454,15 @@ export function buildCardPromptVariables({ player, dynasty, card }) {
     careerYearsLine, careerStatsTable,
     opponent, score, result, week, contextLabel,
     awardName, championshipName, customLabel,
+    weeklyAwardName,
   })
+
+  // Optional front-of-card overlay instruction. Only populated when a
+  // weekly award is attached — adds a small POTW banner / badge to the
+  // front design. Empty otherwise so the front prompt collapses cleanly.
+  const frontOverlay = weeklyAwardName
+    ? `OPTIONAL FRONT OVERLAY: Add a small "${weeklyAwardName}" banner or badge to the card front, sized so it does not obscure the player photo. Place it across the top edge or in an upper corner. Match the era's visual language — gold-foil ribbon for modern premium sets, plain printed banner for vintage sets, etched/embossed seal for ultra-premium sets. The banner reads "${weeklyAwardName}" in era-appropriate typography.`
+    : ''
 
   return {
     // Identity
@@ -488,6 +515,11 @@ export function buildCardPromptVariables({ player, dynasty, card }) {
     careerStatsTable,
     careerYearsLine,
     contextStatBlock,
+
+    // Weekly award (game-context add-on)
+    weeklyAward: weeklyAwardId,
+    weeklyAwardName,
+    frontOverlay,
 
     // Dynasty
     dynastyName: dynasty?.name || '',

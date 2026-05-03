@@ -106,3 +106,20 @@ export const CARD_CONTEXTS = [
   { id: 'award',        label: 'Individual Award', hint: 'Heisman, Maxwell, etc.' },
   { id: 'custom',       label: 'Custom',          hint: 'Free-form context — type the storyline yourself.' },
 ]
+
+/**
+ * Weekly awards a player can win for a specific game. Optional add-on
+ * to a 'game' context card — when set, the card becomes a "Player of
+ * the Week" commemorative and the back (write-up) reflects the honor.
+ * Stored as `card.contextDetails.weeklyAward` (id) on game-context cards.
+ */
+export const WEEKLY_AWARDS = [
+  { id: 'national_offensive',       label: 'National Offensive Player of the Week' },
+  { id: 'national_defensive',       label: 'National Defensive Player of the Week' },
+  { id: 'national_special_teams',   label: 'National Special Teams Player of the Week' },
+  { id: 'national_freshman',        label: 'National Freshman of the Week' },
+  { id: 'conference_offensive',     label: 'Conference Offensive Player of the Week' },
+  { id: 'conference_defensive',     label: 'Conference Defensive Player of the Week' },
+  { id: 'conference_special_teams', label: 'Conference Special Teams Player of the Week' },
+  { id: 'conference_freshman',      label: 'Conference Freshman of the Week' },
+]
