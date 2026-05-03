@@ -109,6 +109,64 @@ F. TEAM-COVERAGE CHECK. After your initial pass, build a mental SET of every tea
    This check exists because the most common "missing 1–5 games per conference" failure happens at the bottom of long lists where attention drifts. Don't skip it — it's cheap to run and catches the long-tail misses that the count step (B/C above) silently allows.
 
 ═══════════════════════════════════════════════════════════
+PRE-EXTRACTION WORKSHEET — write this BEFORE the TSV
+═══════════════════════════════════════════════════════════
+Score-swap and missing-game errors happen when the AI commits to TSV rows
+without explicitly reasoning about each game. The single most effective
+defense is to force a structured WORKSHEET line per game BEFORE the TSV.
+Field reports show this catches both bug classes:
+
+  • Wrong-winner errors (you swapped home/away but left the scores in
+    screen order)
+  • Missing games (you forgot a row that you would have caught here)
+
+For every game in the screenshots, write ONE worksheet line, in this
+exact pipe-separated order:
+
+  WS<n> | <img> | <leftAbbr> <leftScore> [VS|@|NEUT] <rightAbbr> <rightScore> | HOME=<abbr> | WINNER=<abbr> | NEUTRAL=Y/N
+
+Field by field:
+  • WS<n>            sequential — WS1, WS2, WS3 …
+  • <img>            which screenshot you read this game from (img1, img2…)
+  • The middle block is what you SAW: which team's logo/abbr was on which
+    side of the screen, and which score sat next to which logo. The
+    [VS|@|NEUT] marker is the orientation cue you used (vs / @ / neutral
+    site). Keep left and right in the order they appeared on screen.
+  • HOME=<abbr>      apply rule 6 (HOME / AWAY ORIENTATION). Cite mentally
+                     which evidence drove the decision: "@", "vs", left/
+                     right convention, explicit Home/Away tag, neutral
+  • WINNER=<abbr>    the team with the higher score. CRITICAL: the higher
+                     score in the middle block must belong to the team you
+                     write here. If your worksheet line says
+                     "AUB 31 @ UGA 21 ... WINNER=UGA" you have a bug —
+                     31 is paired with AUB on screen, AUB won.
+  • NEUTRAL=Y/N      Y if you couldn't determine HOME and the game was at
+                     a neutral site; otherwise N.
+
+Three example worksheet lines:
+
+  WS1 | img1 | AUB 31 @ UGA 21 | HOME=UGA | WINNER=AUB | NEUTRAL=N
+  WS2 | img1 | TEX 28 vs OU 24 | HOME=TEX | WINNER=TEX | NEUTRAL=N
+  WS3 | img2 | LSU 52 vs FCSE 10 | HOME=LSU | WINNER=LSU | NEUTRAL=N
+
+After ALL worksheet lines are written, derive the TSV mechanically:
+  • Col A = HOME (from the worksheet)
+  • Col D = the OTHER team
+  • Col C = HOME's score (the score you saw next to HOME's logo)
+  • Col F = the OTHER team's score
+  • Col G = "Y" if NEUTRAL=Y, else blank
+  • Cols B and E from any rank annotations seen on the screenshot
+
+If your TSV has a winner that disagrees with the worksheet's WINNER, you
+introduced a score-swap. Fix the TSV row. The worksheet is the source of
+truth — it captures what you actually saw before you reorganized into
+home/away columns.
+
+OUTPUT FORMAT for the worksheet: emit it as a fenced \`\`\`worksheet
+block, BEFORE the TSV fence. The user keeps the worksheet as an audit
+trail; only the TSV is pasted into the sheet.
+
+═══════════════════════════════════════════════════════════
 COMMON SCREENSHOT FORMATS — recognize these layouts
 ═══════════════════════════════════════════════════════════
 • SCORES/SCHEDULES list view (CFB26): a vertical list of matchups, each row showing two team logos, scores, date. Every row = one game.
@@ -233,12 +291,25 @@ team abbr         | 1–25 or BLANK     | integer            | team abbr        
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
+Output, in order:
+  1. The pre-extraction WORKSHEET as a fenced \`\`\`worksheet block
+     (one WS line per game, see "PRE-EXTRACTION WORKSHEET" above).
+  2. The TSV block — paste-target marker line, then the rows:
+
+\`\`\`worksheet
+WS1 | img1 | <leftAbbr> <leftScore> [VS|@|NEUT] <rightAbbr> <rightScore> | HOME=<abbr> | WINNER=<abbr> | NEUTRAL=Y/N
+WS2 | img1 | ...
+...
+\`\`\`
+
 === WEEK ${week} SCORES — paste at cell A2 of "Week ${week} Scores" tab ===
 <row1 HomeTeam>\\t<row1 HomeRank>\\t<row1 HomeScore>\\t<row1 AwayTeam>\\t<row1 AwayRank>\\t<row1 AwayScore>\\t<row1 Neutral?>
 <row2 HomeTeam>\\t<row2 HomeRank>\\t<row2 HomeScore>\\t<row2 AwayTeam>\\t<row2 AwayRank>\\t<row2 AwayScore>\\t<row2 Neutral?>
 ... (one row per game in the screenshots — DO NOT actually emit "..."; emit the FULL list)
 
 (Each \\t above represents a LITERAL TAB character — use actual tab characters in your output, not the text "\\t".)
+
+The WORKSHEET is for audit only — the user reads it but pastes only the TSV into the sheet. The marker line (=== WEEK ... ===) separates the two and tells the user where to start the copy.
 
 Example rows (for illustration only — your data should match the screenshots, and you should use ONLY abbreviations that appear in the mapping at the bottom of this prompt):
 TEX\\t7\\t34\\tOU\\t\\t21\\t
@@ -264,6 +335,7 @@ Don't just glance at this list. Physically execute each check on your draft.
 [ ] HOME team correctly identified per game. Re-read rule 6 if you skipped it. The team in Col A is the team whose stadium hosted the game — NOT the team listed first on the screen. CFB26 layouts put the visitor on the LEFT and the home team on the RIGHT, so swap as needed. If your draft has the same team in Col A for the majority of rows (e.g. Auburn in Col A for every Auburn game), you've biased home/away — go re-read each row and fix before sending.
 [ ] No same-team-in-Col-A bias. Within this single week's slate, scan your Col A values: if any team appears more than once in Col A, that's an error (a team plays at most one game per week). Across many weeks of separate entries, the same team should NOT appear in Col A for every game it plays — half its games are home, half are away.
 [ ] SCORE-FOLLOWS-TEAM (per-row, rule 6.5). Pick THREE rows from your draft at random. For each, mentally re-read the screenshot at that exact row position. Confirm that the value in Col C is the score that was visually next to the team you put in Col A — and the value in Col F is the score next to the team in Col D. If your home/away decision swapped which side of the screen Col A came from, the score MUST have swapped with it. Any row that fails this check has the WINNER WRONG — fix it before sending. This is the most common source of "wrong team won" bug reports.
+[ ] WORKSHEET vs TSV (winner consistency). For every TSV row, find the matching WS line. The team with the higher score in the worksheet's middle block (the screen-order summary) MUST equal WINNER on that worksheet line, AND must equal whichever team has the higher score in the TSV row (whether that's Col C or Col F). If any row's TSV winner disagrees with the worksheet's WINNER, you introduced a score-swap during the worksheet→TSV derivation. Fix the TSV row.
 [ ] TEAM COVERAGE (rule F in PRE-EXTRACTION COUNT). Every team you saw in the screenshots is now either (a) in a row of your output, or (b) confirmed on bye. No team silently disappeared. If you can name a team you remember seeing that doesn't appear in EITHER place, you have a missing game — go find it.
 [ ] No header row, no commentary, no follow-up text (except the optional "X games dropped" note ONLY if N > ${WEEKLY_SCORES_MAX_ROWS}).`,
     includeTeamMap: true,
