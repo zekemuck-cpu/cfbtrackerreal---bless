@@ -679,13 +679,23 @@ export function buildCardPromptVariables({ player, dynasty, card }) {
   // did in that single game (instead of repeating season totals).
   const gameStatsLine = gameRecord ? buildPlayerGameStatsLine(player, gameRecord) : ''
 
+  // Build "City, ST" when both city and state are known, "City" if
+  // only city, "ST" if only state, "" otherwise. The AI was guessing
+  // states from city names because the prompt only carried the city
+  // (Dallas → Texas? Could also be Georgia, Pennsylvania, etc.).
+  const hometownCity = emptyToBlank(player.hometown)
+  const hometownState = emptyToBlank(player.state || player.homeState)
+  const hometownFull = (hometownCity && hometownState)
+    ? `${hometownCity}, ${hometownState}`
+    : (hometownCity || hometownState || '')
+
   // Context-aware data block — drives the back of the card.
   const contextStatBlock = buildContextStatBlock({
     ctx, year: String(year), name: fullName, school,
     position, positionFull, cls,
     height: emptyToBlank(player.height),
     weight: emptyToBlank(player.weight),
-    hometown: emptyToBlank(player.hometown),
+    hometown: hometownFull,
     stars: emptyToBlank(player.stars),
     recruitingRank: player.nationalRank ? `#${player.nationalRank}` : '',
     statsLine, recordLine,
@@ -716,8 +726,14 @@ export function buildCardPromptVariables({ player, dynasty, card }) {
     class: cls,
     height: emptyToBlank(player.height),
     weight: emptyToBlank(player.weight),
-    hometown: emptyToBlank(player.hometown),
-    state: emptyToBlank(player.state || player.homeState),
+    // {{hometown}} now carries "City, ST" when both are on the player
+    // record (the AI was guessing states from ambiguous city names
+    // like "Dallas" or "Springfield" before). {{hometownCity}} keeps
+    // the city-only form for templates that already include state
+    // separately, and {{state}} stays unchanged for explicit usage.
+    hometown: hometownFull,
+    hometownCity: hometownCity,
+    state: hometownState,
     archetype: emptyToBlank(player.archetype),
     devTrait: emptyToBlank(player.devTrait),
     stars: emptyToBlank(player.stars),
