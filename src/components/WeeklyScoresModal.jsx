@@ -18,6 +18,8 @@ import { getCurrentTeamTid } from '../data/teamRegistry'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
+import { getCustomConferencesForYear } from '../context/DynastyContext'
+import { conferenceTeams as DEFAULT_CONFERENCE_TEAMS } from '../data/conferenceTeams'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -64,6 +66,40 @@ export default function WeeklyScoresModal({ isOpen, onClose, year, week, teamCol
   const userTid = currentDynasty ? getCurrentTeamTid(currentDynasty) : null
   const userTeam = userTid ? currentDynasty?.teams?.[userTid] : null
   const userAbbr = userTeam?.abbr || null
+
+  // Build a conference→[teams] block keyed off the dynasty's actual
+  // alignment for the year. Custom conferences (teambuilder dynasties
+  // where the user moved a team) take priority — fallback to the
+  // static catalog only when no custom map exists. The AI must
+  // recognize a Big Ten Championship as a Big Ten Championship even
+  // if the user moved Alabama into the Big Ten, so we do NOT inject
+  // real-world assumptions here, only the dynasty's own data.
+  const conferenceMapBlock = useMemo(() => {
+    const customMap = currentDynasty ? getCustomConferencesForYear(currentDynasty, year) : null
+    const confMap = customMap || DEFAULT_CONFERENCE_TEAMS
+    const lines = []
+    // Stable order: P4 first, then G6, then Independent / misc.
+    const order = [
+      'ACC', 'Big Ten', 'Big 12', 'SEC',
+      'American', 'Conference USA', 'MAC', 'Mountain West', 'Pac-12', 'Sun Belt',
+      'Independent',
+    ]
+    const seen = new Set()
+    for (const conf of order) {
+      const teams = Array.isArray(confMap[conf]) ? confMap[conf].filter(Boolean) : null
+      if (!teams || teams.length === 0) continue
+      lines.push(`  ${conf}: ${teams.join(', ')}`)
+      seen.add(conf)
+    }
+    // Anything else in the map that wasn't in the canonical order
+    // (e.g. a custom conference name the user invented).
+    for (const [conf, teams] of Object.entries(confMap)) {
+      if (seen.has(conf)) continue
+      if (!Array.isArray(teams) || teams.length === 0) continue
+      lines.push(`  ${conf}: ${teams.join(', ')}`)
+    }
+    return lines.join('\n')
+  }, [currentDynasty, year])
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${year} Week ${week} Scores`,
@@ -366,12 +402,32 @@ CRITICAL RULES — output format
    you put that team. If TEAM_LEFT goes to Col A, then SCORE_LEFT goes to
    Col C. If TEAM_LEFT goes to Col D (because it was the visitor), then
    SCORE_LEFT goes to Col F. Score moves with the team, period.
-7. NEUTRAL FLAG: column G is "Y" only when the game is explicitly at a neutral site (kickoff games, neutral-site classics, conference championship venues). For ordinary home games leave column G BLANK. Do NOT write "N".
+7. NEUTRAL FLAG: column G is "Y" only when the game is explicitly at a neutral site (kickoff games, neutral-site classics, conference championship venues). For ordinary home games leave column G BLANK. Do NOT write "N". For Week 14+ specifically, see the CONFERENCE CHAMPIONSHIP WEEK section below — every conference championship game MUST be marked Y, and the importer relies on Y to recognize the game as a championship.
 8. FCS OPPONENTS — INCLUDE THEM. EA College Football 26 represents real FCS schools as one of four generic FCS placeholders, and those placeholders ARE in the team mapping at the bottom of this prompt (typically FCSE, FCSM, FCSN, FCSW — but follow whatever appears in your mapping). When a Power-or-Group-of-5 FBS team plays an FCS opponent in Week 0 (or later), that game IS in scope — find the matching FCS placeholder abbreviation in the mapping and write the row. Do NOT drop FCS games — they're part of the user's records.
 9. UNKNOWN ABBREVIATIONS — never invent. If you cannot find a team in the mapping AT ALL after a careful re-scan, OMIT that game (rare — almost everything an in-game screenshot shows is in the mapping, including all FBS teams, FCS placeholders, and any user-renamed teambuilder teams). Re-check the mapping CAREFULLY before omitting — it includes every valid abbreviation for this dynasty.
 10. SKIP bye weeks. Teams on bye are not games and have no row.
 11. NO HEADER ROW in the output. Do not include "HOME TEAM" / "AWAY TEAM" labels.
 12. ${userAbbr ? `OPTIONAL — the user's own team is ${userAbbr}. If you can see their game in the screenshots, INCLUDE it; if not, that's fine — they enter their own game separately and any duplicate row is harmlessly preserved.` : `If the user's own team plays in this week, include the row anyway — duplicates with their separately-entered game are handled automatically.`}
+
+═══════════════════════════════════════════════════════════
+CONFERENCE CHAMPIONSHIP WEEK (Week 14+) — special rules
+═══════════════════════════════════════════════════════════
+When the week being entered is Week 14 OR LATER, conference championship games appear in the screenshots — typically a CONF CHAMPIONSHIPS sub-screen that lists one or two games per conference at neutral sites. They look like a regular game line on the surface (two teams, a score), but they are NOT regular-season games. The importer auto-promotes these rows to the "conference championship" game type if and only if every condition below is met for that row:
+
+   (A) BOTH teams are in the SAME conference per the DYNASTY CONFERENCE MAP at the bottom of this prompt.
+   (B) Column G is "Y" (neutral site).
+   (C) The week (the value injected at the top of this prompt) is ≥ 14.
+
+So when you encounter a Week 14+ matchup at a neutral site between two teams in the same conference (per the dynasty map), set column G to "Y" — period. Do NOT skip it, do NOT leave it blank, do NOT mark it home/away. Conversely, regular-season conference games (not neutral, not championship-week) MUST keep G blank — never bleed the neutral flag onto a normal home game.
+
+Use the dynasty's CONFERENCE MAP at the bottom of this prompt — NOT real-world conference assumptions. If the user has moved Alabama and Georgia into the Pac-12 in their dynasty, then a Week 14 BAMA-vs-UGA neutral-site game IS the Pac-12 Championship — record it accordingly. Do not assume a team is in its real-world conference; trust the mapping below.
+
+═══════════════════════════════════════════════════════════
+DYNASTY CONFERENCE MAP — use this, not real-world assumptions
+═══════════════════════════════════════════════════════════
+This is the conference alignment for the ${year} season in THIS dynasty. Use it to determine whether a Week 14+ matchup is a conference championship (rule above). Each line is "<conference>: <comma-separated team abbreviations>".
+
+${conferenceMapBlock || '  (no custom conference data — fall back to standard FBS alignment)'}
 
 ═══════════════════════════════════════════════════════════
 TAB: "Week ${week} Scores" — up to ${WEEKLY_SCORES_MAX_ROWS} rows × 7 columns
@@ -434,7 +490,7 @@ Don't just glance at this list. Physically execute each check on your draft.
 [ ] No header row, no commentary, no follow-up text (except the optional "X games dropped" note ONLY if N > ${WEEKLY_SCORES_MAX_ROWS}).`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
-  }), [year, week, userAbbr, currentDynasty?.teams])
+  }), [year, week, userAbbr, currentDynasty?.teams, conferenceMapBlock])
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
