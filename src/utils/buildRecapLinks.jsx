@@ -69,38 +69,75 @@ export default function buildRecapLinks(dynasty, year, pathPrefix) {
   }
 
   // ----- Game links -----
-  // Group games by their "score string" — when only one game in the year
-  // has a given score, that score is unambiguous and we link it.
-  const scoreToGames = new Map() // 'X-Y' -> [{ id, year }]
+  // Three pattern flavors per game, in priority order (longer = more
+  // specific — FormattedRecap's regex sort tries longer patterns first):
+  //
+  //   1. "{TeamSchool} {hi}-{lo}" — covers the AI's typical "Alabama beat
+  //      Tennessee 56-35" phrasing where the score sits right after the
+  //      losing team. We register both teams' school names with the
+  //      score so either order (X beat Y, X 56-35, etc.) catches.
+  //   2. "{hi}-{lo}" alone — only when no other game in the year shares
+  //      the score. Catches bare-score mentions like "**52-51**" in a
+  //      headline.
+  //
+  // Disambiguation: every pattern (whether team+score or bare score) is
+  // tested for cross-game uniqueness. If two games would map the same
+  // pattern to different game IDs, we drop the pattern rather than
+  // mis-link.
+  const renderGameFor = (gameHref) => (text, key) => (
+    <Link
+      key={key}
+      to={gameHref}
+      className="hover:underline underline-offset-2 decoration-zinc-500"
+    >
+      {text}
+    </Link>
+  )
+
+  // patternToGameId — pattern string -> { gameId, count } so we can
+  // detect duplicates and drop ambiguous patterns.
+  const patternToGameId = new Map()
+  const registerCandidate = (pattern, gameId) => {
+    if (!pattern || !gameId) return
+    const existing = patternToGameId.get(pattern)
+    if (existing && existing.gameId !== gameId) {
+      patternToGameId.set(pattern, { gameId: null, count: existing.count + 1 })
+    } else if (!existing) {
+      patternToGameId.set(pattern, { gameId, count: 1 })
+    }
+  }
+
   for (const g of (dynasty.games || [])) {
     if (Number(g?.year) !== yearNum) continue
     if (!g.id) continue
     const s1 = g.team1Score, s2 = g.team2Score
     if (typeof s1 !== 'number' || typeof s2 !== 'number') continue
-    // Register both orderings since the AI's prose can phrase a score
-    // either way ("Alabama 56-35" or "35-56 Tennessee" are vanishingly
-    // rare with the loser-first form, but normalize anyway).
     const hi = Math.max(s1, s2)
     const lo = Math.min(s1, s2)
     const score = `${hi}-${lo}`
-    if (!scoreToGames.has(score)) scoreToGames.set(score, [])
-    scoreToGames.get(score).push({ id: g.id })
+
+    // Team-prefixed forms — for each team in the game, register both
+    // full mascot name + score and school-only + score. School-only is
+    // what the AI most often uses ("Alabama 56-35", "Tennessee 56-35").
+    for (const tid of [g.team1Tid, g.team2Tid]) {
+      if (tid == null) continue
+      const t = teams[Number(tid)]
+      const fullName = t?.name || t?.fullName
+      if (!fullName) continue
+      const school = stripMascotFromName(fullName) || fullName
+      registerCandidate(`${school} ${score}`, g.id)
+      if (school !== fullName) registerCandidate(`${fullName} ${score}`, g.id)
+    }
+
+    // Bare-score form — registered as a candidate; will be kept only if
+    // unique across the season's games.
+    registerCandidate(score, g.id)
   }
-  for (const [score, list] of scoreToGames.entries()) {
-    if (list.length !== 1) continue // ambiguous — skip rather than mis-link
-    const gameId = list[0].id
-    const gameHref = `${pathPrefix}/game/${gameId}`
-    const renderGame = (text, key) => (
-      <Link
-        key={key}
-        to={gameHref}
-        className="text-team-primary hover:underline font-normal"
-        style={{ color: 'var(--team-primary)' }}
-      >
-        {text}
-      </Link>
-    )
-    links.push({ pattern: score, render: renderGame })
+
+  for (const [pattern, info] of patternToGameId.entries()) {
+    if (!info.gameId) continue // ambiguous — skip rather than mis-link
+    const gameHref = `${pathPrefix}/game/${info.gameId}`
+    links.push({ pattern, render: renderGameFor(gameHref) })
   }
 
   return links
