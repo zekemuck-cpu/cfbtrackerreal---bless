@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useDynasty, getGamesByType, GAME_TYPES, detectGameType, getUserGamePerspective } from '../../context/DynastyContext'
+import { buildCFPProjection } from '../../utils/cfpProjection'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
@@ -169,6 +170,17 @@ export default function CFPBracket() {
   const cfpSeeds = currentDynasty.cfpSeedsByYear?.[displayYear] || []
   const bowlConfig = currentDynasty.cfpBowlConfigByYear?.[displayYear] || DEFAULT_BOWL_CONFIG
   const textColor = getContrastTextColor(teamColors.primary)
+
+  // CFP projection — read-only snapshot of where the field would
+  // land based on the current rankings + conference assignments. We
+  // ONLY surface this panel when the actual bracket hasn't been
+  // entered yet (cfpSeeds empty). Existing brackets are untouched —
+  // this just fills the empty state with a useful preview.
+  const projection = useMemo(
+    () => buildCFPProjection(currentDynasty, displayYear),
+    [currentDynasty, displayYear]
+  )
+  const showProjection = cfpSeeds.length === 0 && projection.available
 
   // Get tid for a seed, then look up team info
   const getTidBySeed = (seed) => cfpSeeds.find(s => s.seed === seed)?.tid || null
@@ -989,6 +1001,17 @@ export default function CFPBracket() {
         title={titleNode}
       />
 
+      {/* PROJECTION panel — only renders when the actual bracket
+          for this year hasn't been entered. Touches none of the
+          existing bracket / cfpSeedsByYear / cfpResultsByYear data. */}
+      {showProjection && (
+        <CFPProjectionPanel
+          projection={projection}
+          dynastyTeams={currentDynasty?.teams || currentDynasty?.customTeams}
+          year={displayYear}
+        />
+      )}
+
       {/* Mobile scroll hint */}
       <div className="sm:hidden text-center label-xs text-txt-tertiary">
         Scroll right to view full bracket
@@ -1208,6 +1231,127 @@ export default function CFPBracket() {
           existingLinks={editingGameData.existingLinks}
         />
       )}
+    </div>
+  )
+}
+
+/* ─── CFP Projection Panel ──────────────────────────────────────────────
+   Pure read-only display. Shows the 12 projected seeds derived from the
+   current Top 25 + conference assignments. Clearly labelled "PROJECTION"
+   so nobody mistakes it for an entered bracket. */
+
+const BID_BADGE_STYLE = {
+  'p4-champ': { bg: 'rgba(34, 197, 94, 0.18)',  fg: '#86efac', label: 'P4 CHAMP' },
+  'g6-champ': { bg: 'rgba(168, 85, 247, 0.18)', fg: '#d8b4fe', label: 'G6 AUTO' },
+  'nd':       { bg: 'rgba(251, 191, 36, 0.20)', fg: '#fcd34d', label: 'ND AUTO' },
+  'at-large': { bg: 'rgba(148, 163, 184, 0.18)', fg: '#cbd5e1', label: 'AT-LARGE' },
+}
+
+function CFPProjectionPanel({ projection, dynastyTeams, year }) {
+  const seeds = projection.seeds || []
+  return (
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{
+        backgroundColor: 'var(--surface-2)',
+        border: '1px solid var(--surface-4)',
+      }}
+    >
+      <header
+        className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+        style={{ borderBottom: '1px solid var(--surface-4)' }}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <span
+            className="px-2 py-0.5 rounded text-[10px] font-black tracking-[0.22em]"
+            style={{
+              backgroundColor: 'rgba(59, 130, 246, 0.18)',
+              color: '#93c5fd',
+              border: '1px solid rgba(59, 130, 246, 0.35)',
+            }}
+          >
+            PROJECTION
+          </span>
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-txt-primary leading-tight">
+              Projected {year} CFP field
+            </div>
+            <div className="text-[11px] text-txt-tertiary leading-tight">
+              Snapshot from the current Top 25{projection.week ? ` (through ${typeof projection.week === 'number' ? `Week ${projection.week}` : projection.week})` : ''}. Updates as weekly scores come in.
+            </div>
+          </div>
+        </div>
+        <div className="text-[10px] uppercase tracking-[0.18em] text-txt-tertiary">
+          Not the actual bracket
+        </div>
+      </header>
+
+      {seeds.length === 0 ? (
+        <div className="px-4 py-6 text-sm text-txt-tertiary text-center">
+          {projection.notes || 'Not enough rankings yet.'}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px" style={{ backgroundColor: 'var(--surface-4)' }}>
+          {seeds.map((s) => {
+            const mascotName = s.tid != null ? dynastyTeams?.[s.tid]?.name : (s.team ? mascotMap[s.team] : null)
+            const logo = dynastyTeams?.[s.tid]?.logo || (mascotName ? getTeamLogo(mascotName, dynastyTeams) : null)
+            const badge = BID_BADGE_STYLE[s.bid] || BID_BADGE_STYLE['at-large']
+            return (
+              <div
+                key={`${s.seed}-${s.team}-${s.tid || ''}`}
+                className="flex items-center gap-3 px-3 py-2.5"
+                style={{ backgroundColor: 'var(--surface-2)' }}
+              >
+                <div
+                  className="flex-shrink-0 w-8 text-center font-display font-black tabular-nums"
+                  style={{
+                    fontSize: 18,
+                    color: s.seed <= 4 ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    fontFamily: "'Outfit', system-ui, sans-serif",
+                    letterSpacing: '-0.02em',
+                  }}
+                >
+                  {s.seed}
+                </div>
+                <div className="w-7 h-7 rounded-full bg-white p-0.5 flex-shrink-0">
+                  {logo ? (
+                    <img src={logo} alt="" className="w-full h-full object-contain" />
+                  ) : (
+                    <div className="w-full h-full rounded-full bg-surface-3" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold text-txt-primary truncate">
+                    {s.team || '—'}
+                  </div>
+                  <div className="text-[10px] text-txt-tertiary truncate tabular-nums">
+                    #{s.rank} · {s.conference || 'Conference unknown'}
+                  </div>
+                </div>
+                <span
+                  className="flex-shrink-0 px-1.5 py-0.5 rounded text-[9px] font-black tracking-[0.1em]"
+                  style={{ backgroundColor: badge.bg, color: badge.fg }}
+                  title={s.bidLabel}
+                >
+                  {badge.label}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <div
+        className="px-4 py-2.5 text-[11px] leading-snug text-txt-tertiary"
+        style={{ borderTop: '1px solid var(--surface-4)', backgroundColor: 'var(--surface-1)' }}
+      >
+        <strong className="text-txt-secondary">Projection rules:</strong>{' '}
+        Highest-ranked team in each P4 conference (ACC, Big Ten, Big 12, SEC) gets a champ auto-bid;
+        highest-ranked G6 team gets one bid; Notre Dame gets a bid if ranked in the top 12; remaining
+        slots fill with the next highest-ranked teams. Seeds 1-12 strictly by ranking. The actual
+        bracket is set by your CFP seed entries — this panel disappears once you enter the real seeds.
+        {projection.notes && <span className="block mt-1 text-amber-400">{projection.notes}</span>}
+      </div>
     </div>
   )
 }
