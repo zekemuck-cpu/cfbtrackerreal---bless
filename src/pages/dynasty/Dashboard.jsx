@@ -1068,7 +1068,7 @@ export default function Dashboard() {
         honorCategory: 'allAmericans'
       }))
 
-      let result = await processHonorPlayers(
+      const result = await processHonorPlayers(
         currentDynasty.id,
         'allAmericans',
         aaEntries,
@@ -1076,23 +1076,23 @@ export default function Dashboard() {
         []
       )
 
-      // If any entries look like transfers, treat them as new players
-      // (isSamePlayer=false) and re-run so every honor entry ends up
-      // with a player record. We DO NOT block on the confirmation
-      // modal here — honor-team-only players should always get a
-      // generated pid so their name links to a player page.
+      // processHonorPlayers now applies exact-matches and brand-new
+      // entries immediately — only genuine same-name-different-team
+      // transfers come back as confirmations. Show the modal for
+      // those so the user can decide same-person vs new-record.
       if (result.needsConfirmation && result.confirmations?.length > 0) {
-        const autoDecisions = result.confirmations.map(conf => ({
-          entryIndex: conf.entryIndex,
-          isSamePlayer: false,
-        }))
-        await processHonorPlayers(
-          currentDynasty.id,
-          'allAmericans',
-          aaEntries,
+        setPendingHonorData({
+          honorType: 'allAmericans',
+          entries: aaEntries,
           year,
-          autoDecisions
-        )
+          rawData: data,
+          confirmations: result.confirmations,
+          transferDecisions: []
+        })
+        setCurrentConfirmIndex(0)
+        setPlayerMatchConfirmation(result.confirmations[0])
+        setShowPlayerMatchConfirm(true)
+        return
       }
     }
 
@@ -1122,7 +1122,7 @@ export default function Dashboard() {
         honorCategory: 'allConference'
       }))
 
-      let result = await processHonorPlayers(
+      const result = await processHonorPlayers(
         currentDynasty.id,
         'allConference',
         acEntries,
@@ -1130,22 +1130,22 @@ export default function Dashboard() {
         []
       )
 
-      // Same auto-decide pattern as All-Americans: any "transfer"
-      // confirmations are treated as new players so every honor entry
-      // results in a generated player record. Mirrors the behavior in
-      // src/pages/dynasty/AllConference.jsx.
+      // Exact-matches and clear new-player creates already landed inside
+      // processHonorPlayers. Only same-name-different-team transfers are
+      // returned as confirmations; pop the modal for those.
       if (result.needsConfirmation && result.confirmations?.length > 0) {
-        const autoDecisions = result.confirmations.map(conf => ({
-          entryIndex: conf.entryIndex,
-          isSamePlayer: false,
-        }))
-        await processHonorPlayers(
-          currentDynasty.id,
-          'allConference',
-          acEntries,
+        setPendingHonorData({
+          honorType: 'allConference',
+          entries: acEntries,
           year,
-          autoDecisions
-        )
+          rawData: data,
+          confirmations: result.confirmations,
+          transferDecisions: []
+        })
+        setCurrentConfirmIndex(0)
+        setPlayerMatchConfirmation(result.confirmations[0])
+        setShowPlayerMatchConfirm(true)
+        return
       }
     }
 

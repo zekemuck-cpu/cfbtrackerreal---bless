@@ -195,6 +195,14 @@ export default function AllConference() {
         honorCategory: 'allConference'
       }))
 
+      // processHonorPlayers now applies exact-matches and clear
+      // new-player creates immediately, only returning confirmations
+      // for genuine "same name, different team, ≤5 seasons apart"
+      // transfer cases. We auto-resolve those as new players here
+      // (the AllConference page imports a static roster snapshot — no
+      // user is sitting at the modal to decide), which preserves the
+      // pre-fix behavior on this page while every unambiguous entry
+      // already has its player record.
       let result = await processHonorPlayers(
         currentDynasty.id,
         'allConference',

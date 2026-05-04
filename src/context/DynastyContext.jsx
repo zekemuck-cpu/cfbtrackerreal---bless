@@ -10989,18 +10989,20 @@ export function DynastyProvider({ children }) {
       }
     }
 
-    // If there are confirmations needed, return them
+    // Apply ALL the unambiguous work right now — exact name+team matches
+    // get linked, brand-new entries get created — even if some transfer
+    // confirmations are still pending below. We used to bail out early
+    // here whenever ANY entry needed confirmation, which left honor-only
+    // players (the unambiguous "no match" cases) with no player record
+    // until the user resolved the modal. Splitting the flow this way
+    // means every honor entry that doesn't need a human decision lands
+    // immediately, and only the genuinely-ambiguous "same name on a
+    // different team within 5 seasons" cases stop for confirmation.
     if (confirmations.length > 0) {
-      console.log(`[processHonorPlayers] Needs confirmation for ${confirmations.length} players - returning early`)
-      return {
-        success: false,
-        needsConfirmation: true,
-        confirmations,
-        message: `${confirmations.length} player(s) may be transfers and need confirmation`
-      }
+      console.log(`[processHonorPlayers] ${confirmations.length} entry(s) need confirmation — applying ${playersToUpdate.length} auto-links and ${playersToCreate.length} auto-creates immediately`)
+    } else {
+      console.log(`[processHonorPlayers] No confirmations needed. Updates: ${playersToUpdate.length}, Creates: ${playersToCreate.length}`)
     }
-
-    console.log(`[processHonorPlayers] No confirmations needed. Updates: ${playersToUpdate.length}, Creates: ${playersToCreate.length}`)
 
     // Apply updates to existing players
     // Use filter instead of find to get ALL updates for each player (e.g., multiple awards)
@@ -11159,7 +11161,10 @@ export function DynastyProvider({ children }) {
         continue // Skip creating new player
       }
 
-      // Create new player
+      // Create new player. Honor-imported players are regular roster
+      // records — `isHonorOnly: false` is set explicitly so the legacy
+      // `!p.isHonorOnly` filters scattered around the codebase keep them
+      // in every roster / leaderboard / players list view.
       const playerClass = newPlayer.entry?.class || ''
       const player = {
         pid: nextPID,
@@ -11170,12 +11175,11 @@ export function DynastyProvider({ children }) {
         teams: [newPlayer.team], // Keep abbr in teams array for backwards compat
         year: playerClass, // Class from award entry (e.g., "Jr", "Sr")
         classByYear: playerClass ? { [entryYear]: playerClass } : {},
-        // Players added via awards are regular roster players, not honor-only
-        // They should appear on the team's roster for the award year
         teamsByYear: { [entryYear]: teamTid },
         accolades: [],
         allAmericans: [],
-        allConference: []
+        allConference: [],
+        isHonorOnly: false,
       }
 
       // Add the honor entry
@@ -11209,11 +11213,23 @@ export function DynastyProvider({ children }) {
       nextPID++
     }
 
-    // Save updated players
+    // Save updated players. Always runs — even when confirmations are
+    // still pending below — so the unambiguous links/creates land
+    // immediately. The pending transfers are returned alongside so the
+    // caller can pop the confirmation modal for those specific entries.
     await updateDynasty(dynastyId, {
       players: updatedPlayers,
       nextPID
     })
+
+    if (confirmations.length > 0) {
+      return {
+        success: true,
+        needsConfirmation: true,
+        confirmations,
+        message: `Linked ${playersToUpdate.length} and created ${playersToCreate.length}; ${confirmations.length} possible transfer(s) need confirmation`,
+      }
+    }
 
     return {
       success: true,

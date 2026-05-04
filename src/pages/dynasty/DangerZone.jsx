@@ -854,7 +854,10 @@ export default function DangerZone() {
         return updatedPlayer
       }
 
-      // Helper: Create a new player for an honor
+      // Helper: Create a new player for an honor. Honor-imported players
+      // are regular roster records — `isHonorOnly: false` is explicit so
+      // the legacy `!p.isHonorOnly` filters scattered around the codebase
+      // keep them visible in every list view.
       const createPlayerForHonor = (name, position, team, honorType, honor, year) => {
         const tid = team ? getTidFromAbbr(team, currentDynasty) : null
         const newPlayer = {
@@ -868,7 +871,8 @@ export default function DangerZone() {
           allAmericans: [],
           allConference: [],
           statsByYear: {},
-          movements: []
+          movements: [],
+          isHonorOnly: false,
         }
 
         // Add the honor to the new player
