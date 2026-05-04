@@ -8485,7 +8485,7 @@ export default function Dashboard() {
                   <div className="w-1 h-10 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
                   <div className="min-w-0">
                     <h2 className="text-lg font-bold text-white tracking-tight truncate">
-                      {currentDynasty.currentYear} Week {Number(currentDynasty.currentWeek) - 1} Recap
+                      Week {Number(currentDynasty.currentWeek) - 1} Recap
                     </h2>
                   </div>
                 </div>
