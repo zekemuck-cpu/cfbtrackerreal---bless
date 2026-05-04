@@ -472,10 +472,11 @@ export default function WeeklyScores() {
                 <button
                   type="button"
                   onClick={() => setEditing(true)}
-                  className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded transition-colors flex-shrink-0 hover:opacity-90"
+                  className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0"
                   style={{
-                    backgroundColor: 'var(--text-primary)',
-                    color: 'var(--surface-1)',
+                    backgroundColor: 'var(--surface-3)',
+                    borderColor: 'var(--surface-4)',
+                    color: 'var(--text-secondary)',
                     letterSpacing: '1.4px',
                   }}
                   title={`Edit Week ${displayWeek} scores`}
