@@ -6481,6 +6481,35 @@ export function DynastyProvider({ children }) {
     // Custom conferences for isConferenceGame inference
     const customConferences = getCustomConferencesForYear(dynasty, yearNum)
 
+    // Detect conference-championship matchups already on file. The
+    // dedicated CC entry flow is the source of truth for those games —
+    // an import that would clobber them with a "regular" gameType row
+    // breaks every page that filters by isConferenceChampionship. We
+    // index by sorted tid pair scoped to the year (CCs aren't tied to
+    // a specific week in the dynasty data) so the same pair anywhere
+    // in the year wins over the import.
+    const existingCCByPair = new Map()
+    for (const g of existingGames) {
+      if (!g) continue
+      if (Number(g.year) !== yearNum) continue
+      if (!g.isConferenceChampionship && g.gameType !== GAME_TYPES.CONFERENCE_CHAMPIONSHIP) continue
+      if (!g.team1Tid || !g.team2Tid) continue
+      const lo = Math.min(Number(g.team1Tid), Number(g.team2Tid))
+      const hi = Math.max(Number(g.team1Tid), Number(g.team2Tid))
+      existingCCByPair.set(`${lo}-${hi}`, g)
+    }
+
+    // Conference championship games are played in week 14 or 15 (depending
+    // on the year), at a neutral site, between two teams in the same
+    // conference. All three signals together are a strong identifier — a
+    // regular conference game is never neutral, and non-conference games
+    // never share a conference. Use this to PROMOTE the imported row to
+    // gameType=CONFERENCE_CHAMPIONSHIP so the rest of the app stops
+    // treating it as a regular Saturday game.
+    const isConferenceChampionshipCandidate = (homeConf, awayConf, neutral) => (
+      !!homeConf && !!awayConf && homeConf === awayConf && !!neutral && weekNum >= 14
+    )
+
     // Walk parsed rows, build a Map keyed by sorted-tid pair so duplicates collapse
     const newByPair = new Map()
     for (const row of weeklyGames) {
@@ -6514,6 +6543,18 @@ export function DynastyProvider({ children }) {
       const awayConf = awayAbbr ? getTeamConference(awayAbbr, customConferences) : null
       const isConferenceGame = !!(homeConf && awayConf && homeConf === awayConf)
 
+      // If a conference championship game already exists for this
+      // matchup (entered through the dedicated CC flow), skip the
+      // weekly-scores row entirely — the existing record is the
+      // source of truth and gets updated via that flow, not this one.
+      if (existingCCByPair.has(key)) continue
+
+      // Otherwise, promote rows that match the CC signature so they
+      // land with the correct gameType and isConferenceChampionship
+      // flag. The conference field carries the CC's parent league for
+      // downstream pages (CC History, CFP auto-bid logic, etc.).
+      const isConfChampImport = isConferenceChampionshipCandidate(homeConf, awayConf, row.neutral)
+
       // Ranks: column A = home (team1), column D = away (team2)
       const homeRankRaw = row.homeRank
       const awayRankRaw = row.awayRank
@@ -6524,7 +6565,7 @@ export function DynastyProvider({ children }) {
         id: existing?.id || idForGame(homeTid, awayTid),
         year: yearNum,
         week: weekNum,
-        gameType: GAME_TYPES.REGULAR,
+        gameType: isConfChampImport ? GAME_TYPES.CONFERENCE_CHAMPIONSHIP : GAME_TYPES.REGULAR,
         team1Tid,
         team2Tid,
         team1Score,
@@ -6534,6 +6575,7 @@ export function DynastyProvider({ children }) {
         homeTeamTid,
         winnerTid,
         isConferenceGame,
+        ...(isConfChampImport ? { isConferenceChampionship: true, conference: homeConf } : {}),
         isPlayed: true,
         source: 'weekly-scores',
         createdAt: existing?.createdAt || new Date().toISOString(),
