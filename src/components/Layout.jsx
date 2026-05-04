@@ -15,7 +15,7 @@ import logo from '../assets/logo.png'
 import { preloadCommonDynastyPages } from '../routes/lazyPages'
 
 // Version format: YYYY.MM.DD.build
-const APP_VERSION = '2026.05.04.0059'
+const APP_VERSION = '2026.05.04.0060'
 
 export default function Layout({ children }) {
   const location = useLocation()
@@ -509,7 +509,7 @@ export default function Layout({ children }) {
         style={{
           backgroundColor: 'var(--surface-3)',
           color: 'var(--text-primary)',
-          borderColor: 'var(--team-primary)',
+          borderColor: 'var(--surface-5)',
         }}
       >
         Skip to main content
@@ -521,14 +521,7 @@ export default function Layout({ children }) {
           borderBottom: '1px solid var(--surface-4)',
         }}
       >
-        {/* Thin team-color accent stripe (only on dynasty pages) */}
-        {useTeamTheme && (
-          <div
-            className="h-[3px] w-full"
-            style={{ backgroundColor: 'var(--team-primary)' }}
-            aria-hidden="true"
-          />
-        )}
+        {/* Header is always neutral — no team-color accent stripe. */}
         <div className="w-full px-2 sm:px-4">
           <div className="flex items-center justify-between py-3">
             {/* Left: Burger menu + Home button (dynasty pages only) */}

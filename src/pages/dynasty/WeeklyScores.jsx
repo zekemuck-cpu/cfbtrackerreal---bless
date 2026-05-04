@@ -472,10 +472,10 @@ export default function WeeklyScores() {
                 <button
                   type="button"
                   onClick={() => setEditing(true)}
-                  className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded transition-colors flex-shrink-0"
+                  className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded transition-colors flex-shrink-0 hover:opacity-90"
                   style={{
-                    backgroundColor: teamColors.primary,
-                    color: '#fff',
+                    backgroundColor: 'var(--text-primary)',
+                    color: 'var(--surface-1)',
                     letterSpacing: '1.4px',
                   }}
                   title={`Edit Week ${displayWeek} scores`}
@@ -517,7 +517,7 @@ export default function WeeklyScores() {
               style={{
                 letterSpacing: '1.5px',
                 color: active ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                borderBottom: active ? `2px solid ${teamColors.primary}` : '2px solid transparent',
+                borderBottom: active ? `2px solid var(--text-primary)` : '2px solid transparent',
               }}
               aria-pressed={active}
             >
@@ -606,8 +606,8 @@ export default function WeeklyScores() {
                 <button
                   type="button"
                   onClick={() => setRecapModalOpen(true)}
-                  className="px-4 py-2 text-sm font-semibold rounded-lg transition-colors"
-                  style={{ backgroundColor: teamColors.primary, color: '#fff' }}
+                  className="px-4 py-2 text-sm font-semibold rounded-lg transition-colors hover:opacity-90"
+                  style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                 >
                   Generate recap
                 </button>

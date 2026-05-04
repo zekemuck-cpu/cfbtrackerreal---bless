@@ -151,8 +151,8 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
   const navItemStyle = (active) =>
     active
       ? {
-          backgroundColor: 'var(--team-primary-subtle)',
-          borderLeft: '3px solid var(--team-primary)',
+          backgroundColor: 'var(--surface-3)',
+          borderLeft: '3px solid var(--text-primary)',
           paddingLeft: 'calc(1rem - 3px)',
         }
       : undefined
@@ -230,10 +230,10 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
                 <button
                   onClick={handleCopyDynasty}
                   disabled={copying}
-                  className="w-full flex items-center justify-center px-3 py-2.5 rounded-md text-sm font-semibold transition-colors disabled:opacity-70"
+                  className="w-full flex items-center justify-center px-3 py-2.5 rounded-md text-sm font-semibold transition-colors disabled:opacity-70 hover:opacity-90"
                   style={{
-                    backgroundColor: teamColors.primary,
-                    color: primaryBgText,
+                    backgroundColor: 'var(--text-primary)',
+                    color: 'var(--surface-1)',
                   }}
                 >
                   {copying ? 'Copying…' : 'Copy Dynasty'}
@@ -257,10 +257,10 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
                     }
                     setShowShareModal(true)
                   }}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors hover:opacity-90"
                   style={{
-                    backgroundColor: isPremium ? teamColors.primary : 'var(--surface-3)',
-                    color: isPremium ? primaryBgText : 'var(--text-secondary)',
+                    backgroundColor: isPremium ? 'var(--text-primary)' : 'var(--surface-3)',
+                    color: isPremium ? 'var(--surface-1)' : 'var(--text-secondary)',
                     border: isPremium ? 'none' : '1px solid var(--surface-5)',
                     cursor: isPremium ? 'pointer' : 'not-allowed',
                   }}
