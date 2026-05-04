@@ -19,6 +19,7 @@ import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromNa
 import { isSameYear } from '../../utils/compareUtils'
 import { calculateRecruitingClassScore, formatRecruitingClassScore, flattenClassCommitments } from '../../utils/recruitingScore'
 import { useToast } from '../../components/ui/Toast'
+import SortableStatsTable, { PlayerCell } from '../../components/SortableStatsTable'
 
 // Map abbreviation to mascot name for logo lookup
 // Accepts optional teamsData for tid-based teambuilder support
@@ -3842,407 +3843,278 @@ export default function TeamYear() {
             <div className="space-y-4">
               {/* Passing */}
               {playerStats.passing.length > 0 && (
-                <div className="card overflow-hidden">
-                  <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                    <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Passing</h4>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr style={{ backgroundColor: `${teamInfo.backgroundColor}15` }}>
-                          <th className="text-left px-3 py-2 font-semibold" style={{ color: accentColor }}>Player</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>CMP/ATT</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>PCT</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>YDS</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>TD</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>INT</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>LNG</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>SCK</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {playerStats.passing.map((p, i) => {
-                          const cmp = p.cmp ?? p.comp ?? 0
-                          const att = p.att ?? p.attempts ?? 0
-                          const pct = att > 0 ? ((cmp / att) * 100).toFixed(1) : '-'
-                          return (
-                            <tr key={p.pid || i} className="border-t " style={{ borderColor: `${accentColor}20` }}>
-                              <td className="px-3 py-2">
-                                <Link to={`${pathPrefix}/player/${p.pid}`} className="flex items-center gap-2 font-medium hover:underline" style={{ color: accentColor }}>
-                                  {p.pictureUrl ? (
-                                    <img src={p.pictureUrl} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
-                                  ) : (
-                                    <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}15` }}>
-                                      <span className="text-[10px] font-bold" style={{ color: accentColor }}>{p.name?.charAt(0)}</span>
-                                    </div>
-                                  )}
-                                  {p.name}
-                                </Link>
-                              </td>
-                              <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{cmp}/{att}</td>
-                              <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{pct}{pct !== '-' ? '%' : ''}</td>
-                              <td className="text-center px-2 py-2 tabular-nums font-semibold" style={{ color: accentColor }}>{(p.yds || 0).toLocaleString()}</td>
-                              <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.td || 0}</td>
-                              <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.int || 0}</td>
-                              <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.lng ?? p.long ?? '-'}</td>
-                              <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.sacks ?? 0}</td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                <SortableStatsTable
+                  title="Passing"
+                  rows={playerStats.passing}
+                  defaultSortKey="yds"
+                  accentColor={accentColor}
+                  accentColorMuted={accentColorMuted}
+                  teamBgColor={teamInfo.backgroundColor}
+                  teamBgText={teamBgText}
+                  columns={[
+                    { key: 'name', label: 'Player', align: 'left',
+                      render: p => <PlayerCell player={p} accentColor={accentColor} pathPrefix={pathPrefix} /> },
+                    { key: 'cmpAtt', label: 'CMP/ATT', tabular: true,
+                      sortValue: p => (p.cmp ?? p.comp ?? 0),
+                      render: p => `${p.cmp ?? p.comp ?? 0}/${p.att ?? p.attempts ?? 0}` },
+                    { key: 'pct', label: 'PCT', tabular: true,
+                      sortValue: p => {
+                        const att = p.att ?? p.attempts ?? 0
+                        const cmp = p.cmp ?? p.comp ?? 0
+                        return att > 0 ? (cmp / att) : 0
+                      },
+                      render: p => {
+                        const att = p.att ?? p.attempts ?? 0
+                        const cmp = p.cmp ?? p.comp ?? 0
+                        const pct = att > 0 ? ((cmp / att) * 100).toFixed(1) : '-'
+                        return pct === '-' ? '-' : `${pct}%`
+                      } },
+                    { key: 'yds', label: 'YDS', tabular: true, bold: true,
+                      sortValue: p => p.yds || 0,
+                      render: p => (p.yds || 0).toLocaleString() },
+                    { key: 'td', label: 'TD', tabular: true,
+                      sortValue: p => p.td || 0, render: p => p.td || 0 },
+                    { key: 'int', label: 'INT', tabular: true, defaultDir: 'asc',
+                      sortValue: p => p.int || 0, render: p => p.int || 0 },
+                    { key: 'lng', label: 'LNG', tabular: true,
+                      sortValue: p => p.lng ?? p.long ?? 0,
+                      render: p => p.lng ?? p.long ?? '-' },
+                    { key: 'sacks', label: 'SCK', tabular: true, defaultDir: 'asc',
+                      sortValue: p => p.sacks ?? 0, render: p => p.sacks ?? 0 },
+                  ]}
+                />
               )}
 
               {/* Rushing */}
               {playerStats.rushing.length > 0 && (
-                <div className="card overflow-hidden">
-                  <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                    <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Rushing</h4>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr style={{ backgroundColor: `${teamInfo.backgroundColor}15` }}>
-                          <th className="text-left px-3 py-2 font-semibold" style={{ color: accentColor }}>Player</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>CAR</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>YDS</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>AVG</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>TD</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>20+</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>BT</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>YAC</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>LNG</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>FUM</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {playerStats.rushing.map((p, i) => (
-                          <tr key={p.pid || i} className="border-t " style={{ borderColor: `${accentColor}20` }}>
-                            <td className="px-3 py-2">
-                              <Link to={`${pathPrefix}/player/${p.pid}`} className="flex items-center gap-2 font-medium hover:underline" style={{ color: accentColor }}>
-                                {p.pictureUrl ? (
-                                  <img src={p.pictureUrl} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
-                                ) : (
-                                  <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}15` }}>
-                                    <span className="text-[10px] font-bold" style={{ color: accentColor }}>{p.name?.charAt(0)}</span>
-                                  </div>
-                                )}
-                                {p.name}
-                              </Link>
-                            </td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.car || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums font-semibold" style={{ color: accentColor }}>{(p.yds || 0).toLocaleString()}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.car > 0 ? (p.yds / p.car).toFixed(1) : '0.0'}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.td || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.twentyPlus || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.brokenTackles || p.bt || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.yac || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.lng || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.fum || p.fumbles || 0}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                <SortableStatsTable
+                  title="Rushing"
+                  rows={playerStats.rushing}
+                  defaultSortKey="yds"
+                  accentColor={accentColor}
+                  accentColorMuted={accentColorMuted}
+                  teamBgColor={teamInfo.backgroundColor}
+                  teamBgText={teamBgText}
+                  columns={[
+                    { key: 'name', label: 'Player', align: 'left',
+                      render: p => <PlayerCell player={p} accentColor={accentColor} pathPrefix={pathPrefix} /> },
+                    { key: 'car', label: 'CAR', tabular: true,
+                      sortValue: p => p.car || 0, render: p => p.car || 0 },
+                    { key: 'yds', label: 'YDS', tabular: true, bold: true,
+                      sortValue: p => p.yds || 0,
+                      render: p => (p.yds || 0).toLocaleString() },
+                    { key: 'avg', label: 'AVG', tabular: true,
+                      sortValue: p => (p.car > 0 ? p.yds / p.car : 0),
+                      render: p => (p.car > 0 ? (p.yds / p.car).toFixed(1) : '0.0') },
+                    { key: 'td', label: 'TD', tabular: true,
+                      sortValue: p => p.td || 0, render: p => p.td || 0 },
+                    { key: 'twentyPlus', label: '20+', tabular: true,
+                      sortValue: p => p.twentyPlus || 0, render: p => p.twentyPlus || 0 },
+                    { key: 'bt', label: 'BT', tabular: true,
+                      sortValue: p => p.brokenTackles || p.bt || 0,
+                      render: p => p.brokenTackles || p.bt || 0 },
+                    { key: 'yac', label: 'YAC', tabular: true,
+                      sortValue: p => p.yac || 0, render: p => p.yac || 0 },
+                    { key: 'lng', label: 'LNG', tabular: true,
+                      sortValue: p => p.lng || 0, render: p => p.lng || 0 },
+                    { key: 'fum', label: 'FUM', tabular: true, defaultDir: 'asc',
+                      sortValue: p => p.fum || p.fumbles || 0,
+                      render: p => p.fum || p.fumbles || 0 },
+                  ]}
+                />
               )}
 
               {/* Receiving */}
               {playerStats.receiving.length > 0 && (
-                <div className="card overflow-hidden">
-                  <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                    <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Receiving</h4>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr style={{ backgroundColor: `${teamInfo.backgroundColor}15` }}>
-                          <th className="text-left px-3 py-2 font-semibold" style={{ color: accentColor }}>Player</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>REC</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>YDS</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>AVG</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>TD</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>LNG</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>RAC</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>Drops</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {playerStats.receiving.map((p, i) => (
-                          <tr key={p.pid || i} className="border-t " style={{ borderColor: `${accentColor}20` }}>
-                            <td className="px-3 py-2">
-                              <Link to={`${pathPrefix}/player/${p.pid}`} className="flex items-center gap-2 font-medium hover:underline" style={{ color: accentColor }}>
-                                {p.pictureUrl ? (
-                                  <img src={p.pictureUrl} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
-                                ) : (
-                                  <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}15` }}>
-                                    <span className="text-[10px] font-bold" style={{ color: accentColor }}>{p.name?.charAt(0)}</span>
-                                  </div>
-                                )}
-                                {p.name}
-                              </Link>
-                            </td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.rec || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums font-semibold" style={{ color: accentColor }}>{(p.yds || 0).toLocaleString()}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.rec > 0 ? (p.yds / p.rec).toFixed(1) : '0.0'}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.td || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.lng || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.rac || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.drops || 0}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                <SortableStatsTable
+                  title="Receiving"
+                  rows={playerStats.receiving}
+                  defaultSortKey="yds"
+                  accentColor={accentColor}
+                  accentColorMuted={accentColorMuted}
+                  teamBgColor={teamInfo.backgroundColor}
+                  teamBgText={teamBgText}
+                  columns={[
+                    { key: 'name', label: 'Player', align: 'left',
+                      render: p => <PlayerCell player={p} accentColor={accentColor} pathPrefix={pathPrefix} /> },
+                    { key: 'rec', label: 'REC', tabular: true,
+                      sortValue: p => p.rec || 0, render: p => p.rec || 0 },
+                    { key: 'yds', label: 'YDS', tabular: true, bold: true,
+                      sortValue: p => p.yds || 0,
+                      render: p => (p.yds || 0).toLocaleString() },
+                    { key: 'avg', label: 'AVG', tabular: true,
+                      sortValue: p => (p.rec > 0 ? p.yds / p.rec : 0),
+                      render: p => (p.rec > 0 ? (p.yds / p.rec).toFixed(1) : '0.0') },
+                    { key: 'td', label: 'TD', tabular: true,
+                      sortValue: p => p.td || 0, render: p => p.td || 0 },
+                    { key: 'lng', label: 'LNG', tabular: true,
+                      sortValue: p => p.lng || 0, render: p => p.lng || 0 },
+                    { key: 'rac', label: 'RAC', tabular: true,
+                      sortValue: p => p.rac || 0, render: p => p.rac || 0 },
+                    { key: 'drops', label: 'Drops', tabular: true, defaultDir: 'asc',
+                      sortValue: p => p.drops || 0, render: p => p.drops || 0 },
+                  ]}
+                />
               )}
 
               {/* Defense */}
               {playerStats.defense.length > 0 && (
-                <div className="card overflow-hidden">
-                  <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                    <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Defense</h4>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr style={{ backgroundColor: `${teamInfo.backgroundColor}15` }}>
-                          <th className="text-left px-3 py-2 font-semibold" style={{ color: accentColor }}>Player</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>SOLO</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>AST</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>TOT</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>TFL</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>SACK</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>INT</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>IntYd</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>TD</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>PD</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>FF</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>FR</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {playerStats.defense.map((p, i) => (
-                          <tr key={p.pid || i} className="border-t " style={{ borderColor: `${accentColor}20` }}>
-                            <td className="px-3 py-2">
-                              <Link to={`${pathPrefix}/player/${p.pid}`} className="flex items-center gap-2 font-medium hover:underline" style={{ color: accentColor }}>
-                                {p.pictureUrl ? (
-                                  <img src={p.pictureUrl} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
-                                ) : (
-                                  <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}15` }}>
-                                    <span className="text-[10px] font-bold" style={{ color: accentColor }}>{p.name?.charAt(0)}</span>
-                                  </div>
-                                )}
-                                {p.name}
-                              </Link>
-                            </td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.soloTkl || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.astTkl || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums font-semibold" style={{ color: accentColor }}>{(p.soloTkl || 0) + (p.astTkl || 0)}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.tfl || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.sacks || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.int || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.intYds || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.intTd || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.pd || p.pdef || p.deflections || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.ff || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.fr || 0}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                <SortableStatsTable
+                  title="Defense"
+                  rows={playerStats.defense}
+                  defaultSortKey="tot"
+                  accentColor={accentColor}
+                  accentColorMuted={accentColorMuted}
+                  teamBgColor={teamInfo.backgroundColor}
+                  teamBgText={teamBgText}
+                  columns={[
+                    { key: 'name', label: 'Player', align: 'left',
+                      render: p => <PlayerCell player={p} accentColor={accentColor} pathPrefix={pathPrefix} /> },
+                    { key: 'soloTkl', label: 'SOLO', tabular: true,
+                      sortValue: p => p.soloTkl || 0, render: p => p.soloTkl || 0 },
+                    { key: 'astTkl', label: 'AST', tabular: true,
+                      sortValue: p => p.astTkl || 0, render: p => p.astTkl || 0 },
+                    { key: 'tot', label: 'TOT', tabular: true, bold: true,
+                      sortValue: p => (p.soloTkl || 0) + (p.astTkl || 0),
+                      render: p => (p.soloTkl || 0) + (p.astTkl || 0) },
+                    { key: 'tfl', label: 'TFL', tabular: true,
+                      sortValue: p => p.tfl || 0, render: p => p.tfl || 0 },
+                    { key: 'sacks', label: 'SACK', tabular: true,
+                      sortValue: p => p.sacks || 0, render: p => p.sacks || 0 },
+                    { key: 'int', label: 'INT', tabular: true,
+                      sortValue: p => p.int || 0, render: p => p.int || 0 },
+                    { key: 'intYds', label: 'IntYd', tabular: true,
+                      sortValue: p => p.intYds || 0, render: p => p.intYds || 0 },
+                    { key: 'intTd', label: 'TD', tabular: true,
+                      sortValue: p => p.intTd || 0, render: p => p.intTd || 0 },
+                    { key: 'pd', label: 'PD', tabular: true,
+                      sortValue: p => p.pd || p.pdef || p.deflections || 0,
+                      render: p => p.pd || p.pdef || p.deflections || 0 },
+                    { key: 'ff', label: 'FF', tabular: true,
+                      sortValue: p => p.ff || 0, render: p => p.ff || 0 },
+                    { key: 'fr', label: 'FR', tabular: true,
+                      sortValue: p => p.fr || 0, render: p => p.fr || 0 },
+                  ]}
+                />
               )}
 
               {/* Kicking */}
               {playerStats.kicking.length > 0 && (
-                <div className="card overflow-hidden">
-                  <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                    <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Kicking</h4>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr style={{ backgroundColor: `${teamInfo.backgroundColor}15` }}>
-                          <th className="text-left px-3 py-2 font-semibold" style={{ color: accentColor }}>Player</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>FGM</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>FGA</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>FG%</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>LNG</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>XPM</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>XPA</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {playerStats.kicking.map((p, i) => (
-                          <tr key={p.pid || i} className="border-t " style={{ borderColor: `${accentColor}20` }}>
-                            <td className="px-3 py-2">
-                              <Link to={`${pathPrefix}/player/${p.pid}`} className="flex items-center gap-2 font-medium hover:underline" style={{ color: accentColor }}>
-                                {p.pictureUrl ? (
-                                  <img src={p.pictureUrl} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
-                                ) : (
-                                  <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}15` }}>
-                                    <span className="text-[10px] font-bold" style={{ color: accentColor }}>{p.name?.charAt(0)}</span>
-                                  </div>
-                                )}
-                                {p.name}
-                              </Link>
-                            </td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.fgm || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.fga || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.fga > 0 ? ((p.fgm / p.fga) * 100).toFixed(0) + '%' : '-'}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.lng || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.xpm || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.xpa || 0}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                <SortableStatsTable
+                  title="Kicking"
+                  rows={playerStats.kicking}
+                  defaultSortKey="fgm"
+                  accentColor={accentColor}
+                  accentColorMuted={accentColorMuted}
+                  teamBgColor={teamInfo.backgroundColor}
+                  teamBgText={teamBgText}
+                  columns={[
+                    { key: 'name', label: 'Player', align: 'left',
+                      render: p => <PlayerCell player={p} accentColor={accentColor} pathPrefix={pathPrefix} /> },
+                    { key: 'fgm', label: 'FGM', tabular: true,
+                      sortValue: p => p.fgm || 0, render: p => p.fgm || 0 },
+                    { key: 'fga', label: 'FGA', tabular: true,
+                      sortValue: p => p.fga || 0, render: p => p.fga || 0 },
+                    { key: 'fgPct', label: 'FG%', tabular: true,
+                      sortValue: p => (p.fga > 0 ? p.fgm / p.fga : 0),
+                      render: p => (p.fga > 0 ? ((p.fgm / p.fga) * 100).toFixed(0) + '%' : '-') },
+                    { key: 'lng', label: 'LNG', tabular: true,
+                      sortValue: p => p.lng || 0, render: p => p.lng || 0 },
+                    { key: 'xpm', label: 'XPM', tabular: true,
+                      sortValue: p => p.xpm || 0, render: p => p.xpm || 0 },
+                    { key: 'xpa', label: 'XPA', tabular: true,
+                      sortValue: p => p.xpa || 0, render: p => p.xpa || 0 },
+                  ]}
+                />
               )}
 
               {/* Punting */}
               {playerStats.punting.length > 0 && (
-                <div className="card overflow-hidden">
-                  <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                    <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Punting</h4>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr style={{ backgroundColor: `${teamInfo.backgroundColor}15` }}>
-                          <th className="text-left px-3 py-2 font-semibold" style={{ color: accentColor }}>Player</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>PUNTS</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>YDS</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>AVG</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>LNG</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>IN20</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>TB</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {playerStats.punting.map((p, i) => (
-                          <tr key={p.pid || i} className="border-t " style={{ borderColor: `${accentColor}20` }}>
-                            <td className="px-3 py-2">
-                              <Link to={`${pathPrefix}/player/${p.pid}`} className="flex items-center gap-2 font-medium hover:underline" style={{ color: accentColor }}>
-                                {p.pictureUrl ? (
-                                  <img src={p.pictureUrl} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
-                                ) : (
-                                  <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}15` }}>
-                                    <span className="text-[10px] font-bold" style={{ color: accentColor }}>{p.name?.charAt(0)}</span>
-                                  </div>
-                                )}
-                                {p.name}
-                              </Link>
-                            </td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.punts || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{(p.yds || 0).toLocaleString()}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.punts > 0 ? (p.yds / p.punts).toFixed(1) : '0.0'}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.lng || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.in20 || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.tb || 0}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                <SortableStatsTable
+                  title="Punting"
+                  rows={playerStats.punting}
+                  defaultSortKey="yds"
+                  accentColor={accentColor}
+                  accentColorMuted={accentColorMuted}
+                  teamBgColor={teamInfo.backgroundColor}
+                  teamBgText={teamBgText}
+                  columns={[
+                    { key: 'name', label: 'Player', align: 'left',
+                      render: p => <PlayerCell player={p} accentColor={accentColor} pathPrefix={pathPrefix} /> },
+                    { key: 'punts', label: 'PUNTS', tabular: true,
+                      sortValue: p => p.punts || 0, render: p => p.punts || 0 },
+                    { key: 'yds', label: 'YDS', tabular: true,
+                      sortValue: p => p.yds || 0,
+                      render: p => (p.yds || 0).toLocaleString() },
+                    { key: 'avg', label: 'AVG', tabular: true,
+                      sortValue: p => (p.punts > 0 ? p.yds / p.punts : 0),
+                      render: p => (p.punts > 0 ? (p.yds / p.punts).toFixed(1) : '0.0') },
+                    { key: 'lng', label: 'LNG', tabular: true,
+                      sortValue: p => p.lng || 0, render: p => p.lng || 0 },
+                    { key: 'in20', label: 'IN20', tabular: true,
+                      sortValue: p => p.in20 || 0, render: p => p.in20 || 0 },
+                    { key: 'tb', label: 'TB', tabular: true, defaultDir: 'asc',
+                      sortValue: p => p.tb || 0, render: p => p.tb || 0 },
+                  ]}
+                />
               )}
 
               {/* Kick Return */}
               {playerStats.kickReturn && playerStats.kickReturn.length > 0 && (
-                <div className="card overflow-hidden">
-                  <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                    <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Kick Return</h4>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr style={{ backgroundColor: `${teamInfo.backgroundColor}15` }}>
-                          <th className="text-left px-3 py-2 font-semibold" style={{ color: accentColor }}>Player</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>RET</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>YDS</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>AVG</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>TD</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>LNG</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {playerStats.kickReturn.map((p, i) => (
-                          <tr key={p.pid || i} className="border-t " style={{ borderColor: `${accentColor}20` }}>
-                            <td className="px-3 py-2">
-                              <Link to={`${pathPrefix}/player/${p.pid}`} className="flex items-center gap-2 font-medium hover:underline" style={{ color: accentColor }}>
-                                {p.pictureUrl ? (
-                                  <img src={p.pictureUrl} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
-                                ) : (
-                                  <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}15` }}>
-                                    <span className="text-[10px] font-bold" style={{ color: accentColor }}>{p.name?.charAt(0)}</span>
-                                  </div>
-                                )}
-                                {p.name}
-                              </Link>
-                            </td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.ret || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums font-semibold" style={{ color: accentColor }}>{(p.yds || 0).toLocaleString()}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.ret > 0 ? (p.yds / p.ret).toFixed(1) : '0.0'}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.td || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.lng || 0}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                <SortableStatsTable
+                  title="Kick Return"
+                  rows={playerStats.kickReturn}
+                  defaultSortKey="yds"
+                  accentColor={accentColor}
+                  accentColorMuted={accentColorMuted}
+                  teamBgColor={teamInfo.backgroundColor}
+                  teamBgText={teamBgText}
+                  columns={[
+                    { key: 'name', label: 'Player', align: 'left',
+                      render: p => <PlayerCell player={p} accentColor={accentColor} pathPrefix={pathPrefix} /> },
+                    { key: 'ret', label: 'RET', tabular: true,
+                      sortValue: p => p.ret || 0, render: p => p.ret || 0 },
+                    { key: 'yds', label: 'YDS', tabular: true, bold: true,
+                      sortValue: p => p.yds || 0,
+                      render: p => (p.yds || 0).toLocaleString() },
+                    { key: 'avg', label: 'AVG', tabular: true,
+                      sortValue: p => (p.ret > 0 ? p.yds / p.ret : 0),
+                      render: p => (p.ret > 0 ? (p.yds / p.ret).toFixed(1) : '0.0') },
+                    { key: 'td', label: 'TD', tabular: true,
+                      sortValue: p => p.td || 0, render: p => p.td || 0 },
+                    { key: 'lng', label: 'LNG', tabular: true,
+                      sortValue: p => p.lng || 0, render: p => p.lng || 0 },
+                  ]}
+                />
               )}
 
               {/* Punt Return */}
               {playerStats.puntReturn && playerStats.puntReturn.length > 0 && (
-                <div className="card overflow-hidden">
-                  <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                    <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Punt Return</h4>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr style={{ backgroundColor: `${teamInfo.backgroundColor}15` }}>
-                          <th className="text-left px-3 py-2 font-semibold" style={{ color: accentColor }}>Player</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>RET</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>YDS</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>AVG</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>TD</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>LNG</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {playerStats.puntReturn.map((p, i) => (
-                          <tr key={p.pid || i} className="border-t " style={{ borderColor: `${accentColor}20` }}>
-                            <td className="px-3 py-2">
-                              <Link to={`${pathPrefix}/player/${p.pid}`} className="flex items-center gap-2 font-medium hover:underline" style={{ color: accentColor }}>
-                                {p.pictureUrl ? (
-                                  <img src={p.pictureUrl} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
-                                ) : (
-                                  <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}15` }}>
-                                    <span className="text-[10px] font-bold" style={{ color: accentColor }}>{p.name?.charAt(0)}</span>
-                                  </div>
-                                )}
-                                {p.name}
-                              </Link>
-                            </td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.ret || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums font-semibold" style={{ color: accentColor }}>{(p.yds || 0).toLocaleString()}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.ret > 0 ? (p.yds / p.ret).toFixed(1) : '0.0'}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.td || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.lng || 0}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                <SortableStatsTable
+                  title="Punt Return"
+                  rows={playerStats.puntReturn}
+                  defaultSortKey="yds"
+                  accentColor={accentColor}
+                  accentColorMuted={accentColorMuted}
+                  teamBgColor={teamInfo.backgroundColor}
+                  teamBgText={teamBgText}
+                  columns={[
+                    { key: 'name', label: 'Player', align: 'left',
+                      render: p => <PlayerCell player={p} accentColor={accentColor} pathPrefix={pathPrefix} /> },
+                    { key: 'ret', label: 'RET', tabular: true,
+                      sortValue: p => p.ret || 0, render: p => p.ret || 0 },
+                    { key: 'yds', label: 'YDS', tabular: true, bold: true,
+                      sortValue: p => p.yds || 0,
+                      render: p => (p.yds || 0).toLocaleString() },
+                    { key: 'avg', label: 'AVG', tabular: true,
+                      sortValue: p => (p.ret > 0 ? p.yds / p.ret : 0),
+                      render: p => (p.ret > 0 ? (p.yds / p.ret).toFixed(1) : '0.0') },
+                    { key: 'td', label: 'TD', tabular: true,
+                      sortValue: p => p.td || 0, render: p => p.td || 0 },
+                    { key: 'lng', label: 'LNG', tabular: true,
+                      sortValue: p => p.lng || 0, render: p => p.lng || 0 },
+                  ]}
+                />
               )}
 
               {/* No stats message */}
@@ -6830,11 +6702,6 @@ export default function TeamYear() {
                             </div>
                             <div className="text-xs" style={{ color: accentColorMuted }}>
                               {game.week ? `Week ${game.week}` : game.bowlName || 'Postseason'}
-                              {game.favoriteStatus && (
-                                <span className="ml-2" style={{ color: `${accentColor}60` }}>
-                                  ({game.favoriteStatus === 'favorite' ? 'Fav' : 'Dog'})
-                                </span>
-                              )}
                             </div>
                           </div>
                           <div className="text-right">

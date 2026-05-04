@@ -115,7 +115,7 @@ function namesMatch(boxName, playerName) {
 function buildPlayerGameStatsLine(player, game) {
   if (!player?.name || !game?.boxScore) return ''
 
-  const categories = ['passing', 'rushing', 'receiving', 'defense', 'kicking', 'kickReturn', 'puntReturn']
+  const categories = ['passing', 'rushing', 'receiving', 'blocking', 'defense', 'kicking', 'punting', 'kickReturn', 'puntReturn']
   let found = null
 
   for (const side of ['home', 'away']) {
@@ -136,53 +136,103 @@ function buildPlayerGameStatsLine(player, game) {
 
   if (!found) return ''
 
+  const num = (v) => Number(v) || 0
+  const has = (v) => Number(v) > 0
   const parts = []
+
   if (found.passing) {
     const p = found.passing
-    if (Number(p.attempts) > 0 || Number(p.yards) > 0 || Number(p.tD) > 0) {
-      parts.push(`Passing: ${p.comp ?? 0}/${p.attempts ?? 0}, ${p.yards ?? 0} yds, ${p.tD ?? 0} TD${Number(p.iNT) ? `, ${p.iNT} INT` : ''}`)
+    if (has(p.attempts) || has(p.yards) || has(p.tD) || has(p.comp)) {
+      const sub = [`${num(p.comp)}/${num(p.attempts)}`, `${num(p.yards)} yds`, `${num(p.tD)} TD`]
+      if (p.iNT != null) sub.push(`${num(p.iNT)} INT`)
+      if (has(p.long)) sub.push(`${num(p.long)} long`)
+      if (has(p.sacks)) sub.push(`${num(p.sacks)} sacks taken`)
+      parts.push(`Passing: ${sub.join(', ')}`)
     }
   }
   if (found.rushing) {
     const r = found.rushing
-    if (Number(r.carries) > 0 || Number(r.yards) > 0 || Number(r.tD) > 0) {
-      parts.push(`Rushing: ${r.carries ?? 0} car, ${r.yards ?? 0} yds, ${r.tD ?? 0} TD`)
+    if (has(r.carries) || has(r.yards) || has(r.tD)) {
+      const sub = [`${num(r.carries)} car`, `${num(r.yards)} yds`, `${num(r.tD)} TD`]
+      if (has(r.long)) sub.push(`${num(r.long)} long`)
+      if (has(r['20+'])) sub.push(`${num(r['20+'])} 20+`)
+      if (has(r.brokenTackles)) sub.push(`${num(r.brokenTackles)} BT`)
+      if (has(r.yAC)) sub.push(`${num(r.yAC)} YAC`)
+      if (has(r.fumbles)) sub.push(`${num(r.fumbles)} fum`)
+      parts.push(`Rushing: ${sub.join(', ')}`)
     }
   }
   if (found.receiving) {
     const c = found.receiving
-    if (Number(c.receptions) > 0 || Number(c.yards) > 0 || Number(c.tD) > 0) {
-      parts.push(`Receiving: ${c.receptions ?? 0} rec, ${c.yards ?? 0} yds, ${c.tD ?? 0} TD`)
+    if (has(c.receptions) || has(c.yards) || has(c.tD)) {
+      const sub = [`${num(c.receptions)} rec`, `${num(c.yards)} yds`, `${num(c.tD)} TD`]
+      if (has(c.long)) sub.push(`${num(c.long)} long`)
+      if (has(c.rAC)) sub.push(`${num(c.rAC)} RAC`)
+      if (has(c.drops)) sub.push(`${num(c.drops)} drops`)
+      parts.push(`Receiving: ${sub.join(', ')}`)
+    }
+  }
+  if (found.blocking) {
+    const b = found.blocking
+    if (has(b.pancakes) || has(b.sacksAllowed)) {
+      const sub = []
+      if (has(b.pancakes)) sub.push(`${num(b.pancakes)} pancakes`)
+      if (has(b.sacksAllowed)) sub.push(`${num(b.sacksAllowed)} sacks allowed`)
+      parts.push(`Blocking: ${sub.join(', ')}`)
     }
   }
   if (found.defense) {
     const d = found.defense
-    const tackles = (Number(d.solo) || 0) + (Number(d.assists) || 0)
+    const tackles = num(d.solo) + num(d.assists)
     const sub = []
-    if (tackles > 0) sub.push(`${tackles} tkl`)
-    if (Number(d.sack) > 0) sub.push(`${d.sack} sk`)
-    if (Number(d.tFL) > 0) sub.push(`${d.tFL} TFL`)
-    if (Number(d.iNT) > 0) sub.push(`${d.iNT} INT`)
-    if (Number(d.fF) > 0) sub.push(`${d.fF} FF`)
-    if (Number(d.fR) > 0) sub.push(`${d.fR} FR`)
-    if (Number(d.tD) > 0) sub.push(`${d.tD} TD`)
+    if (tackles > 0) sub.push(`${tackles} tkl (${num(d.solo)} solo, ${num(d.assists)} ast)`)
+    if (has(d.tFL)) sub.push(`${num(d.tFL)} TFL`)
+    if (has(d.sack)) sub.push(`${num(d.sack)} sk`)
+    if (has(d.iNT)) sub.push(`${num(d.iNT)} INT`)
+    if (has(d.iNTYards)) sub.push(`${num(d.iNTYards)} INT yds`)
+    if (has(d.tD)) sub.push(`${num(d.tD)} def TD`)
+    if (has(d.deflections)) sub.push(`${num(d.deflections)} PD`)
+    if (has(d.fF)) sub.push(`${num(d.fF)} FF`)
+    if (has(d.fR)) sub.push(`${num(d.fR)} FR`)
     if (sub.length) parts.push(`Defense: ${sub.join(', ')}`)
   }
   if (found.kicking) {
     const k = found.kicking
     const sub = []
-    if (Number(k.fGA) > 0) sub.push(`${k.fGM ?? 0}/${k.fGA} FG`)
-    if (Number(k.xPA) > 0) sub.push(`${k.xPM ?? 0}/${k.xPA} XP`)
-    if (Number(k.fGLong) > 0) sub.push(`Long ${k.fGLong}`)
+    if (has(k.fGA)) sub.push(`${num(k.fGM)}/${num(k.fGA)} FG`)
+    if (has(k.xPA)) sub.push(`${num(k.xPM)}/${num(k.xPA)} XP`)
+    if (has(k.fGLong)) sub.push(`${num(k.fGLong)} long`)
+    if (has(k.fGBlock) || has(k.xPB)) sub.push(`${num(k.fGBlock) + num(k.xPB)} blocked`)
     if (sub.length) parts.push(`Kicking: ${sub.join(', ')}`)
+  }
+  if (found.punting) {
+    const pu = found.punting
+    if (has(pu.punts)) {
+      const sub = [`${num(pu.punts)} punts`, `${num(pu.yards)} yds`]
+      if (num(pu.punts) > 0) sub.push(`${(num(pu.yards) / num(pu.punts)).toFixed(1)} avg`)
+      if (has(pu.long)) sub.push(`${num(pu.long)} long`)
+      if (has(pu.in20)) sub.push(`${num(pu.in20)} IN20`)
+      if (has(pu.tB)) sub.push(`${num(pu.tB)} TB`)
+      parts.push(`Punting: ${sub.join(', ')}`)
+    }
   }
   if (found.kickReturn) {
     const kr = found.kickReturn
-    if (Number(kr.kR) > 0) parts.push(`KR: ${kr.kR} ret, ${kr.yards ?? 0} yds${Number(kr.tD) ? `, ${kr.tD} TD` : ''}`)
+    if (has(kr.kR)) {
+      const sub = [`${num(kr.kR)} ret`, `${num(kr.yards)} yds`]
+      if (has(kr.tD)) sub.push(`${num(kr.tD)} TD`)
+      if (has(kr.long)) sub.push(`${num(kr.long)} long`)
+      parts.push(`KR: ${sub.join(', ')}`)
+    }
   }
   if (found.puntReturn) {
     const pr = found.puntReturn
-    if (Number(pr.pR) > 0) parts.push(`PR: ${pr.pR} ret, ${pr.yards ?? 0} yds${Number(pr.tD) ? `, ${pr.tD} TD` : ''}`)
+    if (has(pr.pR)) {
+      const sub = [`${num(pr.pR)} ret`, `${num(pr.yards)} yds`]
+      if (has(pr.tD)) sub.push(`${num(pr.tD)} TD`)
+      if (has(pr.long)) sub.push(`${num(pr.long)} long`)
+      parts.push(`PR: ${sub.join(', ')}`)
+    }
   }
 
   return parts.join(' • ')
@@ -231,52 +281,125 @@ function buildBioText({ player, position, school, year, statsLine, recordLine, c
 }
 
 /**
- * Build a stats-line one-liner for the year — same kind of summary the
- * Player profile shows on the overview tab. Returns '' when the player
- * has no stat data for that year.
+ * Build a comprehensive stats-line for the year. Pulls EVERY stat we
+ * actually store on player.statsByYear so the model has the full
+ * picture instead of one cherry-picked number. Field names match the
+ * INTERNAL format written by BOXSCORE_TO_INTERNAL_MAP in DynastyContext
+ * (e.g. defense uses soloTkl/astTkl/tfl/sacks/int/intYds/pd/td/ff/fr).
+ * Returns '' when the player has no stat data for that year.
  */
 function buildStatsLine(player, year) {
   if (!player?.statsByYear || !year) return ''
   const yearStats = player.statsByYear[year] || player.statsByYear[String(year)]
   if (!yearStats) return ''
 
+  const num = (v) => Number(v) || 0
+  const has = (v) => Number(v) > 0
   const parts = []
+
   // Passing
   const p = yearStats.passing
-  if (p && (Number(p.yds) > 0 || Number(p.tds) > 0 || Number(p.cmp) > 0)) {
-    const cmp = p.cmp ?? p.completions
-    const att = p.att ?? p.attempts
-    const yds = p.yds ?? p.passingYards ?? p.yards
-    const tds = p.tds ?? p.touchdowns
-    const ints = p.ints ?? p.interceptions
-    parts.push(`${cmp ?? '?'}/${att ?? '?'}, ${yds ?? 0} yds, ${tds ?? 0} TD${ints != null ? `, ${ints} INT` : ''}`)
+  if (p && (has(p.yds) || has(p.td) || has(p.cmp) || has(p.att))) {
+    const sub = []
+    sub.push(`${num(p.cmp)}/${num(p.att)}`)
+    sub.push(`${num(p.yds)} yds`)
+    sub.push(`${num(p.td)} TD`)
+    if (p.int != null) sub.push(`${num(p.int)} INT`)
+    if (has(p.lng)) sub.push(`${num(p.lng)} long`)
+    if (has(p.sacks)) sub.push(`${num(p.sacks)} sacks taken`)
+    parts.push(`Passing: ${sub.join(', ')}`)
   }
+
   // Rushing
   const r = yearStats.rushing
-  if (r && (Number(r.yds) > 0 || Number(r.tds) > 0)) {
-    const yds = r.yds ?? r.rushingYards ?? r.yards
-    const tds = r.tds ?? r.touchdowns
-    parts.push(`${yds ?? 0} rush yds, ${tds ?? 0} TD`)
+  if (r && (has(r.yds) || has(r.td) || has(r.car))) {
+    const sub = []
+    sub.push(`${num(r.car)} car`)
+    sub.push(`${num(r.yds)} yds`)
+    sub.push(`${num(r.td)} TD`)
+    if (has(r.lng)) sub.push(`${num(r.lng)} long`)
+    if (has(r.twentyPlus)) sub.push(`${num(r.twentyPlus)} 20+`)
+    if (has(r.bt)) sub.push(`${num(r.bt)} BT`)
+    if (has(r.yac)) sub.push(`${num(r.yac)} YAC`)
+    if (has(r.fum)) sub.push(`${num(r.fum)} fum`)
+    parts.push(`Rushing: ${sub.join(', ')}`)
   }
+
   // Receiving
   const c = yearStats.receiving
-  if (c && (Number(c.yds) > 0 || Number(c.tds) > 0 || Number(c.rec) > 0)) {
-    const rec = c.rec ?? c.receptions
-    const yds = c.yds ?? c.receivingYards ?? c.yards
-    const tds = c.tds ?? c.touchdowns
-    parts.push(`${rec ?? 0} rec, ${yds ?? 0} yds, ${tds ?? 0} TD`)
+  if (c && (has(c.yds) || has(c.td) || has(c.rec))) {
+    const sub = []
+    sub.push(`${num(c.rec)} rec`)
+    sub.push(`${num(c.yds)} yds`)
+    sub.push(`${num(c.td)} TD`)
+    if (has(c.lng)) sub.push(`${num(c.lng)} long`)
+    if (has(c.rac)) sub.push(`${num(c.rac)} RAC`)
+    if (has(c.drops)) sub.push(`${num(c.drops)} drops`)
+    parts.push(`Receiving: ${sub.join(', ')}`)
   }
-  // Defensive — sacks, TFL, INT
+
+  // Defense
   const d = yearStats.defense
   if (d) {
-    const subParts = []
-    const tot = d.tot ?? d.tackles
-    const sacks = d.sacks
-    const ints = d.ints ?? d.interceptions
-    if (tot) subParts.push(`${tot} tkl`)
-    if (sacks) subParts.push(`${sacks} sk`)
-    if (ints) subParts.push(`${ints} INT`)
-    if (subParts.length > 0) parts.push(subParts.join(', '))
+    const tot = num(d.soloTkl) + num(d.astTkl)
+    const sub = []
+    if (tot > 0) sub.push(`${tot} tkl (${num(d.soloTkl)} solo, ${num(d.astTkl)} ast)`)
+    if (has(d.tfl)) sub.push(`${num(d.tfl)} TFL`)
+    if (has(d.sacks)) sub.push(`${num(d.sacks)} sk`)
+    if (has(d.int)) sub.push(`${num(d.int)} INT`)
+    if (has(d.intYds)) sub.push(`${num(d.intYds)} INT yds`)
+    if (has(d.td)) sub.push(`${num(d.td)} def TD`)
+    if (has(d.pd)) sub.push(`${num(d.pd)} PD`)
+    if (has(d.ff)) sub.push(`${num(d.ff)} FF`)
+    if (has(d.fr)) sub.push(`${num(d.fr)} FR`)
+    if (sub.length) parts.push(`Defense: ${sub.join(', ')}`)
+  }
+
+  // Blocking (OL)
+  const b = yearStats.blocking
+  if (b && (has(b.pancakes) || has(b.sacksAllowed))) {
+    const sub = []
+    if (has(b.pancakes)) sub.push(`${num(b.pancakes)} pancakes`)
+    if (has(b.sacksAllowed)) sub.push(`${num(b.sacksAllowed)} sacks allowed`)
+    parts.push(`Blocking: ${sub.join(', ')}`)
+  }
+
+  // Kicking
+  const k = yearStats.kicking
+  if (k && (has(k.fga) || has(k.xpa))) {
+    const sub = []
+    if (has(k.fga)) sub.push(`${num(k.fgm)}/${num(k.fga)} FG`)
+    if (has(k.xpa)) sub.push(`${num(k.xpm)}/${num(k.xpa)} XP`)
+    if (has(k.lng)) sub.push(`${num(k.lng)} long`)
+    if (has(k.fgb) || has(k.xpb)) sub.push(`${num(k.fgb) + num(k.xpb)} blocked`)
+    parts.push(`Kicking: ${sub.join(', ')}`)
+  }
+
+  // Punting
+  const pu = yearStats.punting
+  if (pu && has(pu.punts)) {
+    const sub = [`${num(pu.punts)} punts`, `${num(pu.yds)} yds`]
+    if (num(pu.punts) > 0) sub.push(`${(num(pu.yds) / num(pu.punts)).toFixed(1)} avg`)
+    if (has(pu.lng)) sub.push(`${num(pu.lng)} long`)
+    if (has(pu.in20)) sub.push(`${num(pu.in20)} IN20`)
+    if (has(pu.tb)) sub.push(`${num(pu.tb)} TB`)
+    parts.push(`Punting: ${sub.join(', ')}`)
+  }
+
+  // Returns
+  const kr = yearStats.kickReturn
+  if (kr && has(kr.ret)) {
+    const sub = [`${num(kr.ret)} ret`, `${num(kr.yds)} yds`]
+    if (has(kr.td)) sub.push(`${num(kr.td)} TD`)
+    if (has(kr.lng)) sub.push(`${num(kr.lng)} long`)
+    parts.push(`KR: ${sub.join(', ')}`)
+  }
+  const pr = yearStats.puntReturn
+  if (pr && has(pr.ret)) {
+    const sub = [`${num(pr.ret)} ret`, `${num(pr.yds)} yds`]
+    if (has(pr.td)) sub.push(`${num(pr.td)} TD`)
+    if (has(pr.lng)) sub.push(`${num(pr.lng)} long`)
+    parts.push(`PR: ${sub.join(', ')}`)
   }
 
   return parts.join(' • ')
