@@ -401,11 +401,48 @@ if (!Array.isArray(raw)) {
   process.exit(1)
 }
 
-const tuned = raw.map(entry => ({
-  ...entry,
-  front_prompt_template: transformFront(entry.front_prompt_template),
-  back_prompt_template: transformBack(entry.back_prompt_template),
-}))
+// Fictional concept entries are all dated "2025" in the upstream
+// catalog (e.g. "2025 Panini Prizm Aurora Borealis Parallel"). Since
+// these aren't real production sets, the year is purely a placeholder
+// — the user picks a year on the Context step, and the card should
+// adopt THAT year, not a hardcoded 2025. Replace `2025` with `{{year}}`
+// in the prompts (so cardPromptVariables interpolates the card's
+// selected year) and strip the year prefix from the user-facing label
+// entirely (the picker has no card-year context, and "Modern Panini
+// Prizm Aurora Borealis Parallel (Fictional)" reads cleaner anyway).
+function rewriteFictionalYear(entry) {
+  if (!entry?.id || !entry.id.startsWith('fictional_')) return entry
+  const out = { ...entry }
+  if (typeof out.label === 'string') {
+    out.label = out.label
+      .replace(/^2025\s+/, '')                    // "2025 Panini Prizm…" → "Panini Prizm…"
+      .replace(/\b2025\b/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+  if (typeof out.set_name === 'string') {
+    out.set_name = out.set_name.replace(/^2025\s+/, '').replace(/\b2025\b/g, '').replace(/\s+/g, ' ').trim()
+  }
+  // Note: leave `entry.year` alone (it's structural, used as a sort
+  // key and as a fallback). The interpolated {{year}} in the prompt
+  // overrides it for what the AI sees on the card.
+  if (typeof out.front_prompt_template === 'string') {
+    out.front_prompt_template = out.front_prompt_template.replace(/\b2025\b/g, '{{year}}')
+  }
+  if (typeof out.back_prompt_template === 'string') {
+    out.back_prompt_template = out.back_prompt_template.replace(/\b2025\b/g, '{{year}}')
+  }
+  return out
+}
+
+const tuned = raw.map(entry => {
+  const rewritten = rewriteFictionalYear(entry)
+  return {
+    ...rewritten,
+    front_prompt_template: transformFront(rewritten.front_prompt_template),
+    back_prompt_template: transformBack(rewritten.back_prompt_template),
+  }
+})
 
 fs.writeFileSync(DST, JSON.stringify(tuned, null, 2) + '\n')
 console.log(`Transformed ${tuned.length} entries → ${DST}`)
