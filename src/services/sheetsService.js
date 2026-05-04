@@ -11493,6 +11493,22 @@ export async function createGameBoxScoreSheet(teamName, teamAbbr, opponentAbbr, 
           title: `${teamAbbr} Stats - Week ${week} vs ${opponentAbbr} (${year})`
         },
         sheets: [
+          // 1st tab: AI All-In-One — the one-paste tab the user asked
+          // to see first when the spreadsheet opens. Sits ahead of the
+          // 9 individual stat tabs so the default Sheets view lands on
+          // it instead of "Passing".
+          (() => {
+            const layout = computeUnifiedTabLayout()
+            return {
+              properties: {
+                title: AI_UNIFIED_TAB.title,
+                gridProperties: {
+                  rowCount: layout.totalRows,
+                  columnCount: layout.maxCols,
+                }
+              }
+            }
+          })(),
           ...STAT_TAB_ORDER.map(key => {
             const tab = STAT_TABS[key]
             return {
@@ -11506,19 +11522,6 @@ export async function createGameBoxScoreSheet(teamName, teamAbbr, opponentAbbr, 
               }
             }
           }),
-          // 10th tab: AI All-In-One — entire team's stats on one tab.
-          (() => {
-            const layout = computeUnifiedTabLayout()
-            return {
-              properties: {
-                title: AI_UNIFIED_TAB.title,
-                gridProperties: {
-                  rowCount: layout.totalRows,
-                  columnCount: layout.maxCols,
-                }
-              }
-            }
-          })()
         ]
       })
     })
@@ -11531,12 +11534,13 @@ export async function createGameBoxScoreSheet(teamName, teamAbbr, opponentAbbr, 
 
     const sheet = await response.json()
 
-    // Extract sheet IDs for each tab; the unified tab is at the end.
+    // Extract sheet IDs for each tab. Unified tab is now at index 0;
+    // the 9 individual stat tabs follow at indices 1..N.
+    const unifiedSheetId = sheet.sheets[0].properties.sheetId
     const sheetIds = {}
     STAT_TAB_ORDER.forEach((key, idx) => {
-      sheetIds[key] = sheet.sheets[idx].properties.sheetId
+      sheetIds[key] = sheet.sheets[idx + 1].properties.sheetId
     })
-    const unifiedSheetId = sheet.sheets[STAT_TAB_ORDER.length].properties.sheetId
 
     // Initialize all tabs with headers and formatting
     await initializeBoxScoreSheet(sheet.spreadsheetId, accessToken, sheetIds, isUserTeam, rosterPlayers)
