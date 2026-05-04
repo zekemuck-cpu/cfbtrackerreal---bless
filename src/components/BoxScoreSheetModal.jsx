@@ -1579,9 +1579,16 @@ output that fails any of them.`,
                         setTimeout(() => {
                           setRetryCount(c => c + 1)
                         }, 500)
+                      } else {
+                        // refreshSession returned false — popup was
+                        // dismissed or browser blocked it. Tell the
+                        // user explicitly so they don't sit on the
+                        // same screen wondering what happened.
+                        toast.error("Couldn't refresh — Google sign-in was dismissed or blocked. Try again, or sign out and back in.")
                       }
                     } catch (e) {
                       console.error('Refresh failed:', e)
+                      toast.error(`Refresh failed: ${e?.message || 'unknown error'}. Try signing out and back in.`)
                     }
                     setRefreshing(false)
                   }}
@@ -1594,6 +1601,23 @@ output that fails any of them.`,
                   }}
                 >
                   {refreshing ? 'Refreshing...' : 'Refresh Session'}
+                </button>
+                <button
+                  onClick={async () => {
+                    // Last-resort path — if the refresh popup keeps
+                    // failing, tearing the session down completely
+                    // and signing back in always works.
+                    try {
+                      await signOut()
+                      toast.success('Signed out — sign back in to continue.')
+                    } catch (e) {
+                      toast.error(`Sign out failed: ${e?.message || 'unknown error'}`)
+                    }
+                  }}
+                  disabled={refreshing}
+                  className="px-4 py-2 rounded text-xs font-semibold border border-surface-4 text-txt-secondary hover:text-txt-primary hover:bg-surface-3 transition-colors"
+                >
+                  Sign out
                 </button>
               </div>
             </div>

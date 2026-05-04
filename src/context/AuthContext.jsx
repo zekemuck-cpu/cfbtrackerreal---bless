@@ -211,46 +211,91 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // Refresh the session to get a new access token without full sign-out
-  // Tries silent refresh first, falls back to popup if needed
+  // Persist a fresh access token returned from the OAuth popup. Pulled
+  // out of refreshSession so the same logic handles credentials from
+  // both `credentialFromResult` and the result's internal token bag.
+  const persistFreshToken = (accessToken, user) => {
+    if (!accessToken) return false
+    setAccessToken(accessToken)
+    if (user) user.accessToken = accessToken
+    const expiryTime = Date.now() + 3600000 // 1 hour
+    localStorage.setItem('google_access_token', accessToken)
+    localStorage.setItem('google_token_expiry', expiryTime.toString())
+    setTokenExpiringSoon(false)
+    setupTokenRefreshTimer(expiryTime)
+    return true
+  }
+
+  // Pull the OAuth access token out of a signInWithPopup result. The
+  // public `credentialFromResult` returns null when Firebase decides
+  // the user is already signed in and skips the OAuth handshake — in
+  // that case the popup completes but `credential.accessToken` is
+  // undefined, which used to leave the caller stuck. Falling back to
+  // the result's internal `_tokenResponse.oauthAccessToken` recovers
+  // the token in those cases.
+  const tokenFromPopupResult = (result) => {
+    if (!result) return null
+    const credential = GoogleAuthProvider.credentialFromResult(result)
+    if (credential?.accessToken) return credential.accessToken
+    // Firebase exposes the underlying OAuth response on the result
+    // when credentialFromResult returns null. This is technically an
+    // internal field but it has been stable across firebase v9–v12
+    // and is the documented escape hatch for this exact case.
+    const internal = result._tokenResponse
+    return internal?.oauthAccessToken || null
+  }
+
+  // Refresh the session to get a new access token without full sign-out.
+  // Tries a silent refresh first (when `silent: true`), falls back to a
+  // popup with account selection. If even that returns without a fresh
+  // OAuth token (Firebase considers the user already signed in but
+  // didn't re-issue an OAuth grant), forces a full sign-out + popup
+  // re-auth as a last resort so the caller always gets a usable token
+  // or a thrown error — no more silent "stuck on the error screen".
   const refreshSession = async (silent = false) => {
     try {
       const freshProvider = new GoogleAuthProvider()
       freshProvider.addScope('https://www.googleapis.com/auth/drive.file')
 
       if (silent) {
-        // Try silent refresh - works if user's Google session is still active
-        freshProvider.setCustomParameters({
-          prompt: 'none'
-        })
+        freshProvider.setCustomParameters({ prompt: 'none' })
       } else {
-        // Regular refresh - just account selection, not full consent
-        freshProvider.setCustomParameters({
-          prompt: 'select_account'
-        })
+        freshProvider.setCustomParameters({ prompt: 'select_account' })
       }
 
       const result = await signInWithPopup(auth, freshProvider)
+      const accessToken = tokenFromPopupResult(result)
 
-      const credential = GoogleAuthProvider.credentialFromResult(result)
-      if (credential?.accessToken) {
-        setAccessToken(credential.accessToken)
-        if (result.user) {
-          result.user.accessToken = credential.accessToken
-        }
+      if (accessToken) {
+        return persistFreshToken(accessToken, result.user)
+      }
 
-        const expiryTime = Date.now() + 3600000 // 1 hour
-        localStorage.setItem('google_access_token', credential.accessToken)
-        localStorage.setItem('google_token_expiry', expiryTime.toString())
+      // Popup completed but Firebase didn't include an OAuth access
+      // token — happens when the existing Firebase session is still
+      // valid and Firebase chose not to re-run the OAuth dance. For
+      // silent calls just bail; the caller will retry with a popup.
+      // For interactive calls, fall through to the hard-reset path so
+      // the user isn't stranded.
+      if (silent) return false
 
-        setTokenExpiringSoon(false)
-        setupTokenRefreshTimer(expiryTime)
+      console.warn('[AuthContext] Popup completed without an OAuth access token — forcing full re-auth')
+      await firebaseSignOut(auth)
+      // Tiny delay so Firebase's internal listener observes the
+      // signed-out state before we open the next popup. Without this
+      // the second popup can race the listener and immediately resolve
+      // with the previous user, missing the OAuth grant again.
+      await new Promise(r => setTimeout(r, 150))
 
-        return true
+      const reAuthProvider = new GoogleAuthProvider()
+      reAuthProvider.addScope('https://www.googleapis.com/auth/drive.file')
+      reAuthProvider.setCustomParameters({ prompt: 'select_account' })
+      const reAuthResult = await signInWithPopup(auth, reAuthProvider)
+      const reAuthToken = tokenFromPopupResult(reAuthResult)
+      if (reAuthToken) {
+        return persistFreshToken(reAuthToken, reAuthResult.user)
       }
       return false
     } catch (error) {
-      // If silent refresh fails, caller can retry with popup
       if (silent && (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request')) {
         return false
       }
