@@ -49,6 +49,7 @@ import SellVsSendCalculator, { SellVsSendButton } from '../../components/SellVsS
 import PositionChangesModal from '../../components/PositionChangesModal'
 import RecruitingClassRankModal from '../../components/RecruitingClassRankModal'
 import TrainingResultsModal from '../../components/TrainingResultsModal'
+import WeekRecapModal from '../../components/WeekRecapModal'
 import EncourageTransfersModal from '../../components/EncourageTransfersModal'
 import RecruitOverallsModal from '../../components/RecruitOverallsModal'
 import PortalTransferClassModal from '../../components/PortalTransferClassModal'
@@ -373,6 +374,10 @@ export default function Dashboard() {
   const [showRecruitOverallsModal, setShowRecruitOverallsModal] = useState(false)
   const [showPortalTransferClassModal, setShowPortalTransferClassModal] = useState(false)
   const [showFringeCaseClassModal, setShowFringeCaseClassModal] = useState(false)
+  // Week Recap modal context: { year, week } when open, null when closed.
+  // Lets the same modal serve both preseason (week 0) and in-season recaps
+  // without juggling two state booleans.
+  const [recapModalContext, setRecapModalContext] = useState(null)
 
   // Read-only banner: collapses to a single-row pill. Persists user
   // choice across sessions so they don't keep having to dismiss it.
@@ -3177,6 +3182,28 @@ export default function Dashboard() {
                   actionText: preseasonCommitments !== undefined ? 'Edit' : 'Yes',
                   optional: true
                 }
+              })(),
+              // Preseason CFB recap — forward-looking season preview built
+              // from past dynasty data. Always last in the list, always
+              // optional. Stored at weekRecapsByYear[year][0].
+              (() => {
+                const yearNum = Number(currentDynasty.currentYear)
+                const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[0]
+                const isNewTeam = isFirstYearOnTeam(currentDynasty)
+                let num = 2
+                if (isNewTeam) num++
+                num++
+                if (currentDynasty.coachPosition === 'HC' && isNewTeam) num++
+                num++ // after recruiting commitments
+                return {
+                  num,
+                  title: 'Generate Preseason CFB Recap',
+                  done: !!recap?.text,
+                  isPreseasonRecap: true,
+                  action: () => setRecapModalContext({ year: yearNum, week: 0 }),
+                  actionText: recap?.text ? 'Edit' : 'Generate',
+                  optional: true,
+                }
               })()
             ].map(item => {
               return (
@@ -3266,6 +3293,16 @@ export default function Dashboard() {
                           ? `${Object.keys(item.conferences).length} conferences configured`
                           : 'Default EA CFB 26 alignment'}
                         {item.done && <span className="ml-1 sm:ml-2">✓ Ready</span>}
+                      </div>
+                    )}
+                    {item.isPreseasonRecap && (
+                      <div
+                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium"
+                        style={{ color: item.done ? '#22c55e' : '#a1a1aa' }}
+                      >
+                        {item.done
+                          ? '✓ Saved — view it on the Weekly Scores page'
+                          : 'AI-written season preview based on past dynasty data'}
                       </div>
                     )}
                     {item.isRecruiting && (
@@ -3736,6 +3773,79 @@ export default function Dashboard() {
                         }}
                       >
                         {done ? 'Edit' : 'Enter'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Week Recap to-do — generate a narrative recap of the week
+                that just finished. Sits at the END of the regular-season
+                to-do list because it depends on the prior tasks (scores
+                logged, awards entered) being roughly complete. */}
+            {(() => {
+              const curWeek = Number(currentDynasty.currentWeek)
+              if (!Number.isFinite(curWeek) || curWeek < 2) return null
+              const prevWeek = curWeek - 1
+              const yearNum = Number(currentDynasty.currentYear)
+              const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[prevWeek]
+              const done = !!recap?.text
+              return (
+                <div
+                  className="rounded-xl p-3 sm:p-4 transition-all flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4"
+                  style={done ? {
+                    backgroundColor: 'color-mix(in srgb, #22c55e 8%, var(--surface-3))',
+                    border: '1px solid rgba(34, 197, 94, 0.3)'
+                  } : {
+                    backgroundColor: 'var(--surface-3)',
+                    border: '1px solid var(--rule-soft)'
+                  }}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div
+                      className="font-display font-black leading-tight"
+                      style={{
+                        fontSize: 'clamp(1.05rem, 2vw, 1.25rem)',
+                        color: done ? '#22c55e' : 'var(--text-primary)',
+                        letterSpacing: '-0.01em'
+                      }}
+                    >
+                      {done ? `Week ${prevWeek} Recap Saved` : `Generate Week ${prevWeek} Recap`}
+                    </div>
+                    <div
+                      className="text-xs sm:text-[13px] mt-1"
+                      style={{ color: done ? 'rgba(34, 197, 94, 0.8)' : 'var(--text-tertiary)' }}
+                    >
+                      {done
+                        ? 'AI-generated week-in-review is on the Weekly Scores page'
+                        : 'Bundles every fact we have into a prompt for ChatGPT/Claude/Gemini'}
+                    </div>
+                  </div>
+                  {!isViewOnly && (
+                    <div className="flex gap-2 w-full sm:w-auto sm:flex-shrink-0">
+                      <Link
+                        to={`${pathPrefix}/weekly-scores/${yearNum}/${prevWeek}?tab=recap`}
+                        className="flex-1 sm:flex-none rounded-lg font-display font-black uppercase tracking-widest py-2 sm:py-3 px-4 text-xs sm:text-[13px] transition-all hover:opacity-90 active:translate-y-px text-center"
+                        style={{
+                          backgroundColor: 'var(--surface-4)',
+                          color: 'var(--text-secondary)',
+                          letterSpacing: '2px'
+                        }}
+                      >
+                        View
+                      </Link>
+                      <button
+                        onClick={() => setRecapModalContext({ year: yearNum, week: prevWeek })}
+                        className="flex-1 sm:flex-none rounded-lg font-display font-black uppercase tracking-widest py-2 sm:py-3 px-4 text-xs sm:text-[13px] transition-all hover:opacity-90 active:translate-y-px"
+                        style={{
+                          backgroundColor: teamColors.primary,
+                          color: primaryBgText,
+                          letterSpacing: '2px',
+                          boxShadow: `0 6px 24px -8px ${teamColors.primary}66`
+                        }}
+                      >
+                        {done ? 'Edit' : 'Generate'}
                       </button>
                     </div>
                   )}
@@ -9287,6 +9397,17 @@ export default function Dashboard() {
           year={Number(currentDynasty.currentYear)}
           week={weeklyScoresModalWeek}
           teamColors={teamColors}
+        />
+      )}
+
+      {/* Week Recap Modal — generates and saves the AI-narrated week-in-review.
+          Same component handles both preseason (week 0) and in-season recaps. */}
+      {recapModalContext && (
+        <WeekRecapModal
+          isOpen={!!recapModalContext}
+          onClose={() => setRecapModalContext(null)}
+          year={recapModalContext.year}
+          week={recapModalContext.week}
         />
       )}
 

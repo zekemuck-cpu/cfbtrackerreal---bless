@@ -8,6 +8,8 @@ import { conferenceTeams as DEFAULT_CONFERENCES, getTeamConference } from '../..
 import { PageHero, Card, EmptyState, TeamLogo } from '../../components/ui'
 import InlineYearSelect from '../../components/ui/InlineYearSelect'
 import WeeklyScoresModal from '../../components/WeeklyScoresModal'
+import WeekRecapModal from '../../components/WeekRecapModal'
+import FormattedRecap from '../../components/FormattedRecap'
 import { useTeamColors } from '../../hooks/useTeamColors'
 
 const REGULAR_SEASON_WEEKS = Array.from({ length: 16 }, (_, i) => i)  // 0-15
@@ -219,6 +221,22 @@ export default function WeeklyScores() {
   const { currentDynasty, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
   const [editing, setEditing] = useState(false)
+  // Recap modal opens locally on this page too — no need to round-trip to
+  // the dashboard. Same component handles preseason + in-season.
+  const [recapModalOpen, setRecapModalOpen] = useState(false)
+
+  // Tab state lives in the URL (?tab=scores|recap) so deep-links from the
+  // dashboard's recap to-do land directly on the recap view, and so the
+  // user's choice survives navigating into a game and back.
+  const tabParam = searchParams.get('tab') === 'recap' ? 'recap' : 'scores'
+  const setTab = (next) => {
+    setSearchParams(prev => {
+      const params = new URLSearchParams(prev)
+      if (next === 'scores') params.delete('tab')
+      else params.set('tab', next)
+      return params
+    }, { replace: true })
+  }
 
   // ESPN-style filter (?filter=all | top25 | <Conference Name>). Lives in
   // search params so the user's selection survives navigating into a game
@@ -467,42 +485,139 @@ export default function WeeklyScores() {
         }
       />
 
-      {sortedGames.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 stagger-reveal">
-          {sortedGames.map(game => (
-            <GameCard
-              key={game.id}
-              domId={`weekly-game-${game.id}`}
-              game={game}
-              teams={teams}
-              pathPrefix={pathPrefix}
-              recordsByTid={recordsByTidByWeek}
+      {/* Tab bar — Scores / Recap. The Recap tab houses the AI-narrated
+          week-in-review (preseason variant at week 0). */}
+      {(() => {
+        const recap = currentDynasty.weekRecapsByYear?.[displayYear]?.[displayWeek]
+        const recapExists = !!recap?.text
+        const Tab = ({ value, label, badge }) => {
+          const active = tabParam === value
+          return (
+            <button
+              type="button"
+              onClick={() => setTab(value)}
+              className="px-4 py-2 -mb-px font-display font-semibold text-sm uppercase tracking-wider transition-colors"
+              style={{
+                letterSpacing: '1.5px',
+                color: active ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                borderBottom: active ? `2px solid ${teamColors.primary}` : '2px solid transparent',
+              }}
+              aria-pressed={active}
+            >
+              {label}
+              {badge && (
+                <span
+                  className="ml-2 align-middle inline-block rounded-full"
+                  style={{
+                    width: 6,
+                    height: 6,
+                    backgroundColor: '#22c55e',
+                  }}
+                  aria-hidden="true"
+                />
+              )}
+            </button>
+          )
+        }
+        return (
+          <div className="flex gap-1 border-b border-surface-4 -mt-2">
+            <Tab value="scores" label="Scores" />
+            <Tab value="recap" label={displayWeek === 0 ? 'Preseason Recap' : 'Recap'} badge={recapExists} />
+          </div>
+        )
+      })()}
+
+      {tabParam === 'scores' && (
+        sortedGames.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 stagger-reveal">
+            {sortedGames.map(game => (
+              <GameCard
+                key={game.id}
+                domId={`weekly-game-${game.id}`}
+                game={game}
+                teams={teams}
+                pathPrefix={pathPrefix}
+                recordsByTid={recordsByTidByWeek}
+              />
+            ))}
+          </div>
+        ) : playedThisWeek.length > 0 ? (
+          <Card>
+            <EmptyState
+              title={`No ${filterLabel} games in Week ${displayWeek}`}
+              message={
+                filter === 'top25'
+                  ? `No ranked teams played in Week ${displayWeek}, ${displayYear}.`
+                  : `No games involving ${filterLabel} were played in Week ${displayWeek}, ${displayYear}.`
+              }
             />
-          ))}
-        </div>
-      ) : playedThisWeek.length > 0 ? (
-        <Card>
-          <EmptyState
-            title={`No ${filterLabel} games in Week ${displayWeek}`}
-            message={
-              filter === 'top25'
-                ? `No ranked teams played in Week ${displayWeek}, ${displayYear}.`
-                : `No games involving ${filterLabel} were played in Week ${displayWeek}, ${displayYear}.`
-            }
-          />
-        </Card>
-      ) : (
-        <Card>
-          <EmptyState
-            title={`No scores entered for Week ${displayWeek}`}
-            message={
-              isViewOnly
-                ? `The dynasty owner hasn't entered Week ${displayWeek} scores for ${displayYear} yet.`
-                : `Click "Edit Week ${displayWeek}" to enter results from across the country.`
-            }
-          />
-        </Card>
+          </Card>
+        ) : (
+          <Card>
+            <EmptyState
+              title={`No scores entered for Week ${displayWeek}`}
+              message={
+                isViewOnly
+                  ? `The dynasty owner hasn't entered Week ${displayWeek} scores for ${displayYear} yet.`
+                  : `Click "Edit Week ${displayWeek}" to enter results from across the country.`
+              }
+            />
+          </Card>
+        )
       )}
+
+      {tabParam === 'recap' && (() => {
+        const recap = currentDynasty.weekRecapsByYear?.[displayYear]?.[displayWeek]
+        const recapText = recap?.text
+        if (recapText) {
+          return (
+            <Card padding="lg">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-xs text-txt-tertiary">
+                  Saved {new Date(recap.generatedAt || Date.now()).toLocaleString()}
+                </div>
+                {!isViewOnly && (
+                  <button
+                    type="button"
+                    onClick={() => setRecapModalOpen(true)}
+                    className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wider rounded transition-colors"
+                    style={{
+                      backgroundColor: 'var(--surface-3)',
+                      color: 'var(--text-secondary)',
+                      letterSpacing: '1.5px',
+                    }}
+                  >
+                    Edit recap
+                  </button>
+                )}
+              </div>
+              <FormattedRecap text={recapText} />
+            </Card>
+          )
+        }
+        return (
+          <Card>
+            <EmptyState
+              title={displayWeek === 0 ? `No preseason recap for ${displayYear} yet` : `No recap for Week ${displayWeek} yet`}
+              message={
+                isViewOnly
+                  ? 'Read-only — the dynasty owner can generate one.'
+                  : 'Generates a prompt bundling every season fact we have for the AI to turn into a narrative recap.'
+              }
+              action={!isViewOnly && (
+                <button
+                  type="button"
+                  onClick={() => setRecapModalOpen(true)}
+                  className="px-4 py-2 text-sm font-semibold rounded-lg transition-colors"
+                  style={{ backgroundColor: teamColors.primary, color: '#fff' }}
+                >
+                  Generate recap
+                </button>
+              )}
+            />
+          </Card>
+        )
+      })()}
 
       {editing && (
         <WeeklyScoresModal
@@ -511,6 +626,15 @@ export default function WeeklyScores() {
           year={displayYear}
           week={displayWeek}
           teamColors={teamColors}
+        />
+      )}
+
+      {recapModalOpen && (
+        <WeekRecapModal
+          isOpen={recapModalOpen}
+          onClose={() => setRecapModalOpen(false)}
+          year={displayYear}
+          week={displayWeek}
         />
       )}
 
