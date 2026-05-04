@@ -2220,12 +2220,14 @@ export default function TeamYear() {
               </span>
             </div>
             <div className="flex items-center gap-2 flex-wrap mt-0.5">
-              {/* Ranking Badge - Final poll (yellow) or In-season (blue/gray).
-                  Badge links to the Top 25 page for the displayed year. */}
+              {/* Ranking Badge — desktop position, beside the team
+                  selector. Hidden on mobile to keep the team-name line
+                  uncluttered; mobile shows the same ranking inline
+                  with the record + conference strip below. */}
               {finalPollRanking ? (
                 <Link
                   to={`${pathPrefix}/rankings/${selectedYear}`}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
+                  className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
                   style={{
                     backgroundColor: '#fbbf24',
                     color: '#78350f'
@@ -2237,7 +2239,7 @@ export default function TeamYear() {
               ) : unifiedRanking?.rank ? (
                 <Link
                   to={`${pathPrefix}/rankings/${selectedYear}`}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
+                  className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
                   style={{
                     backgroundColor: '#6b7280',
                     color: '#ffffff'
@@ -2384,9 +2386,37 @@ export default function TeamYear() {
                 </div>
               )}
             </div>
-            {/* Season Record + Conference - same line */}
-            {(displayRecord || conference) && (
-              <div className="flex items-center gap-3 mt-1 flex-wrap">
+            {/* Season Record + Conference - same line. On mobile this
+                row also carries the ranking pill (which is hidden in
+                the team-name row above on small screens) so the team
+                name doesn't get jostled by the badge. */}
+            {(displayRecord || conference || finalPollRanking || unifiedRanking?.rank) && (
+              <div className="flex items-center gap-2 sm:gap-3 mt-1 flex-wrap">
+                {/* Mobile-only ranking pill — same Link target as the
+                    desktop badge, just relocated to keep the small
+                    viewport tidy. */}
+                {finalPollRanking ? (
+                  <Link
+                    to={`${pathPrefix}/rankings/${selectedYear}`}
+                    className="sm:hidden flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold hover:opacity-90 transition-opacity"
+                    style={{ backgroundColor: '#fbbf24', color: '#78350f' }}
+                    title={`Final Ranking: #${finalPollRanking.media} — view Top 25`}
+                  >
+                    #{finalPollRanking.media}
+                  </Link>
+                ) : unifiedRanking?.rank ? (
+                  <Link
+                    to={`${pathPrefix}/rankings/${selectedYear}`}
+                    className="sm:hidden flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold hover:opacity-90 transition-opacity"
+                    style={{ backgroundColor: '#6b7280', color: '#ffffff' }}
+                    title={`Current Ranking (Week ${unifiedRanking.week || '?'}) — view Top 25`}
+                  >
+                    #{unifiedRanking.rank}
+                  </Link>
+                ) : null}
+                {(finalPollRanking || unifiedRanking?.rank) && (displayRecord || conference) && (
+                  <span className="sm:hidden text-txt-muted">•</span>
+                )}
                 {displayRecord && (
                   <div
                     className="relative"
