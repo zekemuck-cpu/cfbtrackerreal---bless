@@ -2399,6 +2399,13 @@ export default function Player() {
                         statDisplay = parts.join(', ')
                       } else if (stats?.category === 'kicking') {
                         statDisplay = `${stats.fGM ?? 0}/${stats.fGA ?? 0} FG, ${stats.xPM ?? 0}/${stats.xPA ?? 0} XP`
+                      } else if (stats?.category === 'blocking') {
+                        const pncks = Number(stats.pancakes) || 0
+                        const sa = Number(stats.sacksAllowed) || 0
+                        const parts = []
+                        if (pncks > 0) parts.push(`${pncks} pancake${pncks === 1 ? '' : 's'}`)
+                        if (sa > 0) parts.push(`${sa} sack${sa === 1 ? '' : 's'} allowed`)
+                        statDisplay = parts.join(', ')
                       }
                       const RowWrap = gameId ? Link : 'div'
                       const rowProps = gameId ? { to: `${pathPrefix}/game/${gameId}` } : {}
@@ -5018,6 +5025,13 @@ export default function Player() {
                           statDisplay = `${stats.kR ?? 0} ret, ${stats.yards ?? 0} yds, ${stats.tD ?? 0} TD`
                         } else if (stats.category === 'puntReturn') {
                           statDisplay = `${stats.pR ?? 0} ret, ${stats.yards ?? 0} yds, ${stats.tD ?? 0} TD`
+                        } else if (stats.category === 'blocking') {
+                          const pncks = Number(stats.pancakes) || 0
+                          const sa = Number(stats.sacksAllowed) || 0
+                          const parts = []
+                          if (pncks > 0) parts.push(`${pncks} pancake${pncks === 1 ? '' : 's'}`)
+                          if (sa > 0) parts.push(`${sa} sack${sa === 1 ? '' : 's'} allowed`)
+                          statDisplay = parts.join(', ')
                         }
 
                         // Filter scoring plays for this player with running scores
