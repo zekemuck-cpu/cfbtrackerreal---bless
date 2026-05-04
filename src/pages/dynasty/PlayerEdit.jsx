@@ -68,20 +68,45 @@ const ARCHETYPES = {
 }
 
 // Award options
+// AWARD_OPTIONS — kept in sync with what the app actually tracks:
+//   • Honor teams (All-American / All-Conference, 1st/2nd/Freshman) —
+//     populated via Dashboard's All-Americans / All-Conference imports.
+//   • Offseason individual awards — the same list as the Awards Sheet
+//     in src/services/sheetsService.js's AWARDS_LIST and rendered by
+//     Awards.jsx's AWARD_DISPLAY map.
+//
+// Coach awards (Bear Bryant, Broyles) live on the coaching staff
+// record, not on player records, so they're intentionally excluded.
 const AWARD_OPTIONS = [
-  { value: 'heisman', label: 'Heisman Trophy', tier: 'elite' },
-  { value: 'heismanFinalist', label: 'Heisman Finalist', tier: 'elite' },
-  { value: 'cfpChampMVP', label: 'CFP Championship MVP', tier: 'elite' },
-  { value: 'allAm1st', label: 'All-American 1st Team', tier: 'major' },
-  { value: 'allAm2nd', label: 'All-American 2nd Team', tier: 'major' },
-  { value: 'allAmFr', label: 'Freshman All-American', tier: 'major' },
-  { value: 'bowlMVP', label: 'Bowl Game MVP', tier: 'major' },
-  { value: 'confPOY', label: 'Conference Player of the Year', tier: 'conf' },
-  { value: 'confOffPOY', label: 'Conference Offensive POY', tier: 'conf' },
-  { value: 'confDefPOY', label: 'Conference Defensive POY', tier: 'conf' },
-  { value: 'allConf1st', label: 'All-Conference 1st Team', tier: 'conf' },
-  { value: 'allConf2nd', label: 'All-Conference 2nd Team', tier: 'conf' },
-  { value: 'weeklyHonor', label: 'Player of the Week', tier: 'weekly' },
+  // Honor teams
+  { value: 'allAm1st',          label: 'All-American 1st Team',     tier: 'honor' },
+  { value: 'allAm2nd',          label: 'All-American 2nd Team',     tier: 'honor' },
+  { value: 'allAmFr',           label: 'Freshman All-American',     tier: 'honor' },
+  { value: 'allConf1st',        label: 'All-Conference 1st Team',   tier: 'honor' },
+  { value: 'allConf2nd',        label: 'All-Conference 2nd Team',   tier: 'honor' },
+  { value: 'allConfFr',         label: 'Freshman All-Conference',   tier: 'honor' },
+
+  // Offseason individual awards — order matches Awards.jsx AWARD_ORDER
+  // (offense → defense → lineman → special teams).
+  { value: 'heisman',           label: 'Heisman Trophy',            tier: 'award' },
+  { value: 'maxwell',           label: 'Maxwell Award',             tier: 'award' },
+  { value: 'walterCamp',        label: 'Walter Camp Award',         tier: 'award' },
+  { value: 'daveyObrien',       label: "Davey O'Brien Award",       tier: 'award' },
+  { value: 'doakWalker',        label: 'Doak Walker Award',         tier: 'award' },
+  { value: 'fredBiletnikoff',   label: 'Fred Biletnikoff Award',    tier: 'award' },
+  { value: 'johnMackey',        label: 'John Mackey Award',         tier: 'award' },
+  { value: 'unitasGoldenArm',   label: 'Unitas Golden Arm Award',   tier: 'award' },
+  { value: 'chuckBednarik',     label: 'Chuck Bednarik Award',      tier: 'award' },
+  { value: 'broncoNagurski',    label: 'Bronco Nagurski Trophy',    tier: 'award' },
+  { value: 'jimThorpe',         label: 'Jim Thorpe Award',          tier: 'award' },
+  { value: 'dickButkus',        label: 'Dick Butkus Award',         tier: 'award' },
+  { value: 'edgeRusherOfTheYear', label: 'Edge Rusher of the Year', tier: 'award' },
+  { value: 'outland',           label: 'Outland Trophy',            tier: 'award' },
+  { value: 'lombardi',          label: 'Lombardi Award',            tier: 'award' },
+  { value: 'rimington',         label: 'Rimington Trophy',          tier: 'award' },
+  { value: 'louGroza',          label: 'Lou Groza Award',           tier: 'award' },
+  { value: 'rayGuy',            label: 'Ray Guy Award',             tier: 'award' },
+  { value: 'returnerOfTheYear', label: 'Returner of the Year',      tier: 'award' },
 ]
 
 // Convert nested stats structure to flat form fields
@@ -2552,23 +2577,13 @@ export default function PlayerEdit() {
                             className="w-full px-3 py-2 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none text-txt-primary bg-surface-2"
                           >
                             <option value="">Select award</option>
-                            <optgroup label="Elite Awards">
-                              {AWARD_OPTIONS.filter(a => a.tier === 'elite').map(award => (
+                            <optgroup label="Honor Teams">
+                              {AWARD_OPTIONS.filter(a => a.tier === 'honor').map(award => (
                                 <option key={award.value} value={award.value}>{award.label}</option>
                               ))}
                             </optgroup>
-                            <optgroup label="Major Awards">
-                              {AWARD_OPTIONS.filter(a => a.tier === 'major').map(award => (
-                                <option key={award.value} value={award.value}>{award.label}</option>
-                              ))}
-                            </optgroup>
-                            <optgroup label="Conference Awards">
-                              {AWARD_OPTIONS.filter(a => a.tier === 'conf').map(award => (
-                                <option key={award.value} value={award.value}>{award.label}</option>
-                              ))}
-                            </optgroup>
-                            <optgroup label="Weekly Honors">
-                              {AWARD_OPTIONS.filter(a => a.tier === 'weekly').map(award => (
+                            <optgroup label="Offseason Awards">
+                              {AWARD_OPTIONS.filter(a => a.tier === 'award').map(award => (
                                 <option key={award.value} value={award.value}>{award.label}</option>
                               ))}
                             </optgroup>

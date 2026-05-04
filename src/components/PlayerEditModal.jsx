@@ -52,23 +52,42 @@ const ARCHETYPES = {
 }
 
 // Award options
+// AWARD_OPTIONS — kept in sync with what the app actually tracks:
+// honor teams (All-American / All-Conference, 1st/2nd/Freshman) plus
+// the offseason individual awards from src/services/sheetsService.js's
+// AWARDS_LIST. Mirrors the list in src/pages/dynasty/PlayerEdit.jsx.
+// Coach awards (Bear Bryant, Broyles) live on the coaching staff
+// record, not on player records, so they're intentionally excluded.
 const AWARD_OPTIONS = [
-  { value: 'heisman', label: 'Heisman Trophy', tier: 'elite' },
-  { value: 'heismanFinalist', label: 'Heisman Finalist', tier: 'elite' },
-  { value: 'cfpChampMVP', label: 'CFP Championship MVP', tier: 'elite' },
-  { value: 'allAm1st', label: 'All-American 1st Team', tier: 'major' },
-  { value: 'allAm2nd', label: 'All-American 2nd Team', tier: 'major' },
-  { value: 'allAmFr', label: 'Freshman All-American', tier: 'major' },
-  { value: 'bowlMVP', label: 'Bowl Game MVP', tier: 'major' },
-  { value: 'confPOY', label: 'Conference Player of the Year', tier: 'conf' },
-  { value: 'confOPOY', label: 'Conference Offensive POY', tier: 'conf' },
-  { value: 'confDPOY', label: 'Conference Defensive POY', tier: 'conf' },
-  { value: 'confFreshmanOY', label: 'Conference Freshman of the Year', tier: 'conf' },
-  { value: 'allConf1st', label: 'All-Conference 1st Team', tier: 'conf' },
-  { value: 'allConf2nd', label: 'All-Conference 2nd Team', tier: 'conf' },
-  { value: 'allConfFr', label: 'Freshman All-Conference', tier: 'conf' },
-  { value: 'confPOW', label: 'Conference Player of the Week', tier: 'weekly' },
-  { value: 'nationalPOW', label: 'National Player of the Week', tier: 'weekly' },
+  // Honor teams
+  { value: 'allAm1st',          label: 'All-American 1st Team',     tier: 'honor' },
+  { value: 'allAm2nd',          label: 'All-American 2nd Team',     tier: 'honor' },
+  { value: 'allAmFr',           label: 'Freshman All-American',     tier: 'honor' },
+  { value: 'allConf1st',        label: 'All-Conference 1st Team',   tier: 'honor' },
+  { value: 'allConf2nd',        label: 'All-Conference 2nd Team',   tier: 'honor' },
+  { value: 'allConfFr',         label: 'Freshman All-Conference',   tier: 'honor' },
+
+  // Offseason individual awards — order matches Awards.jsx AWARD_ORDER
+  // (offense → defense → lineman → special teams).
+  { value: 'heisman',           label: 'Heisman Trophy',            tier: 'award' },
+  { value: 'maxwell',           label: 'Maxwell Award',             tier: 'award' },
+  { value: 'walterCamp',        label: 'Walter Camp Award',         tier: 'award' },
+  { value: 'daveyObrien',       label: "Davey O'Brien Award",       tier: 'award' },
+  { value: 'doakWalker',        label: 'Doak Walker Award',         tier: 'award' },
+  { value: 'fredBiletnikoff',   label: 'Fred Biletnikoff Award',    tier: 'award' },
+  { value: 'johnMackey',        label: 'John Mackey Award',         tier: 'award' },
+  { value: 'unitasGoldenArm',   label: 'Unitas Golden Arm Award',   tier: 'award' },
+  { value: 'chuckBednarik',     label: 'Chuck Bednarik Award',      tier: 'award' },
+  { value: 'broncoNagurski',    label: 'Bronco Nagurski Trophy',    tier: 'award' },
+  { value: 'jimThorpe',         label: 'Jim Thorpe Award',          tier: 'award' },
+  { value: 'dickButkus',        label: 'Dick Butkus Award',         tier: 'award' },
+  { value: 'edgeRusherOfTheYear', label: 'Edge Rusher of the Year', tier: 'award' },
+  { value: 'outland',           label: 'Outland Trophy',            tier: 'award' },
+  { value: 'lombardi',          label: 'Lombardi Award',            tier: 'award' },
+  { value: 'rimington',         label: 'Rimington Trophy',          tier: 'award' },
+  { value: 'louGroza',          label: 'Lou Groza Award',           tier: 'award' },
+  { value: 'rayGuy',            label: 'Ray Guy Award',             tier: 'award' },
+  { value: 'returnerOfTheYear', label: 'Returner of the Year',      tier: 'award' },
 ]
 
 // Icon components
@@ -1022,10 +1041,8 @@ export default function PlayerEditModalNew({
 
     // Group awards by tier for display
     const groupedAwards = {
-      elite: AWARD_OPTIONS.filter(a => a.tier === 'elite'),
-      major: AWARD_OPTIONS.filter(a => a.tier === 'major'),
-      conf: AWARD_OPTIONS.filter(a => a.tier === 'conf'),
-      weekly: AWARD_OPTIONS.filter(a => a.tier === 'weekly'),
+      honor: AWARD_OPTIONS.filter(a => a.tier === 'honor'),
+      award: AWARD_OPTIONS.filter(a => a.tier === 'award'),
     }
 
     return (
@@ -1055,23 +1072,13 @@ export default function PlayerEditModalNew({
                     className="flex-1 px-3 py-2 bg-white text-txt-primary rounded-lg border border-surface-4 text-sm"
                   >
                     <option value="">Select Award...</option>
-                    <optgroup label="Elite">
-                      {groupedAwards.elite.map(opt => (
+                    <optgroup label="Honor Teams">
+                      {groupedAwards.honor.map(opt => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                       ))}
                     </optgroup>
-                    <optgroup label="Major">
-                      {groupedAwards.major.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="Conference">
-                      {groupedAwards.conf.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="Weekly">
-                      {groupedAwards.weekly.map(opt => (
+                    <optgroup label="Offseason Awards">
+                      {groupedAwards.award.map(opt => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                       ))}
                     </optgroup>
