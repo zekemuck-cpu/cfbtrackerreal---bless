@@ -50,6 +50,8 @@ import PositionChangesModal from '../../components/PositionChangesModal'
 import RecruitingClassRankModal from '../../components/RecruitingClassRankModal'
 import TrainingResultsModal from '../../components/TrainingResultsModal'
 import WeekRecapModal from '../../components/WeekRecapModal'
+import FormattedRecap from '../../components/FormattedRecap'
+import PreseasonTop25Modal from '../../components/PreseasonTop25Modal'
 import EncourageTransfersModal from '../../components/EncourageTransfersModal'
 import RecruitOverallsModal from '../../components/RecruitOverallsModal'
 import PortalTransferClassModal from '../../components/PortalTransferClassModal'
@@ -378,6 +380,8 @@ export default function Dashboard() {
   // Lets the same modal serve both preseason (week 0) and in-season recaps
   // without juggling two state booleans.
   const [recapModalContext, setRecapModalContext] = useState(null)
+  // Preseason Top 25 entry modal — opens for a specific year
+  const [preseasonTop25Year, setPreseasonTop25Year] = useState(null)
 
   // Read-only banner: collapses to a single-row pill. Persists user
   // choice across sessions so they don't keep having to dismiss it.
@@ -707,6 +711,20 @@ export default function Dashboard() {
   }, [currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.currentPhase, currentDynasty?.cfpSeedsByYear, currentDynasty?.games?.length, isViewOnly, isLoadingDynastyData])
 
   if (!currentDynasty) return null
+
+  // Last-week recap detector — only meaningful in regular_season at week >= 2
+  // (week 1 has no preceding regular-season game to recap). Drives the
+  // dashboard layout shuffle below: when a recap exists for the prior week,
+  // Roster + Schedule fold into one tabbed section (matching the mobile
+  // pattern) and the recap card sits where Schedule used to be.
+  const lastWeekRecap = (() => {
+    if (currentDynasty.currentPhase !== 'regular_season') return null
+    const cw = Number(currentDynasty.currentWeek)
+    if (!Number.isFinite(cw) || cw < 2) return null
+    const yr = Number(currentDynasty.currentYear)
+    return currentDynasty.weekRecapsByYear?.[yr]?.[cw - 1] || null
+  })()
+  const lastWeekRecapExists = !!lastWeekRecap?.text
 
   // Get the user's team conference (from custom conferences or default)
   const customConferences = getCurrentCustomConferences(currentDynasty)
@@ -3183,6 +3201,29 @@ export default function Dashboard() {
                   optional: true
                 }
               })(),
+              // Preseason Top 25 entry — saves the user's preseason poll
+              // for this year. Feeds the preseason recap prompt and the
+              // week-1 ranks elsewhere in the app.
+              (() => {
+                const yearNum = Number(currentDynasty.currentYear)
+                const saved = currentDynasty.preseasonRankingsByYear?.[yearNum]
+                const isNewTeam = isFirstYearOnTeam(currentDynasty)
+                let num = 2
+                if (isNewTeam) num++
+                num++
+                if (currentDynasty.coachPosition === 'HC' && isNewTeam) num++
+                num++ // after recruiting commitments
+                return {
+                  num,
+                  title: 'Enter Preseason Top 25',
+                  done: Array.isArray(saved) && saved.length > 0,
+                  isPreseasonTop25: true,
+                  preseasonTop25Count: Array.isArray(saved) ? saved.length : 0,
+                  action: () => setPreseasonTop25Year(yearNum),
+                  actionText: Array.isArray(saved) && saved.length > 0 ? 'Edit' : 'Enter',
+                  optional: true,
+                }
+              })(),
               // Preseason CFB recap — forward-looking season preview built
               // from past dynasty data. Always last in the list, always
               // optional. Stored at weekRecapsByYear[year][0].
@@ -3194,7 +3235,7 @@ export default function Dashboard() {
                 if (isNewTeam) num++
                 num++
                 if (currentDynasty.coachPosition === 'HC' && isNewTeam) num++
-                num++ // after recruiting commitments
+                num += 2 // after recruiting commitments + Preseason Top 25
                 return {
                   num,
                   title: 'Generate Preseason CFB Recap',
@@ -3293,6 +3334,16 @@ export default function Dashboard() {
                           ? `${Object.keys(item.conferences).length} conferences configured`
                           : 'Default EA CFB 26 alignment'}
                         {item.done && <span className="ml-1 sm:ml-2">✓ Ready</span>}
+                      </div>
+                    )}
+                    {item.isPreseasonTop25 && (
+                      <div
+                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium"
+                        style={{ color: item.done ? '#22c55e' : '#a1a1aa' }}
+                      >
+                        {item.done
+                          ? `✓ ${item.preseasonTop25Count} team${item.preseasonTop25Count === 1 ? '' : 's'} ranked`
+                          : 'Saved per-year; powers the preseason recap'}
                       </div>
                     )}
                     {item.isPreseasonRecap && (
@@ -8303,8 +8354,10 @@ export default function Dashboard() {
         </div>
       )}
 
-          {/* Roster Section - Desktop Only (below tasks) */}
-          <div className="hidden lg:flex lg:flex-col lg:flex-1 lg:min-h-0">
+          {/* Roster Section - Desktop Only (below tasks). Hidden when last
+              week's recap exists; in that case Roster + Schedule fold into
+              the tabbed mobile-style section below (full width, both cols). */}
+          <div className={lastWeekRecapExists ? 'hidden' : 'hidden lg:flex lg:flex-col lg:flex-1 lg:min-h-0'}>
             <div className="flex flex-col flex-1 min-h-0">
               <div className="py-3 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
                 <div className="flex items-center gap-3">
@@ -8420,8 +8473,50 @@ export default function Dashboard() {
         </div>
         {/* End Left Column */}
 
-        {/* Right Column: Schedule - Desktop Only */}
-        <div ref={scheduleColumnRef} className="hidden lg:block">
+        {/* Right Column: Recap card when a recap exists for last week.
+            Sits in the slot that Schedule normally occupies. The Schedule
+            and Roster (now hidden above) re-emerge as the tabbed section
+            below, full-width across both grid columns. */}
+        {lastWeekRecapExists && (
+          <div className="lg:block">
+            <div
+              className="rounded-2xl overflow-hidden"
+              style={{
+                backgroundColor: 'var(--surface-1)',
+                border: '1px solid var(--rule-soft)',
+              }}
+            >
+              <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-1 h-10 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-bold text-white tracking-tight truncate">
+                      Week {Number(currentDynasty.currentWeek) - 1} Recap
+                    </h2>
+                    <div className="text-xs text-zinc-500 mt-0.5">
+                      {currentDynasty.currentYear} · saved {new Date(lastWeekRecap.generatedAt || Date.now()).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+                <Link
+                  to={`${pathPrefix}/weekly-scores/${Number(currentDynasty.currentYear)}/${Number(currentDynasty.currentWeek) - 1}?tab=recap`}
+                  className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors flex-shrink-0"
+                  title="Open recap on Weekly Scores page"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </Link>
+              </div>
+              <div className="px-5 py-4 max-h-[640px] overflow-y-auto">
+                <FormattedRecap text={lastWeekRecap.text} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Right Column: Schedule - Desktop Only — hidden when recap card replaces it */}
+        <div ref={scheduleColumnRef} className={lastWeekRecapExists ? 'hidden' : 'hidden lg:block'}>
           {/* Schedule Section - Clean Redesign */}
       <div>
         {/* Schedule Header */}
@@ -9021,8 +9116,13 @@ export default function Dashboard() {
         </div>
         {/* End Right Column */}
 
-        {/* Mobile Tabbed Section - Schedule/Roster Tabs */}
-        <div className="lg:hidden">
+        {/* Mobile Tabbed Section - Schedule/Roster Tabs.
+            When last week's recap exists, this section ALSO renders on
+            desktop (full-width across both columns), since Roster and
+            Schedule have been hidden above. Matches the user's spec:
+            "schedule should then group with roster in a tabbed section
+            just like it automatically does on mobile". */}
+        <div className={lastWeekRecapExists ? 'lg:col-span-2 lg:mt-2' : 'lg:hidden'}>
           {/* Tab Buttons */}
           <div className="flex mb-4 rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--rule-soft)' }}>
             <button
@@ -9408,6 +9508,16 @@ export default function Dashboard() {
           onClose={() => setRecapModalContext(null)}
           year={recapModalContext.year}
           week={recapModalContext.week}
+        />
+      )}
+
+      {/* Preseason Top 25 Modal — saves to dynasty.preseasonRankingsByYear */}
+      {preseasonTop25Year != null && (
+        <PreseasonTop25Modal
+          isOpen={preseasonTop25Year != null}
+          onClose={() => setPreseasonTop25Year(null)}
+          year={preseasonTop25Year}
+          teamColors={teamColors}
         />
       )}
 
