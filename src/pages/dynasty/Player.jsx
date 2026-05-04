@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { useDynasty, getEncourageTransfers, getRecruitingCommitments } from '../../context/DynastyContext'
+import { useDynasty, getEncourageTransfers, getRecruitingCommitments, getPlayerClassForYear } from '../../context/DynastyContext'
 import CardComposer from '../../components/CardComposer'
 import FlippableCard from '../../components/FlippableCard'
 import MediaList from '../../components/MediaList'
@@ -554,7 +554,9 @@ export default function Player() {
       const punting = ownYearStats?.punting
       const kickReturn = ownYearStats?.kickReturn
       const puntReturn = ownYearStats?.puntReturn
-      const playerClass = player?.classByYear?.[year] || player?.classByYear?.[yearStr] || player?.year
+      // Helper handles past-year derivation when classByYear has only a
+      // single anchor (off-team / transferred / honor-only players).
+      const playerClass = getPlayerClassForYear(player, year)
       // Use teamsByYear as source of truth for which team the player was on this year
       const yearTeam = player?.teamsByYear?.[year] || player?.teamsByYear?.[yearStr] || null
       years.push({
@@ -2100,7 +2102,10 @@ export default function Player() {
                           const abbr = teamData.abbr || ''
                           const mascot = getMascotName(abbr, teamsData)
                           const logo = getTeamLogoByTid(tid, teamsData)
-                          const cls = player.classByYear?.[year]
+                          // Use the helper so transferred-out / honor-only / CPU
+                          // players still show a derived class for past years
+                          // when classByYear has only a single anchor.
+                          const cls = getPlayerClassForYear(player, year)
                           const ovr = player.overallByYear?.[year]
                           const pos = player.positionByYear?.[year] || player.position
                           const transition = transitionForYear(year)

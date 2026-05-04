@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { useDynasty } from '../../context/DynastyContext'
+import { useDynasty, getPlayerClassForYear } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import RosterHistoryModal from '../../components/RosterHistoryModal'
@@ -308,7 +308,7 @@ export default function Players() {
                         {player.position}
                       </td>
                       <td className="px-4 py-3 text-center text-sm text-txt-secondary tabular">
-                        {player.classByYear?.[currentDynasty.currentYear] || player.year || '-'}
+                        {getPlayerClassForYear(player, currentDynasty.currentYear) || '-'}
                       </td>
                       <td className="px-4 py-3 text-center">
                         {player.overall ? (

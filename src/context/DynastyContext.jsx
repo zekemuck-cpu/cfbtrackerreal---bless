@@ -2544,16 +2544,97 @@ export function isPlayerOnRoster(player, tidOrAbbr, year) {
 
 /**
  * Get a player's class for a given year.
- * Uses classByYear as the source of truth.
+ *
+ * `classByYear[year]` is the source of truth, but it's frequently
+ * sparse — honor-only players, transferred-out players, CPU rosters
+ * and other off-team records often have only a single anchor year
+ * filled in. Past-year display sites used to fall back to the
+ * stale `player.year` (legacy "current class") field, which silently
+ * showed a senior in 2034 as a senior in his 2031 freshman card too.
+ *
+ * To handle the gaps, we walk the standard FBS class progression
+ * from the nearest known anchor year. Forward beyond Sr / RS Sr
+ * returns null (graduated). Backward before Fr returns null
+ * (before they were on a roster). Ties on distance prefer the
+ * earlier anchor (we have more confidence about what came before
+ * an anchor than what came after, since the user is more likely to
+ * have entered the player's debut year than a later one).
  *
  * @param {Object} player - Player object
  * @param {number} year - The year to get class for
  * @returns {string|null} Class string or null
  */
 export function getPlayerClassForYear(player, year) {
+  if (!player || year == null) return null
   const yearNum = Number(year)
-  const yearStr = String(year)
-  return player.classByYear?.[yearNum] ?? player.classByYear?.[yearStr] ?? player.year ?? null
+  if (!Number.isFinite(yearNum)) return null
+  const yearStr = String(yearNum)
+
+  // Direct hit on classByYear — preferred when present.
+  if (player.classByYear) {
+    if (player.classByYear[yearNum] != null) return player.classByYear[yearNum]
+    if (player.classByYear[yearStr] != null) return player.classByYear[yearStr]
+  }
+
+  // No anchors at all — best we can do is the legacy field.
+  const knownYears = Object.keys(player.classByYear || {})
+    .map(k => Number(k))
+    .filter(n => Number.isFinite(n))
+    .sort((a, b) => a - b)
+  if (knownYears.length === 0) {
+    return player.year ?? null
+  }
+
+  // Pick the nearest anchor year. Ties go to the EARLIER year so
+  // forward derivation (which has well-defined progression rules)
+  // wins over backward derivation (which has to guess at redshirt
+  // history).
+  let anchorYear = knownYears[0]
+  let minDist = Math.abs(yearNum - anchorYear)
+  for (const ky of knownYears) {
+    const d = Math.abs(yearNum - ky)
+    if (d < minDist || (d === minDist && ky < anchorYear)) {
+      minDist = d
+      anchorYear = ky
+    }
+  }
+  const anchorClass = player.classByYear[anchorYear] ?? player.classByYear[String(anchorYear)]
+  if (!anchorClass) return player.year ?? null
+  if (yearNum === anchorYear) return anchorClass
+
+  if (yearNum > anchorYear) {
+    // Forward — apply CLASS_PROGRESSION (yearNum - anchorYear) times.
+    // Sr / RS Sr graduates if asked to advance.
+    let cls = anchorClass
+    const steps = yearNum - anchorYear
+    for (let i = 0; i < steps; i++) {
+      if (cls === 'Sr' || cls === 'RS Sr') return null // graduated
+      cls = CLASS_PROGRESSION[cls] || cls
+    }
+    return cls
+  }
+
+  // Backward — reverse the progression. We can only go back through
+  // the standard mapping; transferring back through redshirt years
+  // can't be reconstructed cleanly, so we return null if we'd have
+  // to underflow the anchor.
+  const REVERSE_CLASS_BACKWARD = {
+    'So': 'Fr',
+    'Jr': 'So',
+    'Sr': 'Jr',
+    'RS Sr': 'Sr',
+    'RS Fr': 'Fr',
+    'RS So': 'So',
+    'RS Jr': 'Jr',
+  }
+  let cls = anchorClass
+  const stepsBack = anchorYear - yearNum
+  for (let i = 0; i < stepsBack; i++) {
+    const prev = REVERSE_CLASS_BACKWARD[cls]
+    if (!prev) return null // can't go further back (already Fr / unknown class)
+    cls = prev
+  }
+  return cls
 }
 
 /**
