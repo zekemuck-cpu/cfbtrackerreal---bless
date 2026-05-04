@@ -2776,7 +2776,12 @@ export default function Player() {
           return {
             year,
             team: teamsByYear[year],
-            playerClass: player.classByYear?.[year] || player.classByYear?.[String(year)]
+            // Use the canonical class resolver — interpolates from the
+            // nearest anchor in classByYear via CLASS_PROGRESSION when a
+            // year has no explicit entry. Without this, transfer years
+            // (where classByYear often skips a season) headline as bare
+            // "SEASON" with no eligibility info next to it.
+            playerClass: getPlayerClassForYear(player, year)
               || (isCurrentYr ? player.year : null),
             overall: player.overallByYear?.[year] || player.overallByYear?.[String(year)]
               || (isCurrentYr ? player.overall : null),
