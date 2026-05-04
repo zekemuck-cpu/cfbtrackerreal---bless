@@ -27,7 +27,7 @@ import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { createDynastySheet, deleteGoogleSheet, writeExistingDataToSheet, createConferencesSheet, readConferencesFromSheet } from '../services/sheetsService'
 import { getTeamName } from '../data/teamAbbreviations'
-import { getTeamConference, getConferencesWithCustomTeams } from '../data/conferenceTeams'
+import { getTeamConference, getConferencesWithCustomTeams, conferenceTeams as DEFAULT_CONFERENCE_TEAMS } from '../data/conferenceTeams'
 import {
   TEAMS,
   initializeDynastyTeams,
@@ -3180,34 +3180,90 @@ export function getCustomConferencesForYear(dynasty, year) {
   const yearNum = Number(year)
   if (isNaN(yearNum)) return null
 
-  // Check year-specific first (try both number and string keys)
+  // Resolve the base conference map (the bulk realignment snapshot).
+  // Year-specific entry → walk-back to the most recent year that had
+  // a snapshot → legacy `customConferences` (single-snapshot) →
+  // null (caller falls back to the static catalog).
+  let baseMap = null
   const byYear = dynasty.customConferencesByYear?.[yearNum] || dynasty.customConferencesByYear?.[String(yearNum)]
   if (byYear && typeof byYear === 'object' && Object.keys(byYear).length > 0) {
-    return byYear
-  }
-
-  // Walk back through previous years to find the most recent conference alignment
-  // This handles cases where conferences weren't carried over properly
-  if (dynasty.customConferencesByYear && typeof dynasty.customConferencesByYear === 'object') {
+    baseMap = byYear
+  } else if (dynasty.customConferencesByYear && typeof dynasty.customConferencesByYear === 'object') {
     const startYear = Number(dynasty.startYear) || 2024
-    // Safety limit: only look back 10 years max
     const minYear = Math.max(startYear, yearNum - 10)
-
     for (let y = yearNum - 1; y >= minYear; y--) {
-      // Try both number and string keys
       const prevYearConf = dynasty.customConferencesByYear[y] || dynasty.customConferencesByYear[String(y)]
       if (prevYearConf && typeof prevYearConf === 'object' && Object.keys(prevYearConf).length > 0) {
-        return prevYearConf
+        baseMap = prevYearConf
+        break
+      }
+    }
+  }
+  if (!baseMap && dynasty.customConferences && typeof dynasty.customConferences === 'object' && Object.keys(dynasty.customConferences).length > 0) {
+    baseMap = dynasty.customConferences
+  }
+
+  // Collect single-team conference overrides written by the team-info
+  // edit modal (via saveTeamYearInfo). These live alongside the bulk
+  // snapshot and must override it — without this overlay, changing
+  // one team's conference (e.g. Notre Dame → Big Ten) saves to the
+  // override stores but no consumer ever reads them, so the team
+  // page and conference standings still show the old conference.
+  const overrides = new Map() // abbr (UPPERCASE) -> conferenceName
+  // New path: dynasty.teams[tid].byYear[year].conference
+  for (const [, team] of Object.entries(dynasty.teams || {})) {
+    const yearData = team?.byYear?.[yearNum] || team?.byYear?.[String(yearNum)]
+    const conf = yearData?.conference
+    const abbr = team?.abbr
+    if (conf && abbr) overrides.set(abbr.toUpperCase(), conf)
+  }
+  // Legacy path: dynasty.conferenceByTeamYear[abbr][year]
+  const legacyOverrides = dynasty.conferenceByTeamYear || {}
+  for (const [abbr, byYearMap] of Object.entries(legacyOverrides)) {
+    if (!abbr || !byYearMap || typeof byYearMap !== 'object') continue
+    const conf = byYearMap[yearNum] ?? byYearMap[String(yearNum)]
+    if (conf) overrides.set(abbr.toUpperCase(), conf)
+  }
+
+  // No bulk map AND no per-team overrides → preserve legacy "use
+  // defaults" contract by returning null.
+  if (!baseMap && overrides.size === 0) return null
+
+  // Deep clone whichever base we picked (or the static default when
+  // there's no custom snapshot) so the overlay below doesn't mutate
+  // stored data.
+  const sourceMap = baseMap || DEFAULT_CONFERENCE_TEAMS
+  const result = {}
+  for (const [conf, teams] of Object.entries(sourceMap)) {
+    result[conf] = Array.isArray(teams) ? [...teams] : []
+  }
+
+  if (overrides.size > 0) {
+    for (const [abbr, newConf] of overrides) {
+      // Remove from any conference it currently appears in.
+      for (const teamList of Object.values(result)) {
+        const idx = teamList.findIndex(t => (t || '').toUpperCase() === abbr)
+        if (idx !== -1) teamList.splice(idx, 1)
+      }
+      // Add to its new conference (create the bucket if needed —
+      // covers the user-invented-conference-name case).
+      if (!Array.isArray(result[newConf])) result[newConf] = []
+      if (!result[newConf].some(t => (t || '').toUpperCase() === abbr)) {
+        // Preserve the team's original abbr casing if we can find it.
+        const original = (() => {
+          for (const teams of Object.values(sourceMap)) {
+            if (!Array.isArray(teams)) continue
+            const m = teams.find(t => (t || '').toUpperCase() === abbr)
+            if (m) return m
+          }
+          return abbr
+        })()
+        result[newConf].push(original)
       }
     }
   }
 
-  // Fall back to legacy customConferences
-  if (dynasty.customConferences && typeof dynasty.customConferences === 'object' && Object.keys(dynasty.customConferences).length > 0) {
-    return dynasty.customConferences
-  }
-
-  return null
+  return result
 }
 
 /**
