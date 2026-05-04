@@ -33,6 +33,7 @@ import { stripMascotFromName } from '../data/teams'
 import { TEAMS } from '../data/teamRegistry'
 import { detectGameType, GAME_TYPES, getTeamRanking, calculateTeamRecordFromGames } from '../context/DynastyContext'
 import { WEEKLY_AWARDS } from '../data/cardStyles'
+import { formatScoreHighLow } from './scoreFormat'
 
 // Award keys → human display name. Mirrors the labels the player profile
 // surfaces so the prompt language reads consistently across the app.
@@ -739,7 +740,7 @@ export function buildCardPromptVariables({ player, dynasty, card }) {
     const myScore = playerIsT1 ? g.team1Score : g.team2Score
     const oppScore = playerIsT1 ? g.team2Score : g.team1Score
     if (myScore != null && oppScore != null) {
-      score = `${myScore}-${oppScore}`
+      score = formatScoreHighLow(myScore, oppScore)
       result = myScore > oppScore ? 'W' : 'L'
     }
     week = emptyToBlank(g.week)

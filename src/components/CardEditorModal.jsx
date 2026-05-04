@@ -30,6 +30,7 @@ import {
   interpolatePrompt,
 } from '../utils/cardPromptVariables'
 import { listPlayerGames } from '../utils/playerCards'
+import { formatScoreHighLow } from '../utils/scoreFormat'
 
 const PHASES = [
   { id: 'style',    label: 'Style',    short: '01' },
@@ -51,6 +52,7 @@ export default function CardEditorModal({
 }) {
   const [working, setWorking] = useState(() => ({ ...card }))
   const [phaseIdx, setPhaseIdx] = useState(isNew ? 0 : 2)
+  const [saving, setSaving] = useState(false)
 
   const update = (patch) => setWorking(w => ({ ...w, ...patch }))
   const updateContextDetails = (patch) =>
@@ -325,11 +327,19 @@ export default function CardEditorModal({
             )}
             {phaseIdx === PHASES.length - 1 && (
               <PrimaryButton
-                onClick={() => onSave(working)}
-                disabled={!canSave}
+                onClick={async () => {
+                  if (!canSave || saving) return
+                  setSaving(true)
+                  try {
+                    await onSave(working)
+                  } finally {
+                    setSaving(false)
+                  }
+                }}
+                disabled={!canSave || saving}
                 accent={accent}
               >
-                {isNew ? 'Save card' : 'Save changes'}
+                {saving ? 'Saving…' : (isNew ? 'Save card' : 'Save changes')}
               </PrimaryButton>
             )}
           </div>
@@ -536,7 +546,7 @@ function PhaseContext({
               <option value="">Select a game…</option>
               {availableGames.map(g => (
                 <option key={g.gameId} value={g.gameId}>
-                  {g.year} W{g.week} · {g.won ? 'W' : 'L'} {g.playerScore}-{g.oppScore} {g.location === 'home' ? 'vs' : g.location === 'away' ? '@' : 'vs (N)'} {g.opponentName}
+                  {g.year} W{g.week} · {g.won ? 'W' : 'L'} {formatScoreHighLow(g.playerScore, g.oppScore) || '—'} {g.location === 'home' ? 'vs' : g.location === 'away' ? '@' : 'vs (N)'} {g.opponentName}
                 </option>
               ))}
             </StyledSelect>

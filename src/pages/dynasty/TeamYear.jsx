@@ -20,6 +20,7 @@ import { isSameYear } from '../../utils/compareUtils'
 import { calculateRecruitingClassScore, formatRecruitingClassScore, flattenClassCommitments } from '../../utils/recruitingScore'
 import { useToast } from '../../components/ui/Toast'
 import SortableStatsTable, { PlayerCell } from '../../components/SortableStatsTable'
+import { formatScoreHighLow } from '../../utils/scoreFormat'
 
 // Map abbreviation to mascot name for logo lookup
 // Accepts optional teamsData for tid-based teambuilder support
@@ -3397,7 +3398,7 @@ export default function TeamYear() {
                   </span>
                   {hasResult ? (
                     <span className={`text-xs font-bold tabular-nums ${isWin ? 'text-green-400' : 'text-red-400'}`}>
-                      {isWin ? 'W' : 'L'} {teamScore}-{oppScore}
+                      {isWin ? 'W' : 'L'} {formatScoreHighLow(teamScore, oppScore)}
                     </span>
                   ) : (
                     <span className="text-[10px]" style={{ color: 'var(--text-tertiary)', opacity: 0.5 }}>--</span>
@@ -6706,7 +6707,7 @@ export default function TeamYear() {
                           </div>
                           <div className="text-right">
                             <div className="font-bold tabular-nums" style={{ color: accentColor }}>
-                              {game.teamScore}-{game.oppScore}
+                              {formatScoreHighLow(game.teamScore, game.oppScore)}
                             </div>
                           </div>
                         </Link>
@@ -6813,7 +6814,7 @@ export default function TeamYear() {
                         </div>
                         <div className="text-right flex-shrink-0 ml-3">
                           <div className="font-bold tabular-nums" style={{ color: accentColor }}>
-                            {hasScores ? `${teamScore}-${oppScore}` : '—'}
+                            {hasScores ? formatScoreHighLow(teamScore, oppScore) : '—'}
                           </div>
                         </div>
                       </Link>

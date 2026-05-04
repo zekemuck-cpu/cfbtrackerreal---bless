@@ -954,9 +954,18 @@ export default function Game() {
   const userTid = perspective?.userTid || resolveTid(displayTeamAbbr, teams)
   const oppTid = perspective?.opponentTid || resolveTid(opponentAbbr, teams)
 
-  // Get seeds from game data or calculate from cfpSeedsByYear
-  const userSeed = game.seed1 || game.cfpSeed1 || getCFPSeedForTid(userTid)
-  const oppSeed = game.seed2 || game.cfpSeed2 || getCFPSeedForTid(oppTid)
+  // Get seeds for user/opponent. We CANNOT trust game.seed1 → user,
+  // game.seed2 → opp, because seed1/seed2 align with team1/team2 in
+  // storage order — and team1 may be either side. Map via tid so
+  // each seed always sticks to the right team.
+  const seedFromGameByTid = (tid) => {
+    if (!tid) return null
+    if (game.team1Tid === tid) return game.seed1 || game.cfpSeed1 || null
+    if (game.team2Tid === tid) return game.seed2 || game.cfpSeed2 || null
+    return null
+  }
+  const userSeed = seedFromGameByTid(userTid) || getCFPSeedForTid(userTid)
+  const oppSeed = seedFromGameByTid(oppTid) || getCFPSeedForTid(oppTid)
 
   // For CFP games: determine left/right based on seeding (better seed on right)
   let leftTeam, rightTeam
@@ -3062,7 +3071,7 @@ export default function Game() {
           {activeTab === 'photos' && Array.isArray(game.photos) && game.photos.length > 0 && (
             <div className="px-3 sm:px-5 py-5 sm:py-6">
               <h3 className="text-base font-bold text-txt-primary mb-1">
-                Photos from this game
+                Photo Gallery
               </h3>
               <p className="text-xs text-txt-tertiary mb-5">
                 {game.photos.length} {game.photos.length === 1 ? 'photo' : 'photos'} uploaded. Click any to open full size.

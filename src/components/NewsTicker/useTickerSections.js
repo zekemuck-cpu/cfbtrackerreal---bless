@@ -3,6 +3,7 @@ import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { getCurrentSchedule, getUserGamePerspective, getTeamRecord } from '../../context/DynastyContext'
 import { TEAMS, resolveTid, getGameTeamInfo, getAbbrFromTeamName, getCurrentTeamTid, getTidFromAbbr } from '../../data/teamRegistry'
 import { isSameWeek, isSameYear } from '../../utils/compareUtils'
+import { formatScoreHighLow } from '../../utils/scoreFormat'
 
 // Get abbreviation - handles both full names and abbreviations
 function getTeamAbbr(teamIdentifier, dynastyTeams = null) {
@@ -192,7 +193,7 @@ export function useTickerSections(dynasty) {
           team: opp,
           label: isWin ? 'W' : 'L',
           labelColor: isWin ? '#22c55e' : '#ef4444',
-          text: `${loc} ${info?.userScore ?? g.teamScore}-${info?.opponentScore ?? g.opponentScore}`,
+          text: `${loc} ${formatScoreHighLow(info?.userScore ?? g.teamScore, info?.opponentScore ?? g.opponentScore)}`,
           link: g.id ? `/game/${g.id}` : null
         }
       })
@@ -656,7 +657,7 @@ export function useTickerSections(dynasty) {
             id: `g${i}`,
             team: opp,
             label: isWin ? 'W' : 'L',
-            text: `${loc} ${info?.userScore ?? g.teamScore}-${info?.opponentScore ?? g.opponentScore}`,
+            text: `${loc} ${formatScoreHighLow(info?.userScore ?? g.teamScore, info?.opponentScore ?? g.opponentScore)}`,
             link: g.id ? `/game/${g.id}` : null
           }
         })

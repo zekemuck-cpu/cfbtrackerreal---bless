@@ -5,6 +5,7 @@ import CardComposer from '../../components/CardComposer'
 import FlippableCard from '../../components/FlippableCard'
 import MediaList from '../../components/MediaList'
 import { getPlayerCards } from '../../utils/playerCards'
+import { formatScoreHighLow } from '../../utils/scoreFormat'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -1128,7 +1129,7 @@ export default function Player() {
                             <div className="flex items-center gap-1.5">
                               {oppLogo && <img src={oppLogo} alt="" className="w-4 h-4 object-contain" />}
                               <span className="font-medium truncate max-w-[120px]" style={{ color: secondaryText }}>{oppMascot || game.opponent}</span>
-                              <span className="text-[10px]" style={{ color: secondaryText, opacity: 0.6 }}>{game.teamScore != null && game.opponentScore != null ? `${game.teamScore}-${game.opponentScore}` : '-'}</span>
+                              <span className="text-[10px]" style={{ color: secondaryText, opacity: 0.6 }}>{formatScoreHighLow(game.teamScore, game.opponentScore) || '-'}</span>
                             </div>
                           </td>
                           {columns.map(col => (
@@ -2038,6 +2039,11 @@ export default function Player() {
             acc.kicking.xpa += y.kicking.xpa || 0
             acc.hasKicking = acc.hasKicking || (y.kicking.fga > 0 || y.kicking.xpa > 0)
           }
+          if (y.blocking) {
+            acc.blocking.pancakes += y.blocking.pancakes || 0
+            acc.blocking.sacksAllowed += y.blocking.sacksAllowed || 0
+            acc.hasBlocking = acc.hasBlocking || ((y.blocking.pancakes || 0) > 0 || (y.blocking.sacksAllowed || 0) > 0)
+          }
           return acc
         }, {
           passing: { cmp: 0, att: 0, yds: 0, td: 0, int: 0 },
@@ -2045,7 +2051,8 @@ export default function Player() {
           receiving: { rec: 0, yds: 0, td: 0 },
           defense: { tkl: 0, tfl: 0, sacks: 0, int: 0, ff: 0 },
           kicking: { fgm: 0, fga: 0, xpm: 0, xpa: 0 },
-          hasPassing: false, hasRushing: false, hasReceiving: false, hasDefense: false, hasKicking: false,
+          blocking: { pancakes: 0, sacksAllowed: 0 },
+          hasPassing: false, hasRushing: false, hasReceiving: false, hasDefense: false, hasKicking: false, hasBlocking: false,
         })
 
         const sectionHeader = (label) => (
@@ -2217,6 +2224,13 @@ export default function Player() {
                       ],
                       totalRow: [totals.kicking.fgm, totals.kicking.fga, totals.kicking.fga ? ((totals.kicking.fgm / totals.kicking.fga) * 100).toFixed(1) : '-', totals.kicking.xpm, totals.kicking.xpa, '-']
                     },
+                    { key: 'blocking', label: 'Blocking', has: totals.hasBlocking,
+                      columns: [
+                        { k: 'pancakes', label: 'PANCAKES', get: y => y.blocking?.pancakes ?? 0 },
+                        { k: 'sacksAllowed', label: 'SACKS ALLOWED', get: y => y.blocking?.sacksAllowed ?? 0 },
+                      ],
+                      totalRow: [totals.blocking.pancakes, totals.blocking.sacksAllowed]
+                    },
                   ].filter(c => c.has)
 
                   // Sort the visible category tabs so the player's
@@ -2226,13 +2240,14 @@ export default function Player() {
                   // the position's priority list keep their existing
                   // order at the end.
                   const POSITION_TAB_ORDER = {
-                    QB:   ['passing', 'rushing', 'receiving', 'defense', 'kicking'],
-                    HB:   ['rushing', 'receiving', 'passing', 'defense', 'kicking'],
-                    FB:   ['rushing', 'receiving', 'passing', 'defense', 'kicking'],
-                    RB:   ['rushing', 'receiving', 'passing', 'defense', 'kicking'],
-                    WR:   ['receiving', 'rushing', 'passing', 'defense', 'kicking'],
-                    TE:   ['receiving', 'rushing', 'passing', 'defense', 'kicking'],
+                    QB:   ['passing', 'rushing', 'receiving', 'blocking', 'defense', 'kicking'],
+                    HB:   ['rushing', 'receiving', 'passing', 'blocking', 'defense', 'kicking'],
+                    FB:   ['rushing', 'receiving', 'passing', 'blocking', 'defense', 'kicking'],
+                    RB:   ['rushing', 'receiving', 'passing', 'blocking', 'defense', 'kicking'],
+                    WR:   ['receiving', 'rushing', 'passing', 'blocking', 'defense', 'kicking'],
+                    TE:   ['blocking', 'receiving', 'rushing', 'passing', 'defense', 'kicking'],
                   }
+                  const OL_POSITIONS = new Set(['LT', 'LG', 'C', 'RG', 'RT', 'OL'])
                   const DEFENSIVE_POSITIONS = new Set([
                     'LEDG','REDG','DT','DE','DL','NT',
                     'SAM','MIKE','WILL','OLB','MLB','ILB','LB',
@@ -2242,9 +2257,10 @@ export default function Player() {
                   const playerPos = (player?.position || '').toUpperCase()
                   const tabOrder =
                     POSITION_TAB_ORDER[playerPos]
-                    || (DEFENSIVE_POSITIONS.has(playerPos) ? ['defense', 'rushing', 'receiving', 'passing', 'kicking'] : null)
-                    || (KICK_POSITIONS.has(playerPos) ? ['kicking', 'passing', 'rushing', 'receiving', 'defense'] : null)
-                    || ['passing', 'rushing', 'receiving', 'defense', 'kicking']
+                    || (OL_POSITIONS.has(playerPos) ? ['blocking', 'rushing', 'receiving', 'passing', 'defense', 'kicking'] : null)
+                    || (DEFENSIVE_POSITIONS.has(playerPos) ? ['defense', 'rushing', 'receiving', 'passing', 'blocking', 'kicking'] : null)
+                    || (KICK_POSITIONS.has(playerPos) ? ['kicking', 'passing', 'rushing', 'receiving', 'blocking', 'defense'] : null)
+                    || ['passing', 'rushing', 'receiving', 'blocking', 'defense', 'kicking']
 
                   categories.sort((a, b) => {
                     const ai = tabOrder.indexOf(a.key)
@@ -2272,8 +2288,18 @@ export default function Player() {
                     if (active.key === 'receiving') return y.receiving && y.receiving.rec > 0
                     if (active.key === 'defense') return y.defensive && ((y.defensive.solo || 0) + (y.defensive.ast || 0)) > 0
                     if (active.key === 'kicking') return y.kicking && (y.kicking.fga > 0 || y.kicking.xpa > 0)
+                    if (active.key === 'blocking') return y.blocking && ((y.blocking.pancakes || 0) > 0 || (y.blocking.sacksAllowed || 0) > 0)
                     return false
                   })
+
+                  // Prepend a Games Played column to whichever stat category
+                  // is active. GP totals are summed only across the years
+                  // that show up in the table, so the Career row always
+                  // matches the displayed rows.
+                  const gpTotal = rowsForCategory.reduce((s, y) => s + (y.gamesPlayed || 0), 0)
+                  const gpColumn = { k: 'gp', label: 'GP', get: y => y.gamesPlayed || 0 }
+                  const displayColumns = [gpColumn, ...active.columns]
+                  const displayTotalRow = [gpTotal, ...active.totalRow]
 
                   return (
                     <>
@@ -2304,7 +2330,7 @@ export default function Player() {
                           <thead>
                             <tr className="bg-surface-3">
                               <th className="px-3 py-2 text-left font-semibold uppercase tracking-wider" style={{ color: secondaryText, opacity: 0.8 }}>Year</th>
-                              {active.columns.map(col => (
+                              {displayColumns.map(col => (
                                 <th key={col.k} className="px-2 py-2 text-right font-semibold uppercase tracking-wider" style={{ color: secondaryText, opacity: 0.8 }}>{col.label}</th>
                               ))}
                             </tr>
@@ -2313,7 +2339,7 @@ export default function Player() {
                             {rowsForCategory.map((y, idx) => (
                               <tr key={y.year} className={idx % 2 ? '' : 'bg-surface-2/40'}>
                                 <td className="px-3 py-2 font-bold tabular-nums" style={{ color: primaryText }}>{y.year}</td>
-                                {active.columns.map(col => {
+                                {displayColumns.map(col => {
                                   const v = col.get(y)
                                   return (
                                     <td key={col.k} className="px-2 py-2 text-right tabular-nums" style={{ color: primaryText }}>
@@ -2326,7 +2352,7 @@ export default function Player() {
                             {rowsForCategory.length > 1 && (
                               <tr className="bg-surface-3 border-t-2" style={{ borderTopColor: teamInfo.backgroundColor }}>
                                 <td className="px-3 py-2 font-black uppercase text-[11px] tracking-wider" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif" }}>Career</td>
-                                {active.totalRow.map((v, i) => (
+                                {displayTotalRow.map((v, i) => (
                                   <td key={i} className="px-2 py-2 text-right font-bold tabular-nums" style={{ color: primaryText }}>{v}</td>
                                 ))}
                               </tr>
@@ -2434,7 +2460,7 @@ export default function Player() {
                             <div className="flex-shrink-0 flex items-center gap-2">
                               <div className="text-right">
                                 <div className="text-xs font-bold tabular-nums" style={{ color: resultColor }}>
-                                  {game.result || '—'} {game.teamScore != null && game.opponentScore != null ? `${game.teamScore}-${game.opponentScore}` : ''}
+                                  {game.result || '—'} {formatScoreHighLow(game.teamScore, game.opponentScore)}
                                 </div>
                               </div>
                             </div>
@@ -5188,7 +5214,7 @@ export default function Player() {
                               {game.result || '-'}
                             </td>
                             <td className="px-2 py-2 text-center tabular-nums" style={{ color: 'var(--text-primary)' }}>
-                              {game.teamScore != null && game.opponentScore != null ? `${game.teamScore}-${game.opponentScore}` : '-'}
+                              {formatScoreHighLow(game.teamScore, game.opponentScore) || '-'}
                             </td>
                             <td className="px-2 py-2 text-sm" style={{ color: 'var(--text-primary)' }}>
                               {statDisplay}

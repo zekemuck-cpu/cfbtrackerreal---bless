@@ -315,21 +315,23 @@ export default function ConferenceStandings() {
           {getSchoolName(mascotName) || teamAbbr}
         </span>
 
-        {/* Single record cell — overall record bold, conference record
-            in parens muted next to it. Sort is still by CONF record
-            (handled in the enriched sort fn below); this is purely a
-            display change so the row reads like a real broadcast
-            lower-third: "8–0 (6–0)". */}
+        {/* Two equal-weight record cells — overall and conference both
+            rendered as bold tabular black, separated by a thin divider.
+            Sort is still by CONF record (handled in the enriched sort fn
+            below); this just gives the conference column the same
+            visual presence as overall, since for a conference standings
+            page the conf record is arguably the headline number. */}
         <span
-          className="text-sm font-display tabular flex-shrink-0 text-right whitespace-nowrap"
-          style={{ width: '96px' }}
+          className="text-sm font-display tabular flex-shrink-0 flex items-center justify-end gap-2 whitespace-nowrap"
+          style={{ width: '120px' }}
           title={`${liveWins}-${liveLosses} overall · ${liveConfWins}-${liveConfLosses} conference`}
         >
-          <span className="font-black text-txt-primary">
+          <span className="font-black text-txt-primary tabular-nums" style={{ minWidth: '44px', textAlign: 'right' }}>
             {liveWins}<span className="text-txt-tertiary font-normal">–</span>{liveLosses}
           </span>
-          <span className="ml-1.5 text-xs text-txt-tertiary">
-            ({liveConfWins}<span className="text-txt-muted">–</span>{liveConfLosses})
+          <span aria-hidden="true" className="w-px h-3.5 bg-surface-4" />
+          <span className="font-black text-txt-primary tabular-nums" style={{ minWidth: '44px', textAlign: 'right' }}>
+            {liveConfWins}<span className="text-txt-tertiary font-normal">–</span>{liveConfLosses}
           </span>
         </span>
 
@@ -453,11 +455,23 @@ export default function ConferenceStandings() {
               <span style={{ width: '24px' }} />
               <span className="flex-1" />
               <span
-                className="label-xs text-txt-tertiary text-right flex-shrink-0"
-                style={{ width: '96px', letterSpacing: '1.5px', fontSize: '9px' }}
-                title="Overall record (conference record). Sorted by conference record."
+                className="flex items-center justify-end gap-2 flex-shrink-0"
+                style={{ width: '120px' }}
+                title="Overall record · Conference record. Sorted by conference record."
               >
-                OVR (CONF)
+                <span
+                  className="label-xs text-txt-tertiary text-right"
+                  style={{ minWidth: '44px', letterSpacing: '1.5px', fontSize: '9px' }}
+                >
+                  OVR
+                </span>
+                <span aria-hidden="true" className="w-px h-2.5 bg-transparent" />
+                <span
+                  className="label-xs text-txt-tertiary text-right"
+                  style={{ minWidth: '44px', letterSpacing: '1.5px', fontSize: '9px' }}
+                >
+                  CONF
+                </span>
               </span>
               <span
                 className="label-xs text-txt-tertiary text-right flex-shrink-0"

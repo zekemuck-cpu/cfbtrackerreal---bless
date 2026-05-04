@@ -1117,20 +1117,47 @@ export default function Recruiting() {
                       className="mt-auto pt-2 flex justify-center"
                       style={{ borderTop: '1px solid var(--rule-soft, var(--surface-4))' }}
                     >
-                      {showFromChip ? (
-                        <span
-                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest min-w-0"
-                          style={{
-                            letterSpacing: '1.5px',
-                            color: 'var(--text-secondary)',
-                            border: '1px solid var(--surface-5)',
-                          }}
-                        >
-                          <span className="text-txt-tertiary flex-shrink-0">FROM</span>
-                          {transferLogo && <img src={transferLogo} alt="" className="w-3.5 h-3.5 object-contain flex-shrink-0" />}
-                          <span className="truncate">{previousTeamName}</span>
-                        </span>
-                      ) : (
+                      {showFromChip ? (() => {
+                        // Paint the FROM chip in the previous school's
+                        // own colors when we can resolve them — primary
+                        // as the fill, secondary for the school name.
+                        // The "FROM" label stays neutral so the school
+                        // is the headline. Falls back to the muted
+                        // surface treatment when colors are missing.
+                        const prevTeam = previousTeamTid ? teamsSource[previousTeamTid] : null
+                        const prevPrimary = prevTeam?.primaryColor
+                        const prevSecondary = prevTeam?.secondaryColor || '#ffffff'
+                        const themed = !!prevPrimary
+                        return (
+                          <span
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest min-w-0"
+                            style={{
+                              letterSpacing: '1.5px',
+                              color: themed ? prevSecondary : 'var(--text-secondary)',
+                              backgroundColor: themed ? prevPrimary : 'transparent',
+                              border: themed ? `1px solid ${prevPrimary}` : '1px solid var(--surface-5)',
+                            }}
+                          >
+                            <span
+                              className="flex-shrink-0"
+                              style={{ color: themed ? prevSecondary : 'var(--text-tertiary)', opacity: themed ? 0.7 : 1 }}
+                            >
+                              FROM
+                            </span>
+                            {transferLogo && (
+                              <img
+                                src={transferLogo}
+                                alt=""
+                                className="w-3.5 h-3.5 object-contain flex-shrink-0 rounded-sm"
+                                style={themed ? { backgroundColor: prevSecondary, padding: '1px' } : undefined}
+                              />
+                            )}
+                            <span className="truncate" style={{ color: themed ? prevSecondary : undefined }}>
+                              {previousTeamName}
+                            </span>
+                          </span>
+                        )
+                      })() : (
                         <span
                           className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest"
                           style={{
@@ -1192,52 +1219,124 @@ export default function Recruiting() {
       <Modal
         isOpen={showHistoryModal}
         onClose={() => setShowHistoryModal(false)}
-        title={`${teamFullName} · Class History`}
+        title="Class History"
         size="md"
       >
         {classHistory.length === 0 ? (
           <p className="text-sm text-txt-secondary">No recruiting class data recorded yet.</p>
-        ) : (
-          <div className="flex flex-col gap-1.5">
-            <div className="grid grid-cols-[auto_1fr_auto_auto] gap-4 items-center px-3 pb-2 border-b border-surface-4">
-              <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Year</span>
-              <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Rank</span>
-              <span className="label-xs text-txt-tertiary text-right" style={{ letterSpacing: '1.5px' }}>Score</span>
-              <span className="label-xs text-txt-tertiary text-right" style={{ letterSpacing: '1.5px' }}>Commits</span>
+        ) : (() => {
+          const teamLogo = getTeamLogoByTid(selectedTid, teamsSource)
+          const maxScore = Math.max(...classHistory.map(r => Number(r.score) || 0), 1)
+          return (
+            <div className="flex flex-col gap-5">
+              <div
+                className="flex items-center gap-4 -mx-6 -mt-5 px-6 py-4 border-b border-surface-4"
+                style={{
+                  background: 'linear-gradient(135deg, var(--team-primary-faded, var(--surface-3)) 0%, transparent 100%)'
+                }}
+              >
+                {teamLogo && (
+                  <img
+                    src={teamLogo}
+                    alt=""
+                    className="w-12 h-12 object-contain flex-shrink-0"
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="text-display-sm text-txt-primary leading-tight truncate">
+                    {teamFullName}
+                  </div>
+                  <div className="text-xs text-txt-tertiary mt-0.5" style={{ letterSpacing: '1px' }}>
+                    {classHistory.length} {classHistory.length === 1 ? 'SEASON' : 'SEASONS'} ON RECORD
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-[3.5rem_3rem_1fr_3rem] gap-3 items-center px-1">
+                <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Year</span>
+                <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Rank</span>
+                <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Score</span>
+                <span className="label-xs text-txt-tertiary text-right" style={{ letterSpacing: '1.5px' }}>Commits</span>
+              </div>
+
+              <div className="flex flex-col gap-1.5 -mt-3">
+                {classHistory.map(row => {
+                  const isCurrent = row.year === selectedYear
+                  const score = Number(row.score) || 0
+                  const barPct = maxScore > 0 ? Math.max(4, (score / maxScore) * 100) : 0
+                  const isTopTen = row.rank && row.rank <= 10
+                  return (
+                    <button
+                      key={row.year}
+                      type="button"
+                      onClick={() => {
+                        setShowHistoryModal(false)
+                        navigate(`${pathPrefix}/recruiting/${selectedTid}/${row.year}`)
+                      }}
+                      className="grid grid-cols-[3.5rem_3rem_1fr_3rem] gap-3 items-center px-1 py-3 rounded-md text-left transition-all hover:bg-surface-3 group relative overflow-hidden"
+                      style={{
+                        backgroundColor: isCurrent ? 'var(--team-primary-faded, var(--surface-3))' : 'transparent',
+                      }}
+                    >
+                      {isCurrent && (
+                        <div
+                          className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r"
+                          style={{ backgroundColor: 'var(--team-primary)' }}
+                          aria-hidden="true"
+                        />
+                      )}
+                      <span
+                        className="text-2xl font-black tabular leading-none pl-2"
+                        style={{
+                          fontFamily: "'Bebas Neue', sans-serif",
+                          color: isCurrent ? 'var(--team-primary)' : 'var(--txt-primary)',
+                        }}
+                      >
+                        {row.year}
+                      </span>
+                      <span
+                        className="text-sm font-semibold tabular inline-flex items-center justify-center px-2 py-0.5 rounded-full"
+                        style={{
+                          color: isTopTen ? 'var(--team-primary)' : 'var(--txt-secondary)',
+                          backgroundColor: isTopTen ? 'var(--team-primary-faded, var(--surface-3))' : 'transparent',
+                          border: isTopTen ? '1px solid var(--team-primary)' : '1px solid transparent',
+                          minWidth: '2.5rem',
+                        }}
+                      >
+                        {row.rank ? `#${row.rank}` : '—'}
+                      </span>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex-1 h-2 rounded-full bg-surface-3 overflow-hidden min-w-0">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${barPct}%`,
+                              backgroundColor: 'var(--team-primary)',
+                              opacity: isCurrent ? 1 : 0.55,
+                            }}
+                          />
+                        </div>
+                        <span
+                          className="text-base font-black tabular flex-shrink-0 text-right tabular-nums"
+                          style={{
+                            fontFamily: "'Bebas Neue', sans-serif",
+                            color: 'var(--txt-primary)',
+                            minWidth: '3.5rem',
+                          }}
+                        >
+                          {formatRecruitingClassScore(row.score)}
+                        </span>
+                      </div>
+                      <span className="text-sm text-txt-secondary tabular-nums text-right pr-1">
+                        {row.count}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-            {classHistory.map(row => {
-              const isCurrent = row.year === selectedYear
-              return (
-                <button
-                  key={row.year}
-                  type="button"
-                  onClick={() => {
-                    setShowHistoryModal(false)
-                    navigate(`${pathPrefix}/recruiting/${selectedTid}/${row.year}`)
-                  }}
-                  className="grid grid-cols-[auto_1fr_auto_auto] gap-4 items-center px-3 py-2.5 rounded-sm text-left transition-colors hover:bg-surface-3"
-                  style={{
-                    backgroundColor: isCurrent ? 'var(--team-primary-faded, var(--surface-3))' : 'transparent',
-                    borderLeft: isCurrent ? '3px solid var(--team-primary)' : '3px solid transparent'
-                  }}
-                >
-                  <span className="text-2xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-                    {row.year}
-                  </span>
-                  <span className="text-sm font-semibold text-txt-secondary tabular">
-                    {row.rank ? `#${row.rank}` : '—'}
-                  </span>
-                  <span className="text-xl font-black tabular text-txt-primary text-right" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-                    {formatRecruitingClassScore(row.score)}
-                  </span>
-                  <span className="text-sm text-txt-secondary tabular text-right">
-                    {row.count}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        )}
+          )
+        })()}
       </Modal>
     </div>
   )

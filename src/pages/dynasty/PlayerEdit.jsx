@@ -714,7 +714,13 @@ export default function PlayerEdit() {
   }
 
   // Handle save
-  const handleSave = async () => {
+  const handleSave = (opts) => doSave(
+    // Guard: when used as a button onClick, the first arg is a SyntheticEvent;
+    // treat that as no-overrides. Only honor a real options object.
+    (opts && typeof opts === 'object' && !opts.nativeEvent && !opts.target) ? opts : {}
+  )
+
+  const doSave = async ({ cardsOverride, navigateTo } = {}) => {
     if (!player || saving) return
     // Block saves before the form has been seeded for this player — otherwise
     // empty default formData would clobber player fields on an immediate save.
@@ -734,6 +740,8 @@ export default function PlayerEdit() {
       const years = Object.keys(byYear).map(Number).filter(y => byYear[y]).sort((a, b) => b - a)
       return years.length > 0 ? num(byYear[years[0]]) : num(formData.overall)
     })()
+
+    const cardsSource = cardsOverride !== undefined ? cardsOverride : formData.cards
 
     const updatedPlayer = {
       ...player,
@@ -755,8 +763,8 @@ export default function PlayerEdit() {
       // legacy (templateId + photoUrl) and prompt-driven (styleId +
       // frontImageUrl/backImageUrl). Prune empty scaffolds under either
       // shape so unsaved blank "Add card" rows don't pile up.
-      cards: Array.isArray(formData.cards)
-        ? formData.cards.filter(c => {
+      cards: Array.isArray(cardsSource)
+        ? cardsSource.filter(c => {
             if (!c) return false
             if (c.styleId !== undefined && c.templateId === undefined) {
               return !!(c.frontImageUrl || c.backImageUrl)
@@ -813,13 +821,22 @@ export default function PlayerEdit() {
       // Use dynastyId from URL params, or fall back to dynasty.id
       const targetDynastyId = dynastyId || dynasty?.id
       await updatePlayer(targetDynastyId, updatedPlayer)
-      navigate(`${pathPrefix}/player/${pid}`)
+      navigate(navigateTo || `${pathPrefix}/player/${pid}`)
     } catch (error) {
       console.error('Error saving player:', error)
     } finally {
       setSaving(false)
     }
   }
+
+  // Card-modal save short-circuit: persist the player with the new card
+  // list and drop the user on the player page's Cards tab. Saves them a
+  // second click on the page-level "Save Changes" button.
+  const handleCommitCardsAndNavigate = (nextCards) =>
+    doSave({
+      cardsOverride: nextCards,
+      navigateTo: `${pathPrefix}/player/${pid}?tab=card`,
+    })
 
   // Handle cancel
   const handleCancel = () => {
@@ -2627,6 +2644,7 @@ export default function PlayerEdit() {
               <PlayerCards
                 cards={formData.cards || []}
                 onChange={(next) => setFormData(prev => ({ ...prev, cards: next }))}
+                onCommitCards={handleCommitCardsAndNavigate}
                 player={player}
                 dynasty={dynasty}
                 teamColors={teamColors}

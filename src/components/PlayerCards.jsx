@@ -26,6 +26,7 @@ import { CARD_STYLES, getCardStyle } from '../data/cardStyles'
 export default function PlayerCards({
   cards,
   onChange,
+  onCommitCards,
   player,
   dynasty,
   teamColors,
@@ -60,12 +61,26 @@ export default function PlayerCards({
     return null
   }, [editingIdx, list, dynasty?.currentYear])
 
-  const handleSaveCard = (card) => {
-    if (editingIdx === -1) {
-      onChange([...list, card])
-    } else {
-      onChange(list.map((c, i) => i === editingIdx ? card : c))
+  const handleSaveCard = async (card) => {
+    const nextList = editingIdx === -1
+      ? [...list, card]
+      : list.map((c, i) => i === editingIdx ? card : c)
+
+    // If the parent provided a commit-and-navigate handler, persist the
+    // whole player with the new card list and let the parent navigate.
+    // Saves the user a second click on the page-level Save Changes button.
+    if (onCommitCards) {
+      try {
+        await onCommitCards(nextList)
+      } catch (err) {
+        console.error('Failed to commit cards:', err)
+        return // keep modal open so the user can retry / cancel
+      }
+      setEditingIdx(null)
+      return
     }
+
+    onChange(nextList)
     setEditingIdx(null)
   }
 
