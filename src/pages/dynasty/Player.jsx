@@ -4431,20 +4431,22 @@ export default function Player() {
                       >
                         {label}
                       </Link>
-                      <span style={{ color: secondaryText, opacity: 0.7 }}>(</span>
-                      {sortedYears.map((yr, i) => (
-                        <span key={yr} style={{ color: secondaryText, opacity: 0.7 }}>
-                          <Link
-                            to={`${pathPrefix}/awards/${yr}`}
-                            className="hover:underline"
-                            style={{ color: secondaryText }}
-                          >
-                            {yr}
-                          </Link>
-                          {i < sortedYears.length - 1 ? ', ' : ''}
-                        </span>
-                      ))}
-                      <span style={{ color: secondaryText, opacity: 0.7 }}>)</span>
+                      {/* Single span so the parens hug the year(s) — flex gap-x-1 on the parent
+                          would otherwise put visible whitespace between "(" and the year. */}
+                      <span style={{ color: secondaryText, opacity: 0.7 }}>
+                        ({sortedYears.map((yr, i) => (
+                          <span key={yr}>
+                            <Link
+                              to={`${pathPrefix}/awards/${yr}`}
+                              className="hover:underline"
+                              style={{ color: secondaryText }}
+                            >
+                              {yr}
+                            </Link>
+                            {i < sortedYears.length - 1 ? ', ' : ''}
+                          </span>
+                        ))})
+                      </span>
                     </div>
                   )
                 })}
@@ -4464,20 +4466,20 @@ export default function Player() {
                     >
                       {label}
                     </Link>
-                    <span style={{ color: secondaryText, opacity: 0.7 }}>(</span>
-                    {sortedYears.map((yr, i) => (
-                      <span key={yr} style={{ color: secondaryText, opacity: 0.7 }}>
-                        <Link
-                          to={`${pathPrefix}/all-americans/${yr}`}
-                          className="hover:underline"
-                          style={{ color: secondaryText }}
-                        >
-                          {yr}
-                        </Link>
-                        {i < sortedYears.length - 1 ? ', ' : ''}
-                      </span>
-                    ))}
-                    <span style={{ color: secondaryText, opacity: 0.7 }}>)</span>
+                    <span style={{ color: secondaryText, opacity: 0.7 }}>
+                      ({sortedYears.map((yr, i) => (
+                        <span key={yr}>
+                          <Link
+                            to={`${pathPrefix}/all-americans/${yr}`}
+                            className="hover:underline"
+                            style={{ color: secondaryText }}
+                          >
+                            {yr}
+                          </Link>
+                          {i < sortedYears.length - 1 ? ', ' : ''}
+                        </span>
+                      ))})
+                    </span>
                   </div>
                 )
               })}
@@ -4497,20 +4499,20 @@ export default function Player() {
                     >
                       {label}
                     </Link>
-                    <span style={{ color: secondaryText, opacity: 0.7 }}>(</span>
-                    {sortedYears.map((yr, i) => (
-                      <span key={yr} style={{ color: secondaryText, opacity: 0.7 }}>
-                        <Link
-                          to={`${pathPrefix}/all-conference/${yr}`}
-                          className="hover:underline"
-                          style={{ color: secondaryText }}
-                        >
-                          {yr}
-                        </Link>
-                        {i < sortedYears.length - 1 ? ', ' : ''}
-                      </span>
-                    ))}
-                    <span style={{ color: secondaryText, opacity: 0.7 }}>)</span>
+                    <span style={{ color: secondaryText, opacity: 0.7 }}>
+                      ({sortedYears.map((yr, i) => (
+                        <span key={yr}>
+                          <Link
+                            to={`${pathPrefix}/all-conference/${yr}`}
+                            className="hover:underline"
+                            style={{ color: secondaryText }}
+                          >
+                            {yr}
+                          </Link>
+                          {i < sortedYears.length - 1 ? ', ' : ''}
+                        </span>
+                      ))})
+                    </span>
                   </div>
                 )
               })}
