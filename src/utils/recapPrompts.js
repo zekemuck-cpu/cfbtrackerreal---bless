@@ -30,15 +30,6 @@ const TWO_DIGIT = (y) => String(y).slice(-2)
 // utility has no React/context dependency and can be unit-imported anywhere.
 // ---------------------------------------------------------------------------
 
-function teamLabel(tid, abbrFallback, dynasty) {
-  if (tid != null && dynasty?.teams?.[tid]) {
-    const t = dynasty.teams[tid]
-    const name = t.name || t.fullName || t.abbr || abbrFallback
-    return name
-  }
-  return abbrFallback || 'Unknown'
-}
-
 // Best-effort full name for a team — uses dynasty.teams when available, falls
 // back to mascot lookup, then to the abbreviation.
 function teamDisplay(tid, abbr, dynasty) {
@@ -78,12 +69,6 @@ function userPerspective(game, userTid) {
   return { won, userScore, oppScore, oppTid, oppAbbr, rank, oppRank, isHome, ot: !!game.ot }
 }
 
-function sumRecord(records) {
-  let w = 0, l = 0
-  for (const r of records) { w += r.wins || 0; l += r.losses || 0 }
-  return { wins: w, losses: l }
-}
-
 function recordFromGames(games, year, tid) {
   let w = 0, l = 0
   for (const g of (games || [])) {
@@ -93,27 +78,6 @@ function recordFromGames(games, year, tid) {
     if (persp.won) w++; else l++
   }
   return { wins: w, losses: l }
-}
-
-// Pull the latest available rank for `tid` in `year` (highest week with a rank
-// recorded). null if the team was never ranked.
-function latestRankForTeam(games, year, tid) {
-  let bestWeek = -1
-  let bestRank = null
-  const u = Number(tid)
-  for (const g of (games || [])) {
-    if (Number(g?.year) !== Number(year)) continue
-    const wk = Number(g.week)
-    if (!Number.isFinite(wk)) continue
-    const t1 = Number(g.team1Tid), t2 = Number(g.team2Tid)
-    const r1 = g.team1Rank, r2 = g.team2Rank
-    let r = null
-    if (t1 === u && typeof r1 === 'number') r = r1
-    else if (t2 === u && typeof r2 === 'number') r = r2
-    if (r == null) continue
-    if (wk > bestWeek) { bestWeek = wk; bestRank = r }
-  }
-  return bestRank
 }
 
 // Format one game line: "AUB 31, GA 24 (OT)  ·  Rank 8 vs Rank 4  ·  Week 6 @ Athens"
@@ -146,20 +110,6 @@ function powLinesForGame(game, dynasty) {
   if (game.nationalPOW) out.push(`${game.nationalPOW} — National Offensive POW (${ctx})`)
   if (game.natlDefensePOW) out.push(`${game.natlDefensePOW} — National Defensive POW (${ctx})`)
   return out
-}
-
-// Top-N from a per-player stat array, comparing on `keyFn`.
-function topPlayers(players, keyFn, year, n = 5) {
-  const rows = []
-  for (const p of (players || [])) {
-    const yr = p?.statsByYear?.[year]
-    if (!yr) continue
-    const value = keyFn(yr)
-    if (!Number.isFinite(value) || value <= 0) continue
-    rows.push({ name: p.name, position: p.position, team: p.team, value })
-  }
-  rows.sort((a, b) => b.value - a.value)
-  return rows.slice(0, n)
 }
 
 // ---------------------------------------------------------------------------
@@ -226,28 +176,21 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   const weekNum = Number(week)
   const games = (dynasty?.games || []).filter(g => g && Number(g.year) === yearNum)
   const weekGames = games.filter(g => Number(g.week) === weekNum)
-  const userTid = dynasty?.currentTid != null ? Number(dynasty.currentTid) : null
-  const userTeam = userTid != null ? teamDisplay(userTid, null, dynasty) : null
-  const userConference = dynasty?.conference || null
 
-  // ----- Section: User team focus (their game this week + season arc) -----
-  const userWeekGame = userTid != null ? weekGames.find(g => isUserTeam(g, userTid)) : null
-  const userYearGames = userTid != null ? games.filter(g => isUserTeam(g, userTid)) : []
-  const userYearSorted = [...userYearGames].sort((a, b) => Number(a.week) - Number(b.week))
-  const userRecord = recordFromGames(games, yearNum, userTid)
-  const userLatestRank = userTid != null ? latestRankForTeam(games, yearNum, userTid) : null
-
-  // ----- Section: Top-25 results that week (anyone with a rank) -----
-  const rankedGames = weekGames.filter(g => {
+  // ----- Buckets: Top 25 head-to-head, ranked-vs-unranked, all games -----
+  // Same week-game list partitioned for readability so the AI can scan
+  // ranked-on-ranked drama before sifting the long tail of FBS results.
+  // The user's team's game is just one of these — no special treatment.
+  const isRanked = (n) => typeof n === 'number' && n >= 1 && n <= 25
+  const top25vTop25 = []
+  const top25vUnranked = []
+  const everyGameLine = []
+  for (const g of weekGames) {
     const r1 = g.team1Rank, r2 = g.team2Rank
-    return (typeof r1 === 'number' && r1 <= 25) || (typeof r2 === 'number' && r2 <= 25)
-  })
-  const otherRankedGames = rankedGames.filter(g => !isUserTeam(g, userTid))
-
-  // ----- Section: Conference results that week (user's conference, ex-user) -----
-  const userConfGames = userConference
-    ? weekGames.filter(g => g.conference === userConference && !isUserTeam(g, userTid))
-    : []
+    if (isRanked(r1) && isRanked(r2)) top25vTop25.push(g)
+    else if (isRanked(r1) || isRanked(r2)) top25vUnranked.push(g)
+    everyGameLine.push(g)
+  }
 
   // ----- Section: Player-of-the-week honorees across the whole week -----
   const powLines = []
@@ -293,103 +236,247 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     }
   }
 
-  // ----- Section: Current top 25 (latest known) -----
-  // Live snapshot derived from games up to and including this week — same
-  // logic as Rankings.jsx but inlined here so there's no context coupling.
-  const rankSnapshot = (() => {
-    const byTid = {}
-    for (const g of games) {
-      if (Number(g.week) > weekNum) continue
-      const wk = Number(g.week)
-      if (!Number.isFinite(wk)) continue
-      const t1 = Number(g.team1Tid), t2 = Number(g.team2Tid)
-      const r1 = g.team1Rank, r2 = g.team2Rank
-      const apply = (tid, abbr, rank) => {
-        if (tid == null || typeof rank !== 'number' || rank < 1 || rank > 25) return
-        const cur = byTid[tid]
-        if (!cur || wk > cur.week) byTid[tid] = { rank, week: wk, abbr }
+  // ----- Section: Top 25 evolution by week (lets the AI see trends) -----
+  // For each week W (1..weekNum), compute the latest-known rank for each
+  // team using only games where week <= W. Output as a table the AI can
+  // diff to call out movement ("dropped from #5 to #18 after the loss").
+  const top25ByWeek = (() => {
+    const result = []
+    for (let w = 1; w <= weekNum; w++) {
+      const byTid = {}
+      for (const g of games) {
+        const gw = Number(g.week)
+        if (!Number.isFinite(gw) || gw > w) continue
+        const t1 = Number(g.team1Tid), t2 = Number(g.team2Tid)
+        const r1 = g.team1Rank, r2 = g.team2Rank
+        const apply = (tid, abbr, rank) => {
+          if (tid == null || !isRanked(rank)) return
+          const cur = byTid[tid]
+          if (!cur || gw > cur.week) byTid[tid] = { rank, week: gw, abbr }
+        }
+        apply(t1, g.team1, r1)
+        apply(t2, g.team2, r2)
       }
-      apply(t1, g.team1, r1)
-      apply(t2, g.team2, r2)
+      const rows = Object.entries(byTid)
+        .map(([tid, v]) => ({ tid: Number(tid), rank: v.rank, name: teamDisplay(Number(tid), v.abbr, dynasty) }))
+        .sort((a, b) => a.rank - b.rank)
+      if (rows.length > 0) result.push({ week: w, rows })
     }
-    const rows = Object.entries(byTid)
-      .map(([tid, v]) => ({ tid: Number(tid), rank: v.rank, abbr: v.abbr, name: teamDisplay(Number(tid), v.abbr, dynasty) }))
-      .sort((a, b) => a.rank - b.rank)
-    return rows
+    return result
   })()
+  const rankSnapshot = top25ByWeek.length > 0 ? top25ByWeek[top25ByWeek.length - 1].rows : []
+
+  // ----- Section: Cumulative stat leaders (season-to-date) -----
+  // Aggregates every box score we have through this week into a per-player
+  // total per stat category. The AI uses these to call out award
+  // front-runners ("through Week N, X leads the country in ..."). We only
+  // emit values we computed from data; absence = no claim available.
+  const seasonStatTotals = {} // key = `${name}|${team}` → { passYds, passTD, ... }
+  for (const g of games) {
+    const gw = Number(g.week)
+    if (!Number.isFinite(gw) || gw > weekNum) continue
+    if (!g.boxScore) continue
+    const t1Name = teamDisplay(g.team1Tid, g.team1, dynasty)
+    const t2Name = teamDisplay(g.team2Tid, g.team2, dynasty)
+    const sides = [
+      { side: 'home', team: Number(g.homeTeamTid) === Number(g.team1Tid) ? t1Name : t2Name },
+      { side: 'away', team: Number(g.homeTeamTid) === Number(g.team1Tid) ? t2Name : t1Name },
+    ]
+    for (const { side, team } of sides) {
+      const bs = g.boxScore[side]
+      if (!bs) continue
+      const bump = (name, fields) => {
+        if (!name) return
+        const key = `${name}|${team}`
+        if (!seasonStatTotals[key]) seasonStatTotals[key] = { name, team, games: 0 }
+        seasonStatTotals[key].games += 1
+        for (const [k, v] of Object.entries(fields)) {
+          if (typeof v !== 'number') continue
+          seasonStatTotals[key][k] = (seasonStatTotals[key][k] || 0) + v
+        }
+      }
+      for (const p of (bs.passing || [])) {
+        if (!p) continue
+        bump(p.name, { passYds: p.passYds, passTD: p.passTD, passInt: p.passInt, passComp: p.passComp, passAtt: p.passAtt })
+      }
+      for (const p of (bs.rushing || [])) {
+        if (!p) continue
+        bump(p.name, { rushYds: p.rushYds, rushTD: p.rushTD, rushAtt: p.rushAtt })
+      }
+      for (const p of (bs.receiving || [])) {
+        if (!p) continue
+        bump(p.name, { recYds: p.recYds, rec: p.rec, recTD: p.recTD })
+      }
+      for (const p of (bs.defense || [])) {
+        if (!p) continue
+        bump(p.name, { tackles: p.tackles, sacks: p.sacks, intsMade: p.intsMade, ff: p.ff, fr: p.fr })
+      }
+    }
+  }
+  const leaderRows = Object.values(seasonStatTotals)
+  const topByField = (field, n = 5) => leaderRows
+    .filter(r => (r[field] || 0) > 0)
+    .sort((a, b) => (b[field] || 0) - (a[field] || 0))
+    .slice(0, n)
+
+  // ----- Section: Cumulative POW leaderboard (season to date) -----
+  // Counts how many Player-of-the-Week honors each player has earned
+  // across all categories (offense + defense, conference + national)
+  // through this week. Useful for surfacing Heisman-tier storylines.
+  const powCounts = {}
+  for (const g of games) {
+    const gw = Number(g.week)
+    if (!Number.isFinite(gw) || gw > weekNum) continue
+    const fields = ['conferencePOW', 'confDefensePOW', 'nationalPOW', 'natlDefensePOW']
+    for (const f of fields) {
+      const name = g[f]
+      if (!name) continue
+      if (!powCounts[name]) powCounts[name] = { name, conf: 0, confDef: 0, nat: 0, natDef: 0, total: 0 }
+      const row = powCounts[name]
+      if (f === 'conferencePOW') row.conf += 1
+      else if (f === 'confDefensePOW') row.confDef += 1
+      else if (f === 'nationalPOW') row.nat += 1
+      else if (f === 'natlDefensePOW') row.natDef += 1
+      row.total += 1
+    }
+  }
+  const powLeaderboard = Object.values(powCounts)
+    .filter(r => r.total >= 1)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 12)
 
   // ----- Section: Conference standings (saved snapshot, if any) -----
   const standingsByConf = dynasty?.conferenceStandingsByYear?.[yearNum] || {}
 
-  // Now assemble the data block as plain text the AI consumes verbatim.
+  // ----- Section: Prior season(s) league-wide context — no user centering -----
+  // Just last 1-2 years of national headlines (final poll top 5, Heisman)
+  // so the AI can frame "year-over-year" storylines without going off into
+  // history we don't have data for.
+  const allDynastyGames = dynasty?.games || []
+  const priorYears = (() => {
+    const set = new Set()
+    for (const g of allDynastyGames) {
+      const y = Number(g?.year)
+      if (Number.isFinite(y) && y < yearNum) set.add(y)
+    }
+    return [...set].sort((a, b) => b - a).slice(0, 2)
+  })()
+  const priorYearLines = []
+  for (const y of priorYears) {
+    const finalMedia = dynasty?.finalPolls?.[y]?.media
+    if (Array.isArray(finalMedia) && finalMedia.length > 0) {
+      const top5 = finalMedia.slice(0, 5).map(e => `#${e.rank} ${teamDisplay(e.tid, e.team, dynasty)}`).join(', ')
+      priorYearLines.push(`${y} final poll top 5: ${top5}.`)
+    }
+    const aw = dynasty?.awardsByYear?.[y] || {}
+    if (aw.heisman?.player || aw.heisman?.name) priorYearLines.push(`${y} Heisman: ${aw.heisman.player || aw.heisman.name}.`)
+  }
+
+  // ----- Section: Saved preseason poll for current year (if any) -----
+  const presPolls = dynasty?.preseasonRankingsByYear?.[yearNum]
+    || dynasty?.finalPolls?.[yearNum]?.preseason
+    || null
+  const preseasonTop25Lines = []
+  if (Array.isArray(presPolls) && presPolls.length > 0) {
+    for (const r of presPolls) preseasonTop25Lines.push(`#${r.rank} ${teamDisplay(r.tid, r.team, dynasty)}`)
+  }
+
+  // ----- Section: Records of every currently-ranked team (season to date) -----
+  // Lets the AI describe a team's broader season arc when discussing their
+  // Week N result without inventing it. Tied to rankSnapshot above.
+  const rankedRecordLines = []
+  for (const r of rankSnapshot) {
+    if (r.tid == null) continue
+    const rec = recordFromGames(games, yearNum, r.tid)
+    rankedRecordLines.push(`#${r.rank} ${r.name}: ${rec.wins}-${rec.losses}`)
+  }
+
+  // ===================================================================
+  // Assemble the data block as plain text. National scope — no user-team
+  // framing. The user's team's data appears here only as one of the many
+  // games / teams in the league.
+  // ===================================================================
   const sections = []
 
   sections.push(`SEASON CONTEXT`)
   sections.push(`Year: ${yearNum}`)
   sections.push(`Week being recapped: ${weekNum}`)
-  if (userTeam) sections.push(`User's team: ${userTeam}${userConference ? ` (${userConference})` : ''}`)
-  if (userTeam) sections.push(`User's record after Week ${weekNum}: ${userRecord.wins}-${userRecord.losses}${userLatestRank != null ? ` (ranked #${userLatestRank})` : ' (unranked)'}`)
   sections.push('')
 
-  // User game this week
-  if (userWeekGame) {
-    const persp = userPerspective(userWeekGame, userTid)
-    const oppName = teamDisplay(persp.oppTid, persp.oppAbbr, dynasty)
-    const headline = persp.won == null
-      ? `${userTeam} vs ${oppName} — score not entered`
-      : `${userTeam} ${persp.userScore}, ${oppName} ${persp.oppScore}${persp.ot ? ' (OT)' : ''} — ${persp.won ? 'WIN' : 'LOSS'}`
-    sections.push(`USER'S WEEK ${weekNum} GAME`)
-    sections.push(headline)
-    if (persp.rank != null) sections.push(`${userTeam} entered ranked #${persp.rank}.`)
-    if (persp.oppRank != null) sections.push(`${oppName} entered ranked #${persp.oppRank}.`)
-    sections.push('')
-  } else if (userTeam) {
-    sections.push(`USER'S WEEK ${weekNum} GAME`)
-    sections.push(`No game this week (bye or unentered).`)
+  // Headline games — top 25 vs top 25
+  if (top25vTop25.length > 0) {
+    sections.push(`HEADLINE GAMES — RANKED vs RANKED (Week ${weekNum})`)
+    for (const g of top25vTop25) sections.push(fmtGameLine(g, dynasty))
     sections.push('')
   }
 
-  // User team season arc to date
-  if (userYearSorted.length > 0) {
-    sections.push(`USER'S SEASON GAME LOG (Weeks 1–${weekNum})`)
-    for (const g of userYearSorted) {
-      if (Number(g.week) > weekNum) continue
-      const persp = userPerspective(g, userTid)
-      if (!persp) continue
-      const oppName = teamDisplay(persp.oppTid, persp.oppAbbr, dynasty)
-      const wl = persp.won == null ? '—' : persp.won ? 'W' : 'L'
-      const score = persp.userScore != null ? `${persp.userScore}-${persp.oppScore}` : 'no score'
-      const tag = persp.oppRank != null ? `#${persp.oppRank} ` : ''
-      sections.push(`Week ${g.week}: ${wl} ${score} vs ${tag}${oppName}${persp.ot ? ' (OT)' : ''}`)
-    }
+  // Top-25 results vs unranked teams
+  if (top25vUnranked.length > 0) {
+    sections.push(`TOP-25 vs UNRANKED RESULTS (Week ${weekNum})`)
+    for (const g of top25vUnranked) sections.push(fmtGameLine(g, dynasty))
     sections.push('')
   }
 
-  // Top-25 results across the country
-  if (otherRankedGames.length > 0) {
-    sections.push(`OTHER TOP-25 RESULTS — WEEK ${weekNum}`)
-    for (const g of otherRankedGames) sections.push(fmtGameLine(g, dynasty))
-    sections.push('')
-  }
-
-  // Conference results (user's conference)
-  if (userConfGames.length > 0) {
-    sections.push(`OTHER ${userConference.toUpperCase()} RESULTS — WEEK ${weekNum}`)
-    for (const g of userConfGames) sections.push(fmtGameLine(g, dynasty))
+  // Every game played this week — comprehensive list
+  if (everyGameLine.length > 0) {
+    sections.push(`ALL ENTERED FBS GAMES (Week ${weekNum})`)
+    for (const g of everyGameLine) sections.push(fmtGameLine(g, dynasty))
     sections.push('')
   }
 
   // POW honorees
   if (powLines.length > 0) {
-    sections.push(`PLAYER-OF-THE-WEEK HONOREES`)
+    sections.push(`PLAYER-OF-THE-WEEK HONOREES (Week ${weekNum})`)
     for (const line of powLines) sections.push(line)
     sections.push('')
   }
 
-  // Box-score stat leaders this week
+  // Stat lines from this week's box scores (top 2 per category per side)
   if (weekBoxLeaders.length > 0) {
     sections.push(`STAT LINES FROM WEEK ${weekNum} BOX SCORES`)
     for (const line of weekBoxLeaders) sections.push(line)
+    sections.push('')
+  }
+
+  // Cumulative season stat leaders — drives award/Heisman narratives
+  const seasonStatBlocks = []
+  const passLeaders = topByField('passYds')
+  const rushLeaders = topByField('rushYds')
+  const recLeaders  = topByField('recYds')
+  const sackLeaders = topByField('sacks')
+  const tackleLeaders = topByField('tackles')
+  if (passLeaders.length > 0) {
+    seasonStatBlocks.push(`Passing yards leaders:\n${passLeaders.map(p => `  ${p.name} (${p.team}) — ${p.passYds} yds, ${p.passTD || 0} TD, ${p.passInt || 0} INT in ${p.games} games`).join('\n')}`)
+  }
+  if (rushLeaders.length > 0) {
+    seasonStatBlocks.push(`Rushing yards leaders:\n${rushLeaders.map(p => `  ${p.name} (${p.team}) — ${p.rushYds} yds, ${p.rushTD || 0} TD on ${p.rushAtt || 0} carries (${p.games} g)`).join('\n')}`)
+  }
+  if (recLeaders.length > 0) {
+    seasonStatBlocks.push(`Receiving yards leaders:\n${recLeaders.map(p => `  ${p.name} (${p.team}) — ${p.recYds} yds, ${p.rec || 0} catches, ${p.recTD || 0} TD (${p.games} g)`).join('\n')}`)
+  }
+  if (sackLeaders.length > 0) {
+    seasonStatBlocks.push(`Sack leaders:\n${sackLeaders.map(p => `  ${p.name} (${p.team}) — ${p.sacks} sacks (${p.games} g)`).join('\n')}`)
+  }
+  if (tackleLeaders.length > 0) {
+    seasonStatBlocks.push(`Tackle leaders:\n${tackleLeaders.map(p => `  ${p.name} (${p.team}) — ${p.tackles} tackles (${p.games} g)`).join('\n')}`)
+  }
+  if (seasonStatBlocks.length > 0) {
+    sections.push(`CUMULATIVE SEASON STAT LEADERS (through Week ${weekNum}, derived from box scores we have)`)
+    sections.push(seasonStatBlocks.join('\n'))
+    sections.push('')
+  }
+
+  // POW leaderboard — who's been collecting honors all season
+  if (powLeaderboard.length > 0) {
+    sections.push(`SEASON POW LEADERBOARD (through Week ${weekNum})`)
+    for (const r of powLeaderboard) {
+      const parts = []
+      if (r.conf) parts.push(`${r.conf} Conf Off`)
+      if (r.confDef) parts.push(`${r.confDef} Conf Def`)
+      if (r.nat) parts.push(`${r.nat} Nat'l Off`)
+      if (r.natDef) parts.push(`${r.natDef} Nat'l Def`)
+      sections.push(`${r.name} — ${r.total} total POW (${parts.join(', ')})`)
+    }
     sections.push('')
   }
 
@@ -397,6 +484,30 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   if (rankSnapshot.length > 0) {
     sections.push(`CURRENT TOP 25 (after Week ${weekNum})`)
     for (const r of rankSnapshot) sections.push(`#${r.rank} ${r.name}`)
+    sections.push('')
+  }
+
+  // Records for each currently-ranked team
+  if (rankedRecordLines.length > 0) {
+    sections.push(`RECORDS OF CURRENTLY-RANKED TEAMS (season to date)`)
+    for (const line of rankedRecordLines) sections.push(line)
+    sections.push('')
+  }
+
+  // Top 25 EVOLUTION week-by-week (so AI can describe poll movement)
+  if (top25ByWeek.length > 1) {
+    sections.push(`TOP 25 EVOLUTION (week-by-week snapshot)`)
+    for (const snap of top25ByWeek) {
+      const compact = snap.rows.slice(0, 25).map(r => `#${r.rank} ${r.name}`).join(' · ')
+      sections.push(`After Week ${snap.week}: ${compact}`)
+    }
+    sections.push('')
+  }
+
+  // Saved preseason poll
+  if (preseasonTop25Lines.length > 0) {
+    sections.push(`PRESEASON TOP 25 (${yearNum}, as the user entered it)`)
+    for (const line of preseasonTop25Lines) sections.push(line)
     sections.push('')
   }
 
@@ -416,27 +527,36 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     sections.push('')
   }
 
+  // Prior-year national headlines
+  if (priorYearLines.length > 0) {
+    sections.push(`PRIOR SEASON NATIONAL HEADLINES`)
+    for (const line of priorYearLines) sections.push(line)
+    sections.push('')
+  }
+
   const dataBlock = sections.join('\n')
 
   return [
-    `You are writing a Week ${weekNum} recap for a College Football dynasty save (year ${yearNum}).`,
+    `You are writing a Week ${weekNum} College Football recap for the ${yearNum} season.`,
     ``,
-    `The user is the head coach of ${userTeam || '(team not set)'}${userConference ? `, in the ${userConference}` : ''}. Their season-to-date record is ${userRecord.wins}-${userRecord.losses}.`,
+    `This is a NATIONAL recap covering the entire FBS landscape — every notable game, every storyline, every standout performance the data shows. Treat all teams equally. Do NOT center the narrative on any single program. The reader is a college football fan who wants the week's whole picture.`,
     ``,
-    `Audience: the user themselves. Tone: ESPN-style college football beat writing — informed, slightly dramatic, but never breathless. Center the narrative on what actually happened in the data.`,
+    `Tone: ESPN / The Athletic / 247Sports beat-writing — informed, slightly dramatic, but never breathless. Lead with the biggest games and biggest moves. Save individual performances and poll movement for the back half.`,
     ``,
     FACTUAL_GUARDRAIL.trim(),
     ``,
     `═══════════════════════════════════════════════════════════`,
-    `WHAT TO COVER`,
+    `WHAT TO COVER (suggested order — adapt based on what's in the data)`,
     `═══════════════════════════════════════════════════════════`,
-    `1. The user's Week ${weekNum} game (lead with this) — what happened, what it means for their season.`,
-    `2. Other top-25 results from the same week, brief.`,
-    `3. The user's conference around the league, brief.`,
-    `4. Standout individual performances from the data (POWs and any box-score stat lines included below).`,
-    `5. A short forward look — next week's challenge for the user, top-of-poll storylines. Only mention what is in the data; if the next opponent isn't in the data block, skip the forward look.`,
+    `1. HEADLINE GAMES — lead with the biggest result(s) of the week. Top 25 vs Top 25 always headlines if any happened. Otherwise the most consequential ranked-vs-unranked game (e.g. a top-10 team falling to an unranked one is the lead).`,
+    `2. UPSETS & SURPRISES — call out any losses by ranked teams, especially top-10 teams. Quantify the gap when possible ("the #4 team fell to a team that came in 2-3").`,
+    `3. NATIONAL TOP-25 ROUND-UP — quick walk through other ranked teams' results.`,
+    `4. POLL MOVEMENT — if the Top 25 evolution shows a clear trajectory (a team rising or falling several spots over recent weeks), call it out. Use the EVOLUTION section, not invention.`,
+    `5. AWARDS / HEISMAN PICTURE — name the season's stat leaders and POW leaderboard front-runners. Frame as Heisman watch / All-American watch ONLY if the cumulative numbers warrant it.`,
+    `6. CONFERENCE RACES — when standings data is present, describe who's ahead in each major conference race. If standings aren't entered, skip this entirely.`,
+    `7. LOOK-AHEAD — only if multiple ranked teams have notable matchups remaining and the data block makes that clear. If not, skip.`,
     ``,
-    `If a section's data block is empty (e.g. there are no other ranked games), skip the section entirely — do not write filler.`,
+    `If a section's data block is empty, skip the section entirely — do not write filler. Better a tight 4-paragraph recap than a padded one.`,
     ``,
     OUTPUT_FORMAT.trim(),
     ``,
@@ -453,12 +573,9 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
 
 export function buildPreseasonRecapPrompt(dynasty, year) {
   const yearNum = Number(year)
-  const userTid = dynasty?.currentTid != null ? Number(dynasty.currentTid) : null
-  const userTeam = userTid != null ? teamDisplay(userTid, null, dynasty) : null
-  const userConference = dynasty?.conference || null
   const allGames = dynasty?.games || []
 
-  // ----- Past-season recap of the user's recent results (last 3 years) -----
+  // ----- Past three years' national headlines -----
   const seenYears = new Set()
   for (const g of allGames) {
     const y = Number(g?.year)
@@ -466,18 +583,15 @@ export function buildPreseasonRecapPrompt(dynasty, year) {
   }
   const pastYears = [...seenYears].sort((a, b) => b - a).slice(0, 3)
 
-  const pastSeasonLines = []
+  // ----- Final-poll top 25 from each prior year -----
+  const finalPollLines = []
   for (const y of pastYears) {
-    if (userTid != null) {
-      const rec = recordFromGames(allGames, y, userTid)
-      const finalRank = latestRankForTeam(allGames, y, userTid)
-      pastSeasonLines.push(`${y}: ${userTeam} finished ${rec.wins}-${rec.losses}${finalRank != null ? `, ranked #${finalRank} at season end` : ', unranked'}.`)
-    }
-    // Also list final-poll top 5 if we saved one
     const finalMedia = dynasty?.finalPolls?.[y]?.media
     if (Array.isArray(finalMedia) && finalMedia.length > 0) {
-      const top5 = finalMedia.slice(0, 5).map(e => `#${e.rank} ${teamDisplay(e.tid, e.team, dynasty)}`).join(', ')
-      pastSeasonLines.push(`${y} final poll top 5: ${top5}.`)
+      finalPollLines.push(`-- ${y} final poll --`)
+      for (const r of finalMedia) {
+        finalPollLines.push(`#${r.rank} ${teamDisplay(r.tid, r.team, dynasty)}`)
+      }
     }
   }
 
@@ -487,9 +601,35 @@ export function buildPreseasonRecapPrompt(dynasty, year) {
     const aw = dynasty?.awardsByYear?.[y] || {}
     const heisman = aw.heisman?.player || aw.heisman?.name
     if (heisman) recentAwardLines.push(`${y} Heisman: ${heisman}`)
+    const maxwell = aw.maxwell?.player || aw.maxwell?.name
+    if (maxwell) recentAwardLines.push(`${y} Maxwell: ${maxwell}`)
+    const obrien = aw.daveyObrien?.player || aw.daveyObrien?.name
+    if (obrien) recentAwardLines.push(`${y} Davey O'Brien: ${obrien}`)
   }
 
-  // ----- Saved preseason rankings, if any -----
+  // ----- National-trend lines: which programs were consistently top-tier? -----
+  // Counts how often each team finished in the prior years' top 5/top 10.
+  const top5Tally = {}
+  const top10Tally = {}
+  for (const y of pastYears) {
+    const finalMedia = dynasty?.finalPolls?.[y]?.media
+    if (!Array.isArray(finalMedia)) continue
+    for (const r of finalMedia) {
+      const name = teamDisplay(r.tid, r.team, dynasty)
+      if (r.rank <= 5) top5Tally[name] = (top5Tally[name] || 0) + 1
+      if (r.rank <= 10) top10Tally[name] = (top10Tally[name] || 0) + 1
+    }
+  }
+  const repeatTop5 = Object.entries(top5Tally)
+    .filter(([, n]) => n >= 2)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, n]) => `${name} — ${n}× top-5 finish`)
+  const repeatTop10 = Object.entries(top10Tally)
+    .filter(([, n]) => n >= 2 && !top5Tally[Object.keys(top5Tally).find(k => k === Object.keys(top10Tally)[0])])
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, n]) => `${name} — ${n}× top-10 finish`)
+
+  // ----- Saved preseason rankings for the upcoming year, if any -----
   const presPolls = dynasty?.preseasonRankingsByYear?.[yearNum]
     || dynasty?.finalPolls?.[yearNum]?.preseason
     || null
@@ -503,20 +643,12 @@ export function buildPreseasonRecapPrompt(dynasty, year) {
   const sections = []
   sections.push(`SEASON ABOUT TO START`)
   sections.push(`Year: ${yearNum}`)
-  if (userTeam) sections.push(`User's team: ${userTeam}${userConference ? ` (${userConference})` : ''}`)
+  if (pastYears.length > 0) {
+    sections.push(`Prior seasons in this dynasty: ${pastYears.join(', ')}`)
+  } else {
+    sections.push(`First season of this dynasty (no prior data).`)
+  }
   sections.push('')
-
-  if (pastSeasonLines.length > 0) {
-    sections.push(`RECENT HISTORY`)
-    for (const line of pastSeasonLines) sections.push(line)
-    sections.push('')
-  }
-
-  if (recentAwardLines.length > 0) {
-    sections.push(`RECENT AWARDS`)
-    for (const line of recentAwardLines) sections.push(line)
-    sections.push('')
-  }
 
   if (preseasonTop25Lines.length > 0) {
     sections.push(`PRESEASON TOP 25 — ${yearNum}`)
@@ -528,27 +660,47 @@ export function buildPreseasonRecapPrompt(dynasty, year) {
     sections.push('')
   }
 
+  if (finalPollLines.length > 0) {
+    sections.push(`PRIOR-SEASON FINAL POLLS`)
+    for (const line of finalPollLines) sections.push(line)
+    sections.push('')
+  }
+
+  if (repeatTop5.length > 0 || repeatTop10.length > 0) {
+    sections.push(`PROGRAMS WITH RECENT TOP-FINISH HISTORY`)
+    for (const line of repeatTop5) sections.push(line)
+    for (const line of repeatTop10) sections.push(line)
+    sections.push('')
+  }
+
+  if (recentAwardLines.length > 0) {
+    sections.push(`RECENT INDIVIDUAL AWARDS`)
+    for (const line of recentAwardLines) sections.push(line)
+    sections.push('')
+  }
+
   const dataBlock = sections.join('\n')
 
   return [
-    `You are writing a ${yearNum} College Football season preview for a dynasty save.`,
+    `You are writing a ${yearNum} College Football season preview.`,
     ``,
-    `The user is the head coach of ${userTeam || '(team not set)'}${userConference ? `, in the ${userConference}` : ''}.`,
+    `This is a NATIONAL preview covering the entire FBS landscape — every storyline a fan should know heading into the season. Treat all teams equally. Do NOT center the narrative on any single program. The reader is a college football fan who wants the season's whole picture.`,
     ``,
-    `Audience: the user themselves. Tone: a season-preview column — confident, scene-setting, but tightly bounded by the data below.`,
+    `Tone: a season-preview column from a major outlet — confident, scene-setting, but tightly bounded by the data below.`,
     ``,
     FACTUAL_GUARDRAIL.trim(),
     ``,
     `═══════════════════════════════════════════════════════════`,
-    `WHAT TO COVER`,
+    `WHAT TO COVER (suggested order — adapt based on what's in the data)`,
     `═══════════════════════════════════════════════════════════`,
-    `1. Where the user's program stands coming into ${yearNum} — what their last season says about expectations.`,
-    `2. The national landscape from the preseason Top 25 (if one is in the data).`,
-    `3. The user's conference — the rivals to watch, based ONLY on what the past-season records and Top 25 tell you.`,
-    `4. One brief forward-look paragraph for the user's program.`,
+    `1. The preseason Top 25 — who's at the top, who's notable for being there.`,
+    `2. Prior-season storylines — what happened last year that matters going into this one (champions, near-misses, late surges, drop-offs).`,
+    `3. Programs with recurring top finishes — which teams have built sustained excellence over the last 2-3 dynasty years.`,
+    `4. Award winners returning to school (only if the data hints at it — most often you can't tell, so skip).`,
+    `5. Conferences to watch — only if the standings/poll data clearly suggests a competitive race.`,
     ``,
-    `If the data block is sparse (early dynasty, no prior history), keep the recap SHORT. Three or four paragraphs is plenty.`,
-    `If a section's data block is empty, skip the section entirely.`,
+    `If the data block is sparse (early dynasty, no prior history), keep the preview SHORT. Three or four paragraphs is plenty.`,
+    `If a section's data block is empty, skip it entirely. Do not write filler.`,
     ``,
     OUTPUT_FORMAT.trim(),
     ``,
