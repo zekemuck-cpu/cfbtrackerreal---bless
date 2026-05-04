@@ -95,21 +95,101 @@ export default function ImageUpload({
     e.target.value = '' // Reset so same file can be selected again
   }
 
-  // Handle paste event
-  const handlePaste = async (e) => {
-    const items = e.clipboardData?.items
-    if (!items) return
+  // Try to pull an image URL out of a clipboard text/html payload
+  // (typical when you "Copy image" from ChatGPT, Notion, Google Docs,
+  // etc. — the clipboard gets an `<img src="…">` snippet, NOT an
+  // actual image blob).
+  const extractImageUrlFromHtml = (html) => {
+    if (!html) return null
+    // Use DOMParser when available so we don't have to ship a regex
+    // that handles every weird quoting variation.
+    try {
+      const doc = new DOMParser().parseFromString(html, 'text/html')
+      const img = doc.querySelector('img')
+      if (img && img.getAttribute('src')) return img.getAttribute('src')
+    } catch {
+      // Fall through to regex.
+    }
+    const m = html.match(/<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/i)
+    return m ? m[1] : null
+  }
 
-    for (const item of items) {
-      if (item.type.startsWith('image/')) {
+  // Does this string look like a URL we can fetch?
+  const looksLikeUrl = (s) => {
+    if (!s) return false
+    const trimmed = s.trim()
+    return /^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:image/')
+  }
+
+  // Convert a remote image URL (or data: URL) into an uploadable File.
+  // Used when the user pastes "Copy image" content that's just a URL
+  // wrapper rather than a real image blob — we fetch the bytes here
+  // so we can re-upload them to ImgBB (and own a permanent copy).
+  const urlToImageFile = async (url) => {
+    const res = await fetch(url, { mode: 'cors' })
+    if (!res.ok) throw new Error(`Fetch failed (${res.status})`)
+    const blob = await res.blob()
+    if (!blob.type.startsWith('image/')) {
+      throw new Error(`Not an image (${blob.type || 'unknown'})`)
+    }
+    const ext = (blob.type.split('/')[1] || 'png').replace(/[^a-z0-9]/gi, '').slice(0, 4) || 'png'
+    return new File([blob], `pasted.${ext}`, { type: blob.type })
+  }
+
+  // Take a URL the user pasted (from HTML or plain text) and either
+  // fetch+upload it (preferred) or fall back to using it as-is in the
+  // value field. The "as-is" path is the safety net for hosts that
+  // block CORS on their image CDN — the URL still works in an <img>
+  // tag, just not for re-upload.
+  const handlePastedUrl = async (url) => {
+    try {
+      const file = await urlToImageFile(url)
+      await handleFile(file)
+      return true
+    } catch {
+      // CORS blocked or wasn't an image — use the URL directly.
+      // (e.g. ChatGPT's signed openai-labs URLs typically allow this.)
+      onChange(url.trim())
+      toast.success('Image URL set. If it stops loading later, paste again — some hosts expire links.')
+      return true
+    }
+  }
+
+  // Handle paste event (Ctrl+V into the drop zone, prompt textarea, etc.)
+  const handlePaste = async (e) => {
+    const cd = e.clipboardData
+    if (!cd) return
+
+    // 1. Real image blob — best case.
+    for (const item of cd.items || []) {
+      if (item.type && item.type.startsWith('image/')) {
         e.preventDefault()
         const file = item.getAsFile()
-        if (file) {
-          await handleFile(file)
-        }
+        if (file) await handleFile(file)
         return
       }
     }
+
+    // 2. text/html — pull out an <img src="…"> if present (ChatGPT,
+    //    Notion, Google Docs all paste this shape when you copy an
+    //    image rendered in the page).
+    const html = cd.getData?.('text/html')
+    const fromHtml = extractImageUrlFromHtml(html)
+    if (fromHtml && looksLikeUrl(fromHtml)) {
+      e.preventDefault()
+      await handlePastedUrl(fromHtml)
+      return
+    }
+
+    // 3. text/plain — bare URL.
+    const text = cd.getData?.('text/plain') || cd.getData?.('text')
+    if (text && looksLikeUrl(text)) {
+      e.preventDefault()
+      await handlePastedUrl(text)
+      return
+    }
+    // No image content at all — let the default paste behavior run
+    // (e.g. typing into the URL input field).
   }
 
   // Handle drag and drop
@@ -138,23 +218,93 @@ export default function ImageUpload({
     }
   }
 
-  // Handle clipboard button click (for mobile)
+  // Handle clipboard button click (the explicit "Paste from
+  // Clipboard" button — also the only path that works on most
+  // mobile keyboards). Mirrors handlePaste's three-tier fallback:
+  // image blob → HTML <img src> → plain-text URL.
   const handleClipboardPaste = async () => {
+    // navigator.clipboard.readText() is a separate path that some
+    // browsers grant access to even when read() is blocked. Cache
+    // both attempts so we can use whichever succeeds.
+    let clipboardItems = null
+    let plainText = null
     try {
-      const clipboardItems = await navigator.clipboard.read()
+      clipboardItems = await navigator.clipboard.read()
+    } catch {
+      // read() is gated behind permissions on some platforms — fall
+      // through and try readText() below.
+    }
+    try {
+      plainText = await navigator.clipboard.readText()
+    } catch {
+      // readText() may also be denied. We'll surface a single error
+      // at the bottom if every path failed.
+    }
+
+    // 1. Look for a real image blob in the structured clipboard items.
+    if (clipboardItems) {
       for (const item of clipboardItems) {
         const imageType = item.types.find(type => type.startsWith('image/'))
         if (imageType) {
-          const blob = await item.getType(imageType)
-          const file = new File([blob], 'pasted-image.png', { type: imageType })
-          await handleFile(file)
-          return
+          try {
+            const blob = await item.getType(imageType)
+            const ext = (imageType.split('/')[1] || 'png').replace(/[^a-z0-9]/gi, '').slice(0, 4) || 'png'
+            const file = new File([blob], `pasted.${ext}`, { type: imageType })
+            await handleFile(file)
+            return
+          } catch {
+            // fall through to text fallback
+          }
         }
       }
-      toast.error('No image found in clipboard')
-    } catch (error) {
-      toast.error('Could not access clipboard. Try using Ctrl+V instead.')
+
+      // 2. No image type — check if any item is text/html with an
+      //    embedded <img src>. (This is the ChatGPT / Notion case.)
+      for (const item of clipboardItems) {
+        if (item.types.includes('text/html')) {
+          try {
+            const blob = await item.getType('text/html')
+            const html = await blob.text()
+            const url = extractImageUrlFromHtml(html)
+            if (url && looksLikeUrl(url)) {
+              await handlePastedUrl(url)
+              return
+            }
+          } catch {
+            // try next item type
+          }
+        }
+      }
     }
+
+    // 3. Plain-text URL — works whether we got it from clipboard.read()
+    //    or had to fall back to clipboard.readText().
+    if (plainText && looksLikeUrl(plainText)) {
+      await handlePastedUrl(plainText)
+      return
+    }
+    if (clipboardItems) {
+      for (const item of clipboardItems) {
+        if (item.types.includes('text/plain')) {
+          try {
+            const blob = await item.getType('text/plain')
+            const text = await blob.text()
+            if (text && looksLikeUrl(text)) {
+              await handlePastedUrl(text)
+              return
+            }
+          } catch {
+            // give up
+          }
+        }
+      }
+    }
+
+    if (clipboardItems == null && plainText == null) {
+      toast.error('Browser blocked clipboard access. Try Ctrl+V/Cmd+V into the drop zone instead.')
+      return
+    }
+    toast.error("Couldn't find an image in the clipboard. Try right-click → Save image, then click the drop zone to upload.")
   }
 
   if (compact) {
