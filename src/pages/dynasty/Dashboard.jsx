@@ -3864,14 +3864,6 @@ export default function Dashboard() {
                     >
                       {done ? `Week ${prevWeek} Recap Saved` : `Generate Week ${prevWeek} Recap`}
                     </div>
-                    <div
-                      className="text-xs sm:text-[13px] mt-1"
-                      style={{ color: done ? 'rgba(34, 197, 94, 0.8)' : 'var(--text-tertiary)' }}
-                    >
-                      {done
-                        ? 'AI-generated week-in-review is on the Weekly Scores page'
-                        : 'Bundles every fact we have into a prompt for ChatGPT/Claude/Gemini'}
-                    </div>
                   </div>
                   {!isViewOnly && (
                     <div className="flex gap-2 w-full sm:w-auto sm:flex-shrink-0">

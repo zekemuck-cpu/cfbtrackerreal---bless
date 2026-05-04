@@ -157,17 +157,8 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
           </button>
         </div>
 
-        {/* Body — scrollable. Stacks: how-it-works, prompt block, paste-back, preview. */}
+        {/* Body — scrollable. Stacks: prompt block, paste-back, preview. */}
         <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 space-y-5">
-          <div className="rounded-md p-3 text-sm" style={{ backgroundColor: 'var(--surface-2)', borderLeft: '3px solid var(--accent-warning)' }}>
-            <div className="label-xs text-txt-tertiary mb-1" style={{ letterSpacing: '1.5px' }}>How this works</div>
-            <ol className="list-decimal pl-5 space-y-1 text-txt-primary">
-              <li>Copy the prompt below.</li>
-              <li>Paste it into ChatGPT, Claude, Gemini — whichever AI you prefer.</li>
-              <li>Paste the AI's response into the box at the bottom and save.</li>
-            </ol>
-          </div>
-
           <section>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-semibold text-txt-primary">AI Prompt</label>
