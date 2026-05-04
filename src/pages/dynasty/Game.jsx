@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
@@ -614,6 +615,10 @@ export default function Game() {
   // ("rendered more hooks than the previous render"). Compute the
   // cards-for-game list here, before any conditional returns. The
   // helper is null-safe so it's fine if game is still undefined.
+  // Photo lightbox state — null = closed, otherwise the index into
+  // game.photos that's currently shown full-screen.
+  const [photoLightboxIdx, setPhotoLightboxIdx] = useState(null)
+
   const cardsForGame = useMemo(() => {
     return getCardsForGame(currentDynasty, game?.id)
   }, [currentDynasty, game?.id])
@@ -3016,11 +3021,10 @@ export default function Game() {
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {game.photos.map((url, idx) => (
-                  <a
+                  <button
                     key={`${url}-${idx}`}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    type="button"
+                    onClick={() => setPhotoLightboxIdx(idx)}
                     className="group relative aspect-square overflow-hidden rounded-md transition-transform duration-150 hover:-translate-y-0.5"
                     style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
                   >
@@ -3030,7 +3034,7 @@ export default function Game() {
                       className="w-full h-full object-cover"
                       loading="lazy"
                     />
-                  </a>
+                  </button>
                 ))}
               </div>
             </div>
@@ -3183,6 +3187,156 @@ export default function Game() {
         startIndex={highlightsStartIndex}
         pathPrefix={pathPrefix}
       />
+
+      {/* Full-screen photo lightbox — opens when a Photos-tab thumb
+          is clicked. Esc / clicking the backdrop / × button closes;
+          ←/→ arrow keys + on-screen chevrons step through. */}
+      {photoLightboxIdx !== null && Array.isArray(game.photos) && game.photos.length > 0 && (
+        <PhotoLightbox
+          photos={game.photos}
+          index={photoLightboxIdx}
+          onClose={() => setPhotoLightboxIdx(null)}
+          onIndexChange={setPhotoLightboxIdx}
+        />
+      )}
     </div>
+  )
+}
+
+/**
+ * Full-screen photo lightbox. Lives in the Game page Photos tab.
+ *
+ * Behavior:
+ *   • Click anywhere outside the image (backdrop) → close
+ *   • Esc → close
+ *   • ← / → arrows OR on-screen chevrons → previous / next
+ *   • Body scroll is locked while open
+ */
+function PhotoLightbox({ photos, index, onClose, onIndexChange }) {
+  const total = photos.length
+  const currentUrl = photos[index]
+
+  const goPrev = useCallback(() => {
+    if (total <= 1) return
+    onIndexChange((index - 1 + total) % total)
+  }, [index, total, onIndexChange])
+
+  const goNext = useCallback(() => {
+    if (total <= 1) return
+    onIndexChange((index + 1) % total)
+  }, [index, total, onIndexChange])
+
+  // Body scroll lock + key handlers
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose?.()
+      else if (e.key === 'ArrowLeft') goPrev()
+      else if (e.key === 'ArrowRight') goNext()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prevOverflow
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [onClose, goPrev, goNext])
+
+  if (typeof document === 'undefined') return null
+  return createPortal(
+    <div
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[9999] flex items-center justify-center"
+      style={{ margin: 0, backgroundColor: 'rgba(0, 0, 0, 0.92)' }}
+      onClick={onClose}
+    >
+      {/* Close button */}
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close"
+        className="absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center justify-center rounded-md transition-colors"
+        style={{
+          width: 40, height: 40,
+          backgroundColor: 'rgba(255, 255, 255, 0.08)',
+          color: '#fff',
+          border: '1px solid rgba(255, 255, 255, 0.18)',
+        }}
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      {/* Counter */}
+      {total > 1 && (
+        <div
+          className="absolute top-3 left-3 sm:top-4 sm:left-4 px-3 py-1.5 rounded-md text-xs font-bold tabular-nums"
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            color: '#fff',
+            border: '1px solid rgba(255, 255, 255, 0.18)',
+            letterSpacing: '0.05em',
+          }}
+        >
+          {index + 1} / {total}
+        </div>
+      )}
+
+      {/* Previous chevron */}
+      {total > 1 && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); goPrev() }}
+          aria-label="Previous photo"
+          className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full transition-colors"
+          style={{
+            width: 48, height: 48,
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            color: '#fff',
+            border: '1px solid rgba(255, 255, 255, 0.18)',
+          }}
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+      )}
+
+      {/* Next chevron */}
+      {total > 1 && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); goNext() }}
+          aria-label="Next photo"
+          className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full transition-colors"
+          style={{
+            width: 48, height: 48,
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            color: '#fff',
+            border: '1px solid rgba(255, 255, 255, 0.18)',
+          }}
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      )}
+
+      {/* The image — clicking it does NOT close (only the backdrop does) */}
+      <img
+        src={currentUrl}
+        alt={`Game photo ${index + 1} of ${total}`}
+        onClick={(e) => e.stopPropagation()}
+        className="block select-none"
+        style={{
+          maxWidth: 'calc(100vw - 32px)',
+          maxHeight: 'calc(100vh - 32px)',
+          objectFit: 'contain',
+          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.6)',
+        }}
+        draggable={false}
+      />
+    </div>,
+    document.body
   )
 }
