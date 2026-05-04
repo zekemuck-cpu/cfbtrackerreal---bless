@@ -358,23 +358,32 @@ export default function WeeklyScores() {
     return nameA.localeCompare(nameB)
   })
 
-  // Scroll the targeted game card into view and flash its border.
-  // Runs once per scrollGameId (the ref guards against re-running on
-  // every render of the component). The 60ms delay gives the grid a
-  // tick to lay out so getBoundingClientRect is accurate; the
-  // smooth-scroll behavior matches the rest of the app.
+  // Scroll the targeted game card into view and flash a brief glow.
+  // The grid uses .stagger-reveal which sets every child to opacity:0
+  // and fades them in with a per-index delay (up to 500ms+). Without
+  // intervention, scrolling at t=60ms lands the user on a card that
+  // hasn't been revealed yet — visually it looks like the page jumps
+  // to an empty spot for ~1s before the card materialises.
+  // Fix: stamp the target card with a class that overrides the
+  // stagger-reveal opacity so it's visible immediately, then scroll.
+  // Half-second glow is enough to draw the eye without lingering.
   useEffect(() => {
     if (!scrollGameId) return
     if (scrollHandledRef.current === scrollGameId) return
-    const t = setTimeout(() => {
-      const el = document.getElementById(`weekly-game-${scrollGameId}`)
-      if (!el) return
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      el.classList.add('weekly-game-flash')
-      setTimeout(() => el.classList.remove('weekly-game-flash'), 1800)
-      scrollHandledRef.current = scrollGameId
-    }, 60)
-    return () => clearTimeout(t)
+    // Two RAFs ensures the grid has actually laid out the rows so
+    // getBoundingClientRect / scrollIntoView land on the right offset.
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`weekly-game-${scrollGameId}`)
+        if (!el) return
+        el.classList.add('weekly-game-target')
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el.classList.add('weekly-game-flash')
+        setTimeout(() => el.classList.remove('weekly-game-flash'), 700)
+        scrollHandledRef.current = scrollGameId
+      })
+    })
+    return () => cancelAnimationFrame(raf)
   }, [scrollGameId, sortedGames.length])
 
   const filterLabel = filter === 'all'
@@ -499,15 +508,21 @@ export default function WeeklyScores() {
         .game-card:active {
           transform: translateY(0);
         }
-        /* Brief highlight when a card is the scroll target — used when
-           the user clicks the title text on a Game page and lands here. */
+        /* When the user clicks the title text on a Game page and lands
+           here via ?game=…, the targeted card opts out of the stagger
+           reveal so it's visible the moment we scroll to it (otherwise
+           the user lands on an opacity:0 spot for ~1s). */
+        .game-card.weekly-game-target {
+          opacity: 1 !important;
+          animation: none !important;
+        }
+        /* Soft half-second glow to draw the eye to the targeted card. */
         .game-card.weekly-game-flash {
-          animation: weekly-game-flash-anim 1800ms ease-out;
-          border-color: var(--text-secondary) !important;
+          animation: weekly-game-flash-anim 700ms ease-out !important;
         }
         @keyframes weekly-game-flash-anim {
-          0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--text-secondary) 60%, transparent); }
-          25%  { box-shadow: 0 0 0 6px color-mix(in srgb, var(--text-secondary) 35%, transparent); }
+          0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--text-secondary) 50%, transparent); }
+          40%  { box-shadow: 0 0 0 5px color-mix(in srgb, var(--text-secondary) 30%, transparent); }
           100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); }
         }
       `}</style>
