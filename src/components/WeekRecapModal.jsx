@@ -52,7 +52,7 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
 
   const heading = isPreseason
     ? `${yearNum} Preseason Recap`
-    : `Week ${weekNum} Recap — ${yearNum}`
+    : `${yearNum} Week ${weekNum} Recap`
 
   const handleCopyPrompt = async () => {
     try {
@@ -140,11 +140,6 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
         <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-surface-4">
           <div className="min-w-0">
             <h2 className="text-xl sm:text-2xl font-bold text-txt-primary truncate">{heading}</h2>
-            <p className="text-xs text-txt-tertiary mt-0.5">
-              {isPreseason
-                ? 'Forward-looking season preview built from your past dynasty data'
-                : `Recap of the games and storylines from Week ${weekNum}`}
-            </p>
           </div>
           <button
             aria-label="Close"
