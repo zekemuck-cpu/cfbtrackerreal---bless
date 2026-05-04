@@ -244,16 +244,30 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     }
   }
 
-  // ----- Section: Top 25 evolution by week (lets the AI see trends) -----
-  // For each week W (1..weekNum), build a deduped Top 25 snapshot using
-  // the same two-pass fill that powers Rankings.jsx — each rank slot
-  // belongs to exactly one team (no fake ties from teams sharing a slot
-  // across different weeks). The teamNewestRank pass evicts a team from
-  // an old rank when they're seen at a different rank later.
-  const buildSnapshotThroughWeek = (throughWeek) => {
-    const weekBuckets = new Map() // wk -> Map(rank -> { tid, abbr })
+  // ----- Section: Weekly entering-rank snapshots -----
+  // The team1Rank/team2Rank fields on a game record are the ranks teams
+  // CARRIED INTO that game — i.e. the poll AS OF the start of that week.
+  // So a snapshot built from games where week == W tells us the poll
+  // entering Week W (= post-Week W-1 rankings).
+  //
+  // For the recap of Week N just finished, the most useful "current" poll
+  // is the post-Week N poll — which is observable ONLY in the entering
+  // ranks of Week N+1 games (if the user has entered them already, e.g.
+  // by drafting next week's schedule with ranks before generating the
+  // recap). If Week N+1 data doesn't exist yet, we fall back to the most
+  // recent week with data.
+  //
+  // The two-pass fill (matches Rankings.jsx) guarantees each rank slot
+  // 1-25 belongs to exactly one team — no fake ties from teams sharing a
+  // slot across different weeks.
+  const isRankedRow = (n) => isRanked(n)
+  const buildSnapshotForEnteringWeek = (enteringWeek) => {
+    // "Entering week W" snapshot uses observations from week W games
+    // (their team1Rank/team2Rank are the entering ranks for that week)
+    // PLUS any earlier weeks for teams that didn't play this week.
+    const weekBuckets = new Map()
     const observe = (wk, rank, tid, abbr) => {
-      if (!isRanked(rank)) return
+      if (!isRankedRow(rank)) return
       if (!weekBuckets.has(wk)) weekBuckets.set(wk, new Map())
       const bucket = weekBuckets.get(wk)
       if (bucket.has(rank)) return
@@ -261,14 +275,12 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     }
     for (const g of games) {
       const gw = Number(g.week)
-      if (!Number.isFinite(gw) || gw > throughWeek) continue
+      if (!Number.isFinite(gw) || gw > enteringWeek) continue
       observe(gw, g.team1Rank, g.team1Tid, g.team1)
       observe(gw, g.team2Rank, g.team2Tid, g.team2)
     }
-    if (weekBuckets.size === 0) return []
+    if (weekBuckets.size === 0) return { rows: [], latestWeek: null }
     const sortedWeeks = [...weekBuckets.keys()].sort((a, b) => b - a)
-    // Pass 1: register each team's NEWEST rank so a team that moved
-    // from #1 last week to #3 this week appears only at #3.
     const teamNewestRank = new Map()
     const teamKeyOf = (tid, abbr) => tid != null ? `tid:${tid}` : `abbr:${abbr || ''}`
     for (const wk of sortedWeeks) {
@@ -279,8 +291,6 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
         if (!teamNewestRank.has(key)) teamNewestRank.set(key, { rank, tid: info.tid, abbr: info.abbr })
       }
     }
-    // Pass 2: write to slot map newest → oldest. Skip stale duplicates
-    // (a team's newest rank disagrees with the slot we're considering).
     const slotMap = new Map()
     for (const wk of sortedWeeks) {
       const bucket = weekBuckets.get(wk)
@@ -297,14 +307,30 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
       }
       if (slotMap.size === 25) break
     }
-    return [...slotMap.values()].sort((a, b) => a.rank - b.rank)
+    return {
+      rows: [...slotMap.values()].sort((a, b) => a.rank - b.rank),
+      latestWeek: sortedWeeks[0] ?? null,
+    }
   }
+
+  // Weekly evolution: for each week W from 1..weekNum, the poll teams
+  // entered W with. Each row is a snapshot AS OF the START of Week W.
   const top25ByWeek = []
   for (let w = 1; w <= weekNum; w++) {
-    const rows = buildSnapshotThroughWeek(w)
-    if (rows.length > 0) top25ByWeek.push({ week: w, rows })
+    const snap = buildSnapshotForEnteringWeek(w)
+    if (snap.rows.length > 0) top25ByWeek.push({ week: w, rows: snap.rows })
   }
-  const rankSnapshot = top25ByWeek.length > 0 ? top25ByWeek[top25ByWeek.length - 1].rows : []
+
+  // Latest derivable poll — peek at Week N+1 games. If the user has
+  // entered next week's schedule with ranks already, those entering
+  // ranks ARE the post-Week N poll. Otherwise fall back to the most
+  // recent week with data and explicitly note the staleness.
+  const peekSnapshot = buildSnapshotForEnteringWeek(weekNum + 1)
+  const hasFreshPostWeekPoll = peekSnapshot.latestWeek === weekNum + 1
+  const rankSnapshot = peekSnapshot.rows
+  const rankSnapshotLabel = hasFreshPostWeekPoll
+    ? `POST-WEEK ${weekNum} TOP 25 (the poll teams are entering Week ${weekNum + 1} with — i.e. the rankings AFTER Week ${weekNum} games)`
+    : `MOST RECENT TOP 25 SNAPSHOT (the poll teams entered their most recent observed games with — Week ${peekSnapshot.latestWeek ?? weekNum}. Post-Week ${weekNum} rankings are NOT yet observable; use this snapshot only as a baseline and INFER movement from this week's results.)`
 
   // ----- Section: Cumulative stat leaders (season-to-date) -----
   // Aggregates every box score we have through this week into a per-player
@@ -525,10 +551,12 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     sections.push('')
   }
 
-  // Current Top 25 (post-week snapshot — use for describing rankings AFTER Week N)
+  // Latest derivable Top 25 — labeled differently based on whether we
+  // have Week N+1 data (= true post-Week N poll) or only have Week N
+  // entering ranks (= post-Week N-1 poll, somewhat stale).
   if (rankSnapshot.length > 0) {
-    sections.push(`POST-WEEK ${weekNum} TOP 25 (current rankings AFTER Week ${weekNum})`)
-    sections.push(`(Use these ranks when describing where teams stand NOW. Each rank slot 1-25 belongs to exactly one team — there are no ties.)`)
+    sections.push(rankSnapshotLabel)
+    sections.push(`(Each rank slot 1-25 belongs to exactly one team — there are no ties.)`)
     for (const r of rankSnapshot) sections.push(`#${r.rank} ${r.name}`)
     sections.push('')
   }
@@ -540,13 +568,14 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     sections.push('')
   }
 
-  // Top 25 EVOLUTION week-by-week (so AI can describe poll movement)
+  // Top 25 EVOLUTION week-by-week — each row is the poll teams ENTERED
+  // that week with (i.e. the post-previous-week poll).
   if (top25ByWeek.length > 1) {
-    sections.push(`TOP 25 EVOLUTION (post-week snapshot for each week, oldest to newest)`)
-    sections.push(`(Use this section ONLY for describing poll movement — "rose from #X to #Y" / "fell from #X to #Y". Each row is the post-week poll for that week.)`)
+    sections.push(`TOP 25 EVOLUTION (poll teams ENTERED each week with — oldest to newest)`)
+    sections.push(`(Each row is the poll AT THE START of that week. Use this section ONLY for describing poll movement — "rose from #X to #Y" / "fell from #X to #Y" — by comparing consecutive rows.)`)
     for (const snap of top25ByWeek) {
       const compact = snap.rows.slice(0, 25).map(r => `#${r.rank} ${r.name}`).join(' · ')
-      sections.push(`After Week ${snap.week}: ${compact}`)
+      sections.push(`Entering Week ${snap.week}: ${compact}`)
     }
     sections.push('')
   }
@@ -595,12 +624,16 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     `═══════════════════════════════════════════════════════════`,
     `RANK USAGE — READ CAREFULLY`,
     `═══════════════════════════════════════════════════════════`,
-    `The data below has TWO different rank values for each team and you must keep them straight:`,
+    `Every team1Rank/team2Rank in the data is the rank the team CARRIED INTO that game (the "pre-game" or "entering" rank). Two distinct kinds of rank values appear in the data block:`,
     ``,
-    `  • PRE-GAME RANK = the rank the team CARRIED INTO Week ${weekNum}. Shown next to each team in the game lines (HEADLINE / TOP-25 vs UNRANKED / ALL ENTERED FBS GAMES sections). Use when describing the matchup itself ("the #4 team faced the #11 team").`,
-    `  • POST-WEEK RANK = the rank the team holds NOW, AFTER Week ${weekNum}. Shown in the "POST-WEEK ${weekNum} TOP 25" section. Use when describing where teams currently stand or how the poll shifted.`,
+    `  • ENTERING-WEEK-${weekNum} RANK — the rank teams brought INTO Week ${weekNum}. Shown next to each team in the game lines (HEADLINE / TOP-25 vs UNRANKED / ALL ENTERED FBS GAMES sections). Use when describing the matchup itself ("the #4 team faced the #11 team in the game").`,
+    `  • LATEST-AVAILABLE TOP 25 — the most recent poll snapshot we can derive. Read the section's exact label below — it'll either say "POST-WEEK ${weekNum} TOP 25" (if Week ${weekNum + 1} game data was already entered, giving us the actual post-Week ${weekNum} poll) OR "MOST RECENT TOP 25 SNAPSHOT" (if not, in which case it's stale and represents the poll teams entered Week ${weekNum} with, NOT the post-Week ${weekNum} poll).`,
     ``,
-    `Mixing these is a common error: do NOT write "the #1 team beat #21 Duke" if Duke entered Week ${weekNum} ranked #14 and only fell to #21 AFTER losing. Write "the #1 team beat #14 Duke" (using the entering rank) and separately note "Duke fell from #14 to #21" using the post-week section.`,
+    `WRITING RULES:`,
+    `- Describe matchups using ENTERING ranks ("the #4 team beat the #11 team", not the post-week ranks).`,
+    `- When the latest snapshot is labeled "POST-WEEK ${weekNum}", you may say "Team X is now #N" for the current poll.`,
+    `- When the latest snapshot is labeled "MOST RECENT" (i.e. Week ${weekNum + 1} data isn't available), DO NOT claim definitive post-Week ${weekNum} rankings. Instead infer ("after the loss, Tennessee should fall in next week's poll") or describe the trajectory using the EVOLUTION section.`,
+    `- Mixing these up is a common error: don't write "the #1 team beat #21 Duke" if Duke entered Week ${weekNum} at #14 — use the entering rank #14. Track post-week movement separately via the EVOLUTION rows.`,
     ``,
     `═══════════════════════════════════════════════════════════`,
     `WHAT TO COVER (suggested order — adapt based on what's in the data)`,
@@ -608,12 +641,16 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     `1. HEADLINE GAMES — lead with the biggest result(s) of the week. Top 25 vs Top 25 always headlines if any happened. Otherwise the most consequential ranked-vs-unranked game (e.g. a top-10 team falling to an unranked one is the lead).`,
     `2. UPSETS & SURPRISES — call out any losses by ranked teams, especially top-10 teams. Quantify the gap when possible ("the #4 team fell to a team that came in 2-3").`,
     `3. NATIONAL TOP-25 ROUND-UP — quick walk through other ranked teams' results.`,
-    `4. POLL MOVEMENT — if the Top 25 evolution shows a clear trajectory (a team rising or falling several spots over recent weeks), call it out. Use the EVOLUTION section, not invention. Do not describe "ties" or "shared ranks" — every rank slot 1-25 has exactly one team.`,
-    `5. AWARDS / HEISMAN PICTURE — name the season's stat leaders and POW leaderboard front-runners. Frame as Heisman watch / All-American watch ONLY if the cumulative numbers warrant it.`,
+    `4. POLL MOVEMENT — if the EVOLUTION section shows a clear trajectory across recent weeks (a team rising or falling several spots), call it out by comparing consecutive "Entering Week W" rows. Each row is the poll AT THE START of that week. Don't describe "ties" or "shared ranks" — every slot 1-25 has exactly one team.`,
+    `5. AWARDS / HEISMAN PICTURE — write this section ONLY when the data shows a clear front-runner. Concrete bar: a player must have at least 3 cumulative POW honors, OR be #1 by a noticeable margin in a major stat category (passing/rushing/receiving yds, sacks). If nobody clears that bar, SKIP this section entirely. Do not write hedge sentences like "the picture remains a watch list" — just don't include it.`,
     `6. CONFERENCE RACES — when standings data is present, describe who's ahead in each major conference race. If standings aren't entered, skip this entirely.`,
-    `7. LOOK-AHEAD — only if multiple ranked teams have notable matchups remaining and the data block makes that clear. If not, skip.`,
+    `7. LOOK-AHEAD — only if the post-week poll snapshot is fresh (labeled "POST-WEEK ${weekNum}", not "MOST RECENT"). Otherwise skip — speculation about next week without next week's data leads to invention.`,
     ``,
-    `If a section's data block is empty, skip the section entirely — do not write filler. Better a tight 4-paragraph recap than a padded one.`,
+    `If a section's data block is empty or thin, skip the section entirely — do not write filler. Better a tight 4-paragraph recap than a padded one. Concrete examples of filler to avoid:`,
+    `  - Sections with only 1-2 ranked players with 1 POW each ("compact leaderboard, watch list...")`,
+    `  - Restating the same scoreline more than once`,
+    `  - "The crowd was electric" / "showed great heart" type filler`,
+    `  - Any sentence that doesn't add a fact from the data`,
     ``,
     OUTPUT_FORMAT.trim(),
     ``,
