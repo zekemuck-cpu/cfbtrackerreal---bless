@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import { teams } from '../data/teams'
 import SearchableSelect from './SearchableSelect'
 import { useToast } from './ui/Toast'
@@ -36,7 +35,6 @@ export default function RankingsEntryModal({ isOpen, onClose, onSave, currentYea
     onClose()
   }
 
-  useBodyScrollLock(isOpen)
   if (!isOpen) return null
 
   return createPortal(

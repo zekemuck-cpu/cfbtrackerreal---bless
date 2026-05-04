@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import { useDynasty } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { generateShareCode } from '../services/dynastyService'
@@ -73,7 +72,6 @@ export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty
     setTimeout(() => setCopied(false), 2000)
   }
 
-  useBodyScrollLock(isOpen)
   if (!isOpen) return null
 
   return createPortal(

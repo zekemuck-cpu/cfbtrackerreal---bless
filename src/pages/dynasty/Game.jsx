@@ -647,9 +647,14 @@ export default function Game() {
 
   // Resolve the active tab now that we know whether a recap exists. URL param
   // wins if present so shared links keep working; otherwise use the per-device
-  // preference, and if that's "auto" fall back to Gamecast-when-recap or
-  // Box Score otherwise (the historic default).
-  const autoDefaultTab = game.aiRecap ? 'gamecast' : 'boxscore'
+  // preference, and if that's "auto" fall back to a smart pick based on which
+  // sections actually have content. When the recap exists but the box score
+  // hasn't been entered, Gamecast renders a near-empty leaders rail, so we
+  // route straight to the standalone Recap tab.
+  const hasBoxForLeaders = !!(game.boxScore?.home || game.boxScore?.away)
+  const autoDefaultTab = game.aiRecap
+    ? (hasBoxForLeaders ? 'gamecast' : 'recap')
+    : 'boxscore'
   const effectiveDefaultTab = defaultTabPref === 'auto' ? autoDefaultTab : defaultTabPref
   const activeTab = searchParams.get('tab') || effectiveDefaultTab
 

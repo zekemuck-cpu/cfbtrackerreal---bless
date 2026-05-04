@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 
 const PLAY_DURATION = 30 // seconds per play before auto-advance
 
@@ -185,7 +184,6 @@ export default function ScoringHighlightsModal({
   // inside the effect below.
   resumeOffsetSec = 0,
 }) {
-  useBodyScrollLock(isOpen)
   const navigate = useNavigate()
   const [currentIndex, setCurrentIndex] = useState(startIndex)
   const [isPlaying, setIsPlaying] = useState(true)

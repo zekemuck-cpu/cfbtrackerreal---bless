@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import { getContrastTextColor } from '../utils/colorUtils'
 
 /**
@@ -38,7 +37,6 @@ export default function ClassAdvancementModal({ isOpen, onClose, onConfirm, play
     setPlayedFiveOrMore(updated)
   }
 
-  useBodyScrollLock(isOpen)
   if (!isOpen) return null
 
   return createPortal(

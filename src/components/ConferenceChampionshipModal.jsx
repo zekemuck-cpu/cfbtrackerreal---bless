@@ -46,9 +46,63 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
   const [highlightSave, setHighlightSave] = useState(false)
   const [showAIPrompt, setShowAIPrompt] = useState(false)
 
-  const aiPrompt = useMemo(() => buildAIPrompt({
-    title: `${currentYear} Conference Championships`,
-    structure: `This sheet has ONE tab named "Conference Championships". 5 columns, up to 11 rows (1 header + up to 10 conferences — one conference may be excluded if the user already entered their own CC game).
+  // Determine which conference (if any) is excluded from the sheet because
+  // the user already played their own CC game. Mirrors the logic in the
+  // sheet-creation effect below so the AI prompt and the actual sheet stay
+  // in sync. Returned as the *canonical* conference name from the master
+  // list so the prompt can match it case-insensitively against that list.
+  // The MASTER_CONFERENCES order here MUST exactly match the order used by
+  // createConferenceChampionshipSheet() in services/sheetsService.js.
+  const excludeConferenceForPrompt = useMemo(() => {
+    const MASTER_CONFERENCES = [
+      'American', 'ACC', 'Big 12', 'Big Ten', 'Conference USA',
+      'MAC', 'Mountain West', 'Pac-12', 'SEC', 'Sun Belt',
+    ]
+    const userCCGame = currentDynasty?.games?.find(
+      g => g.isConferenceChampionship && Number(g.year) === Number(currentYear) && g.userTeam
+    )
+    const raw = userCCGame?.conference || currentDynasty?.conference || null
+    if (!raw) return null
+    const norm = String(raw).toLowerCase()
+    return MASTER_CONFERENCES.find(c => c.toLowerCase() === norm) || null
+  }, [currentDynasty?.games, currentDynasty?.conference, currentYear])
+
+  const aiPrompt = useMemo(() => {
+    // Single source of truth for the row order. Must mirror the array in
+    // createConferenceChampionshipSheet() — that's the order column A is
+    // pre-filled in. If you change one, change the other.
+    const MASTER_CONFERENCES = [
+      'American', 'ACC', 'Big 12', 'Big Ten', 'Conference USA',
+      'MAC', 'Mountain West', 'Pac-12', 'SEC', 'Sun Belt',
+    ]
+    const sheetConferences = excludeConferenceForPrompt
+      ? MASTER_CONFERENCES.filter(c => c !== excludeConferenceForPrompt)
+      : MASTER_CONFERENCES
+    const totalRows = sheetConferences.length
+
+    // Build the row table dynamically so sheet row numbers stay correct
+    // when a conference is excluded (rows shift up — there is no gap).
+    const rowTable = sheetConferences
+      .map((conf, i) => {
+        const sheetRow = String(i + 2).padStart(5, ' ')
+        const confPadded = conf.padEnd(20, ' ')
+        return `  ${sheetRow}    | ${confPadded} | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>`
+      })
+      .join('\n')
+
+    const outputTemplateLines = sheetConferences
+      .map(conf => `<${conf} row: Team1\\tTeam2\\tScore1\\tScore2   OR blank line if unknown>`)
+      .join('\n')
+
+    const exclusionNote = excludeConferenceForPrompt
+      ? `IMPORTANT — the "${excludeConferenceForPrompt}" conference is EXCLUDED from this sheet because the user already entered their own CC game for that conference. Output exactly ${totalRows} lines (NOT 10). Do NOT output a "${excludeConferenceForPrompt}" row at all.`
+      : `Output exactly ${totalRows} lines (one per conference, in the exact order listed below).`
+
+    const orderListInline = sheetConferences.join(', ')
+
+    return buildAIPrompt({
+      title: `${currentYear} Conference Championships`,
+      structure: `This sheet has ONE tab named "Conference Championships". 5 columns, ${totalRows + 1} rows (1 header + ${totalRows} conferences).
 
 Column A (Conference name) is PRE-FILLED and PROTECTED — you never output it.
 You fill columns B (Team 1), C (Team 2), D (Team 1 Score), E (Team 2 Score).
@@ -57,34 +111,26 @@ You fill columns B (Team 1), C (Team 2), D (Team 1 Score), E (Team 2 Score).
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
 1. Output ONLY columns B, C, D, E. Never output column A (conference name) or the header row.
-2. Row order is FIXED by the conference order below (alphabetical). If the user excluded a conference, SKIP that line — do not leave a blank row; just output one fewer line. If uncertain whether a conference was excluded, output all 10 — the user will trim.
-3. NO COMMAS in scores. Integers only. No decimals.
-4. BLANK LINE (empty, no tabs) if you do not know the CC result for a conference. Never guess. Never invent scores.
-5. Team 1 and Team 2 must BOTH be members of the conference in column A for that row (the user will see your output next to the conference label).
-6. Both teams must use UPPERCASE abbreviations from the mapping at the bottom — NEVER full names or nicknames.
-7. ONE TSV block. Label it with the paste target.
+2. Row order is FIXED — it is NOT alphabetical. The sheet pre-fills column A in the EXACT order listed in the row table below. Your line N must correspond to the conference on sheet row N+1. Do not re-sort.
+3. ${exclusionNote}
+4. NO COMMAS in scores. Integers only. No decimals.
+5. BLANK LINE (empty, no tabs) if you do not know the CC result for a conference. Never guess. Never invent scores. The blank still counts as that conference's line — keep position so all later lines stay aligned.
+6. Team 1 and Team 2 must BOTH be members of the conference for that row.
+7. Both teams must use UPPERCASE abbreviations from the mapping at the bottom — NEVER full names or nicknames.
+8. ONE TSV block. Label it with the paste target.
 
 ═══════════════════════════════════════════════════════════
-TAB "Conference Championships" — up to 10 rows × 4 output columns
+TAB "Conference Championships" — ${totalRows} rows × 4 output columns
 Paste at cell B2 of the "Conference Championships" tab
 ═══════════════════════════════════════════════════════════
 
-Column A is pre-filled with these 10 conferences in this ALPHABETICAL order (the code sorts them). If a conference was excluded from this sheet (because the user plays in it), that ROW will not exist and you should SKIP its line in your output:
+Column A is pre-filled with these ${totalRows} conferences in this EXACT order (this is NOT alphabetical — it is the literal order the sheet uses, hard-coded). Match this order line-for-line:
 
 Sheet Row | Col A (PROTECTED)    | Your output: Team1\\tTeam2\\tTeam1Score\\tTeam2Score
 ----------+----------------------+----------------------------------------------------
-    2     | ACC                  | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>
-    3     | American             | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>
-    4     | Big 12               | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>
-    5     | Big Ten              | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>
-    6     | Conference USA       | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>
-    7     | MAC                  | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>
-    8     | Mountain West        | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>
-    9     | Pac-12               | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>
-   10     | SEC                  | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>
-   11     | Sun Belt             | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>
+${rowTable}
 
-(NOTE: The sheet sorts column A alphabetically. "American" comes before "Big 12" in alphabetical order and "Pac-12" comes before "SEC". This is the row order the sheet uses.)
+Order in plain words: ${orderListInline}.
 
 Per-line output (4 tab-separated fields):
 <Team 1 Abbr>\\t<Team 2 Abbr>\\t<Team 1 Score>\\t<Team 2 Score>
@@ -99,31 +145,26 @@ Field formats:
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
 === CONFERENCE CHAMPIONSHIPS — paste at cell B2 of "Conference Championships" tab ===
-<ACC row: Team1\\tTeam2\\tScore1\\tScore2   OR blank line if unknown>
-<American row: ...>
-<Big 12 row: ...>
-<Big Ten row: ...>
-<Conference USA row: ...>
-<MAC row: ...>
-<Mountain West row: ...>
-<Pac-12 row: ...>
-<SEC row: ...>
-<Sun Belt row: ...>
+${outputTemplateLines}
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send
 ═══════════════════════════════════════════════════════════
-[ ] Up to 10 lines total, in alphabetical conference order (ACC first, Sun Belt last)
+[ ] Exactly ${totalRows} lines total, in this EXACT order: ${orderListInline}
+[ ] First line is for ${sheetConferences[0]} (NOT alphabetical — match the row table)
+[ ] Last line is for ${sheetConferences[totalRows - 1]}
+${excludeConferenceForPrompt ? `[ ] No "${excludeConferenceForPrompt}" line — that conference is excluded` : ''}
 [ ] Every non-blank line has exactly 4 tab-separated fields (3 tabs)
 [ ] Both teams on each line are members of that row's conference
 [ ] Team 1 and Team 2 are different teams
 [ ] All team values are uppercase abbreviations from the mapping — no full names
 [ ] All scores are integers with no commas and no decimals
-[ ] Blank entire lines for unknown results — nothing invented
+[ ] Blank entire lines for unknown results — nothing invented (still keeps the line position)
 [ ] No Conference name, no header row, no commentary in the output`,
-    includeTeamMap: true,
-    dynastyTeams: currentDynasty?.teams,
-  }), [currentYear, currentDynasty?.teams])
+      includeTeamMap: true,
+      dynastyTeams: currentDynasty?.teams,
+    })
+  }, [currentYear, currentDynasty?.teams, excludeConferenceForPrompt])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

@@ -154,9 +154,6 @@ export default function Rankings() {
     liveWeek = live.week ?? selectedWeek
   }
   const usingLive = selectedWeek !== 'final'
-  const sourceLabel = usingLive
-    ? (liveWeek != null ? `Live · After Week ${liveWeek}` : 'Live')
-    : 'Final Poll'
 
   // Saved conference standings give us a quick W-L lookup; calculated
   // record (from games[]) is more authoritative when it differs.
@@ -326,53 +323,45 @@ export default function Rankings() {
     )
   }
 
-  // Options for the inline week selector. Only show "Final" when the
-  // year actually has a saved final poll. Latest week first so the
-  // freshest snapshot lives at the top of the dropdown.
+  // Options for the inline week selector — these labels also drive the
+  // eyebrow text, so they read as natural language ("After Week 5" /
+  // "Final Poll") rather than terse chip labels. Latest week first so
+  // the freshest snapshot lives at the top of the dropdown.
   const weekOptions = [
-    ...(hasSavedFinal ? [{ value: 'final', label: 'Final' }] : []),
-    ...[...availableWeeks].reverse().map(w => ({ value: w, label: `Week ${w}` })),
+    ...(hasSavedFinal ? [{ value: 'final', label: 'Final Poll' }] : []),
+    ...[...availableWeeks].reverse().map(w => ({ value: w, label: `After Week ${w}` })),
   ]
   const selectedLabel =
-    selectedWeek === 'final' ? 'Final'
-    : selectedWeek != null ? `Week ${selectedWeek}`
+    selectedWeek === 'final' ? 'Final Poll'
+    : selectedWeek != null ? `After Week ${selectedWeek}`
     : null
 
-  // Only render the selector when the user has more than one option
-  // (multiple weeks, or a saved final poll alongside week data).
+  // Only render the selector when the user has more than one option;
+  // a single-option year falls back to a plain eyebrow label.
   const showWeekSelector = weekOptions.length > 1
 
   return (
     <div className="space-y-6 page-enter">
       <PageHero
-        eyebrow={sourceLabel}
-        title={
-          <span className="inline-flex items-baseline flex-wrap gap-x-3">
-            <TitleWithYear
-              year={displayYear}
-              years={availableYears}
-              onChange={handleYearChange}
-              label="Top 25"
+        eyebrow={
+          showWeekSelector && selectedLabel ? (
+            <InlineWeekSelect
+              value={selectedWeek}
+              label={selectedLabel}
+              options={weekOptions}
+              onChange={setSelectedWeek}
             />
-            {showWeekSelector && selectedLabel && (
-              <>
-                <span className="text-txt-muted opacity-60 self-center" aria-hidden="true">·</span>
-                <InlineWeekSelect
-                  value={selectedWeek}
-                  label={selectedLabel}
-                  options={weekOptions}
-                  onChange={setSelectedWeek}
-                />
-              </>
-            )}
-          </span>
+          ) : (
+            selectedLabel
+          )
         }
-        meta={
-          <span>
-            {usingLive
-              ? 'Snapshot derived from saved games — pick any week to rewind'
-              : 'End of season poll standings'}
-          </span>
+        title={
+          <TitleWithYear
+            year={displayYear}
+            years={availableYears}
+            onChange={handleYearChange}
+            label="Top 25"
+          />
         }
       />
 

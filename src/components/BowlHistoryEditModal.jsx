@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import { useDynasty, GAME_TYPES, detectGameType } from '../context/DynastyContext'
 import { getContrastTextColor, getModalColors } from '../utils/colorUtils'
 import { bowlLogos, getAllBowlNames } from '../data/bowlLogos'
@@ -199,7 +198,6 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
     }
   }
 
-  useBodyScrollLock(isOpen)
   if (!isOpen) return null
 
   const yearGames = bowlGames[selectedYear] || {}
