@@ -16,6 +16,7 @@ import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getAllDynastyCards } from '../../utils/playerCards'
 import CardComposer from '../../components/CardComposer'
+import FlippableCard from '../../components/FlippableCard'
 import { PageHero, EmptyState } from '../../components/ui'
 
 export default function CardCollection() {
@@ -75,11 +76,13 @@ export default function CardCollection() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 sm:gap-6">
           {allCards.map(({ player, card }) => {
             const isLegacy = card.styleId === undefined && card.templateId !== undefined
+            // Outer wrapper is a plain div (not a Link) so clicking
+            // the card flips it via FlippableCard. The player name
+            // beneath is its own Link — that's the navigation target.
             return (
-              <Link
+              <div
                 key={`${player.pid}-${card.id}`}
-                to={`${pathPrefix}/player/${player.pid}?tab=card`}
-                className="group flex flex-col items-center"
+                className="flex flex-col items-center"
               >
                 <div className="w-full">
                   {isLegacy ? (
@@ -90,28 +93,17 @@ export default function CardCollection() {
                       width="100%"
                       className="rounded-xl shadow-2xl overflow-hidden"
                     />
-                  ) : (card.frontImageUrl ? (
-                    <img
-                      src={card.frontImageUrl}
-                      alt={`${player.name} card`}
-                      className="w-full rounded-xl shadow-2xl block"
-                      style={{ aspectRatio: '5/7', objectFit: 'cover' }}
-                      loading="lazy"
-                    />
                   ) : (
-                    <div
-                      className="w-full rounded-xl flex items-center justify-center text-[11px] text-txt-tertiary text-center"
-                      style={{
-                        aspectRatio: '5/7',
-                        backgroundColor: 'var(--surface-2)',
-                        border: '1px dashed var(--surface-4)',
-                      }}
-                    >
-                      No image yet
-                    </div>
-                  ))}
+                    <FlippableCard
+                      frontImageUrl={card.frontImageUrl}
+                      backImageUrl={card.backImageUrl}
+                    />
+                  )}
                 </div>
-                <div className="mt-2 px-1 text-center w-full">
+                <Link
+                  to={`${pathPrefix}/player/${player.pid}?tab=card`}
+                  className="mt-2 px-1 text-center w-full group block"
+                >
                   <div className="text-xs font-bold text-txt-primary truncate group-hover:underline">
                     {player.name}
                   </div>
@@ -121,8 +113,8 @@ export default function CardCollection() {
                     {card.label}
                     {!card.year && !card.label && (player.position || '—')}
                   </div>
-                </div>
-              </Link>
+                </Link>
+              </div>
             )
           })}
         </div>

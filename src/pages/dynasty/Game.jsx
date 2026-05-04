@@ -8,6 +8,7 @@ import { getContrastTextColor } from '../../utils/colorUtils'
 import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear, getCustomConferencesForYear } from '../../context/DynastyContext'
 import CardComposer from '../../components/CardComposer'
 import { getCardsForGame } from '../../utils/playerCards'
+import FlippableCard from '../../components/FlippableCard'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 // useTeamColors not needed - using neutral colors for game recap
 import { getBowlLogo } from '../../data/bowlLogos'
@@ -2991,26 +2992,12 @@ export default function Game() {
                             width="100%"
                             className="rounded-xl shadow-2xl overflow-hidden"
                           />
-                        ) : (card.frontImageUrl ? (
-                          <img
-                            src={card.frontImageUrl}
-                            alt={`${p.name} card`}
-                            className="w-full rounded-xl shadow-2xl block"
-                            style={{ aspectRatio: '5/7', objectFit: 'cover' }}
-                            loading="lazy"
-                          />
                         ) : (
-                          <div
-                            className="w-full rounded-xl flex items-center justify-center text-[11px] text-txt-tertiary text-center"
-                            style={{
-                              aspectRatio: '5/7',
-                              backgroundColor: 'var(--surface-2)',
-                              border: '1px dashed var(--surface-4)',
-                            }}
-                          >
-                            No image yet
-                          </div>
-                        ))}
+                          <FlippableCard
+                            frontImageUrl={card.frontImageUrl}
+                            backImageUrl={card.backImageUrl}
+                          />
+                        )}
                       </div>
                     </div>
                   )

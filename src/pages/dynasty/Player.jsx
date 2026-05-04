@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, getEncourageTransfers, getRecruitingCommitments } from '../../context/DynastyContext'
 import CardComposer from '../../components/CardComposer'
+import FlippableCard from '../../components/FlippableCard'
 import MediaList from '../../components/MediaList'
 import { getPlayerCards } from '../../utils/playerCards'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -5545,82 +5546,6 @@ export default function Player() {
  * Renders nothing when both URLs are missing — the parent decides whether
  * to surface a placeholder for that case.
  */
-function FlippableCard({ frontImageUrl, backImageUrl }) {
-  const [flipped, setFlipped] = useState(false)
-  const hasFront = !!frontImageUrl
-  const hasBack = !!backImageUrl
-  if (!hasFront && !hasBack) {
-    return (
-      <div
-        className="rounded-xl flex items-center justify-center text-xs text-txt-tertiary"
-        style={{
-          width: '100%',
-          aspectRatio: '5 / 7',
-          backgroundColor: 'var(--surface-2)',
-          border: '1px dashed var(--surface-4)',
-        }}
-      >
-        No images yet
-      </div>
-    )
-  }
-  // Single-side fallback: if only one image exists, show it without flip.
-  if (!hasBack || !hasFront) {
-    const url = frontImageUrl || backImageUrl
-    return (
-      <div className="rounded-xl overflow-hidden shadow-2xl" style={{ aspectRatio: '5 / 7' }}>
-        <img src={url} alt="" className="w-full h-full object-cover" />
-      </div>
-    )
-  }
-  return (
-    <button
-      type="button"
-      onClick={() => setFlipped(f => !f)}
-      className="w-full block text-left"
-      style={{ aspectRatio: '5 / 7', perspective: '1200px', cursor: 'pointer' }}
-      title={flipped ? 'Click to flip — front' : 'Click to flip — back'}
-    >
-      <div
-        style={{
-          position: 'relative',
-          width: '100%',
-          height: '100%',
-          transformStyle: 'preserve-3d',
-          transition: 'transform 600ms cubic-bezier(0.22, 1, 0.36, 1)',
-          transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-        }}
-      >
-        {/* Front face */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backfaceVisibility: 'hidden',
-            WebkitBackfaceVisibility: 'hidden',
-            borderRadius: 12,
-            overflow: 'hidden',
-            boxShadow: '0 18px 42px rgba(0, 0, 0, 0.55)',
-          }}
-        >
-          <img src={frontImageUrl} alt="" className="w-full h-full object-cover" />
-        </div>
-        {/* Back face — pre-rotated so it shows when the parent flips. */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backfaceVisibility: 'hidden',
-            WebkitBackfaceVisibility: 'hidden',
-            transform: 'rotateY(180deg)',
-            borderRadius: 12,
-            overflow: 'hidden',
-            boxShadow: '0 18px 42px rgba(0, 0, 0, 0.55)',
-          }}
-        >
-          <img src={backImageUrl} alt="" className="w-full h-full object-cover" />
-        </div>
-      </div>
-    </button>
-  )
-}
+// FlippableCard moved to src/components/FlippableCard.jsx so the
+// Game page Cards tab and the dynasty Card Collection page can use
+// the same flip behavior the player profile already has.
