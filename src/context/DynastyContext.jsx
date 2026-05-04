@@ -55,7 +55,9 @@ import {
   applyPendingUserTeam,
   hasPendingJob,
   getPendingJobInfo,
-  addCareerEntry
+  addCareerEntry,
+  isFCSPlaceholderAbbr,
+  isFCSPlaceholderTid,
 } from '../data/teamRegistry'
 import { findMatchingPlayer, getPlayerLastHonorDescription, normalizePlayerName } from '../utils/playerMatching'
 import { syncDerivedFieldsFromV2 } from '../data/rosterModel'
@@ -874,6 +876,17 @@ export function calculateTeamRecordFromGames(dynasty, tid, year, options = {}) {
   const games = dynasty.games || []
   const { upToGameId, upToWeek, includeUpToWeek = true } = options
   const abbr = getAbbrFromTid(dynasty.teams, tid)
+
+  // FCS placeholders are anonymous buckets representing whichever real
+  // FCS school the EA game collapsed into that slot. The same
+  // placeholder plays many games in a single season (often multiple
+  // games the same week), so accumulating wins/losses for it produces
+  // a meaningless "record". Return all-zero — every consumer of this
+  // function already filters out empty records, so the record simply
+  // doesn't render anywhere for the four placeholders.
+  if (isFCSPlaceholderAbbr(abbr)) {
+    return { wins: 0, losses: 0, confWins: 0, confLosses: 0, pointsFor: 0, pointsAgainst: 0 }
+  }
 
   // Filter to year and team. Tid checks come first (modern data); abbr
   // checks cover legacy CPU-vs-CPU games stored without tids. Includes

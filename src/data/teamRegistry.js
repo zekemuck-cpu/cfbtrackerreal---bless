@@ -1657,6 +1657,25 @@ export function getAbbrFromTid(teams, tid) {
   return team?.abbr || null
 }
 
+// CFB26 represents FCS opponents as four anonymous regional
+// placeholders (East / Midwest / North / West). The same placeholder
+// plays against many different FBS teams in the same season — often
+// the same week — so the placeholder doesn't have a real "team
+// record"; it's just an opaque bucket. Skipping record accumulation /
+// display for these four avoids the "FCS East showing as 1-0 here,
+// 0-1 there, 3-12 somewhere else" inconsistency.
+const FCS_PLACEHOLDER_ABBRS = new Set(['FCSE', 'FCSM', 'FCSN', 'FCSW'])
+
+export function isFCSPlaceholderAbbr(abbr) {
+  if (!abbr) return false
+  return FCS_PLACEHOLDER_ABBRS.has(String(abbr).toUpperCase())
+}
+
+export function isFCSPlaceholderTid(teams, tid) {
+  if (tid == null) return false
+  return isFCSPlaceholderAbbr(getAbbrFromTid(teams, tid))
+}
+
 /**
  * Get team name from tid.
  *

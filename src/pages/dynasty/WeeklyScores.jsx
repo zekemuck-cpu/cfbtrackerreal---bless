@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, GAME_TYPES, getCustomConferencesForYear } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { TEAMS, getCurrentTeamTid } from '../../data/teamRegistry'
+import { TEAMS, getCurrentTeamTid, isFCSPlaceholderAbbr } from '../../data/teamRegistry'
 import { getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { conferenceTeams as DEFAULT_CONFERENCES, getTeamConference } from '../../data/conferenceTeams'
 import { PageHero, Card, EmptyState, TeamLogo } from '../../components/ui'
@@ -292,26 +292,44 @@ export default function WeeklyScores() {
 
     const running = {}
     const result = {}
+    // Skip FCS placeholders (FCSE/FCSM/FCSN/FCSW) entirely. They're
+    // anonymous regional buckets that play multiple games in the
+    // same week — accumulating them produces a meaningless record
+    // (the same placeholder appearing as 0-1, 1-1, 1-2 across the
+    // page in successive cards).
+    const isPlaceholder = (tid) => {
+      const abbr = teams[tid]?.abbr
+      return isFCSPlaceholderAbbr(abbr)
+    }
     for (const g of yearGames) {
       const t1 = Number(g.team1Tid)
       const t2 = Number(g.team2Tid)
       const wk = Number(g.week)
-      running[t1] = running[t1] || { w: 0, l: 0, t: 0 }
-      running[t2] = running[t2] || { w: 0, l: 0, t: 0 }
+      const t1IsPlaceholder = isPlaceholder(t1)
+      const t2IsPlaceholder = isPlaceholder(t2)
+      if (!t1IsPlaceholder) running[t1] = running[t1] || { w: 0, l: 0, t: 0 }
+      if (!t2IsPlaceholder) running[t2] = running[t2] || { w: 0, l: 0, t: 0 }
       if (g.team1Score > g.team2Score) {
-        running[t1].w++; running[t2].l++
+        if (!t1IsPlaceholder) running[t1].w++
+        if (!t2IsPlaceholder) running[t2].l++
       } else if (g.team2Score > g.team1Score) {
-        running[t2].w++; running[t1].l++
+        if (!t2IsPlaceholder) running[t2].w++
+        if (!t1IsPlaceholder) running[t1].l++
       } else {
-        running[t1].t++; running[t2].t++
+        if (!t1IsPlaceholder) running[t1].t++
+        if (!t2IsPlaceholder) running[t2].t++
       }
-      result[t1] = result[t1] || {}
-      result[t2] = result[t2] || {}
-      result[t1][wk] = { ...running[t1] }
-      result[t2][wk] = { ...running[t2] }
+      if (!t1IsPlaceholder) {
+        result[t1] = result[t1] || {}
+        result[t1][wk] = { ...running[t1] }
+      }
+      if (!t2IsPlaceholder) {
+        result[t2] = result[t2] || {}
+        result[t2][wk] = { ...running[t2] }
+      }
     }
     return result
-  }, [allGames, displayYear])
+  }, [allGames, displayYear, teams])
 
   const weeksWithData = Array.from(gamesByWeek.keys()).sort((a, b) => a - b)
   const gamesThisWeek = gamesByWeek.get(displayWeek) || []
