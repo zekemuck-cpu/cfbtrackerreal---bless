@@ -1365,6 +1365,19 @@ export default function Player() {
       .sort((a, b) => a - b)
     const heismanCount = heismanYears.length
 
+    // Tier 1b — Heisman Finalist (silver). Surface this even when the
+    // player never won — a finalist year is still a notable career mark.
+    // Drop overlapping years that the player ALSO won outright so a Heisman
+    // winner's plate isn't "won + finalist" for the same season.
+    const FINALIST_KEYS = new Set(['heismanFinalist', 'heismanRunnerUp'])
+    const winnerYearSet = new Set(heismanYears)
+    const finalistYears = accolades
+      .filter(a => FINALIST_KEYS.has(a.award))
+      .map(a => Number(a.year))
+      .filter(y => Number.isFinite(y) && !winnerYearSet.has(y))
+      .sort((a, b) => a - b)
+    const finalistCount = finalistYears.length
+
     // Tier 2 — major named awards. Aggregate by display label so
     // "maxwell" and "maxwellAward" both land in the same Maxwell plate.
     const majorByLabel = {} // label -> { years: number[], firstSeen: idx for stable sort }
@@ -1376,21 +1389,45 @@ export default function Player() {
       if (Number.isFinite(yr)) majorByLabel[label].years.push(yr)
     })
 
-    // Tier 3 — honors teams (aggregate by designation)
-    const aaFirst = allAmericans.filter(a => (a.designation || 'first') === 'first').length
-    const aaSecond = allAmericans.filter(a => a.designation === 'second').length
-    const aaFreshman = allAmericans.filter(a => a.designation === 'freshman').length
-    const acFirst = allConference.filter(a => (a.designation || 'first') === 'first').length
-    const acSecond = allConference.filter(a => a.designation === 'second').length
-    const acFreshman = allConference.filter(a => a.designation === 'freshman').length
+    // Tier 3 — honors teams. Aggregate years per designation so plates can
+    // read "2× 1st-Team All-American ('27, '28)" instead of bare counts.
+    const yearsForDesignation = (list, designation) =>
+      list
+        .filter(a => (a.designation || 'first') === designation)
+        .map(a => Number(a.year))
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b)
+    const aaFirstYears = yearsForDesignation(allAmericans, 'first')
+    const aaSecondYears = yearsForDesignation(allAmericans, 'second')
+    const aaFreshmanYears = yearsForDesignation(allAmericans, 'freshman')
+    const acFirstYears = yearsForDesignation(allConference, 'first')
+    const acSecondYears = yearsForDesignation(allConference, 'second')
+    const acFreshmanYears = yearsForDesignation(allConference, 'freshman')
 
-    // Tier 4 — conference POYs
-    const confPOY = accolades.filter(a => ['confPOY', 'confOPOY', 'confDPOY'].includes(a.award)).length
-    const confFrosh = accolades.filter(a => a.award === 'confFreshmanOY').length
+    // Tier 4 — conference POYs. Track years for the same "(yr, yr)" treatment.
+    const yearsForAwardSet = (keys) => accolades
+      .filter(a => keys.has(a.award))
+      .map(a => Number(a.year))
+      .filter(Number.isFinite)
+      .sort((a, b) => a - b)
+    const confPOYYears = yearsForAwardSet(new Set(['confPOY', 'confOPOY', 'confDPOY']))
+    const confFroshYears = yearsForAwardSet(new Set(['confFreshmanOY']))
 
-    // Tier 5 — player of the week (from game data via memoized powHonors)
+    // Tier 5 — player of the week (from game data via memoized powHonors).
+    // Two metrics matter here: total count (POW awards earned) and which
+    // *seasons* produced them. We surface both: "3× National POW ('27, '29)".
+    const distinctYearsFromGames = (games) => {
+      const set = new Set()
+      ;(games || []).forEach(g => {
+        const y = Number(g?.year)
+        if (Number.isFinite(y)) set.add(y)
+      })
+      return [...set].sort((a, b) => a - b)
+    }
     const confPOW = powHonors?.confPOW || 0
     const nationalPOW = powHonors?.nationalPOW || 0
+    const confPOWYears = distinctYearsFromGames(powHonors?.confPOWGames)
+    const nationalPOWYears = distinctYearsFromGames(powHonors?.nationalPOWGames)
 
     // Format years for the parenthetical: ('27) for one, ('27, '28) for many.
     // Uses two-digit shorthand to keep the plate compact even for 4–5 years.
@@ -1411,6 +1448,10 @@ export default function Player() {
     if (heismanCount > 0) {
       tiers.push({ label: plateLabel(heismanCount, 'Heisman', heismanYears), variant: 'gold' })
     }
+    // Silver tier — finalist-only seasons (winner years filtered out above).
+    if (finalistCount > 0) {
+      tiers.push({ label: plateLabel(finalistCount, 'Heisman Finalist', finalistYears), variant: 'silver' })
+    }
 
     // Major-award tier — sort by frequency desc (most-decorated first),
     // then by first-seen-index for a stable order across renders.
@@ -1424,20 +1465,20 @@ export default function Player() {
         tiers.push({ label: plateLabel(years.length, label, years), variant: 'accent' })
       })
 
-    // Honors-team tier — neutral. Years aren't tracked here at the same
-    // granularity; keep these as count-only plates.
-    const fmtCount = (count, label) => count > 1 ? `${count}× ${label}` : label
-    if (aaFirst > 0) tiers.push({ label: fmtCount(aaFirst, '1st-Team All-American'), variant: 'accent' })
-    if (aaSecond > 0) tiers.push({ label: fmtCount(aaSecond, '2nd-Team All-American'), variant: 'neutral' })
-    if (aaFreshman > 0) tiers.push({ label: fmtCount(aaFreshman, 'Freshman All-American'), variant: 'neutral' })
-    if (acFirst > 0) tiers.push({ label: fmtCount(acFirst, '1st-Team All-Conf'), variant: 'neutral' })
-    if (acSecond > 0) tiers.push({ label: fmtCount(acSecond, '2nd-Team All-Conf'), variant: 'neutral' })
-    if (acFreshman > 0) tiers.push({ label: fmtCount(acFreshman, 'Freshman All-Conf'), variant: 'neutral' })
+    // Honors-team tier — now annotated with years.
+    if (aaFirstYears.length > 0) tiers.push({ label: plateLabel(aaFirstYears.length, '1st-Team All-American', aaFirstYears), variant: 'accent' })
+    if (aaSecondYears.length > 0) tiers.push({ label: plateLabel(aaSecondYears.length, '2nd-Team All-American', aaSecondYears), variant: 'neutral' })
+    if (aaFreshmanYears.length > 0) tiers.push({ label: plateLabel(aaFreshmanYears.length, 'Freshman All-American', aaFreshmanYears), variant: 'neutral' })
+    if (acFirstYears.length > 0) tiers.push({ label: plateLabel(acFirstYears.length, '1st-Team All-Conf', acFirstYears), variant: 'neutral' })
+    if (acSecondYears.length > 0) tiers.push({ label: plateLabel(acSecondYears.length, '2nd-Team All-Conf', acSecondYears), variant: 'neutral' })
+    if (acFreshmanYears.length > 0) tiers.push({ label: plateLabel(acFreshmanYears.length, 'Freshman All-Conf', acFreshmanYears), variant: 'neutral' })
 
-    if (confPOY > 0) tiers.push({ label: fmtCount(confPOY, 'Conf POY'), variant: 'neutral' })
-    if (confFrosh > 0) tiers.push({ label: fmtCount(confFrosh, 'Conf Frosh of the Year'), variant: 'neutral' })
-    if (nationalPOW > 0) tiers.push({ label: fmtCount(nationalPOW, 'National POW'), variant: 'neutral' })
-    if (confPOW > 0) tiers.push({ label: fmtCount(confPOW, 'Conf POW'), variant: 'neutral' })
+    if (confPOYYears.length > 0) tiers.push({ label: plateLabel(confPOYYears.length, 'Conf POY', confPOYYears), variant: 'neutral' })
+    if (confFroshYears.length > 0) tiers.push({ label: plateLabel(confFroshYears.length, 'Conf Frosh of the Year', confFroshYears), variant: 'neutral' })
+    // POW: count is per-game, year list is per-distinct-season, so a
+    // 3-time-in-one-season honoree still reads "3× National POW ('27)".
+    if (nationalPOW > 0) tiers.push({ label: plateLabel(nationalPOW, 'National POW', nationalPOWYears), variant: 'neutral' })
+    if (confPOW > 0) tiers.push({ label: plateLabel(confPOW, 'Conf POW', confPOWYears), variant: 'neutral' })
 
     return tiers
   })()
@@ -1914,6 +1955,26 @@ export default function Player() {
                     backgroundColor: '#fbbf24',
                     color: '#78350f',
                     boxShadow: '0 0 0 1px rgba(251, 191, 36, 0.4), 0 2px 6px rgba(251, 191, 36, 0.25)',
+                  }}
+                >
+                  {p.label}
+                </span>
+              )
+            }
+            if (p.variant === 'silver') {
+              // Sits between gold (Heisman win) and accent (major awards) in
+              // visual weight — a finalist year is more than a position award
+              // but less than a trophy.
+              return (
+                <span
+                  key={i}
+                  className="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider"
+                  style={{
+                    fontFamily: "'Bebas Neue', sans-serif",
+                    letterSpacing: '1px',
+                    backgroundColor: '#cbd5e1',
+                    color: '#1e293b',
+                    boxShadow: '0 0 0 1px rgba(148, 163, 184, 0.45), 0 2px 6px rgba(148, 163, 184, 0.2)',
                   }}
                 >
                   {p.label}
