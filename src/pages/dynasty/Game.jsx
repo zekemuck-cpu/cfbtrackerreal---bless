@@ -1161,48 +1161,56 @@ export default function Game() {
       ? `linear-gradient(90deg, ${leftData.colors.primary} 0%, ${leftData.colors.primary} 55%, ${rightData.colors.primary} 85%, ${rightData.colors.primary} 100%)`
       : `linear-gradient(90deg, ${leftData.colors.primary} 0%, ${leftData.colors.primary} 15%, ${rightData.colors.primary} 45%, ${rightData.colors.primary} 100%)`
 
-  // Title-cluster contents (logo + text). Wrapped in the appropriate Link for
-  // championship/bowl/CFP contexts so the title is also a navigation hint.
+  // Title-cluster pieces. For regular-season games we split the
+  // wrapping link so the conference logo navigates to standings while
+  // the subtitle/title text navigates to that week's Weekly Scores
+  // page (with a query param so it auto-scrolls to this game). For
+  // championship / bowl / CFP rounds the whole cluster keeps its
+  // single navigation target as before.
+  const eventLogoBlock = eventLogo ? (
+    <div
+      className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-md flex items-center justify-center p-1"
+      style={{
+        backgroundColor: '#fff',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.4)',
+      }}
+    >
+      <img src={eventLogo} alt={eventLogoAlt} className="w-full h-full object-contain" />
+    </div>
+  ) : null
+  const titleTextBlock = (
+    <div className="text-left min-w-0">
+      <div
+        className="uppercase truncate"
+        style={{
+          fontSize: '10px',
+          fontWeight: 700,
+          letterSpacing: '1.6px',
+          color: 'var(--text-tertiary)',
+          lineHeight: 1,
+        }}
+      >
+        {gameSubtitle}
+      </div>
+      <div
+        className="truncate"
+        style={{
+          fontSize: '15px',
+          fontWeight: 700,
+          letterSpacing: '-0.01em',
+          color: 'var(--text-primary)',
+          lineHeight: 1.2,
+          marginTop: '3px',
+        }}
+      >
+        {gameTitle}
+      </div>
+    </div>
+  )
   const titleCluster = (
     <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-      {eventLogo && (
-        <div
-          className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-md flex items-center justify-center p-1"
-          style={{
-            backgroundColor: '#fff',
-            boxShadow: '0 1px 2px rgba(0,0,0,0.4)',
-          }}
-        >
-          <img src={eventLogo} alt={eventLogoAlt} className="w-full h-full object-contain" />
-        </div>
-      )}
-      <div className="text-left min-w-0">
-        <div
-          className="uppercase truncate"
-          style={{
-            fontSize: '10px',
-            fontWeight: 700,
-            letterSpacing: '1.6px',
-            color: 'var(--text-tertiary)',
-            lineHeight: 1,
-          }}
-        >
-          {gameSubtitle}
-        </div>
-        <div
-          className="truncate"
-          style={{
-            fontSize: '15px',
-            fontWeight: 700,
-            letterSpacing: '-0.01em',
-            color: 'var(--text-primary)',
-            lineHeight: 1.2,
-            marginTop: '3px',
-          }}
-        >
-          {gameTitle}
-        </div>
-      </div>
+      {eventLogoBlock}
+      {titleTextBlock}
     </div>
   )
 
@@ -1210,18 +1218,27 @@ export default function Game() {
     game.gameType === GAME_TYPES.CFP_FIRST_ROUND || game.gameType === GAME_TYPES.CFP_QUARTERFINAL ||
     game.gameType === GAME_TYPES.CFP_SEMIFINAL || game.gameType === GAME_TYPES.CFP_CHAMPIONSHIP
 
+  // Single-link target — used only for the special game types where
+  // the entire cluster (logo + text) navigates to one place.
   const titleLinkTo = isCFPRound
     ? `${pathPrefix}/cfp-bracket/${game.year}`
     : game.isConferenceChampionship
       ? `${pathPrefix}/conference-championship-history?conference=${encodeURIComponent(game.conference || '')}`
       : game.isBowlGame
         ? `${pathPrefix}/bowl-history?bowl=${encodeURIComponent(game.bowlName || gameTitle)}`
-        : isConferenceMatchup
-          // Regular-season conference matchup: jump to standings for the
-          // year and auto-scroll/highlight that conference (the standings
-          // page reads ?conf=… and scrolls into view).
-          ? `${pathPrefix}/conference-standings/${game.year}?conf=${encodeURIComponent(userConf)}`
-          : null
+        : null
+
+  // Regular-season split-link targets. The title text (e.g. "2034
+  // Regular Season / Week 9") jumps to that week's Weekly Scores
+  // grid and auto-scrolls to this game; the conference logo (only
+  // present for in-conference matchups) jumps to standings.
+  const isRegularSeasonGame = !titleLinkTo
+  const weeklyScoresLink = isRegularSeasonGame && game.year && game.week != null
+    ? `${pathPrefix}/weekly-scores/${game.year}/${game.week}?game=${encodeURIComponent(gameId)}`
+    : null
+  const conferenceStandingsLink = isRegularSeasonGame && isConferenceMatchup && userConf
+    ? `${pathPrefix}/conference-standings/${game.year}?conf=${encodeURIComponent(userConf)}`
+    : null
 
   return (
     <div className="space-y-4 overflow-x-hidden">
@@ -1253,13 +1270,44 @@ export default function Game() {
             }}
           />
 
-          {/* Left-aligned title cluster (logo + subtitle/title) */}
+          {/* Left-aligned title cluster (logo + subtitle/title).
+              Special-event games (CFP / Bowl / Conf Champ) keep the
+              whole cluster wrapped in one navigation Link. Regular-
+              season games split it: conference logo → standings,
+              text → that week's Weekly Scores with auto-scroll to
+              this game. */}
           {titleLinkTo ? (
             <Link to={titleLinkTo} className="hover:opacity-90 transition-opacity min-w-0">
               {titleCluster}
             </Link>
           ) : (
-            <div className="min-w-0">{titleCluster}</div>
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+              {eventLogoBlock && (
+                conferenceStandingsLink ? (
+                  <Link
+                    to={conferenceStandingsLink}
+                    className="hover:opacity-90 transition-opacity"
+                    title={`${userConf} Standings`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {eventLogoBlock}
+                  </Link>
+                ) : (
+                  eventLogoBlock
+                )
+              )}
+              {weeklyScoresLink ? (
+                <Link
+                  to={weeklyScoresLink}
+                  className="hover:opacity-90 transition-opacity min-w-0"
+                  title={`Week ${game.week} scoreboard`}
+                >
+                  {titleTextBlock}
+                </Link>
+              ) : (
+                <div className="min-w-0">{titleTextBlock}</div>
+              )}
+            </div>
           )}
 
           {/* Right: edit / spacer */}

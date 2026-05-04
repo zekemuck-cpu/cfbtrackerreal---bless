@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, GAME_TYPES, getCustomConferencesForYear } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -22,7 +22,7 @@ function formatRecord(rec) {
   return t > 0 ? `${w}-${l}-${t}` : `${w}-${l}`
 }
 
-function GameCard({ game, teams, pathPrefix, recordsByTid }) {
+function GameCard({ game, teams, pathPrefix, recordsByTid, domId }) {
   const navigate = useNavigate()
   const t1 = Number(game.team1Tid)
   const t2 = Number(game.team2Tid)
@@ -147,6 +147,7 @@ function GameCard({ game, teams, pathPrefix, recordsByTid }) {
     <div
       role="button"
       tabIndex={0}
+      id={domId}
       onClick={handleCardClick}
       onKeyDown={handleCardKey}
       className="game-card relative rounded-md overflow-hidden bg-surface-2 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-surface-5"
@@ -231,6 +232,12 @@ export default function WeeklyScores() {
       return next
     }, { replace: true })
   }
+
+  // ?game=<gameId> — when present, scroll that card into view and
+  // briefly flash its border so the user lands on the matchup they
+  // clicked through from the Game page header.
+  const scrollGameId = searchParams.get('game')
+  const scrollHandledRef = useRef(false)
 
   const userTeamName = currentDynasty
     ? (currentDynasty.teams?.[getCurrentTeamTid(currentDynasty)]?.name || currentDynasty.teamName)
@@ -351,6 +358,25 @@ export default function WeeklyScores() {
     return nameA.localeCompare(nameB)
   })
 
+  // Scroll the targeted game card into view and flash its border.
+  // Runs once per scrollGameId (the ref guards against re-running on
+  // every render of the component). The 60ms delay gives the grid a
+  // tick to lay out so getBoundingClientRect is accurate; the
+  // smooth-scroll behavior matches the rest of the app.
+  useEffect(() => {
+    if (!scrollGameId) return
+    if (scrollHandledRef.current === scrollGameId) return
+    const t = setTimeout(() => {
+      const el = document.getElementById(`weekly-game-${scrollGameId}`)
+      if (!el) return
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('weekly-game-flash')
+      setTimeout(() => el.classList.remove('weekly-game-flash'), 1800)
+      scrollHandledRef.current = scrollGameId
+    }, 60)
+    return () => clearTimeout(t)
+  }, [scrollGameId, sortedGames.length])
+
   const filterLabel = filter === 'all'
     ? 'All FBS'
     : filter === 'top25'
@@ -419,6 +445,7 @@ export default function WeeklyScores() {
           {sortedGames.map(game => (
             <GameCard
               key={game.id}
+              domId={`weekly-game-${game.id}`}
               game={game}
               teams={teams}
               pathPrefix={pathPrefix}
@@ -462,7 +489,7 @@ export default function WeeklyScores() {
 
       <style>{`
         .game-card {
-          transition: background-color 200ms ease, border-color 200ms ease, transform 200ms ease;
+          transition: background-color 200ms ease, border-color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
         }
         .game-card:hover {
           background-color: var(--surface-3);
@@ -471,6 +498,17 @@ export default function WeeklyScores() {
         }
         .game-card:active {
           transform: translateY(0);
+        }
+        /* Brief highlight when a card is the scroll target — used when
+           the user clicks the title text on a Game page and lands here. */
+        .game-card.weekly-game-flash {
+          animation: weekly-game-flash-anim 1800ms ease-out;
+          border-color: var(--text-secondary) !important;
+        }
+        @keyframes weekly-game-flash-anim {
+          0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--text-secondary) 60%, transparent); }
+          25%  { box-shadow: 0 0 0 6px color-mix(in srgb, var(--text-secondary) 35%, transparent); }
+          100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); }
         }
       `}</style>
     </div>
