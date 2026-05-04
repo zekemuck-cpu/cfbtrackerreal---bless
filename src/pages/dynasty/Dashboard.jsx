@@ -64,7 +64,7 @@ const normalizePlayerName = (name) => {
 }
 
 export default function Dashboard() {
-  const { currentDynasty, loadingDynastyId, saveSchedule, saveRoster, saveTeamRatings, saveCoachingStaff, saveConferences, addGame, saveCPUBowlGames, saveCFPGames, saveCPUConferenceChampionships, updateDynasty, processHonorPlayers, isViewOnly, exportDynasty } = useDynasty()
+  const { currentDynasty, loadingDynastyId, saveSchedule, saveRoster, saveTeamRatings, saveCoachingStaff, saveConferences, saveConferenceAlignment, addGame, saveCPUBowlGames, saveCFPGames, saveCPUConferenceChampionships, updateDynasty, processHonorPlayers, isViewOnly, exportDynasty } = useDynasty()
 
   // Check if dynasty data is being lazily loaded
   const isLoadingDynastyData = loadingDynastyId === currentDynasty?.id
@@ -10458,36 +10458,20 @@ export default function Dashboard() {
         onSave={async (data) => {
           // Year already flipped at Signing Day (Week 6), so currentYear IS the upcoming season
           const upcomingSeasonYear = currentDynasty.currentYear
-          const isDev = import.meta.env.VITE_DEV_MODE === 'true'
-
           // Check if data is multi-year format (keys are years like "2025", "2026")
           const isMultiYear = Object.keys(data).every(key => /^\d{4}$/.test(key))
 
-          if (isDev || !user) {
-            // Dev mode - save conferences
-            const existingByYear = currentDynasty?.customConferencesByYear || {}
-            if (isMultiYear) {
-              await updateDynasty(currentDynasty.id, {
-                customConferencesByYear: { ...existingByYear, ...data }
-              })
-            } else {
-              await updateDynasty(currentDynasty.id, {
-                customConferencesByYear: { ...existingByYear, [upcomingSeasonYear]: data }
-              })
+          // saveConferenceAlignment fans the bulk map out to each
+          // team's per-year `byYear[year].conference` field AND
+          // continues writing the legacy stores. Routes through the
+          // dynasty's storageType automatically — no dev-mode /
+          // prod-mode branch needed here.
+          if (isMultiYear) {
+            for (const [yearKey, mapForYear] of Object.entries(data)) {
+              await saveConferenceAlignment(currentDynasty.id, Number(yearKey), mapForYear)
             }
           } else {
-            // Production mode - use dot notation for Firestore
-            if (isMultiYear) {
-              const updates = {}
-              Object.entries(data).forEach(([y, conferences]) => {
-                updates[`customConferencesByYear.${y}`] = conferences
-              })
-              await updateDynasty(currentDynasty.id, updates)
-            } else {
-              await updateDynasty(currentDynasty.id, {
-                [`customConferencesByYear.${upcomingSeasonYear}`]: data
-              })
-            }
+            await saveConferenceAlignment(currentDynasty.id, upcomingSeasonYear, data)
           }
         }}
         teamColors={teamColors}

@@ -141,7 +141,7 @@ export default function ConferenceStandings() {
   const { year: urlYear } = useParams()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { currentDynasty, updateDynasty, isViewOnly } = useDynasty()
+  const { currentDynasty, updateDynasty, saveConferenceAlignment, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
   const [searchQuery, setSearchQuery] = useState('')
@@ -581,19 +581,16 @@ export default function ConferenceStandings() {
         onClose={() => setShowConferencesModal(false)}
         onSave={async (data) => {
           const isMultiYear = Object.keys(data).every(key => /^\d{4}$/.test(key))
+          // saveConferenceAlignment fans the bulk map out to each
+          // team's per-year `byYear[year].conference` field, AND
+          // continues writing the legacy customConferencesByYear /
+          // customConferences stores for backward compat.
           if (isMultiYear) {
-            const existingByYear = currentDynasty.customConferencesByYear || {}
-            const newByYear = { ...existingByYear, ...data }
-            await updateDynasty(currentDynasty.id, {
-              customConferencesByYear: newByYear,
-              ...(data[currentDynasty.currentYear] ? { customConferences: data[currentDynasty.currentYear] } : {})
-            })
+            for (const [yearKey, mapForYear] of Object.entries(data)) {
+              await saveConferenceAlignment(currentDynasty.id, Number(yearKey), mapForYear)
+            }
           } else {
-            const existingByYear = currentDynasty.customConferencesByYear || {}
-            await updateDynasty(currentDynasty.id, {
-              customConferencesByYear: { ...existingByYear, [currentDynasty.currentYear]: data },
-              customConferences: data
-            })
+            await saveConferenceAlignment(currentDynasty.id, currentDynasty.currentYear, data)
           }
         }}
         teamColors={teamColors}

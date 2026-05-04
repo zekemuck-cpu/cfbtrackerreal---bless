@@ -5302,13 +5302,40 @@ export function DynastyProvider({ children }) {
       },
       // Storage location for this dynasty
       storageType: finalStorageType,
-      // Initialize custom conferences if custom teams exist (replaces old team in conference)
-      ...(initialConferences ? {
-        customConferencesByYear: {
-          [startYear]: initialConferences
-        },
-        customConferences: initialConferences // Legacy field for backwards compatibility
-      } : {})
+      // Initialize custom conferences if custom teams exist (replaces old team in conference).
+      // Bulk map → per-team fan-out: write the conference name into
+      // each team's byYear[startYear] entry so the per-team field is
+      // the authoritative source from day one of the dynasty.
+      ...(initialConferences ? (() => {
+        const updatedTeams = { ...teams }
+        const abbrToTid = new Map()
+        for (const [tid, team] of Object.entries(updatedTeams)) {
+          const abbr = (team?.abbr || '').toUpperCase()
+          if (abbr) abbrToTid.set(abbr, tid)
+        }
+        for (const [conferenceName, abbrs] of Object.entries(initialConferences)) {
+          if (!Array.isArray(abbrs)) continue
+          for (const rawAbbr of abbrs) {
+            const tid = abbrToTid.get(String(rawAbbr).toUpperCase())
+            if (!tid) continue
+            const existingTeam = updatedTeams[tid] || {}
+            const existingByYear = existingTeam.byYear || {}
+            const existingYearData = existingByYear[startYear] || {}
+            updatedTeams[tid] = {
+              ...existingTeam,
+              byYear: {
+                ...existingByYear,
+                [startYear]: { ...existingYearData, conference: conferenceName },
+              },
+            }
+          }
+        }
+        return {
+          teams: updatedTeams,
+          customConferencesByYear: { [startYear]: initialConferences },
+          customConferences: initialConferences, // Legacy field for backwards compatibility
+        }
+      })() : {})
     }
 
     // Note: Google Sheet is created lazily when user opens Schedule Entry modal
@@ -7869,20 +7896,36 @@ export function DynastyProvider({ children }) {
       // Copy the exact conference alignment from the previous year
       // ============================================================
       const prevYearConferences = dynasty.customConferencesByYear?.[previousSeasonYear]
+      let carryoverMap = null
       if (prevYearConferences && Object.keys(prevYearConferences).length > 0) {
         console.log('[advanceWeek] Carrying over custom conferences from', previousSeasonYear, 'to', nextYear)
         additionalUpdates.customConferencesByYear = {
           ...(dynasty.customConferencesByYear || {}),
           [nextYear]: prevYearConferences
         }
-        // Also update legacy field for backward compatibility
         additionalUpdates.customConferences = prevYearConferences
+        carryoverMap = prevYearConferences
       } else if (dynasty.customConferences && Object.keys(dynasty.customConferences).length > 0) {
-        // Fallback: if we have legacy customConferences but no year-specific, carry that forward
         console.log('[advanceWeek] Carrying over legacy custom conferences to', nextYear)
         additionalUpdates.customConferencesByYear = {
           ...(dynasty.customConferencesByYear || {}),
           [nextYear]: dynasty.customConferences
+        }
+        carryoverMap = dynasty.customConferences
+      }
+
+      // Fan the carry-over out to each team's per-year conference
+      // field so the new authoritative store gets the same data the
+      // legacy stores received above. Local-storage merge — additional
+      // Updates is just a plain object that updateDynasty applies.
+      if (carryoverMap) {
+        const { localPatch } = buildPerTeamConferencePatch(dynasty, nextYear, carryoverMap)
+        if (localPatch.teams) {
+          additionalUpdates.teams = {
+            ...(dynasty.teams || {}),
+            ...(additionalUpdates.teams || {}),
+            ...localPatch.teams,
+          }
         }
       }
     } else if (dynasty.currentPhase === 'offseason' && dynasty.currentWeek === 6 && nextWeek === 7) {
@@ -10554,6 +10597,118 @@ export function DynastyProvider({ children }) {
     }
   }
 
+  /**
+   * Compute a Firestore-/object-shaped patch that distributes a bulk
+   * conference map ({"Big Ten": ["MICH", "OSU", ...], ...}) across
+   * every team's per-year record. Writing to each team's
+   * `byYear[year].conference` makes that field the single source of
+   * truth — bulk callers (offseason recap, conference standings page,
+   * conference sheet sync) used to write only `customConferencesByYear`,
+   * which left the per-team field stale and forced every reader to
+   * juggle multiple stores.
+   *
+   * Returns an object with two keys:
+   *   • localPatch — nested object suitable for IndexedDB merges
+   *     (mutates dynasty.teams in place inside the patch).
+   *   • cloudPatch — Firestore dot-path map (e.g.
+   *     "teams.42.byYear.2034.conference": "Big Ten").
+   *
+   * Caller picks whichever applies based on dynasty.storageType. The
+   * old customConferencesByYear / customConferences writes are still
+   * emitted by callers for the duration of Phase 1 — the migration
+   * pass in Phase 2 will let us retire them.
+   */
+  const buildPerTeamConferencePatch = (dynasty, year, conferenceMap) => {
+    const yearKey = String(year)
+    const cloudPatch = {}
+    const localTeamsPatch = {}
+    if (!dynasty || !conferenceMap || typeof conferenceMap !== 'object') {
+      return { localPatch: {}, cloudPatch }
+    }
+    const teams = dynasty.teams || {}
+    // Build an abbr-uppercase → tid index of the dynasty's current
+    // team registry so we can resolve "MICH" → tid 42 even if the
+    // user has renamed a teambuilder team since the last save.
+    const abbrToTid = new Map()
+    for (const [tid, team] of Object.entries(teams)) {
+      const abbr = (team?.abbr || '').toUpperCase()
+      if (abbr) abbrToTid.set(abbr, tid)
+    }
+    for (const [conferenceName, abbrs] of Object.entries(conferenceMap)) {
+      if (!Array.isArray(abbrs)) continue
+      for (const rawAbbr of abbrs) {
+        if (!rawAbbr) continue
+        const tid = abbrToTid.get(String(rawAbbr).toUpperCase())
+        if (!tid) continue
+        cloudPatch[`teams.${tid}.byYear.${yearKey}.conference`] = conferenceName
+        // Nested local patch — caller merges this into updates.teams.
+        if (!localTeamsPatch[tid]) {
+          const existingTeam = teams[tid] || {}
+          localTeamsPatch[tid] = {
+            ...existingTeam,
+            byYear: { ...(existingTeam.byYear || {}) },
+          }
+        }
+        const yearData = localTeamsPatch[tid].byYear[yearKey] || {}
+        localTeamsPatch[tid].byYear[yearKey] = { ...yearData, conference: conferenceName }
+      }
+    }
+    return {
+      localPatch: Object.keys(localTeamsPatch).length ? { teams: localTeamsPatch } : {},
+      cloudPatch,
+    }
+  }
+
+  /**
+   * Persist a bulk conference alignment for a single year. Writes to
+   * BOTH the legacy stores (customConferencesByYear /
+   * customConferences) and the per-team byYear field — the per-team
+   * field is the new source of truth, and the legacy stores stay
+   * during Phase 1 so older readers / unmigrated data keep working.
+   *
+   * Used by Conference Standings (manual save) and the offseason
+   * recap on Dashboard (where the new year's alignment is committed).
+   */
+  const saveConferenceAlignment = async (dynastyId, year, conferenceMap, options = {}) => {
+    if (blockIfReadOnly(dynastyId, 'save conference alignment')) return
+    const dynasty = await findDynastyById(dynastyId)
+    if (!dynasty) {
+      console.error('Dynasty not found:', dynastyId)
+      return
+    }
+    const useLocalStorage = dynasty.storageType !== 'cloud'
+    const yearKey = String(year)
+    const { localPatch, cloudPatch } = buildPerTeamConferencePatch(dynasty, year, conferenceMap)
+
+    if (useLocalStorage) {
+      const existingByYear = dynasty.customConferencesByYear || {}
+      const updates = {
+        customConferencesByYear: { ...existingByYear, [yearKey]: conferenceMap },
+        customConferences: conferenceMap,
+      }
+      if (localPatch.teams) {
+        updates.teams = {
+          ...(dynasty.teams || {}),
+          ...localPatch.teams,
+        }
+      }
+      // Optional: caller can pass extra updates to merge in atomically
+      // (e.g. preseasonSetup flags). Spread last so callers can override
+      // anything if needed.
+      if (options.extraUpdates) Object.assign(updates, options.extraUpdates)
+      await updateDynasty(dynastyId, updates)
+    } else {
+      const existingByYear = dynasty.customConferencesByYear || {}
+      const cloudUpdates = {
+        customConferencesByYear: { ...existingByYear, [yearKey]: conferenceMap },
+        customConferences: conferenceMap,
+        ...cloudPatch,
+      }
+      if (options.extraUpdates) Object.assign(cloudUpdates, options.extraUpdates)
+      await updateDynasty(dynastyId, cloudUpdates)
+    }
+  }
+
   // Save conferences data from sheet to dynasty
   const saveConferences = async (dynastyId, conferencesSheetId) => {
     if (!user) {
@@ -10574,6 +10729,11 @@ export function DynastyProvider({ children }) {
       // Derive storage type from dynasty's storageType field
       const useLocalStorage = dynasty.storageType !== 'cloud'
 
+      // Fan out to per-team field — single source of truth for
+      // conference assignment going forward.
+      const sheetYear = Number(dynasty.currentYear) || new Date().getFullYear()
+      const { localPatch, cloudPatch } = buildPerTeamConferencePatch(dynasty, sheetYear, conferences)
+
       if (useLocalStorage) {
         // Local storage: Use IndexedDB
         const currentDynasties = await indexedDBStorage.getDynasties() || []
@@ -10583,6 +10743,12 @@ export function DynastyProvider({ children }) {
           dynastyToUpdate.preseasonSetup = {
             ...dynastyToUpdate.preseasonSetup,
             conferencesEntered: true
+          }
+          if (localPatch.teams) {
+            dynastyToUpdate.teams = {
+              ...(dynastyToUpdate.teams || {}),
+              ...localPatch.teams,
+            }
           }
           dynastyToUpdate.lastModified = Date.now()
           await indexedDBStorage.saveDynasties(currentDynasties)
@@ -10596,6 +10762,7 @@ export function DynastyProvider({ children }) {
         await updateDynastyInFirestore(dynastyId, {
           customConferences: conferences,
           'preseasonSetup.conferencesEntered': true,
+          ...cloudPatch,
           lastModified: Date.now()
         })
       }
@@ -11922,6 +12089,7 @@ export function DynastyProvider({ children }) {
     deleteSheetAndClearRefs,
     createConferencesSheetForDynasty,
     saveConferences,
+    saveConferenceAlignment,
     exportDynasty,
     importDynasty,
     importDynastyFromUrl,
