@@ -32,13 +32,12 @@ import { CARD_STYLES } from '../data/cardStyles'
 // production sets in the "All" / decade chips. Lives in its own chip.
 const FICTIONAL_ERA = 'fictional'
 
-// Era group buckets — top-level filter chips. `eras: null` means "every
-// REAL era" (fictional always lives in its own chip). Order matters:
-// the chip rendered furthest-left is the default, and the user wants to
-// open the picker on Modern with everything sorted recent-first.
+// Era group buckets — top-level filter chips. Order matters: the chip
+// rendered furthest-left is the default. The user lands on Modern and
+// can step through decades from there; fictional concepts live in
+// their own chip and are never mixed into the real-set decade buckets.
 const ERA_GROUPS = [
   { id: 'modern',     label: 'Modern',     eras: ['early_2010s', 'modern_panini'] },
-  { id: 'all',        label: 'All Real',   eras: null },
   { id: '2000s',      label: '2000s',      eras: ['early_2000s', 'early_2000s_premium', 'mid_2000s', 'mid_2000s_premium', 'late_2000s_premium'] },
   { id: '90s',        label: '90s',        eras: ['early_modern', 'early_90s', 'early_90s_premium', 'mid_90s', 'mid_90s_premium', 'late_90s_premium'] },
   { id: '80s',        label: '80s',        eras: ['early_80s', 'mid_80s', 'late_80s'] },
@@ -74,7 +73,7 @@ const ERA_ACCENT = {
 
 // Era group label for the row header above each cluster of styles.
 // Ordered newest → oldest so the section render order matches the user's
-// scan expectation when "All Real" is selected.
+// scan expectation when a multi-era chip (e.g. 90s) is selected.
 const ERA_GROUP_LABEL = {
   [FICTIONAL_ERA]: 'Fictional · Concept Sets',
   modern_panini: 'Modern · Panini Era',
@@ -130,7 +129,7 @@ export default function CardStylePicker({ value, onChange, styles = CARD_STYLES 
   // Combined filter — case-insensitive substring match across label,
   // brand, and year, intersected with the era group filter.
   // Fictional entries only appear when the Fictional chip is active;
-  // the "All Real" chip and every decade chip exclude them.
+  // every real-set chip excludes them.
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     const group = ERA_GROUPS.find(g => g.id === eraGroup)
@@ -142,7 +141,7 @@ export default function CardStylePicker({ value, onChange, styles = CARD_STYLES 
       if (onlyFictional) {
         if (!isFictional) return false
       } else {
-        // Real-set chips — never include fictional, even under "All Real".
+        // Real-set chips — never include fictional concepts.
         if (isFictional) return false
         if (eraSet && !eraSet.has(era)) return false
       }
