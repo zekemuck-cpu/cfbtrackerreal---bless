@@ -1,4 +1,4 @@
-import { Link, useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, buildLiveTop25FromGames, calculateTeamRecordFromGames } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
@@ -74,6 +74,7 @@ const getMascotName = (abbr, teamsData = null) => {
 export default function Rankings() {
   const { year: urlYear } = useParams()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { currentDynasty } = useDynasty()
   const pathPrefix = usePathPrefix()
 
@@ -99,18 +100,62 @@ export default function Rankings() {
   // saved final poll seeds it once the season ends.
   const displayYear = urlYear ? parseInt(urlYear) : Number(currentDynasty.currentYear)
 
-  // Source priority: saved final media poll → live Top 25 derived from
-  // the latest week's game-level ranks. Final poll wins because it's
-  // the authoritative end-of-season ranking the user explicitly saved;
-  // when it's absent the page reflects whatever the most recent weekly
-  // entry showed, so adding scores updates the page in real time.
+  // Available weeks for the displayed year — any week that has at least
+  // one game with a team rank entry. This is what powers the inline
+  // week selector. Computed straight from games[] so it adds no storage.
   const yearPolls = finalPolls[displayYear] || {}
   const savedMedia = Array.isArray(yearPolls.media) ? yearPolls.media : []
-  const live = buildLiveTop25FromGames(currentDynasty, displayYear)
-  const usingLive = savedMedia.length === 0 && live.entries.length > 0
-  const top25 = usingLive ? live.entries : savedMedia
+  const availableWeeks = (() => {
+    const weeksSet = new Set()
+    ;(currentDynasty.games || []).forEach(g => {
+      if (!g || Number(g.year) !== displayYear) return
+      const wk = typeof g.week === 'number' ? g.week : parseInt(g.week, 10)
+      if (!Number.isFinite(wk)) return
+      const r1 = g.team1Rank, r2 = g.team2Rank
+      const has = (n) => typeof n === 'number' && n >= 1 && n <= 25
+      if (has(r1) || has(r2)) weeksSet.add(wk)
+    })
+    return Array.from(weeksSet).sort((a, b) => a - b)
+  })()
+  const latestWeek = availableWeeks.length > 0 ? availableWeeks[availableWeeks.length - 1] : null
+  const hasSavedFinal = savedMedia.length > 0
+
+  // Selection: 'final' (only when a saved final poll exists), or a
+  // specific week number. URL-driven via ?week= so the snapshot is
+  // shareable. Default = final poll if saved, otherwise latest week.
+  const urlWeek = searchParams.get('week')
+  const parsedUrlWeek = urlWeek != null ? parseInt(urlWeek, 10) : NaN
+  const selectedWeek =
+    urlWeek === 'final' && hasSavedFinal ? 'final'
+    : Number.isFinite(parsedUrlWeek) && availableWeeks.includes(parsedUrlWeek) ? parsedUrlWeek
+    : (hasSavedFinal ? 'final' : latestWeek)
+
+  const setSelectedWeek = (next) => {
+    const params = new URLSearchParams(searchParams)
+    // Strip the param when the user picks the natural default to keep
+    // the URL clean ("rankings/2034" instead of "rankings/2034?week=final").
+    const isDefault =
+      (hasSavedFinal && next === 'final') ||
+      (!hasSavedFinal && next === latestWeek)
+    if (isDefault) params.delete('week')
+    else params.set('week', String(next))
+    setSearchParams(params, { replace: true })
+  }
+
+  // Build the Top 25 for the selected snapshot. 'final' uses the saved
+  // poll; everything else builds from games up through that week.
+  let top25 = []
+  let liveWeek = null
+  if (selectedWeek === 'final') {
+    top25 = savedMedia
+  } else if (selectedWeek != null) {
+    const live = buildLiveTop25FromGames(currentDynasty, displayYear, { upToWeek: selectedWeek })
+    top25 = live.entries
+    liveWeek = live.week ?? selectedWeek
+  }
+  const usingLive = selectedWeek !== 'final'
   const sourceLabel = usingLive
-    ? (live.week != null ? `Live · After Week ${live.week}` : 'Live')
+    ? (liveWeek != null ? `Live · After Week ${liveWeek}` : 'Live')
     : 'Final Poll'
 
   // Saved conference standings give us a quick W-L lookup; calculated
@@ -128,12 +173,13 @@ export default function Rankings() {
       })
     }
   })
+  // When the user is browsing a specific week, records should reflect
+  // games played through that week — otherwise a row could read "10-0"
+  // while the selector says "Week 3". 'final' shows full-season totals.
+  const recordOpts = usingLive && selectedWeek != null ? { upToWeek: selectedWeek } : {}
   const lookupRecord = (abbr, tid) => {
-    // Prefer live games[]-derived record so the row reflects weekly
-    // score entries; fall back to saved standings only when no games
-    // have been logged yet.
     if (tid != null) {
-      const calc = calculateTeamRecordFromGames(currentDynasty, Number(tid), displayYear)
+      const calc = calculateTeamRecordFromGames(currentDynasty, Number(tid), displayYear, recordOpts)
       if (calc && (calc.wins > 0 || calc.losses > 0)) {
         return { wins: calc.wins, losses: calc.losses }
       }
@@ -280,22 +326,51 @@ export default function Rankings() {
     )
   }
 
+  // Options for the inline week selector. Only show "Final" when the
+  // year actually has a saved final poll. Latest week first so the
+  // freshest snapshot lives at the top of the dropdown.
+  const weekOptions = [
+    ...(hasSavedFinal ? [{ value: 'final', label: 'Final' }] : []),
+    ...[...availableWeeks].reverse().map(w => ({ value: w, label: `Week ${w}` })),
+  ]
+  const selectedLabel =
+    selectedWeek === 'final' ? 'Final'
+    : selectedWeek != null ? `Week ${selectedWeek}`
+    : null
+
+  // Only render the selector when the user has more than one option
+  // (multiple weeks, or a saved final poll alongside week data).
+  const showWeekSelector = weekOptions.length > 1
+
   return (
     <div className="space-y-6 page-enter">
       <PageHero
         eyebrow={sourceLabel}
         title={
-          <TitleWithYear
-            year={displayYear}
-            years={availableYears}
-            onChange={handleYearChange}
-            label="Top 25"
-          />
+          <span className="inline-flex items-baseline flex-wrap gap-x-3">
+            <TitleWithYear
+              year={displayYear}
+              years={availableYears}
+              onChange={handleYearChange}
+              label="Top 25"
+            />
+            {showWeekSelector && selectedLabel && (
+              <>
+                <span className="text-txt-muted opacity-60 self-center" aria-hidden="true">·</span>
+                <InlineWeekSelect
+                  value={selectedWeek}
+                  label={selectedLabel}
+                  options={weekOptions}
+                  onChange={setSelectedWeek}
+                />
+              </>
+            )}
+          </span>
         }
         meta={
           <span>
             {usingLive
-              ? 'Updates as weekly scores are entered'
+              ? 'Snapshot derived from saved games — pick any week to rewind'
               : 'End of season poll standings'}
           </span>
         }
@@ -311,5 +386,46 @@ export default function Rankings() {
         }
       `}</style>
     </div>
+  )
+}
+
+/**
+ * Inline week selector — same baseline-aligned, headline-styled chevron
+ * pattern as InlineYearSelect, but supports a non-numeric "Final" value
+ * alongside week numbers. Native <select> sits invisibly on top so the
+ * picker stays keyboard- and screen-reader-accessible.
+ */
+function InlineWeekSelect({ value, label, options, onChange }) {
+  return (
+    <span className="relative inline-flex items-baseline group">
+      <span aria-hidden="true">{label}</span>
+      <svg
+        className="ml-1 self-center w-[0.5em] h-[0.5em] opacity-60 transition-opacity group-hover:opacity-100"
+        viewBox="0 0 20 20"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path
+          fillRule="evenodd"
+          d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"
+          clipRule="evenodd"
+        />
+      </svg>
+      <select
+        value={String(value)}
+        onChange={(e) => {
+          const v = e.target.value
+          onChange?.(v === 'final' ? 'final' : parseInt(v, 10))
+        }}
+        aria-label="Select week"
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none"
+      >
+        {options.map((opt) => (
+          <option key={String(opt.value)} value={String(opt.value)}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </span>
   )
 }

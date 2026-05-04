@@ -1234,8 +1234,9 @@ export function getTeamRanking(dynasty, tidOrAbbr, year) {
  * @param {number} year
  * @returns {{ entries: Array<{ rank, team, tid }>, week: number|null }}
  */
-export function buildLiveTop25FromGames(dynasty, year) {
+export function buildLiveTop25FromGames(dynasty, year, options = {}) {
   if (!dynasty || !year) return { entries: [], week: null }
+  const { upToWeek } = options
   const games = dynasty.games || []
   const yearNum = Number(year)
   const validRank = (n) => typeof n === 'number' && n >= 1 && n <= 25
@@ -1259,6 +1260,9 @@ export function buildLiveTop25FromGames(dynasty, year) {
     if (!g || Number(g.year) !== yearNum) continue
     const wk = typeof g.week === 'number' ? g.week : parseInt(g.week, 10)
     if (!Number.isFinite(wk)) continue
+    // Optional week ceiling — lets callers ask "what did the Top 25 look
+    // like through Week N?" without losing later weeks' game records.
+    if (upToWeek != null && Number.isFinite(Number(upToWeek)) && wk > Number(upToWeek)) continue
     const t1Tid = g.team1Tid != null ? Number(g.team1Tid) : null
     const t2Tid = g.team2Tid != null ? Number(g.team2Tid) : null
     const t1Abbr = (t1Tid && dynasty.teams?.[t1Tid]?.abbr) || g.team1 || null
