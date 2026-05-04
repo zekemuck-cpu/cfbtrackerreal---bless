@@ -10,6 +10,7 @@ import InlineYearSelect from '../../components/ui/InlineYearSelect'
 import WeeklyScoresModal from '../../components/WeeklyScoresModal'
 import WeekRecapModal from '../../components/WeekRecapModal'
 import FormattedRecap from '../../components/FormattedRecap'
+import buildRecapLinks from '../../utils/buildRecapLinks'
 import { useTeamColors } from '../../hooks/useTeamColors'
 
 const REGULAR_SEASON_WEEKS = Array.from({ length: 16 }, (_, i) => i)  // 0-15
@@ -572,10 +573,7 @@ export default function WeeklyScores() {
         if (recapText) {
           return (
             <Card padding="lg">
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-xs text-txt-tertiary">
-                  Saved {new Date(recap.generatedAt || Date.now()).toLocaleString()}
-                </div>
+              <div className="flex items-center justify-end mb-4">
                 {!isViewOnly && (
                   <button
                     type="button"
@@ -591,7 +589,7 @@ export default function WeeklyScores() {
                   </button>
                 )}
               </div>
-              <FormattedRecap text={recapText} />
+              <FormattedRecap text={recapText} playerLinks={buildRecapLinks(currentDynasty, displayYear, pathPrefix)} />
             </Card>
           )
         }

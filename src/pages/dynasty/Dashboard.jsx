@@ -51,6 +51,7 @@ import RecruitingClassRankModal from '../../components/RecruitingClassRankModal'
 import TrainingResultsModal from '../../components/TrainingResultsModal'
 import WeekRecapModal from '../../components/WeekRecapModal'
 import FormattedRecap from '../../components/FormattedRecap'
+import buildRecapLinks from '../../utils/buildRecapLinks'
 import PreseasonTop25Modal from '../../components/PreseasonTop25Modal'
 import EncourageTransfersModal from '../../components/EncourageTransfersModal'
 import RecruitOverallsModal from '../../components/RecruitOverallsModal'
@@ -8484,11 +8485,8 @@ export default function Dashboard() {
                   <div className="w-1 h-10 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
                   <div className="min-w-0">
                     <h2 className="text-lg font-bold text-white tracking-tight truncate">
-                      Week {Number(currentDynasty.currentWeek) - 1} Recap
+                      {currentDynasty.currentYear} Week {Number(currentDynasty.currentWeek) - 1} Recap
                     </h2>
-                    <div className="text-xs text-zinc-500 mt-0.5">
-                      {currentDynasty.currentYear} · saved {new Date(lastWeekRecap.generatedAt || Date.now()).toLocaleDateString()}
-                    </div>
                   </div>
                 </div>
                 <Link
@@ -8502,7 +8500,10 @@ export default function Dashboard() {
                 </Link>
               </div>
               <div className="px-5 py-4 max-h-[640px] overflow-y-auto">
-                <FormattedRecap text={lastWeekRecap.text} />
+                <FormattedRecap
+                  text={lastWeekRecap.text}
+                  playerLinks={buildRecapLinks(currentDynasty, Number(currentDynasty.currentYear), pathPrefix)}
+                />
               </div>
             </div>
           </div>

@@ -99,19 +99,6 @@ function fmtGameLine(game, dynasty) {
   return `${r1}${t1} ${s1}, ${r2}${t2} ${s2}${ot} (${home})`
 }
 
-// Pull POW/award names from a game — each field can be a player name string.
-function powLinesForGame(game, dynasty) {
-  const t1 = teamDisplay(game.team1Tid, game.team1, dynasty)
-  const t2 = teamDisplay(game.team2Tid, game.team2, dynasty)
-  const ctx = `${t1} vs ${t2}`
-  const out = []
-  if (game.conferencePOW) out.push(`${game.conferencePOW} — Conference Offensive POW (${ctx})`)
-  if (game.confDefensePOW) out.push(`${game.confDefensePOW} — Conference Defensive POW (${ctx})`)
-  if (game.nationalPOW) out.push(`${game.nationalPOW} — National Offensive POW (${ctx})`)
-  if (game.natlDefensePOW) out.push(`${game.natlDefensePOW} — National Defensive POW (${ctx})`)
-  return out
-}
-
 // ---------------------------------------------------------------------------
 // Shared guardrail block (used by all three prompts).
 // ---------------------------------------------------------------------------
@@ -200,9 +187,6 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     everyGameLine.push(g)
   }
 
-  // ----- Section: Player-of-the-week honorees across the whole week -----
-  const powLines = []
-  for (const g of weekGames) powLines.push(...powLinesForGame(g, dynasty))
 
   // ----- Section: Stat leaders THIS WEEK from box-score -----
   // Box scores live on the game itself; aggregate the user-game's box plus any
@@ -385,32 +369,6 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     .sort((a, b) => (b[field] || 0) - (a[field] || 0))
     .slice(0, n)
 
-  // ----- Section: Cumulative POW leaderboard (season to date) -----
-  // Counts how many Player-of-the-Week honors each player has earned
-  // across all categories (offense + defense, conference + national)
-  // through this week. Useful for surfacing Heisman-tier storylines.
-  const powCounts = {}
-  for (const g of games) {
-    const gw = Number(g.week)
-    if (!Number.isFinite(gw) || gw > weekNum) continue
-    const fields = ['conferencePOW', 'confDefensePOW', 'nationalPOW', 'natlDefensePOW']
-    for (const f of fields) {
-      const name = g[f]
-      if (!name) continue
-      if (!powCounts[name]) powCounts[name] = { name, conf: 0, confDef: 0, nat: 0, natDef: 0, total: 0 }
-      const row = powCounts[name]
-      if (f === 'conferencePOW') row.conf += 1
-      else if (f === 'confDefensePOW') row.confDef += 1
-      else if (f === 'nationalPOW') row.nat += 1
-      else if (f === 'natlDefensePOW') row.natDef += 1
-      row.total += 1
-    }
-  }
-  const powLeaderboard = Object.values(powCounts)
-    .filter(r => r.total >= 1)
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 12)
-
   // ----- Section: Conference standings (saved snapshot, if any) -----
   const standingsByConf = dynasty?.conferenceStandingsByYear?.[yearNum] || {}
 
@@ -495,13 +453,6 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     sections.push('')
   }
 
-  // POW honorees
-  if (powLines.length > 0) {
-    sections.push(`PLAYER-OF-THE-WEEK HONOREES (Week ${weekNum})`)
-    for (const line of powLines) sections.push(line)
-    sections.push('')
-  }
-
   // Stat lines from this week's box scores (top 2 per category per side)
   if (weekBoxLeaders.length > 0) {
     sections.push(`STAT LINES FROM WEEK ${weekNum} BOX SCORES`)
@@ -534,20 +485,6 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   if (seasonStatBlocks.length > 0) {
     sections.push(`CUMULATIVE SEASON STAT LEADERS (through Week ${weekNum}, derived from box scores we have)`)
     sections.push(seasonStatBlocks.join('\n'))
-    sections.push('')
-  }
-
-  // POW leaderboard — who's been collecting honors all season
-  if (powLeaderboard.length > 0) {
-    sections.push(`SEASON POW LEADERBOARD (through Week ${weekNum})`)
-    for (const r of powLeaderboard) {
-      const parts = []
-      if (r.conf) parts.push(`${r.conf} Conf Off`)
-      if (r.confDef) parts.push(`${r.confDef} Conf Def`)
-      if (r.nat) parts.push(`${r.nat} Nat'l Off`)
-      if (r.natDef) parts.push(`${r.natDef} Nat'l Def`)
-      sections.push(`${r.name} — ${r.total} total POW (${parts.join(', ')})`)
-    }
     sections.push('')
   }
 
@@ -642,12 +579,12 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     `2. UPSETS & SURPRISES — call out any losses by ranked teams, especially top-10 teams. Quantify the gap when possible ("the #4 team fell to a team that came in 2-3").`,
     `3. NATIONAL TOP-25 ROUND-UP — quick walk through other ranked teams' results.`,
     `4. POLL MOVEMENT — if the EVOLUTION section shows a clear trajectory across recent weeks (a team rising or falling several spots), call it out by comparing consecutive "Entering Week W" rows. Each row is the poll AT THE START of that week. Don't describe "ties" or "shared ranks" — every slot 1-25 has exactly one team.`,
-    `5. AWARDS / HEISMAN PICTURE — write this section ONLY when the data shows a clear front-runner. Concrete bar: a player must have at least 3 cumulative POW honors, OR be #1 by a noticeable margin in a major stat category (passing/rushing/receiving yds, sacks). If nobody clears that bar, SKIP this section entirely. Do not write hedge sentences like "the picture remains a watch list" — just don't include it.`,
+    `5. AWARDS / HEISMAN PICTURE — write this section ONLY when a player is leading a major stat category (passing/rushing/receiving yds, sacks) by a noticeable margin. If nobody clears that bar, SKIP this section entirely. Do not write hedge sentences like "the picture remains a watch list" — just don't include it.`,
     `6. CONFERENCE RACES — when standings data is present, describe who's ahead in each major conference race. If standings aren't entered, skip this entirely.`,
     `7. LOOK-AHEAD — only if the post-week poll snapshot is fresh (labeled "POST-WEEK ${weekNum}", not "MOST RECENT"). Otherwise skip — speculation about next week without next week's data leads to invention.`,
     ``,
     `If a section's data block is empty or thin, skip the section entirely — do not write filler. Better a tight 4-paragraph recap than a padded one. Concrete examples of filler to avoid:`,
-    `  - Sections with only 1-2 ranked players with 1 POW each ("compact leaderboard, watch list...")`,
+    `  - Awards-watch sections that hedge ("the picture remains a watch list...")`,
     `  - Restating the same scoreline more than once`,
     `  - "The crowd was electric" / "showed great heart" type filler`,
     `  - Any sentence that doesn't add a fact from the data`,
