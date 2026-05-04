@@ -3,21 +3,27 @@ import { TEAMS, isFCSPlaceholderAbbr } from '../data/teamRegistry'
 import { stripMascotFromName } from '../data/teams'
 
 /**
- * Build the {pattern, render} array consumed by <FormattedRecap playerLinks>
- * so an AI-generated recap auto-links team names and game scores.
+ * Build the link entries consumed by <FormattedRecap playerLinks> so an
+ * AI-generated recap auto-links team names and game scores.
  *
- * Two link types:
- *   - Team link: full mascot name, school-only name, common short name —
- *     each renders to the team page for the recap year (/dynasty/:id/team/:tid/:year).
- *   - Game link: a score string like "56-35" matched anywhere in the recap.
- *     We only register score patterns that map UNAMBIGUOUSLY to a single
- *     game in the year — when multiple games share the same final score
- *     we skip auto-linking that score (linking the wrong game is worse
- *     than not linking at all).
+ * Two link types, three pattern flavors:
  *
- * Patterns registered through this helper share a single regex and the
- * longer patterns win (via FormattedRecap's compile sort), so "Crimson
- * Tide" beats "Tide" cleanly.
+ *   TEAM links →  /team/:tid/:year
+ *     - Literal: full mascot ("Alabama Crimson Tide") and school-only ("Alabama")
+ *     - Raw regex with optional rank prefix: "#9 Alabama" matches as a single
+ *       link to the team page so the rank reads as part of the team mention.
+ *
+ *   GAME (score) links →  /game/:id
+ *     - Literal score "X-Y" — only when uniquely owned by one game in the year.
+ *     - Raw regex with team-name lookbehind for shared scores: when 56-35
+ *       belongs to TWO games in the year, the bare score is ambiguous; we
+ *       instead register lookbehind patterns that match the score ONLY
+ *       when a specific team's name appears just before it. The match is
+ *       only the score itself, leaving the team name free to be linked
+ *       separately by the team-link pattern.
+ *
+ * Mascot-only patterns ("Tigers", "Bulldogs") are intentionally skipped
+ * because too many FBS programs share them.
  */
 export default function buildRecapLinks(dynasty, year, pathPrefix) {
   if (!dynasty || !pathPrefix) return []
@@ -25,11 +31,10 @@ export default function buildRecapLinks(dynasty, year, pathPrefix) {
   const teams = dynasty.teams || TEAMS
   const links = []
 
+  // Helper: regex-escape a literal so it can be embedded inside a raw regex.
+  const escForRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
   // ----- Team links -----
-  // For every team referenced by a game in this year, register every form
-  // we can think of: full name, school-only, mascot-only. The team page
-  // lives at /team/:tid/:year so the year query keeps the user on the same
-  // season they're recapping.
   const seenTids = new Set()
   for (const g of (dynasty.games || [])) {
     if (Number(g?.year) !== yearNum) continue
@@ -44,6 +49,7 @@ export default function buildRecapLinks(dynasty, year, pathPrefix) {
       if (abbr && isFCSPlaceholderAbbr(abbr)) continue
       const fullName = t?.name || t?.fullName
       if (!fullName) continue
+
       const teamHref = `${pathPrefix}/team/${tNum}/${yearNum}`
       const renderTeam = (text, key) => (
         <Link
@@ -54,36 +60,67 @@ export default function buildRecapLinks(dynasty, year, pathPrefix) {
           {text}
         </Link>
       )
-      const patterns = new Set()
-      patterns.add(fullName)
+
+      const namePatterns = new Set()
+      namePatterns.add(fullName)
       const school = stripMascotFromName(fullName)
-      if (school && school !== fullName) patterns.add(school)
-      // The mascot alone is too ambiguous (multiple "Tigers" / "Bulldogs"
-      // in FBS), so we don't register mascot-only patterns. Full name and
-      // school-only is the right balance.
-      for (const p of patterns) {
+      if (school && school !== fullName) namePatterns.add(school)
+
+      for (const p of namePatterns) {
         if (!p || p.length < 3) continue
+        // Rank-prefixed form: "#9 Alabama" links as a single block to the
+        // team page. Raw regex so the leading "#" + digits + space is part
+        // of the match. The non-word lookbehind keeps "blah#9 Alabama"
+        // from matching, and the trailing \b prevents the shorter pattern
+        // ("#9 Alabama") from clipping into a longer team name match
+        // ("#9 Alabama Crimson Tide") — the longer raw pattern is tried
+        // first by FormattedRecap's compile sort, so the trailing \b only
+        // matters when no longer pattern applies.
+        links.push({
+          regex: `(?<![A-Za-z0-9_])#\\d{1,2}\\s+${escForRegex(p)}\\b`,
+          render: renderTeam,
+        })
+        // Plain literal — fallback when no rank prefix appears in prose.
         links.push({ pattern: p, render: renderTeam })
       }
     }
   }
 
-  // ----- Game links -----
-  // Three pattern flavors per game, in priority order (longer = more
-  // specific — FormattedRecap's regex sort tries longer patterns first):
-  //
-  //   1. "{TeamSchool} {hi}-{lo}" — covers the AI's typical "Alabama beat
-  //      Tennessee 56-35" phrasing where the score sits right after the
-  //      losing team. We register both teams' school names with the
-  //      score so either order (X beat Y, X 56-35, etc.) catches.
-  //   2. "{hi}-{lo}" alone — only when no other game in the year shares
-  //      the score. Catches bare-score mentions like "**52-51**" in a
-  //      headline.
-  //
-  // Disambiguation: every pattern (whether team+score or bare score) is
-  // tested for cross-game uniqueness. If two games would map the same
-  // pattern to different game IDs, we drop the pattern rather than
-  // mis-link.
+  // ----- Game (score) links -----
+  // Build per-game inventory: { id, hi, lo, score, team1Names, team2Names }.
+  const yearGames = []
+  for (const g of (dynasty.games || [])) {
+    if (Number(g?.year) !== yearNum) continue
+    if (!g.id) continue
+    const s1 = g.team1Score, s2 = g.team2Score
+    if (typeof s1 !== 'number' || typeof s2 !== 'number') continue
+    const hi = Math.max(s1, s2)
+    const lo = Math.min(s1, s2)
+    const score = `${hi}-${lo}`
+    const namesFor = (tid, fallback) => {
+      const t = tid != null ? teams[Number(tid)] : null
+      const full = t?.name || t?.fullName || fallback
+      if (!full) return []
+      const set = new Set([full])
+      const school = stripMascotFromName(full)
+      if (school && school !== full) set.add(school)
+      return [...set].filter(n => n && n.length >= 3)
+    }
+    yearGames.push({
+      id: g.id,
+      score,
+      team1Names: namesFor(g.team1Tid, g.team1),
+      team2Names: namesFor(g.team2Tid, g.team2),
+    })
+  }
+
+  // Group by score so we can detect ambiguity (two+ games with same score).
+  const scoreGroups = new Map()
+  for (const yg of yearGames) {
+    if (!scoreGroups.has(yg.score)) scoreGroups.set(yg.score, [])
+    scoreGroups.get(yg.score).push(yg)
+  }
+
   const renderGameFor = (gameHref) => (text, key) => (
     <Link
       key={key}
@@ -94,50 +131,34 @@ export default function buildRecapLinks(dynasty, year, pathPrefix) {
     </Link>
   )
 
-  // patternToGameId — pattern string -> { gameId, count } so we can
-  // detect duplicates and drop ambiguous patterns.
-  const patternToGameId = new Map()
-  const registerCandidate = (pattern, gameId) => {
-    if (!pattern || !gameId) return
-    const existing = patternToGameId.get(pattern)
-    if (existing && existing.gameId !== gameId) {
-      patternToGameId.set(pattern, { gameId: null, count: existing.count + 1 })
-    } else if (!existing) {
-      patternToGameId.set(pattern, { gameId, count: 1 })
+  for (const [score, group] of scoreGroups.entries()) {
+    if (group.length === 1) {
+      // Score is unique — register a plain literal pattern. Bare "X-Y"
+      // anywhere in the recap text links to the one game with that score.
+      const gameHref = `${pathPrefix}/game/${group[0].id}`
+      links.push({ pattern: score, render: renderGameFor(gameHref) })
+      continue
     }
-  }
-
-  for (const g of (dynasty.games || [])) {
-    if (Number(g?.year) !== yearNum) continue
-    if (!g.id) continue
-    const s1 = g.team1Score, s2 = g.team2Score
-    if (typeof s1 !== 'number' || typeof s2 !== 'number') continue
-    const hi = Math.max(s1, s2)
-    const lo = Math.min(s1, s2)
-    const score = `${hi}-${lo}`
-
-    // Team-prefixed forms — for each team in the game, register both
-    // full mascot name + score and school-only + score. School-only is
-    // what the AI most often uses ("Alabama 56-35", "Tennessee 56-35").
-    for (const tid of [g.team1Tid, g.team2Tid]) {
-      if (tid == null) continue
-      const t = teams[Number(tid)]
-      const fullName = t?.name || t?.fullName
-      if (!fullName) continue
-      const school = stripMascotFromName(fullName) || fullName
-      registerCandidate(`${school} ${score}`, g.id)
-      if (school !== fullName) registerCandidate(`${fullName} ${score}`, g.id)
+    // Score is shared by 2+ games. Register lookbehind patterns per team
+    // so the bare score still becomes a link, but only when the prose has
+    // disambiguated which game by mentioning a team right before. The
+    // match itself is JUST the score — the team name is left in the
+    // surrounding text for the team-link pattern to pick up separately.
+    const escScore = escForRegex(score)
+    for (const yg of group) {
+      const gameHref = `${pathPrefix}/game/${yg.id}`
+      const allTeamNames = [...yg.team1Names, ...yg.team2Names]
+      for (const name of allTeamNames) {
+        // Lookbehind: assert team name + whitespace appears before the score.
+        // \b after the name keeps "Tennessee" from matching inside "TennesseeX".
+        // [^\\n]{0,4} accommodates punctuation/markup like "Tennessee, 56-35"
+        // without straying so far it picks up the wrong team in long prose.
+        links.push({
+          regex: `(?<=${escForRegex(name)}\\b[^\\n]{0,4})${escScore}`,
+          render: renderGameFor(gameHref),
+        })
+      }
     }
-
-    // Bare-score form — registered as a candidate; will be kept only if
-    // unique across the season's games.
-    registerCandidate(score, g.id)
-  }
-
-  for (const [pattern, info] of patternToGameId.entries()) {
-    if (!info.gameId) continue // ambiguous — skip rather than mis-link
-    const gameHref = `${pathPrefix}/game/${info.gameId}`
-    links.push({ pattern, render: renderGameFor(gameHref) })
   }
 
   return links

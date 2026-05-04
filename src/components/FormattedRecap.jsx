@@ -43,33 +43,59 @@ function unwrapCodeFence(text) {
   return lines.slice(openIdx + 1, closeIdx).join('\n')
 }
 
+// Each link entry is either:
+//   { pattern: 'literal-string', render }  — escaped + word-boundary-wrapped
+//   { regex:   'raw regex source', render } — used as-is (caller controls
+//                                              boundaries; supports lookbehind
+//                                              for context-aware matches)
+//
+// The combined regex uses NAMED capture groups (g0, g1, ...) so we can tell
+// which entry matched without a separate lookup table. Raw entries come
+// first in alternation order so more specific patterns ("#9 Alabama",
+// "(?<=Tennessee\\s+)56-35") get tried before bare literals ("Alabama").
 function compilePlayerRegex(playerLinks) {
   if (!playerLinks?.length) return null
-  // Sort DESC by length so multi-word matches beat single-word matches
-  const sorted = [...playerLinks].sort((a, b) => b.pattern.length - a.pattern.length)
-  const alt = sorted.map(p => escapeRegex(p.pattern)).join('|')
-  // Capturing group so .split() preserves the match. Word boundaries keep
-  // "Brown" from matching inside "Browning" or "McBrown".
-  return new RegExp(`\\b(${alt})\\b`, 'g')
+  const sorted = [...playerLinks].sort((a, b) => {
+    const ar = !!a.regex
+    const br = !!b.regex
+    if (ar !== br) return ar ? -1 : 1
+    const al = (a.regex || a.pattern || '').length
+    const bl = (b.regex || b.pattern || '').length
+    return bl - al
+  })
+  const parts = sorted.map((entry, i) => {
+    const source = entry.regex
+      ? `(?:${entry.regex})`
+      : `\\b${escapeRegex(entry.pattern)}\\b`
+    return `(?<g${i}>${source})`
+  })
+  return { regex: new RegExp(parts.join('|'), 'g'), sorted }
 }
 
-function linkifyText(text, playerRegex, lookup, keyPrefix) {
-  if (!text || !playerRegex) return text ? [text] : []
-  const parts = text.split(playerRegex)
+function linkifyText(text, compiled, _lookup, keyPrefix) {
+  if (!text || !compiled) return text ? [text] : []
+  const { regex, sorted } = compiled
   const out = []
-  for (let i = 0; i < parts.length; i++) {
-    const piece = parts[i]
-    if (!piece) continue
-    // Even indices are plain text, odd indices are captured player-name matches
-    if (i % 2 === 1) {
-      const hit = lookup.get(piece)
-      if (hit) {
-        out.push(hit.render(piece, `${keyPrefix}-pl${i}`))
-        continue
+  let lastIdx = 0
+  let matchIdx = 0
+  regex.lastIndex = 0 // RegExp with /g flag preserves state — reset for each call
+  let m
+  while ((m = regex.exec(text)) !== null) {
+    if (m.index > lastIdx) out.push(text.slice(lastIdx, m.index))
+    let renderer = null
+    if (m.groups) {
+      for (let i = 0; i < sorted.length; i++) {
+        if (m.groups[`g${i}`] !== undefined) {
+          renderer = sorted[i].render
+          break
+        }
       }
     }
-    out.push(piece)
+    out.push(renderer ? renderer(m[0], `${keyPrefix}-${matchIdx++}`) : m[0])
+    lastIdx = m.index + m[0].length
+    if (m[0].length === 0) regex.lastIndex++ // guard against zero-length infinite loop
   }
+  if (lastIdx < text.length) out.push(text.slice(lastIdx))
   return out
 }
 
@@ -117,13 +143,12 @@ function renderInline(text, keyPrefix, playerRegex, lookup) {
 export default function FormattedRecap({ text, className = '', playerLinks = null }) {
   if (!text) return null
 
+  // `playerLinks` was the original prop name (back when it only auto-linked
+  // player names). It now accepts any mix of literal-string patterns AND raw
+  // regex source — the compiled value carries both the combined regex and
+  // the ordered entry list so linkifyText can identify which entry matched.
   const playerRegex = compilePlayerRegex(playerLinks)
-  const lookup = new Map()
-  if (playerLinks) {
-    for (const p of playerLinks) {
-      lookup.set(p.pattern, p)
-    }
-  }
+  const lookup = null // legacy arg slot — no longer used by linkifyText
 
   // Strip any outer ```markdown ... ``` wrapper added by the AI per our
   // recap prompt before splitting into paragraphs.
