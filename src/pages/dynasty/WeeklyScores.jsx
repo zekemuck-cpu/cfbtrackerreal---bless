@@ -468,19 +468,35 @@ export default function WeeklyScores() {
               </optgroup>
             </select>
             {!isViewOnly && (
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="px-3 py-2 text-xs font-semibold uppercase tracking-wider rounded transition-colors flex-shrink-0"
-                style={{
-                  backgroundColor: teamColors.primary,
-                  color: '#fff',
-                  letterSpacing: '1.5px',
-                }}
-                title={`Edit Week ${displayWeek} scores`}
-              >
-                Edit Week {displayWeek}
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded transition-colors flex-shrink-0"
+                  style={{
+                    backgroundColor: teamColors.primary,
+                    color: '#fff',
+                    letterSpacing: '1.4px',
+                  }}
+                  title={`Edit Week ${displayWeek} scores`}
+                >
+                  Edit Scores
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecapModalOpen(true)}
+                  className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0"
+                  style={{
+                    backgroundColor: 'var(--surface-3)',
+                    borderColor: 'var(--surface-4)',
+                    color: 'var(--text-secondary)',
+                    letterSpacing: '1.4px',
+                  }}
+                  title={`Edit Week ${displayWeek} recap`}
+                >
+                  Edit Recap
+                </button>
+              </>
             )}
           </div>
         }
@@ -573,22 +589,6 @@ export default function WeeklyScores() {
         if (recapText) {
           return (
             <Card padding="lg">
-              <div className="flex items-center justify-end mb-4">
-                {!isViewOnly && (
-                  <button
-                    type="button"
-                    onClick={() => setRecapModalOpen(true)}
-                    className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wider rounded transition-colors"
-                    style={{
-                      backgroundColor: 'var(--surface-3)',
-                      color: 'var(--text-secondary)',
-                      letterSpacing: '1.5px',
-                    }}
-                  >
-                    Edit recap
-                  </button>
-                )}
-              </div>
               <FormattedRecap text={recapText} playerLinks={buildRecapLinks(currentDynasty, displayYear, pathPrefix)} />
             </Card>
           )
