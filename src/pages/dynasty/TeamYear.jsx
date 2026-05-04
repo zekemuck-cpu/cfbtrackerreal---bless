@@ -1177,10 +1177,51 @@ export default function TeamYear() {
   // back-fills).
   const yearNum = Number(selectedYear)
   const calculatedRecord = calculateTeamRecordFromGames(currentDynasty, tid, yearNum)
-  const hasPlayedGames = !!calculatedRecord && (calculatedRecord.wins > 0 || calculatedRecord.losses > 0)
+  const calcGames = (calculatedRecord?.wins || 0) + (calculatedRecord?.losses || 0)
 
+  // Look at every stored record source and keep the one that covers
+  // the most games (w + l). The user can have a partial calculated
+  // record (only a couple games logged manually) while a saved poll /
+  // standings entry already reflects the full season — in that case
+  // we want the more complete record, not the partial one.
+  const yearStandings = currentDynasty.conferenceStandingsByYear?.[yearNum] ||
+                        currentDynasty.conferenceStandingsByYear?.[selectedYear] || {}
+  let standingsRecord = null
+  for (const confTeams of Object.values(yearStandings)) {
+    if (Array.isArray(confTeams)) {
+      const teamData = confTeams.find(t => {
+        if (!t || !t.team) return false
+        const resolvedTid = t.tid || resolveTid(t.team, teamsSource)
+        return resolvedTid === tid
+      })
+      if (teamData && (teamData.wins > 0 || teamData.losses > 0)) {
+        standingsRecord = {
+          wins: teamData.wins,
+          losses: teamData.losses,
+          confWins: teamData.confWins || 0,
+          confLosses: teamData.confLosses || 0,
+        }
+        break
+      }
+    }
+  }
+  const legacyRecord = currentDynasty.teamRecordsByTeamYear?.[teamAbbr]?.[yearNum] ||
+                       currentDynasty.teamRecordsByTeamYear?.[teamAbbr]?.[selectedYear]
+  const tidRecord = currentDynasty.teams?.[tid]?.byYear?.[yearNum]?.record ||
+                    currentDynasty.teams?.[tid]?.byYear?.[selectedYear]?.record ||
+                    currentDynasty.teams?.[tid]?.byYear?.[yearNum]?.teamRecord ||
+                    currentDynasty.teams?.[tid]?.byYear?.[selectedYear]?.teamRecord
+  const storedRecord =
+    (legacyRecord && (legacyRecord.wins > 0 || legacyRecord.losses > 0) && legacyRecord) ||
+    (tidRecord && (tidRecord.wins > 0 || tidRecord.losses > 0) && tidRecord) ||
+    null
+  const storedFallback = standingsRecord || storedRecord
+  const storedGames = (storedFallback?.wins || 0) + (storedFallback?.losses || 0)
+
+  // Pick the record covering the most games; ties go to calculated
+  // (it carries point-diff + conf record from the actual game rows).
   let displayRecord = null
-  if (hasPlayedGames) {
+  if (calcGames >= storedGames && calcGames > 0) {
     displayRecord = {
       wins: calculatedRecord.wins,
       losses: calculatedRecord.losses,
@@ -1189,44 +1230,14 @@ export default function TeamYear() {
       pointsFor: null,
       pointsAgainst: null,
     }
-  } else {
-    // No games yet → fall back to whatever was previously saved.
-    const yearStandings = currentDynasty.conferenceStandingsByYear?.[yearNum] ||
-                          currentDynasty.conferenceStandingsByYear?.[selectedYear] || {}
-    let standingsRecord = null
-    for (const confTeams of Object.values(yearStandings)) {
-      if (Array.isArray(confTeams)) {
-        const teamData = confTeams.find(t => {
-          if (!t || !t.team) return false
-          const resolvedTid = t.tid || resolveTid(t.team, teamsSource)
-          return resolvedTid === tid
-        })
-        if (teamData && (teamData.wins > 0 || teamData.losses > 0)) {
-          standingsRecord = { wins: teamData.wins, losses: teamData.losses }
-          break
-        }
-      }
-    }
-    const legacyRecord = currentDynasty.teamRecordsByTeamYear?.[teamAbbr]?.[yearNum] ||
-                         currentDynasty.teamRecordsByTeamYear?.[teamAbbr]?.[selectedYear]
-    const tidRecord = currentDynasty.teams?.[tid]?.byYear?.[yearNum]?.record ||
-                      currentDynasty.teams?.[tid]?.byYear?.[selectedYear]?.record ||
-                      currentDynasty.teams?.[tid]?.byYear?.[yearNum]?.teamRecord ||
-                      currentDynasty.teams?.[tid]?.byYear?.[selectedYear]?.teamRecord
-    const storedRecord =
-      (legacyRecord && (legacyRecord.wins > 0 || legacyRecord.losses > 0) && legacyRecord) ||
-      (tidRecord && (tidRecord.wins > 0 || tidRecord.losses > 0) && tidRecord) ||
-      null
-    const fallback = standingsRecord || storedRecord
-    if (fallback) {
-      displayRecord = {
-        wins: fallback.wins,
-        losses: fallback.losses,
-        confWins: fallback.confWins || 0,
-        confLosses: fallback.confLosses || 0,
-        pointsFor: null,
-        pointsAgainst: null,
-      }
+  } else if (storedFallback) {
+    displayRecord = {
+      wins: storedFallback.wins,
+      losses: storedFallback.losses,
+      confWins: storedFallback.confWins || 0,
+      confLosses: storedFallback.confLosses || 0,
+      pointsFor: null,
+      pointsAgainst: null,
     }
   }
 
