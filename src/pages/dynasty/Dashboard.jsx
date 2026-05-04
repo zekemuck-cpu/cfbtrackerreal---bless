@@ -8466,11 +8466,12 @@ export default function Dashboard() {
         {/* End Left Column */}
 
         {/* Right Column: Recap card when a recap exists for last week.
-            Sits in the slot that Schedule normally occupies. The Schedule
-            and Roster (now hidden above) re-emerge as the tabbed section
-            below, full-width across both grid columns. */}
+            Sits in the slot that Schedule normally occupies and spans
+            both grid rows on desktop, so the Roster/Schedule tabs sit
+            in the LEFT column below the to-dos rather than full-width
+            below both columns. */}
         {lastWeekRecapExists && (
-          <div className="lg:block">
+          <div className="lg:block lg:row-span-2">
             <div
               className="rounded-2xl overflow-hidden"
               style={{
@@ -9114,7 +9115,7 @@ export default function Dashboard() {
             Schedule have been hidden above. Matches the user's spec:
             "schedule should then group with roster in a tabbed section
             just like it automatically does on mobile". */}
-        <div className={lastWeekRecapExists ? 'lg:col-span-2 lg:mt-2' : 'lg:hidden'}>
+        <div className={lastWeekRecapExists ? 'lg:mt-2' : 'lg:hidden'}>
           {/* Tab Buttons */}
           <div className="flex mb-4 rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--rule-soft)' }}>
             <button
