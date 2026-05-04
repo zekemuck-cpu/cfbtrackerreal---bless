@@ -15,6 +15,7 @@ import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName } from '../../da
 import { PageHero, Card, Button, EmptyState, Input, Select, Textarea } from '../../components/ui'
 import { getTeamColors } from '../../data/teamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
+import { uploadImagesToImgBB } from '../../utils/imgbb'
 
 // Map abbreviations to mascot names for logo lookup
 function getMascotName(abbr, teamsData = null) {
@@ -221,8 +222,14 @@ export default function GameEdit() {
     conferencePOW: '',      // Conference Offensive Player of the Week
     confDefensePOW: '',     // Conference Defensive Player of the Week
     nationalPOW: '',        // National Offensive Player of the Week
-    natlDefensePOW: ''      // National Defensive Player of the Week
+    natlDefensePOW: '',     // National Defensive Player of the Week
+    photos: []              // Array of ImgBB-hosted photo URLs for this game
   })
+
+  // Tracks in-flight ImgBB uploads from the Photos section so the UI
+  // can show a "Uploading X photo(s)…" indicator and disable the file
+  // picker while a batch is in progress.
+  const [photoUploadCount, setPhotoUploadCount] = useState(0)
 
   // When ON, opponent Record and Conf inputs are read-only and show the
   // live "after this game finished" computation from `liveRecordFor`.
@@ -805,7 +812,8 @@ export default function GameEdit() {
           ? [...existingGame.links.filter(l => l.trim()), ''] // Existing array + empty input
           : existingGame.links
             ? [...existingGame.links.split(',').map(l => l.trim()).filter(l => l), ''] // Convert string to array
-            : [''] // Default empty input
+            : [''], // Default empty input
+        photos: Array.isArray(existingGame.photos) ? existingGame.photos.filter(Boolean) : [],
       })
     } else if (isNewGame && team1Tid && team2Tid) {
       // New game - fetch ratings and calculate records
@@ -1014,7 +1022,10 @@ export default function GameEdit() {
         ...(() => {
           const validLinks = formData.links.filter(l => l.trim())
           return validLinks.length > 0 ? { links: validLinks } : {}
-        })()
+        })(),
+        // Photos — array of ImgBB-hosted URLs uploaded via the Photos
+        // section. Always persisted (even if empty) so deletes stick.
+        photos: Array.isArray(formData.photos) ? formData.photos.filter(Boolean) : [],
       }
 
       // Update or add game - build updated games array for CFP propagation and record calc
@@ -1161,7 +1172,10 @@ export default function GameEdit() {
         ...(() => {
           const validLinks = formData.links.filter(l => l.trim())
           return validLinks.length > 0 ? { links: validLinks } : {}
-        })()
+        })(),
+        // Photos — array of ImgBB-hosted URLs uploaded via the Photos
+        // section. Always persisted (even if empty) so deletes stick.
+        photos: Array.isArray(formData.photos) ? formData.photos.filter(Boolean) : [],
       }
 
       // Update or add game - build updated games array for CFP propagation and record calc
@@ -1911,6 +1925,111 @@ export default function GameEdit() {
         {formData.links.filter(l => l.trim()).length > 0 && (
           <div className="mt-3 label-xs text-txt-tertiary">
             <span className="tabular">{formData.links.filter(l => l.trim()).length}</span> link(s) added
+          </div>
+        )}
+      </Card>
+
+      {/* Photos — bulk upload to ImgBB. Each picked file is uploaded
+          in parallel and appended to formData.photos as its own URL.
+          The Game page then surfaces these in a "Photos" tab gallery. */}
+      <Card>
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+          <h3 className="label-sm text-txt-primary">Photos</h3>
+          <span className="label-xs text-txt-tertiary">
+            {photoUploadCount > 0
+              ? `Uploading ${photoUploadCount}…`
+              : `${formData.photos.length} ${formData.photos.length === 1 ? 'photo' : 'photos'}`}
+          </span>
+        </div>
+        <p className="text-xs text-txt-tertiary mb-3">
+          Upload one or many photos at once — each one is hosted on ImgBB and shows up under the Photos tab on the game page.
+        </p>
+
+        <label
+          className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg cursor-pointer mb-3 transition-colors text-sm font-semibold"
+          style={{
+            backgroundColor: 'var(--surface-3)',
+            border: '1.5px dashed var(--surface-5)',
+            color: 'var(--text-secondary)',
+            opacity: photoUploadCount > 0 ? 0.6 : 1,
+            pointerEvents: photoUploadCount > 0 ? 'none' : 'auto',
+          }}
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          {photoUploadCount > 0
+            ? `Uploading ${photoUploadCount} photo${photoUploadCount === 1 ? '' : 's'}…`
+            : 'Click to select photo(s) — bulk upload supported'}
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            disabled={photoUploadCount > 0}
+            onChange={async (e) => {
+              const files = Array.from(e.target.files || [])
+              e.target.value = '' // allow re-picking the same files later
+              if (files.length === 0) return
+              setPhotoUploadCount(files.length)
+              try {
+                const { urls, errors } = await uploadImagesToImgBB(files)
+                if (urls.length > 0) {
+                  setFormData(prev => ({ ...prev, photos: [...(prev.photos || []), ...urls] }))
+                }
+                if (errors.length > 0) {
+                  setToastMessage(
+                    urls.length > 0
+                      ? `Uploaded ${urls.length}; ${errors.length} failed (${errors[0].error.message})`
+                      : `Upload failed: ${errors[0].error.message}`
+                  )
+                  setShowToast(true)
+                  setTimeout(() => setShowToast(false), 4000)
+                } else if (urls.length > 0) {
+                  setToastMessage(`Uploaded ${urls.length} photo${urls.length === 1 ? '' : 's'}`)
+                  setShowToast(true)
+                  setTimeout(() => setShowToast(false), 2000)
+                }
+              } finally {
+                setPhotoUploadCount(0)
+              }
+            }}
+          />
+        </label>
+
+        {formData.photos.length > 0 && (
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+            {formData.photos.map((url, idx) => (
+              <div
+                key={`${url}-${idx}`}
+                className="group relative aspect-square overflow-hidden rounded-md"
+                style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
+              >
+                <img
+                  src={url}
+                  alt={`Game photo ${idx + 1}`}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData(prev => ({
+                      ...prev,
+                      photos: prev.photos.filter((_, i) => i !== idx),
+                    }))
+                  }}
+                  className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ backgroundColor: 'rgba(15, 23, 42, 0.85)', color: '#f87171', border: '1px solid var(--surface-5)' }}
+                  title="Remove photo"
+                  aria-label="Remove photo"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </Card>

@@ -1703,6 +1703,7 @@ export default function Game() {
                 { key: 'ratings', label: 'Ratings', shortLabel: 'Rtg', show: !isCPUGame && (game.team1Overall || game.team1Offense || game.team1Defense || game.team2Overall || game.opponentOverall) },
                 { key: 'awards', label: 'Awards', shortLabel: 'Awards', show: !isCPUGame && (game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW) },
                 { key: 'cards', label: 'Cards', shortLabel: 'Cards', show: cardsForGame.length > 0 },
+                { key: 'photos', label: 'Photos', shortLabel: 'Photos', show: Array.isArray(game.photos) && game.photos.length > 0 },
               ].filter(tab => tab.show).map(tab => (
                 <button
                   key={tab.key}
@@ -3014,6 +3015,36 @@ export default function Game() {
                     </div>
                   )
                 })}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'photos' && Array.isArray(game.photos) && game.photos.length > 0 && (
+            <div className="px-3 sm:px-5 py-5 sm:py-6">
+              <h3 className="text-base font-bold text-txt-primary mb-1">
+                Photos from this game
+              </h3>
+              <p className="text-xs text-txt-tertiary mb-5">
+                {game.photos.length} {game.photos.length === 1 ? 'photo' : 'photos'} uploaded. Click any to open full size.
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {game.photos.map((url, idx) => (
+                  <a
+                    key={`${url}-${idx}`}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group relative aspect-square overflow-hidden rounded-md transition-transform duration-150 hover:-translate-y-0.5"
+                    style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
+                  >
+                    <img
+                      src={url}
+                      alt={`Game photo ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  </a>
+                ))}
               </div>
             </div>
           )}
