@@ -184,7 +184,7 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     const r1 = g.team1Rank, r2 = g.team2Rank
     if (isRanked(r1) && isRanked(r2)) top25vTop25.push(g)
     else if (isRanked(r1) || isRanked(r2)) top25vUnranked.push(g)
-    everyGameLine.push(g)
+    else everyGameLine.push(g) // unranked-vs-unranked only — no duplication with the buckets above
   }
 
 
@@ -445,10 +445,12 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     sections.push('')
   }
 
-  // Every game played this week — comprehensive list
+  // Other FBS games — unranked-vs-unranked. The two ranked sections
+  // above already cover every game involving a top-25 team, so this
+  // bucket has no overlap with them.
   if (everyGameLine.length > 0) {
-    sections.push(`ALL ENTERED FBS GAMES (Week ${weekNum})`)
-    sections.push(`(Ranks shown are the ranks entering Week ${weekNum}.)`)
+    sections.push(`OTHER FBS GAMES — UNRANKED MATCHUPS (Week ${weekNum})`)
+    sections.push(`(Ranks not applicable — both teams entered the week unranked.)`)
     for (const g of everyGameLine) sections.push(fmtGameLine(g, dynasty))
     sections.push('')
   }
@@ -573,21 +575,25 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     `- Mixing these up is a common error: don't write "the #1 team beat #21 Duke" if Duke entered Week ${weekNum} at #14 — use the entering rank #14. Track post-week movement separately via the EVOLUTION rows.`,
     ``,
     `═══════════════════════════════════════════════════════════`,
-    `WHAT TO COVER (suggested order — adapt based on what's in the data)`,
+    `WHAT TO COVER`,
     `═══════════════════════════════════════════════════════════`,
-    `1. HEADLINE GAMES — lead with the biggest result(s) of the week. Top 25 vs Top 25 always headlines if any happened. Otherwise the most consequential ranked-vs-unranked game (e.g. a top-10 team falling to an unranked one is the lead).`,
-    `2. UPSETS & SURPRISES — call out any losses by ranked teams, especially top-10 teams. Quantify the gap when possible ("the #4 team fell to a team that came in 2-3").`,
-    `3. NATIONAL TOP-25 ROUND-UP — quick walk through other ranked teams' results.`,
-    `4. POLL MOVEMENT — if the EVOLUTION section shows a clear trajectory across recent weeks (a team rising or falling several spots), call it out by comparing consecutive "Entering Week W" rows. Each row is the poll AT THE START of that week. Don't describe "ties" or "shared ranks" — every slot 1-25 has exactly one team.`,
-    `5. AWARDS / HEISMAN PICTURE — write this section ONLY when a player is leading a major stat category (passing/rushing/receiving yds, sacks) by a noticeable margin. If nobody clears that bar, SKIP this section entirely. Do not write hedge sentences like "the picture remains a watch list" — just don't include it.`,
-    `6. CONFERENCE RACES — when standings data is present, describe who's ahead in each major conference race. If standings aren't entered, skip this entirely.`,
-    `7. LOOK-AHEAD — only if the post-week poll snapshot is fresh (labeled "POST-WEEK ${weekNum}", not "MOST RECENT"). Otherwise skip — speculation about next week without next week's data leads to invention.`,
+    `Aim for 500-800 words across 3-5 H2 sections. Quality over volume. Pick the structure that fits the week, but a typical strong week looks like:`,
     ``,
-    `If a section's data block is empty or thin, skip the section entirely — do not write filler. Better a tight 4-paragraph recap than a padded one. Concrete examples of filler to avoid:`,
-    `  - Awards-watch sections that hedge ("the picture remains a watch list...")`,
-    `  - Restating the same scoreline more than once`,
-    `  - "The crowd was electric" / "showed great heart" type filler`,
-    `  - Any sentence that doesn't add a fact from the data`,
+    `  1. HEADLINES & UPSETS — the biggest games of the week, including ranked-vs-ranked, top-10 losses, and any upset (ranked team falling to unranked). Lead with the loudest result. Group every consequential ranked game here so they're not split across multiple sections.`,
+    `  2. AROUND THE TOP 25 — the rest of the ranked teams' results, briefly. Mostly a single paragraph that name-checks what each ranked team did.`,
+    `  3. POLL MOVEMENT — if (and only if) the EVOLUTION section shows a clear trajectory across recent weeks. Compare consecutive "Entering Week W" rows. Each slot 1-25 has exactly one team — never describe ties.`,
+    `  4. AROUND THE COUNTRY — selected unranked-vs-unranked storylines. Be selective: lopsided blowouts (≥30 pts), upsets, conference rivalries, and one-score thrillers. Skip games that are just middle-of-the-road results.`,
+    ``,
+    `Optional extras (only when warranted by the data):`,
+    `  - AWARDS / HEISMAN PICTURE — only if a player is leading a major stat category (passing/rushing/receiving yds, sacks) by a noticeable margin. If nobody clears that bar, SKIP.`,
+    `  - CONFERENCE RACES — only if conference standings data is present.`,
+    `  - LOOK-AHEAD — only if the snapshot is labeled "POST-WEEK ${weekNum}" (not "MOST RECENT"). Skip otherwise.`,
+    ``,
+    `STRUCTURAL RULES:`,
+    `- Each game appears in EXACTLY ONE section. If you mention Alabama-Tennessee in HEADLINES, do not mention it again in AROUND THE TOP 25.`,
+    `- Skip empty sections entirely. No hedging language ("the picture remains a watch list..."), no filler ("showed great heart"), no restating the same scoreline more than once.`,
+    `- DO NOT explain data limitations to the reader. Never write things like "the latest snapshot is not the post-week poll" or "the next ranking isn't yet set" — that's plumbing the user shouldn't see. Just don't claim post-week rankings; describe what happened.`,
+    `- Every sentence must add a fact from the data. If you can't, cut the sentence.`,
     ``,
     OUTPUT_FORMAT.trim(),
     ``,
