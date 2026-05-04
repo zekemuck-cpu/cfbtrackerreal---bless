@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import { useDynasty } from '../context/DynastyContext'
 import { useToast } from './ui/Toast'
 import { buildWeekRecapPrompt, buildPreseasonRecapPrompt } from '../utils/recapPrompts'
-import FormattedRecap from './FormattedRecap'
 
 /**
  * Single-screen modal for generating and saving a Week Recap. The user copies
@@ -30,7 +29,6 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
   const existingRecap = currentDynasty?.weekRecapsByYear?.[yearNum]?.[weekNum]
   const [draft, setDraft] = useState(existingRecap?.text || '')
   const [saving, setSaving] = useState(false)
-  const [previewing, setPreviewing] = useState(!!existingRecap?.text)
   const [copied, setCopied] = useState(false)
 
   // Re-pull the existing recap whenever the modal re-opens or the (year, week)
@@ -39,7 +37,6 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
   useEffect(() => {
     if (!isOpen) return
     setDraft(existingRecap?.text || '')
-    setPreviewing(!!existingRecap?.text)
     setCopied(false)
   }, [isOpen, yearNum, weekNum, existingRecap?.text])
 
@@ -91,8 +88,8 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
       const next = { ...cur, [yearNum]: yr }
       await updateDynasty(currentDynasty.id, { weekRecapsByYear: next })
       toast.success('Recap saved.')
-      setPreviewing(true)
       onSaved?.(trimmed)
+      onClose?.()
     } catch (err) {
       console.error('[WeekRecapModal] save failed:', err)
       toast.error('Could not save the recap. Try again.')
@@ -113,7 +110,7 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
       await updateDynasty(currentDynasty.id, { weekRecapsByYear: next })
       toast.success('Recap deleted.')
       setDraft('')
-      setPreviewing(false)
+      onClose?.()
     } catch (err) {
       console.error('[WeekRecapModal] delete failed:', err)
       toast.error('Could not delete the recap.')
@@ -187,7 +184,7 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
             </div>
             <textarea
               value={draft}
-              onChange={(e) => { setDraft(e.target.value); if (previewing) setPreviewing(false) }}
+              onChange={(e) => setDraft(e.target.value)}
               className="w-full h-56 rounded-md border border-surface-4 bg-surface-2 text-txt-primary text-sm font-sans p-3 resize-y focus:outline-none focus:ring-2 focus:ring-surface-5"
               placeholder="Paste the recap text here. Markdown is supported."
             />
@@ -195,13 +192,6 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
               Markdown (headings, bold, italic) renders when you save.
             </p>
           </section>
-
-          {previewing && draft.trim() && (
-            <section className="rounded-md border border-surface-4 bg-surface-2 p-4">
-              <div className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '1.5px' }}>Preview</div>
-              <FormattedRecap text={draft} />
-            </section>
-          )}
         </div>
 
         {/* Footer */}
@@ -218,13 +208,6 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
             )}
           </div>
           <div className="flex gap-2 items-stretch sm:items-center sm:justify-end">
-            <button
-              onClick={() => setPreviewing(p => !p)}
-              disabled={!draft.trim()}
-              className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {previewing ? 'Hide preview' : 'Preview'}
-            </button>
             <button
               onClick={onClose}
               className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
