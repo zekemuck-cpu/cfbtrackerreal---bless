@@ -2618,6 +2618,7 @@ export default function PlayerEdit() {
                 onSave={handleSave}
                 saving={saving}
                 dirty={cardsDirty}
+                autoOpenNew={searchParams.get('newCard') === '1'}
               />
             </div>
           )

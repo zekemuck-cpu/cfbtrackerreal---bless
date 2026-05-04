@@ -100,7 +100,7 @@ export function listCardStylesByEra() {
  */
 export const CARD_CONTEXTS = [
   { id: 'season',       label: 'Season',          hint: 'Generic season card with that year\'s stats.' },
-  { id: 'rookie',       label: 'Rookie / Debut',  hint: 'First year on campus — RC stamp, freshman vibes.' },
+  { id: 'rookie',       label: 'Freshman / Debut', hint: 'First year on campus — true freshman / RS freshman feel. (No NFL "RC" stamp; this is college.)' },
   { id: 'game',         label: 'Specific Game',   hint: 'Commemorates one game (rivalry win, big upset, etc.).' },
   { id: 'championship', label: 'Championship',    hint: 'CFP / conference title commemorative.' },
   { id: 'award',        label: 'Individual Award', hint: 'Heisman, Maxwell, etc.' },

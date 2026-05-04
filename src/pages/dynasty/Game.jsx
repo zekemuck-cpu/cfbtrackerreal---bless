@@ -2957,33 +2957,63 @@ export default function Game() {
                 {cardsForGame.length} card{cardsForGame.length === 1 ? '' : 's'} tagged to this matchup. Click any player name to open their full collection.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {cardsForGame.map(({ player: p, card }) => (
-                  <div key={`${p.pid}-${card.id}`} className="flex flex-col items-center">
-                    <Link
-                      to={`${pathPrefix}/player/${p.pid}?tab=card`}
-                      className="text-sm font-semibold text-txt-primary hover:underline mb-1"
-                    >
-                      {p.name}
-                      {p.position ? <span className="text-txt-tertiary"> · {p.position}</span> : null}
-                    </Link>
-                    {(card.year || card.label) && (
-                      <div className="text-[11px] text-txt-tertiary mb-2">
-                        {card.year ? <span className="tabular">{card.year}</span> : null}
-                        {card.year && card.label ? <span className="mx-1">·</span> : null}
-                        {card.label}
+                {cardsForGame.map(({ player: p, card }) => {
+                  // Render path differs by card shape:
+                  //   • Legacy template-based → CardComposer overlays the
+                  //     player photo onto the PNG template at runtime.
+                  //   • Prompt-driven        → just show the saved
+                  //     frontImageUrl (the AI-generated card the user
+                  //     uploaded back into the editor).
+                  const isLegacy = card.styleId === undefined && card.templateId !== undefined
+                  return (
+                    <div key={`${p.pid}-${card.id}`} className="flex flex-col items-center">
+                      <Link
+                        to={`${pathPrefix}/player/${p.pid}?tab=card`}
+                        className="text-sm font-semibold text-txt-primary hover:underline mb-1"
+                      >
+                        {p.name}
+                        {p.position ? <span className="text-txt-tertiary"> · {p.position}</span> : null}
+                      </Link>
+                      {(card.year || card.label) && (
+                        <div className="text-[11px] text-txt-tertiary mb-2">
+                          {card.year ? <span className="tabular">{card.year}</span> : null}
+                          {card.year && card.label ? <span className="mx-1">·</span> : null}
+                          {card.label}
+                        </div>
+                      )}
+                      <div style={{ width: 'min(280px, 100%)' }}>
+                        {isLegacy ? (
+                          <CardComposer
+                            card={card}
+                            player={p}
+                            dynasty={currentDynasty}
+                            width="100%"
+                            className="rounded-xl shadow-2xl overflow-hidden"
+                          />
+                        ) : (card.frontImageUrl ? (
+                          <img
+                            src={card.frontImageUrl}
+                            alt={`${p.name} card`}
+                            className="w-full rounded-xl shadow-2xl block"
+                            style={{ aspectRatio: '5/7', objectFit: 'cover' }}
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div
+                            className="w-full rounded-xl flex items-center justify-center text-[11px] text-txt-tertiary text-center"
+                            style={{
+                              aspectRatio: '5/7',
+                              backgroundColor: 'var(--surface-2)',
+                              border: '1px dashed var(--surface-4)',
+                            }}
+                          >
+                            No image yet
+                          </div>
+                        ))}
                       </div>
-                    )}
-                    <div style={{ width: 'min(280px, 100%)' }}>
-                      <CardComposer
-                        card={card}
-                        player={p}
-                        dynasty={currentDynasty}
-                        width="100%"
-                        className="rounded-xl shadow-2xl overflow-hidden"
-                      />
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}

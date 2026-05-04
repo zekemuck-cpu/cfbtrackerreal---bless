@@ -32,6 +32,7 @@ export default function PlayerCards({
   onSave,
   saving,
   dirty,
+  autoOpenNew = false,
 }) {
   const list = Array.isArray(cards) ? cards : []
   const accent = teamColors?.primary || '#6b7280'
@@ -39,7 +40,7 @@ export default function PlayerCards({
   // editingIdx: null = browsing the collection, -1 = adding a brand-new
   // card (no row exists yet), >=0 = editing an existing card by its index
   // in the cards array.
-  const [editingIdx, setEditingIdx] = useState(null)
+  const [editingIdx, setEditingIdx] = useState(autoOpenNew ? -1 : null)
 
   const editingCard = useMemo(() => {
     if (editingIdx === -1) {

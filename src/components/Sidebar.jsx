@@ -95,6 +95,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     { name: 'Weekly Scores', path: `${pathPrefix}/weekly-scores` },
     { name: 'All Teams', path: `${pathPrefix}/teams` },
     { name: 'All Players', path: `${pathPrefix}/players` },
+    { name: 'Card Collection', path: `${pathPrefix}/cards` },
     ...(userCanSeeMembers ? [{ name: 'Members', path: `${pathPrefix}/league`, isAdmin: true }] : []),
     { name: 'Danger Zone', path: `${pathPrefix}/admin`, isAdmin: true }
   ]

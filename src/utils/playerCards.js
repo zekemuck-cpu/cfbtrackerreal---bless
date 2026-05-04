@@ -105,18 +105,55 @@ export function newCardId() {
  * Find every card across the dynasty that's tagged to a specific
  * game id. Returns `{ player, card }` pairs so callers (Game page
  * Cards tab) can render the player name alongside the rendered card.
+ *
+ * Handles BOTH card shapes:
+ *  • Legacy template-based: top-level `gameId`.
+ *  • Prompt-driven:         `contextType === 'game'` plus
+ *                           `contextDetails.gameId`.
  */
 export function getCardsForGame(dynasty, gameId) {
   if (!dynasty?.players || !gameId) return []
   const out = []
+  const target = String(gameId)
   for (const player of dynasty.players) {
     const cards = getPlayerCards(player)
     for (const card of cards) {
-      if (String(card.gameId || '') === String(gameId)) {
+      const legacyGameId = String(card.gameId || '')
+      const contextGameId = card.contextType === 'game'
+        ? String(card.contextDetails?.gameId || '')
+        : ''
+      if (legacyGameId === target || contextGameId === target) {
         out.push({ player, card })
       }
     }
   }
+  return out
+}
+
+/**
+ * Flat list of every card across the dynasty, paired with its player.
+ * Used by the sidebar Card Collection page. Returns newest-first by
+ * createdAt, falling back to player name + card id for stable ordering
+ * when timestamps are missing.
+ */
+export function getAllDynastyCards(dynasty) {
+  if (!dynasty?.players) return []
+  const out = []
+  for (const player of dynasty.players) {
+    const cards = getPlayerCards(player)
+    for (const card of cards) {
+      out.push({ player, card })
+    }
+  }
+  out.sort((a, b) => {
+    const ta = Number(a.card.createdAt) || 0
+    const tb = Number(b.card.createdAt) || 0
+    if (ta !== tb) return tb - ta
+    const na = a.player?.name || ''
+    const nb = b.player?.name || ''
+    if (na !== nb) return na.localeCompare(nb)
+    return String(a.card.id).localeCompare(String(b.card.id))
+  })
   return out
 }
 

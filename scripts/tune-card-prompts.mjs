@@ -283,12 +283,51 @@ function replaceNFLReferences(text) {
   return out
 }
 
+// Source catalog also leans on NFL "Rookie Card" semantics — RC stamps,
+// "Rated Rookie" badges, "Rookie Ticket" banners, "for rookies, add a
+// foil RC designation". College players aren't rookies (you're a true
+// freshman, RS freshman, etc.), so the AI was rendering "RC" badges on
+// seniors. Strip the RC/rookie callouts from every prompt; the
+// `freshman / debut` context still has its own dedicated framing in
+// the back-of-card content block.
+const ROOKIE_STRIPS = [
+  // Whole conditional sentences — usually look like "For rookies, ADD …."
+  /\s*For rookies?,[^.]*\./gi,
+  /\s*For Rated Rookies,[^.]*\./gi,
+  /\s*For rookie autograph versions,[^.]*\./gi,
+  // Inline "with 'RC' shield in upper-right for rookies" / "with an 'RC'
+  // designation for rookies" fragments tacked onto a longer sentence.
+  /,?\s*with\s+(?:an?\s+)?['"`]RC['"`][^,.]*(?:rookies?|freshmen|first[- ]year)[^,.]*/gi,
+  /,?\s*with\s+a\s+['"`]?ROOKIE['"`]?[^,.]*foil[^,.]*/gi,
+  // Standalone "RC" / "Rookie Card" callouts inside parens or set off.
+  /\s*\(['"`]?RC['"`]?[^)]*\)/gi,
+]
+
+const ROOKIE_REPLACEMENTS = [
+  // "earliest rookie card or college card image" → "earliest college card image"
+  [/earliest rookie card or college card image/gi, 'earliest college card image'],
+  [/rookie card or college card/gi, 'college card'],
+  // "ROOKIE TICKET / VETERAN TICKET" — neither term applies to college; the
+  // ticket-stub motif is fine, just drop the rookie/veteran distinction.
+  [/['"`]?ROOKIE TICKET['"`]?\s*\(\s*or\s*['"`]?VETERAN TICKET['"`]?\s*for[^)]*\)/gi, "'GAME TICKET'"],
+  [/['"`]?ROOKIE TICKET['"`]?/g, "'GAME TICKET'"],
+]
+
+function stripRookieReferences(text) {
+  if (typeof text !== 'string') return text
+  let out = text
+  for (const [re, rep] of ROOKIE_REPLACEMENTS) out = out.replace(re, rep)
+  for (const re of ROOKIE_STRIPS) out = out.replace(re, '')
+  return out
+}
+
 function clean(text) {
   if (typeof text !== 'string') return text
   let out = text
   for (const [re, rep] of NOUN_REPLACEMENTS) out = out.replace(re, rep)
   for (const re of STRIP_PATTERNS) out = out.replace(re, '')
   out = replaceNFLReferences(out)
+  out = stripRookieReferences(out)
   // Multiple cleanup passes, since one pass can expose new orphans.
   for (let i = 0; i < 3; i++) {
     for (const [re, rep] of ORPHAN_CLEANUPS) out = out.replace(re, rep)

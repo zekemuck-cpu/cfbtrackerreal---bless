@@ -25,7 +25,7 @@ import {
   PlayersByState, AllTimeLineup, Recruiting, Leaders, Awards, AllAmericans,
   AllConference, DynastyRecords, Teams, TeamYear, BowlHistory,
   ConferenceChampionshipHistory, ConferenceStandings, CFPBracket, WeeklyScores, Game,
-  GameEdit, DangerZone, LeagueSettings,
+  GameEdit, DangerZone, LeagueSettings, CardCollection,
 } from './routes/lazyPages'
 
 // Protected route wrapper
@@ -159,6 +159,7 @@ function AppRoutes() {
                   <Route path="weekly-scores" element={<WeeklyScores />} />
                   <Route path="weekly-scores/:year" element={<WeeklyScores />} />
                   <Route path="weekly-scores/:year/:week" element={<WeeklyScores />} />
+                  <Route path="cards" element={<CardCollection />} />
                   <Route path="game/new" element={<GameEdit />} />
                   <Route path="game/:gameId" element={<Game />} />
                   <Route path="game/:gameId/edit" element={<GameEdit />} />
