@@ -26,68 +26,91 @@
 import { useMemo, useState } from 'react'
 import { CARD_STYLES } from '../data/cardStyles'
 
-// Era group buckets — top-level filter chips. `eras: null` means "show
-// every group". Each bucket maps to the granular era keys it contains.
+// Synthetic era key for fictional / concept entries. We detect them via
+// `id.startsWith('fictional_')` and route them to this bucket regardless
+// of what era the source catalog lists, so they never mix with real
+// production sets in the "All" / decade chips. Lives in its own chip.
+const FICTIONAL_ERA = 'fictional'
+
+// Era group buckets — top-level filter chips. `eras: null` means "every
+// REAL era" (fictional always lives in its own chip). Order matters:
+// the chip rendered furthest-left is the default, and the user wants to
+// open the picker on Modern with everything sorted recent-first.
 const ERA_GROUPS = [
-  { id: 'all',     label: 'All',     eras: null },
-  { id: 'vintage', label: 'Vintage', eras: ['vintage_1950s', 'vintage_1960s', 'vintage_1970s'] },
-  { id: '80s',     label: '80s',     eras: ['early_80s', 'mid_80s', 'late_80s'] },
-  { id: '90s',     label: '90s',     eras: ['early_modern', 'early_90s', 'early_90s_premium', 'mid_90s', 'mid_90s_premium', 'late_90s_premium'] },
-  { id: '2000s',   label: '2000s',   eras: ['early_2000s', 'early_2000s_premium', 'mid_2000s', 'mid_2000s_premium', 'late_2000s_premium'] },
-  { id: 'modern',  label: 'Modern',  eras: ['early_2010s', 'modern_panini'] },
+  { id: 'modern',     label: 'Modern',     eras: ['early_2010s', 'modern_panini'] },
+  { id: 'all',        label: 'All Real',   eras: null },
+  { id: '2000s',      label: '2000s',      eras: ['early_2000s', 'early_2000s_premium', 'mid_2000s', 'mid_2000s_premium', 'late_2000s_premium'] },
+  { id: '90s',        label: '90s',        eras: ['early_modern', 'early_90s', 'early_90s_premium', 'mid_90s', 'mid_90s_premium', 'late_90s_premium'] },
+  { id: '80s',        label: '80s',        eras: ['early_80s', 'mid_80s', 'late_80s'] },
+  { id: 'vintage',    label: 'Vintage',    eras: ['vintage_1950s', 'vintage_1960s', 'vintage_1970s'] },
+  { id: 'fictional',  label: 'Fictional',  eras: [FICTIONAL_ERA] },
 ]
 
 // Per-era left-rail color so each card can be scan-picked by era.
 const ERA_ACCENT = {
-  vintage_1950s: '#d4a056',
-  vintage_1960s: '#d4a056',
-  vintage_1970s: '#d28547',
-  early_80s: '#e879b3',
-  mid_80s: '#e879b3',
-  late_80s: '#d265a8',
-  early_modern: '#3fb6a8',
-  early_90s: '#3fb6a8',
-  early_90s_premium: '#5cc4b8',
-  mid_90s: '#a3a3b3',
-  mid_90s_premium: '#c0c0d0',
-  late_90s_premium: '#9eb8e5',
-  early_2000s: '#7cc26b',
-  early_2000s_premium: '#7cc26b',
-  mid_2000s: '#9b7ed4',
-  mid_2000s_premium: '#9b7ed4',
-  late_2000s_premium: '#b48ce0',
-  early_2010s: '#5dade2',
+  [FICTIONAL_ERA]: '#c084fc',  // violet — signals "imaginary / concept"
   modern_panini: '#7c8aff',
+  early_2010s: '#5dade2',
+  late_2000s_premium: '#b48ce0',
+  mid_2000s_premium: '#9b7ed4',
+  mid_2000s: '#9b7ed4',
+  early_2000s_premium: '#7cc26b',
+  early_2000s: '#7cc26b',
+  late_90s_premium: '#9eb8e5',
+  mid_90s_premium: '#c0c0d0',
+  mid_90s: '#a3a3b3',
+  early_90s_premium: '#5cc4b8',
+  early_90s: '#3fb6a8',
+  early_modern: '#3fb6a8',
+  late_80s: '#d265a8',
+  mid_80s: '#e879b3',
+  early_80s: '#e879b3',
+  vintage_1970s: '#d28547',
+  vintage_1960s: '#d4a056',
+  vintage_1950s: '#d4a056',
   college: '#e07b3a',
   misc: '#6e6e78',
 }
 
 // Era group label for the row header above each cluster of styles.
+// Ordered newest → oldest so the section render order matches the user's
+// scan expectation when "All Real" is selected.
 const ERA_GROUP_LABEL = {
-  vintage_1950s: 'Vintage · 1950s',
-  vintage_1960s: 'Vintage · 1960s',
-  vintage_1970s: 'Vintage · 1970s',
-  early_80s: 'Early 80s',
-  mid_80s: 'Mid 80s',
-  late_80s: 'Late 80s',
-  early_modern: 'Early Modern',
-  early_90s: 'Early 90s',
-  early_90s_premium: 'Early 90s · Premium',
-  mid_90s: 'Mid 90s',
-  mid_90s_premium: 'Mid 90s · Premium',
-  late_90s_premium: 'Late 90s · Premium',
-  early_2000s: 'Early 2000s',
-  early_2000s_premium: 'Early 2000s · Premium',
-  mid_2000s: 'Mid 2000s',
-  mid_2000s_premium: 'Mid 2000s · Premium',
-  late_2000s_premium: 'Late 2000s · Premium',
-  early_2010s: 'Early 2010s',
+  [FICTIONAL_ERA]: 'Fictional · Concept Sets',
   modern_panini: 'Modern · Panini Era',
+  early_2010s: 'Early 2010s',
+  late_2000s_premium: 'Late 2000s · Premium',
+  mid_2000s_premium: 'Mid 2000s · Premium',
+  mid_2000s: 'Mid 2000s',
+  early_2000s_premium: 'Early 2000s · Premium',
+  early_2000s: 'Early 2000s',
+  late_90s_premium: 'Late 90s · Premium',
+  mid_90s_premium: 'Mid 90s · Premium',
+  mid_90s: 'Mid 90s',
+  early_90s_premium: 'Early 90s · Premium',
+  early_90s: 'Early 90s',
+  early_modern: 'Early Modern',
+  late_80s: 'Late 80s',
+  mid_80s: 'Mid 80s',
+  early_80s: 'Early 80s',
+  vintage_1970s: 'Vintage · 1970s',
+  vintage_1960s: 'Vintage · 1960s',
+  vintage_1950s: 'Vintage · 1950s',
   college: 'College-Specific',
   misc: 'Misc',
 }
 
+// Section render order — newest first. Fictional sits at the top so
+// when the user explicitly switches to that chip it lands on screen
+// immediately.
 const ERA_ORDER = Object.keys(ERA_GROUP_LABEL)
+
+// Effective era for a style: fictional entries get routed to the
+// synthetic FICTIONAL_ERA bucket regardless of what the catalog set.
+function effectiveEra(style) {
+  if (style?.id && String(style.id).startsWith('fictional_')) return FICTIONAL_ERA
+  return style?.era || 'misc'
+}
 
 function firstSentence(text) {
   if (!text) return ''
@@ -100,32 +123,46 @@ function firstSentence(text) {
 
 export default function CardStylePicker({ value, onChange, styles = CARD_STYLES }) {
   const [search, setSearch] = useState('')
-  const [eraGroup, setEraGroup] = useState('all')
+  // Open on Modern by default — most users want recent sets, not 1952
+  // Bowman, when they create a new card.
+  const [eraGroup, setEraGroup] = useState('modern')
 
   // Combined filter — case-insensitive substring match across label,
   // brand, and year, intersected with the era group filter.
+  // Fictional entries only appear when the Fictional chip is active;
+  // the "All Real" chip and every decade chip exclude them.
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     const group = ERA_GROUPS.find(g => g.id === eraGroup)
     const eraSet = group?.eras ? new Set(group.eras) : null
+    const onlyFictional = eraGroup === 'fictional'
     return styles.filter(s => {
-      if (eraSet && !eraSet.has(s.era)) return false
+      const era = effectiveEra(s)
+      const isFictional = era === FICTIONAL_ERA
+      if (onlyFictional) {
+        if (!isFictional) return false
+      } else {
+        // Real-set chips — never include fictional, even under "All Real".
+        if (isFictional) return false
+        if (eraSet && !eraSet.has(era)) return false
+      }
       if (!q) return true
       const hay = `${s.label || ''} ${s.brand || ''} ${s.year || ''}`.toLowerCase()
       return hay.includes(q)
     })
   }, [styles, search, eraGroup])
 
-  // Group filtered results by era for the section headers.
+  // Group filtered results by era for the section headers. Sort each
+  // section newest → oldest so a scrolling user sees recent stuff first.
   const byEra = useMemo(() => {
     const out = {}
     for (const s of filtered) {
-      const era = s.era || 'misc'
+      const era = effectiveEra(s)
       if (!out[era]) out[era] = []
       out[era].push(s)
     }
     for (const era of Object.keys(out)) {
-      out[era].sort((a, b) => (a.year || 0) - (b.year || 0))
+      out[era].sort((a, b) => (b.year || 0) - (a.year || 0))
     }
     return out
   }, [filtered])
@@ -231,8 +268,15 @@ export default function CardStylePicker({ value, onChange, styles = CARD_STYLES 
  * checkmark in the corner, and faint accent fill.
  */
 function StyleCell({ style, selected, onClick }) {
-  const accent = ERA_ACCENT[style.era] || 'var(--surface-5)'
+  const era = effectiveEra(style)
+  const accent = ERA_ACCENT[era] || 'var(--surface-5)'
   const oneLiner = firstSentence(style.description)
+  // Fictional entries have a placeholder year (2025) in the catalog
+  // metadata, but the rendered card adopts the dynasty's year at
+  // generation time. Show a "Concept" tag here instead of misleading
+  // anyone with a hardcoded year.
+  const isFictional = era === FICTIONAL_ERA
+  const yearTag = isFictional ? 'CONCEPT' : style.year
   return (
     <button
       type="button"
@@ -280,7 +324,7 @@ function StyleCell({ style, selected, onClick }) {
           >
             {(style.brand || '').toUpperCase()}
             <span className="text-txt-tertiary mx-1">·</span>
-            <span className="text-txt-primary">{style.year}</span>
+            <span className="text-txt-primary">{yearTag}</span>
           </span>
         </div>
 
