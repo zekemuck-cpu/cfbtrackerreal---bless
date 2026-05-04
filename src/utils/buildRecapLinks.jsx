@@ -49,8 +49,7 @@ export default function buildRecapLinks(dynasty, year, pathPrefix) {
         <Link
           key={key}
           to={teamHref}
-          className="text-team-primary hover:underline font-normal"
-          style={{ color: 'var(--team-primary)' }}
+          className="hover:underline underline-offset-2 decoration-zinc-500"
         >
           {text}
         </Link>

@@ -8480,26 +8480,20 @@ export default function Dashboard() {
                 border: '1px solid var(--rule-soft)',
               }}
             >
-              <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-1 h-10 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
-                  <div className="min-w-0">
-                    <h2 className="text-lg font-bold text-white tracking-tight truncate">
-                      Week {Number(currentDynasty.currentWeek) - 1} Recap
-                    </h2>
-                  </div>
-                </div>
+              {/* No title bar — the recap text starts with its own H1
+                  ("# 2034 Week 10 Recap") so a header here would just
+                  duplicate it. The external-link affordance floats at the
+                  top-right of the body, out of the way. */}
+              <div className="relative px-5 py-4 max-h-[640px] overflow-y-auto">
                 <Link
                   to={`${pathPrefix}/weekly-scores/${Number(currentDynasty.currentYear)}/${Number(currentDynasty.currentWeek) - 1}?tab=recap`}
-                  className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors flex-shrink-0"
+                  className="absolute top-3 right-3 z-10 p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
                   title="Open recap on Weekly Scores page"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
                 </Link>
-              </div>
-              <div className="px-5 py-4 max-h-[640px] overflow-y-auto">
                 <FormattedRecap
                   text={lastWeekRecap.text}
                   playerLinks={buildRecapLinks(currentDynasty, Number(currentDynasty.currentYear), pathPrefix)}
