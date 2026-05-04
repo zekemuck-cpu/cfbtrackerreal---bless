@@ -447,7 +447,7 @@ export default function WeeklyScores() {
               onChange={handleWeekChange}
               ariaLabel="Select week"
             />
-            <span>Scores</span>
+            <span>Recap</span>
           </h1>
         }
         actions={
@@ -505,9 +505,7 @@ export default function WeeklyScores() {
       {/* Tab bar — Scores / Recap. The Recap tab houses the AI-narrated
           week-in-review (preseason variant at week 0). */}
       {(() => {
-        const recap = currentDynasty.weekRecapsByYear?.[displayYear]?.[displayWeek]
-        const recapExists = !!recap?.text
-        const Tab = ({ value, label, badge }) => {
+        const Tab = ({ value, label }) => {
           const active = tabParam === value
           return (
             <button
@@ -522,24 +520,13 @@ export default function WeeklyScores() {
               aria-pressed={active}
             >
               {label}
-              {badge && (
-                <span
-                  className="ml-2 align-middle inline-block rounded-full"
-                  style={{
-                    width: 6,
-                    height: 6,
-                    backgroundColor: '#22c55e',
-                  }}
-                  aria-hidden="true"
-                />
-              )}
             </button>
           )
         }
         return (
           <div className="flex gap-1 border-b border-surface-4 -mt-2">
             <Tab value="scores" label="Scores" />
-            <Tab value="recap" label={displayWeek === 0 ? 'Preseason Recap' : 'Recap'} badge={recapExists} />
+            <Tab value="recap" label={displayWeek === 0 ? 'Preseason Recap' : 'Recap'} />
           </div>
         )
       })()}

@@ -3353,7 +3353,7 @@ export default function Dashboard() {
                         style={{ color: item.done ? '#22c55e' : '#a1a1aa' }}
                       >
                         {item.done
-                          ? '✓ Saved — view it on the Weekly Scores page'
+                          ? '✓ Saved — view it on the Weekly Recap page'
                           : 'AI-written season preview based on past dynasty data'}
                       </div>
                     )}
@@ -8488,7 +8488,7 @@ export default function Dashboard() {
                 <Link
                   to={`${pathPrefix}/weekly-scores/${Number(currentDynasty.currentYear)}/${Number(currentDynasty.currentWeek) - 1}?tab=recap`}
                   className="absolute top-3 right-3 z-10 p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
-                  title="Open recap on Weekly Scores page"
+                  title="Open recap on Weekly Recap page"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />

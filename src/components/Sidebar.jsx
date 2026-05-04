@@ -92,7 +92,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     { name: 'CC History', path: `${pathPrefix}/conference-championship-history` },
     { name: 'Conf. Standings', path: `${pathPrefix}/conference-standings` },
     { name: 'Top 25', path: `${pathPrefix}/rankings` },
-    { name: 'Weekly Scores', path: `${pathPrefix}/weekly-scores` },
+    { name: 'Weekly Recap', path: `${pathPrefix}/weekly-scores` },
     { name: 'All Teams', path: `${pathPrefix}/teams` },
     { name: 'All Players', path: `${pathPrefix}/players` },
     { name: 'Card Collection', path: `${pathPrefix}/cards` },
