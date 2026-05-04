@@ -315,22 +315,22 @@ export default function ConferenceStandings() {
           {getSchoolName(mascotName) || teamAbbr}
         </span>
 
-        {/* Conference record — primary sort key, so it gets the bold
-            broadcast treatment. Overall record sits next to it as muted
-            secondary info. */}
+        {/* Single record cell — overall record bold, conference record
+            in parens muted next to it. Sort is still by CONF record
+            (handled in the enriched sort fn below); this is purely a
+            display change so the row reads like a real broadcast
+            lower-third: "8–0 (6–0)". */}
         <span
-          className="text-sm font-display font-black text-txt-primary tabular flex-shrink-0 text-right"
-          style={{ width: '52px' }}
-          title="Conference record"
+          className="text-sm font-display tabular flex-shrink-0 text-right whitespace-nowrap"
+          style={{ width: '96px' }}
+          title={`${liveWins}-${liveLosses} overall · ${liveConfWins}-${liveConfLosses} conference`}
         >
-          {liveConfWins}<span className="text-txt-tertiary font-normal">–</span>{liveConfLosses}
-        </span>
-        <span
-          className="hidden sm:inline-block text-xs tabular text-txt-tertiary flex-shrink-0 text-right"
-          style={{ width: '54px' }}
-          title="Overall record"
-        >
-          {liveWins}-{liveLosses}
+          <span className="font-black text-txt-primary">
+            {liveWins}<span className="text-txt-tertiary font-normal">–</span>{liveLosses}
+          </span>
+          <span className="ml-1.5 text-xs text-txt-tertiary">
+            ({liveConfWins}<span className="text-txt-muted">–</span>{liveConfLosses})
+          </span>
         </span>
 
         <div className="relative flex-shrink-0 group/diff">
@@ -439,8 +439,9 @@ export default function ConferenceStandings() {
 
         {hasData ? (
           <div>
-            {/* Column header strip — broadcast lower-third style. Hides
-                the OVR column on small screens to match the row layout. */}
+            {/* Column header strip — broadcast lower-third style. The
+                record column shows OVR (CONF) on every breakpoint;
+                sort is still by conference record. */}
             <div
               className="flex items-center gap-3 px-3 py-1.5"
               style={{
@@ -453,15 +454,10 @@ export default function ConferenceStandings() {
               <span className="flex-1" />
               <span
                 className="label-xs text-txt-tertiary text-right flex-shrink-0"
-                style={{ width: '52px', letterSpacing: '1.5px', fontSize: '9px' }}
+                style={{ width: '96px', letterSpacing: '1.5px', fontSize: '9px' }}
+                title="Overall record (conference record). Sorted by conference record."
               >
-                CONF
-              </span>
-              <span
-                className="hidden sm:inline-block label-xs text-txt-tertiary text-right flex-shrink-0"
-                style={{ width: '54px', letterSpacing: '1.5px', fontSize: '9px' }}
-              >
-                OVR
+                OVR (CONF)
               </span>
               <span
                 className="label-xs text-txt-tertiary text-right flex-shrink-0"
