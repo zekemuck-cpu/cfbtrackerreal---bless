@@ -112,7 +112,7 @@ export default function Contact() {
           <div className="relative flex items-center gap-4 p-5 sm:p-7">
             <div className="relative flex-shrink-0">
               <img
-                src="/logo.png"
+                src="https://i.imgur.com/UWHOKXh.png"
                 alt=""
                 className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white/15 p-2 ring-1 ring-white/25 transition-transform duration-300 group-hover:scale-105"
               />
