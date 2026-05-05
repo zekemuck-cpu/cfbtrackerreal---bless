@@ -70,7 +70,7 @@ function getWeekPhaseDisplay(dynasty) {
 }
 
 export default function Home() {
-  const { dynasties, deleteDynasty, importDynasty, importDynastyFromUrl, exportDynasty, updateDynasty, createDynasty, migrateDynastyStorage, loading } = useDynasty()
+  const { dynasties, deleteDynasty, importDynasty, importDynastyFromUrl, exportDynasty, updateDynasty, createDynasty, migrateDynastyStorage, loading, cloudSyncing } = useDynasty()
   const { user, isPremium, upgradeToPremium, manageSubscription } = useAuth()
   const { toast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -328,7 +328,15 @@ export default function Home() {
     setDeleteAllConfirmText('')
   }
 
-  if (loading) {
+  // Show the spinner while local is loading, OR while cloud is still
+  // syncing and we have nothing to display yet. Without the cloud-sync
+  // gate, cloud-only users would see "no dynasties yet — create one"
+  // for ~10s on cold reopens (between the empty local read finishing
+  // and the first Firestore snapshot arriving), which reads as "my
+  // dynasties are gone." Once we have at least one dynasty in hand
+  // (either local or first cloud snapshot), drop the spinner so users
+  // can interact with what's loaded while the rest streams in.
+  if (loading || (cloudSyncing && dynasties.length === 0)) {
     return (
       <div className="min-h-[calc(100dvh-4rem)] flex items-center justify-center">
         <LoadingState message="Loading dynasties..." />
