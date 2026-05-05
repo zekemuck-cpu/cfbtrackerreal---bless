@@ -3136,15 +3136,36 @@ export default function TeamYear() {
               </div>
 
               {/* Scorebug row */}
+              {(() => {
+                const teamIsTeam1 = Number(lastGame.team1Tid) === Number(tid)
+                const teamRank = teamIsTeam1 ? lastGame.team1Rank : lastGame.team2Rank
+                return (
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3 min-w-0">
                   {teamLogo && <img src={teamLogo} alt="" className="w-11 h-11 object-contain flex-shrink-0" />}
-                  <span
-                    className="text-3xl font-black tabular-nums leading-none"
-                    style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}
-                  >
-                    {lastGameInfo.teamScore}
-                  </span>
+                  {teamRank ? (
+                    <div className="flex flex-col items-start min-w-0">
+                      <span
+                        className="text-[10px] font-semibold uppercase"
+                        style={{ letterSpacing: '1.5px', color: 'var(--text-tertiary)' }}
+                      >
+                        #{teamRank}
+                      </span>
+                      <span
+                        className="text-3xl font-black tabular-nums leading-none"
+                        style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}
+                      >
+                        {lastGameInfo.teamScore}
+                      </span>
+                    </div>
+                  ) : (
+                    <span
+                      className="text-3xl font-black tabular-nums leading-none"
+                      style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}
+                    >
+                      {lastGameInfo.teamScore}
+                    </span>
+                  )}
                 </div>
                 <span
                   className={`text-[10px] font-bold uppercase px-2 py-1 rounded-sm ${lastGameInfo.isWin ? 'bg-green-600/15 text-green-400' : 'bg-red-600/15 text-red-400'}`}
@@ -3179,6 +3200,8 @@ export default function TeamYear() {
                   {lastGameInfo.oppLogo && <img src={lastGameInfo.oppLogo} alt="" className="w-11 h-11 object-contain flex-shrink-0" />}
                 </div>
               </div>
+                )
+              })()}
 
               {/* Quick game stat leaders — divided rows, no box */}
               {lastGameStats && (
@@ -3339,7 +3362,7 @@ export default function TeamYear() {
                                 {meeting.won ? 'W' : 'L'}
                               </span>
                               <span className="tabular-nums font-semibold min-w-[3rem] text-right" style={{ color: 'var(--text-primary)' }}>
-                                {meeting.ourScore}-{meeting.oppScore}
+                                {Math.max(meeting.ourScore, meeting.oppScore)}-{Math.min(meeting.ourScore, meeting.oppScore)}
                               </span>
                             </div>
                           </Link>

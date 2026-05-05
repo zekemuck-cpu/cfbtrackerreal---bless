@@ -34,18 +34,25 @@ export default function OverallProgressionModal({
     })
 
     const rosterYears = Array.from(yearsSet).sort((a, b) => a - b)
+    const devTraitFor = (year, isLast) => {
+      const dt = player.devTraitByYear?.[year] || player.devTraitByYear?.[String(year)]
+      if (dt) return dt
+      if (isLast || year === currentYear) return player.devTrait || null
+      return null
+    }
     if (rosterYears.length === 0) {
       if (currentYear) {
         return [{
           year: currentYear,
           overall: player.overall ? parseInt(player.overall) : null,
           playerClass: player.year || '—',
+          devTrait: devTraitFor(currentYear, true),
         }]
       }
       return []
     }
 
-    return rosterYears.map(year => {
+    return rosterYears.map((year, idx) => {
       const playerClass =
         player.classByYear?.[year] ||
         player.classByYear?.[String(year)] ||
@@ -59,6 +66,7 @@ export default function OverallProgressionModal({
         year,
         overall: overall != null ? parseInt(overall) : null,
         playerClass,
+        devTrait: devTraitFor(year, idx === rosterYears.length - 1),
       }
     })
   }
@@ -214,6 +222,14 @@ export default function OverallProgressionModal({
                     <span className="text-xs text-txt-tertiary truncate">
                       {entry.playerClass}
                     </span>
+                    {entry.devTrait && entry.devTrait !== 'Normal' && (
+                      <span
+                        className="text-[10px] font-bold uppercase text-txt-secondary truncate"
+                        style={{ letterSpacing: '1.5px' }}
+                      >
+                        • {entry.devTrait}
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2 flex-shrink-0">

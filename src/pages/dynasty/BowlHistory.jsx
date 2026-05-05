@@ -304,26 +304,6 @@ export default function BowlHistory() {
     return false
   }
 
-  // Tally user wins/losses across all bowl appearances. Stable across
-  // legacy and unified game shapes — we re-walk getBowlResults() output
-  // since it already normalizes both.
-  const userBowlRecord = (() => {
-    let wins = 0, losses = 0, appearances = 0
-    allBowls.forEach(name => {
-      getBowlResults(name).forEach(g => {
-        const userIsTeam1 = isUserTeamRef(g, 1)
-        const userIsTeam2 = isUserTeamRef(g, 2)
-        if (!userIsTeam1 && !userIsTeam2) return
-        appearances += 1
-        const userScore = userIsTeam1 ? g.team1Score : g.team2Score
-        const oppScore = userIsTeam1 ? g.team2Score : g.team1Score
-        if (userScore > oppScore) wins += 1
-        else if (oppScore > userScore) losses += 1
-      })
-    })
-    return { wins, losses, appearances }
-  })()
-
   return (
     <div className="space-y-4 page-enter">
       <PageHero
@@ -355,7 +335,7 @@ export default function BowlHistory() {
       </PageHero>
 
       <div
-        className="grid grid-cols-3 gap-2 sm:gap-3"
+        className="grid grid-cols-2 gap-2 sm:gap-3"
         style={{ marginBottom: '4px' }}
       >
         <div
@@ -390,38 +370,6 @@ export default function BowlHistory() {
             style={{ fontSize: 'clamp(20px, 3vw, 28px)' }}
           >
             {distinctBowlsPlayed}
-          </span>
-        </div>
-        <div
-          className="px-3 py-2.5 rounded-lg flex flex-col gap-0.5"
-          style={{
-            border: userBowlRecord.wins > 0
-              ? '1px solid color-mix(in srgb, #d4a44a 50%, transparent)'
-              : '1px solid var(--surface-4)',
-            backgroundColor: userBowlRecord.wins > 0
-              ? 'color-mix(in srgb, #d4a44a 8%, var(--surface-2))'
-              : 'var(--surface-2)',
-          }}
-        >
-          <span
-            className="label-xs"
-            style={{
-              letterSpacing: '1.5px',
-              fontSize: '9px',
-              fontWeight: 700,
-              color: userBowlRecord.wins > 0 ? '#d4a44a' : 'var(--text-tertiary)',
-            }}
-          >
-            YOUR BOWL RECORD
-          </span>
-          <span
-            className="font-display font-black tabular leading-none"
-            style={{
-              fontSize: 'clamp(20px, 3vw, 28px)',
-              color: userBowlRecord.wins > 0 ? '#e0b566' : 'var(--text-primary)',
-            }}
-          >
-            {userBowlRecord.wins}–{userBowlRecord.losses}
           </span>
         </div>
       </div>

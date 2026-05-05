@@ -801,18 +801,25 @@ export default function PlayerEdit() {
     }
 
     // Update stats for selected year (convert flat form fields back to nested structure).
-    // Category-level merge: replace categories the form emitted, preserve ones it didn't.
-    // flatStatsToNested only emits a category if the user has values for it, so a QB save
-    // won't blow away an existing kicking/punting category on the same player-year.
+    // Field-level merge within each emitted category: the form only exposes a
+    // subset of fields per category (e.g. rushing shows car/yds/td/lng/fum but
+    // NOT twentyPlus/brokenTackles/yAC, which come from box-score aggregation).
+    // A blind category-level replace would zero out those advanced stats every
+    // time the user saved the player — the bug that left "20+" stuck at 0.
+    // Categories the form didn't touch at all stay untouched.
     const statsYear = selectedStatsYear || dynasty?.currentYear
     if (statsYear) {
       const existingYearStats = player.statsByYear?.[statsYear] || {}
       const emittedCategories = flatStatsToNested(formData.stats, existingYearStats)
+      const mergedCategories = {}
+      for (const [cat, fields] of Object.entries(emittedCategories)) {
+        mergedCategories[cat] = { ...(existingYearStats[cat] || {}), ...fields }
+      }
       updatedPlayer.statsByYear = {
         ...player.statsByYear,
         [statsYear]: {
           ...existingYearStats,
-          ...emittedCategories,
+          ...mergedCategories,
         }
       }
     }
