@@ -13,8 +13,12 @@ import { useToast, useConfirm } from './ui'
 import logo from '../assets/logo.png'
 import { preloadCommonDynastyPages } from '../routes/lazyPages'
 
-// Version format: YYYY.MM.DD.build
-const APP_VERSION = '2026.05.04.0066'
+// Build-time version stamp injected by vite.config.js. Format is
+// "YYYY.MM.DD-<short-sha>" so every commit produces a distinct value —
+// the footer string actually moves on each deploy now, instead of being
+// the stale hard-coded "2026.05.04.0066" it was for months.
+// eslint-disable-next-line no-undef
+const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
 
 export default function Layout({ children }) {
   const location = useLocation()
