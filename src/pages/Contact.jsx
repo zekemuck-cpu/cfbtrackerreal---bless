@@ -165,9 +165,6 @@ export default function Contact() {
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-bold uppercase tracking-[0.15em] text-txt-tertiary mb-0.5">
-                Reddit DM
-              </div>
               <div className="text-base font-bold text-txt-primary">u/achum5</div>
             </div>
             <div className="flex items-center gap-1 text-sm font-medium text-txt-tertiary group-hover:text-txt-primary transition-colors flex-shrink-0">
@@ -267,10 +264,7 @@ export default function Contact() {
                 </div>
               )}
 
-              <div className="flex items-center justify-between gap-3 mt-1">
-                <p className="text-xs text-txt-tertiary">
-                  Takes &lt; 10 seconds. No signup.
-                </p>
+              <div className="flex items-center justify-end gap-3 mt-1">
                 <button
                   type="submit"
                   disabled={status === 'sending'}
@@ -302,10 +296,6 @@ export default function Contact() {
           )}
         </section>
 
-        {/* Footnote */}
-        <p className="text-center text-xs text-txt-tertiary mt-8">
-          Usually replies within a day or two.
-        </p>
       </div>
     </div>
   )
