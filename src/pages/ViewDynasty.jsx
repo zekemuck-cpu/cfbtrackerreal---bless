@@ -91,11 +91,6 @@ function ViewDynastyContent() {
           borderBottom: '1px solid var(--surface-4)',
         }}
       >
-        <div
-          className="h-[3px] w-full"
-          style={{ backgroundColor: 'var(--team-primary)' }}
-          aria-hidden="true"
-        />
         <div className="w-full px-2 sm:px-4">
           <div className="flex items-center justify-between py-3 gap-4">
             <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">

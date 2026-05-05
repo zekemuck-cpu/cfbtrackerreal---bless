@@ -43,7 +43,7 @@ export default function Tabs({
                   : 'text-txt-secondary hover:text-txt-primary hover:bg-surface-3'
               }`}
               style={active
-                ? { backgroundColor: 'var(--team-primary-faded)' }
+                ? { backgroundColor: 'var(--surface-3)' }
                 : undefined
               }
             >
@@ -82,7 +82,7 @@ export default function Tabs({
               <span
                 aria-hidden="true"
                 className="absolute left-0 right-0 bottom-0 h-[2px]"
-                style={{ backgroundColor: 'var(--team-primary)' }}
+                style={{ backgroundColor: 'var(--text-primary)' }}
               />
             )}
           </button>

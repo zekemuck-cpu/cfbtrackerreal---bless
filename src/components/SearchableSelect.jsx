@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { getTeamColors } from '../data/teamColors'
 import { getTeamLogo } from '../data/teams'
-import { getContrastTextColor } from '../utils/colorUtils'
 
 export default function SearchableSelect({
   options,
@@ -96,9 +95,9 @@ export default function SearchableSelect({
   return (
     <div className="relative" ref={dropdownRef}>
       {label && (
-        <label 
+        <label
           className="block text-sm font-medium mb-2"
-          style={{ color: teamColors.primary }}
+          style={{ color: 'var(--text-primary)' }}
         >
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}

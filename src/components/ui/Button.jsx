@@ -5,7 +5,7 @@ import { getContrastTextColor } from '../../utils/colorUtils'
  * Button primitive.
  *
  * Variants:
- *   primary   — team-primary fill, contrast text (for CTAs; use sparingly)
+ *   primary   — neutral text-primary fill on surface-1 (for CTAs)
  *   secondary — surface-3 fill with surface-5 border (default action)
  *   ghost     — no fill, hover surface-3
  *   danger    — danger fill
@@ -13,9 +13,9 @@ import { getContrastTextColor } from '../../utils/colorUtils'
  *
  * Sizes: sm | md (default) | lg
  *
- * The primary variant reads team color from --team-primary, so it
- * automatically picks up the page's team theme. Pass an explicit
- * `accentColor` to override.
+ * The primary variant uses neutral chrome colors. Pass an explicit
+ * `accentColor` to override the fill (e.g. for team-color CTAs on
+ * the Player or Team pages).
  */
 const SIZE_CLASSES = {
   sm: 'h-8 px-3 text-sm',
@@ -50,12 +50,12 @@ const Button = forwardRef(function Button(
 
   switch (variant) {
     case 'primary': {
-      const fill = accentColor || 'var(--team-primary)'
-      const text = accentColor ? getContrastTextColor(accentColor) : undefined
-      variantClass = 'hover:opacity-90 active:opacity-100 focus-visible:ring-team-primary'
+      const fill = accentColor || 'var(--text-primary)'
+      const text = accentColor ? getContrastTextColor(accentColor) : 'var(--surface-1)'
+      variantClass = 'hover:opacity-90 active:opacity-100 focus-visible:ring-surface-5'
       style = {
         backgroundColor: fill,
-        color: text || 'var(--text-primary)',
+        color: text,
       }
       break
     }

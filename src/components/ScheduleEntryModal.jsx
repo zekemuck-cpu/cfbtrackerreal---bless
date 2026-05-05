@@ -13,7 +13,7 @@ import { getAbbrFromTid, getTidFromAbbr } from '../data/teamRegistry'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
-import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
+import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
 import ScheduleSaveConfirmModal from './ScheduleSaveConfirmModal'
@@ -469,7 +469,6 @@ FINAL CHECK before you send the answer
         className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-4rem)] sm:h-[95dvh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
         <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-surface-4">
           <h2 className="text-2xl font-bold text-txt-primary">
             {teamTid ? `${displayTeamName} ${currentYear} Schedule` : 'Schedule Entry'}
@@ -491,7 +490,7 @@ FINAL CHECK before you send the answer
               <div
                 className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4"
                 style={{
-                  borderColor: teamColors.primary,
+                  borderColor: 'var(--text-primary)',
                   borderTopColor: 'transparent'
                 }}
               />
@@ -506,7 +505,7 @@ FINAL CHECK before you send the answer
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="card p-8 border-l-[3px] text-center max-w-sm" style={{ borderLeftColor: teamColors.primary }}>
+            <div className="card p-8 border-l-[3px] text-center max-w-sm" style={{ borderLeftColor: 'var(--surface-5)' }}>
               <p className="label-xs text-txt-tertiary mb-2">Status</p>
               <p className="text-xl font-bold text-txt-primary mb-2">Saved &amp; Moved to Trash</p>
               <p className="text-sm text-txt-secondary">Schedule saved to your dynasty.</p>
@@ -523,8 +522,8 @@ FINAL CHECK before you send the answer
                     disabled={syncing || deletingSheet}
                     className={`px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-xs sm:text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: getContrastTextColor(teamColors.primary)
+                      backgroundColor: 'var(--text-primary)',
+                      color: 'var(--surface-1)'
                     }}
                   >
                     {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
@@ -555,7 +554,7 @@ FINAL CHECK before you send the answer
                     {regenerating ? 'Regenerating...' : 'Regenerate sheet'}
                   </button>
                   {highlightSave && (
-                    <span className="text-xs font-medium animate-bounce" style={{ color: modalColors.accent }}>
+                    <span className="text-xs font-medium animate-bounce" style={{ color: 'var(--text-primary)' }}>
 
                     </span>
                   )}
@@ -620,7 +619,7 @@ FINAL CHECK before you send the answer
                 <h3 className="label-xs text-txt-tertiary mb-2">Data Entry</h3>
                 <p className="text-2xl font-bold text-txt-primary mb-6">Edit in Google Sheets</p>
 
-                <div className="text-left mb-6 max-w-sm w-full card p-4 border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
+                <div className="text-left mb-6 max-w-sm w-full card p-4 border-l-[3px]" style={{ borderLeftColor: 'var(--surface-5)' }}>
                   <p className="label-xs text-txt-tertiary mb-3">Instructions</p>
                   <ol className="text-sm space-y-2 text-txt-secondary">
                     <li className="flex gap-3">
@@ -677,8 +676,8 @@ FINAL CHECK before you send the answer
                     disabled={syncing || deletingSheet}
                     className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: getContrastTextColor(teamColors.primary)
+                      backgroundColor: 'var(--text-primary)',
+                      color: 'var(--surface-1)'
                     }}
                   >
                     {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
@@ -705,7 +704,7 @@ FINAL CHECK before you send the answer
                   {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
                 </button>
                 {highlightSave && (
-                  <span className="text-sm font-medium animate-bounce mb-4" style={{ color: modalColors.accent }}>
+                  <span className="text-sm font-medium animate-bounce mb-4" style={{ color: 'var(--text-primary)' }}>
 
                   </span>
                 )}
@@ -740,8 +739,8 @@ FINAL CHECK before you send the answer
                   disabled={refreshing}
                   className="px-4 py-2 rounded font-semibold transition-colors"
                   style={{
-                    backgroundColor: teamColors.primary,
-                    color: getContrastTextColor(teamColors.primary),
+                    backgroundColor: 'var(--text-primary)',
+                    color: 'var(--surface-1)',
                     opacity: refreshing ? 0.7 : 1
                   }}
                 >

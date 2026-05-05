@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { getContrastTextColor, getModalColors } from '../utils/colorUtils'
+import { getModalColors } from '../utils/colorUtils'
 import { useToast } from './ui/Toast'
 
 export default function RecruitingClassRankModal({
@@ -14,7 +14,7 @@ export default function RecruitingClassRankModal({
   const [saving, setSaving] = useState(false)
 
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
-  const primaryBgText = getContrastTextColor(teamColors.primary)
+  const primaryBgText = 'var(--surface-1)'
 
   useEffect(() => {
     if (isOpen) {
@@ -69,29 +69,29 @@ export default function RecruitingClassRankModal({
           className="p-4 rounded-t-xl flex justify-between items-center"
           style={{ backgroundColor: modalColors.headerBg }}
         >
-          <h2 className="text-xl font-bold" style={{ color: modalColors.text }}>
+          <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
             Recruiting Class Rank
           </h2>
           <button
             onClick={onClose}
             className="text-2xl font-bold hover:opacity-70"
-            style={{ color: modalColors.text }}
+            style={{ color: 'var(--text-primary)' }}
           >
             ×
           </button>
         </div>
 
         <div className="p-6 text-center">
-          <p className="text-sm mb-6" style={{ color: modalColors.textMuted }}>
+          <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
             Enter where your recruiting class ranked nationally.
           </p>
 
           <div className="mb-6">
-            <label className="block text-sm font-semibold mb-3" style={{ color: modalColors.text }}>
+            <label className="block text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
               National Rank
             </label>
             <div className="flex items-center justify-center gap-2">
-              <span className="text-3xl font-bold" style={{ color: modalColors.accent }}>#</span>
+              <span className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>#</span>
               <input
                 type="number"
                 min="1"
@@ -103,7 +103,7 @@ export default function RecruitingClassRankModal({
                 style={{
                   backgroundColor: modalColors.inputBg,
                   borderColor: modalColors.inputBorder,
-                  color: modalColors.text
+                  color: 'var(--text-primary)'
                 }}
               />
             </div>
@@ -117,7 +117,7 @@ export default function RecruitingClassRankModal({
           <button
             onClick={onClose}
             className="px-5 py-2 rounded-lg font-semibold hover:opacity-80"
-            style={{ backgroundColor: modalColors.inputBg, color: modalColors.text }}
+            style={{ backgroundColor: modalColors.inputBg, color: 'var(--text-primary)' }}
           >
             Cancel
           </button>
@@ -125,7 +125,7 @@ export default function RecruitingClassRankModal({
             onClick={handleSave}
             disabled={saving || !rank}
             className="px-5 py-2 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50"
-            style={{ backgroundColor: modalColors.accent, color: primaryBgText }}
+            style={{ backgroundColor: 'var(--text-primary)', color: primaryBgText }}
           >
             {saving ? 'Saving...' : 'Save'}
           </button>

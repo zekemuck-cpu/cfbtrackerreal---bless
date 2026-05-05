@@ -88,8 +88,8 @@ export default function ReturningPlayerConfirmModal({
   if (!isOpen || !confirmation) return null
 
   const { recruit, existingPlayer, departureReason, departureYear, currentTeamAbbr } = confirmation
-  const primaryText = getContrastTextColor(teamColors.primary)
-  const secondaryText = getContrastTextColor(teamColors.secondary)
+  const primaryText = 'var(--surface-1)'
+  const secondaryText = 'var(--surface-1)'
 
   // Get team info for display
   const teamInfo = teamAbbreviations[currentTeamAbbr] || {}
@@ -111,7 +111,7 @@ export default function ReturningPlayerConfirmModal({
     >
       <div
         className="card max-w-lg w-full max-h-[calc(100dvh-4rem)] sm:max-h-none overflow-y-auto border-l-[3px]"
-        style={{ borderLeftColor: teamColors.primary }}
+        style={{ borderLeftColor: 'var(--surface-5)' }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -137,15 +137,15 @@ export default function ReturningPlayerConfirmModal({
           {/* New Recruit Info */}
           <div
             className="rounded-lg p-3 mb-4"
-            style={{ backgroundColor: `${teamColors.primary}10`, border: `1px solid ${teamColors.primary}30` }}
+            style={{ backgroundColor: 'var(--surface-3)', border: `1px solid ${'var(--text-primary)'}30` }}
           >
-            <div className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: teamColors.primary }}>
+            <div className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: 'var(--text-primary)' }}>
               New Recruit
             </div>
             <div className="flex items-center gap-3">
               <div
                 className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
-                style={{ backgroundColor: teamColors.primary, color: primaryText }}
+                style={{ backgroundColor: 'var(--text-primary)', color: primaryText }}
               >
                 {recruit.name?.charAt(0) || '?'}
               </div>
@@ -211,10 +211,10 @@ export default function ReturningPlayerConfirmModal({
           {/* Info Note */}
           <div
             className="rounded-lg p-3 mb-4"
-            style={{ backgroundColor: `${teamColors.primary}08`, border: `1px solid ${teamColors.primary}20` }}
+            style={{ backgroundColor: 'var(--surface-3)', border: `1px solid ${'var(--text-primary)'}20` }}
           >
             <div className="flex gap-2">
-              <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke={teamColors.primary} viewBox="0 0 24 24">
+              <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="var(--text-primary)" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <p className="text-sm text-txt-secondary">
@@ -231,7 +231,7 @@ export default function ReturningPlayerConfirmModal({
                 to={`/dynasty/${dynastyId}/player/${existingPlayer.pid}`}
                 target="_blank"
                 className="text-sm font-medium flex items-center gap-1.5 hover:opacity-80 transition-opacity"
-                style={{ color: teamColors.primary }}
+                style={{ color: 'var(--text-primary)' }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -246,14 +246,14 @@ export default function ReturningPlayerConfirmModal({
             <button
               onClick={() => onConfirm(true)}
               className="flex-1 px-4 py-3 rounded-lg font-semibold transition-opacity hover:opacity-90"
-              style={{ backgroundColor: teamColors.primary, color: primaryText }}
+              style={{ backgroundColor: 'var(--text-primary)', color: primaryText }}
             >
               Yes, Same Player
             </button>
             <button
               onClick={() => onConfirm(false)}
               className="flex-1 px-4 py-3 rounded-lg font-semibold border-2 transition-opacity hover:opacity-80"
-              style={{ borderColor: teamColors.primary, color: teamColors.primary, backgroundColor: 'transparent' }}
+              style={{ borderColor: 'var(--text-primary)', color: 'var(--text-primary)', backgroundColor: 'transparent' }}
             >
               No, Different Player
             </button>

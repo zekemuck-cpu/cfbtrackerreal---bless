@@ -325,13 +325,13 @@ FINAL CHECK before you send
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold" style={{ color: modalColors.text }}>
+          <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             Portal Transfer Class Assignment
           </h2>
           <button aria-label="Close"
             onClick={handleClose}
             className="hover:opacity-70"
-            style={{ color: modalColors.text }}
+            style={{ color: 'var(--text-primary)' }}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -345,14 +345,14 @@ FINAL CHECK before you send
               <div
                 className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4"
                 style={{
-                  borderColor: modalColors.accent,
+                  borderColor: 'var(--text-primary)',
                   borderTopColor: 'transparent'
                 }}
               />
-              <p className="text-lg font-semibold" style={{ color: modalColors.text }}>
+              <p className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 Creating Portal Transfer Class Sheet...
               </p>
-              <p className="text-sm mt-2" style={{ color: modalColors.textMuted }}>
+              <p className="text-sm mt-2" style={{ color: 'var(--text-secondary)' }}>
                 Pre-filling portal transfers with class options
               </p>
               <SheetLoadingHint active={isLoading} />
@@ -360,7 +360,7 @@ FINAL CHECK before you send
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: modalColors.accent }}>
+            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: 'var(--text-primary)' }}>
               <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke={modalColors.background} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
@@ -375,8 +375,8 @@ FINAL CHECK before you send
         ) : sheetId ? (
           <div className="flex-1 flex flex-col overflow-hidden">
             {!isMobile && useEmbedded && (
-              <div className="mb-3 p-3 rounded-lg" style={{ backgroundColor: `${modalColors.accent}15` }}>
-                <p className="text-sm" style={{ color: modalColors.text }}>
+              <div className="mb-3 p-3 rounded-lg" style={{ backgroundColor: 'var(--surface-3)' }}>
+                <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
                   <strong>Why is this needed?</strong> Portal transfers enter with a class (Fr, So, Jr), but the game doesn't show during recruitment whether they used a redshirt at their previous school. Select whether each transfer should be a redshirt (RS) or regular class for the upcoming season.
                 </p>
               </div>
@@ -391,7 +391,7 @@ FINAL CHECK before you send
                     disabled={syncing || deletingSheet}
                     className={`px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: modalColors.accent,
+                      backgroundColor: 'var(--text-primary)',
                       color: modalColors.background
                     }}
                   >
@@ -403,8 +403,8 @@ FINAL CHECK before you send
                     className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
                     style={{
                       backgroundColor: 'transparent',
-                      borderColor: modalColors.accent,
-                      color: modalColors.text
+                      borderColor: 'var(--text-primary)',
+                      color: 'var(--text-primary)'
                     }}
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
@@ -437,7 +437,7 @@ FINAL CHECK before you send
                   className="text-xs px-3 py-1 rounded-full border transition-colors"
                   style={{
                     borderColor: modalColors.inputBorder,
-                    color: modalColors.textMuted,
+                    color: 'var(--text-secondary)',
                     backgroundColor: 'transparent'
                   }}
                 >
@@ -448,20 +448,20 @@ FINAL CHECK before you send
 
             {isMobile || !useEmbedded ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-                <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6" style={{ backgroundColor: modalColors.accent }}>
+                <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6" style={{ backgroundColor: 'var(--text-primary)' }}>
                   <svg className="w-10 h-10" fill="none" stroke={modalColors.background} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-bold mb-3" style={{ color: modalColors.text }}>Assign Classes to Portal Transfers</h3>
+                <h3 className="text-xl font-bold mb-3" style={{ color: 'var(--text-primary)' }}>Assign Classes to Portal Transfers</h3>
                 <div className="text-left mb-6 max-w-md">
-                  <div className="p-3 rounded-lg mb-4" style={{ backgroundColor: `${modalColors.accent}15` }}>
-                    <p className="text-sm" style={{ color: modalColors.text }}>
+                  <div className="p-3 rounded-lg mb-4" style={{ backgroundColor: 'var(--surface-3)' }}>
+                    <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
                       <strong>Why is this needed?</strong> Portal transfers enter with a class (Fr, So, Jr), but the game doesn't show during recruitment whether they used a redshirt at their previous school. Select whether each transfer should be a redshirt (RS) or regular class for the upcoming season.
                     </p>
                   </div>
-                  <p className="text-sm font-semibold mb-2" style={{ color: modalColors.text }}>Instructions:</p>
-                  <ol className="text-sm space-y-1.5" style={{ color: modalColors.textMuted }}>
+                  <p className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Instructions:</p>
+                  <ol className="text-sm space-y-1.5" style={{ color: 'var(--text-secondary)' }}>
                     <li className="flex gap-2"><span className="font-bold">1.</span><span>Tap the button below to open Google Sheets</span></li>
                     <li className="flex gap-2"><span className="font-bold">2.</span><span>Each transfer has a dropdown with class options</span></li>
                     <li className="flex gap-2"><span className="font-bold">3.</span><span>Select the appropriate class for each player</span></li>
@@ -487,7 +487,7 @@ FINAL CHECK before you send
                     className="px-6 py-3 rounded-lg font-semibold text-base border transition-colors"
                     style={{
                       borderColor: modalColors.inputBorder,
-                      color: modalColors.text,
+                      color: 'var(--text-primary)',
                       backgroundColor: 'transparent'
                     }}
                   >
@@ -501,7 +501,7 @@ FINAL CHECK before you send
                     disabled={syncing || deletingSheet}
                     className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: modalColors.accent,
+                      backgroundColor: 'var(--text-primary)',
                       color: modalColors.background
                     }}
                   >
@@ -513,8 +513,8 @@ FINAL CHECK before you send
                     className="px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
                     style={{
                       backgroundColor: 'transparent',
-                      borderColor: modalColors.accent,
-                      color: modalColors.text
+                      borderColor: 'var(--text-primary)',
+                      color: 'var(--text-primary)'
                     }}
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
@@ -534,7 +534,7 @@ FINAL CHECK before you send
                 </button>
               </div>
             ) : (
-              <div className="flex-1 rounded-lg overflow-hidden border-2" style={{ borderColor: modalColors.accent }}>
+              <div className="flex-1 rounded-lg overflow-hidden border-2" style={{ borderColor: 'var(--text-primary)' }}>
                 <iframe
                   src={embedUrl}
                   className="w-full h-full"
@@ -545,7 +545,7 @@ FINAL CHECK before you send
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <p style={{ color: modalColors.text }}>Failed to create sheet. Please try again.</p>
+            <p style={{ color: 'var(--text-primary)' }}>Failed to create sheet. Please try again.</p>
           </div>
         )}
       </div>

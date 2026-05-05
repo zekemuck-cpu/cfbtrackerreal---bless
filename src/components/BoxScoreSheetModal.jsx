@@ -19,7 +19,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import { getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFromAbbr } from '../data/teamRegistry'
-import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
+import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import { AI_UNIFIED_TAB, computeUnifiedTabLayout } from '../data/boxScoreConstants'
 import SheetLoadingHint from './SheetLoadingHint'
@@ -1302,7 +1302,6 @@ output that fails any of them.`,
         className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-4rem)] sm:h-[95dvh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
         <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-surface-4">
           <div className="flex-1">
             <h2 className="text-2xl font-bold text-txt-primary">
@@ -1331,7 +1330,7 @@ output that fails any of them.`,
               <div
                 className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4"
                 style={{
-                  borderColor: teamColors.primary,
+                  borderColor: 'var(--text-primary)',
                   borderTopColor: 'transparent'
                 }}
               />
@@ -1346,7 +1345,7 @@ output that fails any of them.`,
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="card p-8 border-l-[3px] max-w-md text-center" style={{ borderLeftColor: teamColors.primary }}>
+            <div className="card p-8 border-l-[3px] max-w-md text-center" style={{ borderLeftColor: 'var(--surface-5)' }}>
               <p className="text-xl font-bold mb-2 text-txt-primary">
                 Saved & Moved to Trash!
               </p>
@@ -1366,8 +1365,8 @@ output that fails any of them.`,
                     disabled={syncing || deletingSheet}
                     className={`px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-xs sm:text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: getContrastTextColor(teamColors.primary)
+                      backgroundColor: 'var(--text-primary)',
+                      color: 'var(--surface-1)'
                     }}
                   >
                     {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
@@ -1461,7 +1460,7 @@ output that fails any of them.`,
                   Edit in Google Sheets
                 </h3>
 
-                <div className="card p-4 border-l-[3px] text-left mb-6 max-w-sm w-full" style={{ borderLeftColor: teamColors.primary }}>
+                <div className="card p-4 border-l-[3px] text-left mb-6 max-w-sm w-full" style={{ borderLeftColor: 'var(--surface-5)' }}>
                   <p className="text-sm font-semibold mb-2 text-txt-primary">
                     Instructions:
                   </p>
@@ -1520,8 +1519,8 @@ output that fails any of them.`,
                     disabled={syncing || deletingSheet}
                     className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: getContrastTextColor(teamColors.primary)
+                      backgroundColor: 'var(--text-primary)',
+                      color: 'var(--surface-1)'
                     }}
                   >
                     {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
@@ -1595,8 +1594,8 @@ output that fails any of them.`,
                   disabled={refreshing}
                   className="px-4 py-2 rounded font-semibold transition-colors"
                   style={{
-                    backgroundColor: teamColors.primary,
-                    color: getContrastTextColor(teamColors.primary),
+                    backgroundColor: 'var(--text-primary)',
+                    color: 'var(--surface-1)',
                     opacity: refreshing ? 0.7 : 1
                   }}
                 >

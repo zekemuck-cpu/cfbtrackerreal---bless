@@ -180,7 +180,7 @@ export default function Login() {
                     className="h-1.5 rounded-full transition-all duration-300"
                     style={{
                       width: index === currentSlide ? '24px' : '6px',
-                      backgroundColor: index === currentSlide ? 'var(--team-primary)' : 'var(--surface-5)',
+                      backgroundColor: index === currentSlide ? 'var(--text-primary)' : 'var(--surface-5)',
                     }}
                     aria-label={`Go to slide ${index + 1}`}
                   />

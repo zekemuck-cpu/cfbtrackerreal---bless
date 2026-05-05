@@ -14,7 +14,6 @@ import BoxScoreSheetModal from '../../components/BoxScoreSheetModal'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName } from '../../data/cfpConstants'
 import { PageHero, Card, Button, EmptyState, Input, Select, Textarea } from '../../components/ui'
 import { getTeamColors } from '../../data/teamColors'
-import { getContrastTextColor } from '../../utils/colorUtils'
 import { uploadImagesToImgBB } from '../../utils/imgbb'
 
 // Map abbreviations to mascot names for logo lookup

@@ -1087,7 +1087,7 @@ function YearByYearTable({ stint, currentDynasty, pathPrefix, navigate }) {
 
   const rowAccent = (yr) => {
     if (yr.isNationalChamp) return { rail: 'var(--accent-warning)', tint: 'rgba(234, 179, 8, 0.06)' }
-    if (yr.cfpResult?.type === 'lost') return { rail: 'var(--team-primary, var(--surface-5))', tint: 'transparent' }
+    if (yr.cfpResult?.type === 'lost') return { rail: 'var(--surface-5)', tint: 'transparent' }
     if (yr.bowlResult?.won) return { rail: 'rgba(34, 197, 94, 0.45)', tint: 'transparent' }
     return { rail: 'transparent', tint: 'transparent' }
   }

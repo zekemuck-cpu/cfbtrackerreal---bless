@@ -754,7 +754,7 @@ export default function Home() {
             setShowShareModal(false)
             setShareDynasty(null)
           }}
-          teamColors={{ primary: 'var(--team-primary)', secondary: 'var(--team-secondary)' }}
+          teamColors={{ primary: 'var(--text-primary)', secondary: 'var(--surface-3)' }}
           dynasty={shareDynasty}
         />
       )}
@@ -811,17 +811,17 @@ export default function Home() {
             </span>
             <span
               className="font-outfit font-black tabular-nums text-4xl leading-none"
-              style={{ color: 'var(--team-primary)', letterSpacing: '-0.02em' }}
+              style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}
             >
               {importProgress?.progress || 0}
               <span className="text-txt-tertiary text-base font-normal ml-0.5">%</span>
             </span>
           </div>
-          {/* Hairline progress — 2px, no rounding, team-color fill */}
+          {/* Hairline progress — 2px, no rounding, neutral fill */}
           <div className="h-[2px] w-full" style={{ backgroundColor: 'var(--surface-4)' }}>
             <div
               className="h-full transition-[width] duration-500 ease-out"
-              style={{ width: `${importProgress?.progress || 0}%`, backgroundColor: 'var(--team-primary)' }}
+              style={{ width: `${importProgress?.progress || 0}%`, backgroundColor: 'var(--text-primary)' }}
             />
           </div>
         </div>
@@ -842,7 +842,7 @@ export default function Home() {
             const isCurrent = importProgress?.stage === stage
 
             const numberColor = isCurrent
-              ? 'var(--team-primary)'
+              ? 'var(--text-primary)'
               : isComplete
               ? 'var(--txt-secondary)'
               : 'var(--txt-tertiary)'
@@ -857,7 +857,7 @@ export default function Home() {
             const statusColor = isComplete
               ? 'var(--txt-tertiary)'
               : isCurrent
-              ? 'var(--team-primary)'
+              ? 'var(--text-primary)'
               : 'var(--txt-tertiary)'
 
             return (
@@ -866,7 +866,7 @@ export default function Home() {
                 className="flex items-baseline gap-4 py-2.5"
                 style={{
                   borderTop: index === 0 ? 'none' : '1px solid var(--rule-soft)',
-                  borderLeft: isCurrent ? '2px solid var(--team-primary)' : '2px solid transparent',
+                  borderLeft: isCurrent ? '2px solid var(--text-primary)' : '2px solid transparent',
                   paddingLeft: '0.75rem',
                   transition: 'border-color 200ms ease',
                 }}

@@ -12,7 +12,6 @@ export default function History() {
       <div
         className="card overflow-hidden"
       >
-        <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
         <div className="p-6">
           <h2 className="text-2xl font-bold mb-6 text-txt-primary">
             Dynasty History

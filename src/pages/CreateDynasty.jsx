@@ -244,7 +244,7 @@ export default function CreateDynasty() {
     }
   }
 
-  const neutralColors = { primary: 'var(--team-primary)', secondary: 'var(--team-secondary)' }
+  const neutralColors = { primary: 'var(--text-primary)', secondary: 'var(--surface-3)' }
 
   // ── render helpers ────────────────────────────────────────────────
 

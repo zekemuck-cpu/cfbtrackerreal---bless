@@ -38,15 +38,6 @@ export default function AuthErrorModal({ isOpen, onClose, onRefresh }) {
         }}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        {/* Team-accent top rule */}
-        <div
-          aria-hidden="true"
-          className="h-[3px] w-full"
-          style={{
-            background: 'linear-gradient(90deg, var(--team-primary) 0%, color-mix(in srgb, var(--team-primary) 60%, transparent) 55%, transparent 100%)'
-          }}
-        />
-
         <div className="px-6 pt-6 pb-5">
           {/* Eyebrow */}
           <div
@@ -80,8 +71,8 @@ export default function AuthErrorModal({ isOpen, onClose, onRefresh }) {
               disabled={refreshing}
               className="w-full py-3 rounded-lg font-bold uppercase tracking-wider text-xs transition-all hover:opacity-90 active:translate-y-px disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               style={{
-                backgroundColor: 'var(--team-primary)',
-                color: 'var(--team-primary-text, #ffffff)',
+                backgroundColor: 'var(--text-primary)',
+                color: 'var(--surface-1)',
                 letterSpacing: '2px'
               }}
             >

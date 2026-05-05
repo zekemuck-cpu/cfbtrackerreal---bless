@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../data/teams'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamColors } from '../data/teamColors'
-import { getContrastTextColor, getModalColors } from '../utils/colorUtils'
+import { getModalColors } from '../utils/colorUtils'
 import { useDynasty, getUserGamePerspective, getRecordAsOfGame } from '../context/DynastyContext'
 import { TEAMS, resolveTid, getGameTeamInfo, getAbbrFromTeamName } from '../data/teamRegistry'
 import { getBowlLogo } from '../data/bowlLogos'
@@ -203,23 +203,23 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
           {teamName}
         </Link>
         {rank && (
-          <div className="text-xs sm:text-sm font-semibold mb-1 sm:mb-2" style={{ color: modalColors.textMuted }}>
+          <div className="text-xs sm:text-sm font-semibold mb-1 sm:mb-2" style={{ color: 'var(--text-secondary)' }}>
             #{rank}
           </div>
         )}
         {recordDisplay && (
-          <div className="text-xs sm:text-sm font-medium mb-1 sm:mb-2" style={{ color: modalColors.textMuted }}>
+          <div className="text-xs sm:text-sm font-medium mb-1 sm:mb-2" style={{ color: 'var(--text-secondary)' }}>
             {recordDisplay}
           </div>
         )}
         {isScheduledGame ? (
-          <div className="text-3xl sm:text-4xl md:text-6xl font-bold" style={{ color: modalColors.textMuted }}>
+          <div className="text-3xl sm:text-4xl md:text-6xl font-bold" style={{ color: 'var(--text-secondary)' }}>
             -
           </div>
         ) : (
           <div
             className="text-3xl sm:text-4xl md:text-6xl font-bold"
-            style={{ color: isWinner ? '#22c55e' : modalColors.textMuted }}
+            style={{ color: isWinner ? '#22c55e' : 'var(--text-tertiary)' }}
           >
             {score}
           </div>
@@ -346,14 +346,14 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
     >
       <div
         className="rounded-xl shadow-2xl max-w-4xl w-full max-h-[calc(100dvh-4rem)] sm:max-h-[90dvh] overflow-y-auto relative border"
-        style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
+        style={{ backgroundColor: 'var(--surface-2)', borderColor: 'var(--surface-4)' }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
           className="sticky top-0 z-10 p-3 sm:p-6 rounded-t-xl"
           style={{
-            backgroundColor: modalColors.headerBg
+            backgroundColor: 'var(--surface-2)'
           }}
         >
           <div className="flex items-center justify-between gap-2">
@@ -438,7 +438,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
             {renderTeam(leftTeam)}
 
             {/* VS Divider */}
-            <div className="text-lg sm:text-2xl font-bold flex-shrink-0" style={{ color: modalColors.textMuted }}>
+            <div className="text-lg sm:text-2xl font-bold flex-shrink-0" style={{ color: 'var(--text-secondary)' }}>
               VS
             </div>
 
@@ -448,23 +448,23 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
 
           {/* Quarter by Quarter Scores */}
           {game.quarters && (
-            <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t" style={{ borderColor: modalColors.border }}>
-              <h4 className="text-base sm:text-lg font-bold mb-3 sm:mb-4" style={{ color: modalColors.text }}>Scoring Summary</h4>
-              <div className="rounded-lg p-2 sm:p-4 overflow-x-auto" style={{ backgroundColor: modalColors.inputBg }}>
+            <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t" style={{ borderColor: 'var(--surface-4)' }}>
+              <h4 className="text-base sm:text-lg font-bold mb-3 sm:mb-4" style={{ color: 'var(--text-primary)' }}>Scoring Summary</h4>
+              <div className="rounded-lg p-2 sm:p-4 overflow-x-auto" style={{ backgroundColor: 'var(--surface-3)' }}>
                 <div className="min-w-[300px]">
                   {/* Header Row */}
                   <div className="grid gap-1 sm:gap-2" style={{ gridTemplateColumns: `minmax(60px, 100px) repeat(${4 + (game.overtimes?.length || 0)}, minmax(28px, 1fr)) minmax(40px, 60px)` }}>
-                    <div className="text-xs sm:text-sm font-semibold" style={{ color: modalColors.textMuted }}></div>
-                    <div className="text-xs sm:text-sm font-semibold text-center" style={{ color: modalColors.textMuted }}>Q1</div>
-                    <div className="text-xs sm:text-sm font-semibold text-center" style={{ color: modalColors.textMuted }}>Q2</div>
-                    <div className="text-xs sm:text-sm font-semibold text-center" style={{ color: modalColors.textMuted }}>Q3</div>
-                    <div className="text-xs sm:text-sm font-semibold text-center" style={{ color: modalColors.textMuted }}>Q4</div>
+                    <div className="text-xs sm:text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}></div>
+                    <div className="text-xs sm:text-sm font-semibold text-center" style={{ color: 'var(--text-secondary)' }}>Q1</div>
+                    <div className="text-xs sm:text-sm font-semibold text-center" style={{ color: 'var(--text-secondary)' }}>Q2</div>
+                    <div className="text-xs sm:text-sm font-semibold text-center" style={{ color: 'var(--text-secondary)' }}>Q3</div>
+                    <div className="text-xs sm:text-sm font-semibold text-center" style={{ color: 'var(--text-secondary)' }}>Q4</div>
                     {game.overtimes?.map((_, i) => (
-                      <div key={i} className="text-xs sm:text-sm font-semibold text-center" style={{ color: modalColors.textMuted }}>
+                      <div key={i} className="text-xs sm:text-sm font-semibold text-center" style={{ color: 'var(--text-secondary)' }}>
                         OT{i + 1}
                       </div>
                     ))}
-                    <div className="text-xs sm:text-sm font-semibold text-center" style={{ color: modalColors.textMuted }}>Final</div>
+                    <div className="text-xs sm:text-sm font-semibold text-center" style={{ color: 'var(--text-secondary)' }}>Final</div>
                   </div>
 
                   {/* Away Team Row (top) */}
@@ -475,18 +475,18 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                         {opponentMascot || game.opponent}
                       </div>
                       {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
-                        <div key={q} className="text-xs sm:text-sm text-center font-medium rounded px-1 sm:px-2 py-1" style={{ backgroundColor: modalColors.background, color: modalColors.text }}>
+                        <div key={q} className="text-xs sm:text-sm text-center font-medium rounded px-1 sm:px-2 py-1" style={{ backgroundColor: 'var(--surface-2)', color: 'var(--text-primary)' }}>
                           {game.quarters.opponent[q] === '' || game.quarters.opponent[q] === null || game.quarters.opponent[q] === undefined ? '0' : game.quarters.opponent[q]}
                         </div>
                       ))}
                       {game.overtimes?.map((ot, i) => (
-                        <div key={i} className="text-xs sm:text-sm text-center font-medium rounded px-1 sm:px-2 py-1" style={{ backgroundColor: modalColors.background, color: modalColors.text }}>
+                        <div key={i} className="text-xs sm:text-sm text-center font-medium rounded px-1 sm:px-2 py-1" style={{ backgroundColor: 'var(--surface-2)', color: 'var(--text-primary)' }}>
                           {ot.opponent === '' || ot.opponent === null || ot.opponent === undefined ? '0' : ot.opponent}
                         </div>
                       ))}
                       <div className="text-sm sm:text-lg text-center font-bold rounded px-1 sm:px-2 py-1" style={{
-                        backgroundColor: !userWon ? '#22c55e20' : modalColors.background,
-                        color: !userWon ? '#22c55e' : modalColors.textMuted
+                        backgroundColor: !userWon ? '#22c55e20' : 'var(--surface-2)',
+                        color: !userWon ? '#22c55e' : 'var(--text-tertiary)'
                       }}>
                         {opponentScore}
                       </div>
@@ -494,22 +494,22 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                   ) : (
                     // User is away, so user is on top
                     <div className="grid gap-1 sm:gap-2 mt-2" style={{ gridTemplateColumns: `minmax(60px, 100px) repeat(${4 + (game.overtimes?.length || 0)}, minmax(28px, 1fr)) minmax(40px, 60px)` }}>
-                      <div className="text-xs sm:text-sm font-semibold truncate" style={{ color: teamColors.primary }}>
+                      <div className="text-xs sm:text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                         {userTeam}
                       </div>
                       {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
-                        <div key={q} className="text-xs sm:text-sm text-center font-medium rounded px-1 sm:px-2 py-1" style={{ backgroundColor: modalColors.background, color: modalColors.text }}>
+                        <div key={q} className="text-xs sm:text-sm text-center font-medium rounded px-1 sm:px-2 py-1" style={{ backgroundColor: 'var(--surface-2)', color: 'var(--text-primary)' }}>
                           {game.quarters.team[q] === '' || game.quarters.team[q] === null || game.quarters.team[q] === undefined ? '0' : game.quarters.team[q]}
                         </div>
                       ))}
                       {game.overtimes?.map((ot, i) => (
-                        <div key={i} className="text-xs sm:text-sm text-center font-medium rounded px-1 sm:px-2 py-1" style={{ backgroundColor: modalColors.background, color: modalColors.text }}>
+                        <div key={i} className="text-xs sm:text-sm text-center font-medium rounded px-1 sm:px-2 py-1" style={{ backgroundColor: 'var(--surface-2)', color: 'var(--text-primary)' }}>
                           {ot.team === '' || ot.team === null || ot.team === undefined ? '0' : ot.team}
                         </div>
                       ))}
                       <div className="text-sm sm:text-lg text-center font-bold rounded px-1 sm:px-2 py-1" style={{
-                        backgroundColor: userWon ? '#22c55e20' : modalColors.background,
-                        color: userWon ? '#22c55e' : modalColors.textMuted
+                        backgroundColor: userWon ? '#22c55e20' : 'var(--surface-2)',
+                        color: userWon ? '#22c55e' : 'var(--text-tertiary)'
                       }}>
                         {userScore}
                       </div>
@@ -520,22 +520,22 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                   {game.location === 'home' ? (
                     // User is home, so user is on bottom
                     <div className="grid gap-1 sm:gap-2 mt-2" style={{ gridTemplateColumns: `minmax(60px, 100px) repeat(${4 + (game.overtimes?.length || 0)}, minmax(28px, 1fr)) minmax(40px, 60px)` }}>
-                      <div className="text-xs sm:text-sm font-semibold truncate" style={{ color: teamColors.primary }}>
+                      <div className="text-xs sm:text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                         {userTeam}
                       </div>
                       {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
-                        <div key={q} className="text-xs sm:text-sm text-center font-medium rounded px-1 sm:px-2 py-1" style={{ backgroundColor: modalColors.background, color: modalColors.text }}>
+                        <div key={q} className="text-xs sm:text-sm text-center font-medium rounded px-1 sm:px-2 py-1" style={{ backgroundColor: 'var(--surface-2)', color: 'var(--text-primary)' }}>
                           {game.quarters.team[q] === '' || game.quarters.team[q] === null || game.quarters.team[q] === undefined ? '0' : game.quarters.team[q]}
                         </div>
                       ))}
                       {game.overtimes?.map((ot, i) => (
-                        <div key={i} className="text-xs sm:text-sm text-center font-medium rounded px-1 sm:px-2 py-1" style={{ backgroundColor: modalColors.background, color: modalColors.text }}>
+                        <div key={i} className="text-xs sm:text-sm text-center font-medium rounded px-1 sm:px-2 py-1" style={{ backgroundColor: 'var(--surface-2)', color: 'var(--text-primary)' }}>
                           {ot.team === '' || ot.team === null || ot.team === undefined ? '0' : ot.team}
                         </div>
                       ))}
                       <div className="text-sm sm:text-lg text-center font-bold rounded px-1 sm:px-2 py-1" style={{
-                        backgroundColor: userWon ? '#22c55e20' : modalColors.background,
-                        color: userWon ? '#22c55e' : modalColors.textMuted
+                        backgroundColor: userWon ? '#22c55e20' : 'var(--surface-2)',
+                        color: userWon ? '#22c55e' : 'var(--text-tertiary)'
                       }}>
                         {userScore}
                       </div>
@@ -547,18 +547,18 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                         {opponentMascot || game.opponent}
                       </div>
                       {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
-                        <div key={q} className="text-xs sm:text-sm text-center font-medium rounded px-1 sm:px-2 py-1" style={{ backgroundColor: modalColors.background, color: modalColors.text }}>
+                        <div key={q} className="text-xs sm:text-sm text-center font-medium rounded px-1 sm:px-2 py-1" style={{ backgroundColor: 'var(--surface-2)', color: 'var(--text-primary)' }}>
                           {game.quarters.opponent[q] === '' || game.quarters.opponent[q] === null || game.quarters.opponent[q] === undefined ? '0' : game.quarters.opponent[q]}
                         </div>
                       ))}
                       {game.overtimes?.map((ot, i) => (
-                        <div key={i} className="text-xs sm:text-sm text-center font-medium rounded px-1 sm:px-2 py-1" style={{ backgroundColor: modalColors.background, color: modalColors.text }}>
+                        <div key={i} className="text-xs sm:text-sm text-center font-medium rounded px-1 sm:px-2 py-1" style={{ backgroundColor: 'var(--surface-2)', color: 'var(--text-primary)' }}>
                           {ot.opponent === '' || ot.opponent === null || ot.opponent === undefined ? '0' : ot.opponent}
                         </div>
                       ))}
                       <div className="text-sm sm:text-lg text-center font-bold rounded px-1 sm:px-2 py-1" style={{
-                        backgroundColor: !userWon ? '#22c55e20' : modalColors.background,
-                        color: !userWon ? '#22c55e' : modalColors.textMuted
+                        backgroundColor: !userWon ? '#22c55e20' : 'var(--surface-2)',
+                        color: !userWon ? '#22c55e' : 'var(--text-tertiary)'
                       }}>
                         {opponentScore}
                       </div>
@@ -571,19 +571,19 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
 
           {/* Team Ratings Comparison - only for user's games, not CPU vs CPU */}
           {!isCPUGame && (userRatings.overall || game.opponentOverall) && (
-            <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t" style={{ borderColor: modalColors.border }}>
-              <h4 className="text-base sm:text-lg font-bold mb-3 sm:mb-4" style={{ color: modalColors.text }}>Team Ratings</h4>
+            <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t" style={{ borderColor: 'var(--surface-4)' }}>
+              <h4 className="text-base sm:text-lg font-bold mb-3 sm:mb-4" style={{ color: 'var(--text-primary)' }}>Team Ratings</h4>
               <div className="grid grid-cols-2 gap-2 sm:gap-6">
                 {/* Left Team (Away) Ratings */}
                 {leftTeam === 'user' ? (
-                  <div className="rounded-lg p-2 sm:p-4" style={{ backgroundColor: modalColors.inputBg }}>
-                    <div className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3 text-center truncate" style={{ color: modalColors.textMuted }}>
+                  <div className="rounded-lg p-2 sm:p-4" style={{ backgroundColor: 'var(--surface-3)' }}>
+                    <div className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3 text-center truncate" style={{ color: 'var(--text-secondary)' }}>
                       {displayTeam}
                     </div>
                     <div className="space-y-1 sm:space-y-2">
                       {userRatings.overall && (
                         <div className="flex justify-between items-center">
-                          <span className="text-xs sm:text-sm" style={{ color: modalColors.textMuted }}>Overall</span>
+                          <span className="text-xs sm:text-sm" style={{ color: 'var(--text-secondary)' }}>Overall</span>
                           <span className="font-bold text-sm sm:text-lg" style={{ color: displayTeamColors.primary }}>
                             {userRatings.overall}
                           </span>
@@ -591,7 +591,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                       )}
                       {userRatings.offense && (
                         <div className="flex justify-between items-center">
-                          <span className="text-xs sm:text-sm" style={{ color: modalColors.textMuted }}>Offense</span>
+                          <span className="text-xs sm:text-sm" style={{ color: 'var(--text-secondary)' }}>Offense</span>
                           <span className="font-bold text-sm sm:text-lg" style={{ color: displayTeamColors.primary }}>
                             {userRatings.offense}
                           </span>
@@ -599,7 +599,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                       )}
                       {userRatings.defense && (
                         <div className="flex justify-between items-center">
-                          <span className="text-xs sm:text-sm" style={{ color: modalColors.textMuted }}>Defense</span>
+                          <span className="text-xs sm:text-sm" style={{ color: 'var(--text-secondary)' }}>Defense</span>
                           <span className="font-bold text-sm sm:text-lg" style={{ color: displayTeamColors.primary }}>
                             {userRatings.defense}
                           </span>
@@ -608,14 +608,14 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-lg p-2 sm:p-4" style={{ backgroundColor: modalColors.inputBg }}>
-                    <div className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3 text-center truncate" style={{ color: modalColors.textMuted }}>
+                  <div className="rounded-lg p-2 sm:p-4" style={{ backgroundColor: 'var(--surface-3)' }}>
+                    <div className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3 text-center truncate" style={{ color: 'var(--text-secondary)' }}>
                       {opponentMascot || game.opponent}
                     </div>
                     <div className="space-y-1 sm:space-y-2">
                       {game.opponentOverall && (
                         <div className="flex justify-between items-center">
-                          <span className="text-xs sm:text-sm" style={{ color: modalColors.textMuted }}>Overall</span>
+                          <span className="text-xs sm:text-sm" style={{ color: 'var(--text-secondary)' }}>Overall</span>
                           <span className="font-bold text-sm sm:text-lg" style={{ color: opponentColors.primary }}>
                             {game.opponentOverall}
                           </span>
@@ -623,7 +623,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                       )}
                       {game.opponentOffense && (
                         <div className="flex justify-between items-center">
-                          <span className="text-xs sm:text-sm" style={{ color: modalColors.textMuted }}>Offense</span>
+                          <span className="text-xs sm:text-sm" style={{ color: 'var(--text-secondary)' }}>Offense</span>
                           <span className="font-bold text-sm sm:text-lg" style={{ color: opponentColors.primary }}>
                             {game.opponentOffense}
                           </span>
@@ -631,7 +631,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                       )}
                       {game.opponentDefense && (
                         <div className="flex justify-between items-center">
-                          <span className="text-xs sm:text-sm" style={{ color: modalColors.textMuted }}>Defense</span>
+                          <span className="text-xs sm:text-sm" style={{ color: 'var(--text-secondary)' }}>Defense</span>
                           <span className="font-bold text-sm sm:text-lg" style={{ color: opponentColors.primary }}>
                             {game.opponentDefense}
                           </span>
@@ -643,14 +643,14 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
 
                 {/* Right Team (Home) Ratings */}
                 {rightTeam === 'user' ? (
-                  <div className="rounded-lg p-2 sm:p-4" style={{ backgroundColor: modalColors.inputBg }}>
-                    <div className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3 text-center truncate" style={{ color: modalColors.textMuted }}>
+                  <div className="rounded-lg p-2 sm:p-4" style={{ backgroundColor: 'var(--surface-3)' }}>
+                    <div className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3 text-center truncate" style={{ color: 'var(--text-secondary)' }}>
                       {displayTeam}
                     </div>
                     <div className="space-y-1 sm:space-y-2">
                       {userRatings.overall && (
                         <div className="flex justify-between items-center">
-                          <span className="text-xs sm:text-sm" style={{ color: modalColors.textMuted }}>Overall</span>
+                          <span className="text-xs sm:text-sm" style={{ color: 'var(--text-secondary)' }}>Overall</span>
                           <span className="font-bold text-sm sm:text-lg" style={{ color: displayTeamColors.primary }}>
                             {userRatings.overall}
                           </span>
@@ -658,7 +658,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                       )}
                       {userRatings.offense && (
                         <div className="flex justify-between items-center">
-                          <span className="text-xs sm:text-sm" style={{ color: modalColors.textMuted }}>Offense</span>
+                          <span className="text-xs sm:text-sm" style={{ color: 'var(--text-secondary)' }}>Offense</span>
                           <span className="font-bold text-sm sm:text-lg" style={{ color: displayTeamColors.primary }}>
                             {userRatings.offense}
                           </span>
@@ -666,7 +666,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                       )}
                       {userRatings.defense && (
                         <div className="flex justify-between items-center">
-                          <span className="text-xs sm:text-sm" style={{ color: modalColors.textMuted }}>Defense</span>
+                          <span className="text-xs sm:text-sm" style={{ color: 'var(--text-secondary)' }}>Defense</span>
                           <span className="font-bold text-sm sm:text-lg" style={{ color: displayTeamColors.primary }}>
                             {userRatings.defense}
                           </span>
@@ -675,14 +675,14 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-lg p-2 sm:p-4" style={{ backgroundColor: modalColors.inputBg }}>
-                    <div className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3 text-center truncate" style={{ color: modalColors.textMuted }}>
+                  <div className="rounded-lg p-2 sm:p-4" style={{ backgroundColor: 'var(--surface-3)' }}>
+                    <div className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3 text-center truncate" style={{ color: 'var(--text-secondary)' }}>
                       {opponentMascot || game.opponent}
                     </div>
                     <div className="space-y-1 sm:space-y-2">
                       {game.opponentOverall && (
                         <div className="flex justify-between items-center">
-                          <span className="text-xs sm:text-sm" style={{ color: modalColors.textMuted }}>Overall</span>
+                          <span className="text-xs sm:text-sm" style={{ color: 'var(--text-secondary)' }}>Overall</span>
                           <span className="font-bold text-sm sm:text-lg" style={{ color: opponentColors.primary }}>
                             {game.opponentOverall}
                           </span>
@@ -690,7 +690,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                       )}
                       {game.opponentOffense && (
                         <div className="flex justify-between items-center">
-                          <span className="text-xs sm:text-sm" style={{ color: modalColors.textMuted }}>Offense</span>
+                          <span className="text-xs sm:text-sm" style={{ color: 'var(--text-secondary)' }}>Offense</span>
                           <span className="font-bold text-sm sm:text-lg" style={{ color: opponentColors.primary }}>
                             {game.opponentOffense}
                           </span>
@@ -698,7 +698,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                       )}
                       {game.opponentDefense && (
                         <div className="flex justify-between items-center">
-                          <span className="text-xs sm:text-sm" style={{ color: modalColors.textMuted }}>Defense</span>
+                          <span className="text-xs sm:text-sm" style={{ color: 'var(--text-secondary)' }}>Defense</span>
                           <span className="font-bold text-sm sm:text-lg" style={{ color: opponentColors.primary }}>
                             {game.opponentDefense}
                           </span>
@@ -713,35 +713,35 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
 
           {/* Player of the Week Honors */}
           {(game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW) && (
-            <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t" style={{ borderColor: modalColors.border }}>
-              <h4 className="text-base sm:text-lg font-bold mb-3 sm:mb-4" style={{ color: modalColors.text }}>Player of the Week Honors</h4>
+            <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t" style={{ borderColor: 'var(--surface-4)' }}>
+              <h4 className="text-base sm:text-lg font-bold mb-3 sm:mb-4" style={{ color: 'var(--text-primary)' }}>Player of the Week Honors</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
                 {/* Conference POW Section */}
                 {(game.conferencePOW || game.confDefensePOW) && (
                   <div
                     className="rounded-lg p-3 sm:p-4 border-2"
                     style={{
-                      backgroundColor: modalColors.inputBg,
-                      borderColor: modalColors.accent
+                      backgroundColor: 'var(--surface-3)',
+                      borderColor: 'var(--text-primary)'
                     }}
                   >
-                    <div className="text-xs sm:text-sm font-semibold mb-2" style={{ color: modalColors.textMuted }}>
+                    <div className="text-xs sm:text-sm font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>
                       Conference Player of the Week
                     </div>
                     <div className="space-y-2">
                       {game.conferencePOW && (
                         <div>
-                          <div className="text-[10px] uppercase" style={{ color: modalColors.textMuted }}>Offensive</div>
+                          <div className="text-[10px] uppercase" style={{ color: 'var(--text-secondary)' }}>Offensive</div>
                           {getPlayerPID(game.conferencePOW) ? (
                             <Link
                               to={`/dynasty/${currentDynasty.id}/player/${getPlayerPID(game.conferencePOW)}`}
                               className="text-sm sm:text-base font-bold hover:underline truncate block"
-                              style={{ color: modalColors.accent }}
+                              style={{ color: 'var(--text-primary)' }}
                             >
                               {game.conferencePOW}
                             </Link>
                           ) : (
-                            <div className="text-sm sm:text-base font-bold truncate" style={{ color: modalColors.accent }}>
+                            <div className="text-sm sm:text-base font-bold truncate" style={{ color: 'var(--text-primary)' }}>
                               {game.conferencePOW}
                             </div>
                           )}
@@ -749,17 +749,17 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                       )}
                       {game.confDefensePOW && (
                         <div>
-                          <div className="text-[10px] uppercase" style={{ color: modalColors.textMuted }}>Defensive</div>
+                          <div className="text-[10px] uppercase" style={{ color: 'var(--text-secondary)' }}>Defensive</div>
                           {getPlayerPID(game.confDefensePOW) ? (
                             <Link
                               to={`/dynasty/${currentDynasty.id}/player/${getPlayerPID(game.confDefensePOW)}`}
                               className="text-sm sm:text-base font-bold hover:underline truncate block"
-                              style={{ color: modalColors.accent }}
+                              style={{ color: 'var(--text-primary)' }}
                             >
                               {game.confDefensePOW}
                             </Link>
                           ) : (
-                            <div className="text-sm sm:text-base font-bold truncate" style={{ color: modalColors.accent }}>
+                            <div className="text-sm sm:text-base font-bold truncate" style={{ color: 'var(--text-primary)' }}>
                               {game.confDefensePOW}
                             </div>
                           )}
@@ -773,17 +773,17 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                   <div
                     className="rounded-lg p-3 sm:p-4 border-2"
                     style={{
-                      backgroundColor: modalColors.inputBg,
+                      backgroundColor: 'var(--surface-3)',
                       borderColor: '#fbbf24'
                     }}
                   >
-                    <div className="text-xs sm:text-sm font-semibold mb-2" style={{ color: modalColors.textMuted }}>
+                    <div className="text-xs sm:text-sm font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>
                       National Player of the Week
                     </div>
                     <div className="space-y-2">
                       {game.nationalPOW && (
                         <div>
-                          <div className="text-[10px] uppercase" style={{ color: modalColors.textMuted }}>Offensive</div>
+                          <div className="text-[10px] uppercase" style={{ color: 'var(--text-secondary)' }}>Offensive</div>
                           {getPlayerPID(game.nationalPOW) ? (
                             <Link
                               to={`/dynasty/${currentDynasty.id}/player/${getPlayerPID(game.nationalPOW)}`}
@@ -801,7 +801,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                       )}
                       {game.natlDefensePOW && (
                         <div>
-                          <div className="text-[10px] uppercase" style={{ color: modalColors.textMuted }}>Defensive</div>
+                          <div className="text-[10px] uppercase" style={{ color: 'var(--text-secondary)' }}>Defensive</div>
                           {getPlayerPID(game.natlDefensePOW) ? (
                             <Link
                               to={`/dynasty/${currentDynasty.id}/player/${getPlayerPID(game.natlDefensePOW)}`}
@@ -826,8 +826,8 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
 
           {/* Media Links */}
           {links.length > 0 && (
-            <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t" style={{ borderColor: modalColors.border }}>
-              <h4 className="text-base sm:text-lg font-bold mb-3 sm:mb-4" style={{ color: modalColors.text }}>Media & Links</h4>
+            <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t" style={{ borderColor: 'var(--surface-4)' }}>
+              <h4 className="text-base sm:text-lg font-bold mb-3 sm:mb-4" style={{ color: 'var(--text-primary)' }}>Media & Links</h4>
               <div className="space-y-3 sm:space-y-4">
                 {links.map((link, index) => {
                   const youtubeEmbedUrl = isYouTubeLink(link) ? getYouTubeEmbedUrl(link) : null
@@ -864,12 +864,12 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 p-2 sm:p-3 rounded-lg hover:opacity-80 transition-colors"
-                        style={{ backgroundColor: modalColors.inputBg }}
+                        style={{ backgroundColor: 'var(--surface-3)' }}
                       >
-                        <svg className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" style={{ color: modalColors.textMuted }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                         </svg>
-                        <span className="text-sm sm:text-base hover:underline break-all" style={{ color: modalColors.accent }}>{link}</span>
+                        <span className="text-sm sm:text-base hover:underline break-all" style={{ color: 'var(--text-primary)' }}>{link}</span>
                       </a>
                     )
                   }
@@ -880,10 +880,10 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
 
           {/* Game Notes */}
           {game.gameNote && (
-            <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t" style={{ borderColor: modalColors.border }}>
-              <h4 className="text-base sm:text-lg font-bold mb-2 sm:mb-3" style={{ color: modalColors.text }}>Game Notes</h4>
-              <div className="rounded-lg p-3 sm:p-4" style={{ backgroundColor: modalColors.inputBg }}>
-                <p className="text-sm sm:text-base whitespace-pre-wrap" style={{ color: modalColors.text }}>{game.gameNote}</p>
+            <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t" style={{ borderColor: 'var(--surface-4)' }}>
+              <h4 className="text-base sm:text-lg font-bold mb-2 sm:mb-3" style={{ color: 'var(--text-primary)' }}>Game Notes</h4>
+              <div className="rounded-lg p-3 sm:p-4" style={{ backgroundColor: 'var(--surface-3)' }}>
+                <p className="text-sm sm:text-base whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>{game.gameNote}</p>
               </div>
             </div>
           )}

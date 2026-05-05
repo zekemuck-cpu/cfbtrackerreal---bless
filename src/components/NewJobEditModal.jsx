@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { getContrastTextColor } from '../utils/colorUtils'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamLogo } from '../data/teams'
 import { getTeamColors } from '../data/teamColors'
@@ -120,7 +119,7 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
     >
       <div
         className="card w-full max-w-md max-h-[calc(100dvh-4rem)] sm:max-h-[90dvh] overflow-y-auto p-4 sm:p-6 border-l-[3px]"
-        style={{ borderLeftColor: teamColors.primary }}
+        style={{ borderLeftColor: 'var(--surface-5)' }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -130,7 +129,7 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
           <button aria-label="Close"
             onClick={onClose}
             className="hover:opacity-70"
-            style={{ color: teamColors.primary }}
+            style={{ color: 'var(--text-primary)' }}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -138,13 +137,13 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
           </button>
         </div>
 
-        <p className="text-sm mb-6" style={{ color: teamColors.primary, opacity: 0.8 }}>
+        <p className="text-sm mb-6" style={{ color: 'var(--text-primary)', opacity: 0.8 }}>
           Update your job decision for the upcoming season.
         </p>
 
         {/* Taking New Job Toggle */}
         <div className="mb-6">
-          <label className="block text-sm font-semibold mb-3" style={{ color: teamColors.primary }}>
+          <label className="block text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
             Are you taking a new job?
           </label>
           <div className="flex gap-3">
@@ -158,9 +157,9 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
                 takingNewJob === true ? 'ring-2 ring-offset-2' : ''
               }`}
               style={{
-                backgroundColor: takingNewJob === true ? teamColors.primary : `${teamColors.primary}20`,
-                color: takingNewJob === true ? getContrastTextColor(teamColors.primary) : teamColors.primary,
-                ringColor: teamColors.primary
+                backgroundColor: takingNewJob === true ? 'var(--text-primary)' : 'var(--surface-3)',
+                color: takingNewJob === true ? 'var(--surface-1)' : 'var(--text-primary)',
+                ringColor: 'var(--text-primary)'
               }}
             >
               Yes
@@ -175,9 +174,9 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
                 takingNewJob === false ? 'ring-2 ring-offset-2' : ''
               }`}
               style={{
-                backgroundColor: takingNewJob === false ? teamColors.primary : `${teamColors.primary}20`,
-                color: takingNewJob === false ? getContrastTextColor(teamColors.primary) : teamColors.primary,
-                ringColor: teamColors.primary
+                backgroundColor: takingNewJob === false ? 'var(--text-primary)' : 'var(--surface-3)',
+                color: takingNewJob === false ? 'var(--surface-1)' : 'var(--text-primary)',
+                ringColor: 'var(--text-primary)'
               }}
             >
               No
@@ -188,7 +187,7 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
         {/* Team Selection - only show if taking new job */}
         {takingNewJob === true && (
           <div className="mb-6">
-            <label className="block text-sm font-semibold mb-2" style={{ color: teamColors.primary }}>
+            <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
               Which team?
             </label>
             <div className="relative" ref={dropdownRef}>
@@ -203,7 +202,7 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
                 onFocus={() => setShowTeamDropdown(true)}
                 className="w-full px-4 py-3 rounded-lg border-2 text-txt-primary placeholder-gray-400"
                 style={{
-                  borderColor: teamColors.primary,
+                  borderColor: 'var(--text-primary)',
                   backgroundColor: '#ffffff'
                 }}
                 placeholder="Search for a team..."
@@ -213,7 +212,7 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
                   className="absolute z-50 w-full mt-1 max-h-48 overflow-y-auto rounded-lg shadow-lg border-2"
                   style={{
                     backgroundColor: '#ffffff',
-                    borderColor: teamColors.primary
+                    borderColor: 'var(--text-primary)'
                   }}
                 >
                   {filteredTeams.length === 0 ? (
@@ -244,7 +243,7 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
               <div
                 className="mt-3 p-3 rounded-lg flex items-center gap-3"
                 style={{
-                  backgroundColor: newTeamColors.primary,
+                  backgroundColor: 'var(--text-primary)',
                   border: `2px solid ${newTeamColors.secondary}`
                 }}
               >
@@ -260,7 +259,7 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
                     <img src={newTeamLogo} alt="" className="w-full h-full object-contain" />
                   </div>
                 )}
-                <span className="font-semibold" style={{ color: getContrastTextColor(newTeamColors.primary) }}>
+                <span className="font-semibold" style={{ color: 'var(--surface-1)' }}>
                   {teamAbbreviations[selectedTeam]?.name || selectedTeam}
                 </span>
               </div>
@@ -271,7 +270,7 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
         {/* Position Selection - only show if taking new job and team selected */}
         {takingNewJob === true && selectedTeam && (
           <div className="mb-6">
-            <label className="block text-sm font-semibold mb-2" style={{ color: teamColors.primary }}>
+            <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
               What position?
             </label>
             <div className="flex gap-2 flex-wrap">
@@ -287,9 +286,9 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
                     selectedPosition === pos.value ? 'ring-2 ring-offset-2' : ''
                   }`}
                   style={{
-                    backgroundColor: selectedPosition === pos.value ? teamColors.primary : `${teamColors.primary}20`,
-                    color: selectedPosition === pos.value ? getContrastTextColor(teamColors.primary) : teamColors.primary,
-                    ringColor: teamColors.primary
+                    backgroundColor: selectedPosition === pos.value ? 'var(--text-primary)' : 'var(--surface-3)',
+                    color: selectedPosition === pos.value ? 'var(--surface-1)' : 'var(--text-primary)',
+                    ringColor: 'var(--text-primary)'
                   }}
                 >
                   {pos.label}
@@ -303,12 +302,12 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
         {takingNewJob !== null && (
           <div
             className="mb-6 p-4 rounded-lg"
-            style={{ backgroundColor: `${teamColors.primary}10`, border: `1px solid ${teamColors.primary}30` }}
+            style={{ backgroundColor: 'var(--surface-3)', border: `1px solid ${'var(--text-primary)'}30` }}
           >
-            <div className="text-sm font-semibold mb-1" style={{ color: teamColors.primary, opacity: 0.7 }}>
+            <div className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)', opacity: 0.7 }}>
               Summary
             </div>
-            <div className="font-semibold" style={{ color: teamColors.primary }}>
+            <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>
               {takingNewJob === false ? (
                 'Staying with current team'
               ) : selectedTeam && selectedPosition ? (
@@ -332,8 +331,8 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
             disabled={takingNewJob === null}
             className="flex-1 px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
-              backgroundColor: teamColors.primary,
-              color: getContrastTextColor(teamColors.primary)
+              backgroundColor: 'var(--text-primary)',
+              color: 'var(--surface-1)'
             }}
           >
             Save

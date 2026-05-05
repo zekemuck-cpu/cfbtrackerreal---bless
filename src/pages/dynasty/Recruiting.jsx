@@ -843,7 +843,7 @@ export default function Recruiting() {
                     className={`px-2.5 py-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider transition-colors ${
                       active ? 'text-txt-primary' : 'text-txt-tertiary hover:text-txt-primary hover:bg-surface-3'
                     }`}
-                    style={active ? { backgroundColor: 'var(--team-primary-faded)' } : undefined}
+                    style={active ? { backgroundColor: 'var(--surface-3)' } : undefined}
                   >
                     {opt.label} <span className="tabular opacity-70">{count}</span>
                   </button>
@@ -865,8 +865,8 @@ export default function Recruiting() {
                   onClick={() => toggleStarFilter(tile.count)}
                   className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider transition-colors flex-shrink-0"
                   style={{
-                    backgroundColor: selected ? 'var(--team-primary-faded)' : 'transparent',
-                    border: `1px solid ${selected ? 'var(--team-primary)' : 'var(--surface-4)'}`,
+                    backgroundColor: selected ? 'var(--surface-3)' : 'transparent',
+                    border: `1px solid ${selected ? 'var(--text-primary)' : 'var(--surface-4)'}`,
                     color: selected ? 'var(--text-primary)' : 'var(--text-secondary)',
                   }}
                   aria-pressed={selected}
@@ -1213,7 +1213,7 @@ export default function Recruiting() {
         commitmentKey="edit"
         recruitingLabel={`${selectedYear} Recruiting Class`}
         existingCommitments={allCommitmentsUnfiltered}
-        teamColors={{ primary: 'var(--team-primary)', secondary: 'var(--team-secondary)' }}
+        teamColors={{ primary: 'var(--text-primary)', secondary: 'var(--team-secondary)' }}
       />
 
       <Modal
@@ -1232,7 +1232,7 @@ export default function Recruiting() {
               <div
                 className="flex items-center gap-4 -mx-6 -mt-5 px-6 py-4 border-b border-surface-4"
                 style={{
-                  background: 'linear-gradient(135deg, var(--team-primary-faded, var(--surface-3)) 0%, transparent 100%)'
+                  background: 'linear-gradient(135deg, var(--surface-3) 0%, transparent 100%)'
                 }}
               >
                 {teamLogo && (
@@ -1275,13 +1275,13 @@ export default function Recruiting() {
                       }}
                       className="grid grid-cols-[3.5rem_3rem_1fr_3rem] gap-3 items-center px-1 py-3 rounded-md text-left transition-all hover:bg-surface-3 group relative overflow-hidden"
                       style={{
-                        backgroundColor: isCurrent ? 'var(--team-primary-faded, var(--surface-3))' : 'transparent',
+                        backgroundColor: isCurrent ? 'var(--surface-3)' : 'transparent',
                       }}
                     >
                       {isCurrent && (
                         <div
                           className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r"
-                          style={{ backgroundColor: 'var(--team-primary)' }}
+                          style={{ backgroundColor: 'var(--text-primary)' }}
                           aria-hidden="true"
                         />
                       )}
@@ -1289,7 +1289,7 @@ export default function Recruiting() {
                         className="text-2xl font-black tabular leading-none pl-2"
                         style={{
                           fontFamily: "'Bebas Neue', sans-serif",
-                          color: isCurrent ? 'var(--team-primary)' : 'var(--txt-primary)',
+                          color: isCurrent ? 'var(--text-primary)' : 'var(--txt-primary)',
                         }}
                       >
                         {row.year}
@@ -1297,9 +1297,9 @@ export default function Recruiting() {
                       <span
                         className="text-sm font-semibold tabular inline-flex items-center justify-center px-2 py-0.5 rounded-full"
                         style={{
-                          color: isTopTen ? 'var(--team-primary)' : 'var(--txt-secondary)',
-                          backgroundColor: isTopTen ? 'var(--team-primary-faded, var(--surface-3))' : 'transparent',
-                          border: isTopTen ? '1px solid var(--team-primary)' : '1px solid transparent',
+                          color: isTopTen ? 'var(--text-primary)' : 'var(--txt-secondary)',
+                          backgroundColor: isTopTen ? 'var(--surface-3)' : 'transparent',
+                          border: isTopTen ? '1px solid var(--text-primary)' : '1px solid transparent',
                           minWidth: '2.5rem',
                         }}
                       >
@@ -1311,7 +1311,7 @@ export default function Recruiting() {
                             className="h-full rounded-full transition-all"
                             style={{
                               width: `${barPct}%`,
-                              backgroundColor: 'var(--team-primary)',
+                              backgroundColor: 'var(--text-primary)',
                               opacity: isCurrent ? 1 : 0.55,
                             }}
                           />

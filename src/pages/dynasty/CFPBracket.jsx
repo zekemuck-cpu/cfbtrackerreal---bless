@@ -4,7 +4,6 @@ import { buildCFPProjection } from '../../utils/cfpProjection'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
-import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamLogo } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo } from '../../data/teamRegistry'
@@ -169,7 +168,7 @@ export default function CFPBracket() {
   }
   const cfpSeeds = currentDynasty.cfpSeedsByYear?.[displayYear] || []
   const bowlConfig = currentDynasty.cfpBowlConfigByYear?.[displayYear] || DEFAULT_BOWL_CONFIG
-  const textColor = getContrastTextColor(teamColors.primary)
+  const textColor = 'var(--surface-1)'
 
   // CFP projection — read-only snapshot of where the field would
   // land based on the current rankings + conference assignments. We

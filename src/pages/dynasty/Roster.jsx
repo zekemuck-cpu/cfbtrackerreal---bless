@@ -95,7 +95,7 @@ export default function Roster() {
                   : 'text-txt-secondary hover:text-txt-primary hover:bg-surface-3'
               }`}
               style={active
-                ? { backgroundColor: 'var(--team-primary-faded)', boxShadow: 'inset 0 -2px 0 0 var(--team-primary)' }
+                ? { backgroundColor: 'var(--surface-3)', boxShadow: 'inset 0 -2px 0 0 var(--text-primary)' }
                 : undefined
               }
             >

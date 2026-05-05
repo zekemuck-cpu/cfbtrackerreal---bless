@@ -19,8 +19,8 @@ import { createPortal } from 'react-dom'
  *   closeOnEscape?:   boolean (default true)
  *   hideClose?: boolean — hide the header close button (e.g. during an
  *                         atomic operation the user shouldn't interrupt)
- *   accent?:  string — optional CSS color for the top accent stripe
- *                      (defaults to team color via var(--team-primary))
+ *   accent?:  string — optional CSS color for the top accent stripe.
+ *                      Omitting it (default) hides the stripe entirely.
  */
 const SIZES = {
   sm: 'max-w-md',
@@ -77,11 +77,13 @@ export default function Modal({
         aria-modal="true"
         aria-label={title || undefined}
       >
-        <div
-          className="h-[3px] w-full flex-shrink-0"
-          style={{ backgroundColor: accent || 'var(--team-primary)' }}
-          aria-hidden="true"
-        />
+        {accent && (
+          <div
+            className="h-[3px] w-full flex-shrink-0"
+            style={{ backgroundColor: accent }}
+            aria-hidden="true"
+          />
+        )}
 
         {title && (
           <header className="px-6 py-4 border-b border-surface-4 flex items-center justify-between flex-shrink-0">

@@ -311,13 +311,13 @@ FINAL CHECK before you send
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold" style={{ color: modalColors.text }}>
+          <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             Encourage Transfers
           </h2>
           <button aria-label="Close"
             onClick={handleClose}
             className="hover:opacity-70"
-            style={{ color: modalColors.text }}
+            style={{ color: 'var(--text-primary)' }}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -331,14 +331,14 @@ FINAL CHECK before you send
               <div
                 className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4"
                 style={{
-                  borderColor: modalColors.accent,
+                  borderColor: 'var(--text-primary)',
                   borderTopColor: 'transparent'
                 }}
               />
-              <p className="text-lg font-semibold" style={{ color: modalColors.text }}>
+              <p className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 Creating Encourage Transfers Sheet...
               </p>
-              <p className="text-sm mt-2" style={{ color: modalColors.textMuted }}>
+              <p className="text-sm mt-2" style={{ color: 'var(--text-secondary)' }}>
                 Loading roster for transfer selection
               </p>
               <SheetLoadingHint active={isLoading} />
@@ -346,7 +346,7 @@ FINAL CHECK before you send
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: modalColors.accent }}>
+            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: 'var(--text-primary)' }}>
               <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke={modalColors.background} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
@@ -369,7 +369,7 @@ FINAL CHECK before you send
                     disabled={syncing || deletingSheet}
                     className={`px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: modalColors.accent,
+                      backgroundColor: 'var(--text-primary)',
                       color: modalColors.background
                     }}
                   >
@@ -381,8 +381,8 @@ FINAL CHECK before you send
                     className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
                     style={{
                       backgroundColor: 'transparent',
-                      borderColor: modalColors.accent,
-                      color: modalColors.accent
+                      borderColor: 'var(--text-primary)',
+                      color: 'var(--text-primary)'
                     }}
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
@@ -401,7 +401,7 @@ FINAL CHECK before you send
                     {regenerating ? 'Regenerating...' : 'Regenerate sheet'}
                   </button>
                   {highlightSave && (
-                    <span className="text-xs font-medium animate-bounce" style={{ color: modalColors.accent }}>
+                    <span className="text-xs font-medium animate-bounce" style={{ color: 'var(--text-primary)' }}>
 
                     </span>
                   )}
@@ -420,8 +420,8 @@ FINAL CHECK before you send
                   }}
                   className="text-xs px-3 py-1 rounded-full border transition-colors"
                   style={{
-                    borderColor: modalColors.accent,
-                    color: modalColors.accent,
+                    borderColor: 'var(--text-primary)',
+                    color: 'var(--text-primary)',
                     backgroundColor: 'transparent'
                   }}
                 >
@@ -435,22 +435,22 @@ FINAL CHECK before you send
               <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
                 <div
                   className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
-                  style={{ backgroundColor: modalColors.accent }}
+                  style={{ backgroundColor: 'var(--text-primary)' }}
                 >
                   <svg className="w-10 h-10" fill="none" stroke={modalColors.background} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                   </svg>
                 </div>
 
-                <h3 className="text-xl font-bold mb-3" style={{ color: modalColors.text }}>
+                <h3 className="text-xl font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
                   Mark Players to Transfer
                 </h3>
 
                 <div className="text-left mb-6 max-w-xs">
-                  <p className="text-sm font-semibold mb-2" style={{ color: modalColors.text }}>
+                  <p className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
                     Instructions:
                   </p>
-                  <ol className="text-sm space-y-1.5" style={{ color: modalColors.textMuted }}>
+                  <ol className="text-sm space-y-1.5" style={{ color: 'var(--text-secondary)' }}>
                     <li className="flex gap-2">
                       <span className="font-bold">1.</span>
                       <span>Tap the button below to open Google Sheets</span>
@@ -496,7 +496,7 @@ FINAL CHECK before you send
                     disabled={syncing || deletingSheet}
                     className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: modalColors.accent,
+                      backgroundColor: 'var(--text-primary)',
                       color: modalColors.background
                     }}
                   >
@@ -508,8 +508,8 @@ FINAL CHECK before you send
                     className="px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
                     style={{
                       backgroundColor: 'transparent',
-                      borderColor: modalColors.accent,
-                      color: modalColors.accent
+                      borderColor: 'var(--text-primary)',
+                      color: 'var(--text-primary)'
                     }}
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
@@ -528,14 +528,14 @@ FINAL CHECK before you send
                   {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
                 </button>
                 {highlightSave && (
-                  <span className="text-sm font-medium animate-bounce mb-4" style={{ color: modalColors.accent }}>
+                  <span className="text-sm font-medium animate-bounce mb-4" style={{ color: 'var(--text-primary)' }}>
 
                   </span>
                 )}
 
-                <div className="text-xs p-3 rounded-lg max-w-xs" style={{ backgroundColor: `${modalColors.accent}15`, color: modalColors.text }}>
+                <div className="text-xs p-3 rounded-lg max-w-xs" style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-primary)' }}>
                   <p className="font-semibold mb-1">Note:</p>
-                  <p style={{ color: modalColors.textMuted }}>Players you encourage to transfer will be removed from next season's roster. They will still appear in your historical records.</p>
+                  <p style={{ color: 'var(--text-secondary)' }}>Players you encourage to transfer will be removed from next season's roster. They will still appear in your historical records.</p>
                 </div>
               </div>
             ) : (
@@ -551,7 +551,7 @@ FINAL CHECK before you send
                   />
                 </div>
 
-                <div className="text-xs mt-2 space-y-1" style={{ color: modalColors.textMuted }}>
+                <div className="text-xs mt-2 space-y-1" style={{ color: 'var(--text-secondary)' }}>
                   <p><strong>Columns:</strong> Name, Position, Overall, Encourage Transfer (checkbox)</p>
                   <p>Check the "Encourage Transfer" box for players you want to remove from next season's roster.</p>
                 </div>
@@ -561,7 +561,7 @@ FINAL CHECK before you send
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <p className="text-lg mb-4" style={{ color: modalColors.text }}>
+              <p className="text-lg mb-4" style={{ color: 'var(--text-primary)' }}>
                 Your session has expired. Click below to refresh.
               </p>
               <div className="flex gap-3 justify-center">
@@ -581,7 +581,7 @@ FINAL CHECK before you send
                   disabled={refreshing}
                   className="px-4 py-2 rounded font-semibold transition-colors"
                   style={{
-                    backgroundColor: modalColors.accent,
+                    backgroundColor: 'var(--text-primary)',
                     color: modalColors.background,
                     opacity: refreshing ? 0.7 : 1
                   }}

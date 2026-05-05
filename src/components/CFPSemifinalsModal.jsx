@@ -769,7 +769,7 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
 // --- Local presentational helpers ---
 
 function TeamCard({ info, side, qfLabel }) {
-  const accent = info?.backgroundColor || 'var(--team-primary)'
+  const accent = info?.backgroundColor || 'var(--text-primary)'
   const reverse = side === 'right'
   if (!info) {
     return (

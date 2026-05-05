@@ -7,7 +7,7 @@ import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
 import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
-import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
+import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
 import {

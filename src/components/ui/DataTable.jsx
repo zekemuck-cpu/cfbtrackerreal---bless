@@ -85,7 +85,7 @@ export default function DataTable({
                         aria-hidden="true"
                         className="text-[0.625rem] leading-none"
                         style={{
-                          color: isActive ? 'var(--team-primary)' : 'var(--text-muted)',
+                          color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
                         }}
                       >
                         {isActive ? (sort.direction === 'asc' ? '▲' : '▼') : '↕'}

@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react'
-import { getContrastTextColor } from '../utils/colorUtils'
 
 export default function DropdownSelect({
   options,
@@ -16,8 +15,6 @@ export default function DropdownSelect({
   const inputRef = useRef(null)
   const dropdownRef = useRef(null)
   const optionRefs = useRef([])
-
-  const textColor = getContrastTextColor(teamColors.secondary)
 
   const filteredOptions = options.filter(opt => {
     const optionLabel = typeof opt === 'string' ? opt : opt.label
@@ -130,7 +127,7 @@ export default function DropdownSelect({
       {label && (
         <label
           className="block text-sm font-medium mb-2"
-          style={{ color: teamColors.primary }}
+          style={{ color: 'var(--text-primary)' }}
         >
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
@@ -189,8 +186,8 @@ export default function DropdownSelect({
                 onMouseEnter={() => setHighlightedIndex(index)}
                 className="px-4 py-2.5 cursor-pointer transition-colors"
                 style={{
-                  backgroundColor: isHighlighted ? teamColors.primary : isSelected ? `${teamColors.primary}30` : 'transparent',
-                  color: isHighlighted ? teamColors.secondary : '#f3f4f6'
+                  backgroundColor: isHighlighted ? 'var(--surface-4)' : isSelected ? 'var(--surface-3)' : 'transparent',
+                  color: '#f3f4f6'
                 }}
               >
                 <span className={isSelected ? 'font-medium' : ''}>

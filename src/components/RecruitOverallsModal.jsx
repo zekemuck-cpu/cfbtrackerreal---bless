@@ -14,7 +14,6 @@ import {
   getSheetEmbedUrl,
   sheetExists
 } from '../services/sheetsService'
-import { getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
 
@@ -295,7 +294,6 @@ FINAL CHECK before you send
         className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-4rem)] sm:h-[95dvh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
         <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-surface-4">
           <h2 className="text-2xl font-bold text-txt-primary">
             Recruiting Class Overalls
@@ -318,7 +316,7 @@ FINAL CHECK before you send
               <div
                 className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4"
                 style={{
-                  borderColor: teamColors.primary,
+                  borderColor: 'var(--text-primary)',
                   borderTopColor: 'transparent'
                 }}
               />
@@ -333,7 +331,7 @@ FINAL CHECK before you send
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="card p-8 border-l-[3px] text-center max-w-sm" style={{ borderLeftColor: teamColors.primary }}>
+            <div className="card p-8 border-l-[3px] text-center max-w-sm" style={{ borderLeftColor: 'var(--surface-5)' }}>
               <p className="label-xs text-txt-tertiary mb-2">Status</p>
               <p className="text-xl font-bold text-txt-primary mb-2">
                 Saved & Moved to Trash
@@ -354,8 +352,8 @@ FINAL CHECK before you send
                     disabled={syncing || deletingSheet}
                     className={`px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: getContrastTextColor(teamColors.primary)
+                      backgroundColor: 'var(--text-primary)',
+                      color: 'var(--surface-1)'
                     }}
                   >
                     {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
@@ -410,9 +408,9 @@ FINAL CHECK before you send
               <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
                 <div
                   className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
-                  style={{ backgroundColor: teamColors.primary }}
+                  style={{ backgroundColor: 'var(--text-primary)' }}
                 >
-                  <svg className="w-10 h-10" fill="none" stroke={getContrastTextColor(teamColors.primary)} viewBox="0 0 24 24">
+                  <svg className="w-10 h-10" fill="none" stroke={'var(--surface-1)'} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
@@ -478,8 +476,8 @@ FINAL CHECK before you send
                     disabled={syncing || deletingSheet}
                     className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: getContrastTextColor(teamColors.primary)
+                      backgroundColor: 'var(--text-primary)',
+                      color: 'var(--surface-1)'
                     }}
                   >
                     {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
@@ -506,7 +504,7 @@ FINAL CHECK before you send
                   {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
                 </button>
 
-                <div className="text-xs p-3 rounded-lg max-w-xs bg-surface-2 text-txt-secondary border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
+                <div className="text-xs p-3 rounded-lg max-w-xs bg-surface-2 text-txt-secondary border-l-[3px]" style={{ borderLeftColor: 'var(--surface-5)' }}>
                   <p className="font-semibold mb-1 text-txt-primary">Note:</p>
                   <p>Enter the overall rating for each incoming recruit after they've gone through summer workouts. These overalls will be saved to their player profiles.</p>
                 </div>
@@ -554,8 +552,8 @@ FINAL CHECK before you send
                   disabled={refreshing}
                   className="px-4 py-2 rounded font-semibold transition-colors"
                   style={{
-                    backgroundColor: teamColors.primary,
-                    color: getContrastTextColor(teamColors.primary),
+                    backgroundColor: 'var(--text-primary)',
+                    color: 'var(--surface-1)',
                     opacity: refreshing ? 0.7 : 1
                   }}
                 >

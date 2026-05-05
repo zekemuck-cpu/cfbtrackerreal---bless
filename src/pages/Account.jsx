@@ -238,8 +238,8 @@ export default function Account() {
               <div
                 className="w-12 h-12 rounded-full flex items-center justify-center font-bold"
                 style={{
-                  backgroundColor: 'var(--team-primary-faded)',
-                  color: 'var(--team-primary)',
+                  backgroundColor: 'var(--surface-3)',
+                  color: 'var(--text-primary)',
                 }}
               >
                 {(user.displayName || user.email || 'U')[0].toUpperCase()}

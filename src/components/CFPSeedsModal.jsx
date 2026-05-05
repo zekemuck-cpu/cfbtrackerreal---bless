@@ -14,7 +14,7 @@ import {
   getSheetEmbedUrl
 } from '../services/sheetsService'
 import { DEFAULT_BOWL_CONFIG, CFP_NY6_BOWLS, SEED_DESCRIPTIONS } from '../data/cfpConstants'
-import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
+import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
 
@@ -311,7 +311,6 @@ FINAL CHECK before you send the answer
         className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-1.5rem)] sm:h-[95dvh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
         <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-surface-4">
           <h2 className="text-2xl font-bold text-txt-primary">
             CFP Seeds (1-12)
@@ -333,7 +332,7 @@ FINAL CHECK before you send the answer
               <div
                 className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4"
                 style={{
-                  borderColor: teamColors.primary,
+                  borderColor: 'var(--text-primary)',
                   borderTopColor: 'transparent'
                 }}
               />
@@ -348,7 +347,7 @@ FINAL CHECK before you send the answer
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="card p-8 border-l-[3px] text-center max-w-sm" style={{ borderLeftColor: teamColors.primary }}>
+            <div className="card p-8 border-l-[3px] text-center max-w-sm" style={{ borderLeftColor: 'var(--surface-5)' }}>
               <p className="label-xs text-txt-tertiary mb-2">Status</p>
               <p className="text-xl font-bold text-txt-primary mb-2">Saved &amp; Moved to Trash</p>
               <p className="text-sm text-txt-secondary">CFP Seeds saved to your dynasty.</p>
@@ -359,20 +358,20 @@ FINAL CHECK before you send the answer
             {/* Bowl Configuration Section — pinned at top */}
             <div className="mb-3 p-3 rounded-lg border flex-shrink-0" style={{ borderColor: modalColors.border, backgroundColor: modalColors.headerBg }}>
               <div className="flex items-center justify-between mb-2">
-                <h4 className="text-xs font-bold uppercase" style={{ color: modalColors.text, letterSpacing: '1.5px' }}>
+                <h4 className="text-xs font-bold uppercase" style={{ color: 'var(--text-primary)', letterSpacing: '1.5px' }}>
                   Bowl Game Assignments
                 </h4>
-                <span className="text-[10px] uppercase tracking-wider" style={{ color: modalColors.textMuted }}>
+                <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
                   NY6 rotates yearly
                 </span>
               </div>
 
               {/* Quarterfinals */}
-              <p className="text-[10px] font-bold uppercase mb-1.5" style={{ color: modalColors.textMuted, letterSpacing: '1px' }}>Quarterfinals</p>
+              <p className="text-[10px] font-bold uppercase mb-1.5" style={{ color: 'var(--text-secondary)', letterSpacing: '1px' }}>Quarterfinals</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-2.5">
                 {QF_KEYS.map(key => (
                   <div key={key}>
-                    <label className="text-[10px] block mb-0.5" style={{ color: modalColors.textMuted }}>
+                    <label className="text-[10px] block mb-0.5" style={{ color: 'var(--text-secondary)' }}>
                       {SEED_DESCRIPTIONS[key]}
                     </label>
                     <select
@@ -382,7 +381,7 @@ FINAL CHECK before you send the answer
                       style={{
                         borderColor: modalColors.inputBorder,
                         backgroundColor: modalColors.inputBg,
-                        color: modalColors.text
+                        color: 'var(--text-primary)'
                       }}
                     >
                       {CFP_NY6_BOWLS.map(bowl => (
@@ -395,7 +394,7 @@ FINAL CHECK before you send the answer
 
               {/* Semifinal bowl assignments are prompted at Bowl Week 3 — the
                   EA CFB game does not show semifinal bowl hosts during Week 1. */}
-              <p className="text-[10px] mt-1 italic" style={{ color: modalColors.textMuted }}>
+              <p className="text-[10px] mt-1 italic" style={{ color: 'var(--text-secondary)' }}>
                 Semifinal bowl hosts entered at Bowl Week 3.
               </p>
 
@@ -432,7 +431,7 @@ FINAL CHECK before you send the answer
               <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center text-center px-2 py-3">
                 <h3 className="label-xs text-txt-tertiary mb-1">Data Entry</h3>
                 <p className="text-xl font-bold text-txt-primary mb-3">Edit in Google Sheets</p>
-                <div className="text-left mb-3 max-w-sm w-full card p-3 border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
+                <div className="text-left mb-3 max-w-sm w-full card p-3 border-l-[3px]" style={{ borderLeftColor: 'var(--surface-5)' }}>
                   <p className="label-xs text-txt-tertiary mb-1.5">Instructions</p>
                   <ol className="text-xs space-y-1 text-txt-secondary">
                     <li className="flex gap-2"><span className="font-bold text-txt-primary tabular-nums">1.</span><span>Tap the button below to open Google Sheets</span></li>
@@ -456,8 +455,8 @@ FINAL CHECK before you send the answer
                     disabled={syncing || deletingSheet}
                     className={`px-5 py-2.5 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: getContrastTextColor(teamColors.primary)
+                      backgroundColor: 'var(--text-primary)',
+                      color: 'var(--surface-1)'
                     }}
                   >
                     {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
@@ -489,8 +488,8 @@ FINAL CHECK before you send the answer
                       disabled={syncing || deletingSheet}
                       className={`px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                       style={{
-                        backgroundColor: teamColors.primary,
-                        color: getContrastTextColor(teamColors.primary)
+                        backgroundColor: 'var(--text-primary)',
+                        color: 'var(--surface-1)'
                       }}
                     >
                       {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
@@ -549,8 +548,8 @@ FINAL CHECK before you send the answer
                   disabled={refreshing}
                   className="px-4 py-2 rounded font-semibold transition-colors"
                   style={{
-                    backgroundColor: teamColors.primary,
-                    color: getContrastTextColor(teamColors.primary),
+                    backgroundColor: 'var(--text-primary)',
+                    color: 'var(--surface-1)',
                     opacity: refreshing ? 0.7 : 1
                   }}
                 >

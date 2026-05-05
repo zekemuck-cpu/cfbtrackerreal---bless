@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { getContrastTextColor } from '../utils/colorUtils'
 import { getCurrentTeamAbbr } from '../data/teamRegistry'
 import { getPlayerBoxScoreTotals } from '../context/DynastyContext'
 import { useToast } from './ui/Toast'
@@ -422,8 +421,8 @@ export default function PlayerEditModalNew({
 
   if (!isOpen) return null
 
-  const primaryText = getContrastTextColor(teamColors.primary)
-  const secondaryText = getContrastTextColor(teamColors.secondary)
+  const primaryText = 'var(--surface-1)'
+  const secondaryText = 'var(--surface-1)'
 
   // Styled input component
   const Input = ({ label, name, value, onChange, type = 'text', placeholder, className = '' }) => (
@@ -1129,7 +1128,7 @@ export default function PlayerEditModalNew({
           {/* Header with Player Card */}
           <div
             className="relative px-5 py-4 flex-shrink-0 bg-surface-2 border-b border-surface-4 border-l-[3px]"
-            style={{ borderLeftColor: teamColors.primary }}
+            style={{ borderLeftColor: 'var(--surface-5)' }}
           >
             {/* Close button */}
             <button
@@ -1153,7 +1152,7 @@ export default function PlayerEditModalNew({
                     src={formData.pictureUrl}
                     alt=""
                     className="w-16 h-16 rounded-full object-cover border-3 group-hover:opacity-80 transition-opacity"
-                    style={{ borderColor: teamColors.secondary }}
+                    style={{ borderColor: 'var(--surface-3)' }}
                   />
                 ) : (
                   <div
@@ -1164,7 +1163,7 @@ export default function PlayerEditModalNew({
                 )}
                 <div
                   className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: teamColors.primary }}
+                  style={{ backgroundColor: 'var(--text-primary)' }}
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke={primaryText} viewBox="0 0 24 24" strokeWidth={2}>{Icons.camera}</svg>
                 </div>
@@ -1276,7 +1275,7 @@ export default function PlayerEditModalNew({
             <button
               type="submit"
               className="px-6 py-2.5 rounded-xl font-semibold transition-colors"
-              style={{ backgroundColor: teamColors.primary, color: primaryText }}
+              style={{ backgroundColor: 'var(--text-primary)', color: primaryText }}
             >
               Save Player
             </button>

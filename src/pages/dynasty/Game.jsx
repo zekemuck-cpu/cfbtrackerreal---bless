@@ -5,7 +5,6 @@ import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
-import { getContrastTextColor } from '../../utils/colorUtils'
 import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear, getCustomConferencesForYear } from '../../context/DynastyContext'
 import CardComposer from '../../components/CardComposer'
 import { getCardsForGame } from '../../utils/playerCards'
@@ -2962,13 +2961,13 @@ export default function Game() {
                   >
                     <div
                       className="h-[3px] w-full"
-                      style={{ backgroundColor: teamColors.primary }}
+                      style={{ backgroundColor: 'var(--text-primary)' }}
                       aria-hidden="true"
                     />
                     <div className="px-5 py-4 space-y-4">
                       <div className="label-xs text-txt-tertiary">Conference Player of the Week</div>
                       {game.conferencePOW && (
-                        <HonoreeRow name={game.conferencePOW} side="Offensive" accent={teamColors.primary} />
+                        <HonoreeRow name={game.conferencePOW} side="Offensive" accent={'var(--text-primary)'} />
                       )}
                       {game.confDefensePOW && (
                         <HonoreeRow name={game.confDefensePOW} side="Defensive" accent="#60a5fa" />
@@ -3210,9 +3209,9 @@ export default function Game() {
                   >
                     <div
                       className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: teamColors.primary }}
+                      style={{ backgroundColor: 'var(--text-primary)' }}
                     >
-                      <svg className="w-5 h-5" fill="none" stroke={getContrastTextColor(teamColors.primary)} viewBox="0 0 24 24">
+                      <svg className="w-5 h-5" fill="none" stroke={'var(--surface-1)'} viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                       </svg>
                     </div>

@@ -1,5 +1,3 @@
-import { getContrastTextColor } from '../../utils/colorUtils'
-
 /**
  * SheetEntryPanel — the "open sheet / fill in / save" screen shared by
  * every Google Sheets modal. Replaces a ~30-line inline block that was
@@ -17,7 +15,6 @@ import { getContrastTextColor } from '../../utils/colorUtils'
  */
 export default function SheetEntryPanel({
   sheetId,
-  accentColor = 'var(--team-primary)',
   whatToDo,
   tabs,
   tip,
@@ -29,7 +26,6 @@ export default function SheetEntryPanel({
   onSaveAndKeep,
   onRegenerate,
 }) {
-  const contrastText = getContrastTextColor(accentColor) || '#fff'
   const busy = syncing || deletingSheet || regenerating
 
   return (
@@ -64,7 +60,7 @@ export default function SheetEntryPanel({
       {/* Three-step explanation (concise, plain English) */}
       <ol
         className="text-left text-sm space-y-1.5 text-txt-secondary max-w-sm w-full mb-6 card p-4 border-l-[3px]"
-        style={{ borderLeftColor: accentColor }}
+        style={{ borderLeftColor: 'var(--surface-5)' }}
       >
         <li className="flex gap-3">
           <span className="font-bold text-txt-primary tabular-nums">1.</span>
@@ -100,7 +96,7 @@ export default function SheetEntryPanel({
           onClick={onSaveAndDelete}
           disabled={busy}
           className={`flex-1 px-5 py-2.5 rounded-md font-semibold text-sm transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed ${highlightSave ? 'animate-pulse ring-2 ring-offset-2 ring-offset-surface-1' : ''}`}
-          style={{ backgroundColor: accentColor, color: contrastText }}
+          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
         >
           {deletingSheet ? 'Saving…' : 'Save'}
         </button>

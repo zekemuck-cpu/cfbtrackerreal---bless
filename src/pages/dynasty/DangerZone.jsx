@@ -2014,7 +2014,7 @@ export default function DangerZone() {
                   checked={statsSyncSkipGamesPlayed}
                   onChange={(e) => setStatsSyncSkipGamesPlayed(e.target.checked)}
                   className="w-3.5 h-3.5 rounded"
-                  style={{ accentColor: 'var(--team-primary)' }}
+                  style={{ accentColor: 'var(--text-primary)' }}
                 />
                 <span className="text-xs text-txt-secondary">Keep existing games played</span>
               </label>
@@ -2072,7 +2072,7 @@ export default function DangerZone() {
                     checked={selectedMergeGroups.has(idx)}
                     onChange={() => toggleGroupSelection(idx)}
                     className="w-4 h-4 mt-0.5 rounded"
-                    style={{ accentColor: 'var(--team-primary)' }}
+                    style={{ accentColor: 'var(--text-primary)' }}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="label-sm text-txt-primary capitalize">
@@ -2227,7 +2227,7 @@ export default function DangerZone() {
                   checked={advanceSelections[player.pid] || false}
                   onChange={() => toggleAdvanceSelection(player.pid)}
                   className="w-4 h-4 rounded"
-                  style={{ accentColor: 'var(--team-primary)' }}
+                  style={{ accentColor: 'var(--text-primary)' }}
                 />
                 <span className="w-2 h-8 rounded-full flex-shrink-0" style={{ backgroundColor: indicatorColor }}></span>
                 <div className="flex-1 min-w-0 flex items-center gap-3">
@@ -2416,7 +2416,7 @@ export default function DangerZone() {
                         checked={removeOldBoxScores}
                         onChange={(e) => setRemoveOldBoxScores(e.target.checked)}
                         className="w-3 h-3 rounded"
-                        style={{ accentColor: 'var(--team-primary)' }}
+                        style={{ accentColor: 'var(--text-primary)' }}
                       />
                       Remove old box scores
                     </label>
@@ -2482,7 +2482,7 @@ export default function DangerZone() {
             <div className="flex items-center gap-2">
               <span
                 className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: currentStorageTier === STORAGE_TIER.FREE ? 'var(--accent-info)' : 'var(--team-primary)' }}
+                style={{ backgroundColor: currentStorageTier === STORAGE_TIER.FREE ? 'var(--accent-info)' : 'var(--text-primary)' }}
               />
               <span className="text-sm font-medium text-txt-primary">
                 Current: <strong>{currentStorageTier === STORAGE_TIER.FREE ? 'IndexedDB (Free)' : 'Firebase (Premium)'}</strong>
@@ -2497,7 +2497,7 @@ export default function DangerZone() {
                   storageService.setDebug(e.target.checked)
                 }}
                 className="w-3 h-3 rounded"
-                style={{ accentColor: 'var(--team-primary)' }}
+                style={{ accentColor: 'var(--text-primary)' }}
               />
               Debug logs
             </label>
@@ -2657,7 +2657,7 @@ export default function DangerZone() {
           team={currentDynasty?.teams?.[selectedTeambuilderTid]}
           tid={selectedTeambuilderTid}
           dynastyTeams={currentDynasty?.teams || currentDynasty?.customTeams}
-          teamColors={{ primary: 'var(--team-primary)', secondary: 'var(--team-secondary)' }}
+          teamColors={{ primary: 'var(--text-primary)', secondary: 'var(--team-secondary)' }}
           onSave={async (updates) => {
             const result = await updateTeambuilderTeam(currentDynasty.id, selectedTeambuilderTid, updates)
             if (!result.success) throw new Error(result.message)

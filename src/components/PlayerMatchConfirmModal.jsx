@@ -139,8 +139,8 @@ export default function PlayerMatchConfirmModal({
   if (!isOpen || !confirmation) return null
 
   const { entry, player, existingTeams, existingYears, lastHonor } = confirmation
-  const primaryText = getContrastTextColor(teamColors.primary)
-  const secondaryText = getContrastTextColor(teamColors.secondary)
+  const primaryText = 'var(--surface-1)'
+  const secondaryText = 'var(--surface-1)'
 
   // Get team info for display
   // For allConference/allAmericans, 'school' is the team abbr; 'team' might be a category label
@@ -174,7 +174,7 @@ export default function PlayerMatchConfirmModal({
     >
       <div
         className="card max-w-lg w-full max-h-[calc(100dvh-4rem)] sm:max-h-none overflow-y-auto border-l-[3px]"
-        style={{ borderLeftColor: teamColors.primary }}
+        style={{ borderLeftColor: 'var(--surface-5)' }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -200,11 +200,11 @@ export default function PlayerMatchConfirmModal({
           {/* Player Info Banner */}
           <div
             className="rounded-lg p-3 mb-4 flex items-center gap-3"
-            style={{ backgroundColor: `${teamColors.primary}15`, border: `1px solid ${teamColors.primary}30` }}
+            style={{ backgroundColor: 'var(--surface-3)', border: `1px solid ${'var(--text-primary)'}30` }}
           >
             <div
               className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg flex-shrink-0"
-              style={{ backgroundColor: teamColors.primary, color: primaryText }}
+              style={{ backgroundColor: 'var(--text-primary)', color: primaryText }}
             >
               {player.name?.charAt(0) || '?'}
             </div>
@@ -288,7 +288,7 @@ export default function PlayerMatchConfirmModal({
           {teamsAreDifferent && (
             <div
               className="flex items-center justify-center gap-2 py-2 mb-4 rounded-lg text-sm"
-              style={{ backgroundColor: `${teamColors.primary}10`, color: teamColors.primary }}
+              style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-primary)' }}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
@@ -304,7 +304,7 @@ export default function PlayerMatchConfirmModal({
                 to={`/dynasty/${dynastyId}/player/${player.pid}`}
                 target="_blank"
                 className="text-sm font-medium flex items-center gap-1.5 hover:opacity-80 transition-opacity"
-                style={{ color: teamColors.primary }}
+                style={{ color: 'var(--text-primary)' }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -319,14 +319,14 @@ export default function PlayerMatchConfirmModal({
             <button
               onClick={() => onConfirm(true)}
               className="flex-1 px-4 py-3 rounded-lg font-semibold transition-opacity hover:opacity-90"
-              style={{ backgroundColor: teamColors.primary, color: primaryText }}
+              style={{ backgroundColor: 'var(--text-primary)', color: primaryText }}
             >
               Yes, Same Player
             </button>
             <button
               onClick={() => onConfirm(false)}
               className="flex-1 px-4 py-3 rounded-lg font-semibold border-2 transition-opacity hover:opacity-80"
-              style={{ borderColor: teamColors.primary, color: teamColors.primary, backgroundColor: 'transparent' }}
+              style={{ borderColor: 'var(--text-primary)', color: 'var(--text-primary)', backgroundColor: 'transparent' }}
             >
               No, Different Player
             </button>

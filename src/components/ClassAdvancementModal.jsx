@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { getContrastTextColor } from '../utils/colorUtils'
 
 /**
  * Modal to confirm class advancement for players with unknown games played.
@@ -46,7 +45,7 @@ export default function ClassAdvancementModal({ isOpen, onClose, onConfirm, play
     >
       <div
         className="card w-full max-w-2xl max-h-[90dvh] flex flex-col p-6 border-l-[3px]"
-        style={{ borderLeftColor: teamColors.primary }}
+        style={{ borderLeftColor: 'var(--surface-5)' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -161,7 +160,7 @@ export default function ClassAdvancementModal({ isOpen, onClose, onConfirm, play
           <button
             onClick={handleConfirm}
             className="px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity"
-            style={{ backgroundColor: teamColors.primary, color: getContrastTextColor(teamColors.primary) }}
+            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
           >
             Confirm & Advance Season
           </button>

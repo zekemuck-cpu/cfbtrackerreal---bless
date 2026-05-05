@@ -4,7 +4,6 @@ import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRost
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
-import { getContrastTextColor } from '../../utils/colorUtils'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getTeamByAbbr, getTidFromAbbr, getTidFromTeamName, setTeamYearField, getCurrentTeamTid, getCurrentTeamAbbr, getOriginalTeamAbbr, getGameTeamInfo, getGameOpponentInfo, getAbbrFromTeamName, getNameByAbbr, setPendingUserTeam, clearPendingUserTeam, getPendingUserTeamTid, getUserTeamTid } from '../../data/teamRegistry'
 import { getTeamLogo, teams } from '../../data/teams'
@@ -90,8 +89,8 @@ export default function Dashboard() {
   // non-premium shared editor still navigates the regular `/dynasty/`
   // path; their writes are blocked separately by the rules + UI gates.
   const pathPrefix = usePathPrefix()
-  const secondaryBgText = getContrastTextColor(teamColors.secondary)
-  const primaryBgText = getContrastTextColor(teamColors.primary)
+  const secondaryBgText = 'var(--surface-1)'
+  const primaryBgText = 'var(--surface-1)'
 
   // Helper to check if a game has actually been played (has scores)
   // Games are created when schedule is saved, but aren't "played" until scores are entered
@@ -2819,13 +2818,13 @@ export default function Dashboard() {
         // newJobTeam is already the full display name (e.g., "Delaware Fightin' Blue Hens")
         const newTeamLogo = getTeamLogo(newJobTeam, currentDynasty?.teams || currentDynasty?.customTeams)
         const newTeamColors = getTeamColors(newJobTeam, currentDynasty?.teams || currentDynasty?.customTeams) || { primary: '#333', secondary: '#fff' }
-        const newTeamPrimaryText = getContrastTextColor(newTeamColors.primary)
+        const newTeamPrimaryText = 'var(--surface-1)'
 
         return (
           <div
             className="rounded-lg shadow-lg p-4 flex items-center gap-4"
             style={{
-              backgroundColor: newTeamColors.primary,
+              backgroundColor: 'var(--text-primary)',
               border: `3px solid ${newTeamColors.secondary}`
             }}
           >
@@ -2857,7 +2856,7 @@ export default function Dashboard() {
               <button
                 onClick={() => setShowNewJobEditModal(true)}
                 className="p-2 rounded-lg hover:opacity-80 transition-opacity flex-shrink-0"
-                style={{ backgroundColor: newTeamColors.secondary, color: getContrastTextColor(newTeamColors.secondary) }}
+                style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-primary)' }}
                 title="Edit new job selection"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2999,7 +2998,7 @@ export default function Dashboard() {
                             right: coachingStaffPopupPosition.right
                           }}
                         >
-                          <div className="px-4 py-3 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
+                          <div className="px-4 py-3 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: 'var(--text-primary)' }}>
                             <div className="flex items-center justify-between">
                               <h4 className="font-display font-bold text-sm uppercase tracking-wide text-txt-primary">
                                 Coaching Staff
@@ -3032,9 +3031,9 @@ export default function Dashboard() {
                                 <div className="flex items-center gap-3">
                                   <div
                                     className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                                    style={{ backgroundColor: isFired ? 'rgba(239,68,68,0.15)' : `${teamColors.primary}25` }}
+                                    style={{ backgroundColor: isFired ? 'rgba(239,68,68,0.15)' : `${'var(--text-primary)'}25` }}
                                   >
-                                    <span className="font-display text-xs font-bold" style={{ color: isFired ? '#ef4444' : teamColors.primary }}>OC</span>
+                                    <span className="font-display text-xs font-bold" style={{ color: isFired ? '#ef4444' : 'var(--text-primary)' }}>OC</span>
                                   </div>
                                   <div className="min-w-0 flex-1">
                                     <div className="font-display text-[10px] uppercase font-semibold tracking-wider text-zinc-500">
@@ -3067,9 +3066,9 @@ export default function Dashboard() {
                                 <div className="flex items-center gap-3">
                                   <div
                                     className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                                    style={{ backgroundColor: isFired ? 'rgba(239,68,68,0.15)' : `${teamColors.primary}25` }}
+                                    style={{ backgroundColor: isFired ? 'rgba(239,68,68,0.15)' : `${'var(--text-primary)'}25` }}
                                   >
-                                    <span className="font-display text-xs font-bold" style={{ color: isFired ? '#ef4444' : teamColors.primary }}>DC</span>
+                                    <span className="font-display text-xs font-bold" style={{ color: isFired ? '#ef4444' : 'var(--text-primary)' }}>DC</span>
                                   </div>
                                   <div className="min-w-0 flex-1">
                                     <div className="font-display text-[10px] uppercase font-semibold tracking-wider text-zinc-500">
@@ -3566,7 +3565,7 @@ export default function Dashboard() {
                             ) : (
                               <>
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Week {currentDynasty.currentWeek}</span>
-                                <span className="font-display font-black text-lg sm:text-xl leading-none" style={{ color: teamColors.primary }}>{atSymbol.toUpperCase()}</span>
+                                <span className="font-display font-black text-lg sm:text-xl leading-none" style={{ color: 'var(--text-primary)' }}>{atSymbol.toUpperCase()}</span>
                               </>
                             )}
                           </div>
@@ -5689,7 +5688,7 @@ export default function Dashboard() {
                                   type="text"
                                   id="new-oc-name"
                                   className="flex-1 px-3 py-2 border-2 rounded-lg focus:outline-none"
-                                  style={{ borderColor: teamColors.primary }}
+                                  style={{ borderColor: 'var(--text-primary)' }}
                                   placeholder="New OC name..."
                                   onKeyDown={async (e) => {
                                     if (e.key === 'Enter' && e.target.value.trim()) {
@@ -5774,7 +5773,7 @@ export default function Dashboard() {
                                   type="text"
                                   id="new-dc-name"
                                   className="flex-1 px-3 py-2 border-2 rounded-lg focus:outline-none"
-                                  style={{ borderColor: teamColors.primary }}
+                                  style={{ borderColor: 'var(--text-primary)' }}
                                   placeholder="New DC name..."
                                   onKeyDown={async (e) => {
                                     if (e.key === 'Enter' && e.target.value.trim()) {
@@ -6954,7 +6953,7 @@ export default function Dashboard() {
                                 type="text"
                                 id="new-oc-name-week35"
                                 className="flex-1 px-3 py-2 border-2 rounded-lg focus:outline-none"
-                                style={{ borderColor: teamColors.primary }}
+                                style={{ borderColor: 'var(--text-primary)' }}
                                 placeholder="New OC name..."
                                 onKeyDown={async (e) => {
                                   if (e.key === 'Enter' && e.target.value.trim()) {
@@ -7039,7 +7038,7 @@ export default function Dashboard() {
                                 type="text"
                                 id="new-dc-name-week35"
                                 className="flex-1 px-3 py-2 border-2 rounded-lg focus:outline-none"
-                                style={{ borderColor: teamColors.primary }}
+                                style={{ borderColor: 'var(--text-primary)' }}
                                 placeholder="New DC name..."
                                 onKeyDown={async (e) => {
                                   if (e.key === 'Enter' && e.target.value.trim()) {
@@ -7278,8 +7277,8 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.2)',
                             color: '#22c55e'
                           } : {
-                            backgroundColor: `${teamColors.primary}25`,
-                            color: teamColors.primary
+                            backgroundColor: `${'var(--text-primary)'}25`,
+                            color: 'var(--text-primary)'
                           }}
                         >
                           {hasPlayersLeavingData ? (
@@ -7372,8 +7371,8 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.2)',
                             color: '#22c55e'
                           } : {
-                            backgroundColor: `${teamColors.primary}25`,
-                            color: teamColors.primary
+                            backgroundColor: `${'var(--text-primary)'}25`,
+                            color: 'var(--text-primary)'
                           }}
                         >
                           {hasCommitmentsData ? (
@@ -7459,8 +7458,8 @@ export default function Dashboard() {
                               backgroundColor: 'rgba(34, 197, 94, 0.2)',
                               color: '#22c55e'
                             } : {
-                              backgroundColor: `${teamColors.primary}25`,
-                              color: teamColors.primary
+                              backgroundColor: `${'var(--text-primary)'}25`,
+                              color: 'var(--text-primary)'
                             }}
                           >
                             {hasDraftResultsData || !hasDraftDeclarees ? (
@@ -7555,8 +7554,8 @@ export default function Dashboard() {
                                 backgroundColor: 'rgba(34, 197, 94, 0.2)',
                                 color: '#22c55e'
                               } : {
-                                backgroundColor: `${teamColors.primary}25`,
-                                color: teamColors.primary
+                                backgroundColor: `${'var(--text-primary)'}25`,
+                                color: 'var(--text-primary)'
                               }}
                             >
                               {hasTransferDestinationsData || !hasTransfers ? (
@@ -7623,8 +7622,8 @@ export default function Dashboard() {
                                 backgroundColor: 'rgba(34, 197, 94, 0.2)',
                                 color: '#22c55e'
                               } : {
-                                backgroundColor: `${teamColors.primary}25`,
-                                color: teamColors.primary
+                                backgroundColor: `${'var(--text-primary)'}25`,
+                                color: 'var(--text-primary)'
                               }}
                             >
                               {hasClassRank ? (
@@ -7682,8 +7681,8 @@ export default function Dashboard() {
                                 backgroundColor: 'rgba(34, 197, 94, 0.2)',
                                 color: '#22c55e'
                               } : {
-                                backgroundColor: `${teamColors.primary}25`,
-                                color: teamColors.primary
+                                backgroundColor: `${'var(--text-primary)'}25`,
+                                color: 'var(--text-primary)'
                               }}
                             >
                               {hasPositionChanges ? (
@@ -7774,8 +7773,8 @@ export default function Dashboard() {
                                 backgroundColor: 'var(--surface-4)',
                                 color: '#6b7280'
                               } : {
-                                backgroundColor: `${teamColors.primary}25`,
-                                color: teamColors.primary
+                                backgroundColor: `${'var(--text-primary)'}25`,
+                                color: 'var(--text-primary)'
                               }}
                             >
                               {isComplete ? (
@@ -7805,7 +7804,7 @@ export default function Dashboard() {
                               disabled={isBlocked || !hasPortalTransfers}
                               className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto disabled:cursor-not-allowed"
                               style={{
-                                backgroundColor: (isBlocked || !hasPortalTransfers) ? '#3f3f46' : teamColors.primary,
+                                backgroundColor: (isBlocked || !hasPortalTransfers) ? '#3f3f46' : 'var(--text-primary)',
                                 color: (isBlocked || !hasPortalTransfers) ? '#71717a' : primaryBgText
                               }}
                             >
@@ -7887,8 +7886,8 @@ export default function Dashboard() {
                                 backgroundColor: 'var(--surface-4)',
                                 color: '#6b7280'
                               } : {
-                                backgroundColor: `${teamColors.primary}25`,
-                                color: teamColors.primary
+                                backgroundColor: `${'var(--text-primary)'}25`,
+                                color: 'var(--text-primary)'
                               }}
                             >
                               {isComplete ? (
@@ -7918,7 +7917,7 @@ export default function Dashboard() {
                               disabled={isBlocked || !hasFringeCases}
                               className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto disabled:cursor-not-allowed"
                               style={{
-                                backgroundColor: (isBlocked || !hasFringeCases) ? '#3f3f46' : teamColors.primary,
+                                backgroundColor: (isBlocked || !hasFringeCases) ? '#3f3f46' : 'var(--text-primary)',
                                 color: (isBlocked || !hasFringeCases) ? '#71717a' : primaryBgText
                               }}
                             >
@@ -8087,8 +8086,8 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.2)',
                             color: '#22c55e'
                           } : {
-                            backgroundColor: `${teamColors.primary}25`,
-                            color: teamColors.primary
+                            backgroundColor: `${'var(--text-primary)'}25`,
+                            color: 'var(--text-primary)'
                           }}
                         >
                           {hasTrainingResultsData ? (
@@ -8140,8 +8139,8 @@ export default function Dashboard() {
                               backgroundColor: 'rgba(34, 197, 94, 0.2)',
                               color: '#22c55e'
                             } : {
-                              backgroundColor: `${teamColors.primary}25`,
-                              color: teamColors.primary
+                              backgroundColor: `${'var(--text-primary)'}25`,
+                              color: 'var(--text-primary)'
                             }}
                           >
                             {hasRecruitOverallsData ? (
@@ -8220,8 +8219,8 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.2)',
                             color: '#22c55e'
                           } : {
-                            backgroundColor: `${teamColors.primary}25`,
-                            color: teamColors.primary
+                            backgroundColor: `${'var(--text-primary)'}25`,
+                            color: 'var(--text-primary)'
                           }}
                         >
                           {hasConferencesSet ? (
@@ -8272,8 +8271,8 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.2)',
                             color: '#22c55e'
                           } : {
-                            backgroundColor: `${teamColors.primary}25`,
-                            color: teamColors.primary
+                            backgroundColor: `${'var(--text-primary)'}25`,
+                            color: 'var(--text-primary)'
                           }}
                         >
                           {hasEncourageTransfers ? (
@@ -8330,7 +8329,7 @@ export default function Dashboard() {
       ) : (
         <div
           className="card p-6 border-l-[3px]"
-          style={{ borderLeftColor: teamColors.primary }}
+          style={{ borderLeftColor: 'var(--text-primary)' }}
         >
           <h3 className="text-lg font-semibold mb-4 text-txt-primary">
             Current Phase: {getPhaseDisplay(currentDynasty.currentPhase, currentDynasty.currentWeek)}
@@ -8584,7 +8583,7 @@ export default function Dashboard() {
                       background: `linear-gradient(to right, transparent 0%, ${opponentColors.backgroundColor}99 100%)`,
                       paddingLeft: '1rem',
                       paddingRight: '1rem',
-                      ...(isCurrentWeek ? { ringColor: teamColors.primary } : {})
+                      ...(isCurrentWeek ? { ringColor: 'var(--text-primary)' } : {})
                     }}
                   >
                     {/* Week Number */}
@@ -8701,7 +8700,7 @@ export default function Dashboard() {
                     background: `linear-gradient(to right, transparent 0%, ${ccOpponentColors.backgroundColor}99 100%)`,
                     paddingLeft: '1rem',
                     paddingRight: '1rem',
-                    ...(isCurrentCCWeek ? { ringColor: teamColors.primary } : {})
+                    ...(isCurrentCCWeek ? { ringColor: 'var(--text-primary)' } : {})
                   }}
                 >
                   <span className={`w-7 text-xs font-medium ${isCurrentCCWeek ? 'text-white' : 'text-zinc-500'}`}>
@@ -9211,7 +9210,7 @@ export default function Dashboard() {
                             background: `linear-gradient(to right, transparent 0%, ${opponentColors.backgroundColor}99 100%)`,
                             paddingLeft: '1rem',
                             paddingRight: '1rem',
-                            ...(isCurrentWeek ? { ringColor: teamColors.primary } : {})
+                            ...(isCurrentWeek ? { ringColor: 'var(--text-primary)' } : {})
                           }}
                         >
                           <span className={`w-7 text-xs font-medium ${isCurrentWeek ? 'text-white' : 'text-zinc-500'}`}>
@@ -10354,7 +10353,7 @@ export default function Dashboard() {
       <SellVsSendCalculator
         isOpen={showSellCalc}
         onClose={() => setShowSellCalc(false)}
-        accentColor={teamColors.primary}
+        accentColor={'var(--text-primary)'}
       />
 
       {/* Position Changes Modal (National Signing Day) */}

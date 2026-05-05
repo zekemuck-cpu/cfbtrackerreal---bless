@@ -4,7 +4,6 @@ import { useDynasty, getPlayersNeedingClassConfirmation, getUserGamePerspective,
 import { useAuth } from '../context/AuthContext'
 import { useCurrentTeamColors } from '../hooks/useTeamColors'
 import { getTeamLogoByTid } from '../data/teams'
-import { getContrastTextColor } from '../utils/colorUtils'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { TEAMS, getCurrentTeamAbbr, getCurrentTeamTid, getCurrentTeamName } from '../data/teamRegistry'
 import ClassAdvancementModal from './ClassAdvancementModal'
@@ -597,7 +596,7 @@ export default function Layout({ children }) {
                       className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0"
                       style={{
                         backgroundColor: '#FFFFFF',
-                        border: `2px solid ${teamColors.secondary}`,
+                        border: '2px solid var(--surface-5)',
                         padding: '2px'
                       }}
                     >

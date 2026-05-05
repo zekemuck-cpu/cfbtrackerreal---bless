@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { getContrastTextColor } from '../utils/colorUtils'
 import { useDynasty, getCurrentCustomConferences } from '../context/DynastyContext'
 import { getTeamConference } from '../data/conferenceTeams'
 import { TEAMS, getTidFromTeamName } from '../data/teamRegistry'
@@ -29,7 +28,6 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
   const { isPremium, user } = useAuth()
   const [showShareModal, setShowShareModal] = useState(false)
   const [copying, setCopying] = useState(false)
-  const primaryBgText = getContrastTextColor(teamColors.primary)
 
   // Get current team tid - prefer currentTid (new), fallback to lookup (old)
   const teamsSource = currentDynasty?.teams || TEAMS

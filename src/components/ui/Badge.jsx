@@ -31,7 +31,7 @@ export default function Badge({
 
   const variantStyles = {
     default: { className: 'bg-surface-3 text-txt-secondary', style: undefined },
-    accent: { className: 'text-team-primary', style: { backgroundColor: 'var(--team-primary-faded)' } },
+    accent: { className: 'text-txt-primary', style: { backgroundColor: 'var(--surface-3)' } },
     success: { className: 'text-white', style: { backgroundColor: 'var(--accent-success)' } },
     danger: { className: 'text-white', style: { backgroundColor: 'var(--accent-error)' } },
     warning: { className: 'text-black', style: { backgroundColor: 'var(--accent-warning)' } },
