@@ -155,34 +155,6 @@ export default function Rankings() {
   }
   const usingLive = selectedWeek !== 'final'
 
-  // Previous-week snapshot for week-over-week rank movement (▲/▼/—/NEW).
-  // Only computed when viewing a live week (not the saved final poll)
-  // and there's a prior week with data to compare against.
-  const prevWeekTargets = (() => {
-    if (!usingLive || selectedWeek == null) return null
-    const idx = availableWeeks.indexOf(selectedWeek)
-    if (idx <= 0) return null
-    return availableWeeks[idx - 1]
-  })()
-  const prevRankByTid = (() => {
-    const map = new Map()
-    if (prevWeekTargets == null) return map
-    const prev = buildLiveTop25FromGames(currentDynasty, displayYear, { upToWeek: prevWeekTargets })
-    ;(prev?.entries || []).forEach(e => {
-      if (e.teamTid != null) map.set(Number(e.teamTid), Number(e.rank))
-    })
-    return map
-  })()
-  const prevRankByAbbr = (() => {
-    const map = new Map()
-    if (prevWeekTargets == null) return map
-    const prev = buildLiveTop25FromGames(currentDynasty, displayYear, { upToWeek: prevWeekTargets })
-    ;(prev?.entries || []).forEach(e => {
-      if (e.teamAbbr) map.set(e.teamAbbr, Number(e.rank))
-    })
-    return map
-  })()
-
   // Saved conference standings give us a quick W-L lookup; calculated
   // record (from games[]) is more authoritative when it differs.
   const standingsByYear = currentDynasty.conferenceStandingsByYear || {}
@@ -242,17 +214,6 @@ export default function Rankings() {
     const isLeader = rank === 1
     const isTopFive = rank <= 5
 
-    // Week-over-week rank movement. Null when there's no comparable
-    // previous week (e.g. final poll, week 1, viewing week directly).
-    const movement = (() => {
-      if (prevWeekTargets == null) return null
-      const prev = (teamTid != null && prevRankByTid.get(Number(teamTid))) || prevRankByAbbr.get(resolvedAbbr)
-      if (prev == null) return { type: 'new' }
-      const delta = prev - rank // positive = team moved up
-      if (delta === 0) return { type: 'same' }
-      return { type: delta > 0 ? 'up' : 'down', delta: Math.abs(delta) }
-    })()
-
     return (
       <Link
         to={`${pathPrefix}/team/${linkTid}/${year}`}
@@ -275,43 +236,6 @@ export default function Rankings() {
         >
           {rank}
         </span>
-        {/* Week-over-week movement chip — broadcast staple. ▲ green for
-            up, ▼ red for down, — neutral for unchanged, NEW gold for
-            teams entering the top 25 this week. Reserved width keeps
-            row alignment stable across all states. */}
-        {movement && (
-          <span
-            className="flex-shrink-0 text-center tabular-nums leading-none"
-            style={{
-              width: '34px',
-              fontSize: '11px',
-              fontWeight: 700,
-              letterSpacing: '0.05em',
-              color:
-                movement.type === 'up'   ? 'var(--accent-success)' :
-                movement.type === 'down' ? 'var(--accent-error)' :
-                movement.type === 'new'  ? 'var(--accent-warning)' :
-                'var(--text-tertiary)',
-            }}
-            title={
-              movement.type === 'up'   ? `Up ${movement.delta} from last week` :
-              movement.type === 'down' ? `Down ${movement.delta} from last week` :
-              movement.type === 'new'  ? 'New to the Top 25 this week' :
-              'Same rank as last week'
-            }
-            aria-label={
-              movement.type === 'up'   ? `Up ${movement.delta}` :
-              movement.type === 'down' ? `Down ${movement.delta}` :
-              movement.type === 'new'  ? 'New' :
-              'Unchanged'
-            }
-          >
-            {movement.type === 'up'   ? `▲ ${movement.delta}` :
-             movement.type === 'down' ? `▼ ${movement.delta}` :
-             movement.type === 'new'  ? 'NEW' :
-             '—'}
-          </span>
-        )}
         <div
           className={`logo-container ${isLeader ? 'logo-container-lg' : 'logo-container-md'} flex-shrink-0 transition-transform duration-200 group-hover:scale-110`}
         >
