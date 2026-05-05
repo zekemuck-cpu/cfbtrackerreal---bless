@@ -3521,11 +3521,24 @@ export default function Dashboard() {
                         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
                           {/* Our team */}
                           <div className="flex flex-col items-center min-w-0">
-                            <div className="w-10 h-10 sm:w-20 sm:h-20 flex items-center justify-center">
-                              {userLogoUrl
-                                ? <img src={userLogoUrl} alt={userAbbr} className="w-full h-full object-contain" />
-                                : <div className="w-full h-full rounded-full" style={{ backgroundColor: 'var(--text-primary)' }} />}
-                            </div>
+                            {userTeamTid ? (
+                              <Link
+                                to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-10 h-10 sm:w-20 sm:h-20 flex items-center justify-center transition-opacity hover:opacity-80"
+                                aria-label={userAbbr ? `${userAbbr} team page` : 'Team page'}
+                              >
+                                {userLogoUrl
+                                  ? <img src={userLogoUrl} alt={userAbbr} className="w-full h-full object-contain" />
+                                  : <div className="w-full h-full rounded-full" style={{ backgroundColor: 'var(--text-primary)' }} />}
+                              </Link>
+                            ) : (
+                              <div className="w-10 h-10 sm:w-20 sm:h-20 flex items-center justify-center">
+                                {userLogoUrl
+                                  ? <img src={userLogoUrl} alt={userAbbr} className="w-full h-full object-contain" />
+                                  : <div className="w-full h-full rounded-full" style={{ backgroundColor: 'var(--text-primary)' }} />}
+                              </div>
+                            )}
                           </div>
                           {/* Middle: VS/score */}
                           <div className="flex flex-col items-center gap-1 px-1">
@@ -3549,11 +3562,26 @@ export default function Dashboard() {
                           </div>
                           {/* Opponent */}
                           <div className="flex flex-col items-center min-w-0">
-                            <div className="w-10 h-10 sm:w-20 sm:h-20 flex items-center justify-center">
-                              {oppLogoUrl
+                            {(() => {
+                              const opponentTid = oppAbbr ? getTidFromAbbr(oppAbbr) : null
+                              const logoNode = oppLogoUrl
                                 ? <img src={oppLogoUrl} alt={oppAbbr || 'Opponent'} className="w-full h-full object-contain" />
-                                : <div className="w-full h-full rounded-full border-2 border-dashed border-surface-4 flex items-center justify-center text-xs font-bold text-txt-secondary">TBD</div>}
-                            </div>
+                                : <div className="w-full h-full rounded-full border-2 border-dashed border-surface-4 flex items-center justify-center text-xs font-bold text-txt-secondary">TBD</div>
+                              return opponentTid ? (
+                                <Link
+                                  to={`${pathPrefix}/team/${opponentTid}/${currentDynasty.currentYear}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="w-10 h-10 sm:w-20 sm:h-20 flex items-center justify-center transition-opacity hover:opacity-80"
+                                  aria-label={`${oppAbbr} team page`}
+                                >
+                                  {logoNode}
+                                </Link>
+                              ) : (
+                                <div className="w-10 h-10 sm:w-20 sm:h-20 flex items-center justify-center">
+                                  {logoNode}
+                                </div>
+                              )
+                            })()}
                           </div>
                         </div>
                         {/* CTA — once the game's been played, show
