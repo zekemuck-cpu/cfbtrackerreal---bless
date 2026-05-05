@@ -9,7 +9,7 @@ import ConfirmModal from '../components/ConfirmModal'
 import ShareDynastyModal from '../components/ShareDynastyModal'
 import StorageSwitchModal from '../components/StorageSwitchModal'
 import BouncingLogos from '../components/BouncingLogos'
-import { PageHero, Card, Button, Badge, Modal, Input, LoadingState, ContactCTA } from '../components/ui'
+import { Button, Badge, Modal, Input, LoadingState, ContactCTA } from '../components/ui'
 import { useToast } from '../components/ui/Toast'
 
 function getDynastyTeamConference(dynasty) {
@@ -344,30 +344,78 @@ export default function Home() {
     )
   }
 
+  // Phase chip — terse status pill next to the team name.
+  const phaseChipFor = (phase) => {
+    switch (phase) {
+      case 'preseason': return { className: 'phase-chip phase-chip--preseason', label: 'Preseason' }
+      case 'regular_season': return { className: 'phase-chip phase-chip--active', label: 'In Season' }
+      case 'conference_championship': return { className: 'phase-chip phase-chip--championship', label: 'Conf Champ' }
+      case 'postseason': return { className: 'phase-chip phase-chip--championship', label: 'Postseason' }
+      case 'offseason': return { className: 'phase-chip phase-chip--offseason', label: 'Offseason' }
+      default: return null
+    }
+  }
+
+  // Compact week descriptor — drops the redundant phase name (the chip
+  // already conveys it). Returns null when the phase has no week notion
+  // (preseason / offseason / etc.).
+  const weekShortFor = (dynasty) => {
+    if (dynasty.currentPhase === 'regular_season') return `Week ${dynasty.currentWeek}`
+    if (dynasty.currentPhase === 'postseason') {
+      if (dynasty.currentWeek === 5) return 'Recap'
+      return dynasty.currentWeek === 4 ? 'National Championship' : `Bowl Week ${dynasty.currentWeek}`
+    }
+    if (dynasty.currentPhase === 'offseason') {
+      if (dynasty.currentWeek === 1) return 'Players Leaving'
+      if (dynasty.currentWeek === 5) return 'National Signing Day'
+      if (dynasty.currentWeek >= 2 && dynasty.currentWeek <= 4) return `Recruiting Week ${dynasty.currentWeek - 1}`
+    }
+    return null
+  }
+
   return (
-    <div className="relative min-h-[calc(100dvh-4rem)] overflow-hidden">
-      <BouncingLogos />
+    <div className="atmosphere relative min-h-[calc(100dvh-4rem)] overflow-hidden">
+      <BouncingLogos subtle />
 
-      <div className="relative z-10 max-w-4xl mx-auto px-4 py-6">
+      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         {!hasDynasties ? (
-          <div className="text-center py-16 space-y-8">
-            <div>
-              <h1 className="display-md sm:display-lg text-txt-primary mb-2">
-                CFB Dynasty Tracker
-              </h1>
-              <p className="label-xs text-txt-tertiary">Track your EA CFB Dynasty</p>
-            </div>
+          <div className="page-enter">
+            <h1
+              className="font-display text-txt-primary leading-[0.9] mb-4"
+              style={{
+                fontWeight: 900,
+                fontSize: 'clamp(2.5rem, 7vw, 4rem)',
+                letterSpacing: '-0.035em',
+              }}
+            >
+              Dynasty Tracker
+            </h1>
+            <p className="text-base sm:text-lg text-txt-secondary leading-relaxed max-w-2xl mb-8">
+              Track your EA College Football dynasty — box scores, recruiting,
+              postseason, all preserved across the years.
+            </p>
 
-            <div className="flex gap-3 justify-center flex-wrap">
-              <Link to="/create">
-                <Button variant="primary" size="lg">Create Dynasty</Button>
+            {/* Three premium CTAs — refined buttons, not sharp ledger cells. */}
+            <div className="flex flex-wrap items-center gap-3 mb-10">
+              <Link to="/create" className="btn-refined btn-refined--solid btn-refined--lg">
+                Create dynasty
               </Link>
-              <Button variant="outline" size="lg" onClick={handleImportClick} disabled={importing}>
-                {importing ? 'Importing...' : 'Import File'}
-              </Button>
-              <Button variant="outline" size="lg" onClick={() => setShowUrlImport(true)} disabled={importing}>
+              <button
+                type="button"
+                onClick={handleImportClick}
+                disabled={importing}
+                className="btn-refined btn-refined--lg"
+              >
+                {importing ? 'Importing…' : 'Import file'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowUrlImport(true)}
+                disabled={importing}
+                className="btn-refined btn-refined--lg"
+              >
                 Import from URL
-              </Button>
+              </button>
             </div>
 
             <input
@@ -378,94 +426,121 @@ export default function Home() {
               className="hidden"
             />
 
-            <div className="max-w-md mx-auto">
-              <Card padding="md">
-                <h3 className="label-sm text-txt-primary mb-1">Import test dynasty</h3>
-                <p className="text-xs text-txt-tertiary mb-3">My own personal dynasty — try the app with real data</p>
-                <Button variant="primary" className="w-full" onClick={handleTestImport} disabled={importing}>
-                  {importing ? 'Importing...' : 'Import'}
-                </Button>
-              </Card>
-            </div>
-
-            <div className="max-w-md mx-auto">
-              <Card padding="sm">
-                <div className="flex items-center justify-center gap-3 flex-wrap">
-                  {isPremium ? (
-                    <>
-                      <Badge variant="warning">Premium</Badge>
-                      <span className="text-xs text-txt-tertiary">Cloud sync enabled</span>
-                      {user && (
-                        <Button variant="outline" size="sm" onClick={() => manageSubscription()}>
-                          Manage
-                        </Button>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <Badge variant="outline">Free</Badge>
-                      <span className="text-xs text-txt-tertiary">Local storage</span>
-                      {user ? (
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          disabled={upgrading}
-                          onClick={async () => {
-                            setUpgrading(true)
-                            try {
-                              await upgradeToPremium()
-                            } catch (error) {
-                              console.error('Upgrade error:', error)
-                              toast.error('Failed to start upgrade. Please try again.')
-                            } finally {
-                              setUpgrading(false)
-                            }
-                          }}
-                        >
-                          {upgrading ? 'Loading...' : 'Upgrade $4.99/mo'}
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-txt-muted">Sign in to upgrade</span>
-                      )}
-                    </>
-                  )}
+            {/* Sample dynasty — ghost CTA */}
+            <div className="max-w-3xl space-y-3">
+              <div className="ghost-card">
+                <div className="px-5 py-3.5 sm:px-6 sm:py-4 flex items-center justify-between gap-4">
+                  <h3 className="font-display text-sm sm:text-base font-semibold text-txt-secondary leading-tight min-w-0">
+                    Try a sample dynasty (my own personal one)
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={handleTestImport}
+                    disabled={importing}
+                    className="btn-refined flex-shrink-0"
+                  >
+                    {importing ? 'Loading…' : 'Load sample'}
+                  </button>
                 </div>
-              </Card>
+              </div>
+
+              {/* Account / premium card */}
+              <div className="media-card">
+                <div className="px-5 py-4 sm:px-6 sm:py-5 flex items-center justify-between gap-4 flex-wrap">
+                  <p className="text-sm text-txt-secondary">
+                    {isPremium
+                      ? 'Premium — cloud sync enabled.'
+                      : 'Free — local-only storage. Upgrade to sync across devices.'}
+                  </p>
+                  {isPremium ? (
+                    user && (
+                      <button
+                        type="button"
+                        onClick={() => manageSubscription()}
+                        className="btn-refined"
+                      >
+                        Manage subscription
+                      </button>
+                    )
+                  ) : user ? (
+                    <button
+                      type="button"
+                      disabled={upgrading}
+                      onClick={async () => {
+                        setUpgrading(true)
+                        try {
+                          await upgradeToPremium()
+                        } catch (error) {
+                          console.error('Upgrade error:', error)
+                          toast.error('Failed to start upgrade. Please try again.')
+                        } finally {
+                          setUpgrading(false)
+                        }
+                      }}
+                      className="btn-refined btn-refined--solid"
+                    >
+                      {upgrading ? 'Loading…' : 'Upgrade · $4.99 / mo'}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
             </div>
 
-            <div className="max-w-md mx-auto w-full">
+            <div className="mt-10 max-w-3xl">
               <ContactCTA />
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
-            <PageHero
-              title="Your Dynasties"
-              meta={
-                <>
-                  <span className="tabular">{dynasties.length}</span>
-                  <span>{dynasties.length === 1 ? 'dynasty' : 'dynasties'}</span>
-                </>
-              }
-              actions={
-                <div className="flex gap-2 flex-wrap">
-                  <Link to="/create">
-                    <Button variant="primary" size="sm">+ New</Button>
-                  </Link>
-                  <Button variant="outline" size="sm" onClick={handleImportClick} disabled={importing}>
-                    {importing ? 'Importing...' : 'Import'}
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => setShowUrlImport(true)} disabled={importing}>
-                    URL
-                  </Button>
-                  {hasNonStarred && (
-                    <Button variant="danger" size="sm" onClick={handleDeleteAllClick}>
-                      Delete All
-                    </Button>
-                  )}
-                </div>
-              }
-            />
+          <div className="page-enter">
+            {/* Title + action strap on a single row. The count beside the
+                title is functional info (not a magazine kicker), giving the
+                heading more presence without adding decorative chrome. */}
+            <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 mb-6 sm:mb-8">
+              <h1
+                className="font-display text-txt-primary leading-none m-0 flex items-baseline gap-3 sm:gap-4"
+                style={{
+                  fontWeight: 900,
+                  fontSize: 'clamp(2rem, 5vw, 3rem)',
+                  letterSpacing: '-0.035em',
+                }}
+              >
+                <span>Your Dynasties</span>
+                <span className="text-txt-tertiary tabular-nums" style={{ fontWeight: 600, fontSize: '0.55em', letterSpacing: '0' }}>
+                  {dynasties.length}
+                </span>
+              </h1>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Link to="/create" className="btn-refined btn-refined--solid">
+                  + New
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleImportClick}
+                  disabled={importing}
+                  className="btn-refined"
+                >
+                  {importing ? 'Importing…' : 'Import'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowUrlImport(true)}
+                  disabled={importing}
+                  className="btn-refined"
+                >
+                  URL
+                </button>
+                {hasNonStarred && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteAllClick}
+                    className="btn-refined btn-refined--danger"
+                  >
+                    Delete unstarred
+                  </button>
+                )}
+              </div>
+            </div>
 
             <input
               ref={fileInputRef}
@@ -475,19 +550,7 @@ export default function Home() {
               className="hidden"
             />
 
-            <div className="grid grid-cols-1 gap-3">
-              <Card padding="md" className="border-dashed" style={{ borderStyle: 'dashed' }}>
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h3 className="label-sm text-txt-primary">Import test dynasty</h3>
-                    <p className="text-xs text-txt-tertiary mt-0.5">My own personal dynasty — try the app with real data</p>
-                  </div>
-                  <Button variant="primary" size="sm" onClick={handleTestImport} disabled={importing}>
-                    {importing ? 'Importing...' : 'Import'}
-                  </Button>
-                </div>
-              </Card>
-
+            <div className="stagger-reveal space-y-3">
               {sortedDynasties.map((dynasty) => {
                 const teamsData = dynasty.teams || dynasty.customTeams
                 let logoUrl = null
@@ -505,7 +568,8 @@ export default function Home() {
                   logoUrl = getTeamLogo(dynasty.teamName, teamsData)
                 }
                 const relativeTime = getRelativeTime(dynasty.lastModified)
-                const weekPhase = getWeekPhaseDisplay(dynasty)
+                const weekShort = weekShortFor(dynasty)
+                const phaseChip = phaseChipFor(dynasty.currentPhase)
                 const conference = getDynastyTeamConference(dynasty)
 
                 const isCloudReadOnly = dynasty.storageType === 'cloud' && !isPremium
@@ -518,119 +582,177 @@ export default function Home() {
                 const storageBadgeText = isCloudReadOnly ? 'Read-only' : dynasty.storageType === 'cloud' ? 'Cloud' : 'Local'
 
                 return (
-                  <Card key={dynasty.id} padding="md" accent="left" className="hover:bg-surface-3 transition-colors">
-                    <div className="flex items-center gap-3 w-full">
-                      <Link
-                        to={`/dynasty/${dynasty.id}`}
-                        className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0"
-                      >
-                        {logoUrl && (
-                          <img
-                            src={logoUrl}
-                            alt={`${dynasty.teamName} logo`}
-                            className="w-10 h-10 sm:w-12 sm:h-12 object-contain flex-shrink-0"
-                          />
-                        )}
-                        <div className="flex-1 min-w-0 overflow-hidden">
-                          <h2 className="text-sm sm:text-lg font-bold truncate text-txt-primary">
+                  <div
+                    key={dynasty.id}
+                    className="media-card group relative"
+                  >
+                    {/* Whole-card click target sits behind the action affordances. */}
+                    <Link
+                      to={`/dynasty/${dynasty.id}`}
+                      aria-label={`Open ${dynasty.teamName} dynasty`}
+                      className="absolute inset-0 z-0 rounded-lg focus-visible:outline-2 focus-visible:outline-surface-5"
+                    />
+
+                    <div className="relative z-10 px-4 py-4 sm:px-5 sm:py-5 flex items-center gap-4 sm:gap-5 pointer-events-none">
+                      {/* Logo */}
+                      {logoUrl && (
+                        <img
+                          src={logoUrl}
+                          alt=""
+                          aria-hidden="true"
+                          className="w-12 h-12 sm:w-14 sm:h-14 object-contain flex-shrink-0"
+                        />
+                      )}
+
+                      {/* Name + meta */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2.5 mb-1 flex-wrap">
+                          <h2
+                            className="font-display font-bold text-txt-primary truncate leading-tight"
+                            style={{ fontSize: 'clamp(1.0625rem, 2.5vw, 1.375rem)', letterSpacing: '-0.015em' }}
+                          >
                             {dynasty.teamName}
                           </h2>
-                          <div className="flex items-center gap-1.5 sm:gap-2">
-                            {conference && getConferenceLogo(conference) && (
-                              <img
-                                src={getConferenceLogo(conference)}
-                                alt={`${conference} logo`}
-                                className="w-3 h-3 sm:w-4 sm:h-4 object-contain opacity-80 flex-shrink-0"
-                              />
-                            )}
-                            <p className="text-[11px] sm:text-sm text-txt-secondary truncate tabular">
-                              {conference ? `${conference} • ` : ''}{dynasty.currentYear}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <p className="text-[10px] sm:text-xs text-txt-tertiary truncate">
-                              {weekPhase}
-                              {relativeTime && <span className="ml-1 sm:ml-2">• {relativeTime}</span>}
-                            </p>
-                            <button
-                              onClick={(e) => handleStorageClick(e, dynasty)}
-                              title={storageBadgeTitle}
-                              className="flex-shrink-0"
-                            >
-                              <Badge variant={storageBadgeVariant} size="sm">{storageBadgeText}</Badge>
-                            </button>
-                          </div>
+                          {phaseChip && (
+                            <span className={phaseChip.className}>{phaseChip.label}</span>
+                          )}
                         </div>
-                      </Link>
-
-                      <div className="flex items-center gap-0 sm:gap-1 flex-shrink-0 ml-auto">
-                        <button
-                          onClick={(e) => handleFavoriteClick(e, dynasty)}
-                          disabled={togglingFavoriteId === dynasty.id}
-                          className="p-1.5 sm:p-2 rounded-lg hover:bg-surface-3 transition-colors disabled:opacity-50 text-txt-secondary"
-                          title={dynasty.favorite ? 'Remove from favorites' : 'Add to favorites'}
-                        >
-                          {togglingFavoriteId === dynasty.id ? (
-                            <svg className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                            </svg>
-                          ) : dynasty.favorite ? (
-                            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="var(--accent-warning)" stroke="var(--accent-warning)" viewBox="0 0 24 24">
-                              <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                            </svg>
-                          ) : (
-                            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                            </svg>
+                        <div className="flex items-center gap-1.5 text-xs sm:text-sm text-txt-secondary tabular-nums truncate">
+                          {conference && getConferenceLogo(conference) && (
+                            <img
+                              src={getConferenceLogo(conference)}
+                              alt=""
+                              className="w-3.5 h-3.5 object-contain opacity-70 flex-shrink-0"
+                            />
                           )}
-                        </button>
-
-                        <button
-                          onClick={(e) => handleExportClick(e, dynasty)}
-                          className="p-1.5 sm:p-2 rounded-lg hover:bg-surface-3 transition-colors text-txt-secondary"
-                          title="Download Backup"
-                        >
-                          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                          </svg>
-                        </button>
-
-                        <button
-                          onClick={(e) => handleShareClick(e, dynasty)}
-                          className="p-1.5 sm:p-2 rounded-lg hover:bg-surface-3 transition-colors text-txt-secondary"
-                          title="Share Dynasty"
-                        >
-                          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                          </svg>
-                        </button>
-
-                        <button
-                          onClick={(e) => handleDeleteClick(e, dynasty)}
-                          disabled={deletingDynastyId === dynasty.id}
-                          className="p-1.5 sm:p-2 rounded-lg hover:bg-surface-3 transition-colors disabled:opacity-50 text-txt-secondary"
-                          title="Delete Dynasty"
-                        >
-                          {deletingDynastyId === dynasty.id ? (
-                            <svg className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                            </svg>
-                          ) : (
-                            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
+                          {conference && (
+                            <>
+                              <span className="truncate">{conference}</span>
+                              <span className="text-txt-tertiary">·</span>
+                            </>
                           )}
-                        </button>
+                          <span>{dynasty.currentYear}</span>
+                          {weekShort && (
+                            <>
+                              <span className="text-txt-tertiary">·</span>
+                              <span className="truncate">{weekShort}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Right side: time + storage + scoreboard divider + actions.
+                          pointer-events re-enabled so individual buttons are
+                          clickable without firing the whole-card link. */}
+                      <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0 pointer-events-auto">
+                        <div className="hidden sm:flex flex-col items-end gap-1">
+                          {relativeTime && (
+                            <span className="text-xs text-txt-tertiary tabular-nums">
+                              {relativeTime}
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => handleStorageClick(e, dynasty)}
+                            title={storageBadgeTitle}
+                          >
+                            <Badge variant={storageBadgeVariant} size="sm">{storageBadgeText}</Badge>
+                          </button>
+                        </div>
+
+                        {/* Scoreboard-style divider — separates data from controls */}
+                        <span aria-hidden="true" className="hidden sm:block self-stretch w-px bg-surface-4" />
+
+                        <div className="flex items-center gap-0 sm:gap-0.5 text-txt-tertiary opacity-70 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => handleFavoriteClick(e, dynasty)}
+                            disabled={togglingFavoriteId === dynasty.id}
+                            className="p-1.5 sm:p-2 rounded-md hover:bg-surface-4 hover:text-txt-primary transition-colors disabled:opacity-50"
+                            title={dynasty.favorite ? 'Remove from favorites' : 'Add to favorites'}
+                          >
+                            {togglingFavoriteId === dynasty.id ? (
+                              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                              </svg>
+                            ) : dynasty.favorite ? (
+                              <svg className="w-4 h-4" fill="var(--accent-warning)" stroke="var(--accent-warning)" viewBox="0 0 24 24">
+                                <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                              </svg>
+                            )}
+                          </button>
+
+                          <button
+                            onClick={(e) => handleExportClick(e, dynasty)}
+                            className="p-1.5 sm:p-2 rounded-md hover:bg-surface-4 hover:text-txt-primary transition-colors hidden sm:block"
+                            title="Download backup"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                          </button>
+
+                          <button
+                            onClick={(e) => handleShareClick(e, dynasty)}
+                            className="p-1.5 sm:p-2 rounded-md hover:bg-surface-4 hover:text-txt-primary transition-colors hidden sm:block"
+                            title="Share dynasty"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                            </svg>
+                          </button>
+
+                          <button
+                            onClick={(e) => handleDeleteClick(e, dynasty)}
+                            disabled={deletingDynastyId === dynasty.id}
+                            className="p-1.5 sm:p-2 rounded-md hover:bg-[color-mix(in_srgb,var(--accent-error)_15%,var(--surface-4))] hover:text-[color:var(--accent-error)] transition-colors disabled:opacity-50"
+                            title="Delete dynasty"
+                          >
+                            {deletingDynastyId === dynasty.id ? (
+                              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </Card>
+                  </div>
                 )
               })}
             </div>
 
-            <ContactCTA className="mt-2" />
+            {/* Sample dynasty — ghost-card style so it reads as a CTA /
+                offer, not as another tracked dynasty. Lighter visual
+                weight than the actual dynasty cards above. */}
+            <div className="mt-6 ghost-card">
+              <div className="px-4 py-3.5 sm:px-5 sm:py-4 flex items-center justify-between gap-4">
+                <h3 className="font-display text-sm sm:text-base font-semibold text-txt-secondary tracking-tight leading-tight min-w-0">
+                  Try a sample dynasty (my own personal one)
+                </h3>
+                <button
+                  type="button"
+                  onClick={handleTestImport}
+                  disabled={importing}
+                  className="btn-refined flex-shrink-0"
+                >
+                  {importing ? 'Loading…' : 'Load sample'}
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-10">
+              <ContactCTA />
+            </div>
           </div>
         )}
       </div>

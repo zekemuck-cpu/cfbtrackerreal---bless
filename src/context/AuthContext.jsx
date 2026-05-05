@@ -91,6 +91,26 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
+    // Dev-only auth bypass for local previewing. Strictly gated on
+     // import.meta.env.DEV so it can never ship to production. Activate
+     // by visiting any page with ?devauth=1 (persists via sessionStorage
+     // for the rest of the tab's life). Visit ?devauth=0 to clear.
+    if (import.meta.env.DEV) {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('devauth') === '1') sessionStorage.setItem('cfbtracker_devauth', '1')
+      if (params.get('devauth') === '0') sessionStorage.removeItem('cfbtracker_devauth')
+      if (sessionStorage.getItem('cfbtracker_devauth') === '1') {
+        setUser({
+          uid: 'devauth-local',
+          email: 'devauth@local',
+          displayName: 'Dev Preview',
+          photoURL: null,
+        })
+        setLoading(false)
+        return () => {}
+      }
+    }
+
     // Set up auth state listener
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user)

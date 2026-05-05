@@ -4909,8 +4909,13 @@ export function DynastyProvider({ children }) {
     // Clear lazy loading cache when user changes (logout or login as different user)
     loadedDynastyIdsRef.current.clear()
 
-    // If user is not signed in, only load local dynasties
-    if (!user) {
+    // If user is not signed in (or running under the dev-auth bypass,
+    // which has no real Firestore access), skip cloud sync and load
+    // only local dynasties.
+    const isDevAuth = import.meta.env.DEV
+      && typeof window !== 'undefined'
+      && sessionStorage.getItem('cfbtracker_devauth') === '1'
+    if (!user || isDevAuth) {
       // No cloud to wait on.
       setCloudSyncing(false)
       const loadOnlyLocal = async () => {

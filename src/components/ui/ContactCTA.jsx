@@ -1,45 +1,26 @@
 import { Link } from 'react-router-dom'
 
 /**
- * Compact "get in touch" card — placed on Home, Login, and anywhere else
- * a casual nudge toward feedback makes sense. Discord-brand accent on the
- * left keeps it visually distinct without shouting.
+ * Compact "get in touch" entry. Footer-weight affordance — uses the
+ * lighter ghost-card styling so it doesn't compete with actual page
+ * content (dynasty cards, primary CTAs). Single tight row, no
+ * subtitle paragraph.
  */
 export default function ContactCTA({ className = '' }) {
   return (
-    <Link
-      to="/contact"
-      className={`block rounded-2xl overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-lg group ${className}`}
-      style={{
-        backgroundColor: 'var(--surface-2)',
-        border: '1px solid var(--rule-soft)',
-      }}
-    >
-      <div className="flex items-center gap-4 px-5 py-4">
-        <div
-          className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{
-            background: 'linear-gradient(135deg, #5865F2 0%, #404EED 100%)',
-            boxShadow: '0 2px 8px rgba(88, 101, 242, 0.3)',
-          }}
-          aria-hidden="true"
-        >
-          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-          </svg>
+    <Link to="/contact" className={`ghost-card group block ${className}`}>
+      <div className="px-4 py-3 sm:px-5 sm:py-3.5 flex items-center justify-between gap-4">
+        <div className="min-w-0 flex items-baseline gap-2 sm:gap-3 flex-wrap">
+          <span className="font-display text-sm sm:text-base font-semibold text-txt-secondary tracking-tight leading-tight">
+            Got feedback, bugs, or ideas?
+          </span>
+          <span className="text-xs text-txt-tertiary">
+            Discord · Reddit · DM
+          </span>
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="font-semibold text-txt-primary">Got feedback, bugs, or ideas?</div>
-          <div className="text-sm text-txt-tertiary">
-            Join the Discord, send a message, or hit me up on Reddit.
-          </div>
-        </div>
-        <div className="hidden sm:flex items-center gap-1 text-sm font-semibold text-txt-secondary group-hover:text-txt-primary transition-colors flex-shrink-0">
+        <span className="btn-refined flex-shrink-0">
           Contact
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-          </svg>
-        </div>
+        </span>
       </div>
     </Link>
   )

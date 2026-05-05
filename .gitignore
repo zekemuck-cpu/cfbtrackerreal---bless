@@ -9,3 +9,7 @@ dist
 # User-specific spreadsheets / migration outputs (one-off use, not for repo)
 *.xlsx
 migrated-dynasty.json
+
+# Local Playwright preview artifacts (Claude Code MCP)
+.playwright-mcp/
+*.png
