@@ -148,14 +148,14 @@ export default function NewsTicker({ dynasty }) {
         .ticker-divider {
           width: 1px;
           height: 14px;
-          background: rgba(148, 163, 184, 0.18);
+          background: var(--surface-4);
           flex-shrink: 0;
         }
         .ticker-logo {
           background: #f1f5f9;
           box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
         }
-        .ticker-header-cell:hover { background: rgba(255, 255, 255, 0.03); }
+        .ticker-header-cell:hover { background: var(--surface-2); }
         .ticker-item-link { transition: opacity 180ms ease; }
         .ticker-item-link:hover { opacity: 0.7; }
       `}</style>
@@ -163,11 +163,11 @@ export default function NewsTicker({ dynasty }) {
       <div
         className="ticker-wrapper fixed bottom-0 left-0 right-0 z-50"
         style={{
-          background: '#0a0c12',
-          borderTop: '1px solid rgba(148, 163, 184, 0.14)',
-          boxShadow: '0 -8px 20px rgba(0, 0, 0, 0.35)',
+          background: 'var(--surface-0)',
+          borderTop: '1px solid var(--surface-4)',
+          boxShadow: '0 -6px 16px rgba(4, 6, 16, 0.4)',
           height: '40px',
-          fontFamily: "'Outfit', system-ui, sans-serif"
+          fontFamily: "var(--font-display, 'Outfit', system-ui, sans-serif)"
         }}
       >
         <div className="flex items-center h-full">
@@ -176,7 +176,7 @@ export default function NewsTicker({ dynasty }) {
             {/* Header */}
             <div
               className={`h-full flex items-center gap-2 px-3 sm:px-4 flex-shrink-0 ticker-header ticker-header-cell ${currentSection.headerLink ? 'cursor-pointer' : ''}`}
-              style={{ borderRight: '1px solid rgba(148, 163, 184, 0.12)' }}
+              style={{ borderRight: '1px solid var(--surface-4)' }}
               onClick={() => handleHeaderClick(currentSection)}
             >
               {currentSection.teamLogo && (
@@ -192,8 +192,8 @@ export default function NewsTicker({ dynasty }) {
               {currentSection.opponentLogo ? (
                 <>
                   <span
-                    className="text-[9px] uppercase"
-                    style={{ color: '#64748b', letterSpacing: '0.14em', fontWeight: 600 }}
+                    className="text-[9px] uppercase text-txt-tertiary"
+                    style={{ letterSpacing: '0.14em', fontWeight: 600 }}
                   >
                     vs
                   </span>
@@ -208,9 +208,8 @@ export default function NewsTicker({ dynasty }) {
                 </>
               ) : (
                 <span
-                  className="text-[10px] sm:text-[11px] truncate uppercase"
+                  className="text-[10px] sm:text-[11px] truncate uppercase text-txt-secondary"
                   style={{
-                    color: '#e2e8f0',
                     fontWeight: 600,
                     letterSpacing: '0.14em'
                   }}
@@ -237,9 +236,8 @@ export default function NewsTicker({ dynasty }) {
                     >
                       {item.label && (
                         <span
-                          className={`text-[10px] uppercase ${item.team2 ? 'hidden sm:inline' : ''}`}
+                          className={`text-[10px] uppercase text-txt-tertiary ${item.team2 ? 'hidden sm:inline' : ''}`}
                           style={{
-                            color: '#94a3b8',
                             fontWeight: 600,
                             letterSpacing: '0.12em'
                           }}
@@ -272,17 +270,17 @@ export default function NewsTicker({ dynasty }) {
                           <span
                             className="text-[11px] sm:text-xs tabular-nums"
                             style={{
-                              color: item.winner === item.team ? '#f8fafc' : '#64748b',
+                              color: item.winner === item.team ? 'var(--text-primary)' : 'var(--text-tertiary)',
                               fontWeight: item.winner === item.team ? 700 : 500
                             }}
                           >
                             {item.score1}
                           </span>
-                          <span className="text-[10px]" style={{ color: '#475569' }}>–</span>
+                          <span className="text-[10px] text-txt-muted">–</span>
                           <span
                             className="text-[11px] sm:text-xs tabular-nums"
                             style={{
-                              color: item.winner === item.team2 ? '#f8fafc' : '#64748b',
+                              color: item.winner === item.team2 ? 'var(--text-primary)' : 'var(--text-tertiary)',
                               fontWeight: item.winner === item.team2 ? 700 : 500
                             }}
                           >
@@ -301,8 +299,8 @@ export default function NewsTicker({ dynasty }) {
 
                       {item.text && !item.team2 && (
                         <span
-                          className="text-[11px] sm:text-xs tabular-nums"
-                          style={{ color: '#e2e8f0', fontWeight: 500 }}
+                          className="text-[11px] sm:text-xs tabular-nums text-txt-secondary"
+                          style={{ fontWeight: 500 }}
                         >
                           {item.text}
                         </span>

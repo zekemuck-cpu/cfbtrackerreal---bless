@@ -561,8 +561,8 @@ export default function CoachCareer() {
           stat strip below the name, full-width on mobile. The strip
           replaces the previous comma-list meta + side stat cluster so
           the page leads with one cohesive lockup instead of two. */}
-      <section className="card overflow-hidden reveal">
-        <div className="px-5 py-4 sm:px-6 sm:py-5">
+      <section className="media-card overflow-hidden reveal">
+        <div className="px-3 py-3 sm:px-6 sm:py-5">
           <div className="label-xs text-txt-tertiary mb-2 flex items-center gap-2 flex-wrap" style={{ letterSpacing: '2.5px', fontSize: '10px' }}>
             <span>CAREER</span>
             {userOptions.length > 1 && (
@@ -611,10 +611,10 @@ export default function CoachCareer() {
               tabular numerals. Replaces the bordered tile-cluster that
               competed with the headline. */}
           <div
-            className="mt-3 flex items-stretch gap-5 sm:gap-8 flex-wrap"
+            className="mt-3 flex items-stretch gap-4 sm:gap-8 flex-wrap"
             style={{
-              borderTop: '1px solid var(--rule-soft, var(--surface-4))',
-              paddingTop: '12px',
+              borderTop: '1px solid var(--surface-4)',
+              paddingTop: '10px',
             }}
           >
             <div>
@@ -692,7 +692,7 @@ export default function CoachCareer() {
         // (no more individual tile borders fighting each other).
         const StatCell = ({ value, label, accent = false, onClick, last = false }) => {
           const inner = (
-            <div className={`px-3.5 py-2 ${last ? '' : 'border-r'}`} style={!last ? { borderRight: '1px solid var(--rule-soft, var(--surface-4))' } : {}}>
+            <div className={`px-3.5 py-2 ${last ? '' : 'border-r'}`} style={!last ? { borderRight: '1px solid var(--surface-4)' } : {}}>
               <div
                 className="font-display font-black tabular-nums leading-none"
                 style={{
@@ -823,7 +823,7 @@ export default function CoachCareer() {
                   <div
                     className="mb-3 flex flex-wrap rounded-lg overflow-hidden"
                     style={{
-                      border: '1px solid var(--rule-soft, var(--surface-4))',
+                      border: '1px solid var(--surface-4)',
                       backgroundColor: 'var(--surface-2)',
                     }}
                   >

@@ -344,23 +344,13 @@ export default function Home() {
     )
   }
 
-  // Phase chip — terse status pill next to the team name.
-  const phaseChipFor = (phase) => {
-    switch (phase) {
-      case 'preseason': return { className: 'phase-chip phase-chip--preseason', label: 'Preseason' }
-      case 'regular_season': return { className: 'phase-chip phase-chip--active', label: 'In Season' }
-      case 'conference_championship': return { className: 'phase-chip phase-chip--championship', label: 'Conf Champ' }
-      case 'postseason': return { className: 'phase-chip phase-chip--championship', label: 'Postseason' }
-      case 'offseason': return { className: 'phase-chip phase-chip--offseason', label: 'Offseason' }
-      default: return null
-    }
-  }
-
-  // Compact week descriptor — drops the redundant phase name (the chip
-  // already conveys it). Returns null when the phase has no week notion
-  // (preseason / offseason / etc.).
+  // Compact week / phase descriptor for the meta line. Returns the most
+  // useful label for the current point in the season — week number when
+  // applicable, otherwise the phase name itself.
   const weekShortFor = (dynasty) => {
     if (dynasty.currentPhase === 'regular_season') return `Week ${dynasty.currentWeek}`
+    if (dynasty.currentPhase === 'preseason') return 'Preseason'
+    if (dynasty.currentPhase === 'conference_championship') return 'Conf Championship'
     if (dynasty.currentPhase === 'postseason') {
       if (dynasty.currentWeek === 5) return 'Recap'
       return dynasty.currentWeek === 4 ? 'National Championship' : `Bowl Week ${dynasty.currentWeek}`
@@ -497,17 +487,14 @@ export default function Home() {
                 heading more presence without adding decorative chrome. */}
             <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 mb-6 sm:mb-8">
               <h1
-                className="font-display text-txt-primary leading-none m-0 flex items-baseline gap-3 sm:gap-4"
+                className="font-display text-txt-primary leading-none m-0"
                 style={{
                   fontWeight: 900,
                   fontSize: 'clamp(2rem, 5vw, 3rem)',
                   letterSpacing: '-0.035em',
                 }}
               >
-                <span>Your Dynasties</span>
-                <span className="text-txt-tertiary tabular-nums" style={{ fontWeight: 600, fontSize: '0.55em', letterSpacing: '0' }}>
-                  {dynasties.length}
-                </span>
+                Your Dynasties
               </h1>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -569,7 +556,6 @@ export default function Home() {
                 }
                 const relativeTime = getRelativeTime(dynasty.lastModified)
                 const weekShort = weekShortFor(dynasty)
-                const phaseChip = phaseChipFor(dynasty.currentPhase)
                 const conference = getDynastyTeamConference(dynasty)
 
                 const isCloudReadOnly = dynasty.storageType === 'cloud' && !isPremium
@@ -606,17 +592,12 @@ export default function Home() {
 
                       {/* Name + meta */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2.5 mb-1 flex-wrap">
-                          <h2
-                            className="font-display font-bold text-txt-primary truncate leading-tight"
-                            style={{ fontSize: 'clamp(1.0625rem, 2.5vw, 1.375rem)', letterSpacing: '-0.015em' }}
-                          >
-                            {dynasty.teamName}
-                          </h2>
-                          {phaseChip && (
-                            <span className={phaseChip.className}>{phaseChip.label}</span>
-                          )}
-                        </div>
+                        <h2
+                          className="font-display font-bold text-txt-primary truncate leading-tight mb-1"
+                          style={{ fontSize: 'clamp(1.0625rem, 2.5vw, 1.375rem)', letterSpacing: '-0.015em' }}
+                        >
+                          {dynasty.teamName}
+                        </h2>
                         <div className="flex items-center gap-1.5 text-xs sm:text-sm text-txt-secondary tabular-nums truncate">
                           {conference && getConferenceLogo(conference) && (
                             <img

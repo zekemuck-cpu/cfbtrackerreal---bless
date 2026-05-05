@@ -2749,7 +2749,7 @@ export default function Dashboard() {
   }, [currentDynasty?.games, currentDynasty?.currentYear, currentDynasty?.coachTeamByYear])
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="atmosphere relative space-y-3 sm:space-y-6 max-w-7xl mx-auto">
       {/* Read-only banner — collapses to a single pill via the chevron.
           Visible whenever the user lacks write access on a cloud dynasty
           (non-premium owner OR non-premium shared editor), but not on
@@ -2882,11 +2882,11 @@ export default function Dashboard() {
         const currentRank = rankingData?.rank
 
         return (
-          <div className="card overflow-hidden mb-6">
-            <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="media-card overflow-hidden mb-4 sm:mb-6 relative z-10">
+            <div className="p-3 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
               <Link
                 to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}`}
-                className="flex items-center gap-4 hover:opacity-90 transition-opacity min-w-0 group"
+                className="flex items-center gap-4 sm:gap-5 hover:opacity-90 transition-opacity min-w-0 group"
               >
                 {(() => {
                   // Get logo from user's current team (using userId as source of truth)
@@ -2896,13 +2896,11 @@ export default function Dashboard() {
                   }
                   if (!logoUrl) logoUrl = getTeamLogo(userTeamName, currentDynasty.teams)
                   return logoUrl ? (
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 rounded-xl p-2 bg-surface-3">
-                      <img
-                        src={logoUrl}
-                        alt={`${userTeamName} logo`}
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
+                    <img
+                      src={logoUrl}
+                      alt={`${userTeamName} logo`}
+                      className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 object-contain"
+                    />
                   ) : null
                 })()}
                 <div className="min-w-0">
@@ -2936,16 +2934,16 @@ export default function Dashboard() {
                 </div>
               </Link>
               {teamRatings && (
-                <div className="flex items-center gap-2 sm:gap-3 justify-end sm:justify-start">
-                  <div className="text-center px-4 py-2.5 rounded-xl bg-surface-3">
+                <div className="flex items-center gap-1 sm:gap-2 justify-end sm:justify-start">
+                  <div className="text-center px-3 py-2 rounded-md border border-surface-4">
                     <div className="label-xs text-txt-tertiary">OVR</div>
                     <div className="font-display text-xl sm:text-2xl font-extrabold text-txt-primary tabular">{teamRatings.overall}</div>
                   </div>
-                  <div className="text-center px-4 py-2.5 rounded-xl bg-surface-3">
+                  <div className="text-center px-3 py-2 rounded-md border border-surface-4">
                     <div className="label-xs text-txt-tertiary">OFF</div>
                     <div className="font-display text-xl sm:text-2xl font-extrabold text-txt-primary tabular">{teamRatings.offense}</div>
                   </div>
-                  <div className="text-center px-4 py-2.5 rounded-xl bg-surface-3">
+                  <div className="text-center px-3 py-2 rounded-md border border-surface-4">
                     <div className="label-xs text-txt-tertiary">DEF</div>
                     <div className="font-display text-xl sm:text-2xl font-extrabold text-txt-primary tabular">{teamRatings.defense}</div>
                   </div>
@@ -3036,11 +3034,11 @@ export default function Dashboard() {
                                     <span className="font-display text-xs font-bold" style={{ color: isFired ? '#ef4444' : 'var(--text-primary)' }}>OC</span>
                                   </div>
                                   <div className="min-w-0 flex-1">
-                                    <div className="font-display text-[10px] uppercase font-semibold tracking-wider text-zinc-500">
+                                    <div className="font-display text-[10px] uppercase font-semibold tracking-wider text-txt-tertiary">
                                       Offensive Coordinator
                                     </div>
                                     <div className="flex items-center gap-2">
-                                      <span className={`font-semibold truncate text-zinc-100 ${isFired ? 'line-through opacity-60' : ''}`}>
+                                      <span className={`font-semibold truncate text-txt-primary ${isFired ? 'line-through opacity-60' : ''}`}>
                                         {displayName}
                                       </span>
                                       {isFired && (
@@ -3071,11 +3069,11 @@ export default function Dashboard() {
                                     <span className="font-display text-xs font-bold" style={{ color: isFired ? '#ef4444' : 'var(--text-primary)' }}>DC</span>
                                   </div>
                                   <div className="min-w-0 flex-1">
-                                    <div className="font-display text-[10px] uppercase font-semibold tracking-wider text-zinc-500">
+                                    <div className="font-display text-[10px] uppercase font-semibold tracking-wider text-txt-tertiary">
                                       Defensive Coordinator
                                     </div>
                                     <div className="flex items-center gap-2">
-                                      <span className={`font-semibold truncate text-zinc-100 ${isFired ? 'line-through opacity-60' : ''}`}>
+                                      <span className={`font-semibold truncate text-txt-primary ${isFired ? 'line-through opacity-60' : ''}`}>
                                         {displayName}
                                       </span>
                                       {isFired && (
@@ -3094,7 +3092,7 @@ export default function Dashboard() {
                               const ccDataForYear = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear] || {}
                               return !ccDataForYear.firedOCName && !ccDataForYear.firedDCName
                             })() && (
-                              <div className="text-center py-2 text-sm text-zinc-500">
+                              <div className="text-center py-2 text-sm text-txt-tertiary">
                                 No coordinators entered
                               </div>
                             )}
@@ -3120,8 +3118,7 @@ export default function Dashboard() {
         <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--rule-soft)' }}>
           <div className="px-4 pt-3 pb-4 sm:px-6 sm:pt-3 sm:pb-6">
           <div className="flex items-center gap-3 mb-3 sm:mb-4">
-            <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
-            <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+            <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
               Pre-Season Setup
             </h3>
           </div>
@@ -3249,47 +3246,41 @@ export default function Dashboard() {
               return (
               <div
                 key={item.num}
-                className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all ${
-                  item.done ? '' : 'hover:ring-1'
-                }`}
-                style={item.done ? {
-                  backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                  border: '1px solid rgba(34, 197, 94, 0.3)'
-                } : {
-                  backgroundColor: 'var(--surface-3)',
-                  border: '1px solid var(--rule-soft)'
+                className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-colors"
+                style={{
+                  backgroundColor: 'var(--surface-2)',
+                  border: '1px solid var(--surface-4)'
                 }}
               >
                 <div className="flex items-center gap-2 sm:gap-3">
                   <div
-                    className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display`}
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 font-display"
                     style={item.done ? {
-                      backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                      color: '#22c55e'
+                      backgroundColor: 'var(--accent-success)',
+                      color: 'var(--surface-1)',
+                      borderColor: 'var(--accent-success)'
                     } : {
-                      backgroundColor: 'var(--surface-3)',
-                      color: 'var(--text-secondary)'
+                      backgroundColor: 'transparent',
+                      color: 'var(--text-tertiary)',
+                      border: '1px solid var(--surface-5)'
                     }}
                   >
                     {item.done ? (
-                      <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
                     ) : (
-                      <span className="font-bold text-sm sm:text-lg">{item.num}</span>
+                      <span className="font-bold text-xs sm:text-sm tabular-nums">{item.num}</span>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div
-                      className="font-semibold text-sm sm:text-base"
-                      style={{ color: item.done ? '#22c55e' : '#fafafa' }}
-                    >
+                    <div className="font-semibold text-sm sm:text-base text-txt-primary">
                       {item.title}
                     </div>
                     {item.scheduleCount !== undefined && (
                       <div
-                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium"
-                        style={{ color: item.done ? '#22c55e' : '#a1a1aa' }}
+                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary"
+                        
                       >
                         {item.scheduleCount}/12 games
                         {item.done && <span className="ml-1 sm:ml-2">✓ Ready</span>}
@@ -3297,8 +3288,8 @@ export default function Dashboard() {
                     )}
                     {item.playerCount !== undefined && (
                       <div
-                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium"
-                        style={{ color: item.done ? '#22c55e' : '#a1a1aa' }}
+                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary"
+                        
                       >
                         {item.playerCount}/85 players
                         {item.done && <span className="ml-1 sm:ml-2">✓ Ready</span>}
@@ -3306,8 +3297,8 @@ export default function Dashboard() {
                     )}
                     {item.teamRatings && (
                       <div
-                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium"
-                        style={{ color: item.done ? '#22c55e' : '#a1a1aa' }}
+                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary"
+                        
                       >
                         {item.teamRatings.overall ? `${item.teamRatings.overall} OVR • ${item.teamRatings.offense} OFF • ${item.teamRatings.defense} DEF` : 'Not entered'}
                         {item.done && <span className="ml-1 sm:ml-2">✓ Ready</span>}
@@ -3315,8 +3306,8 @@ export default function Dashboard() {
                     )}
                     {item.coachingStaff !== undefined && (
                       <div
-                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium truncate"
-                        style={{ color: item.done ? '#22c55e' : '#a1a1aa' }}
+                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium truncate text-txt-tertiary"
+                        
                       >
                         {item.coachingStaff?.ocName && item.coachingStaff?.dcName
                           ? `OC: ${item.coachingStaff.ocName} • DC: ${item.coachingStaff.dcName}`
@@ -3326,8 +3317,8 @@ export default function Dashboard() {
                     )}
                     {item.conferences !== undefined && (
                       <div
-                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium"
-                        style={{ color: item.done ? '#22c55e' : '#a1a1aa' }}
+                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary"
+                        
                       >
                         {item.conferences
                           ? `${Object.keys(item.conferences).length} conferences configured`
@@ -3337,8 +3328,8 @@ export default function Dashboard() {
                     )}
                     {item.isPreseasonTop25 && (
                       <div
-                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium"
-                        style={{ color: item.done ? '#22c55e' : '#a1a1aa' }}
+                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary"
+                        
                       >
                         {item.done
                           ? `✓ ${item.preseasonTop25Count} team${item.preseasonTop25Count === 1 ? '' : 's'} ranked`
@@ -3347,8 +3338,8 @@ export default function Dashboard() {
                     )}
                     {item.isPreseasonRecap && (
                       <div
-                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium"
-                        style={{ color: item.done ? '#22c55e' : '#a1a1aa' }}
+                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary"
+                        
                       >
                         {item.done
                           ? '✓ Saved — view it on the Weekly Recap page'
@@ -3358,10 +3349,8 @@ export default function Dashboard() {
                     {item.isRecruiting && (
                       <>
                         <div
-                          className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium"
-                          style={{
-                            color: item.done ? '#22c55e' : '#a1a1aa'
-                          }}
+                          className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary"
+                          
                         >
                           {item.done
                             ? item.commitmentsCount > 0
@@ -3505,45 +3494,34 @@ export default function Dashboard() {
                   <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-3 stagger-reveal">
                     {isByeWeek ? (
                       /* Bye-week card occupies the left (game) column; recruiting sidebar still renders on the right so commits can be logged. */
-                      <div
-                        className="relative rounded-xl overflow-hidden flex flex-col justify-center items-center text-center px-6 py-8"
-                        style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--rule-soft)' }}
-                      >
-                        <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ backgroundColor: 'var(--text-primary)' }} aria-hidden="true" />
+                      <div className="media-card flex flex-col justify-center items-center text-center px-6 py-8">
                         <div className="font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '3px', fontSize: '10px' }}>
                           Week {currentDynasty.currentWeek} · Off
                         </div>
                         <div
-                          className="font-display font-black leading-none mt-2"
+                          className="font-display font-bold leading-none mt-2 text-txt-primary"
                           style={{
-                            fontSize: 'clamp(2.5rem, 7vw, 3.5rem)',
-                            color: 'var(--text-primary)',
-                            letterSpacing: '-0.02em'
+                            fontSize: 'clamp(2rem, 5vw, 2.75rem)',
+                            letterSpacing: '-0.025em'
                           }}
                         >
-                          BYE WEEK
+                          Bye Week
                         </div>
                         <div className="mt-3 text-[11px] uppercase text-txt-tertiary" style={{ letterSpacing: '2px' }}>
                           No game scheduled
                         </div>
                       </div>
                     ) : (
-                      /* Scorebug */
-                      <div
-                        className="rounded-xl p-3 sm:p-5 flex flex-col justify-between"
-                        style={playedGame ? {
-                          backgroundColor: 'color-mix(in srgb, #22c55e 10%, var(--surface-3))',
-                          border: '1px solid rgba(34, 197, 94, 0.35)'
-                        } : {
-                          backgroundColor: 'var(--surface-3)',
-                          border: '1px solid var(--rule-soft)'
-                        }}
-                      >
+                      /* Scorebug — neutral media-card; the "W · Final" pill
+                          inside conveys completion state on its own, no need
+                          to tint the entire card green. */
+                      <div className="media-card">
+                        <div className="p-2.5 sm:p-5 flex flex-col justify-between h-full">
                         {/* Matchup row */}
                         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
                           {/* Our team */}
                           <div className="flex flex-col items-center min-w-0">
-                            <div className="w-12 h-12 sm:w-20 sm:h-20 flex items-center justify-center">
+                            <div className="w-10 h-10 sm:w-20 sm:h-20 flex items-center justify-center">
                               {userLogoUrl
                                 ? <img src={userLogoUrl} alt={userAbbr} className="w-full h-full object-contain" />
                                 : <div className="w-full h-full rounded-full" style={{ backgroundColor: 'var(--text-primary)' }} />}
@@ -3555,7 +3533,7 @@ export default function Dashboard() {
                               <>
                                 <div className="flex items-baseline gap-1.5 sm:gap-2 font-display font-black tabular-nums leading-none" style={{ color: 'var(--text-primary)' }}>
                                   <span className="text-2xl sm:text-[2rem]">{userScore}</span>
-                                  <span className="text-zinc-600 text-lg sm:text-xl">–</span>
+                                  <span className="text-txt-muted text-lg sm:text-xl">–</span>
                                   <span className="text-2xl sm:text-[2rem]">{oppScore}</span>
                                 </div>
                                 <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${userWon ? 'text-green-400 bg-green-500/10' : 'text-red-400 bg-red-500/10'}`}>
@@ -3564,17 +3542,17 @@ export default function Dashboard() {
                               </>
                             ) : (
                               <>
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Week {currentDynasty.currentWeek}</span>
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-txt-tertiary">Week {currentDynasty.currentWeek}</span>
                                 <span className="font-display font-black text-lg sm:text-xl leading-none" style={{ color: 'var(--text-primary)' }}>{atSymbol.toUpperCase()}</span>
                               </>
                             )}
                           </div>
                           {/* Opponent */}
                           <div className="flex flex-col items-center min-w-0">
-                            <div className="w-12 h-12 sm:w-20 sm:h-20 flex items-center justify-center">
+                            <div className="w-10 h-10 sm:w-20 sm:h-20 flex items-center justify-center">
                               {oppLogoUrl
                                 ? <img src={oppLogoUrl} alt={oppAbbr || 'Opponent'} className="w-full h-full object-contain" />
-                                : <div className="w-full h-full rounded-full border-2 border-dashed border-zinc-700 flex items-center justify-center text-xs font-bold text-zinc-400">TBD</div>}
+                                : <div className="w-full h-full rounded-full border-2 border-dashed border-zinc-700 flex items-center justify-center text-xs font-bold text-txt-secondary">TBD</div>}
                             </div>
                           </div>
                         </div>
@@ -3584,65 +3562,55 @@ export default function Dashboard() {
                             the weekly-scores to-do pattern). Pre-game
                             it's still a single full-width Enter Game. */}
                         {!isViewOnly && (playedGame ? (
-                          <div className="mt-3 sm:mt-4 flex gap-2">
+                          <div className="mt-2 sm:mt-4 flex gap-2 justify-center sm:justify-stretch">
                             <Link
                               to={`${pathPrefix}/game/${playedGame.id}`}
-                              className="flex-1 sm:flex-none rounded-lg font-display font-black uppercase tracking-widest py-2 sm:py-3 px-4 text-xs sm:text-[13px] transition-all hover:opacity-90 active:translate-y-px text-center"
-                              style={{
-                                backgroundColor: 'var(--surface-4)',
-                                color: 'var(--text-secondary)',
-                                letterSpacing: '2px',
-                              }}
+                              className="btn-refined sm:btn-refined--lg sm:flex-1 text-center"
                             >
                               View
                             </Link>
                             <button
                               onClick={handleEnterGame}
-                              className="flex-1 rounded-lg font-display font-black uppercase tracking-widest py-2 sm:py-3 text-xs sm:text-[13px] transition-all hover:opacity-90 active:translate-y-px"
-                              style={{
-                                backgroundColor: 'var(--text-primary)',
-                                color: 'var(--surface-1)',
-                                letterSpacing: '2px',
-                              }}
+                              className="btn-refined btn-refined--solid sm:btn-refined--lg sm:flex-1"
                             >
                               Edit
                             </button>
                           </div>
                         ) : (
-                          <button
-                            onClick={handleEnterGame}
-                            className="mt-3 sm:mt-4 w-full rounded-lg font-display font-black uppercase tracking-widest py-2 sm:py-3 text-xs sm:text-[13px] transition-all hover:opacity-90 active:translate-y-px"
-                            style={{
-                              backgroundColor: 'var(--text-primary)',
-                              color: 'var(--surface-1)',
-                              letterSpacing: '2px',
-                            }}
-                          >
-                            Enter Game
-                          </button>
+                          <div className="mt-2 sm:mt-4 flex justify-center sm:block">
+                            <button
+                              onClick={handleEnterGame}
+                              className="btn-refined btn-refined--solid sm:btn-refined--lg sm:w-full"
+                            >
+                              Enter Game
+                            </button>
+                          </div>
                         ))}
-                        {isViewOnly && <div className="mt-4 flex justify-center"><ViewOnlyBadge /></div>}
+                        {isViewOnly && <div className="mt-3 flex justify-center"><ViewOnlyBadge /></div>}
+                        </div>
                       </div>
                     )}
 
                     {/* Recruiting sidebar — always rendered, works on bye weeks too.
-                        No top accent strip — match the Enter Game card's plain
-                        edge so the two siblings read as a matched pair. */}
-                    <div
-                      className="relative rounded-xl overflow-hidden flex flex-col"
-                      style={hasCommitmentsData ? {
-                        backgroundColor: 'color-mix(in srgb, #22c55e 8%, var(--surface-3))',
-                        border: '1px solid rgba(34, 197, 94, 0.3)'
-                      } : {
-                        backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--rule-soft)'
-                      }}
-                    >
-                      <div className="p-4 flex flex-col flex-1 gap-3">
+                        Same media-card treatment as the scorebug; "logged"
+                        state is conveyed by a small dot, not a green tint.
+                        Natural height on mobile, stretches to match scorebug
+                        only on desktop side-by-side. */}
+                    <div className="media-card">
+                      <div className="p-2.5 sm:p-4 flex flex-col gap-2 sm:gap-3 sm:h-full">
                         {/* Eyebrow row with inline tool icons */}
                         <div className="flex items-center justify-between gap-2">
-                          <div className="font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '2px', fontSize: '10px' }}>
-                            Recruiting · Wk {currentDynasty.currentWeek}
+                          <div className="flex items-center gap-2">
+                            {hasCommitmentsData && (
+                              <span
+                                aria-hidden="true"
+                                className="w-1.5 h-1.5 rounded-full"
+                                style={{ backgroundColor: 'var(--accent-success)' }}
+                              />
+                            )}
+                            <div className="font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '2px', fontSize: '10px' }}>
+                              Recruiting · Wk {currentDynasty.currentWeek}
+                            </div>
                           </div>
                           {!isViewOnly && (
                             <div className="flex items-center gap-1">
@@ -3681,69 +3649,70 @@ export default function Dashboard() {
                           )}
                         </div>
 
-                        {/* Primary display: commits logged OR class score */}
-                        <div className="flex-1 flex flex-col justify-center">
-                          {hasCommitmentsData ? (
-                            <>
-                              <div className="font-display font-black leading-none text-green-400 tabular-nums" style={{ fontSize: 'clamp(2rem, 4vw, 2.75rem)', letterSpacing: '-0.01em' }}>
-                                {commitmentsCount > 0 ? commitmentsCount : '✓'}
-                              </div>
-                              <div className="mt-1.5 text-[11px] uppercase font-bold text-green-400/80" style={{ letterSpacing: '1.5px' }}>
-                                {commitmentsCount > 0
-                                  ? `Commit${commitmentsCount !== 1 ? 's' : ''} Logged`
-                                  : 'Week Complete'}
-                              </div>
-                            </>
-                          ) : classScore > 0 ? (
-                            <Link
-                              to={`${pathPrefix}/recruiting/${userTidForCommitments}/${currentDynasty.currentYear}`}
-                              className="block group"
-                              title="View recruiting class"
+                        {/* Display + CTA wrapper. Mobile: side-by-side
+                            (info left, button right) so the card stays
+                            short. Desktop: stacked vertically with the
+                            display filling the sidebar height. */}
+                        <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-stretch sm:gap-3 sm:flex-1">
+                          <div className="min-w-0 sm:flex-1 sm:flex sm:flex-col sm:justify-center">
+                            {hasCommitmentsData ? (
+                              <>
+                                <div className="font-display font-black leading-none text-txt-primary tabular-nums" style={{ fontSize: 'clamp(1.5rem, 4vw, 2.75rem)', letterSpacing: '-0.01em' }}>
+                                  {commitmentsCount > 0 ? commitmentsCount : '✓'}
+                                </div>
+                                <div className="mt-1 sm:mt-1.5 text-[11px] uppercase font-bold text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
+                                  {commitmentsCount > 0
+                                    ? `Commit${commitmentsCount !== 1 ? 's' : ''} Logged`
+                                    : 'Week Complete'}
+                                </div>
+                              </>
+                            ) : classScore > 0 ? (
+                              <Link
+                                to={`${pathPrefix}/recruiting/${userTidForCommitments}/${currentDynasty.currentYear}`}
+                                className="block group"
+                                title="View recruiting class"
+                              >
+                                <div className="font-display font-black leading-none tabular-nums text-txt-primary group-hover:opacity-80 transition-opacity" style={{ fontSize: 'clamp(1.5rem, 4vw, 2.75rem)', letterSpacing: '-0.01em' }}>
+                                  {formatRecruitingClassScore(classScore)}
+                                </div>
+                                <div className="mt-1 sm:mt-1.5 text-[11px] uppercase font-bold text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
+                                  {currentDynasty.currentYear} Class Score
+                                </div>
+                              </Link>
+                            ) : (
+                              <>
+                                <div className="flex items-end gap-3">
+                                  <div
+                                    className="font-display font-black leading-none text-txt-tertiary/60 tabular-nums"
+                                    style={{ fontSize: 'clamp(1.5rem, 4vw, 2.75rem)', letterSpacing: '-0.01em' }}
+                                  >
+                                    —
+                                  </div>
+                                  <div
+                                    className="pb-1 text-[11px] uppercase font-semibold text-txt-tertiary"
+                                    style={{ letterSpacing: '1px' }}
+                                  >
+                                    Awaiting<br />commits
+                                  </div>
+                                </div>
+                                <div className="mt-1 sm:mt-1.5 text-[11px] uppercase font-bold text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
+                                  {currentDynasty.currentYear} Class
+                                </div>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Primary CTA — sits right of info on mobile,
+                              spans full width on desktop. */}
+                          {!isViewOnly && (
+                            <button
+                              onClick={() => setShowRecruitingModal(true)}
+                              className="btn-refined btn-refined--solid flex-shrink-0 sm:w-full"
                             >
-                              <div className="font-display font-black leading-none tabular-nums text-txt-primary group-hover:opacity-80 transition-opacity" style={{ fontSize: 'clamp(2rem, 4vw, 2.75rem)', letterSpacing: '-0.01em' }}>
-                                {formatRecruitingClassScore(classScore)}
-                              </div>
-                              <div className="mt-1.5 text-[11px] uppercase font-bold text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
-                                {currentDynasty.currentYear} Class Score
-                              </div>
-                            </Link>
-                          ) : (
-                            <>
-                              <div className="flex items-end gap-3">
-                                <div
-                                  className="font-display font-black leading-none text-txt-tertiary/60 tabular-nums"
-                                  style={{ fontSize: 'clamp(2rem, 4vw, 2.75rem)', letterSpacing: '-0.01em' }}
-                                >
-                                  —
-                                </div>
-                                <div
-                                  className="pb-1 text-[11px] uppercase font-semibold text-txt-tertiary"
-                                  style={{ letterSpacing: '1px' }}
-                                >
-                                  Awaiting<br />commits
-                                </div>
-                              </div>
-                              <div className="mt-1.5 text-[11px] uppercase font-bold text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
-                                {currentDynasty.currentYear} Class
-                              </div>
-                            </>
+                              {hasCommitmentsData ? 'Edit Commits' : 'Log Commits'}
+                            </button>
                           )}
                         </div>
-
-                        {/* Primary CTA */}
-                        {!isViewOnly && (
-                          <button
-                            onClick={() => setShowRecruitingModal(true)}
-                            className="w-full py-2.5 rounded-lg font-display font-black uppercase text-xs transition-all hover:opacity-90 active:translate-y-px"
-                            style={{
-                              backgroundColor: 'var(--text-primary)',
-                              color: 'var(--surface-1)',
-                              letterSpacing: '2px',
-                            }}
-                          >
-                            {hasCommitmentsData ? 'Edit Commits' : 'Log Commits'}
-                          </button>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -3764,64 +3733,50 @@ export default function Dashboard() {
               ).length
               const done = !!weeklyEntered || savedCount > 0
               return (
-                <div
-                  className="rounded-xl p-3 sm:p-4 transition-all flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4"
-                  style={done ? {
-                    backgroundColor: 'color-mix(in srgb, #22c55e 8%, var(--surface-3))',
-                    border: '1px solid rgba(34, 197, 94, 0.3)'
-                  } : {
-                    backgroundColor: 'var(--surface-3)',
-                    border: '1px solid var(--rule-soft)'
-                  }}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div
-                      className="font-display font-black leading-tight"
-                      style={{
-                        fontSize: 'clamp(1.05rem, 2vw, 1.25rem)',
-                        color: done ? '#22c55e' : 'var(--text-primary)',
-                        letterSpacing: '-0.01em'
-                      }}
-                    >
-                      {done
-                        ? `${savedCount} Game${savedCount === 1 ? '' : 's'} Logged`
-                        : `Enter Week ${prevWeek} Scores`}
+                <div className="media-card">
+                  <div className="px-3 py-2.5 sm:px-5 sm:py-4 flex items-center gap-2 sm:gap-4">
+                    <div className="flex-1 min-w-0 flex items-center gap-2 sm:gap-3">
+                      {done && (
+                        <span
+                          aria-hidden="true"
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: 'var(--accent-success)' }}
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <div
+                          className="font-display font-bold leading-tight text-txt-primary truncate"
+                          style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
+                        >
+                          {done
+                            ? `${savedCount} Game${savedCount === 1 ? '' : 's'} Logged`
+                            : `Enter Week ${prevWeek} Scores`}
+                        </div>
+                        {/* Subtitle hidden on mobile — too much vertical noise. */}
+                        <div className="hidden sm:block text-xs sm:text-[13px] mt-0.5 text-txt-tertiary">
+                          {done
+                            ? 'Across-the-country results saved'
+                            : 'Log results to update records & rankings'}
+                        </div>
+                      </div>
                     </div>
-                    <div
-                      className="text-xs sm:text-[13px] mt-1"
-                      style={{ color: done ? 'rgba(34, 197, 94, 0.8)' : 'var(--text-tertiary)' }}
-                    >
-                      {done
-                        ? 'Across-the-country results saved'
-                        : 'Log results to update records & rankings'}
-                    </div>
+                    {!isViewOnly && (
+                      <div className="flex gap-1.5 sm:gap-2 flex-shrink-0">
+                        <Link
+                          to={`${pathPrefix}/weekly-scores/${yearNum}/${prevWeek}`}
+                          className="btn-refined text-center"
+                        >
+                          View
+                        </Link>
+                        <button
+                          onClick={() => setWeeklyScoresModalWeek(prevWeek)}
+                          className="btn-refined btn-refined--solid"
+                        >
+                          {done ? 'Edit' : 'Enter'}
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  {!isViewOnly && (
-                    <div className="flex gap-2 w-full sm:w-auto sm:flex-shrink-0">
-                      <Link
-                        to={`${pathPrefix}/weekly-scores/${yearNum}/${prevWeek}`}
-                        className="flex-1 sm:flex-none rounded-lg font-display font-black uppercase tracking-widest py-2 sm:py-3 px-4 text-xs sm:text-[13px] transition-all hover:opacity-90 active:translate-y-px text-center"
-                        style={{
-                          backgroundColor: 'var(--surface-4)',
-                          color: 'var(--text-secondary)',
-                          letterSpacing: '2px'
-                        }}
-                      >
-                        View
-                      </Link>
-                      <button
-                        onClick={() => setWeeklyScoresModalWeek(prevWeek)}
-                        className="flex-1 sm:flex-none rounded-lg font-display font-black uppercase tracking-widest py-2 sm:py-3 px-4 text-xs sm:text-[13px] transition-all hover:opacity-90 active:translate-y-px"
-                        style={{
-                          backgroundColor: 'var(--text-primary)',
-                          color: 'var(--surface-1)',
-                          letterSpacing: '2px',
-                        }}
-                      >
-                        {done ? 'Edit' : 'Enter'}
-                      </button>
-                    </div>
-                  )}
                 </div>
               )
             })()}
@@ -3838,54 +3793,40 @@ export default function Dashboard() {
               const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[prevWeek]
               const done = !!recap?.text
               return (
-                <div
-                  className="rounded-xl p-3 sm:p-4 transition-all flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4"
-                  style={done ? {
-                    backgroundColor: 'color-mix(in srgb, #22c55e 8%, var(--surface-3))',
-                    border: '1px solid rgba(34, 197, 94, 0.3)'
-                  } : {
-                    backgroundColor: 'var(--surface-3)',
-                    border: '1px solid var(--rule-soft)'
-                  }}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div
-                      className="font-display font-black leading-tight"
-                      style={{
-                        fontSize: 'clamp(1.05rem, 2vw, 1.25rem)',
-                        color: done ? '#22c55e' : 'var(--text-primary)',
-                        letterSpacing: '-0.01em'
-                      }}
-                    >
-                      {done ? `Week ${prevWeek} Recap Saved` : `Generate Week ${prevWeek} Recap`}
+                <div className="media-card">
+                  <div className="px-3 py-2.5 sm:px-5 sm:py-4 flex items-center gap-2 sm:gap-4">
+                    <div className="flex-1 min-w-0 flex items-center gap-2 sm:gap-3">
+                      {done && (
+                        <span
+                          aria-hidden="true"
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: 'var(--accent-success)' }}
+                        />
+                      )}
+                      <div
+                        className="font-display font-bold leading-tight text-txt-primary truncate"
+                        style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
+                      >
+                        {done ? `Week ${prevWeek} Recap Saved` : `Generate Week ${prevWeek} Recap`}
+                      </div>
                     </div>
+                    {!isViewOnly && (
+                      <div className="flex gap-1.5 sm:gap-2 flex-shrink-0">
+                        <Link
+                          to={`${pathPrefix}/weekly-scores/${yearNum}/${prevWeek}?tab=recap`}
+                          className="btn-refined text-center"
+                        >
+                          View
+                        </Link>
+                        <button
+                          onClick={() => setRecapModalContext({ year: yearNum, week: prevWeek })}
+                          className="btn-refined btn-refined--solid"
+                        >
+                          {done ? 'Edit' : 'Generate'}
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  {!isViewOnly && (
-                    <div className="flex gap-2 w-full sm:w-auto sm:flex-shrink-0">
-                      <Link
-                        to={`${pathPrefix}/weekly-scores/${yearNum}/${prevWeek}?tab=recap`}
-                        className="flex-1 sm:flex-none rounded-lg font-display font-black uppercase tracking-widest py-2 sm:py-3 px-4 text-xs sm:text-[13px] transition-all hover:opacity-90 active:translate-y-px text-center"
-                        style={{
-                          backgroundColor: 'var(--surface-4)',
-                          color: 'var(--text-secondary)',
-                          letterSpacing: '2px'
-                        }}
-                      >
-                        View
-                      </Link>
-                      <button
-                        onClick={() => setRecapModalContext({ year: yearNum, week: prevWeek })}
-                        className="flex-1 sm:flex-none rounded-lg font-display font-black uppercase tracking-widest py-2 sm:py-3 px-4 text-xs sm:text-[13px] transition-all hover:opacity-90 active:translate-y-px"
-                        style={{
-                          backgroundColor: 'var(--text-primary)',
-                          color: 'var(--surface-1)',
-                          letterSpacing: '2px',
-                        }}
-                      >
-                        {done ? 'Edit' : 'Generate'}
-                      </button>
-                    </div>
-                  )}
                 </div>
               )
             })()}
@@ -3898,8 +3839,7 @@ export default function Dashboard() {
         >
           <div className="px-4 pt-3 pb-4 sm:px-6 sm:pt-3 sm:pb-6">
           <div className="flex items-center gap-3 mb-3 sm:mb-4">
-            <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
-            <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+            <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
               Conference Championship Week
             </h3>
           </div>
@@ -4589,8 +4529,7 @@ export default function Dashboard() {
               return (
                 <>
                   <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
-                    <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+                    <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
                       Bowl Week 1
                     </h3>
                   </div>
@@ -5237,7 +5176,7 @@ export default function Dashboard() {
             if (week === 2) {
               return (
                 <>
-                  <h3 className="text-lg sm:text-xl font-bold mb-4 sm:mb-5 text-zinc-100">
+                  <h3 className="text-lg sm:text-xl font-bold mb-4 sm:mb-5 text-txt-primary">
                     Bowl Week 2
                   </h3>
                   <div className="space-y-3">
@@ -5929,8 +5868,7 @@ export default function Dashboard() {
               return (
                 <>
                   <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
-                    <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+                    <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
                       End of Season Recap
                     </h3>
                   </div>
@@ -6429,8 +6367,7 @@ export default function Dashboard() {
             return (
               <>
                 <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                  <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
-                  <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+                  <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
                     {week === 5 ? 'End of Season Recap' : week === 4 ? 'National Championship' : `Bowl Week ${week}`}
                   </h3>
                 </div>
@@ -7213,8 +7150,7 @@ export default function Dashboard() {
                 return (
                   <>
                     <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                      <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
-                      <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+                      <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
                         New Team — No Players Leaving
                       </h3>
                     </div>
@@ -7239,7 +7175,7 @@ export default function Dashboard() {
                             <div className="font-semibold text-sm sm:text-base" style={{ color: '#22c55e' }}>
                               Skipped - New Team
                             </div>
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: '#22c55e' }}>
+                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: '#22c55e' }}>
                               You switched teams, so there are no departing players to track
                             </div>
                           </div>
@@ -7253,8 +7189,7 @@ export default function Dashboard() {
               return (
                 <>
                   <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
-                    <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+                    <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
                       Players Leaving
                     </h3>
                   </div>
@@ -7291,7 +7226,7 @@ export default function Dashboard() {
                           <div className="font-semibold text-sm sm:text-base" style={{ color: hasPlayersLeavingData ? '#22c55e' : '#fafafa' }}>
                             Players Leaving
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: hasPlayersLeavingData ? '#22c55e' : '#a1a1aa' }}>
+                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: hasPlayersLeavingData ? '#22c55e' : '#a1a1aa' }}>
                             {hasPlayersLeavingData
                               ? `✓ ${playersLeavingCount} player${playersLeavingCount !== 1 ? 's' : ''} leaving`
                               : 'Graduating seniors, transfers, early declarations'}
@@ -7347,8 +7282,7 @@ export default function Dashboard() {
               return (
                 <>
                   <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
-                    <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+                    <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
                       {recruitingWeekNum === 5 ? 'National Signing Day' : `Recruiting Week ${recruitingWeekNum} of 4`}
                     </h3>
                   </div>
@@ -7387,7 +7321,7 @@ export default function Dashboard() {
                               ? (recruitingWeekNum === 5 ? 'Signing Day' : 'Recruiting Commitments')
                               : (recruitingWeekNum === 5 ? 'Signing Day' : 'Any commitments this week?')}
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: hasCommitmentsData ? '#22c55e' : '#a1a1aa' }}>
+                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: hasCommitmentsData ? '#22c55e' : '#a1a1aa' }}>
                             {hasCommitmentsData
                               ? commitmentsCount > 0
                                 ? `✓ ${commitmentsCount} commitment${commitmentsCount !== 1 ? 's' : ''} recorded`
@@ -7472,7 +7406,7 @@ export default function Dashboard() {
                             <div className="font-semibold text-sm sm:text-base" style={{ color: (hasDraftResultsData || !hasDraftDeclarees) ? '#22c55e' : '#fafafa' }}>
                               Draft Results
                             </div>
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: (hasDraftResultsData || !hasDraftDeclarees) ? '#22c55e' : '#a1a1aa' }}>
+                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: (hasDraftResultsData || !hasDraftDeclarees) ? '#22c55e' : '#a1a1aa' }}>
                               {!hasDraftDeclarees
                                 ? '✓ No players declared for the draft'
                                 : hasDraftResultsData
@@ -7568,7 +7502,7 @@ export default function Dashboard() {
                               <div className="font-semibold text-sm sm:text-base" style={{ color: (hasTransferDestinationsData || !hasTransfers) ? '#22c55e' : '#fafafa' }}>
                                 Transfer Destinations
                               </div>
-                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: (hasTransferDestinationsData || !hasTransfers) ? '#22c55e' : '#a1a1aa' }}>
+                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: (hasTransferDestinationsData || !hasTransfers) ? '#22c55e' : '#a1a1aa' }}>
                                 {!hasTransfers
                                   ? '✓ No outgoing transfers'
                                   : hasTransferDestinationsData
@@ -7636,7 +7570,7 @@ export default function Dashboard() {
                               <div className="font-semibold text-sm sm:text-base" style={{ color: hasClassRank ? '#22c55e' : '#fafafa' }}>
                                 Recruiting Class Rank
                               </div>
-                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: hasClassRank ? '#22c55e' : '#a1a1aa' }}>
+                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: hasClassRank ? '#22c55e' : '#a1a1aa' }}>
                                 {hasClassRank
                                   ? `✓ Ranked #${classRank} nationally`
                                   : 'Enter national recruiting class ranking'}
@@ -7695,7 +7629,7 @@ export default function Dashboard() {
                               <div className="font-semibold text-sm sm:text-base" style={{ color: hasPositionChanges ? '#22c55e' : '#fafafa' }}>
                                 Position Changes
                               </div>
-                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: hasPositionChanges ? '#22c55e' : '#a1a1aa' }}>
+                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: hasPositionChanges ? '#22c55e' : '#a1a1aa' }}>
                                 {hasPositionChanges
                                   ? `✓ ${positionChangesThisYear.length} position change${positionChangesThisYear.length !== 1 ? 's' : ''} recorded`
                                   : 'Update player positions'}
@@ -7787,7 +7721,7 @@ export default function Dashboard() {
                               <div className="font-semibold text-sm sm:text-base" style={{ color: isComplete ? '#22c55e' : isBlocked ? '#6b7280' : '#fafafa' }}>
                                 Portal Transfer Class Assignment
                               </div>
-                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: isComplete ? '#22c55e' : isBlocked ? '#6b7280' : '#a1a1aa' }}>
+                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: isComplete ? '#22c55e' : isBlocked ? '#6b7280' : '#a1a1aa' }}>
                                 {isBlocked
                                   ? 'Complete Signing Day first'
                                   : !hasPortalTransfers
@@ -7900,7 +7834,7 @@ export default function Dashboard() {
                               <div className="font-semibold text-sm sm:text-base" style={{ color: isComplete ? '#22c55e' : isBlocked ? '#6b7280' : '#fafafa' }}>
                                 Fringe Case Class Assignment
                               </div>
-                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: isComplete ? '#22c55e' : isBlocked ? '#6b7280' : '#a1a1aa' }}>
+                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: isComplete ? '#22c55e' : isBlocked ? '#6b7280' : '#a1a1aa' }}>
                                 {isBlocked
                                   ? 'Complete Signing Day first'
                                   : !hasFringeCases
@@ -7952,8 +7886,7 @@ export default function Dashboard() {
                 return (
                   <>
                     <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                      <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
-                      <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+                      <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
                         Training Camp
                       </h3>
                     </div>
@@ -7978,7 +7911,7 @@ export default function Dashboard() {
                             <div className="font-semibold text-sm sm:text-base" style={{ color: '#22c55e' }}>
                               Training Results - Skipped
                             </div>
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: '#22c55e' }}>
+                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: '#22c55e' }}>
                               Will enter new roster during preseason
                             </div>
                           </div>
@@ -8062,8 +7995,7 @@ export default function Dashboard() {
               return (
                 <>
                   <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
-                    <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+                    <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
                       Training Camp
                     </h3>
                   </div>
@@ -8100,7 +8032,7 @@ export default function Dashboard() {
                           <div className="font-semibold text-sm sm:text-base" style={{ color: hasTrainingResultsData ? '#22c55e' : '#fafafa' }}>
                             Training Results
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: hasTrainingResultsData ? '#22c55e' : '#a1a1aa' }}>
+                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: hasTrainingResultsData ? '#22c55e' : '#a1a1aa' }}>
                             {hasTrainingResultsData
                               ? `✓ ${trainingResultsCount} player overall${trainingResultsCount !== 1 ? 's' : ''} updated`
                               : `Enter new overalls for ${trainingPlayers.length} players`}
@@ -8153,7 +8085,7 @@ export default function Dashboard() {
                             <div className="font-semibold text-sm sm:text-base" style={{ color: hasRecruitOverallsData ? '#22c55e' : '#fafafa' }}>
                               Recruiting Class Overalls
                             </div>
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: hasRecruitOverallsData ? '#22c55e' : '#a1a1aa' }}>
+                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: hasRecruitOverallsData ? '#22c55e' : '#a1a1aa' }}>
                               {hasRecruitOverallsData
                                 ? `✓ ${recruitOverallsCount} recruit overall${recruitOverallsCount !== 1 ? 's' : ''} entered`
                                 : `Enter overalls for ${recruitingClassPlayers.length} recruit${recruitingClassPlayers.length !== 1 ? 's' : ''}`}
@@ -8195,8 +8127,7 @@ export default function Dashboard() {
               return (
                 <>
                   <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
-                    <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+                    <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
                       Offseason
                     </h3>
                   </div>
@@ -8233,7 +8164,7 @@ export default function Dashboard() {
                           <div className="font-semibold text-sm sm:text-base" style={{ color: hasConferencesSet ? '#22c55e' : '#fafafa' }}>
                             Custom Conferences
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: hasConferencesSet ? '#22c55e' : '#a1a1aa' }}>
+                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: hasConferencesSet ? '#22c55e' : '#a1a1aa' }}>
                             {hasConferencesSet
                               ? `✓ Conference alignment set for ${upcomingSeasonYear}`
                               : `Set conference alignment for ${upcomingSeasonYear} season`}
@@ -8285,7 +8216,7 @@ export default function Dashboard() {
                           <div className="font-semibold text-sm sm:text-base" style={{ color: hasEncourageTransfers ? '#22c55e' : '#fafafa' }}>
                             Encourage Transfers
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: hasEncourageTransfers ? '#22c55e' : '#a1a1aa' }}>
+                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: hasEncourageTransfers ? '#22c55e' : '#a1a1aa' }}>
                             {hasEncourageTransfers
                               ? `✓ ${encourageTransfersCount} player${encourageTransfersCount !== 1 ? 's' : ''} encouraged to transfer`
                               : 'Mark players to encourage to transfer'}
@@ -8313,12 +8244,11 @@ export default function Dashboard() {
             return (
               <>
                 <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                  <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
-                  <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+                  <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
                     Off-Season Week {week}
                   </h3>
                 </div>
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-txt-secondary">
                   Click "Advance Week" to continue to the next season.
                 </p>
               </>
@@ -8347,26 +8277,24 @@ export default function Dashboard() {
             <div className="flex flex-col flex-1 min-h-0">
               <div className="py-3 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
                 <div className="flex items-center gap-3">
-                  <div className="w-1 h-12 rounded-full" style={{ backgroundColor: 'var(--text-primary)' }} />
                   <div
-                    className="font-display font-black leading-none"
+                    className="font-display font-bold leading-none text-txt-primary"
                     style={{
-                      fontSize: 'clamp(1.75rem, 2.2vw, 2.25rem)',
-                      color: 'var(--text-primary)',
-                      letterSpacing: '-0.01em'
+                      fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)',
+                      letterSpacing: '-0.02em'
                     }}
                   >
                     <span className="tabular-nums">{currentDynasty.currentYear}</span>
-                    <span className="ml-2 uppercase">Roster</span>
+                    <span className="ml-2">Roster</span>
                   </div>
                   {teamRoster.length > 0 && (
-                    <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500 tabular-nums">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-txt-tertiary tabular-nums">
                       {teamRoster.length} Players
                     </span>
                   )}
                   <Link
                     to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}?tab=roster`}
-                    className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+                    className="p-1.5 rounded-lg text-txt-tertiary hover:text-txt-secondary hover:bg-surface-3 transition-colors"
                     title="View full roster on team page"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -8385,8 +8313,8 @@ export default function Dashboard() {
                       onClick={() => handleRosterSort(key)}
                       className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
                         rosterSort === key
-                          ? 'bg-zinc-700 text-white'
-                          : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'
+                          ? 'bg-surface-4 text-white'
+                          : 'text-txt-tertiary hover:text-txt-secondary hover:bg-surface-3'
                       }`}
                     >
                       {label}
@@ -8403,23 +8331,23 @@ export default function Dashboard() {
                 style={rosterMaxHeight ? { maxHeight: `${rosterMaxHeight}px` } : undefined}
               >
                 {teamRoster.length > 0 ? (
-                  <div className="divide-y divide-zinc-800/50">
+                  <div className="divide-y divide-surface-4">
                     {sortRoster(teamRoster).map((player) => (
                       <div
                         key={player.pid}
                         onClick={() => navigate(`${pathPrefix}/player/${player.pid}`)}
-                        className="flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-all hover:bg-zinc-800/60 group"
+                        className="flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-all hover:bg-surface-3 group"
                       >
                         {/* Jersey Number */}
-                        <span className="text-sm font-bold text-zinc-400 w-6 text-right">{player.jerseyNumber || '--'}</span>
+                        <span className="text-sm font-bold text-txt-secondary w-6 text-right">{player.jerseyNumber || '--'}</span>
 
                         {/* Player Image */}
-                        <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-zinc-700 group-hover:ring-zinc-600 transition-all" style={{ backgroundColor: 'var(--surface-4)' }}>
+                        <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-surface-4 group-hover:ring-surface-5 transition-all" style={{ backgroundColor: 'var(--surface-4)' }}>
                           {player.pictureUrl ? (
                             <img src={player.pictureUrl} alt={player.name} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                              <svg className="w-5 h-5 text-zinc-600" fill="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-5 h-5 text-txt-muted" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                               </svg>
                             </div>
@@ -8428,28 +8356,28 @@ export default function Dashboard() {
 
                         {/* Name & Position */}
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-zinc-100 truncate group-hover:text-white transition-colors">
+                          <div className="font-medium text-txt-primary truncate group-hover:text-txt-primary transition-colors">
                             {player.name}
                           </div>
-                          <div className="text-xs text-zinc-500 mt-0.5">
-                            <span className="font-medium text-zinc-400">{player.position}</span>
+                          <div className="text-xs text-txt-tertiary mt-0.5">
+                            <span className="font-medium text-txt-secondary">{player.position}</span>
                             <span className="mx-1.5">·</span>
                             <span>{player.year || '-'}</span>
                           </div>
                         </div>
 
                         {/* Overall Rating */}
-                        <div className="text-lg font-bold text-zinc-100">{player.overall || '--'}</div>
+                        <div className="text-lg font-bold text-txt-primary">{player.overall || '--'}</div>
                       </div>
                     ))}
                   </div>
                 ) : isLoadingDynastyData ? (
                   <div className="text-center py-8">
-                    <div className="inline-block w-6 h-6 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin mb-2" />
-                    <p className="text-sm text-zinc-500">Loading roster...</p>
+                    <div className="inline-block w-6 h-6 border-2 border-surface-5 border-t-text-primary rounded-full animate-spin mb-2" />
+                    <p className="text-sm text-txt-tertiary">Loading roster...</p>
                   </div>
                 ) : (
-                  <p className="text-sm text-zinc-500 text-center py-8">
+                  <p className="text-sm text-txt-tertiary text-center py-8">
                     No players on roster yet
                   </p>
                 )}
@@ -8480,7 +8408,7 @@ export default function Dashboard() {
               <div className="relative px-5 py-4 max-h-[640px] overflow-y-auto">
                 <Link
                   to={`${pathPrefix}/weekly-scores/${Number(currentDynasty.currentYear)}/${Number(currentDynasty.currentWeek) - 1}?tab=recap`}
-                  className="absolute top-3 right-3 z-10 p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+                  className="absolute top-3 right-3 z-10 p-1.5 rounded-lg text-txt-tertiary hover:text-txt-secondary hover:bg-surface-3 transition-colors"
                   title="Open recap on Weekly Recap page"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -8504,23 +8432,18 @@ export default function Dashboard() {
         <div className="py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
           <div className="flex items-center gap-3">
             <div
-              className="w-1 h-12 rounded-full"
-              style={{ backgroundColor: 'var(--text-primary)' }}
-            />
-            <div
-              className="font-display font-black leading-none"
+              className="font-display font-bold leading-none text-txt-primary"
               style={{
-                fontSize: 'clamp(1.75rem, 2.2vw, 2.25rem)',
-                color: 'var(--text-primary)',
-                letterSpacing: '-0.01em'
+                fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)',
+                letterSpacing: '-0.02em'
               }}
             >
               <span className="tabular-nums">{currentDynasty.currentYear}</span>
-              <span className="ml-2 uppercase">Schedule</span>
+              <span className="ml-2">Schedule</span>
             </div>
             <Link
               to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}?tab=schedule`}
-              className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+              className="p-1.5 rounded-lg text-txt-tertiary hover:text-txt-secondary hover:bg-surface-3 transition-colors"
               title="View full schedule on team page"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -8531,7 +8454,7 @@ export default function Dashboard() {
           {!isViewOnly && (
             <button
               onClick={() => setShowScheduleModal(true)}
-              className="p-2.5 rounded-xl bg-zinc-800/50 hover:bg-zinc-700/50 transition-colors text-zinc-400 hover:text-white"
+              className="p-2.5 rounded-xl bg-surface-3 hover:bg-surface-4/50 transition-colors text-txt-secondary hover:text-txt-primary"
               title="Edit Schedule"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -8542,7 +8465,7 @@ export default function Dashboard() {
         </div>
 
         {/* Schedule Body */}
-        <div className="divide-y divide-zinc-800/50 stagger-reveal">
+        <div className="divide-y divide-surface-4 stagger-reveal">
           {teamSchedule && teamSchedule.length > 0 ? (
             <>
               {/* Render all weeks 0-15, showing bye weeks for missing entries */}
@@ -8558,8 +8481,8 @@ export default function Dashboard() {
                       key={weekNum}
                       className="flex items-center px-5 py-3"
                     >
-                      <span className="w-8 text-xs font-medium text-zinc-600">{weekNum}</span>
-                      <span className="flex-1 text-sm text-zinc-600 italic">Bye Week</span>
+                      <span className="w-8 text-xs font-medium text-txt-muted">{weekNum}</span>
+                      <span className="flex-1 text-sm text-txt-muted italic">Bye Week</span>
                     </div>
                   )
                 }
@@ -8578,33 +8501,31 @@ export default function Dashboard() {
 
                 const renderGameRow = (isLink) => (
                   <div
-                    className={`relative flex items-center py-2.5 gap-3 transition-all duration-200 ${isLink ? 'hover:bg-surface-3 hover:z-10' : ''} ${isCurrentWeek ? 'ring-1 ring-inset' : ''}`}
+                    className={`relative flex items-center py-2.5 px-4 gap-3 transition-colors ${isLink ? 'hover:bg-surface-3' : ''}`}
                     style={{
-                      background: `linear-gradient(to right, transparent 0%, ${opponentColors.backgroundColor}99 100%)`,
-                      paddingLeft: '1rem',
-                      paddingRight: '1rem',
-                      ...(isCurrentWeek ? { ringColor: 'var(--text-primary)' } : {})
+                      borderBottom: '1px solid var(--surface-4)',
+                      ...(isCurrentWeek ? { boxShadow: 'inset 2px 0 0 0 var(--text-primary)' } : {})
                     }}
                   >
-                    {/* Week Number */}
-                    <span className={`w-7 text-xs font-medium ${isCurrentWeek ? 'text-white' : 'text-zinc-500'}`}>
-                      {isCurrentWeek ? (
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold" style={{ backgroundColor: 'var(--text-primary)' }}>
-                          {weekNum}
-                        </span>
-                      ) : weekNum}
+                    {/* Week Number — current-week marker uses an inset rail
+                        on the row instead of a filled circle, so the row's
+                        identity remains the opponent, not the week chip. */}
+                    <span className={`w-7 text-xs font-semibold tabular-nums ${isCurrentWeek ? 'text-txt-primary' : 'text-txt-tertiary'}`}>
+                      {weekNum}
                     </span>
 
-                    {/* Team Logo - White background for contrast */}
+                    {/* Team Logo — white container for contrast against
+                        team-color logos (Florida orange on dark looks bad
+                        without a white plate). */}
                     <div
-                      className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity bg-white shadow-sm"
+                      className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity bg-white"
                       style={{ padding: '5px' }}
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(teamPageUrl) }}
                     >
                       {opponentLogo ? (
                         <img src={opponentLogo} alt={opponentName} className="w-full h-full object-contain" />
                       ) : (
-                        <span className="text-xs font-bold" style={{ color: opponentColors.backgroundColor }}>
+                        <span className="text-xs font-bold text-txt-primary">
                           {entry.opponent?.slice(0, 3)}
                         </span>
                       )}
@@ -8614,15 +8535,15 @@ export default function Dashboard() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         {entry.perspective?.opponentRank && (
-                          <span className="text-xs font-bold text-amber-400">
+                          <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--accent-warning)' }}>
                             #{entry.perspective.opponentRank}
                           </span>
                         )}
-                        <span className="text-sm font-semibold text-zinc-100 truncate">
+                        <span className="text-sm font-semibold text-txt-primary truncate">
                           {opponentName}
                         </span>
                       </div>
-                      <span className="text-[10px] text-white/70">
+                      <span className="text-[10px] text-txt-tertiary">
                         {entry.location === 'away' ? 'Away' : entry.location === 'neutral' ? 'Neutral' : 'Home'}
                       </span>
                     </div>
@@ -8630,24 +8551,27 @@ export default function Dashboard() {
                     {/* Score with W/L indicator */}
                     <div className="flex items-center gap-2">
                       {entry.isPlayed && (
-                        <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>
+                        <span
+                          className="text-xs font-bold tabular-nums"
+                          style={{ color: isWin ? 'var(--accent-success)' : 'var(--accent-error)' }}
+                        >
                           {isWin ? 'W' : 'L'}
                         </span>
                       )}
                       <div className="w-14 text-right">
                         {entry.isPlayed ? (
                           <div className="flex flex-col items-end">
-                            <span className="text-base font-bold tabular-nums text-white">
+                            <span className="text-base font-bold tabular-nums text-txt-primary">
                               {Math.max(entry.perspective?.userScore || 0, entry.perspective?.opponentScore || 0)}-{Math.min(entry.perspective?.userScore || 0, entry.perspective?.opponentScore || 0)}
                             </span>
                             {playedGame?.overtimes && playedGame.overtimes.length > 0 && (
-                              <span className="text-[10px] text-zinc-500">
+                              <span className="text-[10px] text-txt-tertiary">
                                 {playedGame.overtimes.length > 1 ? `${playedGame.overtimes.length}OT` : 'OT'}
                               </span>
                             )}
                           </div>
                         ) : (
-                          <span className="text-sm text-zinc-600">—</span>
+                          <span className="text-sm text-txt-muted">—</span>
                         )}
                       </div>
                     </div>
@@ -8703,7 +8627,7 @@ export default function Dashboard() {
                     ...(isCurrentCCWeek ? { ringColor: 'var(--text-primary)' } : {})
                   }}
                 >
-                  <span className={`w-7 text-xs font-medium ${isCurrentCCWeek ? 'text-white' : 'text-zinc-500'}`}>
+                  <span className={`w-7 text-xs font-medium ${isCurrentCCWeek ? 'text-white' : 'text-txt-tertiary'}`}>
                     {isCurrentCCWeek ? (
                       <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold" style={{ backgroundColor: 'var(--text-primary)' }}>CC</span>
                     ) : 'CC'}
@@ -8714,9 +8638,9 @@ export default function Dashboard() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       {ccGame?.opponentRank && <span className="text-xs font-bold text-amber-400">#{ccGame.opponentRank}</span>}
-                      <span className="text-sm font-semibold text-zinc-100 truncate">{ccOpponentName}</span>
+                      <span className="text-sm font-semibold text-txt-primary truncate">{ccOpponentName}</span>
                     </div>
-                    <span className="text-[10px] text-zinc-500">Conf Championship</span>
+                    <span className="text-[10px] text-txt-tertiary">Conf Championship</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {ccGame && (
@@ -8725,7 +8649,7 @@ export default function Dashboard() {
                     <div className="w-14 text-right">
                       {ccGame && userScore != null ? (
                         <span className="text-base font-bold tabular-nums text-white">{Math.max(userScore || 0, opponentScore || 0)}-{Math.min(userScore || 0, opponentScore || 0)}</span>
-                      ) : <span className="text-sm text-zinc-600">—</span>}
+                      ) : <span className="text-sm text-txt-muted">—</span>}
                     </div>
                   </div>
                 </div>
@@ -8768,16 +8692,16 @@ export default function Dashboard() {
                     paddingRight: '1rem'
                   }}
                 >
-                  <span className="w-7 text-xs font-medium text-zinc-500">Bowl</span>
+                  <span className="w-7 text-xs font-medium text-txt-tertiary">Bowl</span>
                   <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-white shadow-sm" style={{ padding: '5px' }}>
                     {bowlOpponentLogo ? <img src={bowlOpponentLogo} alt={bowlOpponentName} className="w-full h-full object-contain" /> : <span className="text-xs font-bold" style={{ color: bowlOpponentColors.backgroundColor }}>{bowlOpponentAbbr?.slice(0, 3) || '?'}</span>}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       {userBowlGameData?.opponentRank && <span className="text-xs font-bold text-amber-400">#{userBowlGameData.opponentRank}</span>}
-                      <span className="text-sm font-semibold text-zinc-100 truncate">{bowlOpponentName}</span>
+                      <span className="text-sm font-semibold text-txt-primary truncate">{bowlOpponentName}</span>
                     </div>
-                    <span className="text-[10px] text-zinc-500 truncate block">{bowlGameName}</span>
+                    <span className="text-[10px] text-txt-tertiary truncate block">{bowlGameName}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {userBowlGameData && (
@@ -8786,7 +8710,7 @@ export default function Dashboard() {
                     <div className="w-14 text-right">
                       {userBowlGameData && userScore != null ? (
                         <span className="text-base font-bold tabular-nums text-white">{Math.max(userScore || 0, opponentScore || 0)}-{Math.min(userScore || 0, opponentScore || 0)}</span>
-                      ) : <span className="text-sm text-zinc-600">—</span>}
+                      ) : <span className="text-sm text-txt-muted">—</span>}
                     </div>
                   </div>
                 </div>
@@ -8821,13 +8745,13 @@ export default function Dashboard() {
                       paddingRight: '1rem'
                     }}
                   >
-                    <span className="w-7 text-xs font-medium text-zinc-500">R1</span>
+                    <span className="w-7 text-xs font-medium text-txt-tertiary">R1</span>
                     <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-white shadow-sm" style={{ padding: '5px' }}>
                       {oppLogo ? <img src={oppLogo} alt={oppName} className="w-full h-full object-contain" /> : <span className="text-xs font-bold" style={{ color: oppColors.backgroundColor }}>{oppAbbr?.slice(0, 3) || '?'}</span>}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="text-sm font-semibold text-zinc-100 truncate block">{oppName}</span>
-                      <span className="text-[10px] text-zinc-500">CFP First Round</span>
+                      <span className="text-sm font-semibold text-txt-primary truncate block">{oppName}</span>
+                      <span className="text-[10px] text-txt-tertiary">CFP First Round</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
@@ -8863,13 +8787,13 @@ export default function Dashboard() {
                       paddingRight: '1rem'
                     }}
                   >
-                    <span className="w-7 text-xs font-medium text-zinc-500">QF</span>
+                    <span className="w-7 text-xs font-medium text-txt-tertiary">QF</span>
                     <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-white shadow-sm" style={{ padding: '5px' }}>
                       {oppLogo ? <img src={oppLogo} alt={oppName} className="w-full h-full object-contain" /> : <span className="text-xs font-bold" style={{ color: oppColors.backgroundColor }}>{oppAbbr?.slice(0, 3) || '?'}</span>}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="text-sm font-semibold text-zinc-100 truncate block">{oppName}</span>
-                      <span className="text-[10px] text-zinc-500 truncate block">{bowlName}</span>
+                      <span className="text-sm font-semibold text-txt-primary truncate block">{oppName}</span>
+                      <span className="text-[10px] text-txt-tertiary truncate block">{bowlName}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
@@ -8905,13 +8829,13 @@ export default function Dashboard() {
                       paddingRight: '1rem'
                     }}
                   >
-                    <span className="w-7 text-xs font-medium text-zinc-500">SF</span>
+                    <span className="w-7 text-xs font-medium text-txt-tertiary">SF</span>
                     <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-white shadow-sm" style={{ padding: '5px' }}>
                       {oppLogo ? <img src={oppLogo} alt={oppName} className="w-full h-full object-contain" /> : <span className="text-xs font-bold" style={{ color: oppColors.backgroundColor }}>{oppAbbr?.slice(0, 3) || '?'}</span>}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="text-sm font-semibold text-zinc-100 truncate block">{oppName}</span>
-                      <span className="text-[10px] text-zinc-500 truncate block">{bowlName}</span>
+                      <span className="text-sm font-semibold text-txt-primary truncate block">{oppName}</span>
+                      <span className="text-[10px] text-txt-tertiary truncate block">{bowlName}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
@@ -8951,8 +8875,8 @@ export default function Dashboard() {
                       {oppLogo ? <img src={oppLogo} alt={oppName} className="w-full h-full object-contain" /> : <span className="text-xs font-bold" style={{ color: oppColors.backgroundColor }}>{oppAbbr?.slice(0, 3) || '?'}</span>}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="text-sm font-semibold text-zinc-100 truncate block">{oppName}</span>
-                      <span className="text-[10px] text-zinc-500">National Championship</span>
+                      <span className="text-sm font-semibold text-txt-primary truncate block">{oppName}</span>
+                      <span className="text-[10px] text-txt-tertiary">National Championship</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
@@ -8965,22 +8889,22 @@ export default function Dashboard() {
             </>
           ) : isLoadingDynastyData ? (
           <div className="text-center py-12">
-            <div className="inline-block w-8 h-8 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin mb-4" />
-            <h3 className="font-display text-lg font-medium mb-2 text-zinc-100">
+            <div className="inline-block w-8 h-8 border-2 border-surface-5 border-t-text-primary rounded-full animate-spin mb-4" />
+            <h3 className="font-display text-lg font-medium mb-2 text-txt-primary">
               Loading Schedule...
             </h3>
           </div>
           ) : (
           <div className="text-center py-12">
-            <div className="text-zinc-600 mb-4">
+            <div className="text-txt-muted mb-4">
               <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
-            <h3 className="font-display text-lg font-medium mb-2 text-zinc-100">
+            <h3 className="font-display text-lg font-medium mb-2 text-txt-primary">
               No Schedule Yet
             </h3>
-            <p className="text-zinc-500">
+            <p className="text-txt-tertiary">
               Add your season schedule to get started.
             </p>
           </div>
@@ -8997,7 +8921,6 @@ export default function Dashboard() {
         <div className="mt-8">
           <div className="py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-1 h-12 rounded-full" style={{ backgroundColor: 'var(--text-primary)' }} />
               <div className="min-w-0">
                 <div className="label-xs text-txt-tertiary uppercase tracking-wider">
                   Wk {scoreboardData.week} · Around the {scoreboardData.conference || 'Country'}
@@ -9016,7 +8939,7 @@ export default function Dashboard() {
             </div>
             <Link
               to={`${pathPrefix}/weekly-scores?year=${currentDynasty.currentYear}&week=${scoreboardData.week}`}
-              className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+              className="p-1.5 rounded-lg text-txt-tertiary hover:text-txt-secondary hover:bg-surface-3 transition-colors"
               title="View all weekly scores"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -9057,10 +8980,10 @@ export default function Dashboard() {
                           <img src={topLogo} alt="" className="w-full h-full object-contain" />
                         ) : null}
                       </div>
-                      <span className={`text-xs font-semibold truncate ${topWon ? 'text-zinc-100' : 'text-zinc-400'}`}>
+                      <span className={`text-xs font-semibold truncate ${topWon ? 'text-txt-primary' : 'text-txt-secondary'}`}>
                         {topAbbr}
                       </span>
-                      <span className={`ml-auto text-sm font-bold tabular-nums ${topWon ? 'text-zinc-100' : 'text-zinc-500'}`}>
+                      <span className={`ml-auto text-sm font-bold tabular-nums ${topWon ? 'text-txt-primary' : 'text-txt-tertiary'}`}>
                         {topScore}
                       </span>
                     </div>
@@ -9070,10 +8993,10 @@ export default function Dashboard() {
                           <img src={bottomLogo} alt="" className="w-full h-full object-contain" />
                         ) : null}
                       </div>
-                      <span className={`text-xs font-semibold truncate ${bottomWon ? 'text-zinc-100' : 'text-zinc-400'}`}>
+                      <span className={`text-xs font-semibold truncate ${bottomWon ? 'text-txt-primary' : 'text-txt-secondary'}`}>
                         {bottomAbbr}
                       </span>
-                      <span className={`ml-auto text-sm font-bold tabular-nums ${bottomWon ? 'text-zinc-100' : 'text-zinc-500'}`}>
+                      <span className={`ml-auto text-sm font-bold tabular-nums ${bottomWon ? 'text-txt-primary' : 'text-txt-tertiary'}`}>
                         {bottomScore}
                       </span>
                     </div>
@@ -9111,7 +9034,7 @@ export default function Dashboard() {
               className={`flex-1 py-3 text-sm font-semibold transition-colors ${
                 mobileTab === 'schedule'
                   ? 'text-white'
-                  : 'text-zinc-500 hover:text-zinc-300'
+                  : 'text-txt-tertiary hover:text-txt-secondary'
               }`}
               style={mobileTab === 'schedule' ? { backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' } : {}}
             >
@@ -9122,7 +9045,7 @@ export default function Dashboard() {
               className={`flex-1 py-3 text-sm font-semibold transition-colors ${
                 mobileTab === 'roster'
                   ? 'text-white'
-                  : 'text-zinc-500 hover:text-zinc-300'
+                  : 'text-txt-tertiary hover:text-txt-secondary'
               }`}
               style={mobileTab === 'roster' ? { backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' } : {}}
             >
@@ -9132,28 +9055,25 @@ export default function Dashboard() {
 
           {/* Schedule Tab Content */}
           {mobileTab === 'schedule' && (
-            <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface-1)', border: '1px solid var(--rule-soft)' }}>
+            <div className="media-card overflow-hidden">
               {/* Schedule Header */}
-              <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
+              <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--surface-4)' }}>
                 <div className="flex items-center gap-3">
-                  <div
-                    className="w-1 h-10 rounded-full"
-                    style={{ backgroundColor: 'var(--text-primary)' }}
-                  />
                   <div>
-                    <h2 className="text-lg font-bold text-white tracking-tight">
-                      {currentDynasty.currentYear} Schedule
+                    <h2 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1rem, 1.6vw, 1.125rem)', letterSpacing: '-0.02em' }}>
+                      <span className="tabular-nums">{currentDynasty.currentYear}</span>
+                      <span className="ml-2">Schedule</span>
                     </h2>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-sm font-semibold text-white">{wins}-{losses}</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-sm font-semibold tabular-nums text-txt-primary">{wins}-{losses}</span>
                       {(confWins > 0 || confLosses > 0) && (
-                        <span className="text-sm text-zinc-500">({confWins}-{confLosses} conf)</span>
+                        <span className="text-sm text-txt-tertiary tabular-nums">({confWins}-{confLosses} conf)</span>
                       )}
                     </div>
                   </div>
                   <Link
                     to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}?tab=schedule`}
-                    className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+                    className="p-1.5 rounded-lg text-txt-tertiary hover:text-txt-secondary hover:bg-surface-3 transition-colors"
                     title="View full schedule on team page"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -9164,7 +9084,7 @@ export default function Dashboard() {
                 {!isViewOnly && (
                   <button
                     onClick={() => setShowScheduleModal(true)}
-                    className="p-2.5 rounded-xl bg-zinc-800/50 hover:bg-zinc-700/50 transition-colors text-zinc-400 hover:text-white"
+                    className="p-2.5 rounded-xl bg-surface-3 hover:bg-surface-4/50 transition-colors text-txt-secondary hover:text-txt-primary"
                     title="Edit Schedule"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -9175,7 +9095,7 @@ export default function Dashboard() {
               </div>
 
               {/* Schedule Games - Reuse same rendering logic */}
-              <div className="divide-y divide-zinc-800/30">
+              <div className="divide-y divide-surface-4/30">
                 {teamSchedule.length > 0 ? (
                   <>
                     {teamSchedule.map((entry, index) => {
@@ -9183,8 +9103,8 @@ export default function Dashboard() {
                       if (entry.isBye) {
                         return (
                           <div key={weekNum} className="flex items-center py-2.5 gap-3 px-4">
-                            <span className="w-7 text-xs font-medium text-zinc-600">{weekNum}</span>
-                            <span className="text-sm text-zinc-600 italic">Bye Week</span>
+                            <span className="w-7 text-xs font-medium text-txt-muted">{weekNum}</span>
+                            <span className="text-sm text-txt-muted italic">Bye Week</span>
                           </div>
                         )
                       }
@@ -9205,30 +9125,21 @@ export default function Dashboard() {
 
                       const renderMobileGameRow = (isLink) => (
                         <div
-                          className={`relative flex items-center py-2.5 gap-3 transition-all duration-200 ${isLink ? 'hover:bg-surface-3 hover:z-10' : ''} ${isCurrentWeek ? 'ring-1 ring-inset' : ''}`}
-                          style={{
-                            background: `linear-gradient(to right, transparent 0%, ${opponentColors.backgroundColor}99 100%)`,
-                            paddingLeft: '1rem',
-                            paddingRight: '1rem',
-                            ...(isCurrentWeek ? { ringColor: 'var(--text-primary)' } : {})
-                          }}
+                          className={`relative flex items-center py-2.5 px-4 gap-3 transition-colors ${isLink ? 'hover:bg-surface-3' : ''}`}
+                          style={isCurrentWeek ? { boxShadow: 'inset 2px 0 0 0 var(--text-primary)' } : undefined}
                         >
-                          <span className={`w-7 text-xs font-medium ${isCurrentWeek ? 'text-white' : 'text-zinc-500'}`}>
-                            {isCurrentWeek ? (
-                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold" style={{ backgroundColor: 'var(--text-primary)' }}>
-                                {weekNum}
-                              </span>
-                            ) : weekNum}
+                          <span className={`w-7 text-xs font-semibold tabular-nums ${isCurrentWeek ? 'text-txt-primary' : 'text-txt-tertiary'}`}>
+                            {weekNum}
                           </span>
                           <div
-                            className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity bg-white shadow-sm"
+                            className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity bg-white"
                             style={{ padding: '5px' }}
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(teamPageUrl) }}
                           >
                             {opponentLogo ? (
                               <img src={opponentLogo} alt={opponentName} className="w-full h-full object-contain" />
                             ) : (
-                              <span className="text-xs font-bold" style={{ color: opponentColors.backgroundColor }}>
+                              <span className="text-xs font-bold text-txt-primary">
                                 {entry.opponent?.slice(0, 3)}
                               </span>
                             )}
@@ -9236,31 +9147,34 @@ export default function Dashboard() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
                               {entry.perspective?.opponentRank && (
-                                <span className="text-xs font-bold text-amber-400">
+                                <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--accent-warning)' }}>
                                   #{entry.perspective.opponentRank}
                                 </span>
                               )}
-                              <span className="text-sm font-semibold text-zinc-100 truncate">
+                              <span className="text-sm font-semibold text-txt-primary truncate">
                                 {opponentName}
                               </span>
                             </div>
-                            <span className="text-[10px] text-white/70">
+                            <span className="text-[10px] text-txt-tertiary">
                               {entry.location === 'away' ? 'Away' : entry.location === 'neutral' ? 'Neutral' : 'Home'}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
                             {entry.isPlayed && (
-                              <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>
+                              <span
+                                className="text-xs font-bold tabular-nums"
+                                style={{ color: isWin ? 'var(--accent-success)' : 'var(--accent-error)' }}
+                              >
                                 {isWin ? 'W' : 'L'}
                               </span>
                             )}
                             <div className="w-14 text-right">
                               {entry.isPlayed ? (
-                                <span className="text-base font-bold tabular-nums text-white">
+                                <span className="text-base font-bold tabular-nums text-txt-primary">
                                   {Math.max(entry.perspective?.userScore || 0, entry.perspective?.opponentScore || 0)}-{Math.min(entry.perspective?.userScore || 0, entry.perspective?.opponentScore || 0)}
                                 </span>
                               ) : (
-                                <span className="text-sm text-zinc-600">—</span>
+                                <span className="text-sm text-txt-muted">—</span>
                               )}
                             </div>
                           </div>
@@ -9279,12 +9193,12 @@ export default function Dashboard() {
                   </>
                 ) : isLoadingDynastyData ? (
                   <div className="text-center py-12">
-                    <div className="inline-block w-6 h-6 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin mb-2" />
-                    <p className="text-zinc-500">Loading schedule...</p>
+                    <div className="inline-block w-6 h-6 border-2 border-surface-5 border-t-text-primary rounded-full animate-spin mb-2" />
+                    <p className="text-txt-tertiary">Loading schedule...</p>
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <p className="text-zinc-500">No schedule entered yet.</p>
+                    <p className="text-txt-tertiary">No schedule entered yet.</p>
                   </div>
                 )}
               </div>
@@ -9293,24 +9207,21 @@ export default function Dashboard() {
 
           {/* Roster Tab Content */}
           {mobileTab === 'roster' && (
-          <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface-1)', border: '1px solid var(--rule-soft)' }}>
-            <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
+          <div className="media-card overflow-hidden">
+            <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--surface-4)' }}>
               <div className="flex items-center gap-3">
-                <div
-                  className="w-1 h-10 rounded-full"
-                  style={{ backgroundColor: 'var(--text-primary)' }}
-                />
                 <div>
-                  <h2 className="text-lg font-bold text-white tracking-tight">
-                    {currentDynasty.currentYear} Roster
+                  <h2 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1rem, 1.6vw, 1.125rem)', letterSpacing: '-0.02em' }}>
+                    <span className="tabular-nums">{currentDynasty.currentYear}</span>
+                    <span className="ml-2">Roster</span>
                   </h2>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-sm font-semibold text-white">{teamRoster.length} Players</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-txt-tertiary tabular-nums">{teamRoster.length} Players</span>
                   </div>
                 </div>
                 <Link
                   to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}?tab=roster`}
-                  className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+                  className="p-1.5 rounded-lg text-txt-tertiary hover:text-txt-secondary hover:bg-surface-3 transition-colors"
                   title="View full roster on team page"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -9327,10 +9238,10 @@ export default function Dashboard() {
                   <button
                     key={key}
                     onClick={() => handleRosterSort(key)}
-                    className={`px-2 py-1 text-[10px] font-medium rounded transition-colors ${
+                    className={`px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded transition-colors tabular-nums ${
                       rosterSort === key
-                        ? 'bg-zinc-700 text-white'
-                        : 'text-zinc-500 hover:text-zinc-300'
+                        ? 'bg-surface-4 text-txt-primary'
+                        : 'text-txt-tertiary hover:text-txt-secondary'
                     }`}
                   >
                     {label}
@@ -9343,23 +9254,23 @@ export default function Dashboard() {
             </div>
             <div className="max-h-[350px] overflow-y-auto">
               {teamRoster.length > 0 ? (
-                <div className="divide-y divide-zinc-800/50">
+                <div className="divide-y divide-surface-4">
                   {sortRoster(teamRoster).map((player) => (
                     <div
                       key={player.pid}
                       onClick={() => navigate(`${pathPrefix}/player/${player.pid}`)}
-                      className="flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-all active:bg-zinc-800/60"
+                      className="flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-all active:bg-surface-3"
                     >
                       {/* Jersey Number */}
-                      <span className="text-sm font-bold text-zinc-400 w-6 text-right">{player.jerseyNumber || '--'}</span>
+                      <span className="text-sm font-bold text-txt-secondary w-6 text-right">{player.jerseyNumber || '--'}</span>
 
                       {/* Player Image */}
-                      <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-zinc-700" style={{ backgroundColor: 'var(--surface-4)' }}>
+                      <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-surface-4" style={{ backgroundColor: 'var(--surface-4)' }}>
                         {player.pictureUrl ? (
                           <img src={player.pictureUrl} alt={player.name} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <svg className="w-4 h-4 text-zinc-600" fill="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 text-txt-muted" fill="currentColor" viewBox="0 0 24 24">
                               <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                             </svg>
                           </div>
@@ -9368,26 +9279,26 @@ export default function Dashboard() {
 
                       {/* Name & Position */}
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-zinc-100 truncate">{player.name}</div>
-                        <div className="text-[10px] text-zinc-500 mt-0.5">
-                          <span className="font-medium text-zinc-400">{player.position}</span>
+                        <div className="text-sm font-medium text-txt-primary truncate">{player.name}</div>
+                        <div className="text-[10px] text-txt-tertiary mt-0.5">
+                          <span className="font-medium text-txt-secondary">{player.position}</span>
                           <span className="mx-1">·</span>
                           <span>{player.year || '-'}</span>
                         </div>
                       </div>
 
                       {/* Overall Rating */}
-                      <div className="text-base font-bold text-zinc-100">{player.overall || '--'}</div>
+                      <div className="text-base font-bold text-txt-primary">{player.overall || '--'}</div>
                     </div>
                   ))}
                 </div>
               ) : isLoadingDynastyData ? (
                 <div className="text-center py-8">
-                  <div className="inline-block w-6 h-6 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin mb-2" />
-                  <p className="text-sm text-zinc-500">Loading roster...</p>
+                  <div className="inline-block w-6 h-6 border-2 border-surface-5 border-t-text-primary rounded-full animate-spin mb-2" />
+                  <p className="text-sm text-txt-tertiary">Loading roster...</p>
                 </div>
               ) : (
-                <p className="text-sm text-zinc-500 text-center py-8">
+                <p className="text-sm text-txt-tertiary text-center py-8">
                   No players on roster yet
                 </p>
               )}

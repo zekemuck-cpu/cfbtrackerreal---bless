@@ -793,15 +793,40 @@ export default function Layout({ children }) {
         )}
       </main>
 
-      {/* Version Footer - positioned above ticker */}
-      <footer className="pb-10 pt-2 px-4 flex items-center justify-end gap-3 text-[10px] sm:text-xs text-txt-tertiary">
-        <Link to="/contact" className="hover:text-txt-secondary transition-colors">Contact</Link>
-        <span aria-hidden="true">·</span>
-        <Link to="/privacy" className="hover:text-txt-secondary transition-colors">Privacy</Link>
-        <span aria-hidden="true">·</span>
-        <Link to="/terms" className="hover:text-txt-secondary transition-colors">Terms</Link>
-        <span aria-hidden="true">·</span>
-        <span>v{APP_VERSION}</span>
+      {/* Version Footer - tracked editorial treatment, hairline rule above. */}
+      <footer
+        className="pb-10 pt-4 px-4 sm:px-6 flex items-center justify-between gap-4 text-txt-tertiary"
+        style={{ borderTop: '1px solid var(--surface-4)' }}
+      >
+        <span
+          className="font-display tabular-nums uppercase"
+          style={{ fontSize: '0.625rem', fontWeight: 600, letterSpacing: '0.18em' }}
+        >
+          v{APP_VERSION}
+        </span>
+        <nav className="flex items-center gap-5 sm:gap-6">
+          <Link
+            to="/contact"
+            className="font-display uppercase hover:text-txt-secondary transition-colors"
+            style={{ fontSize: '0.625rem', fontWeight: 600, letterSpacing: '0.18em' }}
+          >
+            Contact
+          </Link>
+          <Link
+            to="/privacy"
+            className="font-display uppercase hover:text-txt-secondary transition-colors"
+            style={{ fontSize: '0.625rem', fontWeight: 600, letterSpacing: '0.18em' }}
+          >
+            Privacy
+          </Link>
+          <Link
+            to="/terms"
+            className="font-display uppercase hover:text-txt-secondary transition-colors"
+            style={{ fontSize: '0.625rem', fontWeight: 600, letterSpacing: '0.18em' }}
+          >
+            Terms
+          </Link>
+        </nav>
       </footer>
 
       {/* Class Advancement Modal - shown when advancing to new season with players needing confirmation */}
