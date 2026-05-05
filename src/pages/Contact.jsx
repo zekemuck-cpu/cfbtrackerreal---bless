@@ -128,14 +128,8 @@ export default function Contact() {
             </div>
 
             <div className="flex-1 min-w-0">
-              <div className="text-white/75 text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] mb-1.5">
-                Primary · Community
-              </div>
               <div className="text-white text-xl sm:text-2xl font-black tracking-tight leading-none">
                 {DISCORD_SERVER_NAME}
-              </div>
-              <div className="text-white/75 text-xs sm:text-sm mt-2">
-                Questions · feature requests · bug reports
               </div>
             </div>
 
