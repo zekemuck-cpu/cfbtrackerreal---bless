@@ -45,10 +45,20 @@ googleProvider.addScope('https://www.googleapis.com/auth/drive.file');
 // multi-tab acquisition race that has bitten other Firebase apps.
 // If IndexedDB isn't available (Safari private browsing, blocked
 // storage), Firebase silently falls back to memory cache.
+// experimentalAutoDetectLongPolling: WebSocket-based Firestore connections
+// frequently get blocked or stuck on mobile carrier networks, captive
+// portals, and corporate proxies. When that happens, the SDK normally
+// waits ~30s for the WebSocket to time out before falling back to
+// long-polling — that's the dominant cause of the "sometimes the app
+// loads in milliseconds, sometimes it takes minutes" pattern users have
+// reported when swiping the app in/out of background. Auto-detect
+// triggers the fallback as soon as it sees the connection misbehaving,
+// so cold reopens stay snappy on misbehaving networks.
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
     tabManager: persistentSingleTabManager({ forceOwnership: false }),
   }),
+  experimentalAutoDetectLongPolling: true,
 });
 
 export default app;

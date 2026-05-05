@@ -4451,8 +4451,20 @@ export function DynastyProvider({ children }) {
   const migrationSaveInProgressRef = useRef(false)
   // Track which cloud dynasties have had their subcollections loaded (lazy loading optimization)
   const loadedDynastyIdsRef = useRef(new Set())
+  // Mirror of currentDynasty?.id readable from the dynasties listener
+  // closure without forcing the listener to re-subscribe every time the
+  // user opens a different dynasty. Keeping this listener stable across
+  // navigations avoids tearing down and re-establishing the Firestore
+  // WebSocket on each click — re-handshakes were a major contributor to
+  // the variable cold-load times users reported.
+  const currentDynastyIdRef = useRef(null)
   // Track which dynasty is currently having its data loaded
   const [loadingDynastyId, setLoadingDynastyId] = useState(null)
+
+  // Keep the listener-readable ref in sync with currentDynasty.
+  useEffect(() => {
+    currentDynastyIdRef.current = currentDynasty?.id || null
+  }, [currentDynasty?.id])
 
   // Helper to find dynasty by ID - checks state first (both local + cloud), then IndexedDB as fallback
   // This ensures cloud dynasties work even if user's premium expired (read-only mode)
@@ -4977,7 +4989,7 @@ export function DynastyProvider({ children }) {
             // 1. It's the currently selected dynasty (user is viewing it)
             // 2. It's already been loaded this session (keep it in sync)
             const shouldLoadSubcollections =
-              currentDynasty?.id === dynasty.id ||
+              currentDynastyIdRef.current === dynasty.id ||
               loadedDynastyIdsRef.current.has(dynasty.id)
 
             if (!shouldLoadSubcollections) {
@@ -5033,49 +5045,44 @@ export function DynastyProvider({ children }) {
       setLoading(false)
       setCloudSyncing(false)
 
-      // Update current dynasty if it's in the list
-      // CRITICAL: Check if we recently updated players/games locally - if so, preserve local data
-      // to prevent race condition where Firestore returns stale data
-      if (currentDynasty) {
-        const updated = migratedDynasties.find(d => d.id === currentDynasty.id)
-        if (updated) {
-          // Check if this dynasty had a recent local player update (within 10 seconds)
-          const recentPlayerUpdate = lastPlayersUpdateDynastyIdRef.current === currentDynasty.id &&
-            (Date.now() - lastPlayersUpdateTimestampRef.current) < 10000
-          // Check if this dynasty had a recent local games update (within 10 seconds)
-          const recentGamesUpdate = lastGamesUpdateDynastyIdRef.current === currentDynasty.id &&
-            (Date.now() - lastGamesUpdateTimestampRef.current) < 10000
-
-          if (recentPlayerUpdate || recentGamesUpdate) {
-            // Preserve local data - they're more recent than Firestore data
-            const preservedDynasty = {
-              ...updated,
-              ...(recentPlayerUpdate && currentDynasty.players ? { players: currentDynasty.players } : {}),
-              ...(recentGamesUpdate && currentDynasty.games ? { games: currentDynasty.games } : {})
-            }
-            setCurrentDynasty(preservedDynasty)
-            // Also update the dynasty in the array to preserve data
-            setDynasties(prev => prev.map(d =>
-              d.id === currentDynasty.id ? preservedDynasty : d
-            ))
-          } else {
-            setCurrentDynasty(updated)
-          }
-        } else {
+      // Update current dynasty if it's in the list. Functional setter
+      // form so we read the LATEST currentDynasty — the listener closure
+      // is now stable across navigations (no longer rebuilt on every
+      // dynasty open) and a captured `currentDynasty` reference would
+      // be stale here. Preserve recent local player/game edits so the
+      // listener echoing stale subcollection data doesn't clobber a
+      // write the user just made.
+      setCurrentDynasty(prevCurrent => {
+        if (!prevCurrent) return prevCurrent
+        const updated = migratedDynasties.find(d => d.id === prevCurrent.id)
+        if (!updated) {
           // Dynasty not in OWNED list. For shared dynasties (uid in
           // editors[]), it lives in sharedDynasties state instead.
           // Don't clobber currentDynasty in that case — only nuke it
-          // if it's genuinely gone (deleted, or access revoked). The
-          // check: is the current dynasty owned by this user? If not,
-          // leave it alone — sharedDynasties subscription manages it.
-          const isOwnedByUser = currentDynasty.userId === user?.uid
-          if (isOwnedByUser) {
-            setCurrentDynasty(null)
-          }
-          // else: it's a member league; member-league subscription is the
-          // source of truth for this dynasty, not the owner subscription.
+          // if it's genuinely gone (deleted, or access revoked).
+          const isOwnedByUser = prevCurrent.userId === user?.uid
+          return isOwnedByUser ? null : prevCurrent
         }
-      }
+
+        const recentPlayerUpdate = lastPlayersUpdateDynastyIdRef.current === prevCurrent.id &&
+          (Date.now() - lastPlayersUpdateTimestampRef.current) < 10000
+        const recentGamesUpdate = lastGamesUpdateDynastyIdRef.current === prevCurrent.id &&
+          (Date.now() - lastGamesUpdateTimestampRef.current) < 10000
+
+        if (recentPlayerUpdate || recentGamesUpdate) {
+          const preserved = {
+            ...updated,
+            ...(recentPlayerUpdate && prevCurrent.players ? { players: prevCurrent.players } : {}),
+            ...(recentGamesUpdate && prevCurrent.games ? { games: prevCurrent.games } : {})
+          }
+          // Also reflect the preserved version in the dynasties array
+          // so the home page doesn't briefly show stale Firestore data
+          // for a dynasty the user just edited.
+          setDynasties(prevDyn => prevDyn.map(d => d.id === preserved.id ? preserved : d))
+          return preserved
+        }
+        return updated
+      })
 
       // PERSIST MIGRATION FLAGS: Save migration flags back to Firestore so migrations don't run again
       // Compare raw vs migrated to see if any dynasty needs flag updates
@@ -5191,7 +5198,12 @@ export function DynastyProvider({ children }) {
     })
 
     return () => unsubscribe()
-  }, [user, isPremium, migrated, currentDynasty?.id])
+    // Intentionally omitting currentDynasty?.id: the listener uses
+    // currentDynastyIdRef internally, so navigating between dynasties
+    // doesn't tear down and re-establish the Firestore subscription.
+    // Re-handshakes were a major contributor to the inconsistent
+    // cold-load times users reported.
+  }, [user, isPremium, migrated])
 
   // Save local dynasties to IndexedDB whenever dynasties state changes
   // Only saves dynasties with storageType !== 'cloud'

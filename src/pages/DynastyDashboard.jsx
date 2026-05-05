@@ -24,7 +24,7 @@ const getInitialSidebarState = () => {
 export default function DynastyDashboard() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { dynasties, currentDynasty, selectDynasty, cloudSyncing, loadingDynastyId } = useDynasty()
+  const { dynasties, currentDynasty, selectDynasty, cloudSyncing } = useDynasty()
   const [sidebarOpen, setSidebarOpen] = useState(getInitialSidebarState)
 
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
@@ -86,7 +86,7 @@ export default function DynastyDashboard() {
         style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
       >
         <Suspense fallback={<RouteFallback />}>
-          {loadingDynastyId === id ? <RouteFallback /> : <Outlet />}
+          <Outlet />
         </Suspense>
       </div>
 

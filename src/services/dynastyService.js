@@ -4,6 +4,7 @@ import {
   getDoc,
   getDocFromServer,
   getDocs,
+  getDocsFromCache,
   getDocsFromServer,
   addDoc,
   updateDoc,
@@ -304,14 +305,29 @@ export async function migrateLocalStorageData(userId) {
  * @returns {Promise<Array>} Array of player objects
  */
 export async function getPlayersSubcollection(dynastyId) {
+  const playersRef = collection(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION)
+
+  // Cache-first read: try the local IndexedDB cache before going to the
+  // network. Default getDocs() is server-priority and blocks on slow
+  // connections — that's what made clicking into a dynasty hang for
+  // minutes on mobile despite persistentLocalCache being enabled
+  // (onSnapshot serves from cache, but getDocs does not by default).
   try {
-    const playersRef = collection(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION)
+    const cachedSnap = await getDocsFromCache(playersRef)
+    if (!cachedSnap.empty) {
+      // Cache hit — kick off a background server refresh so the cache
+      // stays warm for next time, but don't make the user wait on it.
+      getDocsFromServer(playersRef).catch(() => {})
+      return cachedSnap.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
+    }
+  } catch (_) {
+    // Cache unavailable (Safari private mode, IndexedDB blocked, first
+    // open before cache seeded) — fall through to the network.
+  }
+
+  try {
     const snapshot = await getDocs(playersRef)
-    const players = snapshot.docs.map(doc => ({
-      ...doc.data(),
-      _firestoreId: doc.id // Keep track of Firestore doc ID for updates
-    }))
-    return players
+    return snapshot.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
   } catch (error) {
     console.error('Error fetching players subcollection:', error)
     throw error
@@ -324,14 +340,22 @@ export async function getPlayersSubcollection(dynastyId) {
  * @returns {Promise<Array>} Array of game objects
  */
 export async function getGamesSubcollection(dynastyId) {
+  const gamesRef = collection(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION)
+
+  // Cache-first — see comment in getPlayersSubcollection.
   try {
-    const gamesRef = collection(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION)
+    const cachedSnap = await getDocsFromCache(gamesRef)
+    if (!cachedSnap.empty) {
+      getDocsFromServer(gamesRef).catch(() => {})
+      return cachedSnap.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
+    }
+  } catch (_) {
+    // Fall through to network.
+  }
+
+  try {
     const snapshot = await getDocs(gamesRef)
-    const games = snapshot.docs.map(doc => ({
-      ...doc.data(),
-      _firestoreId: doc.id // Keep track of Firestore doc ID for updates
-    }))
-    return games
+    return snapshot.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
   } catch (error) {
     console.error('Error fetching games subcollection:', error)
     throw error
