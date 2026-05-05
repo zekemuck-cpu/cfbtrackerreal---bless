@@ -112,7 +112,7 @@ export default function Contact() {
           <div className="relative flex items-center gap-4 p-5 sm:p-7">
             <div className="relative flex-shrink-0">
               <img
-                src="/discord-tracker-logo.png"
+                src="https://i.imgur.com/UWHOKXh.png"
                 alt=""
                 className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white/15 p-2 ring-1 ring-white/25 transition-transform duration-300 group-hover:scale-105"
               />
@@ -128,14 +128,8 @@ export default function Contact() {
             </div>
 
             <div className="flex-1 min-w-0">
-              <div className="text-white/75 text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] mb-1.5">
-                Primary · Community
-              </div>
               <div className="text-white text-xl sm:text-2xl font-black tracking-tight leading-none">
                 {DISCORD_SERVER_NAME}
-              </div>
-              <div className="text-white/75 text-xs sm:text-sm mt-2">
-                Questions · feature requests · bug reports
               </div>
             </div>
 
@@ -171,9 +165,6 @@ export default function Contact() {
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-bold uppercase tracking-[0.15em] text-txt-tertiary mb-0.5">
-                Reddit DM
-              </div>
               <div className="text-base font-bold text-txt-primary">u/achum5</div>
             </div>
             <div className="flex items-center gap-1 text-sm font-medium text-txt-tertiary group-hover:text-txt-primary transition-colors flex-shrink-0">
@@ -273,10 +264,7 @@ export default function Contact() {
                 </div>
               )}
 
-              <div className="flex items-center justify-between gap-3 mt-1">
-                <p className="text-xs text-txt-tertiary">
-                  Takes &lt; 10 seconds. No signup.
-                </p>
+              <div className="flex items-center justify-end gap-3 mt-1">
                 <button
                   type="submit"
                   disabled={status === 'sending'}
@@ -308,10 +296,6 @@ export default function Contact() {
           )}
         </section>
 
-        {/* Footnote */}
-        <p className="text-center text-xs text-txt-tertiary mt-8">
-          Usually replies within a day or two.
-        </p>
       </div>
     </div>
   )
