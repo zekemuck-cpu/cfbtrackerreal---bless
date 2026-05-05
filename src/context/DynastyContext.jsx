@@ -4921,7 +4921,16 @@ export function DynastyProvider({ children }) {
       const loadOnlyLocal = async () => {
         const localDynasties = await loadLocalDynasties()
         if (localDynasties.length > 0) {
-          const migratedDynasties = applyMigrations(localDynasties)
+          let migratedDynasties = applyMigrations(localDynasties)
+          // Under dev-auth, claim any unowned local dynasty for the
+          // mock user so per-user views (CoachCareer, recruiting
+          // commitments, etc.) render with real data instead of an
+          // empty shell. In-memory only — never persisted.
+          if (isDevAuth && user?.uid) {
+            migratedDynasties = migratedDynasties.map(d => (
+              d.userId ? d : { ...d, userId: user.uid }
+            ))
+          }
           setDynasties(migratedDynasties)
         } else {
           setDynasties([])

@@ -15,7 +15,6 @@ import {
 } from '../../data/leagueModel'
 import {
   PageHero,
-  Card,
   EmptyState,
   Modal,
   Badge,
@@ -724,12 +723,11 @@ export default function CoachCareer() {
         }
 
         return (
-          <Card
+          <div
             key={`${stint.teamName}-${stint.startYear}`}
-            padding="none"
-            className={stint.isCurrent ? '' : 'opacity-[0.94]'}
+            className={`media-card ${stint.isCurrent ? '' : 'opacity-[0.94]'}`}
           >
-            <div className="p-4 sm:p-5">
+            <div className="p-3 sm:p-5">
               {/* Stint header — wider logo, Bebas Neue display name,
                   meta below with semantic separators. Current vs past
                   distinguished by the parent Card's accent + a more
@@ -862,7 +860,7 @@ export default function CoachCareer() {
                 </div>
               )}
             </div>
-          </Card>
+          </div>
         )
       })}
 
@@ -885,8 +883,11 @@ export default function CoachCareer() {
           <div className="space-y-5">
             {Object.entries(gamesByYear).sort((a, b) => Number(b[0]) - Number(a[0])).map(([year, yearGames]) => (
               <div key={year}>
-                <h4 className="text-sm font-semibold text-txt-primary mb-2">{year} Season</h4>
-                <Card padding="none">
+                <h4 className="font-display font-bold text-txt-primary mb-2 tabular-nums" style={{ fontSize: '0.9375rem', letterSpacing: '-0.01em' }}>
+                  <span>{year}</span>
+                  <span className="ml-2 text-txt-tertiary font-normal">Season</span>
+                </h4>
+                <div className="media-card overflow-hidden">
                   {yearGames.map((game, index) => {
                     const opponentInfo = game.perspective?.opponentTid
                       ? getGameTeamInfo(teamsData || TEAMS, game.perspective.opponentTid)
@@ -956,7 +957,7 @@ export default function CoachCareer() {
                     }
                     return row
                   })}
-                </Card>
+                </div>
               </div>
             ))}
           </div>
@@ -1093,7 +1094,7 @@ function YearByYearTable({ stint, currentDynasty, pathPrefix, navigate }) {
   }
 
   return (
-    <Card padding="none">
+    <div className="media-card overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -1151,6 +1152,6 @@ function YearByYearTable({ stint, currentDynasty, pathPrefix, navigate }) {
           </tbody>
         </table>
       </div>
-    </Card>
+    </div>
   )
 }
