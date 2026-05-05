@@ -81,11 +81,20 @@ export default function Contact() {
         </header>
 
         {/* Discord server — the headline CTA */}
+        <div className="relative mb-4">
+          {/* Celebration bubble — pops out above the logo */}
+          <div
+            className="absolute -top-3 left-9 sm:left-12 z-10 px-3 py-1.5 rounded-full bg-white text-[#404EED] text-[11px] sm:text-xs font-bold shadow-lg pointer-events-none"
+          >
+            Discord link is now fixed!
+            <div className="absolute -bottom-1 left-4 w-2.5 h-2.5 bg-white rotate-45" />
+          </div>
+
         <a
           href={DISCORD_INVITE_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="group relative block overflow-hidden rounded-2xl mb-4 transition-all duration-300 hover:-translate-y-1"
+          className="group relative block overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-1"
           style={{
             background: 'linear-gradient(135deg, #5865F2 0%, #404EED 50%, #2F3BD6 100%)',
             boxShadow: '0 10px 40px -8px rgba(88, 101, 242, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06) inset',
@@ -103,7 +112,7 @@ export default function Contact() {
           <div className="relative flex items-center gap-4 p-5 sm:p-7">
             <div className="relative flex-shrink-0">
               <img
-                src="/logo.png"
+                src="/discord-tracker-logo.png"
                 alt=""
                 className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white/15 p-2 ring-1 ring-white/25 transition-transform duration-300 group-hover:scale-105"
               />
@@ -138,6 +147,7 @@ export default function Contact() {
             </div>
           </div>
         </a>
+        </div>
 
         {/* Reddit — secondary, with reddit-orange accent */}
         <a
