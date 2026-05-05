@@ -3584,36 +3584,10 @@ export default function Dashboard() {
                             })()}
                           </div>
                         </div>
-                        {/* CTA — once the game's been played, show
-                            View + Edit side-by-side so the user can
-                            jump straight into the game page (matches
-                            the weekly-scores to-do pattern). Pre-game
-                            it's still a single full-width Enter Game. */}
-                        {!isViewOnly && (playedGame ? (
-                          <div className="mt-2 sm:mt-4 flex gap-2 justify-center sm:justify-stretch">
-                            <Link
-                              to={`${pathPrefix}/game/${playedGame.id}`}
-                              className="btn-refined sm:btn-refined--lg sm:flex-1 text-center"
-                            >
-                              View
-                            </Link>
-                            <button
-                              onClick={handleEnterGame}
-                              className="btn-refined btn-refined--solid sm:btn-refined--lg sm:flex-1"
-                            >
-                              Edit
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="mt-2 sm:mt-4 flex justify-center sm:block">
-                            <button
-                              onClick={handleEnterGame}
-                              className="btn-refined btn-refined--solid sm:btn-refined--lg sm:w-full"
-                            >
-                              Enter Game
-                            </button>
-                          </div>
-                        ))}
+                        {/* Game-entry CTA lives in the unified to-do block
+                            below — we keep this card purely visual so the
+                            action button doesn't compete with the other
+                            tasks for the user's attention. */}
                         {isViewOnly && <div className="mt-3 flex justify-center"><ViewOnlyBadge /></div>}
                         </div>
                       </div>
@@ -3636,8 +3610,36 @@ export default function Dashboard() {
 
                     const todos = []
 
-              // Row 1: Recruiting — always first since it owns the "this
-              // week's commits" decision the user makes most often.
+              // Row 1: Game entry — current week's matchup. Lives here so
+              // the primary "Enter Game" CTA is part of the same task
+              // list as recruiting / weekly-scores / recap. The big logo
+              // visual still renders in the matchup card above.
+              if (!isByeWeek && hasCurWeek && scheduledGame) {
+                const gameDone = !!playedGame
+                let gameSubtitle
+                if (gameDone) {
+                  const resultLabel = userWon == null ? 'Final' : (userWon ? 'W' : 'L')
+                  gameSubtitle = `${userAbbr} ${userScore}–${oppScore} ${oppAbbr} · ${resultLabel}`
+                } else {
+                  gameSubtitle = oppAbbr
+                    ? `${atSymbol} ${oppAbbr}`
+                    : 'Opponent TBD'
+                }
+                todos.push({
+                  key: 'game-entry',
+                  done: gameDone,
+                  title: gameDone
+                    ? `Week ${curWeek} Game Logged`
+                    : `Enter Week ${curWeek} Game`,
+                  subtitle: gameSubtitle,
+                  viewTo: gameDone ? `${pathPrefix}/game/${playedGame.id}` : null,
+                  onAction: handleEnterGame,
+                  actionLabel: gameDone ? 'Edit' : 'Enter',
+                })
+              }
+
+              // Row 2: Recruiting — owns the "this week's commits"
+              // decision the user makes most often.
               {
                 let title, subtitle
                 if (hasCommitmentsData) {
@@ -3661,42 +3663,7 @@ export default function Dashboard() {
                   subtitle,
                   viewTo: `${pathPrefix}/recruiting/${userTidForCommitments}/${currentDynasty.currentYear}`,
                   onAction: () => setShowRecruitingModal(true),
-                  actionLabel: hasCommitmentsData ? 'Edit Commits' : 'Log Commits',
-                  extraTools: !isViewOnly ? (
-                    <>
-                      <button
-                        onClick={() => setShowSellCalc(true)}
-                        className="w-7 h-7 rounded-md text-txt-tertiary hover:text-txt-primary hover:bg-surface-2 transition-colors flex items-center justify-center"
-                        title="Sell vs Send Calculator"
-                        aria-label="Open Sell vs Send Calculator"
-                      >
-                        <svg className="w-[15px] h-[15px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                          <rect x="5" y="3" width="14" height="18" rx="2" strokeWidth="1.75" />
-                          <rect x="8" y="6" width="8" height="3" rx="0.5" strokeWidth="1.5" />
-                          <circle cx="9" cy="13" r="0.5" fill="currentColor" />
-                          <circle cx="12" cy="13" r="0.5" fill="currentColor" />
-                          <circle cx="15" cy="13" r="0.5" fill="currentColor" />
-                          <circle cx="9" cy="16.5" r="0.5" fill="currentColor" />
-                          <circle cx="12" cy="16.5" r="0.5" fill="currentColor" />
-                          <circle cx="15" cy="16.5" r="0.5" fill="currentColor" />
-                        </svg>
-                      </button>
-                      <a
-                        href="https://collegefootball.gg/recruiting-insight-engine/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-7 h-7 rounded-md text-txt-tertiary hover:text-txt-primary hover:bg-surface-2 transition-colors flex items-center justify-center"
-                        title="Recruiting Insight Engine (external)"
-                        aria-label="Open Recruiting Insight Engine"
-                      >
-                        <svg className="w-[15px] h-[15px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" strokeWidth="1.75">
-                          <circle cx="12" cy="12" r="9" />
-                          <circle cx="12" cy="12" r="3" />
-                          <path strokeLinecap="round" d="M12 1.5v3M12 19.5v3M22.5 12h-3M4.5 12h-3" />
-                        </svg>
-                      </a>
-                    </>
-                  ) : null,
+                  actionLabel: hasCommitmentsData ? 'Edit' : 'Log',
                 })
               }
 
@@ -3751,13 +3718,19 @@ export default function Dashboard() {
                       style={idx > 0 ? { borderTop: '1px solid var(--surface-4)' } : undefined}
                     >
                       <div className="flex-1 min-w-0 flex items-center gap-2 sm:gap-3">
-                        {todo.done && (
-                          <span
-                            aria-hidden="true"
-                            className="w-2 h-2 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: 'var(--accent-success)' }}
-                          />
-                        )}
+                        {/* Status dot — green when complete, red when
+                            still pending. Always rendered so the rows
+                            line up vertically and the user gets an
+                            at-a-glance read on what's still owed. */}
+                        <span
+                          aria-hidden="true"
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{
+                            backgroundColor: todo.done
+                              ? 'var(--accent-success)'
+                              : 'var(--accent-error)',
+                          }}
+                        />
                         <div className="min-w-0">
                           <div
                             className="font-display font-bold leading-tight text-txt-primary truncate"
@@ -3772,22 +3745,33 @@ export default function Dashboard() {
                           )}
                         </div>
                       </div>
-                      <div className="flex gap-1.5 sm:gap-2 flex-shrink-0 items-center">
-                        {todo.extraTools}
-                        {!isViewOnly && (
-                          <>
+                      {!isViewOnly && (
+                        /* Fixed-width grid for the action area so the
+                           View and Action columns line up across rows
+                           even when one row has no View target (e.g. an
+                           unplayed game has nowhere to "View" yet) and
+                           when label widths differ ("Log" vs "Generate").
+                           Empty <span> placeholder preserves the column
+                           when View is hidden. */
+                        <div
+                          className="grid gap-1.5 sm:gap-2 flex-shrink-0 items-center"
+                          style={{ gridTemplateColumns: '5rem 6.5rem' }}
+                        >
+                          {todo.viewTo ? (
                             <Link to={todo.viewTo} className="btn-refined text-center">
                               View
                             </Link>
-                            <button
-                              onClick={todo.onAction}
-                              className="btn-refined btn-refined--solid"
-                            >
-                              {todo.actionLabel}
-                            </button>
-                          </>
-                        )}
-                      </div>
+                          ) : (
+                            <span aria-hidden="true" />
+                          )}
+                          <button
+                            onClick={todo.onAction}
+                            className="btn-refined btn-refined--solid text-center"
+                          >
+                            {todo.actionLabel}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
