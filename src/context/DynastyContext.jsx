@@ -4914,13 +4914,20 @@ export function DynastyProvider({ children }) {
     // - Failed for large dynasties (>1MB) without proper subcollection handling
     // - Cleared IndexedDB even on partial failures
 
-    // Load local dynasties first, then subscribe to cloud updates
+    // Load local dynasties first, then subscribe to cloud updates.
+    // CRITICAL: drop the loading spinner as soon as the local read
+    // resolves. Without this, signed-in users sit on "Loading
+    // dynasties..." until the first Firestore snapshot arrives — which
+    // on mobile cold reopens (no Firestore offline cache, possible
+    // long-polling fallback) can stretch into multiple minutes. Cloud
+    // dynasties continue syncing in the background and merge in when
+    // the snapshot lands.
     loadLocalDynasties().then(localDynasties => {
-      // If we have local dynasties, show them immediately
       if (localDynasties.length > 0 && dynasties.length === 0) {
         const migratedLocal = applyMigrations(localDynasties)
         setDynasties(migratedLocal)
       }
+      setLoading(false)
     })
 
     // Subscribe to real-time updates for cloud dynasties (Firestore)
