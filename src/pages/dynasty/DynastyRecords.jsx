@@ -791,30 +791,13 @@ export default function DynastyRecords() {
             return (
               <div
                 key={stat.key}
-                className="records-card rounded-xl overflow-hidden flex flex-col"
-                style={{
-                  backgroundColor: 'var(--surface-2)',
-                  border: '1px solid var(--rule-soft)',
-                  boxShadow: '0 1px 0 rgba(255,255,255,0.03) inset, 0 12px 30px -18px rgba(0,0,0,0.6)'
-                }}
+                className="media-card records-card overflow-hidden flex flex-col"
               >
-                {/* Team-accent top rule — thin, decorative */}
-                <div
-                  aria-hidden="true"
-                  className="h-[2px] w-full"
-                  style={{
-                    background: 'linear-gradient(90deg, var(--surface-5) 0%, color-mix(in srgb, var(--surface-5) 60%, transparent) 55%, transparent 100%)'
-                  }}
-                />
-
                 {/* Card header: stat abbr eyebrow + name. Click anywhere
                     in the header opens the full-leaderboard modal. */}
                 <div
                   className="flex items-baseline justify-between px-5 pt-4 pb-3 cursor-pointer select-none"
-                  style={{
-                    background: 'linear-gradient(180deg, color-mix(in srgb, var(--surface-3) 60%, var(--surface-2)) 0%, var(--surface-2) 100%)',
-                    borderBottom: '1px solid var(--rule-soft)'
-                  }}
+                  style={{ borderBottom: '1px solid var(--surface-4)' }}
                   onClick={() => statLeaderboard.length > 0 && setModalStat(stat.key)}
                 >
                   <div>
@@ -833,44 +816,43 @@ export default function DynastyRecords() {
                   </div>
                 </div>
 
-                {/* Top 3 — podium treatment */}
+                {/* Top 3 — podium treatment. No side stripes (impeccable
+                    BAN 1). #1 gets a subtle full-row tint + larger
+                    typography + gold rank numeral. #2 / #3 are smaller
+                    rows with silver / bronze rank numerals. */}
                 {statLeaderboard.length > 0 ? (
                   <div>
                     {statLeaderboard.slice(0, 3).map((entry, idx) => {
                       const rank = idx + 1
                       const isFirst = rank === 1
+                      const rankColor = isFirst
+                        ? 'var(--accent-warning)'
+                        : rank === 2
+                          ? 'rgba(192, 192, 192, 0.95)'
+                          : 'rgba(205, 127, 50, 0.95)'
 
                       return (
                         <div
                           key={mode === 'career' ? entry.pid : `${entry.pid}-${entry.year}`}
                           className="relative flex items-center gap-3 transition-colors"
                           style={{
-                            padding: isFirst ? '14px 16px 14px 18px' : '8px 16px 8px 18px',
-                            borderTop: idx === 0 ? 'none' : '1px solid var(--rule-soft)',
-                            background: isFirst
-                              ? 'linear-gradient(90deg, var(--surface-3) 0%, var(--surface-2) 65%)'
+                            padding: isFirst ? '14px 16px' : '8px 16px',
+                            borderTop: idx === 0 ? 'none' : '1px solid var(--surface-4)',
+                            backgroundColor: isFirst
+                              ? 'color-mix(in srgb, var(--accent-warning) 5%, transparent)'
                               : 'transparent'
                           }}
                         >
-                          {/* Podium accent stripe on #1 */}
-                          {isFirst && (
-                            <span
-                              aria-hidden="true"
-                              className="absolute left-0 top-0 bottom-0 w-[3px]"
-                              style={{ backgroundColor: 'var(--surface-5)' }}
-                            />
-                          )}
-
                           <div
                             className="text-right tabular flex-shrink-0"
                             style={{
                               fontFamily: "'Bebas Neue', sans-serif",
-                              fontSize: isFirst ? '1.4rem' : '1rem',
+                              fontSize: isFirst ? '1.5rem' : '1rem',
                               letterSpacing: '0.5px',
                               lineHeight: 1,
                               width: isFirst ? '1.75rem' : '1.25rem',
-                              color: isFirst ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                              opacity: isFirst ? 1 : 0.85
+                              color: rankColor,
+                              fontWeight: isFirst ? 700 : 600,
                             }}
                           >
                             {rank}
@@ -881,11 +863,7 @@ export default function DynastyRecords() {
                               src={entry.pictureUrl}
                               alt=""
                               className={`${isFirst ? 'w-11 h-11' : 'w-8 h-8'} rounded-full object-cover flex-shrink-0 transition-all`}
-                              style={{
-                                border: isFirst
-                                  ? '2px solid var(--surface-5)'
-                                  : '1px solid var(--surface-4)'
-                              }}
+                              style={{ border: '1px solid var(--surface-4)' }}
                             />
                           ) : entry.teamLogo ? (
                             <img
@@ -935,17 +913,14 @@ export default function DynastyRecords() {
                 )}
 
                 {/* "View full leaderboard" — opens the modal that shows
-                    all entries with breathing room. Replaces the prior
-                    inline 4-10 expansion which felt cramped and didn't
-                    surface entries past rank 10. Only shown when there
-                    are more entries than the top-3 podium displays. */}
+                    all entries with breathing room. Footer-weight CTA;
+                    not styled like a primary button. */}
                 {statLeaderboard.length > 3 && (
                   <button
-                    className="mt-auto w-full px-5 py-2.5 text-center text-[10px] font-bold uppercase text-txt-tertiary hover:text-txt-primary transition-colors"
+                    className="mt-auto w-full px-5 py-2.5 text-center text-[10px] font-bold uppercase text-txt-tertiary hover:text-txt-primary hover:bg-surface-3 transition-colors"
                     style={{
-                      borderTop: '1px solid var(--rule-soft)',
+                      borderTop: '1px solid var(--surface-4)',
                       letterSpacing: '2.5px',
-                      backgroundColor: 'color-mix(in srgb, var(--surface-1) 55%, var(--surface-2))'
                     }}
                     onClick={() => setModalStat(stat.key)}
                   >

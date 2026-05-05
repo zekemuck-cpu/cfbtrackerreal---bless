@@ -666,6 +666,69 @@ export default function CoachCareer() {
               </>
             )}
           </div>
+
+          {/* Career Arc Strip — segmented horizontal bar showing the
+              chronology of stints. Each segment is proportional to years
+              on the team. Shows team logo + abbr + year-range label per
+              segment. The single distinctive sport-coach visual on the
+              page; tells the whole story at a glance. */}
+          {coachingHistory.length > 0 && (() => {
+            const sortedStints = [...coachingHistory].sort((a, b) => a.startYear - b.startYear)
+            const totalYears = sortedStints.reduce((acc, s) => acc + (s.endYear - s.startYear + 1), 0)
+            if (totalYears <= 0) return null
+            return (
+              <div className="mt-5 sm:mt-6">
+                <div className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '2px', fontSize: '10px' }}>
+                  CAREER ARC
+                </div>
+                <div className="flex items-stretch w-full overflow-hidden rounded-md border border-surface-4">
+                  {sortedStints.map((stint, idx) => {
+                    const years = stint.endYear - stint.startYear + 1
+                    const widthPct = (years / totalYears) * 100
+                    const yearLabel = stint.startYear === stint.endYear
+                      ? `${stint.startYear}`
+                      : `${stint.startYear}–${stint.isCurrent ? 'NOW' : stint.endYear}`
+                    return (
+                      <div
+                        key={`arc-${stint.teamAbbr}-${stint.startYear}`}
+                        className="relative flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3 py-2.5 min-w-0 flex-shrink-0"
+                        style={{
+                          width: `${widthPct}%`,
+                          backgroundColor: stint.isCurrent ? 'var(--surface-3)' : 'var(--surface-2)',
+                          borderRight: idx < sortedStints.length - 1 ? '1px solid var(--surface-4)' : 'none',
+                        }}
+                      >
+                        {stint.teamTid && (
+                          <div className="flex-shrink-0">
+                            <TeamLogo tid={stint.teamTid} teams={teamsData} size="sm" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div
+                            className="font-display leading-none truncate"
+                            style={{
+                              fontFamily: "'Bebas Neue', sans-serif",
+                              fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)',
+                              letterSpacing: '0.5px',
+                              color: stint.isCurrent ? 'var(--text-primary)' : 'var(--text-secondary)',
+                            }}
+                          >
+                            {stint.teamAbbr}
+                          </div>
+                          <div
+                            className="label-xs text-txt-tertiary tabular-nums mt-1 truncate"
+                            style={{ letterSpacing: '1px', fontSize: '9px' }}
+                          >
+                            {yearLabel}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
         </div>
       </section>
 
@@ -722,21 +785,101 @@ export default function CoachCareer() {
           )
         }
 
+        // Compute the BEST SEASON for this stint — most wins, tie-broken
+        // by deepest postseason (champion > CFP > bowl win).
+        const bestSeason = (() => {
+          const yearsList = stint.games?.length ? Object.values(
+            stint.games.reduce((acc, g) => {
+              const y = Number(g.year)
+              if (!Number.isFinite(y)) return acc
+              if (!acc[y]) acc[y] = { year: y, wins: 0, losses: 0, games: [] }
+              acc[y].games.push(g)
+              if (g.perspective?.userWon) acc[y].wins++
+              else if (g.perspective) acc[y].losses++
+              return acc
+            }, {})
+          ) : []
+          if (!yearsList.length) return null
+          // Score each year: wins * 100 + postseason bonus.
+          const score = (y) => {
+            let s = y.wins * 100
+            const cfpGames = y.games.filter(g => {
+              const t = detectGameType(g)
+              return t === GAME_TYPES.CFP_FIRST_ROUND || t === GAME_TYPES.CFP_QUARTERFINAL ||
+                     t === GAME_TYPES.CFP_SEMIFINAL || t === GAME_TYPES.CFP_CHAMPIONSHIP
+            })
+            const wonChamp = cfpGames.some(g => detectGameType(g) === GAME_TYPES.CFP_CHAMPIONSHIP && g.perspective?.userWon)
+            if (wonChamp) s += 50
+            else if (cfpGames.length) s += 20
+            const bowlWin = y.games.some(g => detectGameType(g) === GAME_TYPES.BOWL && g.perspective?.userWon)
+            if (bowlWin) s += 10
+            return s
+          }
+          const best = yearsList.sort((a, b) => score(b) - score(a))[0]
+          if (!best || (best.wins === 0 && best.losses === 0)) return null
+          // Build descriptor.
+          const cfpGames = best.games.filter(g => {
+            const t = detectGameType(g)
+            return t === GAME_TYPES.CFP_FIRST_ROUND || t === GAME_TYPES.CFP_QUARTERFINAL ||
+                   t === GAME_TYPES.CFP_SEMIFINAL || t === GAME_TYPES.CFP_CHAMPIONSHIP
+          })
+          let postseason = null
+          if (cfpGames.length) {
+            const order = [GAME_TYPES.CFP_FIRST_ROUND, GAME_TYPES.CFP_QUARTERFINAL, GAME_TYPES.CFP_SEMIFINAL, GAME_TYPES.CFP_CHAMPIONSHIP]
+            const sorted = [...cfpGames].sort((a, b) => order.indexOf(detectGameType(a)) - order.indexOf(detectGameType(b)))
+            const last = sorted[sorted.length - 1]
+            const lastType = detectGameType(last)
+            const labels = {
+              [GAME_TYPES.CFP_FIRST_ROUND]: 'First Round',
+              [GAME_TYPES.CFP_QUARTERFINAL]: 'Quarterfinal',
+              [GAME_TYPES.CFP_SEMIFINAL]: 'Semifinal',
+              [GAME_TYPES.CFP_CHAMPIONSHIP]: 'National Championship',
+            }
+            if (lastType === GAME_TYPES.CFP_CHAMPIONSHIP && last.perspective?.userWon) {
+              postseason = 'Won National Championship'
+            } else if (last.perspective?.userWon) {
+              postseason = `Advanced past ${labels[lastType]}`
+            } else {
+              postseason = `Lost in ${labels[lastType] || 'CFP'}`
+            }
+          } else {
+            const bowl = best.games.find(g => detectGameType(g) === GAME_TYPES.BOWL)
+            if (bowl) {
+              const stripped = bowl.bowlName ? bowl.bowlName.replace(/\s+Bowl$/i, '') : 'Bowl'
+              postseason = bowl.perspective?.userWon ? `Won ${stripped} Bowl` : `Lost ${stripped} Bowl`
+            }
+          }
+          let finalRank = null
+          if (stint.teamTid != null) {
+            const r = getTeamRanking(currentDynasty, Number(stint.teamTid), best.year)
+            if (r?.rank) finalRank = r.rank
+          }
+          return { year: best.year, wins: best.wins, losses: best.losses, postseason, finalRank }
+        })()
+
         return (
           <div
             key={`${stint.teamName}-${stint.startYear}`}
-            className={`media-card ${stint.isCurrent ? '' : 'opacity-[0.94]'}`}
+            className={`media-card relative ${stint.isCurrent ? '' : 'opacity-90'}`}
+            style={!stint.isCurrent ? { backgroundColor: 'var(--surface-1)' } : undefined}
           >
-            <div className="p-3 sm:p-5">
-              {/* Stint header — wider logo, Bebas Neue display name,
-                  meta below with semantic separators. Current vs past
-                  distinguished by the parent Card's accent + a more
-                  prominent "Current" badge here. Past stints stay
-                  visually muted (parent card is at 96% opacity). */}
-              <div className="flex items-center gap-3 sm:gap-4 mb-3">
+            {/* Current-stint top accent — 1px text-primary hairline.
+                Subtle but distinctive; no team color used in chrome. */}
+            {stint.isCurrent && (
+              <div
+                aria-hidden="true"
+                className="absolute top-0 left-0 right-0 h-px rounded-t-lg"
+                style={{ backgroundColor: 'var(--text-primary)' }}
+              />
+            )}
+            <div className={stint.isCurrent ? 'p-3 sm:p-5' : 'p-3 sm:p-4'}>
+              {/* Stint header — Bebas Neue team name. Past stints get a
+                  smaller logo + name treatment to read as compressed
+                  history vs the current chapter. */}
+              <div className={`flex items-center gap-3 sm:gap-4 ${stint.isCurrent ? 'mb-4' : 'mb-3'}`}>
                 {stint.teamTid && (
                   <div className="flex-shrink-0">
-                    <TeamLogo tid={stint.teamTid} teams={teamsData} size="xl" />
+                    <TeamLogo tid={stint.teamTid} teams={teamsData} size={stint.isCurrent ? 'xl' : 'lg'} />
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
@@ -746,14 +889,30 @@ export default function CoachCareer() {
                       className="text-txt-primary hover:opacity-80 transition-opacity m-0 leading-[0.95] uppercase break-words"
                       style={{
                         fontFamily: "'Bebas Neue', sans-serif",
-                        fontSize: 'clamp(1.4rem, 2.5vw, 1.85rem)',
+                        fontSize: stint.isCurrent
+                          ? 'clamp(1.5rem, 2.8vw, 2.1rem)'
+                          : 'clamp(1.15rem, 2vw, 1.5rem)',
                         letterSpacing: '0.5px',
                       }}
                     >
                       {stint.teamName}
                     </Link>
-                    {stint.isCurrent && <Badge variant="default" size="md">Current</Badge>}
-                    {!stint.isCurrent && <Badge variant="outline" size="sm">Past</Badge>}
+                    {stint.isCurrent && (
+                      <span
+                        className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold uppercase tabular-nums"
+                        style={{
+                          letterSpacing: '1.5px',
+                          color: 'var(--accent-success)',
+                          backgroundColor: 'color-mix(in srgb, var(--accent-success) 14%, transparent)',
+                          border: '1px solid color-mix(in srgb, var(--accent-success) 30%, transparent)',
+                          borderRadius: '999px',
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--accent-success)' }} />
+                        Now
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 label-sm text-txt-tertiary mt-1 flex-wrap">
                     <span className="font-semibold text-txt-secondary uppercase" style={{ letterSpacing: '1px', fontSize: '11px' }}>
@@ -838,6 +997,43 @@ export default function CoachCareer() {
                   </div>
                 )
               })()}
+
+              {/* Best Season callout — single editorial line above the
+                  year-by-year table. Pulls from each stint's actual data
+                  to surface the headline moment (most wins, deepest run). */}
+              {bestSeason && (
+                <div className="mb-3 flex items-baseline gap-3 sm:gap-4 flex-wrap">
+                  <span className="label-xs text-txt-tertiary flex-shrink-0" style={{ letterSpacing: '2px', fontSize: '10px' }}>
+                    BEST SEASON
+                  </span>
+                  <div className="flex items-baseline gap-2 sm:gap-3 flex-wrap text-sm">
+                    <span className="font-display font-bold tabular-nums text-txt-primary" style={{ letterSpacing: '-0.01em' }}>
+                      {bestSeason.year}
+                    </span>
+                    <span className="text-txt-muted">·</span>
+                    <span className="tabular-nums font-semibold text-txt-primary">
+                      {bestSeason.wins}–{bestSeason.losses}
+                    </span>
+                    {bestSeason.finalRank && (
+                      <>
+                        <span className="text-txt-muted">·</span>
+                        <span
+                          className="font-bold tabular-nums"
+                          style={{ color: bestSeason.finalRank <= 4 ? 'var(--accent-warning)' : 'var(--text-secondary)' }}
+                        >
+                          #{bestSeason.finalRank}
+                        </span>
+                      </>
+                    )}
+                    {bestSeason.postseason && (
+                      <>
+                        <span className="text-txt-muted">·</span>
+                        <span className="text-txt-secondary">{bestSeason.postseason}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <YearByYearTable
                 stint={stint}
@@ -1086,11 +1282,12 @@ function YearByYearTable({ stint, currentDynasty, pathPrefix, navigate }) {
     return { text: `#${rank}`, color: 'var(--text-secondary)', bold: false }
   }
 
-  const rowAccent = (yr) => {
-    if (yr.isNationalChamp) return { rail: 'var(--accent-warning)', tint: 'rgba(234, 179, 8, 0.06)' }
-    if (yr.cfpResult?.type === 'lost') return { rail: 'var(--surface-5)', tint: 'transparent' }
-    if (yr.bowlResult?.won) return { rail: 'rgba(34, 197, 94, 0.45)', tint: 'transparent' }
-    return { rail: 'transparent', tint: 'transparent' }
+  // Champion years get a subtle full-width gold tint; bowl wins get a
+  // dot in the postseason cell. NO side-rail accents (impeccable's
+  // BAN 1: side-stripe borders > 1px on list items).
+  const rowTint = (yr) => {
+    if (yr.isNationalChamp) return 'color-mix(in srgb, var(--accent-warning) 8%, transparent)'
+    return 'transparent'
   }
 
   return (
@@ -1108,7 +1305,7 @@ function YearByYearTable({ stint, currentDynasty, pathPrefix, navigate }) {
           <tbody>
             {years.map((yr, idx) => {
               const rank = rankTreatment(yr.finalRank)
-              const accent = rowAccent(yr)
+              const isBowlWin = yr.bowlResult?.won
               return (
                 <tr
                   key={yr.year}
@@ -1116,12 +1313,22 @@ function YearByYearTable({ stint, currentDynasty, pathPrefix, navigate }) {
                   className="cursor-pointer hover:bg-surface-3 transition-colors"
                   style={{
                     borderBottom: idx < years.length - 1 ? '1px solid var(--surface-4)' : 'none',
-                    borderLeft: `3px solid ${accent.rail}`,
-                    backgroundColor: accent.tint,
+                    backgroundColor: rowTint(yr),
                   }}
                 >
+                  {/* Year cell — champion years get a star prefix in
+                      gold; standard years just show the number. */}
                   <td className="px-4 py-3 font-semibold tabular text-txt-primary">
-                    {yr.year}
+                    {yr.isNationalChamp && (
+                      <span
+                        aria-hidden="true"
+                        className="inline-block mr-2 align-middle"
+                        style={{ color: 'var(--accent-warning)', fontSize: '0.95em' }}
+                      >
+                        ★
+                      </span>
+                    )}
+                    <span className="align-middle">{yr.year}</span>
                   </td>
                   <td
                     className="px-4 py-3 tabular"
@@ -1138,13 +1345,30 @@ function YearByYearTable({ stint, currentDynasty, pathPrefix, navigate }) {
                   >
                     {rank.text}
                   </td>
+                  {/* Postseason cell — bowl wins get a small green
+                      leading dot; champion years stay gold; everything
+                      else is text-secondary. */}
                   <td
                     className="px-4 py-3"
                     style={{ color: yr.isNationalChamp ? 'var(--accent-warning)' : 'var(--text-secondary)' }}
                   >
-                    {yr.isNationalChamp ? (
-                      <span className="font-semibold">{yr.postseasonText}</span>
-                    ) : yr.postseasonText}
+                    {isBowlWin && !yr.isNationalChamp && (
+                      <span
+                        aria-hidden="true"
+                        className="inline-block mr-2 align-middle"
+                        style={{
+                          width: '6px',
+                          height: '6px',
+                          borderRadius: '999px',
+                          backgroundColor: 'var(--accent-success)',
+                        }}
+                      />
+                    )}
+                    <span className="align-middle">
+                      {yr.isNationalChamp ? (
+                        <span className="font-semibold">{yr.postseasonText}</span>
+                      ) : yr.postseasonText}
+                    </span>
                   </td>
                 </tr>
               )
