@@ -3491,7 +3491,7 @@ export default function Dashboard() {
 
               return (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-3 stagger-reveal">
+                  <div className="grid grid-cols-1 gap-3 stagger-reveal">
                     {isByeWeek ? (
                       /* Bye-week card occupies the left (game) column; recruiting sidebar still renders on the right so commits can be logged. */
                       <div className="media-card flex flex-col justify-center items-center text-center px-6 py-8">
@@ -3619,149 +3619,89 @@ export default function Dashboard() {
                       </div>
                     )}
 
-                    {/* Recruiting sidebar — always rendered, works on bye weeks too.
-                        Same media-card treatment as the scorebug; "logged"
-                        state is conveyed by a small dot, not a green tint.
-                        Natural height on mobile, stretches to match scorebug
-                        only on desktop side-by-side. */}
-                    <div className="media-card">
-                      <div className="p-2.5 sm:p-4 flex flex-col gap-2 sm:gap-3 sm:h-full">
-                        {/* Eyebrow row with inline tool icons */}
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            {hasCommitmentsData && (
-                              <span
-                                aria-hidden="true"
-                                className="w-1.5 h-1.5 rounded-full"
-                                style={{ backgroundColor: 'var(--accent-success)' }}
-                              />
-                            )}
-                            <div className="font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '2px', fontSize: '10px' }}>
-                              Recruiting · Wk {currentDynasty.currentWeek}
-                            </div>
-                          </div>
-                          {!isViewOnly && (
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => setShowSellCalc(true)}
-                                className="w-7 h-7 rounded-md text-txt-tertiary hover:text-txt-primary hover:bg-surface-2 transition-colors flex items-center justify-center"
-                                title="Sell vs Send Calculator"
-                                aria-label="Open Sell vs Send Calculator"
-                              >
-                                <svg className="w-[15px] h-[15px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                  <rect x="5" y="3" width="14" height="18" rx="2" strokeWidth="1.75" />
-                                  <rect x="8" y="6" width="8" height="3" rx="0.5" strokeWidth="1.5" />
-                                  <circle cx="9" cy="13" r="0.5" fill="currentColor" />
-                                  <circle cx="12" cy="13" r="0.5" fill="currentColor" />
-                                  <circle cx="15" cy="13" r="0.5" fill="currentColor" />
-                                  <circle cx="9" cy="16.5" r="0.5" fill="currentColor" />
-                                  <circle cx="12" cy="16.5" r="0.5" fill="currentColor" />
-                                  <circle cx="15" cy="16.5" r="0.5" fill="currentColor" />
-                                </svg>
-                              </button>
-                              <a
-                                href="https://collegefootball.gg/recruiting-insight-engine/"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="w-7 h-7 rounded-md text-txt-tertiary hover:text-txt-primary hover:bg-surface-2 transition-colors flex items-center justify-center"
-                                title="Recruiting Insight Engine (external)"
-                                aria-label="Open Recruiting Insight Engine"
-                              >
-                                <svg className="w-[15px] h-[15px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" strokeWidth="1.75">
-                                  <circle cx="12" cy="12" r="9" />
-                                  <circle cx="12" cy="12" r="3" />
-                                  <path strokeLinecap="round" d="M12 1.5v3M12 19.5v3M22.5 12h-3M4.5 12h-3" />
-                                </svg>
-                              </a>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Display + CTA wrapper. Mobile: side-by-side
-                            (info left, button right) so the card stays
-                            short. Desktop: stacked vertically with the
-                            display filling the sidebar height. */}
-                        <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-stretch sm:gap-3 sm:flex-1">
-                          <div className="min-w-0 sm:flex-1 sm:flex sm:flex-col sm:justify-center">
-                            {hasCommitmentsData ? (
-                              <>
-                                <div className="font-display font-black leading-none text-txt-primary tabular-nums" style={{ fontSize: 'clamp(1.5rem, 4vw, 2.75rem)', letterSpacing: '-0.01em' }}>
-                                  {commitmentsCount > 0 ? commitmentsCount : '✓'}
-                                </div>
-                                <div className="mt-1 sm:mt-1.5 text-[11px] uppercase font-bold text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
-                                  {commitmentsCount > 0
-                                    ? `Commit${commitmentsCount !== 1 ? 's' : ''} Logged`
-                                    : 'Week Complete'}
-                                </div>
-                              </>
-                            ) : classScore > 0 ? (
-                              <Link
-                                to={`${pathPrefix}/recruiting/${userTidForCommitments}/${currentDynasty.currentYear}`}
-                                className="block group"
-                                title="View recruiting class"
-                              >
-                                <div className="font-display font-black leading-none tabular-nums text-txt-primary group-hover:opacity-80 transition-opacity" style={{ fontSize: 'clamp(1.5rem, 4vw, 2.75rem)', letterSpacing: '-0.01em' }}>
-                                  {formatRecruitingClassScore(classScore)}
-                                </div>
-                                <div className="mt-1 sm:mt-1.5 text-[11px] uppercase font-bold text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
-                                  {currentDynasty.currentYear} Class Score
-                                </div>
-                              </Link>
-                            ) : (
-                              <>
-                                <div className="flex items-end gap-3">
-                                  <div
-                                    className="font-display font-black leading-none text-txt-tertiary/60 tabular-nums"
-                                    style={{ fontSize: 'clamp(1.5rem, 4vw, 2.75rem)', letterSpacing: '-0.01em' }}
-                                  >
-                                    —
-                                  </div>
-                                  <div
-                                    className="pb-1 text-[11px] uppercase font-semibold text-txt-tertiary"
-                                    style={{ letterSpacing: '1px' }}
-                                  >
-                                    Awaiting<br />commits
-                                  </div>
-                                </div>
-                                <div className="mt-1 sm:mt-1.5 text-[11px] uppercase font-bold text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
-                                  {currentDynasty.currentYear} Class
-                                </div>
-                              </>
-                            )}
-                          </div>
-
-                          {/* Primary CTA — sits right of info on mobile,
-                              spans full width on desktop. */}
-                          {!isViewOnly && (
-                            <button
-                              onClick={() => setShowRecruitingModal(true)}
-                              className="btn-refined btn-refined--solid flex-shrink-0 sm:w-full"
-                            >
-                              {hasCommitmentsData ? 'Edit Commits' : 'Log Commits'}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
                   </div>
-                </>
-              )
-            })()}
 
-            {/* Weekly to-do block — Last Week's Scores + Week Recap unified
-                into a single media-card with hairline dividers between
-                rows. Reads as one task list rather than three disjoint
-                cards stacked on top of each other. */}
-            {(() => {
-              const curWeek = Number(currentDynasty.currentWeek)
-              if (!Number.isFinite(curWeek) || curWeek < 1) return null
-              const prevWeek = curWeek - 1
-              const yearNum = Number(currentDynasty.currentYear)
+                  {/* Weekly to-do block — Recruiting + Last Week's Scores +
+                      Week Recap unified into a single media-card with
+                      hairline dividers between rows. Reads as one task list
+                      rather than three disjoint cards stacked on top of
+                      each other. Shares scope with the matchup IIFE so the
+                      recruiting row reuses hasCommitmentsData / classScore /
+                      etc. without re-deriving them. */}
+                  {(() => {
+                    const yearNum = Number(currentDynasty.currentYear)
+                    const curWeek = Number(currentDynasty.currentWeek)
+                    const hasCurWeek = Number.isFinite(curWeek) && curWeek >= 1
+                    const prevWeek = hasCurWeek ? curWeek - 1 : null
 
-              const todos = []
+                    const todos = []
 
-              // Row 1: Last Week's Scores
+              // Row 1: Recruiting — always first since it owns the "this
+              // week's commits" decision the user makes most often.
               {
+                let title, subtitle
+                if (hasCommitmentsData) {
+                  title = commitmentsCount > 0
+                    ? `${commitmentsCount} Commit${commitmentsCount === 1 ? '' : 's'} Logged`
+                    : `Recruiting Week ${currentDynasty.currentWeek} Complete`
+                  subtitle = classScore > 0
+                    ? `${currentDynasty.currentYear} class score: ${formatRecruitingClassScore(classScore)}`
+                    : `${currentDynasty.currentYear} class`
+                } else if (classScore > 0) {
+                  title = `${currentDynasty.currentYear} Class Score: ${formatRecruitingClassScore(classScore)}`
+                  subtitle = hasCurWeek ? `Recruiting · Week ${currentDynasty.currentWeek}` : `${currentDynasty.currentYear} class`
+                } else {
+                  title = hasCurWeek ? `Recruiting · Week ${currentDynasty.currentWeek}` : 'Recruiting'
+                  subtitle = `Awaiting commits for the ${currentDynasty.currentYear} class`
+                }
+                todos.push({
+                  key: 'recruiting',
+                  done: hasCommitmentsData,
+                  title,
+                  subtitle,
+                  viewTo: `${pathPrefix}/recruiting/${userTidForCommitments}/${currentDynasty.currentYear}`,
+                  onAction: () => setShowRecruitingModal(true),
+                  actionLabel: hasCommitmentsData ? 'Edit Commits' : 'Log Commits',
+                  extraTools: !isViewOnly ? (
+                    <>
+                      <button
+                        onClick={() => setShowSellCalc(true)}
+                        className="w-7 h-7 rounded-md text-txt-tertiary hover:text-txt-primary hover:bg-surface-2 transition-colors flex items-center justify-center"
+                        title="Sell vs Send Calculator"
+                        aria-label="Open Sell vs Send Calculator"
+                      >
+                        <svg className="w-[15px] h-[15px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <rect x="5" y="3" width="14" height="18" rx="2" strokeWidth="1.75" />
+                          <rect x="8" y="6" width="8" height="3" rx="0.5" strokeWidth="1.5" />
+                          <circle cx="9" cy="13" r="0.5" fill="currentColor" />
+                          <circle cx="12" cy="13" r="0.5" fill="currentColor" />
+                          <circle cx="15" cy="13" r="0.5" fill="currentColor" />
+                          <circle cx="9" cy="16.5" r="0.5" fill="currentColor" />
+                          <circle cx="12" cy="16.5" r="0.5" fill="currentColor" />
+                          <circle cx="15" cy="16.5" r="0.5" fill="currentColor" />
+                        </svg>
+                      </button>
+                      <a
+                        href="https://collegefootball.gg/recruiting-insight-engine/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-7 h-7 rounded-md text-txt-tertiary hover:text-txt-primary hover:bg-surface-2 transition-colors flex items-center justify-center"
+                        title="Recruiting Insight Engine (external)"
+                        aria-label="Open Recruiting Insight Engine"
+                      >
+                        <svg className="w-[15px] h-[15px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" strokeWidth="1.75">
+                          <circle cx="12" cy="12" r="9" />
+                          <circle cx="12" cy="12" r="3" />
+                          <path strokeLinecap="round" d="M12 1.5v3M12 19.5v3M22.5 12h-3M4.5 12h-3" />
+                        </svg>
+                      </a>
+                    </>
+                  ) : null,
+                })
+              }
+
+              // Row 2: Last Week's Scores
+              if (hasCurWeek) {
                 const weeklyEntered = currentDynasty.weeklyScoresEntered?.[yearNum]?.[prevWeek]
                 const savedCount = (currentDynasty.games || []).filter(g =>
                   g && Number(g.year) === yearNum && Number(g.week) === prevWeek
@@ -3783,8 +3723,8 @@ export default function Dashboard() {
                 })
               }
 
-              // Row 2: Week Recap (only after Week 1 — needs a prior week)
-              if (curWeek >= 2) {
+              // Row 3: Week Recap (only after Week 1 — needs a prior week)
+              if (hasCurWeek && curWeek >= 2) {
                 const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[prevWeek]
                 const done = !!recap?.text
                 todos.push({
@@ -3832,22 +3772,28 @@ export default function Dashboard() {
                           )}
                         </div>
                       </div>
-                      {!isViewOnly && (
-                        <div className="flex gap-1.5 sm:gap-2 flex-shrink-0">
-                          <Link to={todo.viewTo} className="btn-refined text-center">
-                            View
-                          </Link>
-                          <button
-                            onClick={todo.onAction}
-                            className="btn-refined btn-refined--solid"
-                          >
-                            {todo.actionLabel}
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex gap-1.5 sm:gap-2 flex-shrink-0 items-center">
+                        {todo.extraTools}
+                        {!isViewOnly && (
+                          <>
+                            <Link to={todo.viewTo} className="btn-refined text-center">
+                              View
+                            </Link>
+                            <button
+                              onClick={todo.onAction}
+                              className="btn-refined btn-refined--solid"
+                            >
+                              {todo.actionLabel}
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
+              )
+            })()}
+                </>
               )
             })()}
           </div>
