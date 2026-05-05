@@ -542,36 +542,6 @@ export default function Player() {
     const allYears = new Set(Object.keys(playerOwnStats))
     const years = []
     const sortedYears = Array.from(allYears).sort((a, b) => parseInt(b) - parseInt(a))
-    // Lower-bound count of 20+ yard rushes per year, derived from per-game
-    // longest-run entries: any game where the player's rushing long was
-    // ≥ 20 contributes at least one explosive run. The "20+" column comes
-    // from CFB26's Advanced tab and most users skip it, so without this
-    // fallback the season counter sits at 0 even when LNG clearly says
-    // otherwise. We use max(stored, derived) so a hand-entered value
-    // never gets overwritten downward.
-    const normalizeName = (n) => (n ? n.toLowerCase().trim().replace(/\s+/g, ' ') : '')
-    const playerNameNorm = normalizeName(player?.name)
-    const minTwentyPlusByYear = new Map()
-    if (playerNameNorm && Array.isArray(dynasty?.games)) {
-      for (const g of dynasty.games) {
-        if (!g?.boxScore) continue
-        const yrNum = Number(g.year)
-        if (!Number.isFinite(yrNum)) continue
-        let long = 0
-        for (const side of ['home', 'away']) {
-          const rows = g.boxScore[side]?.rushing
-          if (!Array.isArray(rows)) continue
-          const row = rows.find(r => normalizeName(r.playerName) === playerNameNorm)
-          if (!row) continue
-          const candidate = parseFloat(row.long ?? row.lng) || 0
-          if (candidate > long) long = candidate
-          break
-        }
-        if (long >= 20) {
-          minTwentyPlusByYear.set(yrNum, (minTwentyPlusByYear.get(yrNum) || 0) + 1)
-        }
-      }
-    }
     sortedYears.forEach(yearStr => {
       const year = parseInt(yearStr)
       const ownYearStats = playerOwnStats[yearStr] || playerOwnStats[year]
@@ -613,10 +583,7 @@ export default function Player() {
           fum: rushing.fum ?? rushing.fumbles ?? 0,
           bt: rushing.bt ?? rushing.brokenTackles ?? 0,
           yac: rushing.yac ?? rushing.yAC ?? 0,
-          twentyPlus: Math.max(
-            rushing.twentyPlus ?? rushing['20+'] ?? 0,
-            minTwentyPlusByYear.get(year) || 0
-          )
+          twentyPlus: rushing.twentyPlus ?? rushing['20+'] ?? 0
         } : null,
         receiving: receiving ? {
           rec: receiving.rec ?? receiving.receptions ?? 0,
@@ -689,7 +656,7 @@ export default function Player() {
       })
     })
     return years
-  }, [player?.statsByYear, player?.classByYear, player?.year, player?.teamsByYear, player?.name, dynasty?.games])
+  }, [player?.statsByYear, player?.classByYear, player?.year, player?.teamsByYear])
 
   const gameLog = useMemo(() => {
     if (!expandedGameLog?.year || !player?.name || !dynasty) return []
