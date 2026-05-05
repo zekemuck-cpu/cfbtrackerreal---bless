@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom'
 // and rate-limits submissions, not a secret.
 const WEB3FORMS_ACCESS_KEY = 'a5d241b9-874d-4a92-b066-7dbffacb5d70'
 const REDDIT_URL = 'https://www.reddit.com/user/achum5/'
-const DISCORD_INVITE_URL = 'https://discord.gg/ccz5cpbX'
+const DISCORD_INVITE_URL = 'https://discord.gg/kmrRtVFbh'
 const DISCORD_SERVER_NAME = 'Dynasty Tracker'
 
 export default function Contact() {
