@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { useDynasty } from '../../context/DynastyContext'
+import { useDynasty, getCurrentCustomConferences } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { TEAMS } from '../../data/teamRegistry'
+import { getTeamConference } from '../../data/conferenceTeams'
+import { getConferenceLogo } from '../../data/conferenceLogos'
 import { PageHero, Card, EmptyState, TeamLogo, Input } from '../../components/ui'
 import TeambuilderEditModal from '../../components/TeambuilderEditModal'
 import { useToast } from '../../components/ui/Toast'
@@ -42,6 +44,26 @@ export default function Teams() {
       team.abbr.toLowerCase().includes(query)
     ))
   }, [allTeams, searchQuery])
+
+  // Group teams by conference for the directory layout. Conferences
+  // ordered by team count desc (so Power-5 lead, smaller conferences
+  // follow). Independents/unknown go last under "Other".
+  const customConferences = getCurrentCustomConferences(currentDynasty)
+  const groupedByConference = useMemo(() => {
+    const groups = new Map()
+    filteredTeams.forEach(team => {
+      const conf = getTeamConference(team.abbr, customConferences, teamsSource) || 'Other'
+      if (!groups.has(conf)) groups.set(conf, [])
+      groups.get(conf).push(team)
+    })
+    // Sort: largest groups first (Power-5 lands at top), 'Other' always last.
+    return Array.from(groups.entries())
+      .sort(([a, ax], [b, bx]) => {
+        if (a === 'Other') return 1
+        if (b === 'Other') return -1
+        return bx.length - ax.length
+      })
+  }, [filteredTeams, customConferences, teamsSource])
 
   const editingTeam = editingTid != null
     ? (teamsSource[editingTid] || TEAMS[editingTid] || null)
@@ -89,62 +111,98 @@ export default function Teams() {
       />
 
       {filteredTeams.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 stagger-reveal">
-          {filteredTeams.map(team => (
-            <div
-              key={team.tid}
-              className="team-card group relative flex items-center gap-3 px-3 py-3 rounded-lg bg-surface-2 transition-all duration-200"
-              style={{
-                border: '1px solid var(--surface-4)',
-              }}
-            >
-              <Link
-                to={`${pathPrefix}/team/${team.tid}/${currentDynasty.currentYear}`}
-                className="flex items-center gap-3 flex-1 min-w-0 no-underline"
-              >
-                {team.logo ? (
-                  <TeamLogo
-                    tid={team.tid}
-                    teams={teamsSource}
-                    size="md"
-                    className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110"
-                  />
-                ) : (
-                  <span className="w-6 h-6 flex-shrink-0" />
-                )}
-                <span className="flex-1 min-w-0 text-sm font-semibold text-txt-primary truncate transition-colors group-hover:text-txt-primary">
-                  {team.name}
-                </span>
-              </Link>
-              {team.isCustom && (
-                <span
-                  className="label-xs flex-shrink-0 px-1.5 py-0.5 rounded"
-                  style={{
-                    fontSize: '9px',
-                    letterSpacing: '1.5px',
-                    backgroundColor: 'var(--surface-3)',
-                    color: 'var(--text-tertiary)',
-                  }}
+        <div className="space-y-6 stagger-reveal">
+          {groupedByConference.map(([confName, teams]) => {
+            const confLogo = getConferenceLogo(confName)
+            return (
+              <section key={confName}>
+                {/* Conference header — eyebrow + logo + name + team count.
+                    Hairline rule below; the team grid hangs off it. */}
+                <div
+                  className="flex items-center gap-3 pb-2 mb-3"
+                  style={{ borderBottom: '1px solid var(--surface-4)' }}
                 >
-                  CUSTOM
-                </span>
-              )}
-              {!isViewOnly && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    setEditingTid(team.tid)
-                  }}
-                  className="flex-shrink-0 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded text-txt-tertiary hover:text-txt-primary hover:bg-surface-3 transition-colors"
-                  title={`Edit ${team.name}`}
-                >
-                  Edit
-                </button>
-              )}
-            </div>
-          ))}
+                  {confLogo && (
+                    <img
+                      src={confLogo}
+                      alt=""
+                      className="w-7 h-7 object-contain flex-shrink-0 opacity-90"
+                    />
+                  )}
+                  <h2
+                    className="font-display font-bold text-txt-primary leading-none"
+                    style={{ fontSize: 'clamp(1rem, 1.5vw, 1.25rem)', letterSpacing: '-0.015em' }}
+                  >
+                    {confName}
+                  </h2>
+                  <span
+                    className="text-xs font-semibold uppercase tracking-wider text-txt-tertiary tabular-nums"
+                    style={{ letterSpacing: '1.5px' }}
+                  >
+                    {teams.length} {teams.length === 1 ? 'team' : 'teams'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
+                  {teams.map(team => (
+                    <div
+                      key={team.tid}
+                      className="team-card group relative flex items-center gap-3 px-3 py-3 rounded-lg bg-surface-2 transition-all duration-200"
+                      style={{
+                        border: '1px solid var(--surface-4)',
+                      }}
+                    >
+                      <Link
+                        to={`${pathPrefix}/team/${team.tid}/${currentDynasty.currentYear}`}
+                        className="flex items-center gap-3 flex-1 min-w-0 no-underline"
+                      >
+                        {team.logo ? (
+                          <TeamLogo
+                            tid={team.tid}
+                            teams={teamsSource}
+                            size="md"
+                            className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110"
+                          />
+                        ) : (
+                          <span className="w-6 h-6 flex-shrink-0" />
+                        )}
+                        <span className="flex-1 min-w-0 text-sm font-semibold text-txt-primary truncate transition-colors group-hover:text-txt-primary">
+                          {team.name}
+                        </span>
+                      </Link>
+                      {team.isCustom && (
+                        <span
+                          className="label-xs flex-shrink-0 px-1.5 py-0.5 rounded"
+                          style={{
+                            fontSize: '9px',
+                            letterSpacing: '1.5px',
+                            backgroundColor: 'var(--surface-3)',
+                            color: 'var(--text-tertiary)',
+                          }}
+                        >
+                          CUSTOM
+                        </span>
+                      )}
+                      {!isViewOnly && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setEditingTid(team.tid)
+                          }}
+                          className="flex-shrink-0 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded text-txt-tertiary hover:text-txt-primary hover:bg-surface-3 transition-colors"
+                          title={`Edit ${team.name}`}
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )
+          })}
         </div>
       ) : (
         <Card>

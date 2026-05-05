@@ -5219,6 +5219,22 @@ export function DynastyProvider({ children }) {
     // cold-load times users reported.
   }, [user, isPremium, migrated])
 
+  // Dev-auth ownership stamp — reactive variant. The initial-load path
+  // already stamps unowned dynasties, but new ones (test imports,
+  // createDynasty) arrive after that fires. This effect stamps any
+  // unowned dynasty on every dynasties change so per-user pages render
+  // real data under dev-auth. In-memory only; never persisted (the
+  // serialize step strips it back via the storage filter, and the
+  // condition stops looping once all dynasties have a userId).
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    if (typeof window === 'undefined') return
+    if (sessionStorage.getItem('cfbtracker_devauth') !== '1') return
+    if (!user?.uid) return
+    if (!dynasties.some(d => !d.userId)) return
+    setDynasties(prev => prev.map(d => d.userId ? d : { ...d, userId: user.uid }))
+  }, [dynasties, user])
+
   // Save local dynasties to IndexedDB whenever dynasties state changes
   // Only saves dynasties with storageType !== 'cloud'
   useEffect(() => {
