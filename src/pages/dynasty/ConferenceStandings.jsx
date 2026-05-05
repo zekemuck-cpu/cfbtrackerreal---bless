@@ -233,6 +233,10 @@ export default function ConferenceStandings() {
   // shows something. Saved standings just become the seed when they
   // exist (carrying over rank order + PF/PA tiebreakers from EOS).
 
+  // User's tracked team — used to highlight their row across every
+  // conference card so they can scan and immediately find themselves.
+  const userTid = currentDynasty.currentTid != null ? Number(currentDynasty.currentTid) : null
+
   // Team row component. Tid-first identity so a renamed teambuilder team
   // still resolves to current logo/name/link — `team.team` is the abbr at
   // sheet-write time and may have drifted since.
@@ -262,14 +266,21 @@ export default function ConferenceStandings() {
     const livePointDiff = livePointsFor - livePointsAgainst
     const diffColor = livePointDiff !== 0 ? 'var(--text-primary)' : 'var(--text-tertiary)'
     const isLeader = rank === 1
+    const isUserTeam = userTid != null && linkTid != null && Number(linkTid) === userTid
 
     return (
       <Link
         to={`${pathPrefix}/team/${linkTid}/${displayYear}`}
-        className="standings-row group relative flex items-center gap-3 py-2 px-3 transition-all duration-150"
+        className={`standings-row group relative flex items-center gap-3 py-2 px-3 transition-all duration-150 ${
+          isUserTeam ? 'standings-row--user' : ''
+        }`}
         style={{
           borderTop: '1px solid var(--surface-4)',
-          backgroundColor: isLeader ? 'color-mix(in srgb, var(--surface-3) 60%, transparent)' : 'transparent',
+          backgroundColor: isUserTeam
+            ? 'color-mix(in srgb, #d4a44a 8%, var(--surface-2))'
+            : isLeader
+              ? 'color-mix(in srgb, var(--surface-3) 60%, transparent)'
+              : 'transparent',
         }}
       >
         <div
@@ -566,6 +577,9 @@ export default function ConferenceStandings() {
       <style>{`
         .standings-row:hover {
           background-color: var(--surface-3);
+        }
+        .standings-row--user:hover {
+          background-color: color-mix(in srgb, #d4a44a 14%, var(--surface-3)) !important;
         }
         .standings-card:hover {
           border-color: color-mix(in srgb, var(--surface-5) 50%, transparent);

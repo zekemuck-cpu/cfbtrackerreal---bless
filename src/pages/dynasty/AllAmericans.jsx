@@ -216,6 +216,24 @@ export default function AllAmericans() {
     freshman: allAmericans.filter(p => p.designation === 'freshman')
   }
 
+  // Tally per school for the leaderboard strip. Weighted score
+  // (1st = 3, 2nd = 2, freshman = 1) breaks ties so a school with three
+  // 1st-team picks edges one with three freshman picks.
+  const schoolTally = (() => {
+    const byKey = new Map()
+    allAmericans.forEach(p => {
+      const key = (p.school || '').toUpperCase()
+      if (!key) return
+      if (!byKey.has(key)) byKey.set(key, { school: key, first: 0, second: 0, freshman: 0, total: 0, score: 0 })
+      const entry = byKey.get(key)
+      entry[p.designation] = (entry[p.designation] || 0) + 1
+      entry.total += 1
+      entry.score += p.designation === 'first' ? 3 : p.designation === 'second' ? 2 : 1
+    })
+    return Array.from(byKey.values()).sort((a, b) => b.score - a.score || b.total - a.total)
+  })()
+  const topSchools = schoolTally.slice(0, 6)
+
   const findPlayerByNameAndSchool = (playerName, school, schoolTid = null) => {
     if (!playerName || !currentDynasty.players) return null
     const normalizedName = normalizePlayerName(cleanPlayerName(playerName))
@@ -427,6 +445,76 @@ export default function AllAmericans() {
         }
         actions={heroActions}
       />
+
+      {hasAnyPlayers && topSchools.length > 0 && (
+        <section>
+          <header className="flex items-baseline justify-between mb-2">
+            <h2
+              className="label-xs text-txt-tertiary"
+              style={{ letterSpacing: '2px', fontSize: '10px', fontWeight: 700 }}
+            >
+              SCHOOL LEADERBOARD
+            </h2>
+            <span
+              className="label-xs tabular text-txt-muted"
+              style={{ letterSpacing: '1.5px', fontSize: '10px' }}
+            >
+              {schoolTally.length} {schoolTally.length === 1 ? 'SCHOOL' : 'SCHOOLS'} REPRESENTED
+            </span>
+          </header>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            {topSchools.map((entry, idx) => {
+              const mascotName = getMascotName(entry.school, currentDynasty?.teams || currentDynasty?.customTeams)
+              const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+              const schoolName = getSchoolName(mascotName) || entry.school
+              const tid = resolveTid(entry.school, currentDynasty?.teams || TEAMS)
+              return (
+                <Link
+                  key={entry.school}
+                  to={tid ? `${pathPrefix}/team/${tid}/${displayYear}` : '#'}
+                  className="group relative flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 transition-colors no-underline"
+                  style={{ border: '1px solid var(--surface-4)' }}
+                >
+                  <span
+                    className="label-xs tabular flex-shrink-0 text-txt-muted"
+                    style={{ width: '14px', fontSize: '10px', fontWeight: 700 }}
+                  >
+                    {idx + 1}
+                  </span>
+                  {teamLogo ? (
+                    <div className="w-7 h-7 rounded-full bg-white p-0.5 flex-shrink-0">
+                      <img src={teamLogo} alt="" className="w-full h-full object-contain" />
+                    </div>
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-surface-4 flex-shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-txt-primary truncate">
+                      {schoolName}
+                    </div>
+                    <div
+                      className="tabular text-txt-tertiary mt-0.5"
+                      style={{ fontSize: '10px', letterSpacing: '0.5px' }}
+                    >
+                      {entry.first > 0 && <span>{entry.first}×1st</span>}
+                      {entry.first > 0 && (entry.second > 0 || entry.freshman > 0) && <span className="text-txt-muted"> · </span>}
+                      {entry.second > 0 && <span>{entry.second}×2nd</span>}
+                      {entry.second > 0 && entry.freshman > 0 && <span className="text-txt-muted"> · </span>}
+                      {entry.freshman > 0 && <span>{entry.freshman}×Fr</span>}
+                    </div>
+                  </div>
+                  <span
+                    className="tabular flex-shrink-0 font-display font-black text-txt-primary"
+                    style={{ fontSize: '20px', lineHeight: 1, letterSpacing: '-0.02em' }}
+                  >
+                    {entry.total}
+                  </span>
+                </Link>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       {hasAnyPlayers && (
         <Tabs

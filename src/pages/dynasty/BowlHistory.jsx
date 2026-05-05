@@ -288,6 +288,42 @@ export default function BowlHistory() {
     return set.size
   })()
 
+  // User team identity for highlighting bowl wins. tid is the stable id;
+  // we keep abbr around for legacy bowl rows that only carry abbreviations.
+  const userTid = currentDynasty.currentTid != null ? Number(currentDynasty.currentTid) : null
+  const userTeamData = userTid != null
+    ? (currentDynasty?.teams?.[userTid] || currentDynasty?.customTeams?.[userTid] || TEAMS[userTid])
+    : null
+  const userAbbr = userTeamData?.abbr?.toUpperCase() || null
+
+  const isUserTeamRef = (game, side) => {
+    const ref = side === 1 ? game.team1Tid : game.team2Tid
+    if (ref != null && userTid != null && Number(ref) === userTid) return true
+    const abbr = side === 1 ? game.team1 : game.team2
+    if (abbr && userAbbr && abbr.toUpperCase() === userAbbr) return true
+    return false
+  }
+
+  // Tally user wins/losses across all bowl appearances. Stable across
+  // legacy and unified game shapes — we re-walk getBowlResults() output
+  // since it already normalizes both.
+  const userBowlRecord = (() => {
+    let wins = 0, losses = 0, appearances = 0
+    allBowls.forEach(name => {
+      getBowlResults(name).forEach(g => {
+        const userIsTeam1 = isUserTeamRef(g, 1)
+        const userIsTeam2 = isUserTeamRef(g, 2)
+        if (!userIsTeam1 && !userIsTeam2) return
+        appearances += 1
+        const userScore = userIsTeam1 ? g.team1Score : g.team2Score
+        const oppScore = userIsTeam1 ? g.team2Score : g.team1Score
+        if (userScore > oppScore) wins += 1
+        else if (oppScore > userScore) losses += 1
+      })
+    })
+    return { wins, losses, appearances }
+  })()
+
   return (
     <div className="space-y-4 page-enter">
       <PageHero
@@ -317,6 +353,78 @@ export default function BowlHistory() {
           )}
         </div>
       </PageHero>
+
+      <div
+        className="grid grid-cols-3 gap-2 sm:gap-3"
+        style={{ marginBottom: '4px' }}
+      >
+        <div
+          className="px-3 py-2.5 rounded-lg bg-surface-2 flex flex-col gap-0.5"
+          style={{ border: '1px solid var(--surface-4)' }}
+        >
+          <span
+            className="label-xs text-txt-tertiary"
+            style={{ letterSpacing: '1.5px', fontSize: '9px', fontWeight: 700 }}
+          >
+            BOWLS PLAYED
+          </span>
+          <span
+            className="font-display font-black tabular text-txt-primary leading-none"
+            style={{ fontSize: 'clamp(20px, 3vw, 28px)' }}
+          >
+            {totalBowlGames}
+          </span>
+        </div>
+        <div
+          className="px-3 py-2.5 rounded-lg bg-surface-2 flex flex-col gap-0.5"
+          style={{ border: '1px solid var(--surface-4)' }}
+        >
+          <span
+            className="label-xs text-txt-tertiary"
+            style={{ letterSpacing: '1.5px', fontSize: '9px', fontWeight: 700 }}
+          >
+            DISTINCT BOWLS
+          </span>
+          <span
+            className="font-display font-black tabular text-txt-primary leading-none"
+            style={{ fontSize: 'clamp(20px, 3vw, 28px)' }}
+          >
+            {distinctBowlsPlayed}
+          </span>
+        </div>
+        <div
+          className="px-3 py-2.5 rounded-lg flex flex-col gap-0.5"
+          style={{
+            border: userBowlRecord.wins > 0
+              ? '1px solid color-mix(in srgb, #d4a44a 50%, transparent)'
+              : '1px solid var(--surface-4)',
+            backgroundColor: userBowlRecord.wins > 0
+              ? 'color-mix(in srgb, #d4a44a 8%, var(--surface-2))'
+              : 'var(--surface-2)',
+          }}
+        >
+          <span
+            className="label-xs"
+            style={{
+              letterSpacing: '1.5px',
+              fontSize: '9px',
+              fontWeight: 700,
+              color: userBowlRecord.wins > 0 ? '#d4a44a' : 'var(--text-tertiary)',
+            }}
+          >
+            YOUR BOWL RECORD
+          </span>
+          <span
+            className="font-display font-black tabular leading-none"
+            style={{
+              fontSize: 'clamp(20px, 3vw, 28px)',
+              color: userBowlRecord.wins > 0 ? '#e0b566' : 'var(--text-primary)',
+            }}
+          >
+            {userBowlRecord.wins}–{userBowlRecord.losses}
+          </span>
+        </div>
+      </div>
 
       <div className="space-y-2">
         {filteredBowls.map(bowlName => {
@@ -417,6 +525,14 @@ export default function BowlHistory() {
                       const team1Logo = team1Mascot ? getTeamLogo(team1Mascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
                       const team2Logo = team2Mascot ? getTeamLogo(team2Mascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
 
+                      const userIsTeam1 = isUserTeamRef(game, 1)
+                      const userIsTeam2 = isUserTeamRef(game, 2)
+                      const userPlayed = userIsTeam1 || userIsTeam2
+                      const userWon = userPlayed && (
+                        (userIsTeam1 && winner === game.team1) ||
+                        (userIsTeam2 && winner === game.team2)
+                      )
+
                       const gameBowlName = game.bowlName || bowlName
                       const bowlSlug = gameBowlName.toLowerCase().replace(/\s+/g, '-')
                       let gameId
@@ -435,14 +551,36 @@ export default function BowlHistory() {
                         <Link
                           key={`${game.year}-${idx}`}
                           to={`${pathPrefix}/game/${gameId}`}
-                          className="score-row group flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 rounded-md bg-surface-2 transition-all duration-150"
-                          style={{ border: '1px solid transparent' }}
+                          className={`score-row group flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 rounded-md transition-all duration-150 ${
+                            userWon ? 'score-row--gold' : ''
+                          }`}
+                          style={{
+                            border: userWon
+                              ? '1px solid color-mix(in srgb, #d4a44a 35%, transparent)'
+                              : '1px solid transparent',
+                            backgroundColor: userWon
+                              ? 'color-mix(in srgb, #d4a44a 7%, var(--surface-2))'
+                              : 'var(--surface-2)',
+                          }}
                         >
                           <div
-                            className="w-11 sm:w-14 text-center tabular font-display font-black text-sm leading-none flex-shrink-0"
-                            style={{ color: 'var(--text-secondary)' }}
+                            className="w-11 sm:w-14 text-center tabular font-display font-black text-sm leading-none flex-shrink-0 flex flex-col items-center gap-0.5"
+                            style={{ color: userWon ? '#e0b566' : 'var(--text-secondary)' }}
                           >
-                            {game.year}
+                            <span>{game.year}</span>
+                            {userWon && (
+                              <span
+                                className="label-xs"
+                                style={{
+                                  fontSize: '8px',
+                                  letterSpacing: '1.5px',
+                                  fontWeight: 700,
+                                  color: '#d4a44a',
+                                }}
+                              >
+                                WON
+                              </span>
+                            )}
                           </div>
 
                           <div className="flex items-center gap-1.5 flex-1 min-w-0">
@@ -536,6 +674,10 @@ export default function BowlHistory() {
           background-color: var(--surface-3);
           border-color: var(--surface-5);
           transform: translateX(2px);
+        }
+        .score-row--gold:hover {
+          background-color: color-mix(in srgb, #d4a44a 12%, var(--surface-3)) !important;
+          border-color: color-mix(in srgb, #d4a44a 55%, transparent) !important;
         }
         .bowl-card-expanded {
           border-color: var(--surface-5);
