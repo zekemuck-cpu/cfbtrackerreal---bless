@@ -4419,6 +4419,13 @@ export function DynastyProvider({ children }) {
   const [dynasties, setDynasties] = useState([])
   const [currentDynasty, setCurrentDynasty] = useState(null)
   const [loading, setLoading] = useState(true)
+  // True for signed-in users until the first Firestore snapshot lands.
+  // Decoupled from `loading` (which drops as soon as the local read
+  // resolves) so callers can distinguish "spinner is gone, UI is
+  // interactive" from "cloud data has arrived, can decide a dynasty
+  // truly doesn't exist." Used by selectDynasty's not-found check and
+  // by DynastyDashboard's redirect-home effect.
+  const [cloudSyncing, setCloudSyncing] = useState(false)
   const [migrated, setMigrated] = useState(false)
   // Ref to skip Firestore listener updates after manual local state update
   // This prevents the listener from overwriting fresh local changes with stale Firestore data
@@ -4892,6 +4899,8 @@ export function DynastyProvider({ children }) {
 
     // If user is not signed in, only load local dynasties
     if (!user) {
+      // No cloud to wait on.
+      setCloudSyncing(false)
       const loadOnlyLocal = async () => {
         const localDynasties = await loadLocalDynasties()
         if (localDynasties.length > 0) {
@@ -4906,6 +4915,11 @@ export function DynastyProvider({ children }) {
       return
     }
 
+    // Signed in: cloud sync is pending until the first Firestore
+    // snapshot lands. Code that needs to know "has cloud data been
+    // confirmed?" reads this flag instead of `loading`.
+    setCloudSyncing(true)
+
     // User is signed in - load BOTH local and cloud dynasties
     // NOTE: Automatic migration is DISABLED. Users must manually migrate dynasties
     // through the Storage Switch Modal to avoid duplicates and size limit issues.
@@ -4914,13 +4928,20 @@ export function DynastyProvider({ children }) {
     // - Failed for large dynasties (>1MB) without proper subcollection handling
     // - Cleared IndexedDB even on partial failures
 
-    // Load local dynasties first, then subscribe to cloud updates
+    // Load local dynasties first, then subscribe to cloud updates.
+    // CRITICAL: drop the loading spinner as soon as the local read
+    // resolves. Without this, signed-in users sit on "Loading
+    // dynasties..." until the first Firestore snapshot arrives — which
+    // on mobile cold reopens (no Firestore offline cache, possible
+    // long-polling fallback) can stretch into multiple minutes. Cloud
+    // dynasties continue syncing in the background and merge in when
+    // the snapshot lands.
     loadLocalDynasties().then(localDynasties => {
-      // If we have local dynasties, show them immediately
       if (localDynasties.length > 0 && dynasties.length === 0) {
         const migratedLocal = applyMigrations(localDynasties)
         setDynasties(migratedLocal)
       }
+      setLoading(false)
     })
 
     // Subscribe to real-time updates for cloud dynasties (Firestore)
@@ -5010,6 +5031,7 @@ export function DynastyProvider({ children }) {
 
       setDynasties(migratedDynasties)
       setLoading(false)
+      setCloudSyncing(false)
 
       // Update current dynasty if it's in the list
       // CRITICAL: Check if we recently updated players/games locally - if so, preserve local data
@@ -5792,11 +5814,14 @@ export function DynastyProvider({ children }) {
     let dynasty = dynasties.find(d => d.id === dynastyId)
       || sharedDynasties.find(d => d.id === dynastyId)
     if (!dynasty) {
-      // Don't clear currentDynasty if we're still loading — the dynasty
-      // may arrive shortly via the cloud or shared-dynasty
+      // Don't clear currentDynasty if cloud sync is still pending — the
+      // dynasty may arrive shortly via the cloud or shared-dynasty
       // subscriptions. Clearing now would briefly null currentDynasty
-      // and force the page into the "redirect home" path.
-      if (loading) return
+      // and force the page into the "redirect home" path. Gate on
+      // cloudSyncing rather than `loading` because `loading` flips
+      // false as soon as the local read resolves, before cloud has had
+      // a chance to deliver the dynasty.
+      if (cloudSyncing) return
       setCurrentDynasty(null)
       return
     }
@@ -12159,6 +12184,7 @@ export function DynastyProvider({ children }) {
     setActiveTeam,
     customTeams,
     loading,
+    cloudSyncing,
     loadingDynastyId,
     isViewOnly,
     createDynasty,
