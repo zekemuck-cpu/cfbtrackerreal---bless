@@ -35,54 +35,94 @@ export default function buildRecapLinks(dynasty, year, pathPrefix) {
   const escForRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
   // ----- Team links -----
-  const seenTids = new Set()
+  // First pass: collect every team that played in this year, plus a count
+  // of games played. We need games-played to disambiguate stripped school
+  // names — e.g. "Miami" is shared by Miami Hurricanes (FL) and Miami
+  // Redhawks (OH); the team with more games this year is the more likely
+  // subject of any "Miami" mention in the recap.
+  const teamEntries = new Map() // tNum -> { fullName, school, gamesPlayed }
   for (const g of (dynasty.games || [])) {
     if (Number(g?.year) !== yearNum) continue
     for (const tid of [g.team1Tid, g.team2Tid]) {
       if (tid == null) continue
       const tNum = Number(tid)
-      if (seenTids.has(tNum)) continue
-      seenTids.add(tNum)
-      const t = teams[tNum]
-      const fallbackAbbr = (g.team1Tid === tid ? g.team1 : g.team2) || null
-      const abbr = t?.abbr || fallbackAbbr
-      if (abbr && isFCSPlaceholderAbbr(abbr)) continue
-      const fullName = t?.name || t?.fullName
-      if (!fullName) continue
-
-      const teamHref = `${pathPrefix}/team/${tNum}/${yearNum}`
-      const renderTeam = (text, key) => (
-        <Link
-          key={key}
-          to={teamHref}
-          className="hover:underline underline-offset-2 decoration-zinc-500"
-        >
-          {text}
-        </Link>
-      )
-
-      const namePatterns = new Set()
-      namePatterns.add(fullName)
-      const school = stripMascotFromName(fullName)
-      if (school && school !== fullName) namePatterns.add(school)
-
-      for (const p of namePatterns) {
-        if (!p || p.length < 3) continue
-        // Rank-prefixed form: "#9 Alabama" links as a single block to the
-        // team page. Raw regex so the leading "#" + digits + space is part
-        // of the match. The non-word lookbehind keeps "blah#9 Alabama"
-        // from matching, and the trailing \b prevents the shorter pattern
-        // ("#9 Alabama") from clipping into a longer team name match
-        // ("#9 Alabama Crimson Tide") — the longer raw pattern is tried
-        // first by FormattedRecap's compile sort, so the trailing \b only
-        // matters when no longer pattern applies.
-        links.push({
-          regex: `(?<![A-Za-z0-9_])#\\d{1,2}\\s+${escForRegex(p)}\\b`,
-          render: renderTeam,
+      if (!teamEntries.has(tNum)) {
+        const t = teams[tNum]
+        const fallbackAbbr = (g.team1Tid === tid ? g.team1 : g.team2) || null
+        const abbr = t?.abbr || fallbackAbbr
+        if (abbr && isFCSPlaceholderAbbr(abbr)) continue
+        const fullName = t?.name || t?.fullName
+        if (!fullName) continue
+        const school = stripMascotFromName(fullName)
+        teamEntries.set(tNum, {
+          fullName,
+          school: school && school !== fullName ? school : null,
+          gamesPlayed: 0,
         })
-        // Plain literal — fallback when no rank prefix appears in prose.
-        links.push({ pattern: p, render: renderTeam })
       }
+      const entry = teamEntries.get(tNum)
+      if (entry) entry.gamesPlayed += 1
+    }
+  }
+
+  // Resolve ambiguous school-only names: when 2+ teams share the same
+  // stripped school name (e.g. "Miami"), only the team with the most
+  // games played in this year claims it. Ties drop the school pattern
+  // for everyone — readers must use the full mascot name to disambiguate.
+  const schoolClaims = new Map() // school -> { tNum, gamesPlayed, tied }
+  for (const [tNum, entry] of teamEntries) {
+    if (!entry.school) continue
+    const existing = schoolClaims.get(entry.school)
+    if (!existing) {
+      schoolClaims.set(entry.school, { tNum, gamesPlayed: entry.gamesPlayed, tied: false })
+    } else if (entry.gamesPlayed > existing.gamesPlayed) {
+      schoolClaims.set(entry.school, { tNum, gamesPlayed: entry.gamesPlayed, tied: false })
+    } else if (entry.gamesPlayed === existing.gamesPlayed) {
+      existing.tied = true
+    }
+  }
+
+  for (const [tNum, entry] of teamEntries) {
+    const teamHref = `${pathPrefix}/team/${tNum}/${yearNum}`
+    const renderTeam = (text, key) => (
+      <Link
+        key={key}
+        to={teamHref}
+        className="hover:underline underline-offset-2 decoration-zinc-500"
+      >
+        {text}
+      </Link>
+    )
+
+    const namePatterns = new Set()
+    namePatterns.add(entry.fullName)
+    if (entry.school) {
+      const claim = schoolClaims.get(entry.school)
+      // Only register the bare school name if this team is the unambiguous
+      // (or majority-games) claimant. Otherwise, "Miami" linking to the
+      // wrong Miami is worse than no link at all — readers can still
+      // click the full name.
+      if (claim && !claim.tied && claim.tNum === tNum) {
+        namePatterns.add(entry.school)
+      }
+    }
+
+    for (const p of namePatterns) {
+      if (!p || p.length < 3) continue
+      // Rank-prefixed form: "#9 Alabama" links as a single block to the
+      // team page. Raw regex so the leading "#" + digits + space is part
+      // of the match. The non-word lookbehind keeps "blah#9 Alabama"
+      // from matching, and the trailing \b prevents the shorter pattern
+      // ("#9 Alabama") from clipping into a longer team name match
+      // ("#9 Alabama Crimson Tide") — the longer raw pattern is tried
+      // first by FormattedRecap's compile sort, so the trailing \b only
+      // matters when no longer pattern applies.
+      links.push({
+        regex: `(?<![A-Za-z0-9_])#\\d{1,2}\\s+${escForRegex(p)}\\b`,
+        render: renderTeam,
+      })
+      // Plain literal — fallback when no rank prefix appears in prose.
+      links.push({ pattern: p, render: renderTeam })
     }
   }
 
