@@ -3115,7 +3115,7 @@ export default function Dashboard() {
         <div className="space-y-6 lg:flex lg:flex-col lg:h-full">
           {/* Phase-Specific Content */}
           {currentDynasty.currentPhase === 'preseason' ? (
-        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--rule-soft)' }}>
+        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
           <div className="px-4 pt-3 pb-4 sm:px-6 sm:pt-3 sm:pb-6">
           <div className="flex items-center gap-3 mb-3 sm:mb-4">
             <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
@@ -3552,7 +3552,7 @@ export default function Dashboard() {
                             <div className="w-10 h-10 sm:w-20 sm:h-20 flex items-center justify-center">
                               {oppLogoUrl
                                 ? <img src={oppLogoUrl} alt={oppAbbr || 'Opponent'} className="w-full h-full object-contain" />
-                                : <div className="w-full h-full rounded-full border-2 border-dashed border-zinc-700 flex items-center justify-center text-xs font-bold text-txt-secondary">TBD</div>}
+                                : <div className="w-full h-full rounded-full border-2 border-dashed border-surface-4 flex items-center justify-center text-xs font-bold text-txt-secondary">TBD</div>}
                             </div>
                           </div>
                         </div>
@@ -3835,7 +3835,7 @@ export default function Dashboard() {
       ) : currentDynasty.currentPhase === 'conference_championship' ? (
         <div
           className="rounded-2xl overflow-hidden"
-          style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--rule-soft)' }}
+          style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
         >
           <div className="px-4 pt-3 pb-4 sm:px-6 sm:pt-3 sm:pb-6">
           <div className="flex items-center gap-3 mb-3 sm:mb-4">
@@ -3869,7 +3869,7 @@ export default function Dashboard() {
                     border: '1px solid rgba(34, 197, 94, 0.3)'
                   } : {
                     backgroundColor: 'var(--surface-3)',
-                    border: '1px solid var(--rule-soft)'
+                    border: '1px solid var(--surface-4)'
                   }}
                 >
                   <div className="flex items-center gap-2 sm:gap-3">
@@ -3955,7 +3955,7 @@ export default function Dashboard() {
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
                         backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--rule-soft)'
+                        border: '1px solid var(--surface-4)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -4036,7 +4036,7 @@ export default function Dashboard() {
                       border: '1px solid rgba(34, 197, 94, 0.3)'
                     } : {
                       backgroundColor: 'var(--surface-3)',
-                      border: '1px solid var(--rule-soft)'
+                      border: '1px solid var(--surface-4)'
                     }}
                   >
                     <div className="flex items-center gap-2 sm:gap-3">
@@ -4107,7 +4107,7 @@ export default function Dashboard() {
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
                         backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--rule-soft)'
+                        border: '1px solid var(--surface-4)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -4186,7 +4186,7 @@ export default function Dashboard() {
         </div>
       ) : currentDynasty.currentPhase === 'postseason' ? (
         // Postseason / Bowl Weeks
-        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--rule-soft)' }}>
+        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
           <div className="px-4 pt-3 pb-4 sm:px-6 sm:pt-3 sm:pb-6">
           {(() => {
             const week = currentDynasty.currentWeek
@@ -4542,7 +4542,7 @@ export default function Dashboard() {
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
                         backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--rule-soft)'
+                        border: '1px solid var(--surface-4)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -4584,7 +4584,7 @@ export default function Dashboard() {
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
                         backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--rule-soft)'
+                        border: '1px solid var(--surface-4)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -4632,7 +4632,7 @@ export default function Dashboard() {
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
                             backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--rule-soft)'
+                            border: '1px solid var(--surface-4)'
                           }}
                         >
                           <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 ${!bowlTaskComplete || (!hasCFPSeedsData || bowlEligible === null || (!userCFPSeed && bowlEligible && (!selectedBowl || !bowlOpponent))) ? 'mb-3' : ''}`}>
@@ -4814,7 +4814,7 @@ export default function Dashboard() {
                           border: '1px solid rgba(34, 197, 94, 0.3)'
                         } : {
                           backgroundColor: 'var(--surface-3)',
-                          border: '1px solid var(--rule-soft)'
+                          border: '1px solid var(--surface-4)'
                         }}
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
@@ -4875,7 +4875,7 @@ export default function Dashboard() {
                           border: '1px solid rgba(34, 197, 94, 0.3)'
                         } : {
                           backgroundColor: 'var(--surface-3)',
-                          border: '1px solid var(--rule-soft)'
+                          border: '1px solid var(--surface-4)'
                         }}
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
@@ -4934,7 +4934,7 @@ export default function Dashboard() {
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
                         backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--rule-soft)'
+                        border: '1px solid var(--surface-4)'
                       }}
                     >
                       <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 ${takingNewJob === null || (takingNewJob === true && (!newJobTeam || !newJobPosition)) ? 'mb-3' : ''}`}>
@@ -5096,7 +5096,7 @@ export default function Dashboard() {
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
                             backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--rule-soft)'
+                            border: '1px solid var(--surface-4)'
                           }}
                         >
                           <div className="flex items-center gap-3 sm:gap-4">
@@ -5188,7 +5188,7 @@ export default function Dashboard() {
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
                         backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--rule-soft)'
+                        border: '1px solid var(--surface-4)'
                       }}
                     >
                       <div className="flex items-center gap-3 sm:gap-4">
@@ -5233,7 +5233,7 @@ export default function Dashboard() {
                           border: '1px solid rgba(34, 197, 94, 0.3)'
                         } : {
                           backgroundColor: 'var(--surface-3)',
-                          border: '1px solid var(--rule-soft)'
+                          border: '1px solid var(--surface-4)'
                         }}
                       >
                         <div className="flex items-center gap-3 sm:gap-4">
@@ -5299,7 +5299,7 @@ export default function Dashboard() {
                           border: '1px solid rgba(34, 197, 94, 0.3)'
                         } : {
                           backgroundColor: 'var(--surface-3)',
-                          border: '1px solid var(--rule-soft)'
+                          border: '1px solid var(--surface-4)'
                         }}
                       >
                         <div className="flex items-center gap-3 sm:gap-4">
@@ -5368,7 +5368,7 @@ export default function Dashboard() {
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
                         backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--rule-soft)'
+                        border: '1px solid var(--surface-4)'
                       }}
                     >
                       <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 ${takingNewJob === null || (takingNewJob === true && (!newJobTeam || !newJobPosition)) ? 'mb-3' : ''}`}>
@@ -5540,7 +5540,7 @@ export default function Dashboard() {
                           className="p-3 sm:p-4 transition-all"
                           style={{
                             backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--rule-soft)'
+                            border: '1px solid var(--surface-4)'
                           }}
                         >
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
@@ -5780,7 +5780,7 @@ export default function Dashboard() {
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
                             backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--rule-soft)'
+                            border: '1px solid var(--surface-4)'
                           }}
                         >
                           <div className="flex items-center gap-3 sm:gap-4">
@@ -5882,7 +5882,7 @@ export default function Dashboard() {
                           border: '1px solid rgba(34, 197, 94, 0.3)'
                         } : {
                           backgroundColor: 'var(--surface-3)',
-                          border: '1px solid var(--rule-soft)'
+                          border: '1px solid var(--surface-4)'
                         }}
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
@@ -5940,7 +5940,7 @@ export default function Dashboard() {
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
                             backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--rule-soft)'
+                            border: '1px solid var(--surface-4)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -6001,7 +6001,7 @@ export default function Dashboard() {
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
                             backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--rule-soft)'
+                            border: '1px solid var(--surface-4)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -6060,7 +6060,7 @@ export default function Dashboard() {
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
                             backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--rule-soft)'
+                            border: '1px solid var(--surface-4)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -6111,7 +6111,7 @@ export default function Dashboard() {
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
                             backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--rule-soft)'
+                            border: '1px solid var(--surface-4)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -6163,7 +6163,7 @@ export default function Dashboard() {
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
                             backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--rule-soft)'
+                            border: '1px solid var(--surface-4)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -6215,7 +6215,7 @@ export default function Dashboard() {
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
                             backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--rule-soft)'
+                            border: '1px solid var(--surface-4)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -6266,7 +6266,7 @@ export default function Dashboard() {
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
                             backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--rule-soft)'
+                            border: '1px solid var(--surface-4)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -6317,7 +6317,7 @@ export default function Dashboard() {
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
                             backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--rule-soft)'
+                            border: '1px solid var(--surface-4)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -6381,7 +6381,7 @@ export default function Dashboard() {
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
                         backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--rule-soft)'
+                        border: '1px solid var(--surface-4)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -6425,7 +6425,7 @@ export default function Dashboard() {
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
                         backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--rule-soft)'
+                        border: '1px solid var(--surface-4)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -6507,7 +6507,7 @@ export default function Dashboard() {
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
                         backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--rule-soft)'
+                        border: '1px solid var(--surface-4)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -6567,7 +6567,7 @@ export default function Dashboard() {
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
                         backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--rule-soft)'
+                        border: '1px solid var(--surface-4)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -6637,7 +6637,7 @@ export default function Dashboard() {
                       border: '1px solid rgba(34, 197, 94, 0.3)'
                     } : {
                       backgroundColor: 'var(--surface-3)',
-                      border: '1px solid var(--rule-soft)'
+                      border: '1px solid var(--surface-4)'
                     }}
                   >
                     <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 ${takingNewJob === null || (takingNewJob === true && (!newJobTeam || !newJobPosition)) ? 'mb-3' : ''}`}>
@@ -6803,7 +6803,7 @@ export default function Dashboard() {
                         className="p-3 sm:p-4 transition-all"
                         style={{
                           backgroundColor: 'var(--surface-3)',
-                          border: '1px solid var(--rule-soft)'
+                          border: '1px solid var(--surface-4)'
                         }}
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
@@ -7047,7 +7047,7 @@ export default function Dashboard() {
                           border: '1px solid rgba(34, 197, 94, 0.3)'
                         } : {
                           backgroundColor: 'var(--surface-3)',
-                          border: '1px solid var(--rule-soft)'
+                          border: '1px solid var(--surface-4)'
                         }}
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
@@ -7128,7 +7128,7 @@ export default function Dashboard() {
           className="rounded-2xl overflow-hidden"
           style={{
             backgroundColor: 'var(--surface-2)',
-            border: '1px solid var(--rule-soft)'
+            border: '1px solid var(--surface-4)'
           }}
         >
           <div className="px-4 pt-3 pb-4 sm:px-6 sm:pt-3 sm:pb-6">
@@ -7202,7 +7202,7 @@ export default function Dashboard() {
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
                         backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--rule-soft)'
+                        border: '1px solid var(--surface-4)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -7295,7 +7295,7 @@ export default function Dashboard() {
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
                         backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--rule-soft)'
+                        border: '1px solid var(--surface-4)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -7382,7 +7382,7 @@ export default function Dashboard() {
                           border: '1px solid rgba(34, 197, 94, 0.3)'
                         } : {
                           backgroundColor: 'var(--surface-3)',
-                          border: '1px solid var(--rule-soft)'
+                          border: '1px solid var(--surface-4)'
                         }}
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
@@ -7478,7 +7478,7 @@ export default function Dashboard() {
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
                             backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--rule-soft)'
+                            border: '1px solid var(--surface-4)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -7546,7 +7546,7 @@ export default function Dashboard() {
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
                             backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--rule-soft)'
+                            border: '1px solid var(--surface-4)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -7605,7 +7605,7 @@ export default function Dashboard() {
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
                             backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--rule-soft)'
+                            border: '1px solid var(--surface-4)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -7690,11 +7690,11 @@ export default function Dashboard() {
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : isBlocked ? {
                             backgroundColor: 'var(--surface-2)',
-                            border: '1px solid var(--rule-soft)',
+                            border: '1px solid var(--surface-4)',
                             opacity: 0.5
                           } : {
                             backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--rule-soft)'
+                            border: '1px solid var(--surface-4)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -7803,11 +7803,11 @@ export default function Dashboard() {
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : isBlocked ? {
                             backgroundColor: 'var(--surface-2)',
-                            border: '1px solid var(--rule-soft)',
+                            border: '1px solid var(--surface-4)',
                             opacity: 0.5
                           } : {
                             backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--rule-soft)'
+                            border: '1px solid var(--surface-4)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -8008,7 +8008,7 @@ export default function Dashboard() {
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
                         backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--rule-soft)'
+                        border: '1px solid var(--surface-4)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -8061,7 +8061,7 @@ export default function Dashboard() {
                           border: '1px solid rgba(34, 197, 94, 0.3)'
                         } : {
                           backgroundColor: 'var(--surface-3)',
-                          border: '1px solid var(--rule-soft)'
+                          border: '1px solid var(--surface-4)'
                         }}
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
@@ -8140,7 +8140,7 @@ export default function Dashboard() {
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
                         backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--rule-soft)'
+                        border: '1px solid var(--surface-4)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -8192,7 +8192,7 @@ export default function Dashboard() {
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
                         backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--rule-soft)'
+                        border: '1px solid var(--surface-4)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -8275,7 +8275,7 @@ export default function Dashboard() {
               the tabbed mobile-style section below (full width, both cols). */}
           <div className={lastWeekRecapExists ? 'hidden' : 'hidden lg:flex lg:flex-col lg:flex-1 lg:min-h-0'}>
             <div className="flex flex-col flex-1 min-h-0">
-              <div className="py-3 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
+              <div className="py-3 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--surface-4)' }}>
                 <div className="flex items-center gap-3">
                   <div
                     className="font-display font-bold leading-none text-txt-primary"
@@ -8398,7 +8398,7 @@ export default function Dashboard() {
               className="rounded-2xl overflow-hidden"
               style={{
                 backgroundColor: 'var(--surface-1)',
-                border: '1px solid var(--rule-soft)',
+                border: '1px solid var(--surface-4)',
               }}
             >
               {/* No title bar — the recap text starts with its own H1
@@ -8429,7 +8429,7 @@ export default function Dashboard() {
           {/* Schedule Section - Clean Redesign */}
       <div>
         {/* Schedule Header */}
-        <div className="py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
+        <div className="py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--surface-4)' }}>
           <div className="flex items-center gap-3">
             <div
               className="font-display font-bold leading-none text-txt-primary"
@@ -8919,7 +8919,7 @@ export default function Dashboard() {
           non-user games yet. */}
       {scoreboardData.week != null && scoreboardData.games.length > 0 && (
         <div className="mt-8">
-          <div className="py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
+          <div className="py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--surface-4)' }}>
             <div className="flex items-center gap-3 min-w-0">
               <div className="min-w-0">
                 <div className="label-xs text-txt-tertiary uppercase tracking-wider">
@@ -9028,7 +9028,7 @@ export default function Dashboard() {
             just like it automatically does on mobile". */}
         <div className={lastWeekRecapExists ? 'lg:mt-2' : 'lg:hidden'}>
           {/* Tab Buttons */}
-          <div className="flex mb-4 rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--rule-soft)' }}>
+          <div className="flex mb-4 rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
             <button
               onClick={() => setMobileTab('schedule')}
               className={`flex-1 py-3 text-sm font-semibold transition-colors ${

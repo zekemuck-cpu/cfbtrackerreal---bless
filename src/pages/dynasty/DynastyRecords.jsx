@@ -1040,7 +1040,7 @@ export default function DynastyRecords() {
                 <div
                   className="px-6 pt-5 pb-4"
                   style={{
-                    borderBottom: '1px solid var(--rule-soft)',
+                    borderBottom: '1px solid var(--surface-4)',
                     background: 'linear-gradient(180deg, color-mix(in srgb, var(--surface-3) 35%, var(--surface-2)) 0%, var(--surface-2) 100%)',
                   }}
                 >
@@ -1090,7 +1090,7 @@ export default function DynastyRecords() {
                   className="px-6 py-3"
                   style={{
                     backgroundColor: 'var(--surface-1)',
-                    borderBottom: '1px solid var(--rule-soft)',
+                    borderBottom: '1px solid var(--surface-4)',
                   }}
                 >
                   <div className="relative">
@@ -1150,7 +1150,7 @@ export default function DynastyRecords() {
                             className="relative flex items-center gap-3 px-6 transition-colors"
                             style={{
                               padding: isFirst ? '14px 24px 14px 27px' : (isTop3 ? '10px 24px' : '8px 24px'),
-                              borderTop: displayIdx > 0 ? '1px solid var(--rule-soft)' : 'none',
+                              borderTop: displayIdx > 0 ? '1px solid var(--surface-4)' : 'none',
                               background: isFirst
                                 ? 'linear-gradient(90deg, rgba(234, 179, 8, 0.10) 0%, var(--surface-2) 70%)'
                                 : 'transparent',
@@ -1266,8 +1266,8 @@ export default function DynastyRecords() {
                               className="px-6 py-4"
                               style={{
                                 backgroundColor: 'var(--surface-1)',
-                                borderTop: '1px solid var(--rule-soft)',
-                                borderBottom: '1px solid var(--rule-soft)',
+                                borderTop: '1px solid var(--surface-4)',
+                                borderBottom: '1px solid var(--surface-4)',
                               }}
                             >
                               <div
@@ -1293,7 +1293,7 @@ export default function DynastyRecords() {
                                         className="rounded px-3 py-2"
                                         style={{
                                           backgroundColor: 'var(--surface-2)',
-                                          border: '1px solid var(--rule-soft)',
+                                          border: '1px solid var(--surface-4)',
                                         }}
                                       >
                                         <div className="flex items-baseline justify-between gap-3 mb-1.5">
@@ -1352,7 +1352,7 @@ export default function DynastyRecords() {
                                   {mode === 'career' && (
                                     <div
                                       className="flex items-baseline justify-between pt-2"
-                                      style={{ borderTop: '1px dashed var(--rule-soft)' }}
+                                      style={{ borderTop: '1px dashed var(--surface-4)' }}
                                     >
                                       <span
                                         className="text-[10px] uppercase font-bold text-txt-tertiary tabular"
@@ -1389,7 +1389,7 @@ export default function DynastyRecords() {
                   <div
                     className="px-6 py-2.5 text-[11px] text-txt-tertiary text-right tabular"
                     style={{
-                      borderTop: '1px solid var(--rule-soft)',
+                      borderTop: '1px solid var(--surface-4)',
                       backgroundColor: 'var(--surface-1)',
                       letterSpacing: '0.5px',
                     }}

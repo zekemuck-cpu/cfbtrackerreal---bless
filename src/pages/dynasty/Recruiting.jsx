@@ -786,7 +786,7 @@ export default function Recruiting() {
         }
       />
 
-      <Card padding="none">
+      <div className="media-card overflow-hidden">
         {/* Toolbar — stacks vertically on mobile so each block (metrics,
             view toggle, star filters) gets a full-width row instead of
             cramming together and wrapping awkwardly. From md: up they sit
@@ -893,7 +893,7 @@ export default function Recruiting() {
             })}
           </div>
         </div>
-      </Card>
+      </div>
 
       {allCommitments.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 stagger-reveal">
@@ -946,15 +946,8 @@ export default function Recruiting() {
                 padding="none"
                 variant="bordered"
                 interactive={!!player}
-                className="h-full overflow-hidden group relative"
+                className="h-full overflow-hidden group"
               >
-                {/* Top accent stripe — neutral surface, not team-colored */}
-                <span
-                  aria-hidden="true"
-                  className="absolute top-0 left-0 right-0 h-[2px]"
-                  style={{ backgroundColor: 'var(--surface-5)' }}
-                />
-
                 <div className="p-3 flex flex-col h-full gap-2.5">
                   {/* === IDENTITY BAND === photo + name + pos·class + stars,
                       stacked and centered so the rhythm matches the
@@ -1027,8 +1020,8 @@ export default function Recruiting() {
                     <div
                       className="grid grid-cols-3 gap-2 py-2"
                       style={{
-                        borderTop: '1px solid var(--rule-soft, var(--surface-4))',
-                        borderBottom: '1px solid var(--rule-soft, var(--surface-4))',
+                        borderTop: '1px solid var(--surface-4)',
+                        borderBottom: '1px solid var(--surface-4)',
                       }}
                     >
                       <div className="text-center">
@@ -1048,8 +1041,8 @@ export default function Recruiting() {
                       <div
                         className="text-center"
                         style={{
-                          borderLeft: '1px solid var(--rule-soft, var(--surface-4))',
-                          borderRight: '1px solid var(--rule-soft, var(--surface-4))',
+                          borderLeft: '1px solid var(--surface-4)',
+                          borderRight: '1px solid var(--surface-4)',
                         }}
                       >
                         <div
@@ -1115,7 +1108,7 @@ export default function Recruiting() {
                   {showBottomChips && (
                     <div
                       className="mt-auto pt-2 flex justify-center"
-                      style={{ borderTop: '1px solid var(--rule-soft, var(--surface-4))' }}
+                      style={{ borderTop: '1px solid var(--surface-4)' }}
                     >
                       {showFromChip ? (() => {
                         // Paint the FROM chip in the previous school's

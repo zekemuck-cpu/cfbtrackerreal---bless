@@ -3120,7 +3120,7 @@ export default function TeamYear() {
               style={{ borderLeft: `3px solid ${teamInfo.backgroundColor}`, paddingLeft: '1rem' }}
             >
               {/* Section header */}
-              <div className="flex items-baseline justify-between mb-4 pb-2" style={{ borderBottom: `1px solid var(--rule-soft)` }}>
+              <div className="flex items-baseline justify-between mb-4 pb-2" style={{ borderBottom: `1px solid var(--surface-4)` }}>
                 <span
                   className="text-[11px] font-bold uppercase"
                   style={{ letterSpacing: '2px', color: 'var(--text-secondary)', fontFamily: 'var(--font-display)' }}
@@ -3182,7 +3182,7 @@ export default function TeamYear() {
 
               {/* Quick game stat leaders — divided rows, no box */}
               {lastGameStats && (
-                <div className="pt-3 space-y-2 text-xs" style={{ borderTop: `1px solid var(--rule-soft)` }}>
+                <div className="pt-3 space-y-2 text-xs" style={{ borderTop: `1px solid var(--surface-4)` }}>
                   {[
                     { key: 'pass', label: 'Pass', fmt: (p) => `${p.comp}/${p.att} · ${p.yards} yds` },
                     { key: 'rush', label: 'Rush', fmt: (p) => `${p.carries} car · ${p.yards} yds` },
@@ -3263,7 +3263,7 @@ export default function TeamYear() {
                   style={{ borderLeft: `3px solid ${teamInfo.backgroundColor}`, paddingLeft: '1rem' }}
                 >
                   {/* Section header */}
-                  <div className="flex items-baseline justify-between mb-4 pb-2" style={{ borderBottom: `1px solid var(--rule-soft)` }}>
+                  <div className="flex items-baseline justify-between mb-4 pb-2" style={{ borderBottom: `1px solid var(--surface-4)` }}>
                     <span
                       className="text-[11px] font-bold uppercase"
                       style={{ letterSpacing: '2px', color: 'var(--text-secondary)', fontFamily: 'var(--font-display)' }}
@@ -3315,7 +3315,7 @@ export default function TeamYear() {
 
                   {/* Last Meeting(s) — divided rows, no box */}
                   {previousMeetings.length > 0 && (
-                    <div className="pt-3" style={{ borderTop: `1px solid var(--rule-soft)` }}>
+                    <div className="pt-3" style={{ borderTop: `1px solid var(--surface-4)` }}>
                       <div
                         className="text-[10px] font-bold uppercase mb-2"
                         style={{ letterSpacing: '1.5px', color: 'var(--text-tertiary)' }}
@@ -3329,7 +3329,7 @@ export default function TeamYear() {
                             to={`${pathPrefix}/game/${meeting.id}`}
                             onClick={(e) => e.stopPropagation()}
                             className="flex items-center justify-between text-xs py-2 transition-colors hover:opacity-80"
-                            style={{ borderBottom: idx < previousMeetings.length - 1 ? `1px solid var(--rule-soft)` : 'none' }}
+                            style={{ borderBottom: idx < previousMeetings.length - 1 ? `1px solid var(--surface-4)` : 'none' }}
                           >
                             <span className="font-medium tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
                               {meeting.year} Wk {meeting.week}
@@ -3385,7 +3385,7 @@ export default function TeamYear() {
                   key={game.id || index}
                   to={`${pathPrefix}/game/${game.id}`}
                   className="flex items-center gap-2 py-2 transition-opacity hover:opacity-80"
-                  style={{ borderBottom: `1px solid var(--rule-soft)` }}
+                  style={{ borderBottom: `1px solid var(--surface-4)` }}
                 >
                   <span
                     className="text-[10px] font-bold uppercase w-10 flex-shrink-0 tabular-nums"
@@ -3423,7 +3423,7 @@ export default function TeamYear() {
                 {/* Editorial header: left-rail accent + tracked caps */}
                 <div
                   className="flex items-center justify-between mb-4 pb-2"
-                  style={{ borderBottom: `1px solid var(--rule-soft)` }}
+                  style={{ borderBottom: `1px solid var(--surface-4)` }}
                 >
                   <div className="flex items-center gap-3">
                     <span
@@ -5705,8 +5705,8 @@ export default function TeamYear() {
               <div
                 className="grid grid-cols-3 sm:grid-cols-6"
                 style={{
-                  borderTop: '1px solid var(--rule-soft)',
-                  borderBottom: '1px solid var(--rule-soft)',
+                  borderTop: '1px solid var(--surface-4)',
+                  borderBottom: '1px solid var(--surface-4)',
                 }}
               >
                 {kpiCells.map((cell, idx) => {
@@ -5720,7 +5720,7 @@ export default function TeamYear() {
                       disabled={!isClickable}
                       className={`group relative flex flex-col items-start py-4 px-4 text-left transition-all duration-200 ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}
                       style={{
-                        borderLeft: idx > 0 ? '1px solid var(--rule-soft)' : 'none',
+                        borderLeft: idx > 0 ? '1px solid var(--surface-4)' : 'none',
                       }}
                     >
                       <span
@@ -5762,7 +5762,7 @@ export default function TeamYear() {
                 ========================================================= */}
             {(userCoachingYears.length > 0 || userVsTeamWins > 0 || userVsTeamLosses > 0) && (
               <section>
-                <div className="flex items-baseline justify-between mb-3 pb-2" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
+                <div className="flex items-baseline justify-between mb-3 pb-2" style={{ borderBottom: '1px solid var(--surface-4)' }}>
                   <span
                     className="text-[11px] font-bold uppercase"
                     style={{ letterSpacing: '2.5px', color: 'var(--text-secondary)', fontFamily: 'var(--font-display)' }}
@@ -5831,7 +5831,7 @@ export default function TeamYear() {
                 SEASON HISTORY — editorial table, no outer box
                 ========================================================= */}
             <section>
-              <div className="flex items-baseline justify-between mb-3 pb-2" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
+              <div className="flex items-baseline justify-between mb-3 pb-2" style={{ borderBottom: '1px solid var(--surface-4)' }}>
                 <div className="flex items-center gap-3">
                   <span
                     className="w-1 h-5"
@@ -5864,7 +5864,7 @@ export default function TeamYear() {
                           style={{
                             letterSpacing: '1.5px',
                             color: 'var(--text-tertiary)',
-                            borderBottom: '1px solid var(--rule-soft)',
+                            borderBottom: '1px solid var(--surface-4)',
                           }}
                         >
                           {h}
@@ -5881,7 +5881,7 @@ export default function TeamYear() {
                           onClick={() => navigate(`${pathPrefix}/team/${tid}/${yr.year}`)}
                           className="cursor-pointer transition-colors duration-150 hover:bg-white/[0.03]"
                           style={{
-                            borderBottom: '1px solid var(--rule-soft)',
+                            borderBottom: '1px solid var(--surface-4)',
                             boxShadow: isCurrent ? `inset 3px 0 0 ${teamInfo.backgroundColor}` : undefined,
                           }}
                         >
@@ -6058,7 +6058,7 @@ export default function TeamYear() {
                   {/* Header: left-rail stripe + display title + career/season toggle */}
                   <div
                     className="flex items-baseline justify-between mb-3 pb-2 gap-4 flex-wrap"
-                    style={{ borderBottom: '1px solid var(--rule-soft)' }}
+                    style={{ borderBottom: '1px solid var(--surface-4)' }}
                   >
                     <div className="flex items-center gap-3">
                       <span
@@ -6110,7 +6110,7 @@ export default function TeamYear() {
                   </div>
 
                   {/* Category Tabs — same underline pattern as KPI / nav */}
-                  <div className="flex items-center gap-1 mb-6 overflow-x-auto" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
+                  <div className="flex items-center gap-1 mb-6 overflow-x-auto" style={{ borderBottom: '1px solid var(--surface-4)' }}>
                     {Object.entries(LEADER_CATEGORIES).map(([key, cat]) => {
                       const isActive = leadersCategory === key
                       return (
@@ -6160,7 +6160,7 @@ export default function TeamYear() {
                           {/* Column header: tracked caps, thin rule, no fill */}
                           <div
                             className="flex items-baseline justify-between pb-2 mb-2"
-                            style={{ borderBottom: '1px solid var(--rule-soft)' }}
+                            style={{ borderBottom: '1px solid var(--surface-4)' }}
                           >
                             <span
                               className="text-[10px] font-bold uppercase"
@@ -6199,7 +6199,7 @@ export default function TeamYear() {
                                       to={`${pathPrefix}/player/${player.pid}`}
                                       className="group flex items-baseline gap-3 py-2 transition-colors"
                                       style={{
-                                        borderBottom: idx < sortedLeaders.length - 1 ? '1px solid var(--rule-soft)' : 'none',
+                                        borderBottom: idx < sortedLeaders.length - 1 ? '1px solid var(--surface-4)' : 'none',
                                         textDecoration: 'none',
                                       }}
                                     >

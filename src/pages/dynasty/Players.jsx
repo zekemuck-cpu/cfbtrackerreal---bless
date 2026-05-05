@@ -236,7 +236,7 @@ export default function Players() {
               <thead>
                 <tr
                   style={{
-                    borderBottom: '1px solid var(--rule-soft, var(--surface-4))',
+                    borderBottom: '1px solid var(--surface-4)',
                     backgroundColor: 'var(--surface-1)',
                   }}
                 >
@@ -278,7 +278,7 @@ export default function Players() {
                     <tr
                       key={player.pid || player.id || idx}
                       className="player-row transition-colors"
-                      style={{ borderBottom: idx < filteredPlayers.length - 1 ? '1px solid var(--rule-soft, var(--surface-4))' : 'none' }}
+                      style={{ borderBottom: idx < filteredPlayers.length - 1 ? '1px solid var(--surface-4)' : 'none' }}
                     >
                       <td className="px-4 py-3">
                         <Link

@@ -268,23 +268,10 @@ export default function ConferenceStandings() {
         to={`${pathPrefix}/team/${linkTid}/${displayYear}`}
         className="standings-row group relative flex items-center gap-3 py-2 px-3 transition-all duration-150"
         style={{
-          borderTop: '1px solid var(--rule-soft, var(--surface-4))',
+          borderTop: '1px solid var(--surface-4)',
           backgroundColor: isLeader ? 'color-mix(in srgb, var(--surface-3) 60%, transparent)' : 'transparent',
         }}
       >
-        <span
-          aria-hidden="true"
-          className="absolute left-0 top-0 bottom-0 transition-all duration-200"
-          style={{
-            width: isLeader ? '3px' : '0',
-            backgroundColor: 'var(--surface-5)',
-          }}
-        />
-        <span
-          aria-hidden="true"
-          className="absolute left-0 top-0 bottom-0 w-0 group-hover:w-[3px] transition-all duration-200"
-          style={{ backgroundColor: 'var(--surface-5)' }}
-        />
         <div
           className="w-6 text-right font-display font-black tabular leading-none flex-shrink-0"
           style={{
@@ -306,7 +293,7 @@ export default function ConferenceStandings() {
         </div>
 
         <span
-          className="flex-1 text-sm truncate group-hover:text-white transition-colors"
+          className="flex-1 text-sm truncate group-hover:text-txt-primary transition-colors"
           style={{
             fontWeight: isLeader ? 700 : 500,
             color: 'var(--text-primary)',
@@ -391,14 +378,9 @@ export default function ConferenceStandings() {
 
     return (
       <Card padding="none" className="standings-card relative overflow-hidden transition-all duration-200">
-        <span
-          aria-hidden="true"
-          className="absolute top-0 left-0 right-0 h-[2px]"
-          style={{ backgroundColor: 'var(--surface-5)', opacity: hasData ? 1 : 0.25 }}
-        />
         <div
           className="flex items-center gap-3 px-4 py-3"
-          style={{ borderBottom: '1px solid var(--rule-soft, var(--surface-4))' }}
+          style={{ borderBottom: '1px solid var(--surface-4)' }}
         >
           <div
             className="w-10 h-10 flex-shrink-0 flex items-center justify-center bg-white p-1 rounded-md"
@@ -447,7 +429,7 @@ export default function ConferenceStandings() {
             <div
               className="flex items-center gap-3 px-3 py-1.5"
               style={{
-                borderBottom: '1px solid var(--rule-soft, var(--surface-4))',
+                borderBottom: '1px solid var(--surface-4)',
                 backgroundColor: 'var(--surface-1)',
               }}
             >

@@ -93,16 +93,11 @@ export default function Teams() {
           {filteredTeams.map(team => (
             <div
               key={team.tid}
-              className="team-card group relative flex items-center gap-3 pl-4 pr-2 py-3 rounded-lg bg-surface-2 transition-all duration-200"
+              className="team-card group relative flex items-center gap-3 px-3 py-3 rounded-lg bg-surface-2 transition-all duration-200"
               style={{
-                border: '1px solid var(--rule-soft, var(--surface-4))',
+                border: '1px solid var(--surface-4)',
               }}
             >
-              <span
-                aria-hidden="true"
-                className="absolute left-0 top-0 bottom-0 w-[3px] transition-all duration-200 group-hover:w-[5px]"
-                style={{ backgroundColor: team.primaryColor }}
-              />
               <Link
                 to={`${pathPrefix}/team/${team.tid}/${currentDynasty.currentYear}`}
                 className="flex items-center gap-3 flex-1 min-w-0 no-underline"
@@ -117,7 +112,7 @@ export default function Teams() {
                 ) : (
                   <span className="w-6 h-6 flex-shrink-0" />
                 )}
-                <span className="flex-1 min-w-0 text-sm font-semibold text-txt-primary truncate transition-colors group-hover:text-white">
+                <span className="flex-1 min-w-0 text-sm font-semibold text-txt-primary truncate transition-colors group-hover:text-txt-primary">
                   {team.name}
                 </span>
               </Link>
@@ -142,7 +137,7 @@ export default function Teams() {
                     e.stopPropagation()
                     setEditingTid(team.tid)
                   }}
-                  className="flex-shrink-0 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded text-txt-tertiary hover:text-white hover:bg-surface-3 transition-colors"
+                  className="flex-shrink-0 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded text-txt-tertiary hover:text-txt-primary hover:bg-surface-3 transition-colors"
                   title={`Edit ${team.name}`}
                 >
                   Edit

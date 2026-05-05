@@ -337,13 +337,6 @@ export default function BowlHistory() {
                   isExpanded ? 'bowl-card-expanded' : ''
                 }`}
               >
-                {isExpanded && (
-                  <span
-                    aria-hidden="true"
-                    className="absolute top-0 left-0 right-0 h-[2px] z-10"
-                    style={{ backgroundColor: 'var(--surface-5)' }}
-                  />
-                )}
                 <button
                   onClick={() => setExpandedBowl(isExpanded ? null : bowlName)}
                   className="group w-full flex items-center gap-3 px-4 py-3.5 hover:bg-surface-3 transition-colors text-left"
@@ -415,7 +408,7 @@ export default function BowlHistory() {
                 {isExpanded && hasGames && (
                   <div
                     className="px-3 pb-3 pt-2 space-y-1 expand-body"
-                    style={{ borderTop: '1px solid var(--rule-soft, var(--surface-4))' }}
+                    style={{ borderTop: '1px solid var(--surface-4)' }}
                   >
                     {results.map((game, idx) => {
                       const winner = getWinner(game)
@@ -500,7 +493,7 @@ export default function BowlHistory() {
                 {isExpanded && !hasGames && (
                   <div
                     className="px-3 py-6 text-center expand-body"
-                    style={{ borderTop: '1px solid var(--rule-soft, var(--surface-4))' }}
+                    style={{ borderTop: '1px solid var(--surface-4)' }}
                   >
                     <p
                       className="label-xs text-txt-tertiary"

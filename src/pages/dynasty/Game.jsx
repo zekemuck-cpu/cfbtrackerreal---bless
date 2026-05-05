@@ -2956,7 +2956,7 @@ export default function Game() {
                     className="rounded-xl overflow-hidden"
                     style={{
                       backgroundColor: 'var(--surface-2)',
-                      border: '1px solid var(--rule-soft)',
+                      border: '1px solid var(--surface-4)',
                     }}
                   >
                     <div

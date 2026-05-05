@@ -219,25 +219,12 @@ export default function Rankings() {
         to={`${pathPrefix}/team/${linkTid}/${year}`}
         className="ranking-row group relative flex items-center gap-3 px-3 transition-all duration-150"
         style={{
-          borderBottom: '1px solid var(--rule-soft, var(--surface-4))',
+          borderBottom: '1px solid var(--surface-4)',
           paddingTop: isLeader ? '12px' : '10px',
           paddingBottom: isLeader ? '12px' : '10px',
           backgroundColor: isLeader ? 'color-mix(in srgb, var(--surface-3) 50%, transparent)' : 'transparent',
         }}
       >
-        <span
-          aria-hidden="true"
-          className="absolute left-0 top-0 bottom-0 transition-all duration-200"
-          style={{
-            width: isLeader ? '3px' : '0',
-            backgroundColor: 'var(--surface-5)',
-          }}
-        />
-        <span
-          aria-hidden="true"
-          className="absolute left-0 top-0 bottom-0 w-0 group-hover:w-[3px] transition-all duration-200"
-          style={{ backgroundColor: 'var(--surface-5)' }}
-        />
         <span
           className="text-right font-display font-black tabular leading-none flex-shrink-0"
           style={{
@@ -264,7 +251,7 @@ export default function Rankings() {
           )}
         </div>
         <span
-          className="flex-1 truncate transition-colors group-hover:text-white"
+          className="flex-1 truncate transition-colors group-hover:text-txt-primary"
           style={{
             color: 'var(--text-primary)',
             fontSize: isLeader ? '17px' : '14px',

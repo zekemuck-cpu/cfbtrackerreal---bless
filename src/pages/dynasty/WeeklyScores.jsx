@@ -154,7 +154,7 @@ function GameCard({ game, teams, pathPrefix, recordsByTid, domId }) {
       onClick={handleCardClick}
       onKeyDown={handleCardKey}
       className="game-card relative rounded-md overflow-hidden bg-surface-2 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-surface-5"
-      style={{ border: '1px solid var(--rule-soft, var(--surface-4))' }}
+      style={{ border: '1px solid var(--surface-4)' }}
     >
       {/* Header strip only renders for non-default states (tie, scheduled, neutral) */}
       {showStatusStrip && (
