@@ -146,137 +146,76 @@ export default function Contact() {
         </a>
         </div>
 
-        {/* Reddit — secondary, with reddit-orange accent */}
-        <a
-          href={REDDIT_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group relative block overflow-hidden rounded-2xl mb-3 transition-all duration-300 hover:-translate-y-0.5"
-          style={{
-            backgroundColor: 'var(--surface-2)',
-            border: '1px solid var(--rule-soft)',
-          }}
-        >
-          <div className="flex items-center gap-4 p-5">
-            <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ring-1 ring-[#FF4500]/20"
-              style={{ backgroundColor: 'rgba(255, 69, 0, 0.1)' }}
-              aria-hidden="true"
-            >
-              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="#FF4500">
-                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-base font-bold text-txt-primary">u/achum5</div>
-            </div>
-            <div className="flex items-center gap-1 text-sm font-medium text-txt-tertiary group-hover:text-txt-primary transition-colors flex-shrink-0">
-              Open
-              <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-              </svg>
-            </div>
-          </div>
-        </a>
+        {/* Social symbols — simple icon row under the Discord tile */}
+        <div className="mt-4 mb-10 flex items-center justify-center gap-3">
+          <a
+            href={REDDIT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Reddit — u/achum5"
+            title="Reddit"
+            className="group w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5"
+            style={{
+              backgroundColor: 'var(--surface-2)',
+              border: '1px solid var(--rule-soft)',
+            }}
+          >
+            <svg className="w-5 h-5 transition-colors" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#FF4500' }}>
+              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z" />
+            </svg>
+          </a>
 
-        {/* Instagram */}
-        <a
-          href={INSTAGRAM_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group relative block overflow-hidden rounded-2xl mb-3 transition-all duration-300 hover:-translate-y-0.5"
-          style={{
-            backgroundColor: 'var(--surface-2)',
-            border: '1px solid var(--rule-soft)',
-          }}
-        >
-          <div className="flex items-center gap-4 p-5">
-            <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ring-1 ring-[#E4405F]/30"
-              style={{ background: 'linear-gradient(135deg, #F58529 0%, #DD2A7B 50%, #8134AF 100%)' }}
-              aria-hidden="true"
-            >
-              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="#FFFFFF">
-                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-base font-bold text-txt-primary">@alexguess_</div>
-            </div>
-            <div className="flex items-center gap-1 text-sm font-medium text-txt-tertiary group-hover:text-txt-primary transition-colors flex-shrink-0">
-              Open
-              <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-              </svg>
-            </div>
-          </div>
-        </a>
+          <a
+            href={INSTAGRAM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Instagram — @alexguess_"
+            title="Instagram"
+            className="group w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5"
+            style={{
+              backgroundColor: 'var(--surface-2)',
+              border: '1px solid var(--rule-soft)',
+            }}
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#E4405F' }}>
+              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z" />
+            </svg>
+          </a>
 
-        {/* X (Twitter) */}
-        <a
-          href={X_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group relative block overflow-hidden rounded-2xl mb-3 transition-all duration-300 hover:-translate-y-0.5"
-          style={{
-            backgroundColor: 'var(--surface-2)',
-            border: '1px solid var(--rule-soft)',
-          }}
-        >
-          <div className="flex items-center gap-4 p-5">
-            <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ring-1 ring-white/10"
-              style={{ backgroundColor: '#000000' }}
-              aria-hidden="true"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="#FFFFFF">
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-base font-bold text-txt-primary">@alexguess_</div>
-            </div>
-            <div className="flex items-center gap-1 text-sm font-medium text-txt-tertiary group-hover:text-txt-primary transition-colors flex-shrink-0">
-              Open
-              <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-              </svg>
-            </div>
-          </div>
-        </a>
+          <a
+            href={X_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Twitter — @alexguess_"
+            title="Twitter"
+            className="group w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5"
+            style={{
+              backgroundColor: 'var(--surface-2)',
+              border: '1px solid var(--rule-soft)',
+            }}
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#1DA1F2' }}>
+              <path d="M23.643 4.937c-.835.37-1.732.62-2.675.733.962-.576 1.7-1.49 2.048-2.578-.9.534-1.897.922-2.958 1.13-.85-.904-2.06-1.47-3.4-1.47-2.572 0-4.658 2.086-4.658 4.66 0 .364.042.718.12 1.06-3.873-.195-7.304-2.05-9.602-4.868-.4.69-.63 1.49-.63 2.342 0 1.616.823 3.043 2.072 3.878-.764-.025-1.482-.234-2.11-.583v.06c0 2.257 1.605 4.14 3.737 4.568-.39.106-.803.162-1.227.162-.3 0-.59-.028-.875-.082.593 1.85 2.313 3.198 4.352 3.234-1.595 1.25-3.604 1.995-5.786 1.995-.376 0-.747-.022-1.112-.065 2.062 1.323 4.51 2.093 7.14 2.093 8.57 0 13.255-7.098 13.255-13.254 0-.2-.005-.402-.014-.602.913-.658 1.7-1.477 2.323-2.41z" />
+            </svg>
+          </a>
 
-        {/* Facebook */}
-        <a
-          href={FACEBOOK_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group relative block overflow-hidden rounded-2xl mb-10 transition-all duration-300 hover:-translate-y-0.5"
-          style={{
-            backgroundColor: 'var(--surface-2)',
-            border: '1px solid var(--rule-soft)',
-          }}
-        >
-          <div className="flex items-center gap-4 p-5">
-            <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ring-1 ring-[#1877F2]/30"
-              style={{ backgroundColor: 'rgba(24, 119, 242, 0.1)' }}
-              aria-hidden="true"
-            >
-              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="#1877F2">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-base font-bold text-txt-primary">alex.chumbler</div>
-            </div>
-            <div className="flex items-center gap-1 text-sm font-medium text-txt-tertiary group-hover:text-txt-primary transition-colors flex-shrink-0">
-              Open
-              <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-              </svg>
-            </div>
-          </div>
-        </a>
+          <a
+            href={FACEBOOK_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Facebook — alex.chumbler"
+            title="Facebook"
+            className="group w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5"
+            style={{
+              backgroundColor: 'var(--surface-2)',
+              border: '1px solid var(--rule-soft)',
+            }}
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#1877F2' }}>
+              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+            </svg>
+          </a>
+        </div>
 
         {/* Divider */}
         <div className="flex items-center gap-4 mb-8" aria-hidden="true">
