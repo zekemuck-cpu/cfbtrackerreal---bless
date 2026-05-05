@@ -554,7 +554,7 @@ export default function CoachCareer() {
     : '0.0'
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-5">
       {/* Career hero — editorial split. Identity (eyebrow + name + range)
           stacks on the left; lifetime totals sit in a unified broadcast
           stat strip below the name, full-width on mobile. The strip
@@ -688,10 +688,15 @@ export default function CoachCareer() {
                     const yearLabel = stint.startYear === stint.endYear
                       ? `${stint.startYear}`
                       : `${stint.startYear}–${stint.isCurrent ? 'NOW' : stint.endYear}`
+                    const stintAnchorId = `stint-${stint.teamAbbr}-${stint.startYear}`
                     return (
-                      <div
+                      <button
+                        type="button"
                         key={`arc-${stint.teamAbbr}-${stint.startYear}`}
-                        className="relative flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3 py-2.5 min-w-0 flex-shrink-0"
+                        onClick={() => {
+                          document.getElementById(stintAnchorId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                        }}
+                        className="relative flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3 py-2.5 min-w-0 flex-shrink-0 text-left transition-colors hover:bg-surface-4 focus:outline-none focus:ring-1 focus:ring-text-primary"
                         style={{
                           width: `${widthPct}%`,
                           backgroundColor: stint.isCurrent ? 'var(--surface-3)' : 'var(--surface-2)',
@@ -722,7 +727,7 @@ export default function CoachCareer() {
                             {yearLabel}
                           </div>
                         </div>
-                      </div>
+                      </button>
                     )
                   })}
                 </div>
@@ -860,6 +865,7 @@ export default function CoachCareer() {
         return (
           <div
             key={`${stint.teamName}-${stint.startYear}`}
+            id={`stint-${stint.teamAbbr}-${stint.startYear}`}
             className={`media-card relative ${stint.isCurrent ? '' : 'opacity-90'}`}
             style={!stint.isCurrent ? { backgroundColor: 'var(--surface-1)' } : undefined}
           >
@@ -1305,7 +1311,6 @@ function YearByYearTable({ stint, currentDynasty, pathPrefix, navigate }) {
           <tbody>
             {years.map((yr, idx) => {
               const rank = rankTreatment(yr.finalRank)
-              const isBowlWin = yr.bowlResult?.won
               return (
                 <tr
                   key={yr.year}
@@ -1345,25 +1350,12 @@ function YearByYearTable({ stint, currentDynasty, pathPrefix, navigate }) {
                   >
                     {rank.text}
                   </td>
-                  {/* Postseason cell — bowl wins get a small green
-                      leading dot; champion years stay gold; everything
+                  {/* Postseason cell — champion years stay gold; everything
                       else is text-secondary. */}
                   <td
                     className="px-4 py-3"
                     style={{ color: yr.isNationalChamp ? 'var(--accent-warning)' : 'var(--text-secondary)' }}
                   >
-                    {isBowlWin && !yr.isNationalChamp && (
-                      <span
-                        aria-hidden="true"
-                        className="inline-block mr-2 align-middle"
-                        style={{
-                          width: '6px',
-                          height: '6px',
-                          borderRadius: '999px',
-                          backgroundColor: 'var(--accent-success)',
-                        }}
-                      />
-                    )}
                     <span className="align-middle">
                       {yr.isNationalChamp ? (
                         <span className="font-semibold">{yr.postseasonText}</span>

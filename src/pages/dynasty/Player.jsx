@@ -1513,16 +1513,10 @@ export default function Player() {
                 const currentDevTrait = player.devTraitByYear?.[currentYear] || player.devTraitByYear?.[String(currentYear)] || player.devTrait
                 return currentDevTrait && currentDevTrait !== 'Normal' ? (
                   <span
-                    className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
-                    style={{
-                      backgroundColor: currentDevTrait === 'Elite' ? '#fbbf24' :
-                                     currentDevTrait === 'Star' ? '#8b5cf6' :
-                                     currentDevTrait === 'Impact' ? '#3b82f6' : '#9ca3af',
-                      color: currentDevTrait === 'Elite' ? '#78350f' : '#ffffff',
-                      fontFamily: "'Bebas Neue', sans-serif"
-                    }}
+                    className="text-xs font-bold uppercase tracking-widest text-txt-secondary"
+                    style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}
                   >
-                    {currentDevTrait}
+                    • {currentDevTrait}
                   </span>
                 ) : null
               })()}
