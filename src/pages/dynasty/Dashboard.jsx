@@ -3748,113 +3748,105 @@ export default function Dashboard() {
               )
             })()}
 
-            {/* Last Week's Scores to-do — across-the-country results entry */}
+            {/* Weekly to-do block — Last Week's Scores + Week Recap unified
+                into a single media-card with hairline dividers between
+                rows. Reads as one task list rather than three disjoint
+                cards stacked on top of each other. */}
             {(() => {
               const curWeek = Number(currentDynasty.currentWeek)
               if (!Number.isFinite(curWeek) || curWeek < 1) return null
               const prevWeek = curWeek - 1
               const yearNum = Number(currentDynasty.currentYear)
-              const weeklyEntered = currentDynasty.weeklyScoresEntered?.[yearNum]?.[prevWeek]
-              const savedCount = (currentDynasty.games || []).filter(g =>
-                g && Number(g.year) === yearNum && Number(g.week) === prevWeek
-                && g.gameType === 'regular' && g.source === 'weekly-scores'
-              ).length
-              const done = !!weeklyEntered || savedCount > 0
-              return (
-                <div className="media-card">
-                  <div className="px-3 py-2.5 sm:px-5 sm:py-4 flex items-center gap-2 sm:gap-4">
-                    <div className="flex-1 min-w-0 flex items-center gap-2 sm:gap-3">
-                      {done && (
-                        <span
-                          aria-hidden="true"
-                          className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: 'var(--accent-success)' }}
-                        />
-                      )}
-                      <div className="min-w-0">
-                        <div
-                          className="font-display font-bold leading-tight text-txt-primary truncate"
-                          style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
-                        >
-                          {done
-                            ? `${savedCount} Game${savedCount === 1 ? '' : 's'} Logged`
-                            : `Enter Week ${prevWeek} Scores`}
-                        </div>
-                        {/* Subtitle hidden on mobile — too much vertical noise. */}
-                        <div className="hidden sm:block text-xs sm:text-[13px] mt-0.5 text-txt-tertiary">
-                          {done
-                            ? 'Across-the-country results saved'
-                            : 'Log results to update records & rankings'}
-                        </div>
-                      </div>
-                    </div>
-                    {!isViewOnly && (
-                      <div className="flex gap-1.5 sm:gap-2 flex-shrink-0">
-                        <Link
-                          to={`${pathPrefix}/weekly-scores/${yearNum}/${prevWeek}`}
-                          className="btn-refined text-center"
-                        >
-                          View
-                        </Link>
-                        <button
-                          onClick={() => setWeeklyScoresModalWeek(prevWeek)}
-                          className="btn-refined btn-refined--solid"
-                        >
-                          {done ? 'Edit' : 'Enter'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-            })()}
 
-            {/* Week Recap to-do — generate a narrative recap of the week
-                that just finished. Sits at the END of the regular-season
-                to-do list because it depends on the prior tasks (scores
-                logged, awards entered) being roughly complete. */}
-            {(() => {
-              const curWeek = Number(currentDynasty.currentWeek)
-              if (!Number.isFinite(curWeek) || curWeek < 2) return null
-              const prevWeek = curWeek - 1
-              const yearNum = Number(currentDynasty.currentYear)
-              const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[prevWeek]
-              const done = !!recap?.text
+              const todos = []
+
+              // Row 1: Last Week's Scores
+              {
+                const weeklyEntered = currentDynasty.weeklyScoresEntered?.[yearNum]?.[prevWeek]
+                const savedCount = (currentDynasty.games || []).filter(g =>
+                  g && Number(g.year) === yearNum && Number(g.week) === prevWeek
+                  && g.gameType === 'regular' && g.source === 'weekly-scores'
+                ).length
+                const done = !!weeklyEntered || savedCount > 0
+                todos.push({
+                  key: 'weekly-scores',
+                  done,
+                  title: done
+                    ? `${savedCount} Game${savedCount === 1 ? '' : 's'} Logged`
+                    : `Enter Week ${prevWeek} Scores`,
+                  subtitle: done
+                    ? 'Across-the-country results saved'
+                    : 'Log results to update records & rankings',
+                  viewTo: `${pathPrefix}/weekly-scores/${yearNum}/${prevWeek}`,
+                  onAction: () => setWeeklyScoresModalWeek(prevWeek),
+                  actionLabel: done ? 'Edit' : 'Enter',
+                })
+              }
+
+              // Row 2: Week Recap (only after Week 1 — needs a prior week)
+              if (curWeek >= 2) {
+                const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[prevWeek]
+                const done = !!recap?.text
+                todos.push({
+                  key: 'week-recap',
+                  done,
+                  title: done ? `Week ${prevWeek} Recap Saved` : `Generate Week ${prevWeek} Recap`,
+                  subtitle: done
+                    ? 'Narrative recap stored for this week'
+                    : 'Summarize the week’s biggest results',
+                  viewTo: `${pathPrefix}/weekly-scores/${yearNum}/${prevWeek}?tab=recap`,
+                  onAction: () => setRecapModalContext({ year: yearNum, week: prevWeek }),
+                  actionLabel: done ? 'Edit' : 'Generate',
+                })
+              }
+
+              if (todos.length === 0) return null
+
               return (
-                <div className="media-card">
-                  <div className="px-3 py-2.5 sm:px-5 sm:py-4 flex items-center gap-2 sm:gap-4">
-                    <div className="flex-1 min-w-0 flex items-center gap-2 sm:gap-3">
-                      {done && (
-                        <span
-                          aria-hidden="true"
-                          className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: 'var(--accent-success)' }}
-                        />
+                <div className="media-card overflow-hidden">
+                  {todos.map((todo, idx) => (
+                    <div
+                      key={todo.key}
+                      className="px-3 py-2.5 sm:px-5 sm:py-4 flex items-center gap-2 sm:gap-4"
+                      style={idx > 0 ? { borderTop: '1px solid var(--surface-4)' } : undefined}
+                    >
+                      <div className="flex-1 min-w-0 flex items-center gap-2 sm:gap-3">
+                        {todo.done && (
+                          <span
+                            aria-hidden="true"
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: 'var(--accent-success)' }}
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <div
+                            className="font-display font-bold leading-tight text-txt-primary truncate"
+                            style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
+                          >
+                            {todo.title}
+                          </div>
+                          {todo.subtitle && (
+                            <div className="hidden sm:block text-xs sm:text-[13px] mt-0.5 text-txt-tertiary">
+                              {todo.subtitle}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {!isViewOnly && (
+                        <div className="flex gap-1.5 sm:gap-2 flex-shrink-0">
+                          <Link to={todo.viewTo} className="btn-refined text-center">
+                            View
+                          </Link>
+                          <button
+                            onClick={todo.onAction}
+                            className="btn-refined btn-refined--solid"
+                          >
+                            {todo.actionLabel}
+                          </button>
+                        </div>
                       )}
-                      <div
-                        className="font-display font-bold leading-tight text-txt-primary truncate"
-                        style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
-                      >
-                        {done ? `Week ${prevWeek} Recap Saved` : `Generate Week ${prevWeek} Recap`}
-                      </div>
                     </div>
-                    {!isViewOnly && (
-                      <div className="flex gap-1.5 sm:gap-2 flex-shrink-0">
-                        <Link
-                          to={`${pathPrefix}/weekly-scores/${yearNum}/${prevWeek}?tab=recap`}
-                          className="btn-refined text-center"
-                        >
-                          View
-                        </Link>
-                        <button
-                          onClick={() => setRecapModalContext({ year: yearNum, week: prevWeek })}
-                          className="btn-refined btn-refined--solid"
-                        >
-                          {done ? 'Edit' : 'Generate'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  ))}
                 </div>
               )
             })()}
