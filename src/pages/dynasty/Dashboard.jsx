@@ -2884,7 +2884,6 @@ export default function Dashboard() {
 
         return (
           <div className="card overflow-hidden mb-6">
-            <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
             <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <Link
                 to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}`}
@@ -3122,7 +3121,7 @@ export default function Dashboard() {
         <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--rule-soft)' }}>
           <div className="px-4 pt-3 pb-4 sm:px-6 sm:pt-3 sm:pb-6">
           <div className="flex items-center gap-3 mb-3 sm:mb-4">
-            <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+            <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
             <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
               Pre-Season Setup
             </h3>
@@ -3269,8 +3268,8 @@ export default function Dashboard() {
                       backgroundColor: 'rgba(34, 197, 94, 0.2)',
                       color: '#22c55e'
                     } : {
-                      backgroundColor: `${teamColors.primary}25`,
-                      color: teamColors.primary
+                      backgroundColor: 'var(--surface-3)',
+                      color: 'var(--text-secondary)'
                     }}
                   >
                     {item.done ? (
@@ -3393,8 +3392,8 @@ export default function Dashboard() {
                         onClick={handleNoCommitments}
                         className="flex-1 sm:flex-none px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm"
                         style={{
-                          backgroundColor: teamColors.primary,
-                          color: primaryBgText
+                          backgroundColor: 'var(--text-primary)',
+                          color: 'var(--surface-1)'
                         }}
                       >
                         No
@@ -3403,8 +3402,8 @@ export default function Dashboard() {
                         onClick={item.action}
                         className="flex-1 sm:flex-none px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm"
                         style={{
-                          backgroundColor: teamColors.primary,
-                          color: primaryBgText
+                          backgroundColor: 'var(--text-primary)',
+                          color: 'var(--surface-1)'
                         }}
                       >
                         Yes
@@ -3418,8 +3417,8 @@ export default function Dashboard() {
                         backgroundColor: 'var(--surface-4)',
                         color: '#a1a1aa'
                       } : {
-                        backgroundColor: teamColors.primary,
-                        color: primaryBgText
+                        backgroundColor: 'var(--text-primary)',
+                        color: 'var(--surface-1)'
                       }}
                     >
                       {item.actionText}
@@ -3511,7 +3510,7 @@ export default function Dashboard() {
                         className="relative rounded-xl overflow-hidden flex flex-col justify-center items-center text-center px-6 py-8"
                         style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--rule-soft)' }}
                       >
-                        <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
+                        <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ backgroundColor: 'var(--text-primary)' }} aria-hidden="true" />
                         <div className="font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '3px', fontSize: '10px' }}>
                           Week {currentDynasty.currentWeek} · Off
                         </div>
@@ -3548,7 +3547,7 @@ export default function Dashboard() {
                             <div className="w-12 h-12 sm:w-20 sm:h-20 flex items-center justify-center">
                               {userLogoUrl
                                 ? <img src={userLogoUrl} alt={userAbbr} className="w-full h-full object-contain" />
-                                : <div className="w-full h-full rounded-full" style={{ backgroundColor: teamColors.primary }} />}
+                                : <div className="w-full h-full rounded-full" style={{ backgroundColor: 'var(--text-primary)' }} />}
                             </div>
                           </div>
                           {/* Middle: VS/score */}
@@ -3602,10 +3601,9 @@ export default function Dashboard() {
                               onClick={handleEnterGame}
                               className="flex-1 rounded-lg font-display font-black uppercase tracking-widest py-2 sm:py-3 text-xs sm:text-[13px] transition-all hover:opacity-90 active:translate-y-px"
                               style={{
-                                backgroundColor: teamColors.primary,
-                                color: primaryBgText,
+                                backgroundColor: 'var(--text-primary)',
+                                color: 'var(--surface-1)',
                                 letterSpacing: '2px',
-                                boxShadow: `0 6px 24px -8px ${teamColors.primary}66`
                               }}
                             >
                               Edit
@@ -3616,10 +3614,9 @@ export default function Dashboard() {
                             onClick={handleEnterGame}
                             className="mt-3 sm:mt-4 w-full rounded-lg font-display font-black uppercase tracking-widest py-2 sm:py-3 text-xs sm:text-[13px] transition-all hover:opacity-90 active:translate-y-px"
                             style={{
-                              backgroundColor: teamColors.primary,
-                              color: primaryBgText,
+                              backgroundColor: 'var(--text-primary)',
+                              color: 'var(--surface-1)',
                               letterSpacing: '2px',
-                              boxShadow: `0 6px 24px -8px ${teamColors.primary}66`
                             }}
                           >
                             Enter Game
@@ -3740,10 +3737,9 @@ export default function Dashboard() {
                             onClick={() => setShowRecruitingModal(true)}
                             className="w-full py-2.5 rounded-lg font-display font-black uppercase text-xs transition-all hover:opacity-90 active:translate-y-px"
                             style={{
-                              backgroundColor: teamColors.primary,
-                              color: primaryBgText,
+                              backgroundColor: 'var(--text-primary)',
+                              color: 'var(--surface-1)',
                               letterSpacing: '2px',
-                              boxShadow: `0 6px 24px -8px ${teamColors.primary}66`
                             }}
                           >
                             {hasCommitmentsData ? 'Edit Commits' : 'Log Commits'}
@@ -3818,10 +3814,9 @@ export default function Dashboard() {
                         onClick={() => setWeeklyScoresModalWeek(prevWeek)}
                         className="flex-1 sm:flex-none rounded-lg font-display font-black uppercase tracking-widest py-2 sm:py-3 px-4 text-xs sm:text-[13px] transition-all hover:opacity-90 active:translate-y-px"
                         style={{
-                          backgroundColor: teamColors.primary,
-                          color: primaryBgText,
+                          backgroundColor: 'var(--text-primary)',
+                          color: 'var(--surface-1)',
                           letterSpacing: '2px',
-                          boxShadow: `0 6px 24px -8px ${teamColors.primary}66`
                         }}
                       >
                         {done ? 'Edit' : 'Enter'}
@@ -3883,10 +3878,9 @@ export default function Dashboard() {
                         onClick={() => setRecapModalContext({ year: yearNum, week: prevWeek })}
                         className="flex-1 sm:flex-none rounded-lg font-display font-black uppercase tracking-widest py-2 sm:py-3 px-4 text-xs sm:text-[13px] transition-all hover:opacity-90 active:translate-y-px"
                         style={{
-                          backgroundColor: teamColors.primary,
-                          color: primaryBgText,
+                          backgroundColor: 'var(--text-primary)',
+                          color: 'var(--surface-1)',
                           letterSpacing: '2px',
-                          boxShadow: `0 6px 24px -8px ${teamColors.primary}66`
                         }}
                       >
                         {done ? 'Edit' : 'Generate'}
@@ -3905,7 +3899,7 @@ export default function Dashboard() {
         >
           <div className="px-4 pt-3 pb-4 sm:px-6 sm:pt-3 sm:pb-6">
           <div className="flex items-center gap-3 mb-3 sm:mb-4">
-            <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+            <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
             <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
               Conference Championship Week
             </h3>
@@ -3946,8 +3940,8 @@ export default function Dashboard() {
                         backgroundColor: 'rgba(34, 197, 94, 0.2)',
                         color: '#22c55e'
                       } : {
-                        backgroundColor: `${teamColors.primary}25`,
-                        color: teamColors.primary
+                        backgroundColor: 'var(--surface-3)',
+                        color: 'var(--text-secondary)'
                       }}
                     >
                       {ccQuestionComplete ? (
@@ -3973,14 +3967,14 @@ export default function Dashboard() {
                         <button
                           onClick={() => handleCCAnswer(true)}
                           className="px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                          style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                         >
                           Yes
                         </button>
                         <button
                           onClick={() => handleCCAnswer(false)}
                           className="px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                          style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                         >
                           No
                         </button>
@@ -4003,7 +3997,7 @@ export default function Dashboard() {
                           })
                         }}
                         className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                        style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                        style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                       >
                         Edit
                       </button>
@@ -4030,7 +4024,7 @@ export default function Dashboard() {
                           className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 font-bold ${
                             ccGameComplete ? 'bg-green-500 text-white' : ''
                           }`}
-                          style={!ccGameComplete ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                          style={!ccGameComplete ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                         >
                           {ccGameComplete ? (
                             <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4082,7 +4076,7 @@ export default function Dashboard() {
                               }
                             }}
                             className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                           >
                             {ccGame ? 'Edit' : 'Enter Game'}
                           </button>
@@ -4111,7 +4105,7 @@ export default function Dashboard() {
                         className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 font-bold ${
                           coordinatorTaskComplete ? 'bg-green-500 text-white' : ''
                         }`}
-                        style={!coordinatorTaskComplete ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                        style={!coordinatorTaskComplete ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                       >
                         {coordinatorTaskComplete ? (
                           <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4137,7 +4131,7 @@ export default function Dashboard() {
                       value={coordinatorToFire}
                       onChange={(e) => handleFiringSelection(e.target.value)}
                       className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold cursor-pointer text-sm self-end sm:self-auto"
-                      style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                      style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                     >
                       <option value="">Select...</option>
                       <option value="none">Keep both</option>
@@ -4182,7 +4176,7 @@ export default function Dashboard() {
                           className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 font-bold ${
                             hasCommitmentsData ? 'bg-green-500 text-white' : ''
                           }`}
-                          style={!hasCommitmentsData ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                          style={!hasCommitmentsData ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                         >
                           {hasCommitmentsData ? (
                             <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4221,14 +4215,14 @@ export default function Dashboard() {
                             <button
                               onClick={handleNoCommitments}
                               className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                             >
                               No
                             </button>
                             <button
                               onClick={() => setShowRecruitingModal(true)}
                               className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                             >
                               Yes
                             </button>
@@ -4237,7 +4231,7 @@ export default function Dashboard() {
                           <button
                             onClick={() => setShowRecruitingModal(true)}
                             className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                           >
                             Edit
                           </button>
@@ -4596,7 +4590,7 @@ export default function Dashboard() {
               return (
                 <>
                   <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
                     <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
                       Bowl Week 1
                     </h3>
@@ -4618,7 +4612,7 @@ export default function Dashboard() {
                           className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                             hasCCData ? 'bg-green-500 text-white' : ''
                           }`}
-                          style={!hasCCData ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                          style={!hasCCData ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                         >
                           {hasCCData ? (
                             <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4638,7 +4632,7 @@ export default function Dashboard() {
                       <button
                         onClick={() => setShowCCModal(true)}
                         className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                        style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                        style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                       >
                         {hasCCData ? 'Edit' : 'Enter'}
                       </button>
@@ -4660,7 +4654,7 @@ export default function Dashboard() {
                           className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                             hasCFPSeedsData ? 'bg-green-500 text-white' : ''
                           }`}
-                          style={!hasCFPSeedsData ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                          style={!hasCFPSeedsData ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                         >
                           {hasCFPSeedsData ? (
                             <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4680,7 +4674,7 @@ export default function Dashboard() {
                       <button
                         onClick={() => setShowCFPSeedsModal(true)}
                         className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                        style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                        style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                       >
                         {hasCFPSeedsData ? 'Edit' : 'Enter'}
                       </button>
@@ -4707,7 +4701,7 @@ export default function Dashboard() {
                             <div className="flex items-center gap-2 sm:gap-3">
                               <div
                                 className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${bowlTaskComplete ? 'bg-green-500 text-white' : ''}`}
-                                style={!bowlTaskComplete ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                                style={!bowlTaskComplete ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                               >
                                 {bowlTaskComplete ? (
                                   <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4765,7 +4759,7 @@ export default function Dashboard() {
                                   })
                                 }}
                                 className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                                style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                               >
                                 Edit
                               </button>
@@ -4796,7 +4790,7 @@ export default function Dashboard() {
                                     })
                                   }}
                                   className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                                  style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                                  style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                                 >
                                   Yes
                                 </button>
@@ -4812,7 +4806,7 @@ export default function Dashboard() {
                                     })
                                   }}
                                   className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                                  style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                                  style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                                 >
                                   No
                                 </button>
@@ -4890,7 +4884,7 @@ export default function Dashboard() {
                             className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                               userCFPFirstRoundGame ? 'bg-green-500 text-white' : ''
                             }`}
-                            style={!userCFPFirstRoundGame ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                            style={!userCFPFirstRoundGame ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                           >
                             {userCFPFirstRoundGame ? (
                               <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4927,7 +4921,7 @@ export default function Dashboard() {
                             }
                           }}
                           className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                          style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                         >
                           {(userCFPFirstRoundGame || (userCFPFirstRoundShell?.team1Score !== null)) ? 'Edit' : 'Enter'}
                         </button>
@@ -4951,7 +4945,7 @@ export default function Dashboard() {
                             className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                               userBowlGame ? 'bg-green-500 text-white' : ''
                             }`}
-                            style={!userBowlGame ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                            style={!userBowlGame ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                           >
                             {userBowlGame ? (
                               <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4987,7 +4981,7 @@ export default function Dashboard() {
                             }
                           }}
                           className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                          style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                         >
                           {userBowlGame ? 'Edit' : 'Enter'}
                         </button>
@@ -5011,7 +5005,7 @@ export default function Dashboard() {
                             className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                               takingNewJob !== null ? 'bg-green-500 text-white' : ''
                             }`}
-                            style={takingNewJob === null ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                            style={takingNewJob === null ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                           >
                             {takingNewJob !== null ? (
                               <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5050,7 +5044,7 @@ export default function Dashboard() {
                               })
                             }}
                             className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                           >
                             Edit
                           </button>
@@ -5068,7 +5062,7 @@ export default function Dashboard() {
                                 })
                               }}
                               className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                             >
                               Yes
                             </button>
@@ -5080,7 +5074,7 @@ export default function Dashboard() {
                                 })
                               }}
                               className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                             >
                               No
                             </button>
@@ -5134,7 +5128,7 @@ export default function Dashboard() {
                                   await updateDynasty(currentDynasty.id, updatePayload)
                                 }}
                                 className="px-4 py-2 rounded-lg font-semibold hover:opacity-90"
-                                style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                               >
                                 {pos === 'HC' ? 'Head Coach' : pos === 'OC' ? 'Offensive Coordinator' : 'Defensive Coordinator'}
                               </button>
@@ -5172,7 +5166,7 @@ export default function Dashboard() {
                               className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 font-bold ${
                                 hasCommitmentsData ? 'bg-green-500 text-white' : ''
                               }`}
-                              style={!hasCommitmentsData ? { backgroundColor: `${teamColors.primary}15`, color: teamColors.primary, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
+                              style={!hasCommitmentsData ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
                             >
                               {hasCommitmentsData ? (
                                 <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5210,14 +5204,14 @@ export default function Dashboard() {
                               <button
                                 onClick={handleNoCommitments}
                                 className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm transition-all hover:shadow-md active:scale-[0.98]"
-                                style={{ backgroundColor: teamColors.primary, color: primaryBgText, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                               >
                                 No
                               </button>
                               <button
                                 onClick={() => setShowRecruitingModal(true)}
                                 className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm transition-all hover:shadow-md active:scale-[0.98]"
-                                style={{ backgroundColor: teamColors.primary, color: primaryBgText, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                               >
                                 Yes
                               </button>
@@ -5226,7 +5220,7 @@ export default function Dashboard() {
                             <button
                               onClick={() => setShowRecruitingModal(true)}
                               className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm self-end sm:self-auto transition-all hover:shadow-md active:scale-[0.98]"
-                              style={{ backgroundColor: teamColors.primary, color: primaryBgText, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                             >
                               Edit
                             </button>
@@ -5264,7 +5258,7 @@ export default function Dashboard() {
                           className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                             hasBowlWeek1Data ? 'bg-green-500 text-white' : ''
                           }`}
-                          style={!hasBowlWeek1Data ? { backgroundColor: `${teamColors.primary}15`, color: teamColors.primary, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
+                          style={!hasBowlWeek1Data ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
                         >
                           {hasBowlWeek1Data ? (
                             <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5285,7 +5279,7 @@ export default function Dashboard() {
                         <button
                           onClick={() => setShowBowlWeek1Modal(true)}
                           className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm self-end sm:self-auto transition-all hover:shadow-md active:scale-[0.98]"
-                          style={{ backgroundColor: teamColors.primary, color: primaryBgText, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                         >
                           {hasBowlWeek1Data ? 'Edit' : 'Enter'}
                         </button>
@@ -5309,7 +5303,7 @@ export default function Dashboard() {
                             className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                               userBowlGame ? 'bg-green-500 text-white' : ''
                             }`}
-                            style={!userBowlGame ? { backgroundColor: `${teamColors.primary}15`, color: teamColors.primary, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
+                            style={!userBowlGame ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
                           >
                             {userBowlGame ? (
                               <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5346,7 +5340,7 @@ export default function Dashboard() {
                               }
                             }}
                             className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm self-end sm:self-auto transition-all hover:shadow-md active:scale-[0.98]"
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                           >
                             {userBowlGame ? 'Edit' : 'Enter'}
                           </button>
@@ -5375,7 +5369,7 @@ export default function Dashboard() {
                             className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                               qfGamePlayed ? 'bg-green-500 text-white' : ''
                             }`}
-                            style={!qfGamePlayed ? { backgroundColor: `${teamColors.primary}15`, color: teamColors.primary, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
+                            style={!qfGamePlayed ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
                           >
                             {qfGamePlayed ? (
                               <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5415,7 +5409,7 @@ export default function Dashboard() {
                             }
                           }}
                           className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm self-end sm:self-auto transition-all hover:shadow-md active:scale-[0.98]"
-                          style={{ backgroundColor: teamColors.primary, color: primaryBgText, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                         >
                           {qfGamePlayed ? 'Edit' : 'Enter'}
                         </button>
@@ -5445,7 +5439,7 @@ export default function Dashboard() {
                             className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                               takingNewJob !== null ? 'bg-green-500 text-white' : ''
                             }`}
-                            style={takingNewJob === null ? { backgroundColor: `${teamColors.primary}15`, color: teamColors.primary, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
+                            style={takingNewJob === null ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
                           >
                             {takingNewJob !== null ? (
                               <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5483,7 +5477,7 @@ export default function Dashboard() {
                               })
                             }}
                             className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm self-end sm:self-auto transition-all hover:shadow-md active:scale-[0.98]"
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                           >
                             Edit
                           </button>
@@ -5501,7 +5495,7 @@ export default function Dashboard() {
                                 })
                               }}
                               className="px-6 py-2.5 rounded-lg font-semibold transition-all hover:shadow-md active:scale-[0.98]"
-                              style={{ backgroundColor: teamColors.primary, color: primaryBgText, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                             >
                               Yes
                             </button>
@@ -5513,7 +5507,7 @@ export default function Dashboard() {
                                 })
                               }}
                               className="px-6 py-2.5 rounded-lg font-semibold transition-all hover:shadow-md active:scale-[0.98]"
-                              style={{ backgroundColor: teamColors.primary, color: primaryBgText, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                             >
                               No
                             </button>
@@ -5565,7 +5559,7 @@ export default function Dashboard() {
                                   })
                                 }}
                                 className="px-4 py-2 rounded-lg font-semibold hover:opacity-90"
-                                style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                               >
                                 {pos === 'HC' ? 'Head Coach' : pos === 'OC' ? 'Offensive Coordinator' : 'Defensive Coordinator'}
                               </button>
@@ -5615,7 +5609,7 @@ export default function Dashboard() {
                             <div className="flex items-center gap-2 sm:gap-3">
                               <div
                                 className="w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0"
-                                style={{ backgroundColor: `${teamColors.primary}20`, color: teamColors.primary }}
+                                style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' }}
                               >
                                 <span className="font-bold text-sm sm:text-base">{taskNum}</span>
                               </div>
@@ -5643,7 +5637,7 @@ export default function Dashboard() {
                                   await updateDynasty(currentDynasty.id, { pendingCoordinatorHires: null })
                                 }}
                                 className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                                style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                               >
                                 Edit
                               </button>
@@ -5660,7 +5654,7 @@ export default function Dashboard() {
                                 <button
                                   onClick={() => setFilledOCVacancy(true)}
                                   className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                                  style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                                  style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                                 >
                                   Yes
                                 </button>
@@ -5676,7 +5670,7 @@ export default function Dashboard() {
                                     })
                                   }}
                                   className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                                  style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                                  style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                                 >
                                   Not Yet
                                 </button>
@@ -5727,7 +5721,7 @@ export default function Dashboard() {
                                     }
                                   }}
                                   className="px-4 py-2 rounded-lg font-semibold hover:opacity-90"
-                                  style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                                  style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                                 >
                                   Save
                                 </button>
@@ -5745,7 +5739,7 @@ export default function Dashboard() {
                                 <button
                                   onClick={() => setFilledDCVacancy(true)}
                                   className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                                  style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                                  style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                                 >
                                   Yes
                                 </button>
@@ -5761,7 +5755,7 @@ export default function Dashboard() {
                                     })
                                   }}
                                   className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                                  style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                                  style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                                 >
                                   Not Yet
                                 </button>
@@ -5812,7 +5806,7 @@ export default function Dashboard() {
                                     }
                                   }}
                                   className="px-4 py-2 rounded-lg font-semibold hover:opacity-90"
-                                  style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                                  style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                                 >
                                   Save
                                 </button>
@@ -5856,7 +5850,7 @@ export default function Dashboard() {
                               className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 font-bold ${
                                 hasCommitmentsData ? 'bg-green-500 text-white' : ''
                               }`}
-                              style={!hasCommitmentsData ? { backgroundColor: `${teamColors.primary}15`, color: teamColors.primary, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
+                              style={!hasCommitmentsData ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
                             >
                               {hasCommitmentsData ? (
                                 <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5894,14 +5888,14 @@ export default function Dashboard() {
                               <button
                                 onClick={handleNoCommitments}
                                 className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm transition-all hover:shadow-md active:scale-[0.98]"
-                                style={{ backgroundColor: teamColors.primary, color: primaryBgText, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                               >
                                 No
                               </button>
                               <button
                                 onClick={() => setShowRecruitingModal(true)}
                                 className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm transition-all hover:shadow-md active:scale-[0.98]"
-                                style={{ backgroundColor: teamColors.primary, color: primaryBgText, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                               >
                                 Yes
                               </button>
@@ -5910,7 +5904,7 @@ export default function Dashboard() {
                             <button
                               onClick={() => setShowRecruitingModal(true)}
                               className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm self-end sm:self-auto transition-all hover:shadow-md active:scale-[0.98]"
-                              style={{ backgroundColor: teamColors.primary, color: primaryBgText, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                             >
                               Edit
                             </button>
@@ -5936,7 +5930,7 @@ export default function Dashboard() {
               return (
                 <>
                   <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
                     <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
                       End of Season Recap
                     </h3>
@@ -5959,7 +5953,7 @@ export default function Dashboard() {
                             className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                               hasChampData ? 'bg-green-500 text-white' : ''
                             }`}
-                            style={!hasChampData ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                            style={!hasChampData ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                           >
                             {hasChampData ? (
                               <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5981,7 +5975,7 @@ export default function Dashboard() {
                         <button
                           onClick={() => setShowCFPChampionshipModal(true)}
                           className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                          style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                         >
                           {hasChampData ? 'Edit' : 'Enter'}
                         </button>
@@ -6017,7 +6011,7 @@ export default function Dashboard() {
                               className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                                 isCompleted ? 'bg-green-500 text-white' : ''
                               }`}
-                              style={!isCompleted ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                              style={!isCompleted ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                             >
                               {isCompleted ? (
                                 <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6039,7 +6033,7 @@ export default function Dashboard() {
                           <button
                             onClick={() => setShowStatsEntryModal(true)}
                             className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                           >
                             {isCompleted ? 'Edit' : 'Enter'}
                           </button>
@@ -6078,7 +6072,7 @@ export default function Dashboard() {
                               className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                                 isCompleted ? 'bg-green-500 text-white' : ''
                               }`}
-                              style={!isCompleted ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                              style={!isCompleted ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                             >
                               {isCompleted ? (
                                 <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6107,7 +6101,7 @@ export default function Dashboard() {
                             onClick={() => !isLocked && setShowDetailedStatsModal(true)}
                             disabled={isLocked}
                             className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-sm self-end sm:self-auto ${isLocked ? 'cursor-not-allowed' : 'hover:opacity-90'}`}
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText, opacity: isLocked ? 0.5 : 1 }}
+                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)', opacity: isLocked ? 0.5 : 1 }}
                           >
                             {isCompleted ? 'Edit' : 'Enter'}
                           </button>
@@ -6137,7 +6131,7 @@ export default function Dashboard() {
                               className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                                 hasStandingsData ? 'bg-green-500 text-white' : ''
                               }`}
-                              style={!hasStandingsData ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                              style={!hasStandingsData ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                             >
                               {hasStandingsData ? (
                                 <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6159,7 +6153,7 @@ export default function Dashboard() {
                           <button
                             onClick={() => setShowConferenceStandingsModal(true)}
                             className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                           >
                             {hasStandingsData ? 'Edit' : 'Enter'}
                           </button>
@@ -6188,7 +6182,7 @@ export default function Dashboard() {
                               className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                                 hasPollsData ? 'bg-green-500 text-white' : ''
                               }`}
-                              style={!hasPollsData ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                              style={!hasPollsData ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                             >
                               {hasPollsData ? (
                                 <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6210,7 +6204,7 @@ export default function Dashboard() {
                           <button
                             onClick={() => setShowFinalPollsModal(true)}
                             className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                           >
                             {hasPollsData ? 'Edit' : 'Enter'}
                           </button>
@@ -6240,7 +6234,7 @@ export default function Dashboard() {
                               className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                                 hasTeamStats ? 'bg-green-500 text-white' : ''
                               }`}
-                              style={!hasTeamStats ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                              style={!hasTeamStats ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                             >
                               {hasTeamStats ? (
                                 <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6262,7 +6256,7 @@ export default function Dashboard() {
                           <button
                             onClick={() => setShowTeamStatsModal(true)}
                             className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                           >
                             {hasTeamStats ? 'Edit' : 'Enter'}
                           </button>
@@ -6292,7 +6286,7 @@ export default function Dashboard() {
                               className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                                 hasAwards ? 'bg-green-500 text-white' : ''
                               }`}
-                              style={!hasAwards ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                              style={!hasAwards ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                             >
                               {hasAwards ? (
                                 <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6314,7 +6308,7 @@ export default function Dashboard() {
                           <button
                             onClick={() => setShowAwardsModal(true)}
                             className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                           >
                             {hasAwards ? 'Edit' : 'Enter'}
                           </button>
@@ -6343,7 +6337,7 @@ export default function Dashboard() {
                               className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                                 hasAllAmericans ? 'bg-green-500 text-white' : ''
                               }`}
-                              style={!hasAllAmericans ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                              style={!hasAllAmericans ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                             >
                               {hasAllAmericans ? (
                                 <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6365,7 +6359,7 @@ export default function Dashboard() {
                           <button
                             onClick={() => setShowAllAmericansModal(true)}
                             className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                           >
                             {hasAllAmericans ? 'Edit' : 'Enter'}
                           </button>
@@ -6394,7 +6388,7 @@ export default function Dashboard() {
                               className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                                 hasAllConference ? 'bg-green-500 text-white' : ''
                               }`}
-                              style={!hasAllConference ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                              style={!hasAllConference ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                             >
                               {hasAllConference ? (
                                 <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6416,7 +6410,7 @@ export default function Dashboard() {
                           <button
                             onClick={() => setShowAllConferenceModal(true)}
                             className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                           >
                             {hasAllConference ? 'Edit' : 'Enter'}
                           </button>
@@ -6436,7 +6430,7 @@ export default function Dashboard() {
             return (
               <>
                 <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                  <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                  <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
                   <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
                     {week === 5 ? 'End of Season Recap' : week === 4 ? 'National Championship' : `Bowl Week ${week}`}
                   </h3>
@@ -6459,7 +6453,7 @@ export default function Dashboard() {
                           className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                             hasBowlWeek2Data ? 'bg-green-500 text-white' : ''
                           }`}
-                          style={!hasBowlWeek2Data ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                          style={!hasBowlWeek2Data ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                         >
                           {hasBowlWeek2Data ? (
                             <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6479,7 +6473,7 @@ export default function Dashboard() {
                       <button
                         onClick={() => setShowBowlWeek2Modal(true)}
                         className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                        style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                        style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                       >
                         {hasBowlWeek2Data ? 'Edit' : 'Enter'}
                       </button>
@@ -6503,7 +6497,7 @@ export default function Dashboard() {
                           className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                             userCFPSemifinalGame ? 'bg-green-500 text-white' : ''
                           }`}
-                          style={!userCFPSemifinalGame ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                          style={!userCFPSemifinalGame ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                         >
                           {userCFPSemifinalGame ? (
                             <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6543,7 +6537,7 @@ export default function Dashboard() {
                           }
                         }}
                         className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                        style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                        style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                       >
                         {(userCFPSemifinalGame || (userCFPSemifinalShell?.team1Score !== null)) ? 'Edit' : 'Enter'}
                       </button>
@@ -6585,7 +6579,7 @@ export default function Dashboard() {
                           className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                             allSFComplete ? 'bg-green-500 text-white' : ''
                           }`}
-                          style={!allSFComplete ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                          style={!allSFComplete ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                         >
                           {allSFComplete ? (
                             <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6605,7 +6599,7 @@ export default function Dashboard() {
                       <button
                         onClick={() => setShowCFPSemifinalsModal(true)}
                         className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                        style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                        style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                       >
                         {allSFComplete ? 'Edit' : 'Enter'}
                       </button>
@@ -6645,7 +6639,7 @@ export default function Dashboard() {
                           className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                             userChampHasScores ? 'bg-green-500 text-white' : ''
                           }`}
-                          style={!userChampHasScores ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                          style={!userChampHasScores ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                         >
                           {userChampHasScores ? (
                             <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6687,7 +6681,7 @@ export default function Dashboard() {
                           }
                         }}
                         className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                        style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                        style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                       >
                         {userChampHasScores ? 'Edit' : 'Enter'}
                       </button>
@@ -6716,7 +6710,7 @@ export default function Dashboard() {
                           className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                             takingNewJob !== null ? 'bg-green-500 text-white' : ''
                           }`}
-                          style={takingNewJob === null ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                          style={takingNewJob === null ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                         >
                           {takingNewJob !== null ? (
                             <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6754,7 +6748,7 @@ export default function Dashboard() {
                             })
                           }}
                           className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                          style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                         >
                           Edit
                         </button>
@@ -6772,7 +6766,7 @@ export default function Dashboard() {
                               })
                             }}
                             className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                           >
                             Yes
                           </button>
@@ -6784,7 +6778,7 @@ export default function Dashboard() {
                               })
                             }}
                             className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                           >
                             No
                           </button>
@@ -6836,7 +6830,7 @@ export default function Dashboard() {
                                 })
                               }}
                               className="px-4 py-2 rounded-lg font-semibold hover:opacity-90"
-                              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                             >
                               {pos === 'HC' ? 'Head Coach' : pos === 'OC' ? 'Offensive Coordinator' : 'Defensive Coordinator'}
                             </button>
@@ -6880,7 +6874,7 @@ export default function Dashboard() {
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
                               className="w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0"
-                              style={{ backgroundColor: `${teamColors.primary}20`, color: teamColors.primary }}
+                              style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' }}
                             >
                               <span className="font-bold text-sm sm:text-base">3</span>
                             </div>
@@ -6908,7 +6902,7 @@ export default function Dashboard() {
                                 await updateDynasty(currentDynasty.id, { pendingCoordinatorHires: null })
                               }}
                               className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                             >
                               Edit
                             </button>
@@ -6925,7 +6919,7 @@ export default function Dashboard() {
                               <button
                                 onClick={() => setFilledOCVacancy(true)}
                                 className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                                style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                               >
                                 Yes
                               </button>
@@ -6941,7 +6935,7 @@ export default function Dashboard() {
                                   })
                                 }}
                                 className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                                style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                               >
                                 Not Yet
                               </button>
@@ -6992,7 +6986,7 @@ export default function Dashboard() {
                                   }
                                 }}
                                 className="px-4 py-2 rounded-lg font-semibold hover:opacity-90"
-                                style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                               >
                                 Save
                               </button>
@@ -7010,7 +7004,7 @@ export default function Dashboard() {
                               <button
                                 onClick={() => setFilledDCVacancy(true)}
                                 className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                                style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                               >
                                 Yes
                               </button>
@@ -7026,7 +7020,7 @@ export default function Dashboard() {
                                   })
                                 }}
                                 className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                                style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                               >
                                 Not Yet
                               </button>
@@ -7077,7 +7071,7 @@ export default function Dashboard() {
                                   }
                                 }}
                                 className="px-4 py-2 rounded-lg font-semibold hover:opacity-90"
-                                style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                               >
                                 Save
                               </button>
@@ -7125,7 +7119,7 @@ export default function Dashboard() {
                             className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 font-bold ${
                               hasCommitmentsData ? 'bg-green-500 text-white' : ''
                             }`}
-                            style={!hasCommitmentsData ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                            style={!hasCommitmentsData ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                           >
                             {hasCommitmentsData ? (
                               <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -7163,14 +7157,14 @@ export default function Dashboard() {
                             <button
                               onClick={handleNoCommitments}
                               className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                             >
                               No
                             </button>
                             <button
                               onClick={() => setShowRecruitingModal(true)}
                               className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                             >
                               Yes
                             </button>
@@ -7179,7 +7173,7 @@ export default function Dashboard() {
                           <button
                             onClick={() => setShowRecruitingModal(true)}
                             className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                           >
                             Edit
                           </button>
@@ -7220,7 +7214,7 @@ export default function Dashboard() {
                 return (
                   <>
                     <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                      <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                      <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
                       <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
                         New Team — No Players Leaving
                       </h3>
@@ -7260,7 +7254,7 @@ export default function Dashboard() {
               return (
                 <>
                   <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
                     <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
                       Players Leaving
                     </h3>
@@ -7309,7 +7303,7 @@ export default function Dashboard() {
                         <button
                           onClick={() => setShowPlayersLeavingModal(true)}
                           className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                          style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                         >
                           {hasPlayersLeavingData ? 'Edit' : 'Enter'}
                         </button>
@@ -7354,7 +7348,7 @@ export default function Dashboard() {
               return (
                 <>
                   <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
                     <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
                       {recruitingWeekNum === 5 ? 'National Signing Day' : `Recruiting Week ${recruitingWeekNum} of 4`}
                     </h3>
@@ -7411,7 +7405,7 @@ export default function Dashboard() {
                             <button
                               onClick={() => setShowRecruitingModal(true)}
                               className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                             >
                               Open
                             </button>
@@ -7422,14 +7416,14 @@ export default function Dashboard() {
                             <button
                               onClick={handleNoCommitments}
                               className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                             >
                               No
                             </button>
                             <button
                               onClick={() => setShowRecruitingModal(true)}
                               className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                             >
                               Yes
                             </button>
@@ -7439,7 +7433,7 @@ export default function Dashboard() {
                         <button
                           onClick={() => setShowRecruitingModal(true)}
                           className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                          style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                         >
                           Edit
                         </button>
@@ -7493,7 +7487,7 @@ export default function Dashboard() {
                             <button
                               onClick={() => setShowDraftResultsModal(true)}
                               className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                             >
                               {hasDraftResultsData ? 'Edit' : 'Enter'}
                             </button>
@@ -7589,7 +7583,7 @@ export default function Dashboard() {
                               <button
                                 onClick={() => setShowTransferDestinationsModal(true)}
                                 className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                                style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                               >
                                 {hasTransferDestinationsData ? 'Edit' : 'Enter'}
                               </button>
@@ -7654,7 +7648,7 @@ export default function Dashboard() {
                             <button
                               onClick={() => setShowRecruitingClassRankModal(true)}
                               className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                             >
                               {hasClassRank ? 'Edit' : 'Enter'}
                             </button>
@@ -7713,7 +7707,7 @@ export default function Dashboard() {
                             <button
                               onClick={() => setShowPositionChangesModal(true)}
                               className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                             >
                               {hasPositionChanges ? 'Edit' : 'Open'}
                             </button>
@@ -7959,7 +7953,7 @@ export default function Dashboard() {
                 return (
                   <>
                     <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                      <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                      <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
                       <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
                         Training Camp
                       </h3>
@@ -8069,7 +8063,7 @@ export default function Dashboard() {
               return (
                 <>
                   <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
                     <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
                       Training Camp
                     </h3>
@@ -8118,7 +8112,7 @@ export default function Dashboard() {
                         <button
                           onClick={() => setShowTrainingResultsModal(true)}
                           className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                          style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                         >
                           {hasTrainingResultsData ? 'Edit' : 'Enter'}
                         </button>
@@ -8171,7 +8165,7 @@ export default function Dashboard() {
                           <button
                             onClick={() => setShowRecruitOverallsModal(true)}
                             className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                           >
                             {hasRecruitOverallsData ? 'Edit' : 'Enter'}
                           </button>
@@ -8202,7 +8196,7 @@ export default function Dashboard() {
               return (
                 <>
                   <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
                     <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
                       Offseason
                     </h3>
@@ -8251,7 +8245,7 @@ export default function Dashboard() {
                         <button
                           onClick={() => setShowOffseasonConferencesModal(true)}
                           className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                          style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                         >
                           {hasConferencesSet ? 'Edit' : 'Set'}
                         </button>
@@ -8303,7 +8297,7 @@ export default function Dashboard() {
                         <button
                           onClick={() => setShowEncourageTransfersModal(true)}
                           className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                          style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                         >
                           {hasEncourageTransfers ? 'Edit' : 'Enter'}
                         </button>
@@ -8320,7 +8314,7 @@ export default function Dashboard() {
             return (
               <>
                 <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                  <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                  <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-primary)' }} />
                   <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
                     Off-Season Week {week}
                   </h3>
@@ -8354,7 +8348,7 @@ export default function Dashboard() {
             <div className="flex flex-col flex-1 min-h-0">
               <div className="py-3 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
                 <div className="flex items-center gap-3">
-                  <div className="w-1 h-12 rounded-full" style={{ backgroundColor: teamColors.primary }} />
+                  <div className="w-1 h-12 rounded-full" style={{ backgroundColor: 'var(--text-primary)' }} />
                   <div
                     className="font-display font-black leading-none"
                     style={{
@@ -8512,7 +8506,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-3">
             <div
               className="w-1 h-12 rounded-full"
-              style={{ backgroundColor: teamColors.primary }}
+              style={{ backgroundColor: 'var(--text-primary)' }}
             />
             <div
               className="font-display font-black leading-none"
@@ -8596,7 +8590,7 @@ export default function Dashboard() {
                     {/* Week Number */}
                     <span className={`w-7 text-xs font-medium ${isCurrentWeek ? 'text-white' : 'text-zinc-500'}`}>
                       {isCurrentWeek ? (
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold" style={{ backgroundColor: teamColors.primary }}>
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold" style={{ backgroundColor: 'var(--text-primary)' }}>
                           {weekNum}
                         </span>
                       ) : weekNum}
@@ -8712,7 +8706,7 @@ export default function Dashboard() {
                 >
                   <span className={`w-7 text-xs font-medium ${isCurrentCCWeek ? 'text-white' : 'text-zinc-500'}`}>
                     {isCurrentCCWeek ? (
-                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold" style={{ backgroundColor: teamColors.primary }}>CC</span>
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold" style={{ backgroundColor: 'var(--text-primary)' }}>CC</span>
                     ) : 'CC'}
                   </span>
                   <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-white shadow-sm" style={{ padding: '5px' }}>
@@ -9004,7 +8998,7 @@ export default function Dashboard() {
         <div className="mt-8">
           <div className="py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-1 h-12 rounded-full" style={{ backgroundColor: teamColors.primary }} />
+              <div className="w-1 h-12 rounded-full" style={{ backgroundColor: 'var(--text-primary)' }} />
               <div className="min-w-0">
                 <div className="label-xs text-txt-tertiary uppercase tracking-wider">
                   Wk {scoreboardData.week} · Around the {scoreboardData.conference || 'Country'}
@@ -9120,7 +9114,7 @@ export default function Dashboard() {
                   ? 'text-white'
                   : 'text-zinc-500 hover:text-zinc-300'
               }`}
-              style={mobileTab === 'schedule' ? { backgroundColor: teamColors.primary } : {}}
+              style={mobileTab === 'schedule' ? { backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' } : {}}
             >
               Schedule
             </button>
@@ -9131,7 +9125,7 @@ export default function Dashboard() {
                   ? 'text-white'
                   : 'text-zinc-500 hover:text-zinc-300'
               }`}
-              style={mobileTab === 'roster' ? { backgroundColor: teamColors.primary } : {}}
+              style={mobileTab === 'roster' ? { backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' } : {}}
             >
               Roster
             </button>
@@ -9145,7 +9139,7 @@ export default function Dashboard() {
                 <div className="flex items-center gap-3">
                   <div
                     className="w-1 h-10 rounded-full"
-                    style={{ backgroundColor: teamColors.primary }}
+                    style={{ backgroundColor: 'var(--text-primary)' }}
                   />
                   <div>
                     <h2 className="text-lg font-bold text-white tracking-tight">
@@ -9222,7 +9216,7 @@ export default function Dashboard() {
                         >
                           <span className={`w-7 text-xs font-medium ${isCurrentWeek ? 'text-white' : 'text-zinc-500'}`}>
                             {isCurrentWeek ? (
-                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold" style={{ backgroundColor: teamColors.primary }}>
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold" style={{ backgroundColor: 'var(--text-primary)' }}>
                                 {weekNum}
                               </span>
                             ) : weekNum}
@@ -9305,7 +9299,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-3">
                 <div
                   className="w-1 h-10 rounded-full"
-                  style={{ backgroundColor: teamColors.primary }}
+                  style={{ backgroundColor: 'var(--text-primary)' }}
                 />
                 <div>
                   <h2 className="text-lg font-bold text-white tracking-tight">
