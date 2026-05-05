@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
-import { TEAMS, isFCSPlaceholderAbbr } from '../data/teamRegistry'
+import { TEAMS } from '../data/teamRegistry'
 import { stripMascotFromName } from '../data/teams'
+import { buildRecapTeamNames } from './recapTeamNames'
 
 /**
  * Build the link entries consumed by <FormattedRecap playerLinks> so an
@@ -35,54 +36,47 @@ export default function buildRecapLinks(dynasty, year, pathPrefix) {
   const escForRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
   // ----- Team links -----
-  const seenTids = new Set()
-  for (const g of (dynasty.games || [])) {
-    if (Number(g?.year) !== yearNum) continue
-    for (const tid of [g.team1Tid, g.team2Tid]) {
-      if (tid == null) continue
-      const tNum = Number(tid)
-      if (seenTids.has(tNum)) continue
-      seenTids.add(tNum)
-      const t = teams[tNum]
-      const fallbackAbbr = (g.team1Tid === tid ? g.team1 : g.team2) || null
-      const abbr = t?.abbr || fallbackAbbr
-      if (abbr && isFCSPlaceholderAbbr(abbr)) continue
-      const fullName = t?.name || t?.fullName
-      if (!fullName) continue
+  // Naming rules are derived from the team registry + per-year games
+  // inventory in recapTeamNames. They are the SAME rules the AI prompt
+  // declares to the model, so prose like "Miami (OH) routed Buffalo"
+  // resolves the parenthetical correctly and bare "Miami" routes to the
+  // intended Hurricanes link instead of either-Miami-comes-first.
+  const namingRules = buildRecapTeamNames(dynasty, yearNum)
+  for (const rule of namingRules) {
+    const teamHref = `${pathPrefix}/team/${rule.tid}/${yearNum}`
+    const renderTeam = (text, key) => (
+      <Link
+        key={key}
+        to={teamHref}
+        className="hover:underline underline-offset-2 decoration-zinc-500"
+      >
+        {text}
+      </Link>
+    )
 
-      const teamHref = `${pathPrefix}/team/${tNum}/${yearNum}`
-      const renderTeam = (text, key) => (
-        <Link
-          key={key}
-          to={teamHref}
-          className="hover:underline underline-offset-2 decoration-zinc-500"
-        >
-          {text}
-        </Link>
-      )
+    const namePatterns = new Set()
+    if (rule.display) namePatterns.add(rule.display)
+    for (const a of rule.alts || []) namePatterns.add(a)
 
-      const namePatterns = new Set()
-      namePatterns.add(fullName)
-      const school = stripMascotFromName(fullName)
-      if (school && school !== fullName) namePatterns.add(school)
-
-      for (const p of namePatterns) {
-        if (!p || p.length < 3) continue
-        // Rank-prefixed form: "#9 Alabama" links as a single block to the
-        // team page. Raw regex so the leading "#" + digits + space is part
-        // of the match. The non-word lookbehind keeps "blah#9 Alabama"
-        // from matching, and the trailing \b prevents the shorter pattern
-        // ("#9 Alabama") from clipping into a longer team name match
-        // ("#9 Alabama Crimson Tide") — the longer raw pattern is tried
-        // first by FormattedRecap's compile sort, so the trailing \b only
-        // matters when no longer pattern applies.
-        links.push({
-          regex: `(?<![A-Za-z0-9_])#\\d{1,2}\\s+${escForRegex(p)}\\b`,
-          render: renderTeam,
-        })
-        // Plain literal — fallback when no rank prefix appears in prose.
-        links.push({ pattern: p, render: renderTeam })
-      }
+    for (const p of namePatterns) {
+      if (!p || p.length < 3) continue
+      // Rank-prefixed form: "#9 Alabama" links as a single block to the
+      // team page. Raw regex so the leading "#" + digits + space is part
+      // of the match. The non-word lookbehind keeps "blah#9 Alabama"
+      // from matching, and the trailing \b prevents the shorter pattern
+      // ("#9 Alabama") from clipping into a longer team name match
+      // ("#9 Alabama Crimson Tide") — the longer raw pattern is tried
+      // first by FormattedRecap's compile sort, so the trailing \b only
+      // matters when no longer pattern applies. The trailing \b is
+      // omitted for names that end in ")" (e.g. "Miami (OH)") since
+      // \b doesn't fire after a non-word character.
+      const trailingBoundary = /[A-Za-z0-9_]$/.test(p) ? '\\b' : ''
+      links.push({
+        regex: `(?<![A-Za-z0-9_])#\\d{1,2}\\s+${escForRegex(p)}${trailingBoundary}`,
+        render: renderTeam,
+      })
+      // Plain literal — fallback when no rank prefix appears in prose.
+      links.push({ pattern: p, render: renderTeam })
     }
   }
 

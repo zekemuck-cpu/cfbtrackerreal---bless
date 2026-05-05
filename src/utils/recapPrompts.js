@@ -22,6 +22,7 @@
  */
 
 import { getMascotName } from '../data/teams'
+import { ambiguousNamingRules } from './recapTeamNames'
 
 const TWO_DIGIT = (y) => String(y).slice(-2)
 
@@ -551,6 +552,28 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
 
   const dataBlock = sections.join('\n')
 
+  // Build naming-rule lines for ambiguous schools (e.g. "Miami" → two
+  // teams). The recap link auto-detector recognizes EXACTLY these names,
+  // so the AI must use them verbatim or the resulting recap will link
+  // the wrong team. Empty array = no ambiguous teams played this year,
+  // section omitted entirely.
+  const ambig = ambiguousNamingRules(dynasty, yearNum)
+  const namingRuleLines = []
+  if (ambig.length > 0) {
+    namingRuleLines.push('═══════════════════════════════════════════════════════════')
+    namingRuleLines.push('TEAM NAMING — CRITICAL')
+    namingRuleLines.push('═══════════════════════════════════════════════════════════')
+    namingRuleLines.push('Some schools share a name (e.g. two "Miami"s play in FBS). To avoid linking the wrong team, you MUST refer to each ambiguous team using the exact label below. The recap auto-linker only routes links correctly when these labels are used verbatim.')
+    namingRuleLines.push('')
+    for (const group of ambig) {
+      namingRuleLines.push(`Schools sharing the name "${group.school}":`)
+      for (const t of group.teams) {
+        namingRuleLines.push(`  - ${t.fullName} → write as "${t.display}" in prose`)
+      }
+    }
+    namingRuleLines.push('')
+  }
+
   return [
     `You are writing a Week ${weekNum} College Football recap for the ${yearNum} season.`,
     ``,
@@ -595,6 +618,7 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     `- DO NOT explain data limitations to the reader. Never write things like "the latest snapshot is not the post-week poll" or "the next ranking isn't yet set" — that's plumbing the user shouldn't see. Just don't claim post-week rankings; describe what happened.`,
     `- Every sentence must add a fact from the data. If you can't, cut the sentence.`,
     ``,
+    ...namingRuleLines,
     OUTPUT_FORMAT.trim(),
     ``,
     `═══════════════════════════════════════════════════════════`,
