@@ -24,7 +24,7 @@ const getInitialSidebarState = () => {
 export default function DynastyDashboard() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { dynasties, currentDynasty, selectDynasty, loading } = useDynasty()
+  const { dynasties, currentDynasty, selectDynasty, cloudSyncing, loadingDynastyId } = useDynasty()
   const [sidebarOpen, setSidebarOpen] = useState(getInitialSidebarState)
 
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
@@ -41,18 +41,20 @@ export default function DynastyDashboard() {
   }, [id, currentDynasty, selectDynasty, dynasties])
 
   useEffect(() => {
-    // Only redirect if dynasties have FULLY loaded (loading=false flips after
-    // both local + cloud have resolved) AND the requested ID isn't in the
-    // list. The previous check fired the moment local-only dynasties loaded,
-    // racing the cloud subscription — refresh on a cloud dynasty page would
-    // briefly see [local-only], not find the cloud ID, and bounce home.
-    if (loading) return
+    // Only redirect once cloud sync has finished. `loading` flips false
+    // as soon as the local IndexedDB read resolves; gating on it would
+    // race the cloud subscription — refresh on a cloud-only dynasty
+    // would briefly see [no dynasties], not find the cloud ID, and
+    // bounce home. `cloudSyncing` stays true until the first Firestore
+    // snapshot lands, which is the right signal for "the dynasty truly
+    // doesn't exist."
+    if (cloudSyncing) return
     if (currentDynasty) return
     const requestedDynastyExists = id && dynasties.some(d => d.id === id)
     if (!requestedDynastyExists) {
       navigate('/')
     }
-  }, [loading, dynasties, currentDynasty, navigate, id])
+  }, [cloudSyncing, dynasties, currentDynasty, navigate, id])
 
   // Expose sidebar toggle to parent (Layout)
   useEffect(() => {
@@ -84,7 +86,7 @@ export default function DynastyDashboard() {
         style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
       >
         <Suspense fallback={<RouteFallback />}>
-          <Outlet />
+          {loadingDynastyId === id ? <RouteFallback /> : <Outlet />}
         </Suspense>
       </div>
 

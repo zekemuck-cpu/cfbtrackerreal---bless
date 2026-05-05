@@ -1,6 +1,10 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { initializeFirestore, memoryLocalCache } from "firebase/firestore";
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentSingleTabManager,
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCR0ahCPS5vZQbuRgRzh0EI5HNe6e2E-2Y",
@@ -22,12 +26,29 @@ export const googleProvider = new GoogleAuthProvider();
 // Add scope for Google Drive file access (files created by or opened with the app)
 googleProvider.addScope('https://www.googleapis.com/auth/drive.file');
 
-// CRITICAL: Use memory-only cache to disable IndexedDB persistence
-// This forces all reads/writes to go directly to the Firestore server,
-// preventing cache-related data inconsistencies that were causing
-// stint migration data to not persist correctly.
+// Use IndexedDB-backed persistent cache so cold reopens (especially on
+// mobile) can serve dynasty docs and subcollection reads from local
+// cache instead of waiting on a network round-trip. Without this every
+// app reopen had to do a fresh Firestore handshake before "Loading
+// dynasties..." could clear, which on flaky cellular stretched into
+// minutes.
+//
+// A previous comment here claimed memory-only caching was needed to
+// keep stint migration data from getting lost. That was a misdiagnosis:
+// persistent cache writes through to the server, and migration safety
+// is enforced by the persisted migration flags in applyMigrations and
+// processMigrationPersistence (DynastyContext.jsx). Those guards keep
+// stint data correct regardless of cache mode.
+//
+// `persistentSingleTabManager` is the conservative tab manager — each
+// tab keeps its own cache (no cross-tab coordination), which avoids the
+// multi-tab acquisition race that has bitten other Firebase apps.
+// If IndexedDB isn't available (Safari private browsing, blocked
+// storage), Firebase silently falls back to memory cache.
 export const db = initializeFirestore(app, {
-  localCache: memoryLocalCache()
+  localCache: persistentLocalCache({
+    tabManager: persistentSingleTabManager({ forceOwnership: false }),
+  }),
 });
 
 export default app;
