@@ -105,8 +105,38 @@ export function buildTimelineEvents(player, { resolveTid } = {}) {
   for (const m of legacy) pushRaw(Number(m.year), m)
 
   for (const [yr, movements] of rawByYear.entries()) {
-    for (const m of movements) {
-      const type = m.type
+    for (const rawMovement of movements) {
+      // Canonical v2 shapes carry the variant in m.arrival / m.departure
+      // — translate them up-front to the legacy enum the rest of this
+      // function already handles. Keeps the existing event-emission
+      // logic intact and avoids dropping canonical movements on the
+      // floor (which silenced graduation chips, draft chips, etc.).
+      let type = rawMovement.type
+      let m = rawMovement
+      if (type === 'departure') {
+        switch (rawMovement.departure) {
+          case 'graduated': type = 'graduated'; break
+          case 'pro_draft': type = 'declared_for_draft'; break
+          case 'transfer_out':
+            type = 'transferred_out'
+            m = { ...rawMovement, toTeamTid: rawMovement.toTid ?? rawMovement.toTeamTid ?? null }
+            break
+          default: type = 'departure'
+        }
+      } else if (type === 'arrival') {
+        switch (rawMovement.arrival) {
+          case 'recruit': type = 'recruited'; break
+          case 'transfer_in':
+            type = 'portal_in'
+            m = { ...rawMovement, from: rawMovement.fromTid ?? rawMovement.from ?? null }
+            break
+          case 'juco': type = 'juco_in'; break
+          case 'walk_on': type = 'added'; break
+          default: type = 'recruited'
+        }
+      } else if (type === 'recommit') {
+        type = 'recommitted'
+      }
       if (type === 'entered_portal' || type === 'transferred_out' || type === 'transfer') {
         // End-of-season portal entry. Placement is determined by what
         // happened NEXT: same school → recommit, different school → transfer,
