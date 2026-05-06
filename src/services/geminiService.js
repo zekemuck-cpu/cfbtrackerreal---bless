@@ -10,7 +10,7 @@
 import { getTeamName } from '../data/teamAbbreviations'
 import { getCurrentTeamAbbr, TEAMS, getGameTeamInfo, getNameByAbbr, getTidFromAbbr } from '../data/teamRegistry'
 import { getTeamConference } from '../data/conferenceTeams'
-import { getUserGamePerspective, getLockedCoachingStaff } from '../context/DynastyContext'
+import { getUserGamePerspective, getLockedCoachingStaff, getCustomConferencesForYear } from '../context/DynastyContext'
 
 // ============================================
 // HELPER FUNCTIONS FOR DATA EXTRACTION
@@ -1667,9 +1667,14 @@ export function buildGameRecapContext(dynasty, game) {
   // team1SeasonResults line list).
   const team1SeasonResultsSummary = getOpponentSeasonResults(allGames, team1, year, thisGameOrder, dynasty)
 
-  // Get conferences for both teams. dynasty.teams is the only team-data
-  // source — `customTeams` is gone post-refactor.
-  const customConferences = dynasty?.conferencesByYear?.[year] || dynasty?.conferences || null
+  // Get conferences for both teams. Route through the canonical
+  // resolver — the previous direct read used the wrong field names
+  // (`conferencesByYear` / `conferences` don't exist; storage is
+  // `customConferencesByYear` with overlay from
+  // `dynasty.teams[tid].byYear[year].conference`), so this prompt
+  // was silently using real-life conference defaults instead of the
+  // user's actual realignment.
+  const customConferences = getCustomConferencesForYear(dynasty, year)
   const team1Conference = getTeamConference(team1, customConferences, dynasty?.teams)
   const team2Conference = getTeamConference(team2, customConferences, dynasty?.teams)
 
