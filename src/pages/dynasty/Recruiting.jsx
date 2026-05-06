@@ -244,14 +244,10 @@ export default function Recruiting() {
           const existingPlayer = updatedPlayers[playerIndex]
           const previousTeamTid = existingPlayer.team
 
-          const movement = {
-            year: selectedYear,
-            type: 'portal_in',
-            from: previousTeamTid,
-            to: selectedTid,
-            reason: 'Transfer'
-          }
-
+          // Canonical v2 movement — write straight to movementByYear.
+          // The legacy movements[] write was being stripped by
+          // syncDerivedFieldsFromV2 anyway and used the legacy
+          // 'portal_in' type that the heal then re-canonicalized.
           updatedPlayers[playerIndex] = {
             ...existingPlayer,
             team: selectedTid,
@@ -259,7 +255,14 @@ export default function Recruiting() {
               ...existingPlayer.teamsByYear,
               [selectedYear + 1]: teamsByYearValue
             },
-            movements: [...(existingPlayer.movements || []), movement],
+            movementByYear: {
+              ...(existingPlayer.movementByYear || {}),
+              [selectedYear]: {
+                type: 'arrival',
+                arrival: 'transfer_in',
+                fromTid: previousTeamTid != null ? Number(previousTeamTid) : null,
+              },
+            },
             isPortal: true,
             isRecruit: true,
             recruitYear: selectedYear,

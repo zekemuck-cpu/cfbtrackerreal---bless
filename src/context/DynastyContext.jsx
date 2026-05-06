@@ -4758,14 +4758,18 @@ export function DynastyProvider({ children }) {
       // backfill (only acts when the logo is empty).
       migrated = migrateFCSFiveTeams(migrated)
 
-      // Heal poison movementByYear shapes — entries shaped
-      // { type: 'unknown', legacyType, raw } leaked into Firestore from an
-      // earlier bug where canonical entries were re-fed through
-      // legacyMovementToCanonical. Render paths that inspect these can
-      // crash the Player page with "Objects are not valid as a React
-      // child", and the player's profile becomes unreachable. We try to
-      // recover the original payload from `raw`; otherwise drop the entry.
+      // Heal movementByYear at LOAD time so the in-memory player has clean
+      // canonical entries before any render. Two cases:
+      //   1. { type: 'unknown', legacyType, raw } poison shapes from an
+      //      earlier migration bug. Recover from `raw` when possible
+      //      (preserves the user's intended movement) or drop.
+      //   2. Legacy types (declared_for_draft, transferred_out, recommitted,
+      //      graduated, encouraged_to_transfer, …) that were written into
+      //      movementByYear before the canonical conversion was pushed
+      //      through every writer. Convert via legacyMovementToCanonical
+      //      so renderers and resolvers see consistent v2 shapes.
       // Idempotent — clean players pass through untouched.
+      const CANONICAL_TYPES = new Set(['arrival', 'departure', 'recommit'])
       if (Array.isArray(migrated.players)) {
         let healed = false
         const healedPlayers = migrated.players.map(p => {
@@ -4773,7 +4777,15 @@ export function DynastyProvider({ children }) {
           const cleaned = {}
           let touched = false
           for (const [y, m] of Object.entries(p.movementByYear)) {
-            if (m?.type === 'unknown') {
+            if (!m || typeof m !== 'object' || !m.type) {
+              touched = true
+              continue
+            }
+            if (CANONICAL_TYPES.has(m.type)) {
+              cleaned[y] = m
+              continue
+            }
+            if (m.type === 'unknown') {
               touched = true
               const recovered = m.raw ? legacyMovementToCanonical(m.raw) : null
               if (recovered && recovered.type !== 'unknown') {
@@ -4781,7 +4793,14 @@ export function DynastyProvider({ children }) {
               }
               continue
             }
-            cleaned[y] = m
+            // Legacy type — canonicalize.
+            const canonical = legacyMovementToCanonical(m)
+            if (canonical && canonical.type !== 'unknown') {
+              touched = true
+              cleaned[y] = canonical
+            } else {
+              touched = true
+            }
           }
           if (!touched) return p
           healed = true
