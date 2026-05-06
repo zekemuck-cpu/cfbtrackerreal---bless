@@ -180,6 +180,41 @@ export default function LeagueSettings() {
     }
   }
 
+  // Self-leave: a non-commish member walks themselves out of the dynasty.
+  // The commish can't use this — they must transfer the role first (the
+  // button reflects that with a different label + confirm copy below).
+  const handleLeaveDynasty = async () => {
+    if (!user?.uid) return
+    if (myRole === ROLE_COMMISH) {
+      toast.info('Transfer the commish role to another member before leaving.')
+      return
+    }
+    const ok = await confirm({
+      title: 'Leave this dynasty?',
+      message:
+        'You will lose edit access. Your past coaching record stays in the dynasty so the commish can still see your career, but you will no longer appear as an active member.',
+      confirmLabel: 'Leave',
+      variant: 'danger',
+    })
+    if (!ok) return
+    setBusyUid(user.uid)
+    try {
+      await updateDynasty(currentDynasty.id, {
+        editors: removeEditor(currentDynasty, user.uid),
+        coCommishes: removeCoCommish(currentDynasty, user.uid),
+        ...dropMemberMetadata(currentDynasty, user.uid),
+      })
+      toast.info('You left the dynasty.')
+      // Drop them back to the dynasty list — they can't view this one anymore.
+      window.location.href = '/'
+    } catch (err) {
+      console.error('[Members] self-leave failed:', err)
+      toast.error('Failed to leave dynasty.')
+    } finally {
+      setBusyUid(null)
+    }
+  }
+
   const handleRename = async (uid) => {
     // Anyone can rename their OWN row. Only the commish/co-commish can
     // rename others.
@@ -561,6 +596,38 @@ export default function LeagueSettings() {
               Copy
             </Button>
           </div>
+        </Card>
+      )}
+
+      {/* Self-leave: only shown for non-commish editors. The commish has
+          to transfer the role first; we surface that as a hint instead
+          of a button. */}
+      {myRole && myRole !== ROLE_COMMISH && (
+        <Card>
+          <h3 className="label-sm text-txt-primary mb-1">Leave Dynasty</h3>
+          <p className="text-xs text-txt-tertiary mb-3">
+            Walk yourself out of this dynasty. Your past coaching record stays in the timeline
+            (so the commish can still see your career), but you lose edit access.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLeaveDynasty}
+            disabled={busyUid === user.uid}
+          >
+            {busyUid === user.uid ? 'Leaving…' : 'Leave Dynasty'}
+          </Button>
+        </Card>
+      )}
+
+      {myRole === ROLE_COMMISH && otherEditors.length > 0 && (
+        <Card>
+          <h3 className="label-sm text-txt-primary mb-1">Leaving the dynasty</h3>
+          <p className="text-xs text-txt-tertiary">
+            As commish you can't leave directly. Use the <span className="font-semibold text-txt-primary">Make Commish</span> button on
+            another member's row to transfer ownership — once transferred, you become a regular
+            member and can leave from this same page.
+          </p>
         </Card>
       )}
 
