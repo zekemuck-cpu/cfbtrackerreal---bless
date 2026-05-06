@@ -3622,356 +3622,253 @@ export default function Dashboard() {
           </div>
         </div>
       ) : currentDynasty.currentPhase === 'conference_championship' ? (
-        <div
-          className="rounded-2xl overflow-hidden"
-          style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
-        >
-          <div className="px-4 pt-3 pb-4 sm:px-6 sm:pt-3 sm:pb-6">
-          <div className="flex items-center gap-3 mb-3 sm:mb-4">
-            <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
-              Conference Championship Week
-            </h3>
-          </div>
-
+        <div className="space-y-3">
+          <h3 className="font-display font-bold leading-none text-txt-primary px-1" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
+            Conference Championship Week
+          </h3>
           {(() => {
+            // Conference Championship phase tasks rendered using the SAME
+            // unified to-do row pattern as preseason / regular season.
+            // Custom action shapes (Yes/No, opponent picker, fire-coord
+            // dropdown) live in the `customActions` slot so the row
+            // skeleton stays identical across phases.
             const ccGame = getCCGame()
+            const ccQuestionDone = ccMadeChampionship !== null
+            const showGameEntry = ccMadeChampionship === true
+            const ccGameDone = !!ccGame
             const hasCoordinators = currentDynasty.coachPosition === 'HC' &&
               (teamCoachingStaff?.ocName || teamCoachingStaff?.dcName)
             const coordinatorTaskComplete = coordinatorToFire !== ''
 
-            // Task 1: Made championship question (answered = complete)
-            const ccQuestionComplete = ccMadeChampionship !== null
-            // Task 2: Enter game (only when madeChampionship = true, complete when game exists)
-            const showGameEntryTask = ccMadeChampionship === true
-            const ccGameComplete = !!ccGame
+            const todos = []
 
-            // Calculate task numbers dynamically
-            let taskNum = 1
+            // Task 1: Made conference championship?
+            todos.push({
+              key: 'cc-made',
+              done: ccQuestionDone,
+              title: `Made ${userTeamConference} Championship?`,
+              subtitle: ccMadeChampionship === null
+                ? 'Did you make the championship game?'
+                : ccMadeChampionship === false
+                  ? 'Did not make championship'
+                  : 'Made the championship game',
+              customActions: ccMadeChampionship === null && !isViewOnly ? (
+                <div
+                  className="grid gap-1.5 sm:gap-2 flex-shrink-0 items-center"
+                  style={{ gridTemplateColumns: '5rem 6.5rem' }}
+                >
+                  <button
+                    onClick={() => handleCCAnswer(false)}
+                    className="btn-refined text-center"
+                  >
+                    No
+                  </button>
+                  <button
+                    onClick={() => handleCCAnswer(true)}
+                    className="btn-refined btn-refined--solid text-center"
+                  >
+                    Yes
+                  </button>
+                </div>
+              ) : null,
+              onAction: ccQuestionDone && !isViewOnly ? async () => {
+                setCCMadeChampionship(null)
+                setCCOpponent('')
+                const year = currentDynasty.currentYear
+                const existingByYear = currentDynasty.conferenceChampionshipDataByYear || {}
+                const currentCCData = existingByYear[year] || {}
+                await updateDynasty(currentDynasty.id, {
+                  conferenceChampionshipDataByYear: {
+                    ...existingByYear,
+                    [year]: { ...currentCCData, madeChampionship: null, opponent: null }
+                  }
+                })
+              } : null,
+              actionLabel: ccQuestionDone ? 'Edit' : null,
+            })
+
+            // Task 2: Enter CC Game (only when madeChampionship = true)
+            if (showGameEntry) {
+              const oppInfo = ccGame
+                ? getGameTeamInfo(currentDynasty?.teams || TEAMS, ccGame.perspective?.opponentTid)
+                : null
+              const oppName = oppInfo
+                ? (getMascotName(oppInfo?.abbr) || oppInfo?.name || 'Unknown')
+                : (ccOpponent ? (getMascotName(ccOpponent) || ccOpponent) : null)
+              const ccSubtitle = ccGame
+                ? `${ccGame.perspective?.userWon ? 'W' : 'L'} ${Math.max(ccGame.perspective?.userScore || 0, ccGame.perspective?.opponentScore || 0)}–${Math.min(ccGame.perspective?.userScore || 0, ccGame.perspective?.opponentScore || 0)} vs ${oppName}`
+                : (ccOpponent ? `vs ${oppName}` : 'Select opponent and enter result')
+              todos.push({
+                key: 'cc-game',
+                done: ccGameDone,
+                title: `${userTeamConference} Championship`,
+                subtitle: ccSubtitle,
+                customActions: !ccOpponent && !ccGame && !isViewOnly ? (
+                  <div className="flex-shrink-0 w-44 sm:w-48">
+                    <SearchableSelect
+                      options={teams}
+                      value=""
+                      onChange={(teamName) => {
+                        const abbr = getAbbrFromTeamName(teamName, currentDynasty?.teams)
+                        if (abbr) handleCCOpponentSelect(abbr)
+                      }}
+                      placeholder="Select opponent..."
+                      teamColors={teamColors}
+                      dynastyTeams={currentDynasty?.teams}
+                    />
+                  </div>
+                ) : null,
+                onAction: !isViewOnly && (ccOpponent || ccGame) ? () => {
+                  if (ccGame) {
+                    navigate(`${pathPrefix}/game/${ccGame.id}/edit`, { state: { from: location.pathname } })
+                  } else {
+                    const opponentTid = getTidFromAbbr(ccOpponent)
+                    const params = new URLSearchParams({
+                      week: 'CC',
+                      year: currentDynasty.currentYear?.toString() || '',
+                      team1Tid: userTeamTid?.toString() || '',
+                      team2Tid: opponentTid?.toString() || '',
+                      gameType: 'conference_championship',
+                      conference: userTeamConference || ''
+                    })
+                    navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                  }
+                } : null,
+                actionLabel: (ccOpponent || ccGame) ? (ccGame ? 'Edit' : 'Enter') : null,
+              })
+            }
+
+            // Task: Coordinator Changes (HC with coordinators)
+            if (hasCoordinators) {
+              const coordSubtitle = coordinatorTaskComplete
+                ? (coordinatorToFire === 'none' ? 'Keeping both coordinators' :
+                   coordinatorToFire === 'oc' ? `Firing ${teamCoachingStaff?.ocName} (OC)` :
+                   coordinatorToFire === 'dc' ? `Firing ${teamCoachingStaff?.dcName} (DC)` :
+                   coordinatorToFire === 'both' ? 'Firing both coordinators' : '')
+                : 'Fire any coordinators?'
+              todos.push({
+                key: 'cc-coords',
+                done: coordinatorTaskComplete,
+                title: 'Coordinator Changes',
+                subtitle: coordSubtitle,
+                customActions: !isViewOnly ? (
+                  <select
+                    value={coordinatorToFire}
+                    onChange={(e) => handleFiringSelection(e.target.value)}
+                    className="btn-refined btn-refined--solid text-center cursor-pointer flex-shrink-0"
+                    style={{ minWidth: '11.5rem' }}
+                  >
+                    <option value="">Select...</option>
+                    <option value="none">Keep both</option>
+                    {teamCoachingStaff?.ocName && (
+                      <option value="oc">Fire {teamCoachingStaff.ocName} (OC)</option>
+                    )}
+                    {teamCoachingStaff?.dcName && (
+                      <option value="dc">Fire {teamCoachingStaff.dcName} (DC)</option>
+                    )}
+                    {teamCoachingStaff?.ocName && teamCoachingStaff?.dcName && (
+                      <option value="both">Fire Both</option>
+                    )}
+                  </select>
+                ) : null,
+              })
+            }
+
+            // Task: Recruiting Commitments
+            {
+              const commitmentKey = getCommitmentKey()
+              const userTidForCommits = getUserTeamTid(currentDynasty)
+              const ccCommitmentsForYear = getRecruitingCommitments(currentDynasty, userTidForCommits, currentDynasty.currentYear)
+              const ccCommitments = ccCommitmentsForYear?.[commitmentKey]
+              const recruitingDone = ccCommitments !== undefined
+              const cnt = ccCommitments?.length || 0
+              const cs = calculateRecruitingClassScore(flattenClassCommitments(ccCommitmentsForYear))
+              todos.push({
+                key: 'cc-recruiting',
+                done: recruitingDone,
+                title: 'Any commitments this week?',
+                subtitle: recruitingDone
+                  ? (cnt > 0
+                      ? `${cnt} commit${cnt === 1 ? '' : 's'} recorded${cs > 0 ? ` · ${currentDynasty.currentYear} class score: ${formatRecruitingClassScore(cs)}` : ''}`
+                      : 'No commitments this week')
+                  : 'Record any recruiting commitments',
+                viewTo: cs > 0 ? `${pathPrefix}/recruiting/${userTidForCommits}/${currentDynasty.currentYear}` : null,
+                onAction: () => setShowRecruitingModal(true),
+                actionLabel: recruitingDone ? 'Edit' : 'Yes',
+                inlineAction: !recruitingDone && !isViewOnly ? {
+                  label: 'No commits',
+                  onClick: handleNoCommitments,
+                } : null,
+              })
+            }
 
             return (
-              <div className="-space-y-px">
-                {/* Task 1: Made Conference Championship? */}
-                <div
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                  style={ccQuestionComplete ? {
-                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                    border: '1px solid rgba(34, 197, 94, 0.3)'
-                  } : {
-                    backgroundColor: 'var(--surface-3)',
-                    border: '1px solid var(--surface-4)'
-                  }}
-                >
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div
-                      className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display font-bold"
-                      style={ccQuestionComplete ? {
-                        backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                        color: '#22c55e'
-                      } : {
-                        backgroundColor: 'var(--surface-3)',
-                        color: 'var(--text-secondary)'
-                      }}
-                    >
-                      {ccQuestionComplete ? (
-                        <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      ) : (taskNum)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm sm:text-base font-semibold" style={{ color: ccQuestionComplete ? '#22c55e' : '#fafafa' }}>
-                        Made {userTeamConference} Championship?
-                      </div>
-                      <div className="text-xs sm:text-sm mt-0.5" style={{ color: ccQuestionComplete ? '#22c55e' : '#a1a1aa' }}>
-                        {ccMadeChampionship === null ? 'Did you make the championship game?' :
-                         ccMadeChampionship === false ? 'Did not make championship' :
-                         'Made the championship game'}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 self-end sm:self-auto">
-                    {ccMadeChampionship === null ? (
-                      <>
-                        <button
-                          onClick={() => handleCCAnswer(true)}
-                          className="px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                        >
-                          Yes
-                        </button>
-                        <button
-                          onClick={() => handleCCAnswer(false)}
-                          className="px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                        >
-                          No
-                        </button>
-                      </>
-                    ) : isViewOnly ? (
-                      <ViewOnlyBadge />
-                    ) : (
-                      <button
-                        onClick={async () => {
-                          setCCMadeChampionship(null)
-                          setCCOpponent('')
-                          const year = currentDynasty.currentYear
-                          const existingByYear = currentDynasty.conferenceChampionshipDataByYear || {}
-                          const currentCCData = existingByYear[year] || {}
-                          await updateDynasty(currentDynasty.id, {
-                            conferenceChampionshipDataByYear: {
-                              ...existingByYear,
-                              [year]: { ...currentCCData, madeChampionship: null, opponent: null }
-                            }
-                          })
+              <div className="media-card overflow-hidden">
+                {todos.map((todo, idx) => (
+                  <div
+                    key={todo.key}
+                    className="px-3 py-2.5 sm:px-5 sm:py-4 flex items-center gap-2 sm:gap-4"
+                    style={idx > 0 ? { borderTop: '1px solid var(--surface-4)' } : undefined}
+                  >
+                    <div className="flex-1 min-w-0 flex items-center gap-2 sm:gap-3">
+                      <span
+                        aria-hidden="true"
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{
+                          backgroundColor: todo.done
+                            ? 'var(--accent-success)'
+                            : 'var(--accent-error)',
                         }}
-                        className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                        style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                      >
-                        Edit
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Task 2: Enter Championship Game (only shown when made championship = true) */}
-                {showGameEntryTask && (() => {
-                  taskNum++
-                  return (
-                    <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                      style={ccGameComplete ? {
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        border: '1px solid rgba(34, 197, 94, 0.3)'
-                      } : {
-                        backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--surface-4)'
-                      }}
-                    >
-                      <div className="flex items-center gap-2 sm:gap-3">
+                      />
+                      <div className="min-w-0">
                         <div
-                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 font-bold ${
-                            ccGameComplete ? 'bg-green-500 text-white' : ''
-                          }`}
-                          style={!ccGameComplete ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
+                          className="font-display font-bold leading-tight text-txt-primary truncate"
+                          style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
                         >
-                          {ccGameComplete ? (
-                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : (taskNum)}
+                          {todo.title}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: ccGameComplete ? '#22c55e' : '#fafafa' }}>
-                            {userTeamConference} Championship
+                        {todo.subtitle && (
+                          <div className="hidden sm:block text-xs sm:text-[13px] mt-0.5 text-txt-tertiary truncate">
+                            {todo.subtitle}
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5" style={{ color: ccGameComplete ? '#22c55e' : '#a1a1aa' }}>
-                            {ccGame ? `${ccGame.perspective?.userWon ? 'W' : 'L'} ${Math.max(ccGame.perspective?.userScore || 0, ccGame.perspective?.opponentScore || 0)}-${Math.min(ccGame.perspective?.userScore || 0, ccGame.perspective?.opponentScore || 0)} vs ${(() => { const oppInfo = getGameTeamInfo(currentDynasty?.teams || TEAMS, ccGame.perspective?.opponentTid); return getMascotName(oppInfo?.abbr) || oppInfo?.name || 'Unknown' })()}` :
-                             ccOpponent ? `vs ${getMascotName(ccOpponent) || ccOpponent}` : 'Select opponent and enter result'}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 self-end sm:self-auto">
-                        {!ccOpponent && !ccGame ? (
-                          <SearchableSelect
-                            options={teams}
-                            value=""
-                            onChange={(teamName) => {
-                              const abbr = getAbbrFromTeamName(teamName, currentDynasty?.teams)
-                              if (abbr) handleCCOpponentSelect(abbr)
-                            }}
-                            placeholder="Select opponent..."
-                            teamColors={teamColors}
-                            dynastyTeams={currentDynasty?.teams}
-                          />
-                        ) : isViewOnly ? (
-                          <ViewOnlyBadge />
-                        ) : (
+                        )}
+                        {todo.inlineAction && (
                           <button
-                            onClick={() => {
-                              if (ccGame) {
-                                navigate(`${pathPrefix}/game/${ccGame.id}/edit`, { state: { from: location.pathname } })
-                              } else {
-                                const opponentTid = getTidFromAbbr(ccOpponent)
-                                const params = new URLSearchParams({
-                                  week: 'CC',
-                                  year: currentDynasty.currentYear?.toString() || '',
-                                  team1Tid: userTeamTid?.toString() || '',
-                                  team2Tid: opponentTid?.toString() || '',
-                                  gameType: 'conference_championship',
-                                  conference: userTeamConference || ''
-                                })
-                                navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
-                              }
-                            }}
-                            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); todo.inlineAction.onClick() }}
+                            className="mt-1 text-[11px] uppercase font-bold text-txt-tertiary hover:text-txt-secondary underline underline-offset-2 transition-colors"
+                            style={{ letterSpacing: '1.2px' }}
                           >
-                            {ccGame ? 'Edit' : 'Enter Game'}
+                            {todo.inlineAction.label}
                           </button>
                         )}
                       </div>
                     </div>
-                  )
-                })()}
-
-                {/* Task: Coordinator Changes (always visible for HC with coordinators) */}
-                {hasCoordinators && (() => {
-                  taskNum++
-                  return (
-                  <div
-                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                    style={coordinatorTaskComplete ? {
-                      backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                      border: '1px solid rgba(34, 197, 94, 0.3)'
-                    } : {
-                      backgroundColor: 'var(--surface-3)',
-                      border: '1px solid var(--surface-4)'
-                    }}
-                  >
-                    <div className="flex items-center gap-2 sm:gap-3">
+                    {todo.customActions ?? (!isViewOnly && todo.actionLabel ? (
                       <div
-                        className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 font-bold ${
-                          coordinatorTaskComplete ? 'bg-green-500 text-white' : ''
-                        }`}
-                        style={!coordinatorTaskComplete ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
+                        className="grid gap-1.5 sm:gap-2 flex-shrink-0 items-center"
+                        style={{ gridTemplateColumns: '5rem 6.5rem' }}
                       >
-                        {coordinatorTaskComplete ? (
-                          <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
-                        ) : (taskNum)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm sm:text-base font-semibold" style={{ color: coordinatorTaskComplete ? '#22c55e' : '#fafafa' }}>
-                          Coordinator Changes
-                        </div>
-                        <div className="text-xs sm:text-sm mt-0.5" style={{ color: coordinatorTaskComplete ? '#22c55e' : '#a1a1aa' }}>
-                          {coordinatorTaskComplete ? (
-                            coordinatorToFire === 'none' ? 'Keeping both coordinators' :
-                            coordinatorToFire === 'oc' ? `Firing ${teamCoachingStaff?.ocName} (OC)` :
-                            coordinatorToFire === 'dc' ? `Firing ${teamCoachingStaff?.dcName} (DC)` :
-                            coordinatorToFire === 'both' ? 'Firing both coordinators' : ''
-                          ) : 'Fire any coordinators?'}
-                        </div>
-                      </div>
-                    </div>
-                    <select
-                      value={coordinatorToFire}
-                      onChange={(e) => handleFiringSelection(e.target.value)}
-                      className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold cursor-pointer text-sm self-end sm:self-auto"
-                      style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                    >
-                      <option value="">Select...</option>
-                      <option value="none">Keep both</option>
-                      {teamCoachingStaff?.ocName && (
-                        <option value="oc">Fire {teamCoachingStaff.ocName} (OC)</option>
-                      )}
-                      {teamCoachingStaff?.dcName && (
-                        <option value="dc">Fire {teamCoachingStaff.dcName} (DC)</option>
-                      )}
-                      {teamCoachingStaff?.ocName && teamCoachingStaff?.dcName && (
-                        <option value="both">Fire Both</option>
-                      )}
-                    </select>
-                  </div>
-                  )
-                })()}
-
-                {/* Task: Recruiting Commitments */}
-                {(() => {
-                  taskNum++
-                  const commitmentKey = getCommitmentKey()
-                  const userTidForCommits = getUserTeamTid(currentDynasty)
-                  const ccCommitmentsForYear = getRecruitingCommitments(currentDynasty, userTidForCommits, currentDynasty.currentYear)
-                  const ccCommitments = ccCommitmentsForYear?.[commitmentKey]
-                  const hasCommitmentsData = ccCommitments !== undefined
-                  const commitmentsCount = ccCommitments?.length || 0
-                  const classScore = calculateRecruitingClassScore(flattenClassCommitments(ccCommitmentsForYear))
-
-                  return (
-                    <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                      style={hasCommitmentsData ? {
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        border: '1px solid rgba(34, 197, 94, 0.3)'
-                      } : {
-                        backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--surface-4)'
-                      }}
-                    >
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div
-                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 font-bold ${
-                            hasCommitmentsData ? 'bg-green-500 text-white' : ''
-                          }`}
-                          style={!hasCommitmentsData ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                        >
-                          {hasCommitmentsData ? (
-                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : (taskNum)}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasCommitmentsData ? '#22c55e' : '#fafafa' }}>
-                            {hasCommitmentsData ? 'Recruiting Commitments' : 'Any commitments this week?'}
-                          </div>
-                          <div className="text-xs sm:text-sm mt-0.5" style={{ color: hasCommitmentsData ? '#22c55e' : '#a1a1aa' }}>
-                            {hasCommitmentsData
-                              ? commitmentsCount > 0
-                                ? `✓ ${commitmentsCount} commitment${commitmentsCount !== 1 ? 's' : ''} recorded`
-                                : '✓ No commitments this week'
-                              : 'Record any recruiting commitments'}
-                          </div>
-                          {classScore > 0 && (
-                            <Link
-                              to={`${pathPrefix}/recruiting/${userTidForCommits}/${currentDynasty.currentYear}`}
-                              className="block w-fit text-[10px] sm:text-xs mt-1 font-bold uppercase text-txt-tertiary hover:text-team-primary transition-colors"
-                              style={{ letterSpacing: '1.5px' }}
-                              title="View recruiting class"
-                            >
-                              Class Score <span className="tabular text-txt-primary ml-1">{formatRecruitingClassScore(classScore)}</span>
-                            </Link>
-                          )}
-                          <RecruitingInsightLink className="mt-1" />
-                        </div>
-                      </div>
-                      {isViewOnly ? <ViewOnlyBadge /> : (
-                        !hasCommitmentsData ? (
-                          <div className="flex gap-2 self-end sm:self-auto items-center">
-                            <SellVsSendButton onClick={() => setShowSellCalc(true)} />
-                            <button
-                              onClick={handleNoCommitments}
-                              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                            >
-                              No
-                            </button>
-                            <button
-                              onClick={() => setShowRecruitingModal(true)}
-                              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                            >
-                              Yes
-                            </button>
-                          </div>
+                        {todo.viewTo ? (
+                          <Link to={todo.viewTo} className="btn-refined text-center">
+                            View
+                          </Link>
                         ) : (
-                          <button
-                            onClick={() => setShowRecruitingModal(true)}
-                            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                          >
-                            Edit
-                          </button>
-                        )
-                      )}
-                    </div>
-                  )
-                })()}
+                          <span aria-hidden="true" />
+                        )}
+                        <button
+                          onClick={todo.onAction}
+                          className="btn-refined btn-refined--solid text-center"
+                        >
+                          {todo.actionLabel}
+                        </button>
+                      </div>
+                    ) : null)}
+                  </div>
+                ))}
               </div>
             )
           })()}
-          </div>
         </div>
       ) : currentDynasty.currentPhase === 'postseason' ? (
         // Postseason / Bowl Weeks
