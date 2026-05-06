@@ -187,12 +187,50 @@ service cloud.firestore {
                     && request.auth.uid in parentDynasty().get('editors', []);
         allow read: if parentDynasty().isPublic == true;
 
-        // Owner write requires premium; invited editors don't.
+        // ── Per-team write gating ────────────────────────────────
+        // Owner: any team, must be premium (storage cost).
+        // Co-commish: any team, no premium required.
+        // Regular member: only games involving a team they manage —
+        //   either side (team1Tid OR team2Tid) must appear in their
+        //   memberTeams[uid] list. Both the OLD doc (resource, for
+        //   updates/deletes) AND the NEW doc (request.resource, for
+        //   creates/updates) are checked so members can't swap an
+        //   opponent's tid to their own to sneak in a write.
+        // Tid-less games (CFP shells, bowl bids with TBD positions):
+        //   only owner / co-commish — they're "league-level" before
+        //   the bracket fills.
+
+        // Owner write — premium required.
         allow write: if isPremium()
                      && parentDynasty().userId == request.auth.uid;
+
+        // Co-commish — any team, no premium required.
         allow write: if isSignedIn()
                      && parentDynasty().userId != request.auth.uid
-                     && request.auth.uid in parentDynasty().get('editors', []);
+                     && request.auth.uid in parentDynasty().get('coCommishes', []);
+
+        // Regular member — only their team's games.
+        allow write: if isSignedIn()
+                     && parentDynasty().userId != request.auth.uid
+                     && request.auth.uid in parentDynasty().get('editors', [])
+                     && !(request.auth.uid in parentDynasty().get('coCommishes', []))
+                     && parentDynasty().get('memberTeams', {}).get(request.auth.uid, []).size() > 0
+                     && (
+                       (resource != null
+                        && (
+                          (resource.data.get('team1Tid', null) != null
+                           && resource.data.team1Tid in parentDynasty().memberTeams[request.auth.uid])
+                          || (resource.data.get('team2Tid', null) != null
+                              && resource.data.team2Tid in parentDynasty().memberTeams[request.auth.uid])
+                        ))
+                       || (request.resource != null
+                           && (
+                             (request.resource.data.get('team1Tid', null) != null
+                              && request.resource.data.team1Tid in parentDynasty().memberTeams[request.auth.uid])
+                             || (request.resource.data.get('team2Tid', null) != null
+                                 && request.resource.data.team2Tid in parentDynasty().memberTeams[request.auth.uid])
+                           ))
+                     );
       }
 
       // ─── Invite tokens (subcollection) ──────────────────────────
