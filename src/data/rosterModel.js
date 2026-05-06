@@ -200,11 +200,14 @@ export function clearMovement(player, year) {
 // the legacy cases don't include 'arrival'/'departure'/'recommit', and
 // that corrupted shape then persists in movementByYear and crashes
 // renders downstream.
-const CANONICAL_TYPES = new Set(['arrival', 'departure', 'recommit', 'unknown'])
+//
+// 'unknown' is included only so syncDerivedFieldsFromV2 can recognize the
+// poison shape and recover from `raw` — callers should never store it.
+const CANONICAL_MOVEMENT_TYPES = new Set(['arrival', 'departure', 'recommit', 'unknown'])
 
 export function legacyMovementToCanonical(m) {
   if (!m || !m.type) return null
-  if (CANONICAL_TYPES.has(m.type)) return m
+  if (CANONICAL_MOVEMENT_TYPES.has(m.type)) return m
   switch (m.type) {
     case 'recruited':
       return { type: 'arrival', arrival: 'recruit' }
@@ -334,25 +337,33 @@ export function syncDerivedFieldsFromV2(player, currentYear) {
       normalizedMovementByYear[n] = canonical
     }
   }
-  // Re-key movementByYear to Number keys too.
-  // Drop entries shaped { type: 'unknown', legacyType, raw }: these are
-  // poison left behind by an earlier bug where canonical entries were
-  // re-fed through legacyMovementToCanonical and didn't match any case.
-  // Recover the original `raw` payload when possible (it carries the
-  // user-intended movement) so we don't silently lose data.
+  // Re-key movementByYear to Number keys too. Drop anything whose `type`
+  // isn't a canonical v2 type — covers two failure modes:
+  //   1. { type: 'unknown', legacyType, raw } poison from an earlier
+  //      migration bug. We recover from `raw` when possible so the user
+  //      doesn't lose the entry, otherwise drop.
+  //   2. Legacy types that somehow leaked into movementByYear (whose
+  //      consumers all expect canonical shapes). Run them through the
+  //      legacy converter so they end up canonical.
+  // Anything that survives this filter is guaranteed to be a renderer-
+  // safe canonical entry — that's what kept Player.jsx black-screening.
   const finalMovementByYear = {}
   for (const [k, v] of Object.entries(normalizedMovementByYear)) {
     const n = Number(k)
     if (!Number.isFinite(n)) continue
-    if (!v) continue
-    if (v.type === 'unknown') {
-      const recovered = v.raw ? legacyMovementToCanonical(v.raw) : null
-      if (recovered && recovered.type !== 'unknown') {
-        finalMovementByYear[n] = recovered
-      }
+    if (!v || typeof v !== 'object' || !v.type) continue
+    if (CANONICAL_MOVEMENT_TYPES.has(v.type) && v.type !== 'unknown') {
+      finalMovementByYear[n] = v
       continue
     }
-    finalMovementByYear[n] = v
+    if (v.type === 'unknown') {
+      const recovered = v.raw ? legacyMovementToCanonical(v.raw) : null
+      if (recovered && recovered.type !== 'unknown') finalMovementByYear[n] = recovered
+      continue
+    }
+    // Legacy type that landed here — try to canonicalize it.
+    const canonical = legacyMovementToCanonical(v)
+    if (canonical && canonical.type !== 'unknown') finalMovementByYear[n] = canonical
   }
 
   // Derive the four top-level "current year" mirrors from canonical state.

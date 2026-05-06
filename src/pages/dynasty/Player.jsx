@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, getEncourageTransfers, getRecruitingCommitments, getPlayerClassForYear } from '../../context/DynastyContext'
 import CardComposer from '../../components/CardComposer'
 import FlippableCard from '../../components/FlippableCard'
+import PlayerErrorBoundary from '../../components/PlayerErrorBoundary'
 import MediaList from '../../components/MediaList'
 import { getPlayerCards } from '../../utils/playerCards'
 import { formatScoreHighLow } from '../../utils/scoreFormat'
@@ -128,7 +129,7 @@ const getPrimaryStatCategory = (position) => {
   return positionMap[position] || 'passing'
 }
 
-export default function Player() {
+function PlayerInner() {
   const { id: dynastyId, pid } = useParams()
   const { dynasties, currentDynasty, updatePlayer, syncAllPlayersStats, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
@@ -5645,6 +5646,22 @@ export default function Player() {
       )}
 
     </div>
+  )
+}
+
+// Wrap the page in an error boundary so a single malformed player
+// record can't black out the tab. The boundary deep-links the user
+// to the editor (which heals the data on save) instead of leaving
+// them stranded on a blank page with no way back.
+export default function Player() {
+  const { id: dynastyId, pid } = useParams()
+  const pathPrefix = usePathPrefix()
+  const editPath = dynastyId ? `${pathPrefix}/player/${pid}/edit` : null
+  const backPath = pathPrefix || '/'
+  return (
+    <PlayerErrorBoundary editPath={editPath} backPath={backPath}>
+      <PlayerInner />
+    </PlayerErrorBoundary>
   )
 }
 
