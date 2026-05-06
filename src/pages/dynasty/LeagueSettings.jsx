@@ -43,6 +43,11 @@ import {
   buildCommishTransfer,
   stampHistoryForYear,
   getCoachNameForUid,
+  getPendingInvites,
+  addPendingInvite,
+  removeInvite,
+  isInviteValid,
+  buildInviteUrl,
   ROLE_COMMISH,
   ROLE_COCOMMISH,
   ROLE_MEMBER,
@@ -175,6 +180,48 @@ export default function LeagueSettings() {
     } catch (err) {
       console.error('[Members] remove failed:', err)
       toast.error('Failed to remove member.')
+    } finally {
+      setBusyUid(null)
+    }
+  }
+
+  // ─── Invite tokens ──────────────────────────────────────────────
+  const handleGenerateInvite = async () => {
+    if (!canManage) return
+    setBusyUid('__invite__')
+    try {
+      const next = addPendingInvite(currentDynasty, {
+        role: ROLE_MEMBER,
+        createdBy: user.uid,
+      })
+      await updateDynasty(currentDynasty.id, { pendingInvites: next })
+      toast.success('Invite link generated.')
+    } catch (err) {
+      console.error('[Members] generate invite failed:', err)
+      toast.error('Failed to create invite.')
+    } finally {
+      setBusyUid(null)
+    }
+  }
+
+  const handleCopyInviteUrl = (token) => {
+    const url = buildInviteUrl(currentDynasty.id, token)
+    navigator.clipboard?.writeText(url).then(
+      () => toast.success('Invite link copied.'),
+      () => toast.error('Copy failed.'),
+    )
+  }
+
+  const handleRevokeInvite = async (token) => {
+    if (!canManage) return
+    setBusyUid(`__invite__${token}`)
+    try {
+      const next = removeInvite(currentDynasty, token)
+      await updateDynasty(currentDynasty.id, { pendingInvites: next })
+      toast.info('Invite revoked.')
+    } catch (err) {
+      console.error('[Members] revoke invite failed:', err)
+      toast.error('Failed to revoke invite.')
     } finally {
       setBusyUid(null)
     }
@@ -541,26 +588,78 @@ export default function LeagueSettings() {
 
       {canShareWithOthers && (
         <Card>
-          <h3 className="label-sm text-txt-primary mb-3">Add a Member</h3>
-          <form onSubmit={handleAdd} className="space-y-3">
-            <div>
-              <label className="block text-xs text-txt-tertiary mb-1">User ID</label>
-              <input
-                type="text"
-                required
-                value={pendingUid}
-                onChange={e => setPendingUid(e.target.value)}
-                placeholder="Paste their User ID"
-                className="w-full px-3 py-2 rounded-md bg-surface-2 text-txt-primary text-sm font-mono border border-surface-4 focus:border-blue-500 focus:outline-none"
-              />
-            </div>
-            <Button type="submit" variant="primary" disabled={busyUid === '__add__' || !pendingUid.trim()}>
-              {busyUid === '__add__' ? 'Adding…' : 'Add Member'}
-            </Button>
-          </form>
-          <p className="text-xs text-txt-tertiary mt-4">
-            New members can read and edit this dynasty. They must sign in to the app first to obtain a User ID — find it on their Account page.
+          <h3 className="label-sm text-txt-primary mb-1">Invite a Member</h3>
+          <p className="text-xs text-txt-tertiary mb-3">
+            Generate a link, send it to your friend, and they can join with one click after
+            signing in. No need to fish their User ID out of the Account page anymore.
           </p>
+
+          <div className="flex items-center gap-2 mb-3">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleGenerateInvite}
+              disabled={busyUid === '__invite__'}
+            >
+              {busyUid === '__invite__' ? 'Generating…' : 'Generate Invite Link'}
+            </Button>
+          </div>
+
+          {(() => {
+            const invites = getPendingInvites(currentDynasty)
+              .filter(isInviteValid) // hide expired / redeemed
+            if (invites.length === 0) return null
+            return (
+              <div className="space-y-2 mb-4">
+                {invites.map(inv => (
+                  <div
+                    key={inv.token}
+                    className="flex items-center gap-2 p-2 rounded-md bg-surface-2 border border-surface-4"
+                  >
+                    <code className="flex-1 text-[11px] font-mono text-txt-primary break-all min-w-0">
+                      {buildInviteUrl(currentDynasty.id, inv.token)}
+                    </code>
+                    <Button variant="outline" size="sm" onClick={() => handleCopyInviteUrl(inv.token)}>
+                      Copy
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRevokeInvite(inv.token)}
+                      disabled={busyUid === `__invite__${inv.token}`}
+                    >
+                      Revoke
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
+
+          <details className="mt-4">
+            <summary className="text-xs text-txt-tertiary cursor-pointer hover:text-txt-primary">
+              Add by User ID instead
+            </summary>
+            <form onSubmit={handleAdd} className="space-y-3 mt-3">
+              <div>
+                <label className="block text-xs text-txt-tertiary mb-1">User ID</label>
+                <input
+                  type="text"
+                  required
+                  value={pendingUid}
+                  onChange={e => setPendingUid(e.target.value)}
+                  placeholder="Paste their User ID"
+                  className="w-full px-3 py-2 rounded-md bg-surface-2 text-txt-primary text-sm font-mono border border-surface-4 focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              <Button type="submit" variant="outline" size="sm" disabled={busyUid === '__add__' || !pendingUid.trim()}>
+                {busyUid === '__add__' ? 'Adding…' : 'Add Member'}
+              </Button>
+              <p className="text-xs text-txt-tertiary">
+                Find their User ID on their Account page. Use this when you have their ID directly.
+              </p>
+            </form>
+          </details>
         </Card>
       )}
 

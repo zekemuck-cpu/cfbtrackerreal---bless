@@ -15,6 +15,7 @@ import CreateDynasty from './pages/CreateDynasty'
 import DynastyDashboard from './pages/DynastyDashboard'
 import Account from './pages/Account'
 import ViewDynasty from './pages/ViewDynasty'
+import JoinDynasty from './pages/JoinDynasty'
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
 import Contact from './pages/Contact'
@@ -117,6 +118,14 @@ function AppRoutes() {
                       <Account />
                     </Layout>
                   </ProtectedRoute>
+                } />
+                {/* Invite redemption — no ProtectedRoute wrapper because
+                    JoinDynasty handles the signed-out case itself with a
+                    sign-in CTA (it stashes the URL for post-login bounce). */}
+                <Route path="/join/:dynastyId/:token" element={
+                  <Layout>
+                    <JoinDynasty />
+                  </Layout>
                 } />
                 <Route path="/dynasty/:id" element={
                   <ProtectedRoute>

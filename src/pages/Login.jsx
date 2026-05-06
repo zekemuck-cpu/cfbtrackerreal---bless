@@ -98,7 +98,17 @@ export default function Login() {
 
   useEffect(() => {
     if (user) {
-      navigate('/')
+      // Honor a stashed redirect (set by JoinDynasty when a signed-out user
+      // hits an invite link). Single-use — clear it after consuming.
+      let dest = '/'
+      try {
+        const stashed = sessionStorage.getItem('postLoginRedirect')
+        if (stashed) {
+          sessionStorage.removeItem('postLoginRedirect')
+          dest = stashed
+        }
+      } catch {}
+      navigate(dest)
     }
   }, [user, navigate])
 
@@ -113,7 +123,17 @@ export default function Login() {
     try {
       const result = await signInWithGoogle()
       if (result) {
-        navigate('/')
+        // Mirror the auto-effect above so the explicit click path also
+        // honors a stashed invite redirect.
+        let dest = '/'
+        try {
+          const stashed = sessionStorage.getItem('postLoginRedirect')
+          if (stashed) {
+            sessionStorage.removeItem('postLoginRedirect')
+            dest = stashed
+          }
+        } catch {}
+        navigate(dest)
       }
     } catch (error) {
       console.error('Sign in failed:', error)

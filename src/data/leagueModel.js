@@ -489,6 +489,97 @@ export function getCoachesForTeamYear(dynasty, tid, year) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Invite tokens — share a /join/:dynastyId/:token URL instead of
+// asking new users to fish their UID out of the Account page.
+//
+// Tokens live on the dynasty doc as `pendingInvites: [...]`. Each
+// entry: { token, role, label?, createdBy, createdAt, expiresAt?,
+// redeemedBy?, redeemedAt? }
+//
+// The actual redemption (writing the new user's uid into editors[])
+// requires Firestore rules that allow a non-member to update the doc
+// when (a) they're adding only their own uid to editors[] and (b) a
+// matching unredeemed invite token is present in pendingInvites.
+// Without that rule, the client-side redemption will fail with a
+// permission error and the join page will fall back to the manual
+// "ask the commish to add you" flow.
+// ─────────────────────────────────────────────────────────────────────
+
+const INVITE_TOKEN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+export function createInviteToken(length = 16) {
+  let out = ''
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const buf = new Uint8Array(length)
+    crypto.getRandomValues(buf)
+    for (let i = 0; i < length; i++) {
+      out += INVITE_TOKEN_ALPHABET[buf[i] % INVITE_TOKEN_ALPHABET.length]
+    }
+  } else {
+    for (let i = 0; i < length; i++) {
+      out += INVITE_TOKEN_ALPHABET[Math.floor(Math.random() * INVITE_TOKEN_ALPHABET.length)]
+    }
+  }
+  return out
+}
+
+export function getPendingInvites(dynasty) {
+  return Array.isArray(dynasty?.pendingInvites) ? dynasty.pendingInvites : []
+}
+
+/**
+ * Append a new invite to pendingInvites. Returns the new array.
+ * `opts`: { role = 'member', label?, expiresAt?, createdBy }.
+ */
+export function addPendingInvite(dynasty, opts = {}) {
+  const existing = getPendingInvites(dynasty)
+  const invite = {
+    token: createInviteToken(),
+    role: opts.role || ROLE_MEMBER,
+    label: opts.label || null,
+    createdBy: opts.createdBy || dynasty?.userId || null,
+    createdAt: Date.now(),
+    expiresAt: opts.expiresAt || null,
+    redeemedBy: null,
+    redeemedAt: null,
+  }
+  return [...existing, invite]
+}
+
+/** Find an invite by token. */
+export function findInvite(dynasty, token) {
+  if (!token) return null
+  return getPendingInvites(dynasty).find(i => i.token === token) || null
+}
+
+/** Remove an invite by token (used for revoke). */
+export function removeInvite(dynasty, token) {
+  return getPendingInvites(dynasty).filter(i => i.token !== token)
+}
+
+/** Mark an invite redeemed in-place; returns the new array. */
+export function markInviteRedeemed(dynasty, token, uid) {
+  return getPendingInvites(dynasty).map(i =>
+    i.token === token ? { ...i, redeemedBy: uid, redeemedAt: Date.now() } : i,
+  )
+}
+
+/** True iff the invite is usable: exists, unredeemed, unexpired. */
+export function isInviteValid(invite) {
+  if (!invite || invite.redeemedBy) return false
+  if (invite.expiresAt && Date.now() > Number(invite.expiresAt)) return false
+  return true
+}
+
+/**
+ * Build the full join URL for a token. Returns an absolute URL using
+ * the current location's origin. Use in the Members page Copy button.
+ */
+export function buildInviteUrl(dynastyId, token) {
+  if (typeof window === 'undefined') return `/join/${dynastyId}/${token}`
+  return `${window.location.origin}/join/${dynastyId}/${token}`
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Commish role transfer.
 // ─────────────────────────────────────────────────────────────────────
 
