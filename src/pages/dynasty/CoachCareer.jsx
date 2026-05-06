@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, detectGameType, GAME_TYPES, getTeamGamePerspective, getTeamRanking } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -62,8 +62,20 @@ export default function CoachCareer() {
 
   // The career being viewed. Defaults to the logged-in user; the
   // inline picker below lets any signed-in viewer flip to another
-  // member's career instead.
-  const [selectedUid, setSelectedUid] = useState(() => user?.uid || currentDynasty?.userId || null)
+  // member's career instead. ?uid=... in the URL deep-links into a
+  // specific coach's career (used by the Coaches leaderboard).
+  const [searchParams, setSearchParams] = useSearchParams()
+  const uidFromUrl = searchParams.get('uid')
+  const [selectedUid, setSelectedUid] = useState(
+    () => uidFromUrl || user?.uid || currentDynasty?.userId || null,
+  )
+  // Sync state when the URL param changes (e.g. when navigating from the
+  // Coaches leaderboard while already on this page).
+  useEffect(() => {
+    if (uidFromUrl && uidFromUrl !== selectedUid) {
+      setSelectedUid(uidFromUrl)
+    }
+  }, [uidFromUrl]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!currentDynasty) return null
 

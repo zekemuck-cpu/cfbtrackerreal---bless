@@ -21,7 +21,7 @@ import Contact from './pages/Contact'
 
 // Lazy pages with `.preload()` capability — see routes/lazyPages.js
 import {
-  Dashboard, Roster, Rankings, Stats, CoachCareer, Players, Player, PlayerEdit,
+  Dashboard, Roster, Rankings, Stats, CoachCareer, Coaches, Players, Player, PlayerEdit,
   PlayersByState, AllTimeLineup, Recruiting, Leaders, Awards, AllAmericans,
   AllConference, DynastyRecords, Teams, TeamYear, BowlHistory,
   ConferenceChampionshipHistory, ConferenceStandings, CFPBracket, WeeklyScores, Game,
@@ -61,6 +61,7 @@ function AppRoutes() {
             <Route path="rankings/:year" element={<Rankings />} />
             <Route path="stats" element={<Stats />} />
             <Route path="coach-career" element={<CoachCareer />} />
+            <Route path="coaches" element={<Coaches />} />
             <Route path="players" element={<Players />} />
             <Route path="all-time-lineup" element={<AllTimeLineup />} />
             <Route path="recruiting" element={<Recruiting />} />
@@ -132,6 +133,7 @@ function AppRoutes() {
                   <Route path="rankings/:year" element={<Rankings />} />
                   <Route path="stats" element={<Stats />} />
                   <Route path="coach-career" element={<CoachCareer />} />
+                  <Route path="coaches" element={<Coaches />} />
                   <Route path="players" element={<Players />} />
                   <Route path="players/state/:state" element={<PlayersByState />} />
                   <Route path="all-time-lineup" element={<AllTimeLineup />} />
