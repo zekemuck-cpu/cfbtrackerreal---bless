@@ -1510,8 +1510,25 @@ export default function PlayerEdit() {
                 })
               }
 
-              // Map legacy types to unified type so editing is straightforward
-              const normalizeMovementType = (t) => {
+              // Map both LEGACY types and CANONICAL v2 shapes onto the
+              // legacy enum the dropdown uses. Without this branch,
+              // canonical entries (m.type === 'departure' /
+              // 'recommit' / 'arrival', with the variant in
+              // m.departure / m.arrival) wouldn't match any dropdown
+              // option, so the dropdown read empty even when the
+              // player had a saved movement for that year.
+              const normalizeMovementType = (t, m) => {
+                // Canonical v2 shapes — pull the variant out of the
+                // movement object and map it to the closest legacy enum
+                // the dropdown understands.
+                if (t === 'departure' && m) {
+                  if (m.departure === 'graduated') return 'graduated'
+                  if (m.departure === 'pro_draft') return 'declared_for_draft'
+                  if (m.departure === 'transfer_out') return 'entered_portal'
+                  return 'entered_portal'
+                }
+                if (t === 'recommit') return 'entered_portal'
+                if (t === 'arrival') return ''
                 if (t === 'transferred_out' || t === 'recommitted') return 'entered_portal'
                 return t
               }
@@ -1578,8 +1595,12 @@ export default function PlayerEdit() {
                 // Movement after a season
                 const movement = formData.movementByYear?.[year] || formData.movementByYear?.[String(year)] || {}
                 const rawType = movement.type || ''
-                const movementType = normalizeMovementType(rawType)
-                const toTeamTid = movement.toTeamTid || ''
+                const movementType = normalizeMovementType(rawType, movement)
+                // Canonical 'departure/transfer_out' uses .toTid; legacy
+                // 'transferred_out'/'encouraged_to_transfer' uses
+                // .toTeamTid. Read both so the dropdown shows the
+                // destination regardless of which shape is stored.
+                const toTeamTid = movement.toTeamTid ?? movement.toTid ?? ''
                 const reason = movement.reason || ''
                 const needsTeam = movementType === 'encouraged_to_transfer'
                 const showsPortalReason = ['entered_portal', 'encouraged_to_transfer'].includes(movementType)
@@ -1704,7 +1725,7 @@ export default function PlayerEdit() {
                         // Derive a "how did they get here this year" status chip
                         const prevYear = idx > 0 ? activeYears[idx - 1] : null
                         const prevMovement = prevYear ? (formData.movementByYear?.[prevYear] || formData.movementByYear?.[String(prevYear)] || {}) : null
-                        const prevType = normalizeMovementType(prevMovement?.type)
+                        const prevType = normalizeMovementType(prevMovement?.type, prevMovement)
                         const prevTeamTid = prevYear ? formData.teamsByYear?.[prevYear] : null
                         const sameTeamAsPrev = prevTeamTid && teamTid && Number(prevTeamTid) === Number(teamTid)
                         const statusChip = (() => {
@@ -1735,7 +1756,7 @@ export default function PlayerEdit() {
 
                         // Post-season exit chip — for portal, infer outcome from next year's team
                         const curMovement = formData.movementByYear?.[year] || formData.movementByYear?.[String(year)] || {}
-                        const curType = normalizeMovementType(curMovement.type)
+                        const curType = normalizeMovementType(curMovement.type, curMovement)
                         const nextYear = idx < activeYears.length - 1 ? activeYears[idx + 1] : null
                         const nextTeamTid = nextYear ? formData.teamsByYear?.[nextYear] : null
                         const sameTeamAsNext = teamTid && nextTeamTid && Number(teamTid) === Number(nextTeamTid)
