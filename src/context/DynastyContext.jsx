@@ -2879,45 +2879,83 @@ export function getTeamRatingsForYear(dynasty, tidOrAbbr, year) {
 }
 
 /**
- * Get coaching staff for current team and year
- * Note: Coaching staff carries over from year to year (unlike schedule/ratings)
+ * Get coaching staff for current team and year. Pass `uid` so a member
+ * who has set their OWN staff overrides via the Members page is shown
+ * their own names (not whatever the legacy single-staff field has from
+ * the owner's preseason flow). Multi-coach dynasties depend on this so
+ * each user's stint shows their own coordinators.
+ *
+ * Resolution priority:
+ *   1. memberCoachingStaff[uid] (per-uid override; only the rows the
+ *      user actually filled — empty fields fall through)
+ *   2. teams[tid].byYear[year].coachingStaff (current team-year stamp)
+ *   3. coachingStaffByTeamYear[abbr/tid][year] (legacy team-year store)
+ *   4. previous year's team-year (staff carries over)
+ *   5. dynasty.coachingStaff (legacy single-staff field, owner's flow)
+ *
+ * Note: Coaching staff carries over from year to year (unlike schedule/ratings).
  */
-export function getCurrentCoachingStaff(dynasty) {
+export function getCurrentCoachingStaff(dynasty, uid = null) {
   const defaultStaff = { hcName: null, ocName: null, dcName: null }
 
   if (!dynasty) return defaultStaff
+
+  // (1) Per-uid override. Only fields the user actually filled win;
+  //     blank slots fall through to the team-year stamps below.
+  let baseFromOverride = null
+  if (uid && dynasty.memberCoachingStaff?.[uid]) {
+    baseFromOverride = dynasty.memberCoachingStaff[uid]
+  }
 
   // CRITICAL: Get tid directly - tid is the ONLY source of truth
   const tid = getCurrentTeamTid(dynasty)
   const year = dynasty.currentYear
 
+  // Helper: layer the per-uid override (if any) over a team-year base,
+  // letting the override win field-by-field while blank override slots
+  // fall through to the team-year staff. Without this, an override
+  // that only sets HC would wipe the OC/DC the dynasty had stored.
+  const merge = (base) => {
+    if (!base && !baseFromOverride) return null
+    return {
+      ...defaultStaff,
+      ...(base || {}),
+      ...(baseFromOverride
+        ? Object.fromEntries(
+            Object.entries(baseFromOverride).filter(([, v]) => v != null)
+          )
+        : {}),
+    }
+  }
+
   // Try NEW tid-based byYear structure first (Phase 7 migration)
   if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.coachingStaff) {
-    return dynasty.teams[tid].byYear[year].coachingStaff
+    return merge(dynasty.teams[tid].byYear[year].coachingStaff)
   }
 
   // Try old team-centric structure (drift-aware via tid)
   const teamYearStaff = lookupByTeamYear(dynasty.coachingStaffByTeamYear, dynasty, tid, year)
   if (teamYearStaff) {
-    return teamYearStaff
+    return merge(teamYearStaff)
   }
 
   // For coaching staff, try previous year's data (staff carries over)
   // Check new structure first for previous year
   if (tid && dynasty.teams?.[tid]?.byYear?.[year - 1]?.coachingStaff) {
-    return dynasty.teams[tid].byYear[year - 1].coachingStaff
+    return merge(dynasty.teams[tid].byYear[year - 1].coachingStaff)
   }
   const previousYearStaff = lookupByTeamYear(dynasty.coachingStaffByTeamYear, dynasty, tid, year - 1)
   if (previousYearStaff) {
-    return previousYearStaff
+    return merge(previousYearStaff)
   }
 
   // Only fall back to legacy coachingStaff for the dynasty's first year
   if (year === dynasty.startYear) {
-    return dynasty.coachingStaff || defaultStaff
+    return merge(dynasty.coachingStaff) || dynasty.coachingStaff || defaultStaff
   }
 
-  return defaultStaff
+  // No team-year base, but the per-uid override might still have content.
+  return merge(null) || defaultStaff
 }
 
 /**

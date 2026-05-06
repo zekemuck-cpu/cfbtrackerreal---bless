@@ -108,7 +108,11 @@ export default function Dashboard() {
   const teamRoster = getCurrentRoster(currentDynasty)
   const teamPreseasonSetup = getCurrentPreseasonSetup(currentDynasty)
   const teamRatings = getCurrentTeamRatings(currentDynasty)
-  const teamCoachingStaff = getCurrentCoachingStaff(currentDynasty)
+  // Pass uid so a member's per-uid override (Members page → Your Coaching
+  // Staff) wins over the legacy single-staff field. Multi-coach dynasties
+  // depend on this so each user sees their own coordinators in the
+  // dashboard panels.
+  const teamCoachingStaff = getCurrentCoachingStaff(currentDynasty, user?.uid)
   const teamGoogleSheet = getCurrentGoogleSheet(currentDynasty)
 
   // Get user games for the current year (for schedule display)
