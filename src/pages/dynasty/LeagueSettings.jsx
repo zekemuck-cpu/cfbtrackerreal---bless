@@ -48,6 +48,8 @@ import {
   removeInvite,
   isInviteValid,
   buildInviteUrl,
+  getCoachingStaffForUid,
+  setCoachingStaffForUid,
   ROLE_COMMISH,
   ROLE_COCOMMISH,
   ROLE_MEMBER,
@@ -82,6 +84,7 @@ export default function LeagueSettings() {
   const [busyUid, setBusyUid] = useState(null)
   const [nameDrafts, setNameDrafts] = useState({})
   const [timelineUid, setTimelineUid] = useState(null)
+  const [staffDraft, setStaffDraft] = useState(null) // { hcName, ocName, dcName } | null
 
   if (!currentDynasty) return null
   if (!user) return <Navigate to="/login" replace />
@@ -230,6 +233,28 @@ export default function LeagueSettings() {
   // Self-leave: a non-commish member walks themselves out of the dynasty.
   // The commish can't use this — they must transfer the role first (the
   // button reflects that with a different label + confirm copy below).
+  // Per-uid coaching staff. Each member can record their OWN HC/OC/DC
+  // names so multi-coach dynasties don't trample each other when the
+  // owner-flow writes to the legacy single-staff field.
+  const myStaff = user?.uid ? getCoachingStaffForUid(currentDynasty, user.uid) : null
+  const editingStaff = staffDraft != null ? staffDraft : myStaff
+
+  const handleSaveStaff = async () => {
+    if (!user?.uid || !editingStaff) return
+    setBusyUid('__staff__')
+    try {
+      const next = setCoachingStaffForUid(currentDynasty, user.uid, editingStaff)
+      await updateDynasty(currentDynasty.id, { memberCoachingStaff: next })
+      setStaffDraft(null)
+      toast.success('Coaching staff saved.')
+    } catch (err) {
+      console.error('[Members] save staff failed:', err)
+      toast.error('Failed to save coaching staff.')
+    } finally {
+      setBusyUid(null)
+    }
+  }
+
   const handleLeaveDynasty = async () => {
     if (!user?.uid) return
     if (myRole === ROLE_COMMISH) {
@@ -695,6 +720,52 @@ export default function LeagueSettings() {
               Copy
             </Button>
           </div>
+        </Card>
+      )}
+
+      {/* Per-uid coaching staff. Visible to anyone who's a member —
+          each user records their OWN HC/OC/DC names. Multi-coach
+          dynasties no longer trample each other. */}
+      {myRole && myStaff && (
+        <Card>
+          <h3 className="label-sm text-txt-primary mb-1">Your Coaching Staff</h3>
+          <p className="text-xs text-txt-tertiary mb-3">
+            Record your team's HC, OC, and DC names. Each member's staff is tracked separately,
+            so a multi-coach dynasty doesn't share one staff field anymore.
+          </p>
+          <div className="space-y-2">
+            {[
+              { key: 'hcName', label: 'Head Coach' },
+              { key: 'ocName', label: 'Offensive Coordinator' },
+              { key: 'dcName', label: 'Defensive Coordinator' },
+            ].map(({ key, label }) => (
+              <div key={key} className="flex items-center gap-2">
+                <label className="text-xs text-txt-tertiary w-32 flex-shrink-0">{label}</label>
+                <input
+                  type="text"
+                  value={editingStaff[key] || ''}
+                  onChange={e => setStaffDraft({ ...editingStaff, [key]: e.target.value })}
+                  placeholder="—"
+                  className="flex-1 min-w-0 px-3 py-1.5 rounded-md bg-surface-2 text-txt-primary text-sm border border-surface-4 focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+            ))}
+          </div>
+          {staffDraft != null && (
+            <div className="mt-3 flex items-center gap-2">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSaveStaff}
+                disabled={busyUid === '__staff__'}
+              >
+                {busyUid === '__staff__' ? 'Saving…' : 'Save'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setStaffDraft(null)} disabled={busyUid === '__staff__'}>
+                Cancel
+              </Button>
+            </div>
+          )}
         </Card>
       )}
 

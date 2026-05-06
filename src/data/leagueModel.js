@@ -580,6 +580,54 @@ export function buildInviteUrl(dynastyId, token) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Per-uid coaching staff overrides.
+//
+// `dynasty.memberCoachingStaff: { [uid]: { hcName, ocName, dcName } }`
+//
+// Multi-coach dynasties need each member to record their OWN staff so
+// they don't overwrite each other when entering preseason data. Reads
+// fall back to the legacy dynasty.coachingStaff (owner-only field) when
+// no per-uid override exists.
+// ─────────────────────────────────────────────────────────────────────
+
+const EMPTY_STAFF = { hcName: null, ocName: null, dcName: null }
+
+export function getCoachingStaffForUid(dynasty, uid) {
+  if (!dynasty || !uid) return { ...EMPTY_STAFF }
+  const override = dynasty.memberCoachingStaff?.[uid]
+  if (override && (override.hcName || override.ocName || override.dcName)) {
+    return { ...EMPTY_STAFF, ...override }
+  }
+  // Fall back to the dynasty-wide staff for the owner (legacy single-
+  // coach surface). For other members with no override, return empty.
+  if (uid === dynasty.userId && dynasty.coachingStaff) {
+    return { ...EMPTY_STAFF, ...dynasty.coachingStaff }
+  }
+  return { ...EMPTY_STAFF }
+}
+
+/**
+ * Returns a new memberCoachingStaff map with `uid`'s staff set. Pass
+ * null/empty values to clear individual roles. If every role is empty
+ * the uid entry is dropped entirely.
+ */
+export function setCoachingStaffForUid(dynasty, uid, staff) {
+  const next = { ...(dynasty?.memberCoachingStaff || {}) }
+  if (!uid) return next
+  const cleaned = {
+    hcName: (staff?.hcName || '').trim() || null,
+    ocName: (staff?.ocName || '').trim() || null,
+    dcName: (staff?.dcName || '').trim() || null,
+  }
+  if (!cleaned.hcName && !cleaned.ocName && !cleaned.dcName) {
+    delete next[uid]
+  } else {
+    next[uid] = cleaned
+  }
+  return next
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Commish role transfer.
 // ─────────────────────────────────────────────────────────────────────
 
