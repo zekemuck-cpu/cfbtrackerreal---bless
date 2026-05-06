@@ -2576,6 +2576,64 @@ function PlayerInner() {
           const yr = Number(y)
           if (isNaN(yr)) return
           if (!movementsByYear[yr]) movementsByYear[yr] = []
+
+          // Canonical v2 shapes get unpacked into the timeline-event
+          // shapes the renderer below already understands. Without this
+          // unpacking, every canonical entry was ignored — so a player
+          // saved with { type: 'departure', departure: 'graduated' } had
+          // no graduation event on the timeline.
+          if (m.type === 'arrival') {
+            switch (m.arrival) {
+              case 'recruit':
+                if (!movementsByYear[yr].some(e => e.type === 'recruited')) {
+                  movementsByYear[yr].push({ year: yr, type: 'recruited', to: teamsByYear[yr] })
+                }
+                break
+              case 'transfer_in':
+                if (!movementsByYear[yr].some(e => e.type === 'portal_in' || e.type === 'transfer')) {
+                  movementsByYear[yr].push({ year: yr, type: 'portal_in', from: m.fromTid, to: teamsByYear[yr] })
+                }
+                break
+              case 'juco':
+                if (!movementsByYear[yr].some(e => e.type === 'juco_in')) {
+                  movementsByYear[yr].push({ year: yr, type: 'juco_in', to: teamsByYear[yr] })
+                }
+                break
+              case 'walk_on':
+                if (!movementsByYear[yr].some(e => e.type === 'added')) {
+                  movementsByYear[yr].push({ year: yr, type: 'added', to: teamsByYear[yr] })
+                }
+                break
+            }
+            return
+          }
+          if (m.type === 'departure') {
+            switch (m.departure) {
+              case 'graduated':
+                if (!movementsByYear[yr].some(e => e.type === 'departure' && e.reason === 'Graduated')) {
+                  movementsByYear[yr].push({ year: yr, type: 'departure', reason: 'Graduated' })
+                }
+                break
+              case 'pro_draft':
+                if (!movementsByYear[yr].some(e => e.type === 'departure' && e.reason?.includes('Draft'))) {
+                  movementsByYear[yr].push({ year: yr, type: 'departure', reason: 'Pro Draft', draftRound: m.draftRound })
+                }
+                break
+              case 'transfer_out':
+                if (!movementsByYear[yr].some(e => e.type === 'entered_portal' || e.type === 'transfer' || e.type === 'departure')) {
+                  movementsByYear[yr].push({ year: yr, type: 'entered_portal', from: teamsByYear[yr], reason: m.reason })
+                }
+                break
+            }
+            return
+          }
+          if (m.type === 'recommit') {
+            if (!movementsByYear[yr].some(e => e.type === 'recommit')) {
+              movementsByYear[yr].push({ year: yr, type: 'recommit', to: teamsByYear[yr], reason: m.reason })
+            }
+            return
+          }
+
           // Unified 'entered_portal' — infer recommit vs transfer from the next year's team
           if (m.type === 'entered_portal') {
             const thisTeam = teamsByYear[yr]
@@ -2792,7 +2850,30 @@ function PlayerInner() {
         })
 
         const getMovementLabel = (m) => {
+          if (!m || !m.type) return ''
           if (m.type === 'portal_in' && m.isRecommit) return 'Recommitted'
+          // Canonical v2 shapes carry the variant in `arrival` or
+          // `departure`; older labels in this switch matched legacy
+          // types only and rendered canonical departures as a generic
+          // "Left Team". Map the variant first, then fall through to
+          // the legacy switch for any remaining shapes.
+          if (m.type === 'arrival') {
+            switch (m.arrival) {
+              case 'recruit': return 'Recruited'
+              case 'transfer_in': return 'Portal Transfer'
+              case 'juco': return 'JUCO Transfer'
+              case 'walk_on': return 'Walk-On'
+              default: return 'Joined'
+            }
+          }
+          if (m.type === 'departure') {
+            switch (m.departure) {
+              case 'graduated': return 'Graduated'
+              case 'pro_draft': return 'NFL Draft'
+              case 'transfer_out': return 'Transferred Out'
+              default: return m.reason || 'Left Team'
+            }
+          }
           switch (m.type) {
             case 'recruited': return 'Recruited'
             case 'portal_in': return 'Portal Transfer'
@@ -2800,8 +2881,7 @@ function PlayerInner() {
             case 'entered_portal': return 'Entered Portal'
             case 'transfer': return 'Transferred'
             case 'encouraged_transfer': return 'Encouraged Transfer'
-            case 'departure': return m.reason || 'Left Team'
-            case 'recommit': return 'Recommitted'
+            case 'recommit': case 'recommitted': return 'Recommitted'
             case 'added': return 'Added'
             case 'removed': return 'Removed'
             case 'started': return 'Started'
@@ -2811,11 +2891,11 @@ function PlayerInner() {
 
         const getMovementColor = (type) => {
           switch (type) {
-            case 'recruited': case 'added': case 'started': return '#22c55e'
+            case 'recruited': case 'added': case 'started': case 'arrival': return '#22c55e'
             case 'portal_in': case 'juco_in': case 'transfer': return '#3b82f6'
             case 'entered_portal': case 'encouraged_transfer': return '#f59e0b'
             case 'departure': case 'removed': return '#ef4444'
-            case 'recommit': return '#8b5cf6'
+            case 'recommit': case 'recommitted': return '#8b5cf6'
             default: return '#6b7280'
           }
         }
