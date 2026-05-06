@@ -89,6 +89,11 @@ export default function LeagueSettings() {
   const [timelineUid, setTimelineUid] = useState(null)
   const [staffDraft, setStaffDraft] = useState(null) // { hcName, ocName, dcName } | null
   const [invites, setInvites] = useState([])
+  // Default expiration for newly-generated invites. Stored client-side
+  // only — the server stamps expiresAt at create time based on this
+  // selection. 'never' is the safe default since hosts can revoke any
+  // time from this same panel.
+  const [inviteExpiry, setInviteExpiry] = useState('never')
 
   // Live subscription to the invites subcollection. Only meaningful for
   // cloud dynasties — local dynasties don't have a Firestore subscription
@@ -212,10 +217,19 @@ export default function LeagueSettings() {
     setBusyUid('__invite__')
     try {
       const token = createInviteToken()
+      // Expiration is computed at create time so the rule's `expiresAt
+      // > request.time` check uses a fixed instant rather than relying
+      // on client clock skew at redeem time.
+      const dayMs = 24 * 60 * 60 * 1000
+      const expiresAt = inviteExpiry === '1d'  ? Date.now() + dayMs
+                      : inviteExpiry === '7d'  ? Date.now() + 7 * dayMs
+                      : inviteExpiry === '30d' ? Date.now() + 30 * dayMs
+                      : null
       await createInviteDoc(currentDynasty.id, {
         token,
         role: ROLE_MEMBER,
         createdBy: user.uid,
+        expiresAt,
       })
       toast.success('Invite link generated.')
     } catch (err) {
@@ -637,7 +651,7 @@ export default function LeagueSettings() {
             signing in. No need to fish their User ID out of the Account page anymore.
           </p>
 
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 flex-wrap mb-3">
             <Button
               variant="primary"
               size="sm"
@@ -646,34 +660,67 @@ export default function LeagueSettings() {
             >
               {busyUid === '__invite__' ? 'Generating…' : 'Generate Invite Link'}
             </Button>
+            <label className="text-xs text-txt-tertiary flex items-center gap-1.5">
+              Expires in
+              <select
+                value={inviteExpiry}
+                onChange={(e) => setInviteExpiry(e.target.value)}
+                disabled={busyUid === '__invite__'}
+                className="text-xs px-2 py-1 rounded-md bg-surface-2 border border-surface-4 text-txt-primary cursor-pointer focus:outline-none focus:border-blue-500"
+              >
+                <option value="never">Never</option>
+                <option value="1d">1 day</option>
+                <option value="7d">7 days</option>
+                <option value="30d">30 days</option>
+              </select>
+            </label>
           </div>
 
           {(() => {
             const visibleInvites = invites.filter(isInviteValid) // hide expired / redeemed
             if (visibleInvites.length === 0) return null
+            const formatExpiry = (ms) => {
+              if (!ms) return null
+              const remaining = Number(ms) - Date.now()
+              if (remaining <= 0) return 'expired'
+              const days = Math.floor(remaining / (24 * 60 * 60 * 1000))
+              if (days >= 1) return `expires in ${days}d`
+              const hours = Math.floor(remaining / (60 * 60 * 1000))
+              if (hours >= 1) return `expires in ${hours}h`
+              const mins = Math.max(1, Math.floor(remaining / (60 * 1000)))
+              return `expires in ${mins}m`
+            }
             return (
               <div className="space-y-2 mb-4">
-                {visibleInvites.map(inv => (
-                  <div
-                    key={inv.token}
-                    className="flex items-center gap-2 p-2 rounded-md bg-surface-2 border border-surface-4"
-                  >
-                    <code className="flex-1 text-[11px] font-mono text-txt-primary break-all min-w-0">
-                      {buildInviteUrl(currentDynasty.id, inv.token)}
-                    </code>
-                    <Button variant="outline" size="sm" onClick={() => handleCopyInviteUrl(inv.token)}>
-                      Copy
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleRevokeInvite(inv.token)}
-                      disabled={busyUid === `__invite__${inv.token}`}
+                {visibleInvites.map(inv => {
+                  const expiry = formatExpiry(inv.expiresAt)
+                  return (
+                    <div
+                      key={inv.token}
+                      className="p-2 rounded-md bg-surface-2 border border-surface-4 space-y-1.5"
                     >
-                      Revoke
-                    </Button>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 text-[11px] font-mono text-txt-primary break-all min-w-0">
+                          {buildInviteUrl(currentDynasty.id, inv.token)}
+                        </code>
+                        <Button variant="outline" size="sm" onClick={() => handleCopyInviteUrl(inv.token)}>
+                          Copy
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRevokeInvite(inv.token)}
+                          disabled={busyUid === `__invite__${inv.token}`}
+                        >
+                          Revoke
+                        </Button>
+                      </div>
+                      {expiry && (
+                        <div className="text-[10px] text-txt-tertiary px-1">{expiry}</div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )
           })()}
