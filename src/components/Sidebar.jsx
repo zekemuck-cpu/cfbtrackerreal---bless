@@ -77,9 +77,16 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
   // Action buttons inside the page are gated separately by role.
   const userCanSeeMembers = !isViewOnly && user && isEditor(currentDynasty, user.uid)
 
+  // Coaches leaderboard appears only when the dynasty has more than one
+  // member. For solo dynasties it's redundant with the Coach Career page.
+  const totalEditors = (currentDynasty?.editors?.length || 0)
+    + (currentDynasty?.userId && !(currentDynasty.editors || []).includes(currentDynasty.userId) ? 1 : 0)
+  const showCoachesLink = totalEditors > 1
+
   const navItems = [
     { name: 'Dashboard', path: pathPrefix },
     { name: 'Coach Career', path: `${pathPrefix}/coach-career` },
+    ...(showCoachesLink ? [{ name: 'Coaches', path: `${pathPrefix}/coaches` }] : []),
     { name: 'Leaderboard', path: `${pathPrefix}/dynasty-records` },
     { name: 'Recruiting', path: `${pathPrefix}/recruiting/${teamTid}/${currentYear}` },
     { name: 'Awards', path: `${pathPrefix}/awards` },

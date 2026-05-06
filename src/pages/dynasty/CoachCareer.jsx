@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, detectGameType, GAME_TYPES, getTeamGamePerspective, getTeamRanking } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -9,6 +9,7 @@ import {
   getEditors,
   getMemberLabel,
   getMemberTeamsForYear,
+  getCoachNameForUid,
   getRole,
   ROLE_COMMISH,
   ROLE_COCOMMISH,
@@ -47,6 +48,7 @@ const MODAL_TITLES = {
   bowl: 'Bowl Games',
   confChamp: 'Conference Championship Games',
   cfp: 'CFP Games',
+  careerAll: 'All Career Games',
 }
 
 export default function CoachCareer() {
@@ -60,8 +62,20 @@ export default function CoachCareer() {
 
   // The career being viewed. Defaults to the logged-in user; the
   // inline picker below lets any signed-in viewer flip to another
-  // member's career instead.
-  const [selectedUid, setSelectedUid] = useState(() => user?.uid || currentDynasty?.userId || null)
+  // member's career instead. ?uid=... in the URL deep-links into a
+  // specific coach's career (used by the Coaches leaderboard).
+  const [searchParams, setSearchParams] = useSearchParams()
+  const uidFromUrl = searchParams.get('uid')
+  const [selectedUid, setSelectedUid] = useState(
+    () => uidFromUrl || user?.uid || currentDynasty?.userId || null,
+  )
+  // Sync state when the URL param changes (e.g. when navigating from the
+  // Coaches leaderboard while already on this page).
+  useEffect(() => {
+    if (uidFromUrl && uidFromUrl !== selectedUid) {
+      setSelectedUid(uidFromUrl)
+    }
+  }, [uidFromUrl]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!currentDynasty) return null
 
@@ -86,14 +100,11 @@ export default function CoachCareer() {
 
   const userOptions = allEditors.map(uid => {
     const role = getRole(currentDynasty, uid)
-    const label = getMemberLabel(currentDynasty, uid)
-    const fallback = uid === currentDynasty.userId
-      ? (currentDynasty.coachName || 'Commish')
-      : (role === ROLE_COCOMMISH ? 'Co-Commish' : 'Member')
     return {
       uid,
       role,
-      label: label || fallback,
+      // Single source of truth — same name everywhere.
+      label: getCoachNameForUid(currentDynasty, uid),
       isYou: user?.uid === uid,
     }
   })
@@ -107,14 +118,21 @@ export default function CoachCareer() {
   const selectedOption = userOptions.find(o => o.uid === effectiveSelectedUid) || null
   const selectedDisplayName = selectedOption?.label || 'Coach'
 
-  // Resolve a uid's tids for a given year — preferred source is the
-  // per-year history snapshot; falls back to legacy coachTeamByYear
-  // for the dynasty owner (so existing solo dynasties still render).
+  // Resolve a uid's tids for a given year. memberTeamHistory[uid] is
+  // the SINGLE SOURCE OF TRUTH whenever it exists at all — even if a
+  // specific year is absent from it (the user explicitly removed that
+  // year via the Members timeline editor and meant for it to be empty).
+  // Only fall back to the legacy owner-only coachTeamByYear when the
+  // user has NEVER been touched by the timeline editor.
   const getUserTeamsForYear = (uid, year) => {
     const yearNum = Number(year)
     if (!Number.isFinite(yearNum) || !uid) return []
-    const fromHistory = getMemberTeamsForYear(currentDynasty, uid, yearNum)
-    if (fromHistory.length > 0) return fromHistory
+    // If the user has ANY entry in memberTeamHistory, trust it exclusively.
+    const hasHistory = currentDynasty.memberTeamHistory?.[uid] != null
+    if (hasHistory) {
+      return getMemberTeamsForYear(currentDynasty, uid, yearNum)
+    }
+    // Pre-migration owner-only fallback: read legacy coachTeamByYear.
     if (uid === currentDynasty.userId) {
       const cty = currentDynasty.coachTeamByYear?.[yearNum] || currentDynasty.coachTeamByYear?.[String(yearNum)]
       if (cty?.tid != null) return [Number(cty.tid)]
@@ -442,13 +460,11 @@ export default function CoachCareer() {
   const coachingHistory = buildCoachingHistory()
 
   const awardsByYear = currentDynasty.awardsByYear || {}
-  // Coach-name match for awards is meaningful only for the dynasty
-  // owner (who provides their name via dynasty.coachName). For other
-  // members, awards still match by team — the name path is just
-  // skipped.
-  const coachName = effectiveSelectedUid === currentDynasty.userId
-    ? (currentDynasty.coachName || '')
-    : ''
+  // Awards-by-name match: use the selected coach's display label so
+  // that any member whose name happens to match the awards data gets
+  // attributed. memberLabels[uid] is the canonical source; fallback
+  // chain handled by getCoachNameForUid.
+  const coachName = getCoachNameForUid(currentDynasty, effectiveSelectedUid, '')
 
   coachingHistory.forEach(stint => {
     const stintAwards = []
@@ -510,6 +526,10 @@ export default function CoachCareer() {
   }, { wins: 0, losses: 0, teams: 0, coachOfYearAwards: 0 })
 
   const getGamesForModal = () => {
+    if (gamesModalType === 'careerAll') {
+      // Flatten games across every stint for the lifetime view.
+      return coachingHistory.flatMap(s => s.games || [])
+    }
     if (!selectedTeamForModal) return []
     const stint = coachingHistory.find(s => s.teamName === selectedTeamForModal)
     if (!stint) return []
@@ -585,7 +605,11 @@ export default function CoachCareer() {
               </>
             )}
           </div>
-          <div className="flex items-end gap-x-6 gap-y-2 flex-wrap">
+          {/* Identity + stat strip — single row on desktop (stats push
+              right of the name), wraps below on mobile. Saves a full
+              row of vertical space vs the prior stacked layout, and the
+              stats no longer feel orphaned from the headline. */}
+          <div className="flex items-end gap-x-6 sm:gap-x-10 gap-y-3 flex-wrap">
             <div className="min-w-0">
               <h1
                 className="m-0 text-txt-primary leading-[0.9] uppercase break-words"
@@ -604,67 +628,84 @@ export default function CoachCareer() {
                 {careerRange}
               </div>
             </div>
-          </div>
 
-          {/* Broadcast-style stat strip — one row, hairline separators,
-              tabular numerals. Replaces the bordered tile-cluster that
-              competed with the headline. */}
-          <div
-            className="mt-3 flex items-stretch gap-4 sm:gap-8 flex-wrap"
-            style={{
-              borderTop: '1px solid var(--surface-4)',
-              paddingTop: '10px',
-            }}
-          >
-            <div>
-              <div
-                className="font-display font-black tabular-nums text-txt-primary leading-none"
-                style={{ fontSize: 'clamp(1.5rem, 3vw, 2.25rem)', letterSpacing: '-0.03em' }}
+            {/* Broadcast-style stat strip — sits inline with the name on
+                desktop via ml-auto, wraps below on mobile. Hairline
+                vertical separators, tabular numerals. Number scale is
+                slightly trimmed (1.4-2rem vs the headline's 2-3.25rem)
+                so the name keeps top billing in the lockup. */}
+            <div className="flex items-end gap-4 sm:gap-7 flex-wrap sm:ml-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setGamesModalType('careerAll')
+                  setSelectedTeamForModal(null)
+                  setShowGamesModal(true)
+                }}
+                className="career-stat-btn group text-left rounded-md focus:outline-none focus-visible:ring-1 focus-visible:ring-text-primary"
+                title="View every game of this career"
               >
-                {careerTotals.wins}–{careerTotals.losses}
-              </div>
-              <div className="label-xs text-txt-tertiary mt-1.5" style={{ letterSpacing: '2px', fontSize: '10px' }}>RECORD</div>
-            </div>
-            <div className="hidden sm:block w-px self-stretch" style={{ backgroundColor: 'var(--surface-4)' }} />
-            <div>
-              <div
-                className="font-display font-black tabular-nums text-txt-primary leading-none"
-                style={{ fontSize: 'clamp(1.5rem, 3vw, 2.25rem)', letterSpacing: '-0.03em' }}
-              >
-                {careerWinPct}<span className="text-txt-tertiary" style={{ fontSize: '0.55em' }}>%</span>
-              </div>
-              <div className="label-xs text-txt-tertiary mt-1.5" style={{ letterSpacing: '2px', fontSize: '10px' }}>WIN PCT</div>
-            </div>
-            <div className="hidden sm:block w-px self-stretch" style={{ backgroundColor: 'var(--surface-4)' }} />
-            <div>
-              <div
-                className="font-display font-black tabular-nums text-txt-primary leading-none"
-                style={{ fontSize: 'clamp(1.5rem, 3vw, 2.25rem)', letterSpacing: '-0.03em' }}
-              >
-                {coachingHistory.length}
-              </div>
-              <div className="label-xs text-txt-tertiary mt-1.5" style={{ letterSpacing: '2px', fontSize: '10px' }}>
-                {coachingHistory.length === 1 ? 'TEAM' : 'TEAMS'}
-              </div>
-            </div>
-            {careerTotals.coachOfYearAwards > 0 && (
-              <>
-                <div className="hidden sm:block w-px self-stretch" style={{ backgroundColor: 'var(--surface-4)' }} />
-                <div>
-                  <div
-                    className="font-display font-black tabular-nums leading-none"
-                    style={{
-                      fontSize: 'clamp(2rem, 4.5vw, 3.25rem)',
-                      letterSpacing: '-0.03em',
-                      color: 'var(--accent-warning, #f59e0b)',
-                    }}
-                  >
-                    {careerTotals.coachOfYearAwards}
-                  </div>
-                  <div className="label-xs text-txt-tertiary mt-1.5" style={{ letterSpacing: '2px', fontSize: '10px' }}>COTY</div>
+                <div
+                  className="font-display font-black tabular-nums text-txt-primary leading-none transition-colors group-hover:text-txt-primary"
+                  style={{ fontSize: 'clamp(1.4rem, 2.6vw, 2rem)', letterSpacing: '-0.03em' }}
+                >
+                  {careerTotals.wins}–{careerTotals.losses}
                 </div>
-              </>
-            )}
+                <div
+                  className="label-xs mt-1.5 flex items-center gap-1.5 text-txt-tertiary group-hover:text-txt-secondary transition-colors"
+                  style={{ letterSpacing: '2px', fontSize: '10px' }}
+                >
+                  <span>RECORD</span>
+                  <span
+                    aria-hidden="true"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ fontSize: '9px', letterSpacing: '1.5px' }}
+                  >
+                    · VIEW ALL
+                  </span>
+                </div>
+              </button>
+              <div className="hidden sm:block w-px self-stretch" style={{ backgroundColor: 'var(--surface-4)' }} />
+              <div>
+                <div
+                  className="font-display font-black tabular-nums text-txt-primary leading-none"
+                  style={{ fontSize: 'clamp(1.4rem, 2.6vw, 2rem)', letterSpacing: '-0.03em' }}
+                >
+                  {careerWinPct}<span className="text-txt-tertiary" style={{ fontSize: '0.55em' }}>%</span>
+                </div>
+                <div className="label-xs text-txt-tertiary mt-1.5" style={{ letterSpacing: '2px', fontSize: '10px' }}>WIN PCT</div>
+              </div>
+              <div className="hidden sm:block w-px self-stretch" style={{ backgroundColor: 'var(--surface-4)' }} />
+              <div>
+                <div
+                  className="font-display font-black tabular-nums text-txt-primary leading-none"
+                  style={{ fontSize: 'clamp(1.4rem, 2.6vw, 2rem)', letterSpacing: '-0.03em' }}
+                >
+                  {coachingHistory.length}
+                </div>
+                <div className="label-xs text-txt-tertiary mt-1.5" style={{ letterSpacing: '2px', fontSize: '10px' }}>
+                  {coachingHistory.length === 1 ? 'TEAM' : 'TEAMS'}
+                </div>
+              </div>
+              {careerTotals.coachOfYearAwards > 0 && (
+                <>
+                  <div className="hidden sm:block w-px self-stretch" style={{ backgroundColor: 'var(--surface-4)' }} />
+                  <div>
+                    <div
+                      className="font-display font-black tabular-nums leading-none"
+                      style={{
+                        fontSize: 'clamp(1.4rem, 2.6vw, 2rem)',
+                        letterSpacing: '-0.03em',
+                        color: 'var(--accent-warning, #f59e0b)',
+                      }}
+                    >
+                      {careerTotals.coachOfYearAwards}
+                    </div>
+                    <div className="label-xs text-txt-tertiary mt-1.5" style={{ letterSpacing: '2px', fontSize: '10px' }}>COTY</div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Career Arc Strip — segmented horizontal bar showing the
@@ -867,7 +908,10 @@ export default function CoachCareer() {
             key={`${stint.teamName}-${stint.startYear}`}
             id={`stint-${stint.teamAbbr}-${stint.startYear}`}
             className={`media-card relative ${stint.isCurrent ? '' : 'opacity-90'}`}
-            style={!stint.isCurrent ? { backgroundColor: 'var(--surface-1)' } : undefined}
+            style={{
+              scrollMarginTop: '88px',
+              ...(stint.isCurrent ? {} : { backgroundColor: 'var(--surface-1)' }),
+            }}
           >
             {/* Current-stint top accent — 1px text-primary hairline.
                 Subtle but distinctive; no team color used in chrome. */}

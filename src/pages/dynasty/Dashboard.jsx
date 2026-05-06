@@ -108,7 +108,11 @@ export default function Dashboard() {
   const teamRoster = getCurrentRoster(currentDynasty)
   const teamPreseasonSetup = getCurrentPreseasonSetup(currentDynasty)
   const teamRatings = getCurrentTeamRatings(currentDynasty)
-  const teamCoachingStaff = getCurrentCoachingStaff(currentDynasty)
+  // Pass uid so a member's per-uid override (Members page → Your Coaching
+  // Staff) wins over the legacy single-staff field. Multi-coach dynasties
+  // depend on this so each user sees their own coordinators in the
+  // dashboard panels.
+  const teamCoachingStaff = getCurrentCoachingStaff(currentDynasty, user?.uid)
   const teamGoogleSheet = getCurrentGoogleSheet(currentDynasty)
 
   // Get user games for the current year (for schedule display)
@@ -684,7 +688,7 @@ export default function Dashboard() {
     const seedsWithTid = {}
     for (const entry of seeds) {
       if (entry.seed && (entry.tid || entry.team)) {
-        const tid = entry.tid || getTidFromAbbr(entry.team)
+        const tid = entry.tid || getTidFromAbbr(entry.team, currentDynasty)
         if (tid) {
           seedsWithTid[entry.seed] = tid
         }
@@ -843,7 +847,7 @@ export default function Dashboard() {
     const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.conferenceChampionshipDataByTeamYear || {}
     const existingForTeam = existingByTeamYear[teamAbbr] || {}
-    const tid = getTidFromAbbr(teamAbbr)
+    const tid = getTidFromAbbr(teamAbbr, currentDynasty)
     const ccData = { ...(existingForTeam[year] || {}), madeChampionship }
 
     // Also get existing year-only structure for backward compatibility
@@ -900,7 +904,7 @@ export default function Dashboard() {
     const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.conferenceChampionshipDataByTeamYear || {}
     const existingForTeam = existingByTeamYear[teamAbbr] || {}
-    const tid = getTidFromAbbr(teamAbbr)
+    const tid = getTidFromAbbr(teamAbbr, currentDynasty)
     const ccData = { ...(existingForTeam[year] || {}), opponent }
 
     // Also get existing year-only structure for backward compatibility
@@ -986,7 +990,7 @@ export default function Dashboard() {
     const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.conferenceChampionshipDataByTeamYear || {}
     const existingForTeam = existingByTeamYear[teamAbbr] || {}
-    const tid = getTidFromAbbr(teamAbbr)
+    const tid = getTidFromAbbr(teamAbbr, currentDynasty)
     const ccData = { ...(existingForTeam[year] || {}), pendingFiring: selection }
 
     // Also get existing year-only structure for backward compatibility
@@ -1235,7 +1239,7 @@ export default function Dashboard() {
         // Get player's team as tid - ALWAYS use tid for movement data
         let playerTeamTid = player.team
         if (typeof playerTeamTid === 'string') {
-          playerTeamTid = getTidFromAbbr(playerTeamTid) || teamTid
+          playerTeamTid = getTidFromAbbr(playerTeamTid, currentDynasty) || teamTid
         }
         const playerTeam = playerTeamTid || teamTid
 
@@ -1247,16 +1251,20 @@ export default function Dashboard() {
         // eslint-disable-next-line no-unused-vars
         void playerTeam; void isTransfer; void isDeparture
 
-        // Build movementByYear entry based on reason
+        // Build canonical v2 movementByYear entry based on reason. The
+        // previous version emitted legacy types (declared_for_draft,
+        // graduated, transferred_out) and relied on syncDerivedFieldsFromV2
+        // to convert on every save — that round-trip was implicated in
+        // post-draft transfer-history corruption. Write canonical directly.
         const movementByYearEntry = (() => {
           if (reason === 'Pro Draft') {
-            return { type: 'declared_for_draft' }
+            return { type: 'departure', departure: 'pro_draft' }
           } else if (reason === 'Graduating') {
-            return { type: 'graduated' }
+            return { type: 'departure', departure: 'graduated' }
           }
           // Every other reason = entered the transfer portal, destination
           // unknown until Transfer Destinations is filled in on Signing Day.
-          return { type: 'transferred_out', toTeamTid: null, reason }
+          return { type: 'departure', departure: 'transfer_out', toTid: null, reason }
         })()
 
         return {
@@ -1286,7 +1294,7 @@ export default function Dashboard() {
     // teamAbbr already defined above
     const existingByTeamYear = currentDynasty.playersLeavingByTeamYear || {}
     const existingByYear = currentDynasty.playersLeavingByYear || {}
-    const tid = getTidFromAbbr(teamAbbr)
+    const tid = getTidFromAbbr(teamAbbr, currentDynasty)
 
     // Build updates object
     const updates = {
@@ -1337,7 +1345,7 @@ export default function Dashboard() {
     const year = currentDynasty.currentYear
     const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.draftResultsByTeamYear || {}
-    const tid = getTidFromAbbr(teamAbbr)
+    const tid = getTidFromAbbr(teamAbbr, currentDynasty)
 
     // Map player names to PIDs and store draft info
     const resultsWithPids = draftResults.map(entry => {
@@ -1371,13 +1379,22 @@ export default function Dashboard() {
         const playerYears = Object.keys(playerTeamsByYear).map(Number).sort((a, b) => b - a)
         const playerLastTeam = playerYears.length > 0 ? playerTeamsByYear[playerYears[0]] : (player.team || tid)
         // Convert to tid if it's an abbreviation
-        const playerLastTeamTid = typeof playerLastTeam === 'number' ? playerLastTeam : (getTidFromAbbr(playerLastTeam) || tid)
+        const playerLastTeamTid = typeof playerLastTeam === 'number' ? playerLastTeam : (getTidFromAbbr(playerLastTeam, currentDynasty) || tid)
 
-        // Build movementByYear entry for draft. playerLastTeamTid is
-        // computed above in case future shape changes need it, but v2
-        // declared_for_draft doesn't carry a fromTid.
+        // Build canonical v2 movement entry for draft. The previous
+        // shape ({ type: 'declared_for_draft' }) was a legacy type that
+        // syncDerivedFieldsFromV2 had to convert on every save —
+        // round-tripping through the converter is fragile and was
+        // implicated in transfer-history corruption after the draft.
+        // Write the canonical shape directly. playerLastTeamTid stays
+        // computed for future shape changes; the canonical pro_draft
+        // departure does not carry a fromTid.
         void playerLastTeamTid
-        const draftMovementByYear = { type: 'declared_for_draft', draftRound: entry.draftRound || null }
+        const draftMovementByYear = {
+          type: 'departure',
+          departure: 'pro_draft',
+          draftRound: entry.draftRound || null,
+        }
 
         // Same canonical shape whether this is the first draft entry or
         // an update — movementByYear is authoritative, v2 sync strips
@@ -1456,23 +1473,24 @@ export default function Dashboard() {
         // Get old team as tid - ALWAYS use tid
         let oldTeamTid = player.team
         if (typeof oldTeamTid === 'string') {
-          oldTeamTid = getTidFromAbbr(oldTeamTid) || teamTid
+          oldTeamTid = getTidFromAbbr(oldTeamTid, currentDynasty) || teamTid
         }
         if (!oldTeamTid) oldTeamTid = teamTid
 
         // Get newTeam as tid (dest.newTeam could be abbr from sheet)
         let newTeamTid = dest.newTeam
         if (typeof newTeamTid === 'string') {
-          newTeamTid = getTidFromAbbr(newTeamTid)
+          newTeamTid = getTidFromAbbr(newTeamTid, currentDynasty)
         }
 
         // Check if this is a RECOMMIT (destination = their current team)
         const isRecommit = newTeamTid === oldTeamTid || newTeamTid === teamTid
 
         if (isRecommit) {
-          // Player recommitted — they're staying on the team.
+          // Player recommitted — they're staying on the team. Canonical
+          // v2 type; legacy 'recommitted' was being healed on save anyway.
           const updatedMovementByYear = { ...(player.movementByYear || {}) }
-          updatedMovementByYear[Number(year)] = { type: 'recommitted' }
+          updatedMovementByYear[Number(year)] = { type: 'recommit' }
 
           updatedPlayers[playerIndex] = {
             ...player,
@@ -1484,14 +1502,14 @@ export default function Dashboard() {
             },
           }
         } else {
-          // Normal transfer to another team. Only canonical v2 writes —
-          // no legacy movements[]. v2 sync strips any residual array.
+          // Normal transfer to another team. Canonical v2 departure —
+          // legacy 'transferred_out' was being converted on save.
           updatedPlayers[playerIndex] = {
             ...player,
             team: newTeamTid, // derived mirror; sync will re-derive on write too
             movementByYear: {
               ...(player.movementByYear || {}),
-              [Number(year)]: { type: 'transferred_out', toTeamTid: newTeamTid },
+              [Number(year)]: { type: 'departure', departure: 'transfer_out', toTid: newTeamTid },
             },
             teamsByYear: {
               ...(player.teamsByYear || {}),
@@ -1502,7 +1520,7 @@ export default function Dashboard() {
       }
     })
 
-    const tid = getTidFromAbbr(teamAbbr)
+    const tid = getTidFromAbbr(teamAbbr, currentDynasty)
 
     const updates = {
       // dual-keyed (rename-safe)
@@ -1549,7 +1567,7 @@ export default function Dashboard() {
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
     const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const existingRanks = currentDynasty.recruitingClassRankByTeamYear || {}
-    const tid = getTidFromAbbr(teamAbbr)
+    const tid = getTidFromAbbr(teamAbbr, currentDynasty)
 
     const updates = {
       // dual-keyed (rename-safe)
@@ -1954,11 +1972,20 @@ export default function Dashboard() {
         // Track ALL players for potential transfer matching
         allPlayersMap.set(nameLower, p)
 
-        // Check if player has a departure movement (left the team)
-        const hasDepartureMovement = (p.movements || []).some(m =>
+        // Check if player has a departure movement (left the team).
+        // Reads BOTH legacy movements[] AND v2 movementByYear — after the
+        // v2 migration, movements[] is stripped on every save, so checking
+        // only the legacy array missed every departed player and they
+        // never showed up as "returning" in the recruiting flow.
+        const v2DepartureTypes = new Set(['departure', 'transfer', 'entered_portal', 'transferred_out', 'graduated', 'declared_for_draft', 'encouraged_to_transfer'])
+        const v2DepartureShapes = new Set(['transfer_out', 'graduated', 'pro_draft'])
+        const hasLegacyDeparture = (p.movements || []).some(m =>
           m.type === 'departure' || m.type === 'transfer'
         )
-        if (hasDepartureMovement) {
+        const hasV2Departure = Object.values(p.movementByYear || {}).some(m =>
+          m && (v2DepartureTypes.has(m.type) || v2DepartureShapes.has(m.departure))
+        )
+        if (hasLegacyDeparture || hasV2Departure) {
           leftPlayersMap.set(nameLower, p)
         }
         // Check if player is pending departure (in playersLeavingByYear)
@@ -2073,11 +2100,18 @@ export default function Dashboard() {
     existingPlayers.forEach(p => {
       if (p.name) {
         const nameLower = p.name.toLowerCase().trim()
-        // Check if player has a departure movement (left the team)
-        const hasDepartureMovement = (p.movements || []).some(m =>
+        // Check if player has a departure movement (left the team).
+        // Reads BOTH legacy movements[] AND v2 movementByYear — see the
+        // matching block in updateExistingRosterPlayers above.
+        const v2DepartureTypes = new Set(['departure', 'transfer', 'entered_portal', 'transferred_out', 'graduated', 'declared_for_draft', 'encouraged_to_transfer'])
+        const v2DepartureShapes = new Set(['transfer_out', 'graduated', 'pro_draft'])
+        const hasLegacyDeparture = (p.movements || []).some(m =>
           m.type === 'departure' || m.type === 'transfer'
         )
-        if (hasDepartureMovement) {
+        const hasV2Departure = Object.values(p.movementByYear || {}).some(m =>
+          m && (v2DepartureTypes.has(m.type) || v2DepartureShapes.has(m.departure))
+        )
+        if (hasLegacyDeparture || hasV2Departure) {
           leftPlayersMap.set(nameLower, p)
         }
         // Check if player is pending departure (in playersLeavingByYear)
@@ -2162,7 +2196,7 @@ export default function Dashboard() {
         const prevTeamText = recruit.previousTeam.trim()
         // Try to resolve as tid from team name or abbreviation
         previousTeamTid = getTidFromTeamName(prevTeamText, currentDynasty?.teams) ||
-                          getTidFromAbbr(prevTeamText) ||
+                          getTidFromAbbr(prevTeamText, currentDynasty) ||
                           resolveTid(prevTeamText, currentDynasty?.teams || TEAMS)
         // If resolution failed but we have text, it might be an FCS/non-FBS team - keep as null
       }
@@ -2263,8 +2297,8 @@ export default function Dashboard() {
             movementByYear: {
               ...(p.movementByYear || {}),
               [Number(year)]: isFromDifferentTeam
-                ? { type: 'transferred_out', toTeamTid: teamTid }
-                : { type: 'recommitted' }
+                ? { type: 'departure', departure: 'transfer_out', toTid: teamTid }
+                : { type: 'recommit' }
             },
             team: teamTid, // derived mirror
             teamsByYear: {
@@ -2322,31 +2356,75 @@ export default function Dashboard() {
       return isOnActiveRoster && !isReturning
     })
 
-    // For players already on roster, update their portal status if needed
-    // This handles the case where players were saved before portal detection was added
+    // For players already on roster, sync any recruit fields that the
+    // user updated in the sheet — most importantly devTrait, which the
+    // user typically enters at Signing Day on recruits already added in
+    // earlier recruiting weeks. Previous version only patched portal
+    // status; updates to dev trait / archetype / stars / ranks / etc.
+    // were silently dropped because alreadyOnRosterRecruits aren't
+    // surfaced through the newPlayers / returningPlayers paths.
     const portalClasses = ['Fr', 'RS Fr', 'So', 'RS So', 'Jr', 'RS Jr', 'Sr', 'RS Sr']
     const alreadyOnRosterNames = new Set(
       alreadyOnRosterRecruits.map(r => r.name.toLowerCase().trim())
     )
     const playersWithPortalFix = playersWithReturning.map(p => {
-      if (p.name && alreadyOnRosterNames.has(p.name.toLowerCase().trim())) {
-        // Find the recruit data to check class
-        const recruitData = alreadyOnRosterRecruits.find(
-          r => r.name.toLowerCase().trim() === p.name.toLowerCase().trim()
-        )
-        if (recruitData) {
-          const recruitClass = (recruitData.class || '').trim()
-          const isPortalPlayer = recruitData.isPortal || portalClasses.some(pc => pc.toLowerCase() === recruitClass.toLowerCase())
-          if (isPortalPlayer && !p.previousTeam) {
-            return {
-              ...p,
-              isPortal: true,
-              previousTeam: recruitData.previousTeam || 'Transfer Portal'
-            }
+      if (!p.name || !alreadyOnRosterNames.has(p.name.toLowerCase().trim())) {
+        return p
+      }
+      const recruitData = alreadyOnRosterRecruits.find(
+        r => r.name.toLowerCase().trim() === p.name.toLowerCase().trim()
+      )
+      if (!recruitData) return p
+
+      const recruitClass = (recruitData.class || '').trim()
+      const isPortalPlayer = recruitData.isPortal || portalClasses.some(pc => pc.toLowerCase() === recruitClass.toLowerCase())
+
+      // Resolve the year this recruit lands in. recruitYear is the
+      // recruiting class year; they enroll in year+1. For an existing
+      // player, fall back to their existing recruitYear or the current
+      // recruiting year.
+      const recruitYr = Number(p.recruitYear ?? year)
+      const enrollYr = Number.isFinite(recruitYr) ? recruitYr + 1 : null
+
+      const updated = { ...p }
+
+      // Dev trait — only overwrite when the sheet has a non-Normal pick
+      // OR the player has no dev trait at all. "Normal" is the default
+      // sheet value; a user who left it as Normal means "keep as-is."
+      // Stamp devTraitByYear[enrollYr] too so the player profile shows
+      // the right trait for the year they enroll.
+      const sheetTrait = (recruitData.devTrait || '').trim()
+      const isMeaningfulTrait = sheetTrait && sheetTrait !== 'Normal'
+      if (isMeaningfulTrait || (sheetTrait && !p.devTrait)) {
+        updated.devTrait = sheetTrait
+        if (enrollYr != null) {
+          updated.devTraitByYear = {
+            ...(p.devTraitByYear || {}),
+            [enrollYr]: sheetTrait,
           }
         }
       }
-      return p
+
+      // Sync the rest of the recruit's editable scouting fields — same
+      // semantics: only overwrite when the sheet has a real value.
+      if (recruitData.archetype && !p.archetype) updated.archetype = recruitData.archetype
+      if (recruitData.stars != null && (p.stars == null || p.stars === 0)) updated.stars = recruitData.stars
+      if (recruitData.nationalRank != null && p.nationalRank == null) updated.nationalRank = recruitData.nationalRank
+      if (recruitData.stateRank != null && p.stateRank == null) updated.stateRank = recruitData.stateRank
+      if (recruitData.positionRank != null && p.positionRank == null) updated.positionRank = recruitData.positionRank
+      if (recruitData.gemBust && !p.gemBust) updated.gemBust = recruitData.gemBust
+      if (recruitData.height && !p.height) updated.height = recruitData.height
+      if (recruitData.weight && !p.weight) updated.weight = recruitData.weight
+      if (recruitData.hometown && !p.hometown) updated.hometown = recruitData.hometown
+      if (recruitData.state && !p.state) updated.state = recruitData.state
+
+      // Portal status (existing logic — kept).
+      if (isPortalPlayer && !p.previousTeam) {
+        updated.isPortal = true
+        updated.previousTeam = recruitData.previousTeam || 'Transfer Portal'
+      }
+
+      return updated
     })
 
     // Store recruits for this phase/week AND add new players
@@ -2376,7 +2454,7 @@ export default function Dashboard() {
     // Save if there are any recruits to record OR if player data changed
     const hasPlayerChanges = returningPlayerRecruits.length > 0 || newPlayers.length > 0
     if (allCommittedRecruits.length > 0 || hasPlayerChanges) {
-      const tid = getTidFromAbbr(teamAbbr)
+      const tid = getTidFromAbbr(teamAbbr, currentDynasty)
       const commitmentData = {
         ...existingForYear,
         [commitmentKey]: allCommittedRecruits
@@ -2488,7 +2566,7 @@ export default function Dashboard() {
     if (!commitmentKey) return
 
     const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
-    const tid = getTidFromAbbr(teamAbbr)
+    const tid = getTidFromAbbr(teamAbbr, currentDynasty)
 
     // Use TEAM-CENTRIC structure
     const existingByTeamYear = currentDynasty.recruitingCommitmentsByTeamYear || {}
@@ -3362,7 +3440,7 @@ export default function Dashboard() {
                 if (gameRecord) {
                   navigate(`${pathPrefix}/game/${gameRecord.id}/edit`, { state: { from: location.pathname } })
                 } else {
-                  const opponentTid = scheduledGame?.opponent ? getTidFromAbbr(scheduledGame.opponent) : null
+                  const opponentTid = scheduledGame?.opponent ? getTidFromAbbr(scheduledGame.opponent, currentDynasty) : null
                   const team1 = userTeamTid
                   const team2 = opponentTid
                   const params = new URLSearchParams({
@@ -3722,7 +3800,22 @@ export default function Dashboard() {
                   if (ccGame) {
                     navigate(`${pathPrefix}/game/${ccGame.id}/edit`, { state: { from: location.pathname } })
                   } else {
-                    const opponentTid = getTidFromAbbr(ccOpponent)
+                    // Resolve the opponent abbr → tid by walking
+                    // dynasty.teams so a teambuilder team that
+                    // overrode an FBS abbr wins over the static
+                    // registry. getTidFromAbbr collapses to the
+                    // static TEAMS map for unknown dynasties and
+                    // silently misroutes to the wrong (real) team
+                    // for that abbr — that's the bug we're avoiding.
+                    const opponentTid = (() => {
+                      const teamsMap = currentDynasty?.teams
+                      if (!teamsMap || !ccOpponent) return null
+                      const upper = ccOpponent.toUpperCase()
+                      for (const [tid, team] of Object.entries(teamsMap)) {
+                        if (team?.abbr?.toUpperCase() === upper) return Number(tid)
+                      }
+                      return null
+                    })()
                     const params = new URLSearchParams({
                       week: 'CC',
                       year: currentDynasty.currentYear?.toString() || '',
@@ -4533,7 +4626,7 @@ export default function Dashboard() {
                               navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
                             } else {
                               // userCFPOpponent can be tid (number) or abbr (string)
-                              const opponentTid = typeof userCFPOpponent === 'number' ? userCFPOpponent : getTidFromAbbr(userCFPOpponent)
+                              const opponentTid = typeof userCFPOpponent === 'number' ? userCFPOpponent : getTidFromAbbr(userCFPOpponent, currentDynasty)
                               const params = new URLSearchParams({
                                 week: 'CFP First Round',
                                 year: currentDynasty.currentYear?.toString() || '',
@@ -5020,7 +5113,7 @@ export default function Dashboard() {
                               navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
                             } else {
                               // userQFOpponent can be a tid (number) or abbreviation (string)
-                              const opponentTid = typeof userQFOpponent === 'number' ? userQFOpponent : getTidFromAbbr(userQFOpponent)
+                              const opponentTid = typeof userQFOpponent === 'number' ? userQFOpponent : getTidFromAbbr(userQFOpponent, currentDynasty)
                               const params = new URLSearchParams({
                                 week: 'CFP Quarterfinal',
                                 year: currentDynasty.currentYear?.toString() || '',
@@ -6146,7 +6239,7 @@ export default function Dashboard() {
                             navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
                           } else {
                             // userSFOpponent can be tid (number) or abbr (string)
-                            const opponentTid = typeof userSFOpponent === 'number' ? userSFOpponent : getTidFromAbbr(userSFOpponent)
+                            const opponentTid = typeof userSFOpponent === 'number' ? userSFOpponent : getTidFromAbbr(userSFOpponent, currentDynasty)
                             const params = new URLSearchParams({
                               week: 'CFP Semifinal',
                               year: currentDynasty.currentYear?.toString() || '',
@@ -6290,7 +6383,7 @@ export default function Dashboard() {
                             navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
                           } else {
                             // userChampOpponent can be tid (number) or abbr (string)
-                            const opponentTid = typeof userChampOpponent === 'number' ? userChampOpponent : getTidFromAbbr(userChampOpponent)
+                            const opponentTid = typeof userChampOpponent === 'number' ? userChampOpponent : getTidFromAbbr(userChampOpponent, currentDynasty)
                             const params = new URLSearchParams({
                               week: 'CFP Championship',
                               year: currentDynasty.currentYear?.toString() || '',
@@ -7613,7 +7706,7 @@ export default function Dashboard() {
               // - PLUS portal transfers who joined this offseason (they need training results too)
               // - NOT HS/JUCO recruits (they go in Recruiting Class Overalls instead)
               const teamAbbr = getCurrentTeamAbbr(currentDynasty)
-              const teamTid = getTidFromAbbr(teamAbbr)
+              const teamTid = getTidFromAbbr(teamAbbr, currentDynasty)
               const playersLeavingThisYear = currentDynasty?.playersLeavingByYear?.[offseasonDataYear] || []
               const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid))
 
@@ -9238,7 +9331,7 @@ export default function Dashboard() {
 
               // Determine bye seed (1-4) from team2 (which is the higher seed in QF games)
               // Look up team2's seed in CFP seeds
-              const team2Tid = getTidFromAbbr(sanitized.team2)
+              const team2Tid = getTidFromAbbr(sanitized.team2, currentDynasty)
               const team2SeedEntry = cfpSeeds.find(s =>
                 s.tid === team2Tid || s.team === sanitized.team2
               )
@@ -9325,7 +9418,7 @@ export default function Dashboard() {
           const seedsWithTid = {}
           for (const entry of seeds) {
             if (entry.seed && entry.team) {
-              const tid = getTidFromAbbr(entry.team)
+              const tid = getTidFromAbbr(entry.team, currentDynasty)
               if (tid) {
                 seedsWithTid[entry.seed] = tid
               }
@@ -9339,7 +9432,7 @@ export default function Dashboard() {
           // Convert to tid-only format (no abbreviations stored)
           const seedsTidOnly = seeds.map(s => ({
             seed: s.seed,
-            tid: s.tid || getTidFromAbbr(s.team) // Prefer existing tid, fallback for legacy data
+            tid: s.tid || getTidFromAbbr(s.team, currentDynasty) // Prefer existing tid, fallback for legacy data
           })).filter(s => s.tid) // Only include if tid resolved
 
           await updateDynasty(currentDynasty.id, {
@@ -9763,7 +9856,7 @@ export default function Dashboard() {
           Object.entries(standings).forEach(([conference, teams]) => {
             teams.forEach(teamData => {
               const abbr = teamData.team
-              const tid = getTidFromAbbr(abbr)
+              const tid = getTidFromAbbr(abbr, currentDynasty)
               const record = { wins: teamData.wins, losses: teamData.losses }
 
               // Update legacy structure
@@ -9982,7 +10075,7 @@ export default function Dashboard() {
         players={(() => {
           // Returning players + portal transfers (NOT HS/JUCO recruits)
           const teamAbbr = getCurrentTeamAbbr(currentDynasty)
-          const teamTid = getTidFromAbbr(teamAbbr)
+          const teamTid = getTidFromAbbr(teamAbbr, currentDynasty)
           const playersLeavingThisYear = currentDynasty?.playersLeavingByYear?.[offseasonDataYear] || []
           const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid))
           const currentYear = currentDynasty?.currentYear
@@ -10032,7 +10125,7 @@ export default function Dashboard() {
           // Get recruits from this recruiting cycle (HS and JUCO only - exclude transfer portal)
           // Recruits have recruitYear from when they committed (before year flip)
           const teamAbbr = getCurrentTeamAbbr(currentDynasty)
-          const teamTid = getTidFromAbbr(teamAbbr)
+          const teamTid = getTidFromAbbr(teamAbbr, currentDynasty)
           const allPlayers = currentDynasty?.players || []
           return allPlayers.filter(p =>
             p.isRecruit &&

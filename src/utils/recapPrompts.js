@@ -23,6 +23,7 @@
 
 import { getMascotName } from '../data/teams'
 import { ambiguousNamingRules } from './recapTeamNames'
+import { conferenceTeams as DEFAULT_CONFERENCES } from '../data/conferenceTeams'
 
 const TWO_DIGIT = (y) => String(y).slice(-2)
 
@@ -99,6 +100,140 @@ function fmtGameLine(game, dynasty) {
   }
   return `${r1}${t1} ${s1}, ${r2}${t2} ${s2}${ot} (${home})`
 }
+
+// ---------------------------------------------------------------------------
+// Conference alignment for a given year. Dynasty users frequently realign
+// teams (FSU/Miami/Clemson moving to the SEC, custom conferences, etc.),
+// so we MUST hand the AI the dynasty's actual alignment and forbid it from
+// falling back on real-world knowledge — otherwise the recap will say
+// "ACC's Florida State" when the user has FSU in the SEC.
+//
+// Lookup order MUST mirror DynastyContext.getCustomConferencesForYear,
+// which is what every other consumer (Conference Standings, geminiService)
+// uses. The shape is:
+//   1. dynasty.customConferencesByYear[year]  (per-year bulk realignment)
+//   2. nearest earlier year in customConferencesByYear (carried forward)
+//   3. dynasty.customConferences              (legacy single-snapshot)
+//   4. static DEFAULT_CONFERENCES             (real-world current alignment)
+// then overlay single-team overrides from:
+//   - dynasty.teams[tid].byYear[year].conference  (canonical)
+//   - dynasty.conferenceByTeamYear[abbr][year]    (legacy)
+//
+// Inlined here (rather than imported from DynastyContext) because the prompt
+// utility deliberately has no React/context dependency.
+// ---------------------------------------------------------------------------
+
+function getConferenceAlignmentForYear(dynasty, year) {
+  if (!dynasty) return DEFAULT_CONFERENCES
+  const yearNum = Number(year)
+  if (!Number.isFinite(yearNum)) return DEFAULT_CONFERENCES
+
+  // Step 1-3: pick a base map.
+  let baseMap = null
+  const byYear = dynasty.customConferencesByYear?.[yearNum]
+    || dynasty.customConferencesByYear?.[String(yearNum)]
+  if (byYear && typeof byYear === 'object' && Object.keys(byYear).length > 0) {
+    baseMap = byYear
+  } else if (dynasty.customConferencesByYear && typeof dynasty.customConferencesByYear === 'object') {
+    const startYear = Number(dynasty.startYear) || 2024
+    const minYear = Math.max(startYear, yearNum - 10)
+    for (let y = yearNum - 1; y >= minYear; y--) {
+      const prev = dynasty.customConferencesByYear[y] || dynasty.customConferencesByYear[String(y)]
+      if (prev && typeof prev === 'object' && Object.keys(prev).length > 0) {
+        baseMap = prev
+        break
+      }
+    }
+  }
+  if (!baseMap && dynasty.customConferences && typeof dynasty.customConferences === 'object'
+      && Object.keys(dynasty.customConferences).length > 0) {
+    baseMap = dynasty.customConferences
+  }
+
+  const sourceMap = baseMap || DEFAULT_CONFERENCES
+
+  // Collect per-team overrides (single-team modal edits, e.g. moving
+  // Notre Dame to the Big Ten). These MUST win over the bulk snapshot,
+  // otherwise the prompt would still show ND as Independent.
+  const overrides = new Map() // abbr UPPERCASE → conferenceName
+  for (const team of Object.values(dynasty.teams || {})) {
+    const yd = team?.byYear?.[yearNum] || team?.byYear?.[String(yearNum)]
+    const conf = yd?.conference
+    const abbr = team?.abbr
+    if (conf && abbr) overrides.set(abbr.toUpperCase(), conf)
+  }
+  const legacy = dynasty.conferenceByTeamYear || {}
+  for (const [abbr, byYearMap] of Object.entries(legacy)) {
+    if (!abbr || !byYearMap || typeof byYearMap !== 'object') continue
+    const conf = byYearMap[yearNum] ?? byYearMap[String(yearNum)]
+    if (conf) overrides.set(abbr.toUpperCase(), conf)
+  }
+
+  // Deep clone so we don't mutate stored data.
+  const result = {}
+  for (const [conf, teams] of Object.entries(sourceMap)) {
+    result[conf] = Array.isArray(teams) ? [...teams] : []
+  }
+  if (overrides.size > 0) {
+    for (const [abbr, newConf] of overrides) {
+      for (const list of Object.values(result)) {
+        const idx = list.findIndex(t => (t || '').toUpperCase() === abbr)
+        if (idx !== -1) list.splice(idx, 1)
+      }
+      if (!Array.isArray(result[newConf])) result[newConf] = []
+      if (!result[newConf].some(t => (t || '').toUpperCase() === abbr)) {
+        result[newConf].push(abbr)
+      }
+    }
+  }
+  return result
+}
+
+// Renders the alignment as a plain-text data block. Each line is
+// `Conference: Team1, Team2, ...` — names resolved through dynasty.teams
+// when possible so teambuilder renames flow through. Returns '' when the
+// dynasty has no alignment data of any kind (extremely rare, since the
+// static fallback always returns something).
+function conferenceAlignmentBlock(dynasty, year) {
+  const alignment = getConferenceAlignmentForYear(dynasty, year)
+  if (!alignment || Object.keys(alignment).length === 0) return ''
+  const lines = []
+  for (const [conf, abbrs] of Object.entries(alignment)) {
+    if (!Array.isArray(abbrs) || abbrs.length === 0) continue
+    const names = abbrs
+      .map(a => teamDisplay(null, a, dynasty))
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b))
+    if (names.length === 0) continue
+    lines.push(`${conf}: ${names.join(', ')}`)
+  }
+  return lines.join('\n')
+}
+
+const CONFERENCE_GUARDRAIL = `
+═══════════════════════════════════════════════════════════
+CONFERENCE ALIGNMENT — DYNASTY-SPECIFIC, NOT REAL LIFE
+═══════════════════════════════════════════════════════════
+THIS IS THE MOST COMMON MISTAKE. READ TWICE.
+
+Conferences in this dynasty ARE NOT the same as real life. The user can move any team into any conference at any time. Examples of valid dynasty alignments:
+- Florida State, Miami, and Clemson in the SEC (not the ACC)
+- Texas in the Big 12 (not the SEC)
+- USC in the Pac-12 (not the Big Ten)
+- Alabama in the Pac-12
+- A custom conference with no real-world counterpart
+
+The CONFERENCE ALIGNMENT block in the data below is the ONLY source of truth for which team is in which conference. Before you write the conference name next to ANY team, look it up in that block. Do not skip this step.
+
+Hard rules:
+- Look up every team's conference in the alignment block. Use what you find there. PERIOD.
+- Do NOT use real-world knowledge to assign a conference to any team. Your prior training about who's in the SEC / ACC / Big Ten / etc. is WRONG for this dynasty.
+- If a team is not listed in the alignment block, refer to it WITHOUT a conference label. Do not guess.
+- Do not reference real-world conference history ("the former Big 12 program", "the Pac-12's last stand", "joined the SEC last year"). The dynasty has its own history.
+- "Conference races" sections must be built from the alignment block, not from memory of real-world divisional structure.
+
+Self-check before you submit: pick three teams you mentioned in the recap and verify each one's conference matches what the CONFERENCE ALIGNMENT block says. If any don't match, fix them.
+`
 
 // ---------------------------------------------------------------------------
 // Shared guardrail block (used by all three prompts).
@@ -527,6 +662,16 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     sections.push('')
   }
 
+  // Conference alignment for THIS dynasty THIS year — the AI MUST treat
+  // this as the only source of truth (see CONFERENCE_GUARDRAIL).
+  const alignmentBlock = conferenceAlignmentBlock(dynasty, yearNum)
+  if (alignmentBlock) {
+    sections.push(`CONFERENCE ALIGNMENT (${yearNum}) — THIS OVERRIDES YOUR REAL-WORLD KNOWLEDGE`)
+    sections.push(`(Use these conference assignments verbatim. Do not assign any team to a conference based on real life — only what's listed below counts.)`)
+    sections.push(alignmentBlock)
+    sections.push('')
+  }
+
   // Conference standings
   const confKeys = Object.keys(standingsByConf)
   if (confKeys.length > 0) {
@@ -582,6 +727,8 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     `Tone: ESPN / The Athletic / 247Sports beat-writing — informed, slightly dramatic, but never breathless. Lead with the biggest games and biggest moves. Save individual performances and poll movement for the back half.`,
     ``,
     FACTUAL_GUARDRAIL.trim(),
+    ``,
+    CONFERENCE_GUARDRAIL.trim(),
     ``,
     `═══════════════════════════════════════════════════════════`,
     `RANK USAGE — READ CAREFULLY`,
@@ -740,6 +887,16 @@ export function buildPreseasonRecapPrompt(dynasty, year) {
     sections.push('')
   }
 
+  // Dynasty-specific conference alignment for the upcoming season —
+  // referenced by CONFERENCE_GUARDRAIL above.
+  const alignmentBlock = conferenceAlignmentBlock(dynasty, yearNum)
+  if (alignmentBlock) {
+    sections.push(`CONFERENCE ALIGNMENT (${yearNum}) — THIS OVERRIDES YOUR REAL-WORLD KNOWLEDGE`)
+    sections.push(`(Use these conference assignments verbatim. Do not assign any team to a conference based on real life — only what's listed below counts.)`)
+    sections.push(alignmentBlock)
+    sections.push('')
+  }
+
   const dataBlock = sections.join('\n')
 
   return [
@@ -750,6 +907,8 @@ export function buildPreseasonRecapPrompt(dynasty, year) {
     `Tone: a season-preview column from a major outlet — confident, scene-setting, but tightly bounded by the data below.`,
     ``,
     FACTUAL_GUARDRAIL.trim(),
+    ``,
+    CONFERENCE_GUARDRAIL.trim(),
     ``,
     `═══════════════════════════════════════════════════════════`,
     `WHAT TO COVER (suggested order — adapt based on what's in the data)`,
@@ -806,12 +965,16 @@ export function buildPreseasonTop25Prompt(dynasty, year) {
     if (aw.heisman?.player || aw.heisman?.name) awardLines.push(`${y} Heisman: ${aw.heisman.player || aw.heisman.name}`)
   }
 
+  const alignmentBlock = conferenceAlignmentBlock(dynasty, yearNum)
+
   const dataBlock = [
     `Year about to start: ${yearNum}`,
     ``,
     histLines.length > 0 ? `RECENT FINAL POLLS:\n${histLines.join('\n')}` : `(no prior final-poll data has been saved in this dynasty)`,
     ``,
     awardLines.length > 0 ? `RECENT AWARDS:\n${awardLines.join('\n')}` : ``,
+    ``,
+    alignmentBlock ? `CONFERENCE ALIGNMENT (${yearNum}) — THIS OVERRIDES YOUR REAL-WORLD KNOWLEDGE:\n${alignmentBlock}` : ``,
   ].filter(Boolean).join('\n')
 
   return [
@@ -824,6 +987,8 @@ export function buildPreseasonTop25Prompt(dynasty, year) {
     `Use UPPERCASE FBS abbreviations the user will type into a strict-dropdown sheet (BAMA, OSU, UGA, MICH, etc.). Do NOT use full names, mascots, or city names.`,
     ``,
     FACTUAL_GUARDRAIL.trim(),
+    ``,
+    CONFERENCE_GUARDRAIL.trim(),
     ``,
     `Apply the guardrail to ranking choices: ground your Top 25 in the past-season data below. If the dynasty has no prior history, default to a reasonable real-world preseason consensus and SAY SO in a single PRE-NOTE line above the data, prefixed exactly with "PRE-NOTE:". The user will read and delete that note before pasting.`,
     ``,

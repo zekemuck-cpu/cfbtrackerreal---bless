@@ -45,9 +45,18 @@ export default function PreseasonTop25Modal({ isOpen, onClose, year, teamColors 
   const [showAIPrompt, setShowAIPrompt] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  // Reset rows ONLY when the modal opens — not on every render. The
+  // previous version listed `initialRows` in the dep array, but
+  // initialRows is recomputed every render (because `existing` is a
+  // fresh `?.[year] || []` array reference each time). That made the
+  // effect fire after every keystroke and reset the user's picks
+  // immediately — which presented as "the modal won't let me enter
+  // anything." isOpen-only ensures we only seed state on the open
+  // transition.
   useEffect(() => {
     if (isOpen) setRows(initialRows)
-  }, [isOpen, initialRows])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen])
 
   const aiPrompt = useMemo(() => {
     if (!currentDynasty) return ''

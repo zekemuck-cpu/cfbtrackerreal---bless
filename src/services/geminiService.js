@@ -10,7 +10,7 @@
 import { getTeamName } from '../data/teamAbbreviations'
 import { getCurrentTeamAbbr, TEAMS, getGameTeamInfo, getNameByAbbr, getTidFromAbbr } from '../data/teamRegistry'
 import { getTeamConference } from '../data/conferenceTeams'
-import { getUserGamePerspective, getLockedCoachingStaff } from '../context/DynastyContext'
+import { getUserGamePerspective, getLockedCoachingStaff, getCustomConferencesForYear } from '../context/DynastyContext'
 
 // ============================================
 // HELPER FUNCTIONS FOR DATA EXTRACTION
@@ -297,7 +297,8 @@ function getCoachingStaff(dynasty, teamAbbr, year) {
 function getSeasonResultsBeforeGame(allGames, teamAbbr, year, currentGameOrder, dynasty = null) {
   if (!allGames) return []
 
-  const teamTid = getTidFromAbbr(teamAbbr)
+  // Pass dynasty so a teambuilder team's renamed abbr resolves to the right tid.
+  const teamTid = getTidFromAbbr(teamAbbr, dynasty)
 
   return allGames
     .filter(g => {
@@ -569,9 +570,10 @@ function buildEnhancedPlayerHighlights(boxScore, side, players, allGames, year, 
 function getHeadToHeadHistory(allGames, team1, team2, currentYear, maxGames = 5, dynasty = null) {
   const history = []
 
-  // Get tids for unified format matching
-  const team1Tid = getTidFromAbbr(team1)
-  const team2Tid = getTidFromAbbr(team2)
+  // Get tids for unified format matching. Pass dynasty so teambuilder-renamed
+  // abbrs resolve correctly.
+  const team1Tid = getTidFromAbbr(team1, dynasty)
+  const team2Tid = getTidFromAbbr(team2, dynasty)
 
   for (const g of allGames) {
     // Skip games from current year (we only want historical)
@@ -904,9 +906,10 @@ function getCFPBracketContext(dynasty, game) {
 /**
  * Get bowl history for a team (past bowl appearances)
  */
-function getBowlHistory(allGames, teamAbbr, currentYear, maxGames = 3) {
+function getBowlHistory(allGames, teamAbbr, currentYear, maxGames = 3, dynasty = null) {
   const history = []
-  const teamTid = getTidFromAbbr(teamAbbr)
+  // Pass dynasty so a teambuilder-renamed team's abbr resolves to its tid.
+  const teamTid = getTidFromAbbr(teamAbbr, dynasty)
 
   for (const g of allGames) {
     if (Number(g.year) >= Number(currentYear)) continue
@@ -957,9 +960,10 @@ function getBowlHistory(allGames, teamAbbr, currentYear, maxGames = 3) {
  * Get a team's postseason result from the prior year (the year before the current game)
  * Returns bowl game or CFP participation details from the previous season
  */
-function getPriorYearPostseason(allGames, teamAbbr, currentYear) {
+function getPriorYearPostseason(allGames, teamAbbr, currentYear, dynasty = null) {
   const priorYear = Number(currentYear) - 1
-  const teamTid = getTidFromAbbr(teamAbbr)
+  // Pass dynasty so a teambuilder-renamed team's abbr resolves to its tid.
+  const teamTid = getTidFromAbbr(teamAbbr, dynasty)
 
   for (const g of allGames) {
     if (Number(g.year) !== priorYear) continue
@@ -1046,9 +1050,10 @@ function getPriorYearPostseason(allGames, teamAbbr, currentYear) {
  * Get a team's season history (past years' records)
  * Returns records for previous seasons where this team was coached
  */
-function getTeamSeasonHistory(allGames, teamAbbr, currentYear, maxSeasons = 3) {
+function getTeamSeasonHistory(allGames, teamAbbr, currentYear, maxSeasons = 3, dynasty = null) {
   const seasonsByYear = {}
-  const teamTid = getTidFromAbbr(teamAbbr)
+  // Pass dynasty so a teambuilder-renamed team's abbr resolves to its tid.
+  const teamTid = getTidFromAbbr(teamAbbr, dynasty)
 
   for (const g of allGames) {
     const gYear = Number(g.year)
@@ -1116,7 +1121,8 @@ function getTeamSeasonHistory(allGames, teamAbbr, currentYear, maxSeasons = 3) {
  */
 function getOpponentSeasonResults(allGames, opponentAbbr, year, currentGameOrder, dynasty = null) {
   const results = []
-  const opponentTid = getTidFromAbbr(opponentAbbr)
+  // Pass dynasty so a teambuilder-renamed team's abbr resolves to its tid.
+  const opponentTid = getTidFromAbbr(opponentAbbr, dynasty)
 
   for (const g of allGames) {
     if (Number(g.year) !== Number(year)) continue
@@ -1649,8 +1655,8 @@ export function buildGameRecapContext(dynasty, game) {
   const team2FullName = getNameByAbbr(teams, team2) || getTeamName(team2) || team2
 
   // NEW: Get past season history for both teams
-  const team1SeasonHistory = getTeamSeasonHistory(allGames, team1, year)
-  const team2SeasonHistory = getTeamSeasonHistory(allGames, team2, year)
+  const team1SeasonHistory = getTeamSeasonHistory(allGames, team1, year, 3, dynasty)
+  const team2SeasonHistory = getTeamSeasonHistory(allGames, team2, year, 3, dynasty)
 
   // Opponent / second-team's prior-game list this season. Always computed
   // now so the recap prompt always has both teams' running records and
@@ -1661,15 +1667,20 @@ export function buildGameRecapContext(dynasty, game) {
   // team1SeasonResults line list).
   const team1SeasonResultsSummary = getOpponentSeasonResults(allGames, team1, year, thisGameOrder, dynasty)
 
-  // Get conferences for both teams. dynasty.teams is the only team-data
-  // source — `customTeams` is gone post-refactor.
-  const customConferences = dynasty?.conferencesByYear?.[year] || dynasty?.conferences || null
+  // Get conferences for both teams. Route through the canonical
+  // resolver — the previous direct read used the wrong field names
+  // (`conferencesByYear` / `conferences` don't exist; storage is
+  // `customConferencesByYear` with overlay from
+  // `dynasty.teams[tid].byYear[year].conference`), so this prompt
+  // was silently using real-life conference defaults instead of the
+  // user's actual realignment.
+  const customConferences = getCustomConferencesForYear(dynasty, year)
   const team1Conference = getTeamConference(team1, customConferences, dynasty?.teams)
   const team2Conference = getTeamConference(team2, customConferences, dynasty?.teams)
 
   // Get prior year postseason results for both teams
-  const team1PriorPostseason = getPriorYearPostseason(allGames, team1, year)
-  const team2PriorPostseason = getPriorYearPostseason(allGames, team2, year)
+  const team1PriorPostseason = getPriorYearPostseason(allGames, team1, year, dynasty)
+  const team2PriorPostseason = getPriorYearPostseason(allGames, team2, year, dynasty)
 
   // NEW: Get player performance trends from box score (using determined sides)
   let team1PlayerTrends = []
@@ -1826,10 +1837,10 @@ export function buildGameRecapContext(dynasty, game) {
 
     // Bowl history for both teams (only for bowl/CFP games)
     team1BowlHistory: (game.isBowlGame || game.isCFPFirstRound || game.isCFPQuarterfinal || game.isCFPSemifinal || game.isCFPChampionship)
-      ? getBowlHistory(allGames, team1, year)
+      ? getBowlHistory(allGames, team1, year, 3, dynasty)
       : [],
     team2BowlHistory: (game.isBowlGame || game.isCFPFirstRound || game.isCFPQuarterfinal || game.isCFPSemifinal || game.isCFPChampionship)
-      ? getBowlHistory(allGames, team2, year)
+      ? getBowlHistory(allGames, team2, year, 3, dynasty)
       : [],
 
     // NEW: Past season records for both teams

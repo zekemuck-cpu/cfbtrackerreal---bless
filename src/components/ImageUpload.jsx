@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react'
 import { useToast } from './ui/Toast'
+import { uploadImage } from '../utils/imageUpload'
 
 /**
- * Reusable image upload component with ImgBB integration
+ * Reusable image upload component (Firebase Storage backend)
  * Supports: file selection, drag & drop, and paste from clipboard
  *
  * Props:
@@ -31,32 +32,11 @@ export default function ImageUpload({
   const primaryBgText = 'var(--surface-1)'
   const secondaryBgText = 'var(--surface-1)'
 
-  // Upload image to ImgBB
-  const uploadToImgBB = async (file) => {
-    const apiKey = import.meta.env.VITE_IMGBB_API_KEY || '1369fa0365731b13c5330a26fedf569c'
-    if (!apiKey) {
-      toast.error('Image upload not configured. Please add VITE_IMGBB_API_KEY to environment variables.')
-      return null
-    }
-
-    const formData = new FormData()
-    formData.append('image', file)
-    formData.append('key', apiKey)
-
+  // Upload image to Firebase Storage (replaces the imgbb path).
+  const uploadToCloud = async (file) => {
     try {
       setUploading(true)
-      const response = await fetch('https://api.imgbb.com/1/upload', {
-        method: 'POST',
-        body: formData
-      })
-      const data = await response.json()
-
-      if (data.success) {
-        return data.data.url
-      } else {
-        toast.error('Failed to upload image: ' + (data.error?.message || 'Unknown error'))
-        return null
-      }
+      return await uploadImage(file)
     } catch (error) {
       toast.error('Failed to upload image: ' + error.message)
       return null
@@ -75,13 +55,13 @@ export default function ImageUpload({
       return
     }
 
-    // Validate file size (max 32MB for ImgBB)
+    // Validate file size (max 32MB)
     if (file.size > 32 * 1024 * 1024) {
       toast.error('Image must be less than 32MB')
       return
     }
 
-    const url = await uploadToImgBB(file)
+    const url = await uploadToCloud(file)
     if (url) {
       onChange(url)
     }
@@ -123,7 +103,7 @@ export default function ImageUpload({
   // Convert a remote image URL (or data: URL) into an uploadable File.
   // Used when the user pastes "Copy image" content that's just a URL
   // wrapper rather than a real image blob — we fetch the bytes here
-  // so we can re-upload them to ImgBB (and own a permanent copy).
+  // so we can re-upload to Firebase Storage (and own a permanent copy).
   const urlToImageFile = async (url) => {
     const res = await fetch(url, { mode: 'cors' })
     if (!res.ok) throw new Error(`Fetch failed (${res.status})`)

@@ -916,8 +916,10 @@ export default function DangerZone() {
         if (!playerName) return { action: 'skip' }
         if (entry.award && entry.award.toLowerCase().includes('coach')) return { action: 'skip' }
 
-        // Find matching player
-        const match = findMatchingPlayer(playerName, playerTeam, year, existingPlayers)
+        // Find matching player. Pass dynasty.teams so teambuilder-renamed
+        // slots resolve correctly (else a TB takeover would mis-classify the
+        // same person as a transfer to a "different" team).
+        const match = findMatchingPlayer(playerName, playerTeam, year, existingPlayers, currentDynasty?.teams)
 
         if (match.matchType === 'exact' || match.matchType === 'transfer') {
           // Found a matching player (auto-confirm transfers)

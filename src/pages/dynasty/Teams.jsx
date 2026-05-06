@@ -23,7 +23,10 @@ export default function Teams() {
 
   const allTeams = useMemo(() => (
     Object.values(teamsSource)
-      .filter(team => !team.isFCS)
+      // Skip FCS, plus any sparse/orphan team entries that don't have a
+      // real name yet — the directory can't render them and the sort
+      // below would crash on undefined.localeCompare.
+      .filter(team => team && team.name && !team.isFCS)
       .map(team => ({
         tid: team.tid,
         abbr: team.abbr,
@@ -33,7 +36,7 @@ export default function Teams() {
         logo: team.logo,
         isCustom: team.isCustom || false
       }))
-      .sort((a, b) => a.name.localeCompare(b.name))
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
   ), [teamsSource])
 
   const filteredTeams = useMemo(() => {

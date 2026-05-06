@@ -15,12 +15,14 @@ import StatsEntryModal from '../../components/StatsEntryModal'
 import DetailedStatsEntryModal from '../../components/DetailedStatsEntryModal'
 import TeamEditModal from '../../components/TeamEditModal'
 import { TEAMS, resolveTid, getTeam, getTeamByAbbr, getCurrentTeamAbbr, getCurrentTeamTid, getGameTeamInfo, getAbbrFromTeamName, getTidFromTeamName } from '../../data/teamRegistry'
+import { uploadImage } from '../../utils/imageUpload'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { isSameYear } from '../../utils/compareUtils'
 import { calculateRecruitingClassScore, formatRecruitingClassScore, flattenClassCommitments } from '../../utils/recruitingScore'
 import { useToast } from '../../components/ui/Toast'
 import SortableStatsTable, { PlayerCell } from '../../components/SortableStatsTable'
 import { formatScoreHighLow } from '../../utils/scoreFormat'
+import { getCoachStints } from '../../data/coachStats'
 
 // Map abbreviation to mascot name for logo lookup
 // Accepts optional teamsData for tid-based teambuilder support
@@ -400,23 +402,11 @@ export default function TeamYear() {
   const [imageUploading, setImageUploading] = useState(false)
   const quickImageInputRef = useRef(null)
 
-  // Upload image to ImgBB
-  const uploadToImgBB = async (file) => {
-    const apiKey = import.meta.env.VITE_IMGBB_API_KEY || '1369fa0365731b13c5330a26fedf569c'
-    if (!apiKey) return null
-
-    const formDataUpload = new FormData()
-    formDataUpload.append('image', file)
-    formDataUpload.append('key', apiKey)
-
+  // Upload image to Firebase Storage (replaces the imgbb path).
+  const uploadToCloud = async (file) => {
     try {
       setImageUploading(true)
-      const response = await fetch('https://api.imgbb.com/1/upload', {
-        method: 'POST',
-        body: formDataUpload
-      })
-      const data = await response.json()
-      return data.success ? data.data.url : null
+      return await uploadImage(file)
     } catch (error) {
       console.error('Upload failed:', error)
       return null
@@ -429,7 +419,7 @@ export default function TeamYear() {
   const handleQuickImageUpload = async (file) => {
     if (!file || !quickImagePlayer) return
 
-    const url = await uploadToImgBB(file)
+    const url = await uploadToCloud(file)
     if (url) {
       // Update the player's pictureUrl
       const updatedPlayers = currentDynasty.players.map(p =>
@@ -5490,26 +5480,17 @@ export default function TeamYear() {
           return g1Tid === tid || g2Tid === tid
         })
 
-        // Build a year → user-tid map from coachingHistory + current stint.
-        // coachingHistory holds prior stints; the current stint runs from
-        // (last entry's endYear + 1) to currentYear, coaching currentTid.
-        const userTid = getCurrentTeamTid(currentDynasty)
-        const coachingHistory = currentDynasty.coachingHistory || []
+        // Build a year → user-tid map from getCoachStints (single source
+        // of truth — derives from memberTeamHistory[ownerUid]). Replaces
+        // the older walk over dynasty.coachingHistory + an inferred
+        // current-stint range, which silently went stale when
+        // memberTeamHistory was edited via the Members timeline editor.
+        const ownerUid = currentDynasty.userId
+        const ownerStints = ownerUid ? getCoachStints(currentDynasty, ownerUid) : []
         const yearToUserTid = {}
-        coachingHistory.forEach(stint => {
-          const stintTid = getTidFromTeamName(stint.teamName, teamsSource) || resolveTid(stint.teamName, teamsSource)
-          const start = Number(stint.startYear)
-          const end = Number(stint.endYear)
-          if (!Number.isFinite(start) || !Number.isFinite(end) || !stintTid) return
-          for (let y = start; y <= end; y++) yearToUserTid[y] = stintTid
-        })
-        const lastEnd = coachingHistory.length > 0
-          ? Math.max(...coachingHistory.map(s => Number(s.endYear)).filter(Number.isFinite))
-          : null
-        const currentStintStart = Number.isFinite(lastEnd) ? lastEnd + 1 : Number(currentDynasty.startYear)
-        if (userTid && Number.isFinite(currentStintStart)) {
-          for (let y = currentStintStart; y <= Number(currentDynasty.currentYear); y++) {
-            yearToUserTid[y] = userTid
+        for (const stint of ownerStints) {
+          for (let y = stint.startYear; y <= stint.endYear; y++) {
+            yearToUserTid[y] = stint.tid
           }
         }
 

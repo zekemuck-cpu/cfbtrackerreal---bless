@@ -8,6 +8,7 @@ import { getTeamLogoByTid, stripMascotFromName } from '../../data/teams'
 import { PageHero, Card, Badge, Button, Select, EmptyState, TeamLogo } from '../../components/ui'
 import Modal from '../../components/ui/Modal'
 import { calculateRecruitingClassScore, formatRecruitingClassScore, flattenClassCommitments } from '../../utils/recruitingScore'
+import TeamPermissionBanner from '../../components/TeamPermissionBanner'
 
 const stateFullNames = {
   'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas', 'CA': 'California',
@@ -155,7 +156,7 @@ export default function Recruiting() {
         })
       })
       if (hasRecruits) {
-        const tid = getTidFromAbbr(abbr)
+        const tid = getTidFromAbbr(abbr, currentDynasty)
         if (tid && !teamsMap.has(tid)) {
           const teamData = teamsSource[tid]
           teamsMap.set(tid, {
@@ -243,14 +244,10 @@ export default function Recruiting() {
           const existingPlayer = updatedPlayers[playerIndex]
           const previousTeamTid = existingPlayer.team
 
-          const movement = {
-            year: selectedYear,
-            type: 'portal_in',
-            from: previousTeamTid,
-            to: selectedTid,
-            reason: 'Transfer'
-          }
-
+          // Canonical v2 movement — write straight to movementByYear.
+          // The legacy movements[] write was being stripped by
+          // syncDerivedFieldsFromV2 anyway and used the legacy
+          // 'portal_in' type that the heal then re-canonicalized.
           updatedPlayers[playerIndex] = {
             ...existingPlayer,
             team: selectedTid,
@@ -258,7 +255,14 @@ export default function Recruiting() {
               ...existingPlayer.teamsByYear,
               [selectedYear + 1]: teamsByYearValue
             },
-            movements: [...(existingPlayer.movements || []), movement],
+            movementByYear: {
+              ...(existingPlayer.movementByYear || {}),
+              [selectedYear]: {
+                type: 'arrival',
+                arrival: 'transfer_in',
+                fromTid: previousTeamTid != null ? Number(previousTeamTid) : null,
+              },
+            },
             isPortal: true,
             isRecruit: true,
             recruitYear: selectedYear,
@@ -715,6 +719,11 @@ export default function Recruiting() {
 
   return (
     <div className="space-y-4">
+      {/* Cross-team write warning. Recruiting is per-team; if the user
+          isn't assigned to selectedTid, surface that they'd be writing
+          on behalf of another coach. Silent for commish/co-commishes. */}
+      <TeamPermissionBanner tids={selectedTid ? [selectedTid] : []} />
+
       <PageHero
         title="Recruiting Class"
         meta={

@@ -10,8 +10,10 @@
  *   memberTeams:  { [uid]: number[] }    — tids each user "controls".
  *                                           Members are capped at 1 (UI
  *                                           gate); commish + co-commish
- *                                           can hold multiple to manage
- *                                           teams for non-premium users.
+ *                                           can hold multiple to shepherd
+ *                                           teams without an assigned
+ *                                           coach yet, or to cover for an
+ *                                           absent member.
  *
  * Roles:
  *   - commish:  the dynasty owner (`userId`). Full control: invite,
@@ -116,6 +118,27 @@ export function maxTeamsForRole(role) {
   return 1
 }
 
+/**
+ * Can `uid` write to the data attached to team `tid` in this dynasty?
+ *   - Commish + co-commishes: yes for any team (they shepherd extras).
+ *   - Members: yes only if tid is in their `memberTeams[uid]` list.
+ *   - Non-editors: no.
+ *
+ * The Firestore security rules should mirror this same gate. Until
+ * those land server-side this is a UI-only protection — but it still
+ * stops the common-case "wrong-team edit by accident" bug.
+ */
+export function canWriteTeam(dynasty, uid, tid) {
+  if (!dynasty || !uid || tid == null) return false
+  const role = getRole(dynasty, uid)
+  if (!role) return false
+  if (role === ROLE_COMMISH || role === ROLE_COCOMMISH) return true
+  const tidNum = Number(tid)
+  if (!Number.isFinite(tidNum)) return false
+  const teams = getMemberTeams(dynasty, uid)
+  return teams.includes(tidNum)
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // Migration — every legacy dynasty gets a clean editors[] on first load.
 // ─────────────────────────────────────────────────────────────────────
@@ -192,6 +215,37 @@ export function getMemberLabel(dynasty, uid) {
   return dynasty.memberLabels?.[uid] || ''
 }
 
+/**
+ * The display name for a uid in this dynasty. Single source of truth so
+ * every surface (Layout, Coach Career, Coaches leaderboard, awards
+ * matching, Sheets creation, staff injection) shows the same string.
+ *
+ * Resolution chain:
+ *   1. memberLabels[uid] — canonical, editable in Members page
+ *   2. dynasty.coachName — legacy field; only present on dynasties
+ *      created before createDynasty stopped writing it. Read-only
+ *      fallback so pre-migration dynasties keep working until their
+ *      owner edits their name (which writes memberLabels).
+ *   3. 'Commish' / 'Co-Commish' / 'Member' role placeholder
+ *
+ * Pass `fallback` to override the role placeholder for a specific
+ * surface (e.g. 'Coach' on the Coach Career page).
+ */
+export function getCoachNameForUid(dynasty, uid, fallback = null) {
+  if (!dynasty || !uid) return fallback || ''
+  const label = dynasty.memberLabels?.[uid]
+  if (label) return label
+  // Legacy fallback — pre-migration owner-only field. Stays for read
+  // compatibility; nothing in the app writes it as of this commit.
+  if (uid === dynasty.userId && dynasty.coachName) return dynasty.coachName
+  if (fallback) return fallback
+  const role = getRole(dynasty, uid)
+  if (role === ROLE_COMMISH) return 'Commish'
+  if (role === ROLE_COCOMMISH) return 'Co-Commish'
+  if (role === ROLE_MEMBER) return 'Member'
+  return ''
+}
+
 export function setMemberLabelValue(dynasty, uid, label) {
   const map = { ...(dynasty?.memberLabels || {}) }
   const trimmed = (label || '').trim()
@@ -205,8 +259,8 @@ export function setMemberLabelValue(dynasty, uid, label) {
 //
 // Each user can be assigned one or more tids (the teams they "control"
 // in the dynasty). Members are capped at 1 by UI gates; commish + co-
-// commishes are uncapped so they can shepherd teams whose owners don't
-// have premium write access yet.
+// commishes are uncapped so they can shepherd teams without an assigned
+// coach yet, or cover for an absent member.
 // ─────────────────────────────────────────────────────────────────────
 
 /** Returns the array of tids assigned to this uid. */
@@ -351,6 +405,191 @@ export function snapshotAllMembersForYear(dynasty, year) {
     history = stampHistoryForYear(history, uid, yNum, teams)
   }
   return history
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Timeline editing — retroactively claim/release a team for a given year.
+//
+// Use case: a user joins the dynasty mid-stream (didn't have premium
+// the first two seasons; commish was managing their team). After they
+// upgrade and join, they claim seasons 1-2 from the commish's history
+// onto theirs so Coach Career shows the right narrative.
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Set this uid's tids for the given year, replacing whatever was there.
+ * Pass an empty array (or null) to clear. Returns the new history map.
+ */
+export function setMemberTeamsForYear(history, uid, year, tids) {
+  return stampHistoryForYear(history, uid, year, tids || [])
+}
+
+/**
+ * Claim `tid` for `uid` in `year`. Adds it to this uid's history AND
+ * removes it from any OTHER uid that had it stamped for the same year
+ * (a team has at most one coach per season). Returns the new history.
+ */
+export function claimTeamForYear(history, uid, year, tid) {
+  if (!uid) return history || {}
+  const yNum = Number(year)
+  const tNum = Number(tid)
+  if (!Number.isFinite(yNum) || !Number.isFinite(tNum)) return history || {}
+  let next = { ...(history || {}) }
+  // Strip the tid from every OTHER uid's same-year list.
+  for (const otherUid of Object.keys(next)) {
+    if (otherUid === uid) continue
+    const otherUserMap = next[otherUid]
+    if (!otherUserMap) continue
+    const stamped =
+      otherUserMap[yNum] ?? otherUserMap[String(yNum)]
+    if (!Array.isArray(stamped)) continue
+    const filtered = stamped.map(Number).filter(t => t !== tNum)
+    if (filtered.length === stamped.length) continue
+    next = stampHistoryForYear(next, otherUid, yNum, filtered)
+  }
+  // Add tid to this uid's list (no duplicates).
+  const myMap = next[uid] || {}
+  const mine = myMap[yNum] ?? myMap[String(yNum)]
+  const myList = Array.isArray(mine) ? mine.map(Number) : []
+  if (!myList.includes(tNum)) myList.push(tNum)
+  next = stampHistoryForYear(next, uid, yNum, myList)
+  return next
+}
+
+/**
+ * Remove `tid` from this uid's history for `year`. No-op if it wasn't
+ * stamped. Returns the new history.
+ */
+export function releaseTeamForYear(history, uid, year, tid) {
+  if (!uid) return history || {}
+  const yNum = Number(year)
+  const tNum = Number(tid)
+  if (!Number.isFinite(yNum) || !Number.isFinite(tNum)) return history || {}
+  const userMap = (history || {})[uid]
+  if (!userMap) return history || {}
+  const stamped = userMap[yNum] ?? userMap[String(yNum)]
+  if (!Array.isArray(stamped)) return history || {}
+  const filtered = stamped.map(Number).filter(t => t !== tNum)
+  if (filtered.length === stamped.length) return history || {}
+  return stampHistoryForYear(history, uid, yNum, filtered)
+}
+
+/**
+ * Returns the array of uids that currently have `tid` stamped for
+ * `year`. Used to surface conflicts (a tid should belong to at most
+ * one uid per year).
+ */
+export function getCoachesForTeamYear(dynasty, tid, year) {
+  if (!dynasty || tid == null) return []
+  const yNum = Number(year)
+  const tNum = Number(tid)
+  if (!Number.isFinite(yNum) || !Number.isFinite(tNum)) return []
+  const history = dynasty.memberTeamHistory || {}
+  const out = []
+  for (const [uid, userMap] of Object.entries(history)) {
+    if (!userMap) continue
+    const stamped = userMap[yNum] ?? userMap[String(yNum)]
+    if (!Array.isArray(stamped)) continue
+    if (stamped.map(Number).includes(tNum)) out.push(uid)
+  }
+  return out
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Invite tokens — share a /join/:dynastyId/:token URL instead of
+// asking new users to fish their UID out of the Account page.
+//
+// Storage: token-keyed docs at `dynasties/{id}/invites/{token}`. The
+// CRUD lives in services/dynastyService.js (createInviteDoc,
+// getInviteDoc, listInviteDocs, deleteInviteDoc, redeemInviteDoc,
+// subscribeToInvites). This file owns just the helpers that don't
+// hit Firestore — token generation, validity check, URL builder.
+//
+// Redemption is a two-phase write the client does atomically:
+//   1. updateDoc(invites/{token}, { redeemedBy: uid, redeemedAt: now })
+//   2. updateDoc(dynasty, { editors: [...], lastRedemption: { uid, token, at } })
+// Firestore rules verify both, see firestore.rules.
+// ─────────────────────────────────────────────────────────────────────
+
+const INVITE_TOKEN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+export function createInviteToken(length = 16) {
+  let out = ''
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const buf = new Uint8Array(length)
+    crypto.getRandomValues(buf)
+    for (let i = 0; i < length; i++) {
+      out += INVITE_TOKEN_ALPHABET[buf[i] % INVITE_TOKEN_ALPHABET.length]
+    }
+  } else {
+    for (let i = 0; i < length; i++) {
+      out += INVITE_TOKEN_ALPHABET[Math.floor(Math.random() * INVITE_TOKEN_ALPHABET.length)]
+    }
+  }
+  return out
+}
+
+/** True iff the invite is usable: exists, unredeemed, unexpired. */
+export function isInviteValid(invite) {
+  if (!invite || invite.redeemedBy) return false
+  if (invite.expiresAt && Date.now() > Number(invite.expiresAt)) return false
+  return true
+}
+
+/**
+ * Build the full join URL for a token. Returns an absolute URL using
+ * the current location's origin. Use in the Members page Copy button.
+ */
+export function buildInviteUrl(dynastyId, token) {
+  if (typeof window === 'undefined') return `/join/${dynastyId}/${token}`
+  return `${window.location.origin}/join/${dynastyId}/${token}`
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Per-uid coaching staff overrides.
+//
+// `dynasty.memberCoachingStaff: { [uid]: { hcName, ocName, dcName } }`
+//
+// Multi-coach dynasties need each member to record their OWN staff so
+// they don't overwrite each other when entering preseason data. Reads
+// fall back to the legacy dynasty.coachingStaff (owner-only field) when
+// no per-uid override exists.
+// ─────────────────────────────────────────────────────────────────────
+
+const EMPTY_STAFF = { hcName: null, ocName: null, dcName: null }
+
+export function getCoachingStaffForUid(dynasty, uid) {
+  if (!dynasty || !uid) return { ...EMPTY_STAFF }
+  const override = dynasty.memberCoachingStaff?.[uid]
+  if (override && (override.hcName || override.ocName || override.dcName)) {
+    return { ...EMPTY_STAFF, ...override }
+  }
+  // Fall back to the dynasty-wide staff for the owner (legacy single-
+  // coach surface). For other members with no override, return empty.
+  if (uid === dynasty.userId && dynasty.coachingStaff) {
+    return { ...EMPTY_STAFF, ...dynasty.coachingStaff }
+  }
+  return { ...EMPTY_STAFF }
+}
+
+/**
+ * Returns a new memberCoachingStaff map with `uid`'s staff set. Pass
+ * null/empty values to clear individual roles. If every role is empty
+ * the uid entry is dropped entirely.
+ */
+export function setCoachingStaffForUid(dynasty, uid, staff) {
+  const next = { ...(dynasty?.memberCoachingStaff || {}) }
+  if (!uid) return next
+  const cleaned = {
+    hcName: (staff?.hcName || '').trim() || null,
+    ocName: (staff?.ocName || '').trim() || null,
+    dcName: (staff?.dcName || '').trim() || null,
+  }
+  if (!cleaned.hcName && !cleaned.ocName && !cleaned.dcName) {
+    delete next[uid]
+  } else {
+    next[uid] = cleaned
+  }
+  return next
 }
 
 // ─────────────────────────────────────────────────────────────────────

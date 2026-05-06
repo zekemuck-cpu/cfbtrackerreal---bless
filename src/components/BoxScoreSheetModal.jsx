@@ -122,9 +122,10 @@ export default function BoxScoreSheetModal({
     awayTeamAbbr = (isUserHome ? opponentAbbr : userTeamAbbr) || resolvedTeam1 || 'Away'
     homeTeamName = (isUserHome ? currentDynasty?.teamName : opponentAbbr) || homeTeamAbbr
     awayTeamName = (isUserHome ? opponentAbbr : currentDynasty?.teamName) || awayTeamAbbr
-    // For legacy games, try to get tid from abbreviation
-    homeTeamTid = getTidFromAbbr(homeTeamAbbr)
-    awayTeamTid = getTidFromAbbr(awayTeamAbbr)
+    // For legacy games, try to get tid from abbreviation (dynasty-aware so
+    // teambuilder-renamed slots resolve via their custom abbr)
+    homeTeamTid = getTidFromAbbr(homeTeamAbbr, currentDynasty)
+    awayTeamTid = getTidFromAbbr(awayTeamAbbr, currentDynasty)
   }
 
   // Get the game year (use game's year, fallback to dynasty's current year)

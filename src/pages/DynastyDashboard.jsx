@@ -6,6 +6,7 @@ import { useTeamColors } from '../hooks/useTeamColors'
 import Sidebar from '../components/Sidebar'
 import NewsTicker from '../components/NewsTicker/NewsTicker'
 import TeamSwitcher from '../components/TeamSwitcher'
+import MemberOnboardingModal from '../components/MemberOnboardingModal'
 
 // Check if we're on a desktop-sized screen
 const isDesktop = () => typeof window !== 'undefined' && window.innerWidth >= 1024
@@ -95,6 +96,10 @@ export default function DynastyDashboard() {
 
       {/* News ticker at bottom */}
       <NewsTicker dynasty={currentDynasty} />
+
+      {/* Onboarding for freshly-joined members. Self-gates on whether
+          this user needs it (in editors[], no team, not dismissed). */}
+      <MemberOnboardingModal />
     </>
   )
 }

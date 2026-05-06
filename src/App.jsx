@@ -15,13 +15,14 @@ import CreateDynasty from './pages/CreateDynasty'
 import DynastyDashboard from './pages/DynastyDashboard'
 import Account from './pages/Account'
 import ViewDynasty from './pages/ViewDynasty'
+import JoinDynasty from './pages/JoinDynasty'
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
 import Contact from './pages/Contact'
 
 // Lazy pages with `.preload()` capability — see routes/lazyPages.js
 import {
-  Dashboard, Roster, Rankings, Stats, CoachCareer, Players, Player, PlayerEdit,
+  Dashboard, Roster, Rankings, Stats, CoachCareer, Coaches, Players, Player, PlayerEdit,
   PlayersByState, AllTimeLineup, Recruiting, Leaders, Awards, AllAmericans,
   AllConference, DynastyRecords, Teams, TeamYear, BowlHistory,
   ConferenceChampionshipHistory, ConferenceStandings, CFPBracket, WeeklyScores, Game,
@@ -61,6 +62,7 @@ function AppRoutes() {
             <Route path="rankings/:year" element={<Rankings />} />
             <Route path="stats" element={<Stats />} />
             <Route path="coach-career" element={<CoachCareer />} />
+            <Route path="coaches" element={<Coaches />} />
             <Route path="players" element={<Players />} />
             <Route path="all-time-lineup" element={<AllTimeLineup />} />
             <Route path="recruiting" element={<Recruiting />} />
@@ -117,6 +119,14 @@ function AppRoutes() {
                     </Layout>
                   </ProtectedRoute>
                 } />
+                {/* Invite redemption — no ProtectedRoute wrapper because
+                    JoinDynasty handles the signed-out case itself with a
+                    sign-in CTA (it stashes the URL for post-login bounce). */}
+                <Route path="/join/:dynastyId/:token" element={
+                  <Layout>
+                    <JoinDynasty />
+                  </Layout>
+                } />
                 <Route path="/dynasty/:id" element={
                   <ProtectedRoute>
                     <Layout>
@@ -132,6 +142,7 @@ function AppRoutes() {
                   <Route path="rankings/:year" element={<Rankings />} />
                   <Route path="stats" element={<Stats />} />
                   <Route path="coach-career" element={<CoachCareer />} />
+                  <Route path="coaches" element={<Coaches />} />
                   <Route path="players" element={<Players />} />
                   <Route path="players/state/:state" element={<PlayersByState />} />
                   <Route path="all-time-lineup" element={<AllTimeLineup />} />

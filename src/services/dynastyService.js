@@ -24,6 +24,7 @@ import { indexedDBStorage } from './storage'
 const DYNASTIES_COLLECTION = 'dynasties'
 const PLAYERS_SUBCOLLECTION = 'players'
 const GAMES_SUBCOLLECTION = 'games'
+const INVITES_SUBCOLLECTION = 'invites'
 
 // Batch size limit for Firestore (max 500 per batch)
 const BATCH_SIZE = 450
@@ -176,6 +177,95 @@ export async function updateDynasty(dynastyId, updates) {
     console.error('Error updating dynasty:', error)
     throw error
   }
+}
+
+// ─── Invite tokens ───────────────────────────────────────────────
+// Stored as token-keyed docs in dynasties/{id}/invites/{token}.
+// Firestore rules:
+//   - get  : any signed-in user (URL-shared)
+//   - list : denied (no enumeration)
+//   - create/delete : editors only
+//   - update : redemption only (any signed-in user can mark themselves
+//              redeemed once on an unredeemed unexpired invite)
+//
+// See firestore.rules for the gory details.
+
+/**
+ * Create an invite doc. `invite.token` is the doc ID.
+ *   { token, role, createdBy, createdAt, expiresAt?, label?,
+ *     redeemedBy: null, redeemedAt: null }
+ */
+export async function createInviteDoc(dynastyId, invite) {
+  if (!invite?.token) throw new Error('createInviteDoc: missing token')
+  const ref = doc(db, DYNASTIES_COLLECTION, dynastyId, INVITES_SUBCOLLECTION, invite.token)
+  const payload = sanitizeForFirestore({
+    role: invite.role || 'member',
+    createdBy: invite.createdBy || null,
+    createdAt: serverTimestamp(),
+    expiresAt: invite.expiresAt ?? null,
+    label: invite.label ?? null,
+    redeemedBy: null,
+    redeemedAt: null,
+  })
+  await setDoc(ref, payload)
+  return invite.token
+}
+
+/** Read one invite by token. Returns null if not found. */
+export async function getInviteDoc(dynastyId, token) {
+  if (!token) return null
+  const snap = await getDoc(doc(db, DYNASTIES_COLLECTION, dynastyId, INVITES_SUBCOLLECTION, token))
+  if (!snap.exists()) return null
+  return { token: snap.id, ...snap.data() }
+}
+
+/** List ALL invite docs for a dynasty (editors only — server rule denies list). */
+export async function listInviteDocs(dynastyId) {
+  const colRef = collection(db, DYNASTIES_COLLECTION, dynastyId, INVITES_SUBCOLLECTION)
+  const snap = await getDocs(colRef)
+  return snap.docs.map(d => ({ token: d.id, ...d.data() }))
+}
+
+/**
+ * Subscribe to invites changes. Used by the Members page so the
+ * pending-invites list updates when the commish revokes one or a new
+ * one is generated.
+ */
+export function subscribeToInvites(dynastyId, callback) {
+  if (!dynastyId) return () => {}
+  const colRef = collection(db, DYNASTIES_COLLECTION, dynastyId, INVITES_SUBCOLLECTION)
+  return onSnapshot(
+    colRef,
+    (snap) => callback(snap.docs.map(d => ({ token: d.id, ...d.data() }))),
+    (err) => {
+      console.error('[subscribeToInvites] failed:', err)
+      callback([])
+    },
+  )
+}
+
+/** Revoke an invite — editors only. */
+export async function deleteInviteDoc(dynastyId, token) {
+  if (!token) return
+  await deleteDoc(doc(db, DYNASTIES_COLLECTION, dynastyId, INVITES_SUBCOLLECTION, token))
+}
+
+/**
+ * Mark an invite redeemed by `uid`. Step 1 of the two-phase join. The
+ * follow-up call (claimEditorSlot) appends uid to the dynasty's
+ * editors[]. The Firestore rule on the invite doc enforces:
+ *   - was unredeemed
+ *   - was unexpired
+ *   - the new redeemedBy MUST equal request.auth.uid
+ *   - only redeemedBy/redeemedAt are changing
+ */
+export async function redeemInviteDoc(dynastyId, token, uid) {
+  if (!token || !uid) throw new Error('redeemInviteDoc: missing token or uid')
+  const ref = doc(db, DYNASTIES_COLLECTION, dynastyId, INVITES_SUBCOLLECTION, token)
+  await updateDoc(ref, {
+    redeemedBy: uid,
+    redeemedAt: serverTimestamp(),
+  })
 }
 
 // Delete a dynasty

@@ -10,6 +10,7 @@ import { useToast } from '../../components/ui/Toast'
 import ImageUpload from '../../components/ImageUpload'
 import PlayerCards from '../../components/PlayerCards'
 import { getPlayerCards } from '../../utils/playerCards'
+import { uploadImage } from '../../utils/imageUpload'
 
 // Helper to check if a stint reason indicates a transfer
 const isTransferReason = (reason) => ['portal_in', 'transfer', 'juco_in'].includes(reason)
@@ -578,43 +579,19 @@ export default function PlayerEdit() {
     })
   }
 
-  // Upload image to ImgBB
-  const uploadToImgBB = async (file) => {
-    const apiKey = import.meta.env.VITE_IMGBB_API_KEY || '1369fa0365731b13c5330a26fedf569c'
-
+  // Compress and upload to Firebase Storage. compressImage returns a
+  // base64 string (no data: prefix) — uploadImage handles that input
+  // shape and returns a public download URL.
+  const uploadToCloud = async (file) => {
     try {
       setUploading(true)
-
       const base64 = await compressImage(file)
-
       setUploadStatus('Uploading...')
-      const formDataUpload = new FormData()
-      formDataUpload.append('image', base64)
-      formDataUpload.append('key', apiKey)
-
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 30000)
-
-      const response = await fetch('https://api.imgbb.com/1/upload', {
-        method: 'POST',
-        body: formDataUpload,
-        signal: controller.signal
-      })
-      clearTimeout(timeout)
-
-      const data = await response.json()
-      if (data.success) {
-        setFormData(prev => ({ ...prev, pictureUrl: data.data.url }))
-        setShowImageUpload(false)
-      } else {
-        toast.error('Upload failed: ' + (data.error?.message || 'Unknown error'))
-      }
+      const url = await uploadImage(base64)
+      setFormData(prev => ({ ...prev, pictureUrl: url }))
+      setShowImageUpload(false)
     } catch (error) {
-      if (error.name === 'AbortError') {
-        toast.error('Upload timed out. Please try again or use a smaller image.')
-      } else {
-        toast.error('Upload failed: ' + error.message)
-      }
+      toast.error('Upload failed: ' + error.message)
     } finally {
       setUploading(false)
       setUploadStatus('')
@@ -624,7 +601,7 @@ export default function PlayerEdit() {
   // Handle file input change
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0]
-    if (file) await uploadToImgBB(file)
+    if (file) await uploadToCloud(file)
   }
 
   // Handle paste for image upload (in URL input or from clipboard button)
@@ -635,7 +612,7 @@ export default function PlayerEdit() {
       if (item.type.startsWith('image/')) {
         e.preventDefault()
         const file = item.getAsFile()
-        if (file) await uploadToImgBB(file)
+        if (file) await uploadToCloud(file)
         return
       }
     }
@@ -651,7 +628,7 @@ export default function PlayerEdit() {
           for (const type of item.types) {
             if (type.startsWith('image/')) {
               const blob = await item.getType(type)
-              await uploadToImgBB(blob)
+              await uploadToCloud(blob)
               return
             }
           }
@@ -1533,8 +1510,25 @@ export default function PlayerEdit() {
                 })
               }
 
-              // Map legacy types to unified type so editing is straightforward
-              const normalizeMovementType = (t) => {
+              // Map both LEGACY types and CANONICAL v2 shapes onto the
+              // legacy enum the dropdown uses. Without this branch,
+              // canonical entries (m.type === 'departure' /
+              // 'recommit' / 'arrival', with the variant in
+              // m.departure / m.arrival) wouldn't match any dropdown
+              // option, so the dropdown read empty even when the
+              // player had a saved movement for that year.
+              const normalizeMovementType = (t, m) => {
+                // Canonical v2 shapes — pull the variant out of the
+                // movement object and map it to the closest legacy enum
+                // the dropdown understands.
+                if (t === 'departure' && m) {
+                  if (m.departure === 'graduated') return 'graduated'
+                  if (m.departure === 'pro_draft') return 'declared_for_draft'
+                  if (m.departure === 'transfer_out') return 'entered_portal'
+                  return 'entered_portal'
+                }
+                if (t === 'recommit') return 'entered_portal'
+                if (t === 'arrival') return ''
                 if (t === 'transferred_out' || t === 'recommitted') return 'entered_portal'
                 return t
               }
@@ -1601,8 +1595,12 @@ export default function PlayerEdit() {
                 // Movement after a season
                 const movement = formData.movementByYear?.[year] || formData.movementByYear?.[String(year)] || {}
                 const rawType = movement.type || ''
-                const movementType = normalizeMovementType(rawType)
-                const toTeamTid = movement.toTeamTid || ''
+                const movementType = normalizeMovementType(rawType, movement)
+                // Canonical 'departure/transfer_out' uses .toTid; legacy
+                // 'transferred_out'/'encouraged_to_transfer' uses
+                // .toTeamTid. Read both so the dropdown shows the
+                // destination regardless of which shape is stored.
+                const toTeamTid = movement.toTeamTid ?? movement.toTid ?? ''
                 const reason = movement.reason || ''
                 const needsTeam = movementType === 'encouraged_to_transfer'
                 const showsPortalReason = ['entered_portal', 'encouraged_to_transfer'].includes(movementType)
@@ -1727,7 +1725,7 @@ export default function PlayerEdit() {
                         // Derive a "how did they get here this year" status chip
                         const prevYear = idx > 0 ? activeYears[idx - 1] : null
                         const prevMovement = prevYear ? (formData.movementByYear?.[prevYear] || formData.movementByYear?.[String(prevYear)] || {}) : null
-                        const prevType = normalizeMovementType(prevMovement?.type)
+                        const prevType = normalizeMovementType(prevMovement?.type, prevMovement)
                         const prevTeamTid = prevYear ? formData.teamsByYear?.[prevYear] : null
                         const sameTeamAsPrev = prevTeamTid && teamTid && Number(prevTeamTid) === Number(teamTid)
                         const statusChip = (() => {
@@ -1758,7 +1756,7 @@ export default function PlayerEdit() {
 
                         // Post-season exit chip — for portal, infer outcome from next year's team
                         const curMovement = formData.movementByYear?.[year] || formData.movementByYear?.[String(year)] || {}
-                        const curType = normalizeMovementType(curMovement.type)
+                        const curType = normalizeMovementType(curMovement.type, curMovement)
                         const nextYear = idx < activeYears.length - 1 ? activeYears[idx + 1] : null
                         const nextTeamTid = nextYear ? formData.teamsByYear?.[nextYear] : null
                         const sameTeamAsNext = teamTid && nextTeamTid && Number(teamTid) === Number(nextTeamTid)
@@ -1770,7 +1768,8 @@ export default function PlayerEdit() {
                             return { text: toName ? `Entered Portal → ${toName}` : 'Entered Portal · Transferred', color: '#f59e0b', reason: curMovement.reason }
                           }
                           if (curType === 'encouraged_to_transfer') {
-                            const toName = curMovement.toTeamTid ? getMascotName(curMovement.toTeamTid, teams) : null
+                            const toRef = curMovement.toTeamTid ?? curMovement.toTid
+                            const toName = toRef ? getMascotName(toRef, teams) : null
                             return { text: toName ? `Encouraged Out → ${toName}` : 'Encouraged Out', color: '#f59e0b', reason: curMovement.reason }
                           }
                           if (curType === 'declared_for_draft') {
