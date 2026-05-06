@@ -192,6 +192,32 @@ export function getMemberLabel(dynasty, uid) {
   return dynasty.memberLabels?.[uid] || ''
 }
 
+/**
+ * The display name for a uid in this dynasty. Single source of truth so
+ * the Layout header, news ticker, recap, Coach Career, etc. all show the
+ * same string. Owner falls back to legacy `coachName` for dynasties
+ * created before memberLabels was wired into createDynasty.
+ *
+ *   1. memberLabels[uid] (the canonical store, editable in Members page)
+ *   2. dynasty.coachName (owner only — legacy mirror)
+ *   3. 'Commish' / 'Co-Commish' / 'Member' role placeholder
+ *
+ * Pass `fallback` to override the role placeholder for a specific surface
+ * (e.g. 'Coach' on the Coach Career page).
+ */
+export function getCoachNameForUid(dynasty, uid, fallback = null) {
+  if (!dynasty || !uid) return fallback || ''
+  const label = dynasty.memberLabels?.[uid]
+  if (label) return label
+  if (uid === dynasty.userId && dynasty.coachName) return dynasty.coachName
+  if (fallback) return fallback
+  const role = getRole(dynasty, uid)
+  if (role === ROLE_COMMISH) return 'Commish'
+  if (role === ROLE_COCOMMISH) return 'Co-Commish'
+  if (role === ROLE_MEMBER) return 'Member'
+  return ''
+}
+
 export function setMemberLabelValue(dynasty, uid, label) {
   const map = { ...(dynasty?.memberLabels || {}) }
   const trimmed = (label || '').trim()
@@ -351,6 +377,94 @@ export function snapshotAllMembersForYear(dynasty, year) {
     history = stampHistoryForYear(history, uid, yNum, teams)
   }
   return history
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Timeline editing — retroactively claim/release a team for a given year.
+//
+// Use case: a user joins the dynasty mid-stream (didn't have premium
+// the first two seasons; commish was managing their team). After they
+// upgrade and join, they claim seasons 1-2 from the commish's history
+// onto theirs so Coach Career shows the right narrative.
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Set this uid's tids for the given year, replacing whatever was there.
+ * Pass an empty array (or null) to clear. Returns the new history map.
+ */
+export function setMemberTeamsForYear(history, uid, year, tids) {
+  return stampHistoryForYear(history, uid, year, tids || [])
+}
+
+/**
+ * Claim `tid` for `uid` in `year`. Adds it to this uid's history AND
+ * removes it from any OTHER uid that had it stamped for the same year
+ * (a team has at most one coach per season). Returns the new history.
+ */
+export function claimTeamForYear(history, uid, year, tid) {
+  if (!uid) return history || {}
+  const yNum = Number(year)
+  const tNum = Number(tid)
+  if (!Number.isFinite(yNum) || !Number.isFinite(tNum)) return history || {}
+  let next = { ...(history || {}) }
+  // Strip the tid from every OTHER uid's same-year list.
+  for (const otherUid of Object.keys(next)) {
+    if (otherUid === uid) continue
+    const otherUserMap = next[otherUid]
+    if (!otherUserMap) continue
+    const stamped =
+      otherUserMap[yNum] ?? otherUserMap[String(yNum)]
+    if (!Array.isArray(stamped)) continue
+    const filtered = stamped.map(Number).filter(t => t !== tNum)
+    if (filtered.length === stamped.length) continue
+    next = stampHistoryForYear(next, otherUid, yNum, filtered)
+  }
+  // Add tid to this uid's list (no duplicates).
+  const myMap = next[uid] || {}
+  const mine = myMap[yNum] ?? myMap[String(yNum)]
+  const myList = Array.isArray(mine) ? mine.map(Number) : []
+  if (!myList.includes(tNum)) myList.push(tNum)
+  next = stampHistoryForYear(next, uid, yNum, myList)
+  return next
+}
+
+/**
+ * Remove `tid` from this uid's history for `year`. No-op if it wasn't
+ * stamped. Returns the new history.
+ */
+export function releaseTeamForYear(history, uid, year, tid) {
+  if (!uid) return history || {}
+  const yNum = Number(year)
+  const tNum = Number(tid)
+  if (!Number.isFinite(yNum) || !Number.isFinite(tNum)) return history || {}
+  const userMap = (history || {})[uid]
+  if (!userMap) return history || {}
+  const stamped = userMap[yNum] ?? userMap[String(yNum)]
+  if (!Array.isArray(stamped)) return history || {}
+  const filtered = stamped.map(Number).filter(t => t !== tNum)
+  if (filtered.length === stamped.length) return history || {}
+  return stampHistoryForYear(history, uid, yNum, filtered)
+}
+
+/**
+ * Returns the array of uids that currently have `tid` stamped for
+ * `year`. Used to surface conflicts (a tid should belong to at most
+ * one uid per year).
+ */
+export function getCoachesForTeamYear(dynasty, tid, year) {
+  if (!dynasty || tid == null) return []
+  const yNum = Number(year)
+  const tNum = Number(tid)
+  if (!Number.isFinite(yNum) || !Number.isFinite(tNum)) return []
+  const history = dynasty.memberTeamHistory || {}
+  const out = []
+  for (const [uid, userMap] of Object.entries(history)) {
+    if (!userMap) continue
+    const stamped = userMap[yNum] ?? userMap[String(yNum)]
+    if (!Array.isArray(stamped)) continue
+    if (stamped.map(Number).includes(tNum)) out.push(uid)
+  }
+  return out
 }
 
 // ─────────────────────────────────────────────────────────────────────

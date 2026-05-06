@@ -42,10 +42,12 @@ import {
   dropMemberMetadata,
   buildCommishTransfer,
   stampHistoryForYear,
+  getCoachNameForUid,
   ROLE_COMMISH,
   ROLE_COCOMMISH,
   ROLE_MEMBER,
 } from '../../data/leagueModel'
+import MemberTimelineEditor from '../../components/MemberTimelineEditor'
 
 function shortenUid(uid) {
   if (!uid || uid.length <= 12) return uid || ''
@@ -74,6 +76,7 @@ export default function LeagueSettings() {
   const [pendingUid, setPendingUid] = useState('')
   const [busyUid, setBusyUid] = useState(null)
   const [nameDrafts, setNameDrafts] = useState({})
+  const [timelineUid, setTimelineUid] = useState(null)
 
   if (!currentDynasty) return null
   if (!user) return <Navigate to="/login" replace />
@@ -440,30 +443,36 @@ export default function LeagueSettings() {
           </div>
 
           {/* Right-side actions */}
-          {canManage && role !== ROLE_COMMISH && (
-            <div className="flex flex-col gap-1 flex-shrink-0">
-              {canPromote && (
-                <Button variant="outline" size="sm" onClick={() => handlePromote(uid)} disabled={isBusy}>
-                  Make Co-Commish
-                </Button>
-              )}
-              {canDemote && (
-                <Button variant="outline" size="sm" onClick={() => handleDemote(uid)} disabled={isBusy}>
-                  Demote
-                </Button>
-              )}
-              {canTransfer && (
-                <Button variant="outline" size="sm" onClick={() => handleMakeCommish(uid)} disabled={isBusy}>
-                  Make Commish
-                </Button>
-              )}
-              {canActOnThis && (
-                <Button variant="outline" size="sm" onClick={() => handleRemove(uid)} disabled={isBusy}>
-                  Remove
-                </Button>
-              )}
-            </div>
-          )}
+          <div className="flex flex-col gap-1 flex-shrink-0">
+            {/* Anyone who can manage members (or the user themselves)
+                can edit the timeline — useful when a user joins mid-
+                dynasty and needs past seasons claimed off the commish. */}
+            {(canManage || isYou) && (
+              <Button variant="outline" size="sm" onClick={() => setTimelineUid(uid)} disabled={isBusy}>
+                Edit Timeline
+              </Button>
+            )}
+            {canManage && role !== ROLE_COMMISH && canPromote && (
+              <Button variant="outline" size="sm" onClick={() => handlePromote(uid)} disabled={isBusy}>
+                Make Co-Commish
+              </Button>
+            )}
+            {canManage && role !== ROLE_COMMISH && canDemote && (
+              <Button variant="outline" size="sm" onClick={() => handleDemote(uid)} disabled={isBusy}>
+                Demote
+              </Button>
+            )}
+            {canManage && role !== ROLE_COMMISH && canTransfer && (
+              <Button variant="outline" size="sm" onClick={() => handleMakeCommish(uid)} disabled={isBusy}>
+                Make Commish
+              </Button>
+            )}
+            {canManage && role !== ROLE_COMMISH && canActOnThis && (
+              <Button variant="outline" size="sm" onClick={() => handleRemove(uid)} disabled={isBusy}>
+                Remove
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     )
@@ -553,6 +562,14 @@ export default function LeagueSettings() {
             </Button>
           </div>
         </Card>
+      )}
+
+      {timelineUid && (
+        <MemberTimelineEditor
+          isOpen={timelineUid != null}
+          onClose={() => setTimelineUid(null)}
+          uid={timelineUid}
+        />
       )}
     </div>
   )

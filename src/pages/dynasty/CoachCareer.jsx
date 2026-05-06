@@ -9,6 +9,7 @@ import {
   getEditors,
   getMemberLabel,
   getMemberTeamsForYear,
+  getCoachNameForUid,
   getRole,
   ROLE_COMMISH,
   ROLE_COCOMMISH,
@@ -87,14 +88,11 @@ export default function CoachCareer() {
 
   const userOptions = allEditors.map(uid => {
     const role = getRole(currentDynasty, uid)
-    const label = getMemberLabel(currentDynasty, uid)
-    const fallback = uid === currentDynasty.userId
-      ? (currentDynasty.coachName || 'Commish')
-      : (role === ROLE_COCOMMISH ? 'Co-Commish' : 'Member')
     return {
       uid,
       role,
-      label: label || fallback,
+      // Single source of truth — same name everywhere.
+      label: getCoachNameForUid(currentDynasty, uid),
       isYou: user?.uid === uid,
     }
   })
