@@ -116,6 +116,27 @@ export function maxTeamsForRole(role) {
   return 1
 }
 
+/**
+ * Can `uid` write to the data attached to team `tid` in this dynasty?
+ *   - Commish + co-commishes: yes for any team (they shepherd extras).
+ *   - Members: yes only if tid is in their `memberTeams[uid]` list.
+ *   - Non-editors: no.
+ *
+ * The Firestore security rules should mirror this same gate. Until
+ * those land server-side this is a UI-only protection — but it still
+ * stops the common-case "wrong-team edit by accident" bug.
+ */
+export function canWriteTeam(dynasty, uid, tid) {
+  if (!dynasty || !uid || tid == null) return false
+  const role = getRole(dynasty, uid)
+  if (!role) return false
+  if (role === ROLE_COMMISH || role === ROLE_COCOMMISH) return true
+  const tidNum = Number(tid)
+  if (!Number.isFinite(tidNum)) return false
+  const teams = getMemberTeams(dynasty, uid)
+  return teams.includes(tidNum)
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // Migration — every legacy dynasty gets a clean editors[] on first load.
 // ─────────────────────────────────────────────────────────────────────

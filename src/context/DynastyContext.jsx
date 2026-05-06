@@ -12693,9 +12693,22 @@ export function DynastyProvider({ children }) {
   // should read `dynasty.teams[tid]` instead.
   const customTeams = null
 
-  // Cloud dynasties are read-only for non-premium users
-  // They can view but not edit until they export and import as local
-  const isViewOnly = currentDynasty?.storageType === 'cloud' && !isPremium
+  // View-only when the user lacks edit access. Three buckets:
+  //   - Owner of a cloud dynasty needs premium (the owner pays for cloud
+  //     storage). A premium owner who lapses falls back to read-only here.
+  //   - Anyone in editors[] (invited members + co-commishes) can EDIT,
+  //     even on the free tier — the commish's premium covers storage.
+  //   - Everyone else (random viewers, signed-out users) is read-only.
+  const isViewOnly = (() => {
+    if (!currentDynasty) return false
+    if (currentDynasty.storageType !== 'cloud') return false
+    if (!user?.uid) return true
+    const isOwner = currentDynasty.userId === user.uid
+    if (isOwner) return !isPremium
+    const isInvited = Array.isArray(currentDynasty.editors)
+      && currentDynasty.editors.includes(user.uid)
+    return !isInvited
+  })()
 
   // ─── Sharing: subscribe to dynasties shared with the user (uid in
   // editors[] but not the owner). Merged into the main dynasties list
