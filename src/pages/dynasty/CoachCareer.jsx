@@ -47,6 +47,7 @@ const MODAL_TITLES = {
   bowl: 'Bowl Games',
   confChamp: 'Conference Championship Games',
   cfp: 'CFP Games',
+  careerAll: 'All Career Games',
 }
 
 export default function CoachCareer() {
@@ -510,6 +511,10 @@ export default function CoachCareer() {
   }, { wins: 0, losses: 0, teams: 0, coachOfYearAwards: 0 })
 
   const getGamesForModal = () => {
+    if (gamesModalType === 'careerAll') {
+      // Flatten games across every stint for the lifetime view.
+      return coachingHistory.flatMap(s => s.games || [])
+    }
     if (!selectedTeamForModal) return []
     const stint = coachingHistory.find(s => s.teamName === selectedTeamForModal)
     if (!stint) return []
@@ -616,15 +621,36 @@ export default function CoachCareer() {
               paddingTop: '10px',
             }}
           >
-            <div>
+            <button
+              type="button"
+              onClick={() => {
+                setGamesModalType('careerAll')
+                setSelectedTeamForModal(null)
+                setShowGamesModal(true)
+              }}
+              className="career-stat-btn group text-left rounded-md focus:outline-none focus-visible:ring-1 focus-visible:ring-text-primary"
+              title="View every game of this career"
+            >
               <div
-                className="font-display font-black tabular-nums text-txt-primary leading-none"
+                className="font-display font-black tabular-nums text-txt-primary leading-none transition-colors group-hover:text-txt-primary"
                 style={{ fontSize: 'clamp(1.5rem, 3vw, 2.25rem)', letterSpacing: '-0.03em' }}
               >
                 {careerTotals.wins}–{careerTotals.losses}
               </div>
-              <div className="label-xs text-txt-tertiary mt-1.5" style={{ letterSpacing: '2px', fontSize: '10px' }}>RECORD</div>
-            </div>
+              <div
+                className="label-xs mt-1.5 flex items-center gap-1.5 text-txt-tertiary group-hover:text-txt-secondary transition-colors"
+                style={{ letterSpacing: '2px', fontSize: '10px' }}
+              >
+                <span>RECORD</span>
+                <span
+                  aria-hidden="true"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ fontSize: '9px', letterSpacing: '1.5px' }}
+                >
+                  · VIEW ALL
+                </span>
+              </div>
+            </button>
             <div className="hidden sm:block w-px self-stretch" style={{ backgroundColor: 'var(--surface-4)' }} />
             <div>
               <div
@@ -867,7 +893,10 @@ export default function CoachCareer() {
             key={`${stint.teamName}-${stint.startYear}`}
             id={`stint-${stint.teamAbbr}-${stint.startYear}`}
             className={`media-card relative ${stint.isCurrent ? '' : 'opacity-90'}`}
-            style={!stint.isCurrent ? { backgroundColor: 'var(--surface-1)' } : undefined}
+            style={{
+              scrollMarginTop: '88px',
+              ...(stint.isCurrent ? {} : { backgroundColor: 'var(--surface-1)' }),
+            }}
           >
             {/* Current-stint top accent — 1px text-primary hairline.
                 Subtle but distinctive; no team color used in chrome. */}
