@@ -9,8 +9,8 @@
  *
  * Names + team assignments are stored on the dynasty doc so every user
  * sees the same labels. Commish + co-commishes can hold MULTIPLE teams
- * to manage them on behalf of users without premium; regular members
- * are capped at one.
+ * to shepherd teams that don't yet have an assigned coach (or to cover
+ * for a member who's away). Regular members are capped at one team.
  */
 
 import { useEffect, useState } from 'react'
@@ -760,7 +760,7 @@ export default function LeagueSettings() {
         </header>
         <p className="text-xs text-txt-tertiary mb-3">
           {canManage
-            ? 'Click a name to rename. Members get one team each; commish and co-commishes can hold multiple to manage teams for users without premium.'
+            ? 'Click a name to rename. Each member coaches one team; commish and co-commishes can hold multiple to shepherd teams without an assigned coach.'
             : 'Click your own name to rename it. Team assignments are managed by the commish.'}
         </p>
         <div className="divide-y divide-surface-3/50">

@@ -10,8 +10,10 @@
  *   memberTeams:  { [uid]: number[] }    — tids each user "controls".
  *                                           Members are capped at 1 (UI
  *                                           gate); commish + co-commish
- *                                           can hold multiple to manage
- *                                           teams for non-premium users.
+ *                                           can hold multiple to shepherd
+ *                                           teams without an assigned
+ *                                           coach yet, or to cover for an
+ *                                           absent member.
  *
  * Roles:
  *   - commish:  the dynasty owner (`userId`). Full control: invite,
@@ -257,8 +259,8 @@ export function setMemberLabelValue(dynasty, uid, label) {
 //
 // Each user can be assigned one or more tids (the teams they "control"
 // in the dynasty). Members are capped at 1 by UI gates; commish + co-
-// commishes are uncapped so they can shepherd teams whose owners don't
-// have premium write access yet.
+// commishes are uncapped so they can shepherd teams without an assigned
+// coach yet, or cover for an absent member.
 // ─────────────────────────────────────────────────────────────────────
 
 /** Returns the array of tids assigned to this uid. */

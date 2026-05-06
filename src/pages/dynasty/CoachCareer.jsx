@@ -598,7 +598,11 @@ export default function CoachCareer() {
               </>
             )}
           </div>
-          <div className="flex items-end gap-x-6 gap-y-2 flex-wrap">
+          {/* Identity + stat strip — single row on desktop (stats push
+              right of the name), wraps below on mobile. Saves a full
+              row of vertical space vs the prior stacked layout, and the
+              stats no longer feel orphaned from the headline. */}
+          <div className="flex items-end gap-x-6 sm:gap-x-10 gap-y-3 flex-wrap">
             <div className="min-w-0">
               <h1
                 className="m-0 text-txt-primary leading-[0.9] uppercase break-words"
@@ -617,88 +621,84 @@ export default function CoachCareer() {
                 {careerRange}
               </div>
             </div>
-          </div>
 
-          {/* Broadcast-style stat strip — one row, hairline separators,
-              tabular numerals. Replaces the bordered tile-cluster that
-              competed with the headline. */}
-          <div
-            className="mt-3 flex items-stretch gap-4 sm:gap-8 flex-wrap"
-            style={{
-              borderTop: '1px solid var(--surface-4)',
-              paddingTop: '10px',
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => {
-                setGamesModalType('careerAll')
-                setSelectedTeamForModal(null)
-                setShowGamesModal(true)
-              }}
-              className="career-stat-btn group text-left rounded-md focus:outline-none focus-visible:ring-1 focus-visible:ring-text-primary"
-              title="View every game of this career"
-            >
-              <div
-                className="font-display font-black tabular-nums text-txt-primary leading-none transition-colors group-hover:text-txt-primary"
-                style={{ fontSize: 'clamp(1.5rem, 3vw, 2.25rem)', letterSpacing: '-0.03em' }}
+            {/* Broadcast-style stat strip — sits inline with the name on
+                desktop via ml-auto, wraps below on mobile. Hairline
+                vertical separators, tabular numerals. Number scale is
+                slightly trimmed (1.4-2rem vs the headline's 2-3.25rem)
+                so the name keeps top billing in the lockup. */}
+            <div className="flex items-end gap-4 sm:gap-7 flex-wrap sm:ml-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setGamesModalType('careerAll')
+                  setSelectedTeamForModal(null)
+                  setShowGamesModal(true)
+                }}
+                className="career-stat-btn group text-left rounded-md focus:outline-none focus-visible:ring-1 focus-visible:ring-text-primary"
+                title="View every game of this career"
               >
-                {careerTotals.wins}–{careerTotals.losses}
-              </div>
-              <div
-                className="label-xs mt-1.5 flex items-center gap-1.5 text-txt-tertiary group-hover:text-txt-secondary transition-colors"
-                style={{ letterSpacing: '2px', fontSize: '10px' }}
-              >
-                <span>RECORD</span>
-                <span
-                  aria-hidden="true"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ fontSize: '9px', letterSpacing: '1.5px' }}
+                <div
+                  className="font-display font-black tabular-nums text-txt-primary leading-none transition-colors group-hover:text-txt-primary"
+                  style={{ fontSize: 'clamp(1.4rem, 2.6vw, 2rem)', letterSpacing: '-0.03em' }}
                 >
-                  · VIEW ALL
-                </span>
-              </div>
-            </button>
-            <div className="hidden sm:block w-px self-stretch" style={{ backgroundColor: 'var(--surface-4)' }} />
-            <div>
-              <div
-                className="font-display font-black tabular-nums text-txt-primary leading-none"
-                style={{ fontSize: 'clamp(1.5rem, 3vw, 2.25rem)', letterSpacing: '-0.03em' }}
-              >
-                {careerWinPct}<span className="text-txt-tertiary" style={{ fontSize: '0.55em' }}>%</span>
-              </div>
-              <div className="label-xs text-txt-tertiary mt-1.5" style={{ letterSpacing: '2px', fontSize: '10px' }}>WIN PCT</div>
-            </div>
-            <div className="hidden sm:block w-px self-stretch" style={{ backgroundColor: 'var(--surface-4)' }} />
-            <div>
-              <div
-                className="font-display font-black tabular-nums text-txt-primary leading-none"
-                style={{ fontSize: 'clamp(1.5rem, 3vw, 2.25rem)', letterSpacing: '-0.03em' }}
-              >
-                {coachingHistory.length}
-              </div>
-              <div className="label-xs text-txt-tertiary mt-1.5" style={{ letterSpacing: '2px', fontSize: '10px' }}>
-                {coachingHistory.length === 1 ? 'TEAM' : 'TEAMS'}
-              </div>
-            </div>
-            {careerTotals.coachOfYearAwards > 0 && (
-              <>
-                <div className="hidden sm:block w-px self-stretch" style={{ backgroundColor: 'var(--surface-4)' }} />
-                <div>
-                  <div
-                    className="font-display font-black tabular-nums leading-none"
-                    style={{
-                      fontSize: 'clamp(2rem, 4.5vw, 3.25rem)',
-                      letterSpacing: '-0.03em',
-                      color: 'var(--accent-warning, #f59e0b)',
-                    }}
-                  >
-                    {careerTotals.coachOfYearAwards}
-                  </div>
-                  <div className="label-xs text-txt-tertiary mt-1.5" style={{ letterSpacing: '2px', fontSize: '10px' }}>COTY</div>
+                  {careerTotals.wins}–{careerTotals.losses}
                 </div>
-              </>
-            )}
+                <div
+                  className="label-xs mt-1.5 flex items-center gap-1.5 text-txt-tertiary group-hover:text-txt-secondary transition-colors"
+                  style={{ letterSpacing: '2px', fontSize: '10px' }}
+                >
+                  <span>RECORD</span>
+                  <span
+                    aria-hidden="true"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ fontSize: '9px', letterSpacing: '1.5px' }}
+                  >
+                    · VIEW ALL
+                  </span>
+                </div>
+              </button>
+              <div className="hidden sm:block w-px self-stretch" style={{ backgroundColor: 'var(--surface-4)' }} />
+              <div>
+                <div
+                  className="font-display font-black tabular-nums text-txt-primary leading-none"
+                  style={{ fontSize: 'clamp(1.4rem, 2.6vw, 2rem)', letterSpacing: '-0.03em' }}
+                >
+                  {careerWinPct}<span className="text-txt-tertiary" style={{ fontSize: '0.55em' }}>%</span>
+                </div>
+                <div className="label-xs text-txt-tertiary mt-1.5" style={{ letterSpacing: '2px', fontSize: '10px' }}>WIN PCT</div>
+              </div>
+              <div className="hidden sm:block w-px self-stretch" style={{ backgroundColor: 'var(--surface-4)' }} />
+              <div>
+                <div
+                  className="font-display font-black tabular-nums text-txt-primary leading-none"
+                  style={{ fontSize: 'clamp(1.4rem, 2.6vw, 2rem)', letterSpacing: '-0.03em' }}
+                >
+                  {coachingHistory.length}
+                </div>
+                <div className="label-xs text-txt-tertiary mt-1.5" style={{ letterSpacing: '2px', fontSize: '10px' }}>
+                  {coachingHistory.length === 1 ? 'TEAM' : 'TEAMS'}
+                </div>
+              </div>
+              {careerTotals.coachOfYearAwards > 0 && (
+                <>
+                  <div className="hidden sm:block w-px self-stretch" style={{ backgroundColor: 'var(--surface-4)' }} />
+                  <div>
+                    <div
+                      className="font-display font-black tabular-nums leading-none"
+                      style={{
+                        fontSize: 'clamp(1.4rem, 2.6vw, 2rem)',
+                        letterSpacing: '-0.03em',
+                        color: 'var(--accent-warning, #f59e0b)',
+                      }}
+                    >
+                      {careerTotals.coachOfYearAwards}
+                    </div>
+                    <div className="label-xs text-txt-tertiary mt-1.5" style={{ letterSpacing: '2px', fontSize: '10px' }}>COTY</div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Career Arc Strip — segmented horizontal bar showing the
