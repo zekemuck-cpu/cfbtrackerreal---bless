@@ -13,7 +13,7 @@
  * are capped at one.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useDynasty } from '../../context/DynastyContext'
@@ -22,6 +22,11 @@ import { useToast } from '../../components/ui/Toast'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
 import { PageHero, Card, Button, Badge, EmptyState } from '../../components/ui'
 import { getTeamLogoByTid } from '../../data/teams'
+import {
+  createInviteDoc,
+  deleteInviteDoc,
+  subscribeToInvites,
+} from '../../services/dynastyService'
 import {
   getEditors,
   getRole,
@@ -43,9 +48,7 @@ import {
   buildCommishTransfer,
   stampHistoryForYear,
   getCoachNameForUid,
-  getPendingInvites,
-  addPendingInvite,
-  removeInvite,
+  createInviteToken,
   isInviteValid,
   buildInviteUrl,
   getCoachingStaffForUid,
@@ -85,6 +88,17 @@ export default function LeagueSettings() {
   const [nameDrafts, setNameDrafts] = useState({})
   const [timelineUid, setTimelineUid] = useState(null)
   const [staffDraft, setStaffDraft] = useState(null) // { hcName, ocName, dcName } | null
+  const [invites, setInvites] = useState([])
+
+  // Live subscription to the invites subcollection. Only meaningful for
+  // cloud dynasties — local dynasties don't have a Firestore subscription
+  // path and skip the listener entirely.
+  useEffect(() => {
+    if (!currentDynasty?.id) return
+    if (currentDynasty.storageType !== 'cloud') return
+    const unsub = subscribeToInvites(currentDynasty.id, setInvites)
+    return unsub
+  }, [currentDynasty?.id, currentDynasty?.storageType])
 
   if (!currentDynasty) return null
   if (!user) return <Navigate to="/login" replace />
@@ -188,16 +202,21 @@ export default function LeagueSettings() {
     }
   }
 
-  // ─── Invite tokens ──────────────────────────────────────────────
+  // ─── Invite tokens (subcollection) ──────────────────────────────
+  // Invites live at dynasties/{id}/invites/{token}. The subcollection
+  // is the single source of truth so Firestore rules can verify a
+  // redemption by `get()`-ing the specific token doc — something the
+  // older inline `pendingInvites[]` array couldn't support.
   const handleGenerateInvite = async () => {
     if (!canManage) return
     setBusyUid('__invite__')
     try {
-      const next = addPendingInvite(currentDynasty, {
+      const token = createInviteToken()
+      await createInviteDoc(currentDynasty.id, {
+        token,
         role: ROLE_MEMBER,
         createdBy: user.uid,
       })
-      await updateDynasty(currentDynasty.id, { pendingInvites: next })
       toast.success('Invite link generated.')
     } catch (err) {
       console.error('[Members] generate invite failed:', err)
@@ -219,8 +238,7 @@ export default function LeagueSettings() {
     if (!canManage) return
     setBusyUid(`__invite__${token}`)
     try {
-      const next = removeInvite(currentDynasty, token)
-      await updateDynasty(currentDynasty.id, { pendingInvites: next })
+      await deleteInviteDoc(currentDynasty.id, token)
       toast.info('Invite revoked.')
     } catch (err) {
       console.error('[Members] revoke invite failed:', err)
@@ -631,12 +649,11 @@ export default function LeagueSettings() {
           </div>
 
           {(() => {
-            const invites = getPendingInvites(currentDynasty)
-              .filter(isInviteValid) // hide expired / redeemed
-            if (invites.length === 0) return null
+            const visibleInvites = invites.filter(isInviteValid) // hide expired / redeemed
+            if (visibleInvites.length === 0) return null
             return (
               <div className="space-y-2 mb-4">
-                {invites.map(inv => (
+                {visibleInvites.map(inv => (
                   <div
                     key={inv.token}
                     className="flex items-center gap-2 p-2 rounded-md bg-surface-2 border border-surface-4"

@@ -20,12 +20,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { getDynasty, updateDynasty as fsUpdateDynasty } from '../services/dynastyService'
-import { storageService } from '../services/storage'
 import {
-  findInvite,
+  getDynasty,
+  updateDynasty as fsUpdateDynasty,
+  getInviteDoc,
+  redeemInviteDoc,
+} from '../services/dynastyService'
+import {
   isInviteValid,
-  markInviteRedeemed,
   addEditor,
   ROLE_COCOMMISH,
   addCoCommish,
@@ -68,35 +70,52 @@ export default function JoinDynasty() {
     let cancelled = false
     ;(async () => {
       try {
-        const d = await getDynasty(dynastyId)
+        // Fetch the invite doc FIRST. The Firestore rule allows any
+        // signed-in user to `get` an invite by exact token, so this
+        // works even before the user is in editors[]. The dynasty
+        // doc itself is gated behind editors-or-public, so we read it
+        // optimistically — if it fails (rules block), we still render
+        // a usable join page from the invite alone.
+        const inv = await getInviteDoc(dynastyId, token)
         if (cancelled) return
-        if (!d) {
+        if (!inv) {
           setStatus('invalid')
           return
         }
-        setDynasty(d)
-        // Already a member? Just send them in.
-        const isAlreadyMember = d.userId === user.uid
-          || (Array.isArray(d.editors) && d.editors.includes(user.uid))
-        if (isAlreadyMember) {
-          setStatus('already')
-          return
-        }
-        const inv = findInvite(d, token)
         if (!isInviteValid(inv)) {
           setInvite(inv)
           setStatus('invalid')
           return
         }
         setInvite(inv)
+
+        // Try to read the dynasty for richer preview (name, etc.). If
+        // the user isn't an editor yet (the common case), this read
+        // will fail with permission-denied — fine, we just skip the
+        // preview enhancement and rely on the invite's own metadata.
+        try {
+          const d = await getDynasty(dynastyId)
+          if (cancelled) return
+          if (d) {
+            setDynasty(d)
+            const isAlreadyMember = d.userId === user.uid
+              || (Array.isArray(d.editors) && d.editors.includes(user.uid))
+            if (isAlreadyMember) {
+              setStatus('already')
+              return
+            }
+          }
+        } catch {
+          // Read failure here is expected for non-editors. Swallow
+          // and proceed to the redeem flow.
+        }
+
         setStatus('ready')
       } catch (err) {
-        // Most likely a permission error (rules block non-editor reads
-        // on the dynasty doc). Surface it as a clear message.
         console.error('[JoinDynasty] lookup failed:', err)
         if (!cancelled) {
           setStatus('rules_blocked')
-          setErrorMessage(err?.message || 'Could not read the dynasty.')
+          setErrorMessage(err?.message || 'Could not read the invite.')
         }
       }
     })()
@@ -105,29 +124,51 @@ export default function JoinDynasty() {
   }, [authLoading, user, dynastyId, token])
 
   const handleAccept = async () => {
-    if (!user || !dynasty || !invite) return
+    if (!user || !invite) return
     setStatus('redeeming')
     try {
-      const nextEditors = addEditor(dynasty, user.uid)
-      const nextInvites = markInviteRedeemed(dynasty, token, user.uid)
-      const updates = {
+      // Phase 1 — claim the invite. Writes redeemedBy/redeemedAt onto
+      // the invite doc. The Firestore rule on invites/{token} enforces
+      // that the invite was unredeemed AND the new redeemedBy equals
+      // request.auth.uid, so a stranger can't claim it on someone else's
+      // behalf and a race-loser can't double-redeem.
+      await redeemInviteDoc(dynastyId, token, user.uid)
+
+      // Phase 2 — append our uid to dynasty.editors[]. The Firestore
+      // rule on the dynasty doc verifies the lastRedemption marker
+      // points at our just-claimed invite.
+      //
+      // We send only the safe set of fields the redemption rule allows:
+      // editors, lastRedemption, and (if the invite was issued as
+      // cocommish) coCommishes via the regular editor write that's
+      // unlocked once we're an editor — DOES NOT WORK in the same call;
+      // splitting cocommish promotion to a follow-up call below.
+      const existingEditors = Array.isArray(dynasty?.editors) ? dynasty.editors : []
+      const nextEditors = existingEditors.includes(user.uid)
+        ? existingEditors
+        : [...existingEditors, user.uid]
+      await fsUpdateDynasty(dynastyId, {
         editors: nextEditors,
-        pendingInvites: nextInvites,
+        lastRedemption: { uid: user.uid, token, at: Date.now() },
+      })
+
+      // Phase 3 (optional) — if the invite was issued as cocommish,
+      // promote ourselves now that we're an editor (the editor-write
+      // rule covers this, no special redemption check needed).
+      if (invite.role === ROLE_COCOMMISH && dynasty) {
+        try {
+          const nextCoCommishes = addCoCommish({
+            ...dynasty,
+            editors: nextEditors,
+          }, user.uid)
+          await fsUpdateDynasty(dynastyId, { coCommishes: nextCoCommishes })
+        } catch (e) {
+          console.warn('[JoinDynasty] cocommish promotion failed:', e)
+          // Non-fatal — they're still an editor.
+        }
       }
-      // Apply role from the invite (e.g. invite was issued as cocommish).
-      if (invite.role === ROLE_COCOMMISH) {
-        updates.coCommishes = addCoCommish(dynasty, user.uid)
-      }
-      // Cloud dynasty — write through Firestore directly. The storage
-      // service routes by storageType but the typical invite use-case
-      // is cloud-only.
-      if (dynasty.storageType === 'cloud') {
-        await fsUpdateDynasty(dynastyId, updates)
-      } else {
-        await storageService.updateDynasty(dynastyId, updates)
-      }
+
       setStatus('success')
-      // Brief pause so the success card flashes, then redirect.
       setTimeout(() => navigate(`/dynasty/${dynastyId}`), 700)
     } catch (err) {
       console.error('[JoinDynasty] redeem failed:', err)
