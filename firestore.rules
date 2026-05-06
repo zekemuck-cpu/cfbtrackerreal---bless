@@ -239,8 +239,9 @@ service cloud.firestore {
       //              redeemedBy?, redeemedAt? }
       //
       // get: any signed-in user can fetch ONE invite by its exact token
-      //   (URL-shared). list/query is denied so the collection can't
-      //   be enumerated.
+      //   (URL-shared join page). Non-editors can't enumerate.
+      // list: editors only — the Members page subscribes to this
+      //   collection so the commish can see + revoke pending invites.
       // create/delete: editors only (commish + co-commishes generate
       //   and revoke invites).
       // update: redemption only — anyone signed in can mark an
@@ -249,6 +250,9 @@ service cloud.firestore {
       //   (see the redemption rule above).
       match /invites/{token} {
         allow get: if isSignedIn();
+
+        allow list: if isSignedIn()
+                    && request.auth.uid in parentDynasty().get('editors', []);
 
         allow create, delete: if isSignedIn()
                               && request.auth.uid in parentDynasty().get('editors', []);

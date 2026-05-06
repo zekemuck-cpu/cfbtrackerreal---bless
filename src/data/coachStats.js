@@ -101,26 +101,38 @@ export function getCoachStints(dynasty, uid) {
 
 /**
  * Build a `{ year: Set<tid> }` map of which teams a uid coached each
- * year. Pulls memberTeamHistory primarily; for the dynasty owner, falls
- * back to legacy coachTeamByYear for years with no snapshot (so old
- * solo dynasties still attribute correctly).
+ * year. memberTeamHistory[uid] is the SINGLE SOURCE OF TRUTH whenever
+ * it exists at all — even if certain years are absent from it (the
+ * user removed them via the timeline editor and meant for those
+ * years to be empty).
+ *
+ * For dynasties that have never been touched by the new system
+ * (memberTeamHistory[uid] is undefined entirely), we fall back to the
+ * legacy owner-only coachTeamByYear so pre-migration solo dynasties
+ * still attribute correctly.
  */
 function buildYearTeamsMap(dynasty, uid) {
   const out = {}
-  const history = dynasty?.memberTeamHistory?.[uid] || {}
-  for (const [yearStr, tids] of Object.entries(history)) {
-    const year = Number(yearStr)
-    if (!Number.isFinite(year) || !Array.isArray(tids)) continue
-    const cleaned = tids.map(Number).filter(Number.isFinite)
-    if (cleaned.length > 0) out[year] = new Set(cleaned)
+  const history = dynasty?.memberTeamHistory?.[uid]
+  // History exists for this uid? Trust it as the source of truth.
+  // An empty year inside history means "user wasn't coaching that year"
+  // — the legacy fallback below would silently override that intent.
+  if (history) {
+    for (const [yearStr, tids] of Object.entries(history)) {
+      const year = Number(yearStr)
+      if (!Number.isFinite(year) || !Array.isArray(tids)) continue
+      const cleaned = tids.map(Number).filter(Number.isFinite)
+      if (cleaned.length > 0) out[year] = new Set(cleaned)
+    }
+    return out
   }
-  // Legacy fallback for the owner — coachTeamByYear[year] = { tid, ... }
-  // OR { tid: number } shape variants. memberTeamHistory wins where set.
+  // No history snapshot for this uid — pre-migration solo dynasty.
+  // Owner gets the legacy coachTeamByYear walk so their career still
+  // renders. Non-owners get an empty map.
   if (uid === dynasty?.userId && dynasty?.coachTeamByYear) {
     for (const [yearStr, entry] of Object.entries(dynasty.coachTeamByYear)) {
       const year = Number(yearStr)
       if (!Number.isFinite(year)) continue
-      if (out[year] && out[year].size > 0) continue
       const tid = entry?.tid ?? entry?.team ?? entry
       const tidNum = Number(tid)
       if (Number.isFinite(tidNum)) out[year] = new Set([tidNum])

@@ -232,6 +232,28 @@ export default function LeagueSettings() {
         createdBy: user.uid,
         expiresAt,
       })
+      // Optimistically push the new invite into local state so the user
+      // sees the link immediately. The subscribeToInvites listener
+      // requires the firestore.rules to permit `list` on the invites
+      // subcollection — if rules haven't been deployed yet, the listener
+      // returns no docs and the link would otherwise vanish on next tick.
+      // The optimistic entry stays around for this session; subsequent
+      // reloads need the deployed rules to repopulate.
+      setInvites((prev) => {
+        if (prev.some((inv) => inv.token === token)) return prev
+        return [
+          ...prev,
+          {
+            token,
+            role: ROLE_MEMBER,
+            createdBy: user.uid,
+            createdAt: Date.now(),
+            expiresAt,
+            redeemedBy: null,
+            redeemedAt: null,
+          },
+        ]
+      })
       toast.success('Invite link generated.')
     } catch (err) {
       console.error('[Members] generate invite failed:', err)
@@ -961,11 +983,7 @@ export default function LeagueSettings() {
               </span>
             )}
           </header>
-          <p className="text-xs text-txt-tertiary mb-3">
-            Each coach's staff is tracked separately, so multi-coach dynasties don't share
-            one field anymore.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
             {[
               { key: 'hcName', label: 'HEAD COACH' },
               { key: 'ocName', label: 'OFFENSIVE COORD.' },

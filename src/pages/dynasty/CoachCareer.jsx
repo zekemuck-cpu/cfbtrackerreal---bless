@@ -118,14 +118,21 @@ export default function CoachCareer() {
   const selectedOption = userOptions.find(o => o.uid === effectiveSelectedUid) || null
   const selectedDisplayName = selectedOption?.label || 'Coach'
 
-  // Resolve a uid's tids for a given year — preferred source is the
-  // per-year history snapshot; falls back to legacy coachTeamByYear
-  // for the dynasty owner (so existing solo dynasties still render).
+  // Resolve a uid's tids for a given year. memberTeamHistory[uid] is
+  // the SINGLE SOURCE OF TRUTH whenever it exists at all — even if a
+  // specific year is absent from it (the user explicitly removed that
+  // year via the Members timeline editor and meant for it to be empty).
+  // Only fall back to the legacy owner-only coachTeamByYear when the
+  // user has NEVER been touched by the timeline editor.
   const getUserTeamsForYear = (uid, year) => {
     const yearNum = Number(year)
     if (!Number.isFinite(yearNum) || !uid) return []
-    const fromHistory = getMemberTeamsForYear(currentDynasty, uid, yearNum)
-    if (fromHistory.length > 0) return fromHistory
+    // If the user has ANY entry in memberTeamHistory, trust it exclusively.
+    const hasHistory = currentDynasty.memberTeamHistory?.[uid] != null
+    if (hasHistory) {
+      return getMemberTeamsForYear(currentDynasty, uid, yearNum)
+    }
+    // Pre-migration owner-only fallback: read legacy coachTeamByYear.
     if (uid === currentDynasty.userId) {
       const cty = currentDynasty.coachTeamByYear?.[yearNum] || currentDynasty.coachTeamByYear?.[String(yearNum)]
       if (cty?.tid != null) return [Number(cty.tid)]

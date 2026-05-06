@@ -50,8 +50,37 @@ export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
       .sort((a, b) => a.name.localeCompare(b.name))
   ), [teamsSource])
 
-  const writeHistory = async (nextHistory) => {
-    await updateDynasty(currentDynasty.id, { memberTeamHistory: nextHistory })
+  // Write the new memberTeamHistory map. If the modified year IS the
+  // dynasty's current year, ALSO sync memberTeams[uid] (the live store)
+  // so the row's display doesn't bounce back via the live-state fallback
+  // in getMemberTeamsForYear (which only kicks in when history is empty
+  // for the current year).
+  //
+  // Without this sync, removing a team from the current year via the
+  // X chip strips memberTeamHistory[uid][currentYear] but leaves
+  // memberTeams[uid] intact — so the next render reads the live store
+  // and re-displays the team. Same applies to claiming on the current
+  // year: history gets the team but live state stays empty, leaving
+  // Coach Career and the Members row out of sync until next save.
+  const writeHistory = async (nextHistory, modifiedYear) => {
+    const updates = { memberTeamHistory: nextHistory }
+    if (Number(modifiedYear) === Number(currentDynasty.currentYear)) {
+      // Derive what memberTeams[uid] should be from the just-written
+      // history snapshot. If the year entry is now empty, drop the uid
+      // from memberTeams; otherwise mirror the same tids.
+      const tidsForCurrent =
+        nextHistory?.[uid]?.[currentDynasty.currentYear] ||
+        nextHistory?.[uid]?.[String(currentDynasty.currentYear)] ||
+        []
+      const nextLive = { ...(currentDynasty.memberTeams || {}) }
+      if (tidsForCurrent.length === 0) {
+        delete nextLive[uid]
+      } else {
+        nextLive[uid] = tidsForCurrent.map(Number).filter(Number.isFinite)
+      }
+      updates.memberTeams = nextLive
+    }
+    await updateDynasty(currentDynasty.id, updates)
   }
 
   const handleClaim = async (year, tidStr) => {
@@ -61,7 +90,7 @@ export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
     setBusyYear(year)
     try {
       const next = claimTeamForYear(currentDynasty.memberTeamHistory, uid, year, tid)
-      await writeHistory(next)
+      await writeHistory(next, year)
       setPendingPick(p => ({ ...p, [year]: '' }))
       if (otherUids.length > 0) {
         const stolenFrom = otherUids
@@ -83,7 +112,7 @@ export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
     setBusyYear(year)
     try {
       const next = releaseTeamForYear(currentDynasty.memberTeamHistory, uid, year, tid)
-      await writeHistory(next)
+      await writeHistory(next, year)
     } catch (err) {
       console.error('[MemberTimeline] release failed:', err)
       toast.error('Failed to update timeline.')
@@ -107,7 +136,7 @@ export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
       for (const tid of sourceTids) {
         next = claimTeamForYear(next, uid, year, tid)
       }
-      await writeHistory(next)
+      await writeHistory(next, year)
     } catch (err) {
       console.error('[MemberTimeline] copy failed:', err)
       toast.error('Failed to copy.')
@@ -125,7 +154,7 @@ export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
       delete userMap[String(year)]
       if (Object.keys(userMap).length === 0) delete next[uid]
       else next[uid] = userMap
-      await writeHistory(next)
+      await writeHistory(next, year)
     } catch (err) {
       console.error('[MemberTimeline] clear failed:', err)
       toast.error('Failed to clear year.')
@@ -180,7 +209,7 @@ export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
                         return (
                           <span
                             key={tid}
-                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-surface-2 border border-surface-4 text-xs"
+                            className="inline-flex items-center gap-1.5 pl-2 pr-1 py-0.5 rounded-md bg-surface-2 border border-surface-4 text-xs"
                           >
                             <TeamLogo tid={tid} teams={teamsSource} size="xs" />
                             <span className="font-semibold text-txt-primary">{teamName}</span>
@@ -189,9 +218,10 @@ export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
                               onClick={() => handleRelease(year, tid)}
                               disabled={isBusy}
                               aria-label={`Remove ${teamName}`}
-                              className="ml-0.5 -mr-1 text-txt-muted hover:text-red-400 transition-colors disabled:opacity-50"
+                              title={`Remove ${teamName}`}
+                              className="ml-0.5 px-1.5 py-1 rounded text-txt-tertiary hover:text-red-400 hover:bg-surface-3 transition-colors disabled:opacity-50 cursor-pointer"
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                               </svg>
                             </button>
