@@ -9590,8 +9590,10 @@ export async function createPlayersLeavingSheet(dynastyName, year, players, team
       if (p.isHonorOnly) return false
       if (p.isRecruit) return false
 
-      // Use centralized isPlayerOnRoster - handles both stint-based and legacy systems
-      return isPlayerOnRoster(p, teamTid || teamAbbr, year)
+      // Use centralized isPlayerOnRoster - handles both stint-based and legacy systems.
+      // Pass dynasty so teambuilder-renamed slots resolve when teamAbbr is the
+      // legacy abbr branch (without it, TB takeovers would mis-filter rosters).
+      return isPlayerOnRoster(p, teamTid || teamAbbr, year, { teams: dynastyTeams })
     })
 
     // Get player names for dropdown (only current roster)

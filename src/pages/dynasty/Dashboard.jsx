@@ -684,7 +684,7 @@ export default function Dashboard() {
     const seedsWithTid = {}
     for (const entry of seeds) {
       if (entry.seed && (entry.tid || entry.team)) {
-        const tid = entry.tid || getTidFromAbbr(entry.team)
+        const tid = entry.tid || getTidFromAbbr(entry.team, currentDynasty)
         if (tid) {
           seedsWithTid[entry.seed] = tid
         }
@@ -843,7 +843,7 @@ export default function Dashboard() {
     const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.conferenceChampionshipDataByTeamYear || {}
     const existingForTeam = existingByTeamYear[teamAbbr] || {}
-    const tid = getTidFromAbbr(teamAbbr)
+    const tid = getTidFromAbbr(teamAbbr, currentDynasty)
     const ccData = { ...(existingForTeam[year] || {}), madeChampionship }
 
     // Also get existing year-only structure for backward compatibility
@@ -900,7 +900,7 @@ export default function Dashboard() {
     const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.conferenceChampionshipDataByTeamYear || {}
     const existingForTeam = existingByTeamYear[teamAbbr] || {}
-    const tid = getTidFromAbbr(teamAbbr)
+    const tid = getTidFromAbbr(teamAbbr, currentDynasty)
     const ccData = { ...(existingForTeam[year] || {}), opponent }
 
     // Also get existing year-only structure for backward compatibility
@@ -986,7 +986,7 @@ export default function Dashboard() {
     const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.conferenceChampionshipDataByTeamYear || {}
     const existingForTeam = existingByTeamYear[teamAbbr] || {}
-    const tid = getTidFromAbbr(teamAbbr)
+    const tid = getTidFromAbbr(teamAbbr, currentDynasty)
     const ccData = { ...(existingForTeam[year] || {}), pendingFiring: selection }
 
     // Also get existing year-only structure for backward compatibility
@@ -1235,7 +1235,7 @@ export default function Dashboard() {
         // Get player's team as tid - ALWAYS use tid for movement data
         let playerTeamTid = player.team
         if (typeof playerTeamTid === 'string') {
-          playerTeamTid = getTidFromAbbr(playerTeamTid) || teamTid
+          playerTeamTid = getTidFromAbbr(playerTeamTid, currentDynasty) || teamTid
         }
         const playerTeam = playerTeamTid || teamTid
 
@@ -1286,7 +1286,7 @@ export default function Dashboard() {
     // teamAbbr already defined above
     const existingByTeamYear = currentDynasty.playersLeavingByTeamYear || {}
     const existingByYear = currentDynasty.playersLeavingByYear || {}
-    const tid = getTidFromAbbr(teamAbbr)
+    const tid = getTidFromAbbr(teamAbbr, currentDynasty)
 
     // Build updates object
     const updates = {
@@ -1337,7 +1337,7 @@ export default function Dashboard() {
     const year = currentDynasty.currentYear
     const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.draftResultsByTeamYear || {}
-    const tid = getTidFromAbbr(teamAbbr)
+    const tid = getTidFromAbbr(teamAbbr, currentDynasty)
 
     // Map player names to PIDs and store draft info
     const resultsWithPids = draftResults.map(entry => {
@@ -1371,7 +1371,7 @@ export default function Dashboard() {
         const playerYears = Object.keys(playerTeamsByYear).map(Number).sort((a, b) => b - a)
         const playerLastTeam = playerYears.length > 0 ? playerTeamsByYear[playerYears[0]] : (player.team || tid)
         // Convert to tid if it's an abbreviation
-        const playerLastTeamTid = typeof playerLastTeam === 'number' ? playerLastTeam : (getTidFromAbbr(playerLastTeam) || tid)
+        const playerLastTeamTid = typeof playerLastTeam === 'number' ? playerLastTeam : (getTidFromAbbr(playerLastTeam, currentDynasty) || tid)
 
         // Build movementByYear entry for draft. playerLastTeamTid is
         // computed above in case future shape changes need it, but v2
@@ -1456,14 +1456,14 @@ export default function Dashboard() {
         // Get old team as tid - ALWAYS use tid
         let oldTeamTid = player.team
         if (typeof oldTeamTid === 'string') {
-          oldTeamTid = getTidFromAbbr(oldTeamTid) || teamTid
+          oldTeamTid = getTidFromAbbr(oldTeamTid, currentDynasty) || teamTid
         }
         if (!oldTeamTid) oldTeamTid = teamTid
 
         // Get newTeam as tid (dest.newTeam could be abbr from sheet)
         let newTeamTid = dest.newTeam
         if (typeof newTeamTid === 'string') {
-          newTeamTid = getTidFromAbbr(newTeamTid)
+          newTeamTid = getTidFromAbbr(newTeamTid, currentDynasty)
         }
 
         // Check if this is a RECOMMIT (destination = their current team)
@@ -1502,7 +1502,7 @@ export default function Dashboard() {
       }
     })
 
-    const tid = getTidFromAbbr(teamAbbr)
+    const tid = getTidFromAbbr(teamAbbr, currentDynasty)
 
     const updates = {
       // dual-keyed (rename-safe)
@@ -1549,7 +1549,7 @@ export default function Dashboard() {
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
     const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const existingRanks = currentDynasty.recruitingClassRankByTeamYear || {}
-    const tid = getTidFromAbbr(teamAbbr)
+    const tid = getTidFromAbbr(teamAbbr, currentDynasty)
 
     const updates = {
       // dual-keyed (rename-safe)
@@ -2162,7 +2162,7 @@ export default function Dashboard() {
         const prevTeamText = recruit.previousTeam.trim()
         // Try to resolve as tid from team name or abbreviation
         previousTeamTid = getTidFromTeamName(prevTeamText, currentDynasty?.teams) ||
-                          getTidFromAbbr(prevTeamText) ||
+                          getTidFromAbbr(prevTeamText, currentDynasty) ||
                           resolveTid(prevTeamText, currentDynasty?.teams || TEAMS)
         // If resolution failed but we have text, it might be an FCS/non-FBS team - keep as null
       }
@@ -2376,7 +2376,7 @@ export default function Dashboard() {
     // Save if there are any recruits to record OR if player data changed
     const hasPlayerChanges = returningPlayerRecruits.length > 0 || newPlayers.length > 0
     if (allCommittedRecruits.length > 0 || hasPlayerChanges) {
-      const tid = getTidFromAbbr(teamAbbr)
+      const tid = getTidFromAbbr(teamAbbr, currentDynasty)
       const commitmentData = {
         ...existingForYear,
         [commitmentKey]: allCommittedRecruits
@@ -2488,7 +2488,7 @@ export default function Dashboard() {
     if (!commitmentKey) return
 
     const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
-    const tid = getTidFromAbbr(teamAbbr)
+    const tid = getTidFromAbbr(teamAbbr, currentDynasty)
 
     // Use TEAM-CENTRIC structure
     const existingByTeamYear = currentDynasty.recruitingCommitmentsByTeamYear || {}
@@ -3474,7 +3474,7 @@ export default function Dashboard() {
                 if (gameRecord) {
                   navigate(`${pathPrefix}/game/${gameRecord.id}/edit`, { state: { from: location.pathname } })
                 } else {
-                  const opponentTid = scheduledGame?.opponent ? getTidFromAbbr(scheduledGame.opponent) : null
+                  const opponentTid = scheduledGame?.opponent ? getTidFromAbbr(scheduledGame.opponent, currentDynasty) : null
                   const team1 = userTeamTid
                   const team2 = opponentTid
                   const params = new URLSearchParams({
@@ -3903,7 +3903,7 @@ export default function Dashboard() {
                               if (ccGame) {
                                 navigate(`${pathPrefix}/game/${ccGame.id}/edit`, { state: { from: location.pathname } })
                               } else {
-                                const opponentTid = getTidFromAbbr(ccOpponent)
+                                const opponentTid = getTidFromAbbr(ccOpponent, currentDynasty)
                                 const params = new URLSearchParams({
                                   week: 'CC',
                                   year: currentDynasty.currentYear?.toString() || '',
@@ -4748,7 +4748,7 @@ export default function Dashboard() {
                               navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
                             } else {
                               // userCFPOpponent can be tid (number) or abbr (string)
-                              const opponentTid = typeof userCFPOpponent === 'number' ? userCFPOpponent : getTidFromAbbr(userCFPOpponent)
+                              const opponentTid = typeof userCFPOpponent === 'number' ? userCFPOpponent : getTidFromAbbr(userCFPOpponent, currentDynasty)
                               const params = new URLSearchParams({
                                 week: 'CFP First Round',
                                 year: currentDynasty.currentYear?.toString() || '',
@@ -5235,7 +5235,7 @@ export default function Dashboard() {
                               navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
                             } else {
                               // userQFOpponent can be a tid (number) or abbreviation (string)
-                              const opponentTid = typeof userQFOpponent === 'number' ? userQFOpponent : getTidFromAbbr(userQFOpponent)
+                              const opponentTid = typeof userQFOpponent === 'number' ? userQFOpponent : getTidFromAbbr(userQFOpponent, currentDynasty)
                               const params = new URLSearchParams({
                                 week: 'CFP Quarterfinal',
                                 year: currentDynasty.currentYear?.toString() || '',
@@ -6361,7 +6361,7 @@ export default function Dashboard() {
                             navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
                           } else {
                             // userSFOpponent can be tid (number) or abbr (string)
-                            const opponentTid = typeof userSFOpponent === 'number' ? userSFOpponent : getTidFromAbbr(userSFOpponent)
+                            const opponentTid = typeof userSFOpponent === 'number' ? userSFOpponent : getTidFromAbbr(userSFOpponent, currentDynasty)
                             const params = new URLSearchParams({
                               week: 'CFP Semifinal',
                               year: currentDynasty.currentYear?.toString() || '',
@@ -6505,7 +6505,7 @@ export default function Dashboard() {
                             navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
                           } else {
                             // userChampOpponent can be tid (number) or abbr (string)
-                            const opponentTid = typeof userChampOpponent === 'number' ? userChampOpponent : getTidFromAbbr(userChampOpponent)
+                            const opponentTid = typeof userChampOpponent === 'number' ? userChampOpponent : getTidFromAbbr(userChampOpponent, currentDynasty)
                             const params = new URLSearchParams({
                               week: 'CFP Championship',
                               year: currentDynasty.currentYear?.toString() || '',
@@ -7828,7 +7828,7 @@ export default function Dashboard() {
               // - PLUS portal transfers who joined this offseason (they need training results too)
               // - NOT HS/JUCO recruits (they go in Recruiting Class Overalls instead)
               const teamAbbr = getCurrentTeamAbbr(currentDynasty)
-              const teamTid = getTidFromAbbr(teamAbbr)
+              const teamTid = getTidFromAbbr(teamAbbr, currentDynasty)
               const playersLeavingThisYear = currentDynasty?.playersLeavingByYear?.[offseasonDataYear] || []
               const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid))
 
@@ -9453,7 +9453,7 @@ export default function Dashboard() {
 
               // Determine bye seed (1-4) from team2 (which is the higher seed in QF games)
               // Look up team2's seed in CFP seeds
-              const team2Tid = getTidFromAbbr(sanitized.team2)
+              const team2Tid = getTidFromAbbr(sanitized.team2, currentDynasty)
               const team2SeedEntry = cfpSeeds.find(s =>
                 s.tid === team2Tid || s.team === sanitized.team2
               )
@@ -9540,7 +9540,7 @@ export default function Dashboard() {
           const seedsWithTid = {}
           for (const entry of seeds) {
             if (entry.seed && entry.team) {
-              const tid = getTidFromAbbr(entry.team)
+              const tid = getTidFromAbbr(entry.team, currentDynasty)
               if (tid) {
                 seedsWithTid[entry.seed] = tid
               }
@@ -9554,7 +9554,7 @@ export default function Dashboard() {
           // Convert to tid-only format (no abbreviations stored)
           const seedsTidOnly = seeds.map(s => ({
             seed: s.seed,
-            tid: s.tid || getTidFromAbbr(s.team) // Prefer existing tid, fallback for legacy data
+            tid: s.tid || getTidFromAbbr(s.team, currentDynasty) // Prefer existing tid, fallback for legacy data
           })).filter(s => s.tid) // Only include if tid resolved
 
           await updateDynasty(currentDynasty.id, {
@@ -9978,7 +9978,7 @@ export default function Dashboard() {
           Object.entries(standings).forEach(([conference, teams]) => {
             teams.forEach(teamData => {
               const abbr = teamData.team
-              const tid = getTidFromAbbr(abbr)
+              const tid = getTidFromAbbr(abbr, currentDynasty)
               const record = { wins: teamData.wins, losses: teamData.losses }
 
               // Update legacy structure
@@ -10197,7 +10197,7 @@ export default function Dashboard() {
         players={(() => {
           // Returning players + portal transfers (NOT HS/JUCO recruits)
           const teamAbbr = getCurrentTeamAbbr(currentDynasty)
-          const teamTid = getTidFromAbbr(teamAbbr)
+          const teamTid = getTidFromAbbr(teamAbbr, currentDynasty)
           const playersLeavingThisYear = currentDynasty?.playersLeavingByYear?.[offseasonDataYear] || []
           const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid))
           const currentYear = currentDynasty?.currentYear
@@ -10247,7 +10247,7 @@ export default function Dashboard() {
           // Get recruits from this recruiting cycle (HS and JUCO only - exclude transfer portal)
           // Recruits have recruitYear from when they committed (before year flip)
           const teamAbbr = getCurrentTeamAbbr(currentDynasty)
-          const teamTid = getTidFromAbbr(teamAbbr)
+          const teamTid = getTidFromAbbr(teamAbbr, currentDynasty)
           const allPlayers = currentDynasty?.players || []
           return allPlayers.filter(p =>
             p.isRecruit &&

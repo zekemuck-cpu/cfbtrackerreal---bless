@@ -25,32 +25,44 @@ export const normalizePlayerName = (name) => {
 }
 
 // Normalize team to uppercase abbreviation for comparison
-// Handles tids (numbers), full names ("Kentucky Wildcats"), and abbreviations ("UK")
-const normalizeTeamForComparison = (team) => {
+// Handles tids (numbers), full names ("Kentucky Wildcats"), and abbreviations ("UK").
+// Pass dynastyTeams so a teambuilder team's renamed abbr/name resolves correctly
+// — without it, a TB-replaced slot resolves back to the original FBS abbr and
+// honor matches silently mis-link.
+const normalizeTeamForComparison = (team, dynastyTeams = null) => {
   if (!team && team !== 0) return ''
 
   // Handle tid (number) - convert to abbreviation
   if (typeof team === 'number') {
-    const teamData = TEAMS[team]
+    const teamData = dynastyTeams?.[team] || TEAMS[team]
     return teamData?.abbr?.toUpperCase() || ''
   }
 
   // Handle string that's actually a number (tid as string)
   if (typeof team === 'string' && /^\d+$/.test(team)) {
     const tid = parseInt(team, 10)
-    const teamData = TEAMS[tid]
+    const teamData = dynastyTeams?.[tid] || TEAMS[tid]
     return teamData?.abbr?.toUpperCase() || ''
   }
 
   const upperTeam = team.toUpperCase()
 
-  // First check if it's already an abbreviation
+  // Check dynasty.teams first so a custom abbr from teambuilder resolves
+  // before we fall back to the static FBS abbreviation map.
+  if (dynastyTeams) {
+    for (const t of Object.values(dynastyTeams)) {
+      if (t?.abbr?.toUpperCase() === upperTeam) return upperTeam
+    }
+  }
+
+  // Then check if it's already a static abbreviation
   if (teamAbbreviations[upperTeam]) {
     return upperTeam
   }
 
-  // Try to get abbreviation from display name
-  const abbr = getAbbrFromTeamName(team)
+  // Try to get abbreviation from display name (consults dynasty.teams first
+  // for teambuilder names)
+  const abbr = getAbbrFromTeamName(team, dynastyTeams)
   if (abbr) {
     return abbr.toUpperCase()
   }
@@ -95,48 +107,48 @@ const getPlayerYears = (player) => {
 }
 
 // Get all teams a player has been associated with (normalized to abbreviations)
-const getPlayerTeams = (player) => {
+const getPlayerTeams = (player, dynastyTeams = null) => {
   const teams = new Set()
 
   // From teamsByYear (primary roster tracking) - most important!
   if (player.teamsByYear) {
     Object.values(player.teamsByYear).forEach(t => {
-      if (t) teams.add(normalizeTeamForComparison(t))
+      if (t) teams.add(normalizeTeamForComparison(t, dynastyTeams))
     })
   }
 
   // Primary team from roster (could be full name like "Kentucky Wildcats")
   if (player.team) {
-    teams.add(normalizeTeamForComparison(player.team))
+    teams.add(normalizeTeamForComparison(player.team, dynastyTeams))
   }
 
   // Teams from honors (usually abbreviations like "UK")
   if (player.accolades) {
     player.accolades.forEach(a => {
-      if (a.team) teams.add(normalizeTeamForComparison(a.team))
+      if (a.team) teams.add(normalizeTeamForComparison(a.team, dynastyTeams))
     })
   }
   if (player.awards) {
     player.awards.forEach(a => {
-      if (a.team) teams.add(normalizeTeamForComparison(a.team))
+      if (a.team) teams.add(normalizeTeamForComparison(a.team, dynastyTeams))
     })
   }
 
   if (player.allAmericans) {
     player.allAmericans.forEach(a => {
-      if (a.school) teams.add(normalizeTeamForComparison(a.school))
+      if (a.school) teams.add(normalizeTeamForComparison(a.school, dynastyTeams))
     })
   }
 
   if (player.allConference) {
     player.allConference.forEach(a => {
-      if (a.school) teams.add(normalizeTeamForComparison(a.school))
+      if (a.school) teams.add(normalizeTeamForComparison(a.school, dynastyTeams))
     })
   }
 
   // From teams array if it exists
   if (player.teams) {
-    player.teams.forEach(t => teams.add(normalizeTeamForComparison(t)))
+    player.teams.forEach(t => teams.add(normalizeTeamForComparison(t, dynastyTeams)))
   }
 
   return Array.from(teams)
@@ -161,15 +173,16 @@ const isWithinEligibilityWindow = (newYear, existingYears) => {
  * @param {string} team - Team abbreviation from honor entry
  * @param {number} year - Year of the honor
  * @param {Array} players - Existing players array
+ * @param {Object} dynastyTeams - dynasty.teams for resolving teambuilder abbrs
  * @returns {Object} { player, matchType: 'exact' | 'transfer' | 'new', existingTeams, existingYears }
  */
-export const findMatchingPlayer = (name, team, year, players) => {
+export const findMatchingPlayer = (name, team, year, players, dynastyTeams = null) => {
   if (!name || !players) {
     return { player: null, matchType: 'new', existingTeams: [], existingYears: [] }
   }
 
   const normalizedName = normalizePlayerName(name)
-  const normalizedTeam = normalizeTeamForComparison(team)
+  const normalizedTeam = normalizeTeamForComparison(team, dynastyTeams)
 
   // Find all players with matching name
   const nameMatches = players.filter(p =>
@@ -183,7 +196,7 @@ export const findMatchingPlayer = (name, team, year, players) => {
   // For each name match, check year and team
   for (const player of nameMatches) {
     const existingYears = getPlayerYears(player)
-    const existingTeams = getPlayerTeams(player)
+    const existingTeams = getPlayerTeams(player, dynastyTeams)
 
     // Check if within eligibility window (5 seasons)
     if (isWithinEligibilityWindow(year, existingYears)) {

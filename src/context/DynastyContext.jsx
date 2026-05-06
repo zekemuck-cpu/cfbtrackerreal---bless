@@ -2508,12 +2508,18 @@ export function getScheduleWithGameData(dynasty) {
  * After full tid migration, teamsByYear stores tid values (numbers).
  * This function accepts either tid (number) or abbreviation (string) for backward compatibility.
  *
+ * Pass `dynasty` so a teambuilder team's renamed abbr resolves to its tid —
+ * without it, both lookupAbbr (TEAMS[tid].abbr) and getTidFromAbbr(stored)
+ * fall back to the static FBS map and silently miss TB-renamed slots when
+ * the legacy abbr branch runs.
+ *
  * @param {Object} player - The player object
  * @param {number|string} tidOrAbbr - Team ID (tid) or abbreviation (for backward compatibility)
  * @param {number|string} year - The year to check
+ * @param {Object} [dynasty] - Dynasty for teambuilder-aware resolution
  * @returns {boolean} True if player is on the team's roster
  */
-export function isPlayerOnRoster(player, tidOrAbbr, year) {
+export function isPlayerOnRoster(player, tidOrAbbr, year, dynasty = null) {
   // Honor-only players are never on active roster
   if (player.isHonorOnly) return false
 
@@ -2526,21 +2532,23 @@ export function isPlayerOnRoster(player, tidOrAbbr, year) {
     return false
   }
 
-  // Normalize the lookup value to both tid and abbr for comparison
+  // Normalize the lookup value to both tid and abbr for comparison.
+  // dynasty.teams is checked first so a teambuilder-renamed slot exposes its
+  // current abbr (not the original FBS abbr from static TEAMS).
   let lookupTid = null
   let lookupAbbr = null
 
   if (typeof tidOrAbbr === 'number') {
     lookupTid = tidOrAbbr
-    const teamData = TEAMS[tidOrAbbr]
+    const teamData = dynasty?.teams?.[tidOrAbbr] || TEAMS[tidOrAbbr]
     lookupAbbr = teamData?.abbr
   } else if (typeof tidOrAbbr === 'string' && /^\d+$/.test(tidOrAbbr)) {
     lookupTid = parseInt(tidOrAbbr, 10)
-    const teamData = TEAMS[lookupTid]
+    const teamData = dynasty?.teams?.[lookupTid] || TEAMS[lookupTid]
     lookupAbbr = teamData?.abbr
   } else if (typeof tidOrAbbr === 'string') {
     lookupAbbr = tidOrAbbr
-    lookupTid = getTidFromAbbr(tidOrAbbr)
+    lookupTid = getTidFromAbbr(tidOrAbbr, dynasty)
   }
 
   // Compare against the stored value (which could be tid or abbr)
@@ -2550,7 +2558,7 @@ export function isPlayerOnRoster(player, tidOrAbbr, year) {
     if (teamForYear === lookupAbbr) {
       return true
     }
-    const storedTid = getTidFromAbbr(teamForYear)
+    const storedTid = getTidFromAbbr(teamForYear, dynasty)
     if (storedTid && storedTid === lookupTid) {
       return true
     }
@@ -11717,8 +11725,10 @@ export function DynastyProvider({ children }) {
       const playerTeam = (entry.school || entry.team || '').toUpperCase()
       const playerPosition = entry.position || ''
 
-      // Find matching player
-      const match = findMatchingPlayer(playerName, playerTeam, year, existingPlayers)
+      // Find matching player. Pass dynasty.teams so teambuilder-renamed slots
+      // resolve correctly during honor matching (else a TB takeover would
+      // mis-classify the same person as a transfer).
+      const match = findMatchingPlayer(playerName, playerTeam, year, existingPlayers, dynasty?.teams)
 
       if (match.matchType === 'exact') {
         // Auto-link to existing player

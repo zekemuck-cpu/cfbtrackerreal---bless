@@ -1011,7 +1011,7 @@ export default function GameEntryModal({
         if (bowlName === 'CFP First Round') {
           const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[actualYear] || []
           const teamSeed = cfpSeeds.find(s => s.tid === effectiveTeamTid)?.seed
-          const opponentTid = getTidFromAbbr(passedOpponent)
+          const opponentTid = getTidFromAbbr(passedOpponent, currentDynasty)
           const oppSeed = cfpSeeds.find(s => s.tid === opponentTid)?.seed
           if (teamSeed && oppSeed) {
             cfpLocation = teamSeed < oppSeed ? 'home' : 'away'
@@ -1223,7 +1223,7 @@ export default function GameEntryModal({
     const teamTidForSave = effectiveGame?.team1Tid || effectiveTeamTid
     const rawOpponent = gameData.opponent || scheduledGame?.opponent
     const opponentAbbr = getAbbrFromTeamName(rawOpponent) || rawOpponent
-    const opponentTid = effectiveGame?.team2Tid || getTidFromAbbr(opponentAbbr)
+    const opponentTid = effectiveGame?.team2Tid || getTidFromAbbr(opponentAbbr, currentDynasty)
 
     // Use custom conferences for auto-detection
     const customConferences = getCurrentCustomConferences(currentDynasty)
@@ -1306,10 +1306,10 @@ export default function GameEntryModal({
       // UNIFIED TEAM FIELDS (tid only, no abbreviations)
       // Use teamTidForSave which preserves original team1Tid for existing games
       team1Tid: isCPUGame
-        ? (effectiveGame?.team1Tid || getTidFromAbbr(effectiveGame?.team1))
+        ? (effectiveGame?.team1Tid || getTidFromAbbr(effectiveGame?.team1, currentDynasty))
         : teamTidForSave,
       team2Tid: isCPUGame
-        ? (effectiveGame?.team2Tid || getTidFromAbbr(effectiveGame?.team2))
+        ? (effectiveGame?.team2Tid || getTidFromAbbr(effectiveGame?.team2, currentDynasty))
         : opponentTid,
       team1Score: teamScore,
       team2Score: opponentScore,
@@ -1541,7 +1541,8 @@ export default function GameEntryModal({
       oppTotal,
       teamAbbrForBoxScore,
       opponentAbbr,
-      currentDynasty?.currentYear
+      currentDynasty?.currentYear,
+      currentDynasty?.teams
     )
 
     // Adjust home/away based on actual game location

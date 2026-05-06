@@ -232,7 +232,7 @@ FINAL CHECK before you send
         return Object.fromEntries(
           Object.entries(teamsByYear).map(([yearKey, teamValue]) => {
             if (typeof teamValue === 'number') return [yearKey, teamValue]
-            const tid = getTidFromAbbr(teamValue)
+            const tid = getTidFromAbbr(teamValue, currentDynasty)
             return [yearKey, tid || teamValue]
           })
         )
@@ -284,7 +284,7 @@ FINAL CHECK before you send
         return Object.fromEntries(
           Object.entries(teamsByYear).map(([yearKey, teamValue]) => {
             if (typeof teamValue === 'number') return [yearKey, teamValue]
-            const tid = getTidFromAbbr(teamValue)
+            const tid = getTidFromAbbr(teamValue, currentDynasty)
             return [yearKey, tid || teamValue]
           })
         )

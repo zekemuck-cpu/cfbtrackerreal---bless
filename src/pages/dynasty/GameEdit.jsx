@@ -337,14 +337,14 @@ export default function GameEdit() {
   const resolveTeam1Tid = () => {
     if (existingGame?.team1Tid) return existingGame.team1Tid
     if (existingGame?.userTid) return existingGame.userTid
-    if (existingGame?.userTeam) return getTidFromAbbr(existingGame.userTeam)
+    if (existingGame?.userTeam) return getTidFromAbbr(existingGame.userTeam, currentDynasty)
     if (queryTeam1Tid) return parseInt(queryTeam1Tid)
     return null
   }
   const resolveTeam2Tid = () => {
     if (existingGame?.team2Tid) return existingGame.team2Tid
     if (existingGame?.opponentTid) return existingGame.opponentTid
-    if (existingGame?.opponent) return getTidFromAbbr(existingGame.opponent)
+    if (existingGame?.opponent) return getTidFromAbbr(existingGame.opponent, currentDynasty)
     if (queryTeam2Tid) return parseInt(queryTeam2Tid)
     return null
   }
@@ -708,8 +708,8 @@ export default function GameEdit() {
   useEffect(() => {
     if (existingGame) {
       // Use resolved team tids (handles legacy formats)
-      const resolvedTeam1Tid = existingGame.team1Tid || existingGame.userTid || (existingGame.userTeam ? getTidFromAbbr(existingGame.userTeam) : null)
-      const resolvedTeam2Tid = existingGame.team2Tid || existingGame.opponentTid || (existingGame.opponent ? getTidFromAbbr(existingGame.opponent) : null)
+      const resolvedTeam1Tid = existingGame.team1Tid || existingGame.userTid || (existingGame.userTeam ? getTidFromAbbr(existingGame.userTeam, currentDynasty) : null)
+      const resolvedTeam2Tid = existingGame.team2Tid || existingGame.opponentTid || (existingGame.opponent ? getTidFromAbbr(existingGame.opponent, currentDynasty) : null)
 
       const team1Ratings = getTeamRatings(resolvedTeam1Tid, existingGame.year)
       const team2Ratings = getTeamRatings(resolvedTeam2Tid, existingGame.year)

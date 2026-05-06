@@ -289,7 +289,7 @@ FINAL CHECK before you send the answer
     if (teamTid) return teamTid
     if (currentDynasty?.currentTid) return currentDynasty.currentTid
     const userAbbr = currentDynasty?.teamName
-    return userAbbr ? getTidFromAbbr(userAbbr) : null
+    return userAbbr ? getTidFromAbbr(userAbbr, currentDynasty) : null
   }
 
   // Common save path: read schedule → compute diff → maybe show confirm

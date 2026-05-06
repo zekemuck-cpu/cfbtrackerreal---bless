@@ -488,8 +488,8 @@ export default function Player() {
             opponentTeamScore = isUserHome ? game.teamScore : game.opponentScore
             opponentAbbr = isUserHome ? game.userTeam : game.opponent
           }
-          // Try to get tid from abbr
-          opponentTid = getTidFromAbbr(opponentAbbr)
+          // Try to get tid from abbr (dynasty-aware so teambuilder-renamed slots resolve)
+          opponentTid = getTidFromAbbr(opponentAbbr, dynasty)
         } else if (game.team1 && game.team2) {
           if (foundInTeam === 'home') {
             playerTeamScore = game.team1Score
@@ -500,8 +500,8 @@ export default function Player() {
             opponentTeamScore = game.team1Score
             opponentAbbr = game.team1
           }
-          // Try to get tid from abbr
-          opponentTid = getTidFromAbbr(opponentAbbr)
+          // Try to get tid from abbr (dynasty-aware so teambuilder-renamed slots resolve)
+          opponentTid = getTidFromAbbr(opponentAbbr, dynasty)
         }
 
         const result = playerTeamScore != null && opponentTeamScore != null
@@ -866,7 +866,7 @@ export default function Player() {
         teamScore = game.teamScore
         opponentScore = game.opponentScore
         opponentAbbr = game.opponent
-        opponentTid = getTidFromAbbr(game.opponent)
+        opponentTid = getTidFromAbbr(game.opponent, dynasty)
         location = game.location || 'home'
       }
 

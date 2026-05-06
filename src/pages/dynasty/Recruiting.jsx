@@ -155,7 +155,7 @@ export default function Recruiting() {
         })
       })
       if (hasRecruits) {
-        const tid = getTidFromAbbr(abbr)
+        const tid = getTidFromAbbr(abbr, currentDynasty)
         if (tid && !teamsMap.has(tid)) {
           const teamData = teamsSource[tid]
           teamsMap.set(tid, {

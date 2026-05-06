@@ -640,7 +640,7 @@ export function useTickerSections(dynasty) {
         const firstInfo = getGameInfo(yearGames[0])
         const pastTeamAbbr = firstInfo?.userTeamAbbr
         if (!pastTeamAbbr) return
-        const pastTid = yearGames[0].perspective?.userTid || getTidFromAbbr(pastTeamAbbr)
+        const pastTid = yearGames[0].perspective?.userTid || getTidFromAbbr(pastTeamAbbr, dynasty)
 
         const pastRecord = getTeamRecord(dynasty, pastTid, pastYear)
         const wins = pastRecord?.wins || 0

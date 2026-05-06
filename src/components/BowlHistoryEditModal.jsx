@@ -160,10 +160,11 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
             gameType = existingGame.gameType
           }
 
-          // UNIFIED FORMAT: Use tids, not abbreviations
-          const team1Tid = getTidFromAbbr(gameData.team1)
-          const team2Tid = getTidFromAbbr(gameData.team2)
-          const winnerTid = winner ? getTidFromAbbr(winner) : null
+          // UNIFIED FORMAT: Use tids, not abbreviations. Pass dynasty so
+          // teambuilder-renamed slots resolve from their custom abbr.
+          const team1Tid = getTidFromAbbr(gameData.team1, currentDynasty)
+          const team2Tid = getTidFromAbbr(gameData.team2, currentDynasty)
+          const winnerTid = winner ? getTidFromAbbr(winner, currentDynasty) : null
 
           updatedGames.push({
             ...(existingGame || {}),

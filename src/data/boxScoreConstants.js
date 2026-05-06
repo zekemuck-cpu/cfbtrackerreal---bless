@@ -175,14 +175,17 @@ const getPlayersByPosition = (players, group) => {
 const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min
 
 // Generate random player stats based on position and game context
-// Note: year parameter is optional for backwards compatibility, but recommended for proper team filtering
-export const generateRandomBoxScore = (players, teamScore, opponentScore, userTeamAbbr, opponentAbbr, year) => {
+// Note: year parameter is optional for backwards compatibility, but recommended for proper team filtering.
+// dynastyTeams (dynasty.teams) lets a teambuilder team's renamed abbr resolve
+// to the correct tid — without it the user's TB roster won't be found because
+// getTidFromAbbr only checks the static FBS map.
+export const generateRandomBoxScore = (players, teamScore, opponentScore, userTeamAbbr, opponentAbbr, year, dynastyTeams = null) => {
   if (!players || players.length === 0) {
     return { home: {}, away: {}, scoringSummary: [] }
   }
 
   // Convert userTeamAbbr to tid for comparison (handles both tid and abbr input)
-  const userTeamTid = typeof userTeamAbbr === 'number' ? userTeamAbbr : getTidFromAbbr(userTeamAbbr)
+  const userTeamTid = typeof userTeamAbbr === 'number' ? userTeamAbbr : getTidFromAbbr(userTeamAbbr, dynastyTeams)
 
   // Helper to check if a team value matches user team (handles both tid and abbr)
   const matchesUserTeam = (teamValue) => {
@@ -190,7 +193,7 @@ export const generateRandomBoxScore = (players, teamScore, opponentScore, userTe
     if (typeof teamValue === 'number') return teamValue === userTeamTid
     // String comparison - check both as abbr match and by converting to tid
     if (teamValue === userTeamAbbr) return true
-    const valueTid = getTidFromAbbr(teamValue)
+    const valueTid = getTidFromAbbr(teamValue, dynastyTeams)
     return valueTid && valueTid === userTeamTid
   }
 

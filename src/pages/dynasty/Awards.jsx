@@ -202,7 +202,7 @@ export default function Awards() {
   const findPlayerByName = (playerName, teamAbbrVal = null, awardYear = null) => {
     if (!playerName || !currentDynasty.players) return null
     const normalizedName = normalizePlayerNameUtil(playerName)
-    const teamTid = teamAbbrVal ? getTidFromAbbr(teamAbbrVal) : null
+    const teamTid = teamAbbrVal ? getTidFromAbbr(teamAbbrVal, currentDynasty) : null
 
     if (teamAbbrVal) {
       const exactMatch = currentDynasty.players.find(p => {
