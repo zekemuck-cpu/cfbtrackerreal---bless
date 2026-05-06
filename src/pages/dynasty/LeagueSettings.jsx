@@ -333,16 +333,14 @@ export default function LeagueSettings() {
     }
     setBusyUid(uid)
     try {
+      // Single source of truth — write only memberLabels. The data layer
+      // (DynastyContext getCurrentLockedCoachingStaff, advanceWeek CC
+      // lockin, etc.) reads via getCoachNameForUid which prefers
+      // memberLabels[uid] for everyone, including the owner. Pre-migration
+      // dynasties whose owner row only has dynasty.coachName get a fallback
+      // read in the same helper, so this rename can stop the dual-write.
       const next = setMemberLabelValue(currentDynasty, uid, draft)
-      const updates = { memberLabels: next }
-      // For the dynasty owner, also keep dynasty.coachName in sync so
-      // the Layout header / Account / legacy single-coach surfaces all
-      // reflect the name change. (Other users' renames don't touch
-      // coachName — that field is owner-specific.)
-      if (uid === currentDynasty.userId) {
-        updates.coachName = draft.trim() || null
-      }
-      await updateDynasty(currentDynasty.id, updates)
+      await updateDynasty(currentDynasty.id, { memberLabels: next })
       setNameDrafts(prev => ({ ...prev, [uid]: undefined }))
     } catch (err) {
       console.error('[Members] rename failed:', err)

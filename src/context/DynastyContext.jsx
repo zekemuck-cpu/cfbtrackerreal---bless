@@ -62,7 +62,7 @@ import {
 import { findMatchingPlayer, getPlayerLastHonorDescription, normalizePlayerName } from '../utils/playerMatching'
 import { syncDerivedFieldsFromV2 } from '../data/rosterModel'
 import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId, CFP_BRACKET_SLOTS, DEFAULT_BOWL_CONFIG, getBowlForSlot, CFP_BRACKET_FLOW, getBracketFlowConfig } from '../data/cfpConstants'
-import { migrateDynastyToEditors, needsEditorsMigration, getMemberTeams, snapshotAllMembersForYear } from '../data/leagueModel'
+import { migrateDynastyToEditors, needsEditorsMigration, getMemberTeams, snapshotAllMembersForYear, getCoachNameForUid } from '../data/leagueModel'
 import { isSameWeek, isSameYear } from '../utils/compareUtils'
 
 const DynastyContext = createContext()
@@ -3299,14 +3299,19 @@ export function getLockedCoachingStaff(dynasty, year, teamAbbr = null) {
     (tid != null && coachTid != null && Number(coachTid) === Number(tid)) ||
     coachTid === teamAbbr
   )
-  if (matchesTeam && dynasty.coachName) {
+  // Owner-centric: coachTeamByYear is the legacy owner-only stamp, so
+  // the name we inject is the owner's. getCoachNameForUid pulls
+  // memberLabels[ownerUid] first and falls back to dynasty.coachName
+  // for pre-migration dynasties — single source of truth.
+  const ownerName = matchesTeam ? getCoachNameForUid(dynasty, dynasty.userId, '') : ''
+  if (matchesTeam && ownerName) {
     staff = { ...staff }
     if (coachTeamForYear.position === 'HC') {
-      staff.hcName = dynasty.coachName
+      staff.hcName = ownerName
     } else if (coachTeamForYear.position === 'OC') {
-      staff.ocName = dynasty.coachName
+      staff.ocName = ownerName
     } else if (coachTeamForYear.position === 'DC') {
-      staff.dcName = dynasty.coachName
+      staff.dcName = ownerName
     }
   }
 
@@ -7410,15 +7415,18 @@ export function DynastyProvider({ children }) {
       const currentTeamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
       const currentStaff = dynasty.coachingStaff || getCurrentCoachingStaff(dynasty)
 
-      // Build complete staff including user's position
+      // Build complete staff including user's position. Single source of
+      // truth for the owner's name — getCoachNameForUid pulls memberLabels
+      // first, falls back to dynasty.coachName for pre-migration dynasties.
       const completeStaff = { ...currentStaff }
-      if (dynasty.coachName && dynasty.coachPosition) {
+      const ownerNameForLock = getCoachNameForUid(dynasty, dynasty.userId, '')
+      if (ownerNameForLock && dynasty.coachPosition) {
         if (dynasty.coachPosition === 'HC') {
-          completeStaff.hcName = dynasty.coachName
+          completeStaff.hcName = ownerNameForLock
         } else if (dynasty.coachPosition === 'OC') {
-          completeStaff.ocName = dynasty.coachName
+          completeStaff.ocName = ownerNameForLock
         } else if (dynasty.coachPosition === 'DC') {
-          completeStaff.dcName = dynasty.coachName
+          completeStaff.dcName = ownerNameForLock
         }
       }
 
@@ -11267,7 +11275,7 @@ export function DynastyProvider({ children }) {
     try {
       const sheetInfo = await createDynastySheet(
         dynasty.teamName,
-        dynasty.coachName,
+        getCoachNameForUid(dynasty, dynasty.userId, ''),
         dynasty.startYear
       )
 
@@ -11301,7 +11309,7 @@ export function DynastyProvider({ children }) {
       // Create a new sheet
       const sheetInfo = await createDynastySheet(
         dynasty.teamName,
-        dynasty.coachName,
+        getCoachNameForUid(dynasty, dynasty.userId, ''),
         dynasty.currentYear
       )
 

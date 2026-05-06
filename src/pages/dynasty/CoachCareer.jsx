@@ -453,13 +453,11 @@ export default function CoachCareer() {
   const coachingHistory = buildCoachingHistory()
 
   const awardsByYear = currentDynasty.awardsByYear || {}
-  // Coach-name match for awards is meaningful only for the dynasty
-  // owner (who provides their name via dynasty.coachName). For other
-  // members, awards still match by team — the name path is just
-  // skipped.
-  const coachName = effectiveSelectedUid === currentDynasty.userId
-    ? (currentDynasty.coachName || '')
-    : ''
+  // Awards-by-name match: use the selected coach's display label so
+  // that any member whose name happens to match the awards data gets
+  // attributed. memberLabels[uid] is the canonical source; fallback
+  // chain handled by getCoachNameForUid.
+  const coachName = getCoachNameForUid(currentDynasty, effectiveSelectedUid, '')
 
   coachingHistory.forEach(stint => {
     const stintAwards = []
