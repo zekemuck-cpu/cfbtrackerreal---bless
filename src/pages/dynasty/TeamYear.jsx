@@ -4479,18 +4479,50 @@ export default function TeamYear() {
               const getStatLeaders = () => {
                 if (!game.boxScore) return null
 
-                // Use tid-based lookup via boxScore.teamStats (convert abbr to tid)
+                // Method 1: use teamStats abbr (preferred when present —
+                // it's the most authoritative since the user explicitly
+                // entered the team identifier in the Team Stats sheet).
                 const homeAbbr = game.boxScore.teamStats?.home?.teamAbbr
                 const awayAbbr = game.boxScore.teamStats?.away?.teamAbbr
                 const homeTid = homeAbbr ? resolveTid(homeAbbr, teamsSource) : null
                 const awayTid = awayAbbr ? resolveTid(awayAbbr, teamsSource) : null
 
                 let teamData = null
-                if (homeTid === tid) {
+                if (homeTid != null && Number(homeTid) === Number(tid)) {
                   teamData = game.boxScore.home
-                } else if (awayTid === tid) {
+                } else if (awayTid != null && Number(awayTid) === Number(tid)) {
                   teamData = game.boxScore.away
                 }
+
+                // Method 2 fallback: when teamStats hasn't been entered
+                // (e.g. user filled in the per-player box score for the
+                // game but never opened the separate Team Stats sheet —
+                // common for Week 1 of a new dynasty), Method 1 returns
+                // null and the schedule row shows no leaders. Resolve
+                // the home/away mapping from the canonical game tid
+                // fields instead so leaders still surface.
+                if (!teamData) {
+                  const tidNum = Number(tid)
+                  const t1 = game.team1Tid != null ? Number(game.team1Tid) : null
+                  const t2 = game.team2Tid != null ? Number(game.team2Tid) : null
+                  const homeTeamTidNum = game.homeTeamTid != null ? Number(game.homeTeamTid) : null
+                  if (homeTeamTidNum != null) {
+                    // Home team's stats live under boxScore.home; the
+                    // other team is on boxScore.away.
+                    if (homeTeamTidNum === tidNum) {
+                      teamData = game.boxScore.home
+                    } else if (t1 === tidNum || t2 === tidNum) {
+                      teamData = game.boxScore.away
+                    }
+                  } else if (t1 === tidNum) {
+                    // Neutral / unknown home — fall back to the team1 →
+                    // home, team2 → away convention used by the entry UI.
+                    teamData = game.boxScore.home
+                  } else if (t2 === tidNum) {
+                    teamData = game.boxScore.away
+                  }
+                }
+
                 if (!teamData) return null
 
                 // Get top passer by yards (field is playerName or player, yards or yds)

@@ -313,23 +313,20 @@ export default function ConferenceStandings() {
           {getSchoolName(mascotName) || teamAbbr}
         </span>
 
-        {/* Two equal-weight record cells — overall and conference both
-            rendered as bold tabular black, separated by a thin divider.
-            Sort is still by CONF record (handled in the enriched sort fn
-            below); this just gives the conference column the same
-            visual presence as overall, since for a conference standings
-            page the conf record is arguably the headline number. */}
+        {/* Combined record cell — overall first, conference in parens
+            ("9-1 (6-1)"). Sort is still by CONF record (handled in the
+            enriched sort fn below); the conference half just shares the
+            cell with overall instead of getting its own column. */}
         <span
-          className="text-sm font-display tabular flex-shrink-0 flex items-center justify-end gap-2 whitespace-nowrap"
+          className="text-sm font-display tabular flex-shrink-0 text-right whitespace-nowrap"
           style={{ width: '120px' }}
           title={`${liveWins}-${liveLosses} overall · ${liveConfWins}-${liveConfLosses} conference`}
         >
-          <span className="font-black text-txt-primary tabular-nums" style={{ minWidth: '44px', textAlign: 'right' }}>
+          <span className="font-black text-txt-primary tabular-nums">
             {liveWins}<span className="text-txt-tertiary font-normal">–</span>{liveLosses}
           </span>
-          <span aria-hidden="true" className="w-px h-3.5 bg-surface-4" />
-          <span className="font-black text-txt-primary tabular-nums" style={{ minWidth: '44px', textAlign: 'right' }}>
-            {liveConfWins}<span className="text-txt-tertiary font-normal">–</span>{liveConfLosses}
+          <span className="text-txt-tertiary font-normal tabular-nums ml-1.5">
+            ({liveConfWins}<span className="text-txt-muted">–</span>{liveConfLosses})
           </span>
         </span>
 
@@ -435,8 +432,10 @@ export default function ConferenceStandings() {
         {hasData ? (
           <div>
             {/* Column header strip — broadcast lower-third style. The
-                record column shows OVR (CONF) on every breakpoint;
-                sort is still by conference record. */}
+                record column reads OVR (CONF) on every breakpoint —
+                combined into one cell because that's how broadcasts
+                show it ("9-1 (6-1)") and it cuts the horizontal noise
+                roughly in half. Sort is still by conference record. */}
             <div
               className="flex items-center gap-3 px-3 py-1.5"
               style={{
@@ -448,23 +447,11 @@ export default function ConferenceStandings() {
               <span style={{ width: '24px' }} />
               <span className="flex-1" />
               <span
-                className="flex items-center justify-end gap-2 flex-shrink-0"
-                style={{ width: '120px' }}
-                title="Overall record · Conference record. Sorted by conference record."
+                className="label-xs text-txt-tertiary text-right flex-shrink-0"
+                style={{ width: '120px', letterSpacing: '1.5px', fontSize: '9px' }}
+                title="Overall record (Conference record). Sorted by conference record."
               >
-                <span
-                  className="label-xs text-txt-tertiary text-right"
-                  style={{ minWidth: '44px', letterSpacing: '1.5px', fontSize: '9px' }}
-                >
-                  OVR
-                </span>
-                <span aria-hidden="true" className="w-px h-2.5 bg-transparent" />
-                <span
-                  className="label-xs text-txt-tertiary text-right"
-                  style={{ minWidth: '44px', letterSpacing: '1.5px', fontSize: '9px' }}
-                >
-                  CONF
-                </span>
+                REC (CONF)
               </span>
               <span
                 className="label-xs text-txt-tertiary text-right flex-shrink-0"
