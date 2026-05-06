@@ -896,7 +896,7 @@ export default function Recruiting() {
       </div>
 
       {allCommitments.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 stagger-reveal">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 stagger-reveal">
           {allCommitments.map((recruit, index) => {
             const player = findPlayerByName(recruit.name, recruit.recruitYear)
             const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
@@ -948,26 +948,28 @@ export default function Recruiting() {
                 interactive={!!player}
                 className="h-full overflow-hidden group"
               >
-                <div className="p-3 flex flex-col h-full gap-2.5">
+                <div className="p-2 sm:p-3 flex flex-col h-full gap-1.5 sm:gap-2.5">
                   {/* === IDENTITY BAND === photo + name + pos·class + stars,
                       stacked and centered so the rhythm matches the
                       centered rank band, scouting band, and footer chip
-                      below it. */}
-                  <div className="flex flex-col items-center gap-1.5 text-center">
+                      below it. Mobile sizes are tightened down a notch
+                      from desktop so two cards fit per row without
+                      losing any of the info bands. */}
+                  <div className="flex flex-col items-center gap-1 sm:gap-1.5 text-center">
                     {player?.pictureUrl ? (
                       <img
                         src={player.pictureUrl}
                         alt={recruit.name}
-                        className="w-14 h-14 object-cover rounded-md flex-shrink-0"
+                        className="w-11 h-11 sm:w-14 sm:h-14 object-cover rounded-md flex-shrink-0"
                         style={{ border: '1px solid var(--surface-4)' }}
                       />
                     ) : (
                       <div
-                        className="w-14 h-14 rounded-md flex-shrink-0 flex items-center justify-center"
+                        className="w-11 h-11 sm:w-14 sm:h-14 rounded-md flex-shrink-0 flex items-center justify-center"
                         style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
                       >
                         <span
-                          className="text-sm font-black uppercase tracking-wide text-txt-secondary tabular-nums"
+                          className="text-xs sm:text-sm font-black uppercase tracking-wide text-txt-secondary tabular-nums"
                           style={{ letterSpacing: '0.05em' }}
                         >
                           {(recruit.position || 'ATH').slice(0, 3)}
@@ -975,14 +977,14 @@ export default function Recruiting() {
                       </div>
                     )}
                     <h3
-                      className="font-display font-black text-txt-primary leading-tight truncate max-w-full mt-0.5"
-                      style={{ fontSize: '16px', letterSpacing: '-0.02em' }}
+                      className="font-display font-black text-txt-primary leading-tight truncate max-w-full"
+                      style={{ fontSize: 'clamp(13px, 3.4vw, 16px)', letterSpacing: '-0.02em' }}
                     >
                       {recruit.name || 'Unknown'}
                     </h3>
                     <div
-                      className="flex items-center justify-center gap-1.5 label-xs text-txt-secondary"
-                      style={{ letterSpacing: '1.5px', fontSize: '10px' }}
+                      className="flex items-center justify-center gap-1 sm:gap-1.5 label-xs text-txt-secondary flex-wrap"
+                      style={{ letterSpacing: '1.2px', fontSize: '9px' }}
                     >
                       <span className="font-bold">{recruit.position || 'ATH'}</span>
                       <span className="text-txt-muted">·</span>
@@ -1005,7 +1007,7 @@ export default function Recruiting() {
                       {[...Array(5)].map((_, i) => (
                         <svg
                           key={i}
-                          className="w-3 h-3"
+                          className="w-2.5 h-2.5 sm:w-3 sm:h-3"
                           fill={i < starCount ? 'var(--accent-warning, #f59e0b)' : 'var(--surface-4)'}
                           viewBox="0 0 20 20"
                         >
@@ -1018,7 +1020,7 @@ export default function Recruiting() {
                   {/* === RANK BAND === editorial-magazine grid, no inner borders */}
                   {(recruit.nationalRank || recruit.stateRank || recruit.positionRank) && (
                     <div
-                      className="grid grid-cols-3 gap-2 py-2"
+                      className="grid grid-cols-3 gap-1 sm:gap-2 py-1.5 sm:py-2"
                       style={{
                         borderTop: '1px solid var(--surface-4)',
                         borderBottom: '1px solid var(--surface-4)',
@@ -1027,13 +1029,13 @@ export default function Recruiting() {
                       <div className="text-center">
                         <div
                           className="label-xs text-txt-tertiary"
-                          style={{ letterSpacing: '1.5px', fontSize: '9px' }}
+                          style={{ letterSpacing: '1.2px', fontSize: '8px' }}
                         >
                           NATL
                         </div>
                         <div
-                          className="font-display font-black tabular-nums text-txt-primary leading-none mt-1"
-                          style={{ fontSize: '17px', letterSpacing: '-0.02em' }}
+                          className="font-display font-black tabular-nums text-txt-primary leading-none mt-0.5 sm:mt-1"
+                          style={{ fontSize: 'clamp(13px, 3.5vw, 17px)', letterSpacing: '-0.02em' }}
                         >
                           {recruit.nationalRank ? `#${recruit.nationalRank}` : '—'}
                         </div>
@@ -1047,13 +1049,13 @@ export default function Recruiting() {
                       >
                         <div
                           className="label-xs text-txt-tertiary"
-                          style={{ letterSpacing: '1.5px', fontSize: '9px' }}
+                          style={{ letterSpacing: '1.2px', fontSize: '8px' }}
                         >
                           {recruit.position || 'POS'}
                         </div>
                         <div
-                          className="font-display font-black tabular-nums text-txt-primary leading-none mt-1"
-                          style={{ fontSize: '17px', letterSpacing: '-0.02em' }}
+                          className="font-display font-black tabular-nums text-txt-primary leading-none mt-0.5 sm:mt-1"
+                          style={{ fontSize: 'clamp(13px, 3.5vw, 17px)', letterSpacing: '-0.02em' }}
                         >
                           {recruit.positionRank ? `#${recruit.positionRank}` : '—'}
                         </div>
@@ -1061,13 +1063,13 @@ export default function Recruiting() {
                       <div className="text-center">
                         <div
                           className="label-xs text-txt-tertiary"
-                          style={{ letterSpacing: '1.5px', fontSize: '9px' }}
+                          style={{ letterSpacing: '1.2px', fontSize: '8px' }}
                         >
                           {recruit.state || 'ST'}
                         </div>
                         <div
-                          className="font-display font-black tabular-nums text-txt-primary leading-none mt-1"
-                          style={{ fontSize: '17px', letterSpacing: '-0.02em' }}
+                          className="font-display font-black tabular-nums text-txt-primary leading-none mt-0.5 sm:mt-1"
+                          style={{ fontSize: 'clamp(13px, 3.5vw, 17px)', letterSpacing: '-0.02em' }}
                         >
                           {recruit.stateRank ? `#${recruit.stateRank}` : '—'}
                         </div>
@@ -1081,7 +1083,7 @@ export default function Recruiting() {
                       below — left-aligned text in a centered card felt
                       orphaned. */}
                   {(recruit.archetype || sizeOnly || hometownText) && (
-                    <div className="text-[12px] leading-snug space-y-0.5 text-center">
+                    <div className="text-[10px] sm:text-[12px] leading-snug space-y-0.5 text-center">
                       {recruit.archetype && (
                         <div className="font-semibold text-txt-primary truncate">
                           {recruit.archetype}
@@ -1107,7 +1109,7 @@ export default function Recruiting() {
                       keeping vertical heights in sync across the grid. */}
                   {showBottomChips && (
                     <div
-                      className="mt-auto pt-2 flex justify-center"
+                      className="mt-auto pt-1.5 sm:pt-2 flex justify-center"
                       style={{ borderTop: '1px solid var(--surface-4)' }}
                     >
                       {showFromChip ? (() => {
