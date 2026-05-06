@@ -8,6 +8,7 @@ import { getTeamLogoByTid, stripMascotFromName } from '../../data/teams'
 import { PageHero, Card, Badge, Button, Select, EmptyState, TeamLogo } from '../../components/ui'
 import Modal from '../../components/ui/Modal'
 import { calculateRecruitingClassScore, formatRecruitingClassScore, flattenClassCommitments } from '../../utils/recruitingScore'
+import TeamPermissionBanner from '../../components/TeamPermissionBanner'
 
 const stateFullNames = {
   'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas', 'CA': 'California',
@@ -715,6 +716,11 @@ export default function Recruiting() {
 
   return (
     <div className="space-y-4">
+      {/* Cross-team write warning. Recruiting is per-team; if the user
+          isn't assigned to selectedTid, surface that they'd be writing
+          on behalf of another coach. Silent for commish/co-commishes. */}
+      <TeamPermissionBanner tids={selectedTid ? [selectedTid] : []} />
+
       <PageHero
         title="Recruiting Class"
         meta={
