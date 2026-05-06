@@ -7626,7 +7626,13 @@ export function DynastyProvider({ children }) {
           ? existingHistory[existingHistory.length - 1].endYear + 1
           : dynasty.startYear
 
-        // Add current team to coaching history
+        // DEPRECATED: dynasty.coachingHistory is the legacy owner-only
+        // stint array. Same info is now derivable per-uid from
+        // memberTeamHistory via getCoachStints (used by the Coaches
+        // leaderboard, Members page row sub-line, and TeamYear's
+        // user-record block). Kept as a write here for backward compat
+        // with the revert flow's pop logic and any unmigrated reader;
+        // safe to delete once no consumer remains.
         const updatedCoachingHistory = [
           ...existingHistory,
           {
