@@ -298,6 +298,37 @@ function PlayerInner() {
       for (const y of years) {
         const m = mby[y] || mby[String(y)]
         if (!m?.type) continue
+        // Canonical v2 shapes — these are the post-migration write
+        // shapes (departure/{graduated,pro_draft,transfer_out},
+        // recommit, arrival). The block below also handles legacy
+        // shapes for any pre-migration data still around.
+        if (m.type === 'departure') {
+          if (m.departure === 'pro_draft') {
+            return { type: 'departure', reason: 'Pro Draft', year: y, extra: { draftRound: m.draftRound ?? player.draftRound } }
+          }
+          if (m.departure === 'graduated') {
+            return { type: 'departure', reason: 'Graduating', year: y }
+          }
+          if (m.departure === 'transfer_out') {
+            return {
+              type: 'transfer',
+              to: m.toTid ?? null,
+              from: player?.teamsByYear?.[y] ?? player?.teamsByYear?.[String(y)] ?? null,
+              year: y,
+              reason: m.reason || null,
+            }
+          }
+          // Generic departure
+          return { type: 'departure', reason: m.reason || 'Left Team', year: y }
+        }
+        if (m.type === 'recommit') {
+          // Player came back — no departure badge
+          return null
+        }
+        if (m.type === 'arrival') {
+          // Arrival is not a departure — keep looking earlier years.
+          continue
+        }
         if (m.type === 'declared_for_draft') {
           return { type: 'departure', reason: 'Pro Draft', year: y, extra: { draftRound: player.draftRound } }
         }
