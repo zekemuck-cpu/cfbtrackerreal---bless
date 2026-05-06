@@ -181,8 +181,15 @@ export function migrateDynastyToV2(dynasty) {
     for (const [y, m] of Object.entries(p.movementByYear || {})) {
       const n = Number(y)
       if (!Number.isFinite(n)) continue
-      const v2 = legacyMovementToCanonical(m) || m
-      if (v2?.type === 'unknown') unknownTypes.add(m.type)
+      // Heal poison shapes left by an earlier bug where canonical entries
+      // were re-fed through legacyMovementToCanonical: { type: 'unknown',
+      // legacyType, raw } — try to recover from `raw`, else drop.
+      const source = m?.type === 'unknown' && m?.raw ? m.raw : m
+      const v2 = legacyMovementToCanonical(source) || source
+      if (v2?.type === 'unknown') {
+        unknownTypes.add(m?.type)
+        continue
+      }
       mvOut[n] = v2
     }
     for (const m of p.movements || []) {

@@ -194,8 +194,17 @@ export function clearMovement(player, year) {
 
 // ─── LEGACY → CANONICAL MOVEMENT CONVERSION ─────────────────────────────────
 
+// Canonical v2 movement types. Anything matching one of these is already
+// canonical and must pass through unchanged — feeding a canonical entry
+// back through the legacy switch produces { type: 'unknown', ... } since
+// the legacy cases don't include 'arrival'/'departure'/'recommit', and
+// that corrupted shape then persists in movementByYear and crashes
+// renders downstream.
+const CANONICAL_TYPES = new Set(['arrival', 'departure', 'recommit', 'unknown'])
+
 export function legacyMovementToCanonical(m) {
   if (!m || !m.type) return null
+  if (CANONICAL_TYPES.has(m.type)) return m
   switch (m.type) {
     case 'recruited':
       return { type: 'arrival', arrival: 'recruit' }
@@ -326,11 +335,23 @@ export function syncDerivedFieldsFromV2(player, currentYear) {
     }
   }
   // Re-key movementByYear to Number keys too.
+  // Drop entries shaped { type: 'unknown', legacyType, raw }: these are
+  // poison left behind by an earlier bug where canonical entries were
+  // re-fed through legacyMovementToCanonical and didn't match any case.
+  // Recover the original `raw` payload when possible (it carries the
+  // user-intended movement) so we don't silently lose data.
   const finalMovementByYear = {}
   for (const [k, v] of Object.entries(normalizedMovementByYear)) {
     const n = Number(k)
     if (!Number.isFinite(n)) continue
     if (!v) continue
+    if (v.type === 'unknown') {
+      const recovered = v.raw ? legacyMovementToCanonical(v.raw) : null
+      if (recovered && recovered.type !== 'unknown') {
+        finalMovementByYear[n] = recovered
+      }
+      continue
+    }
     finalMovementByYear[n] = v
   }
 

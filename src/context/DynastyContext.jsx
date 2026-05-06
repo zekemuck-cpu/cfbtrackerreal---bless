@@ -60,7 +60,7 @@ import {
   isFCSPlaceholderTid,
 } from '../data/teamRegistry'
 import { findMatchingPlayer, getPlayerLastHonorDescription, normalizePlayerName } from '../utils/playerMatching'
-import { syncDerivedFieldsFromV2 } from '../data/rosterModel'
+import { syncDerivedFieldsFromV2, legacyMovementToCanonical } from '../data/rosterModel'
 import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId, CFP_BRACKET_SLOTS, DEFAULT_BOWL_CONFIG, getBowlForSlot, CFP_BRACKET_FLOW, getBracketFlowConfig } from '../data/cfpConstants'
 import { migrateDynastyToEditors, needsEditorsMigration, getMemberTeams, snapshotAllMembersForYear, getCoachNameForUid } from '../data/leagueModel'
 import { isSameWeek, isSameYear } from '../utils/compareUtils'
@@ -4747,6 +4747,40 @@ export function DynastyProvider({ children }) {
       // skips on _fcs5TeamsMigrated, but it still runs the FCSSE-logo
       // backfill (only acts when the logo is empty).
       migrated = migrateFCSFiveTeams(migrated)
+
+      // Heal poison movementByYear shapes — entries shaped
+      // { type: 'unknown', legacyType, raw } leaked into Firestore from an
+      // earlier bug where canonical entries were re-fed through
+      // legacyMovementToCanonical. Render paths that inspect these can
+      // crash the Player page with "Objects are not valid as a React
+      // child", and the player's profile becomes unreachable. We try to
+      // recover the original payload from `raw`; otherwise drop the entry.
+      // Idempotent — clean players pass through untouched.
+      if (Array.isArray(migrated.players)) {
+        let healed = false
+        const healedPlayers = migrated.players.map(p => {
+          if (!p?.movementByYear) return p
+          const cleaned = {}
+          let touched = false
+          for (const [y, m] of Object.entries(p.movementByYear)) {
+            if (m?.type === 'unknown') {
+              touched = true
+              const recovered = m.raw ? legacyMovementToCanonical(m.raw) : null
+              if (recovered && recovered.type !== 'unknown') {
+                cleaned[y] = recovered
+              }
+              continue
+            }
+            cleaned[y] = m
+          }
+          if (!touched) return p
+          healed = true
+          return { ...p, movementByYear: cleaned }
+        })
+        if (healed) {
+          migrated = { ...migrated, players: healedPlayers }
+        }
+      }
 
       // FIX: Ensure coachTeamByYear has correct entries for ALL years with games
       // Infer from games data - find what team the user played as each year
