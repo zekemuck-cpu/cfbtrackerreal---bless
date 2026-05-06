@@ -3,26 +3,36 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 import { execSync } from 'child_process'
 
-// Build-time version stamp — date + short git SHA so every deploy moves
-// the footer string. Vercel sets VERCEL_GIT_COMMIT_SHA at build time;
-// locally we shell out to git. Falls back to "dev" if neither is
-// available (e.g. tarball without .git). The format intentionally
-// changes every commit so users can confirm a deploy landed.
+// Build-time version stamp — date + 4-digit build counter so every
+// deploy moves the footer string. The counter is the number of commits
+// in the repo today (resets at midnight UTC), matching the original
+// YYYY.MM.DD.NNNN convention the hardcoded version used. Falls back to
+// total commits modded to 4 digits if shallow-clone limits today's
+// query (Vercel sometimes ships a depth-1 clone), and finally to
+// "0001" if neither works (e.g. a tarball without .git).
 function buildAppVersion() {
-  const today = new Date().toISOString().slice(0, 10).replace(/-/g, '.')
-  let sha = ''
-  if (process.env.VERCEL_GIT_COMMIT_SHA) {
-    sha = process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7)
-  } else {
+  const today = new Date().toISOString().slice(0, 10)
+  const todayDots = today.replace(/-/g, '.')
+  let buildNum = 1
+  try {
+    const out = execSync(
+      `git log --since="${today} 00:00:00" --format=%H`,
+      { stdio: ['ignore', 'pipe', 'ignore'] },
+    ).toString().trim()
+    if (out) {
+      buildNum = out.split('\n').filter(Boolean).length
+    }
+  } catch {
     try {
-      sha = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+      const total = execSync('git rev-list --count HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
         .toString()
         .trim()
+      buildNum = (parseInt(total, 10) || 0) % 10000 || 1
     } catch {
-      sha = 'dev'
+      buildNum = 1
     }
   }
-  return `${today}-${sha}`
+  return `${todayDots}.${String(buildNum).padStart(4, '0')}`
 }
 
 export default defineConfig({

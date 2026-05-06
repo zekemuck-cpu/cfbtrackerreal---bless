@@ -3491,109 +3491,11 @@ export default function Dashboard() {
 
               return (
                 <>
-                  <div className="grid grid-cols-1 gap-3 stagger-reveal">
-                    {isByeWeek ? (
-                      /* Bye-week card occupies the left (game) column; recruiting sidebar still renders on the right so commits can be logged. */
-                      <div className="media-card flex flex-col justify-center items-center text-center px-6 py-8">
-                        <div className="font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '3px', fontSize: '10px' }}>
-                          Week {currentDynasty.currentWeek} · Off
-                        </div>
-                        <div
-                          className="font-display font-bold leading-none mt-2 text-txt-primary"
-                          style={{
-                            fontSize: 'clamp(2rem, 5vw, 2.75rem)',
-                            letterSpacing: '-0.025em'
-                          }}
-                        >
-                          Bye Week
-                        </div>
-                        <div className="mt-3 text-[11px] uppercase text-txt-tertiary" style={{ letterSpacing: '2px' }}>
-                          No game scheduled
-                        </div>
-                      </div>
-                    ) : (
-                      /* Scorebug — neutral media-card; the "W · Final" pill
-                          inside conveys completion state on its own, no need
-                          to tint the entire card green. */
-                      <div className="media-card">
-                        <div className="p-2.5 sm:p-5 flex flex-col justify-between h-full">
-                        {/* Matchup row */}
-                        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
-                          {/* Our team */}
-                          <div className="flex flex-col items-center min-w-0">
-                            {userTeamTid ? (
-                              <Link
-                                to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="w-10 h-10 sm:w-20 sm:h-20 flex items-center justify-center transition-opacity hover:opacity-80"
-                                aria-label={userAbbr ? `${userAbbr} team page` : 'Team page'}
-                              >
-                                {userLogoUrl
-                                  ? <img src={userLogoUrl} alt={userAbbr} className="w-full h-full object-contain" />
-                                  : <div className="w-full h-full rounded-full" style={{ backgroundColor: 'var(--text-primary)' }} />}
-                              </Link>
-                            ) : (
-                              <div className="w-10 h-10 sm:w-20 sm:h-20 flex items-center justify-center">
-                                {userLogoUrl
-                                  ? <img src={userLogoUrl} alt={userAbbr} className="w-full h-full object-contain" />
-                                  : <div className="w-full h-full rounded-full" style={{ backgroundColor: 'var(--text-primary)' }} />}
-                              </div>
-                            )}
-                          </div>
-                          {/* Middle: VS/score */}
-                          <div className="flex flex-col items-center gap-1 px-1">
-                            {playedGame && userScore != null && oppScore != null ? (
-                              <>
-                                <div className="flex items-baseline gap-1.5 sm:gap-2 font-display font-black tabular-nums leading-none" style={{ color: 'var(--text-primary)' }}>
-                                  <span className="text-2xl sm:text-[2rem]">{userScore}</span>
-                                  <span className="text-txt-muted text-lg sm:text-xl">–</span>
-                                  <span className="text-2xl sm:text-[2rem]">{oppScore}</span>
-                                </div>
-                                <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${userWon ? 'text-green-400 bg-green-500/10' : 'text-red-400 bg-red-500/10'}`}>
-                                  {userWon ? 'W' : 'L'} · Final
-                                </span>
-                              </>
-                            ) : (
-                              <>
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-txt-tertiary">Week {currentDynasty.currentWeek}</span>
-                                <span className="font-display font-black text-lg sm:text-xl leading-none" style={{ color: 'var(--text-primary)' }}>{atSymbol.toUpperCase()}</span>
-                              </>
-                            )}
-                          </div>
-                          {/* Opponent */}
-                          <div className="flex flex-col items-center min-w-0">
-                            {(() => {
-                              const opponentTid = oppAbbr ? getTidFromAbbr(oppAbbr) : null
-                              const logoNode = oppLogoUrl
-                                ? <img src={oppLogoUrl} alt={oppAbbr || 'Opponent'} className="w-full h-full object-contain" />
-                                : <div className="w-full h-full rounded-full border-2 border-dashed border-surface-4 flex items-center justify-center text-xs font-bold text-txt-secondary">TBD</div>
-                              return opponentTid ? (
-                                <Link
-                                  to={`${pathPrefix}/team/${opponentTid}/${currentDynasty.currentYear}`}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="w-10 h-10 sm:w-20 sm:h-20 flex items-center justify-center transition-opacity hover:opacity-80"
-                                  aria-label={`${oppAbbr} team page`}
-                                >
-                                  {logoNode}
-                                </Link>
-                              ) : (
-                                <div className="w-10 h-10 sm:w-20 sm:h-20 flex items-center justify-center">
-                                  {logoNode}
-                                </div>
-                              )
-                            })()}
-                          </div>
-                        </div>
-                        {/* Game-entry CTA lives in the unified to-do block
-                            below — we keep this card purely visual so the
-                            action button doesn't compete with the other
-                            tasks for the user's attention. */}
-                        {isViewOnly && <div className="mt-3 flex justify-center"><ViewOnlyBadge /></div>}
-                        </div>
-                      </div>
-                    )}
-
-                  </div>
+                  {/* Matchup card removed — the unified to-do block below
+                      now owns the game-entry presentation (status dot,
+                      logo-vs-logo visual, and Enter/Edit action). On bye
+                      weeks the to-do block adds an informational row
+                      instead of dedicating a whole card to the message. */}
 
                   {/* Weekly to-do block — Recruiting + Last Week's Scores +
                       Week Recap unified into a single media-card with
@@ -3610,43 +3512,57 @@ export default function Dashboard() {
 
                     const todos = []
 
-              // Row 1: Game entry — current week's matchup. Lives here so
-              // the primary "Enter Game" CTA is part of the same task
-              // list as recruiting / weekly-scores / recap. The big logo
-              // visual still renders in the matchup card above; the
-              // smaller logos in this row reinforce which teams are
-              // playing without forcing the user to look back up.
+              // Row 1: Game entry — the now-deleted matchup card's only
+              // remaining presence. Title is a logo-vs-logo composition
+              // (away team on the left, home team on the right per user
+              // request) so the row still reads as the matchup at a
+              // glance. For neutral-site games we default to user-on-
+              // right since this is the user's dashboard.
               if (!isByeWeek && hasCurWeek && scheduledGame) {
                 const gameDone = !!playedGame
-                let gameSubtitle
+                const userIsAway = gameLocation === 'away'
+                const leftLogo = userIsAway ? userLogoUrl : oppLogoUrl
+                const rightLogo = userIsAway ? oppLogoUrl : userLogoUrl
+                const leftAbbr = userIsAway ? userAbbr : oppAbbr
+                const rightAbbr = userIsAway ? oppAbbr : userAbbr
+                const centerLabel = isNeutral ? 'vs' : (userIsAway ? '@' : 'vs')
+                const renderLogo = (url, abbr, key) => url
+                  ? <img key={key} src={url} alt={abbr || ''} className="w-7 h-7 sm:w-8 sm:h-8 object-contain flex-shrink-0" />
+                  : <div key={key} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 border-dashed border-surface-4 flex items-center justify-center text-[9px] font-bold text-txt-secondary flex-shrink-0">{abbr ? abbr.charAt(0) : 'TBD'}</div>
+                let gameSubtitle = null
                 if (gameDone) {
                   const resultLabel = userWon == null ? 'Final' : (userWon ? 'W' : 'L')
-                  gameSubtitle = `${userAbbr} ${userScore}–${oppScore} ${oppAbbr} · ${resultLabel}`
-                } else {
-                  gameSubtitle = oppAbbr
-                    ? `${atSymbol} ${oppAbbr}`
-                    : 'Opponent TBD'
+                  gameSubtitle = `${userScore}–${oppScore} · ${resultLabel}`
                 }
                 todos.push({
                   key: 'game-entry',
                   done: gameDone,
-                  title: gameDone
-                    ? `Week ${curWeek} Game Logged`
-                    : `Enter Week ${curWeek} Game`,
+                  title: (
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      {renderLogo(leftLogo, leftAbbr, 'L')}
+                      <span
+                        className="text-[11px] sm:text-xs font-bold uppercase tabular-nums text-txt-tertiary"
+                        style={{ letterSpacing: '1.5px' }}
+                      >
+                        {centerLabel}
+                      </span>
+                      {renderLogo(rightLogo, rightAbbr, 'R')}
+                    </div>
+                  ),
                   subtitle: gameSubtitle,
                   viewTo: gameDone ? `${pathPrefix}/game/${playedGame.id}` : null,
                   onAction: handleEnterGame,
                   actionLabel: gameDone ? 'Edit' : 'Enter',
-                  extraLeading: (
-                    <div className="flex items-center gap-0.5 flex-shrink-0">
-                      {userLogoUrl
-                        ? <img src={userLogoUrl} alt={userAbbr || ''} className="w-6 h-6 sm:w-7 sm:h-7 object-contain" />
-                        : <div className="w-6 h-6 sm:w-7 sm:h-7" />}
-                      {oppLogoUrl
-                        ? <img src={oppLogoUrl} alt={oppAbbr || ''} className="w-6 h-6 sm:w-7 sm:h-7 object-contain" />
-                        : <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 border-dashed border-surface-4 flex items-center justify-center text-[8px] font-bold text-txt-secondary">TBD</div>}
-                    </div>
-                  ),
+                })
+              } else if (isByeWeek && hasCurWeek) {
+                // No matchup card to fall back on for bye weeks now —
+                // surface a single informational row so the user still
+                // sees something acknowledging the bye.
+                todos.push({
+                  key: 'bye-week',
+                  done: true,
+                  title: `Week ${curWeek} Bye`,
+                  subtitle: 'No game scheduled',
                 })
               }
 
@@ -3683,7 +3599,7 @@ export default function Dashboard() {
                   // a useless trip through the modal. Only offered when
                   // the row is still red (nothing logged yet).
                   inlineAction: !hasCommitmentsData && !isViewOnly ? {
-                    label: 'Mark none',
+                    label: 'No commits',
                     onClick: handleNoCommitments,
                   } : null,
                 })
@@ -3778,14 +3694,16 @@ export default function Dashboard() {
                           )}
                         </div>
                       </div>
-                      {!isViewOnly && (
+                      {!isViewOnly && todo.actionLabel && (
                         /* Fixed-width grid for the action area so the
                            View and Action columns line up across rows
                            even when one row has no View target (e.g. an
                            unplayed game has nowhere to "View" yet) and
                            when label widths differ ("Log" vs "Generate").
                            Empty <span> placeholder preserves the column
-                           when View is hidden. */
+                           when View is hidden. The whole grid is dropped
+                           on rows that aren't actionable (e.g. the bye-
+                           week informational row). */
                         <div
                           className="grid gap-1.5 sm:gap-2 flex-shrink-0 items-center"
                           style={{ gridTemplateColumns: '5rem 6.5rem' }}
