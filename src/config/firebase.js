@@ -5,6 +5,7 @@ import {
   persistentLocalCache,
   persistentSingleTabManager,
 } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCR0ahCPS5vZQbuRgRzh0EI5HNe6e2E-2Y",
@@ -60,5 +61,13 @@ export const db = initializeFirestore(app, {
   }),
   experimentalAutoDetectLongPolling: true,
 });
+
+// Firebase Storage — used for player card art, profile pictures, and
+// game/box-score photo uploads. Replaces the previous imgbb dependency,
+// which was a free image host with no SLA: outages and silent pruning
+// of hosted images would leave broken card tiles in user dynasties.
+// Storage objects live at the bucket configured in firebaseConfig
+// (cfbtracker-200ab.firebasestorage.app).
+export const storage = getStorage(app);
 
 export default app;

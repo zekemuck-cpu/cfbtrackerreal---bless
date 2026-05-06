@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { getCurrentTeamAbbr } from '../data/teamRegistry'
 import { getPlayerBoxScoreTotals } from '../context/DynastyContext'
 import { useToast } from './ui/Toast'
+import { uploadImage } from '../utils/imageUpload'
 
 /**
  * PlayerEditModalNew - Completely redesigned player editor
@@ -300,26 +301,13 @@ export default function PlayerEditModalNew({
     setFormData(prev => ({ ...prev, stats: yearStats }))
   }
 
-  // Upload image to ImgBB
-  const uploadToImgBB = async (file) => {
-    const apiKey = import.meta.env.VITE_IMGBB_API_KEY || '1369fa0365731b13c5330a26fedf569c'
-    const formDataUpload = new FormData()
-    formDataUpload.append('image', file)
-    formDataUpload.append('key', apiKey)
-
+  // Upload image to Firebase Storage (replaces the imgbb path).
+  const uploadToCloud = async (file) => {
     try {
       setUploading(true)
-      const response = await fetch('https://api.imgbb.com/1/upload', {
-        method: 'POST',
-        body: formDataUpload
-      })
-      const data = await response.json()
-      if (data.success) {
-        setFormData(prev => ({ ...prev, pictureUrl: data.data.url }))
-        setShowImageUpload(false)
-      } else {
-        toast.error('Upload failed: ' + (data.error?.message || 'Unknown error'))
-      }
+      const url = await uploadImage(file)
+      setFormData(prev => ({ ...prev, pictureUrl: url }))
+      setShowImageUpload(false)
     } catch (error) {
       toast.error('Upload failed: ' + error.message)
     } finally {
@@ -335,7 +323,7 @@ export default function PlayerEditModalNew({
       if (item.type.startsWith('image/')) {
         e.preventDefault()
         const file = item.getAsFile()
-        if (file) await uploadToImgBB(file)
+        if (file) await uploadToCloud(file)
         return
       }
     }
@@ -1209,7 +1197,7 @@ export default function PlayerEditModalNew({
                   <input
                     type="file"
                     ref={fileInputRef}
-                    onChange={(e) => e.target.files?.[0] && uploadToImgBB(e.target.files[0])}
+                    onChange={(e) => e.target.files?.[0] && uploadToCloud(e.target.files[0])}
                     accept="image/*"
                     className="hidden"
                   />

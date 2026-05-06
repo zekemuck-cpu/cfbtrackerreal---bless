@@ -10,6 +10,7 @@ import { useToast } from '../../components/ui/Toast'
 import ImageUpload from '../../components/ImageUpload'
 import PlayerCards from '../../components/PlayerCards'
 import { getPlayerCards } from '../../utils/playerCards'
+import { uploadImage } from '../../utils/imageUpload'
 
 // Helper to check if a stint reason indicates a transfer
 const isTransferReason = (reason) => ['portal_in', 'transfer', 'juco_in'].includes(reason)
@@ -578,43 +579,19 @@ export default function PlayerEdit() {
     })
   }
 
-  // Upload image to ImgBB
-  const uploadToImgBB = async (file) => {
-    const apiKey = import.meta.env.VITE_IMGBB_API_KEY || '1369fa0365731b13c5330a26fedf569c'
-
+  // Compress and upload to Firebase Storage. compressImage returns a
+  // base64 string (no data: prefix) — uploadImage handles that input
+  // shape and returns a public download URL.
+  const uploadToCloud = async (file) => {
     try {
       setUploading(true)
-
       const base64 = await compressImage(file)
-
       setUploadStatus('Uploading...')
-      const formDataUpload = new FormData()
-      formDataUpload.append('image', base64)
-      formDataUpload.append('key', apiKey)
-
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 30000)
-
-      const response = await fetch('https://api.imgbb.com/1/upload', {
-        method: 'POST',
-        body: formDataUpload,
-        signal: controller.signal
-      })
-      clearTimeout(timeout)
-
-      const data = await response.json()
-      if (data.success) {
-        setFormData(prev => ({ ...prev, pictureUrl: data.data.url }))
-        setShowImageUpload(false)
-      } else {
-        toast.error('Upload failed: ' + (data.error?.message || 'Unknown error'))
-      }
+      const url = await uploadImage(base64)
+      setFormData(prev => ({ ...prev, pictureUrl: url }))
+      setShowImageUpload(false)
     } catch (error) {
-      if (error.name === 'AbortError') {
-        toast.error('Upload timed out. Please try again or use a smaller image.')
-      } else {
-        toast.error('Upload failed: ' + error.message)
-      }
+      toast.error('Upload failed: ' + error.message)
     } finally {
       setUploading(false)
       setUploadStatus('')
@@ -624,7 +601,7 @@ export default function PlayerEdit() {
   // Handle file input change
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0]
-    if (file) await uploadToImgBB(file)
+    if (file) await uploadToCloud(file)
   }
 
   // Handle paste for image upload (in URL input or from clipboard button)
@@ -635,7 +612,7 @@ export default function PlayerEdit() {
       if (item.type.startsWith('image/')) {
         e.preventDefault()
         const file = item.getAsFile()
-        if (file) await uploadToImgBB(file)
+        if (file) await uploadToCloud(file)
         return
       }
     }
@@ -651,7 +628,7 @@ export default function PlayerEdit() {
           for (const type of item.types) {
             if (type.startsWith('image/')) {
               const blob = await item.getType(type)
-              await uploadToImgBB(blob)
+              await uploadToCloud(blob)
               return
             }
           }

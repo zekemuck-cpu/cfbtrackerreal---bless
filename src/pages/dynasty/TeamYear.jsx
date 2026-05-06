@@ -15,6 +15,7 @@ import StatsEntryModal from '../../components/StatsEntryModal'
 import DetailedStatsEntryModal from '../../components/DetailedStatsEntryModal'
 import TeamEditModal from '../../components/TeamEditModal'
 import { TEAMS, resolveTid, getTeam, getTeamByAbbr, getCurrentTeamAbbr, getCurrentTeamTid, getGameTeamInfo, getAbbrFromTeamName, getTidFromTeamName } from '../../data/teamRegistry'
+import { uploadImage } from '../../utils/imageUpload'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { isSameYear } from '../../utils/compareUtils'
 import { calculateRecruitingClassScore, formatRecruitingClassScore, flattenClassCommitments } from '../../utils/recruitingScore'
@@ -401,23 +402,11 @@ export default function TeamYear() {
   const [imageUploading, setImageUploading] = useState(false)
   const quickImageInputRef = useRef(null)
 
-  // Upload image to ImgBB
-  const uploadToImgBB = async (file) => {
-    const apiKey = import.meta.env.VITE_IMGBB_API_KEY || '1369fa0365731b13c5330a26fedf569c'
-    if (!apiKey) return null
-
-    const formDataUpload = new FormData()
-    formDataUpload.append('image', file)
-    formDataUpload.append('key', apiKey)
-
+  // Upload image to Firebase Storage (replaces the imgbb path).
+  const uploadToCloud = async (file) => {
     try {
       setImageUploading(true)
-      const response = await fetch('https://api.imgbb.com/1/upload', {
-        method: 'POST',
-        body: formDataUpload
-      })
-      const data = await response.json()
-      return data.success ? data.data.url : null
+      return await uploadImage(file)
     } catch (error) {
       console.error('Upload failed:', error)
       return null
@@ -430,7 +419,7 @@ export default function TeamYear() {
   const handleQuickImageUpload = async (file) => {
     if (!file || !quickImagePlayer) return
 
-    const url = await uploadToImgBB(file)
+    const url = await uploadToCloud(file)
     if (url) {
       // Update the player's pictureUrl
       const updatedPlayers = currentDynasty.players.map(p =>
