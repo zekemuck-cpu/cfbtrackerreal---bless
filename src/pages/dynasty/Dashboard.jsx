@@ -1251,16 +1251,20 @@ export default function Dashboard() {
         // eslint-disable-next-line no-unused-vars
         void playerTeam; void isTransfer; void isDeparture
 
-        // Build movementByYear entry based on reason
+        // Build canonical v2 movementByYear entry based on reason. The
+        // previous version emitted legacy types (declared_for_draft,
+        // graduated, transferred_out) and relied on syncDerivedFieldsFromV2
+        // to convert on every save — that round-trip was implicated in
+        // post-draft transfer-history corruption. Write canonical directly.
         const movementByYearEntry = (() => {
           if (reason === 'Pro Draft') {
-            return { type: 'declared_for_draft' }
+            return { type: 'departure', departure: 'pro_draft' }
           } else if (reason === 'Graduating') {
-            return { type: 'graduated' }
+            return { type: 'departure', departure: 'graduated' }
           }
           // Every other reason = entered the transfer portal, destination
           // unknown until Transfer Destinations is filled in on Signing Day.
-          return { type: 'transferred_out', toTeamTid: null, reason }
+          return { type: 'departure', departure: 'transfer_out', toTid: null, reason }
         })()
 
         return {
@@ -1377,11 +1381,20 @@ export default function Dashboard() {
         // Convert to tid if it's an abbreviation
         const playerLastTeamTid = typeof playerLastTeam === 'number' ? playerLastTeam : (getTidFromAbbr(playerLastTeam, currentDynasty) || tid)
 
-        // Build movementByYear entry for draft. playerLastTeamTid is
-        // computed above in case future shape changes need it, but v2
-        // declared_for_draft doesn't carry a fromTid.
+        // Build canonical v2 movement entry for draft. The previous
+        // shape ({ type: 'declared_for_draft' }) was a legacy type that
+        // syncDerivedFieldsFromV2 had to convert on every save —
+        // round-tripping through the converter is fragile and was
+        // implicated in transfer-history corruption after the draft.
+        // Write the canonical shape directly. playerLastTeamTid stays
+        // computed for future shape changes; the canonical pro_draft
+        // departure does not carry a fromTid.
         void playerLastTeamTid
-        const draftMovementByYear = { type: 'declared_for_draft', draftRound: entry.draftRound || null }
+        const draftMovementByYear = {
+          type: 'departure',
+          departure: 'pro_draft',
+          draftRound: entry.draftRound || null,
+        }
 
         // Same canonical shape whether this is the first draft entry or
         // an update — movementByYear is authoritative, v2 sync strips
@@ -1474,9 +1487,10 @@ export default function Dashboard() {
         const isRecommit = newTeamTid === oldTeamTid || newTeamTid === teamTid
 
         if (isRecommit) {
-          // Player recommitted — they're staying on the team.
+          // Player recommitted — they're staying on the team. Canonical
+          // v2 type; legacy 'recommitted' was being healed on save anyway.
           const updatedMovementByYear = { ...(player.movementByYear || {}) }
-          updatedMovementByYear[Number(year)] = { type: 'recommitted' }
+          updatedMovementByYear[Number(year)] = { type: 'recommit' }
 
           updatedPlayers[playerIndex] = {
             ...player,
@@ -1488,14 +1502,14 @@ export default function Dashboard() {
             },
           }
         } else {
-          // Normal transfer to another team. Only canonical v2 writes —
-          // no legacy movements[]. v2 sync strips any residual array.
+          // Normal transfer to another team. Canonical v2 departure —
+          // legacy 'transferred_out' was being converted on save.
           updatedPlayers[playerIndex] = {
             ...player,
             team: newTeamTid, // derived mirror; sync will re-derive on write too
             movementByYear: {
               ...(player.movementByYear || {}),
-              [Number(year)]: { type: 'transferred_out', toTeamTid: newTeamTid },
+              [Number(year)]: { type: 'departure', departure: 'transfer_out', toTid: newTeamTid },
             },
             teamsByYear: {
               ...(player.teamsByYear || {}),
@@ -2267,8 +2281,8 @@ export default function Dashboard() {
             movementByYear: {
               ...(p.movementByYear || {}),
               [Number(year)]: isFromDifferentTeam
-                ? { type: 'transferred_out', toTeamTid: teamTid }
-                : { type: 'recommitted' }
+                ? { type: 'departure', departure: 'transfer_out', toTid: teamTid }
+                : { type: 'recommit' }
             },
             team: teamTid, // derived mirror
             teamsByYear: {

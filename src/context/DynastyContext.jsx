@@ -8131,6 +8131,19 @@ export function DynastyProvider({ children }) {
           // These players aren't on the user's team, so apply simple linear progression
           // No redshirt logic - just advance class and graduate seniors
 
+          // CRITICAL: A CPU-team player who transferred out / entered the
+          // portal / graduated / declared for the draft must NOT be carried
+          // forward to nextYear on their old team — otherwise they reappear
+          // on that roster the next season ("guys off team finding way back
+          // on roster"). isPlayerLeaving inspects movementByYear AND legacy
+          // movements[] for any departure on or before previousSeasonYear
+          // that wasn't followed by an arrival/recommit, so it correctly
+          // catches transfers regardless of which team's roster the player
+          // was on.
+          if (isPlayerLeaving(player)) {
+            return player
+          }
+
           const otherTeamClass = player.year ||
             player.classByYear?.[previousSeasonYear] ||
             player.classByYear?.[String(previousSeasonYear)]
