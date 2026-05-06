@@ -8592,7 +8592,15 @@ export function DynastyProvider({ children }) {
           teamsByYear: updatedTeamsByYear,
           movementByYear: {
             ...(player.movementByYear || {}),
-            [previousSeasonYear]: { type: 'encouraged_to_transfer' }
+            // Canonical v2 — legacy 'encouraged_to_transfer' was being
+            // converted to this exact shape by syncDerivedFieldsFromV2 on
+            // every save. Write it directly to skip the round-trip.
+            [previousSeasonYear]: {
+              type: 'departure',
+              departure: 'transfer_out',
+              toTid: null,
+              reason: 'Encouraged Transfer',
+            }
           }
         }
       }
