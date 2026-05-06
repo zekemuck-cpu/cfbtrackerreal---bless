@@ -3115,317 +3115,205 @@ export default function Dashboard() {
         <div className="space-y-6 lg:flex lg:flex-col lg:h-full">
           {/* Phase-Specific Content */}
           {currentDynasty.currentPhase === 'preseason' ? (
-        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
-          <div className="px-4 pt-3 pb-4 sm:px-6 sm:pt-3 sm:pb-6">
-          <div className="flex items-center gap-3 mb-3 sm:mb-4">
-            <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
-              Pre-Season Setup
-            </h3>
-          </div>
-          <div className="-space-y-px">
-            {[
-              {
-                num: 1,
-                title: 'Enter Schedule',
-                done: teamPreseasonSetup?.scheduleEntered,
-                scheduleCount: teamSchedule?.length || 0,
-                action: () => setShowScheduleModal(true),
-                actionText: teamPreseasonSetup?.scheduleEntered ? 'Edit' : 'Enter'
-              },
-              // Only show roster entry in first year of dynasty OR if user switched teams
-              ...(isFirstYearOnTeam(currentDynasty) ? [{
-                num: 2,
+        <div className="space-y-3">
+          <h3 className="font-display font-bold leading-none text-txt-primary px-1" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
+            Pre-Season Setup
+          </h3>
+          {(() => {
+            // Pre-season tasks rendered using the SAME unified to-do row
+            // pattern as the regular-season block (status dot, title,
+            // optional subtitle, fixed-width Action column). Mirrors
+            // what shipped for the regular-season dashboard so every
+            // calendar phase reads the same — no more numbered ovals
+            // and per-row card chrome that made preseason feel like a
+            // different app.
+            const todos = []
+
+            // Schedule
+            todos.push({
+              key: 'schedule',
+              done: !!teamPreseasonSetup?.scheduleEntered,
+              title: 'Enter Schedule',
+              subtitle: `${teamSchedule?.length || 0}/12 games`,
+              onAction: () => setShowScheduleModal(true),
+              actionLabel: teamPreseasonSetup?.scheduleEntered ? 'Edit' : 'Enter',
+            })
+
+            // Roster (only first year on this team)
+            if (isFirstYearOnTeam(currentDynasty)) {
+              todos.push({
+                key: 'roster',
+                done: !!teamPreseasonSetup?.rosterEntered,
                 title: 'Enter Roster',
-                done: teamPreseasonSetup?.rosterEntered,
-                playerCount: teamRoster.length,
-                action: () => setShowRosterModal(true),
-                actionText: teamPreseasonSetup?.rosterEntered ? 'Edit' : 'Enter'
-              }] : []),
-              {
-                num: isFirstYearOnTeam(currentDynasty) ? 3 : 2,
-                title: 'Enter Team Ratings',
-                done: teamPreseasonSetup?.teamRatingsEntered,
-                teamRatings: teamRatings,
-                action: () => setShowTeamRatingsModal(true),
-                actionText: teamPreseasonSetup?.teamRatingsEntered ? 'Edit' : 'Add Ratings'
-              },
-              // Only show coaching staff task for Head Coaches in first year of dynasty
-              // (or first year on a new team). After that, coordinators are managed
-              // through offseason firing/hiring flow and carry over automatically.
-              ...(() => {
-                if (currentDynasty.coachPosition !== 'HC') return []
-                const isNewTeam = isFirstYearOnTeam(currentDynasty)
-                // Only show in first year of dynasty or first year on a new team
-                if (!isNewTeam) return []
-                // Calculate task number based on what's shown before it
-                let num = 2 // After schedule
-                if (isNewTeam) num++ // After roster
-                num++ // After team ratings
-                return [{
-                  num,
-                  title: 'Enter Coordinators',
-                  done: teamPreseasonSetup?.coachingStaffEntered,
-                  coachingStaff: teamCoachingStaff,
-                  action: () => setShowCoachingStaffModal(true),
-                  actionText: teamPreseasonSetup?.coachingStaffEntered ? 'Edit' : 'Add Staff'
-                }]
-              })(),
-              // Optional: Recruiting Commitments - TID-BASED
-              (() => {
-                const userTid = getUserTeamTid(currentDynasty)
-                const recruitingCommits = getRecruitingCommitments(currentDynasty, userTid, currentDynasty.currentYear)
-                const preseasonCommitments = recruitingCommits?.['preseason']
-                const isNewTeam = isFirstYearOnTeam(currentDynasty)
-                // Calculate task number
-                let num = 2 // After schedule
-                if (isNewTeam) num++ // After roster
-                num++ // After team ratings
-                // Only add coordinator increment if coordinators task is shown (HC + first year on team)
-                if (currentDynasty.coachPosition === 'HC' && isNewTeam) num++ // After coordinators
-                const classScore = calculateRecruitingClassScore(flattenClassCommitments(recruitingCommits))
-                return {
-                  num,
-                  title: 'Any commitments this week?',
-                  isRecruiting: true,
-                  done: preseasonCommitments !== undefined,
-                  commitmentsCount: preseasonCommitments?.length || 0,
-                  classScore,
-                  recruitingTid: userTid,
-                  recruitingYear: currentDynasty.currentYear,
-                  action: () => setShowRecruitingModal(true),
-                  actionText: preseasonCommitments !== undefined ? 'Edit' : 'Yes',
-                  optional: true
-                }
-              })(),
-              // Preseason Top 25 entry — saves the user's preseason poll
-              // for this year. Feeds the preseason recap prompt and the
-              // week-1 ranks elsewhere in the app.
-              (() => {
-                const yearNum = Number(currentDynasty.currentYear)
-                const saved = currentDynasty.preseasonRankingsByYear?.[yearNum]
-                const isNewTeam = isFirstYearOnTeam(currentDynasty)
-                let num = 2
-                if (isNewTeam) num++
-                num++
-                if (currentDynasty.coachPosition === 'HC' && isNewTeam) num++
-                num++ // after recruiting commitments
-                return {
-                  num,
-                  title: 'Enter Preseason Top 25',
-                  done: Array.isArray(saved) && saved.length > 0,
-                  isPreseasonTop25: true,
-                  preseasonTop25Count: Array.isArray(saved) ? saved.length : 0,
-                  action: () => setPreseasonTop25Year(yearNum),
-                  actionText: Array.isArray(saved) && saved.length > 0 ? 'Edit' : 'Enter',
-                  optional: true,
-                }
-              })(),
-              // Preseason CFB recap — forward-looking season preview built
-              // from past dynasty data. Always last in the list, always
-              // optional. Stored at weekRecapsByYear[year][0].
-              (() => {
-                const yearNum = Number(currentDynasty.currentYear)
-                const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[0]
-                const isNewTeam = isFirstYearOnTeam(currentDynasty)
-                let num = 2
-                if (isNewTeam) num++
-                num++
-                if (currentDynasty.coachPosition === 'HC' && isNewTeam) num++
-                num += 2 // after recruiting commitments + Preseason Top 25
-                return {
-                  num,
-                  title: 'Generate Preseason CFB Recap',
-                  done: !!recap?.text,
-                  isPreseasonRecap: true,
-                  action: () => setRecapModalContext({ year: yearNum, week: 0 }),
-                  actionText: recap?.text ? 'Edit' : 'Generate',
-                  optional: true,
-                }
-              })()
-            ].map(item => {
-              return (
-              <div
-                key={item.num}
-                className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-colors"
-                style={{
-                  backgroundColor: 'var(--surface-2)',
-                  border: '1px solid var(--surface-4)'
-                }}
-              >
-                <div className="flex items-center gap-2 sm:gap-3">
+                subtitle: `${teamRoster.length}/85 players`,
+                onAction: () => setShowRosterModal(true),
+                actionLabel: teamPreseasonSetup?.rosterEntered ? 'Edit' : 'Enter',
+              })
+            }
+
+            // Team Ratings
+            todos.push({
+              key: 'team-ratings',
+              done: !!teamPreseasonSetup?.teamRatingsEntered,
+              title: 'Enter Team Ratings',
+              subtitle: teamRatings?.overall
+                ? `${teamRatings.overall} OVR · ${teamRatings.offense} OFF · ${teamRatings.defense} DEF`
+                : 'Not entered',
+              onAction: () => setShowTeamRatingsModal(true),
+              actionLabel: teamPreseasonSetup?.teamRatingsEntered ? 'Edit' : 'Add',
+            })
+
+            // Coordinators (HC, first year only)
+            if (currentDynasty.coachPosition === 'HC' && isFirstYearOnTeam(currentDynasty)) {
+              todos.push({
+                key: 'coordinators',
+                done: !!teamPreseasonSetup?.coachingStaffEntered,
+                title: 'Enter Coordinators',
+                subtitle: teamCoachingStaff?.ocName && teamCoachingStaff?.dcName
+                  ? `OC: ${teamCoachingStaff.ocName} · DC: ${teamCoachingStaff.dcName}`
+                  : 'Not entered',
+                onAction: () => setShowCoachingStaffModal(true),
+                actionLabel: teamPreseasonSetup?.coachingStaffEntered ? 'Edit' : 'Add',
+              })
+            }
+
+            // Recruiting commitments — same Yes / No-commits split as the
+            // regular-season recruiting row.
+            {
+              const userTid = getUserTeamTid(currentDynasty)
+              const recruitingCommits = getRecruitingCommitments(currentDynasty, userTid, currentDynasty.currentYear)
+              const preseasonCommitments = recruitingCommits?.['preseason']
+              const recruitingDone = preseasonCommitments !== undefined
+              const cnt = preseasonCommitments?.length || 0
+              const cs = calculateRecruitingClassScore(flattenClassCommitments(recruitingCommits))
+              todos.push({
+                key: 'preseason-recruiting',
+                done: recruitingDone,
+                title: 'Any commitments this week?',
+                subtitle: recruitingDone
+                  ? (cnt > 0
+                      ? `${cnt} commit${cnt === 1 ? '' : 's'} recorded${cs > 0 ? ` · ${currentDynasty.currentYear} class score: ${formatRecruitingClassScore(cs)}` : ''}`
+                      : 'No commitments this week')
+                  : 'Record any early recruiting commitments',
+                viewTo: cs > 0 ? `${pathPrefix}/recruiting/${userTid}/${currentDynasty.currentYear}` : null,
+                onAction: () => setShowRecruitingModal(true),
+                actionLabel: recruitingDone ? 'Edit' : 'Yes',
+                inlineAction: !recruitingDone && !isViewOnly ? {
+                  label: 'No commits',
+                  onClick: handleNoCommitments,
+                } : null,
+              })
+            }
+
+            // Preseason Top 25
+            {
+              const yearNum = Number(currentDynasty.currentYear)
+              const saved = currentDynasty.preseasonRankingsByYear?.[yearNum]
+              const t25Done = Array.isArray(saved) && saved.length > 0
+              todos.push({
+                key: 'preseason-top25',
+                done: t25Done,
+                title: 'Enter Preseason Top 25',
+                subtitle: t25Done
+                  ? `${saved.length} team${saved.length === 1 ? '' : 's'} ranked`
+                  : 'Saved per-year; powers the preseason recap',
+                onAction: () => setPreseasonTop25Year(yearNum),
+                actionLabel: t25Done ? 'Edit' : 'Enter',
+              })
+            }
+
+            // Preseason CFB Recap
+            {
+              const yearNum = Number(currentDynasty.currentYear)
+              const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[0]
+              const recapDone = !!recap?.text
+              todos.push({
+                key: 'preseason-recap',
+                done: recapDone,
+                title: 'Generate Preseason CFB Recap',
+                subtitle: recapDone
+                  ? 'Saved — view it on the Weekly Recap page'
+                  : 'AI-written season preview based on past dynasty data',
+                onAction: () => setRecapModalContext({ year: yearNum, week: 0 }),
+                actionLabel: recapDone ? 'Edit' : 'Generate',
+              })
+            }
+
+            return (
+              <div className="media-card overflow-hidden">
+                {todos.map((todo, idx) => (
                   <div
-                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 font-display"
-                    style={item.done ? {
-                      backgroundColor: 'var(--accent-success)',
-                      color: 'var(--surface-1)',
-                      borderColor: 'var(--accent-success)'
-                    } : {
-                      backgroundColor: 'transparent',
-                      color: 'var(--text-tertiary)',
-                      border: '1px solid var(--surface-5)'
-                    }}
+                    key={todo.key}
+                    className="px-3 py-2.5 sm:px-5 sm:py-4 flex items-center gap-2 sm:gap-4"
+                    style={idx > 0 ? { borderTop: '1px solid var(--surface-4)' } : undefined}
                   >
-                    {item.done ? (
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : (
-                      <span className="font-bold text-xs sm:text-sm tabular-nums">{item.num}</span>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-semibold text-sm sm:text-base text-txt-primary">
-                      {item.title}
-                    </div>
-                    {item.scheduleCount !== undefined && (
-                      <div
-                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary"
-                        
-                      >
-                        {item.scheduleCount}/12 games
-                        {item.done && <span className="ml-1 sm:ml-2">✓ Ready</span>}
-                      </div>
-                    )}
-                    {item.playerCount !== undefined && (
-                      <div
-                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary"
-                        
-                      >
-                        {item.playerCount}/85 players
-                        {item.done && <span className="ml-1 sm:ml-2">✓ Ready</span>}
-                      </div>
-                    )}
-                    {item.teamRatings && (
-                      <div
-                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary"
-                        
-                      >
-                        {item.teamRatings.overall ? `${item.teamRatings.overall} OVR • ${item.teamRatings.offense} OFF • ${item.teamRatings.defense} DEF` : 'Not entered'}
-                        {item.done && <span className="ml-1 sm:ml-2">✓ Ready</span>}
-                      </div>
-                    )}
-                    {item.coachingStaff !== undefined && (
-                      <div
-                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium truncate text-txt-tertiary"
-                        
-                      >
-                        {item.coachingStaff?.ocName && item.coachingStaff?.dcName
-                          ? `OC: ${item.coachingStaff.ocName} • DC: ${item.coachingStaff.dcName}`
-                          : 'Not entered'}
-                        {item.done && <span className="ml-1 sm:ml-2">✓ Ready</span>}
-                      </div>
-                    )}
-                    {item.conferences !== undefined && (
-                      <div
-                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary"
-                        
-                      >
-                        {item.conferences
-                          ? `${Object.keys(item.conferences).length} conferences configured`
-                          : 'Default EA CFB 26 alignment'}
-                        {item.done && <span className="ml-1 sm:ml-2">✓ Ready</span>}
-                      </div>
-                    )}
-                    {item.isPreseasonTop25 && (
-                      <div
-                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary"
-                        
-                      >
-                        {item.done
-                          ? `✓ ${item.preseasonTop25Count} team${item.preseasonTop25Count === 1 ? '' : 's'} ranked`
-                          : 'Saved per-year; powers the preseason recap'}
-                      </div>
-                    )}
-                    {item.isPreseasonRecap && (
-                      <div
-                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary"
-                        
-                      >
-                        {item.done
-                          ? '✓ Saved — view it on the Weekly Recap page'
-                          : 'AI-written season preview based on past dynasty data'}
-                      </div>
-                    )}
-                    {item.isRecruiting && (
-                      <>
+                    <div className="flex-1 min-w-0 flex items-center gap-2 sm:gap-3">
+                      <span
+                        aria-hidden="true"
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{
+                          backgroundColor: todo.done
+                            ? 'var(--accent-success)'
+                            : 'var(--accent-error)',
+                        }}
+                      />
+                      <div className="min-w-0">
                         <div
-                          className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary"
-                          
+                          className="font-display font-bold leading-tight text-txt-primary truncate"
+                          style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
                         >
-                          {item.done
-                            ? item.commitmentsCount > 0
-                              ? `✓ ${item.commitmentsCount} commitment${item.commitmentsCount !== 1 ? 's' : ''} recorded`
-                              : '✓ No commitments this week'
-                            : 'Record any early recruiting commitments'}
+                          {todo.title}
                         </div>
-                        {item.classScore > 0 && (
-                          <Link
-                            to={`${pathPrefix}/recruiting/${item.recruitingTid}/${item.recruitingYear}`}
-                            className="block w-fit text-[10px] sm:text-xs mt-1 font-bold uppercase text-txt-tertiary hover:text-team-primary transition-colors"
-                            style={{ letterSpacing: '1.5px' }}
-                            title="View recruiting class"
-                          >
-                            Class Score <span className="tabular text-txt-primary ml-1">{formatRecruitingClassScore(item.classScore)}</span>
-                          </Link>
+                        {todo.subtitle && (
+                          <div className="hidden sm:block text-xs sm:text-[13px] mt-0.5 text-txt-tertiary truncate">
+                            {todo.subtitle}
+                          </div>
                         )}
-                      </>
+                        {todo.inlineAction && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); todo.inlineAction.onClick() }}
+                            className="mt-1 text-[11px] uppercase font-bold text-txt-tertiary hover:text-txt-secondary underline underline-offset-2 transition-colors"
+                            style={{ letterSpacing: '1.2px' }}
+                          >
+                            {todo.inlineAction.label}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {!isViewOnly && todo.actionLabel && (
+                      <div
+                        className="grid gap-1.5 sm:gap-2 flex-shrink-0 items-center"
+                        style={{ gridTemplateColumns: '5rem 6.5rem' }}
+                      >
+                        {todo.viewTo ? (
+                          <Link to={todo.viewTo} className="btn-refined text-center">
+                            View
+                          </Link>
+                        ) : (
+                          <span aria-hidden="true" />
+                        )}
+                        <button
+                          onClick={todo.onAction}
+                          className="btn-refined btn-refined--solid text-center"
+                        >
+                          {todo.actionLabel}
+                        </button>
+                      </div>
                     )}
                   </div>
-                </div>
-                {isViewOnly ? <ViewOnlyBadge /> : (
-                  item.isRecruiting && !item.done ? (
-                    <div className="flex gap-2 w-full sm:w-auto items-center">
-                      <SellVsSendButton onClick={() => setShowSellCalc(true)} />
-                      <button
-                        onClick={handleNoCommitments}
-                        className="flex-1 sm:flex-none px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm"
-                        style={{
-                          backgroundColor: 'var(--text-primary)',
-                          color: 'var(--surface-1)'
-                        }}
-                      >
-                        No
-                      </button>
-                      <button
-                        onClick={item.action}
-                        className="flex-1 sm:flex-none px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm"
-                        style={{
-                          backgroundColor: 'var(--text-primary)',
-                          color: 'var(--surface-1)'
-                        }}
-                      >
-                        Yes
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={item.action}
-                      className="w-full sm:w-auto px-4 py-2 rounded-xl font-display font-semibold hover:opacity-90 transition-colors text-sm"
-                      style={item.optional && !item.done ? {
-                        backgroundColor: 'var(--surface-4)',
-                        color: '#a1a1aa'
-                      } : {
-                        backgroundColor: 'var(--text-primary)',
-                        color: 'var(--surface-1)'
-                      }}
-                    >
-                      {item.actionText}
-                    </button>
-                  )
-                )}
+                ))}
               </div>
             )
-            })}
-          </div>
+          })()}
 
           {canAdvanceFromPreseason() && (
-            <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)' }}>
+            <div className="p-4 rounded-xl" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)' }}>
               <p className="text-sm font-medium text-emerald-400">
                 ✓ Pre-season setup complete! Click "Advance Week" in the header to start the season.
               </p>
             </div>
           )}
-          </div>
         </div>
       ) : currentDynasty.currentPhase === 'regular_season' ? (
         <div>
