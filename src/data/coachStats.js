@@ -47,6 +47,59 @@ function isCFPGame(g) {
 }
 
 /**
+ * Walk memberTeamHistory[uid] in chronological order and produce
+ * contiguous stints — runs of consecutive years on the same team.
+ * Each stint: { tid, startYear, endYear, years }.
+ *
+ * Multi-team years collapse to one stint per tid. A coach who held
+ * two teams simultaneously in 2025 (commish shepherding) gets two
+ * separate stint entries for that year, joined to whichever side
+ * extends backward / forward.
+ *
+ * Single source of truth — same map the timeline editor and Coach
+ * Career page read. So edits in /league flow into stints immediately.
+ */
+export function getCoachStints(dynasty, uid) {
+  if (!dynasty || !uid) return []
+  const yearTeams = buildYearTeamsMap(dynasty, uid)
+  const sortedYears = Object.keys(yearTeams).map(Number).filter(Number.isFinite).sort((a, b) => a - b)
+  if (sortedYears.length === 0) return []
+
+  // Track open stints per tid; close when a year breaks the run.
+  const open = new Map() // tid → { startYear, endYear }
+  const closed = []
+
+  for (const year of sortedYears) {
+    const tids = Array.from(yearTeams[year])
+    const tidSet = new Set(tids)
+    // Close stints whose tid isn't in this year OR whose endYear is not year-1.
+    for (const [tid, stint] of Array.from(open.entries())) {
+      if (!tidSet.has(tid) || stint.endYear < year - 1) {
+        closed.push({ tid, startYear: stint.startYear, endYear: stint.endYear })
+        open.delete(tid)
+      }
+    }
+    // Extend or open a stint per tid in this year.
+    for (const tid of tids) {
+      const existing = open.get(tid)
+      if (existing) {
+        existing.endYear = year
+      } else {
+        open.set(tid, { startYear: year, endYear: year })
+      }
+    }
+  }
+  for (const [tid, stint] of open) {
+    closed.push({ tid, startYear: stint.startYear, endYear: stint.endYear })
+  }
+
+  // Sort by startYear asc, then endYear asc, then tid for determinism.
+  closed.sort((a, b) => a.startYear - b.startYear || a.endYear - b.endYear || a.tid - b.tid)
+  // Add years count for convenience.
+  return closed.map(s => ({ ...s, years: s.endYear - s.startYear + 1 }))
+}
+
+/**
  * Build a `{ year: Set<tid> }` map of which teams a uid coached each
  * year. Pulls memberTeamHistory primarily; for the dynasty owner, falls
  * back to legacy coachTeamByYear for years with no snapshot (so old

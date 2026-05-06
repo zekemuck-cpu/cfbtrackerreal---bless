@@ -13,7 +13,7 @@ import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { PageHero, Card, EmptyState, TeamLogo, Badge } from '../../components/ui'
 import { getRole, ROLE_COMMISH, ROLE_COCOMMISH } from '../../data/leagueModel'
-import { getAllCoachSummaries } from '../../data/coachStats'
+import { getAllCoachSummaries, getCoachStints } from '../../data/coachStats'
 
 const SORT_OPTIONS = [
   { key: 'wins',     label: 'Wins' },
@@ -135,6 +135,26 @@ export default function Coaches() {
             const teamName = team?.name || (s.primaryTeamTid != null ? `Team ${s.primaryTeamTid}` : '—')
             const careerLink = `${pathPrefix}/coach-career?uid=${encodeURIComponent(s.uid)}`
 
+            // Stint summary — abbreviated team list with year ranges.
+            // "Wisconsin (2025-2027) · Kentucky (2028-NOW)" — gives the
+            // career arc at a glance without opening Coach Career.
+            const stints = getCoachStints(currentDynasty, s.uid)
+            const stintLabel = (() => {
+              if (stints.length <= 1) return null
+              const parts = stints.slice(-3).map(st => {
+                const t = teamsSource[st.tid]
+                const abbr = t?.abbr || `T${st.tid}`
+                const range = st.startYear === st.endYear
+                  ? String(st.startYear)
+                  : st.endYear >= currentDynasty.currentYear
+                    ? `${st.startYear}-NOW`
+                    : `${st.startYear}-${st.endYear}`
+                return `${abbr} (${range})`
+              })
+              const prefix = stints.length > 3 ? `+${stints.length - 3} earlier · ` : ''
+              return prefix + parts.join(' · ')
+            })()
+
             return (
               <Link
                 key={s.uid}
@@ -177,6 +197,11 @@ export default function Coaches() {
                     <div className="text-[11px] text-txt-tertiary truncate mt-0.5">
                       {teamName} · {formatRange(s.startYear, s.endYear)}{s.yearsActive > 1 ? ` (${s.yearsActive} yrs)` : ''}
                     </div>
+                    {stintLabel && (
+                      <div className="text-[10px] text-txt-muted truncate mt-0.5 tabular-nums">
+                        {stintLabel}
+                      </div>
+                    )}
                   </div>
 
                   {/* Record */}
