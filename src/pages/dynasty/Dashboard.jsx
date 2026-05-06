@@ -1972,11 +1972,20 @@ export default function Dashboard() {
         // Track ALL players for potential transfer matching
         allPlayersMap.set(nameLower, p)
 
-        // Check if player has a departure movement (left the team)
-        const hasDepartureMovement = (p.movements || []).some(m =>
+        // Check if player has a departure movement (left the team).
+        // Reads BOTH legacy movements[] AND v2 movementByYear — after the
+        // v2 migration, movements[] is stripped on every save, so checking
+        // only the legacy array missed every departed player and they
+        // never showed up as "returning" in the recruiting flow.
+        const v2DepartureTypes = new Set(['departure', 'transfer', 'entered_portal', 'transferred_out', 'graduated', 'declared_for_draft', 'encouraged_to_transfer'])
+        const v2DepartureShapes = new Set(['transfer_out', 'graduated', 'pro_draft'])
+        const hasLegacyDeparture = (p.movements || []).some(m =>
           m.type === 'departure' || m.type === 'transfer'
         )
-        if (hasDepartureMovement) {
+        const hasV2Departure = Object.values(p.movementByYear || {}).some(m =>
+          m && (v2DepartureTypes.has(m.type) || v2DepartureShapes.has(m.departure))
+        )
+        if (hasLegacyDeparture || hasV2Departure) {
           leftPlayersMap.set(nameLower, p)
         }
         // Check if player is pending departure (in playersLeavingByYear)
@@ -2091,11 +2100,18 @@ export default function Dashboard() {
     existingPlayers.forEach(p => {
       if (p.name) {
         const nameLower = p.name.toLowerCase().trim()
-        // Check if player has a departure movement (left the team)
-        const hasDepartureMovement = (p.movements || []).some(m =>
+        // Check if player has a departure movement (left the team).
+        // Reads BOTH legacy movements[] AND v2 movementByYear — see the
+        // matching block in updateExistingRosterPlayers above.
+        const v2DepartureTypes = new Set(['departure', 'transfer', 'entered_portal', 'transferred_out', 'graduated', 'declared_for_draft', 'encouraged_to_transfer'])
+        const v2DepartureShapes = new Set(['transfer_out', 'graduated', 'pro_draft'])
+        const hasLegacyDeparture = (p.movements || []).some(m =>
           m.type === 'departure' || m.type === 'transfer'
         )
-        if (hasDepartureMovement) {
+        const hasV2Departure = Object.values(p.movementByYear || {}).some(m =>
+          m && (v2DepartureTypes.has(m.type) || v2DepartureShapes.has(m.departure))
+        )
+        if (hasLegacyDeparture || hasV2Departure) {
           leftPlayersMap.set(nameLower, p)
         }
         // Check if player is pending departure (in playersLeavingByYear)

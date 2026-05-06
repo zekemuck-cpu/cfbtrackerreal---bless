@@ -3110,11 +3110,21 @@ export function getPlayersNeedingClassConfirmation(dynasty) {
     if (p.isRecruit) return false
     // Also exclude players recruited this year (even if isRecruit flag is missing)
     if (Number(p.recruitYear) === Number(year)) return false
-    // Exclude players who have departed THIS year
-    const hasDepartedThisYear = (p.movements || []).some(m =>
+    // Exclude players who have departed THIS year. Reads BOTH legacy
+    // movements[] AND v2 movementByYear — after the v2 migration the
+    // legacy array is stripped, so checking only it left departed
+    // players in the class-confirmation prompt.
+    const v2DepartureTypesYr = new Set(['departure', 'entered_portal', 'transferred_out', 'graduated', 'declared_for_draft', 'transfer'])
+    const v2DepartureShapesYr = new Set(['transfer_out', 'graduated', 'pro_draft'])
+    const hasDepartedThisYearLegacy = (p.movements || []).some(m =>
       (m.type === 'departure' || m.type === 'entered_portal') && Number(m.year) === Number(year)
     )
-    if (hasDepartedThisYear) return false
+    const v2EntryThisYear = p.movementByYear?.[year] || p.movementByYear?.[String(year)]
+    const hasDepartedThisYearV2 = !!v2EntryThisYear && (
+      v2DepartureTypesYr.has(v2EntryThisYear.type) ||
+      v2DepartureShapesYr.has(v2EntryThisYear.departure)
+    )
+    if (hasDepartedThisYearLegacy || hasDepartedThisYearV2) return false
     // Check team membership using isPlayerOnRoster (only checks teamsByYear, no p.team fallback)
     if (!isPlayerOnRoster(p, teamTid, year)) return false
     // Already RS players don't need confirmation (they'll progress normally)
@@ -8594,28 +8604,28 @@ export function DynastyProvider({ children }) {
         }
       }
 
-      // Check for RS Sr players not in playersLeaving - auto-graduate them
-      // IMPORTANT: Only auto-graduate if they were ALREADY RS Sr in the previous season
-      // (before Signing Day class progression). Players who just became RS Sr should play next season.
+      // Check for RS Sr players not in playersLeaving - auto-graduate them.
+      // IMPORTANT: Only auto-graduate if they were ALREADY RS Sr in the
+      // previous season (before Signing Day class progression). Players
+      // who just became RS Sr should play next season.
+      //
+      // Movement is written to canonical v2 movementByYear directly. The
+      // legacy movements[] array is stripped by syncDerivedFieldsFromV2 on
+      // every save, so the previous parallel write was dead code AND used
+      // a non-canonical shape that the heal then converted on save.
       const previousSeasonClass = player.classByYear?.[previousSeasonYear]
       if (previousSeasonClass === 'RS Sr' && !player.isRecruit) {
-        // Player is leaving - add movement if not already present
-        const hasGradMovement = (player.movements || []).some(m =>
-          m.type === 'departure' && m.year === previousSeasonYear && m.reason === 'Graduating'
-        )
-        const updatedMovements = hasGradMovement ? player.movements : [
-          ...(player.movements || []),
-          { year: previousSeasonYear, type: 'departure', from: teamTid, reason: 'Graduating' } // ALWAYS use tid
-        ]
-        // Also set movementByYear for the new system
-        const updatedMovementByYear = {
-          ...(player.movementByYear || {}),
-          [previousSeasonYear]: { type: 'graduated' }
-        }
+        const existingForYear = player.movementByYear?.[previousSeasonYear]
+          || player.movementByYear?.[String(previousSeasonYear)]
+        const alreadyGraduated = existingForYear?.type === 'departure'
+          && existingForYear?.departure === 'graduated'
+        if (alreadyGraduated) return player
         return {
           ...player,
-          movements: updatedMovements,
-          movementByYear: updatedMovementByYear
+          movementByYear: {
+            ...(player.movementByYear || {}),
+            [previousSeasonYear]: { type: 'departure', departure: 'graduated' }
+          }
         }
       }
 
@@ -10428,12 +10438,22 @@ export function DynastyProvider({ children }) {
       // This prevents accidentally overwriting critical metadata with undefined values
       if (existingPlayer) {
         // CRITICAL: Set teamsByYear[year] = tid to record this player was on this team this year
-        // This is the IMMUTABLE record that determines roster membership for past seasons
-        // BUT: Skip adding the year if player has a departure movement before this year
-        const hasDepartedBeforeThisYear = (existingPlayer.movements || []).some(m =>
+        // This is the IMMUTABLE record that determines roster membership for past seasons.
+        // Skip adding the year if player has a departure movement before this year.
+        // After v2 migration, movements[] is stripped on save, so we MUST also
+        // check movementByYear or every post-migration departure is invisible
+        // here — which would re-stamp departed players back onto the roster.
+        const v2DepartureTypes = new Set(['departure', 'transfer', 'entered_portal', 'transferred_out', 'graduated', 'declared_for_draft', 'encouraged_to_transfer'])
+        const v2DepartureShapes = new Set(['transfer_out', 'graduated', 'pro_draft'])
+        const hasDepartedBeforeThisYearLegacy = (existingPlayer.movements || []).some(m =>
           (m.type === 'departure' || m.type === 'transfer') && m.year && Number(m.year) < Number(year)
         )
-        const shouldAddToTeamsByYear = !hasDepartedBeforeThisYear
+        const hasDepartedBeforeThisYearV2 = Object.entries(existingPlayer.movementByYear || {}).some(([yStr, m]) => {
+          const yNum = Number(yStr)
+          if (!Number.isFinite(yNum) || yNum >= Number(year)) return false
+          return m && (v2DepartureTypes.has(m.type) || v2DepartureShapes.has(m.departure))
+        })
+        const shouldAddToTeamsByYear = !(hasDepartedBeforeThisYearLegacy || hasDepartedBeforeThisYearV2)
 
         const updatedTeamsByYear = shouldAddToTeamsByYear
           ? {
