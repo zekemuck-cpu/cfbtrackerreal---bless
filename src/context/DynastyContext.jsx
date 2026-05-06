@@ -7309,6 +7309,15 @@ export function DynastyProvider({ children }) {
       nextPhase = 'regular_season'
       nextWeek = 0  // Regular season now starts with Week 0
 
+      // Clear previousJobData here — once the user enters regular season they
+      // are locked into the new team. Holding the snapshot through preseason
+      // keeps the full revert chain (preseason ← offseason wk8 ← … ← postseason
+      // wk5) walkable; the OLD code cleared at offseason wk1 → wk2, which
+      // silently broke the chain past wk1.
+      if (dynasty.previousJobData) {
+        additionalUpdates.previousJobData = null
+      }
+
       // COACH HISTORY: Record which team the coach is coaching this year
       // This is locked in at season start and does NOT change even if user switches teams later
       const coachTeamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
@@ -7329,6 +7338,21 @@ export function DynastyProvider({ children }) {
       // Reason: advance is reversible via revertWeek, but deleting the Sheet
       // from Drive is not. Leaving the file in Drive lets the user recover or
       // re-import if they revert. Cleanup is the user's responsibility.
+      //
+      // Snapshot the IDs into prevPreseasonSheetIds so revertWeek (regular wk0
+      // → preseason wk0) can restore them — without the snapshot, the IDs
+      // were lost on advance and the user had to re-import the same Sheets.
+      const prevPreseasonSheetIds = {
+        googleSheetId: dynasty.googleSheetId ?? null,
+        googleSheetUrl: dynasty.googleSheetUrl ?? null,
+        scheduleSheetId: dynasty.scheduleSheetId ?? null,
+        rosterSheetId: dynasty.rosterSheetId ?? null,
+        rosterEditSheetId: dynasty.rosterEditSheetId ?? null,
+      }
+      const hasAnySheetId = Object.values(prevPreseasonSheetIds).some(v => v != null)
+      if (hasAnySheetId) {
+        additionalUpdates.prevPreseasonSheetIds = prevPreseasonSheetIds
+      }
       if (dynasty.googleSheetId) {
         additionalUpdates.googleSheetId = null
         additionalUpdates.googleSheetUrl = null
@@ -7423,7 +7447,74 @@ export function DynastyProvider({ children }) {
         const newTeamAbbr = getAbbrFromTeamName(newJobData.team, dynasty.teams) || newJobData.team
         const newConference = getTeamConference(newTeamAbbr, null, dynasty.teams)
 
-        // REVERT SUPPORT: Save previous job data so we can restore on revert
+        // REVERT SUPPORT: Save previous job data so we can restore on revert.
+        // Captures ENOUGH state for revertWeek to fully reverse this job swap:
+        //   - Root-level dynasty fields (teamName, schedule, ratings, staff…)
+        //   - The minimal teams-map slice we're about to flip via
+        //     applyPendingUserTeam (so revert can put userId/pendingUserId back)
+        //   - memberTeams/memberTeamHistory[year] snapshots
+        //   - The pids/game-ids that get legacy-team-tagged below (so revert
+        //     can untag exactly those and not touch real tags)
+        // Pre-collect the pid/id lists in single passes that mirror the
+        // tagging filters used below.
+        const _existingPlayersForSnapshot = dynasty.players || []
+        const _legacyTaggedPlayerPids = []
+        for (const p of _existingPlayersForSnapshot) {
+          if (p.team) continue
+          if (p.isHonorOnly) continue
+          if (p.pid) _legacyTaggedPlayerPids.push(p.pid)
+        }
+        const _existingGamesForSnapshot = dynasty.games || []
+        const _legacyTaggedGameIds = []
+        for (const g of _existingGamesForSnapshot) {
+          if (g.userTeam) continue
+          if (g.team1 && g.team2) continue
+          if (g.cfpSlot) continue
+          if (g.team1Tid && g.team2Tid) continue
+          if (g.id) _legacyTaggedGameIds.push(g.id)
+        }
+        // Capture the pre-flip team-flag slice for the two affected tids so
+        // revert can put userId/pendingUserId/coachPosition back exactly.
+        const _oldUserTidForSnapshot = dynasty.currentTid != null ? Number(dynasty.currentTid) : null
+        const _newUserTidForSnapshot = getTidFromTeamName(newTeamName, dynasty.teams)
+        const _teamsSliceForSnapshot = {}
+        if (_oldUserTidForSnapshot != null && dynasty.teams?.[_oldUserTidForSnapshot]) {
+          const t = dynasty.teams[_oldUserTidForSnapshot]
+          _teamsSliceForSnapshot[_oldUserTidForSnapshot] = {
+            userId: t.userId ?? null,
+            pendingUserId: t.pendingUserId ?? null,
+            coachPosition: t.coachPosition ?? null,
+          }
+        }
+        if (_newUserTidForSnapshot != null && dynasty.teams?.[_newUserTidForSnapshot]) {
+          const t = dynasty.teams[_newUserTidForSnapshot]
+          _teamsSliceForSnapshot[_newUserTidForSnapshot] = {
+            userId: t.userId ?? null,
+            pendingUserId: t.pendingUserId ?? null,
+            coachPosition: t.coachPosition ?? null,
+          }
+        }
+        // memberTeamHistory snapshot for the year that just ended — we'll
+        // overwrite this entry on advance, so capture it for revert. Same
+        // for memberTeams (the swap is full-list).
+        const _memberTeamHistorySnapshot =
+          dynasty.memberTeamHistory != null
+            ? JSON.parse(JSON.stringify(dynasty.memberTeamHistory))
+            : null
+        const _memberTeamsSnapshot =
+          dynasty.memberTeams != null
+            ? JSON.parse(JSON.stringify(dynasty.memberTeams))
+            : null
+        // Snapshot the OLD team's pre-existing byYear[currentYear] slice
+        // so revert can decide whether to drop the entry entirely (it
+        // didn't exist) or restore the prior content.
+        const _oldTeamByYearSnapshot = (
+          _oldUserTidForSnapshot != null &&
+          dynasty.teams?.[_oldUserTidForSnapshot]?.byYear?.[dynasty.currentYear]
+        )
+          ? JSON.parse(JSON.stringify(dynasty.teams[_oldUserTidForSnapshot].byYear[dynasty.currentYear]))
+          : null
+
         additionalUpdates.previousJobData = {
           teamName: dynasty.teamName,
           currentTid: dynasty.currentTid,
@@ -7435,7 +7526,19 @@ export function DynastyProvider({ children }) {
           googleSheetId: dynasty.googleSheetId,
           googleSheetUrl: dynasty.googleSheetUrl,
           preseasonSetup: dynasty.preseasonSetup,
-          newJobData: newJobData // Save the accepted job offer to restore on revert
+          newJobData: newJobData, // Save the accepted job offer to restore on revert
+          // ----- richer snapshots for full revert reversal -----
+          oldUserTid: _oldUserTidForSnapshot,
+          newUserTid: _newUserTidForSnapshot,
+          teamsSlice: _teamsSliceForSnapshot,
+          memberTeams: _memberTeamsSnapshot,
+          memberTeamHistory: _memberTeamHistorySnapshot,
+          legacyTaggedPlayerPids: _legacyTaggedPlayerPids,
+          legacyTaggedGameIds: _legacyTaggedGameIds,
+          oldTeamByYearForCurrentYear: _oldTeamByYearSnapshot,
+          // The year on which the swap happened (= old-team's last season)
+          // so revert can target byYear[year] correctly.
+          swapYear: dynasty.currentYear,
         }
 
         // Calculate record at current team for this stint. Tid match is
@@ -7736,12 +7839,6 @@ export function DynastyProvider({ children }) {
 
         // Clear newJobData
         additionalUpdates.newJobData = null
-      }
-    } else if (dynasty.currentPhase === 'offseason' && dynasty.currentWeek === 1 && nextWeek === 2) {
-      // Advancing FROM offseason week 1 TO week 2
-      // Clear previousJobData - user has committed to the new team
-      if (dynasty.previousJobData) {
-        additionalUpdates.previousJobData = null
       }
     } else if (dynasty.currentPhase === 'offseason' && dynasty.currentWeek === 5 && nextWeek === 6) {
       console.log('[advanceWeek] *** ENTERING WEEK 5→6 TRANSITION (SIGNING DAY / YEAR FLIP) ***')
@@ -8753,6 +8850,19 @@ export function DynastyProvider({ children }) {
         ) {
           additionalUpdates.coachTeamByYear = deleteYearKeys(dynasty.coachTeamByYear, currentYear)
         }
+
+        // Restore the preseason Sheet IDs that advance unlinked. The Sheets
+        // themselves were never deleted from Drive (see comment in advance),
+        // so re-attaching the IDs reconnects the user to their existing data.
+        if (dynasty.prevPreseasonSheetIds) {
+          const snap = dynasty.prevPreseasonSheetIds
+          if (snap.googleSheetId != null) additionalUpdates.googleSheetId = snap.googleSheetId
+          if (snap.googleSheetUrl != null) additionalUpdates.googleSheetUrl = snap.googleSheetUrl
+          if (snap.scheduleSheetId != null) additionalUpdates.scheduleSheetId = snap.scheduleSheetId
+          if (snap.rosterSheetId != null) additionalUpdates.rosterSheetId = snap.rosterSheetId
+          if (snap.rosterEditSheetId != null) additionalUpdates.rosterEditSheetId = snap.rosterEditSheetId
+          additionalUpdates.prevPreseasonSheetIds = null
+        }
       } else {
         // Regular Season Week N → Regular Season Week N-1
         prevWeek = currentWeek - 1
@@ -9166,9 +9276,12 @@ export function DynastyProvider({ children }) {
         additionalUpdates.seasonAwardsSheetId = null
       }
     } else if (dynasty.currentPhase === 'offseason') {
-      // Reverting within offseason - handle different week transitions
+      // Reverting within offseason - handle different week transitions.
+      // tid is the source of truth; abbr is only kept for legacy team-year
+      // stores that are still keyed by abbr (rename-safe writes also stamp
+      // the tid copy, so we clear both — see deleteYearKeys helper).
+      const teamTid = getCurrentTeamTid(dynasty)
       const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
-      const teamTid = getTidFromAbbr(teamAbbr, dynasty)
 
       if (dynasty.currentWeek === 1 && prevPhase === 'postseason') {
         // Reverting FROM offseason week 1 TO postseason week 5
@@ -9298,7 +9411,7 @@ export function DynastyProvider({ children }) {
         // If user switched teams, restore the previous team
         const previousJobData = dynasty.previousJobData
         if (previousJobData) {
-          // Restore the old team
+          // Restore root-level dynasty fields
           additionalUpdates.teamName = previousJobData.teamName
           // CRITICAL: Restore currentTid — without this, team-perspective queries
           // stay pointed at the new team even after revert.
@@ -9320,6 +9433,122 @@ export function DynastyProvider({ children }) {
           if (existingHistory.length > 0) {
             additionalUpdates.coachingHistory = existingHistory.slice(0, -1)
           }
+
+          // Reverse applyPendingUserTeam (advance flips userId/pendingUserId
+          // on dynasty.teams). Without this, getCurrentTeamTid (which scans
+          // for userId='currentUser') returns the NEW team while
+          // dynasty.currentTid points to the OLD team — total divergence.
+          // The teamsSlice snapshot has the exact pre-flip flags for both
+          // affected tids; just merge them back over the post-flip teams map.
+          if (previousJobData.teamsSlice && dynasty.teams) {
+            const nextTeams = { ...(additionalUpdates.teams || dynasty.teams) }
+            for (const [tidStr, slice] of Object.entries(previousJobData.teamsSlice)) {
+              const tid = Number(tidStr)
+              const team = nextTeams[tid]
+              if (!team) continue
+              nextTeams[tid] = {
+                ...team,
+                userId: slice.userId,
+                pendingUserId: slice.pendingUserId,
+                coachPosition: slice.coachPosition,
+              }
+            }
+            additionalUpdates.teams = nextTeams
+          }
+
+          // Restore memberTeams + memberTeamHistory snapshots (advance overwrote
+          // both — memberTeamHistory was stamped for the season that just
+          // ended, memberTeams was reordered to put the new team first).
+          if (previousJobData.memberTeams !== undefined) {
+            additionalUpdates.memberTeams = previousJobData.memberTeams
+          }
+          if (previousJobData.memberTeamHistory !== undefined) {
+            additionalUpdates.memberTeamHistory = previousJobData.memberTeamHistory
+          }
+
+          // Untag legacy player.team / game.userTeam fields that advance
+          // stamped on records that didn't have them. Use the captured pid
+          // and id lists so we only touch records we actually modified.
+          if (Array.isArray(previousJobData.legacyTaggedPlayerPids) && previousJobData.legacyTaggedPlayerPids.length > 0) {
+            const taggedPids = new Set(previousJobData.legacyTaggedPlayerPids)
+            const playersList = additionalUpdates.players || dynasty.players || []
+            const untaggedPlayers = playersList.map(p => {
+              if (!p?.pid || !taggedPids.has(p.pid)) return p
+              const { team: _team, ...rest } = p
+              return rest
+            })
+            if (untaggedPlayers.some((p, i) => p !== playersList[i])) {
+              additionalUpdates.players = untaggedPlayers
+            }
+          }
+          if (Array.isArray(previousJobData.legacyTaggedGameIds) && previousJobData.legacyTaggedGameIds.length > 0) {
+            const taggedGameIds = new Set(previousJobData.legacyTaggedGameIds)
+            updatedGames = updatedGames.map(g => {
+              if (!g?.id || !taggedGameIds.has(g.id)) return g
+              const { userTeam: _userTeam, ...rest } = g
+              return rest
+            })
+          }
+
+          // Roll back the team-centric byYear[swapYear] write that advance
+          // made on the OLD team's record. If there was no entry there
+          // before advance, drop it; otherwise restore the prior contents.
+          const swapYear = previousJobData.swapYear
+          const oldTid = previousJobData.oldUserTid
+          if (swapYear != null && oldTid != null && dynasty.teams?.[oldTid]?.byYear) {
+            const existingTeams = additionalUpdates.teams || dynasty.teams
+            const teamData = existingTeams[oldTid] || {}
+            const byYear = teamData.byYear || {}
+            const nextByYear = { ...byYear }
+            if (previousJobData.oldTeamByYearForCurrentYear != null) {
+              nextByYear[swapYear] = previousJobData.oldTeamByYearForCurrentYear
+            } else {
+              delete nextByYear[swapYear]
+              delete nextByYear[String(swapYear)]
+            }
+            additionalUpdates.teams = {
+              ...existingTeams,
+              [oldTid]: { ...teamData, byYear: nextByYear },
+            }
+          }
+
+          // Drop the duplicate team-centric writes (schedulesByTeamYear,
+          // teamRatingsByTeamYear, coachingStaffByTeamYear, googleSheetsByTeam)
+          // that advance stamped under the OLD team's abbr. The root-level
+          // restores above are now the source of truth post-revert.
+          if (swapYear != null) {
+            const oldAbbr = previousJobData.coachPosition !== undefined
+              ? (dynasty.teams?.[oldTid]?.abbr || null)
+              : null
+            // We pull abbr from the current teams map since teambuilder slot
+            // assignments survive the swap.
+            if (oldAbbr) {
+              if (dynasty.schedulesByTeamYear?.[oldAbbr]?.[swapYear] != null) {
+                additionalUpdates.schedulesByTeamYear = {
+                  ...dynasty.schedulesByTeamYear,
+                  [oldAbbr]: deleteYearKeys(dynasty.schedulesByTeamYear[oldAbbr], swapYear),
+                }
+              }
+              if (dynasty.teamRatingsByTeamYear?.[oldAbbr]?.[swapYear] != null) {
+                additionalUpdates.teamRatingsByTeamYear = {
+                  ...dynasty.teamRatingsByTeamYear,
+                  [oldAbbr]: deleteYearKeys(dynasty.teamRatingsByTeamYear[oldAbbr], swapYear),
+                }
+              }
+              if (dynasty.coachingStaffByTeamYear?.[oldAbbr]?.[swapYear] != null) {
+                additionalUpdates.coachingStaffByTeamYear = {
+                  ...dynasty.coachingStaffByTeamYear,
+                  [oldAbbr]: deleteYearKeys(dynasty.coachingStaffByTeamYear[oldAbbr], swapYear),
+                }
+              }
+              if (dynasty.googleSheetsByTeam?.[oldAbbr] != null) {
+                const next = { ...dynasty.googleSheetsByTeam }
+                delete next[oldAbbr]
+                additionalUpdates.googleSheetsByTeam = next
+              }
+            }
+          }
+
           // Clear previousJobData since we've restored it
           additionalUpdates.previousJobData = null
         }
@@ -9561,29 +9790,28 @@ export function DynastyProvider({ children }) {
 
         // Clear recruiting class rank for this year (dual-keyed: abbr + tid).
         const existingClassRank = dynasty.recruitingClassRankByTeamYear || {}
-        const teamTidForRank = getTidFromAbbr(teamAbbr, dynasty)
-        if (existingClassRank[teamAbbr] || (teamTidForRank && existingClassRank[teamTidForRank])) {
+        if (existingClassRank[teamAbbr] || (teamTid && existingClassRank[teamTid])) {
           additionalUpdates.recruitingClassRankByTeamYear = {
             ...existingClassRank,
             ...(existingClassRank[teamAbbr]
               ? { [teamAbbr]: deleteYearKeys(existingClassRank[teamAbbr], previousSeasonYear) }
               : {}),
-            ...(teamTidForRank && existingClassRank[teamTidForRank]
-              ? { [teamTidForRank]: deleteYearKeys(existingClassRank[teamTidForRank], previousSeasonYear) }
+            ...(teamTid && existingClassRank[teamTid]
+              ? { [teamTid]: deleteYearKeys(existingClassRank[teamTid], previousSeasonYear) }
               : {}),
           }
         }
 
         // Clear draft results for this year (dual-keyed: abbr + tid).
         const existingDraftResults = dynasty.draftResultsByTeamYear || {}
-        if (existingDraftResults[teamAbbr] || (teamTidForRank && existingDraftResults[teamTidForRank])) {
+        if (existingDraftResults[teamAbbr] || (teamTid && existingDraftResults[teamTid])) {
           additionalUpdates.draftResultsByTeamYear = {
             ...existingDraftResults,
             ...(existingDraftResults[teamAbbr]
               ? { [teamAbbr]: deleteYearKeys(existingDraftResults[teamAbbr], previousSeasonYear) }
               : {}),
-            ...(teamTidForRank && existingDraftResults[teamTidForRank]
-              ? { [teamTidForRank]: deleteYearKeys(existingDraftResults[teamTidForRank], previousSeasonYear) }
+            ...(teamTid && existingDraftResults[teamTid]
+              ? { [teamTid]: deleteYearKeys(existingDraftResults[teamTid], previousSeasonYear) }
               : {}),
           }
         }
@@ -9635,8 +9863,8 @@ export function DynastyProvider({ children }) {
             dynasty.trainingResultsByYear, trainingYear
           )
         }
-        // Also clear tid-based structure
-        const teamTid = getTidFromAbbr(teamAbbr, dynasty)
+        // Also clear tid-based structure (teamTid resolved at the top of
+        // this offseason branch — no need to re-derive from abbr).
         if (teamTid && dynasty.teams?.[teamTid]?.byYear?.[trainingYear]) {
           const existingTeams = dynasty.teams
           const existingTeamData = existingTeams[teamTid] || {}
