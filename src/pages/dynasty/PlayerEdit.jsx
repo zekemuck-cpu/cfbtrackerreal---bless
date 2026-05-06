@@ -1768,7 +1768,8 @@ export default function PlayerEdit() {
                             return { text: toName ? `Entered Portal → ${toName}` : 'Entered Portal · Transferred', color: '#f59e0b', reason: curMovement.reason }
                           }
                           if (curType === 'encouraged_to_transfer') {
-                            const toName = curMovement.toTeamTid ? getMascotName(curMovement.toTeamTid, teams) : null
+                            const toRef = curMovement.toTeamTid ?? curMovement.toTid
+                            const toName = toRef ? getMascotName(toRef, teams) : null
                             return { text: toName ? `Encouraged Out → ${toName}` : 'Encouraged Out', color: '#f59e0b', reason: curMovement.reason }
                           }
                           if (curType === 'declared_for_draft') {

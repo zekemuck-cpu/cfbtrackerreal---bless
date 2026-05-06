@@ -338,7 +338,7 @@ function PlayerInner() {
         if (m.type === 'transferred_out') {
           return {
             type: 'transfer',
-            to: m.toTeamTid ?? null,
+            to: m.toTeamTid ?? m.toTid ?? null,
             from: player?.teamsByYear?.[y] ?? player?.teamsByYear?.[String(y)] ?? null,
             year: y,
             reason: m.reason || null,
