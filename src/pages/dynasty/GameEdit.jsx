@@ -15,6 +15,7 @@ import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName } from '../../da
 import { PageHero, Card, Button, EmptyState, Input, Select, Textarea } from '../../components/ui'
 import { getTeamColors } from '../../data/teamColors'
 import { uploadImagesToImgBB } from '../../utils/imgbb'
+import TeamPermissionBanner from '../../components/TeamPermissionBanner'
 
 // Map abbreviations to mascot names for logo lookup
 function getMascotName(abbr, teamsData = null) {
@@ -1385,6 +1386,11 @@ export default function GameEdit() {
           {toastMessage}
         </div>
       )}
+
+      {/* Cross-team write warning. Soft banner — doesn't block save,
+          just makes accidental edits to another coach's data visible.
+          Commish + co-commishes never see this (they manage extras). */}
+      <TeamPermissionBanner tids={[team1Tid, team2Tid].filter(Boolean)} />
 
       {/* Hero — mirrors the actual Game page hero so editing/viewing share
           a visual surface. The gradient header carries Save/Cancel; the
