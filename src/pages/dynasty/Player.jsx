@@ -2803,7 +2803,12 @@ function PlayerInner() {
                   const yr = Number(yStr)
                   if (!Number.isFinite(yr) || yr <= year) return false
                   const t = m?.type
-                  return t === 'entered_portal' || t === 'transferred_out' || t === 'transfer' || t === 'recommitted' || t === 'recommit'
+                  // Legacy: entered_portal, transferred_out, transfer,
+                  // recommitted, recommit. Canonical v2: 'recommit' (already
+                  // listed) plus 'departure' with departure 'transfer_out'.
+                  if (t === 'entered_portal' || t === 'transferred_out' || t === 'transfer' || t === 'recommitted' || t === 'recommit') return true
+                  if (t === 'departure' && m?.departure === 'transfer_out') return true
+                  return false
                 })
                 if (!isSameAsFirstTeam && !hasLaterPortalEvent) {
                   joinType = 'portal_in'
