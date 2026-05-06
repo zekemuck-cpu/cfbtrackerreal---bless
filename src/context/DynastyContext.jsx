@@ -5446,10 +5446,15 @@ export function DynastyProvider({ children }) {
     const finalStorageType = (requestedStorageType === 'cloud' && isPremium && user) ? 'cloud' : 'local'
 
     // `customTeams` is a transient input used to populate the tid-keyed
-    // `teams` map above; it is NOT persisted on the dynasty doc. There
-    // is one source of truth: `dynasty.teams[tid]`. Strip it from the
-    // payload that gets stored.
-    const { customTeams: _droppedCustomTeams, ...dynastyDataNoCustomTeams } = dynastyData
+    // `teams` map above; it is NOT persisted on the dynasty doc.
+    // `coachName` is a transient input that seeds memberLabels[ownerUid]
+    // below — the dynasty doc does not store it as its own field anymore.
+    // Single source of truth for owner's name: memberLabels[uid].
+    const {
+      customTeams: _droppedCustomTeams,
+      coachName: _droppedCoachName,
+      ...dynastyDataNoCustomTeams
+    } = dynastyData
 
     const newDynastyData = {
       ...dynastyDataNoCustomTeams,

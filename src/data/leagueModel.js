@@ -215,21 +215,26 @@ export function getMemberLabel(dynasty, uid) {
 
 /**
  * The display name for a uid in this dynasty. Single source of truth so
- * the Layout header, news ticker, recap, Coach Career, etc. all show the
- * same string. Owner falls back to legacy `coachName` for dynasties
- * created before memberLabels was wired into createDynasty.
+ * every surface (Layout, Coach Career, Coaches leaderboard, awards
+ * matching, Sheets creation, staff injection) shows the same string.
  *
- *   1. memberLabels[uid] (the canonical store, editable in Members page)
- *   2. dynasty.coachName (owner only — legacy mirror)
+ * Resolution chain:
+ *   1. memberLabels[uid] — canonical, editable in Members page
+ *   2. dynasty.coachName — legacy field; only present on dynasties
+ *      created before createDynasty stopped writing it. Read-only
+ *      fallback so pre-migration dynasties keep working until their
+ *      owner edits their name (which writes memberLabels).
  *   3. 'Commish' / 'Co-Commish' / 'Member' role placeholder
  *
- * Pass `fallback` to override the role placeholder for a specific surface
- * (e.g. 'Coach' on the Coach Career page).
+ * Pass `fallback` to override the role placeholder for a specific
+ * surface (e.g. 'Coach' on the Coach Career page).
  */
 export function getCoachNameForUid(dynasty, uid, fallback = null) {
   if (!dynasty || !uid) return fallback || ''
   const label = dynasty.memberLabels?.[uid]
   if (label) return label
+  // Legacy fallback — pre-migration owner-only field. Stays for read
+  // compatibility; nothing in the app writes it as of this commit.
   if (uid === dynasty.userId && dynasty.coachName) return dynasty.coachName
   if (fallback) return fallback
   const role = getRole(dynasty, uid)
