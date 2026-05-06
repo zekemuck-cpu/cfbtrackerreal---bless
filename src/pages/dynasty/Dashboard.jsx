@@ -2326,31 +2326,75 @@ export default function Dashboard() {
       return isOnActiveRoster && !isReturning
     })
 
-    // For players already on roster, update their portal status if needed
-    // This handles the case where players were saved before portal detection was added
+    // For players already on roster, sync any recruit fields that the
+    // user updated in the sheet — most importantly devTrait, which the
+    // user typically enters at Signing Day on recruits already added in
+    // earlier recruiting weeks. Previous version only patched portal
+    // status; updates to dev trait / archetype / stars / ranks / etc.
+    // were silently dropped because alreadyOnRosterRecruits aren't
+    // surfaced through the newPlayers / returningPlayers paths.
     const portalClasses = ['Fr', 'RS Fr', 'So', 'RS So', 'Jr', 'RS Jr', 'Sr', 'RS Sr']
     const alreadyOnRosterNames = new Set(
       alreadyOnRosterRecruits.map(r => r.name.toLowerCase().trim())
     )
     const playersWithPortalFix = playersWithReturning.map(p => {
-      if (p.name && alreadyOnRosterNames.has(p.name.toLowerCase().trim())) {
-        // Find the recruit data to check class
-        const recruitData = alreadyOnRosterRecruits.find(
-          r => r.name.toLowerCase().trim() === p.name.toLowerCase().trim()
-        )
-        if (recruitData) {
-          const recruitClass = (recruitData.class || '').trim()
-          const isPortalPlayer = recruitData.isPortal || portalClasses.some(pc => pc.toLowerCase() === recruitClass.toLowerCase())
-          if (isPortalPlayer && !p.previousTeam) {
-            return {
-              ...p,
-              isPortal: true,
-              previousTeam: recruitData.previousTeam || 'Transfer Portal'
-            }
+      if (!p.name || !alreadyOnRosterNames.has(p.name.toLowerCase().trim())) {
+        return p
+      }
+      const recruitData = alreadyOnRosterRecruits.find(
+        r => r.name.toLowerCase().trim() === p.name.toLowerCase().trim()
+      )
+      if (!recruitData) return p
+
+      const recruitClass = (recruitData.class || '').trim()
+      const isPortalPlayer = recruitData.isPortal || portalClasses.some(pc => pc.toLowerCase() === recruitClass.toLowerCase())
+
+      // Resolve the year this recruit lands in. recruitYear is the
+      // recruiting class year; they enroll in year+1. For an existing
+      // player, fall back to their existing recruitYear or the current
+      // recruiting year.
+      const recruitYr = Number(p.recruitYear ?? year)
+      const enrollYr = Number.isFinite(recruitYr) ? recruitYr + 1 : null
+
+      const updated = { ...p }
+
+      // Dev trait — only overwrite when the sheet has a non-Normal pick
+      // OR the player has no dev trait at all. "Normal" is the default
+      // sheet value; a user who left it as Normal means "keep as-is."
+      // Stamp devTraitByYear[enrollYr] too so the player profile shows
+      // the right trait for the year they enroll.
+      const sheetTrait = (recruitData.devTrait || '').trim()
+      const isMeaningfulTrait = sheetTrait && sheetTrait !== 'Normal'
+      if (isMeaningfulTrait || (sheetTrait && !p.devTrait)) {
+        updated.devTrait = sheetTrait
+        if (enrollYr != null) {
+          updated.devTraitByYear = {
+            ...(p.devTraitByYear || {}),
+            [enrollYr]: sheetTrait,
           }
         }
       }
-      return p
+
+      // Sync the rest of the recruit's editable scouting fields — same
+      // semantics: only overwrite when the sheet has a real value.
+      if (recruitData.archetype && !p.archetype) updated.archetype = recruitData.archetype
+      if (recruitData.stars != null && (p.stars == null || p.stars === 0)) updated.stars = recruitData.stars
+      if (recruitData.nationalRank != null && p.nationalRank == null) updated.nationalRank = recruitData.nationalRank
+      if (recruitData.stateRank != null && p.stateRank == null) updated.stateRank = recruitData.stateRank
+      if (recruitData.positionRank != null && p.positionRank == null) updated.positionRank = recruitData.positionRank
+      if (recruitData.gemBust && !p.gemBust) updated.gemBust = recruitData.gemBust
+      if (recruitData.height && !p.height) updated.height = recruitData.height
+      if (recruitData.weight && !p.weight) updated.weight = recruitData.weight
+      if (recruitData.hometown && !p.hometown) updated.hometown = recruitData.hometown
+      if (recruitData.state && !p.state) updated.state = recruitData.state
+
+      // Portal status (existing logic — kept).
+      if (isPortalPlayer && !p.previousTeam) {
+        updated.isPortal = true
+        updated.previousTeam = recruitData.previousTeam || 'Transfer Portal'
+      }
+
+      return updated
     })
 
     // Store recruits for this phase/week AND add new players
