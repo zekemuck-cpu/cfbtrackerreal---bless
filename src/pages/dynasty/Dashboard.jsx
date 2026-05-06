@@ -3613,7 +3613,9 @@ export default function Dashboard() {
               // Row 1: Game entry — current week's matchup. Lives here so
               // the primary "Enter Game" CTA is part of the same task
               // list as recruiting / weekly-scores / recap. The big logo
-              // visual still renders in the matchup card above.
+              // visual still renders in the matchup card above; the
+              // smaller logos in this row reinforce which teams are
+              // playing without forcing the user to look back up.
               if (!isByeWeek && hasCurWeek && scheduledGame) {
                 const gameDone = !!playedGame
                 let gameSubtitle
@@ -3635,6 +3637,16 @@ export default function Dashboard() {
                   viewTo: gameDone ? `${pathPrefix}/game/${playedGame.id}` : null,
                   onAction: handleEnterGame,
                   actionLabel: gameDone ? 'Edit' : 'Enter',
+                  extraLeading: (
+                    <div className="flex items-center gap-0.5 flex-shrink-0">
+                      {userLogoUrl
+                        ? <img src={userLogoUrl} alt={userAbbr || ''} className="w-6 h-6 sm:w-7 sm:h-7 object-contain" />
+                        : <div className="w-6 h-6 sm:w-7 sm:h-7" />}
+                      {oppLogoUrl
+                        ? <img src={oppLogoUrl} alt={oppAbbr || ''} className="w-6 h-6 sm:w-7 sm:h-7 object-contain" />
+                        : <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 border-dashed border-surface-4 flex items-center justify-center text-[8px] font-bold text-txt-secondary">TBD</div>}
+                    </div>
+                  ),
                 })
               }
 
@@ -3664,6 +3676,16 @@ export default function Dashboard() {
                   viewTo: `${pathPrefix}/recruiting/${userTidForCommitments}/${currentDynasty.currentYear}`,
                   onAction: () => setShowRecruitingModal(true),
                   actionLabel: hasCommitmentsData ? 'Edit' : 'Log',
+                  // "Mark None" gives the user a one-tap way to flip the
+                  // dot green when there were genuinely no commits this
+                  // week — the modal-driven Log path saves an empty
+                  // array, which is the same end state, but this avoids
+                  // a useless trip through the modal. Only offered when
+                  // the row is still red (nothing logged yet).
+                  inlineAction: !hasCommitmentsData && !isViewOnly ? {
+                    label: 'Mark none',
+                    onClick: handleNoCommitments,
+                  } : null,
                 })
               }
 
@@ -3731,6 +3753,7 @@ export default function Dashboard() {
                               : 'var(--accent-error)',
                           }}
                         />
+                        {todo.extraLeading}
                         <div className="min-w-0">
                           <div
                             className="font-display font-bold leading-tight text-txt-primary truncate"
@@ -3742,6 +3765,16 @@ export default function Dashboard() {
                             <div className="hidden sm:block text-xs sm:text-[13px] mt-0.5 text-txt-tertiary">
                               {todo.subtitle}
                             </div>
+                          )}
+                          {todo.inlineAction && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); todo.inlineAction.onClick() }}
+                              className="mt-1 text-[11px] uppercase font-bold text-txt-tertiary hover:text-txt-secondary underline underline-offset-2 transition-colors"
+                              style={{ letterSpacing: '1.2px' }}
+                            >
+                              {todo.inlineAction.label}
+                            </button>
                           )}
                         </div>
                       </div>
