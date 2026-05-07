@@ -4637,18 +4637,70 @@ export function DynastyProvider({ children }) {
     setLoadingDynastyId(dynastyId)
 
     try {
-      // Load subcollections from Firestore
-      const [subcollectionPlayers, subcollectionGames] = await Promise.all([
+      // Load subcollections from Firestore. Seasons subcollection is
+      // loaded here too so the lazy-load entry point picks up the
+      // sharded-out per-year/per-team-year data and triggers migration
+      // on any legacy data still on the main doc — without this, a
+      // user navigating directly into a dynasty (the common case) only
+      // gets the migration on the next subscribeToDynasties fire,
+      // which may never come if no writes happen.
+      const [subcollectionPlayers, subcollectionGames, subcollectionSeasons] = await Promise.all([
         getPlayersSubcollection(dynastyId),
-        getGamesSubcollection(dynastyId)
+        getGamesSubcollection(dynastyId),
+        getSeasonsSubcollection(dynastyId),
       ])
 
       // Use subcollection data if available, otherwise fall back to main document
       const players = subcollectionPlayers.length > 0 ? subcollectionPlayers : (dynasty.players || [])
       const games = subcollectionGames.length > 0 ? subcollectionGames : (dynasty.games || [])
 
+      // Rehydrate seasonal fields — same merge-then-migrate pattern as
+      // the listener's path. Sub wins per-(field, year) on overlap so
+      // a partial-migration state can't drop data.
+      const mergedSeasonal = {}
+      for (const field of ALL_SEASONAL_FIELD_NAMES) {
+        const legacy = dynasty[field]
+        const fromSub = subcollectionSeasons[field]
+        const hasLegacy = legacy && typeof legacy === 'object' && Object.keys(legacy).length > 0
+        const hasSub = fromSub && typeof fromSub === 'object' && Object.keys(fromSub).length > 0
+        if (!hasLegacy && !hasSub) continue
+        if (PER_YEAR_NAMES.has(field)) {
+          mergedSeasonal[field] = { ...(legacy || {}), ...(fromSub || {}) }
+        } else {
+          const out = {}
+          for (const [teamKey, yearMap] of Object.entries(legacy || {})) {
+            out[teamKey] = { ...(yearMap || {}) }
+          }
+          for (const [teamKey, yearMap] of Object.entries(fromSub || {})) {
+            out[teamKey] = { ...(out[teamKey] || {}), ...(yearMap || {}) }
+          }
+          mergedSeasonal[field] = out
+        }
+      }
+
+      // Detect any legacy seasonal data still on the main doc and
+      // kick off background migration. Same pattern as the listener.
+      const legacySeasonalSnapshot = {}
+      let hasLegacySeasonal = false
+      for (const field of ALL_SEASONAL_FIELD_NAMES) {
+        const value = dynasty[field]
+        if (value && typeof value === 'object' && Object.keys(value).length > 0) {
+          legacySeasonalSnapshot[field] = value
+          hasLegacySeasonal = true
+        }
+      }
+      if (hasLegacySeasonal) {
+        migrateSeasonalFieldsToSubcollection(dynastyId, legacySeasonalSnapshot)
+          .then(({ migrated, cleared }) => {
+            console.log(`[season migration] ${dynastyId}: migrated ${migrated.length} season(s), cleared ${cleared.length} field(s)`)
+          })
+          .catch(err => {
+            console.warn(`[season migration] failed for ${dynastyId}:`, err?.code || err?.message || err)
+          })
+      }
+
       // Apply migrations to the loaded data
-      const dynastyWithData = { ...dynasty, players, games }
+      const dynastyWithData = { ...dynasty, players, games, ...mergedSeasonal }
       const [migratedDynasty] = applyMigrations([dynastyWithData])
 
       // Write the loaded data back into whichever list owns it.
