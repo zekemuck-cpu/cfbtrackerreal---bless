@@ -3441,10 +3441,6 @@ export default function Dashboard() {
               const isNeutral = gameLocation === 'neutral'
               const userIsAway = gameLocation === 'away'
               const atSymbol = isNeutral ? 'vs' : (userIsAway ? '@' : 'vs')
-              const userScore = playedGame?.perspective?.userScore ?? null
-              const oppScore = playedGame?.perspective?.opponentScore ?? null
-              const userWon = playedGame?.perspective?.userWon
-
               const handleEnterGame = () => {
                 if (gameRecord) {
                   navigate(`${pathPrefix}/game/${gameRecord.id}/edit`, { state: { from: location.pathname } })
@@ -3504,11 +3500,10 @@ export default function Dashboard() {
                 const renderLogo = (url, abbr, key) => url
                   ? <img key={key} src={url} alt={abbr || ''} className="w-7 h-7 sm:w-8 sm:h-8 object-contain flex-shrink-0" />
                   : <div key={key} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 border-dashed border-surface-4 flex items-center justify-center text-[9px] font-bold text-txt-secondary flex-shrink-0">{abbr ? abbr.charAt(0) : 'TBD'}</div>
+                // Score + result subtitle removed per user request — the
+                // logos + VS line tells the matchup, score belongs on the
+                // game page, not the dashboard row.
                 let gameSubtitle = null
-                if (gameDone) {
-                  const resultLabel = userWon == null ? 'Final' : (userWon ? 'W' : 'L')
-                  gameSubtitle = `${userScore}–${oppScore} · ${resultLabel}`
-                }
                 todos.push({
                   key: 'game-entry',
                   done: gameDone,
