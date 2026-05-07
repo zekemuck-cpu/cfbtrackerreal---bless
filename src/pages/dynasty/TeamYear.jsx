@@ -352,11 +352,17 @@ function PositionFilterTab({
         scheduleClose()
       }}
     >
-      <div className="flex items-baseline">
+      {/* Tab body — both buttons stretch to the same height so the
+          underline accent sits flush across them. Inside each button
+          content centers vertically so the chevron lines up with the
+          text instead of floating above it (the previous items-baseline
+          flex put the chevron's bottom edge at the text baseline,
+          which read as detached). */}
+      <div className="flex items-stretch">
         <button
           onClick={() => onSelectGroup(groupKey)}
           disabled={disabled}
-          className="py-2 pl-2.5 pr-1 flex items-baseline gap-1.5 transition-all disabled:opacity-40"
+          className="py-2 pl-2.5 pr-1.5 flex items-baseline gap-1.5 transition-all disabled:opacity-40"
           style={{ borderBottom: `2px solid ${isActive ? accent : 'transparent'}` }}
         >
           <span
@@ -381,20 +387,21 @@ function PositionFilterTab({
             onClick={() => setOpen(o => !o)}
             aria-label={`Show ${label} sub-positions`}
             aria-expanded={open}
-            className="py-2 pr-2 pl-0.5 transition-all"
+            className="pr-2 pl-0 flex items-center justify-center transition-all"
             style={{ borderBottom: `2px solid ${isActive ? accent : 'transparent'}` }}
           >
             <svg
-              className="w-3 h-3 transition-transform"
+              className="w-2.5 h-2.5 transition-transform"
               viewBox="0 0 12 12"
               fill="none"
               style={{
                 transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-                color: isActive ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+                color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                opacity: 0.7,
               }}
               aria-hidden="true"
             >
-              <path d="M3 4.5 L6 7.5 L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M3 4.5 L6 7.5 L9 4.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
         )}
