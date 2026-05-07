@@ -11889,14 +11889,23 @@ export function DynastyProvider({ children }) {
       if (playerCount > 0) {
         reportProgress('players', `Importing players (0/${playerCount})...`, 25)
 
-        // Import players in batches and report progress
+        // Import players in batches and report progress.
+        //
+        // PERF: Previously this passed `players.slice(0, batchEnd)` to
+        // savePlayersToSubcollection on every iteration — meaning each
+        // batch re-saved every prior batch on top of the new one. For
+        // 1027 players that became 500 + 1000 + 1027 = 2527 doc writes
+        // instead of 1027, and the cost grew quadratically with player
+        // count. The user's BAMA dynasty was hanging at "Importing
+        // players (0/1027)" because of this. Pass only the new batch.
         const BATCH_SIZE = 500
         for (let i = 0; i < playerCount; i += BATCH_SIZE) {
-          const batchPlayers = players.slice(i, i + BATCH_SIZE)
           const batchEnd = Math.min(i + BATCH_SIZE, playerCount)
+          const batchPlayers = players.slice(i, batchEnd)
 
-          // Save this batch
-          await savePlayersToSubcollection(result.id, players.slice(0, batchEnd))
+          // Save just this batch — savePlayersToSubcollection upserts
+          // by pid, so each call only writes the docs it was handed.
+          await savePlayersToSubcollection(result.id, batchPlayers)
 
           // Calculate progress (players are 25-60% of total)
           const playerProgress = 25 + Math.round((batchEnd / playerCount) * 35)
@@ -11908,13 +11917,13 @@ export function DynastyProvider({ children }) {
       if (gameCount > 0) {
         reportProgress('games', `Importing games (0/${gameCount})...`, 65)
 
-        // Import games in batches and report progress
+        // Same fix as the player loop above — pass only the new batch.
         const BATCH_SIZE = 500
         for (let i = 0; i < gameCount; i += BATCH_SIZE) {
           const batchEnd = Math.min(i + BATCH_SIZE, gameCount)
+          const batchGames = games.slice(i, batchEnd)
 
-          // Save this batch
-          await saveGamesToSubcollection(result.id, games.slice(0, batchEnd))
+          await saveGamesToSubcollection(result.id, batchGames)
 
           // Calculate progress (games are 65-95% of total)
           const gameProgress = 65 + Math.round((batchEnd / gameCount) * 30)
