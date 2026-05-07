@@ -11558,18 +11558,31 @@ export async function createGameBoxScoreSheet(teamName, teamAbbr, opponentAbbr, 
       sheetIds[key] = sheet.sheets[idx + 1].properties.sheetId
     })
 
-    // Initialize all tabs with headers and formatting
-    await initializeBoxScoreSheet(sheet.spreadsheetId, accessToken, sheetIds, isUserTeam, rosterPlayers)
-    await initializeUnifiedAITab(sheet.spreadsheetId, accessToken, unifiedSheetId, isUserTeam, rosterPlayers)
+    // Initialize all tabs with headers and formatting, in parallel with the
+    // public-share permission grant. Init writes to the 9 stat tabs and the
+    // unified AI tab — disjoint sheet IDs, so they don't conflict; share is
+    // a Drive permissions call against a different API surface entirely.
+    // Previously these ran sequentially: init9tabs → initUnified → share,
+    // costing one round-trip per step. Parallel cuts ~2 round-trips of
+    // latency off the create flow.
+    await Promise.all([
+      initializeBoxScoreSheet(sheet.spreadsheetId, accessToken, sheetIds, isUserTeam, rosterPlayers),
+      initializeUnifiedAITab(sheet.spreadsheetId, accessToken, unifiedSheetId, isUserTeam, rosterPlayers),
+      shareSheetPublicly(sheet.spreadsheetId, accessToken),
+    ])
 
-    // Pre-fill with existing player stats data if provided
+    // Pre-fill with existing player stats data if provided. Must run AFTER
+    // init — init installs dropdowns/data-validation on the same cells the
+    // prefill writes to, and a value that lands before its validator
+    // exists can be silently rejected by the strict-dropdown rule. Once
+    // init is done both prefills can race against each other (different
+    // tabs, different ranges).
     if (existingData) {
-      await prefillPlayerStatsData(sheet.spreadsheetId, accessToken, existingData)
-      await prefillUnifiedAITab(sheet.spreadsheetId, accessToken, existingData)
+      await Promise.all([
+        prefillPlayerStatsData(sheet.spreadsheetId, accessToken, existingData),
+        prefillUnifiedAITab(sheet.spreadsheetId, accessToken, existingData),
+      ])
     }
-
-    // Share sheet publicly for embedding
-    await shareSheetPublicly(sheet.spreadsheetId, accessToken)
 
     return {
       spreadsheetId: sheet.spreadsheetId,
@@ -12017,16 +12030,18 @@ export async function createScoringSummarySheet(homeTeamAbbr, awayTeamAbbr, year
     const sheet = await response.json()
     const sheetId = sheet.sheets[0].properties.sheetId
 
-    // Initialize with headers, formatting, and dropdowns
-    await initializeScoringSummarySheet(sheet.spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, homeRoster, awayRoster, dynastyTeams)
+    // Init (headers / formatting / dropdowns) and the public-share grant
+    // hit different API surfaces and don't conflict — run them in parallel.
+    await Promise.all([
+      initializeScoringSummarySheet(sheet.spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, homeRoster, awayRoster, dynastyTeams),
+      shareSheetPublicly(sheet.spreadsheetId, accessToken),
+    ])
 
-    // Pre-fill with existing scoring data if provided
+    // Prefill must run AFTER init so the strict dropdowns are in place
+    // before any data lands in those cells.
     if (existingData && existingData.length > 0) {
       await prefillScoringSummaryData(sheet.spreadsheetId, accessToken, existingData)
     }
-
-    // Share sheet publicly for embedding
-    await shareSheetPublicly(sheet.spreadsheetId, accessToken)
 
     return {
       spreadsheetId: sheet.spreadsheetId,
@@ -12326,8 +12341,12 @@ export async function readGameBoxScoreFromSheet(spreadsheetId, dynastyTeams = nu
     const accessToken = await getAccessToken()
     const boxScore = {}
 
-    // Read each tab
-    for (const key of STAT_TAB_ORDER) {
+    // Fire all 9 stat-tab reads AND the unified-tab read in parallel.
+    // Previously this was a sequential for-loop (9 stacked round-trips),
+    // followed by the unified read — totalling ~10 serial round-trips
+    // every time the user clicked Sync. Parallel collapses that to one
+    // round-trip's worth of latency.
+    const tabReadPromises = STAT_TAB_ORDER.map(async (key) => {
       const tab = STAT_TABS[key]
       const range = `'${tab.title}'!A2:${String.fromCharCode(65 + tab.headers.length - 1)}${tab.rowCount + 1}`
 
@@ -12341,19 +12360,17 @@ export async function readGameBoxScoreFromSheet(spreadsheetId, dynastyTeams = nu
       )
 
       if (!response.ok) {
-        const error = await response.json()
+        const error = await response.json().catch(() => ({}))
         console.error(`Failed to read ${tab.title}:`, error)
-        boxScore[key] = []
-        continue
+        return { key, rows: [] }
       }
 
       const data = await response.json()
-      const rows = data.values || []
+      const rawRows = data.values || []
 
       const headerToKey = buildHeaderKeyMap(key, tab.headers)
 
-      // Parse rows into objects using headers
-      boxScore[key] = rows
+      const rows = rawRows
         .filter(row => row[0]) // Must have player name
         .map(row => {
           const entry = {}
@@ -12368,23 +12385,32 @@ export async function readGameBoxScoreFromSheet(spreadsheetId, dynastyTeams = nu
           })
           return entry
         })
+
+      return { key, rows }
+    })
+
+    // readGameBoxScoreFromUnifiedTab already swallows its own errors and
+    // returns null on failure (the catch inside its function), so it's
+    // safe to await alongside the tab reads via Promise.all.
+    const [tabResults, unified] = await Promise.all([
+      Promise.all(tabReadPromises),
+      readGameBoxScoreFromUnifiedTab(spreadsheetId),
+    ])
+
+    for (const { key, rows } of tabResults) {
+      boxScore[key] = rows
     }
 
     // Merge in data from the AI All-In-One unified tab. If a section has
     // data in the unified tab, prefer it (the user pasted there); otherwise
     // keep what came from the dedicated tab.
-    try {
-      const unified = await readGameBoxScoreFromUnifiedTab(spreadsheetId)
-      if (unified) {
-        for (const key of STAT_TAB_ORDER) {
-          const unifiedRows = unified[key]
-          if (Array.isArray(unifiedRows) && unifiedRows.length > 0) {
-            boxScore[key] = unifiedRows
-          }
+    if (unified) {
+      for (const key of STAT_TAB_ORDER) {
+        const unifiedRows = unified[key]
+        if (Array.isArray(unifiedRows) && unifiedRows.length > 0) {
+          boxScore[key] = unifiedRows
         }
       }
-    } catch (e) {
-      // Unified tab may not exist on legacy sheets — fine, we already have 9-tab data.
     }
 
     return boxScore
@@ -12522,16 +12548,17 @@ export async function createGameTeamStatsSheet(homeTeamAbbr, awayTeamAbbr, year,
     // Get the sheet ID for the single tab
     const sheetId = sheet.sheets[0].properties.sheetId
 
-    // Initialize the tab with headers, stat labels, and formatting
-    await initializeTeamStatsSheet(sheet.spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, dynastyTeams)
+    // Init and the public-share grant hit different APIs; run in parallel.
+    await Promise.all([
+      initializeTeamStatsSheet(sheet.spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, dynastyTeams),
+      shareSheetPublicly(sheet.spreadsheetId, accessToken),
+    ])
 
-    // Pre-fill with existing team stats data if provided
+    // Prefill runs after init for the same dropdown-ordering reason as the
+    // other game sheets.
     if (existingData && (existingData.home || existingData.away)) {
       await prefillTeamStatsData(sheet.spreadsheetId, accessToken, existingData)
     }
-
-    // Share sheet publicly for embedding
-    await shareSheetPublicly(sheet.spreadsheetId, accessToken)
 
     return {
       spreadsheetId: sheet.spreadsheetId,
