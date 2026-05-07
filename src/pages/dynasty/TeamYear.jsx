@@ -4176,8 +4176,11 @@ export default function TeamYear() {
       {/* STATS TAB */}
       {activeTab === 'stats' && (
         <div className="space-y-4">
-          {/* Player/Team Sub-tabs + Edit Buttons */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          {/* Sub-tabs row + edit buttons share a single row at every
+              breakpoint so the edit controls don't sit alone on a band
+              of mobile vertical space. Mobile uses compact button labels
+              (GP / Detailed); desktop spells them out. */}
+          <div className="flex items-center justify-between gap-2">
             <div className="flex border-b border-surface-4">
               {[
                 { key: 'player', label: 'Player' },
@@ -4204,28 +4207,35 @@ export default function TeamYear() {
                 )
               })}
             </div>
-            {/* Edit Buttons - only show for non-view-only */}
             {!isViewOnly && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 <button
                   onClick={() => setShowStatsEntryModal(true)}
-                  className="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all press"
+                  className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-semibold transition-colors"
                   style={{
                     backgroundColor: teamInfo.backgroundColor,
                     color: teamBgText
                   }}
                 >
-                  Edit GP/Snaps
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  <span className="sm:hidden">GP</span>
+                  <span className="hidden sm:inline">Edit GP/Snaps</span>
                 </button>
                 <button
                   onClick={() => setShowDetailedStatsModal(true)}
-                  className="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all press"
+                  className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-semibold transition-colors"
                   style={{
                     backgroundColor: teamInfo.backgroundColor,
                     color: teamBgText
                   }}
                 >
-                  Edit Detailed Stats
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  <span className="sm:hidden">Detailed</span>
+                  <span className="hidden sm:inline">Edit Detailed Stats</span>
                 </button>
               </div>
             )}
@@ -4747,19 +4757,31 @@ export default function TeamYear() {
 
       {/* SCHEDULE TAB */}
       {activeTab === 'schedule' && (
-        <div className="space-y-4">
-          {/* Schedule action bar — edit button for this team's schedule.
-              Available on any team (not just the user's), so a coach
-              can populate Florida's schedule from Florida's page. */}
-          {!isViewOnly && (
-            <div className="flex items-center justify-end gap-3 flex-wrap px-1">
+        <div className="space-y-3">
+          {/* Section header — eyebrow + count on the left, edit button
+              inline on the right. Replaces the prior standalone
+              edit-button row that ate a full vertical band for one
+              button. Mirrors the recruiting / departures tab section
+              headers for visual consistency across the team page. */}
+          <div className="flex items-center justify-between gap-3 px-1">
+            <div className="flex items-baseline gap-2">
+              <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
+                Schedule
+              </span>
+              {teamYearGames.length > 0 && (
+                <span className="label-xs tabular-nums text-txt-muted" style={{ letterSpacing: '1.5px' }}>
+                  {teamYearGames.length}
+                </span>
+              )}
+            </div>
+            {!isViewOnly && (
               <button
                 type="button"
                 onClick={() => setShowScheduleModal(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors"
                 style={{
                   backgroundColor: teamInfo.backgroundColor,
-                  color: teamInfo.textColor,
+                  color: teamBgText,
                 }}
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4767,8 +4789,8 @@ export default function TeamYear() {
                 </svg>
                 {teamYearGames.length > 0 ? 'Edit Schedule' : 'Enter Schedule'}
               </button>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Schedule - shows games played by this team this year */}
           {teamYearGames.length > 0 && (
