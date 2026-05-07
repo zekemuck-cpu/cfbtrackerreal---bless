@@ -1929,11 +1929,11 @@ export default function GameEdit() {
         )}
       </Card>
 
-      {/* Photos — bulk upload to Firebase Storage. Each picked file is
-          uploaded in parallel; thumbnails are appended progressively
-          (one by one as each upload settles) so the user sees forward
-          progress instead of waiting on a static spinner for a long
-          batch. The Game page surfaces these in a "Photos" tab gallery. */}
+      {/* Photos — bulk upload to imgbb. Each picked file is uploaded
+          in parallel; thumbnails are appended progressively (one by
+          one as each upload settles) so the user sees forward progress
+          instead of waiting on a static spinner for a long batch. The
+          Game page surfaces these in a "Photos" tab gallery. */}
       <Card>
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
           <h3 className="label-sm text-txt-primary">Photos</h3>
@@ -1944,7 +1944,7 @@ export default function GameEdit() {
           </span>
         </div>
         <p className="text-xs text-txt-tertiary mb-3">
-          Upload one or many photos at once — each one is hosted on Firebase Storage and shows up under the Photos tab on the game page.
+          Upload one or many photos at once — each one is hosted on imgbb and shows up under the Photos tab on the game page.
         </p>
 
         <label
