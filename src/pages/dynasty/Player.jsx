@@ -19,6 +19,7 @@ import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
 import InlineScoringHighlights from '../../components/InlineScoringHighlights'
 import { getPlayerGameLog } from '../../utils/boxScoreAggregator'
 import { sortPlaysChronologically } from '../../utils/scoringPlayOrder'
+import { healPlayer, PLAYER_HEAL_VERSION } from '../../utils/playerHeal'
 import { buildTimelineEvents, eventsForYear, labelForEventKind } from '../../utils/playerTimeline'
 
 // Load premium fonts
@@ -265,7 +266,18 @@ function PlayerInner() {
   const dynasty = dynastyId
     ? (currentDynasty?.id === dynastyId ? currentDynasty : dynasties.find(d => d.id === dynastyId))
     : currentDynasty
-  const player = dynasty?.players?.find(p => p.pid === parseInt(pid))
+  const rawPlayer = dynasty?.players?.find(p => p.pid === parseInt(pid))
+  // In-memory heal so render can't choke on legacy / malformed shapes
+  // (the actual #31 trigger that the PlayerErrorBoundary catches).
+  // Skipped entirely once `_v2HealVersion` matches — a single string
+  // compare. The persist write happens in a useEffect below; this hook
+  // just hands the renderer a sanitized copy on every mount.
+  const player = useMemo(() => {
+    if (!rawPlayer) return rawPlayer
+    if (rawPlayer._v2HealVersion === PLAYER_HEAL_VERSION) return rawPlayer
+    const { player: healed, changed } = healPlayer(rawPlayer)
+    return changed ? healed : rawPlayer
+  }, [rawPlayer])
 
 // True only while the player is a committed recruit who hasn't yet
   // joined the roster. Once they have a teamsByYear entry for the
@@ -454,6 +466,35 @@ function PlayerInner() {
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [pid])
+
+  // Per-player heal — runs once per player per heal-version, on first
+  // profile mount after the version bumps. Sanitizes the shapes most
+  // commonly responsible for the "We couldn't render this player" error
+  // (malformed movementByYear / teamsByYear / teamHistory). Idempotent:
+  // a clean record passes through `healPlayer` unchanged and the only
+  // write that happens is a one-byte flag stamp so the next mount can
+  // skip the walk entirely.
+  //
+  // View-only sessions skip the write — we still benefit from the
+  // in-memory sanitization on this render, but we don't mutate someone
+  // else's dynasty just because we read it.
+  useEffect(() => {
+    if (!player || !dynasty?.id || isViewOnly) return
+    if (player._v2HealVersion === PLAYER_HEAL_VERSION) return
+    const { player: healed, changed } = healPlayer(player)
+    const next = { ...(changed ? healed : player), _v2HealVersion: PLAYER_HEAL_VERSION }
+    // Fire-and-forget — render path uses the in-memory `player` so we
+    // don't need to await the write; the flag will land before the next
+    // mount.
+    updatePlayer(dynasty.id, next).catch(err => {
+      console.warn('[Player] heal write failed (will retry on next view)', err)
+    })
+    // Deps narrowed to identity + version: updatePlayer / isViewOnly are
+    // re-created on every DynastyProvider render and would otherwise
+    // refire this effect (and the write) on every keystroke elsewhere
+    // in the tree. Once the version flag matches we bail at the top.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [player?.pid, dynasty?.id, player?._v2HealVersion])
 
   // These useMemo hooks MUST be before early returns to maintain consistent hook order
   const playerGameLog = useMemo(() => {

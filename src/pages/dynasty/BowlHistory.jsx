@@ -250,43 +250,11 @@ export default function BowlHistory() {
     return results.sort((a, b) => b.year - a.year)
   }
 
-  const getTotalBowlGames = () => {
-    const games = currentDynasty.games || []
-    return games.filter(g => {
-      const gameType = detectGameType(g)
-      const isBowlType = gameType === GAME_TYPES.BOWL ||
-                         gameType === GAME_TYPES.CFP_QUARTERFINAL ||
-                         gameType === GAME_TYPES.CFP_SEMIFINAL ||
-                         gameType === GAME_TYPES.CFP_CHAMPIONSHIP
-      const isPlayed = g.isPlayed || g.team1Score > 0 || g.team2Score > 0
-      return isBowlType && isPlayed
-    }).length
-  }
-
   const getWinner = (game) => {
     if (!game.team1Score && game.team1Score !== 0) return null
     if (!game.team2Score && game.team2Score !== 0) return null
     return game.team1Score > game.team2Score ? game.team1 : game.team2
   }
-
-  const totalBowlGames = getTotalBowlGames()
-
-  // Distinct bowls that have at least one game played — gives the page
-  // a second stat tile next to total games.
-  const distinctBowlsPlayed = (() => {
-    const games = currentDynasty.games || []
-    const set = new Set()
-    games.forEach(g => {
-      const gameType = detectGameType(g)
-      const isBowlType = gameType === GAME_TYPES.BOWL ||
-        gameType === GAME_TYPES.CFP_QUARTERFINAL ||
-        gameType === GAME_TYPES.CFP_SEMIFINAL ||
-        gameType === GAME_TYPES.CFP_CHAMPIONSHIP
-      const isPlayed = g.isPlayed || g.team1Score > 0 || g.team2Score > 0
-      if (isBowlType && isPlayed && g.bowlName) set.add(g.bowlName)
-    })
-    return set.size
-  })()
 
   // User team identity for highlighting bowl wins. tid is the stable id;
   // we keep abbr around for legacy bowl rows that only carry abbreviations.
@@ -333,46 +301,6 @@ export default function BowlHistory() {
           )}
         </div>
       </PageHero>
-
-      <div
-        className="grid grid-cols-2 gap-2 sm:gap-3"
-        style={{ marginBottom: '4px' }}
-      >
-        <div
-          className="px-3 py-2.5 rounded-lg bg-surface-2 flex flex-col gap-0.5"
-          style={{ border: '1px solid var(--surface-4)' }}
-        >
-          <span
-            className="label-xs text-txt-tertiary"
-            style={{ letterSpacing: '1.5px', fontSize: '9px', fontWeight: 700 }}
-          >
-            BOWLS PLAYED
-          </span>
-          <span
-            className="font-display font-black tabular text-txt-primary leading-none"
-            style={{ fontSize: 'clamp(20px, 3vw, 28px)' }}
-          >
-            {totalBowlGames}
-          </span>
-        </div>
-        <div
-          className="px-3 py-2.5 rounded-lg bg-surface-2 flex flex-col gap-0.5"
-          style={{ border: '1px solid var(--surface-4)' }}
-        >
-          <span
-            className="label-xs text-txt-tertiary"
-            style={{ letterSpacing: '1.5px', fontSize: '9px', fontWeight: 700 }}
-          >
-            DISTINCT BOWLS
-          </span>
-          <span
-            className="font-display font-black tabular text-txt-primary leading-none"
-            style={{ fontSize: 'clamp(20px, 3vw, 28px)' }}
-          >
-            {distinctBowlsPlayed}
-          </span>
-        </div>
-      </div>
 
       <div className="space-y-2">
         {filteredBowls.map(bowlName => {

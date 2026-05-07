@@ -2489,11 +2489,16 @@ export default function TeamYear() {
                 )}
               </div>
             )}
+            {/* Postseason badges row — wrapped in a single flex container
+                with gap so the chips lay out with consistent spacing
+                (mobile and desktop) instead of each chip carrying its
+                own mt-2 / sm:ml-2 and stacking unevenly. */}
+            <div className="flex flex-wrap items-center gap-2 mt-2 empty:hidden">
             {/* Postseason Result Badge - all CFP badges link to CFP Bracket */}
             {cfpResult === 'champion' && (
               <Link
                 to={`${pathPrefix}/cfp-bracket/${selectedYear}`}
-                className="inline-flex items-center gap-2 mt-2 px-3 py-1.5 rounded-full text-sm font-bold hover:opacity-90 transition-opacity cursor-pointer"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-bold hover:opacity-90 transition-opacity cursor-pointer"
                 style={{
                   background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
                   color: '#78350f',
@@ -2511,7 +2516,7 @@ export default function TeamYear() {
             {cfpResult === 'lost-championship' && (
               <Link
                 to={`${pathPrefix}/cfp-bracket/${selectedYear}`}
-                className="inline-flex items-center gap-1.5 mt-2 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-bold hover:opacity-90 transition-opacity cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-bold hover:opacity-90 transition-opacity cursor-pointer"
                 style={{ backgroundColor: '#c0c0c0', color: '#1f2937' }}
               >
                 🥈 Championship Game
@@ -2520,7 +2525,7 @@ export default function TeamYear() {
             {cfpResult === 'lost-semifinal' && (
               <Link
                 to={`${pathPrefix}/cfp-bracket/${selectedYear}`}
-                className="inline-flex items-center gap-1.5 mt-2 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-bold hover:opacity-90 transition-opacity cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-bold hover:opacity-90 transition-opacity cursor-pointer"
                 style={{ backgroundColor: '#d1d5db', color: '#374151' }}
               >
                 Made CFP Semifinals
@@ -2529,7 +2534,7 @@ export default function TeamYear() {
             {cfpResult === 'lost-quarterfinal' && (
               <Link
                 to={`${pathPrefix}/cfp-bracket/${selectedYear}`}
-                className="inline-flex items-center gap-1.5 mt-2 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-bold hover:opacity-90 transition-opacity cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-bold hover:opacity-90 transition-opacity cursor-pointer"
                 style={{ backgroundColor: '#e5e7eb', color: '#4b5563' }}
               >
                 Made CFP Quarterfinals
@@ -2538,7 +2543,7 @@ export default function TeamYear() {
             {cfpResult === 'lost-first-round' && (
               <Link
                 to={`${pathPrefix}/cfp-bracket/${selectedYear}`}
-                className="inline-flex items-center gap-1.5 mt-2 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-bold hover:opacity-90 transition-opacity cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-bold hover:opacity-90 transition-opacity cursor-pointer"
                 style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-tertiary)' }}
               >
                 Made CFP First Round
@@ -2564,7 +2569,7 @@ export default function TeamYear() {
               return (
                 <Link
                   to={`${pathPrefix}/game/${bowlGameId}`}
-                  className="inline-flex items-center gap-1.5 mt-2 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-bold hover:opacity-90 transition-opacity cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-bold hover:opacity-90 transition-opacity cursor-pointer"
                   style={{
                     backgroundColor: wonBowl ? '#16a34a' : '#dc2626',
                     color: '#ffffff'
@@ -2599,7 +2604,7 @@ export default function TeamYear() {
               return (
                 <Link
                   to={`${pathPrefix}/game/${ccGameId}`}
-                  className="inline-flex items-center gap-1 sm:gap-2 mt-2 sm:ml-2 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-bold hover:opacity-90 transition-opacity cursor-pointer"
+                  className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-bold hover:opacity-90 transition-opacity cursor-pointer"
                   style={{
                     backgroundColor: '#fbbf24',
                     color: '#78350f'
@@ -2616,41 +2621,28 @@ export default function TeamYear() {
                 </Link>
               )
             })()}
-            {/* Bowl Game Badge - only show clickable version if in CFP (otherwise shown above) */}
+            {/* Intentionally NO chip here when cfpResult AND teamBowlGame
+                both exist. A real CFB team plays exactly one postseason
+                game (CFP or a non-CFP bowl, never both), so the
+                combination is a data-integrity signal — usually that a
+                bowl record was entered with the wrong team's tid. The
+                most common collision is Miami Hurricanes (tid 56) vs
+                Miami Redhawks (tid 53): both strip to "Miami" so an AI
+                pasting bowl results can pick the wrong one. We surface
+                that to the console so it's debuggable, but we don't
+                render a contradictory Bowl chip alongside the CFP chip. */}
             {cfpResult && teamBowlGame && (() => {
-              // Try to find actual game ID from games[] array if not set
-              let bowlGameId = teamBowlGame.id
-              if (!bowlGameId && teamBowlGame.bowlName) {
-                const matchingGame = (currentDynasty.games || []).find(g =>
-                  (g.isBowlGame || g.gameType === GAME_TYPES.BOWL) &&
-                  isSameYear(g.year, selectedYear) &&
-                  g.bowlName === teamBowlGame.bowlName
+              if (typeof console !== 'undefined' && console.warn) {
+                console.warn(
+                  `[TeamYear] ${teamInfo?.name || `tid ${tid}`} in ${selectedYear}: ` +
+                  `cfpResult="${cfpResult}" but a non-CFP bowl is also linked ` +
+                  `(${teamBowlGame.bowlName || 'unknown bowl'}). This usually means ` +
+                  `the bowl record has the wrong tid — common with Miami (FL/OH).`
                 )
-                bowlGameId = matchingGame?.id
               }
-              if (!bowlGameId) {
-                bowlGameId = `bowl-${selectedYear}-${(teamBowlGame.bowlName || 'bowl').toLowerCase().replace(/\s+/g, '-')}`
-              }
-              return (
-                <Link
-                  to={`${pathPrefix}/game/${bowlGameId}`}
-                  className="inline-flex items-center gap-1 sm:gap-1.5 mt-2 sm:ml-2 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-bold hover:opacity-90 transition-opacity cursor-pointer"
-                  style={{
-                    backgroundColor: wonBowl ? '#16a34a' : '#dc2626',
-                    color: '#ffffff'
-                  }}
-                >
-                  {bowlLogos[teamBowlGame.bowlName] && (
-                    <img
-                      src={bowlLogos[teamBowlGame.bowlName]}
-                      alt=""
-                      className="w-3 h-3 sm:w-4 sm:h-4 object-contain"
-                    />
-                  )}
-                  <span className="truncate max-w-[120px] sm:max-w-none">{teamBowlGame.bowlName || 'Bowl Game'}{wonBowl ? ' Champion' : ''}</span>
-                </Link>
-              )
+              return null
             })()}
+            </div>
           </div>
 
           {/* Ratings and Record Section (desktop only - mobile shown above) */}
