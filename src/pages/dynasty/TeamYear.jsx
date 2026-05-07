@@ -2785,7 +2785,11 @@ export default function TeamYear() {
         </div>
       </div>
 
-      {/* Tab Navigation — single sliding underline */}
+      {/* Tab Navigation — single sliding underline. Departures tab
+          is hidden when this team has nothing to show for the year
+          (most commonly the current season before the leaving sheet
+          is filled in) so it doesn't clutter the bar with an empty
+          page the user can't usefully navigate to. */}
       <TabBar
         tabs={[
           { key: 'home', label: 'Home' },
@@ -2793,7 +2797,7 @@ export default function TeamYear() {
           { key: 'stats', label: 'Stats' },
           { key: 'roster', label: 'Roster' },
           { key: 'recruiting', label: 'Recruiting' },
-          { key: 'departures', label: 'Departures' },
+          ...(departures.length > 0 ? [{ key: 'departures', label: 'Departures' }] : []),
           { key: 'history', label: 'History' }
         ]}
         activeKey={activeTab}
