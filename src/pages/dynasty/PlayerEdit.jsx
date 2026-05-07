@@ -1704,8 +1704,32 @@ export default function PlayerEdit() {
                   )
                 }
 
-                // Movement after a season
-                const movement = formData.movementByYear?.[year] || formData.movementByYear?.[String(year)] || {}
+                // Movement after a season. Apply the same read-time
+                // reclassification we do on the team Departures view:
+                // a generic { type:'departure', departure:'transfer_out',
+                // toTid:null, reason:null } stub on a year that the
+                // player was actually drafted in (player.draftYear
+                // matches) is a leftover from the legacy leaving-sheet
+                // clobber bug. Surface as the right outcome here so
+                // the dropdown shows "Declared for Draft" / "Graduated"
+                // even before the heal has persisted the canonical
+                // shape back to storage.
+                const rawMovement = formData.movementByYear?.[year] || formData.movementByYear?.[String(year)] || {}
+                let movement = rawMovement
+                const isGenericPortalStub =
+                  rawMovement?.type === 'departure'
+                  && rawMovement?.departure === 'transfer_out'
+                  && rawMovement?.toTid == null
+                  && (rawMovement?.reason == null || rawMovement?.reason === '')
+                if (isGenericPortalStub) {
+                  const playerDraftYear = Number(formData.draftYear)
+                  const yearClass = formData.classByYear?.[year] ?? formData.classByYear?.[String(year)]
+                  if (Number.isFinite(playerDraftYear) && playerDraftYear === Number(year)) {
+                    movement = { type: 'departure', departure: 'pro_draft' }
+                  } else if (yearClass === 'Sr' || yearClass === 'RS Sr') {
+                    movement = { type: 'departure', departure: 'graduated' }
+                  }
+                }
                 const rawType = movement.type || ''
                 const movementType = normalizeMovementType(rawType, movement)
                 // Canonical 'departure/transfer_out' uses .toTid; legacy

@@ -1468,11 +1468,41 @@ export default function TeamYear() {
       if (entry?.pid != null) leavingByPid.set(entry.pid, entry)
     }
 
+    // Read-time reclassifier — same heuristic as playerHeal but applied
+    // here so the view is correct independent of whether the heal has
+    // persisted yet. Generic transfer_out stubs (no destination, no
+    // reason) are upgraded to pro_draft when the player has a draftYear
+    // matching the row, or to graduated when the player's class for the
+    // year was Sr / RS Sr.
+    const isGenericPortalStub = (m) =>
+      m && m.type === 'departure' && m.departure === 'transfer_out'
+      && m.toTid == null && (m.reason == null || m.reason === '')
+
+    const draftRoundFromPlayer = (p) => p.draftRound != null ? p.draftRound : null
+
     const out = []
     for (const p of teamPlayers) {
-      const mv = p.movementByYear?.[selectedYear] ?? p.movementByYear?.[String(selectedYear)]
+      const rawMv = p.movementByYear?.[selectedYear] ?? p.movementByYear?.[String(selectedYear)]
+
       // Recommit — explicitly came back, not a departure.
-      if (mv?.type === 'recommit') continue
+      if (rawMv?.type === 'recommit') continue
+
+      // Apply read-time reclassification. This is purely a view-layer
+      // upgrade — the underlying record is untouched.
+      let mv = rawMv
+      if (isGenericPortalStub(rawMv)) {
+        const playerDraftYear = Number(p.draftYear)
+        const yearClass = p.classByYear?.[selectedYear] ?? p.classByYear?.[String(selectedYear)]
+        if (Number.isFinite(playerDraftYear) && playerDraftYear === selectedYear) {
+          mv = {
+            type: 'departure',
+            departure: 'pro_draft',
+            ...(p.draftRound != null ? { draftRound: p.draftRound } : {}),
+          }
+        } else if (yearClass === 'Sr' || yearClass === 'RS Sr') {
+          mv = { type: 'departure', departure: 'graduated' }
+        }
+      }
 
       // Destination next year (for confirmed transfers).
       const nextYearTid = p.teamsByYear?.[nextYear] ?? p.teamsByYear?.[String(nextYear)]
@@ -1494,11 +1524,12 @@ export default function TeamYear() {
       if (mv?.type === 'departure' && mv?.departure === 'pro_draft') {
         category = 'pro_draft'
         label = 'NFL Draft'
-        if (mv.draftRound) {
+        const dr = mv.draftRound != null ? mv.draftRound : draftRoundFromPlayer(p)
+        if (dr) {
           // Normalize to "Nth Round Pick". draftRound usually arrives as
           // "6th Round" already (from the draft sheet) but legacy values
           // like "6" or "6th" can show up too — handle both shapes.
-          const raw = String(mv.draftRound).trim()
+          const raw = String(dr).trim()
           const hasRound = /round/i.test(raw)
           reason = hasRound ? `${raw} Pick` : `${raw} Round Pick`
         }
