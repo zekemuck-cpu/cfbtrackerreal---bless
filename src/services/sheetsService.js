@@ -9,6 +9,33 @@ import { isPlayerOnRoster, getPlayerClassForYear } from '../context/DynastyConte
 const SHEETS_API_BASE = 'https://sheets.googleapis.com/v4/spreadsheets'
 const DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3/files'
 
+// Default timeout for any single Google API call. Without a timeout,
+// a stalled connection can hang the modal for minutes and present as
+// "the sheet never loads". 30s is generous for healthy API calls and
+// short enough that the user gets a real error to retry. Override per
+// call via the `timeoutMs` option when an operation legitimately needs
+// longer (large prefills can run ~20s under load).
+const DEFAULT_FETCH_TIMEOUT_MS = 30000
+
+// Wrapper around fetch() that aborts the request after `timeoutMs` and
+// throws a clear "Request timed out" error instead of letting the modal
+// spin indefinitely. Caller still owns retry/error handling.
+async function fetchWithTimeout(url, init = {}, { timeoutMs = DEFAULT_FETCH_TIMEOUT_MS, label } = {}) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      const tag = label ? ` (${label})` : ''
+      throw new Error(`Google API request timed out after ${Math.round(timeoutMs / 1000)}s${tag}. Try again.`)
+    }
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 // Get the current user's OAuth access token
 async function getAccessToken() {
   // Try to get from localStorage first
@@ -30,7 +57,7 @@ async function getAccessToken() {
 // This is required for embedding sheets in iframes since iframes can't share auth cookies
 async function shareSheetPublicly(spreadsheetId, accessToken) {
   try {
-    const response = await fetch(`${DRIVE_API_BASE}/${spreadsheetId}/permissions`, {
+    const response = await fetchWithTimeout(`${DRIVE_API_BASE}/${spreadsheetId}/permissions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -60,7 +87,7 @@ export async function createDynastySheet(dynastyName, coachName, year) {
     const accessToken = await getAccessToken()
 
     // Create the spreadsheet
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -944,7 +971,7 @@ async function initializeSheetHeaders(spreadsheetId, accessToken, scheduleSheetI
       }
     })
 
-    const response = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+    const response = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -973,7 +1000,7 @@ export async function createScheduleSheet(dynastyName, year, userTeamName, exist
     const accessToken = await getAccessToken()
 
     // Create the spreadsheet with just Schedule tab
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -1030,7 +1057,7 @@ export async function createRosterSheet(dynastyName, year) {
     const accessToken = await getAccessToken()
 
     // Create the spreadsheet with just Roster tab
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -1308,7 +1335,7 @@ async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleS
     const cpuTeamFormattingRules = generateTeamFormattingRules(scheduleSheetId, 2, dynastyTeams)
     requests.push(...cpuTeamFormattingRules)
 
-    const response = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+    const response = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -1671,7 +1698,7 @@ async function initializeRosterSheetOnly(spreadsheetId, accessToken, rosterSheet
       }
     ]
 
-    const response = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+    const response = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -1699,7 +1726,7 @@ export async function readScheduleFromScheduleSheet(spreadsheetId, dynastyTeams 
     // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/Schedule!A2:D100`,
       {
         headers: {
@@ -1754,7 +1781,7 @@ export async function readRosterFromRosterSheet(spreadsheetId) {
     // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/Roster!A2:M100`,
       {
         headers: {
@@ -1857,7 +1884,7 @@ export async function prefillRosterSheet(spreadsheetId, players) {
     if (rosterValues.length === 0) return
 
     // Write roster data starting at row 2 (after header)
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/Roster!A2:M${rosterValues.length + 1}?valueInputOption=RAW`,
       {
         method: 'PUT',
@@ -1905,7 +1932,7 @@ export async function readScheduleFromSheet(spreadsheetId, dynastyTeams = null) 
     // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/Schedule!A2:D100`,
       {
         headers: {
@@ -1967,7 +1994,7 @@ export async function deleteGoogleSheet(spreadsheetId) {
     // Use Drive API to trash the file
     const url = `${DRIVE_API_BASE}/${spreadsheetId}`
 
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -2016,7 +2043,7 @@ export async function sheetExists(spreadsheetId) {
   if (!spreadsheetId) return false
   try {
     const accessToken = await getAccessToken()
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${DRIVE_API_BASE}/${spreadsheetId}?fields=id,trashed`,
       { headers: { 'Authorization': `Bearer ${accessToken}` } }
     )
@@ -2043,7 +2070,7 @@ export async function restoreGoogleSheet(spreadsheetId) {
     // Use Drive API to untrash the file
     const url = `${DRIVE_API_BASE}/${spreadsheetId}`
 
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -2080,7 +2107,7 @@ export async function readRosterFromSheet(spreadsheetId, dynastyTeams = null) {
     // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/Roster!A2:M100`,
       {
         headers: {
@@ -2331,7 +2358,7 @@ export async function createConferenceChampionshipSheet(dynastyName, year, exclu
     }
 
     // Create the spreadsheet
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -2647,7 +2674,7 @@ async function initializeConferenceChampionshipSheet(spreadsheetId, accessToken,
   ]
 
   // Execute batch update
-  const batchResponse = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+  const batchResponse = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -2669,7 +2696,7 @@ export async function readConferenceChampionshipsFromSheet(spreadsheetId, dynast
     console.log('[readCCSheet] Reading from spreadsheet:', spreadsheetId)
     const accessToken = await getAccessToken()
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/Conference Championships!A2:E11`,
       {
         headers: {
@@ -2842,7 +2869,7 @@ export async function createBowlWeek1Sheet(dynastyName, year, cfpSeeds = [], exc
     const rowCount = bowlGames.length
 
     // Create the spreadsheet
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -3183,7 +3210,7 @@ async function initializeBowlWeek1Sheet(spreadsheetId, accessToken, sheetId, bow
   ]
 
   // Execute batch update
-  const batchResponse = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+  const batchResponse = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -3206,7 +3233,7 @@ export async function readBowlGamesFromSheet(spreadsheetId, dynastyTeams = null)
 
     const rowCount = BOWL_GAMES_WEEK_1.length
     console.log('[readBowlGamesFromSheet] Reading', rowCount, 'rows from sheet:', spreadsheetId)
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/Bowl Games!A2:E${rowCount + 1}`,
       {
         headers: {
@@ -3324,7 +3351,7 @@ export async function createWeeklyScoresSheet(dynastyName, year, week, existingG
     const accessToken = await getAccessToken()
     const sheetTitle = `Week ${week} Scores`
 
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -3580,7 +3607,7 @@ async function initializeWeeklyScoresSheet(spreadsheetId, accessToken, sheetId, 
     ...generateBowlTeamFormattingRules(sheetId, 3, rowCount, dynastyTeams),
   ]
 
-  const batchResponse = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+  const batchResponse = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -3601,7 +3628,7 @@ export async function readWeeklyScoresFromSheet(spreadsheetId, sheetTitle, dynas
     const accessToken = await getAccessToken()
     const range = `${sheetTitle}!A2:G${WEEKLY_SCORES_MAX_ROWS + 1}`
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`,
       { headers: { 'Authorization': `Bearer ${accessToken}` } }
     )
@@ -3726,7 +3753,7 @@ export async function createBowlWeek2Sheet(dynastyName, year, cfpSeeds = [], fir
     const rowCount = bowlGames.length
 
     // Create the spreadsheet
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -4047,7 +4074,7 @@ async function initializeBowlWeek2Sheet(spreadsheetId, accessToken, sheetId, bow
   ]
 
   // Execute batch update
-  const batchResponse = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+  const batchResponse = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -4069,7 +4096,7 @@ export async function readBowlWeek2GamesFromSheet(spreadsheetId, dynastyTeams = 
     const accessToken = await getAccessToken()
 
     const rowCount = BOWL_GAMES_WEEK_2.length
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/Bowl Games!A2:E${rowCount + 1}`,
       {
         headers: {
@@ -4136,7 +4163,7 @@ export async function createCFPSeedsSheet(dynastyName, year, existingSeeds = [],
     const accessToken = await getAccessToken()
 
     // Create the spreadsheet
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -4207,7 +4234,7 @@ async function prefillCFPSeedsData(spreadsheetId, accessToken, existingSeeds) {
   // Write values to column B (Team column) starting at row 2
   const range = `'CFP Seeds'!B2:B13`
 
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
     {
       method: 'PUT',
@@ -4390,7 +4417,7 @@ async function initializeCFPSeedsSheet(spreadsheetId, accessToken, sheetId, dyna
     ...teamFormattingRules
   ]
 
-  await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+  await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -4405,7 +4432,7 @@ export async function readCFPSeedsFromSheet(spreadsheetId, dynastyTeams = null) 
   try {
     const accessToken = await getAccessToken()
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/CFP Seeds!A2:B13`,
       {
         headers: {
@@ -4446,7 +4473,7 @@ export async function createCFPFirstRoundSheet(dynastyName, year, existingData =
     const accessToken = await getAccessToken()
 
     // Create the spreadsheet
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -4681,7 +4708,7 @@ async function initializeCFPFirstRoundSheet(spreadsheetId, accessToken, sheetId,
     ...generateBowlTeamFormattingRules(sheetId, 2, 4, dynastyTeams)
   ]
 
-  await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+  await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -4696,7 +4723,7 @@ export async function readCFPFirstRoundFromSheet(spreadsheetId, dynastyTeams = n
   try {
     const accessToken = await getAccessToken()
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/CFP First Round!A2:E5`,
       {
         headers: {
@@ -4754,7 +4781,7 @@ export async function createCFPQuarterfinalsSheet(dynastyName, year, cfpSeeds, f
     const accessToken = await getAccessToken()
 
     // Create the spreadsheet
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -4882,7 +4909,7 @@ async function initializeCFPQuarterfinalsSheet(spreadsheetId, accessToken, sheet
   })
 
   // Update values
-  const updateResponse = await fetch(
+  const updateResponse = await fetchWithTimeout(
     `${SHEETS_API_BASE}/${spreadsheetId}/values/CFP Quarterfinals!A1:F5?valueInputOption=RAW`,
     {
       method: 'PUT',
@@ -4901,7 +4928,7 @@ async function initializeCFPQuarterfinalsSheet(spreadsheetId, accessToken, sheet
   }
 
   // Format the sheet
-  await fetch(
+  await fetchWithTimeout(
     `${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`,
     {
       method: 'POST',
@@ -4979,7 +5006,7 @@ export async function readCFPQuarterfinalsFromSheet(spreadsheetId, dynastyTeams 
   try {
     const accessToken = await getAccessToken()
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/CFP Quarterfinals!A2:F5`,
       {
         headers: {
@@ -5105,7 +5132,7 @@ export async function createConferencesSheet(dynastyName, currentYear, conferenc
     }))
 
     // Create the spreadsheet with multiple year tabs
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -5376,7 +5403,7 @@ async function initializeConferencesSheet(spreadsheetId, accessToken, sheetId, s
   ]
 
   // Execute batch update
-  const batchResponse = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+  const batchResponse = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -5524,7 +5551,7 @@ export async function readConferencesFromSheet(spreadsheetId, dynastyTeams = nul
     const accessToken = await getAccessToken()
 
     // First, get spreadsheet metadata to find all sheet tabs
-    const metaResponse = await fetch(
+    const metaResponse = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}?fields=sheets.properties.title`,
       {
         headers: {
@@ -5548,7 +5575,7 @@ export async function readConferencesFromSheet(spreadsheetId, dynastyTeams = nul
     if (yearTabs.length === 0) {
       if (sheetTitles.includes('Conferences')) {
         // Legacy single-tab format - read it and return without year key
-        const response = await fetch(
+        const response = await fetchWithTimeout(
           `${SHEETS_API_BASE}/${spreadsheetId}/values/Conferences!A1:Z21`,
           {
             headers: {
@@ -5575,7 +5602,7 @@ export async function readConferencesFromSheet(spreadsheetId, dynastyTeams = nul
 
     for (const yearTab of yearTabs) {
       // Read up to 26 columns (A-Z) to handle any number of conferences
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `${SHEETS_API_BASE}/${spreadsheetId}/values/'${yearTab}'!A1:Z21`,
         {
           headers: {
@@ -5618,7 +5645,7 @@ export async function createStatsEntrySheet(dynastyName, year, players = []) {
 
     // Create the spreadsheet with Stats tab
     // 3 columns: Player (dropdown), Games Played, Snaps Played
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -5803,7 +5830,7 @@ async function initializeStatsEntrySheet(spreadsheetId, accessToken, sheetId, pl
   }
 
   // Execute all requests
-  const batchResponse = await fetch(
+  const batchResponse = await fetchWithTimeout(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
     {
       method: 'POST',
@@ -5832,7 +5859,7 @@ export async function readStatsFromSheet(spreadsheetId, dynastyTeams = null) {
 
     // Read all data from the GP/Snaps sheet (A-C: Player, GP, Snaps)
     const range = encodeURIComponent("'GP/Snaps'!A2:C200")
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
       {
         headers: {
@@ -5918,7 +5945,7 @@ export async function createDetailedStatsSheet(dynastyName, year, playerStats = 
     const rowCount = Math.max(playerStats.length + 1, 86)
 
     // Create the spreadsheet with all 9 tabs
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -6337,7 +6364,7 @@ async function initializeDetailedStatsTab(spreadsheetId, accessToken, sheetId, t
   }
 
   // Execute all requests
-  const batchResponse = await fetch(
+  const batchResponse = await fetchWithTimeout(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
     {
       method: 'POST',
@@ -6436,7 +6463,7 @@ export async function createConferenceStandingsSheet(year, existingStandings = {
     const totalRows = 1 + totalTeamRows + spacerRows // 1 header + 200 team rows + 9 spacers = 210
 
     // Create spreadsheet
-    const createResponse = await fetch(SHEETS_API_BASE, {
+    const createResponse = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -6637,7 +6664,7 @@ export async function createConferenceStandingsSheet(year, existingStandings = {
     requests.push(...generateTeamFormattingRulesForRange(sheetId, 2, 1, totalRows, dynastyTeams))
 
     // Execute all requests
-    const batchResponse = await fetch(
+    const batchResponse = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`,
       {
         method: 'POST',
@@ -6735,7 +6762,7 @@ async function prefillConferenceStandingsData(spreadsheetId, accessToken, existi
   }))
 
   // Execute batch update
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`,
     {
       method: 'POST',
@@ -6760,7 +6787,7 @@ export async function readConferenceStandingsFromSheet(spreadsheetId, dynastyTea
     const accessToken = await getAccessToken()
 
     // Read all data from the Standings tab
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/Standings!A2:G250`,
       {
         headers: {
@@ -6841,7 +6868,7 @@ export async function createFinalPollsSheet(year, existingPolls = {}, dynastyTea
     const accessToken = await getAccessToken()
 
     // Create spreadsheet with 26 rows (1 header + 25 teams)
-    const createResponse = await fetch(SHEETS_API_BASE, {
+    const createResponse = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -7017,7 +7044,7 @@ export async function createFinalPollsSheet(year, existingPolls = {}, dynastyTea
     requests.push(...generateTeamFormattingRulesForRange(sheetId, 1, 1, 26, dynastyTeams))
 
     // Execute all requests
-    const batchResponse = await fetch(
+    const batchResponse = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`,
       {
         method: 'POST',
@@ -7090,7 +7117,7 @@ async function prefillFinalPollsData(spreadsheetId, accessToken, sheetId, existi
   }))
 
   // Execute batch update
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`,
     {
       method: 'POST',
@@ -7117,7 +7144,7 @@ export async function readFinalPollsFromSheet(spreadsheetId, dynastyTeams = null
     const accessToken = await getAccessToken()
 
     // Read all data from the Polls tab (rank + Top 25 abbr)
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/Polls!A2:B26`,
       {
         headers: {
@@ -7215,7 +7242,7 @@ export async function createTeamStatsSheet(year, teamName, aggregatedStats = {})
     const numDefenseStats = TEAM_STATS_DEFENSE.length
 
     // Create spreadsheet with two tabs: Offense and Defense
-    const createResponse = await fetch(SHEETS_API_BASE, {
+    const createResponse = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -7398,7 +7425,7 @@ export async function createTeamStatsSheet(year, teamName, aggregatedStats = {})
     )
 
     // Execute all requests
-    const batchResponse = await fetch(
+    const batchResponse = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`,
       {
         method: 'POST',
@@ -7552,7 +7579,7 @@ export async function createAwardsSheet(currentYear, awardsByYear = {}, dynastyT
     }))
 
     // Create the spreadsheet
-    const createResponse = await fetch(`${SHEETS_API_BASE}`, {
+    const createResponse = await fetchWithTimeout(`${SHEETS_API_BASE}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -7813,7 +7840,7 @@ export async function createAwardsSheet(currentYear, awardsByYear = {}, dynastyT
     } // End of for loop over years
 
     // Execute batch update for formatting
-    const batchResponse = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+    const batchResponse = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -7870,7 +7897,7 @@ export async function createAwardsSheet(currentYear, awardsByYear = {}, dynastyT
       ]
 
       // Write to the year's tab
-      const valuesResponse = await fetch(
+      const valuesResponse = await fetchWithTimeout(
         `${SHEETS_API_BASE}/${spreadsheetId}/values/'${year}'!A1:${lastCol}${AWARDS_LIST.length + 1}?valueInputOption=RAW`,
         {
           method: 'PUT',
@@ -7911,7 +7938,7 @@ export async function readAwardsFromSheet(spreadsheetId, year, dynastyTeams = nu
     const lastCol = String.fromCharCode(65 + AWARDS_COLUMNS.length - 1)
 
     // Read all data rows from the specified year tab
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/'${year}'!A2:${lastCol}${AWARDS_LIST.length + 1}`,
       {
         headers: {
@@ -8024,7 +8051,7 @@ export async function createAllAmericansSheet(currentYear, allAmericansByYear = 
     }))
 
     // Create the spreadsheet with all year tabs
-    const createResponse = await fetch(`${SHEETS_API_BASE}`, {
+    const createResponse = await fetchWithTimeout(`${SHEETS_API_BASE}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -8417,7 +8444,7 @@ export async function createAllAmericansSheet(currentYear, allAmericansByYear = 
     } // End of for loop over years
 
     // Execute batch update for formatting (all tabs at once)
-    const batchResponse = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+    const batchResponse = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -8511,7 +8538,7 @@ export async function createAllAmericansSheet(currentYear, allAmericansByYear = 
       })
 
       // Write values to this year's tab
-      const valuesResponse = await fetch(
+      const valuesResponse = await fetchWithTimeout(
         `${SHEETS_API_BASE}/${spreadsheetId}/values/'${year}'!A1:L${totalRows}?valueInputOption=RAW`,
         {
           method: 'PUT',
@@ -8551,7 +8578,7 @@ export async function readAllAmericansFromSheet(spreadsheetId, year, dynastyTeam
     const numPositions = ALL_AMERICAN_POSITIONS.length
 
     // Read all data from the specified year tab
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/'${year}'!A1:L57`,
       {
         headers: {
@@ -8685,7 +8712,7 @@ export async function createAllAmericansOnlySheet(currentYear, allAmericansByYea
     }))
 
     // Create the spreadsheet with all year tabs
-    const createResponse = await fetch(`${SHEETS_API_BASE}`, {
+    const createResponse = await fetchWithTimeout(`${SHEETS_API_BASE}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -8911,7 +8938,7 @@ export async function createAllAmericansOnlySheet(currentYear, allAmericansByYea
 
     // Apply formatting
     if (requests.length > 0) {
-      await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+      await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -8999,7 +9026,7 @@ export async function createAllAmericansOnlySheet(currentYear, allAmericansByYea
     }
 
     // Write all values
-    await fetch(`${SHEETS_API_BASE}/${spreadsheetId}/values:batchUpdate`, {
+    await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}/values:batchUpdate`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -9033,7 +9060,7 @@ export async function readAllAmericansOnlyFromSheet(spreadsheetId, year, dynasty
     const numPositions = ALL_AMERICAN_POSITIONS.length
 
     // Read all data from the specified year tab (28 rows)
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/'${year}'!A1:L28`,
       {
         headers: {
@@ -9131,7 +9158,7 @@ export async function createAllConferenceSheet(year, allConferenceByConference =
     }))
 
     // Create the spreadsheet with all conference tabs
-    const createResponse = await fetch(`${SHEETS_API_BASE}`, {
+    const createResponse = await fetchWithTimeout(`${SHEETS_API_BASE}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -9357,7 +9384,7 @@ export async function createAllConferenceSheet(year, allConferenceByConference =
 
     // Apply formatting
     if (requests.length > 0) {
-      await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+      await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -9442,7 +9469,7 @@ export async function createAllConferenceSheet(year, allConferenceByConference =
     }
 
     // Write all values
-    await fetch(`${SHEETS_API_BASE}/${spreadsheetId}/values:batchUpdate`, {
+    await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}/values:batchUpdate`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -9478,7 +9505,7 @@ export async function readAllConferenceFromSheet(spreadsheetId, conferences = AL
 
     // Read data from each conference tab
     for (const conf of conferences) {
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `${SHEETS_API_BASE}/${spreadsheetId}/values/'${encodeURIComponent(conf)}'!A1:L28`,
         {
           headers: {
@@ -9640,7 +9667,7 @@ export async function createPlayersLeavingSheet(dynastyName, year, players, team
     const totalRows = Math.max(prefilledRows + 20, 60) // At least 60 rows for additional entries
 
     // Create the spreadsheet
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -9850,7 +9877,7 @@ async function initializePlayersLeavingSheet(spreadsheetId, accessToken, sheetId
   // No duplicate validation needed - dropdowns enforce selection from list only
 
   // Execute all requests
-  await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+  await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -9865,7 +9892,7 @@ export async function readPlayersLeavingFromSheet(spreadsheetId, dynastyTeams = 
   try {
     const accessToken = await getAccessToken()
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/Players Leaving!A2:B100`,
       {
         headers: {
@@ -9934,7 +9961,7 @@ export async function createDraftResultsSheet(dynastyName, year, playersLeavingT
     const totalRows = Math.max(draftDeclarees.length + 5, 20)
 
     // Create the spreadsheet
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -10096,7 +10123,7 @@ export async function createDraftResultsSheet(dynastyName, year, playersLeavingT
     })
 
     // Execute all requests
-    await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+    await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -10120,7 +10147,7 @@ export async function readDraftResultsFromSheet(spreadsheetId, dynastyTeams = nu
   try {
     const accessToken = await getAccessToken()
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/Draft Results!A2:D100`,
       {
         headers: {
@@ -10214,7 +10241,7 @@ export async function createRecruitingSheet(dynastyName, year, dynastyTeams = nu
     const totalRows = Math.max(35, existingCommitments.length + 10) // Max 35 scholarships per class
 
     // Create the spreadsheet
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -10472,7 +10499,7 @@ export async function createRecruitingSheet(dynastyName, year, dynastyTeams = nu
     })
 
     // Execute all requests
-    await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+    await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -10502,7 +10529,7 @@ export async function readRecruitingFromSheet(spreadsheetId, dynastyTeams = null
   try {
     const accessToken = await getAccessToken()
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/Commitments!A2:O100`,
       {
         headers: {
@@ -10580,7 +10607,7 @@ export async function createTrainingResultsSheet(dynastyName, year, players) {
     const totalRows = Math.max(sortedPlayers.length, 20)
 
     // Create the spreadsheet
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -10784,7 +10811,7 @@ async function initializeTrainingResultsSheet(spreadsheetId, accessToken, sheetI
     }
   ]
 
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+  await fetchWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -10804,7 +10831,7 @@ export async function readTrainingResultsFromSheet(spreadsheetId, dynastyTeams =
     const accessToken = await getAccessToken()
 
     const range = encodeURIComponent("'Training Results'!A2:D200")
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
       {
         headers: {
@@ -10851,7 +10878,7 @@ export async function createEncourageTransfersSheet(dynastyName, year, players) 
     const columnCount = 4 // Name, Position, Overall, Encourage Transfer
 
     // Create the spreadsheet
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -11059,7 +11086,7 @@ async function initializeEncourageTransfersSheet(spreadsheetId, accessToken, she
     }
   ]
 
-  const batchUpdateResponse = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+  const batchUpdateResponse = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -11081,7 +11108,7 @@ export async function readEncourageTransfersFromSheet(spreadsheetId, dynastyTeam
     const accessToken = await getAccessToken()
 
     const range = 'Encourage Transfers!A2:D'
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`,
       {
         headers: {
@@ -11128,7 +11155,7 @@ export async function createRecruitOverallsSheet(dynastyName, year, recruits) {
     const columnCount = 6 // Name, Position, Class, Stars, Overall, Jersey #
 
     // Create the spreadsheet
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -11354,7 +11381,7 @@ async function initializeRecruitOverallsSheet(spreadsheetId, accessToken, sheetI
     }
   ]
 
-  const batchUpdateResponse = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+  const batchUpdateResponse = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -11376,7 +11403,7 @@ export async function readRecruitOverallsFromSheet(spreadsheetId, dynastyTeams =
     const accessToken = await getAccessToken()
 
     const range = 'Recruit Overalls!A2:F'
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`,
       {
         headers: {
@@ -11498,7 +11525,7 @@ export async function createGameBoxScoreSheet(teamName, teamAbbr, opponentAbbr, 
     const accessToken = await getAccessToken()
 
     // Create the spreadsheet with 9 tabs
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -11540,7 +11567,7 @@ export async function createGameBoxScoreSheet(teamName, teamAbbr, opponentAbbr, 
           }),
         ]
       })
-    })
+    }, { label: 'createSpreadsheet' })
 
     if (!response.ok) {
       const error = await response.json()
@@ -11558,18 +11585,32 @@ export async function createGameBoxScoreSheet(teamName, teamAbbr, opponentAbbr, 
       sheetIds[key] = sheet.sheets[idx + 1].properties.sheetId
     })
 
-    // Initialize all tabs with headers and formatting
-    await initializeBoxScoreSheet(sheet.spreadsheetId, accessToken, sheetIds, isUserTeam, rosterPlayers)
-    await initializeUnifiedAITab(sheet.spreadsheetId, accessToken, unifiedSheetId, isUserTeam, rosterPlayers)
+    // Initialization, sharing, and prefill are now PARALLEL where
+    // safe. Previously each step was awaited serially — 5-7 sequential
+    // network round-trips with no timeout, which is what caused the
+    // user-reported 5-minute hangs and "completely crashing" stalls
+    // when one call stuck. Each call has its own 30s timeout via
+    // fetchWithTimeout, so a stuck call fails loudly instead of
+    // blocking forever.
+    //
+    // Two phases:
+    //   1. init both tabs + share publicly — independent of each other,
+    //      run concurrently
+    //   2. prefill both tabs (only if existingData) — done after init
+    //      so the column-A roster validation is in place before we
+    //      write player names
+    await Promise.all([
+      initializeBoxScoreSheet(sheet.spreadsheetId, accessToken, sheetIds, isUserTeam, rosterPlayers),
+      initializeUnifiedAITab(sheet.spreadsheetId, accessToken, unifiedSheetId, isUserTeam, rosterPlayers),
+      shareSheetPublicly(sheet.spreadsheetId, accessToken),
+    ])
 
-    // Pre-fill with existing player stats data if provided
     if (existingData) {
-      await prefillPlayerStatsData(sheet.spreadsheetId, accessToken, existingData)
-      await prefillUnifiedAITab(sheet.spreadsheetId, accessToken, existingData)
+      await Promise.all([
+        prefillPlayerStatsData(sheet.spreadsheetId, accessToken, existingData),
+        prefillUnifiedAITab(sheet.spreadsheetId, accessToken, existingData),
+      ])
     }
-
-    // Share sheet publicly for embedding
-    await shareSheetPublicly(sheet.spreadsheetId, accessToken)
 
     return {
       spreadsheetId: sheet.spreadsheetId,
@@ -11672,7 +11713,7 @@ async function initializeBoxScoreSheet(spreadsheetId, accessToken, sheetIds, isU
   })
 
   // Send batch update
-  const batchResponse = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+  const batchResponse = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -11721,7 +11762,7 @@ async function prefillPlayerStatsData(spreadsheetId, accessToken, existingData) 
     // Write data to sheet starting at row 2 (after headers)
     const range = `'${tab.title}'!A2:${lastColLetter}${rows.length + 1}`
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
       {
         method: 'PUT',
@@ -11864,7 +11905,7 @@ async function initializeUnifiedAITab(spreadsheetId, accessToken, sheetId, isUse
     }
   }
 
-  const batchResponse = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+  const batchResponse = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -11915,7 +11956,7 @@ async function prefillUnifiedAITab(spreadsheetId, accessToken, existingData) {
 
   const lastColLetter = String.fromCharCode(65 + layout.maxCols - 1)
   const range = `'${AI_UNIFIED_TAB.title}'!A1:${lastColLetter}${layout.totalRows}`
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
     {
       method: 'PUT',
@@ -11941,7 +11982,7 @@ export async function readGameBoxScoreFromUnifiedTab(spreadsheetId) {
     const lastColLetter = String.fromCharCode(65 + layout.maxCols - 1)
     const range = `'${AI_UNIFIED_TAB.title}'!A1:${lastColLetter}${layout.totalRows}`
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`,
       { headers: { 'Authorization': `Bearer ${accessToken}` } }
     )
@@ -11985,7 +12026,7 @@ export async function createScoringSummarySheet(homeTeamAbbr, awayTeamAbbr, year
     const accessToken = await getAccessToken()
 
     // Create the spreadsheet with single tab
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -12006,7 +12047,7 @@ export async function createScoringSummarySheet(homeTeamAbbr, awayTeamAbbr, year
           }
         }]
       })
-    })
+    }, { label: 'createScoringSummarySpreadsheet' })
 
     if (!response.ok) {
       const error = await response.json()
@@ -12017,16 +12058,16 @@ export async function createScoringSummarySheet(homeTeamAbbr, awayTeamAbbr, year
     const sheet = await response.json()
     const sheetId = sheet.sheets[0].properties.sheetId
 
-    // Initialize with headers, formatting, and dropdowns
-    await initializeScoringSummarySheet(sheet.spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, homeRoster, awayRoster, dynastyTeams)
+    // Init + share in parallel (independent). Prefill happens after
+    // init so dropdown validation is in place before we write rows.
+    await Promise.all([
+      initializeScoringSummarySheet(sheet.spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, homeRoster, awayRoster, dynastyTeams),
+      shareSheetPublicly(sheet.spreadsheetId, accessToken),
+    ])
 
-    // Pre-fill with existing scoring data if provided
     if (existingData && existingData.length > 0) {
       await prefillScoringSummaryData(sheet.spreadsheetId, accessToken, existingData)
     }
-
-    // Share sheet publicly for embedding
-    await shareSheetPublicly(sheet.spreadsheetId, accessToken)
 
     return {
       spreadsheetId: sheet.spreadsheetId,
@@ -12058,7 +12099,7 @@ async function prefillScoringSummaryData(spreadsheetId, accessToken, scoringData
 
   // Write data to sheet starting at row 2 (after headers)
   const range = `'${SCORING_SUMMARY.title}'!A2:I${rows.length + 1}`
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
     {
       method: 'PUT',
@@ -12275,7 +12316,7 @@ async function initializeScoringSummarySheet(spreadsheetId, accessToken, sheetId
   requests.push(...teamFormattingRules)
 
   // Send batch update
-  const batchResponse = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+  const batchResponse = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -12331,7 +12372,7 @@ export async function readGameBoxScoreFromSheet(spreadsheetId, dynastyTeams = nu
       const tab = STAT_TABS[key]
       const range = `'${tab.title}'!A2:${String.fromCharCode(65 + tab.headers.length - 1)}${tab.rowCount + 1}`
 
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`,
         {
           headers: {
@@ -12401,7 +12442,7 @@ export async function readScoringSummaryFromSheet(spreadsheetId, dynastyTeams = 
 
     // Updated to column J (10 columns) to include Video Link
     const range = `'${SCORING_SUMMARY.title}'!A2:J${SCORING_SUMMARY.rowCount + 1}`
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`,
       {
         headers: {
@@ -12486,7 +12527,7 @@ export async function createGameTeamStatsSheet(homeTeamAbbr, awayTeamAbbr, year,
     const accessToken = await getAccessToken()
 
     // Create the spreadsheet with 1 tab (3 columns: Stat, Away, Home)
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -12509,7 +12550,7 @@ export async function createGameTeamStatsSheet(homeTeamAbbr, awayTeamAbbr, year,
           }
         ]
       })
-    })
+    }, { label: 'createTeamStatsSpreadsheet' })
 
     if (!response.ok) {
       const error = await response.json()
@@ -12522,16 +12563,15 @@ export async function createGameTeamStatsSheet(homeTeamAbbr, awayTeamAbbr, year,
     // Get the sheet ID for the single tab
     const sheetId = sheet.sheets[0].properties.sheetId
 
-    // Initialize the tab with headers, stat labels, and formatting
-    await initializeTeamStatsSheet(sheet.spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, dynastyTeams)
+    // Init + share in parallel; prefill after init.
+    await Promise.all([
+      initializeTeamStatsSheet(sheet.spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, dynastyTeams),
+      shareSheetPublicly(sheet.spreadsheetId, accessToken),
+    ])
 
-    // Pre-fill with existing team stats data if provided
     if (existingData && (existingData.home || existingData.away)) {
       await prefillTeamStatsData(sheet.spreadsheetId, accessToken, existingData)
     }
-
-    // Share sheet publicly for embedding
-    await shareSheetPublicly(sheet.spreadsheetId, accessToken)
 
     return {
       spreadsheetId: sheet.spreadsheetId,
@@ -12725,7 +12765,7 @@ async function initializeTeamStatsSheet(spreadsheetId, accessToken, sheetId, hom
   })
 
   // Send batch update
-  const batchResponse = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+  const batchResponse = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -12749,7 +12789,7 @@ export async function readGameTeamStatsFromSheet(spreadsheetId, dynastyTeams = n
     // Read header row to get team abbreviations and data rows
     const range = `'Team Stats'!A1:C${TEAM_STATS_ROWS.length + 1}`
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`,
       {
         headers: {
@@ -12850,7 +12890,7 @@ async function prefillTeamStatsData(spreadsheetId, accessToken, teamStatsData) {
   // Write values to columns B and C starting at row 2 (after header)
   const range = `'Team Stats'!B2:C${TEAM_STATS_ROWS.length + 1}`
 
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
     {
       method: 'PUT',
@@ -12899,7 +12939,7 @@ export async function createTransferDestinationsSheet(dynastyName, year, transfe
     const totalRows = Math.max(sortedPlayers.length + 5, 20)
 
     // Create the spreadsheet
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -13084,7 +13124,7 @@ export async function createTransferDestinationsSheet(dynastyName, year, transfe
     })
 
     // Execute batch update
-    await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+    await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -13115,7 +13155,7 @@ export async function readTransferDestinationsFromSheet(spreadsheetId, dynastyTe
   try {
     const accessToken = await getAccessToken()
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/Transfer Destinations!A2:B`,
       {
         headers: {
@@ -13162,7 +13202,7 @@ export async function createRosterHistorySheet(dynastyName, years = [2025, 2026]
     const allTeamAbbrs = Object.keys(teams).sort()
 
     // Create spreadsheet
-    const createResponse = await fetch(`${SHEETS_API_BASE}`, {
+    const createResponse = await fetchWithTimeout(`${SHEETS_API_BASE}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -13289,7 +13329,7 @@ export async function createRosterHistorySheet(dynastyName, years = [2025, 2026]
     })
 
     // Apply formatting
-    await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+    await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -13299,7 +13339,7 @@ export async function createRosterHistorySheet(dynastyName, years = [2025, 2026]
     })
 
     // Write headers
-    await fetch(`${SHEETS_API_BASE}/${spreadsheetId}/values/Roster History!A1:${String.fromCharCode(65 + headers.length - 1)}1?valueInputOption=RAW`, {
+    await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}/values/Roster History!A1:${String.fromCharCode(65 + headers.length - 1)}1?valueInputOption=RAW`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -13344,7 +13384,7 @@ export async function prefillRosterHistorySheet(spreadsheetId, players, years = 
     if (rows.length === 0) return
 
     const endCol = String.fromCharCode(65 + 1 + years.length) // A=65, so 2+years.length columns
-    await fetch(`${SHEETS_API_BASE}/${spreadsheetId}/values/Roster History!A2:${endCol}${rows.length + 1}?valueInputOption=RAW`, {
+    await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}/values/Roster History!A2:${endCol}${rows.length + 1}?valueInputOption=RAW`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -13367,7 +13407,7 @@ export async function readRosterHistoryFromSheet(spreadsheetId, years = [2025, 2
     const accessToken = await getAccessToken()
     const endCol = String.fromCharCode(65 + 1 + years.length)
 
-    const response = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}/values/Roster History!A2:${endCol}500`, {
+    const response = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}/values/Roster History!A2:${endCol}500`, {
       headers: { 'Authorization': `Bearer ${accessToken}` }
     })
 
@@ -13435,7 +13475,7 @@ export async function createPortalTransferClassSheet(dynastyName, year, portalTr
     const totalRows = Math.max(sortedTransfers.length, 10)
 
     // Create the spreadsheet
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -13694,7 +13734,7 @@ async function initializePortalTransferClassSheet(spreadsheetId, accessToken, sh
     })
   })
 
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+  await fetchWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -13714,7 +13754,7 @@ export async function readPortalTransferClassFromSheet(spreadsheetId, dynastyTea
     const accessToken = await getAccessToken()
 
     const range = encodeURIComponent("'Portal Transfers'!A2:D100")
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
       {
         headers: {
@@ -13772,7 +13812,7 @@ export async function createFringeCaseClassSheet(dynastyName, year, fringeCasePl
     const totalRows = Math.max(sortedPlayers.length, 10)
 
     // Create the spreadsheet
-    const response = await fetch(SHEETS_API_BASE, {
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -14048,7 +14088,7 @@ async function initializeFringeCaseClassSheet(spreadsheetId, accessToken, sheetI
     }
   })
 
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+  await fetchWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -14068,7 +14108,7 @@ export async function readFringeCaseClassFromSheet(spreadsheetId, dynastyTeams =
     const accessToken = await getAccessToken()
 
     const range = encodeURIComponent("'Fringe Cases'!A2:E100")
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
       {
         headers: {
