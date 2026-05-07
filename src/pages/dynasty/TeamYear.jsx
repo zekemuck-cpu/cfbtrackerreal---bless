@@ -1494,7 +1494,14 @@ export default function TeamYear() {
       if (mv?.type === 'departure' && mv?.departure === 'pro_draft') {
         category = 'pro_draft'
         label = 'NFL Draft'
-        if (mv.draftRound) reason = `Round ${mv.draftRound}`.replace(/Round Round/i, 'Round')
+        if (mv.draftRound) {
+          // Normalize to "Nth Round Pick". draftRound usually arrives as
+          // "6th Round" already (from the draft sheet) but legacy values
+          // like "6" or "6th" can show up too — handle both shapes.
+          const raw = String(mv.draftRound).trim()
+          const hasRound = /round/i.test(raw)
+          reason = hasRound ? `${raw} Pick` : `${raw} Round Pick`
+        }
       } else if (mv?.type === 'departure' && mv?.departure === 'graduated') {
         category = 'graduated'
         label = 'Graduated'
@@ -1532,10 +1539,20 @@ export default function TeamYear() {
       out.push({ player: p, category, label, destinationTid, reason })
     }
 
+    // Sort: category first, then OVR (desc) for that year, then name.
+    // Per user — top-rated departures lead each section so the most
+    // notable losses surface immediately.
     const order = { pro_draft: 0, graduated: 1, transfer: 2, unknown: 3 }
+    const ovrFor = (p) => {
+      const v = p.overallByYear?.[selectedYear] ?? p.overallByYear?.[String(selectedYear)] ?? p.overall
+      const n = Number(v)
+      return Number.isFinite(n) ? n : -1
+    }
     out.sort((a, b) => {
       const oc = (order[a.category] ?? 9) - (order[b.category] ?? 9)
       if (oc !== 0) return oc
+      const od = ovrFor(b.player) - ovrFor(a.player)
+      if (od !== 0) return od
       return (a.player.name || '').localeCompare(b.player.name || '')
     })
     return out
@@ -5583,8 +5600,10 @@ export default function TeamYear() {
                   </div>
 
                   {/* Column header — desktop only.
-                      cols: photo | Player | Pos | OVR | Career | Outcome */}
-                  <div className="hidden sm:grid grid-cols-[44px_minmax(140px,1.5fr)_56px_56px_minmax(160px,2fr)_minmax(140px,auto)] gap-3 items-center px-4 py-2 border-b border-surface-4 bg-surface-2/50">
+                      cols: photo | Player | Pos | OVR | Career | Outcome
+                      OVR widened + larger column gap so the number
+                      doesn't crowd the career line on its right. */}
+                  <div className="hidden sm:grid grid-cols-[44px_minmax(140px,1.5fr)_56px_64px_minmax(180px,2fr)_minmax(140px,auto)] gap-x-5 items-center px-4 py-2 border-b border-surface-4 bg-surface-2/50">
                     <span aria-hidden="true" />
                     <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Player</span>
                     <span className="label-xs text-txt-tertiary text-center" style={{ letterSpacing: '1.5px' }}>Pos</span>
@@ -5670,7 +5689,7 @@ export default function TeamYear() {
                       <Link
                         key={player.pid}
                         to={`${pathPrefix}/player/${player.pid}`}
-                        className="grid grid-cols-[40px_1fr] sm:grid-cols-[44px_minmax(140px,1.5fr)_56px_56px_minmax(160px,2fr)_minmax(140px,auto)] gap-3 items-center px-4 py-2.5 border-b border-surface-4 last:border-b-0 hover:bg-surface-3 transition-colors"
+                        className="grid grid-cols-[40px_1fr] sm:grid-cols-[44px_minmax(140px,1.5fr)_56px_64px_minmax(180px,2fr)_minmax(140px,auto)] gap-x-3 sm:gap-x-5 items-center px-4 py-2.5 border-b border-surface-4 last:border-b-0 hover:bg-surface-3 transition-colors"
                       >
                         {/* Photo */}
                         {player.pictureUrl ? (
