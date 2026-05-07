@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
 import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import { getModalColors } from '../utils/colorUtils'
@@ -24,18 +25,17 @@ const isMobileDevice = () => {
 
 export default function FinalPollsModal({ isOpen, onClose, onSave, currentYear, teamColors }) {
   const { currentDynasty } = useDynasty()
-  const { user, signOut, refreshSession } = useAuth()
+  const { user, signOut } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
-  const [refreshing, setRefreshing] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [deletingSheet, setDeletingSheet] = useState(false)
   const [creatingSheet, setCreatingSheet] = useState(false)
   const [sheetId, setSheetId] = useState(null)
   const [showDeletedNote, setShowDeletedNote] = useState(false)
-  const [retryCount, setRetryCount] = useState(0)
+  const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
-  const [showAuthError, setShowAuthError] = useState(false)
+
   const [useEmbedded, setUseEmbedded] = useState(() => {
     return localStorage.getItem('sheetEmbedPreference') === 'true'
   })
@@ -203,7 +203,7 @@ FINAL CHECK before you send
       }
     }
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, retryCount, showDeletedNote])
+  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote])
 
   useEffect(() => {
     if (!isOpen) {
@@ -222,9 +222,7 @@ FINAL CHECK before you send
       onClose()
     } catch (error) {
       console.error(error)
-      if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
-        setShowAuthError(true)
-      } else {
+      if (!auth.handleError(error)) {
         toast.error('Failed to sync from Google Sheets.')
       }
     } finally {
@@ -244,9 +242,7 @@ FINAL CHECK before you send
       setTimeout(() => onClose(), 2500)
     } catch (error) {
       console.error('Error in handleSyncAndDelete:', error)
-      if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
-        setShowAuthError(true)
-      } else {
+      if (!auth.handleError(error)) {
         toast.error(`Failed to sync/delete: ${error.message || 'Unknown error'}`)
       }
     } finally {
@@ -267,12 +263,10 @@ FINAL CHECK before you send
     try {
       await deleteGoogleSheet(sheetId)
       setSheetId(null)
-      setRetryCount(c => c + 1)
+      auth.retry()
     } catch (error) {
       console.error('Failed to regenerate sheet:', error)
-      if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
-        setShowAuthError(true)
-      } else {
+      if (!auth.handleError(error)) {
         toast.error('Failed to regenerate sheet. Please try again.')
       }
     } finally {
@@ -360,23 +354,14 @@ FINAL CHECK before you send
               </div>
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-                <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="Final Polls" onSessionError={() => setShowAuthError(true)} />
+                <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="Final Polls" onSessionError={() => auth.setShowAuthError(true)} />
               </div>
             )}
           </div>
-        ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-lg mb-4 text-txt-primary">Your session has expired.</p>
-              <div className="flex gap-3 justify-center">
-                <button onClick={async () => { setRefreshing(true); try { const success = await refreshSession(); if (success) setRetryCount(c => c + 1); } catch (e) { console.error(e); } setRefreshing(false); }} disabled={refreshing} className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all" style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)', opacity: refreshing ? 0.7 : 1 }}>{refreshing ? 'Refreshing...' : 'Refresh Session'}</button>
-              </div>
-            </div>
-          </div>
-        )}
+        ) : null}
         </div>
       </div>
-      <AuthErrorModal isOpen={showAuthError} onClose={() => setShowAuthError(false)} onRefresh={() => setRetryCount(c => c + 1)} teamColors={teamColors} />
+      <AuthErrorModal isOpen={auth.showAuthError} onClose={auth.closeAuthError} onRefresh={auth.retry} teamColors={teamColors} />
       <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Final Top 25`} prompt={aiPrompt} pasteTarget={`Cell B2 of the "Polls" tab`} />
     </div>,
     document.body

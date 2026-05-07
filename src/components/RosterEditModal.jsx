@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
 import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import {
@@ -27,19 +28,18 @@ export default function RosterEditModal({ isOpen, onClose, onSave, currentYear, 
 
   // Use provided team info or fall back to user's team
   const editingTeamName = teamName || currentDynasty?.teamName || 'Dynasty'
-  const { user, signOut, refreshSession } = useAuth()
+  const { user, signOut } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
-  const [refreshing, setRefreshing] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [deletingSheet, setDeletingSheet] = useState(false)
   const [creatingSheet, setCreatingSheet] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [sheetId, setSheetId] = useState(null)
   const [showDeletedNote, setShowDeletedNote] = useState(false)
-  const [retryCount, setRetryCount] = useState(0)
+  const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
-  const [showAuthError, setShowAuthError] = useState(false)
+
   const [useEmbedded, setUseEmbedded] = useState(() => {
     // Load preference from localStorage
     return localStorage.getItem('sheetEmbedPreference') === 'true'
@@ -255,9 +255,7 @@ FINAL CHECK before you send
           })
         } catch (error) {
           console.error('Failed to create roster sheet:', error)
-          if (error.message?.includes('authentication') || error.message?.includes('token')) {
-            setShowAuthError(true)
-          }
+          auth.handleError(error)
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false
@@ -266,7 +264,7 @@ FINAL CHECK before you send
     }
 
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, retryCount, showDeletedNote])
+  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote])
 
   // Reset state when modal closes
   useEffect(() => {
@@ -286,9 +284,7 @@ FINAL CHECK before you send
       onClose()
     } catch (error) {
       console.error(error)
-      if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
-        setShowAuthError(true)
-      } else {
+      if (!auth.handleError(error)) {
         toast.error('Failed to sync from Google Sheets. Make sure data is properly formatted.')
       }
     } finally {
@@ -314,9 +310,7 @@ FINAL CHECK before you send
       }, 2500)
     } catch (error) {
       console.error('Error in handleSyncAndDelete:', error)
-      if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
-        setShowAuthError(true)
-      } else {
+      if (!auth.handleError(error)) {
         toast.error(`Failed to sync/delete: ${error.message || 'Unknown error'}`)
       }
     } finally {
@@ -338,12 +332,10 @@ FINAL CHECK before you send
       await deleteGoogleSheet(sheetId)
       await updateDynasty(currentDynasty.id, { rosterEditSheetId: null })
       setSheetId(null)
-      setRetryCount(c => c + 1)
+      auth.retry()
     } catch (error) {
       console.error('Failed to regenerate sheet:', error)
-      if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
-        setShowAuthError(true)
-      } else {
+      if (!auth.handleError(error)) {
         toast.error('Failed to regenerate sheet. Please try again.')
       }
     } finally {
@@ -535,67 +527,17 @@ FINAL CHECK before you send
                   {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
                 </button>
               </div>
-            ) : (
-              <>
-                <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-                  <SheetToolbar
-                    sheetId={sheetId}
-                    embedUrl={embedUrl}
-                    teamColors={teamColors}
-                    title="Roster Google Sheet"
-                    onSessionError={() => setShowAuthError(true)}
-                  />
-                </div>
-                <div className="text-xs mt-2 space-y-1 text-txt-tertiary">
-                  <p><strong className="text-txt-primary">Columns:</strong> Name | Position | Class | Dev Trait | Jersey # | Archetype | Overall | Height | Weight | Hometown | State</p>
-                  <p>Edit player information as needed. Add or remove players from the roster.</p>
-                </div>
-              </>
-            )}
+            ) : null}
           </div>
-        ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-lg mb-4 text-txt-primary">
-                Your session has expired. Click below to refresh.
-              </p>
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={async () => {
-                    setRefreshing(true)
-                    try {
-                      const success = await refreshSession()
-                      if (success) {
-                        // Trigger sheet creation retry
-                        setRetryCount(c => c + 1)
-                      }
-                    } catch (e) {
-                      console.error('Refresh failed:', e)
-                    }
-                    setRefreshing(false)
-                  }}
-                  disabled={refreshing}
-                  className="px-4 py-2 rounded font-semibold transition-colors"
-                  style={{
-                    backgroundColor: 'var(--text-primary)',
-                    color: 'var(--surface-1)',
-                    opacity: refreshing ? 0.7 : 1
-                  }}
-                >
-                  {refreshing ? 'Refreshing...' : 'Refresh Session'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        ) : null}
         </div>
       </div>
 
       {/* Auth Error Modal */}
       <AuthErrorModal
-        isOpen={showAuthError}
-        onClose={() => setShowAuthError(false)}
-        onRefresh={() => setRetryCount(c => c + 1)}
+        isOpen={auth.showAuthError}
+        onClose={auth.closeAuthError}
+        onRefresh={auth.retry}
         teamColors={teamColors}
       />
       <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} ${teamAbbr ? `${teamAbbr} ` : ''}Roster Edit`} prompt={aiPrompt} pasteTarget={`Cell A2 of the "Roster" tab`} />
