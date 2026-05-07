@@ -2392,12 +2392,18 @@ function PlayerInner() {
                   // the position's priority list keep their existing
                   // order at the end.
                   const POSITION_TAB_ORDER = {
-                    QB:   ['passing', 'rushing', 'receiving', 'blocking', 'defense', 'kicking'],
+                    QB:   ['passing', 'rushing', 'receiving', 'defense', 'blocking', 'kicking'],
                     HB:   ['rushing', 'receiving', 'passing', 'blocking', 'defense', 'kicking'],
-                    FB:   ['rushing', 'receiving', 'passing', 'blocking', 'defense', 'kicking'],
+                    FB:   ['rushing', 'blocking', 'receiving', 'passing', 'defense', 'kicking'],
                     RB:   ['rushing', 'receiving', 'passing', 'blocking', 'defense', 'kicking'],
                     WR:   ['receiving', 'rushing', 'passing', 'blocking', 'defense', 'kicking'],
-                    TE:   ['blocking', 'receiving', 'rushing', 'passing', 'defense', 'kicking'],
+                    // TEs are receivers first — the previous "blocking
+                    // first" order made every TE profile open to a tab
+                    // that only ever shows pancakes/sacks-allowed when
+                    // the page-1 stat is and always will be receiving
+                    // production. Doug Wayne case from the regression
+                    // report.
+                    TE:   ['receiving', 'blocking', 'rushing', 'passing', 'defense', 'kicking'],
                   }
                   const OL_POSITIONS = new Set(['LT', 'LG', 'C', 'RG', 'RT', 'OL'])
                   const DEFENSIVE_POSITIONS = new Set([
@@ -2409,9 +2415,9 @@ function PlayerInner() {
                   const playerPos = (player?.position || '').toUpperCase()
                   const tabOrder =
                     POSITION_TAB_ORDER[playerPos]
-                    || (OL_POSITIONS.has(playerPos) ? ['blocking', 'rushing', 'receiving', 'passing', 'defense', 'kicking'] : null)
-                    || (DEFENSIVE_POSITIONS.has(playerPos) ? ['defense', 'rushing', 'receiving', 'passing', 'blocking', 'kicking'] : null)
-                    || (KICK_POSITIONS.has(playerPos) ? ['kicking', 'passing', 'rushing', 'receiving', 'blocking', 'defense'] : null)
+                    || (OL_POSITIONS.has(playerPos) ? ['blocking', 'defense', 'rushing', 'receiving', 'passing', 'kicking'] : null)
+                    || (DEFENSIVE_POSITIONS.has(playerPos) ? ['defense', 'blocking', 'rushing', 'receiving', 'passing', 'kicking'] : null)
+                    || (KICK_POSITIONS.has(playerPos) ? ['kicking', 'defense', 'passing', 'rushing', 'receiving', 'blocking'] : null)
                     || ['passing', 'rushing', 'receiving', 'blocking', 'defense', 'kicking']
 
                   categories.sort((a, b) => {
