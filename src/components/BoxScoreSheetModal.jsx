@@ -194,8 +194,7 @@ export default function BoxScoreSheetModal({
           roster: homeRoster,
           isUserControlled: isHomeTeamUserControlled,
           sheetIdKey: 'homeStatsSheetId',
-          instructions: 'Enter player statistics for each category tab (Passing, Rushing, Receiving, etc.)',
-          columns: 'Passing, Rushing, Receiving, Blocking, Defense, Kicking, Punting, Kick Return, Punt Return'
+          instructions: 'Enter player statistics for each category tab (Passing, Rushing, Receiving, etc.)'
         }
       case 'awayStats':
         return {
@@ -206,25 +205,22 @@ export default function BoxScoreSheetModal({
           roster: awayRoster,
           isUserControlled: isAwayTeamUserControlled,
           sheetIdKey: 'awayStatsSheetId',
-          instructions: 'Enter player statistics for each category tab (Passing, Rushing, Receiving, etc.)',
-          columns: 'Passing, Rushing, Receiving, Blocking, Defense, Kicking, Punting, Kick Return, Punt Return'
+          instructions: 'Enter player statistics for each category tab (Passing, Rushing, Receiving, etc.)'
         }
       case 'scoring':
         return {
           title: 'Scoring Summary',
           sheetIdKey: 'scoringSummarySheetId',
-          instructions: 'Enter each scoring play with team, scorer, and details',
-          columns: 'Team | Scorer | Passer | Score Type | Quarter | Time Left'
+          instructions: 'Enter each scoring play with team, scorer, and details'
         }
       case 'teamStats':
         return {
           title: 'Team Stats',
           sheetIdKey: 'teamStatsSheetId',
-          instructions: 'Enter team statistics in each tab (one for each team)',
-          columns: 'First Downs, Rush/Pass Stats, Turnovers, Penalties, Possession Time'
+          instructions: 'Enter team statistics in each tab (one for each team)'
         }
       default:
-        return { title: 'Stats', sheetIdKey: '', instructions: '', columns: '' }
+        return { title: 'Stats', sheetIdKey: '', instructions: '' }
     }
   }
 
@@ -1449,7 +1445,6 @@ output that fails any of them.`,
                 </div>
 
                 <div className="text-xs mt-2 space-y-1 text-txt-secondary">
-                  <p><strong className="text-txt-primary">Tabs:</strong> {config.columns}</p>
                   <p>{config.instructions}</p>
                 </div>
               </>
@@ -1553,10 +1548,6 @@ output that fails any of them.`,
                   {regenerating ? 'Resetting...' : `Stats look weird? Reset (regen sheet & wipe ${regenWipeShort})`}
                 </button>
 
-                <div className="bg-surface-2 text-xs p-3 rounded-lg max-w-sm text-txt-secondary">
-                  <p className="font-semibold mb-1 text-txt-primary">Tabs:</p>
-                  <p>{config.columns}</p>
-                </div>
               </div>
             )}
           </div>
