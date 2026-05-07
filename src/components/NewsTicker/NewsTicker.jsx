@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useDeferredValue } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTickerSections } from './useTickerSections'
@@ -31,7 +31,19 @@ const SCROLL_SPEED = 0.06
 export default function NewsTicker({ dynasty }) {
   const pathPrefix = usePathPrefix()
   const navigate = useNavigate()
-  const sections = useTickerSections(dynasty)
+  // Defer the dynasty snapshot the ticker reads so its 200k+ operation
+  // section rebuild drops to low render priority. The ticker section
+  // computation iterates every player × every year × every stat
+  // category — on a mid-size roster it blocks the main thread for
+  // 100–500ms. That blocking was the freeze the user saw on every
+  // button click / navigation: any state mutation invalidated the
+  // ticker memo, the urgent render then waited on the ticker
+  // recompute, and the user's input felt like it took a beat to
+  // register. With useDeferredValue, urgent renders see the previous
+  // (still-valid) ticker output and React schedules the new section
+  // compute as low-priority, in idle time.
+  const deferredDynasty = useDeferredValue(dynasty)
+  const sections = useTickerSections(deferredDynasty)
   const dynastyTeams = dynasty?.teams || null
 
   const [currentIndex, setCurrentIndex] = useState(0)
