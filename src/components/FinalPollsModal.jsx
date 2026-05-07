@@ -354,7 +354,7 @@ FINAL CHECK before you send
               </div>
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-                <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="Final Polls" onSessionError={() => auth.setShowAuthError(true)} />
+                <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="Final Polls" />
               </div>
             )}
           </div>

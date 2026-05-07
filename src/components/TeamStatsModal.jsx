@@ -352,7 +352,7 @@ FINAL CHECK before you send the answer
               </div>
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-                <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="Team Stats" onSessionError={() => auth.setShowAuthError(true)} />
+                <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="Team Stats" />
               </div>
             )}
           </div>

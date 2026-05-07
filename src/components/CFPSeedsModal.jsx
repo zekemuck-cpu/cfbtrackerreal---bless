@@ -512,7 +512,6 @@ FINAL CHECK before you send the answer
                     embedUrl={embedUrl}
                     teamColors={teamColors}
                     title="CFP Seeds Google Sheet"
-                    onSessionError={() => auth.setShowAuthError(true)}
                   />
                 </div>
               </>
