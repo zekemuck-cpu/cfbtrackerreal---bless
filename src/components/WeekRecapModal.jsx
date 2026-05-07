@@ -92,7 +92,15 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
       onClose?.()
     } catch (err) {
       console.error('[WeekRecapModal] save failed:', err)
-      toast.error('Could not save the recap. Try again.')
+      // Surface the real failure (Firestore code + message) instead of a
+      // generic "try again" toast — ALABAMA PRINCE was hitting this with
+      // no diagnostic info, and the fix depends on which Firestore error
+      // it actually is (permission-denied, resource-exhausted for >1MB
+      // doc, unauthenticated for an expired token, etc.).
+      const code = err?.code || err?.name
+      const msg = err?.message || 'Unknown error'
+      const detail = code ? `${code}: ${msg}` : msg
+      toast.error(`Could not save: ${detail}`)
     } finally {
       setSaving(false)
     }
@@ -113,7 +121,10 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
       onClose?.()
     } catch (err) {
       console.error('[WeekRecapModal] delete failed:', err)
-      toast.error('Could not delete the recap.')
+      const code = err?.code || err?.name
+      const msg = err?.message || 'Unknown error'
+      const detail = code ? `${code}: ${msg}` : msg
+      toast.error(`Could not delete: ${detail}`)
     } finally {
       setSaving(false)
     }
