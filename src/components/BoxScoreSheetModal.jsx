@@ -955,18 +955,33 @@ output that fails any of them.`,
       // Use ref for immediate check to prevent race conditions (state updates are async)
       // Also check showSessionError to stop retrying on OAuth failures
       if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !showSessionError) {
-        // Check for existing sheet (unless we're regenerating and should ignore it)
+        // Optimistic existing-sheet path: in the common case the sheet
+        // already exists, so render the iframe IMMEDIATELY rather than
+        // making the user wait on a Drive API existence probe before
+        // anything visible happens. Verify in the background; if the
+        // sheet was actually trashed, fall back to regenerate.
+        // (Previous code awaited sheetExists serially, which on slow
+        // connections added 1-2s of blank-modal wait per open.)
         if (existingSheetId && !ignoreExistingSheetId) {
-          const stillExists = await sheetExists(existingSheetId)
-          if (stillExists) {
-            setSheetId(existingSheetId)
-            return
-          }
-          await saveSheetIdToGame(null)
-          if (onSheetCreated) {
-            onSheetCreated(null)
-          }
-          // stale sheet (trashed in Drive); fall through to regenerate
+          setSheetId(existingSheetId)
+          ;(async () => {
+            try {
+              const stillExists = await sheetExists(existingSheetId)
+              if (stillExists) return
+              // Stale sheet (trashed in Drive). Clear state, drop the
+              // sheet ID from the game, and bump retryCount so the
+              // initSheet effect re-runs and creates a fresh sheet.
+              setSheetId(null)
+              await saveSheetIdToGame(null)
+              if (onSheetCreated) onSheetCreated(null)
+              setRetryCount(c => c + 1)
+            } catch {
+              // Probe failed — assume the sheet is still live (matches
+              // sheetExists' own optimistic fallback) and let the iframe
+              // surface any real errors itself.
+            }
+          })()
+          return
         }
 
         // Create new sheet - set ref immediately to prevent concurrent calls
