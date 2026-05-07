@@ -1448,6 +1448,74 @@ export default function TeamYear() {
     isPlayerOnRoster(p, tid, selectedYear)
   )
 
+  // ─── Departures: players who were on this team in `selectedYear` but
+  // not on it in `selectedYear + 1`. Excludes recommitters (entered
+  // portal then came back to the same team). For each, derives the
+  // departure reason and destination tid from movementByYear /
+  // teamsByYear so we can render a "where they went" line.
+  const departures = useMemo(() => {
+    const nextYear = selectedYear + 1
+    const out = []
+    for (const p of teamPlayers) {
+      // Skip if they're still on this team next year (true returners).
+      if (isPlayerOnRoster(p, tid, nextYear)) continue
+
+      // Pull movement for this season — that's the departure record.
+      const mv = p.movementByYear?.[selectedYear] ?? p.movementByYear?.[String(selectedYear)]
+
+      // Determine destination tid (where they ended up next year).
+      const nextYearTid = p.teamsByYear?.[nextYear] ?? p.teamsByYear?.[String(nextYear)]
+      const nextYearTidNum = nextYearTid != null ? Number(nextYearTid) : null
+      const wentToAnotherTeam = Number.isFinite(nextYearTidNum) && nextYearTidNum !== tid
+
+      // Categorize the departure. Order matters — pro_draft / graduated
+      // are most specific.
+      let category, label, destinationTid = null, reason = null
+      if (mv?.type === 'departure' && mv?.departure === 'pro_draft') {
+        category = 'pro_draft'
+        label = 'NFL Draft'
+        if (mv.draftRound) reason = `Round ${mv.draftRound}`.replace(/Round Round/i, 'Round')
+      } else if (mv?.type === 'departure' && mv?.departure === 'graduated') {
+        category = 'graduated'
+        label = 'Graduated'
+      } else if (mv?.type === 'departure' && mv?.departure === 'transfer_out') {
+        category = 'transfer'
+        label = 'Transfer Portal'
+        destinationTid = mv.toTid != null ? Number(mv.toTid) : (wentToAnotherTeam ? nextYearTidNum : null)
+        reason = mv.reason || null
+      } else if (wentToAnotherTeam) {
+        // No movement record but they're on a different team next year
+        // — must be a transfer that wasn't tagged. Show as transfer.
+        category = 'transfer'
+        label = 'Transfer Portal'
+        destinationTid = nextYearTidNum
+      } else {
+        // Off the roster with no record. Most likely an unrecorded
+        // departure — surface as "Left team" so the user can investigate.
+        category = 'unknown'
+        label = 'Left Team'
+      }
+
+      out.push({
+        player: p,
+        category,
+        label,
+        destinationTid,
+        reason,
+      })
+    }
+
+    // Sort: pro_draft first (most prestigious), then graduated, then
+    // transfers, then unknown. Within each group, by name.
+    const order = { pro_draft: 0, graduated: 1, transfer: 2, unknown: 3 }
+    out.sort((a, b) => {
+      const oc = (order[a.category] ?? 9) - (order[b.category] ?? 9)
+      if (oc !== 0) return oc
+      return (a.player.name || '').localeCompare(b.player.name || '')
+    })
+    return out
+  }, [teamPlayers, tid, selectedYear])
+
   // Get team leaders from player.statsByYear (single source of truth)
   const teamLeaders = useMemo(() => {
     // Helper to get stats from player.statsByYear
@@ -2700,6 +2768,7 @@ export default function TeamYear() {
           { key: 'stats', label: 'Stats' },
           { key: 'roster', label: 'Roster' },
           { key: 'recruiting', label: 'Recruiting' },
+          { key: 'departures', label: 'Departures' },
           { key: 'history', label: 'History' }
         ]}
         activeKey={activeTab}
@@ -5298,6 +5367,104 @@ export default function TeamYear() {
                 })}
               </div>
             )}
+          </div>
+        )
+      })()}
+
+      {/* Departures Tab — players who were on this team this season but
+          not the next. Shows reason (NFL Draft / Graduated / Portal)
+          and where transfers landed. */}
+      {activeTab === 'departures' && (() => {
+        const groups = [
+          { key: 'pro_draft', label: 'NFL Draft', accent: 'var(--accent-info, #60a5fa)' },
+          { key: 'graduated', label: 'Graduated', accent: 'var(--accent-success, #34d399)' },
+          { key: 'transfer', label: 'Transfer Portal', accent: 'var(--accent-warning, #fbbf24)' },
+          { key: 'unknown', label: 'Other', accent: 'var(--text-tertiary, #9ca3af)' },
+        ]
+        const byCategory = {}
+        for (const d of departures) {
+          (byCategory[d.category] ||= []).push(d)
+        }
+
+        if (departures.length === 0) {
+          return (
+            <div className="space-y-4">
+              <div className="card p-8 text-center text-txt-tertiary">
+                No departures recorded for {selectedYear}. Players who left this team for the {selectedYear + 1} season will appear here.
+              </div>
+            </div>
+          )
+        }
+
+        return (
+          <div className="space-y-6">
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <h2 className="text-2xl font-black tracking-tight" style={{ fontFamily: "'Bebas Neue', sans-serif", color: 'var(--text-primary)' }}>
+                {selectedYear} Departures
+              </h2>
+              <span className="text-sm text-txt-tertiary">
+                {departures.length} {departures.length === 1 ? 'player' : 'players'} left for {selectedYear + 1}
+              </span>
+            </div>
+
+            {groups.map(group => {
+              const items = byCategory[group.key]
+              if (!items || items.length === 0) return null
+              return (
+                <div key={group.key}>
+                  <div className="flex items-baseline gap-2 mb-2">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: group.accent }} aria-hidden="true" />
+                    <h3 className="text-xs font-black uppercase tracking-widest text-txt-secondary">{group.label}</h3>
+                    <span className="text-xs text-txt-tertiary tabular-nums">{items.length}</span>
+                  </div>
+                  <div className="card divide-y divide-surface-4">
+                    {items.map(({ player, label, destinationTid, reason }) => {
+                      const cls = player.classByYear?.[selectedYear] ?? player.classByYear?.[String(selectedYear)] ?? player.year
+                      const ovr = player.overallByYear?.[selectedYear] ?? player.overallByYear?.[String(selectedYear)] ?? player.overall
+                      const destTeam = destinationTid != null ? (currentDynasty.teams?.[destinationTid] || currentDynasty.teams?.[String(destinationTid)]) : null
+                      const destLogo = destTeam?.logo || null
+                      const destAbbr = destTeam?.abbr || null
+                      const destName = destTeam?.name || null
+                      return (
+                        <div key={player.pid} className="flex items-center gap-3 px-4 py-3">
+                          <Link
+                            to={`${pathPrefix}/player/${player.pid}`}
+                            className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-semibold text-txt-primary truncate">{player.name}</div>
+                              <div className="text-xs text-txt-tertiary truncate">
+                                {[player.position, cls, ovr ? `OVR ${ovr}` : null].filter(Boolean).join(' · ')}
+                              </div>
+                            </div>
+                          </Link>
+                          <div className="flex items-center gap-2 flex-shrink-0 text-xs">
+                            <span className="font-bold uppercase tracking-wider text-[10px]" style={{ color: group.accent, letterSpacing: '1px' }}>{label}</span>
+                            {destinationTid != null && (
+                              <Link
+                                to={`${pathPrefix}/team/${destinationTid}/${selectedYear + 1}`}
+                                className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+                                title={destName || destAbbr || 'Destination'}
+                              >
+                                <span className="text-txt-muted">→</span>
+                                {destLogo
+                                  ? <img src={destLogo} alt={destAbbr || ''} className="w-5 h-5 object-contain" />
+                                  : <span className="font-bold text-txt-secondary">{destAbbr || '?'}</span>
+                                }
+                                {!destLogo && destAbbr && <span className="text-txt-muted">{destAbbr}</span>}
+                              </Link>
+                            )}
+                            {reason && !destinationTid && (
+                              <span className="italic text-txt-tertiary">· {reason}</span>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )
       })()}
