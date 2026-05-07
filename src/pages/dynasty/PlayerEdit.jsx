@@ -1307,8 +1307,35 @@ export default function PlayerEdit() {
                       Dev Trait
                     </label>
                     <select
-                      value={formData.devTrait || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, devTrait: e.target.value }))}
+                      value={(() => {
+                        // Display the current-year value from devTraitByYear
+                        // so the dropdown stays in sync with the canonical
+                        // store. Falls back to the legacy top-level value
+                        // for unmigrated records.
+                        const yr = dynasty?.currentYear
+                        const fromMap = yr != null
+                          ? (formData.devTraitByYear?.[yr] ?? formData.devTraitByYear?.[String(yr)])
+                          : null
+                        return fromMap || formData.devTrait || ''
+                      })()}
+                      onChange={(e) => {
+                        // Stamp BOTH the by-year map (canonical) and the
+                        // top-level mirror so the change survives
+                        // syncDerivedFieldsFromV2's "by-year wins"
+                        // re-derivation. Previously only the top-level
+                        // was updated and the sync clobbered it back to
+                        // the old by-year value on save — that's why
+                        // dev-trait edits appeared to revert.
+                        const value = e.target.value
+                        const yr = dynasty?.currentYear
+                        setFormData(prev => ({
+                          ...prev,
+                          devTrait: value,
+                          devTraitByYear: yr != null
+                            ? { ...(prev.devTraitByYear || {}), [yr]: value }
+                            : (prev.devTraitByYear || {}),
+                        }))
+                      }}
                       className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary bg-surface-2"
                     >
                       <option value="">Select trait</option>
