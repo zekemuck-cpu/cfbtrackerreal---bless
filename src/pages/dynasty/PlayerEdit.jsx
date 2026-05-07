@@ -12,6 +12,49 @@ import PlayerCards from '../../components/PlayerCards'
 import { getPlayerCards } from '../../utils/playerCards'
 import { uploadImage } from '../../utils/imageUpload'
 
+// Year input with a local draft state. Controlled <input type="number">
+// + an onChange that gates on `value > 1900 && < 2100` would reject
+// every intermediate keystroke during typing — so a user trying to
+// edit a year (or replace "2027" with "2030") couldn't type the first
+// digit because parseInt("2") fails the gate, the state never updates,
+// the controlled value snaps back, and the keystroke disappears. Hold
+// the in-progress value in local state, commit on blur or Enter, sync
+// back when the underlying year changes (e.g. addYear stamped a new
+// row).
+function YearInput({ year, onCommit, className }) {
+  const [draft, setDraft] = useState(String(year))
+  const [focused, setFocused] = useState(false)
+  // Re-sync only when the underlying year changes AND the input isn't
+  // being actively edited; otherwise typing in the middle of a value
+  // would get clobbered by the prop sync.
+  useEffect(() => {
+    if (!focused) setDraft(String(year))
+  }, [year, focused])
+  const commit = () => {
+    const n = parseInt(draft, 10)
+    if (Number.isFinite(n) && n > 1900 && n < 2100 && n !== year) {
+      onCommit(year, n)
+    } else {
+      // Bad value — revert.
+      setDraft(String(year))
+    }
+  }
+  return (
+    <input
+      type="number"
+      value={draft}
+      onFocus={() => setFocused(true)}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => { setFocused(false); commit() }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') { e.target.blur() }
+        else if (e.key === 'Escape') { setDraft(String(year)); e.target.blur() }
+      }}
+      className={className}
+    />
+  )
+}
+
 // Helper to check if a stint reason indicates a transfer
 const isTransferReason = (reason) => ['portal_in', 'transfer', 'juco_in'].includes(reason)
 
@@ -1854,13 +1897,9 @@ export default function PlayerEdit() {
                           <div key={year} className="border-b border-surface-4 last:border-b-0">
                             {/* Desktop row */}
                             <div className="hidden sm:grid grid-cols-[68px_1fr_100px_70px_100px_36px] gap-2 px-4 py-2.5 items-center hover:bg-surface-2/50">
-                              <input
-                                type="number"
-                                value={year}
-                                onChange={(e) => {
-                                  const newYear = parseInt(e.target.value)
-                                  if (newYear && newYear > 1900 && newYear < 2100) changeYear(year, newYear)
-                                }}
+                              <YearInput
+                                year={year}
+                                onCommit={changeYear}
                                 className="w-full px-1 py-1.5 text-sm font-bold rounded-lg border border-transparent hover:border-surface-4 focus:border-blue-500 focus:outline-none text-txt-primary text-center bg-transparent"
                               />
                               <select
@@ -1952,13 +1991,9 @@ export default function PlayerEdit() {
                             <div className="sm:hidden px-4 py-3">
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
-                                  <input
-                                    type="number"
-                                    value={year}
-                                    onChange={(e) => {
-                                      const newYear = parseInt(e.target.value)
-                                      if (newYear && newYear > 1900 && newYear < 2100) changeYear(year, newYear)
-                                    }}
+                                  <YearInput
+                                    year={year}
+                                    onCommit={changeYear}
                                     className="w-16 px-1 py-0.5 font-bold text-txt-primary rounded-lg border border-transparent hover:border-surface-4 focus:border-blue-500 focus:outline-none text-center bg-transparent"
                                   />
                                   {logoUrl && (
