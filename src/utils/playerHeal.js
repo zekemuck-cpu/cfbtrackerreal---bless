@@ -315,13 +315,18 @@ function healPrimitiveByYearMap(map, coerce = primitiveOrNull) {
   return { value: cleaned, changed }
 }
 
-// Award-name normalization. PlayerEdit's dropdown stores award keys
-// ('chuckBednarik') but legacy sync paths sometimes wrote the labels
-// ('Chuck Bednarik Award') — leaving players with two accolade rows
-// for the same award (one with key, one with label). The label-stored
-// row matches no <option value=> and renders as a "Select award"
-// ghost. Normalize labels back to keys so the dropdown finds them and
-// dedup-by-(year+key) cleans up the duplicates.
+// Award-name normalization. PlayerEdit's dropdown stores canonical
+// keys ('chuckBednarik') but legacy sync paths sometimes wrote LABELS
+// ('Chuck Bednarik Award') and even older builds wrote LEGACY KEYS
+// with an 'Award'/'Trophy' suffix ('chuckBednarikAward'). Three
+// shapes for the same value left players with multiple accolade rows
+// per award — one rendering correctly in the dropdown, others as
+// "Select award" ghosts.
+//
+// Map below resolves all three shapes (label / canonical key / legacy
+// key) to the canonical key. After normalization there's exactly one
+// stored shape per award and the dropdown, the profile awards
+// section, and processHonorPlayers' dedup all line up.
 const AWARD_LABEL_TO_KEY = {
   'all-american 1st team':       'allAm1st',
   'all american 1st team':       'allAm1st',
@@ -365,16 +370,60 @@ const AWARD_LABEL_TO_KEY = {
   'returner of the year':        'returnerOfTheYear',
 }
 
+// Legacy KEY → canonical key. Pre-2026 builds wrote 'maxwellAward'
+// and 'bronkoNagurskiTrophy' style keys (canonical keys + suffix).
+// Treat them like aliases so dedup-by-canonical collapses pairs.
+const AWARD_LEGACY_KEY_TO_KEY = {
+  maxwellAward:           'maxwell',
+  walterCampAward:        'walterCamp',
+  daveyObrienAward:       'daveyObrien',
+  chuckBednarikAward:     'chuckBednarik',
+  bronkoNagurskiTrophy:   'broncoNagurski',
+  broncoNagurskiTrophy:   'broncoNagurski',
+  butkusAward:            'dickButkus',
+  dickButkusAward:        'dickButkus',
+  lombardiAward:          'lombardi',
+  outlandTrophy:          'outland',
+  jimThorpeAward:         'jimThorpe',
+  thorpeAward:            'jimThorpe',
+  biletnikoffAward:       'fredBiletnikoff',
+  fredBiletnikoffAward:   'fredBiletnikoff',
+  johnMackeyAward:        'johnMackey',
+  mackeyAward:            'johnMackey',
+  rimingtonTrophy:        'rimington',
+  rayGuyAward:            'rayGuy',
+  louGrozaAward:          'louGroza',
+  grozaAward:             'louGroza',
+  doakWalkerAward:        'doakWalker',
+  unitasGoldenArmAward:   'unitasGoldenArm',
+  heismanTrophy:          'heisman',
+  heismanRunnerUp:        'heismanFinalist',
+}
+
 // Exported so processHonorPlayers (and any future writer) can convert
 // inbound award names to the canonical key BEFORE comparing/storing —
-// without it, the dupe check in processHonorPlayers misses
-// label-vs-key matches and creates new ghost rows on every sync.
+// without it the dupe check would miss label-vs-key (or legacy-key
+// vs canonical-key) matches and create new ghost rows on every sync.
+//
+// Resolution order:
+//   1. Already a canonical key in the recognized set → pass through.
+//   2. Legacy key alias (e.g. chuckBednarikAward) → map to canonical.
+//   3. Display label (e.g. "Chuck Bednarik Award") → map to canonical.
+//   4. Fallback: trim and return the original string so unknown awards
+//      aren't silently dropped — the user can still see them.
 export function normalizeAwardName(raw) {
   if (raw == null) return null
   const s = String(raw).trim()
   if (!s) return null
-  // Already a key (lowercase, no spaces) — pass through.
+  // Legacy key alias check first (e.g. 'chuckBednarikAward' is a
+  // valid camelCase identifier so the regex below would let it pass
+  // through unchanged otherwise).
+  if (Object.prototype.hasOwnProperty.call(AWARD_LEGACY_KEY_TO_KEY, s)) {
+    return AWARD_LEGACY_KEY_TO_KEY[s]
+  }
+  // Already a canonical-shaped key (lowercase, no spaces) — pass through.
   if (/^[a-z][a-zA-Z0-9]*$/.test(s)) return s
+  // Label form — map to key.
   const key = AWARD_LABEL_TO_KEY[s.toLowerCase()]
   return key || s
 }
@@ -655,4 +704,9 @@ export function healPlayer(player, options = {}) {
 // by (year + canonical key). User reported ghost "Select award" rows
 // in the editor — those were duplicate accolades whose award value
 // didn't match any dropdown <option value=>.
-export const PLAYER_HEAL_VERSION = '2026.05.07.0005'
+// 2026.05.07.0006: extend normalization to ALSO collapse legacy KEY
+// aliases (chuckBednarikAward / heismanTrophy / etc) to the canonical
+// key so the storage record holds exactly one shape per award name.
+// Player.jsx awards section drops its dual canonical+legacy lookup
+// map in this round and runs every accolade through normalizeAwardName.
+export const PLAYER_HEAL_VERSION = '2026.05.07.0006'

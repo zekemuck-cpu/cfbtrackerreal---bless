@@ -1242,8 +1242,30 @@ export default function PlayerEdit() {
                       Class
                     </label>
                     <select
-                      value={formData.year || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, year: e.target.value }))}
+                      value={(() => {
+                        // Read from the canonical store (classByYear)
+                        // for the current year, with the legacy
+                        // top-level as fallback. Same pattern as the
+                        // dev-trait dropdown so syncDerivedFieldsFromV2's
+                        // "by-year wins" derivation can't clobber the
+                        // user's pick.
+                        const yr = dynasty?.currentYear
+                        const fromMap = yr != null
+                          ? (formData.classByYear?.[yr] ?? formData.classByYear?.[String(yr)])
+                          : null
+                        return fromMap || formData.year || ''
+                      })()}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        const yr = dynasty?.currentYear
+                        setFormData(prev => ({
+                          ...prev,
+                          year: value,
+                          classByYear: yr != null
+                            ? { ...(prev.classByYear || {}), [yr]: value }
+                            : (prev.classByYear || {}),
+                        }))
+                      }}
                       className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary bg-surface-2"
                     >
                       <option value="">--</option>
