@@ -789,8 +789,18 @@ export default function PlayerEdit() {
       const existingYearStats = player.statsByYear?.[statsYear] || {}
       const emittedCategories = flatStatsToNested(formData.stats, existingYearStats)
       const mergedCategories = {}
+      // gamesPlayed and snapsPlayed are top-level NUMBER fields on the
+      // year stats record, not category objects. Spreading a number
+      // into an object via `{ ...existing, ...fields }` evaluates to
+      // `{}` (the empty-object React #31 trigger that crashed the
+      // CJ Carr profile). Pass numeric leaves through verbatim and
+      // only do the field-level merge for actual category objects.
       for (const [cat, fields] of Object.entries(emittedCategories)) {
-        mergedCategories[cat] = { ...(existingYearStats[cat] || {}), ...fields }
+        if (fields == null || typeof fields !== 'object' || Array.isArray(fields)) {
+          mergedCategories[cat] = fields
+        } else {
+          mergedCategories[cat] = { ...(existingYearStats[cat] || {}), ...fields }
+        }
       }
       updatedPlayer.statsByYear = {
         ...player.statsByYear,
