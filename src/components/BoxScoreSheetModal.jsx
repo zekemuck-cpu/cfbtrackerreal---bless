@@ -248,45 +248,88 @@ export default function BoxScoreSheetModal({
         title: `${baseTitle} — Scoring Summary`,
         roster: scoringUserRoster,
         opponentRoster: scoringOpponentRoster,
+        rosterLabel: `${userIsHome ? homeTeamAbbr : awayTeamAbbr} ROSTER (user-controlled team — disambiguation reference for abbreviated names)`,
+        opponentRosterLabel: `${userIsHome ? awayTeamAbbr : homeTeamAbbr} ROSTER (opponent team — disambiguation reference for abbreviated names)`,
         structure: `This sheet has ONE tab: "Scoring Summary". It has 30 rows (one per scoring play, unused rows blank) and 9 columns.
 
 ═══════════════════════════════════════════════════════════
-HOW TO READ THE SCORING-SUMMARY SCREENSHOT — do this first
+🚨 #1 PRIORITY — TRANSCRIBE EVERY SCORING PLAY FROM BOTH TEAMS 🚨
+═══════════════════════════════════════════════════════════
+THE MOST COMMON FAILURE on this sheet is the AI filling in only the user's team and leaving the opponent's Scorer/Passer cells blank. DO NOT DO THIS.
+
+The CFB26 Scoring Summary screenshot ALREADY shows every scorer's FULL NAME in plain text — for BOTH teams. Examples directly from the game UI: "(MSST) Kevin Applewhite, 34 Yd FG, 7:48", "(UK) George McManus 63 Yd pass from Donte Ware (Sam Cage kick), 8:30", "(MSST) Paul Cormier, 1 Yd run (Kevin Applewhite kick), 2:45".
+
+There is NEVER ambiguity about who scored — the screenshot has already spelled it out. Your job is to TRANSCRIBE that name into column B (and the kicker/passer into column C when present), VERBATIM, for EVERY ROW, regardless of which team scored.
+
+The roster blocks below are provided ONLY as a tiebreaker for cases where CFB26 abbreviates a name (e.g. "K. Applewhite" or "A. Guess"). They are NOT a whitelist. If the screenshot shows a full name like "Kevin Applewhite" or "Paul Cormier" or "Donte Ware", USE THAT NAME EXACTLY — even if that exact spelling is not in the roster block. Real-game rosters can lag the dynasty data (in-season transfers, depth changes, walk-ons), and an opponent scorer not appearing in the roster block IS NOT A REASON TO LEAVE THE CELL BLANK.
+
+Concrete pass/fail examples:
+  ✅ Screenshot: "(MSST) Kevin Applewhite, 34 Yd FG, 7:48"
+     → Row: MSST  Kevin Applewhite          34   Field Goal       1   07:48
+  ✅ Screenshot: "(MSST) Paul Cormier, 1 Yd run (Kevin Applewhite kick), 2:45"
+     → Row: MSST  Paul Cormier              1    Rushing TD  Made XP   4   02:45
+        (the "(Kevin Applewhite kick)" parenthetical is the kicker for the PAT — that's already
+         encoded by Made XP in column F; do NOT put the kicker in column C here)
+  ✅ Screenshot: "(UK) George McManus 63 Yd pass from Donte Ware (Sam Cage kick), 8:30"
+     → Row: UK    George McManus  Donte Ware  63  Passing TD  Made XP   3   08:30
+  ❌ FAIL: leaving Scorer blank because "Kevin Applewhite" or "Paul Cormier" isn't in the MSST roster block.
+  ❌ FAIL: filling Scorer/Passer for UK rows but leaving MSST rows with empty B and C columns.
+
+EVERY SCORING PLAY THAT APPEARS ON THE SCREENSHOT MUST HAVE COLUMN B FILLED. Field goals → kicker's name. Rushing TDs → ball carrier's name. Passing TDs → receiver's name (and column C = QB). Return TDs / defensive TDs → returner/defender's name. The screenshot tells you the name. Write it down.
+
+═══════════════════════════════════════════════════════════
+HOW TO READ THE SCORING-SUMMARY SCREENSHOT
 ═══════════════════════════════════════════════════════════
 The user pastes a screenshot of CFB26's post-game Scoring Summary page. Each entry on that page is ONE scoring play. Before writing any row:
 
-1. EACH ENTRY ON THE SCREENSHOT = ONE ROW. The PAT attempt listed below a TD is NOT a separate row — it collapses into that TD's row via column F (PAT Result).
+1. EACH ENTRY ON THE SCREENSHOT = ONE ROW. The PAT attempt listed in parentheses inside a TD entry is NOT a separate row — it collapses into that TD's row via column F (PAT Result).
 
-2. TEAM COLUMN: each entry shows the scoring team's helmet/abbr on the left. Put EXACTLY "${homeTeamAbbr}" or "${awayTeamAbbr}" in column A — whatever the screenshot shows for that play.
+2. TEAM COLUMN: each entry begins with "(ABBR)" — the parenthesized scoring team. Put EXACTLY "${homeTeamAbbr}" or "${awayTeamAbbr}" in column A — whatever the screenshot shows in that "(...)".
 
-3. QUARTER + TIME: CFB26 shows "Q2 03:47" style. Q1/Q2/Q3/Q4 map to "1"/"2"/"3"/"4" (quoted digits). Overtime entries map to "OT" (or "2OT", "3OT"... for subsequent overtimes). Time is "MM:SS" with leading zeros on BOTH minutes and seconds — "03:47" not "3:47", "00:15" not "0:15".
+3. QUARTER: CFB26 groups plays under "First Quarter", "Second Quarter", "Third Quarter", "Fourth Quarter" (and "Overtime" / "Second OT" / etc. headings if applicable). Map them to the quoted digits "1"/"2"/"3"/"4" in column G. Overtime entries map to "OT", "2OT", "3OT", "4OT". CRITICAL: if a quarter has zero scoring plays in the screenshot, CFB26 may OMIT that quarter heading entirely (e.g. "Third Quarter" header missing because no team scored). Plays that follow such an omitted heading still belong to the next visible quarter heading. Look for the heading immediately ABOVE each play to determine its quarter.
 
-4. SCORING SUMMARY ORDER: the screenshot lists plays chronologically within each quarter. OT plays are ALWAYS after Q4 — never let OT plays land first even if the screenshot displays them in a different visual position.
+4. TIME: shown at the END of each entry (e.g. ", 7:48" at the right of the line). Time is "MM:SS" with leading zeros on BOTH minutes and seconds — "03:47" not "3:47", "00:15" not "0:15". A screenshot showing "7:48" means "07:48".
 
-5. SCORE TYPE mapping:
-     - Rushing TD → run into the endzone (column D = yards on the run)
-     - Passing TD → QB threw to a receiver who scored (column B = receiver, column C = QB)
-     - Field Goal → kicker's points (column B = kicker, column D = FG distance in yards)
-     - Safety → opposing offense tackled/flagged in its own endzone (column B may be the defender or "Defense"; column D = blank)
-     - Kick Return TD / Punt Return TD / INT Return TD / Fumble Return TD / Blocked Punt/FG TD → self-explanatory; column B = the returner/recoverer; column C = blank
+5. CHRONOLOGICAL ORDER: the screenshot lists plays chronologically within each quarter (clock counts DOWN, so 7:48 is earlier in the quarter than 1:36). OT plays are ALWAYS after Q4 — never let OT plays land first even if the screenshot displays them in a different visual position.
 
-6. PAT RESULT (column F): Every TD row MUST have a PAT result (Made XP / Missed XP / Blocked XP / Converted 2PT / Failed 2PT). Field goals and safeties have BLANK PAT (empty string, not "N/A").
+6. SCORE TYPE mapping (extract from the entry's text after the player name):
+     - "X Yd FG" → "Field Goal" (column B = kicker, column D = X, column F = "")
+     - "X Yd run (Kicker kick)" → "Rushing TD" (column B = ball carrier, column D = X, column F = "Made XP")
+     - "X Yd run (Kicker kick blocked)" → "Rushing TD" with column F = "Blocked XP"
+     - "X Yd run (Kicker kick failed)" or "(Kicker kick no good)" → "Rushing TD" with column F = "Missed XP"
+     - "X Yd run (TWO PT GOOD)" / "(2-pt conversion)" → "Rushing TD" with column F = "Converted 2PT"
+     - "X Yd run (TWO PT FAILED)" → "Rushing TD" with column F = "Failed 2PT"
+     - "X Yd pass from Passer (Kicker kick)" → "Passing TD" (column B = receiver who caught it, column C = passer/QB, column D = X, column F per the kick result)
+     - "X Yd interception return" → "INT Return TD"
+     - "X Yd fumble return" → "Fumble Return TD"
+     - "X Yd kickoff return" → "Kick Return TD"
+     - "X Yd punt return" → "Punt Return TD"
+     - "Blocked punt/FG return for TD" → "Blocked Punt/FG TD"
+     - "Safety" → "Safety" (column D blank, column F "")
 
-7. YARDS (column D): for TDs this is the yardage of the SCORING PLAY ITSELF — not the length of the drive. For a 3-yard TD pass, D = 3, NOT 75. For FGs, D = the kick distance. For safeties, D = blank.
+7. PAT RESULT (column F): Every TD row MUST have one of: "Made XP", "Missed XP", "Blocked XP", "Converted 2PT", "Failed 2PT". Read the parenthetical after the play description. Field goals and safeties MUST have F = "" (empty string, not "N/A").
 
-8. OPPONENT PLAYER NAMES: the opponent's roster is provided separately in this prompt. Names in the opponent column must come from THAT list. Do not type "#12" or "J. Smith" — use the full roster name. If the screenshot shows only a jersey number and the roster doesn't clearly match, leave Scorer blank rather than guess.
+8. YARDS (column D): for TDs this is the yardage of the SCORING PLAY ITSELF — not the length of the drive. For a 3-yard TD pass, D = 3, NOT 75. For FGs, D = the kick distance. For safeties, D = blank.
+
+9. PLAYER NAMES — read this carefully:
+   • The screenshot's "(ABBR) Player Name, ..." text is your SOURCE OF TRUTH. Copy the name VERBATIM into column B. CFB26 nearly always prints the full first name + last name in the Scoring Summary (e.g. "Kevin Applewhite", not "K. Applewhite") — when it does, no roster lookup is needed.
+   • For passing TDs, the QB appears after "from" (e.g. "63 Yd pass from Donte Ware") — copy that name VERBATIM into column C.
+   • The kicker named in "(Kicker kick)" is the kicker for the EXTRA POINT on a TD play, not the scorer. Encode that PAT in column F via "Made XP" / "Missed XP" / etc. Do NOT put the kicker's name in column C for a TD row.
+   • Roster blocks are TIEBREAKERS, not whitelists: ONLY consult them if CFB26 actually printed an abbreviated form (e.g. "A. Guess"). If two players match an abbreviation, use jersey/position to pick the right one. If the screenshot shows a full name that isn't in the roster block, USE THE SCREENSHOT'S NAME — do NOT blank the cell. Opponent rosters can be incomplete; the screenshot is authoritative.
+   • Leave Scorer blank ONLY when the screenshot itself is illegible / cropped at that row, AND the entry literally has no readable name. "Not in my roster block" is NOT a valid reason to blank a cell.
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
 1. Output ALL 9 columns (A through I) per row, paste at cell A2. The sheet has no pre-filled data rows — you fill everything below the header.
-2. ONE ROW PER SCORING PLAY, in chronological order (earliest quarter/latest time first → later quarter). PAT attempts are NOT separate rows — they collapse into the TD row via column F (PAT Result).
+2. ONE ROW PER SCORING PLAY, in chronological order (earliest quarter / latest game-clock time first). PAT attempts are NOT separate rows — they collapse into the TD row via column F (PAT Result).
 3. Output AT MOST 30 rows. Leave remaining rows blank (do not output them at all — just stop).
 4. NO COMMAS in numbers. "24" never "1,234".
 5. INTEGERS ONLY for Yards and Quarter.
 6. Use ONLY the literal dropdown values listed below for columns A, E, F, G. Strict dropdowns — wrong value is rejected.
-7. BLANK CELLS for unknowns. Never guess, never use "N/A" (except where explicitly allowed — this sheet uses empty string, NOT "N/A", for plays without a PAT).
-8. No header row, no commentary, no explanation. SINGLE TSV block.
+7. BLANK CELLS only for genuinely missing/illegible data. NEVER use "N/A". This sheet uses empty string, NOT "N/A", for plays without a PAT.
+8. EVERY scoring play in the screenshot must produce one row, and that row's column B (Scorer) MUST be filled with the name from the screenshot — for BOTH teams equally. Output is rejected if it skips opponent scorers.
+9. No header row, no commentary, no explanation. SINGLE TSV block.
 
 ═══════════════════════════════════════════════════════════
 TAB: "Scoring Summary" — up to 30 rows × 9 columns
@@ -296,16 +339,13 @@ Paste your block at cell A2 of the "Scoring Summary" tab
 Col | Header       | Format / Allowed values
 ----+--------------+----------------------------------------------------------------------
  A  | Team         | STRICT dropdown: EXACTLY "${homeTeamAbbr}" or "${awayTeamAbbr}" (uppercase). No other values.
- B  | Scorer       | Player name — the player who scored (rusher/receiver for TDs, kicker for FGs/PATs, returner for return TDs, "Defense" or defender name for safeties/defensive TDs).
-                  | ⚠️ NAME DISAMBIGUATION: the scoring play belongs to whichever team
-                  |    scored (column A). Resolve the full name against THAT team's
-                  |    roster block — HOME roster for "${homeTeamAbbr}" scores, OPPONENT
-                  |    roster for "${awayTeamAbbr}" scores. If both rosters contain a
-                  |    player matching the same initial + last name, use jersey
-                  |    number or position to pick the right one; otherwise leave
-                  |    Scorer blank (never guess across teams).
- C  | Passer       | QB name who threw the TD pass. BLANK for non-passing scores (rushing TD, FG, safety, return TD, defensive TD).
-                  | Passer is always on the SAME team as Scorer — match to that team's roster.
+ B  | Scorer       | Player name — the player who scored (rusher/receiver for TDs, kicker for FGs, returner for return TDs, "Defense" or defender name for safeties/defensive TDs).
+                  | REQUIRED for every row that has any data. The screenshot ALWAYS prints
+                  |    this name — copy it VERBATIM. Use the roster block only to expand
+                  |    abbreviations (e.g. "A. Guess" → "Alex Guess"). Do NOT blank an
+                  |    opponent scorer just because that name isn't in the opponent's
+                  |    roster block — the screenshot is authoritative.
+ C  | Passer       | QB name who threw the TD pass — copy VERBATIM from the "from <Name>" portion of the entry. BLANK for non-passing scores (rushing TD, FG, safety, return TD, defensive TD). Do NOT put the PAT kicker here on a TD row — that goes in column F via "Made XP" etc.
  D  | Yards        | Integer — yards on the scoring play. FG distance for FGs; TD play yardage for TDs; blank for Safety.
  E  | Score Type   | STRICT dropdown — EXACTLY one of these 9 literal values (case-sensitive):
     |              |   - "Rushing TD"
@@ -345,13 +385,17 @@ REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send
 ═══════════════════════════════════════════════════════════
+[ ] EVERY row that has team + score type ALSO has column B (Scorer) filled. Count the scoring plays in the screenshot. Count the rows in your output. Count the non-blank Scorer cells. All three numbers must match.
+[ ] Both teams' scorers are filled — not just the user's team. If the screenshot shows N plays for ${homeTeamAbbr} and M plays for ${awayTeamAbbr}, your output has N populated rows for ${homeTeamAbbr} and M populated rows for ${awayTeamAbbr}, each with column B filled.
+[ ] No Scorer cell was blanked just because the name isn't in the roster block. If CFB26 printed "Kevin Applewhite", the cell says "Kevin Applewhite" — period.
+[ ] For Passing TDs, both column B (receiver) AND column C (passer) are filled from the "<Receiver> ... pass from <Passer>" text.
 [ ] Every row has EXACTLY 9 tab-separated values (8 tab characters per row)
 [ ] Column A is EXACTLY "${homeTeamAbbr}" or "${awayTeamAbbr}" — nothing else
 [ ] Column E is one of the 9 exact Score Type values, no paraphrasing
 [ ] Column F is one of the 6 exact PAT Result values (empty string for FG / Safety)
 [ ] Column G is "1"/"2"/"3"/"4"/"OT"/"2OT"/"3OT"/"4OT" — quoted as listed
 [ ] Column H is MM:SS with leading zeros
-[ ] Rows are chronological
+[ ] Rows are chronological (within a quarter, higher MM:SS comes first because the clock counts down)
 [ ] Total rows ≤ 30; no header row; no commas in numbers
 [ ] PAT row is NOT a separate row; the PAT result is in column F of the TD row`,
         includeTeamMap: true,
