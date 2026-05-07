@@ -10550,15 +10550,11 @@ export function DynastyProvider({ children }) {
         }
       }
 
-      // For NEW players (no name match), use sheet data with required fields
-      // Add 'added' movement to track when player was manually added
-      const addedMovement = createMovement(
-        year,
-        MOVEMENT_TYPES.ADDED,
-        null,
-        teamTid,
-        'Added via roster entry'
-      )
+      // For NEW players (no name match), use sheet data with required fields.
+      // Write a canonical v2 arrival/transfer_in entry to movementByYear
+      // (mirrors what legacyMovementToCanonical produces for the legacy
+      // 'added' type — keeping the semantic identical while skipping the
+      // legacy movements[] write the heal would just strip on next load).
       return {
         ...player,
         pid,
@@ -10574,8 +10570,10 @@ export function DynastyProvider({ children }) {
         overallByYear: player.overall ? { [year]: player.overall } : {},
         // IMMUTABLE dev trait history - record this player's dev trait for this year
         devTraitByYear: player.devTrait ? { [year]: player.devTrait } : {},
-        // Movement history for tracking career path
-        movements: [addedMovement]
+        // Canonical v2 movement record — was a legacy movements[] entry.
+        movementByYear: {
+          [year]: { type: 'arrival', arrival: 'transfer_in', fromTid: null },
+        },
       }
     })
 
@@ -11301,23 +11299,14 @@ export function DynastyProvider({ children }) {
         playerTeamTid = teamTid
       }
 
-      const removedMovement = createMovement(
-        dynasty.currentYear,
-        MOVEMENT_TYPES.REMOVED,
-        playerTeamTid,
-        null,
-        'User removed from roster'
-      )
-
-      // Update player with removal movement, then remove from array
+      // Mark + remove. The previous version appended a legacy 'removed'
+      // movements[] entry to the player object, but the very next .filter
+      // call drops the player from dynasty.players[] entirely — so the
+      // movement write was never persisted anywhere. Just mark and
+      // filter; nothing else reads `isRemoved`/`removedYear` after this.
       const updatedPlayers = (dynasty.players || []).map(player => {
         if (player.pid === playerPid) {
-          return {
-            ...player,
-            movements: [...(player.movements || []), removedMovement],
-            isRemoved: true, // Mark as removed for historical tracking
-            removedYear: dynasty.currentYear
-          }
+          return { ...player, isRemoved: true, removedYear: dynasty.currentYear }
         }
         return player
       }).filter(player => player.pid !== playerPid) // Then remove
