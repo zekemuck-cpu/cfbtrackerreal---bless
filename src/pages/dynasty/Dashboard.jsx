@@ -1276,6 +1276,27 @@ export default function Dashboard() {
           return { type: 'departure', departure: 'transfer_out', toTid: null, reason }
         })()
 
+        // CRITICAL: Preserve specific recorded outcomes. The leaving
+        // sheet captures the user's INTENT ("this player is leaving for
+        // X reason"); the actual outcome (drafted / graduated) is
+        // recorded separately by handleDraftResultsSave or auto-grad.
+        // If a more-specific outcome already exists for this year,
+        // don't clobber it with the generic transfer_out path —
+        // re-saving the leaving sheet was overwriting drafted players
+        // back into "in the portal", which is the user-reported bug.
+        const existingMovement = player.movementByYear?.[Number(year)]
+          ?? player.movementByYear?.[String(year)]
+        const isMoreSpecific = existingMovement
+          && existingMovement.type === 'departure'
+          && (existingMovement.departure === 'pro_draft'
+              || existingMovement.departure === 'graduated')
+        const isWritingGenericTransferOut = movementByYearEntry.departure === 'transfer_out'
+          && movementByYearEntry.toTid == null
+        if (isMoreSpecific && isWritingGenericTransferOut) {
+          // Keep the existing specific outcome; nothing to update.
+          return player
+        }
+
         return {
           ...player,
           movementByYear: {

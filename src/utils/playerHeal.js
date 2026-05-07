@@ -119,6 +119,63 @@ function healMovementByYear(mby) {
   return { value: cleaned, changed }
 }
 
+// Reclassify generic "in the portal" entries that are actually a more
+// specific outcome the user already recorded elsewhere on the player.
+// Background: re-saving the Players Leaving sheet was clobbering
+// drafted/graduated players back to `{ type: 'departure', departure:
+// 'transfer_out', toTid: null, reason: null }`, because the sheet's
+// catch-all branch treated anything not "Pro Draft" / "Graduating" as
+// portal-unknown. handleDraftResultsSave still kept draftRound /
+// draftYear on the top-level fields, so we can detect the mismatch:
+//
+//   - If movementByYear[player.draftYear] is the generic transfer_out
+//     stub, but player.draftYear / draftRound are set, restore
+//     pro_draft.
+//   - If movementByYear[lastSeasonYear] is the generic transfer_out
+//     stub and the player's class for that year was Sr / RS Sr,
+//     restore graduated. (Seniors who hit their final year and exit
+//     are graduating by definition; the only reason they'd land on
+//     the leaving sheet with a portal reason is the same clobber.)
+//
+// The heuristic is conservative: only fires when the existing entry is
+// the EXACT generic stub (transfer_out + null toTid + null reason).
+// Real portal entries with a destination or a real reason pass through.
+function reclassifyMisclassifiedDepartures(mby, player) {
+  if (!mby || typeof mby !== 'object') return { value: mby, changed: false }
+  const isGenericPortalStub = (m) =>
+    m && m.type === 'departure' && m.departure === 'transfer_out'
+    && m.toTid == null && (m.reason == null || m.reason === '')
+  const cleaned = { ...mby }
+  let changed = false
+
+  // Draft case — strongest signal. draftYear matches a generic stub.
+  const draftYear = Number(player?.draftYear)
+  if (Number.isFinite(draftYear)) {
+    const key = mby[draftYear] !== undefined ? draftYear : (mby[String(draftYear)] !== undefined ? String(draftYear) : null)
+    if (key !== null && isGenericPortalStub(cleaned[key])) {
+      cleaned[key] = {
+        type: 'departure',
+        departure: 'pro_draft',
+        ...(player.draftRound != null ? { draftRound: player.draftRound } : {}),
+      }
+      changed = true
+    }
+  }
+
+  // Graduation case — class for the stub year was Sr / RS Sr.
+  const classByYear = player?.classByYear || {}
+  for (const [yearKey, m] of Object.entries(cleaned)) {
+    if (!isGenericPortalStub(m)) continue
+    const cls = classByYear[yearKey] ?? classByYear[Number(yearKey)] ?? classByYear[String(yearKey)]
+    if (cls === 'Sr' || cls === 'RS Sr') {
+      cleaned[yearKey] = { type: 'departure', departure: 'graduated' }
+      changed = true
+    }
+  }
+
+  return { value: cleaned, changed }
+}
+
 function healTeamsByYear(tby) {
   if (!tby || typeof tby !== 'object') return { value: tby, changed: false }
   const cleaned = {}
@@ -367,6 +424,18 @@ export function healPlayer(player, options = {}) {
       changed = true
     }
   }
+  // Reclassify generic "in the portal" stubs that should be pro_draft
+  // (player has draftYear / draftRound) or graduated (class was Sr/RS
+  // Sr). Runs AFTER healMovementByYear so we operate on canonical
+  // entries.
+  {
+    const r = reclassifyMisclassifiedDepartures(next.movementByYear, next)
+    if (r.changed) {
+      next = next === player ? { ...player } : next
+      next.movementByYear = r.value
+      changed = true
+    }
+  }
   if ('teamsByYear' in player) {
     const r = healTeamsByYear(player.teamsByYear)
     if (r.changed) {
@@ -462,4 +531,10 @@ export function healPlayer(player, options = {}) {
 // snapsPlayed, and every category field (passing/rushing/etc.) to a
 // number. CJ Carr's record had statsByYear[year].gamesPlayed = {} which
 // crashed the year-by-year table render.
-export const PLAYER_HEAL_VERSION = '2026.05.07.0003'
+// 2026.05.07.0004: reclassify generic transfer_out stubs that are
+// actually drafted (player has draftYear/draftRound) or graduated
+// (class was Sr/RS Sr). User reported "previous players are being
+// marked as in the portal and not what actually happened (draft,
+// graduation)" — root cause: re-saving the Players Leaving sheet
+// clobbered specific outcomes back to portal-unknown.
+export const PLAYER_HEAL_VERSION = '2026.05.07.0004'
