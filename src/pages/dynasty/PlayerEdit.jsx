@@ -1474,6 +1474,55 @@ export default function PlayerEdit() {
                 return null
               }
 
+              // Translate the dropdown's legacy enum value into the canonical
+              // v2 movement shape we want stored. The dropdown still shows
+              // legacy strings ("entered_portal", "graduated", etc.) because
+              // normalizeMovementType reads either shape — but storage is
+              // always canonical now so we stop bloating movementByYear with
+              // entries the heal has to fix on the next load.
+              const toCanonicalMovement = (m) => {
+                if (!m || !m.type) return null
+                const toTid = m.toTid ?? m.toTeamTid ?? null
+                switch (m.type) {
+                  case 'departure':
+                  case 'arrival':
+                  case 'recommit':
+                    // Already canonical — pass through (but normalize the
+                    // destination tid field name in case a stale toTeamTid
+                    // crept in via a partial patch).
+                    return toTid != null && m.departure === 'transfer_out'
+                      ? { ...m, toTid: Number(toTid), toTeamTid: undefined }
+                      : m
+                  case 'graduated':
+                    return { type: 'departure', departure: 'graduated' }
+                  case 'declared_for_draft':
+                    return { type: 'departure', departure: 'pro_draft', draftRound: m.draftRound ?? null }
+                  case 'entered_portal':
+                    return {
+                      type: 'departure',
+                      departure: 'transfer_out',
+                      toTid: toTid != null ? Number(toTid) : null,
+                      reason: m.reason || 'Entered Transfer Portal',
+                    }
+                  case 'encouraged_to_transfer':
+                    return {
+                      type: 'departure',
+                      departure: 'transfer_out',
+                      toTid: toTid != null ? Number(toTid) : null,
+                      reason: m.reason || 'Encouraged Transfer',
+                    }
+                  case 'transferred_out':
+                    return {
+                      type: 'departure',
+                      departure: 'transfer_out',
+                      toTid: toTid != null ? Number(toTid) : null,
+                      reason: m.reason || null,
+                    }
+                  default:
+                    return m
+                }
+              }
+
               const updateMovement = (year, patch) => {
                 setFormData(prev => {
                   const next = { ...prev }
@@ -1487,23 +1536,25 @@ export default function PlayerEdit() {
                     // Drop fields that don't apply to the current type.
                     // `transferred_out` (origin: Players Leaving sheet) carries
                     // both a destination tid and a portal reason — preserve both.
-                    const toTeamTypes = ['encouraged_to_transfer', 'transferred_out']
+                    const toTeamTypes = ['encouraged_to_transfer', 'transferred_out', 'departure']
                     if (!toTeamTypes.includes(merged.type)) {
                       delete merged.toTeamTid
+                      delete merged.toTid
                     }
-                    const reasonTypes = ['entered_portal', 'encouraged_to_transfer', 'transferred_out']
+                    const reasonTypes = ['entered_portal', 'encouraged_to_transfer', 'transferred_out', 'departure']
                     if (!reasonTypes.includes(merged.type)) {
                       delete merged.reason
                     }
-                    movements[year] = merged
+                    movements[year] = toCanonicalMovement(merged) || merged
                   }
                   next.movementByYear = movements
                   // Auto-populate next season's team if forced out to a specific school
-                  if (merged.type === 'encouraged_to_transfer' && merged.toTeamTid) {
+                  const destTid = merged.toTid ?? merged.toTeamTid
+                  if (merged.type === 'encouraged_to_transfer' && destTid) {
                     const yearIdx = activeYears.indexOf(year)
                     if (yearIdx >= 0 && yearIdx < activeYears.length - 1) {
                       const nextYear = activeYears[yearIdx + 1]
-                      next.teamsByYear = { ...(prev.teamsByYear || {}), [nextYear]: Number(merged.toTeamTid) }
+                      next.teamsByYear = { ...(prev.teamsByYear || {}), [nextYear]: Number(destTid) }
                     }
                   }
                   return next
@@ -1571,9 +1622,17 @@ export default function PlayerEdit() {
                                     next.overallByYear = { ...(prev.overallByYear || {}), [priorYear]: '' }
                                     next.devTraitByYear = { ...(prev.devTraitByYear || {}), [priorYear]: '' }
                                     const curTeamTid = prev.teamsByYear?.[firstYear] || dynasty?.currentTid
+                                    // Write canonical v2 directly — no more
+                                    // legacy 'transferred_out' shape that
+                                    // would just get rewritten by the heal.
                                     next.movementByYear = {
                                       ...(prev.movementByYear || {}),
-                                      [priorYear]: { type: 'transferred_out', toTeamTid: curTeamTid ? Number(curTeamTid) : null }
+                                      [priorYear]: {
+                                        type: 'departure',
+                                        departure: 'transfer_out',
+                                        toTid: curTeamTid ? Number(curTeamTid) : null,
+                                        reason: null,
+                                      }
                                     }
                                   }
                                 }
@@ -1624,7 +1683,7 @@ export default function PlayerEdit() {
                         <span className="text-[10px] text-txt-muted">to</span>
                         <select
                           value={toTeamTid}
-                          onChange={(e) => updateMovement(year, { toTeamTid: e.target.value ? Number(e.target.value) : null })}
+                          onChange={(e) => updateMovement(year, { toTid: e.target.value ? Number(e.target.value) : null })}
                           className="text-[10px] text-txt-muted bg-transparent border-none focus:outline-none cursor-pointer px-1 py-0 rounded hover:bg-surface-3"
                         >
                           <option value="">Team...</option>

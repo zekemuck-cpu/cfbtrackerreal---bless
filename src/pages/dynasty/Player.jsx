@@ -275,9 +275,9 @@ function PlayerInner() {
   const player = useMemo(() => {
     if (!rawPlayer) return rawPlayer
     if (rawPlayer._v2HealVersion === PLAYER_HEAL_VERSION) return rawPlayer
-    const { player: healed, changed } = healPlayer(rawPlayer)
+    const { player: healed, changed } = healPlayer(rawPlayer, { currentYear: dynasty?.currentYear })
     return changed ? healed : rawPlayer
-  }, [rawPlayer])
+  }, [rawPlayer, dynasty?.currentYear])
 
 // True only while the player is a committed recruit who hasn't yet
   // joined the roster. Once they have a teamsByYear entry for the
@@ -505,7 +505,7 @@ function PlayerInner() {
   useEffect(() => {
     if (!player || !dynasty?.id || isViewOnly) return
     if (player._v2HealVersion === PLAYER_HEAL_VERSION) return
-    const { player: healed, changed } = healPlayer(player)
+    const { player: healed, changed } = healPlayer(player, { currentYear: dynasty?.currentYear })
     const next = { ...(changed ? healed : player), _v2HealVersion: PLAYER_HEAL_VERSION }
     // Fire-and-forget — render path uses the in-memory `player` so we
     // don't need to await the write; the flag will land before the next
