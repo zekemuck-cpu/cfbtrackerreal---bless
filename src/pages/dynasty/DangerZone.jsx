@@ -88,6 +88,8 @@ export default function DangerZone() {
 
   // Schedule link fix state
   const [scheduleLinkFixStatus, setScheduleLinkFixStatus] = useState(null)
+  const [storageAnalysisStatus, setStorageAnalysisStatus] = useState(null)
+  const [storageAnalysisDetail, setStorageAnalysisDetail] = useState(null)
 
   if (!currentDynasty) {
     return <LoadingState message="Loading..." />
@@ -135,6 +137,122 @@ export default function DangerZone() {
       setClearCacheStatus({ success: true, message: `Cleared ${keysToRemove.length} items` })
     } catch (error) {
       setClearCacheStatus({ success: false, message: 'Failed: ' + error.message })
+    }
+  }
+
+  // Diagnostic — measure how much each top-level field contributes to
+  // the main dynasty doc's serialized size. Triggered after one beta
+  // dynasty crossed the Firestore 1 MiB document cap and started
+  // rejecting writes; we moved weekRecapsByYear to a subcollection,
+  // but we want data (not guesses) on what's likely to bloat next.
+  //
+  // Bytes are JSON.stringify().length. That's a usable proxy for the
+  // Firestore on-disk size — it ignores per-field metadata overhead
+  // but the relative ranking of fields is what we care about.
+  // Excludes the three subcollection-backed fields (players, games,
+  // weekRecapsByYear) since those don't count against the parent doc
+  // cap, even though the loaded React state has them merged in.
+  const handleAnalyzeStorage = async () => {
+    setStorageAnalysisStatus('running')
+    setStorageAnalysisDetail(null)
+    try {
+      if (!currentDynasty) throw new Error('No dynasty loaded')
+
+      // These fields live in subcollections — exclude from the main
+      // doc tally so the report reflects what actually counts toward
+      // the 1 MiB cap.
+      const SUBCOLLECTION_FIELDS = new Set([
+        'players',
+        'games',
+        'weekRecapsByYear',
+      ])
+
+      // Internal / runtime-only fields that don't get persisted.
+      const TRANSIENT_FIELDS = new Set([
+        'storageType',
+        '_firestoreId',
+        '_subcollectionsMigrated',
+      ])
+
+      const sizeOf = (value) => {
+        try {
+          return JSON.stringify(value === undefined ? null : value).length
+        } catch (_) {
+          return 0
+        }
+      }
+
+      const entries = []
+      let mainDocTotal = 0
+      for (const [key, value] of Object.entries(currentDynasty)) {
+        if (TRANSIENT_FIELDS.has(key)) continue
+        const bytes = sizeOf(value)
+        const inSubcollection = SUBCOLLECTION_FIELDS.has(key)
+        if (!inSubcollection) mainDocTotal += bytes
+        entries.push({ key, bytes, inSubcollection })
+      }
+
+      entries.sort((a, b) => b.bytes - a.bytes)
+
+      const fmt = (n) => {
+        if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(2)} MB`
+        if (n >= 1024) return `${(n / 1024).toFixed(1)} KB`
+        return `${n} B`
+      }
+
+      // Pretty-print the top 25 (by main-doc size) and any subcollection
+      // entries. Anything below 100 bytes after that gets folded into a
+      // "rest" line so the report stays scannable.
+      const lines = []
+      lines.push(`Main dynasty doc: ${fmt(mainDocTotal)} of 1.00 MB cap (${(mainDocTotal / (1024 * 1024) * 100).toFixed(1)}%)`)
+      lines.push('')
+      lines.push('Top fields (excluding subcollections):')
+      const mainDocOnly = entries.filter(e => !e.inSubcollection)
+      const top = mainDocOnly.slice(0, 25)
+      for (const { key, bytes } of top) {
+        if (bytes < 100) break
+        const pct = mainDocTotal > 0 ? ((bytes / mainDocTotal) * 100).toFixed(1) : '0'
+        lines.push(`  ${key.padEnd(40)} ${fmt(bytes).padStart(10)}   (${pct}%)`)
+      }
+      const restBytes = mainDocOnly.slice(25).reduce((s, e) => s + e.bytes, 0)
+      if (restBytes > 0) {
+        lines.push(`  ${'(everything else)'.padEnd(40)} ${fmt(restBytes).padStart(10)}`)
+      }
+      lines.push('')
+      lines.push('Subcollections (live in their own docs, no doc-cap risk):')
+      const subEntries = entries.filter(e => e.inSubcollection)
+      if (subEntries.length === 0) {
+        lines.push('  (none yet — none of players/games/weekRecaps are loaded into state)')
+      } else {
+        for (const { key, bytes } of subEntries) {
+          // Show count of records too where it's meaningful.
+          const value = currentDynasty[key]
+          let detail = ''
+          if (Array.isArray(value)) detail = ` — ${value.length} records`
+          else if (value && typeof value === 'object') {
+            const totalEntries = Object.values(value).reduce((s, v) => {
+              if (v && typeof v === 'object') return s + Object.keys(v).length
+              return s
+            }, 0)
+            if (totalEntries) detail = ` — ${totalEntries} entries`
+          }
+          lines.push(`  ${key.padEnd(40)} ${fmt(bytes).padStart(10)}${detail}`)
+        }
+      }
+      lines.push('')
+      lines.push(`Run timestamp: ${new Date().toISOString()}`)
+      lines.push(`Dynasty: ${currentDynasty.name || currentDynasty.id}`)
+
+      const detailText = lines.join('\n')
+      console.log('[StorageAnalysis]\n' + detailText)
+      setStorageAnalysisDetail(detailText)
+      setStorageAnalysisStatus({
+        success: true,
+        message: `Main doc: ${fmt(mainDocTotal)} (${(mainDocTotal / (1024 * 1024) * 100).toFixed(0)}% of cap). Top: ${mainDocOnly[0]?.key || '—'}. Full breakdown below + console.`,
+      })
+    } catch (error) {
+      console.error('[StorageAnalysis] failed:', error)
+      setStorageAnalysisStatus({ success: false, message: 'Failed: ' + (error?.message || 'unknown') })
     }
   }
 
@@ -2017,6 +2135,44 @@ export default function DangerZone() {
             onClick={handleSyncHonorsToPlayers}
             status={honorsSyncStatus}
           />
+          {/* Storage size diagnostic — surfaces which dynasty fields are
+              taking up the most space in the main Firestore doc, since
+              that doc is capped at 1 MiB and all writes fail once it's
+              over. Output is multi-line so this gets a full custom
+              card instead of using ActionCard's single-line StatusLine. */}
+          <Card className="flex flex-col h-full sm:col-span-2 md:col-span-2">
+            <div className="mb-3">
+              <h3 className="label-sm text-txt-primary m-0">Analyze Storage Size</h3>
+              <p className="text-xs mt-1 text-txt-tertiary leading-relaxed m-0">
+                Reports how many bytes each top-level dynasty field is using on the main Firestore doc (1 MiB cap). Run this if writes are failing with "document too big", or to see which field will be the next migration target.
+              </p>
+            </div>
+            <div className="mt-auto space-y-2">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleAnalyzeStorage}
+                disabled={storageAnalysisStatus === 'running'}
+                className="w-full"
+              >
+                {storageAnalysisStatus === 'running' ? 'Analyzing...' : 'Analyze Size'}
+              </Button>
+              <StatusLine status={storageAnalysisStatus} />
+              {storageAnalysisDetail && (
+                <pre
+                  className="text-[11px] mt-2 p-3 rounded-md overflow-auto whitespace-pre font-mono"
+                  style={{
+                    backgroundColor: 'var(--surface-3)',
+                    color: 'var(--text-secondary)',
+                    border: '1px solid var(--surface-4)',
+                    maxHeight: '320px',
+                  }}
+                >
+                  {storageAnalysisDetail}
+                </pre>
+              )}
+            </div>
+          </Card>
           {/* Custom card for Stats Sync with year selector */}
           <Card className="flex flex-col h-full">
             <div className="mb-3">
