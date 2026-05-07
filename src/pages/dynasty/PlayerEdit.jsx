@@ -554,8 +554,14 @@ export default function PlayerEdit() {
         return acc
       }, {}),
 
-      // Awards
-      accolades: player.accolades || [],
+      // Awards. Strip blank/ghost entries on load so the form doesn't
+      // surface "Select award" placeholder rows for empty saved
+      // accolades. Empty entries can land in storage from a partial
+      // sync flow that wrote a year-stamped row before the user picked
+      // an award; filter them at the boundary so the editor only shows
+      // real awards. The save path already filters the same way (line
+      // ~818) so this is symmetric.
+      accolades: (player.accolades || []).filter(a => a && a.year && a.award),
 
       // Stats for current year (converted from nested to flat)
       stats: nestedStatsToFlat(yearStats),

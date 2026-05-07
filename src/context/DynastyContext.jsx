@@ -12180,18 +12180,26 @@ export function DynastyProvider({ children }) {
 
         // Add honor entry based on type
         if (update.honorType === 'awards') {
-          // Check for duplicate
-          const isDupe = updatedPlayer.accolades.some(a =>
-            a.year === update.entry.year && a.award === update.entry.award
-          )
-          if (!isDupe) {
-            updatedPlayer.accolades.push({
-              year: update.entry.year,
-              award: update.entry.award || update.entry.awardKey,
-              team: update.entry.team,
-              position: update.entry.position,
-              class: update.entry.class
-            })
+          // Resolve the award name first so the dupe check and the
+          // push agree on what gets stored. Without this, an entry
+          // whose `award` was undefined but had an `awardKey` would
+          // mark not-a-dupe (compared undefined vs the existing row's
+          // 'Heisman') and push a "ghost" row that rendered as an
+          // empty "Select award" placeholder in PlayerEdit.
+          const awardName = update.entry.award || update.entry.awardKey
+          if (awardName && update.entry.year) {
+            const isDupe = updatedPlayer.accolades.some(a =>
+              a.year === update.entry.year && a.award === awardName
+            )
+            if (!isDupe) {
+              updatedPlayer.accolades.push({
+                year: update.entry.year,
+                award: awardName,
+                team: update.entry.team,
+                position: update.entry.position,
+                class: update.entry.class
+              })
+            }
           }
         } else if (update.honorType === 'allAmericans') {
           const isDupe = updatedPlayer.allAmericans.some(a =>
@@ -12253,17 +12261,22 @@ export function DynastyProvider({ children }) {
         if (!existingInBatch.allConference) existingInBatch.allConference = []
 
         if (newPlayer.honorType === 'awards') {
-          const isDupe = existingInBatch.accolades.some(a =>
-            a.year === newPlayer.entry.year && a.award === (newPlayer.entry.award || newPlayer.entry.awardKey)
-          )
-          if (!isDupe) {
-            existingInBatch.accolades.push({
-              year: newPlayer.entry.year,
-              award: newPlayer.entry.award || newPlayer.entry.awardKey,
-              team: newPlayer.entry.team,
-              position: newPlayer.entry.position,
-              class: newPlayer.entry.class
-            })
+          // Skip ghost entries that have no award name — they render as
+          // empty "Select award" placeholder rows in PlayerEdit.
+          const awardName = newPlayer.entry.award || newPlayer.entry.awardKey
+          if (awardName && newPlayer.entry.year) {
+            const isDupe = existingInBatch.accolades.some(a =>
+              a.year === newPlayer.entry.year && a.award === awardName
+            )
+            if (!isDupe) {
+              existingInBatch.accolades.push({
+                year: newPlayer.entry.year,
+                award: awardName,
+                team: newPlayer.entry.team,
+                position: newPlayer.entry.position,
+                class: newPlayer.entry.class
+              })
+            }
           }
         } else if (newPlayer.honorType === 'allAmericans') {
           const isDupe = existingInBatch.allAmericans.some(a =>
