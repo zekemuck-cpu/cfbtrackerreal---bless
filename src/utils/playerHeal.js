@@ -359,14 +359,15 @@ export function healPlayer(player, options = {}) {
 }
 
 // Bump this string when adding new heal logic so the next profile view
-// re-runs the walk on every player. Format YYYY.MM.DD lets you grep
-// commits for "HEAL_VERSION" alongside dated changelog entries.
+// re-runs the walk on every player. Format YYYY.MM.DD.vvvv (vvvv is a
+// 4-digit sequence number resetting daily) keeps stamps lexicographically
+// sortable and unambiguous when multiple bumps land the same day.
 //
-// 2026.05.07: also strip legacy player.movements[] array and sync
+// 2026.05.07.0001: also strip legacy player.movements[] array and sync
 // player.year / .overall / .devTrait / .team to the current-year
 // values from the by-year maps.
-// 2026.05.07b: sanitize per-year primitive maps (classByYear,
+// 2026.05.07.0002: sanitize per-year primitive maps (classByYear,
 // overallByYear, devTraitByYear, positionByYear) and top-level scalar
 // fields (position, archetype, height, hometown, state, etc.) — drop
 // non-primitive values that crash the renderer with React #31.
-export const PLAYER_HEAL_VERSION = '2026.05.07b'
+export const PLAYER_HEAL_VERSION = '2026.05.07.0002'
