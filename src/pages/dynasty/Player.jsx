@@ -506,7 +506,16 @@ function PlayerInner() {
     if (!player || !dynasty?.id || isViewOnly) return
     if (player._v2HealVersion === PLAYER_HEAL_VERSION) return
     const { player: healed, changed } = healPlayer(player, { currentYear: dynasty?.currentYear })
-    const next = { ...(changed ? healed : player), _v2HealVersion: PLAYER_HEAL_VERSION }
+    // Only persist when the heal ACTUALLY changed something. Stamping
+    // just the version flag on every clean player triggers
+    // updatePlayer → DynastyContext state cascade → every subscriber
+    // re-renders, and on a roster of hundreds of players each first
+    // view paid that cost just to skip a microsecond walk on subsequent
+    // views. Net was site-wide button lag. The in-memory useMemo above
+    // still runs the heal on every mount, which is fast enough that
+    // the version-flag optimization isn't worth the cascade.
+    if (!changed) return
+    const next = { ...healed, _v2HealVersion: PLAYER_HEAL_VERSION }
     // Fire-and-forget — render path uses the in-memory `player` so we
     // don't need to await the write; the flag will land before the next
     // mount.
