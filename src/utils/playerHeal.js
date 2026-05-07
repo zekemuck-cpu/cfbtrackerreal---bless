@@ -182,14 +182,48 @@ function healTeamHistory(history) {
   return { value: cleaned, changed }
 }
 
-export function healPlayer(player) {
+// Sync the legacy convenience fields (player.year / .overall / .devTrait /
+// .team) to the canonical by-year maps for the dynasty's current year.
+// These fields are still read in many render paths as the "current value"
+// shortcut, so when they drift from the by-year maps the player profile
+// shows stale data (the old "OVR 79 in header but 83 in progression
+// modal" class of bug). syncDerivedFieldsFromV2 already does this on
+// every save, but a player who hasn't been touched since the by-year
+// maps got updated via some other path can drift in the meantime.
+function syncDerivedSingleValues(player, currentYear) {
+  if (!player || typeof player !== 'object') return { value: player, changed: false }
+  if (!Number.isFinite(Number(currentYear))) return { value: player, changed: false }
+  const yr = Number(currentYear)
+  const lookups = [
+    { key: 'year', mapKey: 'classByYear' },
+    { key: 'overall', mapKey: 'overallByYear' },
+    { key: 'devTrait', mapKey: 'devTraitByYear' },
+    { key: 'team', mapKey: 'teamsByYear' },
+  ]
+  let changed = false
+  let next = player
+  for (const { key, mapKey } of lookups) {
+    const map = player[mapKey]
+    if (!map || typeof map !== 'object') continue
+    const fromMap = map[yr] ?? map[String(yr)]
+    if (fromMap == null || fromMap === '') continue
+    if (player[key] === fromMap) continue
+    if (next === player) next = { ...player }
+    next[key] = fromMap
+    changed = true
+  }
+  return { value: next, changed }
+}
+
+export function healPlayer(player, options = {}) {
   if (!player || typeof player !== 'object') return { player, changed: false }
   let changed = false
-  const next = { ...player }
+  let next = player
 
   if ('movementByYear' in player) {
     const r = healMovementByYear(player.movementByYear)
     if (r.changed) {
+      next = next === player ? { ...player } : next
       next.movementByYear = r.value
       changed = true
     }
@@ -197,6 +231,7 @@ export function healPlayer(player) {
   if ('teamsByYear' in player) {
     const r = healTeamsByYear(player.teamsByYear)
     if (r.changed) {
+      next = next === player ? { ...player } : next
       next.teamsByYear = r.value
       changed = true
     }
@@ -204,7 +239,31 @@ export function healPlayer(player) {
   if ('teamHistory' in player) {
     const r = healTeamHistory(player.teamHistory)
     if (r.changed) {
+      next = next === player ? { ...player } : next
       next.teamHistory = r.value
+      changed = true
+    }
+  }
+  // Drop the legacy `movements[]` array entirely. The by-year map
+  // (movementByYear) is the source of truth; rosterModel's
+  // syncDerivedFieldsFromV2 already deletes movements[] on every
+  // canonical write, but data that came in via legacy code paths or
+  // partial migrations can still carry it. Removing it here keeps the
+  // record clean post-load and prevents any stragglers from being read
+  // by legacy fallback paths.
+  if (Array.isArray(player.movements)) {
+    next = next === player ? { ...player } : next
+    delete next.movements
+    changed = true
+  }
+  // Sync the legacy single-value convenience fields (year/overall/
+  // devTrait/team) to the canonical by-year maps for the current year.
+  // Optional — caller passes currentYear when the dynasty is loaded;
+  // skipped otherwise.
+  if (options.currentYear != null) {
+    const r = syncDerivedSingleValues(next, options.currentYear)
+    if (r.changed) {
+      next = r.value
       changed = true
     }
   }
@@ -215,4 +274,8 @@ export function healPlayer(player) {
 // Bump this string when adding new heal logic so the next profile view
 // re-runs the walk on every player. Format YYYY.MM.DD lets you grep
 // commits for "HEAL_VERSION" alongside dated changelog entries.
-export const PLAYER_HEAL_VERSION = '2026.05.06'
+//
+// 2026.05.07: also strip legacy player.movements[] array and sync
+// player.year / .overall / .devTrait / .team to the current-year
+// values from the by-year maps.
+export const PLAYER_HEAL_VERSION = '2026.05.07'
