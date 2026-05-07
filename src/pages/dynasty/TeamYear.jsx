@@ -291,6 +291,167 @@ function TabBar({ tabs, activeKey, onSelect, accentColor }) {
   )
 }
 
+// Roster-tab position filter pill. Atomic groups (QB/WR/TE) render
+// as a plain button; composite groups (OL/DL/LB/DB/K/P/RB) get a
+// hover dropdown that lists each sub-position with its own count so
+// the user can drill into "just the LTs" without leaving this row.
+//
+// Behaviors:
+//   - Clicking the main button selects the WHOLE group.
+//   - Hovering (or focusing) a composite tab opens the dropdown.
+//     Mouseleave on the wrapper closes it after a short hover-grace
+//     window so quickly tracking the cursor down to the menu doesn't
+//     dismiss it.
+//   - Clicking a sub-position selects ONLY that position.
+//   - Mobile (no hover capability): tapping the chevron opens/closes
+//     the menu; tapping the label still selects the whole group.
+//   - Active highlight extends to whichever sub-position is selected.
+function PositionFilterTab({
+  groupKey,
+  label,
+  count,
+  isActive,
+  activeSubPosition,
+  subPositions,        // array of position strings to show in the menu (already filtered to count > 0)
+  bySubPosition,
+  accent,
+  disabled,
+  onSelectGroup,
+  onSelectSub,
+}) {
+  const [open, setOpen] = useState(false)
+  const closeTimerRef = useRef(null)
+
+  const hasMenu = Array.isArray(subPositions) && subPositions.length > 0
+
+  // Hover-grace pattern — a small delay before closing so the user
+  // can move the cursor from the trigger to the dropdown without it
+  // disappearing.
+  const scheduleClose = () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    closeTimerRef.current = setTimeout(() => setOpen(false), 120)
+  }
+  const cancelClose = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+  }
+  useEffect(() => () => cancelClose(), [])
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => {
+        if (!hasMenu || disabled) return
+        cancelClose()
+        setOpen(true)
+      }}
+      onMouseLeave={() => {
+        if (!hasMenu) return
+        scheduleClose()
+      }}
+    >
+      <div className="flex items-baseline">
+        <button
+          onClick={() => onSelectGroup(groupKey)}
+          disabled={disabled}
+          className="py-2 pl-2.5 pr-1 flex items-baseline gap-1.5 transition-all disabled:opacity-40"
+          style={{ borderBottom: `2px solid ${isActive ? accent : 'transparent'}` }}
+        >
+          <span
+            className="text-sm font-semibold uppercase tracking-wider"
+            style={{
+              color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontFamily: 'var(--font-display)',
+            }}
+          >
+            {label}
+          </span>
+          <span
+            className="tabular text-sm font-bold"
+            style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)' }}
+          >
+            {count}
+          </span>
+        </button>
+        {hasMenu && !disabled && (
+          <button
+            type="button"
+            onClick={() => setOpen(o => !o)}
+            aria-label={`Show ${label} sub-positions`}
+            aria-expanded={open}
+            className="py-2 pr-2 pl-0.5 transition-all"
+            style={{ borderBottom: `2px solid ${isActive ? accent : 'transparent'}` }}
+          >
+            <svg
+              className="w-3 h-3 transition-transform"
+              viewBox="0 0 12 12"
+              fill="none"
+              style={{
+                transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+                color: isActive ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+              }}
+              aria-hidden="true"
+            >
+              <path d="M3 4.5 L6 7.5 L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {hasMenu && open && (
+        <div
+          className="absolute left-0 top-full mt-1 z-30 min-w-[140px] rounded-md overflow-hidden"
+          style={{
+            backgroundColor: 'var(--surface-2)',
+            border: '1px solid var(--surface-4)',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+          }}
+          onMouseEnter={cancelClose}
+          onMouseLeave={scheduleClose}
+        >
+          {subPositions.map(pos => {
+            const subActive = activeSubPosition === pos
+            const subCount = bySubPosition?.[pos] || 0
+            return (
+              <button
+                key={pos}
+                type="button"
+                onClick={() => {
+                  onSelectSub(pos)
+                  setOpen(false)
+                }}
+                className="w-full flex items-baseline justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-surface-3"
+                style={{
+                  borderLeft: `2px solid ${subActive ? accent : 'transparent'}`,
+                  backgroundColor: subActive ? 'var(--surface-3)' : 'transparent',
+                }}
+              >
+                <span
+                  className="text-xs font-semibold uppercase tracking-wider"
+                  style={{
+                    color: subActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    letterSpacing: '1.2px',
+                  }}
+                >
+                  {pos}
+                </span>
+                <span
+                  className="tabular text-xs font-bold"
+                  style={{ color: subActive ? 'var(--text-primary)' : 'var(--text-tertiary)' }}
+                >
+                  {subCount}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function TeamYear() {
   const { id, tid: tidParam, year } = useParams()
   const navigate = useNavigate()
@@ -2170,13 +2331,25 @@ export default function TeamYear() {
     'K/P': { label: 'K/P', positions: ['K', 'P'] },
   }
 
-  // Filter players by position group — uses the selected season's position
-  // so historical roster views bucket players as of that year.
-  const filteredTeamPlayers = positionFilter === 'all'
-    ? sortedTeamPlayers
-    : sortedTeamPlayers.filter(p => positionGroups[positionFilter]?.positions?.includes(getPlayerPositionForYear(p, selectedYear)))
+  // Filter players by position. Filter value can be:
+  //   - 'all'                — every player
+  //   - a group key (OL, DL) — every position in that group
+  //   - a specific position string (LT, MIKE, CB) — exact match
+  // Lets the per-group hover-dropdown drill into a single position
+  // without needing a parallel state field.
+  const filteredTeamPlayers = (() => {
+    if (positionFilter === 'all') return sortedTeamPlayers
+    const groupPositions = positionGroups[positionFilter]?.positions
+    if (groupPositions) {
+      return sortedTeamPlayers.filter(p => groupPositions.includes(getPlayerPositionForYear(p, selectedYear)))
+    }
+    // Specific position string — direct equality match.
+    return sortedTeamPlayers.filter(p => getPlayerPositionForYear(p, selectedYear) === positionFilter)
+  })()
 
-  // Aggregate roster stats + position breakdown for the scorebug strip
+  // Aggregate roster stats + position breakdown for the scorebug strip.
+  // Adds bySubPosition so the hover dropdown can show counts per actual
+  // position (not just per group).
   const rosterStats = useMemo(() => {
     const ovrs = sortedTeamPlayers.map(p => getPlayerOverallForYear(p, selectedYear) || 0).filter(n => n > 0)
     const avgOvr = ovrs.length ? Math.round(ovrs.reduce((s, n) => s + n, 0) / ovrs.length) : 0
@@ -2184,11 +2357,17 @@ export default function TeamYear() {
     const eightyPlus = ovrs.filter(n => n >= 80).length
     const starPlus = sortedTeamPlayers.filter(p => ['Elite', 'Star'].includes(p.devTrait)).length
     const byPosition = {}
+    const bySubPosition = {}
+    sortedTeamPlayers.forEach(p => {
+      const pos = getPlayerPositionForYear(p, selectedYear)
+      if (!pos) return
+      bySubPosition[pos] = (bySubPosition[pos] || 0) + 1
+    })
     Object.keys(positionGroups).forEach(key => {
       if (key === 'all') return
       byPosition[key] = sortedTeamPlayers.filter(p => positionGroups[key].positions?.includes(getPlayerPositionForYear(p, selectedYear))).length
     })
-    return { avgOvr, topOvr, eightyPlus, starPlus, byPosition }
+    return { avgOvr, topOvr, eightyPlus, starPlus, byPosition, bySubPosition }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortedTeamPlayers, selectedYear])
 
@@ -3634,7 +3813,11 @@ export default function TeamYear() {
         <div>
           {/* Filter bar — flows with the page instead of floating in a card */}
           <div className="border-b border-surface-4">
-            {/* Position filter with per-group counts */}
+            {/* Position filter with per-group counts. Composite groups
+                (RB / OL / DL / LB / DB / K-P) get a hover dropdown that
+                lets the user drill into a single position. The selected
+                filter can be a group key or a specific position string;
+                filteredTeamPlayers handles both shapes. */}
             <div className="py-2 flex items-center gap-1 flex-wrap">
               {[
                 { key: 'all', label: 'All' },
@@ -3649,32 +3832,34 @@ export default function TeamYear() {
                 { key: 'K/P', label: 'K/P' },
               ].map(({ key, label }) => {
                 const count = key === 'all' ? sortedTeamPlayers.length : (rosterStats.byPosition[key] || 0)
-                const isActive = positionFilter === key
+                const groupPositions = positionGroups[key]?.positions || null
+                // Sub-positions to surface in the dropdown — drop ones
+                // with zero players so the menu stays compact.
+                const subPositions = groupPositions && groupPositions.length > 1
+                  ? groupPositions.filter(p => (rosterStats.bySubPosition?.[p] || 0) > 0)
+                  : null
+                // Active when the current filter matches the group key
+                // OR is a sub-position contained in this group.
+                const matchesGroup = positionFilter === key
+                const matchesSub = !!groupPositions && groupPositions.includes(positionFilter)
+                const isActive = matchesGroup || matchesSub
+                const activeSubPosition = matchesSub ? positionFilter : null
                 const dim = count === 0 && key !== 'all'
                 return (
-                  <button
+                  <PositionFilterTab
                     key={key}
-                    onClick={() => setPositionFilter(key)}
+                    groupKey={key}
+                    label={label}
+                    count={count}
+                    isActive={isActive}
+                    activeSubPosition={activeSubPosition}
+                    subPositions={subPositions}
+                    bySubPosition={rosterStats.bySubPosition}
+                    accent={teamInfo.backgroundColor}
                     disabled={dim}
-                    className="py-2 px-2.5 flex items-baseline gap-1.5 transition-all disabled:opacity-40"
-                    style={{ borderBottom: `2px solid ${isActive ? teamInfo.backgroundColor : 'transparent'}` }}
-                  >
-                    <span
-                      className="text-sm font-semibold uppercase tracking-wider"
-                      style={{
-                        color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                        fontFamily: 'var(--font-display)',
-                      }}
-                    >
-                      {label}
-                    </span>
-                    <span
-                      className="tabular text-sm font-bold"
-                      style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)' }}
-                    >
-                      {count}
-                    </span>
-                  </button>
+                    onSelectGroup={setPositionFilter}
+                    onSelectSub={setPositionFilter}
+                  />
                 )
               })}
               {!isViewOnly && (
