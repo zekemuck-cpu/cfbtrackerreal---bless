@@ -108,6 +108,15 @@ export default function Dashboard() {
   const teamRoster = getCurrentRoster(currentDynasty)
   const teamPreseasonSetup = getCurrentPreseasonSetup(currentDynasty)
   const teamRatings = getCurrentTeamRatings(currentDynasty)
+  // Recap link patterns are derived from dynasty.games + dynasty.teams + the
+  // year. Hundreds of patterns get built; without memoization this fired
+  // on every Dashboard render and turned into perceptible lag every time
+  // anything in the page state changed (modal opens, button hovers, etc).
+  // Recompute only when the inputs that matter actually change.
+  const recapLinks = useMemo(
+    () => buildRecapLinks(currentDynasty, Number(currentDynasty?.currentYear), pathPrefix),
+    [currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.games, currentDynasty?.teams, pathPrefix]
+  )
   // Pass uid so a member's per-uid override (Members page → Your Coaching
   // Staff) wins over the legacy single-staff field. Multi-coach dynasties
   // depend on this so each user sees their own coordinators in the
@@ -8196,7 +8205,7 @@ export default function Dashboard() {
                 </Link>
                 <FormattedRecap
                   text={lastWeekRecap.text}
-                  playerLinks={buildRecapLinks(currentDynasty, Number(currentDynasty.currentYear), pathPrefix)}
+                  playerLinks={recapLinks}
                 />
               </div>
             </div>
