@@ -3824,55 +3824,72 @@ export default function TeamYear() {
                 (RB / OL / DL / LB / DB / K-P) get a hover dropdown that
                 lets the user drill into a single position. The selected
                 filter can be a group key or a specific position string;
-                filteredTeamPlayers handles both shapes. */}
-            <div className="py-2 flex items-center gap-1 flex-wrap">
-              {[
-                { key: 'all', label: 'All' },
-                { key: 'QB', label: 'QB' },
-                { key: 'RB', label: 'RB' },
-                { key: 'WR', label: 'WR' },
-                { key: 'TE', label: 'TE' },
-                { key: 'OL', label: 'OL' },
-                { key: 'DL', label: 'DL' },
-                { key: 'LB', label: 'LB' },
-                { key: 'DB', label: 'DB' },
-                { key: 'K/P', label: 'K/P' },
-              ].map(({ key, label }) => {
-                const count = key === 'all' ? sortedTeamPlayers.length : (rosterStats.byPosition[key] || 0)
-                const groupPositions = positionGroups[key]?.positions || null
-                // Sub-positions to surface in the dropdown — drop ones
-                // with zero players so the menu stays compact.
-                const subPositions = groupPositions && groupPositions.length > 1
-                  ? groupPositions.filter(p => (rosterStats.bySubPosition?.[p] || 0) > 0)
-                  : null
-                // Active when the current filter matches the group key
-                // OR is a sub-position contained in this group.
-                const matchesGroup = positionFilter === key
-                const matchesSub = !!groupPositions && groupPositions.includes(positionFilter)
-                const isActive = matchesGroup || matchesSub
-                const activeSubPosition = matchesSub ? positionFilter : null
-                const dim = count === 0 && key !== 'all'
-                return (
-                  <PositionFilterTab
-                    key={key}
-                    groupKey={key}
-                    label={label}
-                    count={count}
-                    isActive={isActive}
-                    activeSubPosition={activeSubPosition}
-                    subPositions={subPositions}
-                    bySubPosition={rosterStats.bySubPosition}
-                    accent={teamInfo.backgroundColor}
-                    disabled={dim}
-                    onSelectGroup={setPositionFilter}
-                    onSelectSub={setPositionFilter}
-                  />
-                )
-              })}
+                filteredTeamPlayers handles both shapes.
+                Mobile: pills live in a single horizontally-scrolling
+                row instead of wrapping into a second uneven line. The
+                edit button is pulled OUT of the scroll area and
+                pinned to the right so it never disappears off-screen.
+                Desktop (sm:): pills wrap as before. Scrollbar is
+                visually hidden — the position underline + chevron
+                already telegraph the row is interactive. */}
+            <div className="py-2 flex items-stretch gap-1">
+              <div
+                className="position-filter-row flex-1 min-w-0 flex items-stretch gap-1 overflow-x-auto sm:flex-wrap sm:overflow-visible"
+                style={{
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
+                  WebkitOverflowScrolling: 'touch',
+                }}
+              >
+                {/* WebKit scrollbar can't be hidden via inline style;
+                    Firefox/IE handled by the inline scrollbarWidth /
+                    msOverflowStyle above. */}
+                <style>{`.position-filter-row::-webkit-scrollbar{display:none}`}</style>
+                {[
+                  { key: 'all', label: 'All' },
+                  { key: 'QB', label: 'QB' },
+                  { key: 'RB', label: 'RB' },
+                  { key: 'WR', label: 'WR' },
+                  { key: 'TE', label: 'TE' },
+                  { key: 'OL', label: 'OL' },
+                  { key: 'DL', label: 'DL' },
+                  { key: 'LB', label: 'LB' },
+                  { key: 'DB', label: 'DB' },
+                  { key: 'K/P', label: 'K/P' },
+                ].map(({ key, label }) => {
+                  const count = key === 'all' ? sortedTeamPlayers.length : (rosterStats.byPosition[key] || 0)
+                  const groupPositions = positionGroups[key]?.positions || null
+                  const subPositions = groupPositions && groupPositions.length > 1
+                    ? groupPositions.filter(p => (rosterStats.bySubPosition?.[p] || 0) > 0)
+                    : null
+                  const matchesGroup = positionFilter === key
+                  const matchesSub = !!groupPositions && groupPositions.includes(positionFilter)
+                  const isActive = matchesGroup || matchesSub
+                  const activeSubPosition = matchesSub ? positionFilter : null
+                  const dim = count === 0 && key !== 'all'
+                  return (
+                    <div key={key} className="flex-shrink-0">
+                      <PositionFilterTab
+                        groupKey={key}
+                        label={label}
+                        count={count}
+                        isActive={isActive}
+                        activeSubPosition={activeSubPosition}
+                        subPositions={subPositions}
+                        bySubPosition={rosterStats.bySubPosition}
+                        accent={teamInfo.backgroundColor}
+                        disabled={dim}
+                        onSelectGroup={setPositionFilter}
+                        onSelectSub={setPositionFilter}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
               {!isViewOnly && (
                 <button
                   onClick={() => setShowRosterModal(true)}
-                  className="ml-auto p-1.5 sm:p-2 rounded-lg transition-colors text-txt-secondary hover:text-txt-primary hover:bg-surface-3"
+                  className="flex-shrink-0 self-center p-1.5 sm:p-2 rounded-lg transition-colors text-txt-secondary hover:text-txt-primary hover:bg-surface-3"
                   title="Edit Roster"
                 >
                   <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
