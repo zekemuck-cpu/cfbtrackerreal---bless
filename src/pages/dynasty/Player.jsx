@@ -1848,7 +1848,7 @@ function PlayerInner() {
 
               <div className="flex items-center gap-2 mb-2">
                 <Link
-                  to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}`}
+                  to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}?tab=roster`}
                   className="inline-flex items-center gap-2 text-base font-bold uppercase tracking-wider hover:underline text-txt-secondary"
                   style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}
                 >
