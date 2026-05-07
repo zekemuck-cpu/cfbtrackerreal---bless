@@ -321,6 +321,13 @@ function PositionFilterTab({
 }) {
   const [open, setOpen] = useState(false)
   const closeTimerRef = useRef(null)
+  // Tracks "user explicitly dismissed via click on the main tab" so
+  // the dropdown stays closed until the cursor leaves and re-enters
+  // — otherwise the wrapper's onMouseEnter would re-open it the
+  // instant the click finished, which feels broken (you click the
+  // tab to select it, the menu closes for a frame, then snaps back
+  // because you're still hovering).
+  const suppressUntilLeaveRef = useRef(false)
 
   const hasMenu = Array.isArray(subPositions) && subPositions.length > 0
 
@@ -344,10 +351,15 @@ function PositionFilterTab({
       className="relative"
       onMouseEnter={() => {
         if (!hasMenu || disabled) return
+        if (suppressUntilLeaveRef.current) return
         cancelClose()
         setOpen(true)
       }}
       onMouseLeave={() => {
+        // Cursor left — clear the click-suppression so a subsequent
+        // re-entry will open the menu again, and schedule the close
+        // for any currently-open menu.
+        suppressUntilLeaveRef.current = false
         if (!hasMenu) return
         scheduleClose()
       }}
@@ -360,7 +372,16 @@ function PositionFilterTab({
           which read as detached). */}
       <div className="flex items-stretch">
         <button
-          onClick={() => onSelectGroup(groupKey)}
+          onClick={() => {
+            onSelectGroup(groupKey)
+            // Selecting the whole group should close the menu. The
+            // suppression ref keeps it closed even though the cursor
+            // is still over the wrapper (which would otherwise re-fire
+            // mouseenter and re-open it).
+            cancelClose()
+            setOpen(false)
+            suppressUntilLeaveRef.current = true
+          }}
           disabled={disabled}
           className="py-2 pl-2.5 pr-1.5 flex items-baseline gap-1.5 transition-all disabled:opacity-40"
           style={{ borderBottom: `2px solid ${isActive ? accent : 'transparent'}` }}
