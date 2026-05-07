@@ -280,6 +280,15 @@ export default function WeeklyScores() {
 
   const displayYear = urlYear ? parseInt(urlYear, 10) : currentYear
   const displayWeek = urlWeek != null ? parseInt(urlWeek, 10) : Math.max(0, (currentDynasty.currentPhase === 'regular_season' ? Number(currentDynasty.currentWeek) - 1 : 15))
+  // Memoize the recap link patterns — buildRecapLinks builds hundreds of
+  // patterns from dynasty.games + .teams. Inlined in JSX it ran on every
+  // render; with the page's tab-switching state churning, every tab click
+  // paid the cost of rebuilding the whole pattern set, which is what the
+  // user perceived as "tab switches taking forever."
+  const recapLinks = useMemo(
+    () => buildRecapLinks(currentDynasty, displayYear, pathPrefix),
+    [currentDynasty?.id, displayYear, currentDynasty?.games, currentDynasty?.teams, pathPrefix]
+  )
 
   const handleYearChange = (y) => navigate(`${pathPrefix}/weekly-scores/${y}/${displayWeek}`)
   const handleWeekChange = (w) => navigate(`${pathPrefix}/weekly-scores/${displayYear}/${w}`)
@@ -577,7 +586,7 @@ export default function WeeklyScores() {
         if (recapText) {
           return (
             <Card padding="lg">
-              <FormattedRecap text={recapText} playerLinks={buildRecapLinks(currentDynasty, displayYear, pathPrefix)} />
+              <FormattedRecap text={recapText} playerLinks={recapLinks} />
             </Card>
           )
         }

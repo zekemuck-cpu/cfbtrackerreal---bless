@@ -1,3 +1,5 @@
+import { useMemo } from 'react'
+
 // Lightweight renderer for AI-generated game recaps. Supports the small
 // subset of markdown we ask the model to emit: **bold**, *italic* / _italic_,
 // and # / ## / ### headings at line-start. Plain text passes through
@@ -186,7 +188,10 @@ export default function FormattedRecap({ text, className = '', playerLinks = nul
   // player names). It now accepts any mix of literal-string patterns AND raw
   // regex source — the compiled value carries both the combined regex and
   // the ordered entry list so linkifyText can identify which entry matched.
-  const playerRegex = compilePlayerRegex(playerLinks)
+  // Memoized: a recap card with hundreds of patterns recompiled the
+  // combined regex on every render of the parent (Dashboard / WeeklyScores
+  // / Game) and showed up as a perceptible lag during tab switches.
+  const playerRegex = useMemo(() => compilePlayerRegex(playerLinks), [playerLinks])
   const lookup = null // legacy arg slot — no longer used by linkifyText
 
   // Strip any outer ```markdown ... ``` wrapper added by the AI per our
