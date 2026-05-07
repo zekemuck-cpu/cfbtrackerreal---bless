@@ -4758,43 +4758,45 @@ export default function TeamYear() {
       {/* SCHEDULE TAB */}
       {activeTab === 'schedule' && (
         <div className="space-y-3">
-          {/* Section header — eyebrow + count on the left, edit button
-              inline on the right. Replaces the prior standalone
-              edit-button row that ate a full vertical band for one
-              button. Mirrors the recruiting / departures tab section
-              headers for visual consistency across the team page. */}
-          <div className="flex items-center justify-between gap-3 px-1">
-            <div className="flex items-baseline gap-2">
-              <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
-                Schedule
-              </span>
-              {teamYearGames.length > 0 && (
-                <span className="label-xs tabular-nums text-txt-muted" style={{ letterSpacing: '1.5px' }}>
-                  {teamYearGames.length}
-                </span>
-              )}
-            </div>
-            {!isViewOnly && (
+          {/* Empty-state pattern matches the recruiting tab: eyebrow +
+              short message + entry-point button, all inside one card.
+              No standalone "Schedule" eyebrow row when games exist —
+              the edit pencil for populated schedules is tucked into
+              the upper-right of the games card below. */}
+          {teamYearGames.length === 0 && !isViewOnly && (
+            <div className="card p-8 text-center">
+              <div className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '2px' }}>NO SCHEDULE</div>
+              <p className="text-sm text-txt-secondary mb-4">No games have been recorded for {teamAbbr} · {selectedYear}.</p>
               <button
                 type="button"
                 onClick={() => setShowScheduleModal(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-sm label-sm transition-colors hover:opacity-90"
                 style={{
                   backgroundColor: teamInfo.backgroundColor,
                   color: teamBgText,
+                  letterSpacing: '1.5px'
                 }}
               >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                {teamYearGames.length > 0 ? 'Edit Schedule' : 'Enter Schedule'}
+                ENTER SCHEDULE
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Schedule - shows games played by this team this year */}
           {teamYearGames.length > 0 && (
-        <div className="card-elevated overflow-hidden">
+        <div className="card-elevated overflow-hidden relative">
+          {!isViewOnly && (
+            <button
+              type="button"
+              onClick={() => setShowScheduleModal(true)}
+              className="absolute top-2.5 right-2.5 z-10 p-1.5 rounded-md transition-colors text-txt-tertiary hover:text-txt-primary hover:bg-surface-3"
+              title="Edit Schedule"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+          )}
           <div>
             {/* Column headers for stat leaders - show at md breakpoint */}
             <div className="hidden md:flex items-center gap-3 py-3 px-4 text-xs font-semibold uppercase tracking-wider" style={{ borderBottom: `1px solid ${accentColor}15`, color: accentColorMuted }}>
