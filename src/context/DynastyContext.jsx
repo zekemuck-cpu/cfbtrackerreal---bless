@@ -61,6 +61,7 @@ import {
 } from '../data/teamRegistry'
 import { findMatchingPlayer, getPlayerLastHonorDescription, normalizePlayerName } from '../utils/playerMatching'
 import { syncDerivedFieldsFromV2, legacyMovementToCanonical } from '../data/rosterModel'
+import { normalizeAwardName } from '../utils/playerHeal'
 import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId, CFP_BRACKET_SLOTS, DEFAULT_BOWL_CONFIG, getBowlForSlot, CFP_BRACKET_FLOW, getBracketFlowConfig } from '../data/cfpConstants'
 import { migrateDynastyToEditors, needsEditorsMigration, getMemberTeams, snapshotAllMembersForYear, getCoachNameForUid } from '../data/leagueModel'
 import { isSameWeek, isSameYear } from '../utils/compareUtils'
@@ -12180,16 +12181,17 @@ export function DynastyProvider({ children }) {
 
         // Add honor entry based on type
         if (update.honorType === 'awards') {
-          // Resolve the award name first so the dupe check and the
-          // push agree on what gets stored. Without this, an entry
-          // whose `award` was undefined but had an `awardKey` would
-          // mark not-a-dupe (compared undefined vs the existing row's
-          // 'Heisman') and push a "ghost" row that rendered as an
-          // empty "Select award" placeholder in PlayerEdit.
-          const awardName = update.entry.award || update.entry.awardKey
+          // Normalize the award name to the canonical key before
+          // dedup or storage — legacy entries on existing players
+          // sometimes hold the LABEL ("Chuck Bednarik Award") while
+          // the dropdown stores the KEY ("chuckBednarik"). Without
+          // normalization the dupe check missed label-vs-key matches
+          // and pushed a second ghost row on every sync. After
+          // normalization both rows compare as the same canonical key.
+          const awardName = normalizeAwardName(update.entry.award || update.entry.awardKey)
           if (awardName && update.entry.year) {
             const isDupe = updatedPlayer.accolades.some(a =>
-              a.year === update.entry.year && a.award === awardName
+              a.year === update.entry.year && normalizeAwardName(a.award) === awardName
             )
             if (!isDupe) {
               updatedPlayer.accolades.push({
@@ -12261,12 +12263,13 @@ export function DynastyProvider({ children }) {
         if (!existingInBatch.allConference) existingInBatch.allConference = []
 
         if (newPlayer.honorType === 'awards') {
-          // Skip ghost entries that have no award name — they render as
-          // empty "Select award" placeholder rows in PlayerEdit.
-          const awardName = newPlayer.entry.award || newPlayer.entry.awardKey
+          // Same normalization rationale as the updates path above —
+          // canonicalize to the dropdown key so label/key dupes
+          // collapse and writes use a single stored shape.
+          const awardName = normalizeAwardName(newPlayer.entry.award || newPlayer.entry.awardKey)
           if (awardName && newPlayer.entry.year) {
             const isDupe = existingInBatch.accolades.some(a =>
-              a.year === newPlayer.entry.year && a.award === awardName
+              a.year === newPlayer.entry.year && normalizeAwardName(a.award) === awardName
             )
             if (!isDupe) {
               existingInBatch.accolades.push({
@@ -12329,15 +12332,19 @@ export function DynastyProvider({ children }) {
         isHonorOnly: false,
       }
 
-      // Add the honor entry
+      // Add the honor entry. Award name canonicalized to the dropdown
+      // key so storage has a single source of truth.
       if (newPlayer.honorType === 'awards') {
-        player.accolades.push({
-          year: newPlayer.entry.year,
-          award: newPlayer.entry.award || newPlayer.entry.awardKey,
-          team: newPlayer.entry.team,
-          position: newPlayer.entry.position,
-          class: newPlayer.entry.class
-        })
+        const awardName = normalizeAwardName(newPlayer.entry.award || newPlayer.entry.awardKey)
+        if (awardName && newPlayer.entry.year) {
+          player.accolades.push({
+            year: newPlayer.entry.year,
+            award: awardName,
+            team: newPlayer.entry.team,
+            position: newPlayer.entry.position,
+            class: newPlayer.entry.class
+          })
+        }
       } else if (newPlayer.honorType === 'allAmericans') {
         player.allAmericans.push({
           year: newPlayer.entry.year,

@@ -11,6 +11,7 @@ import ImageUpload from '../../components/ImageUpload'
 import PlayerCards from '../../components/PlayerCards'
 import { getPlayerCards } from '../../utils/playerCards'
 import { uploadImage } from '../../utils/imageUpload'
+import { healPlayer, PLAYER_HEAL_VERSION } from '../../utils/playerHeal'
 
 // Year input with a local draft state. Controlled <input type="number">
 // + an onChange that gates on `value > 1900 && < 2100` would reject
@@ -354,13 +355,21 @@ export default function PlayerEdit() {
     return currentDynasty
   }, [dynastyId, currentDynasty, dynasties])
 
-  // Find player - try both string and number pid matching
+  // Find player - try both string and number pid matching, then run
+  // the same in-memory heal the player profile uses so the editor
+  // sees canonical shapes (sanitized by-year maps, normalized
+  // accolades, healed movement) regardless of whether the profile has
+  // been visited recently. Single source of truth — both pages walk
+  // identical heal logic and converge to the same record.
   const player = useMemo(() => {
     if (!dynasty?.players) return null
-    // Try exact match first, then try parseInt for numeric pids
-    return dynasty.players.find(p => p.pid === pid) ||
-           dynasty.players.find(p => p.pid === parseInt(pid))
-  }, [dynasty?.players, pid])
+    const raw = dynasty.players.find(p => p.pid === pid) ||
+                dynasty.players.find(p => p.pid === parseInt(pid))
+    if (!raw) return null
+    if (raw._v2HealVersion === PLAYER_HEAL_VERSION) return raw
+    const { player: healed, changed } = healPlayer(raw, { currentYear: dynasty?.currentYear })
+    return changed ? healed : raw
+  }, [dynasty?.players, pid, dynasty?.currentYear])
 
   // Get player's team for colors (not dynasty's current team)
   // Use the most recent year in teamsByYear to correctly reflect transfers
@@ -554,14 +563,14 @@ export default function PlayerEdit() {
         return acc
       }, {}),
 
-      // Awards. Strip blank/ghost entries on load so the form doesn't
-      // surface "Select award" placeholder rows for empty saved
-      // accolades. Empty entries can land in storage from a partial
-      // sync flow that wrote a year-stamped row before the user picked
-      // an award; filter them at the boundary so the editor only shows
-      // real awards. The save path already filters the same way (line
-      // ~818) so this is symmetric.
-      accolades: (player.accolades || []).filter(a => a && a.year && a.award),
+      // Awards. The player heal (utils/playerHeal.js) normalizes
+      // award names to canonical keys and dedupes by (year + key) on
+      // every profile mount, persisting once when the record needs
+      // cleanup — so by the time we reach this page the accolades
+      // are already in the canonical shape PlayerEdit's dropdown
+      // expects. The save path filters empty rows the same way the
+      // heal does, so storage stays consistent end to end.
+      accolades: player.accolades || [],
 
       // Stats for current year (converted from nested to flat)
       stats: nestedStatsToFlat(yearStats),

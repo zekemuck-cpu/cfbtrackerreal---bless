@@ -315,6 +315,103 @@ function healPrimitiveByYearMap(map, coerce = primitiveOrNull) {
   return { value: cleaned, changed }
 }
 
+// Award-name normalization. PlayerEdit's dropdown stores award keys
+// ('chuckBednarik') but legacy sync paths sometimes wrote the labels
+// ('Chuck Bednarik Award') — leaving players with two accolade rows
+// for the same award (one with key, one with label). The label-stored
+// row matches no <option value=> and renders as a "Select award"
+// ghost. Normalize labels back to keys so the dropdown finds them and
+// dedup-by-(year+key) cleans up the duplicates.
+const AWARD_LABEL_TO_KEY = {
+  'all-american 1st team':       'allAm1st',
+  'all american 1st team':       'allAm1st',
+  'all-american 2nd team':       'allAm2nd',
+  'all american 2nd team':       'allAm2nd',
+  'freshman all-american':       'allAmFr',
+  'freshman all american':       'allAmFr',
+  'all-conference 1st team':     'allConf1st',
+  'all conference 1st team':     'allConf1st',
+  'all-conference 2nd team':     'allConf2nd',
+  'all conference 2nd team':     'allConf2nd',
+  'freshman all-conference':     'allConfFr',
+  'freshman all conference':     'allConfFr',
+  'heisman trophy':              'heisman',
+  'heisman':                     'heisman',
+  'maxwell award':               'maxwell',
+  'walter camp award':           'walterCamp',
+  "davey o'brien award":         'daveyObrien',
+  'davey obrien award':          'daveyObrien',
+  'doak walker award':           'doakWalker',
+  'fred biletnikoff award':      'fredBiletnikoff',
+  'biletnikoff award':           'fredBiletnikoff',
+  'john mackey award':           'johnMackey',
+  'mackey award':                'johnMackey',
+  'unitas golden arm award':     'unitasGoldenArm',
+  'chuck bednarik award':        'chuckBednarik',
+  'bednarik award':              'chuckBednarik',
+  'bronco nagurski trophy':      'broncoNagurski',
+  'nagurski trophy':             'broncoNagurski',
+  'jim thorpe award':            'jimThorpe',
+  'thorpe award':                'jimThorpe',
+  'dick butkus award':           'dickButkus',
+  'butkus award':                'dickButkus',
+  'edge rusher of the year':     'edgeRusherOfTheYear',
+  'outland trophy':              'outland',
+  'lombardi award':              'lombardi',
+  'rimington trophy':            'rimington',
+  'lou groza award':             'louGroza',
+  'groza award':                 'louGroza',
+  'ray guy award':               'rayGuy',
+  'returner of the year':        'returnerOfTheYear',
+}
+
+// Exported so processHonorPlayers (and any future writer) can convert
+// inbound award names to the canonical key BEFORE comparing/storing —
+// without it, the dupe check in processHonorPlayers misses
+// label-vs-key matches and creates new ghost rows on every sync.
+export function normalizeAwardName(raw) {
+  if (raw == null) return null
+  const s = String(raw).trim()
+  if (!s) return null
+  // Already a key (lowercase, no spaces) — pass through.
+  if (/^[a-z][a-zA-Z0-9]*$/.test(s)) return s
+  const key = AWARD_LABEL_TO_KEY[s.toLowerCase()]
+  return key || s
+}
+
+// Walk player.accolades and: drop empties, normalize legacy
+// label-stored awards to their canonical keys, dedupe by (year + key)
+// keeping the first encounter. The PlayerEdit save path uses the same
+// shape so this is safe — the editor's dropdown values are the keys
+// we're normalizing to.
+function healAccolades(accolades) {
+  if (!Array.isArray(accolades)) return { value: accolades, changed: false }
+  const cleaned = []
+  const seen = new Set()
+  let changed = false
+  for (const a of accolades) {
+    if (!a || typeof a !== 'object') {
+      changed = true
+      continue
+    }
+    const year = a.year
+    const award = normalizeAwardName(a.award)
+    if (!year || !award) {
+      changed = true
+      continue
+    }
+    const key = `${year}|${award}`
+    if (seen.has(key)) {
+      changed = true
+      continue
+    }
+    seen.add(key)
+    if (award !== a.award) changed = true
+    cleaned.push({ ...a, award })
+  }
+  return { value: cleaned, changed }
+}
+
 // Top-level scalar fields read directly into JSX in the player profile
 // (header card, stat strip, biography line, sidebar). Must be primitives
 // or null — anything object-shaped here is what crashes the page with
@@ -488,6 +585,21 @@ export function healPlayer(player, options = {}) {
       changed = true
     }
   }
+  // Accolades — drop empties, normalize legacy label-stored awards
+  // back to the canonical key (matching PlayerEdit's dropdown values),
+  // and dedupe by (year + canonical key). Players who got accolades
+  // through both manual entry (label) and a sync (key) ended up with
+  // two rows for the same award, the label one rendering as a "Select
+  // award" ghost in the editor. The cleaned list persists on next
+  // save so storage gets a single source of truth.
+  if ('accolades' in next) {
+    const r = healAccolades(next.accolades)
+    if (r.changed) {
+      next = next === player ? { ...player, ...next } : { ...next }
+      next.accolades = r.value
+      changed = true
+    }
+  }
   // Drop the legacy `movements[]` array entirely. The by-year map
   // (movementByYear) is the source of truth; rosterModel's
   // syncDerivedFieldsFromV2 already deletes movements[] on every
@@ -537,4 +649,10 @@ export function healPlayer(player, options = {}) {
 // marked as in the portal and not what actually happened (draft,
 // graduation)" — root cause: re-saving the Players Leaving sheet
 // clobbered specific outcomes back to portal-unknown.
-export const PLAYER_HEAL_VERSION = '2026.05.07.0004'
+// 2026.05.07.0005: normalize accolade award names back to canonical
+// keys (legacy syncs wrote labels like "Chuck Bednarik Award" while
+// PlayerEdit's dropdown stores keys like "chuckBednarik") and dedupe
+// by (year + canonical key). User reported ghost "Select award" rows
+// in the editor — those were duplicate accolades whose award value
+// didn't match any dropdown <option value=>.
+export const PLAYER_HEAL_VERSION = '2026.05.07.0005'
