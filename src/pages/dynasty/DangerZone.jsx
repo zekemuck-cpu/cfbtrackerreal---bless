@@ -26,6 +26,8 @@ import {
   SectionHeader,
   LoadingState,
 } from '../../components/ui'
+import { doc, getDocFromServer } from 'firebase/firestore'
+import { db } from '../../config/firebase'
 
 export default function DangerZone() {
   const { currentDynasty, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly, syncAllPlayersStats } = useDynasty()
@@ -140,38 +142,26 @@ export default function DangerZone() {
     }
   }
 
-  // Diagnostic — measure how much each top-level field contributes to
-  // the main dynasty doc's serialized size. Triggered after one beta
-  // dynasty crossed the Firestore 1 MiB document cap and started
-  // rejecting writes; we moved weekRecapsByYear to a subcollection,
-  // but we want data (not guesses) on what's likely to bloat next.
+  // Diagnostic — measure each top-level field's contribution to the
+  // ACTUAL Firestore main-doc size, not the in-memory React state size.
+  // Critical distinction: after a subcollection migration, the
+  // listener merges subcollection data back into dynasty.fieldByYear
+  // shapes so consumers don't notice. If we measure currentDynasty
+  // directly, the size doesn't drop after migration — even though the
+  // Firestore doc DID shrink. So we read the main doc straight from
+  // Firestore (server, no cache) and analyze that.
   //
-  // Bytes are JSON.stringify().length. That's a usable proxy for the
-  // Firestore on-disk size — it ignores per-field metadata overhead
-  // but the relative ranking of fields is what we care about.
-  // Excludes the three subcollection-backed fields (players, games,
-  // weekRecapsByYear) since those don't count against the parent doc
-  // cap, even though the loaded React state has them merged in.
+  // Bytes are JSON.stringify().length, which understates Firestore's
+  // on-disk size by some per-field metadata overhead but the relative
+  // ranking of fields is what we care about.
   const handleAnalyzeStorage = async () => {
     setStorageAnalysisStatus('running')
     setStorageAnalysisDetail(null)
     try {
       if (!currentDynasty) throw new Error('No dynasty loaded')
 
-      // These fields live in subcollections — exclude from the main
-      // doc tally so the report reflects what actually counts toward
-      // the 1 MiB cap.
-      const SUBCOLLECTION_FIELDS = new Set([
-        'players',
-        'games',
-        'weekRecapsByYear',
-      ])
-
-      // Internal / runtime-only fields that don't get persisted.
       const TRANSIENT_FIELDS = new Set([
-        'storageType',
         '_firestoreId',
-        '_subcollectionsMigrated',
       ])
 
       const sizeOf = (value) => {
@@ -181,75 +171,129 @@ export default function DangerZone() {
           return 0
         }
       }
-
-      const entries = []
-      let mainDocTotal = 0
-      for (const [key, value] of Object.entries(currentDynasty)) {
-        if (TRANSIENT_FIELDS.has(key)) continue
-        const bytes = sizeOf(value)
-        const inSubcollection = SUBCOLLECTION_FIELDS.has(key)
-        if (!inSubcollection) mainDocTotal += bytes
-        entries.push({ key, bytes, inSubcollection })
-      }
-
-      entries.sort((a, b) => b.bytes - a.bytes)
-
       const fmt = (n) => {
         if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(2)} MB`
         if (n >= 1024) return `${(n / 1024).toFixed(1)} KB`
         return `${n} B`
       }
 
-      // Pretty-print the top 25 (by main-doc size) and any subcollection
-      // entries. Anything below 100 bytes after that gets folded into a
-      // "rest" line so the report stays scannable.
+      // Source-of-truth for the main doc: read the live document from
+      // the Firestore server, bypassing the SDK's cache. This is the
+      // ONLY way to know what's actually counting against the 1 MiB
+      // cap — currentDynasty in-memory has subcollection data merged
+      // in and would lie about the doc size.
+      let mainDocData = {}
+      let serverFetchFailed = false
+      try {
+        const ref = doc(db, 'dynasties', currentDynasty.id)
+        const snap = await getDocFromServer(ref)
+        mainDocData = snap.exists() ? snap.data() : {}
+      } catch (err) {
+        // Could be offline, permissions, or rate-limit. Fall back to
+        // measuring the in-memory dynasty (less accurate post-migration
+        // but better than nothing) and flag the result so the user
+        // doesn't trust it.
+        console.warn('[StorageAnalysis] server fetch failed, falling back to in-memory:', err?.code || err?.message)
+        mainDocData = currentDynasty
+        serverFetchFailed = true
+      }
+
+      const entries = []
+      let mainDocTotal = 0
+      for (const [key, value] of Object.entries(mainDocData)) {
+        if (TRANSIENT_FIELDS.has(key)) continue
+        const bytes = sizeOf(value)
+        mainDocTotal += bytes
+        entries.push({ key, bytes })
+      }
+      entries.sort((a, b) => b.bytes - a.bytes)
+
       const lines = []
+      if (serverFetchFailed) {
+        lines.push('⚠️  COULD NOT READ FROM FIRESTORE — falling back to in-memory state.')
+        lines.push('   Numbers may overstate the actual main-doc size. Check console for the error.')
+        lines.push('')
+      }
       lines.push(`Main dynasty doc: ${fmt(mainDocTotal)} of 1.00 MB cap (${(mainDocTotal / (1024 * 1024) * 100).toFixed(1)}%)`)
       lines.push('')
-      lines.push('Top fields (excluding subcollections):')
-      const mainDocOnly = entries.filter(e => !e.inSubcollection)
-      const top = mainDocOnly.slice(0, 25)
+      lines.push('Top fields on the main doc:')
+      const top = entries.slice(0, 30)
       for (const { key, bytes } of top) {
         if (bytes < 100) break
         const pct = mainDocTotal > 0 ? ((bytes / mainDocTotal) * 100).toFixed(1) : '0'
         lines.push(`  ${key.padEnd(40)} ${fmt(bytes).padStart(10)}   (${pct}%)`)
       }
-      const restBytes = mainDocOnly.slice(25).reduce((s, e) => s + e.bytes, 0)
+      const restBytes = entries.slice(30).reduce((s, e) => s + e.bytes, 0)
       if (restBytes > 0) {
         lines.push(`  ${'(everything else)'.padEnd(40)} ${fmt(restBytes).padStart(10)}`)
       }
+
+      // Subcollection summary from the in-memory state. This is just
+      // an info panel; subcollection docs each have their own 1 MiB
+      // cap so individual sizes here don't matter for the cap question
+      // — what matters is per-doc size, which neither players nor
+      // games comes close to since each record is its own doc.
       lines.push('')
-      lines.push('Subcollections (live in their own docs, no doc-cap risk):')
-      const subEntries = entries.filter(e => e.inSubcollection)
-      if (subEntries.length === 0) {
-        lines.push('  (none yet — none of players/games/weekRecaps are loaded into state)')
-      } else {
-        for (const { key, bytes } of subEntries) {
-          // Show count of records too where it's meaningful.
-          const value = currentDynasty[key]
-          let detail = ''
-          if (Array.isArray(value)) detail = ` — ${value.length} records`
-          else if (value && typeof value === 'object') {
-            const totalEntries = Object.values(value).reduce((s, v) => {
-              if (v && typeof v === 'object') return s + Object.keys(v).length
-              return s
-            }, 0)
-            if (totalEntries) detail = ` — ${totalEntries} entries`
-          }
-          lines.push(`  ${key.padEnd(40)} ${fmt(bytes).padStart(10)}${detail}`)
+      lines.push('Subcollections (loaded into React state, not on main doc):')
+      const subFields = ['players', 'games', 'weekRecapsByYear']
+      // Plus all the seasonal fields that have been migrated to
+      // dynasties/{id}/seasons/{year} as of cb40757.
+      const SEASONAL_NAMES = [
+        'allAmericansByYear', 'awardsByYear', 'bowlEligibilityDataByYear', 'bowlGamesByYear', 'bowlResultsByYear',
+        'cfpBowlConfigByYear', 'cfpResultsByYear', 'cfpSeedsByYear', 'conferenceChampionshipDataByYear',
+        'conferenceChampionshipsByYear', 'conferenceStandingsByYear', 'customConferencesByYear',
+        'detailedStatsByYear', 'draftResultsByYear', 'finalPollsByYear', 'fringeCaseClassByYear',
+        'lockedCoachingStaffByYear', 'playersLeavingByYear', 'playerStatsByYear', 'portalTransferClassByYear',
+        'positionChangesByYear', 'preseasonRankingsByYear', 'rankingsByYear', 'rankingsHistoryByYear',
+        'recruitOverallsByYear', 'seasonAwardsByYear', 'teamStatsByYear', 'trainingResultsByYear',
+        'transferDestinationsByYear',
+        'bowlEligibilityDataByTeamYear', 'coachingStaffByTeamYear', 'conferenceByTeamYear',
+        'conferenceChampionshipDataByTeamYear', 'draftResultsByTeamYear', 'encourageTransfersByTeamYear',
+        'fringeCaseClassByTeamYear', 'playersLeavingByTeamYear', 'portalTransferClassByTeamYear',
+        'preseasonSetupByTeamYear', 'rankingsByTeamYear', 'recruitingClassRankByTeamYear',
+        'recruitingCommitmentsByTeamYear', 'recruitsByTeamYear', 'schedulesByTeamYear',
+        'teamRatingsByTeamYear', 'teamRecordsByTeamYear', 'trainingResultsByTeamYear',
+        'transferDestinationsByTeamYear',
+      ]
+      for (const key of subFields) {
+        const value = currentDynasty[key]
+        if (value === undefined || value === null) continue
+        let detail = ''
+        if (Array.isArray(value)) detail = ` — ${value.length} records`
+        else if (typeof value === 'object') {
+          const totalEntries = Object.keys(value).length
+          if (totalEntries) detail = ` — ${totalEntries} entries`
+        }
+        lines.push(`  ${key.padEnd(40)} ${fmt(sizeOf(value)).padStart(10)}${detail}`)
+      }
+      // Aggregate all seasonal fields under one line — too many to
+      // list individually and they all share the same `seasons/{year}`
+      // doc.
+      let seasonalLoadedTotal = 0
+      let seasonalFieldCount = 0
+      for (const field of SEASONAL_NAMES) {
+        const value = currentDynasty[field]
+        if (value && typeof value === 'object' && Object.keys(value).length > 0) {
+          seasonalLoadedTotal += sizeOf(value)
+          seasonalFieldCount++
         }
       }
+      if (seasonalFieldCount > 0) {
+        lines.push(`  ${'seasons/* (rehydrated, all fields)'.padEnd(40)} ${fmt(seasonalLoadedTotal).padStart(10)} — ${seasonalFieldCount} fields loaded`)
+      }
+
       lines.push('')
       lines.push(`Run timestamp: ${new Date().toISOString()}`)
       lines.push(`Dynasty: ${currentDynasty.name || currentDynasty.id}`)
+      lines.push(`Source: ${serverFetchFailed ? 'in-memory fallback ⚠️' : 'Firestore server (live)'}`)
 
       const detailText = lines.join('\n')
       console.log('[StorageAnalysis]\n' + detailText)
       setStorageAnalysisDetail(detailText)
-      setStorageAnalysisStatus({
-        success: true,
-        message: `Main doc: ${fmt(mainDocTotal)} (${(mainDocTotal / (1024 * 1024) * 100).toFixed(0)}% of cap). Top: ${mainDocOnly[0]?.key || '—'}. Full breakdown below + console.`,
-      })
+      const summary = serverFetchFailed
+        ? `⚠️ in-memory fallback. Main doc: ${fmt(mainDocTotal)}. See console.`
+        : `Main doc: ${fmt(mainDocTotal)} (${(mainDocTotal / (1024 * 1024) * 100).toFixed(0)}% of cap). Top: ${entries[0]?.key || '—'}.`
+      setStorageAnalysisStatus({ success: true, message: summary })
     } catch (error) {
       console.error('[StorageAnalysis] failed:', error)
       setStorageAnalysisStatus({ success: false, message: 'Failed: ' + (error?.message || 'unknown') })
