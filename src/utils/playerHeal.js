@@ -149,6 +149,71 @@ function healTeamsByYear(tby) {
   return { value: cleaned, changed }
 }
 
+// Coerce a value into something that's safe to interpolate into JSX
+// — string/number/boolean only. Objects in render-bound slots are the
+// classic React #31 trigger ("Objects are not valid as a React child")
+// and the offending shape is most often an empty {} that survived a
+// partial migration. Anything non-primitive becomes null.
+function primitiveOrNull(v) {
+  if (v == null) return null
+  const t = typeof v
+  if (t === 'string' || t === 'number' || t === 'boolean') return v
+  return null
+}
+
+// Heal a per-year map whose values must be primitives (classByYear,
+// overallByYear, devTraitByYear, positionByYear). Drops year entries
+// whose value is an object — better an absent year than a render crash.
+function healPrimitiveByYearMap(map, coerce = primitiveOrNull) {
+  if (!map || typeof map !== 'object') return { value: map, changed: false }
+  const cleaned = {}
+  let changed = false
+  for (const [yearKey, raw] of Object.entries(map)) {
+    const safe = coerce(raw)
+    if (safe == null && raw != null) {
+      changed = true
+      continue
+    }
+    if (safe == null) {
+      changed = true
+      continue
+    }
+    cleaned[yearKey] = safe
+    if (safe !== raw) changed = true
+  }
+  return { value: cleaned, changed }
+}
+
+// Top-level scalar fields read directly into JSX in the player profile
+// (header card, stat strip, biography line, sidebar). Must be primitives
+// or null — anything object-shaped here is what crashes the page with
+// React #31.
+const SCALAR_FIELDS = [
+  'name', 'firstName', 'lastName', 'position', 'archetype', 'jerseyNumber',
+  'year', 'overall', 'devTrait', 'height', 'weight', 'hometown', 'state',
+  'pictureUrl', 'notes', 'recruitYear', 'previousTeam', 'team', 'stars',
+  'nationalRank', 'stateRank', 'positionRank', 'gemBust', 'draftRound',
+  'draftPick', 'draftYear', 'pid',
+]
+
+function healScalarFields(player) {
+  let changed = false
+  let next = player
+  for (const key of SCALAR_FIELDS) {
+    if (!(key in player)) continue
+    const safe = primitiveOrNull(player[key])
+    if (safe === player[key]) continue
+    if (next === player) next = { ...player }
+    if (safe == null) {
+      delete next[key]
+    } else {
+      next[key] = safe
+    }
+    changed = true
+  }
+  return { value: next, changed }
+}
+
 function healTeamHistory(history) {
   if (!Array.isArray(history)) {
     if (history == null) return { value: history, changed: false }
@@ -244,6 +309,28 @@ export function healPlayer(player, options = {}) {
       changed = true
     }
   }
+  // Per-year primitive maps. classByYear / overallByYear / devTraitByYear
+  // / positionByYear are read directly into JSX in the year-by-year
+  // tables and the sidebar timeline. An object value at any year is the
+  // most common React #31 trigger we still see in the wild — sanitize
+  // each map by dropping non-primitive year entries.
+  for (const key of ['classByYear', 'overallByYear', 'devTraitByYear', 'positionByYear']) {
+    if (!(key in player)) continue
+    const r = healPrimitiveByYearMap(player[key])
+    if (r.changed) {
+      next = next === player ? { ...player } : next
+      next[key] = r.value
+      changed = true
+    }
+  }
+  // Top-level scalar fields. The header card / biography line / sidebar
+  // read these directly; an object value here is exactly the empty-{}
+  // child the user reported.
+  const scalar = healScalarFields(next)
+  if (scalar.changed) {
+    next = scalar.value
+    changed = true
+  }
   // Drop the legacy `movements[]` array entirely. The by-year map
   // (movementByYear) is the source of truth; rosterModel's
   // syncDerivedFieldsFromV2 already deletes movements[] on every
@@ -278,4 +365,8 @@ export function healPlayer(player, options = {}) {
 // 2026.05.07: also strip legacy player.movements[] array and sync
 // player.year / .overall / .devTrait / .team to the current-year
 // values from the by-year maps.
-export const PLAYER_HEAL_VERSION = '2026.05.07'
+// 2026.05.07b: sanitize per-year primitive maps (classByYear,
+// overallByYear, devTraitByYear, positionByYear) and top-level scalar
+// fields (position, archetype, height, hometown, state, etc.) — drop
+// non-primitive values that crash the renderer with React #31.
+export const PLAYER_HEAL_VERSION = '2026.05.07b'
