@@ -322,10 +322,34 @@ function PlayerInner() {
             return { type: 'departure', reason: 'Graduating', year: y }
           }
           if (m.departure === 'transfer_out') {
+            // teamsByYear inference: if the next recorded roster year
+            // is the same team this entry was on, the player came back
+            // (recommit) — no departure badge. Mirrors the legacy
+            // entered_portal handler below; without this, a player who
+            // entered the portal AND recommitted in the same year
+            // would render as still-in-portal because canonical
+            // movementByYear[year] only has room for one entry per
+            // year (transfer_out wins, the recommit gets overwritten
+            // OR the heal canonicalized a legacy entered_portal that
+            // had the recommit implicit in teamsByYear). Doug Wayne
+            // case: portal in 2033, back on KY for 2034 — without this
+            // inference, profile shows "IN PORTAL" badge even though
+            // teamsByYear says he's on KY.
+            const thisTeam = player?.teamsByYear?.[y] ?? player?.teamsByYear?.[String(y)] ?? null
+            const tby = player?.teamsByYear || {}
+            const laterTeamYears = Object.keys(tby)
+              .map(Number)
+              .filter(yr => Number.isFinite(yr) && yr > y)
+              .sort((a, b) => a - b)
+            const nextYr = laterTeamYears[0]
+            const nextTeam = nextYr != null ? (tby[nextYr] ?? tby[String(nextYr)]) : null
+            if (nextTeam != null && thisTeam != null && Number(nextTeam) === Number(thisTeam)) {
+              return null // recommit — no departure badge
+            }
             return {
               type: 'transfer',
-              to: m.toTid ?? null,
-              from: player?.teamsByYear?.[y] ?? player?.teamsByYear?.[String(y)] ?? null,
+              to: m.toTid ?? nextTeam ?? null,
+              from: thisTeam,
               year: y,
               reason: m.reason || null,
             }
