@@ -20,7 +20,13 @@ import {
   savePlayerToSubcollection,
   deletePlayerFromSubcollection,
   saveGameToSubcollection,
-  deleteGameFromSubcollection
+  deleteGameFromSubcollection,
+  // Week recap subcollection (extracted out of the main doc to keep
+  // long-running dynasties under Firestore's 1 MB document cap).
+  saveWeekRecapToSubcollection,
+  deleteWeekRecapFromSubcollection,
+  getWeekRecapsSubcollection,
+  migrateWeekRecapsToSubcollection
 } from '../services/dynastyService'
 import { indexedDBStorage, storageService } from '../services/storage'
 import { doc, updateDoc } from 'firebase/firestore'
@@ -5128,14 +5134,46 @@ export function DynastyProvider({ children }) {
             }
 
             // Load subcollections for this dynasty
-            const [subcollectionPlayers, subcollectionGames] = await Promise.all([
+            const [subcollectionPlayers, subcollectionGames, subcollectionRecaps] = await Promise.all([
               getPlayersSubcollection(dynasty.id),
-              getGamesSubcollection(dynasty.id)
+              getGamesSubcollection(dynasty.id),
+              getWeekRecapsSubcollection(dynasty.id)
             ])
 
             // Use subcollection data if it exists, otherwise fall back to main document
             const players = subcollectionPlayers.length > 0 ? subcollectionPlayers : (dynasty.players || [])
             const games = subcollectionGames.length > 0 ? subcollectionGames : (dynasty.games || [])
+
+            // Week recaps: merge legacy (main-doc field) + subcollection
+            // sources, with the subcollection winning per-(year, week) for
+            // any overlap. Merging instead of preferring one source is
+            // load-bearing — a previous save may have written the new
+            // recap to the subcollection and started the legacy-field
+            // cleanup but had the deleteField step fail (network drop,
+            // app close mid-save). In that state both sources are
+            // partial: legacy is missing the new recap, subcollection is
+            // missing the not-yet-migrated old recaps. Either-or would
+            // appear to drop data on the next load.
+            const legacyRecaps = dynasty.weekRecapsByYear || {}
+            const legacyKeys = Object.keys(legacyRecaps)
+            const subKeys = Object.keys(subcollectionRecaps || {})
+            const weekRecapsByYear = {}
+            for (const y of legacyKeys) {
+              weekRecapsByYear[y] = { ...(legacyRecaps[y] || {}) }
+            }
+            for (const y of subKeys) {
+              if (!weekRecapsByYear[y]) weekRecapsByYear[y] = {}
+              Object.assign(weekRecapsByYear[y], subcollectionRecaps[y] || {})
+            }
+
+            if (legacyKeys.length > 0) {
+              // Fire-and-forget — UI uses `weekRecapsByYear` regardless of
+              // which storage tier holds the data, so the user can keep
+              // working while migration runs in the background.
+              migrateWeekRecapsToSubcollection(dynasty.id, legacyRecaps).catch(err => {
+                console.warn(`[recap migration] failed for ${dynasty.id}:`, err?.code || err?.message || err)
+              })
+            }
 
             // Mark as loaded
             loadedDynastyIdsRef.current.add(dynasty.id)
@@ -5143,7 +5181,8 @@ export function DynastyProvider({ children }) {
             return {
               ...taggedDynasty,
               players,
-              games
+              games,
+              weekRecapsByYear
             }
           } catch (err) {
             console.error(`Error loading subcollections for dynasty ${dynasty.id}:`, err)
@@ -5916,6 +5955,126 @@ export function DynastyProvider({ children }) {
     } catch (error) {
       console.error('Error updating dynasty:', error)
       throw error
+    }
+  }
+
+  // ─── Week recap save/delete ────────────────────────────────────────
+  // Recaps moved out of the main `dynasty.weekRecapsByYear` field into
+  // a per-doc `weekRecaps/{year-week}` subcollection. The trigger was a
+  // beta dynasty whose main doc reached 1,051,303 bytes — past the 1 MB
+  // Firestore cap — and started rejecting EVERY write with
+  // INVALID_ARGUMENT. Subcollection storage scales without that ceiling.
+  //
+  // The first save on any dynasty that still has the legacy field
+  // migrates all existing entries to the subcollection and clears the
+  // field via deleteField (which shrinks the parent doc and so is not
+  // blocked by the size cap that's blocking normal updates).
+  //
+  // Local-only dynasties keep using the embedded map in IndexedDB —
+  // there's no equivalent size limit there, and routing through the
+  // subcollection helpers (which talk to Firestore) would error out.
+  const saveWeekRecap = async (dynastyId, year, week, recap) => {
+    if (blockIfReadOnly(dynastyId, 'save week recap')) return
+
+    let dynasty = String(currentDynasty?.id) === String(dynastyId)
+      ? currentDynasty
+      : dynasties.find(d => String(d.id) === String(dynastyId))
+    if (!dynasty) throw new Error('Dynasty not found')
+
+    const looksLikeFirebaseId = typeof dynastyId === 'string' && dynastyId.length >= 20 && !/^\d+$/.test(dynastyId)
+    const isCloud = looksLikeFirebaseId || (dynasty.storageType === 'cloud' && user)
+
+    const yearN = Number(year)
+    const weekN = Number(week)
+    const entry = {
+      generatedAt: recap?.generatedAt ?? Date.now(),
+      text: String(recap?.text || '')
+    }
+
+    if (isCloud) {
+      // 1. Write the new recap to its own subcollection doc — this is
+      //    the actual save, and it succeeds regardless of how bloated
+      //    the parent dynasty doc currently is.
+      await saveWeekRecapToSubcollection(dynastyId, yearN, weekN, entry)
+
+      // 2. If the parent doc still carries the legacy embedded map,
+      //    move every entry into the subcollection and then clear the
+      //    field. The deleteField shrinks the parent and is the only
+      //    write to the parent we can do once it's over 1 MB.
+      const legacy = dynasty.weekRecapsByYear
+      const legacyKeys = legacy ? Object.keys(legacy) : []
+      if (legacyKeys.length > 0) {
+        try {
+          await migrateWeekRecapsToSubcollection(dynastyId, legacy)
+        } catch (migErr) {
+          console.warn('[saveWeekRecap] legacy field migration failed:', migErr?.code || migErr?.message || migErr)
+          // Not fatal — the new recap is saved. Migration retries on next save.
+        }
+      }
+    } else {
+      // Local-only dynasty — the embedded map in IndexedDB has no size
+      // ceiling, so just keep using updateDynasty.
+      const cur = dynasty.weekRecapsByYear || {}
+      const yr = { ...(cur[yearN] || {}) }
+      yr[weekN] = entry
+      await updateDynasty(dynastyId, { weekRecapsByYear: { ...cur, [yearN]: yr } })
+      return
+    }
+
+    // Cloud-path local-state update: merge the new entry into
+    // weekRecapsByYear so the UI reflects the change without waiting
+    // for the listener to round-trip the subcollection.
+    const apply = (prev) => {
+      if (!prev) return prev
+      const cur = prev.weekRecapsByYear || {}
+      const yr = { ...(cur[yearN] || {}) }
+      yr[weekN] = entry
+      return { ...prev, weekRecapsByYear: { ...cur, [yearN]: yr } }
+    }
+    setDynasties(prev => prev.map(d =>
+      String(d.id) === String(dynastyId) ? apply(d) : d
+    ))
+    if (String(currentDynasty?.id) === String(dynastyId)) {
+      setCurrentDynasty(prev => prev ? apply(prev) : prev)
+    }
+  }
+
+  const deleteWeekRecap = async (dynastyId, year, week) => {
+    if (blockIfReadOnly(dynastyId, 'delete week recap')) return
+
+    let dynasty = String(currentDynasty?.id) === String(dynastyId)
+      ? currentDynasty
+      : dynasties.find(d => String(d.id) === String(dynastyId))
+    if (!dynasty) throw new Error('Dynasty not found')
+
+    const looksLikeFirebaseId = typeof dynastyId === 'string' && dynastyId.length >= 20 && !/^\d+$/.test(dynastyId)
+    const isCloud = looksLikeFirebaseId || (dynasty.storageType === 'cloud' && user)
+
+    const yearN = Number(year)
+    const weekN = Number(week)
+
+    if (isCloud) {
+      await deleteWeekRecapFromSubcollection(dynastyId, yearN, weekN)
+    } else {
+      const cur = dynasty.weekRecapsByYear || {}
+      const yr = { ...(cur[yearN] || {}) }
+      delete yr[weekN]
+      await updateDynasty(dynastyId, { weekRecapsByYear: { ...cur, [yearN]: yr } })
+      return
+    }
+
+    const apply = (prev) => {
+      if (!prev) return prev
+      const cur = prev.weekRecapsByYear || {}
+      const yr = { ...(cur[yearN] || {}) }
+      delete yr[weekN]
+      return { ...prev, weekRecapsByYear: { ...cur, [yearN]: yr } }
+    }
+    setDynasties(prev => prev.map(d =>
+      String(d.id) === String(dynastyId) ? apply(d) : d
+    ))
+    if (String(currentDynasty?.id) === String(dynastyId)) {
+      setCurrentDynasty(prev => prev ? apply(prev) : prev)
     }
   }
 
@@ -12968,6 +13127,8 @@ export function DynastyProvider({ children }) {
     isViewOnly,
     createDynasty,
     updateDynasty,
+    saveWeekRecap,
+    deleteWeekRecap,
     deleteDynasty,
     selectDynasty,
     addGame,

@@ -233,6 +233,29 @@ service cloud.firestore {
                      );
       }
 
+      // ─── Week recaps (subcollection) ────────────────────────────
+      // Per-week AI recap docs: dynasties/{id}/weekRecaps/{year-week}
+      // Doc shape: { year, week, generatedAt, text }
+      //
+      // Lifted out of the main dynasty doc because long-running
+      // dynasties were pushing the parent past the 1 MB Firestore size
+      // cap, at which point ALL writes to the dynasty failed. Same
+      // read/write model as players: owner needs premium, invited
+      // editors can write without their own subscription.
+      match /weekRecaps/{recapId} {
+        allow read: if isSignedIn()
+                    && parentDynasty().userId == request.auth.uid;
+        allow read: if isSignedIn()
+                    && request.auth.uid in parentDynasty().get('editors', []);
+        allow read: if parentDynasty().isPublic == true;
+
+        allow write: if isPremium()
+                     && parentDynasty().userId == request.auth.uid;
+        allow write: if isSignedIn()
+                     && parentDynasty().userId != request.auth.uid
+                     && request.auth.uid in parentDynasty().get('editors', []);
+      }
+
       // ─── Invite tokens (subcollection) ──────────────────────────
       // Token-keyed docs: dynasties/{id}/invites/{token}
       // Doc shape: { role, createdBy, createdAt, expiresAt?, label?,
