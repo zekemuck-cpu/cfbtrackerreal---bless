@@ -233,6 +233,34 @@ service cloud.firestore {
                      );
       }
 
+      // ─── Season-scoped data (subcollection) ─────────────────────
+      // Per-year docs: dynasties/{id}/seasons/{year}
+      // Holds every field that used to live on the main doc as a
+      // ByYear or ByTeamYear map (allAmericans, awards, conference
+      // standings, recruitingCommitmentsByTeam, schedulesByTeam, etc).
+      //
+      // Rationale: long-running dynasties were pushing the parent
+      // doc past the 1 MiB Firestore cap. Sharding the season-scoped
+      // data into per-year docs keeps each doc well under the cap
+      // regardless of how many seasons accumulate.
+      //
+      // Same access model as players/games/weekRecaps: owner needs
+      // premium, invited editors can write without their own
+      // subscription (the parent dynasty's premium covers storage).
+      match /seasons/{seasonId} {
+        allow read: if isSignedIn()
+                    && parentDynasty().userId == request.auth.uid;
+        allow read: if isSignedIn()
+                    && request.auth.uid in parentDynasty().get('editors', []);
+        allow read: if parentDynasty().isPublic == true;
+
+        allow write: if isPremium()
+                     && parentDynasty().userId == request.auth.uid;
+        allow write: if isSignedIn()
+                     && parentDynasty().userId != request.auth.uid
+                     && request.auth.uid in parentDynasty().get('editors', []);
+      }
+
       // ─── Week recaps (subcollection) ────────────────────────────
       // Per-week AI recap docs: dynasties/{id}/weekRecaps/{year-week}
       // Doc shape: { year, week, generatedAt, text }

@@ -28,6 +28,21 @@ import {
   getWeekRecapsSubcollection,
   migrateWeekRecapsToSubcollection
 } from '../services/dynastyService'
+import {
+  PER_YEAR_FIELDS,
+  PER_TEAM_YEAR_FIELDS,
+  isSeasonalField,
+  getSeasonsSubcollection,
+  splitSeasonalUpdateByYear,
+  writeSeasonalUpdate,
+  migrateSeasonalFieldsToSubcollection
+} from '../services/seasonSubcollection'
+
+// Sets the listener uses to rehydrate seasonal fields from per-season
+// docs back into the legacy `<field>ByYear` / `<field>ByTeamYear`
+// shapes consumers already read.
+const PER_YEAR_NAMES = new Set(PER_YEAR_FIELDS)
+const ALL_SEASONAL_FIELD_NAMES = [...PER_YEAR_FIELDS, ...PER_TEAM_YEAR_FIELDS]
 import { indexedDBStorage, storageService } from '../services/storage'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
@@ -5134,10 +5149,11 @@ export function DynastyProvider({ children }) {
             }
 
             // Load subcollections for this dynasty
-            const [subcollectionPlayers, subcollectionGames, subcollectionRecaps] = await Promise.all([
+            const [subcollectionPlayers, subcollectionGames, subcollectionRecaps, subcollectionSeasons] = await Promise.all([
               getPlayersSubcollection(dynasty.id),
               getGamesSubcollection(dynasty.id),
-              getWeekRecapsSubcollection(dynasty.id)
+              getWeekRecapsSubcollection(dynasty.id),
+              getSeasonsSubcollection(dynasty.id)
             ])
 
             // Use subcollection data if it exists, otherwise fall back to main document
@@ -5175,6 +5191,59 @@ export function DynastyProvider({ children }) {
               })
             }
 
+            // Season-scoped fields: same merge-then-migrate pattern as
+            // weekRecaps. The season subcollection holds every per-year
+            // and per-team-year field that used to live as a ByYear /
+            // ByTeamYear map on the main doc. We rehydrate the legacy
+            // shapes from the subcollection, merge with anything still
+            // on the main doc (so a partial-migration state doesn't
+            // appear to drop data), and surface them under the same
+            // field names consumers already read.
+            const mergedSeasonal = {}
+            for (const field of ALL_SEASONAL_FIELD_NAMES) {
+              const legacy = dynasty[field]
+              const fromSub = subcollectionSeasons[field]
+              const hasLegacy = legacy && typeof legacy === 'object' && Object.keys(legacy).length > 0
+              const hasSub = fromSub && typeof fromSub === 'object' && Object.keys(fromSub).length > 0
+              if (!hasLegacy && !hasSub) continue
+              if (PER_YEAR_NAMES.has(field)) {
+                // shape: { [year]: data } — merge year-by-year, sub wins
+                mergedSeasonal[field] = { ...(legacy || {}), ...(fromSub || {}) }
+              } else {
+                // shape: { [teamKey]: { [year]: data } } — deep merge,
+                // sub wins per-(teamKey, year)
+                const out = {}
+                for (const [teamKey, yearMap] of Object.entries(legacy || {})) {
+                  out[teamKey] = { ...(yearMap || {}) }
+                }
+                for (const [teamKey, yearMap] of Object.entries(fromSub || {})) {
+                  out[teamKey] = { ...(out[teamKey] || {}), ...(yearMap || {}) }
+                }
+                mergedSeasonal[field] = out
+              }
+            }
+
+            // Detect whether ANY of the seasonal fields still has data
+            // on the main doc — if so, kick off background migration.
+            const legacySeasonalSnapshot = {}
+            let hasLegacySeasonal = false
+            for (const field of ALL_SEASONAL_FIELD_NAMES) {
+              const value = dynasty[field]
+              if (value && typeof value === 'object' && Object.keys(value).length > 0) {
+                legacySeasonalSnapshot[field] = value
+                hasLegacySeasonal = true
+              }
+            }
+            if (hasLegacySeasonal) {
+              migrateSeasonalFieldsToSubcollection(dynasty.id, legacySeasonalSnapshot)
+                .then(({ migrated, cleared }) => {
+                  console.log(`[season migration] ${dynasty.id}: migrated ${migrated.length} season(s), cleared ${cleared.length} field(s)`)
+                })
+                .catch(err => {
+                  console.warn(`[season migration] failed for ${dynasty.id}:`, err?.code || err?.message || err)
+                })
+            }
+
             // Mark as loaded
             loadedDynastyIdsRef.current.add(dynasty.id)
 
@@ -5182,7 +5251,8 @@ export function DynastyProvider({ children }) {
               ...taggedDynasty,
               players,
               games,
-              weekRecapsByYear
+              weekRecapsByYear,
+              ...mergedSeasonal,
             }
           } catch (err) {
             console.error(`Error loading subcollections for dynasty ${dynasty.id}:`, err)
@@ -5872,6 +5942,56 @@ export function DynastyProvider({ children }) {
         // Games already saved individually - just remove from main doc updates
         console.log('[updateDynasty] Skipping games subcollection (already saved individually)')
         delete mainDocUpdates.games
+      }
+
+      // Route season-scoped fields (allAmericansByYear, schedulesByTeamYear,
+      // recruitingCommitmentsByTeamYear, etc) to the seasons subcollection.
+      // Same justification as players/games: keeps the parent dynasty doc
+      // under Firestore's 1 MiB cap on long-running dynasties.
+      //
+      // Handles two write shapes:
+      //   - full field: { allAmericansByYear: { 2034: ..., 2033: ... } }
+      //     → fanned out via splitSeasonalUpdateByYear
+      //   - dot-notation path: { 'schedulesByTeamYear.UT.2029': [...] }
+      //     → expanded into the same per-year shape and fanned out
+      // Both paths produce a year-keyed map of season-doc patches that
+      // writeSeasonalUpdate persists with setDoc({merge: true}).
+      const seasonalCollect = {}
+      const seasonalDotKeys = []
+      for (const key of Object.keys(mainDocUpdates)) {
+        if (isSeasonalField(key)) {
+          seasonalCollect[key] = mainDocUpdates[key]
+          delete mainDocUpdates[key]
+          continue
+        }
+        if (key.includes('.')) {
+          const topLevel = key.split('.')[0]
+          if (isSeasonalField(topLevel)) {
+            seasonalDotKeys.push(key)
+          }
+        }
+      }
+      // Expand dot-notation keys into the same nested shape full-field
+      // writes use, so a single call to splitSeasonalUpdateByYear
+      // handles both.
+      for (const key of seasonalDotKeys) {
+        const parts = key.split('.')
+        const topLevel = parts[0]
+        const value = mainDocUpdates[key]
+        delete mainDocUpdates[key]
+        if (!seasonalCollect[topLevel]) seasonalCollect[topLevel] = {}
+        let target = seasonalCollect[topLevel]
+        for (let i = 1; i < parts.length - 1; i++) {
+          if (!target[parts[i]]) target[parts[i]] = {}
+          target = target[parts[i]]
+        }
+        target[parts[parts.length - 1]] = value
+      }
+      if (Object.keys(seasonalCollect).length > 0) {
+        const byYear = splitSeasonalUpdateByYear(seasonalCollect)
+        if (Object.keys(byYear).length > 0) {
+          subcollectionPromises.push(writeSeasonalUpdate(dynastyId, byYear))
+        }
       }
 
       // Execute subcollection writes and main doc update in parallel
