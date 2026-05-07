@@ -1239,6 +1239,11 @@ export function getTeam(teams, tid) {
  * @param {string} abbr - Team abbreviation (e.g., "BAMA")
  * @returns {number|null} Team ID or null
  */
+// Dev-only set tracking abbrs we've already warned about, so the
+// console isn't flooded when a tight render loop calls in repeatedly.
+// Production paths skip the warn entirely — no runtime overhead.
+const _missingDynastyWarnedAbbrs = (typeof Set !== 'undefined') ? new Set() : null
+
 export function getTidFromAbbr(abbr, dynastyOrTeams = null) {
   if (!abbr && abbr !== 0) return null
   // If already a number (tid), return it directly
@@ -1258,7 +1263,33 @@ export function getTidFromAbbr(abbr, dynastyOrTeams = null) {
       if (team?.abbr?.toUpperCase() === upper) return Number(tid)
     }
   }
-  return ABBR_TO_TID[upper] || null
+  // Dev guardrail: when called without a dynasty arg AND the abbr
+  // resolves in the static registry, a teambuilder team that overrode
+  // this slot would silently misroute. Warn once per abbr in dev so the
+  // misuse surfaces during development; no-op in production. A few
+  // intentional callers (e.g. teambuilder "replacesTeam" lookups, the
+  // resolveTid fallback chain) genuinely want the static-only result —
+  // they can ignore the warn.
+  const staticTid = ABBR_TO_TID[upper] || null
+  if (
+    staticTid &&
+    !dynastyTeams &&
+    _missingDynastyWarnedAbbrs &&
+    !_missingDynastyWarnedAbbrs.has(upper) &&
+    typeof process !== 'undefined' &&
+    process.env?.NODE_ENV !== 'production'
+  ) {
+    _missingDynastyWarnedAbbrs.add(upper)
+    if (typeof console !== 'undefined' && console.warn) {
+      console.warn(
+        `[teamRegistry] getTidFromAbbr("${upper}") called without a dynasty arg. ` +
+        `If a teambuilder team has overridden this abbr, this lookup will misroute ` +
+        `to the static FBS team (tid ${staticTid}). Pass currentDynasty as the ` +
+        `second arg to resolve correctly.`
+      )
+    }
+  }
+  return staticTid
 }
 
 /**
