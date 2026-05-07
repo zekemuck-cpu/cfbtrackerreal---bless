@@ -3572,8 +3572,8 @@ export default function Dashboard() {
                   title = `${currentDynasty.currentYear} Class Score: ${formatRecruitingClassScore(classScore)}`
                   subtitle = hasCurWeek ? `Recruiting · Week ${currentDynasty.currentWeek}` : `${currentDynasty.currentYear} class`
                 } else {
-                  title = hasCurWeek ? `Recruiting · Week ${currentDynasty.currentWeek}` : 'Recruiting'
-                  subtitle = `Awaiting commits for the ${currentDynasty.currentYear} class`
+                  title = hasCurWeek ? `Week ${currentDynasty.currentWeek} Commits` : 'Commits'
+                  subtitle = null
                 }
                 todos.push({
                   key: 'recruiting',
