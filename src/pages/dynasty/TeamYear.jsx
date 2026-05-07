@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo, useLayoutEffect, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamConferenceForDynasty, calculateTeamRecordFromGames, getTeamRanking, getRecruitingCommitments, getPlayerPositionForYear, getPlayerOverallForYear, lookupByTeamYear } from '../../context/DynastyContext'
+import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamConferenceForDynasty, calculateTeamRecordFromGames, getTeamRanking, getRecruitingCommitments, getPlayerPositionForYear, getPlayerOverallForYear, lookupByTeamYear, getPlayersLeaving } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 // Team colors are derived from the viewed team, not the user's team
 import { getContrastTextColor, getContrastRatio } from '../../utils/colorUtils'
@@ -1448,28 +1448,48 @@ export default function TeamYear() {
     isPlayerOnRoster(p, tid, selectedYear)
   )
 
-  // ─── Departures: players who were on this team in `selectedYear` but
-  // not on it in `selectedYear + 1`. Excludes recommitters (entered
-  // portal then came back to the same team). For each, derives the
-  // departure reason and destination tid from movementByYear /
-  // teamsByYear so we can render a "where they went" line.
+  // ─── Departures: players who actually left the team after
+  // `selectedYear`. We require POSITIVE evidence — earlier this just
+  // looked at "on team in Y but not Y+1", which over-reported for the
+  // current year (Y+1 doesn't exist yet, so every roster player looked
+  // like they'd left). Now a player must show one of:
+  //   1. an explicit departure movement for `selectedYear`, OR
+  //   2. an entry in playersLeavingByYear[selectedYear] (user marked
+  //      them in the Players Leaving sheet), OR
+  //   3. they're on a DIFFERENT team in selectedYear + 1 (confirmed
+  //      transfer with new destination).
+  // Recommitters (movementByYear[selectedYear]?.type === 'recommit')
+  // are excluded since they came back to the same team.
   const departures = useMemo(() => {
     const nextYear = selectedYear + 1
+    const leavingList = getPlayersLeaving(currentDynasty, tid, selectedYear) || []
+    const leavingByPid = new Map()
+    for (const entry of leavingList) {
+      if (entry?.pid != null) leavingByPid.set(entry.pid, entry)
+    }
+
     const out = []
     for (const p of teamPlayers) {
-      // Skip if they're still on this team next year (true returners).
-      if (isPlayerOnRoster(p, tid, nextYear)) continue
-
-      // Pull movement for this season — that's the departure record.
       const mv = p.movementByYear?.[selectedYear] ?? p.movementByYear?.[String(selectedYear)]
+      // Recommit — explicitly came back, not a departure.
+      if (mv?.type === 'recommit') continue
 
-      // Determine destination tid (where they ended up next year).
+      // Destination next year (for confirmed transfers).
       const nextYearTid = p.teamsByYear?.[nextYear] ?? p.teamsByYear?.[String(nextYear)]
       const nextYearTidNum = nextYearTid != null ? Number(nextYearTid) : null
       const wentToAnotherTeam = Number.isFinite(nextYearTidNum) && nextYearTidNum !== tid
 
-      // Categorize the departure. Order matters — pro_draft / graduated
-      // are most specific.
+      // Three signals for "actually left":
+      const hasDepartureMovement = mv?.type === 'departure'
+      const isInLeavingSheet = leavingByPid.has(p.pid)
+      const hasNextYearOnDifferentTeam = wentToAnotherTeam
+
+      if (!hasDepartureMovement && !isInLeavingSheet && !hasNextYearOnDifferentTeam) {
+        continue
+      }
+
+      // Categorize. Movement record wins; then leaving-sheet reason;
+      // then destination-only inference.
       let category, label, destinationTid = null, reason = null
       if (mv?.type === 'departure' && mv?.departure === 'pro_draft') {
         category = 'pro_draft'
@@ -1483,30 +1503,35 @@ export default function TeamYear() {
         label = 'Transfer Portal'
         destinationTid = mv.toTid != null ? Number(mv.toTid) : (wentToAnotherTeam ? nextYearTidNum : null)
         reason = mv.reason || null
+      } else if (isInLeavingSheet) {
+        // Marked as leaving via the sheet but no movement record yet —
+        // user is mid-flow. Use the sheet's reason.
+        const sheetReason = leavingByPid.get(p.pid)?.reason || ''
+        if (sheetReason === 'Pro Draft') {
+          category = 'pro_draft'
+          label = 'NFL Draft'
+        } else if (sheetReason === 'Graduating') {
+          category = 'graduated'
+          label = 'Graduated'
+        } else {
+          category = 'transfer'
+          label = 'Transfer Portal'
+          destinationTid = wentToAnotherTeam ? nextYearTidNum : null
+          reason = sheetReason || null
+        }
       } else if (wentToAnotherTeam) {
-        // No movement record but they're on a different team next year
-        // — must be a transfer that wasn't tagged. Show as transfer.
+        // Confirmed move to another team with no movement tag.
         category = 'transfer'
         label = 'Transfer Portal'
         destinationTid = nextYearTidNum
       } else {
-        // Off the roster with no record. Most likely an unrecorded
-        // departure — surface as "Left team" so the user can investigate.
-        category = 'unknown'
-        label = 'Left Team'
+        // Should be unreachable given the gating above.
+        continue
       }
 
-      out.push({
-        player: p,
-        category,
-        label,
-        destinationTid,
-        reason,
-      })
+      out.push({ player: p, category, label, destinationTid, reason })
     }
 
-    // Sort: pro_draft first (most prestigious), then graduated, then
-    // transfers, then unknown. Within each group, by name.
     const order = { pro_draft: 0, graduated: 1, transfer: 2, unknown: 3 }
     out.sort((a, b) => {
       const oc = (order[a.category] ?? 9) - (order[b.category] ?? 9)
@@ -1514,7 +1539,7 @@ export default function TeamYear() {
       return (a.player.name || '').localeCompare(b.player.name || '')
     })
     return out
-  }, [teamPlayers, tid, selectedYear])
+  }, [teamPlayers, tid, selectedYear, currentDynasty])
 
   // Get team leaders from player.statsByYear (single source of truth)
   const teamLeaders = useMemo(() => {
