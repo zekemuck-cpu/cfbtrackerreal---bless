@@ -22,6 +22,35 @@ const getInitialSidebarState = () => {
   return true
 }
 
+// Delays mounting the NewsTicker until after the rest of the dashboard
+// has painted. The ticker's section computation is heavy (per-player
+// × per-year × per-stat-category aggregation, plus career leaderboards
+// and hot-streak detection) — running it during the initial route
+// paint blocked the main thread for hundreds of ms on big rosters.
+// Mounting it after a microtask lets the user see and interact with
+// the dashboard immediately; the ticker fills in after.
+function DeferredNewsTicker({ dynasty }) {
+  const [show, setShow] = useState(false)
+  useEffect(() => {
+    // Use requestIdleCallback when available (Chrome / Firefox) so the
+    // ticker mount competes for idle time rather than the next frame.
+    // Safari / old browsers fall back to setTimeout(0) which still
+    // pushes the work past the initial paint.
+    const idle = window.requestIdleCallback
+      ? window.requestIdleCallback(() => setShow(true), { timeout: 800 })
+      : window.setTimeout(() => setShow(true), 0)
+    return () => {
+      if (window.requestIdleCallback && window.cancelIdleCallback) {
+        window.cancelIdleCallback(idle)
+      } else {
+        window.clearTimeout(idle)
+      }
+    }
+  }, [])
+  if (!show) return null
+  return <NewsTicker dynasty={dynasty} />
+}
+
 export default function DynastyDashboard() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -94,8 +123,13 @@ export default function DynastyDashboard() {
       {/* Team switcher (visible when user controls 2+ teams) */}
       <TeamSwitcher />
 
-      {/* News ticker at bottom */}
-      <NewsTicker dynasty={currentDynasty} />
+      {/* News ticker at bottom — mounted after the rest of the dashboard
+          has painted so the ticker's heavy section computation
+          (iterates every player × year × stat category, can be
+          100–500ms on a big roster) doesn't block the initial route
+          paint. Once mounted, useDeferredValue inside the ticker keeps
+          subsequent recomputes off the urgent render path. */}
+      <DeferredNewsTicker dynasty={currentDynasty} />
 
       {/* Onboarding for freshly-joined members. Self-gates on whether
           this user needs it (in editors[], no team, not dismissed). */}
