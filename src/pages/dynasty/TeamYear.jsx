@@ -5396,97 +5396,163 @@ export default function TeamYear() {
         )
       })()}
 
-      {/* Departures Tab — players who were on this team this season but
-          not the next. Shows reason (NFL Draft / Graduated / Portal)
-          and where transfers landed. */}
+      {/* Departures Tab — broadcast scorebug × sports almanac styling
+          to match the recruiting tab pattern. Hero card shows totals
+          per category as Bebas-Neue stat tiles; each row is a tight
+          grid lockstep table-style row with a category-color rail on
+          hover, no zebra, tabular-nums everywhere a number lives. */}
       {activeTab === 'departures' && (() => {
+        const viewedPrimary = teamInfo.backgroundColor
+
         const groups = [
-          { key: 'pro_draft', label: 'NFL Draft', accent: 'var(--accent-info, #60a5fa)' },
-          { key: 'graduated', label: 'Graduated', accent: 'var(--accent-success, #34d399)' },
-          { key: 'transfer', label: 'Transfer Portal', accent: 'var(--accent-warning, #fbbf24)' },
-          { key: 'unknown', label: 'Other', accent: 'var(--text-tertiary, #9ca3af)' },
+          { key: 'pro_draft', label: 'NFL Draft', short: 'Draft', accent: '#60a5fa' },
+          { key: 'graduated', label: 'Graduated', short: 'Grads', accent: '#34d399' },
+          { key: 'transfer',  label: 'Transfer Portal', short: 'Portal', accent: '#fbbf24' },
+          { key: 'unknown',   label: 'Other', short: 'Other',  accent: '#9ca3af' },
         ]
         const byCategory = {}
-        for (const d of departures) {
-          (byCategory[d.category] ||= []).push(d)
-        }
+        for (const d of departures) (byCategory[d.category] ||= []).push(d)
+
+        const counts = Object.fromEntries(groups.map(g => [g.key, byCategory[g.key]?.length || 0]))
 
         if (departures.length === 0) {
           return (
             <div className="space-y-4">
-              <div className="card p-8 text-center text-txt-tertiary">
-                No departures recorded for {selectedYear}. Players who left this team for the {selectedYear + 1} season will appear here.
+              <div className="card p-8 text-center">
+                <div className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '2px' }}>NO DEPARTURES</div>
+                <p className="text-sm text-txt-secondary">
+                  Players who left {teamAbbr} after the {selectedYear} season will appear here.
+                </p>
               </div>
             </div>
           )
         }
 
         return (
-          <div className="space-y-6">
-            <div className="flex items-baseline gap-3 flex-wrap">
-              <h2 className="text-2xl font-black tracking-tight" style={{ fontFamily: "'Bebas Neue', sans-serif", color: 'var(--text-primary)' }}>
-                {selectedYear} Departures
-              </h2>
-              <span className="text-sm text-txt-tertiary">
-                {departures.length} {departures.length === 1 ? 'player' : 'players'} left for {selectedYear + 1}
-              </span>
+          <div className="space-y-4">
+            {/* HERO CARD — matches recruiting tab: 3px team-color stripe,
+                inline Bebas-Neue stat tiles, label-xs captions */}
+            <div className="card overflow-hidden">
+              <div className="h-[3px] w-full" style={{ backgroundColor: viewedPrimary }} aria-hidden="true" />
+              <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                <div
+                  className="flex items-center gap-3 sm:gap-4 px-4 py-3 rounded-sm"
+                  style={{ backgroundColor: 'var(--surface-3)', borderLeft: `3px solid ${viewedPrimary}` }}
+                >
+                  <div className="text-4xl sm:text-5xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                    {departures.length}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Departures</span>
+                    <span className="label-xs text-txt-muted" style={{ letterSpacing: '1.5px' }}>{selectedYear}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-4 border-t border-surface-4">
+                {groups.map(group => (
+                  <div key={group.key} className="px-2 py-3 text-center border-r border-surface-4 last:border-r-0">
+                    <div className="text-2xl font-black tabular leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif", color: counts[group.key] > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                      {counts[group.key]}
+                    </div>
+                    <div className="flex items-center justify-center gap-1.5 mt-1">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: group.accent }} aria-hidden="true" />
+                      <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{group.short}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
+            {/* GROUPED TABLE — one card per non-empty category, table-
+                style header row + tight body rows with per-row hover */}
             {groups.map(group => {
               const items = byCategory[group.key]
               if (!items || items.length === 0) return null
               return (
-                <div key={group.key}>
-                  <div className="flex items-baseline gap-2 mb-2">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: group.accent }} aria-hidden="true" />
-                    <h3 className="text-xs font-black uppercase tracking-widest text-txt-secondary">{group.label}</h3>
-                    <span className="text-xs text-txt-tertiary tabular-nums">{items.length}</span>
+                <div key={group.key} className="card overflow-hidden">
+                  {/* Section header — left rail in category accent */}
+                  <div
+                    className="flex items-baseline gap-3 px-4 py-2.5 border-b border-surface-4"
+                    style={{ borderLeft: `3px solid ${group.accent}`, backgroundColor: 'var(--surface-2)' }}
+                  >
+                    <h3 className="label-sm text-txt-primary" style={{ letterSpacing: '1.5px', fontWeight: 700 }}>{group.label}</h3>
+                    <span className="label-xs text-txt-tertiary tabular-nums" style={{ letterSpacing: '1.5px' }}>{items.length}</span>
                   </div>
-                  <div className="card divide-y divide-surface-4">
-                    {items.map(({ player, label, destinationTid, reason }) => {
-                      const cls = player.classByYear?.[selectedYear] ?? player.classByYear?.[String(selectedYear)] ?? player.year
-                      const ovr = player.overallByYear?.[selectedYear] ?? player.overallByYear?.[String(selectedYear)] ?? player.overall
-                      const destTeam = destinationTid != null ? (currentDynasty.teams?.[destinationTid] || currentDynasty.teams?.[String(destinationTid)]) : null
-                      const destLogo = destTeam?.logo || null
-                      const destAbbr = destTeam?.abbr || null
-                      const destName = destTeam?.name || null
-                      return (
-                        <div key={player.pid} className="flex items-center gap-3 px-4 py-3">
-                          <Link
-                            to={`${pathPrefix}/player/${player.pid}`}
-                            className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity"
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-semibold text-txt-primary truncate">{player.name}</div>
-                              <div className="text-xs text-txt-tertiary truncate">
-                                {[player.position, cls, ovr ? `OVR ${ovr}` : null].filter(Boolean).join(' · ')}
-                              </div>
+                  {/* Column header — desktop only, label-xs in tertiary */}
+                  <div className="hidden sm:grid grid-cols-[auto_1fr_auto_2fr] gap-4 items-center px-4 py-2 border-b border-surface-4 bg-surface-2/50">
+                    <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Pos</span>
+                    <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Player</span>
+                    <span className="label-xs text-txt-tertiary text-right" style={{ letterSpacing: '1.5px' }}>OVR</span>
+                    <span className="label-xs text-txt-tertiary text-right" style={{ letterSpacing: '1.5px' }}>
+                      {group.key === 'transfer' ? 'Destination' : group.key === 'pro_draft' ? 'Round' : 'Status'}
+                    </span>
+                  </div>
+                  {items.map(({ player, label, destinationTid, reason }) => {
+                    const cls = player.classByYear?.[selectedYear] ?? player.classByYear?.[String(selectedYear)] ?? player.year
+                    const ovr = player.overallByYear?.[selectedYear] ?? player.overallByYear?.[String(selectedYear)] ?? player.overall
+                    const destTeam = destinationTid != null
+                      ? (currentDynasty.teams?.[destinationTid] || currentDynasty.teams?.[String(destinationTid)])
+                      : null
+                    const destLogo = destTeam?.logo || null
+                    const destAbbr = destTeam?.abbr || null
+                    const destName = destTeam?.name || null
+
+                    return (
+                      <Link
+                        key={player.pid}
+                        to={`${pathPrefix}/player/${player.pid}`}
+                        className="grid grid-cols-[auto_1fr_auto] sm:grid-cols-[auto_1fr_auto_2fr] gap-3 sm:gap-4 items-center px-4 py-2.5 border-b border-surface-4 last:border-b-0 hover:bg-surface-3 transition-colors"
+                      >
+                        {/* Position pill */}
+                        <span className="text-[11px] font-bold tabular text-txt-secondary uppercase tracking-wider min-w-[40px]">
+                          {player.position || '—'}
+                        </span>
+
+                        {/* Name + class */}
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-txt-primary truncate">{player.name}</div>
+                          {cls && (
+                            <div className="label-xs text-txt-tertiary mt-0.5" style={{ letterSpacing: '1px' }}>
+                              {String(cls).toUpperCase()}
                             </div>
-                          </Link>
-                          <div className="flex items-center gap-2 flex-shrink-0 text-xs">
-                            <span className="font-bold uppercase tracking-wider text-[10px]" style={{ color: group.accent, letterSpacing: '1px' }}>{label}</span>
-                            {destinationTid != null && (
-                              <Link
-                                to={`${pathPrefix}/team/${destinationTid}/${selectedYear + 1}`}
-                                className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
-                                title={destName || destAbbr || 'Destination'}
-                              >
-                                <span className="text-txt-muted">→</span>
-                                {destLogo
-                                  ? <img src={destLogo} alt={destAbbr || ''} className="w-5 h-5 object-contain" />
-                                  : <span className="font-bold text-txt-secondary">{destAbbr || '?'}</span>
-                                }
-                                {!destLogo && destAbbr && <span className="text-txt-muted">{destAbbr}</span>}
-                              </Link>
-                            )}
-                            {reason && !destinationTid && (
-                              <span className="italic text-txt-tertiary">· {reason}</span>
-                            )}
-                          </div>
+                          )}
                         </div>
-                      )
-                    })}
-                  </div>
+
+                        {/* OVR */}
+                        <div className="text-right tabular-nums hidden sm:block">
+                          {ovr != null && (
+                            <span className="text-base font-black text-txt-primary" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                              {ovr}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Destination / Round / Status */}
+                        <div className="flex items-center justify-end gap-2 text-right text-xs col-span-3 sm:col-span-1">
+                          {destinationTid != null ? (
+                            <>
+                              {destLogo
+                                ? <img src={destLogo} alt={destAbbr || ''} className="w-5 h-5 object-contain flex-shrink-0" />
+                                : null}
+                              <span className="font-semibold text-txt-secondary truncate" title={destName || destAbbr || ''}>
+                                {destName || destAbbr || '—'}
+                              </span>
+                            </>
+                          ) : reason ? (
+                            <span className="font-semibold text-txt-secondary" style={{ letterSpacing: '0.5px' }}>{reason}</span>
+                          ) : (
+                            <span className="label-xs uppercase tabular" style={{ color: group.accent, letterSpacing: '1.5px' }}>{label}</span>
+                          )}
+                          {/* Mobile-only OVR pill (fallback when sm:block hidden) */}
+                          {ovr != null && (
+                            <span className="sm:hidden text-[11px] font-bold tabular-nums text-txt-secondary px-1.5 py-0.5 rounded bg-surface-3">
+                              {ovr}
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+                    )
+                  })}
                 </div>
               )
             })}
