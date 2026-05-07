@@ -6044,7 +6044,6 @@ export function DynastyProvider({ children }) {
 
   const addGame = async (dynastyId, gameData) => {
     if (blockIfReadOnly(dynastyId, 'add game')) return
-    console.log('[addGame] Called with:', { dynastyId, gameId: gameData.id, cfpSlot: gameData.cfpSlot, bowlName: gameData.bowlName, team1Tid: gameData.team1Tid, team2Tid: gameData.team2Tid, isCFPQuarterfinal: gameData.isCFPQuarterfinal })
 
     // Helper to recursively remove undefined values (Firestore doesn't accept undefined)
     const removeUndefined = (obj) => {
@@ -6586,13 +6585,6 @@ export function DynastyProvider({ children }) {
     if (blockIfReadOnly(dynastyId, 'update game')) return
     const { recordUpdates = {}, cfpGamesToPropagate = [] } = options
 
-    console.log('[updateGame] Called with:', {
-      dynastyId,
-      gameId: gameData.id,
-      hasCFPPropagation: cfpGamesToPropagate.length > 0,
-      hasRecordUpdates: Object.keys(recordUpdates).length > 0
-    })
-
     // Find dynasty
     let dynasty = String(currentDynasty?.id) === String(dynastyId)
       ? currentDynasty
@@ -6633,8 +6625,6 @@ export function DynastyProvider({ children }) {
 
     // OPTIMIZED PATH: Cloud storage - save individual games + record updates only
     if (isCloudStorage) {
-      console.log(`[updateGame] OPTIMIZED: Saving ${1 + cfpGamesToPropagate.length} game(s) to cloud individually`)
-
       try {
         // Set listener-skip guards so the real-time listener doesn't
         // overwrite our games array with a stale subcollection read.
@@ -6645,14 +6635,12 @@ export function DynastyProvider({ children }) {
 
         // Save main game to subcollection
         await saveGameToSubcollection(dynastyId, updatedGames.find(g => g.id === gameData.id))
-        console.log(`[updateGame] Saved main game: ${gameData.id}`)
 
         // Save any CFP propagated games
         for (const propagatedGame of cfpGamesToPropagate) {
           const fullPropGame = updatedGames.find(g => g.id === propagatedGame.id)
           if (fullPropGame) {
             await saveGameToSubcollection(dynastyId, fullPropGame)
-            console.log(`[updateGame] Saved propagated game: ${propagatedGame.id}`)
           }
         }
 
@@ -7865,33 +7853,17 @@ export function DynastyProvider({ children }) {
         }
 
         // NEW USER TEAM SYSTEM: Apply pending user team (flip pendingUserId to userId)
-        // This handles the case where user selected a new job during Bowl Weeks
-        console.log('[advanceWeek] POSTSEASON -> OFFSEASON transition')
-        console.log('[advanceWeek] dynasty.newJobData:', dynasty.newJobData)
-        console.log('[advanceWeek] additionalUpdates.teams exists:', !!additionalUpdates.teams)
-        console.log('[advanceWeek] dynasty.teams exists:', !!dynasty.teams)
-
+        // This handles the case where user selected a new job during Bowl Weeks.
         try {
           let teamsBeforeFlip = additionalUpdates.teams || dynasty.teams
-          console.log('[advanceWeek] teamsBeforeFlip exists:', !!teamsBeforeFlip)
 
-          // Log teams with userId/pendingUserId before calling applyPendingUserTeam
           if (teamsBeforeFlip) {
-            console.log('[advanceWeek] Teams with userId/pendingUserId BEFORE applyPendingUserTeam:')
-            for (const [tidStr, team] of Object.entries(teamsBeforeFlip)) {
-              if (team.userId || team.pendingUserId) {
-                console.log(`  tid ${tidStr} (${team.name}): userId=${team.userId}, pendingUserId=${team.pendingUserId}`)
-              }
-            }
-
             // FALLBACK: If newJobData says user is taking a new job but pendingUserId wasn't set
             // (e.g., job was selected before this code was added), set it now before flip
             if (newJobData?.takingNewJob && newJobData.team) {
               const hasPendingUser = Object.values(teamsBeforeFlip).some(t => t.pendingUserId === 'currentUser')
               if (!hasPendingUser) {
-                console.log('[advanceWeek] FALLBACK: No pendingUserId found, setting it from newJobData')
                 const newTeamTid = getTidFromTeamName(newJobData.team, teamsBeforeFlip)
-                console.log(`[advanceWeek] FALLBACK: New team tid=${newTeamTid} for team="${newJobData.team}"`)
                 if (newTeamTid && teamsBeforeFlip[newTeamTid]) {
                   teamsBeforeFlip = {
                     ...teamsBeforeFlip,
@@ -7901,21 +7873,12 @@ export function DynastyProvider({ children }) {
                       coachPosition: newJobData.position || 'HC'
                     }
                   }
-                  console.log(`[advanceWeek] FALLBACK: Set pendingUserId on tid ${newTeamTid} (${teamsBeforeFlip[newTeamTid].name})`)
                 }
               }
             }
 
             const teamsAfterFlip = applyPendingUserTeam(teamsBeforeFlip)
             additionalUpdates.teams = teamsAfterFlip
-
-            // Log teams with userId/pendingUserId after
-            console.log('[advanceWeek] Teams with userId/pendingUserId AFTER applyPendingUserTeam:')
-            for (const [tidStr, team] of Object.entries(teamsAfterFlip)) {
-              if (team.userId || team.pendingUserId) {
-                console.log(`  tid ${tidStr} (${team.name}): userId=${team.userId}, pendingUserId=${team.pendingUserId}`)
-              }
-            }
 
             // Sync the unified per-user team system to the job that
             // just went into effect. The TIMING above (when the flip
