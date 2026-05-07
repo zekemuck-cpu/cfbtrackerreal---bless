@@ -13,6 +13,7 @@ import { getTeamConference } from '../../data/conferenceTeams'
 import BoxScoreSheetModal from '../../components/BoxScoreSheetModal'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName } from '../../data/cfpConstants'
 import { PageHero, Card, Button, EmptyState, Input, Select, Textarea } from '../../components/ui'
+import { getTeamLogoRobust } from '../../utils/teamLogo'
 import { getTeamColors } from '../../data/teamColors'
 import { uploadImagesToImgBB } from '../../utils/imgbb'
 import TeamPermissionBanner from '../../components/TeamPermissionBanner'
@@ -87,21 +88,10 @@ function getMascotName(abbr, teamsData = null) {
 }
 
 // Robust logo lookup
-function getTeamLogoRobust(teamInput, teamsData = null) {
-  if (!teamInput) return null
-  if (teamsData) {
-    const logo = getTeamLogo(teamInput, teamsData)
-    if (logo) return logo
-  }
-  let logo = getTeamLogo(teamInput, teamsData)
-  if (logo) return logo
-  const mascotName = getMascotName(teamInput, teamsData)
-  if (mascotName) {
-    logo = getTeamLogo(mascotName, teamsData)
-    if (logo) return logo
-  }
-  return null
-}
+// getTeamLogoRobust now lives in src/utils/teamLogo.js. Single
+// source of truth shared with Game.jsx; the previous local copy
+// here was a partial re-implementation missing the uppercase-abbr
+// and teamAbbreviations fallbacks.
 
 // Helper to get ordinal suffix (1st, 2nd, 3rd, 4th, etc.)
 const getOrdinalSuffix = (num) => {

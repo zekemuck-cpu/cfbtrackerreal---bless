@@ -1679,12 +1679,20 @@ export default function DangerZone() {
           if (dup.overallByYear) {
             merged.overallByYear = { ...merged.overallByYear, ...dup.overallByYear }
           }
-          // Merge movements
-          if (dup.movements && dup.movements.length > 0) {
-            const existingMovements = merged.movements || []
-            const existingKeys = new Set(existingMovements.map(m => `${m.year}-${m.type}`))
-            const newMovements = dup.movements.filter(m => !existingKeys.has(`${m.year}-${m.type}`))
-            merged.movements = [...existingMovements, ...newMovements]
+          // Merge movements — prefer the canonical movementByYear map.
+          // Year-by-year merge: dup wins only when merged is empty for
+          // that year, so we don't clobber a known-good entry with a
+          // legacy stub. syncDerivedFieldsFromV2 strips the legacy
+          // movements[] array on save, so writing it here is dead;
+          // merging movementByYear is the actual single-source-of-truth.
+          if (dup.movementByYear && typeof dup.movementByYear === 'object') {
+            const mergedByYear = { ...(merged.movementByYear || {}) }
+            for (const [yr, mv] of Object.entries(dup.movementByYear)) {
+              if (mv && !mergedByYear[yr] && !mergedByYear[String(yr)]) {
+                mergedByYear[yr] = mv
+              }
+            }
+            merged.movementByYear = mergedByYear
           }
           // Keep highest overall rating
           if (dup.overall && (!merged.overall || dup.overall > merged.overall)) {
