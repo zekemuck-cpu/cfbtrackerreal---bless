@@ -81,11 +81,36 @@ export async function uploadImage(input) {
  * Upload many images in parallel.
  * Returns: { urls: string[], errors: { file, error }[] }
  * Partial successes are kept (mirrors the old imgbb helper's contract).
+ *
+ * Optional `onProgress({ done, total, ok, url, error, file })` fires as
+ * each individual upload settles — used by GameEdit's photo card to
+ * surface a live "X of N uploaded" counter and progressively render
+ * thumbnails so the user can confirm the bulk upload is making
+ * forward progress instead of staring at a static spinner for a
+ * 20-photo batch.
  */
-export async function uploadImages(files) {
+export async function uploadImages(files, { onProgress } = {}) {
   const list = Array.from(files || [])
-  if (list.length === 0) return { urls: [], errors: [] }
-  const results = await Promise.allSettled(list.map(f => uploadImage(f)))
+  const total = list.length
+  if (total === 0) return { urls: [], errors: [] }
+
+  let done = 0
+  const results = await Promise.allSettled(
+    list.map(async (file) => {
+      try {
+        const url = await uploadImage(file)
+        done++
+        try { onProgress?.({ done, total, ok: true, url, file }) } catch (_) { /* ignore listener errors */ }
+        return url
+      } catch (err) {
+        done++
+        const error = err instanceof Error ? err : new Error(String(err))
+        try { onProgress?.({ done, total, ok: false, error, file }) } catch (_) { /* ignore listener errors */ }
+        throw error
+      }
+    })
+  )
+
   const urls = []
   const errors = []
   results.forEach((r, i) => {
