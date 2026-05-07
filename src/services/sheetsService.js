@@ -5950,15 +5950,24 @@ export async function createDetailedStatsSheet(dynastyName, year, playerStats = 
 
     const sheet = await response.json()
 
-    // Initialize each tab with headers and player data
-    for (let i = 0; i < tabNames.length; i++) {
-      const tabName = tabNames[i]
-      const sheetId = sheet.sheets[i].properties.sheetId
-      await initializeDetailedStatsTab(sheet.spreadsheetId, accessToken, sheetId, tabName, playerStats, aggregatedStats)
-    }
-
-    // Share sheet publicly so it can be embedded in iframe
-    await shareSheetPublicly(sheet.spreadsheetId, accessToken)
+    // Initialize each tab with headers and player data IN PARALLEL — and
+    // share the sheet at the same time. Each tab init is a separate
+    // batchUpdate call (~400–600ms of network latency); serially we paid
+    // ~5s before the user could see the sheet. With Promise.all the wall-
+    // clock collapses to roughly the slowest single request. Tab inits
+    // touch independent sheetIds so they don't conflict with each other
+    // or with shareSheetPublicly.
+    await Promise.all([
+      ...tabNames.map((tabName, i) => initializeDetailedStatsTab(
+        sheet.spreadsheetId,
+        accessToken,
+        sheet.sheets[i].properties.sheetId,
+        tabName,
+        playerStats,
+        aggregatedStats
+      )),
+      shareSheetPublicly(sheet.spreadsheetId, accessToken),
+    ])
 
     return {
       spreadsheetId: sheet.spreadsheetId,
@@ -6354,31 +6363,36 @@ async function initializeDetailedStatsTab(spreadsheetId, accessToken, sheetId, t
 export async function readDetailedStatsFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
+    const tabNames = Object.keys(DETAILED_STATS_TABS)
+
+    // Fire all 9 tab reads in parallel instead of awaiting them in sequence.
+    // Each fetch was ~250–500ms of network latency; serially that stacks to
+    // 2–4 seconds before the user sees any sync progress. Promise.all lets
+    // them run concurrently and reduces the wall-clock to roughly the
+    // slowest single request (~500ms).
+    const responses = await Promise.all(
+      tabNames.map(tabName => {
+        const statColumns = DETAILED_STATS_TABS[tabName]
+        const lastColumn = String.fromCharCode(65 + statColumns.length + 1) // A=65, +1 for Name, +1 for Snaps
+        const range = encodeURIComponent(`'${tabName}'!A2:${lastColumn}200`)
+        return fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
+          { headers: { 'Authorization': `Bearer ${accessToken}` } }
+        )
+      })
+    )
+
     const result = {}
-
-    for (const tabName of Object.keys(DETAILED_STATS_TABS)) {
+    await Promise.all(responses.map(async (response, idx) => {
+      const tabName = tabNames[idx]
       const statColumns = DETAILED_STATS_TABS[tabName]
-      const lastColumn = String.fromCharCode(65 + statColumns.length + 1) // A=65, +1 for Name, +1 for Snaps
-
-      const range = encodeURIComponent(`'${tabName}'!A2:${lastColumn}200`)
-      const response = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          }
-        }
-      )
-
       if (!response.ok) {
-        const error = await response.json()
+        const error = await response.json().catch(() => null)
         console.error(`Failed to read ${tabName}:`, error)
-        continue
+        return
       }
-
       const data = await response.json()
       const rows = data.values || []
-
       result[tabName] = rows.map(row => {
         const player = {
           name: row[0]?.trim() || ''
@@ -6392,7 +6406,7 @@ export async function readDetailedStatsFromSheet(spreadsheetId, dynastyTeams = n
         })
         return player
       }).filter(player => player.name) // Filter out empty rows (check for valid name)
-    }
+    }))
 
     return result
   } catch (error) {

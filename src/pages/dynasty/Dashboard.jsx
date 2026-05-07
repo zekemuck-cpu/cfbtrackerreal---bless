@@ -9791,15 +9791,26 @@ export default function Dashboard() {
             }
           })
 
-          // Update each player's statsByYear with DEEP merge
-          const updatedPlayers = (currentDynasty.players || []).map(player => {
-            const playerNameKey = player.name?.toLowerCase().trim()
-            const detailedPlayerStats = playerStatsMap.get(playerNameKey)
-
-            if (!detailedPlayerStats || Object.keys(detailedPlayerStats).length === 0) {
-              return player
-            }
-
+          // Update each player's statsByYear with DEEP merge.
+          // Inverted from the previous .map(allPlayers): on big rosters
+          // (5000+ records, only ~100 in the sheet) we were paying for
+          // thousands of no-op iterations + the full array reallocation.
+          // Now: build a name→index lookup once, shallow-clone the array,
+          // and walk only the sheet entries to mutate the matched
+          // indexes in place. O(N + sheetPlayers) vs the old
+          // O(N) iteration cost per click.
+          const sourcePlayers = currentDynasty.players || []
+          const indexByName = new Map()
+          for (let i = 0; i < sourcePlayers.length; i++) {
+            const k = sourcePlayers[i].name?.toLowerCase().trim()
+            if (k && !indexByName.has(k)) indexByName.set(k, i)
+          }
+          const updatedPlayers = sourcePlayers.slice()
+          for (const [playerNameKey, detailedPlayerStats] of playerStatsMap) {
+            if (!detailedPlayerStats || Object.keys(detailedPlayerStats).length === 0) continue
+            const idx = indexByName.get(playerNameKey)
+            if (idx == null) continue
+            const player = updatedPlayers[idx]
             const existingStatsByYear = player.statsByYear || {}
             // Read under either key shape, but write only the string form so we
             // don't leave stale numeric-keyed entries behind.
@@ -9824,11 +9835,11 @@ export default function Dashboard() {
             }
             nextStatsByYear[year] = mergedYearStats
 
-            return {
+            updatedPlayers[idx] = {
               ...player,
               statsByYear: nextStatsByYear
             }
-          })
+          }
 
           // Mark Detailed Stats as completed for this year
           const existingDetailedStatsCompleted = currentDynasty.detailedStatsCompletedByYear || {}
