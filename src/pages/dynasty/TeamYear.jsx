@@ -5410,10 +5410,10 @@ export default function TeamYear() {
         const viewedPrimary = teamInfo.backgroundColor
 
         const groups = [
-          { key: 'pro_draft', label: 'NFL Draft', short: 'Draft', accent: '#60a5fa' },
-          { key: 'graduated', label: 'Graduated', short: 'Grads', accent: '#34d399' },
-          { key: 'transfer',  label: 'Transfer Portal', short: 'Portal', accent: '#fbbf24' },
-          { key: 'unknown',   label: 'Other', short: 'Other',  accent: '#9ca3af' },
+          { key: 'pro_draft', label: 'NFL Draft', short: 'Draft' },
+          { key: 'graduated', label: 'Graduated', short: 'Grads' },
+          { key: 'transfer',  label: 'Transfer Portal', short: 'Portal' },
+          { key: 'unknown',   label: 'Other', short: 'Other' },
         ]
         const byCategory = {}
         for (const d of departures) (byCategory[d.category] ||= []).push(d)
@@ -5550,8 +5550,7 @@ export default function TeamYear() {
                         <div className="text-2xl font-black tabular leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif", color: interactive ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                           {count}
                         </div>
-                        <div className="flex items-center justify-center gap-1.5 mt-1">
-                          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: group.accent }} aria-hidden="true" />
+                        <div className="mt-1">
                           <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{group.short}</span>
                         </div>
                       </button>
@@ -5571,10 +5570,13 @@ export default function TeamYear() {
                   id={anchorId(group.key)}
                   className="card overflow-hidden scroll-mt-20"
                 >
-                  {/* Section header — left rail in category accent */}
+                  {/* Section header — neutral surface band, no accent
+                      colors. Category is conveyed by the label text
+                      alone, matching the rest of the site's
+                      monochrome aesthetic. */}
                   <div
                     className="flex items-baseline gap-3 px-4 py-2.5 border-b border-surface-4"
-                    style={{ borderLeft: `3px solid ${group.accent}`, backgroundColor: 'var(--surface-2)' }}
+                    style={{ backgroundColor: 'var(--surface-2)' }}
                   >
                     <h3 className="label-sm text-txt-primary" style={{ letterSpacing: '1.5px', fontWeight: 700 }}>{group.label}</h3>
                     <span className="label-xs text-txt-tertiary tabular-nums" style={{ letterSpacing: '1.5px' }}>{items.length}</span>
@@ -5647,9 +5649,8 @@ export default function TeamYear() {
                           className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest"
                           style={{
                             letterSpacing: '1.5px',
-                            color: group.accent,
-                            border: `1px solid ${group.accent}`,
-                            backgroundColor: `${group.accent}1a`,
+                            color: 'var(--text-secondary)',
+                            border: '1px solid var(--surface-5)',
                           }}
                         >
                           {reason}
@@ -5661,7 +5662,7 @@ export default function TeamYear() {
                       )
                     } else {
                       outcomeContent = (
-                        <span className="label-xs uppercase tabular" style={{ color: group.accent, letterSpacing: '1.5px' }}>{label}</span>
+                        <span className="label-xs uppercase tabular text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{label}</span>
                       )
                     }
 
