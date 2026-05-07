@@ -670,8 +670,12 @@ function PlayerInner() {
         year,
         team: yearTeam,
         class: playerClass,
-        gamesPlayed: ownYearStats?.gamesPlayed || 0,
-        snapsPlayed: ownYearStats?.snapsPlayed || 0,
+        // Coerce to a number even if the stored value is malformed
+        // (e.g. an empty object `{}` from a partial migration). `||`
+        // alone would let a truthy non-number through and crash the
+        // <td>{y.gamesPlayed}</td> render with React #31.
+        gamesPlayed: Number(ownYearStats?.gamesPlayed) || 0,
+        snapsPlayed: Number(ownYearStats?.snapsPlayed) || 0,
         passing: passing ? {
           cmp: passing.cmp ?? passing.comp ?? 0,
           att: passing.att ?? passing.attempts ?? 0,

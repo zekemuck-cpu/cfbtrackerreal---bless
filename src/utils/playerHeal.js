@@ -149,6 +149,80 @@ function healTeamsByYear(tby) {
   return { value: cleaned, changed }
 }
 
+// Coerce a stats value to a number-or-null. Stats slots like
+// gamesPlayed / snapsPlayed / yds / td / etc. are read directly into
+// JSX as `<td>{y.gamesPlayed}</td>`. A bad migration left `{}` in the
+// gamesPlayed slot of CJ Carr's record, which crashed the render with
+// React #31 because `{} || 0` evaluates to `{}` (truthy). Anything
+// non-numeric becomes 0 here so renders stay safe.
+function statNumber(v) {
+  if (v == null) return 0
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
+// Heal one stat-category sub-object (passing / rushing / etc.) by
+// coercing every value to a number. Returns the cleaned object plus a
+// `changed` flag so the caller can short-circuit identity preservation.
+function healStatCategory(cat) {
+  if (!cat || typeof cat !== 'object') return { value: null, changed: !!cat }
+  let changed = false
+  const cleaned = {}
+  for (const [k, v] of Object.entries(cat)) {
+    const safe = statNumber(v)
+    if (safe !== v) changed = true
+    cleaned[k] = safe
+  }
+  return { value: cleaned, changed }
+}
+
+// Walk statsByYear and sanitize every leaf. gamesPlayed / snapsPlayed
+// must be numbers; each category (passing/rushing/etc.) must be an
+// object whose fields are numbers. Drops year entries that are
+// completely malformed.
+function healStatsByYear(stats) {
+  if (!stats || typeof stats !== 'object') return { value: stats, changed: false }
+  const cleaned = {}
+  let changed = false
+  for (const [yr, year] of Object.entries(stats)) {
+    if (!year || typeof year !== 'object') {
+      changed = true
+      continue
+    }
+    const next = {}
+    for (const [key, val] of Object.entries(year)) {
+      if (key === 'gamesPlayed' || key === 'snapsPlayed') {
+        const safe = statNumber(val)
+        if (safe !== val) changed = true
+        next[key] = safe
+        continue
+      }
+      // Recognized category key — sanitize each numeric field.
+      if (
+        key === 'passing' || key === 'rushing' || key === 'receiving' ||
+        key === 'blocking' || key === 'defense' || key === 'defensive' ||
+        key === 'kicking' || key === 'punting' || key === 'kickReturn' ||
+        key === 'puntReturn'
+      ) {
+        const r = healStatCategory(val)
+        if (r.changed) changed = true
+        if (r.value) next[key] = r.value
+        else changed = true
+        continue
+      }
+      // Unknown key — pass through unless it's clearly bad.
+      if (val != null && typeof val === 'object' && !Array.isArray(val)) {
+        // Object-shaped unknown key — drop to be safe.
+        changed = true
+        continue
+      }
+      next[key] = val
+    }
+    cleaned[yr] = next
+  }
+  return { value: cleaned, changed }
+}
+
 // Coerce a value into something that's safe to interpolate into JSX
 // — string/number/boolean only. Objects in render-bound slots are the
 // classic React #31 trigger ("Objects are not valid as a React child")
@@ -331,6 +405,20 @@ export function healPlayer(player, options = {}) {
     next = scalar.value
     changed = true
   }
+  // statsByYear leaves. The year-by-year stat tables render values
+  // directly (`<td>{y.gamesPlayed}</td>`), and a single object-shaped
+  // gamesPlayed/snapsPlayed/yds/etc. crashes the page with React #31.
+  // A real player record from the user (CJ Carr) shipped with
+  // gamesPlayed: {} from some partial migration. Coerce every leaf
+  // to a number.
+  if ('statsByYear' in next) {
+    const r = healStatsByYear(next.statsByYear)
+    if (r.changed) {
+      next = next === player ? { ...player, ...next } : { ...next }
+      next.statsByYear = r.value
+      changed = true
+    }
+  }
   // Drop the legacy `movements[]` array entirely. The by-year map
   // (movementByYear) is the source of truth; rosterModel's
   // syncDerivedFieldsFromV2 already deletes movements[] on every
@@ -370,4 +458,8 @@ export function healPlayer(player, options = {}) {
 // overallByYear, devTraitByYear, positionByYear) and top-level scalar
 // fields (position, archetype, height, hometown, state, etc.) — drop
 // non-primitive values that crash the renderer with React #31.
-export const PLAYER_HEAL_VERSION = '2026.05.07.0002'
+// 2026.05.07.0003: sanitize statsByYear leaves — coerce gamesPlayed,
+// snapsPlayed, and every category field (passing/rushing/etc.) to a
+// number. CJ Carr's record had statsByYear[year].gamesPlayed = {} which
+// crashed the year-by-year table render.
+export const PLAYER_HEAL_VERSION = '2026.05.07.0003'
