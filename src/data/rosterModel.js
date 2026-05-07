@@ -240,29 +240,48 @@ export function legacyMovementToCanonical(m) {
       }
     }
     case 'entered_portal':
+      // Preserve any destination tid the legacy entry happened to carry
+      // (rare, but legacy code paths could populate toTeamTid when the
+      // player picked a destination in the same step). Default null is
+      // correct for a "still in the portal" state.
       return {
         type: 'departure',
         departure: 'transfer_out',
-        toTid: null,
+        toTid: m.toTeamTid != null ? Number(m.toTeamTid)
+          : (m.toTid != null ? Number(m.toTid)
+          : (m.to != null ? Number(m.to) : null)),
         reason: m.reason || 'Entered Transfer Portal',
       }
     case 'graduated':
       return { type: 'departure', departure: 'graduated' }
     case 'declared_for_draft':
-      return { type: 'departure', departure: 'pro_draft' }
+      return {
+        type: 'departure',
+        departure: 'pro_draft',
+        draftRound: m.draftRound != null ? m.draftRound : null,
+      }
     case 'transferred_out':
       return {
         type: 'departure',
         departure: 'transfer_out',
-        toTid: m.toTeamTid != null ? Number(m.toTeamTid) : (m.to != null ? Number(m.to) : null),
+        toTid: m.toTeamTid != null ? Number(m.toTeamTid)
+          : (m.toTid != null ? Number(m.toTid)
+          : (m.to != null ? Number(m.to) : null)),
         reason: m.reason || null,
       }
     case 'encouraged_to_transfer':
+      // Was hard-coding toTid: null and reason: 'Encouraged Transfer',
+      // dropping the user-supplied destination tid + reason on every
+      // canonicalization pass. Now preserves both, matching the shape
+      // the PlayerEdit modal stores when the user explicitly picks the
+      // school they were forced out to.
       return {
         type: 'departure',
         departure: 'transfer_out',
-        toTid: null,
-        reason: 'Encouraged Transfer',
+        toTid: m.toTeamTid != null ? Number(m.toTeamTid)
+          : (m.toTid != null ? Number(m.toTid)
+          : (m.to != null ? Number(m.to) : null)),
+        reason: m.reason || 'Encouraged Transfer',
       }
     default:
       return { type: 'unknown', legacyType: m.type, raw: m }
