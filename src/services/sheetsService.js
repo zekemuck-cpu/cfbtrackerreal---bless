@@ -5,6 +5,7 @@ import { getAbbrFromTeamName, getTidFromAbbr, TEAMS as DEFAULT_TEAMS } from '../
 import { conferenceTeams as CANONICAL_CONFERENCES } from '../data/conferenceTeams'
 import { STAT_TABS, STAT_TAB_ORDER, SCORING_SUMMARY, SCORE_TYPES, PAT_RESULTS, QUARTERS, AI_UNIFIED_TAB, computeUnifiedTabLayout } from '../data/boxScoreConstants'
 import { isPlayerOnRoster, getPlayerClassForYear } from '../context/DynastyContext'
+import { OAuthError } from '../utils/authErrors'
 
 const SHEETS_API_BASE = 'https://sheets.googleapis.com/v4/spreadsheets'
 const DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3/files'
@@ -36,9 +37,10 @@ async function fetchWithTimeout(url, init = {}, { timeoutMs = DEFAULT_FETCH_TIME
   }
 }
 
-// Get the current user's OAuth access token
+// Get the current user's OAuth access token. Throws OAuthError when
+// missing/expired so callers can use isAuthError(err) without falling
+// back to substring matching on the message.
 async function getAccessToken() {
-  // Try to get from localStorage first
   const storedToken = localStorage.getItem('google_access_token')
   const tokenExpiry = localStorage.getItem('google_token_expiry')
 
@@ -49,8 +51,9 @@ async function getAccessToken() {
     }
   }
 
-  // Token not found or expired
-  throw new Error('OAuth access token not found or expired. Try refreshing your session or sign out and sign back in.')
+  // Message preserved verbatim for any modal still on legacy
+  // substring matching during the migration window.
+  throw new OAuthError('OAuth access token not found or expired. Try refreshing your session or sign out and sign back in.')
 }
 
 // Share a Google Sheet with "anyone with the link can edit"
