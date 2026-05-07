@@ -1842,12 +1842,44 @@ export default function DangerZone() {
   }
 
   // Compact Action Card
-  const ActionCard = ({ title, description, buttonText, onClick, status, variant = 'primary' }) => {
+  // ActionCard accepts a `danger` flag for actions that have known
+  // failure modes on legacy dynasties (CFP repair has miswired user
+  // brackets, class fixers can clobber canonical classByYear maps).
+  // Danger cards get:
+  //   - a left rail in --accent-error
+  //   - a "USE WITH CAUTION" eyebrow above the title
+  //   - a confirm dialog that requires the user to acknowledge they
+  //     have a backup before the destructive handler runs
+  // Safer handlers pass through unchanged.
+  const ActionCard = ({ title, description, buttonText, onClick, status, variant = 'primary', danger = false }) => {
     const isRunning = status === 'running'
 
+    const guardedClick = async () => {
+      if (!danger) {
+        onClick?.()
+        return
+      }
+      const ok = await confirm({
+        title: `Run "${title}"?`,
+        message: `This action can corrupt records on dynasties that started on older backend versions. ${description} Make sure you've downloaded a backup before continuing.`,
+        confirmLabel: 'I have a backup — run it',
+        cancelLabel: 'Cancel',
+        variant: 'danger',
+      })
+      if (ok) onClick?.()
+    }
+
     return (
-      <Card className="flex flex-col h-full">
+      <Card
+        className="flex flex-col h-full"
+        style={danger ? { borderLeft: '3px solid var(--accent-error)' } : undefined}
+      >
         <div className="mb-3">
+          {danger && (
+            <div className="label-xs mb-1.5" style={{ color: 'var(--accent-error)', letterSpacing: '1.5px' }}>
+              USE WITH CAUTION
+            </div>
+          )}
           <h3 className="label-sm text-txt-primary m-0">{title}</h3>
           <p className="text-xs mt-1 text-txt-tertiary leading-relaxed m-0">
             {description}
@@ -1855,9 +1887,9 @@ export default function DangerZone() {
         </div>
         <div className="mt-auto">
           <Button
-            variant={variant}
+            variant={danger ? 'danger' : variant}
             size="sm"
-            onClick={onClick}
+            onClick={guardedClick}
             disabled={isRunning}
             className="w-full"
           >
@@ -1919,17 +1951,18 @@ export default function DangerZone() {
         </div>
       </Card>
 
-      {/* Quick Fixes Section */}
+      {/* Common Fixes — safe to run on any dynasty. These walk the
+          canonical v2 stores and apply idempotent cleanup. */}
       <div>
         <SectionHeader
           size="sm"
-          title="Quick Fixes"
-          subtitle="Common issues, safe to run"
+          title="Common Fixes"
+          subtitle="Safe to run, idempotent"
         />
         <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
           <ActionCard
             title="Consolidate to v2"
-            description="Recommended. Migrates every player to the canonical v2 schema, drops ghost records, resolves movement collisions, trims stale post-departure entries, and strips deprecated legacy fields. Safe to re-run."
+            description="Recommended first step. Migrates every player to the canonical v2 schema, drops ghost records, resolves movement collisions, trims stale post-departure entries, and strips deprecated legacy fields. Safe to re-run."
             buttonText="Consolidate"
             onClick={handleV2Consolidate}
             status={v2ConsolidateStatus}
@@ -1956,13 +1989,6 @@ export default function DangerZone() {
             status={scheduleLinkFixStatus}
           />
           <ActionCard
-            title="Repair CFP Games"
-            description="Fixes misaligned CFP bracket slots, bowl names, and game links"
-            buttonText="Repair CFP"
-            onClick={handleRepairCFPGames}
-            status={cfpRepairStatus}
-          />
-          <ActionCard
             title="Repair CCG Games"
             description="Adds missing conference field to Conference Championship games"
             buttonText="Repair CCG"
@@ -1977,18 +2003,11 @@ export default function DangerZone() {
             status={duplicateMergeStatus}
           />
           <ActionCard
-            title="Fix Player Classes"
-            description="Auto-fills entryYear, entryClass, and classByYear for all players"
-            buttonText="Fix Classes"
-            onClick={handleFixClassData}
-            status={classDataFixStatus}
-          />
-          <ActionCard
-            title="Advance Classes"
-            description="Select players to age up. Shows games played for redshirt detection"
-            buttonText="Select Players"
-            onClick={handleOpenAdvanceModal}
-            status={advanceClassesStatus}
+            title="Sync Honors to Players"
+            description="Links awards, All-Americans & All-Conference to player records. Normalizes legacy award names back to canonical keys so the editor stays clean."
+            buttonText="Sync Honors"
+            onClick={handleSyncHonorsToPlayers}
+            status={honorsSyncStatus}
           />
           {/* Custom card for Stats Sync with year selector */}
           <Card className="flex flex-col h-full">
@@ -2319,20 +2338,42 @@ export default function DangerZone() {
         </Card>
       </div>
 
-      {/* Advanced Player Fixes */}
+      {/* Use With Caution — these handlers were written for older
+          dynasty schemas and have known failure modes on legacy
+          dynasties (CFP repair has miswired user brackets / national
+          championship winners; class fixers can clobber the canonical
+          classByYear map). Each one prompts for a backup-acknowledged
+          confirm before running. */}
       <div>
         <SectionHeader
           size="sm"
-          title="Player Data Repair"
-          subtitle="Advanced fixes for player records"
+          title="Use With Caution"
+          subtitle="Known to corrupt records on dynasties started on older builds — back up first."
         />
-        <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
           <ActionCard
-            title="Sync Honors to Players"
-            description="Links awards, All-Americans & All-Conference to player records"
-            buttonText="Sync Honors"
-            onClick={handleSyncHonorsToPlayers}
-            status={honorsSyncStatus}
+            danger
+            title="Repair CFP Games"
+            description="Tries to fix misaligned CFP bracket slots, bowl names, and game links. Has miswired first-year brackets and assigned the wrong team a national championship on legacy dynasties."
+            buttonText="Repair CFP"
+            onClick={handleRepairCFPGames}
+            status={cfpRepairStatus}
+          />
+          <ActionCard
+            danger
+            title="Fix Player Classes"
+            description="Auto-fills entryYear / entryClass / classByYear by inference. Can overwrite the canonical classByYear map with stale legacy values."
+            buttonText="Fix Classes"
+            onClick={handleFixClassData}
+            status={classDataFixStatus}
+          />
+          <ActionCard
+            danger
+            title="Advance Classes"
+            description="Manually age up selected players. Use only when normal season advance didn't progress someone correctly — running this on already-advanced players double-progresses them."
+            buttonText="Select Players"
+            onClick={handleOpenAdvanceModal}
+            status={advanceClassesStatus}
           />
         </div>
       </div>
