@@ -5548,7 +5548,6 @@ export default function TeamYear() {
                   </div>
                   <div className="flex flex-col">
                     <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Departures</span>
-                    <span className="label-xs text-txt-muted" style={{ letterSpacing: '1.5px' }}>{selectedYear}</span>
                   </div>
                 </div>
                 <div className="grid grid-cols-4 flex-1 border-t sm:border-t-0 sm:border-l border-surface-4">
