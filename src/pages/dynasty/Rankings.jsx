@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, calculateTeamRecordFromGames, getTeamRecord } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -210,22 +210,38 @@ export default function Rankings() {
   //     helper picks whichever stored source covers the most games.
   const isAsOfWeek = usingLive && selectedWeek != null
   const recordOpts = isAsOfWeek ? { upToWeek: selectedWeek } : {}
+  // Lazy per-tid cache so the same team rendering twice (e.g. in two
+  // RankingRows during a re-render or across the brief reconciliation
+  // window) doesn't re-iterate dynasty.games. The Map's identity is
+  // tied to the relevant deps so it resets when any of them change.
+  const recordLookupCache = useMemo(
+    () => new Map(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentDynasty, displayYear, isAsOfWeek, selectedWeek]
+  )
   const lookupRecord = (abbr, tid) => {
+    const cacheKey = tid != null ? `tid:${Number(tid)}` : `abbr:${abbr || ''}`
+    if (recordLookupCache.has(cacheKey)) return recordLookupCache.get(cacheKey)
+
+    let result = null
     if (tid != null) {
       if (isAsOfWeek) {
         const calc = calculateTeamRecordFromGames(currentDynasty, Number(tid), displayYear, recordOpts)
         if (calc && (calc.wins > 0 || calc.losses > 0)) {
-          return { wins: calc.wins, losses: calc.losses }
+          result = { wins: calc.wins, losses: calc.losses }
         }
       } else {
         const helperRec = getTeamRecord(currentDynasty, Number(tid), displayYear)
         if (helperRec && (helperRec.wins > 0 || helperRec.losses > 0)) {
-          return { wins: helperRec.wins, losses: helperRec.losses }
+          result = { wins: helperRec.wins, losses: helperRec.losses }
         }
       }
     }
-    if (tid != null && teamRecordsByTid[Number(tid)]) return teamRecordsByTid[Number(tid)]
-    return teamRecords[abbr] || null
+    if (!result && tid != null && teamRecordsByTid[Number(tid)]) result = teamRecordsByTid[Number(tid)]
+    if (!result) result = teamRecords[abbr] || null
+
+    recordLookupCache.set(cacheKey, result)
+    return result
   }
 
   const handleYearChange = (year) => navigate(`${pathPrefix}/rankings/${year}`)

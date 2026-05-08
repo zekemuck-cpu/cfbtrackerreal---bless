@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, calculateTeamRecordFromGames, getTeamRecord, getCustomConferencesForYear } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -263,8 +263,12 @@ export default function ConferenceStandings() {
     // Without this, a single user-vs-Duke game would show Duke 0-1
     // even when their stored 9-4 lives in `teams[tid].byYear[year]`
     // — exactly the bug reported on the conference standings page.
-    const recordFromHelper = linkTid ? getTeamRecord(currentDynasty, linkTid, displayYear) : null
-    const calc = linkTid ? calculateTeamRecordFromGames(currentDynasty, linkTid, displayYear) : null
+    // Read from the shared records-by-tid cache. Was running both
+    // helper + calc inline per row — multiplied to ~16 conferences
+    // × 12 rows × 2 calls per render.
+    const cachedRec = getCachedRecord(linkTid)
+    const recordFromHelper = cachedRec.helper
+    const calc = cachedRec.calc
     const calcGames = calc ? (calc.wins + calc.losses) : 0
     const helperGames = recordFromHelper ? (recordFromHelper.wins + recordFromHelper.losses) : 0
     // The helper already handles the calc-vs-stored coverage decision.
@@ -375,6 +379,30 @@ export default function ConferenceStandings() {
   // shows real records as soon as scores are entered.
   const teamsSource = currentDynasty?.teams || currentDynasty?.customTeams
   const customConfsForYear = getCustomConferencesForYear(currentDynasty, displayYear)
+
+  // Lazy records-by-tid cache. Without this, EVERY ConferenceCard
+  // re-render runs getTeamRecord + calculateTeamRecordFromGames TWICE
+  // per team (sort step + row body), with 16+ conferences × ~12 teams
+  // each. Each helper iterates dynasty.games, so a 1000-game dynasty
+  // was doing hundreds of thousands of game iterations per render.
+  //
+  // Lazy (vs eager precompute) so we only do the work for teams
+  // actually on screen — most of dynasty.teams (FBS + FCS placeholders)
+  // never appears here. The Map's identity tracks (currentDynasty,
+  // displayYear), so within one render every same-tid call returns
+  // the cached result; on the next render with a new currentDynasty
+  // the map is fresh.
+  const teamRecordsByTid = useMemo(() => new Map(), [currentDynasty, displayYear])
+  const getCachedRecord = (tid) => {
+    if (tid == null) return { helper: null, calc: null }
+    if (teamRecordsByTid.has(tid)) return teamRecordsByTid.get(tid)
+    const helper = getTeamRecord(currentDynasty, tid, displayYear)
+    const calc = calculateTeamRecordFromGames(currentDynasty, tid, displayYear)
+    const rec = { helper, calc }
+    teamRecordsByTid.set(tid, rec)
+    return rec
+  }
+
   const buildConferenceRoster = (conferenceName) => {
     const saved = getConferenceData(yearStandings, conferenceName)
     if (saved.length > 0) return saved
@@ -491,8 +519,13 @@ export default function ConferenceStandings() {
                 // 9-4 stored team behind a 1-0 sparse-calc team, which
                 // is precisely how Duke ended up at the bottom of the
                 // 2032 ACC despite having a winning season on file.
-                const helperRec = tid ? getTeamRecord(currentDynasty, tid, displayYear) : null
-                const calc = tid ? calculateTeamRecordFromGames(currentDynasty, tid, displayYear) : null
+                // Use the shared records-by-tid cache (lazy-populated
+                // at the top of the page) instead of re-running the
+                // helpers per team in the sort step. Same data the
+                // row render below reads — computed once.
+                const cached = getCachedRecord(tid)
+                const helperRec = cached.helper
+                const calc = cached.calc
                 const calcGames = calc ? (calc.wins + calc.losses) : 0
                 const helperGames = helperRec ? (helperRec.wins + helperRec.losses) : 0
                 // Live calc carries the per-game point-diff numbers the

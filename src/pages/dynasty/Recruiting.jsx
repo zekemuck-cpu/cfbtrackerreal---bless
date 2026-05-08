@@ -654,11 +654,20 @@ export default function Recruiting() {
   }, [allCommitmentsUnfiltered, viewMode, selectedStars])
 
   const classStats = useMemo(() => {
-    const fiveStars = allCommitmentsUnfiltered.filter(c => Number(c.stars) === 5).length
-    const fourStars = allCommitmentsUnfiltered.filter(c => Number(c.stars) === 4).length
-    const threeStars = allCommitmentsUnfiltered.filter(c => Number(c.stars) === 3).length
-    const twoStars = allCommitmentsUnfiltered.filter(c => Number(c.stars) === 2).length
-    const oneStars = allCommitmentsUnfiltered.filter(c => Number(c.stars) === 1).length
+    // Single pass over allCommitmentsUnfiltered. Was five separate
+    // .filter() calls (one per star count), each iterating the whole
+    // list — 5× the work for the same result.
+    let fiveStars = 0, fourStars = 0, threeStars = 0, twoStars = 0, oneStars = 0
+    for (const c of allCommitmentsUnfiltered) {
+      switch (Number(c.stars)) {
+        case 5: fiveStars++; break
+        case 4: fourStars++; break
+        case 3: threeStars++; break
+        case 2: twoStars++; break
+        case 1: oneStars++; break
+        default: break
+      }
+    }
     return { fiveStars, fourStars, threeStars, twoStars, oneStars, total: allCommitmentsUnfiltered.length }
   }, [allCommitmentsUnfiltered])
 
