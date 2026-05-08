@@ -21,6 +21,7 @@ import {
   deletePlayerFromSubcollection,
   saveGameToSubcollection,
   saveChangedPlayersAndGame,
+  saveWeeklyGamesChanges,
   deleteGameFromSubcollection,
   // Week recap subcollection (extracted out of the main doc to keep
   // long-running dynasties under Firestore's 1 MB document cap).
@@ -8043,6 +8044,13 @@ export function DynastyProvider({ children }) {
     // Build updated games array: keep everything except weekly-scores rows for
     // this year+week that are being replaced. User-team scores stay because
     // we excluded them from newByPair above.
+    //
+    // We also collect the IDs of dropped weekly-scores rows so the
+    // cloud fast-path can DELETE them from the subcollection in the
+    // same writeBatch as the insert (otherwise stale rows would
+    // linger in Firestore even after the local array no longer
+    // references them).
+    const droppedWeeklyIds = []
     const filtered = existingGames.filter(g => {
       if (!g) return false
       if (Number(g.year) !== yearNum || Number(g.week) !== weekNum) return true
@@ -8053,9 +8061,14 @@ export function DynastyProvider({ children }) {
       const hi = Math.max(Number(g.team1Tid), Number(g.team2Tid))
       // Drop only previously-weekly-scores entries that aren't in the new set;
       // and drop ones in the new set so the new version takes their place
-      if (g.source === 'weekly-scores') return false
+      if (g.source === 'weekly-scores') {
+        if (g.id) droppedWeeklyIds.push(g.id)
+        return false
+      }
       // Keep non-weekly entries (e.g. shells from schedule flow)
-      return !newByPair.has(`${lo}-${hi}`)
+      const inNewSet = newByPair.has(`${lo}-${hi}`)
+      if (inNewSet && g.id) droppedWeeklyIds.push(g.id)
+      return !inNewSet
     })
 
     const newGamesArr = Array.from(newByPair.values())
@@ -8244,6 +8257,67 @@ export function DynastyProvider({ children }) {
       }
     }
 
+    // Cloud fast path: write only the changed games (~60-130 inserts +
+    // a handful of deletes for replaced rows) via a single writeBatch,
+    // then update the main doc with non-games fields. Bypasses
+    // updateDynasty's saveGamesToSubcollection, which rewrites EVERY
+    // game in the subcollection on every weekly save and was the
+    // source of the "Write stream exhausted" Firestore error on
+    // multi-year dynasties.
+    const looksLikeFirebaseId = typeof dynastyId === 'string' && dynastyId.length >= 20 && !/^\d+$/.test(dynastyId)
+    const isCloudStorage = looksLikeFirebaseId || (dynasty.storageType === 'cloud' && user)
+
+    if (isCloudStorage) {
+      try {
+        // Listener-skip guards so the snapshot doesn't undo our local
+        // games array with a stale subcollection read.
+        skipListenerUpdatesCountRef.current = Math.max(skipListenerUpdatesCountRef.current, 3)
+        skipListenerTimestampRef.current = Date.now()
+        lastGamesUpdateTimestampRef.current = Date.now()
+        lastGamesUpdateDynastyIdRef.current = dynastyId
+
+        // Step 1: targeted batch write for the changed games.
+        // newGamesArr = inserts/replaces this save produced.
+        // droppedWeeklyIds = stale rows being replaced or removed.
+        await saveWeeklyGamesChanges(dynastyId, newGamesArr, droppedWeeklyIds)
+
+        // Step 2: persist non-games fields via updateDynasty with
+        // skipGamesSubcollection=true so the slow full-rewrite is
+        // skipped. teams + weeklyScoresEntered land on the main doc.
+        await updateDynasty(dynastyId, {
+          teams: teamsCopy,
+          weeklyScoresEntered: updatedTracker,
+        }, { skipGamesSubcollection: true })
+
+        // Step 3: sync local React state with the full updatedGames
+        // array we already computed.
+        const updatedDynasty = {
+          ...dynasty,
+          games: updatedGames,
+          teams: teamsCopy,
+          weeklyScoresEntered: updatedTracker,
+          lastModified: Date.now(),
+        }
+
+        setDynasties(prev => prev.map(d =>
+          String(d.id) === String(dynastyId) ? updatedDynasty : d
+        ))
+
+        if (String(currentDynasty?.id) === String(dynastyId)) {
+          setCurrentDynasty(updatedDynasty)
+        }
+
+        lastGamesUpdateTimestampRef.current = Date.now()
+        return newGamesArr
+      } catch (error) {
+        console.error('[saveWeeklyScores] Targeted batch write failed, falling back to full updateDynasty:', error)
+        // Fall through to the legacy path below.
+      }
+    }
+
+    // Legacy / local-storage path: full-array updateDynasty (writes to
+    // IndexedDB on local; for cloud only reached if the targeted
+    // batch above threw).
     await updateDynasty(dynastyId, {
       games: updatedGames,
       teams: teamsCopy,

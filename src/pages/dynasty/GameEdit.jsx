@@ -1316,10 +1316,18 @@ export default function GameEdit() {
     }
   }
 
-  // Open box score modal - auto-saves game data first to prevent data loss
-  const openBoxScoreModal = async (type) => {
-    // Auto-save current form data before opening modal
-    await saveGameDataSilently()
+  // Open box score modal — auto-save in BACKGROUND so the modal opens
+  // immediately without waiting on Firestore writes. The await-version
+  // of this used to block for 600ms-3s while updateGame fired its
+  // setDocs, and during that window a cascade of listener-driven
+  // re-renders made the page unresponsive enough that Chrome popped
+  // the "Page Unresponsive" dialog before the modal even rendered.
+  // Fire-and-forget: the silent save still runs, just doesn't gate
+  // modal display on it. Modal mounts in <100ms.
+  const openBoxScoreModal = (type) => {
+    saveGameDataSilently().catch(error => {
+      console.error('[openBoxScoreModal] background save failed:', error)
+    })
     setBoxScoreModalType(type)
     setShowBoxScoreModal(true)
   }

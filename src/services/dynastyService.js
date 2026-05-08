@@ -675,6 +675,53 @@ export async function saveGameToSubcollection(dynastyId, game) {
 }
 
 /**
+ * Weekly-scores fast path: persist a small set of games that just got
+ * inserted/replaced (the ~60-130 games for ONE week) plus optional
+ * deletions, all in a single writeBatch.
+ *
+ * Why this exists: saveWeeklyScores was passing the FULL dynasty.games
+ * array to updateDynasty, which routes through saveGamesToSubcollection
+ * with deleteOrphans=true — a full-rewrite of every game in the
+ * subcollection. On a multi-year dynasty (1000+ games) that produces
+ * 1000+ setDoc calls, blowing past Firestore's offline-queue limit
+ * and triggering the "Write stream exhausted maximum allowed queued
+ * writes" error the user reported. The fix: only persist the games
+ * that ACTUALLY changed in this save.
+ *
+ * Caller invariant: pass the games this save just produced (insert
+ * or replace) AND the IDs of any games this save is removing
+ * (typically: previously-stored weekly-scores rows for the same
+ * week+team-pair that got rebuilt with fresh data). Don't pass the
+ * full dynasty roster — this helper is for incremental writes.
+ */
+export async function saveWeeklyGamesChanges(dynastyId, gamesToSet = [], gameIdsToDelete = []) {
+  const totalOps = (gamesToSet?.length || 0) + (gameIdsToDelete?.length || 0)
+  if (totalOps === 0) return
+
+  // Firestore caps writeBatch at 500 ops. ~60-130 game inserts plus a
+  // handful of deletions stays comfortably under that on every realistic
+  // weekly slate; if that ever grows, split into multiple batches.
+  const batch = writeBatch(db)
+
+  for (const game of gamesToSet || []) {
+    if (!game?.id) continue
+    const gameRef = doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, String(game.id))
+    const { _firestoreId: _gFid, ...rawGame } = game
+    batch.set(gameRef, sanitizeForFirestore(rawGame))
+  }
+
+  for (const gameId of gameIdsToDelete || []) {
+    if (gameId == null) continue
+    const gameRef = doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, String(gameId))
+    batch.delete(gameRef)
+  }
+
+  await batch.commit()
+  await waitForPendingWrites(db)
+  console.log(`[saveWeeklyGamesChanges] Committed ${gamesToSet?.length || 0} sets + ${gameIdsToDelete?.length || 0} deletes in 1 batch`)
+}
+
+/**
  * Box-score-save fast path: persist exactly one game and a small set
  * of players (the ones whose stats actually changed because of the
  * incoming box score) in a single batched write.
