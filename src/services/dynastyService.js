@@ -675,6 +675,61 @@ export async function saveGameToSubcollection(dynastyId, game) {
 }
 
 /**
+ * Box-score-save fast path: persist exactly one game and a small set
+ * of players (the ones whose stats actually changed because of the
+ * incoming box score) in a single batched write.
+ *
+ * Why this exists: when the user saves a Sheet-driven box score
+ * (player stats / scoring summary / team stats), addGame's downstream
+ * `updateDynasty` was routing through `savePlayersToSubcollection` and
+ * `saveGamesToSubcollection`. Those rewrite EVERY player and EVERY
+ * game in the dynasty, with multi-batch delays + a `getDocsFromServer`
+ * verify-read at the end. On a 5000-player / 1000-game dynasty that
+ * was 30+ seconds per save even though only ~20-30 players actually
+ * had any new stats. This helper writes just the affected docs and
+ * skips the verify-read entirely; cost is O(changed players) instead
+ * of O(all players).
+ *
+ * Single 30-doc writeBatch costs one round-trip total — cheaper than
+ * Promise.all([savePlayer, savePlayer, ...]) which fires N setDocs in
+ * parallel (each its own roundtrip).
+ *
+ * Caller invariant: changedPlayers must be a SUBSET of the dynasty's
+ * roster — pass only entries whose reference moved between the
+ * pre-processBoxScoreSave and post-processBoxScoreSave players arrays.
+ * Don't use this for full-roster saves; orphan cleanup is intentionally
+ * skipped.
+ */
+export async function saveChangedPlayersAndGame(dynastyId, changedPlayers, game) {
+  if (!game?.id) {
+    throw new Error('Game must have an id')
+  }
+
+  const batch = writeBatch(db)
+
+  // The single game doc.
+  const gameRef = doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, String(game.id))
+  const { _firestoreId: _gFid, ...rawGame } = game
+  batch.set(gameRef, sanitizeForFirestore(rawGame))
+
+  // Each changed player. Skip entries without a pid (defensive — same
+  // guard savePlayersToSubcollection has).
+  let playerCount = 0
+  for (const player of changedPlayers || []) {
+    if (!player?.pid) continue
+    const playerRef = doc(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION, String(player.pid))
+    const { _firestoreId: _pFid, ...rawPlayer } = player
+    batch.set(playerRef, sanitizeForFirestore(rawPlayer))
+    playerCount++
+  }
+
+  await batch.commit()
+  // Single waitForPendingWrites covers the whole batch.
+  await waitForPendingWrites(db)
+  console.log(`[saveChangedPlayersAndGame] Wrote 1 game + ${playerCount} changed players in one batch`)
+}
+
+/**
  * Save multiple games to the games subcollection using batch writes
  * IMPORTANT: Only deletes orphans if explicitly requested - partial updates are safe by default
  * @param {string} dynastyId - The dynasty document ID

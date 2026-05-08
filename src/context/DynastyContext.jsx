@@ -20,6 +20,7 @@ import {
   savePlayerToSubcollection,
   deletePlayerFromSubcollection,
   saveGameToSubcollection,
+  saveChangedPlayersAndGame,
   deleteGameFromSubcollection,
   // Week recap subcollection (extracted out of the main doc to keep
   // long-running dynasties under Firestore's 1 MB document cap).
@@ -7500,6 +7501,15 @@ export function DynastyProvider({ children }) {
     // Determine if we need to process box score stats
     const hasBoxScoreToProcess = cleanGameData.boxScore && !isCPUGame
 
+    // Track which players actually moved through processBoxScoreSave so
+    // the cloud fast-path can write only those (vs rewriting every player
+    // in the dynasty). applyBoxScoreDelta + recomputeMaxFieldsFromGames
+    // both use `.map()` and return the SAME reference for unmutated
+    // entries — so `updatedPlayers[i] !== originalPlayers[i]` is a
+    // reliable "did this player change" signal.
+    const originalPlayersRef = dynasty.players || []
+    let changedPlayers = null
+
     // AUTO-SYNC: Process box score stats if present (delta tracking)
     // The manual "Sync Stats" button in Player Editor is a backup for fixing discrepancies
     if (hasBoxScoreToProcess) {
@@ -7511,7 +7521,7 @@ export function DynastyProvider({ children }) {
       // Pass the updated games list so max/long fields can be recomputed accurately
       // when editing an existing box score (delta can't lower a season long on its own).
       const { updatedPlayers, statsContributed } = processBoxScoreSave(
-        dynasty.players || [],
+        originalPlayersRef,
         cleanGameData.boxScore,
         oldContribution,
         cleanGameData.year,
@@ -7527,6 +7537,12 @@ export function DynastyProvider({ children }) {
 
       updates.players = updatedPlayers
       updates.games = updatedGames
+
+      // Reference-diff. Realistic counts: ~20-30 box-score scorers
+      // touched by applyBoxScoreDelta + a small handful potentially
+      // touched by recomputeMaxFieldsFromGames. Way under the
+      // writeBatch 500-doc cap.
+      changedPlayers = updatedPlayers.filter((p, i) => p !== originalPlayersRef[i])
     }
 
     // Determine storage type for optimization
@@ -7569,7 +7585,60 @@ export function DynastyProvider({ children }) {
       }
     }
 
-    // BATCH PATH: Used for local storage OR when box score needs to update players
+    // OPTIMIZATION: For cloud storage WITH box score, write just the
+    // affected docs (1 game + N changed players) in a single batch.
+    // The savePlayersToSubcollection path in updateDynasty rewrites
+    // EVERY player in the dynasty, with batch delays + a verify-read
+    // of the full subcollection at the end — that was 30+ seconds on
+    // 5000-player dynasties even though box-score saves only mutate
+    // the 20-30 players who recorded stats. The reference-diff above
+    // (changedPlayers) gives us the exact set to persist.
+    if (isCloudStorage && hasBoxScoreToProcess && Array.isArray(changedPlayers)) {
+      console.log(`[addGame] OPTIMIZED: Saving 1 game + ${changedPlayers.length} changed players (skipping full-roster rewrite)`)
+
+      try {
+        skipListenerUpdatesCountRef.current = Math.max(skipListenerUpdatesCountRef.current, 3)
+        skipListenerTimestampRef.current = Date.now()
+        lastGamesUpdateTimestampRef.current = Date.now()
+        lastGamesUpdateDynastyIdRef.current = dynastyId
+        // Block the real-time listener from clobbering our fresh
+        // players array with a stale read — same pattern updateDynasty
+        // uses for its players-subcollection writes.
+        lastPlayersUpdateTimestampRef.current = Date.now()
+        lastPlayersUpdateDynastyIdRef.current = dynastyId
+
+        await saveChangedPlayersAndGame(dynastyId, changedPlayers, game)
+        lastGamesUpdateTimestampRef.current = Date.now()
+        lastPlayersUpdateTimestampRef.current = Date.now()
+
+        // Update local React state with the FULL updated arrays so the
+        // UI reflects the new player stats immediately (the in-memory
+        // updatedPlayers has the unchanged-by-reference + the changed
+        // mutations both).
+        const updatedDynasty = {
+          ...dynasty,
+          games: updatedGames,
+          players: updates.players,
+          lastModified: Date.now(),
+        }
+
+        setDynasties(prev => prev.map(d =>
+          String(d.id) === String(dynastyId) ? updatedDynasty : d
+        ))
+
+        if (String(currentDynasty?.id) === String(dynastyId)) {
+          setCurrentDynasty(updatedDynasty)
+        }
+
+        return game
+      } catch (error) {
+        console.error('[addGame] Box-score fast-path failed, falling back to batch:', error)
+        // Fall through to batch update
+      }
+    }
+
+    // BATCH PATH: Used for local storage OR when the cloud fast-path
+    // failed (e.g., transient network error during the batch commit).
     if (hasBoxScoreToProcess) {
       console.log(`[addGame] BATCH: Saving game ${game.id} with box score (updating players too)`)
     } else {
