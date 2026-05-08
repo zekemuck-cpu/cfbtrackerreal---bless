@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { useDynasty, GAME_TYPES, getCustomConferencesForYear } from '../../context/DynastyContext'
+import { useDynasty, GAME_TYPES, getCustomConferencesForYear, getTeamRankForWeek } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { TEAMS, getCurrentTeamTid, isFCSPlaceholderAbbr } from '../../data/teamRegistry'
 import { getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
@@ -25,7 +25,7 @@ function formatRecord(rec) {
   return t > 0 ? `${w}-${l}-${t}` : `${w}-${l}`
 }
 
-function GameCard({ game, teams, pathPrefix, recordsByTid, domId }) {
+function GameCard({ game, teams, pathPrefix, recordsByTid, domId, dynasty }) {
   const navigate = useNavigate()
   const t1 = Number(game.team1Tid)
   const t2 = Number(game.team2Tid)
@@ -48,7 +48,25 @@ function GameCard({ game, teams, pathPrefix, recordsByTid, domId }) {
   }
 
   const scoreFor = (tid) => (tid === t1 ? team1Score : team2Score)
+  // Display each team's ENTERING rank (the rank carried INTO this
+  // game) — that's the rank during the matchup. Reads from
+  // dynasty.teams[tid].byYear[year].rankByWeek[gameWeekKey] via
+  // getTeamRankForWeek; falls back to game.team1Rank/team2Rank
+  // when the migration hasn't populated rankByWeek yet.
+  const gameWeekKey = (() => {
+    if (game.isCFPChampionship) return 104
+    if (game.isCFPSemifinal) return 103
+    if (game.isCFPQuarterfinal) return 102
+    if (game.isCFPFirstRound) return 101
+    if (game.isConferenceChampionship) return 100
+    if (game.isBowlGame) return 100
+    return Number(game.week)
+  })()
   const rankFor = (tid) => {
+    if (dynasty && tid != null && Number.isFinite(gameWeekKey)) {
+      const r = getTeamRankForWeek(dynasty, tid, game.year, gameWeekKey)
+      if (r != null) return r
+    }
     const raw = tid === t1 ? game.team1Rank : game.team2Rank
     if (raw == null || raw === '') return null
     const n = parseInt(raw, 10)
@@ -552,6 +570,7 @@ export default function WeeklyScores() {
                 teams={teams}
                 pathPrefix={pathPrefix}
                 recordsByTid={recordsByTidByWeek}
+                dynasty={currentDynasty}
               />
             ))}
           </div>

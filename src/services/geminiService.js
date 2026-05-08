@@ -2641,13 +2641,45 @@ export function buildGameRecapContext(dynasty, game) {
   const isShutout = team2Score === 0 || team1Score === 0
   const isOvertime = game.overtime || game.isOvertime
 
-  // Check for ranked matchup and upset
-  // All games use unified format with team1Rank/team2Rank
-  const team1Ranking = game.team1Rank
-  const team2Ranking = game.team2Rank
-  const isRankedMatchup = team1Ranking && team2Ranking
-  const isUpset = (team2Ranking && team2Ranking <= 10 && team1Won) ||
-                  (team1Ranking && team1Ranking <= 10 && !team1Won)
+  // Rankings — read from the new rankByWeek system. Entering rank is
+  // the rank each team CARRIED INTO this game (matchup-framing rank).
+  // Post-game rank is the rank each team finished AT after the game.
+  // Both are stored in dynasty.teams[tid].byYear[year].rankByWeek;
+  // legacy game.team1Rank/team2Rank stays as fallback for unmigrated
+  // dynasties.
+  const thisGameWeekKeyForRank = (() => {
+    if (game.isCFPChampionship) return 104
+    if (game.isCFPSemifinal) return 103
+    if (game.isCFPQuarterfinal) return 102
+    if (game.isCFPFirstRound) return 101
+    if (game.isConferenceChampionship) return 100
+    if (game.isBowlGame) return 100
+    return Number(game.week)
+  })()
+  // (team1Tid / team2Tid already resolved above for game perspective.)
+  const readRank = (tid, weekKey) => {
+    if (tid == null || weekKey == null) return null
+    const byYear = dynasty?.teams?.[tid]?.byYear || dynasty?.teams?.[String(tid)]?.byYear
+    const rbw = byYear?.[year]?.rankByWeek ?? byYear?.[String(year)]?.rankByWeek
+    if (!rbw) return null
+    const v = rbw[weekKey] ?? rbw[String(weekKey)]
+    if (v == null) return null
+    const n = Number(v)
+    return n >= 1 && n <= 25 ? n : null
+  }
+  const team1PostGameRank = readRank(team1Tid, thisGameWeekKeyForRank + 1) ?? game.team1Rank ?? null
+  const team2PostGameRank = readRank(team2Tid, thisGameWeekKeyForRank + 1) ?? game.team2Rank ?? null
+
+  // For ranked-matchup / upset detection, use ENTERING rank (the rank
+  // each team brought into the game). Falls back to whichever stored
+  // value is available.
+  const team1EnteringRankForDetection = readRank(team1Tid, thisGameWeekKeyForRank) ?? game.team1Rank ?? null
+  const team2EnteringRankForDetection = readRank(team2Tid, thisGameWeekKeyForRank) ?? game.team2Rank ?? null
+  const team1Ranking = team1PostGameRank   // exposed as "Ranking" for legacy ctx consumers
+  const team2Ranking = team2PostGameRank
+  const isRankedMatchup = !!(team1EnteringRankForDetection && team2EnteringRankForDetection)
+  const isUpset = (team2EnteringRankForDetection && team2EnteringRankForDetection <= 10 && team1Won) ||
+                  (team1EnteringRankForDetection && team1EnteringRankForDetection <= 10 && !team1Won)
 
   // Get game type info
   let gameTypeDescription = 'regular season game'
