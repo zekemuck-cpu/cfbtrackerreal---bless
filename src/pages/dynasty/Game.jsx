@@ -14,7 +14,6 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getBowlLogo } from '../../data/bowlLogos'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { getTeamConference } from '../../data/conferenceTeams'
-import { getTeamEnteringRank, getGameOrder } from '../../services/geminiService'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName, getBowlForSlot, DEFAULT_BOWL_CONFIG } from '../../data/cfpConstants'
 import { STAT_TABS, STAT_TAB_ORDER } from '../../data/boxScoreConstants'
 import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
@@ -1024,52 +1023,27 @@ export default function Game() {
   const eventLogo = bowlLogo || confLogo || conferenceMatchupLogo
   const eventLogoAlt = bowlLogo ? game.bowlName : (confLogo ? `${confName} Championship` : (conferenceMatchupLogo ? `${userConf}` : 'Event'))
 
-  // Get rankings. We display the ENTERING rank (the rank each team carried
-  // INTO this game) — that's what the team was ranked DURING the game.
-  // EA's stored team1Rank/team2Rank fields are POST-game ranks (the rank
-  // each team finished at AFTER the game; that's what EA's schedule UI
-  // shows). To get the entering rank, look at the team's most recent prior
-  // game and read its stored rank (= post-game rank from the prior week
-  // = the rank carried into this game). This makes the game card display
-  // the rank as the user expects ("Tennessee was #6 vs South Carolina"
-  // not "Tennessee was #15", which is their post-loss rank).
-  //
-  // For CPU games, displayTeam is the viewing perspective (often the
-  // winner) which is independent of visual side — so we have to resolve
-  // perspective→team1/2, then apply the leftTeam/rightTeam mapping. The
-  // old code conflated the two and rendered team1Rank on the visual left
-  // even when the display team was actually on the right (e.g. UNC #10
-  // at home showed as "FCS Midwest #10").
-  const allDynastyGames = currentDynasty?.games || []
-  const thisGameOrder = getGameOrder(game)
+  // Get rankings. For CPU games, displayTeam is the viewing perspective (often
+  // the winner) which is independent of visual side — so we have to resolve
+  // perspective→team1/2, then apply the leftTeam/rightTeam mapping. The old
+  // code conflated the two and rendered team1Rank on the visual left even
+  // when the display team was actually on the right (e.g. UNC #10 at home
+  // showed as "FCS Midwest #10").
   let leftRank, rightRank
   if (isCPUGame) {
     const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
     const team1Abbr = team1Info?.abbr || game.team1
-    const team2Abbr = game.team2 || (game.team2Tid ? getGameTeamInfo(teams, game.team2Tid)?.abbr : null)
     const isDisplayTeam1 = displayTeamAbbr === team1Abbr
-    const displayEnteringRank = team1Abbr && isDisplayTeam1
-      ? getTeamEnteringRank(allDynastyGames, team1Abbr, game.year, thisGameOrder, currentDynasty)
-      : (team2Abbr ? getTeamEnteringRank(allDynastyGames, team2Abbr, game.year, thisGameOrder, currentDynasty) : null)
-    const oppEnteringAbbr = isDisplayTeam1 ? team2Abbr : team1Abbr
-    const oppEnteringRank = oppEnteringAbbr
-      ? getTeamEnteringRank(allDynastyGames, oppEnteringAbbr, game.year, thisGameOrder, currentDynasty)
-      : null
-    leftRank = leftTeam === 'user' ? displayEnteringRank : oppEnteringRank
-    rightRank = rightTeam === 'user' ? displayEnteringRank : oppEnteringRank
+    const displayRank = isDisplayTeam1 ? game.team1Rank : game.team2Rank
+    const oppRank = isDisplayTeam1 ? game.team2Rank : game.team1Rank
+    leftRank = leftTeam === 'user' ? displayRank : oppRank
+    rightRank = rightTeam === 'user' ? displayRank : oppRank
   } else {
-    // For user games — derive entering rank for both user team and opponent
-    // from each team's prior game's stored rank.
-    const userTeamAbbr = perspective?.userTeamAbbr || displayTeamAbbr
-    const oppAbbr = opponentAbbr
-    const userEnteringRank = userTeamAbbr
-      ? getTeamEnteringRank(allDynastyGames, userTeamAbbr, game.year, thisGameOrder, currentDynasty)
-      : null
-    const oppEnteringRank = oppAbbr
-      ? getTeamEnteringRank(allDynastyGames, oppAbbr, game.year, thisGameOrder, currentDynasty)
-      : null
-    leftRank = leftTeam === 'user' ? userEnteringRank : oppEnteringRank
-    rightRank = rightTeam === 'user' ? userEnteringRank : oppEnteringRank
+    // For user games, use perspective ranks or fallback to game fields
+    const userRank = perspective?.userRank ?? game.userRank ?? game.team1Rank
+    const oppRank = perspective?.opponentRank ?? game.opponentRank ?? game.team2Rank
+    leftRank = leftTeam === 'user' ? userRank : oppRank
+    rightRank = rightTeam === 'user' ? userRank : oppRank
   }
 
   // Team data for rendering
