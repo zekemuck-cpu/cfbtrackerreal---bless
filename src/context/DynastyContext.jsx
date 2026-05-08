@@ -1102,58 +1102,84 @@ export function getTeamRecord(dynasty, tidOrAbbr, year) {
   const tid = typeof tidOrAbbr === 'string' ? getTidFromAbbr(tidOrAbbr, dynasty) : tidOrAbbr
   const abbr = typeof tidOrAbbr === 'number' ? getAbbrFromTid(dynasty.teams, tidOrAbbr) : tidOrAbbr
 
-  // Priority 1: Calculate from actual games
+  // The bug we're fixing: for non-user teams, dynasty.games[] only
+  // contains the user-vs-them games. The previous "if calc has any
+  // wins/losses, use calc" gate caused a single user-vs-Duke bowl game
+  // (calc = 0-1) to override Duke's authoritative stored 9-4 season
+  // record. The fix is coverage-aware: collect every record source
+  // we know about (live games, three different stored locations) and
+  // pick whichever covers the most games. Calc only wins on ties or
+  // when there's no stored record at all — and even then it carries
+  // per-game point-diff numbers the stored rows don't have, so ties
+  // going to calc is the right call.
   const calculatedRecord = calculateTeamRecordFromGames(dynasty, tid, year)
+  const calcGames = (calculatedRecord?.wins || 0) + (calculatedRecord?.losses || 0)
 
-  // If we found games, use calculated record
-  if (calculatedRecord.wins > 0 || calculatedRecord.losses > 0) {
-    return calculatedRecord
-  }
-
-  // Priority 2: Fall back to stored records (useful when switching to a new team)
-  // Check tid-based storage first
+  // Source A — `dynasty.teams[tid].byYear[year].record` (or .teamRecord)
+  // Tid-keyed; survives abbr drift on teambuilder-renamed teams.
   const tidRecord = dynasty.teams?.[tid]?.byYear?.[year]?.record
-  if (tidRecord && (tidRecord.wins > 0 || tidRecord.losses > 0)) {
-    return {
-      wins: tidRecord.wins || 0,
-      losses: tidRecord.losses || 0,
-      confWins: tidRecord.confWins || 0,
-      confLosses: tidRecord.confLosses || 0
-    }
-  }
+                || dynasty.teams?.[tid]?.byYear?.[year]?.teamRecord
+                || null
 
-  // Check legacy abbr-based storage (drift-aware via tid)
-  const legacyRecord = lookupByTeamYear(dynasty.teamRecordsByTeamYear, dynasty, tid ?? abbr, year)
-  if (legacyRecord && (legacyRecord.wins > 0 || legacyRecord.losses > 0)) {
-    return {
-      wins: legacyRecord.wins || 0,
-      losses: legacyRecord.losses || 0,
-      confWins: legacyRecord.confWins || 0,
-      confLosses: legacyRecord.confLosses || 0
-    }
-  }
+  // Source B — `dynasty.teamRecordsByTeamYear` (legacy abbr-or-tid keyed
+  // map; drift-aware via tid → abbr lookup).
+  const legacyRecord = lookupByTeamYear(dynasty.teamRecordsByTeamYear, dynasty, tid ?? abbr, year) || null
 
-  // Priority 3: Check conference standings for this team
+  // Source C — the conference standings row for this team, if present.
+  let standingsRecord = null
   const standings = dynasty.conferenceStandingsByYear?.[year]
   if (standings) {
-    for (const [conf, teams] of Object.entries(standings)) {
+    for (const teams of Object.values(standings)) {
       if (!Array.isArray(teams)) continue
       // Tid match is strongest (survives abbr drift); guard the strict
       // equality with `tid != null` so an unresolvable lookup (tid=null)
       // doesn't accidentally match a row with no tid.
       const teamEntry = teams.find(t => (tid != null && Number(t.tid) === Number(tid)) || t.abbr === abbr || t.team === abbr)
       if (teamEntry && (teamEntry.wins > 0 || teamEntry.losses > 0)) {
-        return {
+        standingsRecord = {
           wins: teamEntry.wins || 0,
           losses: teamEntry.losses || 0,
           confWins: teamEntry.confWins || 0,
-          confLosses: teamEntry.confLosses || 0
+          confLosses: teamEntry.confLosses || 0,
         }
+        break
       }
     }
   }
 
-  // No record found anywhere - return zeros
+  // Pick whichever stored source covers the most games. We don't
+  // privilege one source over another — they're all "stored elsewhere"
+  // from the user's perspective; the one that reflects the most
+  // complete season is the truth.
+  const candidates = [tidRecord, legacyRecord, standingsRecord]
+    .filter(r => r && (r.wins > 0 || r.losses > 0))
+    .map(r => ({
+      wins: r.wins || 0,
+      losses: r.losses || 0,
+      confWins: r.confWins || 0,
+      confLosses: r.confLosses || 0,
+      total: (r.wins || 0) + (r.losses || 0),
+    }))
+  const bestStored = candidates.length > 0
+    ? candidates.reduce((best, r) => r.total > best.total ? r : best)
+    : null
+  const storedGames = bestStored?.total || 0
+
+  // Calc wins on ties (it carries per-game accuracy and conf-record
+  // computed from actual game rows); stored wins when it covers more
+  // games. Calc with zero games and no stored record returns the
+  // empty calc (downstream consumers expect 0-0 for unseen teams).
+  if (calcGames >= storedGames && calcGames > 0) {
+    return calculatedRecord
+  }
+  if (bestStored) {
+    return {
+      wins: bestStored.wins,
+      losses: bestStored.losses,
+      confWins: bestStored.confWins,
+      confLosses: bestStored.confLosses,
+    }
+  }
   return calculatedRecord
 }
 
@@ -1365,18 +1391,41 @@ export function getRecordAsOfGame(dynasty, game, tid) {
 
   // Calculate including this game by using upToWeek with the game's order
   const gameOrder = getGameOrderForRecord(game)
-  const record = calculateTeamRecordFromGames(dynasty, tid, game.year, {
+  const calc = calculateTeamRecordFromGames(dynasty, tid, game.year, {
     upToWeek: gameOrder,
     includeUpToWeek: true
   })
 
+  // Coverage check: for non-user teams, dynasty.games[] only contains
+  // user-vs-them games, so calc is sparse and would show e.g. "1-0" for
+  // a team whose stored full-season record is 9-4. The "as-of"
+  // semantic (record at this point in time) only makes sense when we
+  // actually have the team's full game-by-game history, which we
+  // don't for non-user teams. Fall back to whichever stored source
+  // covers the most games — practically that's the team's end-of-
+  // season record, which is closer to what the user expects to see
+  // next to a CPU opponent's name than a sparse partial calc.
+  const helperRec = getTeamRecord(dynasty, tid, game.year)
+  const calcGames = (calc.wins || 0) + (calc.losses || 0)
+  const helperGames = (helperRec?.wins || 0) + (helperRec?.losses || 0)
+  if (helperRec && helperGames > calcGames) {
+    return {
+      overall: `${helperRec.wins}-${helperRec.losses}`,
+      conference: `${helperRec.confWins || 0}-${helperRec.confLosses || 0}`,
+      wins: helperRec.wins,
+      losses: helperRec.losses,
+      confWins: helperRec.confWins || 0,
+      confLosses: helperRec.confLosses || 0,
+    }
+  }
+
   return {
-    overall: `${record.wins}-${record.losses}`,
-    conference: `${record.confWins}-${record.confLosses}`,
-    wins: record.wins,
-    losses: record.losses,
-    confWins: record.confWins,
-    confLosses: record.confLosses
+    overall: `${calc.wins}-${calc.losses}`,
+    conference: `${calc.confWins}-${calc.confLosses}`,
+    wins: calc.wins,
+    losses: calc.losses,
+    confWins: calc.confWins,
+    confLosses: calc.confLosses
   }
 }
 
