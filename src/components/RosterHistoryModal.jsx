@@ -26,7 +26,7 @@ const isMobileDevice = () => {
 }
 
 export default function RosterHistoryModal({ isOpen, onClose, teamColors }) {
-  const { currentDynasty, updateDynasty } = useDynasty()
+  const { currentDynasty, updateDynasty, applyChangedPlayers } = useDynasty()
   const { user, signOut } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
@@ -254,7 +254,7 @@ FINAL CHECK before you send
         return player
       })
 
-      await updateDynasty(currentDynasty.id, { players: updatedPlayers })
+      await applyChangedPlayers(currentDynasty.id, updatedPlayers)
       onClose()
     } catch (error) {
       console.error(error)
@@ -304,7 +304,7 @@ FINAL CHECK before you send
         return player
       })
 
-      await updateDynasty(currentDynasty.id, { players: updatedPlayers })
+      await applyChangedPlayers(currentDynasty.id, updatedPlayers)
 
       await deleteGoogleSheet(sheetId)
       await updateDynasty(currentDynasty.id, { rosterHistorySheetId: null })

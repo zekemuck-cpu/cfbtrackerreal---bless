@@ -7,7 +7,7 @@ import { getTidFromAbbr, getOriginalTeamAbbr } from '../data/teamRegistry'
 import { useToast } from './ui/Toast'
 
 export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
-  const { currentDynasty, updateDynasty } = useDynasty()
+  const { currentDynasty, updateDynasty, saveGameSetChanges } = useDynasty()
   const { toast } = useToast()
   const [selectedYear, setSelectedYear] = useState(null)
   const [bowlGames, setBowlGames] = useState({}) // { year: { bowlName: gameData } }
@@ -107,7 +107,16 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
       const updatedGames = []
       const processedIds = new Set()
 
-      // First, keep all non-bowl games
+      // Track exactly which old bowl-type games we're DROPPING and
+      // which new ones we're WRITING — so the cloud fast path can
+      // submit just those (1 batch) instead of rewriting every game
+      // in the dynasty subcollection. Bowl edits typically touch ~10-40
+      // games per year × N years, way under the 500-op batch cap.
+      const droppedBowlIds = []
+      const newBowlGames = []
+
+      // First, keep all non-bowl games. Collect dropped bowl IDs as
+      // we go so we can delete the stale docs in the same batch.
       existingGames.forEach(game => {
         const gameType = detectGameType(game)
         const isBowlType = gameType === GAME_TYPES.BOWL ||
@@ -117,6 +126,12 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
 
         if (!isBowlType) {
           updatedGames.push(game)
+        } else if (game.id) {
+          // We're going to rebuild bowl games from scratch below; the
+          // old doc may or may not survive (depends on whether the
+          // user kept that bowl in the editor). Stage for deletion;
+          // we'll un-stage if a same-id rebuild lands below.
+          droppedBowlIds.push(game.id)
         }
       })
 
@@ -166,7 +181,7 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
           const team2Tid = getTidFromAbbr(gameData.team2, currentDynasty)
           const winnerTid = winner ? getTidFromAbbr(winner, currentDynasty) : null
 
-          updatedGames.push({
+          const builtGame = {
             ...(existingGame || {}),
             id: gameId,
             year: Number(year),
@@ -181,14 +196,24 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
             winnerTid,
             gameType,
             bowlWeek: gameData.bowlWeek || 'week1',
-            isBowlGame: gameType === GAME_TYPES.BOWL
-          })
-
+            isBowlGame: gameType === GAME_TYPES.BOWL,
+          }
+          updatedGames.push(builtGame)
+          newBowlGames.push(builtGame)
           processedIds.add(gameId)
         })
       })
 
-      await updateDynasty(currentDynasty.id, { games: updatedGames })
+      // Cloud fast path: only write the rebuilt bowls + delete the
+      // bowl docs that didn't survive the edit. saveGameSetChanges
+      // handles state sync with the full updatedGames array. Bowl
+      // edits used to rewrite every game in the dynasty.
+      const finalDeletes = droppedBowlIds.filter(id => !processedIds.has(id))
+      await saveGameSetChanges(currentDynasty.id, {
+        gamesToSet: newBowlGames,
+        gameIdsToDelete: finalDeletes,
+        localGamesArray: updatedGames,
+      })
       setHasChanges(false)
       onClose()
     } catch (error) {

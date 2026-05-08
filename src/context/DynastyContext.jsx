@@ -21,6 +21,7 @@ import {
   deletePlayerFromSubcollection,
   saveGameToSubcollection,
   saveChangedPlayersAndGame,
+  saveChangedPlayers,
   saveWeeklyGamesChanges,
   deleteGameFromSubcollection,
   // Week recap subcollection (extracted out of the main doc to keep
@@ -7884,6 +7885,187 @@ export function DynastyProvider({ children }) {
     return newGames
   }
 
+  // ─── Targeted single-doc patch helpers ──────────────────────────────
+  // Each of these is the "fast path" companion to a heavy-handed
+  // updateDynasty({ players: [...all 5000] }) / updateDynasty({ games:
+  // [...all 1000] }) call. They detect what actually changed, write
+  // only those docs to Firestore, and update local state with the
+  // full updated array so the React tree reflects the change.
+
+  /**
+   * Patch a SINGLE game's fields without rewriting the rest of the
+   * games subcollection. Used by sheet modals that need to record a
+   * sheetId on a game (or any other narrow per-game metadata).
+   */
+  const patchGameFields = async (dynastyId, gameId, partialFields) => {
+    if (blockIfReadOnly(dynastyId, 'update game fields')) return
+    if (!dynastyId || !gameId || !partialFields) return
+
+    const dynasty = await findDynastyById(dynastyId)
+    if (!dynasty) return
+
+    const games = dynasty.games || []
+    const idx = games.findIndex(g => g.id === gameId)
+    if (idx === -1) return
+
+    const updatedGame = {
+      ...games[idx],
+      ...partialFields,
+      updatedAt: new Date().toISOString(),
+    }
+    const updatedGames = [...games]
+    updatedGames[idx] = updatedGame
+
+    const looksLikeFirebaseId = typeof dynastyId === 'string' && dynastyId.length >= 20 && !/^\d+$/.test(dynastyId)
+    const isCloudStorage = looksLikeFirebaseId || (dynasty.storageType === 'cloud' && user)
+
+    if (isCloudStorage) {
+      try {
+        skipListenerUpdatesCountRef.current = Math.max(skipListenerUpdatesCountRef.current, 3)
+        skipListenerTimestampRef.current = Date.now()
+        lastGamesUpdateTimestampRef.current = Date.now()
+        lastGamesUpdateDynastyIdRef.current = dynastyId
+
+        await saveGameToSubcollection(dynastyId, updatedGame)
+
+        const updatedDynasty = { ...dynasty, games: updatedGames, lastModified: Date.now() }
+        setDynasties(prev => prev.map(d => String(d.id) === String(dynastyId) ? updatedDynasty : d))
+        if (String(currentDynasty?.id) === String(dynastyId)) {
+          setCurrentDynasty(updatedDynasty)
+        }
+        return updatedGame
+      } catch (error) {
+        console.error('[patchGameFields] Single-game write failed, falling back to batch:', error)
+      }
+    }
+
+    // Local-storage path or fallback: full updateDynasty (IndexedDB).
+    await updateDynasty(dynastyId, { games: updatedGames })
+    return updatedGame
+  }
+
+  /**
+   * Persist a partial roster update — caller passes the FULL
+   * updatedPlayers array (typically the result of mapping over
+   * dynasty.players and returning the same reference for unchanged
+   * entries). We diff against current state to find actually-changed
+   * players, then write only those via writeBatch. Local React state
+   * still gets the full updated array so the UI reflects every
+   * change.
+   *
+   * Caps at 500 changed players (writeBatch limit). For larger
+   * updates the caller should fall back to updateDynasty.
+   */
+  const applyChangedPlayers = async (dynastyId, updatedPlayers) => {
+    if (blockIfReadOnly(dynastyId, 'apply player updates')) return
+    if (!dynastyId || !Array.isArray(updatedPlayers)) return
+
+    const dynasty = await findDynastyById(dynastyId)
+    if (!dynasty) return
+
+    const originalPlayers = dynasty.players || []
+    // Reference-diff. Same indexing as the caller's .map() — unchanged
+    // entries return the SAME ref so this filter picks out only the
+    // mutated ones.
+    const changed = updatedPlayers.filter((p, i) => p !== originalPlayers[i])
+
+    const looksLikeFirebaseId = typeof dynastyId === 'string' && dynastyId.length >= 20 && !/^\d+$/.test(dynastyId)
+    const isCloudStorage = looksLikeFirebaseId || (dynasty.storageType === 'cloud' && user)
+
+    // Too many changes for the fast batch path → fall back to the
+    // full subcollection rewrite (same behavior as before this fix).
+    if (isCloudStorage && changed.length > 500) {
+      console.warn(`[applyChangedPlayers] ${changed.length} changed players exceeds batch cap — falling back to full rewrite`)
+      await updateDynasty(dynastyId, { players: updatedPlayers })
+      return changed.length
+    }
+
+    if (isCloudStorage && changed.length > 0) {
+      try {
+        skipListenerUpdatesCountRef.current = Math.max(skipListenerUpdatesCountRef.current, 3)
+        skipListenerTimestampRef.current = Date.now()
+        lastPlayersUpdateTimestampRef.current = Date.now()
+        lastPlayersUpdateDynastyIdRef.current = dynastyId
+
+        await saveChangedPlayers(dynastyId, changed)
+
+        const updatedDynasty = { ...dynasty, players: updatedPlayers, lastModified: Date.now() }
+        setDynasties(prev => prev.map(d => String(d.id) === String(dynastyId) ? updatedDynasty : d))
+        if (String(currentDynasty?.id) === String(dynastyId)) {
+          setCurrentDynasty(updatedDynasty)
+        }
+        return changed.length
+      } catch (error) {
+        console.error('[applyChangedPlayers] Batch write failed, falling back to full rewrite:', error)
+      }
+    }
+
+    // Local-storage / no-changes / fallback path
+    if (changed.length > 0) {
+      await updateDynasty(dynastyId, { players: updatedPlayers })
+    }
+    return changed.length
+  }
+
+  /**
+   * Persist a set of game inserts plus a list of game-id deletions
+   * via a single writeBatch — the same shape as saveWeeklyScores's
+   * cloud fast path, but available to any modal that does
+   * "rebuild a slice of dynasty.games" (Bowl History edit, CFP
+   * brackets, etc).
+   *
+   * `gamesToSet`     — full game objects to upsert (must have .id).
+   * `gameIdsToDelete` — game IDs to remove from the subcollection.
+   * `extraUpdates`   — optional non-games fields to land on the main
+   *                    doc (e.g. { someField: value }). Routes through
+   *                    updateDynasty with skipGamesSubcollection=true
+   *                    so the slow full-rewrite is skipped.
+   * `localGamesArray` — REQUIRED. The full updated games array the
+   *                    caller built; used to update React state so
+   *                    the UI shows the new state immediately.
+   */
+  const saveGameSetChanges = async (dynastyId, { gamesToSet = [], gameIdsToDelete = [], extraUpdates = {}, localGamesArray = null } = {}) => {
+    if (blockIfReadOnly(dynastyId, 'save game changes')) return
+    if (!dynastyId) return
+    if (!Array.isArray(localGamesArray)) {
+      throw new Error('saveGameSetChanges requires localGamesArray for state sync')
+    }
+
+    const dynasty = await findDynastyById(dynastyId)
+    if (!dynasty) return
+
+    const looksLikeFirebaseId = typeof dynastyId === 'string' && dynastyId.length >= 20 && !/^\d+$/.test(dynastyId)
+    const isCloudStorage = looksLikeFirebaseId || (dynasty.storageType === 'cloud' && user)
+
+    if (isCloudStorage) {
+      try {
+        skipListenerUpdatesCountRef.current = Math.max(skipListenerUpdatesCountRef.current, 3)
+        skipListenerTimestampRef.current = Date.now()
+        lastGamesUpdateTimestampRef.current = Date.now()
+        lastGamesUpdateDynastyIdRef.current = dynastyId
+
+        await saveWeeklyGamesChanges(dynastyId, gamesToSet, gameIdsToDelete)
+
+        if (extraUpdates && Object.keys(extraUpdates).length > 0) {
+          await updateDynasty(dynastyId, extraUpdates, { skipGamesSubcollection: true })
+        }
+
+        const updatedDynasty = { ...dynasty, ...extraUpdates, games: localGamesArray, lastModified: Date.now() }
+        setDynasties(prev => prev.map(d => String(d.id) === String(dynastyId) ? updatedDynasty : d))
+        if (String(currentDynasty?.id) === String(dynastyId)) {
+          setCurrentDynasty(updatedDynasty)
+        }
+        lastGamesUpdateTimestampRef.current = Date.now()
+        return
+      } catch (error) {
+        console.error('[saveGameSetChanges] Targeted batch failed, falling back to full updateDynasty:', error)
+      }
+    }
+
+    // Local-storage / fallback: full updateDynasty.
+    await updateDynasty(dynastyId, { games: localGamesArray, ...extraUpdates })
+  }
+
   // Save a week's worth of CPU/league-wide regular-season game records.
   // Each parsed row becomes a game in dynasty.games[] with a stable id so re-
   // imports update in place. Games involving the user's own team that already
@@ -14334,6 +14516,9 @@ export function DynastyProvider({ children }) {
     selectDynasty,
     addGame,
     updateGame,
+    patchGameFields,
+    applyChangedPlayers,
+    saveGameSetChanges,
     saveCPUBowlGames,
     saveWeeklyScores,
     saveCFPGames,

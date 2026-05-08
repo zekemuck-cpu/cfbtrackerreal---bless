@@ -694,6 +694,48 @@ export async function saveGameToSubcollection(dynastyId, game) {
  * week+team-pair that got rebuilt with fresh data). Don't pass the
  * full dynasty roster — this helper is for incremental writes.
  */
+/**
+ * Roster-history-style fast path: persist a small set of player docs
+ * that just had targeted field updates (e.g. teamsByYear merges from
+ * a Roster History Sheet sync). No orphan cleanup, no full rewrite.
+ *
+ * Pair this with a reference-diff in the caller (the .map() in
+ * RosterHistoryModal returns the SAME ref for unchanged players, so
+ * `updatedPlayers.filter((p, i) => p !== originalPlayers[i])` gives
+ * you the exact set to persist).
+ *
+ * Single writeBatch for up to 500 players — covers any realistic
+ * partial-roster-update flow without touching the rest of the
+ * subcollection. Was previously routed through
+ * savePlayersToSubcollection's full-rewrite path which fired
+ * thousands of setDocs for a few-hundred-player change.
+ */
+export async function saveChangedPlayers(dynastyId, changedPlayers = []) {
+  if (!Array.isArray(changedPlayers) || changedPlayers.length === 0) return
+
+  // Defense-in-depth: clamp at 500 docs per batch (Firestore's hard
+  // cap). Extremely unlikely to hit on partial roster updates, but a
+  // pathological input shouldn't silently truncate.
+  if (changedPlayers.length > 500) {
+    throw new Error(`saveChangedPlayers: too many players (${changedPlayers.length}), cap is 500. Use savePlayersToSubcollection for full-roster writes.`)
+  }
+
+  const batch = writeBatch(db)
+  let count = 0
+  for (const player of changedPlayers) {
+    if (!player?.pid) continue
+    const playerRef = doc(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION, String(player.pid))
+    const { _firestoreId: _fid, ...rawPlayer } = player
+    batch.set(playerRef, sanitizeForFirestore(rawPlayer))
+    count++
+  }
+
+  if (count === 0) return
+  await batch.commit()
+  await waitForPendingWrites(db)
+  console.log(`[saveChangedPlayers] Wrote ${count} changed players in 1 batch`)
+}
+
 export async function saveWeeklyGamesChanges(dynastyId, gamesToSet = [], gameIdsToDelete = []) {
   const totalOps = (gamesToSet?.length || 0) + (gameIdsToDelete?.length || 0)
   if (totalOps === 0) return

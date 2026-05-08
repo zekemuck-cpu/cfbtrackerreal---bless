@@ -49,7 +49,7 @@ export default function BoxScoreSheetModal({
   game,
   teamColors
 }) {
-  const { currentDynasty, updateDynasty, addGame, isViewOnly } = useDynasty()
+  const { currentDynasty, updateDynasty, addGame, patchGameFields, isViewOnly } = useDynasty()
   const { user } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
@@ -1109,24 +1109,18 @@ output that fails any of them.`,
     }
   }, [isOpen])
 
-  // Save sheet ID to game in dynasty (for existing games)
+  // Save sheet ID to game in dynasty (for existing games).
+  //
+  // Was rewriting the FULL games subcollection (~1000+ setDocs on a
+  // multi-year dynasty) just to attach one sheet ID to one game.
+  // Now uses the targeted single-game patch helper — one setDoc.
   const saveSheetIdToGame = async (newSheetId) => {
     if (!currentDynasty || !game?.id) {
       return
     }
-
-    const games = [...(currentDynasty.games || [])]
-    const gameIndex = games.findIndex(g => g.id === game.id)
-    if (gameIndex === -1) {
-      return // Game doesn't exist yet, parent will handle
-    }
-
-    games[gameIndex] = {
-      ...games[gameIndex],
-      [config.sheetIdKey]: newSheetId
-    }
-
-    await updateDynasty(currentDynasty.id, { games })
+    await patchGameFields(currentDynasty.id, game.id, {
+      [config.sheetIdKey]: newSheetId,
+    })
   }
 
   // Sync data from sheet
