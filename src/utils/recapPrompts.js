@@ -82,10 +82,18 @@ function userPerspective(game, userTid) {
   return { won, userScore, oppScore, oppTid, oppAbbr, rank, oppRank, isHome, ot: !!game.ot }
 }
 
-function recordFromGames(games, year, tid) {
+function recordFromGames(games, year, tid, upToWeek = null) {
   let w = 0, l = 0
+  const cap = upToWeek != null ? Number(upToWeek) : null
   for (const g of (games || [])) {
     if (Number(g?.year) !== Number(year)) continue
+    // When called for an in-season weekly recap, only count games at or
+    // before the recap week — otherwise a recap regenerated mid-season
+    // surfaces every team's full-season record (including future weeks
+    // the user has already entered) instead of the through-Week-N record.
+    // NaN week values (postseason strings like "Bowl 1") fail the < cap
+    // check naturally so they're excluded from regular-season caps.
+    if (cap != null && !(Number(g?.week) <= cap)) continue
     const persp = userPerspective(g, tid)
     if (!persp || persp.won == null) continue
     if (persp.won) w++; else l++
@@ -605,8 +613,10 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   const allTeamRecruitingLines = []
   const allTeamQualityLines = []
   for (const t of allTeams) {
-    // CURRENT-SEASON RECORD — every team gets this line.
-    const rec = recordFromGames(games, yearNum, t.tid)
+    // CURRENT-SEASON RECORD — every team gets this line, capped at
+    // the recap week so future-week games already in the dataset don't
+    // leak into "as of Week N" framing.
+    const rec = recordFromGames(games, yearNum, t.tid, weekNum)
     if (rec.wins > 0 || rec.losses > 0) {
       allTeamRecordLines.push(`${t.name}: ${rec.wins}-${rec.losses}`)
     }
@@ -726,7 +736,7 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   const rankedRecordLines = []
   for (const r of rankSnapshot) {
     if (r.tid == null) continue
-    const rec = recordFromGames(games, yearNum, r.tid)
+    const rec = recordFromGames(games, yearNum, r.tid, weekNum)
     rankedRecordLines.push(`#${r.rank} ${r.name}: ${rec.wins}-${rec.losses}`)
   }
 
