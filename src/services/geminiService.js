@@ -1779,6 +1779,302 @@ export function getTeamScoringMarginTrend(allGames, teamAbbr, year, currentGameO
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// Team season-to-date profile — points/yards on offense AND defense,
+// averaged across played games. The matchup-framing data the AI needs
+// for "Tennessee's offense averaged 38 ppg coming in; South Carolina's
+// defense had been allowing 31" type leads.
+// ──────────────────────────────────────────────────────────────────────
+export function getTeamSeasonProfile(allGames, teamAbbr, year, currentGameOrder, dynasty) {
+  if (!Array.isArray(allGames) || !teamAbbr) return null
+  const teamTid = getTidFromAbbr(teamAbbr, dynasty)
+  const yearNum = Number(year)
+
+  let games = 0
+  let pointsFor = 0, pointsAgainst = 0
+  let totalYdsFor = 0, totalYdsAgainst = 0
+  let passYdsFor = 0, passYdsAgainst = 0
+  let rushYdsFor = 0, rushYdsAgainst = 0
+  let turnoversFor = 0, turnoversAgainst = 0
+  let firstDownsFor = 0, firstDownsAgainst = 0
+  let teamGamesWithBox = 0
+
+  for (const g of allGames) {
+    if (Number(g?.year) !== yearNum) continue
+    if (isUnplayedGame(g)) continue
+    if (currentGameOrder != null && getGameOrder(g) >= currentGameOrder) continue
+
+    let isT1 = false, inGame = false
+    if (g.team1Tid != null && g.team2Tid != null) {
+      if (g.team1Tid === teamTid) { inGame = true; isT1 = true }
+      else if (g.team2Tid === teamTid) { inGame = true; isT1 = false }
+    } else if (g.team1 === teamAbbr) { inGame = true; isT1 = true }
+    else if (g.team2 === teamAbbr) { inGame = true; isT1 = false }
+    if (!inGame) continue
+
+    games += 1
+
+    // Score side — team1Score/team2Score. For user games (legacy), use
+    // teamScore/opponentScore as fallback.
+    const s1 = Number(g.team1Score)
+    const s2 = Number(g.team2Score)
+    if (Number.isFinite(s1) && Number.isFinite(s2)) {
+      pointsFor += isT1 ? s1 : s2
+      pointsAgainst += isT1 ? s2 : s1
+    } else if (g.userTeam === teamAbbr && Number.isFinite(Number(g.teamScore))) {
+      pointsFor += Number(g.teamScore)
+      pointsAgainst += Number(g.opponentScore) || 0
+    }
+
+    // Box score teamStats — home/away keyed. Determine which side the
+    // team was on by homeTeamTid (or home/away location field).
+    const ts = g.boxScore?.teamStats
+    if (ts && (ts.home || ts.away)) {
+      let teamSide = null
+      if (g.homeTeamTid != null) {
+        teamSide = Number(g.homeTeamTid) === teamTid ? 'home' : 'away'
+      } else if (g.location === 'home') teamSide = isT1 ? 'home' : 'away'
+      else if (g.location === 'away') teamSide = isT1 ? 'away' : 'home'
+      if (teamSide) {
+        teamGamesWithBox += 1
+        const oppSide = teamSide === 'home' ? 'away' : 'home'
+        const own = ts[teamSide] || {}
+        const opp = ts[oppSide] || {}
+        const num = (v) => typeof v === 'number' ? v : (Number(v) || 0)
+        totalYdsFor += num(own.totalYards ?? own.totalOffense)
+        totalYdsAgainst += num(opp.totalYards ?? opp.totalOffense)
+        passYdsFor += num(own.passingYards ?? own.passYards)
+        passYdsAgainst += num(opp.passingYards ?? opp.passYards)
+        rushYdsFor += num(own.rushYards)
+        rushYdsAgainst += num(opp.rushYards)
+        turnoversFor += num(own.turnovers)
+        turnoversAgainst += num(opp.turnovers)
+        firstDownsFor += num(own.firstDowns)
+        firstDownsAgainst += num(opp.firstDowns)
+      }
+    }
+  }
+
+  if (games === 0) return null
+  const avg = (n, d) => d > 0 ? Math.round((n / d) * 10) / 10 : null
+  return {
+    games,
+    boxScoreGames: teamGamesWithBox,
+    ppgFor: avg(pointsFor, games),
+    ppgAgainst: avg(pointsAgainst, games),
+    ydsForPerGame: avg(totalYdsFor, teamGamesWithBox),
+    ydsAgainstPerGame: avg(totalYdsAgainst, teamGamesWithBox),
+    passYdsForPerGame: avg(passYdsFor, teamGamesWithBox),
+    passYdsAgainstPerGame: avg(passYdsAgainst, teamGamesWithBox),
+    rushYdsForPerGame: avg(rushYdsFor, teamGamesWithBox),
+    rushYdsAgainstPerGame: avg(rushYdsAgainst, teamGamesWithBox),
+    turnoverMargin: turnoversAgainst - turnoversFor, // takeaways - giveaways
+    firstDownsForPerGame: avg(firstDownsFor, teamGamesWithBox),
+    firstDownsAgainstPerGame: avg(firstDownsAgainst, teamGamesWithBox),
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Coaching head-to-head — record between THIS game's two head coaches
+// across all prior years. Walks the dynasty's games for past matchups
+// between the same two teams; for each, looks up the head coach who
+// was on staff for that team-year. Counts only games where BOTH HCs
+// match the current pair (so coach changes correctly reset the H2H).
+// ──────────────────────────────────────────────────────────────────────
+export function getCoachHeadToHead(dynasty, allGames, team1Abbr, team2Abbr, currentYear) {
+  if (!dynasty || !team1Abbr || !team2Abbr || !currentYear) return null
+  const t1Tid = getTidFromAbbr(team1Abbr, dynasty)
+  const t2Tid = getTidFromAbbr(team2Abbr, dynasty)
+  if (t1Tid == null || t2Tid == null) return null
+
+  // Current head coaches for both teams (mirror getCoachContext).
+  const coachOf = (tid, year) => {
+    const byYear = dynasty?.teams?.[tid]?.byYear
+    const staff = byYear?.[year]?.coachingStaff || byYear?.[year - 1]?.coachingStaff
+    return (staff?.hcName || '').trim() || null
+  }
+  const coach1 = coachOf(t1Tid, currentYear)
+  const coach2 = coachOf(t2Tid, currentYear)
+  if (!coach1 || !coach2) return null
+
+  let coach1Wins = 0
+  let coach2Wins = 0
+  let total = 0
+  for (const g of allGames) {
+    const gYear = Number(g?.year)
+    if (!Number.isFinite(gYear) || gYear >= Number(currentYear)) continue
+    if (isUnplayedGame(g)) continue
+
+    const isMatchup = (g.team1Tid === t1Tid && g.team2Tid === t2Tid)
+      || (g.team1Tid === t2Tid && g.team2Tid === t1Tid)
+    if (!isMatchup) continue
+
+    // Look up each team's HC at the time of THIS prior matchup.
+    const t1HcThen = coachOf(t1Tid, gYear)
+    const t2HcThen = coachOf(t2Tid, gYear)
+    if (!t1HcThen || !t2HcThen) continue
+    if (t1HcThen !== coach1 || t2HcThen !== coach2) continue
+
+    total += 1
+    const s1 = Number(g.team1Score) || 0
+    const s2 = Number(g.team2Score) || 0
+    const team1Won = g.team1Tid === t1Tid ? s1 > s2 : s2 > s1
+    if (team1Won) coach1Wins += 1
+    else coach2Wins += 1
+  }
+
+  return {
+    coach1Name: coach1,
+    coach2Name: coach2,
+    coach1Wins,
+    coach2Wins,
+    totalMeetings: total,
+    isFirstMeeting: total === 0,
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Per-player season-high context — for each top performer in THIS
+// game's box score, flag whether the stat line ties or exceeds the
+// player's previous season high (in any earlier game this year).
+// Returns map keyed by player name with { passYdsHigh, rushYdsHigh,
+// recYdsHigh, ... } booleans.
+//
+// Walks every prior game's box score this year once; cost is O(games
+// in season × players per game).
+// ──────────────────────────────────────────────────────────────────────
+export function getPlayerSeasonHighFlags(allGames, year, currentGameOrder, currentGame) {
+  if (!currentGame?.boxScore) return {}
+  const yearNum = Number(year)
+
+  // Build per-player previous-high map across all PRIOR games this year.
+  const prevHighs = new Map() // name -> { passYds, rushYds, recYds, defTackles, defSacks, defInts }
+  const trackHigh = (name, key, value) => {
+    if (!name || !value || typeof value !== 'number' || value <= 0) return
+    if (!prevHighs.has(name)) prevHighs.set(name, {})
+    const m = prevHighs.get(name)
+    if (!(key in m) || value > m[key]) m[key] = value
+  }
+  for (const g of allGames) {
+    if (Number(g?.year) !== yearNum) continue
+    if (currentGameOrder != null && getGameOrder(g) >= currentGameOrder) continue
+    const bs = g.boxScore
+    if (!bs) continue
+    for (const side of ['home', 'away']) {
+      const block = bs[side]
+      if (!block) continue
+      for (const p of (block.passing || [])) trackHigh(p?.name || p?.playerName, 'passYds', p?.passYds ?? p?.yds)
+      for (const p of (block.rushing || [])) trackHigh(p?.name || p?.playerName, 'rushYds', p?.rushYds ?? p?.yds)
+      for (const p of (block.receiving || [])) trackHigh(p?.name || p?.playerName, 'recYds', p?.recYds ?? p?.yds)
+      for (const p of (block.defense || [])) {
+        const name = p?.name || p?.playerName
+        const tackles = (p?.soloTkl || 0) + (p?.astTkl || 0) || (p?.tackles || 0)
+        trackHigh(name, 'tackles', tackles)
+        trackHigh(name, 'sacks', p?.sacks)
+        trackHigh(name, 'ints', p?.int)
+      }
+    }
+  }
+
+  // Compare THIS game's stat lines against prevHighs.
+  const flags = {}
+  const setFlag = (name, key, currentValue) => {
+    if (!name || !currentValue || typeof currentValue !== 'number') return
+    const prev = prevHighs.get(name)?.[key]
+    if (!flags[name]) flags[name] = {}
+    if (prev == null) flags[name][key + 'IsFirstSeason'] = true
+    else if (currentValue > prev) flags[name][key + 'IsSeasonHigh'] = true
+    if (prev != null) flags[name][key + 'PrevHigh'] = prev
+  }
+  for (const side of ['home', 'away']) {
+    const block = currentGame.boxScore[side]
+    if (!block) continue
+    for (const p of (block.passing || [])) setFlag(p?.name || p?.playerName, 'passYds', p?.passYds ?? p?.yds)
+    for (const p of (block.rushing || [])) setFlag(p?.name || p?.playerName, 'rushYds', p?.rushYds ?? p?.yds)
+    for (const p of (block.receiving || [])) setFlag(p?.name || p?.playerName, 'recYds', p?.recYds ?? p?.yds)
+    for (const p of (block.defense || [])) {
+      const name = p?.name || p?.playerName
+      const tackles = (p?.soloTkl || 0) + (p?.astTkl || 0) || (p?.tackles || 0)
+      setFlag(name, 'tackles', tackles)
+      setFlag(name, 'sacks', p?.sacks)
+      setFlag(name, 'ints', p?.int)
+    }
+  }
+  return flags
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Conference race context — current standing + remaining conference
+// games + leader's record. Lets the AI reason about CCG implications
+// without us pre-baking division/tiebreaker rules.
+// ──────────────────────────────────────────────────────────────────────
+export function getConferenceRaceContext(dynasty, allGames, teamAbbr, year, currentGameOrder) {
+  if (!dynasty || !teamAbbr || !year) return null
+  const teamTid = getTidFromAbbr(teamAbbr, dynasty)
+  const yearNum = Number(year)
+  const standings = dynasty.conferenceStandingsByYear?.[yearNum]
+    || dynasty.conferenceStandingsByYear?.[String(yearNum)]
+  if (!standings) return null
+
+  // Find the team's conference and its row in standings.
+  let conferenceName = null, teamRow = null, allRows = null
+  for (const [conf, rows] of Object.entries(standings)) {
+    if (!Array.isArray(rows)) continue
+    const r = rows.find(row => row && (
+      (teamTid != null && Number(row.tid) === Number(teamTid)) || row.team === teamAbbr
+    ))
+    if (r) { conferenceName = conf; teamRow = r; allRows = rows; break }
+  }
+  if (!teamRow || !allRows) return null
+
+  // Count remaining CONFERENCE games for this team.
+  let remainingConfGames = 0
+  const remainingOpponents = []
+  for (const g of allGames) {
+    if (Number(g.year) !== yearNum) continue
+    if (currentGameOrder != null && getGameOrder(g) <= currentGameOrder) continue
+    if (g.isBowlGame || g.isCFPFirstRound || g.isCFPQuarterfinal
+      || g.isCFPSemifinal || g.isCFPChampionship || g.isConferenceChampionship) continue
+    if (!g.isConferenceGame) continue
+    const inGame = (g.team1Tid != null && Number(g.team1Tid) === teamTid)
+      || (g.team2Tid != null && Number(g.team2Tid) === teamTid)
+      || g.team1 === teamAbbr || g.team2 === teamAbbr || g.userTeam === teamAbbr
+    if (!inGame) continue
+    remainingConfGames += 1
+    let oppAbbr = null
+    if (g.team1Tid != null && g.team2Tid != null) {
+      oppAbbr = Number(g.team1Tid) === teamTid ? g.team2 : g.team1
+    } else if (g.team1 === teamAbbr) oppAbbr = g.team2
+    else if (g.team2 === teamAbbr) oppAbbr = g.team1
+    if (oppAbbr) remainingOpponents.push(oppAbbr)
+  }
+
+  // Conference leader (best conf record).
+  const sorted = [...allRows]
+    .filter(r => r && (typeof r.confWins === 'number' || typeof r.confLosses === 'number'))
+    .sort((a, b) => {
+      const aL = a.confLosses || 0
+      const bL = b.confLosses || 0
+      if (aL !== bL) return aL - bL
+      const aW = a.confWins || 0
+      const bW = b.confWins || 0
+      return bW - aW
+    })
+  const leader = sorted[0] || null
+
+  return {
+    conference: conferenceName,
+    overallRecord: `${teamRow.wins || 0}-${teamRow.losses || 0}`,
+    conferenceRecord: `${teamRow.confWins || 0}-${teamRow.confLosses || 0}`,
+    confLosses: teamRow.confLosses || 0,
+    remainingConfGames,
+    remainingOpponents,
+    leaderTeam: leader && leader !== teamRow ? leader.team : null,
+    leaderConfRecord: leader && leader !== teamRow ? `${leader.confWins || 0}-${leader.confLosses || 0}` : null,
+    leaderConfLosses: leader && leader !== teamRow ? (leader.confLosses || 0) : null,
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // Resume splits — record vs ranked / unranked / home / away / one-score
 // / blowout. Extends QualityWL with the cleaner "résumé tally" framing
 // the AI can drop straight into prose ("Tennessee is 4-0 vs ranked
@@ -2576,6 +2872,35 @@ export function buildGameRecapContext(dynasty, game) {
   const team1ResumeSplits = getTeamResumeSplits(allGames, team1, year, thisGameOrder, dynasty)
   const team2ResumeSplits = getTeamResumeSplits(allGames, team2, year, thisGameOrder, dynasty)
 
+  // Statistical matchup profile for both teams — offense vs defense
+  // averages across the season. Powers "Tennessee's offense averaged
+  // 38 ppg coming in; South Carolina's defense had been allowing 31"
+  // matchup-framing leads.
+  const team1SeasonProfile = getTeamSeasonProfile(allGames, team1, year, thisGameOrder, dynasty)
+  const team2SeasonProfile = getTeamSeasonProfile(allGames, team2, year, thisGameOrder, dynasty)
+
+  // Coach-vs-coach historical record across all prior years. Drives
+  // "Saban is 8-2 in this matchup" / "first meeting between Heupel
+  // and Beamer" type beats — only counts games where the same exact
+  // pair of head coaches faced each other (so prior coaching changes
+  // correctly reset the H2H).
+  const coachHeadToHead = getCoachHeadToHead(dynasty, allGames, team1, team2, year)
+
+  // Per-player season-high flags for everyone in this game's box
+  // score. For each top performer, the AI can see whether their
+  // line is a season high and what their previous high was (if
+  // any) so it can write "career-high 287 yards" / "his second
+  // 100-yard game of the season" without us having to derive it.
+  const playerSeasonHighFlags = getPlayerSeasonHighFlags(allGames, year, thisGameOrder, game)
+
+  // Conference race context for both teams — current conf record,
+  // remaining conf games + opponents, leader's conf record. The
+  // AI can reason about CCG implications ("with two losses, Tennessee
+  // likely needs to win out and hope Bama drops one") without us
+  // pre-baking division/tiebreaker logic.
+  const team1ConferenceRace = getConferenceRaceContext(dynasty, allGames, team1, year, thisGameOrder)
+  const team2ConferenceRace = getConferenceRaceContext(dynasty, allGames, team2, year, thisGameOrder)
+
   // NEW: Get player performance trends from box score (using determined sides)
   let team1PlayerTrends = []
   let team2PlayerTrends = []
@@ -2826,6 +3151,22 @@ export function buildGameRecapContext(dynasty, game) {
     // / neutral. Concrete anchors for résumé and site-context claims.
     team1ResumeSplits,
     team2ResumeSplits,
+
+    // NEW: Statistical matchup profiles — season-to-date PPG/YPG/TO
+    // margin on offense AND defense for both teams.
+    team1SeasonProfile,
+    team2SeasonProfile,
+
+    // NEW: Coach-vs-coach historical record (only games where this
+    // exact pair of head coaches faced each other).
+    coachHeadToHead,
+
+    // NEW: Per-player season-high flags for this game's box score.
+    playerSeasonHighFlags,
+
+    // NEW: Conference race context for both teams.
+    team1ConferenceRace,
+    team2ConferenceRace,
 
     // NEW: Player performance trends (hot streaks, bounce backs)
     team1PlayerTrends,
@@ -4006,6 +4347,119 @@ RESUME SPLITS (entering this game)
 Use for résumé / site-context framing: "Tennessee is 4-0 vs ranked teams this year"; "Texas has yet to lose at home"; "the loss drops them to 0-3 on the road." These anchor playoff-committee / quality-of-record claims with concrete numbers.`
     if (t1Resume) prompt += t1Resume
     if (t2Resume) prompt += t2Resume
+  }
+
+  // Statistical matchup — both teams' season-to-date offensive AND
+  // defensive averages, side by side. This is the matchup-framing
+  // data the AI needs for "Tennessee's offense averaged 38 ppg coming
+  // in; South Carolina's defense had been allowing 31" leads.
+  const renderProfile = (teamName, p) => {
+    if (!p) return null
+    const bits = []
+    if (p.ppgFor != null) bits.push(`${p.ppgFor} PPG for`)
+    if (p.ppgAgainst != null) bits.push(`${p.ppgAgainst} PPG against`)
+    if (p.ydsForPerGame != null) bits.push(`${p.ydsForPerGame} total yds/g for`)
+    if (p.ydsAgainstPerGame != null) bits.push(`${p.ydsAgainstPerGame} total yds/g against`)
+    if (p.passYdsForPerGame != null) bits.push(`pass: ${p.passYdsForPerGame}/g for vs ${p.passYdsAgainstPerGame ?? '-'}/g against`)
+    if (p.rushYdsForPerGame != null) bits.push(`rush: ${p.rushYdsForPerGame}/g for vs ${p.rushYdsAgainstPerGame ?? '-'}/g against`)
+    if (typeof p.turnoverMargin === 'number') bits.push(`TO margin: ${p.turnoverMargin > 0 ? '+' : ''}${p.turnoverMargin}`)
+    if (bits.length === 0) return null
+    return `\n${teamName}: ${bits.join('; ')}.`
+  }
+  const t1Prof = renderProfile(ctx.team1FullName, ctx.team1SeasonProfile)
+  const t2Prof = renderProfile(ctx.team2FullName, ctx.team2SeasonProfile)
+  if (t1Prof || t2Prof) {
+    prompt += `\n
+===========================================
+STATISTICAL MATCHUP (both teams' season-to-date averages)
+===========================================
+Use for matchup leads when one team's strength faces the other's weakness ("Tennessee's #2 scoring offense met a South Carolina defense that had been giving up 31 a game"). When the result subverts the matchup expectation (high-PPG offense scoring 14, stout defense giving up 50), the GAP itself is the story. Skip if both profiles are unremarkable.`
+    if (t1Prof) prompt += t1Prof
+    if (t2Prof) prompt += t2Prof
+  }
+
+  // Coach-vs-coach historical record — only counts games where this
+  // exact HC pair faced each other.
+  if (ctx.coachHeadToHead) {
+    const c = ctx.coachHeadToHead
+    if (c.isFirstMeeting) {
+      prompt += `\n
+===========================================
+COACH HEAD-TO-HEAD HISTORY
+===========================================
+First meeting between ${c.coach1Name} (${ctx.team1FullName}) and ${c.coach2Name} (${ctx.team2FullName}). When the article would land "for the first time as opposing head coaches" naturally, use it.`
+    } else if (c.totalMeetings >= 1) {
+      const dom = c.coach1Wins === c.coach2Wins
+        ? `dead even at ${c.coach1Wins}-${c.coach2Wins}`
+        : c.coach1Wins > c.coach2Wins
+          ? `${c.coach1Name} leads ${c.coach1Wins}-${c.coach2Wins}`
+          : `${c.coach2Name} leads ${c.coach2Wins}-${c.coach1Wins}`
+      prompt += `\n
+===========================================
+COACH HEAD-TO-HEAD HISTORY
+===========================================
+${c.coach1Name} (${ctx.team1FullName}) vs ${c.coach2Name} (${ctx.team2FullName}) — ${dom} across ${c.totalMeetings} prior meeting${c.totalMeetings === 1 ? '' : 's'}. Use when the result extends or breaks the trend ("the third straight time Saban's beaten him"; "Heupel finally gets one").`
+    }
+  }
+
+  // Per-player season-high flags from this game's box score.
+  if (ctx.playerSeasonHighFlags && Object.keys(ctx.playerSeasonHighFlags).length > 0) {
+    const lines = []
+    for (const [name, flags] of Object.entries(ctx.playerSeasonHighFlags)) {
+      const bits = []
+      const labels = {
+        passYds: 'passing yards',
+        rushYds: 'rushing yards',
+        recYds: 'receiving yards',
+        tackles: 'tackles',
+        sacks: 'sacks',
+        ints: 'interceptions',
+      }
+      for (const [statKey, label] of Object.entries(labels)) {
+        if (flags[`${statKey}IsSeasonHigh`]) {
+          const prev = flags[`${statKey}PrevHigh`]
+          bits.push(prev != null ? `season high ${label} (prev: ${prev})` : `season high ${label}`)
+        } else if (flags[`${statKey}IsFirstSeason`]) {
+          // First time we have a stat-line of this type for this player —
+          // not necessarily a "high" but still notable for new arrivals.
+        }
+      }
+      if (bits.length > 0) lines.push(`  ${name}: ${bits.join('; ')}`)
+    }
+    if (lines.length > 0) {
+      prompt += `\n
+===========================================
+PLAYER SEASON-HIGH FLAGS (this game vs prior games this season)
+===========================================
+Use when a player on the box score posted a season high in a featured stat — "career-high 287 yards" / "his third straight 100-yard game" / "matched his season best with three sacks." Don't crown every line; pull the ones that anchor the storyline you're already telling.\n${lines.join('\n')}`
+    }
+  }
+
+  // Conference race context — current standings + remaining conf
+  // games + leader's record for both teams.
+  const renderConfRace = (teamName, r) => {
+    if (!r) return null
+    const bits = [`${r.conferenceRecord} in the ${r.conference}`]
+    if (r.remainingConfGames > 0) {
+      bits.push(`${r.remainingConfGames} conf game${r.remainingConfGames === 1 ? '' : 's'} remaining (${r.remainingOpponents.join(', ')})`)
+    } else {
+      bits.push('conference schedule complete')
+    }
+    if (r.leaderTeam) {
+      bits.push(`leader: ${r.leaderTeam} ${r.leaderConfRecord}`)
+    }
+    return `\n${teamName}: ${bits.join('; ')}.`
+  }
+  const t1Race = renderConfRace(ctx.team1FullName, ctx.team1ConferenceRace)
+  const t2Race = renderConfRace(ctx.team2FullName, ctx.team2ConferenceRace)
+  if (t1Race || t2Race) {
+    prompt += `\n
+===========================================
+CONFERENCE-RACE & CCG IMPLICATIONS
+===========================================
+Use to thread title-game implications through the result: "with two conf losses and just two conf games left, Tennessee likely needs to win out and hope Bama drops one"; "the win clinches the SEC East with a game to spare." Reason from the data — current losses + games remaining + leader — without inventing tiebreaker rules. If the team is mathematically eliminated from CCG (more conf losses than the leader has plus all remaining wins can overcome), say so plainly.`
+    if (t1Race) prompt += t1Race
+    if (t2Race) prompt += t2Race
   }
 
   // Add player performance trends (hot streaks, bounce backs)
