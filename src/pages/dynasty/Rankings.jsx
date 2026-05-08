@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { useDynasty, calculateTeamRecordFromGames, getTeamRecord } from '../../context/DynastyContext'
+import { useDynasty, calculateTeamRecordFromGames, getTeamRecord, deriveByeWeekRank } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
@@ -154,11 +154,21 @@ export default function Rankings() {
   // that's the rank each team was DURING the selected week. First
   // team to claim each rank slot 1-25 wins (defends against any
   // accidental duplicates).
+  //
+  // Bye-fill pass: after stored ranks are placed, walk teams that have
+  // a prior-week rank but no entry for selectedWeek and try to derive
+  // a rank via deriveByeWeekRank. Bye teams get their last-known rank
+  // back in the poll automatically — handles the "Miami had bye in
+  // week 11 so Miami doesn't appear in the week 12 Top 25" case the
+  // EA weekly-scores screenshot can't capture (the team isn't in the
+  // screenshot because they didn't play). Stored ranks always win
+  // over derivations; the helper itself enforces that.
   let top25 = []
   if (selectedWeek === 'final') {
     top25 = savedMedia
   } else if (selectedWeek != null) {
     const slotMap = new Map()
+    const filledTids = new Set()
     const teams = currentDynasty.teams || {}
     for (const [tidKey, team] of Object.entries(teams)) {
       const rbw = team?.byYear?.[displayYear]?.rankByWeek
@@ -172,7 +182,40 @@ export default function Rankings() {
         tid: Number(tidKey),
         team: team.abbr,
       })
+      filledTids.add(Number(tidKey))
     }
+
+    // Bye-fill: claimedSlots = the explicitly-entered slots we just
+    // collected, so derivations never overwrite an explicit entry.
+    // Iterate ALL teams; deriveByeWeekRank no-ops for anything
+    // without a viable bye chain back to a stored rank.
+    //
+    // Two-pass conflict resolution: first collect every candidate,
+    // then group by rank. A rank with one candidate gets filled; a
+    // rank with multiple bye candidates is ambiguous and we leave
+    // it empty (conservative — better to display a hole than to
+    // arbitrarily pick one bye team over another).
+    const claimedSlots = new Set(slotMap.keys())
+    const byeCandidates = []
+    for (const [tidKey, team] of Object.entries(teams)) {
+      const tid = Number(tidKey)
+      if (filledTids.has(tid)) continue
+      const derived = deriveByeWeekRank(currentDynasty, tid, displayYear, selectedWeek, { claimedSlots })
+      if (derived == null) continue
+      byeCandidates.push({ tid, abbr: team.abbr, rank: derived })
+    }
+    const candidatesByRank = new Map()
+    for (const c of byeCandidates) {
+      if (!candidatesByRank.has(c.rank)) candidatesByRank.set(c.rank, [])
+      candidatesByRank.get(c.rank).push(c)
+    }
+    for (const [rank, list] of candidatesByRank) {
+      if (list.length !== 1) continue // ambiguous — skip
+      if (slotMap.has(rank)) continue // explicit entry already claimed it (defensive)
+      const c = list[0]
+      slotMap.set(rank, { rank, tid: c.tid, team: c.abbr })
+    }
+
     top25 = [...slotMap.values()].sort((a, b) => a.rank - b.rank)
   }
   const usingLive = selectedWeek !== 'final'
