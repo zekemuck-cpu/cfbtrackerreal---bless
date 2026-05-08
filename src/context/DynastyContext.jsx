@@ -1299,13 +1299,15 @@ export function getTeamRankForWeek(dynasty, tidOrAbbr, year, week) {
 export function migrateRanksToRankByWeek(dynasty, options = {}) {
   if (!dynasty || !Array.isArray(dynasty.games)) return dynasty
   const { force = false } = options
-  // V3 of the migration: previous V1 only seeded rankByWeek without
-  // rewriting game records, so dynasties that ran V1 still have
-  // game.team1Rank/team2Rank in raw post-game form. V3 (this code)
-  // also rewrites games to entering-rank form. The flag bump
-  // (_rankByWeekMigratedV3) ensures V1-migrated dynasties get the
-  // rewrite step on next load.
-  if (dynasty._rankByWeekMigratedV3 && !force) return dynasty
+  // V4 of the migration: bumps from V3 to re-run with stronger tid
+  // resolution for legacy preseason / final poll entries. V3 only
+  // resolved tids via the explicit `tid` field or getTidFromAbbr.
+  // V4 also walks dynasty.teams for case-insensitive abbr / name
+  // matches — older dynasties with only abbr-keyed final polls now
+  // seed rankByWeek correctly. Without this, the Top 25 sheet's
+  // pre-fill would miss those entries, and saving the sheet could
+  // wipe stored rankByWeek data the user couldn't see in the sheet.
+  if (dynasty._rankByWeekMigratedV4 && !force) return dynasty
 
   const games = dynasty.games
   const teamsCopy = { ...(dynasty.teams || {}) }
@@ -1368,33 +1370,64 @@ export function migrateRanksToRankByWeek(dynasty, options = {}) {
   // Seed week-0 / week-1 from preseason rankings so display lookups
   // for early-season games don't return null when no game has been
   // played yet.
+  // Preseason poll seeding is below (uses the loose tid resolver
+  // defined just before — handles legacy abbr-only entries that
+  // getTidFromAbbr alone can't always resolve).
   const presByYear = dynasty.preseasonRankingsByYear || {}
-  for (const [year, polls] of Object.entries(presByYear)) {
-    if (!Array.isArray(polls)) continue
-    for (const p of polls) {
-      const tid = p?.tid != null ? Number(p.tid) : (p?.team ? getTidFromAbbr(p.team, dynasty) : null)
-      if (tid == null) continue
-      if (typeof p.rank !== 'number') continue
-      writeRank(tid, year, 0, p.rank)
-      writeRank(tid, year, 1, p.rank)
-    }
-  }
 
   // Seed week-105 ("Final Poll" — post-Natty rank) from existing
   // finalPollsByYear data. Mirrors the per-team-per-week store with
   // whatever the user already entered through the end-of-season
   // recap flow, so the Top 25 page's "Final Poll" column and the
   // Edit-Rankings sheet stay in sync without requiring a re-save.
+  //
+  // Aggressive tid resolution: legacy entries often have only an abbr
+  // (no tid). Try multiple paths to resolve every entry — explicit
+  // tid → getTidFromAbbr → walk dynasty.teams for a case-insensitive
+  // abbr match → walk dynasty.teams for a case-insensitive name match.
+  // The cost of a missed resolution is the entry not seeding rankByWeek,
+  // which means the Top 25 sheet creator can't pre-fill it, which means
+  // the user could accidentally clear it on save (the bug we're fixing).
+  const resolveTidLoose = (entry) => {
+    if (!entry) return null
+    if (entry.tid != null) {
+      const n = Number(entry.tid)
+      if (Number.isFinite(n)) return n
+    }
+    if (entry.team) {
+      const fromAbbr = getTidFromAbbr(entry.team, dynasty)
+      if (fromAbbr != null) return Number(fromAbbr)
+      const wantedUpper = String(entry.team).toUpperCase()
+      const wantedTrim = String(entry.team).trim().toLowerCase()
+      for (const [tidKey, team] of Object.entries(dynasty.teams || {})) {
+        if (!team) continue
+        if (team.abbr && String(team.abbr).toUpperCase() === wantedUpper) return Number(tidKey)
+        if (team.name && String(team.name).trim().toLowerCase() === wantedTrim) return Number(tidKey)
+      }
+    }
+    return null
+  }
   const finalPollsByYear = dynasty.finalPollsByYear || {}
   for (const [year, polls] of Object.entries(finalPollsByYear)) {
     const media = polls?.media
     if (!Array.isArray(media)) continue
     for (const e of media) {
-      if (!e) continue
-      const tid = e.tid != null ? Number(e.tid) : (e.team ? getTidFromAbbr(e.team, dynasty) : null)
+      const tid = resolveTidLoose(e)
       if (tid == null) continue
       if (typeof e.rank !== 'number') continue
       writeRank(tid, year, 105, e.rank)
+    }
+  }
+  // Same loose resolution for preseason polls — also legacy data
+  // that might predate the tid-everywhere migration.
+  for (const [year, polls] of Object.entries(presByYear)) {
+    if (!Array.isArray(polls)) continue
+    for (const p of polls) {
+      const tid = resolveTidLoose(p)
+      if (tid == null) continue
+      if (typeof p.rank !== 'number') continue
+      writeRank(tid, year, 0, p.rank)
+      writeRank(tid, year, 1, p.rank)
     }
   }
 
@@ -1435,6 +1468,7 @@ export function migrateRanksToRankByWeek(dynasty, options = {}) {
     teams: teamsCopy,
     _rankByWeekMigrated: true,
     _rankByWeekMigratedV3: true,
+    _rankByWeekMigratedV4: true,
   }
 }
 

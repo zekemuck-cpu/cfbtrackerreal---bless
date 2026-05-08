@@ -14560,8 +14560,26 @@ export async function readTop25FromSheet(spreadsheetId, dynasty) {
   }
   // For each year present in the read, walk all teams that had an old
   // rankByWeek entry and add nulls for any weekKey not in the new set.
+  //
+  // PAST-YEAR PROTECTION: for years strictly before the dynasty's
+  // current year, blank cells in the sheet are treated as "keep
+  // existing data" rather than "remove." This protects historical
+  // rank data from accidental wipes when:
+  //   - the migration couldn't resolve some legacy tids and left
+  //     rankByWeek partial for those years (sheet creator pre-fills
+  //     only the resolved entries; the rest read as blank)
+  //   - the user wasn't expecting the sheet to be touching past-
+  //     year data at all and didn't realize blank past-year tabs
+  //     would be interpreted as deletions
+  // For the current year and future years, blanks still mean
+  // "remove" (the typical workflow for editing live ranks).
+  const dynastyCurrentYear = Number(dynasty.currentYear)
   for (const yearStr of Object.keys(yearTotals)) {
     const yearNum = Number(yearStr)
+    if (Number.isFinite(dynastyCurrentYear) && yearNum < dynastyCurrentYear) {
+      // Past year — skip removal-entry generation entirely.
+      continue
+    }
     for (const [tidKey, team] of Object.entries(dynasty.teams || {})) {
       const oldRbw = team?.byYear?.[yearNum]?.rankByWeek
         ?? team?.byYear?.[yearStr]?.rankByWeek
