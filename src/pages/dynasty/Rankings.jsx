@@ -337,7 +337,7 @@ export default function Rankings() {
   // each team was DURING that week's games), so plain "Week N" reads
   // correctly. Special week keys map to postseason labels.
   const weekLabel = (w) => {
-    if (w === 0) return 'Preseason'
+    if (w === 0) return 'Preseason Rankings'
     if (w === 100) return 'Conference Championships'
     if (w === 101) return 'CFP First Round'
     if (w === 102) return 'CFP Quarterfinals'

@@ -1410,25 +1410,65 @@ export function buildPreseasonTop25Prompt(dynasty, year) {
     alignmentBlock ? `CONFERENCE ALIGNMENT (${yearNum}) — THIS OVERRIDES YOUR REAL-WORLD KNOWLEDGE:\n${alignmentBlock}` : ``,
   ].filter(Boolean).join('\n')
 
+  // Build an abbr → display-name list for THIS dynasty so the AI uses
+  // the user's actual team naming (FCS placeholders, teambuilder
+  // takeovers, custom teams) — not real-world abbreviations.
+  const teamAbbrLines = []
+  if (dynasty?.teams && typeof dynasty.teams === 'object') {
+    const entries = Object.values(dynasty.teams)
+      .filter(t => t && t.abbr && t.name)
+      .map(t => ({ abbr: String(t.abbr).toUpperCase(), name: t.name }))
+    entries.sort((a, b) => a.abbr.localeCompare(b.abbr))
+    for (const { abbr, name } of entries) teamAbbrLines.push(`${abbr} = ${name}`)
+  }
+
   return [
-    `You are helping a CFB dynasty mode user fill in a Preseason Top 25 for ${yearNum}.`,
+    `You are helping a CFB dynasty mode user populate the ${yearNum} Preseason Top 25.`,
     ``,
-    `Output exactly 25 lines, one team per line, ranked #1 to #25. Each line is two tab-separated fields:`,
+    `═══════════════════════════════════════════════════════════`,
+    `MODE A — SCREENSHOT TRANSCRIPTION (preferred when the user attaches an image)`,
+    `═══════════════════════════════════════════════════════════`,
+    `If the user has attached a screenshot of EA CFB's Preseason Top 25 page (the in-game poll, the Pre-Season Top 25 standings page, or a media outlet's poll), TRANSCRIBE it into the output format below. Treat the screenshot as the source of truth and ignore your own opinions about who "should" be ranked. Read the rank order verbatim. If the screenshot shows fewer than 25 teams, pad the missing slots as blank lines (just the rank, no team) — do NOT invent teams to fill the bottom of the poll.`,
     ``,
-    `<rank>\\t<team abbreviation>`,
+    `If multiple screenshots are attached (e.g. the user split the page into two images), stitch them together in rank order — duplicates between screenshots are confirmation, not separate ranks.`,
     ``,
-    `Use UPPERCASE FBS abbreviations the user will type into a strict-dropdown sheet (BAMA, OSU, UGA, MICH, etc.). Do NOT use full names, mascots, or city names.`,
+    `═══════════════════════════════════════════════════════════`,
+    `MODE B — INFER FROM DYNASTY HISTORY (when no screenshot is attached)`,
+    `═══════════════════════════════════════════════════════════`,
+    `Build a defensible Top 25 from the prior-season data block at the bottom of this prompt. Anchor your picks in the dynasty's actual history — recent final polls, Heisman winners, conference alignment. If the dynasty has no prior history saved (first season or fresh dynasty), default to a reasonable real-world preseason consensus and surface a single line at the very top prefixed exactly "PRE-NOTE: …" explaining the assumption. The user will read and delete the PRE-NOTE before pasting.`,
+    ``,
+    `═══════════════════════════════════════════════════════════`,
+    `OUTPUT FORMAT — read carefully, the user pastes this directly into a Google Sheet`,
+    `═══════════════════════════════════════════════════════════`,
+    `Output EXACTLY 25 lines. Each line is ONE team abbreviation in UPPERCASE. Lines are in rank order — line 1 is #1, line 2 is #2, ..., line 25 is #25.`,
+    ``,
+    `   Example (made-up values, not your output):`,
+    `       BAMA`,
+    `       UGA`,
+    `       OSU`,
+    `       ...`,
+    ``,
+    `STRICT RULES:`,
+    `   1. ONE team abbreviation per line. No rank numbers, no full names, no mascots, no city names, no "Tied with…" notes.`,
+    `   2. Abbreviations MUST come from the TEAM ABBREVIATIONS list at the bottom of this prompt — these are the only abbrs the user's strict-dropdown sheet will accept. Anything else is rejected on paste.`,
+    `   3. EXACTLY 25 lines (or 24 lines + 1 blank line, etc., if the screenshot only had partial data — leave the missing slot blank, don't pad with a guess).`,
+    `   4. No header row, no commentary, no closing remarks. The user pastes your output starting at cell B2 of the sheet (or copies into the tracker's row form). Anything other than 25 lines of team abbreviations breaks both flows.`,
+    `   5. Wrap your output in a single \`\`\`tsv ... \`\`\` fenced block so the user can copy-paste cleanly without selecting any prose.`,
+    ``,
+    `If you generated a PRE-NOTE (Mode B only, no prior data), put it on a single line ABOVE the fenced block — never inside it.`,
     ``,
     FACTUAL_GUARDRAIL.trim(),
     ``,
     CONFERENCE_GUARDRAIL.trim(),
     ``,
-    `Apply the guardrail to ranking choices: ground your Top 25 in the past-season data below. If the dynasty has no prior history, default to a reasonable real-world preseason consensus and SAY SO in a single PRE-NOTE line above the data, prefixed exactly with "PRE-NOTE:". The user will read and delete that note before pasting.`,
-    ``,
-    `Output ONLY the 25 ranked lines (and an optional PRE-NOTE line above). No headers, no commentary, no closing remarks.`,
+    `═══════════════════════════════════════════════════════════`,
+    `TEAM ABBREVIATIONS (every team your output must use one of)`,
+    `═══════════════════════════════════════════════════════════`,
+    `These are the ONLY valid values for the strict-dropdown sheet. Includes every team in this dynasty — FBS, FCS placeholders, and any custom / teambuilder teams. If a screenshot shows a team not on this list, omit that line (leave blank) rather than substituting a similar-name team.`,
+    teamAbbrLines.length > 0 ? teamAbbrLines.join('\n') : '(no team abbreviations available — dynasty teams data is empty)',
     ``,
     `═══════════════════════════════════════════════════════════`,
-    `DATA`,
+    `DATA — prior-season context (for Mode B, ignored in Mode A)`,
     `═══════════════════════════════════════════════════════════`,
     dataBlock,
   ].join('\n')

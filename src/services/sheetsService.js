@@ -14581,3 +14581,269 @@ export async function readTop25FromSheet(spreadsheetId, dynasty) {
 
   return { yearTotals, teamUpdates, unknownAbbrs }
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// PRESEASON TOP 25 SHEET
+//
+// Single-tab spreadsheet dedicated to one year's preseason poll. Two
+// columns × 26 rows: Rank label in column A (frozen, pre-filled #1
+// through #25), team abbr in column B (strict ONE_OF_LIST dropdown
+// against every team in dynasty.teams). Per-team conditional
+// formatting paints the cell as soon as a valid abbr lands — same
+// pattern as the schedule and full Top 25 sheets.
+//
+// Pre-fill comes from dynasty.preseasonRankingsByYear[year] when
+// present; otherwise from each team's rankByWeek[0] (= the team's
+// preseason rank if it was previously seeded). First valid match
+// for each rank slot wins.
+// ──────────────────────────────────────────────────────────────────────
+
+const PRESEASON_NUM_RANKS = 25
+
+/**
+ * Create a one-tab preseason Top 25 spreadsheet for the given year.
+ * Pre-filled from existing preseason data when available.
+ */
+export async function createPreseasonRankingsSheet(dynastyName, year, dynasty) {
+  if (!dynasty) throw new Error('createPreseasonRankingsSheet: dynasty is required')
+  if (!year) throw new Error('createPreseasonRankingsSheet: year is required')
+
+  const accessToken = await getAccessToken()
+  const NUM_COLS = 2
+  const NUM_ROWS = 1 + PRESEASON_NUM_RANKS
+
+  // Step 1 — create the spreadsheet.
+  const createRes = await fetch(SHEETS_API_BASE, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      properties: { title: `${dynastyName} — ${year} Preseason Top 25` },
+      sheets: [{
+        properties: {
+          title: `${year} Preseason Top 25`,
+          gridProperties: {
+            rowCount: NUM_ROWS,
+            columnCount: NUM_COLS,
+            frozenRowCount: 1,
+            frozenColumnCount: 1,
+          },
+        },
+      }],
+    }),
+  })
+  if (!createRes.ok) {
+    const err = await createRes.json().catch(() => ({}))
+    throw new Error(`createPreseasonRankingsSheet: create failed — ${err.error?.message || createRes.status}`)
+  }
+  const sheet = await createRes.json()
+  const sheetId = sheet.sheets[0].properties.sheetId
+
+  // Step 2 — pre-fill rows.
+  // Look up existing rank → abbr pairs from the dynasty.
+  const yearKeyNum = Number(year)
+  const yearKeyStr = String(year)
+  const presByYear = dynasty.preseasonRankingsByYear || {}
+  const seedFromPoll = presByYear[yearKeyNum] || presByYear[yearKeyStr] || []
+  const byRank = new Map()
+  for (const e of (Array.isArray(seedFromPoll) ? seedFromPoll : [])) {
+    if (!e || typeof e.rank !== 'number' || e.rank < 1 || e.rank > PRESEASON_NUM_RANKS) continue
+    const abbr = e.tid != null
+      ? (dynasty.teams?.[e.tid]?.abbr || dynasty.teams?.[String(e.tid)]?.abbr)
+      : e.team
+    if (abbr) byRank.set(e.rank, abbr)
+  }
+  // Fall back to rankByWeek[0] for any rank slot still empty.
+  for (const team of Object.values(dynasty.teams || {})) {
+    if (!team?.abbr) continue
+    const rbw = team?.byYear?.[yearKeyNum]?.rankByWeek
+      ?? team?.byYear?.[yearKeyStr]?.rankByWeek
+    if (!rbw) continue
+    const v = rbw[0] ?? rbw['0']
+    if (typeof v !== 'number' || v < 1 || v > PRESEASON_NUM_RANKS) continue
+    if (!byRank.has(v)) byRank.set(v, team.abbr)
+  }
+
+  const rows = [['Rank', 'Team']]
+  for (let r = 1; r <= PRESEASON_NUM_RANKS; r++) {
+    rows.push([`#${r}`, byRank.get(r) || ''])
+  }
+  const valuesRes = await fetch(
+    `${SHEETS_API_BASE}/${sheet.spreadsheetId}/values:batchUpdate`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        valueInputOption: 'RAW',
+        data: [{
+          range: `'${year} Preseason Top 25'!A1:B${NUM_ROWS}`,
+          majorDimension: 'ROWS',
+          values: rows,
+        }],
+      }),
+    },
+  )
+  if (!valuesRes.ok) {
+    const err = await valuesRes.json().catch(() => ({}))
+    throw new Error(`createPreseasonRankingsSheet: values batchUpdate failed — ${err.error?.message || valuesRes.status}`)
+  }
+
+  // Step 3 — formatting + validation.
+  const teamsMap = getTeamsWithCustom(dynasty.teams)
+  const validationValues = Object.keys(teamsMap).sort().map(abbr => ({ userEnteredValue: abbr }))
+  const requests = [
+    // Header row formatting.
+    {
+      repeatCell: {
+        range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: NUM_COLS },
+        cell: {
+          userEnteredFormat: {
+            backgroundColor: { red: 0.13, green: 0.14, blue: 0.18 },
+            textFormat: { foregroundColor: { red: 1, green: 1, blue: 1 }, bold: true },
+            horizontalAlignment: 'CENTER',
+          },
+        },
+        fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)',
+      },
+    },
+    // Rank label column.
+    {
+      repeatCell: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: NUM_ROWS, startColumnIndex: 0, endColumnIndex: 1 },
+        cell: {
+          userEnteredFormat: {
+            backgroundColor: { red: 0.18, green: 0.19, blue: 0.23 },
+            textFormat: { foregroundColor: { red: 1, green: 1, blue: 1 }, bold: true },
+            horizontalAlignment: 'CENTER',
+          },
+        },
+        fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)',
+      },
+    },
+    // Team column — center + bold.
+    {
+      repeatCell: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: NUM_ROWS, startColumnIndex: 1, endColumnIndex: 2 },
+        cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { bold: true } } },
+        fields: 'userEnteredFormat(horizontalAlignment,textFormat)',
+      },
+    },
+    // Strict-dropdown validation on team column.
+    {
+      setDataValidation: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: NUM_ROWS, startColumnIndex: 1, endColumnIndex: 2 },
+        rule: {
+          condition: { type: 'ONE_OF_LIST', values: validationValues },
+          showCustomUi: true,
+          strict: true,
+        },
+      },
+    },
+    // Column widths.
+    {
+      updateDimensionProperties: {
+        range: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 },
+        properties: { pixelSize: 80 },
+        fields: 'pixelSize',
+      },
+    },
+    {
+      updateDimensionProperties: {
+        range: { sheetId, dimension: 'COLUMNS', startIndex: 1, endIndex: 2 },
+        properties: { pixelSize: 200 },
+        fields: 'pixelSize',
+      },
+    },
+  ]
+
+  // Per-team conditional formatting on the team column.
+  for (const [abbr, teamData] of Object.entries(teamsMap)) {
+    requests.push({
+      addConditionalFormatRule: {
+        rule: {
+          ranges: [{ sheetId, startRowIndex: 1, endRowIndex: NUM_ROWS, startColumnIndex: 1, endColumnIndex: 2 }],
+          booleanRule: {
+            condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: abbr }] },
+            format: {
+              backgroundColor: hexToRgb(teamData.backgroundColor),
+              textFormat: { foregroundColor: hexToRgb(teamData.textColor), bold: true, italic: true },
+            },
+          },
+        },
+        index: 0,
+      },
+    })
+  }
+
+  const batchRes = await fetch(
+    `${SHEETS_API_BASE}/${sheet.spreadsheetId}:batchUpdate`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests }),
+    },
+  )
+  if (!batchRes.ok) {
+    const err = await batchRes.json().catch(() => ({}))
+    throw new Error(`createPreseasonRankingsSheet: batchUpdate failed — ${err.error?.message || batchRes.status}`)
+  }
+
+  await shareSheetPublicly(sheet.spreadsheetId, accessToken)
+
+  return {
+    spreadsheetId: sheet.spreadsheetId,
+    spreadsheetUrl: sheet.spreadsheetUrl,
+    year: yearKeyNum,
+  }
+}
+
+/**
+ * Read a preseason rankings sheet back. Returns:
+ *
+ *   {
+ *     entries: [{ rank, abbr, tid }],   // valid (rank, team) pairs
+ *     unknownAbbrs: [{ rank, raw }],    // abbrs not in dynasty.teams
+ *   }
+ */
+export async function readPreseasonRankingsFromSheet(spreadsheetId, dynasty, year) {
+  if (!dynasty) throw new Error('readPreseasonRankingsFromSheet: dynasty is required')
+
+  const accessToken = await getAccessToken()
+  const NUM_COLS = 2
+  const NUM_ROWS = 1 + PRESEASON_NUM_RANKS
+  const range = `'${year} Preseason Top 25'!A1:B${NUM_ROWS}`
+
+  const res = await fetch(
+    `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(`readPreseasonRankingsFromSheet: values get failed — ${err.error?.message || res.status}`)
+  }
+  const data = await res.json()
+  const rows = data.values || []
+
+  // Build abbr → tid lookup.
+  const abbrToTid = new Map()
+  for (const [tidKey, team] of Object.entries(dynasty.teams || {})) {
+    if (!team?.abbr) continue
+    abbrToTid.set(String(team.abbr).toUpperCase(), Number(tidKey))
+  }
+
+  const entries = []
+  const unknownAbbrs = []
+  for (let r = 1; r <= PRESEASON_NUM_RANKS; r++) {
+    const row = rows[r] || []
+    const raw = (row[1] || '').trim()
+    if (!raw) continue
+    const tid = abbrToTid.get(raw.toUpperCase())
+    if (tid == null) {
+      unknownAbbrs.push({ rank: r, raw })
+      continue
+    }
+    const abbr = dynasty.teams?.[tid]?.abbr || dynasty.teams?.[String(tid)]?.abbr || raw
+    entries.push({ rank: r, abbr, tid: Number(tid) })
+  }
+
+  return { entries, unknownAbbrs }
+}
