@@ -552,43 +552,56 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   // The user's note: weekly recaps mentioned a team's preseason rank but
   // never their actual prior-year postseason finish, so it had no way to
   // write "after nearly winning the natty last season..." for any
-  // individual team. The fix is to bundle, for every team in this week's
-  // games, the same prior-year context the per-game recap already gets:
+  // individual team. The fix is to bundle, for every team in the dynasty,
+  // the per-team data the per-game recap already gets:
+  //   - current-season record
   //   - prior-year final poll rank
   //   - prior-year deepest postseason result (with a one-line narrative cue)
-  //   - last meeting between this game's two teams (for revenge/rematch
-  //     framing on a per-game basis)
-  // De-duped by team across the week — Florida + LSU each show up once
-  // even if both played in this week.
+  //   - coaching tenure + at-school stint record
+  //   - recruiting class context (arrived + in-progress)
+  //   - quality wins / bad losses tally
+  //
+  // The user explicitly asked for ALL teams (not just teams in this week's
+  // games) — the AI doesn't have room to use everything, but having the
+  // data available lets it pull whatever fits each storyline. Format is
+  // compact one-line-per-team to keep the prompt size manageable.
   const priorYear = yearNum - 1
-  const teamsThisWeek = new Map() // tid -> { tid, abbr, name }
-  for (const g of weekGames) {
-    if (g.team1Tid != null) {
-      teamsThisWeek.set(Number(g.team1Tid), {
-        tid: Number(g.team1Tid),
-        abbr: g.team1,
-        name: teamDisplay(g.team1Tid, g.team1, dynasty),
+
+  // Enumerate every team in the dynasty (FBS + custom + teambuilder).
+  // dynasty.teams is keyed by tid and contains the canonical roster of
+  // teams the AI should know about. Each entry: { tid, abbr, name, ... }.
+  const allTeams = []
+  if (dynasty?.teams && typeof dynasty.teams === 'object') {
+    for (const [tidKey, t] of Object.entries(dynasty.teams)) {
+      if (!t || !t.abbr) continue
+      const tid = Number(tidKey)
+      if (!Number.isFinite(tid)) continue
+      allTeams.push({
+        tid,
+        abbr: t.abbr,
+        name: teamDisplay(tid, t.abbr, dynasty),
       })
-    } else if (g.team1) {
-      teamsThisWeek.set(`abbr:${g.team1}`, { tid: null, abbr: g.team1, name: teamDisplay(null, g.team1, dynasty) })
-    }
-    if (g.team2Tid != null) {
-      teamsThisWeek.set(Number(g.team2Tid), {
-        tid: Number(g.team2Tid),
-        abbr: g.team2,
-        name: teamDisplay(g.team2Tid, g.team2, dynasty),
-      })
-    } else if (g.team2) {
-      teamsThisWeek.set(`abbr:${g.team2}`, { tid: null, abbr: g.team2, name: teamDisplay(null, g.team2, dynasty) })
     }
   }
+  // Sort alphabetically by display name so the AI can scan deterministically.
+  allTeams.sort((a, b) => a.name.localeCompare(b.name))
 
-  const teamPriorContextLines = []
-  const teamCoachLines = []
-  const teamRecruitingLines = []
-  const teamQualityLines = []
-  for (const t of teamsThisWeek.values()) {
-    // PRIOR-YEAR FINISH (rank + deepest postseason)
+  // Per-team aggregates. Each line is compact (<120 chars typically) so
+  // all ~134 FBS teams plus customs fit without ballooning the prompt
+  // beyond reason. Empty bits are omitted to keep lines tight.
+  const allTeamRecordLines = []
+  const allTeamPriorContextLines = []
+  const allTeamCoachLines = []
+  const allTeamRecruitingLines = []
+  const allTeamQualityLines = []
+  for (const t of allTeams) {
+    // CURRENT-SEASON RECORD — every team gets this line.
+    const rec = recordFromGames(games, yearNum, t.tid)
+    if (rec.wins > 0 || rec.losses > 0) {
+      allTeamRecordLines.push(`${t.name}: ${rec.wins}-${rec.losses}`)
+    }
+
+    // PRIOR-YEAR FINISH (rank + deepest postseason).
     const finalRank = getTeamFinalRank(dynasty, t.abbr, priorYear)
     const prior = getPriorYearPostseason(allDynastyGames, t.abbr, yearNum, dynasty)
     if (finalRank || prior) {
@@ -598,42 +611,36 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
       else if (prior) bits.push(`${prior.result === 'W' ? 'won' : 'lost'} ${prior.gameName} ${prior.score}`)
       if (prior?.wonNationalChampionship) bits.push('— DEFENDING NATIONAL CHAMPIONS')
       else if (prior?.lostNationalChampionship) bits.push('— came one game short of the title')
-      teamPriorContextLines.push(`${t.name}: ${bits.join('; ')}`)
+      allTeamPriorContextLines.push(`${t.name}: ${bits.join('; ')}`)
     }
 
-    // COACHING TENURE — only emit when we can compute a meaningful tenure
-    // year (won't surface for teams with no coaching-staff history).
+    // COACHING TENURE — only emit when we have meaningful tenure data.
     const coach = getCoachContext(dynasty, t.abbr, yearNum)
     if (coach && coach.yearAtSchool >= 1) {
       const stintBit = `${coach.stintWins}-${coach.stintLosses} since ${coach.stintStartYear}`
       const cueBit = coach.framingCue ? ` (${coach.framingCue})` : ''
-      teamCoachLines.push(`${t.name}: ${coach.name}, year ${coach.yearAtSchool} — ${stintBit}${cueBit}.`)
+      allTeamCoachLines.push(`${t.name}: ${coach.name}, yr ${coach.yearAtSchool}, ${stintBit}${cueBit}.`)
     }
 
-    // RECRUITING CLASS — class that arrived this season and any in-progress
-    // class signing during this season.
+    // RECRUITING CLASS.
     const incoming = getIncomingClassRank(dynasty, t.abbr, yearNum)
     const nextCycle = getIncomingClassRank(dynasty, t.abbr, yearNum + 1)
     if (incoming || nextCycle) {
       const bits = []
       if (incoming) bits.push(`#${incoming} ${yearNum} class arrived`)
       if (nextCycle) bits.push(`signing #${nextCycle} ${yearNum + 1} class`)
-      teamRecruitingLines.push(`${t.name}: ${bits.join('; ')}`)
+      allTeamRecruitingLines.push(`${t.name}: ${bits.join('; ')}`)
     }
 
-    // QUALITY WINS / BAD LOSSES tally for this season.
+    // QUALITY WINS / BAD LOSSES tally.
     const qwl = getQualityWinsAndBadLosses(allDynastyGames, t.abbr, yearNum, dynasty)
     if (qwl && (qwl.qualityWins.length > 0 || qwl.badLosses.length > 0)) {
       const bits = []
-      if (qwl.qualityWins.length > 0) bits.push(`${qwl.qualityWins.length} quality win${qwl.qualityWins.length === 1 ? '' : 's'}`)
+      if (qwl.qualityWins.length > 0) bits.push(`${qwl.qualityWins.length} qual win${qwl.qualityWins.length === 1 ? '' : 's'}`)
       if (qwl.badLosses.length > 0) bits.push(`${qwl.badLosses.length} bad loss${qwl.badLosses.length === 1 ? '' : 'es'}`)
-      teamQualityLines.push(`${t.name}: ${bits.join(', ')}.`)
+      allTeamQualityLines.push(`${t.name}: ${bits.join(', ')}.`)
     }
   }
-  teamPriorContextLines.sort()
-  teamCoachLines.sort()
-  teamRecruitingLines.sort()
-  teamQualityLines.sort()
 
   // For each game this week, include the most-recent prior matchup between
   // the same two teams + the rivalry/trophy name when applicable. Powers
@@ -887,35 +894,48 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   // year." Without this, the weekly recap had ZERO per-team historical
   // data — just last year's national top 5 — and the AI couldn't frame
   // any individual program's arc.
-  if (teamPriorContextLines.length > 0) {
-    sections.push(`PRIOR-YEAR CONTEXT FOR TEAMS THAT PLAYED THIS WEEK (${priorYear} season — last year)`)
-    sections.push(`Use this to set up year-over-year storylines: "after [last year's finish], Team X is now [this year's record/streak]." Required: if a team in your recap finished top-10 last year OR played in the CFP, you must reference their prior-year finish at least once when describing them. Skip ONLY when the live game itself is so dominant that the historical framing would dilute it.`)
-    for (const line of teamPriorContextLines) sections.push(line)
+  // CURRENT-SEASON RECORDS — every team in the dynasty with at least one
+  // played game this year. Reference data: the AI doesn't have to use
+  // every line, but having every record in front of it means it can
+  // anchor any team it mentions ("Tennessee, now 7-2, ...") instead of
+  // having to derive the record from a long schedule.
+  if (allTeamRecordLines.length > 0) {
+    sections.push(`CURRENT-SEASON RECORDS — ALL TEAMS (${yearNum})`)
+    sections.push(`Reference data — every team in the dynasty with a game played this year. You don't need to mention every team. When a team appears in your recap, this is its authoritative record; never invent a different one.`)
+    for (const line of allTeamRecordLines) sections.push(line)
     sections.push('')
   }
 
-  // Coaching tenure for every team that played this week. Unlocks
-  // hot-seat / first-year / era-builder beats for the recap.
-  if (teamCoachLines.length > 0) {
-    sections.push(`COACHING TENURE & STINT RECORDS (teams that played this week)`)
-    sections.push(`When a coach's tenure or stint record is dramatic (first year, sub-.500 multi-year stint, dominant 3+ year stint), let it carry the framing — "in his fourth year, Coach X is feeling the seat heat up", "first-year head coach at LSU already 6-0", "Saban's 16th year in Tuscaloosa producing another title push." Skip when the data is unremarkable.`)
-    for (const line of teamCoachLines) sections.push(line)
+  if (allTeamPriorContextLines.length > 0) {
+    sections.push(`PRIOR-YEAR CONTEXT — ALL TEAMS (${priorYear} season finish)`)
+    sections.push(`Reference data covering every team with a notable prior-year finish (top-25 final ranking, bowl, or CFP appearance). Use to set up year-over-year storylines: "after [last year's finish], Team X is now [this year's record]." Required: if a team you're discussing finished top-10 last year OR played in the CFP, reference their prior-year finish at least once. You don't need to mention every team here; pull what fits the storylines you're already writing.`)
+    for (const line of allTeamPriorContextLines) sections.push(line)
     sections.push('')
   }
 
-  // Recruiting class context.
-  if (teamRecruitingLines.length > 0) {
-    sections.push(`RECRUITING CLASS CONTEXT (teams that played this week)`)
-    sections.push(`Frame the gap between recruiting hype and on-field results when it's wide enough to be a story: "after signing the #3 class last cycle, Texas was supposed to be loaded — instead they're 4-4." Or the inverse: "the talent infusion is real — a top-15 class on top of last year's #4." Skip when the class data is unremarkable.`)
-    for (const line of teamRecruitingLines) sections.push(line)
+  // Coaching tenure for every team in the dynasty. Unlocks hot-seat /
+  // first-year / era-builder beats anywhere in the recap.
+  if (allTeamCoachLines.length > 0) {
+    sections.push(`COACHING TENURE & STINT RECORDS — ALL TEAMS`)
+    sections.push(`Reference data — head coach + tenure year + stint record for every team where coaching-staff data exists. When a coach's tenure or stint is dramatic (first year, sub-.500 multi-year stint, dominant 3+ year stint), let it carry the framing — "in his fourth year, Coach X is feeling the seat heat up", "first-year head coach already 6-0", "year three of Saban with a 22-7 stint — building a real era." Skip teams where the data is unremarkable.`)
+    for (const line of allTeamCoachLines) sections.push(line)
     sections.push('')
   }
 
-  // Quality wins / bad losses — concrete record-quality anchors.
-  if (teamQualityLines.length > 0) {
-    sections.push(`QUALITY WINS & BAD LOSSES TALLY (current season, teams that played this week)`)
-    sections.push(`Use these as concrete record-quality anchors. A 7-3 team with 2 ranked wins and 0 bad losses is "playing themselves into the at-large picture." A 7-3 team with 0 ranked wins and 1 bad loss "has the record but not the resume."`)
-    for (const line of teamQualityLines) sections.push(line)
+  // Recruiting class context — every team with class-rank data.
+  if (allTeamRecruitingLines.length > 0) {
+    sections.push(`RECRUITING CLASS CONTEXT — ALL TEAMS`)
+    sections.push(`Reference data — recruiting class ranks for every team where they exist. Frame the gap between recruiting hype and on-field results when wide enough to be a story: "after signing the #3 class last cycle, Texas was supposed to be loaded — instead they're 4-4." Or the inverse: "the talent infusion is real — a top-15 class on top of last year's #4." Skip teams where the data is unremarkable.`)
+    for (const line of allTeamRecruitingLines) sections.push(line)
+    sections.push('')
+  }
+
+  // Quality wins / bad losses — concrete record-quality anchors for every
+  // team that has at least one quality win or bad loss this year.
+  if (allTeamQualityLines.length > 0) {
+    sections.push(`QUALITY WINS & BAD LOSSES TALLY — ALL TEAMS (current season)`)
+    sections.push(`Reference data. A 7-3 team with 2 ranked wins and 0 bad losses is "playing themselves into the at-large picture." A 7-3 team with 0 ranked wins and 1 bad loss "has the record but not the resume." Pull these to anchor any record claim you make.`)
+    for (const line of allTeamQualityLines) sections.push(line)
     sections.push('')
   }
 
