@@ -134,13 +134,17 @@ export function isSeasonalField(fieldName) {
  * latency tolerable; a server probe runs in the background to keep the
  * cache warm for the next load.
  */
-export async function getSeasonsSubcollection(dynastyId) {
+export async function getSeasonsSubcollection(dynastyId, options = {}) {
+  const { onFresh = null } = options
   const ref = collection(db, DYNASTIES_COLLECTION, dynastyId, SEASONS_SUBCOLLECTION)
   let docs
   try {
     const cached = await getDocsFromCache(ref)
     if (!cached.empty) {
-      getDocsFromServer(ref).catch(() => {})
+      getDocsFromServer(ref).then(snap => {
+        if (!onFresh) return
+        try { onFresh(rehydrateSeasonalShapes(snap.docs)) } catch (e) { console.error('onFresh callback threw:', e) }
+      }).catch(() => {})
       docs = cached.docs
     }
   } catch (_) { /* fall through */ }

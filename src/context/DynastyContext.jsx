@@ -5282,11 +5282,62 @@ export function DynastyProvider({ children }) {
       // happened to also load subcollections — which on a quiet
       // dynasty might not happen at all. That asymmetry between this
       // path and the listener was the recap-disappears-on-refresh bug.
+      // Cache-first reads return the IndexedDB-cached subcollection
+      // data instantly, then fire a server fetch in the background.
+      // Wire onFresh callbacks so the fresh server data REPLACES
+      // stale cache when it returns. Without these, a save made on
+      // Device A never reached Device B until something else evicted
+      // the cache — the recap-saved-on-laptop-but-missing-on-phone
+      // bug. The state-update functions are written to be no-ops
+      // when the dynasty is no longer the current one.
+      const onFreshGames = (fresh) => {
+        if (skipListenerUpdatesCountRef.current > 0) return // active save in flight; don't clobber
+        setDynasties(prev => prev.map(d =>
+          String(d.id) === String(dynastyId) ? { ...d, games: fresh } : d
+        ))
+        setCurrentDynasty(prev => {
+          if (!prev || String(prev.id) !== String(dynastyId)) return prev
+          return { ...prev, games: fresh }
+        })
+      }
+      const onFreshPlayers = (fresh) => {
+        if (skipListenerUpdatesCountRef.current > 0) return
+        setDynasties(prev => prev.map(d =>
+          String(d.id) === String(dynastyId) ? { ...d, players: fresh } : d
+        ))
+        setCurrentDynasty(prev => {
+          if (!prev || String(prev.id) !== String(dynastyId)) return prev
+          return { ...prev, players: fresh }
+        })
+      }
+      const onFreshRecaps = (fresh) => {
+        if (skipListenerUpdatesCountRef.current > 0) return
+        setDynasties(prev => prev.map(d =>
+          String(d.id) === String(dynastyId) ? { ...d, weekRecapsByYear: fresh } : d
+        ))
+        setCurrentDynasty(prev => {
+          if (!prev || String(prev.id) !== String(dynastyId)) return prev
+          return { ...prev, weekRecapsByYear: fresh }
+        })
+      }
+      // Seasons rehydrate to MULTIPLE legacy field names — surface them
+      // by spreading the whole map back onto the dynasty object.
+      const onFreshSeasons = (fresh) => {
+        if (skipListenerUpdatesCountRef.current > 0) return
+        setDynasties(prev => prev.map(d =>
+          String(d.id) === String(dynastyId) ? { ...d, ...fresh } : d
+        ))
+        setCurrentDynasty(prev => {
+          if (!prev || String(prev.id) !== String(dynastyId)) return prev
+          return { ...prev, ...fresh }
+        })
+      }
+
       const [subcollectionPlayers, subcollectionGames, subcollectionRecaps, subcollectionSeasons] = await Promise.all([
-        getPlayersSubcollection(dynastyId),
-        getGamesSubcollection(dynastyId),
-        getWeekRecapsSubcollection(dynastyId),
-        getSeasonsSubcollection(dynastyId),
+        getPlayersSubcollection(dynastyId, { onFresh: onFreshPlayers }),
+        getGamesSubcollection(dynastyId, { onFresh: onFreshGames }),
+        getWeekRecapsSubcollection(dynastyId, { onFresh: onFreshRecaps }),
+        getSeasonsSubcollection(dynastyId, { onFresh: onFreshSeasons }),
       ])
 
       // Use subcollection data if available, otherwise fall back to main document
@@ -5875,12 +5926,64 @@ export function DynastyProvider({ children }) {
               return taggedDynasty
             }
 
-            // Load subcollections for this dynasty
+            // Load subcollections for this dynasty.
+            //
+            // onFresh callbacks: cache-first reads served instant data
+            // but used to drop the background-server result on the
+            // floor. That's the cross-device staleness bug — Device A
+            // saves to subcollection, Device B reads cache, gets
+            // stale data. Now the server result, when it returns,
+            // pushes fresh subcollection data into React state via
+            // these callbacks. Listener-skip-active means an
+            // in-flight local save has called this; defer to the
+            // local state to avoid clobber.
+            const dynId = dynasty.id
+            const onFreshGames = (fresh) => {
+              if (skipListenerUpdatesCountRef.current > 0) return
+              setDynasties(prev => prev.map(d =>
+                String(d.id) === String(dynId) ? { ...d, games: fresh } : d
+              ))
+              setCurrentDynasty(prev => {
+                if (!prev || String(prev.id) !== String(dynId)) return prev
+                return { ...prev, games: fresh }
+              })
+            }
+            const onFreshPlayers = (fresh) => {
+              if (skipListenerUpdatesCountRef.current > 0) return
+              setDynasties(prev => prev.map(d =>
+                String(d.id) === String(dynId) ? { ...d, players: fresh } : d
+              ))
+              setCurrentDynasty(prev => {
+                if (!prev || String(prev.id) !== String(dynId)) return prev
+                return { ...prev, players: fresh }
+              })
+            }
+            const onFreshRecaps = (fresh) => {
+              if (skipListenerUpdatesCountRef.current > 0) return
+              setDynasties(prev => prev.map(d =>
+                String(d.id) === String(dynId) ? { ...d, weekRecapsByYear: fresh } : d
+              ))
+              setCurrentDynasty(prev => {
+                if (!prev || String(prev.id) !== String(dynId)) return prev
+                return { ...prev, weekRecapsByYear: fresh }
+              })
+            }
+            const onFreshSeasons = (fresh) => {
+              if (skipListenerUpdatesCountRef.current > 0) return
+              setDynasties(prev => prev.map(d =>
+                String(d.id) === String(dynId) ? { ...d, ...fresh } : d
+              ))
+              setCurrentDynasty(prev => {
+                if (!prev || String(prev.id) !== String(dynId)) return prev
+                return { ...prev, ...fresh }
+              })
+            }
+
             const [subcollectionPlayers, subcollectionGames, subcollectionRecaps, subcollectionSeasons] = await Promise.all([
-              getPlayersSubcollection(dynasty.id),
-              getGamesSubcollection(dynasty.id),
-              getWeekRecapsSubcollection(dynasty.id),
-              getSeasonsSubcollection(dynasty.id)
+              getPlayersSubcollection(dynasty.id, { onFresh: onFreshPlayers }),
+              getGamesSubcollection(dynasty.id, { onFresh: onFreshGames }),
+              getWeekRecapsSubcollection(dynasty.id, { onFresh: onFreshRecaps }),
+              getSeasonsSubcollection(dynasty.id, { onFresh: onFreshSeasons })
             ])
 
             // Use subcollection data if it exists, otherwise fall back to main document

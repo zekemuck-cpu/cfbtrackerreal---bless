@@ -399,7 +399,8 @@ export async function migrateLocalStorageData(userId) {
  * @param {string} dynastyId - The dynasty document ID
  * @returns {Promise<Array>} Array of player objects
  */
-export async function getPlayersSubcollection(dynastyId) {
+export async function getPlayersSubcollection(dynastyId, options = {}) {
+  const { onFresh = null } = options
   const playersRef = collection(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION)
 
   // Cache-first read: try the local IndexedDB cache before going to the
@@ -407,13 +408,24 @@ export async function getPlayersSubcollection(dynastyId) {
   // connections — that's what made clicking into a dynasty hang for
   // minutes on mobile despite persistentLocalCache being enabled
   // (onSnapshot serves from cache, but getDocs does not by default).
+  //
+  // Cross-device staleness fix: when the cache hits, ALSO fire a
+  // background server fetch and propagate the fresh result via
+  // onFresh(). Without that callback the previous code dropped the
+  // server result on the floor — meaning a save made on Device A
+  // never reached Device B until something else evicted the cache.
+  // Caller updates React state in onFresh so the UI catches up the
+  // moment the network returns.
   try {
     const cachedSnap = await getDocsFromCache(playersRef)
     if (!cachedSnap.empty) {
-      // Cache hit — kick off a background server refresh so the cache
-      // stays warm for next time, but don't make the user wait on it.
-      getDocsFromServer(playersRef).catch(() => {})
-      return cachedSnap.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
+      const cached = cachedSnap.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
+      getDocsFromServer(playersRef).then(snap => {
+        if (!onFresh) return
+        const fresh = snap.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
+        try { onFresh(fresh) } catch (e) { console.error('onFresh callback threw:', e) }
+      }).catch(() => {})
+      return cached
     }
   } catch (_) {
     // Cache unavailable (Safari private mode, IndexedDB blocked, first
@@ -434,15 +446,25 @@ export async function getPlayersSubcollection(dynastyId) {
  * @param {string} dynastyId - The dynasty document ID
  * @returns {Promise<Array>} Array of game objects
  */
-export async function getGamesSubcollection(dynastyId) {
+export async function getGamesSubcollection(dynastyId, options = {}) {
+  const { onFresh = null } = options
   const gamesRef = collection(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION)
 
-  // Cache-first — see comment in getPlayersSubcollection.
+  // Cache-first — see comment in getPlayersSubcollection. The onFresh
+  // callback is how cross-device updates (recap saved on Device A,
+  // viewed on Device B) propagate: the cached read returns instantly
+  // for the fast initial paint, and the background server fetch
+  // pushes any newer data into React state once it returns.
   try {
     const cachedSnap = await getDocsFromCache(gamesRef)
     if (!cachedSnap.empty) {
-      getDocsFromServer(gamesRef).catch(() => {})
-      return cachedSnap.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
+      const cached = cachedSnap.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
+      getDocsFromServer(gamesRef).then(snap => {
+        if (!onFresh) return
+        const fresh = snap.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
+        try { onFresh(fresh) } catch (e) { console.error('onFresh callback threw:', e) }
+      }).catch(() => {})
+      return cached
     }
   } catch (_) {
     // Fall through to network.
@@ -1021,12 +1043,16 @@ export async function deleteWeekRecapFromSubcollection(dynastyId, year, week) {
  * shape that consumers (Dashboard, WeeklyScores, WeekRecapModal) already
  * expect. Cache-first like other subcollection reads.
  */
-export async function getWeekRecapsSubcollection(dynastyId) {
+export async function getWeekRecapsSubcollection(dynastyId, options = {}) {
+  const { onFresh = null } = options
   const ref = collection(db, DYNASTIES_COLLECTION, dynastyId, WEEK_RECAPS_SUBCOLLECTION)
   try {
     const cached = await getDocsFromCache(ref)
     if (!cached.empty) {
-      getDocsFromServer(ref).catch(() => {})
+      getDocsFromServer(ref).then(snap => {
+        if (!onFresh) return
+        try { onFresh(buildRecapsMap(snap.docs)) } catch (e) { console.error('onFresh callback threw:', e) }
+      }).catch(() => {})
       return buildRecapsMap(cached.docs)
     }
   } catch (_) { /* fall through to network */ }
