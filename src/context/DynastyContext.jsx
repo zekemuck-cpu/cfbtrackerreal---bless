@@ -12026,19 +12026,34 @@ export function DynastyProvider({ children }) {
     }
 
     // For cloud dynasties with subcollections, ensure we have the latest data
-    // This is especially important for read-only users where initial load might have failed
-    if (dynasty.storageType === 'cloud' && dynasty._subcollectionsMigrated) {
+    // This is especially important for read-only users where initial load might have failed.
+    //
+    // We pull every subcollection the dynasty has — players, games, weekRecaps,
+    // and the per-year seasons docs. The seasons subcollection holds all the
+    // per-year + per-team-year fields that used to live on the main dynasty
+    // doc (allAmericansByYear, cfpSeedsByYear, recruitingCommitmentsByTeamYear,
+    // etc.) before the 1 MB cap forced them out. Without rehydrating them,
+    // the export looks like every CFP / awards / standings field got wiped
+    // — which is exactly the false alarm a beta user hit on UK_2034_Week12.
+    if (dynasty.storageType === 'cloud') {
       try {
-        const [players, games] = await Promise.all([
+        const [players, games, weekRecaps, seasonalRehydrated] = await Promise.all([
           getPlayersSubcollection(dynasty.id),
-          getGamesSubcollection(dynasty.id)
+          getGamesSubcollection(dynasty.id),
+          getWeekRecapsSubcollection(dynasty.id),
+          getSeasonsSubcollection(dynasty.id),
         ])
 
-        // Merge fresh data with dynasty
+        // Merge fresh data with dynasty. Seasonal fields are merged
+        // back into their legacy ByYear / ByTeamYear shapes so the
+        // export is shape-compatible with backups taken before the
+        // subcollection migration — old re-imports keep working.
         dynasty = {
           ...dynasty,
           players: players || [],
-          games: games || []
+          games: games || [],
+          weekRecapsByYear: weekRecaps || {},
+          ...seasonalRehydrated,
         }
       } catch (err) {
         console.error('Failed to fetch subcollection data for export:', err)
