@@ -911,15 +911,52 @@ function buildRecapsMap(docs) {
  * — that removal SHRINKS the parent doc, which is the only path back
  * under the 1 MB cap once the doc has gone over.
  *
+ * SUBCOLLECTION-WINS: before writing each legacy cell, fetches the
+ * existing subcollection state directly from the server and skips
+ * cells that already exist there. Without this guard, the migration
+ * would overwrite freshly-saved subcollection data with stale legacy
+ * data from in-memory state — the exact failure mode that caused
+ * recaps to disappear after close+reopen. The legacy field on the
+ * main doc is, by definition, NEVER fresher than the subcollection
+ * once any save has happened (every saveWeekRecap writes to the
+ * subcollection first), so "subcollection wins per-cell" is the
+ * correct conflict resolution.
+ *
  * Idempotent: setDoc replaces, deleteField on an absent field is a no-op.
  */
 export async function migrateWeekRecapsToSubcollection(dynastyId, legacyRecapsByYear) {
   if (!legacyRecapsByYear || typeof legacyRecapsByYear !== 'object') return
+
+  // Snapshot the existing subcollection state from the server so we
+  // know which cells are already authoritative there.
+  let existing = {}
+  try {
+    const ref = collection(db, DYNASTIES_COLLECTION, dynastyId, WEEK_RECAPS_SUBCOLLECTION)
+    const snap = await getDocsFromServer(ref)
+    for (const d of snap.docs) {
+      const data = d.data() || {}
+      const y = Number(data.year)
+      const w = Number(data.week)
+      if (!Number.isFinite(y) || !Number.isFinite(w)) continue
+      if (!existing[y]) existing[y] = {}
+      existing[y][w] = true
+    }
+  } catch (err) {
+    // If we can't read existing state, BAIL on the destructive part of
+    // the migration. Better to leave legacy data on the main doc than
+    // risk overwriting fresher subcollection data with stale legacy
+    // data. The deleteField step is also skipped so retry is safe.
+    console.warn(`[migrateWeekRecapsToSubcollection] could not read existing subcollection — aborting to prevent data loss:`, err?.code || err?.message)
+    return
+  }
+
   const writes = []
   for (const [year, weeks] of Object.entries(legacyRecapsByYear)) {
     if (!weeks || typeof weeks !== 'object') continue
     for (const [week, recap] of Object.entries(weeks)) {
       if (!recap || typeof recap !== 'object' || !recap.text) continue
+      // Skip cells the subcollection already has — they're newer.
+      if (existing[Number(year)]?.[Number(week)]) continue
       writes.push(saveWeekRecapToSubcollection(dynastyId, year, week, recap))
     }
   }
@@ -927,8 +964,8 @@ export async function migrateWeekRecapsToSubcollection(dynastyId, legacyRecapsBy
   // Clear the legacy field on the main doc — atomic field deletion,
   // which shrinks the resulting doc and so isn't subject to the 1 MB
   // cap that blocks normal updates on bloated dynasties.
-  const ref = doc(db, DYNASTIES_COLLECTION, dynastyId)
-  await updateDoc(ref, { weekRecapsByYear: deleteField() })
+  const docRef = doc(db, DYNASTIES_COLLECTION, dynastyId)
+  await updateDoc(docRef, { weekRecapsByYear: deleteField() })
 }
 
 /**

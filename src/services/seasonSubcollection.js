@@ -340,6 +340,52 @@ export async function migrateSeasonalFieldsToSubcollection(dynastyId, mainDocSou
   const byYear = splitSeasonalUpdateByYear(presentUpdates)
   if (Object.keys(byYear).length === 0) return { migrated: [], cleared: [] }
 
+  // SUBCOLLECTION-WINS GUARD — fetch the existing seasons subcollection
+  // state from the server and strip any (year, field) cells that are
+  // already populated there. Without this guard the migration would
+  // fan stale main-doc data back into the subcollection and overwrite
+  // freshly-saved values — same failure shape as the recap-loss bug,
+  // applied to every per-year and per-team-year field. If we can't
+  // read existing state, BAIL the destructive part of migration so
+  // we never clobber unknowns.
+  try {
+    const seasonsRef = collection(db, DYNASTIES_COLLECTION, dynastyId, SEASONS_SUBCOLLECTION)
+    const snap = await getDocsFromServer(seasonsRef)
+    for (const d of snap.docs) {
+      const yearKey = Number(d.id)
+      if (!Number.isFinite(yearKey)) continue
+      const existing = d.data() || {}
+      const patch = byYear[yearKey]
+      if (!patch) continue
+      // For each field in our migration patch, drop it if the season
+      // doc already has a non-empty value for that field server-side.
+      for (const field of Object.keys(patch)) {
+        const ev = existing[field]
+        const hasExisting = ev !== undefined && ev !== null
+          && !(typeof ev === 'object' && !Array.isArray(ev) && Object.keys(ev).length === 0)
+          && !(Array.isArray(ev) && ev.length === 0)
+        if (hasExisting) delete patch[field]
+      }
+      if (Object.keys(patch).length === 0) delete byYear[yearKey]
+    }
+  } catch (err) {
+    console.warn('[season migration] could not read existing seasons subcollection — aborting to prevent data loss:', err?.code || err?.message)
+    return { migrated: [], cleared: [] }
+  }
+
+  // After filtering, only legacy-only cells remain. If everything was
+  // already in the subcollection, the writes/deletes are no-ops, but
+  // we still want to deleteField the legacy main-doc data — that's
+  // safe regardless since subcollection is the authoritative source.
+  if (Object.keys(byYear).length === 0) {
+    // Skip writes; jump straight to clearing main doc + verify.
+    const clearPatchOnly = {}
+    for (const field of fieldsToClear) clearPatchOnly[field] = deleteField()
+    clearPatchOnly._seasonsMigratedAt = new Date().toISOString()
+    await updateDoc(mainDocRef, clearPatchOnly)
+    return { migrated: [], cleared: fieldsToClear }
+  }
+
   // Phase 2a: write subcollection.
   const migrated = await writeSeasonalUpdate(dynastyId, byYear)
 

@@ -6213,25 +6213,23 @@ export function DynastyProvider({ children }) {
     }
 
     if (isCloud) {
-      // 1. Write the new recap to its own subcollection doc — this is
-      //    the actual save, and it succeeds regardless of how bloated
-      //    the parent dynasty doc currently is.
+      // Write the new recap to its own subcollection doc. Server-
+      // confirmed via waitForPendingWrites + read-back verify inside
+      // saveWeekRecapToSubcollection so we don't return success on a
+      // local-cache-only write that the server silently rejected.
+      //
+      // We do NOT run the legacy → subcollection migration from this
+      // save path. The previous version did, and that was the bug
+      // that wiped recaps after close+reopen: dynasty.weekRecapsByYear
+      // here is the in-memory state that was loaded at session start
+      // (merged from legacy + subcollection by the listener). For the
+      // year/week we just edited, that in-memory value is STALE
+      // relative to the fresh write we just made — so passing it to
+      // the migrate helper would fan back out and overwrite our
+      // fresh subcollection write with the stale value. Migration
+      // belongs in one place: the listener, on next load, with the
+      // subcollection-wins guard now baked into the helper.
       await saveWeekRecapToSubcollection(dynastyId, yearN, weekN, entry)
-
-      // 2. If the parent doc still carries the legacy embedded map,
-      //    move every entry into the subcollection and then clear the
-      //    field. The deleteField shrinks the parent and is the only
-      //    write to the parent we can do once it's over 1 MB.
-      const legacy = dynasty.weekRecapsByYear
-      const legacyKeys = legacy ? Object.keys(legacy) : []
-      if (legacyKeys.length > 0) {
-        try {
-          await migrateWeekRecapsToSubcollection(dynastyId, legacy)
-        } catch (migErr) {
-          console.warn('[saveWeekRecap] legacy field migration failed:', migErr?.code || migErr?.message || migErr)
-          // Not fatal — the new recap is saved. Migration retries on next save.
-        }
-      }
     } else {
       // Local-only dynasty — the embedded map in IndexedDB has no size
       // ceiling, so just keep using updateDynasty.
