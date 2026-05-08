@@ -1804,7 +1804,30 @@ export function getTeamRanking(dynasty, tidOrAbbr, year) {
     }
   }
 
-  // Priority 2: Get ranking from most recent game (in chronological order)
+  // Priority 2: rankByWeek — the canonical per-week rank store the
+  // Rankings page reads from. Take this team's highest populated
+  // week so the team page shows the current-week rank (matches the
+  // Rankings page) rather than the rank entering the last played
+  // game's week, which is what the games[] fallback returns.
+  if (tid != null) {
+    const byYear = dynasty.teams?.[tid]?.byYear || dynasty.teams?.[String(tid)]?.byYear
+    const rankByWeek = byYear?.[year]?.rankByWeek ?? byYear?.[String(year)]?.rankByWeek
+    if (rankByWeek && typeof rankByWeek === 'object') {
+      let latestWeek = -Infinity
+      let latestRank = null
+      for (const [k, v] of Object.entries(rankByWeek)) {
+        const wk = Number(k)
+        if (!Number.isFinite(wk)) continue
+        if (typeof v !== 'number' || v < 1 || v > 25) continue
+        if (wk > latestWeek) { latestWeek = wk; latestRank = v }
+      }
+      if (latestRank != null) {
+        return { rank: latestRank, source: 'rank_by_week', week: latestWeek }
+      }
+    }
+  }
+
+  // Priority 3: Get ranking from most recent game (in chronological order)
   const games = dynasty.games || []
   const teamGames = games
     .filter(g => {
