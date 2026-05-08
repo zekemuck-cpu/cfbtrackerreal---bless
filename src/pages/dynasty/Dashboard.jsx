@@ -3397,23 +3397,26 @@ export default function Dashboard() {
                       </div>
                     </div>
                     {!isViewOnly && todo.actionLabel && (
-                      <div
-                        className="grid gap-1.5 sm:gap-2 flex-shrink-0 items-center"
-                        style={{ gridTemplateColumns: '5rem 6.5rem' }}
-                      >
-                        {todo.viewTo ? (
-                          <Link to={todo.viewTo} className="btn-refined text-center">
-                            View
-                          </Link>
-                        ) : (
-                          <span aria-hidden="true" />
-                        )}
-                        <button
-                          onClick={todo.onAction}
-                          className="btn-refined btn-refined--solid text-center"
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                        {todo.extraTools}
+                        <div
+                          className="grid gap-1.5 sm:gap-2 items-center"
+                          style={{ gridTemplateColumns: '5rem 6.5rem' }}
                         >
-                          {todo.actionLabel}
-                        </button>
+                          {todo.viewTo ? (
+                            <Link to={todo.viewTo} className="btn-refined text-center">
+                              View
+                            </Link>
+                          ) : (
+                            <span aria-hidden="true" />
+                          )}
+                          <button
+                            onClick={todo.onAction}
+                            className="btn-refined btn-refined--solid text-center"
+                          >
+                            {todo.actionLabel}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -3707,24 +3710,29 @@ export default function Dashboard() {
                            Empty <span> placeholder preserves the column
                            when View is hidden. The whole grid is dropped
                            on rows that aren't actionable (e.g. the bye-
-                           week informational row). */
-                        <div
-                          className="grid gap-1.5 sm:gap-2 flex-shrink-0 items-center"
-                          style={{ gridTemplateColumns: '5rem 6.5rem' }}
-                        >
-                          {todo.viewTo ? (
-                            <Link to={todo.viewTo} className="btn-refined text-center">
-                              View
-                            </Link>
-                          ) : (
-                            <span aria-hidden="true" />
-                          )}
-                          <button
-                            onClick={todo.onAction}
-                            className="btn-refined btn-refined--solid text-center"
+                           week informational row). extraTools renders to
+                           the LEFT of the grid (calculator + insight
+                           engine icons on the recruiting row). */
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                          {todo.extraTools}
+                          <div
+                            className="grid gap-1.5 sm:gap-2 items-center"
+                            style={{ gridTemplateColumns: '5rem 6.5rem' }}
                           >
-                            {todo.actionLabel}
-                          </button>
+                            {todo.viewTo ? (
+                              <Link to={todo.viewTo} className="btn-refined text-center">
+                                View
+                              </Link>
+                            ) : (
+                              <span aria-hidden="true" />
+                            )}
+                            <button
+                              onClick={todo.onAction}
+                              className="btn-refined btn-refined--solid text-center"
+                            >
+                              {todo.actionLabel}
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
