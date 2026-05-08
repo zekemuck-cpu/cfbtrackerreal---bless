@@ -20,6 +20,15 @@ import { preloadCommonDynastyPages } from '../routes/lazyPages'
 // eslint-disable-next-line no-undef
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
 
+// Hardcoded fix-marker bumped on every active-debugging push so the
+// user can confirm at a glance whether a specific fix has reached
+// production. The auto-derived APP_VERSION already increments per
+// commit, but Vercel cache + service-worker timing can make it
+// ambiguous whether the page in the browser actually reflects the
+// latest build. This marker is set explicitly in the source on the
+// commit that fixes a given issue.
+const BUILD_TAG = 'cfp-debug-1'
+
 export default function Layout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -806,7 +815,7 @@ export default function Layout({ children }) {
           className="font-display tabular-nums uppercase"
           style={{ fontSize: '0.625rem', fontWeight: 600, letterSpacing: '0.18em' }}
         >
-          v{APP_VERSION}
+          v{APP_VERSION} · {BUILD_TAG}
         </span>
         <nav className="flex items-center gap-5 sm:gap-6">
           <Link
