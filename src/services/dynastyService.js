@@ -805,15 +805,62 @@ const recapDocId = (year, week) => `${Number(year)}-${Number(week)}`
 
 /**
  * Save a single week recap as its own subcollection doc.
+ *
+ * Three-step durability guarantee — beta users were reporting recaps
+ * disappearing after closing and reopening the site, and the failure
+ * mode for that is `setDoc` resolving as soon as the LOCAL cache is
+ * updated while the server-side write fails (rules denial, expired
+ * auth, network drop) and gets silently dropped:
+ *   1. setDoc — write to local cache + queue server sync
+ *   2. waitForPendingWrites — block until the SDK acks every pending
+ *      write from the server
+ *   3. read-back verify — fetch the doc fresh from the server (no
+ *      cache) and confirm the `text` field is what we just wrote
+ *
+ * If verify fails, throw — WeekRecapModal's catch surfaces the actual
+ * error code in the toast so the user knows the save didn't stick
+ * (instead of seeing a fake success toast and losing the recap on
+ * the next reload).
  */
 export async function saveWeekRecapToSubcollection(dynastyId, year, week, recap) {
   const ref = doc(db, DYNASTIES_COLLECTION, dynastyId, WEEK_RECAPS_SUBCOLLECTION, recapDocId(year, week))
-  await setDoc(ref, sanitizeForFirestore({
+  const payload = sanitizeForFirestore({
     year: Number(year),
     week: Number(week),
     generatedAt: recap?.generatedAt ?? Date.now(),
-    text: recap?.text || ''
-  }))
+    text: recap?.text || '',
+  })
+
+  await setDoc(ref, payload)
+
+  // Step 2 — block until the SDK confirms every pending write was
+  // acked by the server. Without this, setDoc resolves on cache write
+  // and a flaky network can silently drop the server-side write.
+  try {
+    await waitForPendingWrites(db)
+  } catch (err) {
+    // waitForPendingWrites failure means we don't know the server
+    // status. Throw so the caller can surface the failure rather
+    // than show a misleading success toast.
+    throw new Error(`Recap save couldn't be confirmed: ${err?.code || err?.message || 'sync timeout'}`)
+  }
+
+  // Step 3 — read-back verify the persisted text from the server. The
+  // text we just wrote should round-trip exactly. If the server doc
+  // is missing or the text differs, throw.
+  try {
+    const verifySnap = await getDocFromServer(ref)
+    if (!verifySnap.exists()) {
+      throw new Error('Recap save verification failed: server doc not found after write')
+    }
+    const verifyData = verifySnap.data() || {}
+    if (verifyData.text !== payload.text) {
+      throw new Error('Recap save verification failed: server text does not match the written value')
+    }
+  } catch (err) {
+    if (err?.message?.startsWith('Recap save verification failed')) throw err
+    throw new Error(`Recap save verification failed: ${err?.code || err?.message || 'unknown'}`)
+  }
 }
 
 export async function deleteWeekRecapFromSubcollection(dynastyId, year, week) {
