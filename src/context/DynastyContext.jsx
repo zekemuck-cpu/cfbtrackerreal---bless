@@ -1795,20 +1795,13 @@ export function getTeamRanking(dynasty, tidOrAbbr, year) {
   const tid = typeof tidOrAbbr === 'string' ? getTidFromAbbr(tidOrAbbr, dynasty) : tidOrAbbr
   const abbr = typeof tidOrAbbr === 'number' ? getOriginalTeamAbbr(tidOrAbbr) : tidOrAbbr
 
-  // Priority 1: Check final polls (end of season ranking, most authoritative)
-  const finalPolls = dynasty.finalPollsByYear?.[year]
-  if (finalPolls?.media?.length > 0) {
-    const teamEntry = finalPolls.media.find(p => p && ((tid != null && Number(p.tid) === Number(tid)) || p.team === abbr))
-    if (teamEntry?.rank) {
-      return { rank: teamEntry.rank, source: 'final_poll' }
-    }
-  }
-
-  // Priority 2: rankByWeek — the canonical per-week rank store the
+  // Priority 1: rankByWeek — the canonical per-week rank store the
   // Rankings page reads from. Take this team's highest populated
-  // week so the team page shows the current-week rank (matches the
-  // Rankings page) rather than the rank entering the last played
-  // game's week, which is what the games[] fallback returns.
+  // week so the team page shows the current-week rank and matches
+  // the Rankings page exactly. This wins over saved final polls so
+  // an in-season team that has a stale or pre-existing finalPolls
+  // entry (preseason poll seed, prior playthrough, manual entry)
+  // doesn't override the live week-by-week truth.
   if (tid != null) {
     const byYear = dynasty.teams?.[tid]?.byYear || dynasty.teams?.[String(tid)]?.byYear
     const rankByWeek = byYear?.[year]?.rankByWeek ?? byYear?.[String(year)]?.rankByWeek
@@ -1824,6 +1817,17 @@ export function getTeamRanking(dynasty, tidOrAbbr, year) {
       if (latestRank != null) {
         return { rank: latestRank, source: 'rank_by_week', week: latestWeek }
       }
+    }
+  }
+
+  // Priority 2: Saved final poll. Only consulted when no rankByWeek
+  // exists — covers legacy dynasties that pre-date rankByWeek and
+  // never had weekly-scores saves populate it.
+  const finalPolls = dynasty.finalPollsByYear?.[year]
+  if (finalPolls?.media?.length > 0) {
+    const teamEntry = finalPolls.media.find(p => p && ((tid != null && Number(p.tid) === Number(tid)) || p.team === abbr))
+    if (teamEntry?.rank) {
+      return { rank: teamEntry.rank, source: 'final_poll' }
     }
   }
 

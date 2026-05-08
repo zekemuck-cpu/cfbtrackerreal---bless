@@ -1423,26 +1423,9 @@ export default function TeamYear() {
   // Get team ratings for this year (try both tid and abbr keys for backwards compatibility)
   const teamRatings = lookupByTeamYear(currentDynasty.teamRatingsByTeamYear, currentDynasty, tid, selectedYear) || null
 
-  // Get final poll rankings for this team in this year (tid-based).
-  // Coaches poll was retired — only the media poll is consulted now.
-  const getFinalPollRankings = () => {
-    const pollsData = currentDynasty.finalPollsByYear?.[selectedYear]
-    if (!pollsData) return null
-
-    const mediaRank = pollsData.media?.find(p => {
-      if (!p) return false
-      const pollTid = p.tid || resolveTid(p.team, teamsSource)
-      return pollTid === tid
-    })?.rank
-
-    if (!mediaRank) return null
-
-    return { media: mediaRank }
-  }
-
-  const finalPollRanking = getFinalPollRankings()
-
-  // Get unified ranking (includes in-season ranking from games if no final poll)
+  // Unified ranking source — getTeamRanking prefers rankByWeek (the
+  // canonical per-week store the Rankings page reads), then a saved
+  // final poll, then the most recent game's stored rank.
   const unifiedRanking = getTeamRanking(currentDynasty, tid, selectedYear)
 
   // Get all games array for unified lookups
@@ -2575,27 +2558,20 @@ export default function TeamYear() {
                   selector. Hidden on mobile to keep the team-name line
                   uncluttered; mobile shows the same ranking inline
                   with the record + conference strip below. */}
-              {finalPollRanking ? (
+              {unifiedRanking?.rank ? (
                 <Link
                   to={`${pathPrefix}/rankings/${selectedYear}`}
                   className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
-                  style={{
-                    backgroundColor: '#fbbf24',
-                    color: '#78350f'
-                  }}
-                  title={`Final Ranking: #${finalPollRanking.media} — view Top 25`}
-                >
-                  #{finalPollRanking.media}
-                </Link>
-              ) : unifiedRanking?.rank ? (
-                <Link
-                  to={`${pathPrefix}/rankings/${selectedYear}`}
-                  className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
-                  style={{
-                    backgroundColor: '#6b7280',
-                    color: '#ffffff'
-                  }}
-                  title={`Current Ranking (Week ${unifiedRanking.week || '?'}) — view Top 25`}
+                  style={
+                    unifiedRanking.source === 'final_poll'
+                      ? { backgroundColor: '#fbbf24', color: '#78350f' }
+                      : { backgroundColor: '#6b7280', color: '#ffffff' }
+                  }
+                  title={
+                    unifiedRanking.source === 'final_poll'
+                      ? `Final Ranking: #${unifiedRanking.rank} — view Top 25`
+                      : `Current Ranking (Week ${unifiedRanking.week || '?'}) — view Top 25`
+                  }
                 >
                   #{unifiedRanking.rank}
                 </Link>
@@ -2741,31 +2717,30 @@ export default function TeamYear() {
                 row also carries the ranking pill (which is hidden in
                 the team-name row above on small screens) so the team
                 name doesn't get jostled by the badge. */}
-            {(displayRecord || conference || finalPollRanking || unifiedRanking?.rank) && (
+            {(displayRecord || conference || unifiedRanking?.rank) && (
               <div className="flex items-center gap-2 sm:gap-3 mt-1 flex-wrap">
                 {/* Mobile-only ranking pill — same Link target as the
                     desktop badge, just relocated to keep the small
                     viewport tidy. */}
-                {finalPollRanking ? (
+                {unifiedRanking?.rank ? (
                   <Link
                     to={`${pathPrefix}/rankings/${selectedYear}`}
                     className="sm:hidden flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold hover:opacity-90 transition-opacity"
-                    style={{ backgroundColor: '#fbbf24', color: '#78350f' }}
-                    title={`Final Ranking: #${finalPollRanking.media} — view Top 25`}
-                  >
-                    #{finalPollRanking.media}
-                  </Link>
-                ) : unifiedRanking?.rank ? (
-                  <Link
-                    to={`${pathPrefix}/rankings/${selectedYear}`}
-                    className="sm:hidden flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold hover:opacity-90 transition-opacity"
-                    style={{ backgroundColor: '#6b7280', color: '#ffffff' }}
-                    title={`Current Ranking (Week ${unifiedRanking.week || '?'}) — view Top 25`}
+                    style={
+                      unifiedRanking.source === 'final_poll'
+                        ? { backgroundColor: '#fbbf24', color: '#78350f' }
+                        : { backgroundColor: '#6b7280', color: '#ffffff' }
+                    }
+                    title={
+                      unifiedRanking.source === 'final_poll'
+                        ? `Final Ranking: #${unifiedRanking.rank} — view Top 25`
+                        : `Current Ranking (Week ${unifiedRanking.week || '?'}) — view Top 25`
+                    }
                   >
                     #{unifiedRanking.rank}
                   </Link>
                 ) : null}
-                {(finalPollRanking || unifiedRanking?.rank) && (displayRecord || conference) && (
+                {unifiedRanking?.rank && (displayRecord || conference) && (
                   <span className="sm:hidden text-txt-muted">•</span>
                 )}
                 {displayRecord && (
