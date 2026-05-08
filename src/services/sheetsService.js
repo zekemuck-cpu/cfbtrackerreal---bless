@@ -14424,10 +14424,18 @@ export async function createTop25Sheet(dynastyName, dynasty) {
   }
 
   // Step 3 — formatting + validation pass via sheets batchUpdate.
-  // Header row bold + frozen, rank-label column bold + neutral, every
-  // data cell gets strict-dropdown team validation, plus per-team
-  // conditional formatting for cell coloring.
-  const requests = []
+  // Split into two batches:
+  //   3a (awaited)    — header / rank-label / alignment / validation
+  //                      / column widths. Small (~6 reqs per year).
+  //   3b (background) — per-team conditional formatting. Big (one
+  //                      rule per team per year — ~140 teams ×
+  //                      orderedYears.length, often 700+ requests).
+  //                      Sending this synchronously made the
+  //                      "Creating Top 25 Sheet…" loader hang for
+  //                      tens of seconds on multi-year dynasties,
+  //                      so it now runs after we return.
+  const baseRequests = []
+  const colorRequests = []
   const teamsMap = getTeamsWithCustom(dynasty.teams)
   const validationValues = Object.keys(teamsMap).sort().map(abbr => ({ userEnteredValue: abbr }))
 
@@ -14435,7 +14443,7 @@ export async function createTop25Sheet(dynastyName, dynasty) {
     const sId = sheetIdByYear.get(year)
 
     // Header row formatting.
-    requests.push({
+    baseRequests.push({
       repeatCell: {
         range: { sheetId: sId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: NUM_COLS },
         cell: {
@@ -14450,7 +14458,7 @@ export async function createTop25Sheet(dynastyName, dynasty) {
     })
 
     // Rank-label column (column A, rows 2-26).
-    requests.push({
+    baseRequests.push({
       repeatCell: {
         range: { sheetId: sId, startRowIndex: 1, endRowIndex: NUM_ROWS, startColumnIndex: 0, endColumnIndex: 1 },
         cell: {
@@ -14465,7 +14473,7 @@ export async function createTop25Sheet(dynastyName, dynasty) {
     })
 
     // Center-align all team-cell content.
-    requests.push({
+    baseRequests.push({
       repeatCell: {
         range: { sheetId: sId, startRowIndex: 1, endRowIndex: NUM_ROWS, startColumnIndex: 1, endColumnIndex: NUM_COLS },
         cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { bold: true } } },
@@ -14474,7 +14482,7 @@ export async function createTop25Sheet(dynastyName, dynasty) {
     })
 
     // Strict-dropdown validation on every team cell.
-    requests.push({
+    baseRequests.push({
       setDataValidation: {
         range: { sheetId: sId, startRowIndex: 1, endRowIndex: NUM_ROWS, startColumnIndex: 1, endColumnIndex: NUM_COLS },
         rule: {
@@ -14487,8 +14495,9 @@ export async function createTop25Sheet(dynastyName, dynasty) {
 
     // Per-team conditional formatting — paint cells in the team's
     // primary/secondary colors as soon as a valid abbr lands.
+    // Deferred to the background batch (see comment above).
     for (const [abbr, teamData] of Object.entries(teamsMap)) {
-      requests.push({
+      colorRequests.push({
         addConditionalFormatRule: {
           rule: {
             ranges: [{ sheetId: sId, startRowIndex: 1, endRowIndex: NUM_ROWS, startColumnIndex: 1, endColumnIndex: NUM_COLS }],
@@ -14506,14 +14515,14 @@ export async function createTop25Sheet(dynastyName, dynasty) {
     }
 
     // Sensible column widths — narrow week columns + slightly wider rank label.
-    requests.push({
+    baseRequests.push({
       updateDimensionProperties: {
         range: { sheetId: sId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 },
         properties: { pixelSize: 64 },
         fields: 'pixelSize',
       },
     })
-    requests.push({
+    baseRequests.push({
       updateDimensionProperties: {
         range: { sheetId: sId, dimension: 'COLUMNS', startIndex: 1, endIndex: NUM_COLS },
         properties: { pixelSize: 86 },
@@ -14527,7 +14536,7 @@ export async function createTop25Sheet(dynastyName, dynasty) {
     {
       method: 'POST',
       headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requests }),
+      body: JSON.stringify({ requests: baseRequests }),
     },
   )
   if (!batchRes.ok) {
@@ -14536,6 +14545,28 @@ export async function createTop25Sheet(dynastyName, dynasty) {
   }
 
   await shareSheetPublicly(sheet.spreadsheetId, accessToken)
+
+  // Background: apply per-team conditional formatting. Fire-and-
+  // forget — failures here are non-fatal (the sheet is fully
+  // functional without team-color rules; only the visual coloring
+  // is missing). Logged at warn level for diagnostics.
+  if (colorRequests.length > 0) {
+    fetch(
+      `${SHEETS_API_BASE}/${sheet.spreadsheetId}:batchUpdate`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requests: colorRequests }),
+      },
+    ).then(async (res) => {
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        console.warn('[createTop25Sheet] background color formatting failed:', err?.error?.message || res.status)
+      }
+    }).catch((err) => {
+      console.warn('[createTop25Sheet] background color formatting threw:', err)
+    })
+  }
 
   return {
     spreadsheetId: sheet.spreadsheetId,
