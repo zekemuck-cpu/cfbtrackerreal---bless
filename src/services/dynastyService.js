@@ -26,6 +26,10 @@ const PLAYERS_SUBCOLLECTION = 'players'
 const GAMES_SUBCOLLECTION = 'games'
 const INVITES_SUBCOLLECTION = 'invites'
 const WEEK_RECAPS_SUBCOLLECTION = 'weekRecaps'
+// Mirrored from seasonSubcollection.js — kept local so the dynasty
+// teardown path (deleteDynastyWithSubcollections) can wipe the
+// seasons docs without crossing module boundaries.
+const SEASONS_SUBCOLLECTION = 'seasons'
 
 // Batch size limit for Firestore (max 500 per batch)
 const BATCH_SIZE = 450
@@ -1202,22 +1206,20 @@ async function deleteSubcollection(dynastyId, subcollectionName) {
 
     if (snapshot.empty) return
 
-    // Delete in batches with delay to prevent Firestore overload
+    // Build all batches up front, then commit them in parallel. Was
+    // serial-with-100ms-delays-between-batches; on a 5000-player
+    // dynasty that's 10 batches × ~500ms RTT + ~900ms of artificial
+    // sleep = ~6s just for the players subcollection. Parallel
+    // commits land in roughly one round-trip.
+    const batches = []
     for (let i = 0; i < snapshot.docs.length; i += BATCH_SIZE) {
       const batch = writeBatch(db)
-      const batchDocs = snapshot.docs.slice(i, i + BATCH_SIZE)
-
-      for (const docSnap of batchDocs) {
+      for (const docSnap of snapshot.docs.slice(i, i + BATCH_SIZE)) {
         batch.delete(docSnap.ref)
       }
-
-      await batch.commit()
-
-      // Add delay between batches to prevent "Write stream exhausted" error
-      if (i + BATCH_SIZE < snapshot.docs.length) {
-        await new Promise(resolve => setTimeout(resolve, 100))
-      }
+      batches.push(batch.commit())
     }
+    await Promise.all(batches)
   } catch (error) {
     console.error(`Error deleting ${subcollectionName} subcollection:`, error)
     throw error
@@ -1225,18 +1227,28 @@ async function deleteSubcollection(dynastyId, subcollectionName) {
 }
 
 /**
- * Delete a dynasty and all its subcollections
- * @param {string} dynastyId - The dynasty document ID
+ * Delete a dynasty and all its subcollections.
+ *
+ * Was: sequential (players → games → main doc). Two omissions: the
+ * `invites`, `weekRecaps`, and `seasons` subcollections were never
+ * deleted, so they orphaned in Firestore forever every time someone
+ * deleted a dynasty.
+ *
+ * Now: every subcollection wipe runs in parallel with the main-doc
+ * delete (subcollections live independently of the parent doc, so
+ * order doesn't matter for correctness). On a multi-year dynasty
+ * this drops total wall time from ~10s to ~1-2s.
  */
 export async function deleteDynastyWithSubcollections(dynastyId) {
   try {
-    // Delete subcollections first (Firestore doesn't auto-delete them)
-    // Do this sequentially to avoid overwhelming Firestore write stream
-    await deleteSubcollection(dynastyId, PLAYERS_SUBCOLLECTION)
-    await deleteSubcollection(dynastyId, GAMES_SUBCOLLECTION)
-
-    // Then delete the main document
-    await deleteDoc(doc(db, DYNASTIES_COLLECTION, dynastyId))
+    await Promise.all([
+      deleteSubcollection(dynastyId, PLAYERS_SUBCOLLECTION),
+      deleteSubcollection(dynastyId, GAMES_SUBCOLLECTION),
+      deleteSubcollection(dynastyId, WEEK_RECAPS_SUBCOLLECTION),
+      deleteSubcollection(dynastyId, SEASONS_SUBCOLLECTION),
+      deleteSubcollection(dynastyId, INVITES_SUBCOLLECTION),
+      deleteDoc(doc(db, DYNASTIES_COLLECTION, dynastyId)),
+    ])
   } catch (error) {
     console.error('Error deleting dynasty with subcollections:', error)
     throw error

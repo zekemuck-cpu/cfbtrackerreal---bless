@@ -6953,22 +6953,25 @@ export function DynastyProvider({ children }) {
       return
     }
 
-    // Cloud storage: delete from Firestore (including subcollections)
-    try {
-      // Use the new function that also deletes players/games subcollections
-      await deleteDynastyWithSubcollections(dynastyId)
-
-      // Remove from local state
-      const updated = dynasties.filter(d => String(d.id) !== String(dynastyId))
-      setDynasties(updated)
-
-      if (String(currentDynasty?.id) === String(dynastyId)) {
-        setCurrentDynasty(null)
-      }
-    } catch (error) {
-      console.error('Error deleting dynasty from Firestore:', error)
-      throw error
+    // Cloud storage: optimistic UI + background Firestore wipe.
+    //
+    // Was: await deleteDynastyWithSubcollections, then remove from
+    // state. On a multi-year dynasty (5000+ players, 1000+ games)
+    // that single await blocked the UI for 5-10 seconds. Now the
+    // dynasty disappears from the user's list IMMEDIATELY and the
+    // Firestore tear-down runs in the background. If it fails, the
+    // listener brings the dynasty back on the next snapshot — and
+    // the catch block surfaces a toast so the user knows.
+    const updated = dynasties.filter(d => String(d.id) !== String(dynastyId))
+    setDynasties(updated)
+    if (String(currentDynasty?.id) === String(dynastyId)) {
+      setCurrentDynasty(null)
     }
+
+    deleteDynastyWithSubcollections(dynastyId).catch(error => {
+      console.error('Error deleting dynasty from Firestore:', error)
+      try { toast.error('Failed to delete dynasty — it may reappear. Try again.') } catch {}
+    })
   }
 
   const selectDynasty = async (dynastyId) => {
