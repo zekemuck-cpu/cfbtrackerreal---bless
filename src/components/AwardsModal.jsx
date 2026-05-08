@@ -339,7 +339,8 @@ FINAL CHECK before you send
   return createPortal(
     <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4" style={{ margin: 0 }} onMouseDown={handleClose}>
       <div className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-4rem)] sm:h-[95dvh] flex flex-col overflow-hidden" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="h-[3px] w-full" style={{ backgroundColor: 'var(--text-primary)' }} aria-hidden="true" />
+        {/* Header. No top stripe — the stripe was visual noise across
+            32 sheet modals; cleaner header reads on every modal now. */}
         <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-surface-4">
           <h2 className="text-2xl font-bold text-txt-primary">{currentYear} Season Awards</h2>
           <button aria-label="Close" onClick={handleClose} className="text-txt-tertiary hover:text-txt-primary transition-colors">
@@ -365,55 +366,114 @@ FINAL CHECK before you send
             </div>
           </div>
         ) : sheetId ? (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {!isMobile && useEmbedded && (
-              <div className="mb-3">
-                <div className="flex gap-3 flex-wrap items-center">
-                  <button onClick={handleSyncAndDelete} disabled={syncing || deletingSheet} className={`px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`} style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}>{deletingSheet ? 'Saving...' : 'Save & Move to Trash'}</button>
-                  <button onClick={handleSyncFromSheet} disabled={syncing || deletingSheet} className="btn btn-secondary text-sm">{syncing ? 'Syncing...' : 'Save & Keep Sheet'}</button>
-                  <button onClick={() => setShowAIPrompt(true)} className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
-                  <button onClick={handleDeleteSheetOnly} disabled={syncing || deletingSheet || regenerating} className="px-4 py-2 rounded-lg font-semibold text-sm disabled:opacity-60 transition-colors border border-surface-4 hover:bg-surface-2 text-txt-secondary ml-auto">{deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}</button>
-                  <button onClick={handleRegenerateSheet} disabled={syncing || deletingSheet || regenerating} className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2" style={{ backgroundColor: 'transparent', borderColor: '#EF4444', color: '#EF4444' }}>{regenerating ? 'Regenerating...' : 'Regenerate sheet'}</button>
+          <div className="flex-1 flex flex-col overflow-hidden gap-3">
+
+            {/* AI Hero Panel — primary path. The user can run the AI
+                prompt through ChatGPT/Claude/Gemini, paste the response
+                into the sheet below, then save. Manual entry into the
+                sheet is still supported but framed as the secondary
+                path. */}
+            <div
+              className="rounded-lg p-3 sm:p-4 border-l-[3px] flex items-center gap-3 sm:gap-4 flex-wrap"
+              style={{ borderLeftColor: 'var(--text-primary)', backgroundColor: 'var(--surface-2)' }}
+            >
+              <div className="flex-1 min-w-[200px]">
+                <div className="label-xs text-txt-tertiary mb-1" style={{ letterSpacing: '1.5px' }}>
+                  AI WORKFLOW · RECOMMENDED
                 </div>
+                <p className="text-sm text-txt-primary font-semibold">
+                  Skip the typing. Let AI fill the sheet.
+                </p>
+                <p className="text-xs text-txt-secondary mt-1">
+                  Copy the prompt → paste into your AI assistant → paste the AI's reply into the sheet → save.
+                </p>
               </div>
-            )}
-            {!isMobile && (
-              <div className="flex items-center justify-end mb-2">
-                <button onClick={() => { const newValue = !useEmbedded; setUseEmbedded(newValue); localStorage.setItem('sheetEmbedPreference', newValue.toString()); }} className="text-xs px-3 py-1 rounded-full border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">{useEmbedded ? '← Back to default view' : 'Try embedded view (beta)'}</button>
-              </div>
-            )}
+              <button
+                onClick={() => setShowAIPrompt(true)}
+                className="px-4 sm:px-5 py-2.5 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity flex-shrink-0"
+                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
+              >
+                Copy AI Prompt
+              </button>
+            </div>
+
+            {/* Sheet — embedded iframe on desktop, instructional view
+                on mobile. Manual editing happens here regardless of
+                whether the user pastes AI output or types each cell. */}
             {isMobile || !useEmbedded ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-                <h3 className="label-xs text-txt-tertiary mb-2">Data Entry</h3>
-                <p className="text-2xl font-bold text-txt-primary mb-6">Edit in Google Sheets</p>
-                <div className="text-left mb-6 max-w-sm w-full card p-4 border-l-[3px]" style={{ borderLeftColor: 'var(--surface-5)' }}>
-                  <p className="label-xs text-txt-tertiary mb-3">Instructions</p>
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-4 overflow-y-auto">
+                <p className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '1.5px' }}>MANUAL ENTRY</p>
+                <p className="text-xl font-bold text-txt-primary mb-4">Edit in Google Sheets</p>
+                <div className="text-left mb-5 max-w-sm w-full card p-4 border-l-[3px]" style={{ borderLeftColor: 'var(--surface-5)' }}>
                   <ol className="text-sm space-y-2 text-txt-secondary">
-                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">1.</span><span>Tap the button below to open Google Sheets</span></li>
+                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">1.</span><span>Open the sheet in Google Sheets</span></li>
                     <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">2.</span><span>Enter award winners (Player, Position, Team, Class)</span></li>
-                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">3.</span><span>Return to this app when done</span></li>
-                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Tap "Save" below to sync results</span></li>
+                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">3.</span><span>Come back here, tap Save</span></li>
                   </ol>
                 </div>
-                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
-                  <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
-                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
-                    Open Google Sheets
-                  </a>
-                  <button onClick={() => setShowAIPrompt(true)} className="px-5 py-3 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
-                  <button onClick={handleSyncAndDelete} disabled={syncing || deletingSheet} className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`} style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}>{deletingSheet ? 'Saving...' : 'Save & Move to Trash'}</button>
-                  <button onClick={handleSyncFromSheet} disabled={syncing || deletingSheet} className="btn btn-secondary px-6 py-3 text-sm">{syncing ? 'Syncing...' : 'Save & Keep Sheet'}</button>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
-                  <button onClick={handleDeleteSheetOnly} disabled={syncing || deletingSheet || regenerating} className="text-xs px-4 py-2 rounded-lg font-medium transition-colors border border-surface-4 hover:bg-surface-2 text-txt-secondary disabled:opacity-60">{deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}</button>
-                  <button onClick={handleRegenerateSheet} disabled={syncing || deletingSheet || regenerating} className="text-xs px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-colors border" style={{ backgroundColor: 'transparent', borderColor: '#EF4444', color: '#EF4444' }}>{regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}</button>
-                </div>
+                <a
+                  href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-5 py-2.5 rounded-lg font-semibold text-sm border border-surface-4 text-txt-primary hover:bg-surface-2 transition-colors mb-4 inline-flex items-center gap-2"
+                >
+                  Open Google Sheets
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+                </a>
               </div>
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0">
                 <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="Awards" />
+              </div>
+            )}
+
+            {/* Save / utility actions. Save buttons stay primary so
+                the user can save AI-pasted or hand-entered output the
+                same way; Delete + Regenerate are tertiary. */}
+            <div className="flex flex-wrap gap-2 items-center pt-1">
+              <button
+                onClick={handleSyncAndDelete}
+                disabled={syncing || deletingSheet}
+                className={`px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90 transition-all disabled:opacity-60 ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
+                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
+              >
+                {deletingSheet ? 'Saving…' : 'Save & Move to Trash'}
+              </button>
+              <button
+                onClick={handleSyncFromSheet}
+                disabled={syncing || deletingSheet}
+                className="px-4 py-2 rounded-lg font-semibold text-sm border border-surface-4 hover:bg-surface-2 text-txt-primary disabled:opacity-60 transition-colors"
+              >
+                {syncing ? 'Syncing…' : 'Save & Keep Sheet'}
+              </button>
+              <button
+                onClick={handleDeleteSheetOnly}
+                disabled={syncing || deletingSheet || regenerating}
+                className="px-4 py-2 rounded-lg font-semibold text-sm border border-surface-4 hover:bg-surface-2 text-txt-secondary disabled:opacity-60 transition-colors ml-auto"
+              >
+                {deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}
+              </button>
+              <button
+                onClick={handleRegenerateSheet}
+                disabled={syncing || deletingSheet || regenerating}
+                className="px-4 py-2 rounded-lg font-semibold text-sm border hover:bg-surface-2 transition-colors disabled:opacity-60"
+                style={{ backgroundColor: 'transparent', borderColor: 'var(--accent-error)', color: 'var(--accent-error)' }}
+              >
+                {regenerating ? 'Regenerating…' : 'Regenerate'}
+              </button>
+            </div>
+
+            {/* Embedded view toggle — small, footnote-style. */}
+            {!isMobile && (
+              <div className="flex items-center justify-end">
+                <button
+                  onClick={() => { const newValue = !useEmbedded; setUseEmbedded(newValue); localStorage.setItem('sheetEmbedPreference', newValue.toString()); }}
+                  className="text-[11px] px-2.5 py-1 rounded-full border border-surface-4 text-txt-tertiary hover:text-txt-secondary hover:border-surface-5 transition-colors bg-transparent"
+                >
+                  {useEmbedded ? '← Back to default view' : 'Try embedded view (beta)'}
+                </button>
               </div>
             )}
           </div>
