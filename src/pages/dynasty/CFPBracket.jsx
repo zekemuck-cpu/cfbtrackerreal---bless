@@ -611,10 +611,11 @@ export default function CFPBracket() {
     const logo = customEntry?.logo || (mascotName ? getTeamLogo(mascotName, dynastyTeams) : null)
     const isLoser = score !== undefined && !isWinner
 
-    // When parent is clickable (a Link), use span to avoid nested anchors
-    // When parent is not clickable, use Link to allow team navigation.
-    // Use the tid input directly when present so the link is stable across
-    // teambuilder renames; fall back to abbr-resolution.
+    // Team name should always link to the team page. When the parent
+    // Matchup is itself a Link, we render via a button + programmatic
+    // navigation (avoids nested anchors, which break HTML semantics and
+    // produce inconsistent behavior). stopPropagation prevents the parent
+    // matchup link from also firing.
     const linkTid = teamTid != null ? Number(teamTid) : (resolvedAbbr ? resolveTid(resolvedAbbr, dynastyTeams || TEAMS) : null)
     const TeamName = () => {
       if (!resolvedAbbr) {
@@ -625,7 +626,7 @@ export default function CFPBracket() {
         )
       }
 
-      if (isParentClickable) {
+      if (linkTid == null) {
         return (
           <span className="text-xl font-semibold" style={{ color: txtColor }}>
             {getShortName(resolvedAbbr)}
@@ -633,9 +634,28 @@ export default function CFPBracket() {
         )
       }
 
+      const teamHref = `${pathPrefix}/team/${linkTid}/${displayYear}`
+
+      if (isParentClickable) {
+        return (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              navigate(teamHref)
+            }}
+            className="text-xl font-semibold hover:underline text-left bg-transparent border-0 p-0 cursor-pointer"
+            style={{ color: txtColor }}
+          >
+            {getShortName(resolvedAbbr)}
+          </button>
+        )
+      }
+
       return (
         <Link
-          to={`${pathPrefix}/team/${linkTid}/${displayYear}`}
+          to={teamHref}
           onClick={(e) => e.stopPropagation()}
           className="text-xl font-semibold hover:underline"
           style={{ color: txtColor }}
@@ -716,13 +736,11 @@ export default function CFPBracket() {
     // Each CFP game has a fixed slot ID: cfpfr1-4, cfpqf1-4, cfpsf1-2, cfpnc
     const gameId = slotId ? getCFPGameId(slotId, displayYear) : null
 
-    // Game is clickable if:
-    // 1. There's a result (game has been played), OR
-    // 2. There's a game shell (created when seeds were entered), OR
-    // 3. Both teams are known (we can at least view the matchup)
+    // Game is clickable only when an actual game record exists. Pure
+    // projections (both teams known but no shell created yet) must NOT
+    // link — the game page would 404 with "Game not found".
     const hasGameShell = gameData?.id
-    const hasTeams = team1 && team2
-    const isClickable = (hasResult || hasGameShell || hasTeams) && gameId
+    const isClickable = (hasResult || hasGameShell) && gameId
 
     // Pass tid through when available so TeamSlot can resolve registry
     // data without depending on the (possibly stale) abbr string.

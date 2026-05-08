@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { useDynasty, calculateTeamRecordFromGames } from '../../context/DynastyContext'
+import { useDynasty, calculateTeamRecordFromGames, getTeamRecord } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
@@ -192,15 +192,36 @@ export default function Rankings() {
       })
     }
   })
-  // When the user is browsing a specific week, records should reflect
-  // games played through that week — otherwise a row could read "10-0"
-  // while the selector says "Week 3". 'final' shows full-season totals.
-  const recordOpts = usingLive && selectedWeek != null ? { upToWeek: selectedWeek } : {}
+  // Record source — different rules for the "as of week N" case vs
+  // the "current / final poll" case:
+  //
+  //   - As-of-week-N (user is browsing a specific past week): calc
+  //     from games is the ONLY source that can produce a partial
+  //     record at that point in time. Stored records are end-of-
+  //     season totals. So for this case we still use calc-with-
+  //     upToWeek, falling back to the standings row only when calc
+  //     turned up nothing (e.g. season hasn't started yet).
+  //
+  //   - Final poll / current state (no week filter): use the
+  //     coverage-aware getTeamRecord helper. This is the same fix as
+  //     the conference standings page — for non-user teams, calc-
+  //     from-games[] is sparse (only user-vs-them games) and would
+  //     show "1-0" for a team whose stored full season is 16-0. The
+  //     helper picks whichever stored source covers the most games.
+  const isAsOfWeek = usingLive && selectedWeek != null
+  const recordOpts = isAsOfWeek ? { upToWeek: selectedWeek } : {}
   const lookupRecord = (abbr, tid) => {
     if (tid != null) {
-      const calc = calculateTeamRecordFromGames(currentDynasty, Number(tid), displayYear, recordOpts)
-      if (calc && (calc.wins > 0 || calc.losses > 0)) {
-        return { wins: calc.wins, losses: calc.losses }
+      if (isAsOfWeek) {
+        const calc = calculateTeamRecordFromGames(currentDynasty, Number(tid), displayYear, recordOpts)
+        if (calc && (calc.wins > 0 || calc.losses > 0)) {
+          return { wins: calc.wins, losses: calc.losses }
+        }
+      } else {
+        const helperRec = getTeamRecord(currentDynasty, Number(tid), displayYear)
+        if (helperRec && (helperRec.wins > 0 || helperRec.losses > 0)) {
+          return { wins: helperRec.wins, losses: helperRec.losses }
+        }
       }
     }
     if (tid != null && teamRecordsByTid[Number(tid)]) return teamRecordsByTid[Number(tid)]

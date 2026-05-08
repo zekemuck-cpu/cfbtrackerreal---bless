@@ -2,14 +2,18 @@ import { useEffect, useState } from 'react'
 
 /**
  * Inline hint shown beneath a spinning "Creating sheet..." loader once
- * the operation has been running longer than `delayMs` (default 15s).
+ * the operation has been running longer than `delayMs` (default 60s).
  *
  * Most long loads on this feature are caused by the user's Google Drive
  * being full — the Drive API silently fails to create a file, so we sit
  * there spinning forever. Pointing the user at their storage page usually
  * solves it faster than any retry.
+ *
+ * Why 60s: shorter delays produced false positives — sheet creation
+ * frequently takes 15-30s on slow connections without any storage issue,
+ * so the warning was popping up nearly every time.
  */
-export default function SheetLoadingHint({ active, delayMs = 15000 }) {
+export default function SheetLoadingHint({ active, delayMs = 60000 }) {
   const [show, setShow] = useState(false)
 
   useEffect(() => {
