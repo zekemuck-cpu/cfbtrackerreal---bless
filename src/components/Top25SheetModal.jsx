@@ -6,6 +6,11 @@ import {
   deleteGoogleSheet,
   getSingleSheetEmbedUrl,
 } from '../services/sheetsService'
+
+const isMobileDevice = () => {
+  if (typeof window === 'undefined') return false
+  return window.innerWidth < 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+}
 import { useDynasty, applyTop25SheetDiff, buildTop25Diff } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
@@ -49,9 +54,19 @@ export default function Top25SheetModal({ isOpen, onClose }) {
   const [deletingSheet, setDeletingSheet] = useState(false)
   const [sheetId, setSheetId] = useState(null)
   const [showDeletedNote, setShowDeletedNote] = useState(false)
+  const [isMobile, setIsMobile] = useState(isMobileDevice)
   const auth = useAuthErrorHandler()
   const [pendingSave, setPendingSave] = useState(null) // { diff, summary, alsoDelete }
   const creatingSheetRef = useRef(false)
+
+  // Track mobile breakpoint so we can swap the iframe for an
+  // open-in-Sheets CTA — Google's embedded view is unusable in a
+  // phone-sized iframe (matches WeeklyScoresModal's mobile fork).
+  useEffect(() => {
+    const handleResize = () => setIsMobile(isMobileDevice())
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   // Resume session — pull sheetId off the dynasty if one's stored.
   useEffect(() => {
@@ -267,7 +282,32 @@ export default function Top25SheetModal({ isOpen, onClose }) {
                 </button>
               </div>
 
-              {embedUrl ? (
+              {isMobile ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
+                  <h3 className="label-xs text-txt-tertiary mb-2">Edit Rankings</h3>
+                  <p className="text-2xl font-bold text-txt-primary mb-6">Edit in Google Sheets</p>
+                  <div className="text-left mb-6 max-w-sm w-full card p-4 border-l-[3px]" style={{ borderLeftColor: 'var(--surface-5)' }}>
+                    <p className="label-xs text-txt-tertiary mb-3">Instructions</p>
+                    <ol className="text-sm space-y-2 text-txt-secondary">
+                      <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">1.</span><span>Tap "Open Google Sheets" to edit your Top 25 by week</span></li>
+                      <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">2.</span><span>Return here and tap "Save" to sync rankings into your dynasty</span></li>
+                    </ol>
+                  </div>
+                  <a
+                    href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2"
+                    style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}
+                  >
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+                      <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
+                    </svg>
+                    Open Google Sheets
+                  </a>
+                </div>
+              ) : embedUrl ? (
                 <div className="flex-1 rounded-lg overflow-hidden border border-surface-4">
                   <iframe
                     title="Top 25 Sheet"
