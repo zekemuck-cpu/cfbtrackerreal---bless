@@ -24,7 +24,6 @@
 import { getMascotName } from '../data/teams'
 import { ambiguousNamingRules } from './recapTeamNames'
 import { conferenceTeams as DEFAULT_CONFERENCES } from '../data/conferenceTeams'
-import { getTeamRankForWeek } from '../context/DynastyContext'
 import {
   getPriorYearPostseason,
   getTeamFinalRank,
@@ -34,8 +33,6 @@ import {
   getQualityWinsAndBadLosses,
   getRivalryName,
   getSeasonPOWTrail,
-  getTeamEnteringRank,
-  getGameOrder,
 } from '../services/geminiService'
 import { buildCFPProjection } from './cfpProjection'
 
@@ -96,36 +93,16 @@ function recordFromGames(games, year, tid) {
   return { wins: w, losses: l }
 }
 
-// Format one game line. Each team's rank appears as "[entering → post-game]"
-// where entering = rank carried INTO the matchup (looked up from the
-// team's prior game's stored rank — EA's stored rank is post-game) and
-// post-game = the rank stored on this game (the AFTER rank EA shows on
-// the schedule). Showing both lets the AI write "the #4 team faced
-// the #11 team" (entering) and "Tennessee fell to #15" (post-game)
-// without confusing the two.
-function fmtGameLine(game, dynasty, ranks) {
+// Format one game line. game.team1Rank / team2Rank is the team's
+// ENTERING rank for this game (rank during the matchup) — the EA
+// shift is handled at write time so by read time the stored value
+// IS what we want to display.
+function fmtGameLine(game, dynasty) {
   const t1 = teamDisplay(game.team1Tid, game.team1, dynasty)
   const t2 = teamDisplay(game.team2Tid, game.team2, dynasty)
   const s1 = game.team1Score, s2 = game.team2Score
-  // ranks: { team1Entering, team1Post, team2Entering, team2Post } —
-  // computed by the caller from dynasty.teams[tid].byYear[year].rankByWeek
-  // for both [gameWeek] (entering) and [gameWeek+1] (post-game).
-  // Legacy fallback to game.team1Rank / game.team2Rank covers
-  // dynasties where rankByWeek hasn't been populated for the
-  // post-game slot yet.
-  const e1 = ranks?.team1Entering ?? null
-  const e2 = ranks?.team2Entering ?? null
-  const p1 = ranks?.team1Post ?? (typeof game.team1Rank === 'number' ? game.team1Rank : null)
-  const p2 = ranks?.team2Post ?? (typeof game.team2Rank === 'number' ? game.team2Rank : null)
-  const fmtRank = (entering, post) => {
-    if (entering == null && post == null) return ''
-    if (entering != null && post != null && entering === post) return `[#${entering}] `
-    const ent = entering != null ? `#${entering}` : 'UR'
-    const pst = post != null ? `#${post}` : 'UR'
-    return `[${ent}→${pst}] `
-  }
-  const r1 = fmtRank(e1, p1)
-  const r2 = fmtRank(e2, p2)
+  const r1 = typeof game.team1Rank === 'number' ? `#${game.team1Rank} ` : ''
+  const r2 = typeof game.team2Rank === 'number' ? `#${game.team2Rank} ` : ''
   const home = game.homeTeamTid == null
     ? 'neutral site'
     : Number(game.homeTeamTid) === Number(game.team1Tid)
@@ -766,55 +743,21 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   sections.push(`Week being recapped: ${weekNum}`)
   sections.push('')
 
-  // Precompute entering ranks for every weekGame. Stored team1Rank /
-  // team2Rank are POST-game ranks (EA's schedule UI shows the rank
-  // each team holds AFTER playing). The entering rank — the rank
-  // each team CARRIED INTO this game — is the team's rank from its
-  // most recent prior game (whose stored rank is post-game from THAT
-  // game = entering rank for the next one). Computed once here so
-  // fmtGameLine can render "[entering→post]" cleanly.
-  const enteringRanksByGame = new Map()
-  const ranksFor = (g) => {
-    const order = getGameOrder(g)
-    // Entering rank = team's rank at week == order. Post-game rank =
-    // team's rank at week == order+1 (= entering next week). Both
-    // come from dynasty.teams[tid].byYear[year].rankByWeek now that
-    // the migration populates it. getTeamEnteringRank pulls from
-    // rankByWeek with a legacy fallback for unmigrated dynasties.
-    const t1Tid = g.team1Tid
-    const t2Tid = g.team2Tid
-    return {
-      team1Entering: getTeamEnteringRank(allDynastyGames, g.team1, yearNum, order, dynasty),
-      team2Entering: getTeamEnteringRank(allDynastyGames, g.team2, yearNum, order, dynasty),
-      team1Post: t1Tid != null
-        ? (getTeamRankForWeek(dynasty, t1Tid, yearNum, order + 1) ?? (typeof g.team1Rank === 'number' ? g.team1Rank : null))
-        : (typeof g.team1Rank === 'number' ? g.team1Rank : null),
-      team2Post: t2Tid != null
-        ? (getTeamRankForWeek(dynasty, t2Tid, yearNum, order + 1) ?? (typeof g.team2Rank === 'number' ? g.team2Rank : null))
-        : (typeof g.team2Rank === 'number' ? g.team2Rank : null),
-    }
-  }
-  for (const g of weekGames) {
-    enteringRanksByGame.set(g, ranksFor(g))
-  }
-
-  // RANK SEMANTICS — emit a single explainer once at the top of the
-  // ranked-game sections. EA's quirk is the #1 source of confusion in
-  // historical recaps so we name it explicitly.
-  const rankSemanticsBlurb = `Rank notation: "[#X→#Y] Team" means the team CARRIED #X into this game and FINISHED at #Y after the game. EA's schedule UI shows only the post-game rank (the #Y), so the entering rank (#X) is derived from each team's previous game's stored rank — which IS that team's post-game rank from last week, i.e. the rank they entered THIS week with. Use [entering] to describe the matchup itself ("the #X team faced the #Z team"). Use [post-game] to describe rank movement after the result ("Tennessee fell to #15 after the loss"). [UR] = unranked.`
-
-  // Headline games — top 25 vs top 25
+  // Headline games — top 25 vs top 25. Stored game.team1Rank / team2Rank
+  // is each team's ENTERING rank for that game (the rank during the
+  // matchup) — the EA shift is handled at write time, so by read
+  // time the value on the game record is what we want to show.
   if (top25vTop25.length > 0) {
     sections.push(`HEADLINE GAMES — RANKED vs RANKED (Week ${weekNum})`)
-    sections.push(rankSemanticsBlurb)
-    for (const g of top25vTop25) sections.push(fmtGameLine(g, dynasty, enteringRanksByGame.get(g)))
+    sections.push(`(Ranks shown are each team's entering rank — the rank they were ranked DURING the game.)`)
+    for (const g of top25vTop25) sections.push(fmtGameLine(g, dynasty))
     sections.push('')
   }
 
   // Top-25 results vs unranked teams
   if (top25vUnranked.length > 0) {
     sections.push(`TOP-25 vs UNRANKED RESULTS (Week ${weekNum})`)
-    for (const g of top25vUnranked) sections.push(fmtGameLine(g, dynasty, enteringRanksByGame.get(g)))
+    for (const g of top25vUnranked) sections.push(fmtGameLine(g, dynasty))
     sections.push('')
   }
 
@@ -823,7 +766,7 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   // bucket has no overlap with them.
   if (everyGameLine.length > 0) {
     sections.push(`OTHER FBS GAMES — UNRANKED MATCHUPS (Week ${weekNum})`)
-    for (const g of everyGameLine) sections.push(fmtGameLine(g, dynasty, enteringRanksByGame.get(g)))
+    for (const g of everyGameLine) sections.push(fmtGameLine(g, dynasty))
     sections.push('')
   }
 

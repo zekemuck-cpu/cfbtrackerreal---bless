@@ -1374,8 +1374,40 @@ export function migrateRanksToRankByWeek(dynasty, options = {}) {
     }
   }
 
+  // Now that rankByWeek is fully populated, rewrite every game's
+  // team1Rank/team2Rank to the team's ENTERING rank for that game's
+  // week. After this rewrite, every game record's stored rank IS the
+  // rank during the game — no further derivation needed at read time.
+  const readEntering = (tid, year, week) => {
+    if (tid == null || year == null || week == null) return null
+    const t = teamsCopy[String(tid)] || teamsCopy[tid]
+    const rbw = t?.byYear?.[String(year)]?.rankByWeek ?? t?.byYear?.[year]?.rankByWeek
+    if (!rbw) return null
+    const v = rbw[week] ?? rbw[String(week)]
+    if (typeof v !== 'number' || v < 1 || v > 25) return null
+    return v
+  }
+  const rewrittenGames = games.map(g => {
+    if (!g || g.year == null) return g
+    const wk = weekKeyOf(g)
+    if (wk == null) return g
+    let next = g
+    if (g.team1Tid != null) {
+      const r = readEntering(Number(g.team1Tid), g.year, wk)
+      const stored = typeof g.team1Rank === 'number' ? g.team1Rank : null
+      if (r !== stored) next = { ...next, team1Rank: r }
+    }
+    if (g.team2Tid != null) {
+      const r = readEntering(Number(g.team2Tid), g.year, wk)
+      const stored = typeof g.team2Rank === 'number' ? g.team2Rank : null
+      if (r !== stored) next = { ...next, team2Rank: r }
+    }
+    return next
+  })
+
   return {
     ...dynasty,
+    games: rewrittenGames,
     teams: teamsCopy,
     _rankByWeekMigrated: true,
   }
@@ -1422,17 +1454,22 @@ export function applyGameRanksToTeams(dynasty, game) {
   })()
   if (weekKey == null) return teamsCopy
 
-  const userOwned = isUserGame(dynasty, game)
-  // User game: stored rank IS entering rank → rankByWeek[weekKey].
-  // CPU game: stored rank is post-game → rankByWeek[weekKey + 1].
-  const targetKey = userOwned ? weekKey : weekKey + 1
-
+  // The stored game.team1Rank / team2Rank is now ALWAYS the entering
+  // rank for that game's week (post-migration semantics). Direct edits
+  // through addGame / updateGame come through here — the user is
+  // editing the entering rank field they see in the UI, so we mirror
+  // it straight into rankByWeek[weekKey] without any shift.
+  //
+  // The EA shift (post-game → entering-next-week) only happens at
+  // the weekly-scoreboard save flow (saveWeeklyScores), which writes
+  // rankByWeek[weekKey + 1] internally before the game record itself
+  // gets its team1Rank/team2Rank set to the entering rank.
   const t1 = game.team1Tid != null ? Number(game.team1Tid) : null
   const t2 = game.team2Tid != null ? Number(game.team2Tid) : null
   const r1 = typeof game.team1Rank === 'number' ? game.team1Rank : null
   const r2 = typeof game.team2Rank === 'number' ? game.team2Rank : null
-  if (t1 != null && r1 != null) writeRank(t1, game.year, targetKey, r1)
-  if (t2 != null && r2 != null) writeRank(t2, game.year, targetKey, r2)
+  if (t1 != null && r1 != null) writeRank(t1, game.year, weekKey, r1)
+  if (t2 != null && r2 != null) writeRank(t2, game.year, weekKey, r2)
 
   return teamsCopy
 }
@@ -7227,11 +7264,18 @@ export function DynastyProvider({ children }) {
       // downstream pages (CC History, CFP auto-bid logic, etc.).
       const isConfChampImport = isConferenceChampionshipCandidate(homeConf, awayConf, row.neutral)
 
-      // Ranks: column A = home (team1), column D = away (team2)
+      // Ranks: column A = home (team1), column D = away (team2). User-
+      // entered ranks here are EA-screenshot post-game ranks. We DON'T
+      // store them on this Week N game record — those land on rankByWeek
+      // [N+1] (= the team's entering rank for the next week) below.
+      // The Week N game's stored team1Rank / team2Rank get filled in
+      // post-loop with each team's ENTERING Week N rank, which lives
+      // in rankByWeek[N] (populated when the prior week's sheet was
+      // saved, or during migration / preseason seed).
       const homeRankRaw = row.homeRank
       const awayRankRaw = row.awayRank
-      const team1Rank = (typeof homeRankRaw === 'number' && homeRankRaw >= 1 && homeRankRaw <= 25) ? homeRankRaw : null
-      const team2Rank = (typeof awayRankRaw === 'number' && awayRankRaw >= 1 && awayRankRaw <= 25) ? awayRankRaw : null
+      const homePostGameRank = (typeof homeRankRaw === 'number' && homeRankRaw >= 1 && homeRankRaw <= 25) ? homeRankRaw : null
+      const awayPostGameRank = (typeof awayRankRaw === 'number' && awayRankRaw >= 1 && awayRankRaw <= 25) ? awayRankRaw : null
 
       newByPair.set(key, {
         id: existing?.id || idForGame(homeTid, awayTid),
@@ -7242,14 +7286,19 @@ export function DynastyProvider({ children }) {
         team2Tid,
         team1Score,
         team2Score,
-        team1Rank,
-        team2Rank,
+        team1Rank: null, // filled below from rankByWeek[weekNum] (entering rank)
+        team2Rank: null,
         homeTeamTid,
         winnerTid,
         isConferenceGame,
         ...(isConfChampImport ? { isConferenceChampionship: true, conference: homeConf } : {}),
         isPlayed: true,
         source: 'weekly-scores',
+        // Stash the user-entered EA-screenshot values so the post-loop
+        // shift can write them to rankByWeek[weekNum + 1] for both
+        // teams. Removed from the saved record below.
+        _team1PostGameRank: homePostGameRank,
+        _team2PostGameRank: awayPostGameRank,
         createdAt: existing?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       })
@@ -7274,7 +7323,87 @@ export function DynastyProvider({ children }) {
     })
 
     const newGamesArr = Array.from(newByPair.values())
-    const updatedGames = [...filtered, ...newGamesArr]
+
+    // ─── EA-shift pass for ranks ─────────────────────────────────
+    // The user-entered ranks on each row of the weekly sheet are
+    // post-Week-N ranks (= entering-Week-(N+1) ranks). Two things
+    // happen now:
+    //   (a) push each user-entered rank into rankByWeek[N+1] for
+    //       its team — this is what the team enters NEXT week with.
+    //   (b) set each new game's stored team1Rank / team2Rank to
+    //       each team's pre-existing rankByWeek[N] value (their
+    //       entering rank for THIS Week N game). That value was
+    //       populated when the prior week's sheet was saved (or
+    //       seeded from preseason for week 1).
+    //   (c) propagate the user-entered Week N+1 entering ranks to
+    //       any Week-N+1 game record already in dynasty.games (so
+    //       the next-week game card displays the correct rank
+    //       without waiting for that sheet to be saved).
+    const teamsCopy = { ...(dynasty.teams || {}) }
+    const writeRankByWeek = (tid, weekKey, rank) => {
+      if (tid == null || weekKey == null || typeof rank !== 'number' || rank < 1 || rank > 25) return
+      const tidKey = String(tid)
+      const team = teamsCopy[tidKey] || teamsCopy[tid] || {}
+      const byYear = { ...(team.byYear || {}) }
+      const yearKey = String(yearNum)
+      const yearEntry = { ...(byYear[yearKey] || byYear[yearNum] || {}) }
+      const rankByWeek = { ...(yearEntry.rankByWeek || {}) }
+      rankByWeek[weekKey] = rank
+      yearEntry.rankByWeek = rankByWeek
+      byYear[yearKey] = yearEntry
+      teamsCopy[tidKey] = { ...team, byYear }
+    }
+    const readRankByWeek = (tid, weekKey) => {
+      if (tid == null || weekKey == null) return null
+      const t = teamsCopy[String(tid)] || teamsCopy[tid]
+      const rbw = t?.byYear?.[String(yearNum)]?.rankByWeek ?? t?.byYear?.[yearNum]?.rankByWeek
+      if (!rbw) return null
+      const v = rbw[weekKey] ?? rbw[String(weekKey)]
+      if (typeof v !== 'number' || v < 1 || v > 25) return null
+      return v
+    }
+
+    // Step (a): push user-entered post-game ranks into rankByWeek[N+1].
+    for (const g of newGamesArr) {
+      if (typeof g._team1PostGameRank === 'number') writeRankByWeek(g.team1Tid, weekNum + 1, g._team1PostGameRank)
+      if (typeof g._team2PostGameRank === 'number') writeRankByWeek(g.team2Tid, weekNum + 1, g._team2PostGameRank)
+    }
+
+    // Step (b): set each new game's stored rank to each team's
+    // entering-Week-N rank (already in rankByWeek[N]). Strip the
+    // _teamXPostGameRank stash fields — they were only for the
+    // shift; they don't belong on the persisted record.
+    for (const g of newGamesArr) {
+      g.team1Rank = readRankByWeek(g.team1Tid, weekNum)
+      g.team2Rank = readRankByWeek(g.team2Tid, weekNum)
+      delete g._team1PostGameRank
+      delete g._team2PostGameRank
+    }
+
+    // Step (c): if any team's Week-(N+1) game already exists in the
+    // dynasty's games array (from a schedule pre-fill, an already-
+    // entered user game, etc.), update its stored rank for that team
+    // to the user-entered rank we just pushed into rankByWeek[N+1].
+    // Walk the full updatedGames list and patch in place.
+    const updatedGames = [...filtered, ...newGamesArr].map(g => {
+      if (!g || g.year == null) return g
+      if (Number(g.year) !== yearNum) return g
+      if (Number(g.week) !== weekNum + 1) return g
+      let next = g
+      if (g.team1Tid != null) {
+        const r = readRankByWeek(Number(g.team1Tid), weekNum + 1)
+        if (r != null && r !== (typeof g.team1Rank === 'number' ? g.team1Rank : null)) {
+          next = { ...next, team1Rank: r }
+        }
+      }
+      if (g.team2Tid != null) {
+        const r = readRankByWeek(Number(g.team2Tid), weekNum + 1)
+        if (r != null && r !== (typeof g.team2Rank === 'number' ? g.team2Rank : null)) {
+          next = { ...next, team2Rank: r }
+        }
+      }
+      return next
+    })
 
     // Track that this week's scores were entered (used by dashboard to-do)
     const existingTracker = dynasty.weeklyScoresEntered || {}
@@ -7292,6 +7421,7 @@ export function DynastyProvider({ children }) {
 
     await updateDynasty(dynastyId, {
       games: updatedGames,
+      teams: teamsCopy,
       weeklyScoresEntered: updatedTracker,
     })
 

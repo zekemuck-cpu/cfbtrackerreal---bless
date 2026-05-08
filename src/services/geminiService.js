@@ -2641,45 +2641,15 @@ export function buildGameRecapContext(dynasty, game) {
   const isShutout = team2Score === 0 || team1Score === 0
   const isOvertime = game.overtime || game.isOvertime
 
-  // Rankings — read from the new rankByWeek system. Entering rank is
-  // the rank each team CARRIED INTO this game (matchup-framing rank).
-  // Post-game rank is the rank each team finished AT after the game.
-  // Both are stored in dynasty.teams[tid].byYear[year].rankByWeek;
-  // legacy game.team1Rank/team2Rank stays as fallback for unmigrated
-  // dynasties.
-  const thisGameWeekKeyForRank = (() => {
-    if (game.isCFPChampionship) return 104
-    if (game.isCFPSemifinal) return 103
-    if (game.isCFPQuarterfinal) return 102
-    if (game.isCFPFirstRound) return 101
-    if (game.isConferenceChampionship) return 100
-    if (game.isBowlGame) return 100
-    return Number(game.week)
-  })()
-  // (team1Tid / team2Tid already resolved above for game perspective.)
-  const readRank = (tid, weekKey) => {
-    if (tid == null || weekKey == null) return null
-    const byYear = dynasty?.teams?.[tid]?.byYear || dynasty?.teams?.[String(tid)]?.byYear
-    const rbw = byYear?.[year]?.rankByWeek ?? byYear?.[String(year)]?.rankByWeek
-    if (!rbw) return null
-    const v = rbw[weekKey] ?? rbw[String(weekKey)]
-    if (v == null) return null
-    const n = Number(v)
-    return n >= 1 && n <= 25 ? n : null
-  }
-  const team1PostGameRank = readRank(team1Tid, thisGameWeekKeyForRank + 1) ?? game.team1Rank ?? null
-  const team2PostGameRank = readRank(team2Tid, thisGameWeekKeyForRank + 1) ?? game.team2Rank ?? null
-
-  // For ranked-matchup / upset detection, use ENTERING rank (the rank
-  // each team brought into the game). Falls back to whichever stored
-  // value is available.
-  const team1EnteringRankForDetection = readRank(team1Tid, thisGameWeekKeyForRank) ?? game.team1Rank ?? null
-  const team2EnteringRankForDetection = readRank(team2Tid, thisGameWeekKeyForRank) ?? game.team2Rank ?? null
-  const team1Ranking = team1PostGameRank   // exposed as "Ranking" for legacy ctx consumers
-  const team2Ranking = team2PostGameRank
-  const isRankedMatchup = !!(team1EnteringRankForDetection && team2EnteringRankForDetection)
-  const isUpset = (team2EnteringRankForDetection && team2EnteringRankForDetection <= 10 && team1Won) ||
-                  (team1EnteringRankForDetection && team1EnteringRankForDetection <= 10 && !team1Won)
+  // Rankings — game.team1Rank / team2Rank IS each team's entering
+  // rank (rank during the game) post-migration. Saves keep this in
+  // sync via the EA-shift logic in saveWeeklyScores; direct edits
+  // (addGame / updateGame) treat the field straight-through.
+  const team1Ranking = typeof game.team1Rank === 'number' ? game.team1Rank : null
+  const team2Ranking = typeof game.team2Rank === 'number' ? game.team2Rank : null
+  const isRankedMatchup = !!(team1Ranking && team2Ranking)
+  const isUpset = (team2Ranking && team2Ranking <= 10 && team1Won) ||
+                  (team1Ranking && team1Ranking <= 10 && !team1Won)
 
   // Get game type info
   let gameTypeDescription = 'regular season game'
@@ -3017,15 +2987,10 @@ export function buildGameRecapContext(dynasty, game) {
 
     // Rankings — POST-GAME ranks (the rank stored on this game, which
     // EA's UI surfaces AFTER the game is played). Use these to talk
-    // about rank movement ("Tennessee fell to #15 after the loss").
+    // game.team1Rank / team2Rank IS the entering rank for the game
+    // (rank during the matchup) post-migration.
     team1Ranking,
     team2Ranking,
-    // PRE-GAME (entering) ranks — derived by reading each team's most
-    // recent prior game's stored rank. Use these to describe the
-    // matchup itself ("the #4 team faced the #11 team"). null when the
-    // team had no prior game with a stored rank this year.
-    team1EnteringRank: getTeamEnteringRank(allGames, team1, year, thisGameOrder, dynasty),
-    team2EnteringRank: getTeamEnteringRank(allGames, team2, year, thisGameOrder, dynasty),
 
     // Season context — legacy single-team fields (point at the user side
     // when this is a user game; null otherwise). Prefer the team1*/team2*
@@ -3599,9 +3564,8 @@ ${homeTeam ? `HOME TEAM: ${homeTeam}` : ''}
 ${awayTeam ? `AWAY TEAM: ${awayTeam}` : ''}
 ${!homeTeam && !awayTeam ? 'NEUTRAL SITE GAME' : ''}
 ${ctx.isOvertime ? 'OVERTIME GAME' : ''}
-${ctx.team1FullName} entering rank: ${ctx.team1EnteringRank ? `#${ctx.team1EnteringRank}` : 'UNRANKED'} → post-game rank: ${ctx.team1Ranking ? `#${ctx.team1Ranking}` : 'UNRANKED'}
-${ctx.team2FullName} entering rank: ${ctx.team2EnteringRank ? `#${ctx.team2EnteringRank}` : 'UNRANKED'} → post-game rank: ${ctx.team2Ranking ? `#${ctx.team2Ranking}` : 'UNRANKED'}
-(EA quirk: the rank shown next to a team in EA's schedule is the rank AFTER that game ended, NOT the rank coming in. The "entering rank" above is derived from each team's previous game's stored rank — that's what the team CARRIED INTO this matchup. Use the entering rank when describing the matchup itself ("the #4 team faced the #11 team"); use the post-game rank when describing rank movement after the result ("Tennessee fell to #15 after the loss").)
+${ctx.team1FullName} ranking entering this game: ${ctx.team1Ranking ? `#${ctx.team1Ranking}` : 'UNRANKED'}
+${ctx.team2FullName} ranking entering this game: ${ctx.team2Ranking ? `#${ctx.team2Ranking}` : 'UNRANKED'}
 ${ctx.team1Conference ? `${ctx.team1FullName} Conference: ${ctx.team1Conference}` : ''}
 ${ctx.team2Conference ? `${ctx.team2FullName} Conference: ${ctx.team2Conference}` : ''}`
 

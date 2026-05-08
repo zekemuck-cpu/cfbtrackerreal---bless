@@ -5,7 +5,7 @@ import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
-import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear, getCustomConferencesForYear, getTeamRankForWeek } from '../../context/DynastyContext'
+import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear, getCustomConferencesForYear } from '../../context/DynastyContext'
 import CardComposer from '../../components/CardComposer'
 import { getCardsForGame } from '../../utils/playerCards'
 import FlippableCard from '../../components/FlippableCard'
@@ -1023,47 +1023,23 @@ export default function Game() {
   const eventLogo = bowlLogo || confLogo || conferenceMatchupLogo
   const eventLogoAlt = bowlLogo ? game.bowlName : (confLogo ? `${confName} Championship` : (conferenceMatchupLogo ? `${userConf}` : 'Event'))
 
-  // Rankings — read each team's ENTERING rank (the rank carried into
-  // this game) from dynasty.teams[tid].byYear[year].rankByWeek. This
-  // is the rank the team was DURING the game. The legacy fallback to
-  // game.team1Rank / team2Rank covers dynasties not yet migrated.
-  const gameWeekKey = (() => {
-    if (game.isCFPChampionship) return 104
-    if (game.isCFPSemifinal) return 103
-    if (game.isCFPQuarterfinal) return 102
-    if (game.isCFPFirstRound) return 101
-    if (game.isConferenceChampionship) return 100
-    if (game.isBowlGame) return 100
-    return Number(game.week)
-  })()
-  const rankFor = (tid, fallback) => {
-    if (tid != null) {
-      const r = getTeamRankForWeek(currentDynasty, tid, game.year, gameWeekKey)
-      if (r != null) return r
-    }
-    return fallback ?? null
-  }
+  // Rankings — read straight from game.team1Rank / team2Rank. The
+  // stored value IS each team's entering rank (rank during the game)
+  // — migrated for old dynasties, kept in sync at every save through
+  // the EA-shift logic in saveWeeklyScores / addGame / updateGame.
+  // No further lookup or derivation needed at read time.
   let leftRank, rightRank
   if (isCPUGame) {
     const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
     const team1Abbr = team1Info?.abbr || game.team1
     const isDisplayTeam1 = displayTeamAbbr === team1Abbr
-    const displayTid = isDisplayTeam1 ? game.team1Tid : game.team2Tid
-    const oppTid = isDisplayTeam1 ? game.team2Tid : game.team1Tid
-    const displayFallback = isDisplayTeam1 ? game.team1Rank : game.team2Rank
-    const oppFallback = isDisplayTeam1 ? game.team2Rank : game.team1Rank
-    const displayRank = rankFor(displayTid, displayFallback)
-    const oppRank = rankFor(oppTid, oppFallback)
+    const displayRank = isDisplayTeam1 ? game.team1Rank : game.team2Rank
+    const oppRank = isDisplayTeam1 ? game.team2Rank : game.team1Rank
     leftRank = leftTeam === 'user' ? displayRank : oppRank
     rightRank = rightTeam === 'user' ? displayRank : oppRank
   } else {
-    // User games — userTid for the display side, opponentTid for the other.
-    const userTidForGame = perspective?.userTid ?? game.userTid ?? game.team1Tid
-    const oppTid = userTidForGame === game.team1Tid ? game.team2Tid : game.team1Tid
-    const userFallback = perspective?.userRank ?? game.userRank ?? game.team1Rank
-    const oppFallback = perspective?.opponentRank ?? game.opponentRank ?? game.team2Rank
-    const userRank = rankFor(userTidForGame, userFallback)
-    const oppRank = rankFor(oppTid, oppFallback)
+    const userRank = perspective?.userRank ?? game.userRank ?? game.team1Rank
+    const oppRank = perspective?.opponentRank ?? game.opponentRank ?? game.team2Rank
     leftRank = leftTeam === 'user' ? userRank : oppRank
     rightRank = rightTeam === 'user' ? userRank : oppRank
   }
