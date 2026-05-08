@@ -26,7 +26,7 @@ import {
   SectionHeader,
   LoadingState,
 } from '../../components/ui'
-import { doc, getDocFromServer } from 'firebase/firestore'
+import { doc, getDocFromServer, collection, getDocsFromServer } from 'firebase/firestore'
 import { db } from '../../config/firebase'
 
 export default function DangerZone() {
@@ -280,6 +280,48 @@ export default function DangerZone() {
       }
       if (seasonalFieldCount > 0) {
         lines.push(`  ${'seasons/* (rehydrated, all fields)'.padEnd(40)} ${fmt(seasonalLoadedTotal).padStart(10)} — ${seasonalFieldCount} fields loaded`)
+      }
+
+      // Direct, ground-truth probe of the seasons subcollection — fetch
+      // every per-year doc straight from the Firestore server and dump
+      // what's actually persisted there. This is the only way to
+      // distinguish "migration silently lost data" from "migration
+      // worked but rehydration is broken" in the user's open data-loss
+      // bug. Server fetch (no cache) so we don't trust the local SDK
+      // cache, which can carry stale or partial state.
+      lines.push('')
+      lines.push('Seasons subcollection — server-fetched contents per year:')
+      let serverSeasonsFetchFailed = false
+      try {
+        const seasonsRef = collection(db, 'dynasties', currentDynasty.id, 'seasons')
+        const snap = await getDocsFromServer(seasonsRef)
+        if (snap.empty) {
+          lines.push('  (subcollection is empty — no seasons docs on server)')
+        } else {
+          // Sort by year so the oldest seasons render first.
+          const yearDocs = snap.docs
+            .map(d => ({ id: d.id, data: d.data() || {} }))
+            .sort((a, b) => Number(a.id) - Number(b.id))
+          for (const { id, data } of yearDocs) {
+            const fieldNames = Object.keys(data).filter(k => k !== 'year').sort()
+            const docBytes = sizeOf(data)
+            // Per-field size + entry count is what tells us whether
+            // cfpSeeds is actually populated for that year. Show entry
+            // counts inline (length for arrays, key count for objects).
+            const fieldSummaries = fieldNames.map(f => {
+              const v = data[f]
+              let count = ''
+              if (Array.isArray(v)) count = `len=${v.length}`
+              else if (v && typeof v === 'object') count = `keys=${Object.keys(v).length}`
+              else count = `(${typeof v})`
+              return `${f}:${count}`
+            })
+            lines.push(`  ${('seasons/' + id).padEnd(20)} ${fmt(docBytes).padStart(10)}   ${fieldSummaries.join(' ')}`)
+          }
+        }
+      } catch (err) {
+        serverSeasonsFetchFailed = true
+        lines.push(`  ⚠️ failed: ${err?.code || err?.message || 'unknown'}`)
       }
 
       lines.push('')
