@@ -11,6 +11,7 @@ import { getTeamName } from '../data/teamAbbreviations'
 import { getCurrentTeamAbbr, TEAMS, getGameTeamInfo, getNameByAbbr, getTidFromAbbr } from '../data/teamRegistry'
 import { getTeamConference } from '../data/conferenceTeams'
 import { getUserGamePerspective, getLockedCoachingStaff, getCustomConferencesForYear } from '../context/DynastyContext'
+import { buildCFPProjection } from '../utils/cfpProjection'
 
 // ============================================
 // HELPER FUNCTIONS FOR DATA EXTRACTION
@@ -1582,6 +1583,269 @@ export function getSeasonPOWTrail(allGames, year) {
   return out
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// Rank progression — the team's week-by-week rank trajectory across
+// the season. Read straight from rankByWeek; returns an ordered array
+// of `{ week, rank }` for every populated entry, plus high/low/peak
+// metadata for quick framing.
+//
+// Powers "Tennessee's six-week descent from #2 to #15" / "Texas climbed
+// 14 spots in three weeks" type beats without making the AI count.
+// ──────────────────────────────────────────────────────────────────────
+export function getTeamRankProgression(dynasty, teamAbbr, year, beforeWeekKey = null) {
+  if (!dynasty || !teamAbbr || !year) return null
+  const tid = getTidFromAbbr(teamAbbr, dynasty)
+  if (tid == null) return null
+  const yearNum = Number(year)
+  const byYear = dynasty.teams?.[tid]?.byYear || dynasty.teams?.[String(tid)]?.byYear
+  const rankByWeek = byYear?.[yearNum]?.rankByWeek ?? byYear?.[String(yearNum)]?.rankByWeek
+  if (!rankByWeek || typeof rankByWeek !== 'object') return null
+
+  const entries = []
+  for (const [k, v] of Object.entries(rankByWeek)) {
+    const wk = Number(k)
+    if (!Number.isFinite(wk)) continue
+    if (beforeWeekKey != null && wk > Number(beforeWeekKey)) continue
+    if (typeof v !== 'number' || v < 1 || v > 25) continue
+    entries.push({ week: wk, rank: v })
+  }
+  if (entries.length === 0) return null
+  entries.sort((a, b) => a.week - b.week)
+
+  let peak = entries[0].rank, peakWeek = entries[0].week
+  let low = entries[0].rank, lowWeek = entries[0].week
+  for (const e of entries) {
+    if (e.rank < peak) { peak = e.rank; peakWeek = e.week }
+    if (e.rank > low) { low = e.rank; lowWeek = e.week }
+  }
+  return {
+    entries,
+    peak,
+    peakWeek,
+    low,
+    lowWeek,
+    first: entries[0],
+    last: entries[entries.length - 1],
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Team's current position in conference standings — pulled from
+// dynasty.conferenceStandingsByYear[year][conference]. Returns the
+// row plus position (1st, 2nd, T-3rd ...) and the conference race
+// context (games behind leader, etc.) the AI can use for "the loss
+// drops Tennessee to 5-2 in the SEC, two games back of Alabama" beats.
+// ──────────────────────────────────────────────────────────────────────
+export function getTeamConferenceStanding(dynasty, teamAbbr, year) {
+  if (!dynasty || !teamAbbr || !year) return null
+  const yearNum = Number(year)
+  const standingsByConf = dynasty.conferenceStandingsByYear?.[yearNum]
+    || dynasty.conferenceStandingsByYear?.[String(yearNum)]
+  if (!standingsByConf) return null
+  const tid = getTidFromAbbr(teamAbbr, dynasty)
+
+  for (const [conf, rows] of Object.entries(standingsByConf)) {
+    if (!Array.isArray(rows)) continue
+    const idx = rows.findIndex(r => r && (
+      (tid != null && Number(r.tid) === Number(tid)) ||
+      r.team === teamAbbr
+    ))
+    if (idx < 0) continue
+    const row = rows[idx]
+    // Compute position with tie awareness — same conf record = same rank.
+    const sortedByConf = [...rows]
+      .filter(r => r && (typeof r.confWins === 'number' || typeof r.confLosses === 'number'))
+      .sort((a, b) => {
+        const aPct = (a.confWins || 0) / Math.max(1, (a.confWins || 0) + (a.confLosses || 0))
+        const bPct = (b.confWins || 0) / Math.max(1, (b.confWins || 0) + (b.confLosses || 0))
+        return bPct - aPct
+      })
+    const teamPctVal = (row.confWins || 0) / Math.max(1, (row.confWins || 0) + (row.confLosses || 0))
+    const aboveCount = sortedByConf.filter(r => {
+      const pct = (r.confWins || 0) / Math.max(1, (r.confWins || 0) + (r.confLosses || 0))
+      return pct > teamPctVal
+    }).length
+    const tieCount = sortedByConf.filter(r => {
+      const pct = (r.confWins || 0) / Math.max(1, (r.confWins || 0) + (r.confLosses || 0))
+      return pct === teamPctVal
+    }).length
+    const position = aboveCount + 1
+    const positionLabel = tieCount > 1 ? `T-${position}` : `${position}`
+    const leader = sortedByConf[0] || null
+    const leaderPct = leader ? (leader.confWins || 0) / Math.max(1, (leader.confWins || 0) + (leader.confLosses || 0)) : 0
+    const gamesBackOfLeader = leader && leader !== row
+      ? Math.max(0, ((leader.confWins || 0) - (row.confWins || 0)) / 2 + ((row.confLosses || 0) - (leader.confLosses || 0)) / 2)
+      : 0
+
+    return {
+      conference: conf,
+      overallRecord: `${row.wins || 0}-${row.losses || 0}`,
+      conferenceRecord: `${row.confWins || 0}-${row.confLosses || 0}`,
+      position,
+      positionLabel,
+      leaderTeam: leader && leader !== row ? leader.team : null,
+      leaderRecord: leader && leader !== row ? `${leader.confWins || 0}-${leader.confLosses || 0}` : null,
+      gamesBackOfLeader,
+      sharedPosition: tieCount > 1,
+    }
+  }
+  return null
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// CFP projection slice — returns this team's projected seed/bid if
+// they're currently in the 12-team field. Calls into the same
+// buildCFPProjection helper the Rankings page uses, so the answer
+// stays in sync with what the user sees on /rankings.
+// ──────────────────────────────────────────────────────────────────────
+export async function getTeamCFPProjectionSlice(dynasty, teamAbbr, year) {
+  // Note: buildCFPProjection lives in utils/cfpProjection. We can't
+  // import it at module load (cfpProjection imports DynastyContext
+  // which imports geminiService — circular). Keep this as a no-op
+  // helper signature; the prompt builder calls buildCFPProjection
+  // directly and slices it inline. Left here as a documentation
+  // touchstone for the surface area.
+  return null
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Scoring-margin trend across the team's season-to-date played games.
+// Average win margin and average loss margin let the AI anchor
+// whether THIS result is in line with the season ("their largest
+// margin of the year" / "their tightest game in two months") without
+// counting.
+// ──────────────────────────────────────────────────────────────────────
+export function getTeamScoringMarginTrend(allGames, teamAbbr, year, currentGameOrder, dynasty) {
+  if (!Array.isArray(allGames) || !teamAbbr) return null
+  const teamTid = getTidFromAbbr(teamAbbr, dynasty)
+  const yearNum = Number(year)
+  const winMargins = []
+  const lossMargins = []
+  let largestWinMargin = 0, largestLossMargin = 0
+  let largestWinOpp = null, largestLossOpp = null
+  for (const g of allGames) {
+    if (Number(g?.year) !== yearNum) continue
+    if (isUnplayedGame(g)) continue
+    if (currentGameOrder != null && getGameOrder(g) >= currentGameOrder) continue
+    const inGame = teamTid != null && (g.team1Tid === teamTid || g.team2Tid === teamTid)
+      || g.team1 === teamAbbr || g.team2 === teamAbbr || g.userTeam === teamAbbr
+    if (!inGame) continue
+    let margin = null, won = null, oppAbbr = null
+    if (g.team1Tid != null && g.team2Tid != null) {
+      const isT1 = g.team1Tid === teamTid
+      const s1 = Number(g.team1Score) || 0
+      const s2 = Number(g.team2Score) || 0
+      margin = isT1 ? s1 - s2 : s2 - s1
+      won = margin > 0
+      oppAbbr = isT1 ? g.team2 : g.team1
+    } else if (g.team1 && g.team2) {
+      const isT1 = g.team1 === teamAbbr
+      const s1 = Number(g.team1Score) || 0
+      const s2 = Number(g.team2Score) || 0
+      margin = isT1 ? s1 - s2 : s2 - s1
+      won = margin > 0
+      oppAbbr = isT1 ? g.team2 : g.team1
+    } else if (g.userTeam === teamAbbr) {
+      const teamScore = Number(g.teamScore) || 0
+      const oppScore = Number(g.opponentScore) || 0
+      margin = teamScore - oppScore
+      won = margin > 0
+      oppAbbr = g.opponent
+    } else continue
+    if (won) {
+      winMargins.push(margin)
+      if (margin > largestWinMargin) { largestWinMargin = margin; largestWinOpp = oppAbbr }
+    } else {
+      lossMargins.push(-margin)
+      if (-margin > largestLossMargin) { largestLossMargin = -margin; largestLossOpp = oppAbbr }
+    }
+  }
+  if (winMargins.length === 0 && lossMargins.length === 0) return null
+  const avg = (arr) => arr.length === 0 ? null : Math.round((arr.reduce((s, x) => s + x, 0) / arr.length) * 10) / 10
+  return {
+    wins: winMargins.length,
+    losses: lossMargins.length,
+    avgWinMargin: avg(winMargins),
+    avgLossMargin: avg(lossMargins),
+    largestWinMargin: largestWinMargin || null,
+    largestWinOpp,
+    largestLossMargin: largestLossMargin || null,
+    largestLossOpp,
+    oneScoreWins: winMargins.filter(m => m <= 8).length,
+    oneScoreLosses: lossMargins.filter(m => m <= 8).length,
+    blowoutWins: winMargins.filter(m => m >= 21).length,
+    blowoutLosses: lossMargins.filter(m => m >= 21).length,
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Resume splits — record vs ranked / unranked / home / away / one-score
+// / blowout. Extends QualityWL with the cleaner "résumé tally" framing
+// the AI can drop straight into prose ("Tennessee is 4-0 vs ranked
+// teams this year — the only top-25 program with that mark").
+// ──────────────────────────────────────────────────────────────────────
+export function getTeamResumeSplits(allGames, teamAbbr, year, currentGameOrder, dynasty) {
+  if (!Array.isArray(allGames) || !teamAbbr) return null
+  const teamTid = getTidFromAbbr(teamAbbr, dynasty)
+  const yearNum = Number(year)
+  let rankedW = 0, rankedL = 0
+  let unrankedW = 0, unrankedL = 0
+  let homeW = 0, homeL = 0
+  let awayW = 0, awayL = 0
+  let neutralW = 0, neutralL = 0
+  for (const g of allGames) {
+    if (Number(g?.year) !== yearNum) continue
+    if (isUnplayedGame(g)) continue
+    if (currentGameOrder != null && getGameOrder(g) >= currentGameOrder) continue
+    let inGame = false, isT1 = false, oppRank = null, won = null
+    if (g.team1Tid != null && g.team2Tid != null) {
+      if (g.team1Tid === teamTid) { inGame = true; isT1 = true }
+      else if (g.team2Tid === teamTid) { inGame = true; isT1 = false }
+      if (inGame) {
+        const s1 = Number(g.team1Score) || 0
+        const s2 = Number(g.team2Score) || 0
+        won = isT1 ? s1 > s2 : s2 > s1
+        oppRank = isT1 ? g.team2Rank : g.team1Rank
+      }
+    } else if (g.team1 === teamAbbr || g.team2 === teamAbbr) {
+      inGame = true
+      isT1 = g.team1 === teamAbbr
+      const s1 = Number(g.team1Score) || 0
+      const s2 = Number(g.team2Score) || 0
+      won = isT1 ? s1 > s2 : s2 > s1
+      oppRank = isT1 ? g.team2Rank : g.team1Rank
+    } else if (g.userTeam === teamAbbr) {
+      inGame = true
+      won = g.result === 'win' || g.result === 'W'
+      oppRank = g.opponentRank
+    }
+    if (!inGame || won == null) continue
+    const wasRanked = typeof oppRank === 'number' && oppRank >= 1 && oppRank <= 25
+    if (wasRanked) {
+      if (won) rankedW += 1; else rankedL += 1
+    } else {
+      if (won) unrankedW += 1; else unrankedL += 1
+    }
+    // Site classification.
+    let site = 'neutral'
+    if (g.homeTeamTid != null) {
+      if (Number(g.homeTeamTid) === teamTid) site = 'home'
+      else site = 'away'
+    } else if (g.location === 'home') site = 'home'
+    else if (g.location === 'away') site = 'away'
+    if (site === 'home') { if (won) homeW += 1; else homeL += 1 }
+    else if (site === 'away') { if (won) awayW += 1; else awayL += 1 }
+    else { if (won) neutralW += 1; else neutralL += 1 }
+  }
+  return {
+    vsRanked: { wins: rankedW, losses: rankedL },
+    vsUnranked: { wins: unrankedW, losses: unrankedL },
+    home: { wins: homeW, losses: homeL },
+    away: { wins: awayW, losses: awayL },
+    neutral: { wins: neutralW, losses: neutralL },
+  }
+}
+
 /**
  * Get a team's season history (past years' records)
  * Returns records for previous seasons where this team was coached
@@ -2258,6 +2522,60 @@ export function buildGameRecapContext(dynasty, game) {
   // applicable to either team in this game.
   const seasonPOWTrail = getSeasonPOWTrail(allGames, year)
 
+  // Rank progression (week-by-week trajectory) for both teams. Powers
+  // "Tennessee's six-week descent from #2 to #15" / "Texas climbed 14
+  // spots in three weeks" beats — the AI doesn't have to count.
+  const thisGameWeekKey = (() => {
+    if (game.isCFPChampionship) return 104
+    if (game.isCFPSemifinal) return 103
+    if (game.isCFPQuarterfinal) return 102
+    if (game.isCFPFirstRound) return 101
+    if (game.isConferenceChampionship) return 100
+    if (game.isBowlGame) return 100
+    return Number(game.week)
+  })()
+  const team1RankProgression = getTeamRankProgression(dynasty, team1, year, thisGameWeekKey)
+  const team2RankProgression = getTeamRankProgression(dynasty, team2, year, thisGameWeekKey)
+
+  // Conference standings position for both teams. Lets the recap
+  // anchor "drops Tennessee to 5-2 in the SEC, two games back of
+  // Alabama" / "the win clinches the SEC East" beats.
+  const team1ConferenceStanding = getTeamConferenceStanding(dynasty, team1, year)
+  const team2ConferenceStanding = getTeamConferenceStanding(dynasty, team2, year)
+
+  // CFP projection slice — if either team is in the projected
+  // 12-team field, surface their seed + bid type so the recap can
+  // frame "loss drops Tennessee out of the projected field" /
+  // "win cements Texas as the projected #4 seed" beats.
+  let team1CFPProjection = null, team2CFPProjection = null
+  try {
+    const proj = buildCFPProjection(dynasty, year)
+    if (proj?.available && Array.isArray(proj.seeds)) {
+      const team1Tid = getTidFromAbbr(team1, dynasty)
+      const team2Tid = getTidFromAbbr(team2, dynasty)
+      const findSeed = (tid, abbr) => proj.seeds.find(s =>
+        (tid != null && Number(s.tid) === Number(tid)) || s.team === abbr
+      ) || null
+      team1CFPProjection = findSeed(team1Tid, team1)
+      team2CFPProjection = findSeed(team2Tid, team2)
+    }
+  } catch {
+    // Projection failed (no rankings yet, etc.) — fine, omit section.
+  }
+
+  // Scoring-margin trend for both teams' season to date. Lets the
+  // recap anchor whether THIS result is in line with the season
+  // ("their largest margin of the year" / "their first one-score
+  // game in two months").
+  const team1ScoringMargin = getTeamScoringMarginTrend(allGames, team1, year, thisGameOrder, dynasty)
+  const team2ScoringMargin = getTeamScoringMarginTrend(allGames, team2, year, thisGameOrder, dynasty)
+
+  // Resume splits — record vs ranked / unranked / home / away. Concrete
+  // anchors for "Tennessee is 4-0 vs ranked teams this year" /
+  // "Texas's only road loss" type beats.
+  const team1ResumeSplits = getTeamResumeSplits(allGames, team1, year, thisGameOrder, dynasty)
+  const team2ResumeSplits = getTeamResumeSplits(allGames, team2, year, thisGameOrder, dynasty)
+
   // NEW: Get player performance trends from box score (using determined sides)
   let team1PlayerTrends = []
   let team2PlayerTrends = []
@@ -2484,6 +2802,30 @@ export function buildGameRecapContext(dynasty, game) {
     // descending). Lets the recap surface "Player X's third conference
     // POW this season" beats.
     seasonPOWTrail,
+
+    // NEW: Rank progression — week-by-week trajectory of each team's
+    // rank, peak/low marks, first/last rank. Powers freefall/surge
+    // framing without making the AI count.
+    team1RankProgression,
+    team2RankProgression,
+
+    // NEW: Conference standings position for each team.
+    team1ConferenceStanding,
+    team2ConferenceStanding,
+
+    // NEW: CFP projection slice for each team (null if not in field).
+    team1CFPProjection,
+    team2CFPProjection,
+
+    // NEW: Scoring-margin trend across the season — average margin
+    // in wins / losses, largest margins, one-score / blowout counts.
+    team1ScoringMargin,
+    team2ScoringMargin,
+
+    // NEW: Resume splits — record vs ranked / unranked / home / away
+    // / neutral. Concrete anchors for résumé and site-context claims.
+    team1ResumeSplits,
+    team2ResumeSplits,
 
     // NEW: Player performance trends (hot streaks, bounce backs)
     team1PlayerTrends,
@@ -3544,6 +3886,127 @@ ${teamName.toUpperCase()}'S SEASON RECORD: ${wins}-${losses}
     renderSeasonRecordList(ctx.team1FullName, ctx.team1SeasonResultsSummary)
   }
   renderSeasonRecordList(ctx.team2FullName, ctx.team2SeasonResults)
+
+  // Rank progression — week-by-week trajectory across the season for
+  // each team. Lets the AI characterize collapse / surge / freefall
+  // beats from the actual data trail.
+  const renderRankProgression = (teamName, prog) => {
+    if (!prog || !Array.isArray(prog.entries) || prog.entries.length === 0) return null
+    const trail = prog.entries.map(e => `Wk ${e.week}: #${e.rank}`).join(' → ')
+    let line = `\n${teamName} rank trajectory: ${trail}.`
+    if (prog.peak !== prog.low) {
+      line += ` Peak: #${prog.peak} (Wk ${prog.peakWeek}). Low: #${prog.low} (Wk ${prog.lowWeek}).`
+    }
+    return line
+  }
+  const t1Prog = renderRankProgression(ctx.team1FullName, ctx.team1RankProgression)
+  const t2Prog = renderRankProgression(ctx.team2FullName, ctx.team2RankProgression)
+  if (t1Prog || t2Prog) {
+    prompt += `\n
+===========================================
+RANK TRAJECTORY THIS SEASON
+===========================================
+Use to characterize trajectory, not just narrate the numbers. "Tennessee's six-week descent from #2 to outside the Top 25 is the worst rolling collapse in the country" — not "Tennessee was #2, then #6, then #15." Look at the peak vs the latest entry. Big swings (5+ spots in one week, freefall over 4+ weeks, sustained climb) are the headlines; flat trajectories (#12 → #11 → #13) are not stories — skip.`
+    if (t1Prog) prompt += t1Prog
+    if (t2Prog) prompt += t2Prog
+  }
+
+  // Conference standings — current position, leader, games back of leader.
+  const renderConfStanding = (teamName, cs) => {
+    if (!cs) return null
+    const bits = [`${cs.positionLabel} in the ${cs.conference}`, `${cs.conferenceRecord} conf`, `${cs.overallRecord} overall`]
+    if (cs.leaderTeam && cs.gamesBackOfLeader > 0) {
+      bits.push(`${cs.gamesBackOfLeader} game${cs.gamesBackOfLeader === 1 ? '' : 's'} back of ${cs.leaderTeam} (${cs.leaderRecord})`)
+    } else if (cs.position === 1 && !cs.sharedPosition) {
+      bits.push('alone atop the conference')
+    } else if (cs.position === 1 && cs.sharedPosition) {
+      bits.push('tied for first')
+    }
+    return `\n${teamName}: ${bits.join('; ')}.`
+  }
+  const t1Cs = renderConfStanding(ctx.team1FullName, ctx.team1ConferenceStanding)
+  const t2Cs = renderConfStanding(ctx.team2FullName, ctx.team2ConferenceStanding)
+  if (t1Cs || t2Cs) {
+    prompt += `\n
+===========================================
+CONFERENCE STANDINGS (entering this game)
+===========================================
+Use for race-implication framing — "the loss drops Tennessee to 5-2 in the SEC, two games back of Alabama"; "the win clinches at least a share of the SEC East"; "Texas is alone atop the Big 12 at 6-0." Skip if the implication isn't material to the result.`
+    if (t1Cs) prompt += t1Cs
+    if (t2Cs) prompt += t2Cs
+  }
+
+  // CFP projection slice for each team.
+  const renderCFP = (teamName, slice) => {
+    if (!slice) return null
+    return `\n${teamName}: projected #${slice.seed} seed (${slice.bidLabel || slice.bid || 'at-large'})${slice.conference ? `, ${slice.conference}` : ''}.`
+  }
+  const t1Cfp = renderCFP(ctx.team1FullName, ctx.team1CFPProjection)
+  const t2Cfp = renderCFP(ctx.team2FullName, ctx.team2CFPProjection)
+  if (t1Cfp || t2Cfp) {
+    prompt += `\n
+===========================================
+CFP PROJECTION (12-team field if season ended today)
+===========================================
+Use when the result moves a team in or out of the projected field — "Tennessee's loss likely drops them out of the projected bracket"; "Texas's win cements them as the projected #4 seed and a host." Don't reference projection if neither team's situation is materially affected.`
+    if (t1Cfp) prompt += t1Cfp
+    if (t2Cfp) prompt += t2Cfp
+  }
+
+  // Scoring-margin trend — anchors how lopsided this result is vs season norms.
+  const renderMargin = (teamName, sm) => {
+    if (!sm) return null
+    const bits = []
+    if (sm.wins > 0 && sm.avgWinMargin != null) bits.push(`${sm.wins}-win avg margin: +${sm.avgWinMargin}`)
+    if (sm.losses > 0 && sm.avgLossMargin != null) bits.push(`${sm.losses}-loss avg margin: -${sm.avgLossMargin}`)
+    if (sm.largestWinMargin && sm.largestWinOpp) {
+      const oppName = getTeamName(sm.largestWinOpp) || sm.largestWinOpp
+      bits.push(`largest win: ${sm.largestWinMargin} pts vs ${oppName}`)
+    }
+    if (sm.largestLossMargin && sm.largestLossOpp) {
+      const oppName = getTeamName(sm.largestLossOpp) || sm.largestLossOpp
+      bits.push(`largest loss: ${sm.largestLossMargin} pts to ${oppName}`)
+    }
+    if (sm.oneScoreWins + sm.oneScoreLosses > 0) bits.push(`${sm.oneScoreWins}-${sm.oneScoreLosses} in one-score games`)
+    if (sm.blowoutWins + sm.blowoutLosses > 0) bits.push(`${sm.blowoutWins}-${sm.blowoutLosses} in 21+ blowouts`)
+    if (bits.length === 0) return null
+    return `\n${teamName}: ${bits.join('; ')}.`
+  }
+  const t1Margin = renderMargin(ctx.team1FullName, ctx.team1ScoringMargin)
+  const t2Margin = renderMargin(ctx.team2FullName, ctx.team2ScoringMargin)
+  if (t1Margin || t2Margin) {
+    prompt += `\n
+===========================================
+SCORING-MARGIN TREND (entering this game)
+===========================================
+Use to position THIS result against the season ("their largest margin of the year"; "their first one-score game in two months"; "back-to-back blowouts after a string of close games"). Skip if this game's margin is unremarkable for the season.`
+    if (t1Margin) prompt += t1Margin
+    if (t2Margin) prompt += t2Margin
+  }
+
+  // Resume splits — record vs ranked / unranked / home / away.
+  const renderResume = (teamName, splits) => {
+    if (!splits) return null
+    const bits = []
+    if (splits.vsRanked.wins + splits.vsRanked.losses > 0) bits.push(`vs ranked: ${splits.vsRanked.wins}-${splits.vsRanked.losses}`)
+    if (splits.vsUnranked.wins + splits.vsUnranked.losses > 0) bits.push(`vs unranked: ${splits.vsUnranked.wins}-${splits.vsUnranked.losses}`)
+    if (splits.home.wins + splits.home.losses > 0) bits.push(`home: ${splits.home.wins}-${splits.home.losses}`)
+    if (splits.away.wins + splits.away.losses > 0) bits.push(`away: ${splits.away.wins}-${splits.away.losses}`)
+    if (splits.neutral.wins + splits.neutral.losses > 0) bits.push(`neutral: ${splits.neutral.wins}-${splits.neutral.losses}`)
+    if (bits.length === 0) return null
+    return `\n${teamName}: ${bits.join('; ')}.`
+  }
+  const t1Resume = renderResume(ctx.team1FullName, ctx.team1ResumeSplits)
+  const t2Resume = renderResume(ctx.team2FullName, ctx.team2ResumeSplits)
+  if (t1Resume || t2Resume) {
+    prompt += `\n
+===========================================
+RESUME SPLITS (entering this game)
+===========================================
+Use for résumé / site-context framing: "Tennessee is 4-0 vs ranked teams this year"; "Texas has yet to lose at home"; "the loss drops them to 0-3 on the road." These anchor playoff-committee / quality-of-record claims with concrete numbers.`
+    if (t1Resume) prompt += t1Resume
+    if (t2Resume) prompt += t2Resume
+  }
 
   // Add player performance trends (hot streaks, bounce backs)
   if ((ctx.team1PlayerTrends && ctx.team1PlayerTrends.length > 0) || (ctx.team2PlayerTrends && ctx.team2PlayerTrends.length > 0)) {
