@@ -381,6 +381,33 @@ export default function Dashboard() {
   const [showTransferDestinationsModal, setShowTransferDestinationsModal] = useState(false)
   const [showRecruitingModal, setShowRecruitingModal] = useState(false)
   const [showSellCalc, setShowSellCalc] = useState(false)
+
+  // Shared trailing-tools JSX for the recruiting to-do rows. Lives at the
+  // recruiting card on Dashboard's main view (not a one-off elsewhere) —
+  // referenced from all three phase-specific recruiting to-dos (preseason,
+  // regular season, CCG) so the buttons stay consistent across the year.
+  // Hidden in view-only mode and on small screens to keep mobile rows from
+  // wrapping (the calculator icon + external-link icon would push the
+  // primary action button off the row width on phones).
+  const recruitingExtraTools = !isViewOnly ? (
+    <div className="hidden sm:flex items-center gap-1.5">
+      <SellVsSendButton onClick={() => setShowSellCalc(true)} />
+      <a
+        href="https://collegefootball.gg/recruiting-insight-engine/"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Recruiting Insight Engine (external)"
+        aria-label="Open Recruiting Insight Engine"
+        className="inline-flex items-center justify-center h-8 sm:h-9 w-8 sm:w-9 rounded-md bg-surface-2 border border-surface-4 text-txt-secondary hover:bg-surface-3 hover:text-txt-primary transition-colors flex-shrink-0"
+      >
+        <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" strokeWidth="1.75">
+          <circle cx="12" cy="12" r="9" />
+          <circle cx="12" cy="12" r="3" />
+          <path strokeLinecap="round" d="M12 1.5v3M12 19.5v3M22.5 12h-3M4.5 12h-3" />
+        </svg>
+      </a>
+    </div>
+  ) : null
   const [showPositionChangesModal, setShowPositionChangesModal] = useState(false)
   const [showRecruitingClassRankModal, setShowRecruitingClassRankModal] = useState(false)
   const [showTrainingResultsModal, setShowTrainingResultsModal] = useState(false)
@@ -3285,6 +3312,7 @@ export default function Dashboard() {
                 viewTo: cs > 0 ? `${pathPrefix}/recruiting/${userTid}/${currentDynasty.currentYear}` : null,
                 onAction: () => setShowRecruitingModal(true),
                 actionLabel: recruitingDone ? 'Edit' : 'Yes',
+                extraTools: recruitingExtraTools,
                 inlineAction: !recruitingDone && !isViewOnly ? {
                   label: 'No commits',
                   onClick: handleNoCommitments,
@@ -3567,6 +3595,7 @@ export default function Dashboard() {
                   viewTo: `${pathPrefix}/recruiting/${userTidForCommitments}/${currentDynasty.currentYear}`,
                   onAction: () => setShowRecruitingModal(true),
                   actionLabel: hasCommitmentsData ? 'Edit' : 'Log',
+                  extraTools: recruitingExtraTools,
                   // "Mark None" gives the user a one-tap way to flip the
                   // dot green when there were genuinely no commits this
                   // week — the modal-driven Log path saves an empty
@@ -3897,6 +3926,7 @@ export default function Dashboard() {
                 viewTo: cs > 0 ? `${pathPrefix}/recruiting/${userTidForCommits}/${currentDynasty.currentYear}` : null,
                 onAction: () => setShowRecruitingModal(true),
                 actionLabel: recruitingDone ? 'Edit' : 'Yes',
+                extraTools: recruitingExtraTools,
                 inlineAction: !recruitingDone && !isViewOnly ? {
                   label: 'No commits',
                   onClick: handleNoCommitments,
@@ -3947,23 +3977,26 @@ export default function Dashboard() {
                       </div>
                     </div>
                     {todo.customActions ?? (!isViewOnly && todo.actionLabel ? (
-                      <div
-                        className="grid gap-1.5 sm:gap-2 flex-shrink-0 items-center"
-                        style={{ gridTemplateColumns: '5rem 6.5rem' }}
-                      >
-                        {todo.viewTo ? (
-                          <Link to={todo.viewTo} className="btn-refined text-center">
-                            View
-                          </Link>
-                        ) : (
-                          <span aria-hidden="true" />
-                        )}
-                        <button
-                          onClick={todo.onAction}
-                          className="btn-refined btn-refined--solid text-center"
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                        {todo.extraTools}
+                        <div
+                          className="grid gap-1.5 sm:gap-2 items-center"
+                          style={{ gridTemplateColumns: '5rem 6.5rem' }}
                         >
-                          {todo.actionLabel}
-                        </button>
+                          {todo.viewTo ? (
+                            <Link to={todo.viewTo} className="btn-refined text-center">
+                              View
+                            </Link>
+                          ) : (
+                            <span aria-hidden="true" />
+                          )}
+                          <button
+                            onClick={todo.onAction}
+                            className="btn-refined btn-refined--solid text-center"
+                          >
+                            {todo.actionLabel}
+                          </button>
+                        </div>
                       </div>
                     ) : null)}
                   </div>
