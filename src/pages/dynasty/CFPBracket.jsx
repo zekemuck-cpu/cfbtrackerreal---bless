@@ -472,18 +472,12 @@ export default function CFPBracket() {
   const getQFGameBySlot = (slotId) => {
     // PRIMARY: Find by cfpSlot - this is the ONLY reliable identifier
     const bySlot = quarterfinalsResults.find(g => g && g.cfpSlot === slotId)
-    if (bySlot) {
-      console.log(`[getQFGameBySlot] ${slotId}: Found by cfpSlot`, { id: bySlot.id, winner: bySlot.winner })
-      return bySlot
-    }
+    if (bySlot) return bySlot
 
     // SECONDARY: Find by game ID pattern (e.g., cfpqf1-2029)
     const expectedGameId = getCFPGameId(slotId, displayYear)
     const byId = quarterfinalsResults.find(g => g && g.id === expectedGameId)
-    if (byId) {
-      console.log(`[getQFGameBySlot] ${slotId}: Found by game ID ${expectedGameId}`, { winner: byId.winner })
-      return byId
-    }
+    if (byId) return byId
 
     // TERTIARY: Find by bye seed team (fallback for legacy data without cfpSlot)
     const slotToBySeed = { cfpqf1: 1, cfpqf2: 4, cfpqf3: 3, cfpqf4: 2 }
@@ -501,15 +495,11 @@ export default function CFPBracket() {
           if (byeSeedTeam && g.team1 === byeSeedTeam) return true
           return false
         })
-        if (byByeSeed) {
-          console.log(`[getQFGameBySlot] ${slotId}: Found by bye seed ${byeSeed}`, { id: byByeSeed.id, winner: byByeSeed.winner })
-          return byByeSeed
-        }
+        if (byByeSeed) return byByeSeed
       }
     }
 
     // NO bowl name fallback - bowl names are configurable and cause confusion
-    console.log(`[getQFGameBySlot] ${slotId}: No game found!`)
     return null
   }
 
@@ -529,18 +519,12 @@ export default function CFPBracket() {
   const getSFGameBySlot = (slotId) => {
     // PRIMARY: Find by cfpSlot - this is the ONLY reliable identifier
     const bySlot = semifinalsResults.find(g => g && g.cfpSlot === slotId)
-    if (bySlot) {
-      console.log(`[getSFGameBySlot] ${slotId}: Found by cfpSlot`, { id: bySlot.id, winner: bySlot.winner })
-      return bySlot
-    }
+    if (bySlot) return bySlot
 
     // SECONDARY: Find by game ID pattern (e.g., cfpsf1-2029)
     const expectedGameId = getCFPGameId(slotId, displayYear)
     const byId = semifinalsResults.find(g => g && g.id === expectedGameId)
-    if (byId) {
-      console.log(`[getSFGameBySlot] ${slotId}: Found by game ID ${expectedGameId}`, { winner: byId.winner })
-      return byId
-    }
+    if (byId) return byId
 
     // TERTIARY: For legacy data, try to match by QF winner teams
     // SF1 gets winners from cfpqf1 (seed 1) and cfpqf2 (seed 4)
@@ -557,14 +541,10 @@ export default function CFPBracket() {
         const hasWinner2 = qfWinner2Tid && (g.team1Tid === qfWinner2Tid || g.team2Tid === qfWinner2Tid)
         return hasWinner1 || hasWinner2
       })
-      if (byTeams) {
-        console.log(`[getSFGameBySlot] ${slotId}: Found by QF winner teams`, { id: byTeams.id, winner: byTeams.winner })
-        return byTeams
-      }
+      if (byTeams) return byTeams
     }
 
     // NO bowl name fallback - bowl names are configurable and cause confusion
-    console.log(`[getSFGameBySlot] ${slotId}: No game found!`)
     return null
   }
 

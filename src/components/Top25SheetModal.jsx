@@ -11,6 +11,8 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import SheetLoadingHint from './SheetLoadingHint'
+import AuthErrorModal from './AuthErrorModal'
+import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
 
 /**
  * Top25SheetModal — paste-and-sync entry for the Top 25 rankings.
@@ -47,7 +49,7 @@ export default function Top25SheetModal({ isOpen, onClose }) {
   const [deletingSheet, setDeletingSheet] = useState(false)
   const [sheetId, setSheetId] = useState(null)
   const [showDeletedNote, setShowDeletedNote] = useState(false)
-  const [retryCount, setRetryCount] = useState(0)
+  const auth = useAuthErrorHandler()
   const [pendingSave, setPendingSave] = useState(null) // { diff, summary, alsoDelete }
   const creatingSheetRef = useRef(false)
 
@@ -75,20 +77,21 @@ export default function Top25SheetModal({ isOpen, onClose }) {
         await updateDynasty(currentDynasty.id, { top25SheetId: info.spreadsheetId })
       } catch (error) {
         console.error('Failed to create Top 25 sheet:', error)
-        toast.error('Failed to create the rankings sheet — try again or contact support.')
+        if (!auth.handleError(error)) {
+          toast.error('Failed to create the rankings sheet — try again or contact support.')
+        }
       } finally {
         setCreatingSheet(false)
         creatingSheetRef.current = false
       }
     }
     create()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, retryCount, showDeletedNote, isViewOnly])
+  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote, isViewOnly])
 
   // Reset state on close so re-opening starts clean.
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
-      setRetryCount(0)
       setPendingSave(null)
     }
   }, [isOpen])
@@ -127,7 +130,9 @@ export default function Top25SheetModal({ isOpen, onClose }) {
       })
     } catch (error) {
       console.error('Failed to read Top 25 sheet:', error)
-      toast.error('Failed to read the sheet. Make sure the data is properly formatted and try again.')
+      if (!auth.handleError(error)) {
+        toast.error('Failed to read the sheet. Make sure the data is properly formatted and try again.')
+      }
     } finally {
       setSyncing(false)
     }
@@ -156,7 +161,9 @@ export default function Top25SheetModal({ isOpen, onClose }) {
       }
     } catch (error) {
       console.error('Failed to apply Top 25 changes:', error)
-      toast.error('Failed to save changes — try again.')
+      if (!auth.handleError(error)) {
+        toast.error('Failed to save changes — try again.')
+      }
     } finally {
       setSyncing(false)
     }
@@ -180,7 +187,9 @@ export default function Top25SheetModal({ isOpen, onClose }) {
       setTimeout(() => onClose(), 1800)
     } catch (error) {
       console.error('Failed to delete sheet:', error)
-      toast.error('Failed to delete the sheet — try again.')
+      if (!auth.handleError(error)) {
+        toast.error('Failed to delete the sheet — try again.')
+      }
     } finally {
       setDeletingSheet(false)
     }
@@ -289,6 +298,11 @@ export default function Top25SheetModal({ isOpen, onClose }) {
           applying={syncing}
         />
       )}
+      <AuthErrorModal
+        isOpen={auth.showAuthError}
+        onClose={auth.closeAuthError}
+        onRefresh={auth.retry}
+      />
     </div>,
     document.body,
   )
