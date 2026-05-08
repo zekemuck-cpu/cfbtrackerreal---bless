@@ -1474,6 +1474,114 @@ export function applyGameRanksToTeams(dynasty, game) {
   return teamsCopy
 }
 
+/**
+ * Apply a Top 25 sheet sync-back diff to dynasty.teams. Diff shape
+ * matches readTop25FromSheet's output:
+ *
+ *   { [tid]: { [year]: { [weekKey]: rank | null } } }
+ *
+ * `rank` (1-25) sets or replaces the team's rankByWeek slot.
+ * `null` clears the slot (= the user removed the team from that
+ * (rank, week) cell on the sheet).
+ *
+ * Returns the new dynasty.teams object — caller wraps it in an
+ * updateDynasty({ teams }) call. Pure / immutable; doesn't mutate the
+ * input.
+ */
+export function applyTop25SheetDiff(dynasty, diff) {
+  if (!dynasty || !diff || typeof diff !== 'object') return dynasty?.teams || {}
+  const teamsCopy = { ...(dynasty.teams || {}) }
+  for (const [tidKey, byYear] of Object.entries(diff)) {
+    if (!byYear || typeof byYear !== 'object') continue
+    const tidStr = String(tidKey)
+    const team = teamsCopy[tidStr] || teamsCopy[Number(tidStr)] || {}
+    const teamByYear = { ...(team.byYear || {}) }
+    for (const [yearKey, weekUpdates] of Object.entries(byYear)) {
+      if (!weekUpdates || typeof weekUpdates !== 'object') continue
+      const yearEntry = { ...(teamByYear[yearKey] || teamByYear[Number(yearKey)] || {}) }
+      const rankByWeek = { ...(yearEntry.rankByWeek || {}) }
+      for (const [weekKey, value] of Object.entries(weekUpdates)) {
+        if (value == null) {
+          delete rankByWeek[weekKey]
+          delete rankByWeek[Number(weekKey)]
+        } else {
+          const n = Number(value)
+          if (Number.isFinite(n) && n >= 1 && n <= 25) rankByWeek[weekKey] = n
+        }
+      }
+      yearEntry.rankByWeek = rankByWeek
+      teamByYear[yearKey] = yearEntry
+    }
+    teamsCopy[tidStr] = { ...team, byYear: teamByYear }
+  }
+  return teamsCopy
+}
+
+/**
+ * Build a human-readable diff summary from a Top 25 sheet sync-back
+ * diff + the current dynasty state. Shape:
+ *
+ *   {
+ *     byYear: {
+ *       [year]: {
+ *         added:   [{ tid, abbr, weekKey, rank }],     // new ranking entries
+ *         removed: [{ tid, abbr, weekKey, rank }],     // entries cleared
+ *         changed: [{ tid, abbr, weekKey, oldRank, newRank }],
+ *       }
+ *     },
+ *     totals: { added, removed, changed },
+ *   }
+ *
+ * Used by the Top 25 sheet modal to show the user every change before
+ * applying — they confirm or cancel.
+ */
+export function buildTop25Diff(dynasty, diff) {
+  if (!dynasty || !diff || typeof diff !== 'object') return { byYear: {}, totals: { added: 0, removed: 0, changed: 0 } }
+
+  const teamAbbr = (tidKey) => {
+    const t = dynasty.teams?.[tidKey] || dynasty.teams?.[Number(tidKey)]
+    return t?.abbr || tidKey
+  }
+  const readOld = (tidKey, year, weekKey) => {
+    const t = dynasty.teams?.[tidKey] || dynasty.teams?.[Number(tidKey)]
+    const rbw = t?.byYear?.[year]?.rankByWeek ?? t?.byYear?.[String(year)]?.rankByWeek
+    if (!rbw) return null
+    const v = rbw[weekKey] ?? rbw[String(weekKey)]
+    return typeof v === 'number' ? v : null
+  }
+
+  const byYear = {}
+  let totalAdded = 0, totalRemoved = 0, totalChanged = 0
+  for (const [tidKey, byYearMap] of Object.entries(diff)) {
+    for (const [year, weekUpdates] of Object.entries(byYearMap || {})) {
+      const yearEntry = byYear[year] || (byYear[year] = { added: [], removed: [], changed: [] })
+      for (const [weekKey, newVal] of Object.entries(weekUpdates || {})) {
+        const wk = Number(weekKey)
+        if (!Number.isFinite(wk)) continue
+        const oldRank = readOld(tidKey, year, wk)
+        const abbr = teamAbbr(tidKey)
+        if (newVal == null) {
+          if (oldRank != null) {
+            yearEntry.removed.push({ tid: Number(tidKey), abbr, weekKey: wk, rank: oldRank })
+            totalRemoved += 1
+          }
+        } else {
+          const newRank = Number(newVal)
+          if (!Number.isFinite(newRank)) continue
+          if (oldRank == null) {
+            yearEntry.added.push({ tid: Number(tidKey), abbr, weekKey: wk, rank: newRank })
+            totalAdded += 1
+          } else if (oldRank !== newRank) {
+            yearEntry.changed.push({ tid: Number(tidKey), abbr, weekKey: wk, oldRank, newRank })
+            totalChanged += 1
+          }
+        }
+      }
+    }
+  }
+  return { byYear, totals: { added: totalAdded, removed: totalRemoved, changed: totalChanged } }
+}
+
 export function getTeamRanking(dynasty, tidOrAbbr, year) {
   if (!dynasty || !tidOrAbbr || !year) return null
 

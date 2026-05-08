@@ -14129,3 +14129,455 @@ export async function readFringeCaseClassFromSheet(spreadsheetId, dynastyTeams =
     throw error
   }
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// TOP 25 RANKINGS SHEET
+//
+// One spreadsheet per dynasty. One tab per year present in the dynasty
+// (current year first, then descending). Each tab is a 26-row × 22-col
+// grid: row 1 = column headers ("Rank", "Preseason", "Week 1" … "Week
+// 15", "CC", "CFP-1", "CFP-Q", "CFP-S", "Natty"); rows 2-26 = ranks
+// 1-25; the rank label sits in column A, every other cell holds a team
+// abbreviation (or blank for unranked slots).
+//
+// Cells use a strict ONE_OF_LIST data validation built from every team
+// in dynasty.teams — typos / unknown abbrs are rejected at the cell
+// level, so a careless edit can't silently corrupt the rank slot.
+// Conditional formatting paints each cell with the team's primary /
+// secondary colors as soon as a valid abbr lands.
+//
+// Pre-fill comes from dynasty.teams[tid].byYear[year].rankByWeek — the
+// same store every other read site uses. Sync-back inverts the layout:
+// for each non-empty cell, look up the team's tid by abbr and write
+// rankByWeek[year][weekKey] = rank.
+// ──────────────────────────────────────────────────────────────────────
+
+// Week-key columns. Order matches the headers on the sheet.
+const TOP25_WEEK_KEYS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 100, 101, 102, 103, 104]
+const TOP25_WEEK_LABELS = {
+  0: 'Preseason',
+  100: 'CC',
+  101: 'CFP-1',
+  102: 'CFP-Q',
+  103: 'CFP-S',
+  104: 'Natty',
+}
+const TOP25_NUM_RANKS = 25
+
+function top25WeekHeader(weekKey) {
+  if (TOP25_WEEK_LABELS[weekKey]) return TOP25_WEEK_LABELS[weekKey]
+  return `Week ${weekKey}`
+}
+
+// columnIndex 0 = Rank label column, 1..21 = each TOP25_WEEK_KEYS slot.
+function top25WeekColumnIndex(weekKey) {
+  const i = TOP25_WEEK_KEYS.indexOf(weekKey)
+  return i >= 0 ? i + 1 : -1
+}
+
+// Build the 26-row × 22-col data block for one year's tab. Rows are
+// arrays so the shape matches the Sheets API expectations directly.
+function buildTop25TabRows(dynasty, year) {
+  const yearKey = String(year)
+  const yearKeyNum = Number(year)
+  // Header row.
+  const header = ['Rank']
+  for (const wk of TOP25_WEEK_KEYS) header.push(top25WeekHeader(wk))
+
+  // Initialize 25 empty data rows.
+  const dataRows = []
+  for (let r = 1; r <= TOP25_NUM_RANKS; r++) {
+    const row = [`#${r}`]
+    for (let c = 0; c < TOP25_WEEK_KEYS.length; c++) row.push('')
+    dataRows.push(row)
+  }
+
+  // Walk every team in dynasty.teams and place its rankByWeek entries
+  // into the right (rank, week) slots. First team to claim a (rank,
+  // week) cell wins on conflict — same defensive policy as the
+  // Rankings page.
+  const teams = dynasty?.teams || {}
+  for (const team of Object.values(teams)) {
+    if (!team?.abbr) continue
+    const rbw = team?.byYear?.[yearKeyNum]?.rankByWeek
+      ?? team?.byYear?.[yearKey]?.rankByWeek
+    if (!rbw) continue
+    for (const [k, v] of Object.entries(rbw)) {
+      const wk = Number(k)
+      if (!Number.isFinite(wk)) continue
+      const colIdx = top25WeekColumnIndex(wk)
+      if (colIdx < 0) continue
+      const rank = Number(v)
+      if (!Number.isFinite(rank) || rank < 1 || rank > TOP25_NUM_RANKS) continue
+      const rowIdx = rank - 1
+      // Only fill if empty (defensive against accidental dupes).
+      if (!dataRows[rowIdx][colIdx]) dataRows[rowIdx][colIdx] = team.abbr
+    }
+  }
+
+  return [header, ...dataRows]
+}
+
+/**
+ * Create the Top 25 rankings spreadsheet — one tab per year that has
+ * at least some data in the dynasty (games, rankByWeek, or final
+ * poll). Pre-filled from rankByWeek.
+ */
+export async function createTop25Sheet(dynastyName, dynasty) {
+  if (!dynasty) throw new Error('createTop25Sheet: dynasty is required')
+
+  // Determine which years to include. Union of:
+  //   - every year with at least one stored game
+  //   - every year present in finalPollsByYear
+  //   - every year present in any team's byYear with a rankByWeek
+  //   - the current year (so the freshly-current season always shows)
+  const years = new Set()
+  for (const g of (dynasty.games || [])) {
+    const y = Number(g?.year)
+    if (Number.isFinite(y)) years.add(y)
+  }
+  for (const k of Object.keys(dynasty.finalPollsByYear || {})) {
+    const y = Number(k)
+    if (Number.isFinite(y)) years.add(y)
+  }
+  for (const team of Object.values(dynasty.teams || {})) {
+    for (const k of Object.keys(team?.byYear || {})) {
+      const y = Number(k)
+      if (Number.isFinite(y) && team.byYear[k]?.rankByWeek) years.add(y)
+    }
+  }
+  if (dynasty.currentYear) years.add(Number(dynasty.currentYear))
+  const orderedYears = [...years].filter(y => Number.isFinite(y)).sort((a, b) => b - a)
+
+  if (orderedYears.length === 0) {
+    throw new Error('createTop25Sheet: no years to render — dynasty has no game data, no rankByWeek entries, and no final polls.')
+  }
+
+  const accessToken = await getAccessToken()
+
+  // Step 1 — create the spreadsheet with one sheet (tab) per year.
+  const NUM_COLS = 1 + TOP25_WEEK_KEYS.length // rank label + 21 week cols
+  const NUM_ROWS = 1 + TOP25_NUM_RANKS        // header + 25 ranks
+  const createBody = {
+    properties: { title: `${dynastyName} — Top 25 Rankings` },
+    sheets: orderedYears.map(year => ({
+      properties: {
+        title: `${year} Top 25`,
+        gridProperties: {
+          rowCount: NUM_ROWS,
+          columnCount: NUM_COLS,
+          frozenRowCount: 1,
+          frozenColumnCount: 1,
+        },
+      },
+    })),
+  }
+  const createRes = await fetch(SHEETS_API_BASE, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(createBody),
+  })
+  if (!createRes.ok) {
+    const err = await createRes.json().catch(() => ({}))
+    throw new Error(`createTop25Sheet: Sheets API create failed — ${err.error?.message || createRes.status}`)
+  }
+  const sheet = await createRes.json()
+  const sheetIdByYear = new Map()
+  for (let i = 0; i < orderedYears.length; i++) {
+    sheetIdByYear.set(orderedYears[i], sheet.sheets[i].properties.sheetId)
+  }
+
+  // Step 2 — pre-fill data for each tab via values batchUpdate.
+  const valueRanges = []
+  for (const year of orderedYears) {
+    const rows = buildTop25TabRows(dynasty, year)
+    valueRanges.push({
+      range: `'${year} Top 25'!A1:${String.fromCharCode(64 + NUM_COLS)}${NUM_ROWS}`,
+      majorDimension: 'ROWS',
+      values: rows,
+    })
+  }
+  const valuesRes = await fetch(
+    `${SHEETS_API_BASE}/${sheet.spreadsheetId}/values:batchUpdate`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ valueInputOption: 'RAW', data: valueRanges }),
+    },
+  )
+  if (!valuesRes.ok) {
+    const err = await valuesRes.json().catch(() => ({}))
+    throw new Error(`createTop25Sheet: values batchUpdate failed — ${err.error?.message || valuesRes.status}`)
+  }
+
+  // Step 3 — formatting + validation pass via sheets batchUpdate.
+  // Header row bold + frozen, rank-label column bold + neutral, every
+  // data cell gets strict-dropdown team validation, plus per-team
+  // conditional formatting for cell coloring.
+  const requests = []
+  const teamsMap = getTeamsWithCustom(dynasty.teams)
+  const validationValues = Object.keys(teamsMap).sort().map(abbr => ({ userEnteredValue: abbr }))
+
+  for (const year of orderedYears) {
+    const sId = sheetIdByYear.get(year)
+
+    // Header row formatting.
+    requests.push({
+      repeatCell: {
+        range: { sheetId: sId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: NUM_COLS },
+        cell: {
+          userEnteredFormat: {
+            backgroundColor: { red: 0.13, green: 0.14, blue: 0.18 },
+            textFormat: { foregroundColor: { red: 1, green: 1, blue: 1 }, bold: true },
+            horizontalAlignment: 'CENTER',
+          },
+        },
+        fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)',
+      },
+    })
+
+    // Rank-label column (column A, rows 2-26).
+    requests.push({
+      repeatCell: {
+        range: { sheetId: sId, startRowIndex: 1, endRowIndex: NUM_ROWS, startColumnIndex: 0, endColumnIndex: 1 },
+        cell: {
+          userEnteredFormat: {
+            backgroundColor: { red: 0.18, green: 0.19, blue: 0.23 },
+            textFormat: { foregroundColor: { red: 1, green: 1, blue: 1 }, bold: true },
+            horizontalAlignment: 'CENTER',
+          },
+        },
+        fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)',
+      },
+    })
+
+    // Center-align all team-cell content.
+    requests.push({
+      repeatCell: {
+        range: { sheetId: sId, startRowIndex: 1, endRowIndex: NUM_ROWS, startColumnIndex: 1, endColumnIndex: NUM_COLS },
+        cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { bold: true } } },
+        fields: 'userEnteredFormat(horizontalAlignment,textFormat)',
+      },
+    })
+
+    // Strict-dropdown validation on every team cell.
+    requests.push({
+      setDataValidation: {
+        range: { sheetId: sId, startRowIndex: 1, endRowIndex: NUM_ROWS, startColumnIndex: 1, endColumnIndex: NUM_COLS },
+        rule: {
+          condition: { type: 'ONE_OF_LIST', values: validationValues },
+          showCustomUi: true,
+          strict: true,
+        },
+      },
+    })
+
+    // Per-team conditional formatting — paint cells in the team's
+    // primary/secondary colors as soon as a valid abbr lands.
+    for (const [abbr, teamData] of Object.entries(teamsMap)) {
+      requests.push({
+        addConditionalFormatRule: {
+          rule: {
+            ranges: [{ sheetId: sId, startRowIndex: 1, endRowIndex: NUM_ROWS, startColumnIndex: 1, endColumnIndex: NUM_COLS }],
+            booleanRule: {
+              condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: abbr }] },
+              format: {
+                backgroundColor: hexToRgb(teamData.backgroundColor),
+                textFormat: { foregroundColor: hexToRgb(teamData.textColor), bold: true, italic: true },
+              },
+            },
+          },
+          index: 0,
+        },
+      })
+    }
+
+    // Sensible column widths — narrow week columns + slightly wider rank label.
+    requests.push({
+      updateDimensionProperties: {
+        range: { sheetId: sId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 },
+        properties: { pixelSize: 64 },
+        fields: 'pixelSize',
+      },
+    })
+    requests.push({
+      updateDimensionProperties: {
+        range: { sheetId: sId, dimension: 'COLUMNS', startIndex: 1, endIndex: NUM_COLS },
+        properties: { pixelSize: 86 },
+        fields: 'pixelSize',
+      },
+    })
+  }
+
+  const batchRes = await fetch(
+    `${SHEETS_API_BASE}/${sheet.spreadsheetId}:batchUpdate`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests }),
+    },
+  )
+  if (!batchRes.ok) {
+    const err = await batchRes.json().catch(() => ({}))
+    throw new Error(`createTop25Sheet: batchUpdate failed — ${err.error?.message || batchRes.status}`)
+  }
+
+  await shareSheetPublicly(sheet.spreadsheetId, accessToken)
+
+  return {
+    spreadsheetId: sheet.spreadsheetId,
+    spreadsheetUrl: sheet.spreadsheetUrl,
+    years: orderedYears,
+  }
+}
+
+/**
+ * Read a Top 25 spreadsheet back into a per-year, per-team
+ * rankByWeek diff. Returns:
+ *
+ *   {
+ *     yearTotals: { 2034: { newCount, oldCount }, 2033: {...} },
+ *     teamUpdates: {
+ *       [tid]: {
+ *         [year]: { [weekKey]: rank | null }   // null = clear that slot
+ *       }
+ *     },
+ *     unknownAbbrs: [{ year, weekKey, rank, raw }],  // typos / unknown teams
+ *   }
+ *
+ * The caller is responsible for showing a confirmation diff and
+ * applying the updates with the appropriate guardrails.
+ */
+export async function readTop25FromSheet(spreadsheetId, dynasty) {
+  if (!dynasty) throw new Error('readTop25FromSheet: dynasty is required')
+
+  const accessToken = await getAccessToken()
+  // Resolve all tabs first so we know which years exist.
+  const metaRes = await fetch(
+    `${SHEETS_API_BASE}/${spreadsheetId}?fields=sheets.properties(title,sheetId,gridProperties)`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  )
+  if (!metaRes.ok) {
+    const err = await metaRes.json().catch(() => ({}))
+    throw new Error(`readTop25FromSheet: meta fetch failed — ${err.error?.message || metaRes.status}`)
+  }
+  const meta = await metaRes.json()
+  const tabs = (meta.sheets || []).map(s => s.properties)
+
+  // Reverse map: abbr → tid (case-insensitive). We use this to convert
+  // each cell's text back to a tid.
+  const abbrToTid = new Map()
+  for (const [tidKey, team] of Object.entries(dynasty.teams || {})) {
+    if (!team?.abbr) continue
+    abbrToTid.set(String(team.abbr).toUpperCase(), Number(tidKey))
+  }
+
+  const NUM_COLS = 1 + TOP25_WEEK_KEYS.length
+  const NUM_ROWS = 1 + TOP25_NUM_RANKS
+
+  // Walk every "[year] Top 25" tab and read its data.
+  const ranges = []
+  const yearByRange = new Map()
+  for (const t of tabs) {
+    const m = t?.title?.match(/^(\d{4})\s+Top\s+25$/i)
+    if (!m) continue
+    const year = Number(m[1])
+    const rng = `'${t.title}'!A1:${String.fromCharCode(64 + NUM_COLS)}${NUM_ROWS}`
+    ranges.push(rng)
+    yearByRange.set(rng, year)
+  }
+  if (ranges.length === 0) {
+    return { yearTotals: {}, teamUpdates: {}, unknownAbbrs: [] }
+  }
+  const valuesRes = await fetch(
+    `${SHEETS_API_BASE}/${spreadsheetId}/values:batchGet?${ranges.map(r => `ranges=${encodeURIComponent(r)}`).join('&')}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  )
+  if (!valuesRes.ok) {
+    const err = await valuesRes.json().catch(() => ({}))
+    throw new Error(`readTop25FromSheet: values batchGet failed — ${err.error?.message || valuesRes.status}`)
+  }
+  const valuesData = await valuesRes.json()
+
+  // Build per-year, per-team map of new rank entries: { year: { tid: { weekKey: rank } } }.
+  // Also count old vs new entries per year for the bulk-delete guardrail.
+  const yearTotals = {}
+  const newEntriesByYear = {}
+  const unknownAbbrs = []
+
+  for (const r of (valuesData.valueRanges || [])) {
+    const year = yearByRange.get(r.range) ?? yearByRange.get(decodeURIComponent(r.range))
+    if (!year) continue
+    const rows = r.values || []
+    // Count old entries for this year (from current dynasty.teams).
+    let oldCount = 0
+    for (const team of Object.values(dynasty.teams || {})) {
+      const rbw = team?.byYear?.[year]?.rankByWeek ?? team?.byYear?.[String(year)]?.rankByWeek
+      if (!rbw) continue
+      for (const v of Object.values(rbw)) {
+        if (typeof v === 'number' && v >= 1 && v <= 25) oldCount += 1
+      }
+    }
+
+    const yearMap = newEntriesByYear[year] || (newEntriesByYear[year] = {})
+    let newCount = 0
+    // Skip header row 0; data rows 1..25 = ranks 1..25.
+    for (let rIdx = 1; rIdx <= TOP25_NUM_RANKS; rIdx++) {
+      const row = rows[rIdx] || []
+      const rank = rIdx
+      // Column 0 is the rank label; week columns start at 1.
+      for (let cIdx = 1; cIdx < NUM_COLS; cIdx++) {
+        const raw = (row[cIdx] || '').trim()
+        if (!raw) continue
+        const weekKey = TOP25_WEEK_KEYS[cIdx - 1]
+        const tid = abbrToTid.get(raw.toUpperCase())
+        if (tid == null) {
+          unknownAbbrs.push({ year, weekKey, rank, raw })
+          continue
+        }
+        const tidKey = String(tid)
+        const teamMap = yearMap[tidKey] || (yearMap[tidKey] = {})
+        teamMap[weekKey] = rank
+        newCount += 1
+      }
+    }
+    yearTotals[year] = { oldCount, newCount }
+  }
+
+  // Convert to teamUpdates shape: { [tid]: { [year]: { [weekKey]: rank | null } } }.
+  // For each team-year, also include explicit `null` entries for every
+  // weekKey that USED to have a rank but isn't in the new state — that
+  // tells the caller to clear those slots. (Comparison happens at apply
+  // time using the old dynasty, so callers don't need to recompute.)
+  const teamUpdates = {}
+  // Seed teamUpdates with new entries.
+  for (const [year, byTid] of Object.entries(newEntriesByYear)) {
+    for (const [tidKey, weekMap] of Object.entries(byTid)) {
+      const tEntry = teamUpdates[tidKey] || (teamUpdates[tidKey] = {})
+      tEntry[year] = { ...weekMap }
+    }
+  }
+  // For each year present in the read, walk all teams that had an old
+  // rankByWeek entry and add nulls for any weekKey not in the new set.
+  for (const yearStr of Object.keys(yearTotals)) {
+    const yearNum = Number(yearStr)
+    for (const [tidKey, team] of Object.entries(dynasty.teams || {})) {
+      const oldRbw = team?.byYear?.[yearNum]?.rankByWeek
+        ?? team?.byYear?.[yearStr]?.rankByWeek
+      if (!oldRbw) continue
+      const newWeekMap = teamUpdates[tidKey]?.[yearStr] || {}
+      for (const k of Object.keys(oldRbw)) {
+        const wk = Number(k)
+        if (!Number.isFinite(wk)) continue
+        // If old had this slot AND new doesn't, mark it null (= clear).
+        if (oldRbw[k] != null && !(wk in newWeekMap) && !(String(wk) in newWeekMap)) {
+          if (!teamUpdates[tidKey]) teamUpdates[tidKey] = {}
+          if (!teamUpdates[tidKey][yearStr]) teamUpdates[tidKey][yearStr] = {}
+          teamUpdates[tidKey][yearStr][wk] = null
+        }
+      }
+    }
+  }
+
+  return { yearTotals, teamUpdates, unknownAbbrs }
+}

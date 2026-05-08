@@ -1,10 +1,12 @@
+import { useState } from 'react'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, calculateTeamRecordFromGames } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { TEAMS, resolveTid } from '../../data/teamRegistry'
-import { PageHero, Card, EmptyState, TitleWithYear } from '../../components/ui'
+import { PageHero, Card, EmptyState, TitleWithYear, Button } from '../../components/ui'
+import Top25SheetModal from '../../components/Top25SheetModal'
 
 const getSchoolName = stripMascotFromName
 
@@ -75,8 +77,9 @@ export default function Rankings() {
   const { year: urlYear } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { currentDynasty } = useDynasty()
+  const { currentDynasty, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
+  const [showEditSheet, setShowEditSheet] = useState(false)
 
   if (!currentDynasty) return null
 
@@ -378,11 +381,18 @@ export default function Rankings() {
             label="Top 25"
           />
         }
+        actions={!isViewOnly ? (
+          <Button variant="outline" size="sm" onClick={() => setShowEditSheet(true)}>
+            Edit Rankings
+          </Button>
+        ) : null}
       />
 
       <div className="max-w-2xl mx-auto">
         <PollColumn data={top25} pollType="media" />
       </div>
+
+      <Top25SheetModal isOpen={showEditSheet} onClose={() => setShowEditSheet(false)} />
 
       <style>{`
         .ranking-row:hover {
