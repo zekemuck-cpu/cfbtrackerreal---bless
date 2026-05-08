@@ -15,7 +15,7 @@ import path from 'path'
 //
 // Date prefix is still auto-derived (today, UTC) so we don't have to
 // touch it across midnights.
-const MANUAL_BUILD = '0014'
+const MANUAL_BUILD = '0015'
 
 function buildAppVersion() {
   const today = new Date().toISOString().slice(0, 10)

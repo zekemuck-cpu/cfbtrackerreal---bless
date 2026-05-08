@@ -577,6 +577,46 @@ export default function GameEdit() {
     }
   }
 
+  // Memoized JSX-render-time live records for both teams. liveRecordFor
+  // iterates dynasty.games and conferenceStandingsByYear; calling it
+  // inline in the team-row JSX ran 2× per render AND combined with the
+  // cascading re-renders from openBoxScoreModal's awaited updateGame
+  // (Firestore listener fires N times → setCurrentDynasty → re-render),
+  // it compounded into a 5+ second main-thread freeze and Chrome's
+  // "Page Unresponsive" dialog at modal-mount on 4-7MB dynasties.
+  // Memoizing collapses all that to a single cached pair that only
+  // refreshes when its underlying inputs actually move.
+  const live1 = useMemo(
+    () => (autoFillRecords && team1Tid) ? liveRecordFor(team1Tid) : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      autoFillRecords, team1Tid, team2Tid, gameYear,
+      currentDynasty?.games, currentDynasty?.teams,
+      currentDynasty?.conferenceStandingsByYear,
+      currentDynasty?.teamRecordsByTeamYear,
+      existingGame?.id, existingGame?.team1Tid,
+      existingGame?.team1Score, existingGame?.team2Score,
+      existingGame?.isConferenceGame,
+      formData.team1Score, formData.team2Score,
+      formData.isConferenceGame, isConferenceGame,
+    ]
+  )
+  const live2 = useMemo(
+    () => (autoFillRecords && team2Tid) ? liveRecordFor(team2Tid) : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      autoFillRecords, team1Tid, team2Tid, gameYear,
+      currentDynasty?.games, currentDynasty?.teams,
+      currentDynasty?.conferenceStandingsByYear,
+      currentDynasty?.teamRecordsByTeamYear,
+      existingGame?.id, existingGame?.team1Tid,
+      existingGame?.team1Score, existingGame?.team2Score,
+      existingGame?.isConferenceGame,
+      formData.team1Score, formData.team2Score,
+      formData.isConferenceGame, isConferenceGame,
+    ]
+  )
+
   // Get team ratings from dynasty data - checks multiple possible storage locations
   const getTeamRatings = (tid, year) => {
     if (!tid) return { overall: '', offense: '', defense: '' }
@@ -1786,13 +1826,15 @@ export default function GameEdit() {
                   </StatField>
                 ))}
                 {!isUser && (() => {
-                  const oppTid = prefix === 'team1' ? team1Tid : team2Tid
-                  const live = autoFillRecords ? liveRecordFor(oppTid) : null
+                  // Read from the precomputed live1/live2 useMemos rather
+                  // than calling liveRecordFor inline — see the memo
+                  // declarations above for the freeze rationale.
+                  const live = prefix === 'team1' ? live1 : live2
                   const recordValue = autoFillRecords
-                    ? (live.record || '')
+                    ? (live?.record || '')
                     : formData[`${prefix}Record`]
                   const confValue = autoFillRecords
-                    ? (live.confRecord || '')
+                    ? (live?.confRecord || '')
                     : formData[`${prefix}ConfRecord`]
                   return (
                     <>
