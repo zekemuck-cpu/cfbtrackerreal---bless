@@ -8316,18 +8316,19 @@ export function DynastyProvider({ children }) {
       // downstream pages (CC History, CFP auto-bid logic, etc.).
       const isConfChampImport = isConferenceChampionshipCandidate(homeConf, awayConf, row.neutral)
 
-      // Ranks: column A = home (team1), column D = away (team2). User-
-      // entered ranks here are EA-screenshot post-game ranks. We DON'T
-      // store them on this Week N game record — those land on rankByWeek
-      // [N+1] (= the team's entering rank for the next week) below.
-      // The Week N game's stored team1Rank / team2Rank get filled in
-      // post-loop with each team's ENTERING Week N rank, which lives
-      // in rankByWeek[N] (populated when the prior week's sheet was
-      // saved, or during migration / preseason seed).
+      // Ranks: column A = home (team1), column D = away (team2).
+      // These represent each team's rank for the user's CURRENT
+      // dynasty week — that's what CFB26 shows in the schedule
+      // view at all times, regardless of which past week the user
+      // is reviewing. The rank pass below saves them into
+      // rankByWeek[currentWeek] for each team. The Week N game's
+      // own stored team1Rank / team2Rank is filled separately from
+      // each team's rankByWeek[N] (set when the prior week's sheet
+      // was saved with currentWeek == N).
       const homeRankRaw = row.homeRank
       const awayRankRaw = row.awayRank
-      const homePostGameRank = (typeof homeRankRaw === 'number' && homeRankRaw >= 1 && homeRankRaw <= 25) ? homeRankRaw : null
-      const awayPostGameRank = (typeof awayRankRaw === 'number' && awayRankRaw >= 1 && awayRankRaw <= 25) ? awayRankRaw : null
+      const homeCurrentWeekRank = (typeof homeRankRaw === 'number' && homeRankRaw >= 1 && homeRankRaw <= 25) ? homeRankRaw : null
+      const awayCurrentWeekRank = (typeof awayRankRaw === 'number' && awayRankRaw >= 1 && awayRankRaw <= 25) ? awayRankRaw : null
 
       newByPair.set(key, {
         id: existing?.id || idForGame(homeTid, awayTid),
@@ -8338,7 +8339,7 @@ export function DynastyProvider({ children }) {
         team2Tid,
         team1Score,
         team2Score,
-        team1Rank: null, // filled below from rankByWeek[weekNum] (entering rank)
+        team1Rank: null, // filled below from rankByWeek[weekNum]
         team2Rank: null,
         homeTeamTid,
         winnerTid,
@@ -8346,11 +8347,11 @@ export function DynastyProvider({ children }) {
         ...(isConfChampImport ? { isConferenceChampionship: true, conference: homeConf } : {}),
         isPlayed: true,
         source: 'weekly-scores',
-        // Stash the user-entered EA-screenshot values so the post-loop
-        // shift can write them to rankByWeek[weekNum + 1] for both
-        // teams. Removed from the saved record below.
-        _team1PostGameRank: homePostGameRank,
-        _team2PostGameRank: awayPostGameRank,
+        // Stash the user-entered current-week ranks so the rank
+        // pass below can write them to rankByWeek[currentWeek].
+        // Stripped from the saved record before it lands.
+        _team1CurrentWeekRank: homeCurrentWeekRank,
+        _team2CurrentWeekRank: awayCurrentWeekRank,
         createdAt: existing?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       })
@@ -8388,66 +8389,20 @@ export function DynastyProvider({ children }) {
 
     const newGamesArr = Array.from(newByPair.values())
 
-    // ─── EA-shift pass for ranks ─────────────────────────────────
-    // EA quirk: the ranks shown next to teams in EA's schedule for
-    // ANY past week are actually the CURRENT dynasty week's ranks,
-    // not the historical ranks from when those games happened. So
-    // whatever rank the user enters via the weekly sheet — no
-    // matter which past week the sheet is for — represents the
-    // team's entering rank for the user's CURRENT week.
-    //
-    // For the typical TODO flow (user is in Week N+1 entering
-    // Week N's scores) currentWeek == weekNum + 1, so this matches
-    // the old "shift +1" logic. For catch-up entries (user is in
-    // Week 12 going back to enter Week 1 scores from a current EA
-    // screenshot), the entered ranks correctly land on
-    // rankByWeek[12] — the actual truth — instead of being
-    // mis-shifted to rankByWeek[2].
-    //
-    // Three steps:
-    //   (a) push user-entered ranks into rankByWeek[currentWeek]
-    //       for both teams in each saved game.
-    //   (b) set each new game's stored team1Rank / team2Rank to
-    //       each team's pre-existing rankByWeek[N] value (their
-    //       entering rank for THIS Week N game). Set when the
-    //       user was actually in Week N — null for catch-up
-    //       entries since we can't recover that historical rank.
-    //   (c) propagate the entered ranks to any currentWeek game
-    //       record already in dynasty.games (the user game played
-    //       this week, etc.) so its stored team1Rank / team2Rank
-    //       reflects the same value.
-    // The "current week" we want here is the regular-season slot the
-    // entered ranks should land on. EA's quirk: ranks visible in the
-    // current schedule view always reflect the user's CURRENT
-    // dynasty week regardless of which past week they're looking at.
-    //
-    // Phase-aware shift:
-    //   - preseason / regular_season — currentWeek IS a regular-
-    //     season slot (0-15), use it directly.
-    //   - conference_championship — the CC week (typically 14-15
-    //     in this dynasty's calendar) is the right propagation
-    //     slot. dynasty.currentWeek RESETS to 1 in this phase per
-    //     the advance-week logic, so we can't use it. Fall back
-    //     to weekNum + 1.
-    //   - postseason — same problem, currentWeek cycles 1-5
-    //     within the phase. Fall back to weekNum + 1, which
-    //     under typical TODO flow IS the correct slot for
-    //     CPU-game saves entered during the same week.
-    //   - any other phase / unset — fall back to weekNum + 1.
-    //
-    // The fallback (weekNum + 1) preserves correct behavior for
-    // the typical TODO flow (user one week ahead of the games
-    // they're entering), at the cost of catching up entries when
-    // the user is multiple weeks ahead during postseason. Catch-
-    // up entries during postseason are an edge case the dynasty
-    // structure doesn't fully support anyway — the regular-season
-    // ranks at that point are already historical.
+    // ─── Rank pass ───────────────────────────────────────────────
+    // Spec, in plain terms:
+    //   1. The ranks the user entered alongside the Week N scores
+    //      are each team's rank for the user's CURRENT dynasty
+    //      week — that's what CFB26 shows in the schedule view at
+    //      all times. Save those into rankByWeek[currentWeek] for
+    //      each team.
+    //   2. Each saved Week N game's own stored team1Rank /
+    //      team2Rank is pulled from rankByWeek[N] for each team —
+    //      the rank that was saved the previous week, when
+    //      currentWeek was N.
     const currentWeek = Number(dynasty.currentWeek)
-    const phase = dynasty.currentPhase
-    const isRegularPhase = phase === 'preseason' || phase === 'regular_season'
-    const propagationWeek = (isRegularPhase && Number.isFinite(currentWeek) && currentWeek > 0)
-      ? currentWeek
-      : weekNum + 1
+    const haveCurrentWeek = Number.isFinite(currentWeek) && currentWeek > 0
+
     const teamsCopy = { ...(dynasty.teams || {}) }
     const writeRankByWeek = (tid, weekKey, rank) => {
       if (tid == null || weekKey == null || typeof rank !== 'number' || rank < 1 || rank > 25) return
@@ -8472,85 +8427,78 @@ export function DynastyProvider({ children }) {
       return v
     }
 
-    // Step (a): push user-entered ranks into rankByWeek[propagationWeek]
-    // (= dynasty.currentWeek when known, fallback to weekNum + 1).
-    for (const g of newGamesArr) {
-      if (typeof g._team1PostGameRank === 'number') writeRankByWeek(g.team1Tid, propagationWeek, g._team1PostGameRank)
-      if (typeof g._team2PostGameRank === 'number') writeRankByWeek(g.team2Tid, propagationWeek, g._team2PostGameRank)
+    // (1a) Push user-entered ranks into rankByWeek[currentWeek] for
+    // every team that played a game in this save.
+    if (haveCurrentWeek) {
+      for (const g of newGamesArr) {
+        if (typeof g._team1CurrentWeekRank === 'number') writeRankByWeek(g.team1Tid, currentWeek, g._team1CurrentWeekRank)
+        if (typeof g._team2CurrentWeekRank === 'number') writeRankByWeek(g.team2Tid, currentWeek, g._team2CurrentWeekRank)
+      }
     }
 
-    // Step (a.5): apply AI-derived bye-week ranks. The Weekly Scores
-    // sheet has a second block at the bottom where the AI emits one
-    // row per ranked team that had a bye this week (col A = team
-    // abbr, col B = the AI's reasoned new rank, no opponent in col D).
-    // Those entries are attached to the parsed games array as
-    // `byeRanks`. Same target slot as the played-team ranks above —
-    // rankByWeek[propagationWeek] — because that's where the new
-    // poll lives. Bye writes do NOT overwrite a slot already
-    // claimed by a played team in this save; if the AI made a
-    // mistake (gave a bye team a rank some played team also got),
-    // the played-team rank wins.
+    // (1b) Bye-week block. The AI also emits one row per ranked team
+    // that didn't play this week, with the team's inferred new rank
+    // (also a current-dynasty-week rank). Those go to the same
+    // rankByWeek[currentWeek] slot, with two guards:
+    //   - don't claim a slot a played team already wrote
+    //   - don't overwrite a tid a played team already wrote (the
+    //     prompt's worked example uses CLEM as a bye row and the
+    //     AI sometimes copies that team in even when it played)
     const byeRanks = Array.isArray(weeklyGames?.byeRanks) ? weeklyGames.byeRanks : []
-    if (byeRanks.length > 0) {
-      // Slots already claimed by played teams in this save's
-      // propagation week — use to defend against AI-introduced
-      // collisions (an AI emitting "MIA at #2" when MIA actually
-      // played and got #2 from the screenshot is one example we
-      // ignore here without complaining).
-      const playedSlotsInPropWeek = new Set()
+    if (haveCurrentWeek && byeRanks.length > 0) {
+      const playedSlots = new Set()
+      const playedTids = new Set()
       for (const g of newGamesArr) {
-        if (typeof g._team1PostGameRank === 'number') playedSlotsInPropWeek.add(g._team1PostGameRank)
-        if (typeof g._team2PostGameRank === 'number') playedSlotsInPropWeek.add(g._team2PostGameRank)
+        if (typeof g._team1CurrentWeekRank === 'number') {
+          playedSlots.add(g._team1CurrentWeekRank)
+          if (g.team1Tid != null) playedTids.add(Number(g.team1Tid))
+        }
+        if (typeof g._team2CurrentWeekRank === 'number') {
+          playedSlots.add(g._team2CurrentWeekRank)
+          if (g.team2Tid != null) playedTids.add(Number(g.team2Tid))
+        }
       }
       const seenByeRanks = new Set()
       for (const entry of byeRanks) {
         if (!entry || typeof entry.tid !== 'number') continue
         const r = entry.rank
         if (typeof r !== 'number' || r < 1 || r > 25) continue
-        // De-dupe within the bye block (defensive — the prompt asks
-        // for unique ranks but we don't trust it).
         if (seenByeRanks.has(r)) continue
-        // Don't fight a played-team rank.
-        if (playedSlotsInPropWeek.has(r)) continue
-        // Don't overwrite if a played team in this propagationWeek
-        // (entered separately via schedule flow) already has this
-        // exact slot stored.
+        if (playedSlots.has(r)) continue
+        if (playedTids.has(Number(entry.tid))) continue
         seenByeRanks.add(r)
-        writeRankByWeek(entry.tid, propagationWeek, r)
+        writeRankByWeek(entry.tid, currentWeek, r)
       }
     }
 
-    // Step (b): set each new game's stored rank to each team's
-    // entering-Week-N rank (already in rankByWeek[N]). For typical
-    // TODO entries, this was set when the prior week's sheet was
-    // saved. For catch-up entries it'll be null — there's no way
-    // to recover historical week-N ranks from EA, since EA only
-    // shows current ranks regardless of which week you view.
-    // Strip the _teamXPostGameRank stash fields.
+    // (2) Each saved Week N game's stored rank is pulled from
+    // rankByWeek[N] for each team — the rank saved the previous
+    // week when the user was in Week N. Strip the stash fields.
     for (const g of newGamesArr) {
       g.team1Rank = readRankByWeek(g.team1Tid, weekNum)
       g.team2Rank = readRankByWeek(g.team2Tid, weekNum)
-      delete g._team1PostGameRank
-      delete g._team2PostGameRank
+      delete g._team1CurrentWeekRank
+      delete g._team2CurrentWeekRank
     }
 
-    // Step (c): if any team's currentWeek game already exists in the
-    // dynasty's games array (the user's own user game played during
-    // currentWeek, an already-entered game, etc.), update its stored
-    // rank to the just-pushed entering-currentWeek rank.
+    // Sync any current-week game record already on file (e.g., the
+    // user's own game from the schedule flow) so its stored rank
+    // matches the freshly-written rankByWeek[currentWeek]. Other
+    // weeks' games are unaffected — their stored rank reflects what
+    // rankByWeek held when each of those weeks was the current week.
     const updatedGames = [...filtered, ...newGamesArr].map(g => {
       if (!g || g.year == null) return g
       if (Number(g.year) !== yearNum) return g
-      if (Number(g.week) !== propagationWeek) return g
+      if (!haveCurrentWeek || Number(g.week) !== currentWeek) return g
       let next = g
       if (g.team1Tid != null) {
-        const r = readRankByWeek(Number(g.team1Tid), propagationWeek)
+        const r = readRankByWeek(Number(g.team1Tid), currentWeek)
         if (r != null && r !== (typeof g.team1Rank === 'number' ? g.team1Rank : null)) {
           next = { ...next, team1Rank: r }
         }
       }
       if (g.team2Tid != null) {
-        const r = readRankByWeek(Number(g.team2Tid), propagationWeek)
+        const r = readRankByWeek(Number(g.team2Tid), currentWeek)
         if (r != null && r !== (typeof g.team2Rank === 'number' ? g.team2Rank : null)) {
           next = { ...next, team2Rank: r }
         }
