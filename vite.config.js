@@ -1,38 +1,26 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
-import { execSync } from 'child_process'
 
-// Build-time version stamp — date + 4-digit build counter so every
-// deploy moves the footer string. The counter is the number of commits
-// in the repo today (resets at midnight UTC), matching the original
-// YYYY.MM.DD.NNNN convention the hardcoded version used. Falls back to
-// total commits modded to 4 digits if shallow-clone limits today's
-// query (Vercel sometimes ships a depth-1 clone), and finally to
-// "0001" if neither works (e.g. a tarball without .git).
+// Build-time version stamp — YYYY.MM.DD.NNNN.
+//
+// MANUAL_BUILD must be bumped on every commit that ships code. Format
+// is a 4-digit zero-padded sequence that increments per push (no letter
+// suffixes — user requirement). The auto-derived version this used to
+// be — `git log --since="today"` — undercounts on Vercel because Vercel
+// ships shallow clones. Result: the footer would stick on the same
+// number across multiple deploys and there was no reliable signal that
+// "my fix actually shipped." Manual constant is a small tax for a
+// guaranteed signal.
+//
+// Date prefix is still auto-derived (today, UTC) so we don't have to
+// touch it across midnights.
+const MANUAL_BUILD = '0009'
+
 function buildAppVersion() {
   const today = new Date().toISOString().slice(0, 10)
   const todayDots = today.replace(/-/g, '.')
-  let buildNum = 1
-  try {
-    const out = execSync(
-      `git log --since="${today} 00:00:00" --format=%H`,
-      { stdio: ['ignore', 'pipe', 'ignore'] },
-    ).toString().trim()
-    if (out) {
-      buildNum = out.split('\n').filter(Boolean).length
-    }
-  } catch {
-    try {
-      const total = execSync('git rev-list --count HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
-        .toString()
-        .trim()
-      buildNum = (parseInt(total, 10) || 0) % 10000 || 1
-    } catch {
-      buildNum = 1
-    }
-  }
-  return `${todayDots}.${String(buildNum).padStart(4, '0')}`
+  return `${todayDots}.${MANUAL_BUILD}`
 }
 
 export default defineConfig({
