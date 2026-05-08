@@ -54,7 +54,7 @@ function DeferredNewsTicker({ dynasty }) {
 export default function DynastyDashboard() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { dynasties, currentDynasty, selectDynasty, cloudSyncing } = useDynasty()
+  const { dynasties, currentDynasty, selectDynasty, cloudSyncing, loading } = useDynasty()
   const [sidebarOpen, setSidebarOpen] = useState(getInitialSidebarState)
 
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
@@ -71,20 +71,22 @@ export default function DynastyDashboard() {
   }, [id, currentDynasty, selectDynasty, dynasties])
 
   useEffect(() => {
-    // Only redirect once cloud sync has finished. `loading` flips false
-    // as soon as the local IndexedDB read resolves; gating on it would
-    // race the cloud subscription — refresh on a cloud-only dynasty
-    // would briefly see [no dynasties], not find the cloud ID, and
-    // bounce home. `cloudSyncing` stays true until the first Firestore
-    // snapshot lands, which is the right signal for "the dynasty truly
-    // doesn't exist."
+    // Wait for BOTH initial load to settle AND cloud sync to finish
+    // before deciding to redirect. Refreshing on /dynasty/:id is the
+    // motivating case — without these guards, the effect fires on
+    // mount with dynasties=[] and bounces the user home before the
+    // listener even subscribes. `loading` covers the first-render
+    // window; `cloudSyncing` covers the cloud-snapshot window. Only
+    // when both are settled and the dynasty is genuinely absent from
+    // every list do we treat this as a real 404.
+    if (loading) return
     if (cloudSyncing) return
     if (currentDynasty) return
     const requestedDynastyExists = id && dynasties.some(d => d.id === id)
     if (!requestedDynastyExists) {
       navigate('/')
     }
-  }, [cloudSyncing, dynasties, currentDynasty, navigate, id])
+  }, [loading, cloudSyncing, dynasties, currentDynasty, navigate, id])
 
   // Expose sidebar toggle to parent (Layout)
   useEffect(() => {

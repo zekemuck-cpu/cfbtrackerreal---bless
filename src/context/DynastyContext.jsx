@@ -5132,7 +5132,16 @@ export function DynastyProvider({ children }) {
   // interactive" from "cloud data has arrived, can decide a dynasty
   // truly doesn't exist." Used by selectDynasty's not-found check and
   // by DynastyDashboard's redirect-home effect.
-  const [cloudSyncing, setCloudSyncing] = useState(false)
+  // Default to TRUE so that on a fresh page load, the
+  // "redirect-home if dynasty not found" effect in DynastyDashboard
+  // doesn't fire BEFORE the listener has had a chance to populate
+  // dynasties[]. Without this, refreshing on /dynasty/:id would
+  // briefly see cloudSyncing=false + dynasties=[] and bounce home
+  // before the cloud subscription delivered the dynasty. Flipped to
+  // false on either:
+  //   - the signed-out branch (no cloud to wait on; runs immediately)
+  //   - the first successful Firestore snapshot landing
+  const [cloudSyncing, setCloudSyncing] = useState(true)
   const [migrated, setMigrated] = useState(false)
   // Ref to skip Firestore listener updates after manual local state update
   // This prevents the listener from overwriting fresh local changes with stale Firestore data
@@ -5261,22 +5270,50 @@ export function DynastyProvider({ children }) {
     setLoadingDynastyId(dynastyId)
 
     try {
-      // Load subcollections from Firestore. Seasons subcollection is
-      // loaded here too so the lazy-load entry point picks up the
-      // sharded-out per-year/per-team-year data and triggers migration
-      // on any legacy data still on the main doc — without this, a
-      // user navigating directly into a dynasty (the common case) only
-      // gets the migration on the next subscribeToDynasties fire,
-      // which may never come if no writes happen.
-      const [subcollectionPlayers, subcollectionGames, subcollectionSeasons] = await Promise.all([
+      // Load subcollections from Firestore. ALL of them — players,
+      // games, weekRecaps, AND seasons. Without weekRecaps in this
+      // list, the lazy-load entry point (which fires on direct
+      // navigation to a dynasty after a page refresh) never reads the
+      // recap subcollection back into React state. Recaps would
+      // appear "deleted" until the next subscribeToDynasties fire
+      // happened to also load subcollections — which on a quiet
+      // dynasty might not happen at all. That asymmetry between this
+      // path and the listener was the recap-disappears-on-refresh bug.
+      const [subcollectionPlayers, subcollectionGames, subcollectionRecaps, subcollectionSeasons] = await Promise.all([
         getPlayersSubcollection(dynastyId),
         getGamesSubcollection(dynastyId),
+        getWeekRecapsSubcollection(dynastyId),
         getSeasonsSubcollection(dynastyId),
       ])
 
       // Use subcollection data if available, otherwise fall back to main document
       const players = subcollectionPlayers.length > 0 ? subcollectionPlayers : (dynasty.players || [])
       const games = subcollectionGames.length > 0 ? subcollectionGames : (dynasty.games || [])
+
+      // Week recaps: same merge-then-migrate pattern the listener uses.
+      // Subcollection wins per-(year, week) on overlap so a stale
+      // legacy main-doc value can't override a fresh subcollection
+      // save.
+      const legacyRecaps = dynasty.weekRecapsByYear || {}
+      const legacyRecapKeys = Object.keys(legacyRecaps)
+      const subRecapKeys = Object.keys(subcollectionRecaps || {})
+      const weekRecapsByYear = {}
+      for (const y of legacyRecapKeys) {
+        weekRecapsByYear[y] = { ...(legacyRecaps[y] || {}) }
+      }
+      for (const y of subRecapKeys) {
+        if (!weekRecapsByYear[y]) weekRecapsByYear[y] = {}
+        Object.assign(weekRecapsByYear[y], subcollectionRecaps[y] || {})
+      }
+
+      // Fire the legacy → subcollection migration in the background
+      // if the main doc still has data. The migrate helper is now
+      // subcollection-wins so it can't clobber freshly-saved data.
+      if (legacyRecapKeys.length > 0) {
+        migrateWeekRecapsToSubcollection(dynastyId, legacyRecaps).catch(err => {
+          console.warn(`[recap migration] failed for ${dynastyId}:`, err?.code || err?.message || err)
+        })
+      }
 
       // Rehydrate seasonal fields — same merge-then-migrate pattern as
       // the listener's path. Sub wins per-(field, year) on overlap so
@@ -5324,7 +5361,7 @@ export function DynastyProvider({ children }) {
       }
 
       // Apply migrations to the loaded data
-      const dynastyWithData = { ...dynasty, players, games, ...mergedSeasonal }
+      const dynastyWithData = { ...dynasty, players, games, weekRecapsByYear, ...mergedSeasonal }
       const [migratedDynasty] = applyMigrations([dynastyWithData])
 
       // Write the loaded data back into whichever list owns it.
