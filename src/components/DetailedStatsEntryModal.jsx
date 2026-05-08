@@ -574,6 +574,31 @@ FINAL CHECK before you send
     }
   }
 
+  const handleDeleteSheetOnly = async () => {
+    if (!sheetId || !currentDynasty) return
+    const ok = await confirm({
+      title: 'Delete this detailed stats sheet?',
+      message: 'This deletes the Google Sheet without applying any edits. Your dynasty player stats stay as-is.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    })
+    if (!ok) return
+    setDeletingSheet(true)
+    try {
+      await deleteGoogleSheet(sheetId)
+      setSheetId(null)
+      setShowDeletedNote(true)
+      setTimeout(() => onClose(), 1800)
+    } catch (error) {
+      console.error('Failed to delete sheet:', error)
+      if (!auth.handleError(error)) {
+        toast.error('Failed to delete the sheet — try again.')
+      }
+    } finally {
+      setDeletingSheet(false)
+    }
+  }
+
   const handleClose = () => {
     onClose()
   }
@@ -671,9 +696,16 @@ FINAL CHECK before you send
                     AI Prompt
                   </button>
                   <button
+                    onClick={handleDeleteSheetOnly}
+                    disabled={syncing || deletingSheet || regenerating}
+                    className="px-4 py-2 rounded-lg font-semibold text-sm disabled:opacity-60 transition-colors border border-surface-4 hover:bg-surface-2 text-txt-secondary ml-auto"
+                  >
+                    {deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}
+                  </button>
+                  <button
                     onClick={handleRegenerateSheet}
                     disabled={syncing || deletingSheet || regenerating}
-                    className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2 ml-auto"
+                    className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
                     style={{
                       backgroundColor: 'transparent',
                       borderColor: '#EF4444',
@@ -761,18 +793,27 @@ FINAL CHECK before you send
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
                 </div>
-                <button
-                  onClick={handleRegenerateSheet}
-                  disabled={syncing || deletingSheet || regenerating}
-                  className="text-xs px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-colors border mb-4"
-                  style={{
-                    backgroundColor: 'transparent',
-                    borderColor: '#EF4444',
-                    color: '#EF4444'
-                  }}
-                >
-                  {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
-                </button>
+                <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
+                  <button
+                    onClick={handleDeleteSheetOnly}
+                    disabled={syncing || deletingSheet || regenerating}
+                    className="text-xs px-4 py-2 rounded-lg font-medium transition-colors border border-surface-4 hover:bg-surface-2 text-txt-secondary disabled:opacity-60"
+                  >
+                    {deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}
+                  </button>
+                  <button
+                    onClick={handleRegenerateSheet}
+                    disabled={syncing || deletingSheet || regenerating}
+                    className="text-xs px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-colors border"
+                    style={{
+                      backgroundColor: 'transparent',
+                      borderColor: '#EF4444',
+                      color: '#EF4444'
+                    }}
+                  >
+                    {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
+                  </button>
+                </div>
                 {highlightSave && (
                   <span className="text-sm font-medium animate-bounce mb-4 text-txt-primary">
 

@@ -286,6 +286,31 @@ FINAL CHECK before you send the answer
     }
   }
 
+  const handleDeleteSheetOnly = async () => {
+    if (!sheetId || !currentDynasty) return
+    const ok = await confirm({
+      title: 'Delete this CFP Seeds sheet?',
+      message: 'This deletes the Google Sheet without applying any edits. Your dynasty CFP seeds stay as-is.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    })
+    if (!ok) return
+    setDeletingSheet(true)
+    try {
+      await deleteGoogleSheet(sheetId)
+      setSheetId(null)
+      setShowDeletedNote(true)
+      setTimeout(() => onClose(), 1800)
+    } catch (error) {
+      console.error('Failed to delete sheet:', error)
+      if (!auth.handleError(error)) {
+        toast.error('Failed to delete the sheet — try again.')
+      }
+    } finally {
+      setDeletingSheet(false)
+    }
+  }
+
   const handleClose = () => {
     onClose()
   }
@@ -464,13 +489,22 @@ FINAL CHECK before you send the answer
                   </button>
                 </div>
 
-                <button
-                  onClick={handleRegenerateSheet}
-                  disabled={syncing || deletingSheet || regenerating}
-                  className="text-xs underline text-txt-muted hover:text-txt-muted transition-colors"
-                >
-                  {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
-                </button>
+                <div className="flex flex-col sm:flex-row gap-3 items-center justify-center">
+                  <button
+                    onClick={handleDeleteSheetOnly}
+                    disabled={syncing || deletingSheet || regenerating}
+                    className="text-xs underline text-txt-muted hover:text-txt-muted transition-colors disabled:opacity-50"
+                  >
+                    {deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}
+                  </button>
+                  <button
+                    onClick={handleRegenerateSheet}
+                    disabled={syncing || deletingSheet || regenerating}
+                    className="text-xs underline text-txt-muted hover:text-txt-muted transition-colors"
+                  >
+                    {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
+                  </button>
+                </div>
               </div>
             ) : (
               <>
@@ -496,6 +530,13 @@ FINAL CHECK before you send the answer
                       {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                     </button>
                     <button onClick={() => setShowAIPrompt(true)} className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
+                    <button
+                      onClick={handleDeleteSheetOnly}
+                      disabled={syncing || deletingSheet || regenerating}
+                      className="px-4 py-2 rounded-lg font-semibold text-sm disabled:opacity-60 transition-colors border border-surface-4 hover:bg-surface-2 text-txt-secondary ml-auto"
+                    >
+                      {deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}
+                    </button>
                     <button
                       onClick={handleRegenerateSheet}
                       disabled={syncing || deletingSheet || regenerating}

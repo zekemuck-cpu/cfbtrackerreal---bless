@@ -288,6 +288,35 @@ FINAL CHECK before you send
     }
   }
 
+  const handleDeleteSheetOnly = async () => {
+    if (!sheetId || !currentDynasty) return
+    const ok = await confirm({
+      title: 'Delete this All-Americans sheet?',
+      message: 'This deletes the Google Sheet without applying any edits. Your dynasty All-Americans selections stay as-is.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    })
+    if (!ok) return
+    setDeletingSheet(true)
+    try {
+      await deleteGoogleSheet(sheetId)
+      const existingByYear = currentDynasty?.allAmericansSheetIdByYear || {}
+      await updateDynasty(currentDynasty.id, {
+        allAmericansSheetIdByYear: { ...existingByYear, [currentYear]: null }
+      })
+      setSheetId(null)
+      setShowDeletedNote(true)
+      setTimeout(() => onClose(), 1800)
+    } catch (error) {
+      console.error('Failed to delete sheet:', error)
+      if (!auth.handleError(error)) {
+        toast.error('Failed to delete the sheet — try again.')
+      }
+    } finally {
+      setDeletingSheet(false)
+    }
+  }
+
   const handleClose = () => onClose()
 
   if (!isOpen) return null
@@ -331,7 +360,8 @@ FINAL CHECK before you send
                   <button onClick={handleSyncAndDelete} disabled={syncing || deletingSheet} className={`px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`} style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}>{deletingSheet ? 'Saving...' : 'Save & Move to Trash'}</button>
                   <button onClick={handleSyncFromSheet} disabled={syncing || deletingSheet} className="btn btn-secondary text-sm">{syncing ? 'Syncing...' : 'Save & Keep Sheet'}</button>
                   <button onClick={() => setShowAIPrompt(true)} className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
-                  <button onClick={handleRegenerateSheet} disabled={syncing || deletingSheet || regenerating} className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2 ml-auto" style={{ backgroundColor: 'transparent', borderColor: '#EF4444', color: '#EF4444' }}>{regenerating ? 'Regenerating...' : 'Regenerate sheet'}</button>
+                  <button onClick={handleDeleteSheetOnly} disabled={syncing || deletingSheet || regenerating} className="px-4 py-2 rounded-lg font-semibold text-sm disabled:opacity-60 transition-colors border border-surface-4 hover:bg-surface-2 text-txt-secondary ml-auto">{deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}</button>
+                  <button onClick={handleRegenerateSheet} disabled={syncing || deletingSheet || regenerating} className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2" style={{ backgroundColor: 'transparent', borderColor: '#EF4444', color: '#EF4444' }}>{regenerating ? 'Regenerating...' : 'Regenerate sheet'}</button>
                 </div>
               </div>
             )}
@@ -352,6 +382,7 @@ FINAL CHECK before you send
                   onSaveAndDelete={handleSyncAndDelete}
                   onSaveAndKeep={handleSyncFromSheet}
                   onRegenerate={handleRegenerateSheet}
+                  onDeleteSheetOnly={handleDeleteSheetOnly}
                 />
                 <button onClick={() => setShowAIPrompt(true)} className="mt-2 mb-6 px-5 py-3 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
               </div>

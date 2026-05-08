@@ -290,7 +290,7 @@ export default function PreseasonTop25Modal({ isOpen, onClose, year, teamColors 
     }
   }
 
-  const handleSheetDeleteOnly = async () => {
+  const handleDeleteSheetOnly = async () => {
     if (!sheetId || !currentDynasty) return
     const ok = await confirm({
       title: 'Delete this sheet?',
@@ -431,11 +431,11 @@ export default function PreseasonTop25Modal({ isOpen, onClose, year, teamColors 
             {showSheet ? (
               <>
                 <button
-                  onClick={handleSheetDeleteOnly}
+                  onClick={handleDeleteSheetOnly}
                   disabled={syncingSheet || deletingSheet || !sheetId}
                   className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent disabled:opacity-50"
                 >
-                  {deletingSheet ? 'Deleting…' : 'Delete Sheet'}
+                  {deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}
                 </button>
                 <button
                   onClick={() => handleSheetSync(false)}

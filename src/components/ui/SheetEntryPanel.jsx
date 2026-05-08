@@ -25,6 +25,7 @@ export default function SheetEntryPanel({
   onSaveAndDelete,
   onSaveAndKeep,
   onRegenerate,
+  onDeleteSheetOnly,
 }) {
   const busy = syncing || deletingSheet || regenerating
 
@@ -113,14 +114,25 @@ export default function SheetEntryPanel({
         <span className="font-medium text-txt-secondary">Save</span> moves the sheet to your Drive trash after syncing. <span className="font-medium text-txt-secondary">Save &amp; keep sheet</span> leaves it in Drive.
       </p>
 
-      {/* Regenerate — destructive but low-visibility */}
-      <button
-        onClick={onRegenerate}
-        disabled={busy}
-        className="text-xs text-txt-tertiary hover:text-[color:var(--accent-error)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed underline decoration-dotted underline-offset-4"
-      >
-        {regenerating ? 'Regenerating…' : 'Something wrong? Regenerate sheet'}
-      </button>
+      {/* Secondary destructive actions — low-visibility */}
+      <div className="flex items-center gap-4 flex-wrap justify-center">
+        {onDeleteSheetOnly && (
+          <button
+            onClick={onDeleteSheetOnly}
+            disabled={busy}
+            className="text-xs text-txt-tertiary hover:text-[color:var(--accent-error)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed underline decoration-dotted underline-offset-4"
+          >
+            Delete Sheet (No Save)
+          </button>
+        )}
+        <button
+          onClick={onRegenerate}
+          disabled={busy}
+          className="text-xs text-txt-tertiary hover:text-[color:var(--accent-error)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed underline decoration-dotted underline-offset-4"
+        >
+          {regenerating ? 'Regenerating…' : 'Something wrong? Regenerate sheet'}
+        </button>
+      </div>
     </div>
   )
 }

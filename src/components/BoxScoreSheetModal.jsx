@@ -1320,6 +1320,45 @@ output that fails any of them.`,
     }
   }
 
+  // Delete the Google Sheet without applying any edits or wiping saved
+  // stats. Just clears the per-game sheet-ID reference so opening this
+  // modal again creates a fresh sheet pre-filled from existing data.
+  const handleDeleteSheetOnly = async () => {
+    if (!sheetId || !currentDynasty) return
+    const ok = await confirm({
+      title: 'Delete this box score sheet?',
+      message: 'This deletes the Google Sheet without applying any edits. Your dynasty box score data stays as-is.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    })
+    if (!ok) return
+    setDeletingSheet(true)
+    try {
+      await deleteGoogleSheet(sheetId)
+      // Clear the saved sheet-ID reference on the game so reopening
+      // doesn't try to resume the now-deleted sheet.
+      if (game?.id) {
+        const games = currentDynasty.games || []
+        const prevGame = games.find(g => g.id === game.id)
+        if (prevGame) {
+          const updatedGame = { ...prevGame, [config.sheetIdKey]: null }
+          await addGame(currentDynasty.id, updatedGame)
+        }
+      }
+      setIgnoreExistingSheetId(true)
+      setSheetId(null)
+      setShowDeletedNote(true)
+      setTimeout(() => onClose(), 1800)
+    } catch (error) {
+      console.error('Failed to delete sheet:', error)
+      if (!auth.handleError(error)) {
+        toast.error('Failed to delete the sheet — try again.')
+      }
+    } finally {
+      setDeletingSheet(false)
+    }
+  }
+
   const handleClose = () => {
     onClose()
   }
@@ -1422,10 +1461,17 @@ output that fails any of them.`,
                     AI Prompt
                   </button>
                   <button
+                    onClick={handleDeleteSheetOnly}
+                    disabled={syncing || deletingSheet || regenerating}
+                    className="px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm disabled:opacity-60 transition-colors border border-surface-4 hover:bg-surface-2 text-txt-secondary ml-auto"
+                  >
+                    {deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}
+                  </button>
+                  <button
                     onClick={handleRegenerateSheet}
                     disabled={syncing || deletingSheet || regenerating}
                     title="Delete the Google Sheet AND wipe saved stats for this team / this game from the dynasty (player season totals are recalculated to subtract this game's contribution). Start over with a fresh sheet."
-                    className="px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-xs sm:text-sm border-2 ml-auto"
+                    className="px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-xs sm:text-sm border-2"
                     style={{
                       backgroundColor: 'transparent',
                       borderColor: '#EF4444',
@@ -1550,23 +1596,30 @@ output that fails any of them.`,
                   </button>
                 </div>
 
-                {/* Start Over button — does both: deletes the Google
-                    Sheet AND wipes the saved stats slice for this team
-                    / this game (with delta-tracking on player season
-                    totals). */}
-                <button
-                  onClick={handleRegenerateSheet}
-                  disabled={syncing || deletingSheet || regenerating}
-                  title="Delete the Google Sheet AND wipe saved stats for this team / this game from the dynasty (player season totals are recalculated to subtract this game's contribution). Start over with a fresh sheet."
-                  className="text-xs px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-colors border mb-4"
-                  style={{
-                    backgroundColor: 'transparent',
-                    borderColor: '#EF4444',
-                    color: '#EF4444'
-                  }}
-                >
-                  {regenerating ? 'Resetting...' : `Stats look weird? Reset (regen sheet & wipe ${regenWipeShort})`}
-                </button>
+                {/* Start Over buttons — Delete just removes the sheet.
+                    Reset wipes saved stats too (with delta tracking). */}
+                <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
+                  <button
+                    onClick={handleDeleteSheetOnly}
+                    disabled={syncing || deletingSheet || regenerating}
+                    className="text-xs px-4 py-2 rounded-lg font-medium transition-colors border border-surface-4 hover:bg-surface-2 text-txt-secondary disabled:opacity-60"
+                  >
+                    {deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}
+                  </button>
+                  <button
+                    onClick={handleRegenerateSheet}
+                    disabled={syncing || deletingSheet || regenerating}
+                    title="Delete the Google Sheet AND wipe saved stats for this team / this game from the dynasty (player season totals are recalculated to subtract this game's contribution). Start over with a fresh sheet."
+                    className="text-xs px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-colors border"
+                    style={{
+                      backgroundColor: 'transparent',
+                      borderColor: '#EF4444',
+                      color: '#EF4444'
+                    }}
+                  >
+                    {regenerating ? 'Resetting...' : `Stats look weird? Reset (regen sheet & wipe ${regenWipeShort})`}
+                  </button>
+                </div>
 
               </div>
             )}

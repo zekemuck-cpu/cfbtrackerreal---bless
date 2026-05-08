@@ -273,6 +273,31 @@ FINAL CHECK before you send the answer
     }
   }
 
+  const handleDeleteSheetOnly = async () => {
+    if (!sheetId || !currentDynasty) return
+    const ok = await confirm({
+      title: 'Delete this CFP Quarterfinals sheet?',
+      message: 'This deletes the Google Sheet without applying any edits. Your dynasty CFP results stay as-is.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    })
+    if (!ok) return
+    setDeletingSheet(true)
+    try {
+      await deleteGoogleSheet(sheetId)
+      setSheetId(null)
+      setShowDeletedNote(true)
+      setTimeout(() => onClose(), 1800)
+    } catch (error) {
+      console.error('Failed to delete sheet:', error)
+      if (!auth.handleError(error)) {
+        toast.error('Failed to delete the sheet — try again.')
+      }
+    } finally {
+      setDeletingSheet(false)
+    }
+  }
+
   const handleClose = () => {
     onClose()
   }
@@ -368,6 +393,13 @@ FINAL CHECK before you send the answer
                     AI Prompt
                   </button>
                   <button
+                    onClick={handleDeleteSheetOnly}
+                    disabled={syncing || deletingSheet || regenerating}
+                    className="px-4 py-2 rounded-lg font-semibold text-sm disabled:opacity-60 transition-colors border border-surface-4 hover:bg-surface-2 text-txt-secondary ml-auto"
+                  >
+                    {deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}
+                  </button>
+                  <button
                     onClick={handleRegenerateSheet}
                     disabled={syncing || deletingSheet || regenerating}
                     className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
@@ -458,14 +490,24 @@ FINAL CHECK before you send the answer
                   </span>
                 )}
 
-                <button
-                  onClick={handleRegenerateSheet}
-                  disabled={syncing || deletingSheet || regenerating}
-                  className="text-sm underline opacity-70 hover:opacity-100 transition-opacity mb-4"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
-                </button>
+                <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
+                  <button
+                    onClick={handleDeleteSheetOnly}
+                    disabled={syncing || deletingSheet || regenerating}
+                    className="text-sm underline opacity-70 hover:opacity-100 transition-opacity disabled:opacity-50"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    {deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}
+                  </button>
+                  <button
+                    onClick={handleRegenerateSheet}
+                    disabled={syncing || deletingSheet || regenerating}
+                    className="text-sm underline opacity-70 hover:opacity-100 transition-opacity"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
+                  </button>
+                </div>
 
                 <div className="text-xs p-3 rounded-lg max-w-xs" style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-primary)' }}>
                   <p className="opacity-80">Teams are auto-filled. Just enter the scores!</p>

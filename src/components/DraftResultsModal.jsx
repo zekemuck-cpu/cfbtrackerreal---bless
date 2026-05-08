@@ -301,6 +301,32 @@ FINAL CHECK before you send
     }
   }
 
+  const handleDeleteSheetOnly = async () => {
+    if (!sheetId || !currentDynasty) return
+    const ok = await confirm({
+      title: 'Delete this draft results sheet?',
+      message: 'This deletes the Google Sheet without applying any edits. Your dynasty draft results stay as-is.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    })
+    if (!ok) return
+    setDeletingSheet(true)
+    try {
+      await deleteGoogleSheet(sheetId)
+      await updateDynasty(currentDynasty.id, { draftResultsSheetId: null })
+      setSheetId(null)
+      setShowDeletedNote(true)
+      setTimeout(() => onClose(), 1800)
+    } catch (error) {
+      console.error('Failed to delete sheet:', error)
+      if (!auth.handleError(error)) {
+        toast.error('Failed to delete the sheet — try again.')
+      }
+    } finally {
+      setDeletingSheet(false)
+    }
+  }
+
   const handleClose = () => {
     onClose()
   }
@@ -422,9 +448,16 @@ FINAL CHECK before you send
                     AI Prompt
                   </button>
                   <button
+                    onClick={handleDeleteSheetOnly}
+                    disabled={syncing || deletingSheet || regenerating}
+                    className="px-4 py-2 rounded-lg font-semibold text-sm disabled:opacity-60 transition-colors border border-surface-4 hover:bg-surface-2 text-txt-secondary ml-auto"
+                  >
+                    {deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}
+                  </button>
+                  <button
                     onClick={handleRegenerateSheet}
                     disabled={syncing || deletingSheet || regenerating}
-                    className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2 ml-auto"
+                    className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
                     style={{
                       backgroundColor: 'transparent',
                       borderColor: '#EF4444',
@@ -509,18 +542,27 @@ FINAL CHECK before you send
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
                 </div>
-                <button
-                  onClick={handleRegenerateSheet}
-                  disabled={syncing || deletingSheet || regenerating}
-                  className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-xs border-2"
-                  style={{
-                    backgroundColor: 'transparent',
-                    borderColor: '#EF4444',
-                    color: '#EF4444'
-                  }}
-                >
-                  {regenerating ? 'Regenerating...' : 'Regenerate sheet'}
-                </button>
+                <div className="flex flex-col sm:flex-row gap-3 items-center justify-center">
+                  <button
+                    onClick={handleDeleteSheetOnly}
+                    disabled={syncing || deletingSheet || regenerating}
+                    className="px-4 py-2 rounded-lg font-semibold text-xs disabled:opacity-60 transition-colors border border-surface-4 hover:bg-surface-2 text-txt-secondary"
+                  >
+                    {deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}
+                  </button>
+                  <button
+                    onClick={handleRegenerateSheet}
+                    disabled={syncing || deletingSheet || regenerating}
+                    className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-xs border-2"
+                    style={{
+                      backgroundColor: 'transparent',
+                      borderColor: '#EF4444',
+                      color: '#EF4444'
+                    }}
+                  >
+                    {regenerating ? 'Regenerating...' : 'Regenerate sheet'}
+                  </button>
+                </div>
               </div>
             ) : (
               /* Embedded iframe view */
