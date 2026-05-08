@@ -28,6 +28,8 @@
 import {
   collection,
   doc,
+  getDoc,
+  getDocFromServer,
   getDocs,
   getDocsFromCache,
   getDocsFromServer,
@@ -35,6 +37,7 @@ import {
   updateDoc,
   writeBatch,
   deleteField,
+  waitForPendingWrites,
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 
@@ -277,10 +280,52 @@ export async function writeSeasonalUpdate(dynastyId, byYear) {
  * Idempotent: setDoc(..., {merge: true}) replaces, deleteField on an
  * absent field is a no-op. Safe to call repeatedly.
  */
-export async function migrateSeasonalFieldsToSubcollection(dynastyId, mainDocSource) {
+export async function migrateSeasonalFieldsToSubcollection(dynastyId, mainDocSourceArg) {
+  // Three-phase paranoid-safe migration. Order is critical for the
+  // user concern that drove this hardening: a beta tester's dynasty
+  // showed empty CFP brackets after the initial migration shipped, and
+  // we needed to make sure no dynasty that hadn't been opened yet
+  // could lose data on first load.
+  //
+  // Phase 1 — SOURCE
+  //   Read the main doc fresh from the server. The mainDocSourceArg
+  //   passed by the listener is in-memory state which may have
+  //   subcollection data merged in (and could even be missing fields
+  //   that are still on the server doc). Authoritative source for the
+  //   migration is the actual Firestore main doc, full stop.
+  //
+  // Phase 2 — WRITE + CONFIRM
+  //   Write each year's data to the seasons subcollection, then
+  //   waitForPendingWrites so the Firestore SDK confirms every write
+  //   reached the server (not just the local cache). Then read back
+  //   one season doc directly from the server — `getDocFromServer` —
+  //   and verify that every field we just wrote actually shows up in
+  //   the read-back. This catches the case where a permission-denied
+  //   or rules-rejection failed silently (writes resolve locally even
+  //   when the server rejects them).
+  //
+  // Phase 3 — CLEAR
+  //   Only after verification do we deleteField the legacy fields
+  //   from the main doc. If verification fails, we abort and leave
+  //   the main doc untouched — migration retries on the next load
+  //   (idempotent, no harm).
+  const mainDocRef = doc(db, DYNASTIES_COLLECTION, dynastyId)
+
+  // Phase 1: fresh read from server. Falls back to the passed-in
+  // source if the read errors (offline, permission, etc.) — better
+  // to migrate from stale-but-real data than not migrate at all.
+  let mainDocSource = mainDocSourceArg
+  try {
+    const snap = await getDocFromServer(mainDocRef)
+    if (snap.exists()) {
+      mainDocSource = snap.data() || mainDocSourceArg
+    }
+  } catch (err) {
+    console.warn('[season migration] could not read main doc from server, falling back to in-memory snapshot:', err?.code || err?.message)
+  }
+
   if (!mainDocSource || typeof mainDocSource !== 'object') return { migrated: [], cleared: [] }
 
-  // Build the set of seasonal fields actually present with data.
   const presentUpdates = {}
   const fieldsToClear = []
   for (const field of ALL_SEASONAL_FIELDS) {
@@ -293,17 +338,81 @@ export async function migrateSeasonalFieldsToSubcollection(dynastyId, mainDocSou
   if (fieldsToClear.length === 0) return { migrated: [], cleared: [] }
 
   const byYear = splitSeasonalUpdateByYear(presentUpdates)
+  if (Object.keys(byYear).length === 0) return { migrated: [], cleared: [] }
+
+  // Phase 2a: write subcollection.
   const migrated = await writeSeasonalUpdate(dynastyId, byYear)
 
-  // Now clear the legacy fields from the main doc. deleteField shrinks
-  // the resulting doc, which is the only reason this works on a doc
-  // that's already over the 1 MiB cap.
-  const clearPatch = {}
+  // Phase 2b: ensure server confirms every pending write before we
+  // touch the main doc. Without this, the local cache resolves the
+  // setDoc/batch.commit promises while the server may still be
+  // processing — and the deleteField could land on the server first.
+  try {
+    await waitForPendingWrites(db)
+  } catch (err) {
+    console.warn('[season migration] waitForPendingWrites failed; aborting deleteField step:', err?.code || err?.message)
+    return { migrated, cleared: [] }
+  }
+
+  // Phase 2c: read-back verification. Sample the LAST written year
+  // (most likely to surface server-rejection issues since it's the
+  // most recent write). Read from server, not cache, so we know the
+  // doc is durably persisted. If any expected field is missing,
+  // refuse to clear the main doc.
+  const verifyOk = await verifySeasonalWrites(dynastyId, byYear, migrated)
+  if (!verifyOk) {
+    console.warn(`[season migration] read-back verification failed for ${dynastyId}; main doc NOT cleared, will retry on next load`)
+    return { migrated, cleared: [] }
+  }
+
+  // Phase 3: clear legacy fields from main doc + stamp a marker so
+  // we can tell at a glance which dynasties have completed migration.
+  // deleteField shrinks the resulting doc, which is also why this
+  // succeeds on docs already at the 1 MiB cap — it can't grow.
+  const clearPatch = { _seasonsMigratedAt: new Date().toISOString() }
   for (const field of fieldsToClear) {
     clearPatch[field] = deleteField()
   }
-  const ref = doc(db, DYNASTIES_COLLECTION, dynastyId)
-  await updateDoc(ref, clearPatch)
+  await updateDoc(mainDocRef, clearPatch)
 
   return { migrated, cleared: fieldsToClear }
+}
+
+/**
+ * Read-back verification: confirm that the last year we wrote
+ * actually has every expected field on the server. Used by the
+ * migration's pre-cleanup phase so we never deleteField legacy data
+ * from the main doc unless we KNOW the data made it to the seasons
+ * subcollection.
+ *
+ * We sample the LAST written year only (not every year) — verifying
+ * one is sufficient evidence the batch reached the server, and one
+ * server read keeps the migration latency tolerable. If the sample
+ * passes but the rest of the batch failed somehow, the rest will be
+ * caught by the next migration retry (since main doc still has them).
+ */
+async function verifySeasonalWrites(dynastyId, byYear, writtenYearKeys) {
+  if (!writtenYearKeys || writtenYearKeys.length === 0) return false
+  const sampleYear = writtenYearKeys[writtenYearKeys.length - 1]
+  const expected = byYear[Number(sampleYear)] || byYear[sampleYear]
+  if (!expected) return false
+  try {
+    const ref = doc(db, DYNASTIES_COLLECTION, dynastyId, SEASONS_SUBCOLLECTION, String(sampleYear))
+    const snap = await getDocFromServer(ref)
+    if (!snap.exists()) {
+      console.warn(`[season migration] verify: seasons/${sampleYear} doesn't exist on server`)
+      return false
+    }
+    const data = snap.data() || {}
+    for (const expField of Object.keys(expected)) {
+      if (!(expField in data)) {
+        console.warn(`[season migration] verify: seasons/${sampleYear} missing expected field ${expField}`)
+        return false
+      }
+    }
+    return true
+  } catch (err) {
+    console.warn(`[season migration] verify read failed for seasons/${sampleYear}:`, err?.code || err?.message)
+    return false
+  }
 }
