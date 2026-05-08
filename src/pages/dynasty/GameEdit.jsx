@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate, useSearchParams, useLocation } from 'reac
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName, getTidFromAbbr, getOriginalTeamAbbr } from '../../data/teamRegistry'
-import { useDynasty, GAME_TYPES, getCurrentCustomConferences, buildRecordUpdatePayload, calculateTeamRecordFromGames, getTeamRecord, propagateCFPWinner, isPlayerOnRoster } from '../../context/DynastyContext'
+import { useDynasty, GAME_TYPES, getCurrentCustomConferences, buildRecordUpdatePayload, calculateTeamRecordFromGames, getTeamRecord, getTeamRankForWeek, propagateCFPWinner, isPlayerOnRoster } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getFullRecapPrompt } from '../../services/geminiService'
@@ -780,7 +780,18 @@ export default function GameEdit() {
         return entry?.seed || null
       }
 
-      // Get ranks - prefer existing ranks, fall back to CFP seeds for CFP games
+      // Rank fill priority:
+      //   1. The rank stored on the game record itself (team1Rank /
+      //      legacy userRank).
+      //   2. For CFP games: the team's CFP seed.
+      //   3. The entering-week rank stored at
+      //      dynasty.teams[tid].byYear[year].rankByWeek[gameWeek] —
+      //      written by saveWeeklyScores when the user enters that
+      //      week's poll. This is what the user means by "auto-fill
+      //      from the Week N weekly scores entry": if they punched
+      //      in the Top 25 for the week this game belongs to, the
+      //      rank shows up here automatically the next time they
+      //      open the game.
       let rank1 = existingGame.team1Rank?.toString() || existingGame.userRank?.toString() || ''
       let rank2 = existingGame.team2Rank?.toString() || existingGame.opponentRank?.toString() || ''
 
@@ -791,6 +802,16 @@ export default function GameEdit() {
       if (isCFP && !rank2) {
         const seed = getCFPSeedForTidInit(existingGame.team2Tid)
         if (seed) rank2 = seed.toString()
+      }
+
+      const weekForRank = existingGame.week
+      if (!rank1 && existingGame.team1Tid != null && weekForRank != null) {
+        const r = getTeamRankForWeek(currentDynasty, existingGame.team1Tid, gameYear, weekForRank)
+        if (r) rank1 = String(r)
+      }
+      if (!rank2 && existingGame.team2Tid != null && weekForRank != null) {
+        const r = getTeamRankForWeek(currentDynasty, existingGame.team2Tid, gameYear, weekForRank)
+        if (r) rank2 = String(r)
       }
 
       setFormData({
@@ -848,6 +869,20 @@ export default function GameEdit() {
         const seed2Entry = cfpSeeds.find(s => s.tid === team2Tid)
         if (seed1Entry?.seed) rank1 = seed1Entry.seed.toString()
         if (seed2Entry?.seed) rank2 = seed2Entry.seed.toString()
+      }
+
+      // Fallback for regular-season games: pull the entering-week
+      // rank from the rankByWeek store. If the user already saved
+      // that week's Top 25 via the weekly scores entry, the rank
+      // appears here automatically.
+      const weekForNewRank = gameWeek
+      if (!rank1 && team1Tid != null && weekForNewRank != null) {
+        const r = getTeamRankForWeek(currentDynasty, team1Tid, gameYear, weekForNewRank)
+        if (r) rank1 = String(r)
+      }
+      if (!rank2 && team2Tid != null && weekForNewRank != null) {
+        const r = getTeamRankForWeek(currentDynasty, team2Tid, gameYear, weekForNewRank)
+        if (r) rank2 = String(r)
       }
 
       setFormData(prev => ({
