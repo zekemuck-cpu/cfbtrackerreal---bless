@@ -54,7 +54,7 @@ function getPlayerSeasonStats(player, year) {
 /**
  * Get game order for sorting (higher = later in season)
  */
-function getGameOrder(g) {
+export function getGameOrder(g) {
   if (g.isConferenceChampionship) return 100
   if (g.isCFPFirstRound) return 101
   if (g.isCFPQuarterfinal) return 102
@@ -1157,6 +1157,56 @@ export function summarizeHeadToHead(headToHeadList, team1Name, team2Name) {
       ? { winner: streakWinner, count: streakLength }
       : null,
   }
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Rank semantics — IMPORTANT — read before touching anything rank-related.
+//
+// EA CFB's schedule UI shows each team's POST-WEEK rank next to it (the
+// rank that team holds AFTER playing that week's game). When a user
+// enters a week's score from the EA schedule, they're capturing the
+// post-game rank, so `game.team1Rank` / `game.team2Rank` on every
+// stored game are POST-GAME ranks — NOT pre-game / "entering" ranks.
+//
+// To compute the rank a team CARRIED INTO game G (the matchup-framing
+// rank "the #4 team faced the #11 team"), we look at that team's most
+// recent prior played game and read THAT game's stored rank — that
+// stored rank is post-game from the prior matchup, which equals the
+// rank the team brought into the next game.
+//
+// `getTeamEnteringRank` does that lookup for one team relative to one
+// in-progress game. Both prompts use it so the AI can write
+// pre-game-rank prose without inferring it from a tangle of weeks.
+// ──────────────────────────────────────────────────────────────────────
+export function getTeamEnteringRank(allGames, teamAbbr, year, currentGameOrder, dynasty) {
+  if (!Array.isArray(allGames) || !teamAbbr) return null
+  const teamTid = getTidFromAbbr(teamAbbr, dynasty)
+  const yearNum = Number(year)
+  let bestOrder = -1
+  let bestRank = null
+  for (const g of allGames) {
+    if (Number(g?.year) !== yearNum) continue
+    if (isUnplayedGame(g)) continue
+    const order = getGameOrder(g)
+    if (order >= currentGameOrder) continue
+    let teamRank = null
+    if (g.team1Tid != null && g.team2Tid != null) {
+      if (g.team1Tid === teamTid) teamRank = g.team1Rank
+      else if (g.team2Tid === teamTid) teamRank = g.team2Rank
+    }
+    if (teamRank == null) {
+      if (g.team1 === teamAbbr) teamRank = g.team1Rank
+      else if (g.team2 === teamAbbr) teamRank = g.team2Rank
+      else if (g.userTeam === teamAbbr) teamRank = g.teamRank ?? null
+    }
+    if (teamRank == null) continue
+    if (order > bestOrder) {
+      bestOrder = order
+      bestRank = teamRank
+    }
+  }
+  if (typeof bestRank !== 'number' || bestRank < 1 || bestRank > 25) return null
+  return bestRank
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -2270,9 +2320,17 @@ export function buildGameRecapContext(dynasty, game) {
     isUpset,
     isRankedMatchup,
 
-    // Rankings
+    // Rankings — POST-GAME ranks (the rank stored on this game, which
+    // EA's UI surfaces AFTER the game is played). Use these to talk
+    // about rank movement ("Tennessee fell to #15 after the loss").
     team1Ranking,
     team2Ranking,
+    // PRE-GAME (entering) ranks — derived by reading each team's most
+    // recent prior game's stored rank. Use these to describe the
+    // matchup itself ("the #4 team faced the #11 team"). null when the
+    // team had no prior game with a stored rank this year.
+    team1EnteringRank: getTeamEnteringRank(allGames, team1, year, thisGameOrder, dynasty),
+    team2EnteringRank: getTeamEnteringRank(allGames, team2, year, thisGameOrder, dynasty),
 
     // Season context — legacy single-team fields (point at the user side
     // when this is a user game; null otherwise). Prefer the team1*/team2*
@@ -2744,8 +2802,9 @@ ${homeTeam ? `HOME TEAM: ${homeTeam}` : ''}
 ${awayTeam ? `AWAY TEAM: ${awayTeam}` : ''}
 ${!homeTeam && !awayTeam ? 'NEUTRAL SITE GAME' : ''}
 ${ctx.isOvertime ? 'OVERTIME GAME' : ''}
-${ctx.team1FullName} Ranking: ${ctx.team1Ranking ? `#${ctx.team1Ranking}` : 'UNRANKED'}
-${ctx.team2FullName} Ranking: ${ctx.team2Ranking ? `#${ctx.team2Ranking}` : 'UNRANKED'}
+${ctx.team1FullName} entering rank: ${ctx.team1EnteringRank ? `#${ctx.team1EnteringRank}` : 'UNRANKED'} → post-game rank: ${ctx.team1Ranking ? `#${ctx.team1Ranking}` : 'UNRANKED'}
+${ctx.team2FullName} entering rank: ${ctx.team2EnteringRank ? `#${ctx.team2EnteringRank}` : 'UNRANKED'} → post-game rank: ${ctx.team2Ranking ? `#${ctx.team2Ranking}` : 'UNRANKED'}
+(EA quirk: the rank shown next to a team in EA's schedule is the rank AFTER that game ended, NOT the rank coming in. The "entering rank" above is derived from each team's previous game's stored rank — that's what the team CARRIED INTO this matchup. Use the entering rank when describing the matchup itself ("the #4 team faced the #11 team"); use the post-game rank when describing rank movement after the result ("Tennessee fell to #15 after the loss").)
 ${ctx.team1Conference ? `${ctx.team1FullName} Conference: ${ctx.team1Conference}` : ''}
 ${ctx.team2Conference ? `${ctx.team2FullName} Conference: ${ctx.team2Conference}` : ''}`
 
