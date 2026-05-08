@@ -1295,14 +1295,6 @@ export function isUserGame(dynasty, game) {
  * Falls back to dynasty.preseasonRankingsByYear for week 0 / week 1
  * when no rankByWeek data is stored yet (e.g. before the first
  * weekly-scores save of the year).
- *
- * Bye-week fallback: if no stored rank exists for (tid, year, week),
- * derives one from the most recent prior week the team has stored,
- * provided the team had a bye every week in between (no game in
- * dynasty.games for that team that week). This handles the EA quirk
- * where a bye team disappears from the weekly-scores screenshot, so
- * no entering-rank gets stored for the next week even though the
- * team's actual poll position didn't move. See deriveByeWeekRank.
  */
 export function getTeamRankForWeek(dynasty, tidOrAbbr, year, week) {
   if (!dynasty || tidOrAbbr == null || year == null || week == null) return null
@@ -1316,10 +1308,9 @@ export function getTeamRankForWeek(dynasty, tidOrAbbr, year, week) {
   const entry = byYear?.[yearNum]?.rankByWeek ?? byYear?.[yearStr]?.rankByWeek
   if (entry) {
     const v = entry[week] ?? entry[String(week)] ?? entry[Number(week)]
-    if (v != null) {
-      const n = Number(v)
-      if (n >= 1 && n <= 25) return n
-    }
+    if (v == null) return null
+    const n = Number(v)
+    return n >= 1 && n <= 25 ? n : null
   }
   // Preseason fallback for week 0 / week 1 — pull from the dynasty's
   // preseason poll if no rankByWeek data is stored yet.
@@ -1335,111 +1326,6 @@ export function getTeamRankForWeek(dynasty, tidOrAbbr, year, week) {
       )
       if (entry2?.rank) return Number(entry2.rank)
     }
-  }
-  // Bye-fill fallback. Conservative: only fills when we can prove a
-  // bye chain back to a stored rank, AND the resulting slot isn't
-  // claimed by another team in this week's poll.
-  return deriveByeWeekRank(dynasty, tid, yearNum, Number(week))
-}
-
-/**
- * Derive a bye-week entering rank for (tid, year, week) by walking
- * BACK through prior weeks until we find a stored rankByWeek[w].
- *
- * Why this exists: when the user enters Week N's weekly-scores
- * screenshot, EA shows each team's CURRENT rank — those land in
- * rankByWeek[N+1] for every team that played that week. Bye teams
- * don't appear in the screenshot at all, so no rankByWeek[N+1] is
- * stored for them, and the next week's Top 25 view drops them. They
- * "disappear" from the rankings even though they're still ranked.
- *
- * Conservative algorithm — only fills when we're sure:
- *   1. Walk back from `week - 1`.
- *   2. If the team played any game that week (per dynasty.games),
- *      stop and return null. We'd need the screenshot data for
- *      THAT game to know how the rank moved; missing data ≠ bye,
- *      so don't guess.
- *   3. If the team had a bye that week, look at the stored
- *      rankByWeek[w] value:
- *        a. If stored, claim it as the derived value (subject to
- *           the slot-claimed check below).
- *        b. If not stored, continue walking back. The team had
- *           multiple consecutive byes; their rank hasn't moved.
- *   4. Cap lookback at 6 weeks so a long chain of missing data
- *      doesn't accidentally surface a stale rank from earlier in
- *      the season.
- *   5. Slot-claim check: if any OTHER team has the candidate rank
- *      stored in rankByWeek[week] (= they were entered explicitly),
- *      return null. The user's explicit entry always wins.
- *
- * Returns the integer rank (1-25) or null. Pure function — no
- * persistence, no mutation. The same call is idempotent.
- *
- * Optional `claimedSlots` (Set<number>) lets callers avoid rebuilding
- * the slot index on every invocation when filling a whole Top 25.
- */
-export function deriveByeWeekRank(dynasty, tidOrAbbr, year, week, options = {}) {
-  if (!dynasty || tidOrAbbr == null || year == null || week == null) return null
-  const tid = typeof tidOrAbbr === 'string' && !/^\d+$/.test(tidOrAbbr)
-    ? getTidFromAbbr(tidOrAbbr, dynasty)
-    : Number(tidOrAbbr)
-  if (tid == null) return null
-  const yearNum = Number(year)
-  const yearStr = String(year)
-  const weekNum = Number(week)
-  if (!Number.isFinite(weekNum) || weekNum <= 0) return null
-
-  // Slot-claim index. Built lazily so single-team callers don't pay for
-  // it; bulk callers (Rankings Top 25 builder) can pass their own.
-  let claimedSlots = options.claimedSlots
-  if (!claimedSlots) {
-    claimedSlots = new Set()
-    const teams = dynasty.teams || {}
-    for (const t of Object.values(teams)) {
-      const rbw = t?.byYear?.[yearNum]?.rankByWeek ?? t?.byYear?.[yearStr]?.rankByWeek
-      if (!rbw) continue
-      const v = rbw[weekNum] ?? rbw[String(weekNum)]
-      if (typeof v === 'number' && v >= 1 && v <= 25) claimedSlots.add(v)
-    }
-  }
-
-  // Local helper — checks if `tid` has any game record at `(year, w)`.
-  // dynasty.games is the single source of truth for "did the team
-  // play that week" since weekly-scores entries land there too.
-  const teamPlayedInWeek = (w) => {
-    const games = dynasty.games || []
-    for (const g of games) {
-      if (!g) continue
-      if (Number(g.year) !== yearNum) continue
-      if (Number(g.week) !== w) continue
-      if (Number(g.team1Tid) === tid || Number(g.team2Tid) === tid) return true
-    }
-    return false
-  }
-
-  const teamEntry = dynasty.teams?.[tid] || dynasty.teams?.[String(tid)]
-  const rbwForTid = teamEntry?.byYear?.[yearNum]?.rankByWeek
-    ?? teamEntry?.byYear?.[yearStr]?.rankByWeek
-
-  const MAX_LOOKBACK = 6
-  const stopAt = Math.max(1, weekNum - MAX_LOOKBACK)
-
-  for (let w = weekNum - 1; w >= stopAt; w--) {
-    if (teamPlayedInWeek(w)) {
-      // Team played that week. Its rankByWeek[w+1] should reflect the
-      // post-game movement — but we got here because that slot wasn't
-      // stored. That's a data gap (user hasn't entered week w's
-      // weekly-scores yet, or skipped it), NOT a bye chain. Don't
-      // derive — we have no evidence the rank held.
-      return null
-    }
-    // Bye in week w. Look for a stored rank.
-    const stored = rbwForTid ? (rbwForTid[w] ?? rbwForTid[String(w)]) : undefined
-    if (typeof stored === 'number' && stored >= 1 && stored <= 25) {
-      if (claimedSlots.has(stored)) return null // explicit entry wins
-      return stored
-    }
-    // No stored rank for week w either. Multi-week bye — keep walking.
   }
   return null
 }
@@ -8263,6 +8149,47 @@ export function DynastyProvider({ children }) {
     for (const g of newGamesArr) {
       if (typeof g._team1PostGameRank === 'number') writeRankByWeek(g.team1Tid, propagationWeek, g._team1PostGameRank)
       if (typeof g._team2PostGameRank === 'number') writeRankByWeek(g.team2Tid, propagationWeek, g._team2PostGameRank)
+    }
+
+    // Step (a.5): apply AI-derived bye-week ranks. The Weekly Scores
+    // sheet has a second block at the bottom where the AI emits one
+    // row per ranked team that had a bye this week (col A = team
+    // abbr, col B = the AI's reasoned new rank, no opponent in col D).
+    // Those entries are attached to the parsed games array as
+    // `byeRanks`. Same target slot as the played-team ranks above —
+    // rankByWeek[propagationWeek] — because that's where the new
+    // poll lives. Bye writes do NOT overwrite a slot already
+    // claimed by a played team in this save; if the AI made a
+    // mistake (gave a bye team a rank some played team also got),
+    // the played-team rank wins.
+    const byeRanks = Array.isArray(weeklyGames?.byeRanks) ? weeklyGames.byeRanks : []
+    if (byeRanks.length > 0) {
+      // Slots already claimed by played teams in this save's
+      // propagation week — use to defend against AI-introduced
+      // collisions (an AI emitting "MIA at #2" when MIA actually
+      // played and got #2 from the screenshot is one example we
+      // ignore here without complaining).
+      const playedSlotsInPropWeek = new Set()
+      for (const g of newGamesArr) {
+        if (typeof g._team1PostGameRank === 'number') playedSlotsInPropWeek.add(g._team1PostGameRank)
+        if (typeof g._team2PostGameRank === 'number') playedSlotsInPropWeek.add(g._team2PostGameRank)
+      }
+      const seenByeRanks = new Set()
+      for (const entry of byeRanks) {
+        if (!entry || typeof entry.tid !== 'number') continue
+        const r = entry.rank
+        if (typeof r !== 'number' || r < 1 || r > 25) continue
+        // De-dupe within the bye block (defensive — the prompt asks
+        // for unique ranks but we don't trust it).
+        if (seenByeRanks.has(r)) continue
+        // Don't fight a played-team rank.
+        if (playedSlotsInPropWeek.has(r)) continue
+        // Don't overwrite if a played team in this propagationWeek
+        // (entered separately via schedule flow) already has this
+        // exact slot stored.
+        seenByeRanks.add(r)
+        writeRankByWeek(entry.tid, propagationWeek, r)
+      }
     }
 
     // Step (b): set each new game's stored rank to each team's

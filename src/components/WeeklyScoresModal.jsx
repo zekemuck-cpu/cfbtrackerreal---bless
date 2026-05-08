@@ -101,6 +101,36 @@ export default function WeeklyScoresModal({ isOpen, onClose, year, week, teamCol
     return lines.join('\n')
   }, [currentDynasty, year])
 
+  // Prior-week Top 25 block. We give the AI the entering-this-week
+  // poll (= rankByWeek[week] — set by last week's weekly-scores save)
+  // so it can reason about how teams moved. Specifically: which
+  // ranked teams had a bye this week (their abbr won't appear in
+  // any game row), and where those bye teams should slot in the
+  // post-week poll given the leapfrogs/drops it just transcribed.
+  const prevWeekTop25Block = useMemo(() => {
+    if (!currentDynasty) return ''
+    const yearNum = Number(year)
+    const weekNum = Number(week)
+    if (!Number.isFinite(yearNum) || !Number.isFinite(weekNum) || weekNum <= 0) return ''
+    const teams = currentDynasty.teams || {}
+    const slotMap = new Map() // rank → abbr
+    for (const team of Object.values(teams)) {
+      const rbw = team?.byYear?.[yearNum]?.rankByWeek
+        ?? team?.byYear?.[String(yearNum)]?.rankByWeek
+      if (!rbw) continue
+      const v = rbw[weekNum] ?? rbw[String(weekNum)]
+      if (typeof v !== 'number' || v < 1 || v > 25) continue
+      if (!slotMap.has(v)) slotMap.set(v, team.abbr)
+    }
+    if (slotMap.size === 0) return ''
+    const lines = []
+    for (let r = 1; r <= 25; r++) {
+      const abbr = slotMap.get(r)
+      if (abbr) lines.push(`  #${r} ${abbr}`)
+    }
+    return lines.join('\n')
+  }, [currentDynasty, year, week])
+
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${year} Week ${week} Scores`,
     structure: `This sheet has ONE tab: "Week ${week} Scores". It is a freeform list of every FBS game played in Week ${week} of the ${year} season — across all 134 teams in the country. Each row is one game.
@@ -430,7 +460,64 @@ This is the conference alignment for the ${year} season in THIS dynasty. Use it 
 ${conferenceMapBlock || '  (no custom conference data — fall back to standard FBS alignment)'}
 
 ═══════════════════════════════════════════════════════════
-TAB: "Week ${week} Scores" — up to ${WEEKLY_SCORES_MAX_ROWS} rows × 7 columns
+PRIOR-WEEK TOP 25 — entering Week ${week}, before the games you're transcribing
+═══════════════════════════════════════════════════════════
+This is where every team STOOD in the poll BEFORE the games shown in
+the screenshots happened. Use it as the baseline for reasoning about
+bye-week ranks (see the BYE WEEK RANKINGS section below).
+
+${prevWeekTop25Block || '  (no prior-week Top 25 stored — bye-week ranks block below should be empty)'}
+
+═══════════════════════════════════════════════════════════
+BYE WEEK RANKINGS — the second block you must emit (critical, read carefully)
+═══════════════════════════════════════════════════════════
+EA's screenshot only shows teams that PLAYED this week. Teams on a bye
+disappear from the screenshot entirely — but they're still ranked in the
+new poll. The user can see by inspection that a missing slot in the new
+Top 25 belongs to a bye team (e.g. "Miami was #1 last week, had a bye,
+slot 1 is the only empty slot this week → Miami is still #1"), but the
+import has no way to know that without you telling it.
+
+Your job: after the games block, emit a SECOND TSV block where each row
+is one ranked bye-week team and that team's NEW rank for the upcoming
+week. The user reviews and pastes — both blocks are part of the same
+copy/paste from your reply.
+
+HOW TO REASON ABOUT BYE-WEEK RANKS:
+  1. From the PRIOR-WEEK TOP 25 above, list every team that was ranked.
+  2. For each ranked team, check whether they appear as Col A or Col D
+     of any row in your GAMES block. If yes → they played this week,
+     their new rank already lives in the games row's rank column.
+     IGNORE them in the bye block.
+  3. The remaining ranked teams DID NOT play this week — they're on
+     bye. Each of those teams gets ONE row in the BYE block.
+  4. Decide each bye team's new rank by THINKING ABOUT THE WEEK:
+       • By default, bye teams hold their slot.
+       • If a team BELOW them won big and leapfrogged, the bye team
+         drops one (or more) slots.
+       • If a team ABOVE them lost (especially a bad loss), the bye
+         team can move UP.
+       • Multiple ranked teams can be on bye in the same week — they
+         each independently shift based on what happened around them.
+       • Movement of more than one slot IS allowed when the data
+         supports it (e.g. multiple leapfrogs, blowout losses above).
+       • The 25 slots in the new poll are all filled. For each empty
+         slot in the GAMES-derived ranks, decide which bye team most
+         naturally fills it. Walk slot-by-slot from #1 down — for
+         each missing rank, identify the bye team whose prior rank +
+         the week's events line up.
+  5. Sanity check: every rank in your BYE block must be UNIQUE, must
+     be 1-25, and must NOT collide with a rank already claimed by a
+     team in the GAMES block. The full union of (games block ranks)
+     ∪ (bye block ranks) should be exactly {1, 2, ..., up to 25}.
+  6. Only output bye rows for teams that WERE ranked in the prior-week
+     Top 25 above. A team that was unranked entering this week can
+     enter the new poll only via a game (= their rank shows up in the
+     games block). Don't invent unranked-to-ranked entries here.
+  7. If no ranked team had a bye, emit an empty BYE block (no rows).
+
+═══════════════════════════════════════════════════════════
+TAB: "Week ${week} Scores" — up to ${WEEKLY_SCORES_MAX_ROWS} game rows + up to 25 bye-rank rows × 7 columns
 Paste your block at cell A2 of the "Week ${week} Scores" tab
 ═══════════════════════════════════════════════════════════
 
@@ -444,7 +531,11 @@ REQUIRED OUTPUT FORMAT
 Output, in order:
   1. The pre-extraction WORKSHEET as a fenced \`\`\`worksheet block
      (one WS line per game, see "PRE-EXTRACTION WORKSHEET" above).
-  2. The TSV block — paste-target marker line, then the rows:
+  2. The TSV block — paste-target marker line, then game rows, then
+     bye-rank rows directly after them. ONE paste covers everything —
+     the user clicks paste once at cell A2 and is done. NO padding,
+     NO separator row needed; the importer classifies each row by
+     content (col D filled = game, col D empty = bye rank).
 
 \`\`\`worksheet
 WS1 | img1 | <leftAbbr> <leftScore> [VS|@|NEUT] <rightAbbr> <rightScore> | HOME=<abbr> | WINNER=<abbr> | NEUTRAL=Y/N
@@ -453,13 +544,34 @@ WS2 | img1 | ...
 \`\`\`
 
 === WEEK ${week} SCORES — paste at cell A2 of "Week ${week} Scores" tab ===
-<row1 HomeTeam>\\t<row1 HomeRank>\\t<row1 HomeScore>\\t<row1 AwayTeam>\\t<row1 AwayRank>\\t<row1 AwayScore>\\t<row1 Neutral?>
-<row2 HomeTeam>\\t<row2 HomeRank>\\t<row2 HomeScore>\\t<row2 AwayTeam>\\t<row2 AwayRank>\\t<row2 AwayScore>\\t<row2 Neutral?>
-... (one row per game in the screenshots — DO NOT actually emit "..."; emit the FULL list)
+<game1 HomeTeam>\\t<game1 HomeRank>\\t<game1 HomeScore>\\t<game1 AwayTeam>\\t<game1 AwayRank>\\t<game1 AwayScore>\\t<game1 Neutral?>
+<game2 HomeTeam>\\t<game2 HomeRank>\\t<game2 HomeScore>\\t<game2 AwayTeam>\\t<game2 AwayRank>\\t<game2 AwayScore>\\t<game2 Neutral?>
+... (one row per game — emit the FULL list, no "...")
+<bye1 TeamAbbr>\\t<bye1 Rank>\\t\\t\\t\\t\\t
+<bye2 TeamAbbr>\\t<bye2 Rank>\\t\\t\\t\\t\\t
+... (one row per ranked bye team; can be empty if no ranked bye teams; up to 25)
 
 (Each \\t above represents a LITERAL TAB character — use actual tab characters in your output, not the text "\\t".)
 
-The WORKSHEET is for audit only — the user reads it but pastes only the TSV into the sheet. The marker line (=== WEEK ... ===) separates the two and tells the user where to start the copy.
+LAYOUT EXAMPLE (concrete shape — 3 games, 2 bye teams):
+  GA\\t1\\t35\\tAUB\\t\\t14\\t            ← game
+  TEX\\t\\t28\\tOU\\t12\\t21\\t            ← game
+  BAMA\\t\\t52\\tTENN\\t8\\t10\\tY         ← game (neutral)
+  MIA\\t1\\t\\t\\t\\t\\t                       ← bye rank: Miami at #1
+  CLEM\\t3\\t\\t\\t\\t\\t                      ← bye rank: Clemson at #3
+
+The KEY DIFFERENCE between a game row and a bye row is column D:
+  • Game row: column D is the away-team abbreviation. NEVER blank.
+  • Bye row:  column D is BLANK. Only columns A (team) and B (rank)
+              are filled. Columns C, E, F, G are all blank.
+
+If you put a team abbr in column D of a row meant to be a bye rank,
+the importer will treat it as a game and silently drop the bye-rank
+information. Be careful.
+
+The WORKSHEET is for audit only — the user reads it but pastes only the
+TSV (everything from the "=== WEEK ..." marker through the last bye row)
+into the sheet.
 
 Example rows (for illustration only — your data should match the screenshots, and you should use ONLY abbreviations that appear in the mapping at the bottom of this prompt):
 TEX\\t7\\t34\\tOU\\t\\t21\\t
@@ -487,10 +599,13 @@ Don't just glance at this list. Physically execute each check on your draft.
 [ ] SCORE-FOLLOWS-TEAM (per-row, rule 6.5). Pick THREE rows from your draft at random. For each, mentally re-read the screenshot at that exact row position. Confirm that the value in Col C is the score that was visually next to the team you put in Col A — and the value in Col F is the score next to the team in Col D. If your home/away decision swapped which side of the screen Col A came from, the score MUST have swapped with it. Any row that fails this check has the WINNER WRONG — fix it before sending. This is the most common source of "wrong team won" bug reports.
 [ ] WORKSHEET vs TSV (winner consistency). For every TSV row, find the matching WS line. The team with the higher score in the worksheet's middle block (the screen-order summary) MUST equal WINNER on that worksheet line, AND must equal whichever team has the higher score in the TSV row (whether that's Col C or Col F). If any row's TSV winner disagrees with the worksheet's WINNER, you introduced a score-swap during the worksheet→TSV derivation. Fix the TSV row.
 [ ] TEAM COVERAGE (rule F in PRE-EXTRACTION COUNT). Every team you saw in the screenshots is now either (a) in a row of your output, or (b) confirmed on bye. No team silently disappeared. If you can name a team you remember seeing that doesn't appear in EITHER place, you have a missing game — go find it.
-[ ] No header row, no commentary, no follow-up text (except the optional "X games dropped" note ONLY if N > ${WEEKLY_SCORES_MAX_ROWS}).`,
+[ ] No header row, no commentary, no follow-up text (except the optional "X games dropped" note ONLY if N > ${WEEKLY_SCORES_MAX_ROWS}).
+[ ] BYE BLOCK PRESENT: every team in the PRIOR-WEEK TOP 25 above is accounted for. Either (a) they appear in a game row (their new rank shows there), or (b) they appear in the bye block with a derived new rank. No ranked team silently drops out.
+[ ] BYE BLOCK COL D EMPTY: every bye row's column D (4th tab-separated cell) is BLANK. If you accidentally put a team abbr in col D of a bye row, the importer treats it as a game with that abbr.
+[ ] BYE RANKS UNIQUE + IN RANGE: every rank in the bye block is 1-25, no rank repeats, and no rank in the bye block matches a rank already shown for a played team in the games block. The new poll has 25 unique ranks total.`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
-  }), [year, week, userAbbr, currentDynasty?.teams, conferenceMapBlock])
+  }), [year, week, userAbbr, currentDynasty?.teams, conferenceMapBlock, prevWeekTop25Block])
 
   useEffect(() => {
     setIsMobile(isMobileDevice())

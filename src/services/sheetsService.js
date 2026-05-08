@@ -3349,6 +3349,18 @@ export function isBowlInWeek2(bowlName) {
 // back without saving, so we lost rows past 75.
 export const WEEKLY_SCORES_MAX_ROWS = 130
 
+// Bye-week ranks block — appended below the 130 game rows. The AI
+// reasons about where bye teams should slot in this week's poll
+// based on prior-week rankings + the games it just transcribed,
+// then emits one row per bye team with the abbr in col A and the
+// derived rank in col B. The parser distinguishes bye rows from
+// game rows by col D being empty (game rows always have an opponent).
+// 25 is enough to cover the entire Top 25 in the unlikely case
+// every ranked team had a bye the same week.
+export const WEEKLY_SCORES_BYE_ROWS = 25
+export const WEEKLY_SCORES_BYE_HEADER_ROW_OFFSET = WEEKLY_SCORES_MAX_ROWS + 1 // 1-indexed: header at row WEEKLY_SCORES_BYE_HEADER_ROW_OFFSET + 1
+export const WEEKLY_SCORES_TOTAL_ROWS = WEEKLY_SCORES_MAX_ROWS + 1 /* bye section header */ + WEEKLY_SCORES_BYE_ROWS
+
 export async function createWeeklyScoresSheet(dynastyName, year, week, existingGames = [], dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
@@ -3369,7 +3381,8 @@ export async function createWeeklyScoresSheet(dynastyName, year, week, existingG
             properties: {
               title: sheetTitle,
               gridProperties: {
-                rowCount: WEEKLY_SCORES_MAX_ROWS + 1,
+                // Header (1) + 130 game rows + 1 bye section header + 25 bye rows
+                rowCount: WEEKLY_SCORES_TOTAL_ROWS + 1,
                 columnCount: 7,
                 frozenRowCount: 1
               }
@@ -3405,6 +3418,11 @@ export async function createWeeklyScoresSheet(dynastyName, year, week, existingG
 async function initializeWeeklyScoresSheet(spreadsheetId, accessToken, sheetId, sheetTitle, existingGames = [], dynastyTeams = null) {
   const teamAbbrs = getTeamAbbreviationsListWithCustom(dynastyTeams)
   const rowCount = WEEKLY_SCORES_MAX_ROWS
+  // Section-header row sits 1-indexed at row (rowCount + 2) — i.e.
+  // 0-indexed row WEEKLY_SCORES_MAX_ROWS + 1 == header(1)+games(130).
+  const byeHeaderRowIdx0 = WEEKLY_SCORES_MAX_ROWS + 1
+  const byeFirstDataRowIdx0 = byeHeaderRowIdx0 + 1
+  const byeLastDataRowIdx0Excl = byeFirstDataRowIdx0 + WEEKLY_SCORES_BYE_ROWS
 
   // Rank dropdown values: blank or 1..25
   const rankDropdownValues = [{ userEnteredValue: '' }]
@@ -3476,6 +3494,31 @@ async function initializeWeeklyScoresSheet(spreadsheetId, accessToken, sheetId, 
         fields: 'userEnteredValue'
       }
     },
+    // Bye-section divider row: a single banner cell in col A so the
+    // user can see at a glance where the bye-week ranks block starts.
+    // Other cols on this row are blank — the parser ignores this row
+    // entirely, it's just a visual marker.
+    {
+      updateCells: {
+        range: {
+          sheetId,
+          startRowIndex: byeHeaderRowIdx0,
+          endRowIndex: byeHeaderRowIdx0 + 1,
+          startColumnIndex: 0,
+          endColumnIndex: 7
+        },
+        rows: [{ values: [
+          { userEnteredValue: { stringValue: 'BYE WEEK RANKINGS — Team in col A, rank 1-25 in col B (no opponent)' } },
+          { userEnteredValue: { stringValue: '' } },
+          { userEnteredValue: { stringValue: '' } },
+          { userEnteredValue: { stringValue: '' } },
+          { userEnteredValue: { stringValue: '' } },
+          { userEnteredValue: { stringValue: '' } },
+          { userEnteredValue: { stringValue: '' } },
+        ] }],
+        fields: 'userEnteredValue'
+      }
+    },
     // Body formatting
     {
       repeatCell: {
@@ -3490,10 +3533,12 @@ async function initializeWeeklyScoresSheet(spreadsheetId, accessToken, sheetId, 
         fields: 'userEnteredFormat(textFormat,horizontalAlignment,verticalAlignment)'
       }
     },
-    // Strict team dropdown for HOME column (col A, index 0)
+    // Strict team dropdown for HOME column (col A, index 0) — covers
+    // both the games range AND the bye-week-rank entries below the
+    // divider, so the AI can paste team abbrs into the bye block too.
     {
       setDataValidation: {
-        range: { sheetId, startRowIndex: 1, endRowIndex: rowCount + 1, startColumnIndex: 0, endColumnIndex: 1 },
+        range: { sheetId, startRowIndex: 1, endRowIndex: byeLastDataRowIdx0Excl, startColumnIndex: 0, endColumnIndex: 1 },
         rule: {
           condition: { type: 'ONE_OF_LIST', values: teamAbbrs.map(abbr => ({ userEnteredValue: abbr })) },
           showCustomUi: true,
@@ -3501,10 +3546,11 @@ async function initializeWeeklyScoresSheet(spreadsheetId, accessToken, sheetId, 
         }
       }
     },
-    // Home rank dropdown (col B, index 1) — blank or 1..25
+    // Home rank dropdown (col B, index 1) — blank or 1..25. Same
+    // expansion: bye rows put the team's derived rank here.
     {
       setDataValidation: {
-        range: { sheetId, startRowIndex: 1, endRowIndex: rowCount + 1, startColumnIndex: 1, endColumnIndex: 2 },
+        range: { sheetId, startRowIndex: 1, endRowIndex: byeLastDataRowIdx0Excl, startColumnIndex: 1, endColumnIndex: 2 },
         rule: {
           condition: { type: 'ONE_OF_LIST', values: rankDropdownValues },
           showCustomUi: true,
@@ -3512,14 +3558,18 @@ async function initializeWeeklyScoresSheet(spreadsheetId, accessToken, sheetId, 
         }
       }
     },
-    // Strict team dropdown for AWAY column (col D, index 3)
+    // Team dropdown for AWAY column (col D, index 3). Was strict —
+    // relaxed so that a blank cell in this column (= a bye-rank row)
+    // doesn't show a red validation warning. The parser still
+    // ignores rows where col A has an unrecognized abbr, so loosening
+    // the dropdown doesn't open a data path.
     {
       setDataValidation: {
         range: { sheetId, startRowIndex: 1, endRowIndex: rowCount + 1, startColumnIndex: 3, endColumnIndex: 4 },
         rule: {
           condition: { type: 'ONE_OF_LIST', values: teamAbbrs.map(abbr => ({ userEnteredValue: abbr })) },
           showCustomUi: true,
-          strict: true
+          strict: false
         }
       }
     },
@@ -3605,8 +3655,10 @@ async function initializeWeeklyScoresSheet(spreadsheetId, accessToken, sheetId, 
         fields: 'pixelSize'
       }
     },
-    // Team color formatting on HOME (col 0) and AWAY (col 3)
-    ...generateBowlTeamFormattingRules(sheetId, 0, rowCount, dynastyTeams),
+    // Team color formatting on HOME (col 0) and AWAY (col 3). Col 0
+    // gets the full extended range so bye-rank rows are colored too;
+    // col 3 stays at the games-only range.
+    ...generateBowlTeamFormattingRules(sheetId, 0, byeLastDataRowIdx0Excl - 1, dynastyTeams),
     ...generateBowlTeamFormattingRules(sheetId, 3, rowCount, dynastyTeams),
   ]
 
@@ -3629,7 +3681,10 @@ async function initializeWeeklyScoresSheet(spreadsheetId, accessToken, sheetId, 
 export async function readWeeklyScoresFromSheet(spreadsheetId, sheetTitle, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
-    const range = `${sheetTitle}!A2:G${WEEKLY_SCORES_MAX_ROWS + 1}`
+    // Read through the full sheet (games region + bye section header
+    // + 25 bye rows) in one call — the parser splits them by which
+    // row range they came from.
+    const range = `${sheetTitle}!A2:G${WEEKLY_SCORES_TOTAL_ROWS + 1}`
 
     const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`,
@@ -3652,10 +3707,32 @@ export async function readWeeklyScoresFromSheet(spreadsheetId, sheetTitle, dynas
     }
 
     const games = []
+    const byeRanks = []
+    // Content-based classification — works regardless of where the
+    // AI's paste lands the rows. A row is a game when both team
+    // columns (A and D) are non-empty AND the team abbrs differ.
+    // A row is a bye-rank entry when col A has a recognized abbr,
+    // col D is empty, and col B has a 1-25 rank. Anything else
+    // (blank rows, the section banner row) is skipped silently.
     for (const row of rows) {
-      const homeAbbr = (row[0] || '').toUpperCase().trim()
-      const awayAbbr = (row[3] || '').toUpperCase().trim()
-      if (!homeAbbr || !awayAbbr) continue
+      if (!row) continue
+      const colA = (row[0] || '').toUpperCase().trim()
+      const colD = (row[3] || '').toUpperCase().trim()
+      if (!colA) continue
+
+      // Bye-rank row: team in col A, rank in col B, no opponent in col D.
+      if (!colD) {
+        const byeRank = parseRank(row[1])
+        if (byeRank == null) continue
+        const byeTid = getTidFromAbbr(colA, dynastyTeams)
+        if (!byeTid) continue
+        byeRanks.push({ team: colA, tid: byeTid, rank: byeRank })
+        continue
+      }
+
+      // Game row.
+      const homeAbbr = colA
+      const awayAbbr = colD
       if (homeAbbr === awayAbbr) continue
 
       const homeRank = parseRank(row[1])
@@ -3686,6 +3763,11 @@ export async function readWeeklyScoresFromSheet(spreadsheetId, sheetTitle, dynas
       })
     }
 
+    // Backward-compat: callers that destructure as an array still
+    // get just the games list (Array.isArray on the return). New
+    // callers read .byeRanks off the same returned array (JS arrays
+    // are objects).
+    games.byeRanks = byeRanks
     return games
   } catch (error) {
     console.error('Error reading weekly scores:', error)
