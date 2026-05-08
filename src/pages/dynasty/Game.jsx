@@ -5,7 +5,7 @@ import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
-import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear, getCustomConferencesForYear } from '../../context/DynastyContext'
+import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear, getCustomConferencesForYear, getTeamRankForWeek } from '../../context/DynastyContext'
 import CardComposer from '../../components/CardComposer'
 import { getCardsForGame } from '../../utils/playerCards'
 import FlippableCard from '../../components/FlippableCard'
@@ -1023,25 +1023,47 @@ export default function Game() {
   const eventLogo = bowlLogo || confLogo || conferenceMatchupLogo
   const eventLogoAlt = bowlLogo ? game.bowlName : (confLogo ? `${confName} Championship` : (conferenceMatchupLogo ? `${userConf}` : 'Event'))
 
-  // Get rankings. For CPU games, displayTeam is the viewing perspective (often
-  // the winner) which is independent of visual side — so we have to resolve
-  // perspective→team1/2, then apply the leftTeam/rightTeam mapping. The old
-  // code conflated the two and rendered team1Rank on the visual left even
-  // when the display team was actually on the right (e.g. UNC #10 at home
-  // showed as "FCS Midwest #10").
+  // Rankings — read each team's ENTERING rank (the rank carried into
+  // this game) from dynasty.teams[tid].byYear[year].rankByWeek. This
+  // is the rank the team was DURING the game. The legacy fallback to
+  // game.team1Rank / team2Rank covers dynasties not yet migrated.
+  const gameWeekKey = (() => {
+    if (game.isCFPChampionship) return 104
+    if (game.isCFPSemifinal) return 103
+    if (game.isCFPQuarterfinal) return 102
+    if (game.isCFPFirstRound) return 101
+    if (game.isConferenceChampionship) return 100
+    if (game.isBowlGame) return 100
+    return Number(game.week)
+  })()
+  const rankFor = (tid, fallback) => {
+    if (tid != null) {
+      const r = getTeamRankForWeek(currentDynasty, tid, game.year, gameWeekKey)
+      if (r != null) return r
+    }
+    return fallback ?? null
+  }
   let leftRank, rightRank
   if (isCPUGame) {
     const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
     const team1Abbr = team1Info?.abbr || game.team1
     const isDisplayTeam1 = displayTeamAbbr === team1Abbr
-    const displayRank = isDisplayTeam1 ? game.team1Rank : game.team2Rank
-    const oppRank = isDisplayTeam1 ? game.team2Rank : game.team1Rank
+    const displayTid = isDisplayTeam1 ? game.team1Tid : game.team2Tid
+    const oppTid = isDisplayTeam1 ? game.team2Tid : game.team1Tid
+    const displayFallback = isDisplayTeam1 ? game.team1Rank : game.team2Rank
+    const oppFallback = isDisplayTeam1 ? game.team2Rank : game.team1Rank
+    const displayRank = rankFor(displayTid, displayFallback)
+    const oppRank = rankFor(oppTid, oppFallback)
     leftRank = leftTeam === 'user' ? displayRank : oppRank
     rightRank = rightTeam === 'user' ? displayRank : oppRank
   } else {
-    // For user games, use perspective ranks or fallback to game fields
-    const userRank = perspective?.userRank ?? game.userRank ?? game.team1Rank
-    const oppRank = perspective?.opponentRank ?? game.opponentRank ?? game.team2Rank
+    // User games — userTid for the display side, opponentTid for the other.
+    const userTidForGame = perspective?.userTid ?? game.userTid ?? game.team1Tid
+    const oppTid = userTidForGame === game.team1Tid ? game.team2Tid : game.team1Tid
+    const userFallback = perspective?.userRank ?? game.userRank ?? game.team1Rank
+    const oppFallback = perspective?.opponentRank ?? game.opponentRank ?? game.team2Rank
+    const userRank = rankFor(userTidForGame, userFallback)
+    const oppRank = rankFor(oppTid, oppFallback)
     leftRank = leftTeam === 'user' ? userRank : oppRank
     rightRank = rightTeam === 'user' ? userRank : oppRank
   }

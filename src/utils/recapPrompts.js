@@ -24,6 +24,7 @@
 import { getMascotName } from '../data/teams'
 import { ambiguousNamingRules } from './recapTeamNames'
 import { conferenceTeams as DEFAULT_CONFERENCES } from '../data/conferenceTeams'
+import { getTeamRankForWeek } from '../context/DynastyContext'
 import {
   getPriorYearPostseason,
   getTeamFinalRank,
@@ -102,14 +103,20 @@ function recordFromGames(games, year, tid) {
 // the schedule). Showing both lets the AI write "the #4 team faced
 // the #11 team" (entering) and "Tennessee fell to #15" (post-game)
 // without confusing the two.
-function fmtGameLine(game, dynasty, enteringRanks) {
+function fmtGameLine(game, dynasty, ranks) {
   const t1 = teamDisplay(game.team1Tid, game.team1, dynasty)
   const t2 = teamDisplay(game.team2Tid, game.team2, dynasty)
   const s1 = game.team1Score, s2 = game.team2Score
-  const e1 = enteringRanks?.team1 ?? null
-  const e2 = enteringRanks?.team2 ?? null
-  const p1 = typeof game.team1Rank === 'number' ? game.team1Rank : null
-  const p2 = typeof game.team2Rank === 'number' ? game.team2Rank : null
+  // ranks: { team1Entering, team1Post, team2Entering, team2Post } —
+  // computed by the caller from dynasty.teams[tid].byYear[year].rankByWeek
+  // for both [gameWeek] (entering) and [gameWeek+1] (post-game).
+  // Legacy fallback to game.team1Rank / game.team2Rank covers
+  // dynasties where rankByWeek hasn't been populated for the
+  // post-game slot yet.
+  const e1 = ranks?.team1Entering ?? null
+  const e2 = ranks?.team2Entering ?? null
+  const p1 = ranks?.team1Post ?? (typeof game.team1Rank === 'number' ? game.team1Rank : null)
+  const p2 = ranks?.team2Post ?? (typeof game.team2Rank === 'number' ? game.team2Rank : null)
   const fmtRank = (entering, post) => {
     if (entering == null && post == null) return ''
     if (entering != null && post != null && entering === post) return `[#${entering}] `
@@ -767,15 +774,28 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   // game = entering rank for the next one). Computed once here so
   // fmtGameLine can render "[entering→post]" cleanly.
   const enteringRanksByGame = new Map()
-  const enteringRankFor = (g) => {
+  const ranksFor = (g) => {
     const order = getGameOrder(g)
+    // Entering rank = team's rank at week == order. Post-game rank =
+    // team's rank at week == order+1 (= entering next week). Both
+    // come from dynasty.teams[tid].byYear[year].rankByWeek now that
+    // the migration populates it. getTeamEnteringRank pulls from
+    // rankByWeek with a legacy fallback for unmigrated dynasties.
+    const t1Tid = g.team1Tid
+    const t2Tid = g.team2Tid
     return {
-      team1: getTeamEnteringRank(allDynastyGames, g.team1, yearNum, order, dynasty),
-      team2: getTeamEnteringRank(allDynastyGames, g.team2, yearNum, order, dynasty),
+      team1Entering: getTeamEnteringRank(allDynastyGames, g.team1, yearNum, order, dynasty),
+      team2Entering: getTeamEnteringRank(allDynastyGames, g.team2, yearNum, order, dynasty),
+      team1Post: t1Tid != null
+        ? (getTeamRankForWeek(dynasty, t1Tid, yearNum, order + 1) ?? (typeof g.team1Rank === 'number' ? g.team1Rank : null))
+        : (typeof g.team1Rank === 'number' ? g.team1Rank : null),
+      team2Post: t2Tid != null
+        ? (getTeamRankForWeek(dynasty, t2Tid, yearNum, order + 1) ?? (typeof g.team2Rank === 'number' ? g.team2Rank : null))
+        : (typeof g.team2Rank === 'number' ? g.team2Rank : null),
     }
   }
   for (const g of weekGames) {
-    enteringRanksByGame.set(g, enteringRankFor(g))
+    enteringRanksByGame.set(g, ranksFor(g))
   }
 
   // RANK SEMANTICS — emit a single explainer once at the top of the

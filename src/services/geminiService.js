@@ -1182,6 +1182,26 @@ export function getTeamEnteringRank(allGames, teamAbbr, year, currentGameOrder, 
   if (!Array.isArray(allGames) || !teamAbbr) return null
   const teamTid = getTidFromAbbr(teamAbbr, dynasty)
   const yearNum = Number(year)
+
+  // Prefer dynasty.teams[tid].byYear[year].rankByWeek if populated —
+  // that's the post-migration source of truth, populated by addGame /
+  // updateGame on every save. Fall back to deriving from the team's
+  // most recent prior game's stored rank if rankByWeek isn't there
+  // yet (e.g. dynasties that haven't been migrated).
+  if (teamTid != null && dynasty) {
+    const byYear = dynasty?.teams?.[teamTid]?.byYear
+      || dynasty?.teams?.[String(teamTid)]?.byYear
+    const rankByWeek = byYear?.[yearNum]?.rankByWeek ?? byYear?.[String(yearNum)]?.rankByWeek
+    if (rankByWeek) {
+      const v = rankByWeek[currentGameOrder] ?? rankByWeek[String(currentGameOrder)]
+      if (v != null) {
+        const n = Number(v)
+        return n >= 1 && n <= 25 ? n : null
+      }
+    }
+  }
+
+  // Legacy fallback — derive from the team's most recent prior game.
   let bestOrder = -1
   let bestRank = null
   for (const g of allGames) {
