@@ -1374,6 +1374,24 @@ export function migrateRanksToRankByWeek(dynasty, options = {}) {
     }
   }
 
+  // Seed week-105 ("Final Poll" — post-Natty rank) from existing
+  // finalPollsByYear data. Mirrors the per-team-per-week store with
+  // whatever the user already entered through the end-of-season
+  // recap flow, so the Top 25 page's "Final Poll" column and the
+  // Edit-Rankings sheet stay in sync without requiring a re-save.
+  const finalPollsByYear = dynasty.finalPollsByYear || {}
+  for (const [year, polls] of Object.entries(finalPollsByYear)) {
+    const media = polls?.media
+    if (!Array.isArray(media)) continue
+    for (const e of media) {
+      if (!e) continue
+      const tid = e.tid != null ? Number(e.tid) : (e.team ? getTidFromAbbr(e.team, dynasty) : null)
+      if (tid == null) continue
+      if (typeof e.rank !== 'number') continue
+      writeRank(tid, year, 105, e.rank)
+    }
+  }
+
   // Now that rankByWeek is fully populated, rewrite every game's
   // team1Rank/team2Rank to the team's ENTERING rank for that game's
   // week. After this rewrite, every game record's stored rank IS the

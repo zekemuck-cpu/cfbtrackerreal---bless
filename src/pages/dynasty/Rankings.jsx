@@ -343,10 +343,17 @@ export default function Rankings() {
     if (w === 102) return 'CFP Quarterfinals'
     if (w === 103) return 'CFP Semifinals'
     if (w === 104) return 'National Championship'
+    if (w === 105) return 'Final Poll'
     return `Week ${w}`
   }
+  // When rankByWeek already has a Final Poll entry (week 105 — seeded
+  // by the migration / FinalPollsModal save flow from finalPollsByYear),
+  // the legacy `final` selector that reads finalPollsByYear directly
+  // is redundant — week 105 is the same data sourced from rankByWeek.
+  // Suppress the duplicate to keep the dropdown clean.
+  const hasFinalInRankByWeek = availableWeeks.includes(105)
   const weekOptions = [
-    ...(hasSavedFinal ? [{ value: 'final', label: 'Final Poll' }] : []),
+    ...(hasSavedFinal && !hasFinalInRankByWeek ? [{ value: 'final', label: 'Final Poll' }] : []),
     ...[...availableWeeks].reverse().map(w => ({ value: w, label: weekLabel(w) })),
   ]
   const selectedLabel =

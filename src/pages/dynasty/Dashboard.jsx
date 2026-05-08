@@ -9980,12 +9980,66 @@ export default function Dashboard() {
         onClose={() => setShowFinalPollsModal(false)}
         onSave={async (polls) => {
           const year = currentDynasty.currentYear
+          const yearKey = String(year)
           const existingByYear = currentDynasty.finalPollsByYear || {}
+
+          // Mirror the saved media poll into each ranked team's
+          // rankByWeek[105] entry — that's the per-team-per-week
+          // store the Top 25 page + Edit-Rankings sheet read from.
+          // Clearing semantics: any team that USED to be in the
+          // prior media poll but isn't anymore gets its
+          // rankByWeek[105] entry removed too, so removing a team
+          // from the poll also drops them out of the Final column
+          // on the rankings sheet.
+          const oldMedia = existingByYear[year]?.media
+            || existingByYear[yearKey]?.media
+            || []
+          const oldTids = new Set(
+            (Array.isArray(oldMedia) ? oldMedia : [])
+              .map(e => e?.tid != null ? Number(e.tid) : null)
+              .filter(t => t != null)
+          )
+          const newTids = new Set()
+          const teamsCopy = { ...(currentDynasty.teams || {}) }
+          const writeRank = (tid, rank) => {
+            if (tid == null) return
+            const tidKey = String(tid)
+            const team = teamsCopy[tidKey] || teamsCopy[tid] || {}
+            const byYear = { ...(team.byYear || {}) }
+            const yearEntry = { ...(byYear[yearKey] || byYear[year] || {}) }
+            const rankByWeek = { ...(yearEntry.rankByWeek || {}) }
+            if (rank == null) {
+              delete rankByWeek[105]
+              delete rankByWeek['105']
+            } else {
+              rankByWeek[105] = rank
+            }
+            yearEntry.rankByWeek = rankByWeek
+            byYear[yearKey] = yearEntry
+            teamsCopy[tidKey] = { ...team, byYear }
+          }
+          const newMedia = polls?.media
+          if (Array.isArray(newMedia)) {
+            for (const e of newMedia) {
+              if (!e || typeof e.rank !== 'number') continue
+              if (e.tid == null) continue
+              const tidNum = Number(e.tid)
+              writeRank(tidNum, e.rank)
+              newTids.add(tidNum)
+            }
+          }
+          // Clear rankByWeek[105] for any tid that was in the OLD
+          // media poll but isn't in the new one.
+          for (const oldTid of oldTids) {
+            if (!newTids.has(oldTid)) writeRank(oldTid, null)
+          }
+
           await updateDynasty(currentDynasty.id, {
             finalPollsByYear: {
               ...existingByYear,
               [year]: polls
-            }
+            },
+            teams: teamsCopy,
           })
         }}
         currentYear={currentDynasty.currentYear}

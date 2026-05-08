@@ -14153,7 +14153,7 @@ export async function readFringeCaseClassFromSheet(spreadsheetId, dynastyTeams =
 // ──────────────────────────────────────────────────────────────────────
 
 // Week-key columns. Order matches the headers on the sheet.
-const TOP25_WEEK_KEYS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 100, 101, 102, 103, 104]
+const TOP25_WEEK_KEYS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 100, 101, 102, 103, 104, 105]
 const TOP25_WEEK_LABELS = {
   0: 'Preseason',
   100: 'CC',
@@ -14161,6 +14161,7 @@ const TOP25_WEEK_LABELS = {
   102: 'CFP-Q',
   103: 'CFP-S',
   104: 'Natty',
+  105: 'Final',
 }
 const TOP25_NUM_RANKS = 25
 
