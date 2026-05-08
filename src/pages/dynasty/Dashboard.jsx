@@ -390,7 +390,7 @@ export default function Dashboard() {
   // wrapping (the calculator icon + external-link icon would push the
   // primary action button off the row width on phones).
   const recruitingExtraTools = !isViewOnly ? (
-    <div className="hidden sm:flex items-center gap-1.5">
+    <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
       <SellVsSendButton onClick={() => setShowSellCalc(true)} />
       <a
         href="https://collegefootball.gg/recruiting-insight-engine/"

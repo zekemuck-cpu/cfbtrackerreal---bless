@@ -28,7 +28,13 @@ import {
   getPriorYearPostseason,
   getTeamFinalRank,
   getHeadToHeadHistory,
+  getCoachContext,
+  getIncomingClassRank,
+  getQualityWinsAndBadLosses,
+  getRivalryName,
+  getSeasonPOWTrail,
 } from '../services/geminiService'
+import { buildCFPProjection } from './cfpProjection'
 
 const TWO_DIGIT = (y) => String(y).slice(-2)
 
@@ -578,40 +584,115 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   }
 
   const teamPriorContextLines = []
+  const teamCoachLines = []
+  const teamRecruitingLines = []
+  const teamQualityLines = []
   for (const t of teamsThisWeek.values()) {
+    // PRIOR-YEAR FINISH (rank + deepest postseason)
     const finalRank = getTeamFinalRank(dynasty, t.abbr, priorYear)
     const prior = getPriorYearPostseason(allDynastyGames, t.abbr, yearNum, dynasty)
-    if (!finalRank && !prior) continue
-    const bits = []
-    if (finalRank) bits.push(`finished ${priorYear} #${finalRank}`)
-    if (prior?.narrativeCue) bits.push(prior.narrativeCue)
-    else if (prior) {
-      bits.push(`${prior.result === 'W' ? 'won' : 'lost'} ${prior.gameName} ${prior.score}`)
+    if (finalRank || prior) {
+      const bits = []
+      if (finalRank) bits.push(`finished ${priorYear} #${finalRank}`)
+      if (prior?.narrativeCue) bits.push(prior.narrativeCue)
+      else if (prior) bits.push(`${prior.result === 'W' ? 'won' : 'lost'} ${prior.gameName} ${prior.score}`)
+      if (prior?.wonNationalChampionship) bits.push('— DEFENDING NATIONAL CHAMPIONS')
+      else if (prior?.lostNationalChampionship) bits.push('— came one game short of the title')
+      teamPriorContextLines.push(`${t.name}: ${bits.join('; ')}`)
     }
-    if (prior?.wonNationalChampionship) bits.push('— DEFENDING NATIONAL CHAMPIONS')
-    else if (prior?.lostNationalChampionship) bits.push('— came one game short of the title')
-    teamPriorContextLines.push(`${t.name}: ${bits.join('; ')}`)
+
+    // COACHING TENURE — only emit when we can compute a meaningful tenure
+    // year (won't surface for teams with no coaching-staff history).
+    const coach = getCoachContext(dynasty, t.abbr, yearNum)
+    if (coach && coach.yearAtSchool >= 1) {
+      const stintBit = `${coach.stintWins}-${coach.stintLosses} since ${coach.stintStartYear}`
+      const cueBit = coach.framingCue ? ` (${coach.framingCue})` : ''
+      teamCoachLines.push(`${t.name}: ${coach.name}, year ${coach.yearAtSchool} — ${stintBit}${cueBit}.`)
+    }
+
+    // RECRUITING CLASS — class that arrived this season and any in-progress
+    // class signing during this season.
+    const incoming = getIncomingClassRank(dynasty, t.abbr, yearNum)
+    const nextCycle = getIncomingClassRank(dynasty, t.abbr, yearNum + 1)
+    if (incoming || nextCycle) {
+      const bits = []
+      if (incoming) bits.push(`#${incoming} ${yearNum} class arrived`)
+      if (nextCycle) bits.push(`signing #${nextCycle} ${yearNum + 1} class`)
+      teamRecruitingLines.push(`${t.name}: ${bits.join('; ')}`)
+    }
+
+    // QUALITY WINS / BAD LOSSES tally for this season.
+    const qwl = getQualityWinsAndBadLosses(allDynastyGames, t.abbr, yearNum, dynasty)
+    if (qwl && (qwl.qualityWins.length > 0 || qwl.badLosses.length > 0)) {
+      const bits = []
+      if (qwl.qualityWins.length > 0) bits.push(`${qwl.qualityWins.length} quality win${qwl.qualityWins.length === 1 ? '' : 's'}`)
+      if (qwl.badLosses.length > 0) bits.push(`${qwl.badLosses.length} bad loss${qwl.badLosses.length === 1 ? '' : 'es'}`)
+      teamQualityLines.push(`${t.name}: ${bits.join(', ')}.`)
+    }
   }
   teamPriorContextLines.sort()
+  teamCoachLines.sort()
+  teamRecruitingLines.sort()
+  teamQualityLines.sort()
 
   // For each game this week, include the most-recent prior matchup between
-  // the same two teams. Powers per-game revenge/rematch framing in the weekly
-  // recap. Only the LAST meeting (we'd blow up the prompt otherwise — there
-  // are dozens of weekly games and each could have years of history).
+  // the same two teams + the rivalry/trophy name when applicable. Powers
+  // per-game revenge/rematch framing AND lets the recap call rivalry games
+  // by name ("the Iron Bowl"). Only the LAST meeting (we'd blow up the
+  // prompt otherwise — there are dozens of weekly games).
   const lastMeetingLines = []
+  const rivalryLines = []
   for (const g of weekGames) {
     const team1Abbr = g.team1
     const team2Abbr = g.team2
     if (!team1Abbr || !team2Abbr) continue
+    const t1Name = teamDisplay(g.team1Tid, g.team1, dynasty)
+    const t2Name = teamDisplay(g.team2Tid, g.team2, dynasty)
+
+    const rivalry = getRivalryName(team1Abbr, team2Abbr)
+    if (rivalry) rivalryLines.push(`${t1Name} vs ${t2Name} — ${rivalry}.`)
+
     const history = getHeadToHeadHistory(allDynastyGames, team1Abbr, team2Abbr, yearNum, 1, dynasty)
     if (!Array.isArray(history) || history.length === 0) continue
     const last = history[0]
-    const t1Name = teamDisplay(g.team1Tid, g.team1, dynasty)
-    const t2Name = teamDisplay(g.team2Tid, g.team2, dynasty)
     lastMeetingLines.push(
       `${t1Name} vs ${t2Name} — last met ${last.year}: ${last.winner} def. ${last.loser} ${last.winnerScore}-${last.loserScore} (${last.gameType}). Revenge angle live for ${last.loser} this week.`
     )
   }
+
+  // CFP projection — where the 12-team field would land if the season
+  // ended today. Lets the recap write "Tennessee has played its way
+  // into a Sugar Bowl projection" / "the Big Ten still has a path with
+  // both Iowa and Wisconsin in the projected field."
+  const cfpProjection = (() => {
+    try {
+      return buildCFPProjection(dynasty, yearNum)
+    } catch {
+      return { available: false }
+    }
+  })()
+  const cfpProjectionLines = []
+  if (cfpProjection?.available && Array.isArray(cfpProjection.seeds) && cfpProjection.seeds.length > 0) {
+    for (const s of cfpProjection.seeds) {
+      const teamLabel = teamDisplay(s.tid, s.team, dynasty)
+      cfpProjectionLines.push(`#${s.seed} ${teamLabel} (${s.bidLabel || s.bid || ''})`)
+    }
+  }
+
+  // Heisman watch — derived from the existing season stat leaders we
+  // already compute for the data block. Adds the "front-runner"
+  // framing the AI was missing without us pre-baking opinions.
+  // Computed below after `topByField` / `passLeaders` etc. are defined,
+  // so we just declare the array here and fill it later in this function.
+  const heismanWatchLines = []
+
+  // Season-long POW trail across the whole league. Distinct from the
+  // per-game `seasonPOWTrail` field (same data, but here scoped to the
+  // weekly recap so we can flag multi-time award winners across the
+  // entire FBS, not just the two teams in one game).
+  const seasonPOWLeaders = getSeasonPOWTrail(allDynastyGames, yearNum)
+    .filter(p => p.total >= 2)
+    .slice(0, 12)
 
   // ----- Section: Saved preseason poll for current year (if any) -----
   const presPolls = dynasty?.preseasonRankingsByYear?.[yearNum]
@@ -701,6 +782,30 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   if (tackleLeaders.length > 0) {
     seasonStatBlocks.push(`Tackle leaders:\n${tackleLeaders.map(p => `  ${p.name} (${p.team}) — ${p.tackles} tackles (${p.games} g)`).join('\n')}`)
   }
+
+  // Heisman watch — front-runners across the three offensive yardage
+  // categories. Just naming them as "current Heisman front-runners"
+  // unlocks a beat the AI was previously missing — without this framing
+  // the stat leaders read as encyclopedia entries, not award storylines.
+  const heismanCandidates = []
+  if (passLeaders[0]) heismanCandidates.push({ ...passLeaders[0], lane: 'passing' })
+  if (rushLeaders[0]) heismanCandidates.push({ ...rushLeaders[0], lane: 'rushing' })
+  if (recLeaders[0]) heismanCandidates.push({ ...recLeaders[0], lane: 'receiving' })
+  // Also include the #2 in each lane if their stats are within ~10% of #1
+  // — close races deserve to be noted, blowouts don't.
+  const closeChase = (l1, l2, key) => l1 && l2 && l2[key] >= l1[key] * 0.9
+  if (closeChase(passLeaders[0], passLeaders[1], 'passYds')) heismanCandidates.push({ ...passLeaders[1], lane: 'passing (chasing)' })
+  if (closeChase(rushLeaders[0], rushLeaders[1], 'rushYds')) heismanCandidates.push({ ...rushLeaders[1], lane: 'rushing (chasing)' })
+  if (closeChase(recLeaders[0], recLeaders[1], 'recYds')) heismanCandidates.push({ ...recLeaders[1], lane: 'receiving (chasing)' })
+  for (const h of heismanCandidates) {
+    let line
+    if (h.lane.startsWith('passing')) line = `${h.name} (${h.team}) — passing leader: ${h.passYds} yds, ${h.passTD || 0} TD, ${h.passInt || 0} INT`
+    else if (h.lane.startsWith('rushing')) line = `${h.name} (${h.team}) — rushing leader: ${h.rushYds} yds, ${h.rushTD || 0} TD`
+    else line = `${h.name} (${h.team}) — receiving leader: ${h.recYds} yds, ${h.recTD || 0} TD`
+    if (h.lane.includes('chasing')) line += ' [chasing the leader]'
+    heismanWatchLines.push(line)
+  }
+
   if (seasonStatBlocks.length > 0) {
     sections.push(`CUMULATIVE SEASON STAT LEADERS (through Week ${weekNum}, derived from box scores we have)`)
     sections.push(seasonStatBlocks.join('\n'))
@@ -789,11 +894,77 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     sections.push('')
   }
 
+  // Coaching tenure for every team that played this week. Unlocks
+  // hot-seat / first-year / era-builder beats for the recap.
+  if (teamCoachLines.length > 0) {
+    sections.push(`COACHING TENURE & STINT RECORDS (teams that played this week)`)
+    sections.push(`When a coach's tenure or stint record is dramatic (first year, sub-.500 multi-year stint, dominant 3+ year stint), let it carry the framing — "in his fourth year, Coach X is feeling the seat heat up", "first-year head coach at LSU already 6-0", "Saban's 16th year in Tuscaloosa producing another title push." Skip when the data is unremarkable.`)
+    for (const line of teamCoachLines) sections.push(line)
+    sections.push('')
+  }
+
+  // Recruiting class context.
+  if (teamRecruitingLines.length > 0) {
+    sections.push(`RECRUITING CLASS CONTEXT (teams that played this week)`)
+    sections.push(`Frame the gap between recruiting hype and on-field results when it's wide enough to be a story: "after signing the #3 class last cycle, Texas was supposed to be loaded — instead they're 4-4." Or the inverse: "the talent infusion is real — a top-15 class on top of last year's #4." Skip when the class data is unremarkable.`)
+    for (const line of teamRecruitingLines) sections.push(line)
+    sections.push('')
+  }
+
+  // Quality wins / bad losses — concrete record-quality anchors.
+  if (teamQualityLines.length > 0) {
+    sections.push(`QUALITY WINS & BAD LOSSES TALLY (current season, teams that played this week)`)
+    sections.push(`Use these as concrete record-quality anchors. A 7-3 team with 2 ranked wins and 0 bad losses is "playing themselves into the at-large picture." A 7-3 team with 0 ranked wins and 1 bad loss "has the record but not the resume."`)
+    for (const line of teamQualityLines) sections.push(line)
+    sections.push('')
+  }
+
   // Per-game last-meeting context — the revenge / rematch / extends-streak hook.
   if (lastMeetingLines.length > 0) {
     sections.push(`LAST MEETINGS (most recent prior matchup for each game this week)`)
     sections.push(`When describing a game where the loser-of-last-time won this time, frame it as "got revenge" / "avenged last year's loss" / "exorcised last season's ghosts." When the same team wins again, frame it as "swept again" / "extended their hold on the series." Don't force this — only use it when the data here applies to a game you're already writing about.`)
     for (const line of lastMeetingLines) sections.push(line)
+    sections.push('')
+  }
+
+  // Rivalry / trophy game flags. Lets the recap call rivalry games by
+  // name ("the Iron Bowl") rather than "the Alabama-Auburn game."
+  if (rivalryLines.length > 0) {
+    sections.push(`RIVALRY / TROPHY GAMES THIS WEEK`)
+    sections.push(`Refer to each of these games by its trophy/rivalry name at least once. Rivalry framing carries weight on its own — winning a rivalry game when you're 4-6 is a real story; losing one when you're 9-1 is a real wound.`)
+    for (const line of rivalryLines) sections.push(line)
+    sections.push('')
+  }
+
+  // CFP projection — the 12-team field if the season ended today.
+  if (cfpProjectionLines.length > 0) {
+    sections.push(`CFP PROJECTION (where the 12-team field would land if the season ended after Week ${weekNum})`)
+    sections.push(`Use sparingly — one line per team you mention by name. "Tennessee has played its way into a Sugar Bowl projection." / "the Big Ten still has a path with both Iowa and Wisconsin in the projected field." Don't list the entire bracket; thread it through the prose.`)
+    for (const line of cfpProjectionLines) sections.push(line)
+    sections.push('')
+  }
+
+  // Heisman watch list — front-runners and chasers across the three
+  // offensive yardage categories.
+  if (heismanWatchLines.length > 0) {
+    sections.push(`HEISMAN WATCH (current statistical front-runners)`)
+    sections.push(`Use this framing when one of these players had a big game this week. "His third 300-yard game cements him as the Heisman front-runner." / "the Heisman race tightened: now within 50 yards of the leader." Don't crown anyone — describe the race.`)
+    for (const line of heismanWatchLines) sections.push(line)
+    sections.push('')
+  }
+
+  // Season-long POW trail — multi-time award winners across the season.
+  if (seasonPOWLeaders.length > 0) {
+    sections.push(`SEASON-LONG POW TRAIL (players with 2+ POW awards this season)`)
+    sections.push(`Use to thread through stat lines from this week — "his fourth conference POW of the year." / "now a three-time national defensive POW." Don't enumerate the list; surface relevant entries when the player appears in this week's box scores.`)
+    for (const p of seasonPOWLeaders) {
+      const parts = []
+      if (p.confOffense) parts.push(`${p.confOffense} conf off`)
+      if (p.confDefense) parts.push(`${p.confDefense} conf def`)
+      if (p.natlOffense) parts.push(`${p.natlOffense} natl off`)
+      if (p.natlDefense) parts.push(`${p.natlDefense} natl def`)
+      sections.push(`${p.name}: ${parts.join(', ')} POW (total ${p.total})`)
+    }
     sections.push('')
   }
 
