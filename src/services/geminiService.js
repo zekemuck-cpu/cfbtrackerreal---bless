@@ -3459,15 +3459,29 @@ Same for coaching tenure when the data block flags a "Framing cue": first-year c
 THE FAILURE MODE we are eliminating: a previous Texas-Ole Miss recap mentioned the 52-20 score and dropped Ole Miss. Ole Miss had finished #4 the prior year and made the CFP semifinal — a fact in the prompt's PRIOR-SEASON CONTEXT block. The recap was dead air on the angle that made the result interesting ("a year removed from playing for the title, Ole Miss took a 52-20 beating"). DO NOT DO THIS. If the prior-year context is in the prompt, surface it.
 
 ═══════════════════════════════════════════════════════════
-RULE D — POSITION THE GAME IN THE LARGER SEASON ARC
+RULE D — POSITION THE GAME IN THE LARGER SEASON ARC (USE RESTRAINT)
 ═══════════════════════════════════════════════════════════
-A great game recap doesn't just describe the game — it positions the result in each team's season arc. Use the SEASON RECORD, current STREAK, prior-postseason context, and quality-wins/bad-losses tally we provide to anchor what this result MEANS for each team.
+A great game recap positions the result in each team's season arc — but ONCE, in the right place. Pick the single most relevant arc beat and land it in the lede or one body paragraph. Do not litter the article with a continuous stream of record / résumé / rank claims; the reader is here for the GAME, not a portfolio review.
 
-Examples of arc-positioning lines (each one earned by the data block):
-   • "The win pushes the Volunteers to 8-1 and into the heart of the playoff conversation."
-   • "It's Mississippi State's third bad loss this year — the Bulldogs are now 4-7, and the bowl door is closing."
-   • "Coach Kelly is now 2-8 in his second year. The seat is no longer warm."
-   • "A year after losing the National Championship Game, Georgia is back to 9-1 and quietly building another at-large case."
+Use AT MOST one of these per team across the entire article:
+   • Record-and-arc: "The win pushes the Volunteers to 8-1 and into the heart of the playoff conversation."
+   • Coaching framing cue: "Coach Kelly is now 2-8 in his second year — the seat is no longer warm."
+   • Prior-year context (when applicable): "A year after losing the title game, Georgia is back to 9-1."
+
+═══════════════════════════════════════════════════════════
+RULE E — RANK / RESUME RESTRAINT
+═══════════════════════════════════════════════════════════
+THE FAILURE MODE we are explicitly eliminating: stacking rank, ranking-movement, résumé-quality, and "first loss to a sub-.500 team" claims into nearly every paragraph. The data block contains rank trajectory, conference standing, CFP projection, scoring-margin trend, resume splits, quality wins / bad losses — ALL of these are reference data, NOT a checklist.
+
+Hard caps for rank / résumé framing (count them in your draft):
+   • At MOST 2 references to a team's CURRENT rank or ranked status across the entire article.
+   • At MOST 1 reference to rank movement ("knocked from #24 to unranked", "fell from top 10").
+   • At MOST 1 résumé-quality claim per team ("4-0 vs ranked teams", "first loss to a sub-.500 opponent", etc.).
+   • The CLOSING paragraph should land on the GAME — what happened, what it means competitively — NOT on a rank-or-record summary. Don't write "a ranked team became unranked by the end of the week" type closings.
+
+If the result is the team's first ranked vs unranked outcome, you can mention it ONCE in the lede or first body paragraph. Don't reach for it again later.
+
+The story is the GAME. Plays, players, momentum shifts, coaching decisions, statistical mismatches — those carry the article. Rank framing is a frame, not the painting.
 
 ═══════════════════════════════════════════════════════════
 MANDATORY SELF-CRITIQUE PASS BEFORE YOU SEND
@@ -3475,11 +3489,11 @@ MANDATORY SELF-CRITIQUE PASS BEFORE YOU SEND
 Read your draft top to bottom and answer each question HONESTLY. If any answer is no, REWRITE before sending.
 
    1. Does my lede ARGUE something? (Not "describe", not "announce" — argue.)
-   2. Did I use prior-year context for either team if they finished top-10 last year or played in the CFP?
-   3. Did I use the coaching framing cue when the data block provided one?
-   4. Did I use any banned verb (rolled, drilled, flattened, crushed, edged, topped, hammered, handled, dropped) more than twice?
-   5. Did I position THIS RESULT in each team's larger season arc, or did I describe the game in isolation?
-   6. Did I cite at least one specific concrete play or stat per major beat, or am I summarizing in generalities?
+   2. Did I use prior-year context for either team if they finished top-10 last year or played in the CFP? (At most ONCE — see Rule E.)
+   3. Did I use any banned verb (rolled, drilled, flattened, crushed, edged, topped, hammered, handled, dropped) more than twice?
+   4. Did I cite at least one specific concrete play or stat per major beat, or am I summarizing in generalities?
+   5. RANK / RESUME COUNT — count rank references, rank-movement claims, and résumé-quality claims in my draft. Total must respect Rule E's caps. If I'm over, cut the WEAKEST instances first.
+   6. Does my CLOSING paragraph land on the game (plays, momentum, what it means competitively) — not on rank movement or résumé bookkeeping?
 
 If any check fails, rewrite the offending paragraph. Do not send a draft that hasn't passed every one.
 
@@ -4164,7 +4178,7 @@ Use this when the gap between recruiting hype and on-field results is wide enoug
 ===========================================
 QUALITY WINS & BAD LOSSES (current season)
 ===========================================
-Use these as concrete record-quality anchors. A 7-3 team with 2 ranked wins and 0 bad losses is "quietly playing themselves into the at-large picture." A 7-3 team with 0 ranked wins and 1 bad loss "has the record but not the resume." If a team has neither, skip — don't manufacture quality.`
+REFERENCE DATA. You DO NOT need to mention these — they exist so you can anchor a single record-quality claim if it strengthens the story. Pull AT MOST ONE per team across the article (see Rule E). Skip entirely if neither team has a remarkable tally; don't manufacture quality.`
     if (t1QW) prompt += t1QW
     if (t2QW) prompt += t2QW
   }
@@ -4243,7 +4257,7 @@ ${teamName.toUpperCase()}'S SEASON RECORD: ${wins}-${losses}
 ===========================================
 RANK TRAJECTORY THIS SEASON
 ===========================================
-Use to characterize trajectory, not just narrate the numbers. "Tennessee's six-week descent from #2 to outside the Top 25 is the worst rolling collapse in the country" — not "Tennessee was #2, then #6, then #15." Look at the peak vs the latest entry. Big swings (5+ spots in one week, freefall over 4+ weeks, sustained climb) are the headlines; flat trajectories (#12 → #11 → #13) are not stories — skip.`
+REFERENCE DATA. Use ONLY when a team's trajectory is genuinely dramatic — a multi-week freefall, a sustained climb of 5+ spots, a fall out of the Top 25. Even then, characterize it ONCE in the article, not every paragraph. Flat trajectories or ordinary one-week shifts are not stories — skip them. Subject to Rule E's rank-movement cap (at most ONE such reference per article).`
     if (t1Prog) prompt += t1Prog
     if (t2Prog) prompt += t2Prog
   }
@@ -4316,7 +4330,7 @@ Use when the result moves a team in or out of the projected field — "Tennessee
 ===========================================
 SCORING-MARGIN TREND (entering this game)
 ===========================================
-Use to position THIS result against the season ("their largest margin of the year"; "their first one-score game in two months"; "back-to-back blowouts after a string of close games"). Skip if this game's margin is unremarkable for the season.`
+REFERENCE DATA. Mention ONLY when this game's margin is a genuine outlier vs the team's season norms ("their largest margin of the year", "their first one-score game in two months"). One reference at most, and only when it actually strengthens the storyline — not a routine inclusion.`
     if (t1Margin) prompt += t1Margin
     if (t2Margin) prompt += t2Margin
   }
@@ -4340,7 +4354,7 @@ Use to position THIS result against the season ("their largest margin of the yea
 ===========================================
 RESUME SPLITS (entering this game)
 ===========================================
-Use for résumé / site-context framing: "Tennessee is 4-0 vs ranked teams this year"; "Texas has yet to lose at home"; "the loss drops them to 0-3 on the road." These anchor playoff-committee / quality-of-record claims with concrete numbers.`
+REFERENCE DATA. Pull AT MOST ONE résumé claim per team if it strengthens a beat you're already writing — not as a standalone "by the way" mention. Subject to Rule E's résumé-claim cap. Skip entirely when the splits are unremarkable.`
     if (t1Resume) prompt += t1Resume
     if (t2Resume) prompt += t2Resume
   }

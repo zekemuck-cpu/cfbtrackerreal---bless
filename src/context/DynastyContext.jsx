@@ -1432,6 +1432,102 @@ export function migrateRanksToRankByWeek(dynasty, options = {}) {
 }
 
 /**
+ * Safe rebuild for already-migrated dynasties. Walks every game and
+ * rewrites dynasty.teams[*].byYear[*].rankByWeek using each game's
+ * CURRENT team1Rank/team2Rank — which after migration IS the entering
+ * rank, no shift required. Re-applies preseason poll seeds at week 0/1
+ * and final poll seeds at week 105.
+ *
+ * Why this exists: migrateRanksToRankByWeek's CPU-shift logic assumes
+ * raw post-game-rank data. Running it twice corrupts everything (the
+ * second pass shifts already-shifted entering ranks by +1). The Danger
+ * Zone "Rebuild" button uses THIS function instead, which is safe to
+ * run any number of times because it doesn't apply any shifts.
+ */
+export function rebuildRankByWeekFromCurrentState(dynasty) {
+  if (!dynasty) return dynasty?.teams || {}
+
+  // Start with a teams object where every team's byYear.rankByWeek
+  // is wiped — we're rebuilding from scratch, no merging.
+  const teamsCopy = {}
+  for (const [tidKey, team] of Object.entries(dynasty.teams || {})) {
+    if (!team) { teamsCopy[tidKey] = team; continue }
+    const byYear = {}
+    for (const [yearKey, yEntry] of Object.entries(team.byYear || {})) {
+      if (!yEntry) { byYear[yearKey] = yEntry; continue }
+      // Drop rankByWeek; keep everything else (coachingStaff, etc.).
+      const { rankByWeek: _drop, ...rest } = yEntry
+      byYear[yearKey] = rest
+    }
+    teamsCopy[tidKey] = { ...team, byYear }
+  }
+
+  const writeRank = (tid, year, weekKey, rank) => {
+    if (tid == null || year == null || weekKey == null) return
+    if (typeof rank !== 'number' || rank < 1 || rank > 25) return
+    const tidKey = String(tid)
+    const yearKey = String(year)
+    const team = teamsCopy[tidKey] || teamsCopy[tid] || {}
+    const byYear = { ...(team.byYear || {}) }
+    const yearEntry = { ...(byYear[yearKey] || byYear[year] || {}) }
+    const rankByWeek = { ...(yearEntry.rankByWeek || {}) }
+    rankByWeek[weekKey] = rank
+    yearEntry.rankByWeek = rankByWeek
+    byYear[yearKey] = yearEntry
+    teamsCopy[tidKey] = { ...team, byYear }
+  }
+
+  const weekKeyOf = (g) => {
+    if (g.isCFPChampionship) return 104
+    if (g.isCFPSemifinal) return 103
+    if (g.isCFPQuarterfinal) return 102
+    if (g.isCFPFirstRound) return 101
+    if (g.isConferenceChampionship) return 100
+    if (g.isBowlGame) return 100
+    const w = Number(g.week)
+    return Number.isFinite(w) ? w : null
+  }
+
+  // Walk every game; team1Rank/team2Rank ARE the entering rank by now.
+  for (const g of (dynasty.games || [])) {
+    if (!g || g.year == null) continue
+    const wk = weekKeyOf(g)
+    if (wk == null) continue
+    if (g.team1Tid != null && typeof g.team1Rank === 'number') {
+      writeRank(Number(g.team1Tid), g.year, wk, g.team1Rank)
+    }
+    if (g.team2Tid != null && typeof g.team2Rank === 'number') {
+      writeRank(Number(g.team2Tid), g.year, wk, g.team2Rank)
+    }
+  }
+
+  // Re-seed preseason at week 0/1 and final poll at week 105 from
+  // their canonical stores.
+  const presByYear = dynasty.preseasonRankingsByYear || {}
+  for (const [year, polls] of Object.entries(presByYear)) {
+    if (!Array.isArray(polls)) continue
+    for (const p of polls) {
+      const tid = p?.tid != null ? Number(p.tid) : (p?.team ? getTidFromAbbr(p.team, dynasty) : null)
+      if (tid == null || typeof p.rank !== 'number') continue
+      writeRank(tid, year, 0, p.rank)
+      writeRank(tid, year, 1, p.rank)
+    }
+  }
+  const finalPollsByYear = dynasty.finalPollsByYear || {}
+  for (const [year, polls] of Object.entries(finalPollsByYear)) {
+    const media = polls?.media
+    if (!Array.isArray(media)) continue
+    for (const e of media) {
+      const tid = e?.tid != null ? Number(e.tid) : (e?.team ? getTidFromAbbr(e.team, dynasty) : null)
+      if (tid == null || typeof e.rank !== 'number') continue
+      writeRank(tid, year, 105, e.rank)
+    }
+  }
+
+  return teamsCopy
+}
+
+/**
  * Given a single saved game + the current dynasty.teams object, return
  * a NEW dynasty.teams object with that game's rank updates applied.
  * Used by addGame and updateGame so every save keeps rankByWeek in

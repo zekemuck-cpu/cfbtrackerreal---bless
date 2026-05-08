@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useDynasty, propagateCFPWinner, GAME_TYPES, isPlayerOnRoster, migrateRanksToRankByWeek } from '../../context/DynastyContext'
+import { useDynasty, propagateCFPWinner, GAME_TYPES, isPlayerOnRoster, rebuildRankByWeekFromCurrentState } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/ui/Toast'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
@@ -1558,17 +1558,21 @@ export default function DangerZone() {
   const handleRankByWeekMigration = async () => {
     setRankByWeekStatus('running')
     try {
-      // Force-rerun the migration by passing { force: true }; this
-      // overwrites whatever rankByWeek values are currently stored
-      // with the freshly recomputed values from every game's
-      // team1Rank/team2Rank fields. Persists the updated teams map
-      // straight to the dynasty document.
-      const updated = migrateRanksToRankByWeek(currentDynasty, { force: true })
-      await updateDynasty(currentDynasty.id, {
-        teams: updated.teams,
-        _rankByWeekMigrated: true,
-      })
-      setRankByWeekStatus({ success: true, message: 'Per-team-per-week ranks rebuilt from every stored game.' })
+      // SAFE rebuild: reads each game's CURRENT team1Rank / team2Rank
+      // (which after migration IS the entering rank — no shift) and
+      // rewrites rankByWeek straight from those values. Re-applies
+      // preseason poll seeds at week 0/1 and final-poll seeds at
+      // week 105. Idempotent — running it any number of times
+      // produces the same result.
+      //
+      // (We deliberately DO NOT force-re-run migrateRanksToRankByWeek
+      // here. That migration assumes raw post-game-rank data; on a
+      // dynasty that's already been migrated, re-running would
+      // shift already-shifted entering ranks by another +1 and
+      // corrupt the data.)
+      const newTeams = rebuildRankByWeekFromCurrentState(currentDynasty)
+      await updateDynasty(currentDynasty.id, { teams: newTeams })
+      setRankByWeekStatus({ success: true, message: 'Per-team-per-week ranks rebuilt from current game records.' })
     } catch (error) {
       setRankByWeekStatus({ success: false, message: 'Rebuild failed: ' + error.message })
     }
