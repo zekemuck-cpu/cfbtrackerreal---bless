@@ -8357,6 +8357,33 @@ export function DynastyProvider({ children }) {
       })
     }
 
+    // SAFETY: refuse to wipe existing weekly-scores entries on an
+    // empty save. The destructive filter below drops every
+    // weekly-scores game for this year+week before installing the
+    // new ones, so without this guard, hitting Save with an empty
+    // sheet — or one whose paste failed to parse — silently erases
+    // the previously-saved 50+ games and leaves only the user-team
+    // game (which is preserved separately). The success toast still
+    // says "Saved 0 games", so the data loss is invisible until the
+    // user opens the recap and notices a single game.
+    if (newByPair.size === 0) {
+      const existingWeeklyCount = existingGames.filter(g =>
+        g && Number(g.year) === yearNum && Number(g.week) === weekNum
+        && g.source === 'weekly-scores'
+        && g.team1Tid && g.team2Tid
+      ).length
+      if (existingWeeklyCount > 0) {
+        const err = new Error(
+          `Save blocked: 0 games parsed from the sheet, but ${existingWeeklyCount} ` +
+          `${existingWeeklyCount === 1 ? 'game is' : 'games are'} already saved for ` +
+          `Week ${weekNum}, ${yearNum}. Your existing data is unchanged. ` +
+          `Re-paste the AI's TSV and try Save again.`
+        )
+        err.code = 'WEEKLY_SCORES_EMPTY_SAVE_BLOCKED'
+        throw err
+      }
+    }
+
     // Build updated games array: keep everything except weekly-scores rows for
     // this year+week that are being replaced. User-team scores stay because
     // we excluded them from newByPair above.

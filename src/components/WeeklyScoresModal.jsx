@@ -749,7 +749,14 @@ Don't just glance at this list. Physically execute each check on your draft.
     } catch (error) {
       console.error('Weekly scores save failed:', error)
       if (!auth.handleError(error)) {
-        toast.error('Failed to save. Make sure data is properly formatted.')
+        // Surface specific guard messages so the user knows their
+        // existing data is intact, vs. the generic "Failed to save"
+        // copy which reads like a data-loss event.
+        if (error?.code === 'WEEKLY_SCORES_EMPTY_SAVE_BLOCKED') {
+          toast.error(error.message)
+        } else {
+          toast.error('Failed to save. Make sure data is properly formatted.')
+        }
       }
     } finally {
       setDeletingSheet(false)
