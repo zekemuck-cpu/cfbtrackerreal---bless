@@ -381,6 +381,33 @@ export default function Dashboard() {
   const [showTransferDestinationsModal, setShowTransferDestinationsModal] = useState(false)
   const [showRecruitingModal, setShowRecruitingModal] = useState(false)
   const [showSellCalc, setShowSellCalc] = useState(false)
+
+  // Shared trailing-tools JSX for the recruiting to-do rows. Lives at the
+  // recruiting card on Dashboard's main view (not a one-off elsewhere) —
+  // referenced from all three phase-specific recruiting to-dos (preseason,
+  // regular season, CCG) so the buttons stay consistent across the year.
+  // Hidden in view-only mode and on small screens to keep mobile rows from
+  // wrapping (the calculator icon + external-link icon would push the
+  // primary action button off the row width on phones).
+  const recruitingExtraTools = !isViewOnly ? (
+    <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
+      <SellVsSendButton onClick={() => setShowSellCalc(true)} />
+      <a
+        href="https://collegefootball.gg/recruiting-insight-engine/"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Recruiting Insight Engine (external)"
+        aria-label="Open Recruiting Insight Engine"
+        className="inline-flex items-center justify-center h-8 sm:h-9 w-8 sm:w-9 rounded-md bg-surface-2 border border-surface-4 text-txt-secondary hover:bg-surface-3 hover:text-txt-primary transition-colors flex-shrink-0"
+      >
+        <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" strokeWidth="1.75">
+          <circle cx="12" cy="12" r="9" />
+          <circle cx="12" cy="12" r="3" />
+          <path strokeLinecap="round" d="M12 1.5v3M12 19.5v3M22.5 12h-3M4.5 12h-3" />
+        </svg>
+      </a>
+    </div>
+  ) : null
   const [showPositionChangesModal, setShowPositionChangesModal] = useState(false)
   const [showRecruitingClassRankModal, setShowRecruitingClassRankModal] = useState(false)
   const [showTrainingResultsModal, setShowTrainingResultsModal] = useState(false)
@@ -3306,6 +3333,7 @@ export default function Dashboard() {
                 viewTo: cs > 0 ? `${pathPrefix}/recruiting/${userTid}/${currentDynasty.currentYear}` : null,
                 onAction: () => setShowRecruitingModal(true),
                 actionLabel: recruitingDone ? 'Edit' : 'Yes',
+                extraTools: recruitingExtraTools,
                 inlineAction: !recruitingDone && !isViewOnly ? {
                   label: 'No commits',
                   onClick: handleNoCommitments,
@@ -3390,23 +3418,26 @@ export default function Dashboard() {
                       </div>
                     </div>
                     {!isViewOnly && todo.actionLabel && (
-                      <div
-                        className="grid gap-1.5 sm:gap-2 flex-shrink-0 items-center"
-                        style={{ gridTemplateColumns: '5rem 6.5rem' }}
-                      >
-                        {todo.viewTo ? (
-                          <Link to={todo.viewTo} className="btn-refined text-center">
-                            View
-                          </Link>
-                        ) : (
-                          <span aria-hidden="true" />
-                        )}
-                        <button
-                          onClick={todo.onAction}
-                          className="btn-refined btn-refined--solid text-center"
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                        {todo.extraTools}
+                        <div
+                          className="grid gap-1.5 sm:gap-2 items-center"
+                          style={{ gridTemplateColumns: '5rem 6.5rem' }}
                         >
-                          {todo.actionLabel}
-                        </button>
+                          {todo.viewTo ? (
+                            <Link to={todo.viewTo} className="btn-refined text-center">
+                              View
+                            </Link>
+                          ) : (
+                            <span aria-hidden="true" />
+                          )}
+                          <button
+                            onClick={todo.onAction}
+                            className="btn-refined btn-refined--solid text-center"
+                          >
+                            {todo.actionLabel}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -3583,6 +3614,7 @@ export default function Dashboard() {
                   viewTo: `${pathPrefix}/recruiting/${userTidForCommitments}/${currentDynasty.currentYear}`,
                   onAction: () => setShowRecruitingModal(true),
                   actionLabel: hasCommitmentsData ? 'Edit' : 'Log',
+                  extraTools: recruitingExtraTools,
                   // "Mark None" gives the user a one-tap way to flip the
                   // dot green when there were genuinely no commits this
                   // week — the modal-driven Log path saves an empty
@@ -3694,24 +3726,29 @@ export default function Dashboard() {
                            Empty <span> placeholder preserves the column
                            when View is hidden. The whole grid is dropped
                            on rows that aren't actionable (e.g. the bye-
-                           week informational row). */
-                        <div
-                          className="grid gap-1.5 sm:gap-2 flex-shrink-0 items-center"
-                          style={{ gridTemplateColumns: '5rem 6.5rem' }}
-                        >
-                          {todo.viewTo ? (
-                            <Link to={todo.viewTo} className="btn-refined text-center">
-                              View
-                            </Link>
-                          ) : (
-                            <span aria-hidden="true" />
-                          )}
-                          <button
-                            onClick={todo.onAction}
-                            className="btn-refined btn-refined--solid text-center"
+                           week informational row). extraTools renders to
+                           the LEFT of the grid (calculator + insight
+                           engine icons on the recruiting row). */
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                          {todo.extraTools}
+                          <div
+                            className="grid gap-1.5 sm:gap-2 items-center"
+                            style={{ gridTemplateColumns: '5rem 6.5rem' }}
                           >
-                            {todo.actionLabel}
-                          </button>
+                            {todo.viewTo ? (
+                              <Link to={todo.viewTo} className="btn-refined text-center">
+                                View
+                              </Link>
+                            ) : (
+                              <span aria-hidden="true" />
+                            )}
+                            <button
+                              onClick={todo.onAction}
+                              className="btn-refined btn-refined--solid text-center"
+                            >
+                              {todo.actionLabel}
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -3913,6 +3950,7 @@ export default function Dashboard() {
                 viewTo: cs > 0 ? `${pathPrefix}/recruiting/${userTidForCommits}/${currentDynasty.currentYear}` : null,
                 onAction: () => setShowRecruitingModal(true),
                 actionLabel: recruitingDone ? 'Edit' : 'Yes',
+                extraTools: recruitingExtraTools,
                 inlineAction: !recruitingDone && !isViewOnly ? {
                   label: 'No commits',
                   onClick: handleNoCommitments,
@@ -3963,23 +4001,26 @@ export default function Dashboard() {
                       </div>
                     </div>
                     {todo.customActions ?? (!isViewOnly && todo.actionLabel ? (
-                      <div
-                        className="grid gap-1.5 sm:gap-2 flex-shrink-0 items-center"
-                        style={{ gridTemplateColumns: '5rem 6.5rem' }}
-                      >
-                        {todo.viewTo ? (
-                          <Link to={todo.viewTo} className="btn-refined text-center">
-                            View
-                          </Link>
-                        ) : (
-                          <span aria-hidden="true" />
-                        )}
-                        <button
-                          onClick={todo.onAction}
-                          className="btn-refined btn-refined--solid text-center"
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                        {todo.extraTools}
+                        <div
+                          className="grid gap-1.5 sm:gap-2 items-center"
+                          style={{ gridTemplateColumns: '5rem 6.5rem' }}
                         >
-                          {todo.actionLabel}
-                        </button>
+                          {todo.viewTo ? (
+                            <Link to={todo.viewTo} className="btn-refined text-center">
+                              View
+                            </Link>
+                          ) : (
+                            <span aria-hidden="true" />
+                          )}
+                          <button
+                            onClick={todo.onAction}
+                            className="btn-refined btn-refined--solid text-center"
+                          >
+                            {todo.actionLabel}
+                          </button>
+                        </div>
                       </div>
                     ) : null)}
                   </div>
@@ -9955,12 +9996,66 @@ export default function Dashboard() {
         onClose={() => setShowFinalPollsModal(false)}
         onSave={async (polls) => {
           const year = currentDynasty.currentYear
+          const yearKey = String(year)
           const existingByYear = currentDynasty.finalPollsByYear || {}
+
+          // Mirror the saved media poll into each ranked team's
+          // rankByWeek[105] entry — that's the per-team-per-week
+          // store the Top 25 page + Edit-Rankings sheet read from.
+          // Clearing semantics: any team that USED to be in the
+          // prior media poll but isn't anymore gets its
+          // rankByWeek[105] entry removed too, so removing a team
+          // from the poll also drops them out of the Final column
+          // on the rankings sheet.
+          const oldMedia = existingByYear[year]?.media
+            || existingByYear[yearKey]?.media
+            || []
+          const oldTids = new Set(
+            (Array.isArray(oldMedia) ? oldMedia : [])
+              .map(e => e?.tid != null ? Number(e.tid) : null)
+              .filter(t => t != null)
+          )
+          const newTids = new Set()
+          const teamsCopy = { ...(currentDynasty.teams || {}) }
+          const writeRank = (tid, rank) => {
+            if (tid == null) return
+            const tidKey = String(tid)
+            const team = teamsCopy[tidKey] || teamsCopy[tid] || {}
+            const byYear = { ...(team.byYear || {}) }
+            const yearEntry = { ...(byYear[yearKey] || byYear[year] || {}) }
+            const rankByWeek = { ...(yearEntry.rankByWeek || {}) }
+            if (rank == null) {
+              delete rankByWeek[105]
+              delete rankByWeek['105']
+            } else {
+              rankByWeek[105] = rank
+            }
+            yearEntry.rankByWeek = rankByWeek
+            byYear[yearKey] = yearEntry
+            teamsCopy[tidKey] = { ...team, byYear }
+          }
+          const newMedia = polls?.media
+          if (Array.isArray(newMedia)) {
+            for (const e of newMedia) {
+              if (!e || typeof e.rank !== 'number') continue
+              if (e.tid == null) continue
+              const tidNum = Number(e.tid)
+              writeRank(tidNum, e.rank)
+              newTids.add(tidNum)
+            }
+          }
+          // Clear rankByWeek[105] for any tid that was in the OLD
+          // media poll but isn't in the new one.
+          for (const oldTid of oldTids) {
+            if (!newTids.has(oldTid)) writeRank(oldTid, null)
+          }
+
           await updateDynasty(currentDynasty.id, {
             finalPollsByYear: {
               ...existingByYear,
               [year]: polls
-            }
+            },
+            teams: teamsCopy,
           })
         }}
         currentYear={currentDynasty.currentYear}

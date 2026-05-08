@@ -24,6 +24,17 @@
 import { getMascotName } from '../data/teams'
 import { ambiguousNamingRules } from './recapTeamNames'
 import { conferenceTeams as DEFAULT_CONFERENCES } from '../data/conferenceTeams'
+import {
+  getPriorYearPostseason,
+  getTeamFinalRank,
+  getHeadToHeadHistory,
+  getCoachContext,
+  getIncomingClassRank,
+  getQualityWinsAndBadLosses,
+  getRivalryName,
+  getSeasonPOWTrail,
+} from '../services/geminiService'
+import { buildCFPProjection } from './cfpProjection'
 
 const TWO_DIGIT = (y) => String(y).slice(-2)
 
@@ -82,7 +93,10 @@ function recordFromGames(games, year, tid) {
   return { wins: w, losses: l }
 }
 
-// Format one game line: "AUB 31, GA 24 (OT)  ·  Rank 8 vs Rank 4  ·  Week 6 @ Athens"
+// Format one game line. game.team1Rank / team2Rank is the team's
+// ENTERING rank for this game (rank during the matchup) — the EA
+// shift is handled at write time so by read time the stored value
+// IS what we want to display.
 function fmtGameLine(game, dynasty) {
   const t1 = teamDisplay(game.team1Tid, game.team1, dynasty)
   const t2 = teamDisplay(game.team2Tid, game.team2, dynasty)
@@ -364,27 +378,30 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     }
   }
 
-  // ----- Section: Weekly entering-rank snapshots -----
+  // ----- Section: Weekly post-week-rank snapshots -----
   // The team1Rank/team2Rank fields on a game record are the ranks teams
-  // CARRIED INTO that game — i.e. the poll AS OF the start of that week.
-  // So a snapshot built from games where week == W tells us the poll
-  // entering Week W (= post-Week W-1 rankings).
+  // hold AFTER playing that game (EA's schedule UI shows post-game
+  // ranks; storing what the user sees gives us post-game). So a snapshot
+  // built from games where week == W tells us the post-Week-W poll
+  // (= the poll teams enter Week W+1 with).
+  //
+  // To get the "poll entering Week W" snapshot, we read week W-1 games
+  // (their stored ranks are post-Week-W-1 = entering Week W).
   //
   // For the recap of Week N just finished, the most useful "current" poll
-  // is the post-Week N poll — which is observable ONLY in the entering
-  // ranks of Week N+1 games (if the user has entered them already, e.g.
-  // by drafting next week's schedule with ranks before generating the
-  // recap). If Week N+1 data doesn't exist yet, we fall back to the most
-  // recent week with data.
+  // is the post-Week N poll — observable directly from Week N games'
+  // stored ranks. We retain the buildSnapshot helper here for both
+  // entering-week and post-week reads.
   //
   // The two-pass fill (matches Rankings.jsx) guarantees each rank slot
   // 1-25 belongs to exactly one team — no fake ties from teams sharing a
   // slot across different weeks.
   const isRankedRow = (n) => isRanked(n)
-  const buildSnapshotForEnteringWeek = (enteringWeek) => {
-    // "Entering week W" snapshot uses observations from week W games
-    // (their team1Rank/team2Rank are the entering ranks for that week)
-    // PLUS any earlier weeks for teams that didn't play this week.
+  // "Poll AFTER week W" — observations come from week W games (whose
+  // stored ranks are post-game / post-week ranks for those teams).
+  // For older teams that didn't play this week, we fall back to their
+  // most recent prior post-game rank.
+  const buildSnapshotPostWeek = (postWeek) => {
     const weekBuckets = new Map()
     const observe = (wk, rank, tid, abbr) => {
       if (!isRankedRow(rank)) return
@@ -395,7 +412,7 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     }
     for (const g of games) {
       const gw = Number(g.week)
-      if (!Number.isFinite(gw) || gw > enteringWeek) continue
+      if (!Number.isFinite(gw) || gw > postWeek) continue
       observe(gw, g.team1Rank, g.team1Tid, g.team1)
       observe(gw, g.team2Rank, g.team2Tid, g.team2)
     }
@@ -433,24 +450,28 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     }
   }
 
-  // Weekly evolution: for each week W from 1..weekNum, the poll teams
-  // entered W with. Each row is a snapshot AS OF the START of Week W.
+  // Weekly evolution: for each week W, the snapshot of teams that
+  // ENTERED week W ranked. After the V3 migration, game.team1Rank
+  // IS the team's entering rank for that game's week — so reading
+  // week W games gives us the entering-W snapshot directly. Label
+  // matches the source week (no off-by-one shift).
   const top25ByWeek = []
-  for (let w = 1; w <= weekNum; w++) {
-    const snap = buildSnapshotForEnteringWeek(w)
+  for (let w = 0; w <= weekNum + 1; w++) {
+    const snap = buildSnapshotPostWeek(w)
     if (snap.rows.length > 0) top25ByWeek.push({ week: w, rows: snap.rows })
   }
 
-  // Latest derivable poll — peek at Week N+1 games. If the user has
-  // entered next week's schedule with ranks already, those entering
-  // ranks ARE the post-Week N poll. Otherwise fall back to the most
-  // recent week with data and explicitly note the staleness.
-  const peekSnapshot = buildSnapshotForEnteringWeek(weekNum + 1)
+  // Latest derivable poll — the entering-Week-(N+1) snapshot, which
+  // equals the post-Week-N rankings. Built from week N+1 games'
+  // stored entering ranks if those games are entered. Otherwise
+  // fall back to the most recent earlier snapshot and note the
+  // staleness.
+  const peekSnapshot = buildSnapshotPostWeek(weekNum + 1)
   const hasFreshPostWeekPoll = peekSnapshot.latestWeek === weekNum + 1
   const rankSnapshot = peekSnapshot.rows
   const rankSnapshotLabel = hasFreshPostWeekPoll
-    ? `POST-WEEK ${weekNum} TOP 25 (the poll teams are entering Week ${weekNum + 1} with — i.e. the rankings AFTER Week ${weekNum} games)`
-    : `MOST RECENT TOP 25 SNAPSHOT (the poll teams entered their most recent observed games with — Week ${peekSnapshot.latestWeek ?? weekNum}. Post-Week ${weekNum} rankings are NOT yet observable; use this snapshot only as a baseline and INFER movement from this week's results.)`
+    ? `POST-WEEK ${weekNum} TOP 25 (= the rankings teams ENTERED Week ${weekNum + 1} with — built from each team's stored entering rank on Week ${weekNum + 1} games)`
+    : `MOST RECENT TOP 25 SNAPSHOT (entering Week ${peekSnapshot.latestWeek ?? Math.max(0, weekNum)} — Week ${weekNum + 1} games haven't been entered yet, so the post-Week ${weekNum} poll isn't directly observable. Use this as a baseline and infer movement from this week's results.)`
 
   // ----- Section: Cumulative stat leaders (season-to-date) -----
   // Aggregates every box score we have through this week into a per-player
@@ -523,18 +544,176 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   })()
   const priorYearLines = []
   for (const y of priorYears) {
-    const finalMedia = dynasty?.finalPolls?.[y]?.media
+    // Canonical key is `finalPollsByYear` — DynastyContext, Rankings page,
+    // Dashboard all read from there. The previous read from `finalPolls`
+    // (no `ByYear` suffix) silently returned undefined every time, so this
+    // section emitted nothing in practice and the AI never had the
+    // prior-year national poll to draw from.
+    const finalMedia = dynasty?.finalPollsByYear?.[y]?.media
     if (Array.isArray(finalMedia) && finalMedia.length > 0) {
-      const top5 = finalMedia.slice(0, 5).map(e => `#${e.rank} ${teamDisplay(e.tid, e.team, dynasty)}`).join(', ')
-      priorYearLines.push(`${y} final poll top 5: ${top5}.`)
+      const top10 = finalMedia.slice(0, 10).map(e => `#${e.rank} ${teamDisplay(e.tid, e.team, dynasty)}`).join(', ')
+      priorYearLines.push(`${y} final poll top 10: ${top10}.`)
     }
     const aw = dynasty?.awardsByYear?.[y] || {}
     if (aw.heisman?.player || aw.heisman?.name) priorYearLines.push(`${y} Heisman: ${aw.heisman.player || aw.heisman.name}.`)
   }
 
+  // ----- Per-team prior-year context for every team that played this week -----
+  // The user's note: weekly recaps mentioned a team's preseason rank but
+  // never their actual prior-year postseason finish, so it had no way to
+  // write "after nearly winning the natty last season..." for any
+  // individual team. The fix is to bundle, for every team in the dynasty,
+  // the per-team data the per-game recap already gets:
+  //   - current-season record
+  //   - prior-year final poll rank
+  //   - prior-year deepest postseason result (with a one-line narrative cue)
+  //   - coaching tenure + at-school stint record
+  //   - recruiting class context (arrived + in-progress)
+  //   - quality wins / bad losses tally
+  //
+  // The user explicitly asked for ALL teams (not just teams in this week's
+  // games) — the AI doesn't have room to use everything, but having the
+  // data available lets it pull whatever fits each storyline. Format is
+  // compact one-line-per-team to keep the prompt size manageable.
+  const priorYear = yearNum - 1
+
+  // Enumerate every team in the dynasty (FBS + custom + teambuilder).
+  // dynasty.teams is keyed by tid and contains the canonical roster of
+  // teams the AI should know about. Each entry: { tid, abbr, name, ... }.
+  const allTeams = []
+  if (dynasty?.teams && typeof dynasty.teams === 'object') {
+    for (const [tidKey, t] of Object.entries(dynasty.teams)) {
+      if (!t || !t.abbr) continue
+      const tid = Number(tidKey)
+      if (!Number.isFinite(tid)) continue
+      allTeams.push({
+        tid,
+        abbr: t.abbr,
+        name: teamDisplay(tid, t.abbr, dynasty),
+      })
+    }
+  }
+  // Sort alphabetically by display name so the AI can scan deterministically.
+  allTeams.sort((a, b) => a.name.localeCompare(b.name))
+
+  // Per-team aggregates. Each line is compact (<120 chars typically) so
+  // all ~134 FBS teams plus customs fit without ballooning the prompt
+  // beyond reason. Empty bits are omitted to keep lines tight.
+  const allTeamRecordLines = []
+  const allTeamPriorContextLines = []
+  const allTeamCoachLines = []
+  const allTeamRecruitingLines = []
+  const allTeamQualityLines = []
+  for (const t of allTeams) {
+    // CURRENT-SEASON RECORD — every team gets this line.
+    const rec = recordFromGames(games, yearNum, t.tid)
+    if (rec.wins > 0 || rec.losses > 0) {
+      allTeamRecordLines.push(`${t.name}: ${rec.wins}-${rec.losses}`)
+    }
+
+    // PRIOR-YEAR FINISH (rank + deepest postseason).
+    const finalRank = getTeamFinalRank(dynasty, t.abbr, priorYear)
+    const prior = getPriorYearPostseason(allDynastyGames, t.abbr, yearNum, dynasty)
+    if (finalRank || prior) {
+      const bits = []
+      if (finalRank) bits.push(`finished ${priorYear} #${finalRank}`)
+      if (prior?.narrativeCue) bits.push(prior.narrativeCue)
+      else if (prior) bits.push(`${prior.result === 'W' ? 'won' : 'lost'} ${prior.gameName} ${prior.score}`)
+      if (prior?.wonNationalChampionship) bits.push('— DEFENDING NATIONAL CHAMPIONS')
+      else if (prior?.lostNationalChampionship) bits.push('— came one game short of the title')
+      allTeamPriorContextLines.push(`${t.name}: ${bits.join('; ')}`)
+    }
+
+    // COACHING TENURE — only emit when we have meaningful tenure data.
+    const coach = getCoachContext(dynasty, t.abbr, yearNum)
+    if (coach && coach.yearAtSchool >= 1) {
+      const stintBit = `${coach.stintWins}-${coach.stintLosses} since ${coach.stintStartYear}`
+      const cueBit = coach.framingCue ? ` (${coach.framingCue})` : ''
+      allTeamCoachLines.push(`${t.name}: ${coach.name}, yr ${coach.yearAtSchool}, ${stintBit}${cueBit}.`)
+    }
+
+    // RECRUITING CLASS.
+    const incoming = getIncomingClassRank(dynasty, t.abbr, yearNum)
+    const nextCycle = getIncomingClassRank(dynasty, t.abbr, yearNum + 1)
+    if (incoming || nextCycle) {
+      const bits = []
+      if (incoming) bits.push(`#${incoming} ${yearNum} class arrived`)
+      if (nextCycle) bits.push(`signing #${nextCycle} ${yearNum + 1} class`)
+      allTeamRecruitingLines.push(`${t.name}: ${bits.join('; ')}`)
+    }
+
+    // QUALITY WINS / BAD LOSSES tally.
+    const qwl = getQualityWinsAndBadLosses(allDynastyGames, t.abbr, yearNum, dynasty)
+    if (qwl && (qwl.qualityWins.length > 0 || qwl.badLosses.length > 0)) {
+      const bits = []
+      if (qwl.qualityWins.length > 0) bits.push(`${qwl.qualityWins.length} qual win${qwl.qualityWins.length === 1 ? '' : 's'}`)
+      if (qwl.badLosses.length > 0) bits.push(`${qwl.badLosses.length} bad loss${qwl.badLosses.length === 1 ? '' : 'es'}`)
+      allTeamQualityLines.push(`${t.name}: ${bits.join(', ')}.`)
+    }
+  }
+
+  // For each game this week, include the most-recent prior matchup between
+  // the same two teams + the rivalry/trophy name when applicable. Powers
+  // per-game revenge/rematch framing AND lets the recap call rivalry games
+  // by name ("the Iron Bowl"). Only the LAST meeting (we'd blow up the
+  // prompt otherwise — there are dozens of weekly games).
+  const lastMeetingLines = []
+  const rivalryLines = []
+  for (const g of weekGames) {
+    const team1Abbr = g.team1
+    const team2Abbr = g.team2
+    if (!team1Abbr || !team2Abbr) continue
+    const t1Name = teamDisplay(g.team1Tid, g.team1, dynasty)
+    const t2Name = teamDisplay(g.team2Tid, g.team2, dynasty)
+
+    const rivalry = getRivalryName(team1Abbr, team2Abbr)
+    if (rivalry) rivalryLines.push(`${t1Name} vs ${t2Name} — ${rivalry}.`)
+
+    const history = getHeadToHeadHistory(allDynastyGames, team1Abbr, team2Abbr, yearNum, 1, dynasty)
+    if (!Array.isArray(history) || history.length === 0) continue
+    const last = history[0]
+    lastMeetingLines.push(
+      `${t1Name} vs ${t2Name} — last met ${last.year}: ${last.winner} def. ${last.loser} ${last.winnerScore}-${last.loserScore} (${last.gameType}). Revenge angle live for ${last.loser} this week.`
+    )
+  }
+
+  // CFP projection — where the 12-team field would land if the season
+  // ended today. Lets the recap write "Tennessee has played its way
+  // into a Sugar Bowl projection" / "the Big Ten still has a path with
+  // both Iowa and Wisconsin in the projected field."
+  const cfpProjection = (() => {
+    try {
+      return buildCFPProjection(dynasty, yearNum)
+    } catch {
+      return { available: false }
+    }
+  })()
+  const cfpProjectionLines = []
+  if (cfpProjection?.available && Array.isArray(cfpProjection.seeds) && cfpProjection.seeds.length > 0) {
+    for (const s of cfpProjection.seeds) {
+      const teamLabel = teamDisplay(s.tid, s.team, dynasty)
+      cfpProjectionLines.push(`#${s.seed} ${teamLabel} (${s.bidLabel || s.bid || ''})`)
+    }
+  }
+
+  // Heisman watch — derived from the existing season stat leaders we
+  // already compute for the data block. Adds the "front-runner"
+  // framing the AI was missing without us pre-baking opinions.
+  // Computed below after `topByField` / `passLeaders` etc. are defined,
+  // so we just declare the array here and fill it later in this function.
+  const heismanWatchLines = []
+
+  // Season-long POW trail across the whole league. Distinct from the
+  // per-game `seasonPOWTrail` field (same data, but here scoped to the
+  // weekly recap so we can flag multi-time award winners across the
+  // entire FBS, not just the two teams in one game).
+  const seasonPOWLeaders = getSeasonPOWTrail(allDynastyGames, yearNum)
+    .filter(p => p.total >= 2)
+    .slice(0, 12)
+
   // ----- Section: Saved preseason poll for current year (if any) -----
   const presPolls = dynasty?.preseasonRankingsByYear?.[yearNum]
-    || dynasty?.finalPolls?.[yearNum]?.preseason
+    || dynasty?.finalPollsByYear?.[yearNum]?.preseason
     || null
   const preseasonTop25Lines = []
   if (Array.isArray(presPolls) && presPolls.length > 0) {
@@ -563,12 +742,13 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   sections.push(`Week being recapped: ${weekNum}`)
   sections.push('')
 
-  // Headline games — top 25 vs top 25
-  // Each game line shows ranks ENTERING the game (the rank the team carried
-  // INTO Week N — not the post-week rank).
+  // Headline games — top 25 vs top 25. Stored game.team1Rank / team2Rank
+  // is each team's ENTERING rank for that game (the rank during the
+  // matchup) — the EA shift is handled at write time, so by read
+  // time the value on the game record is what we want to show.
   if (top25vTop25.length > 0) {
     sections.push(`HEADLINE GAMES — RANKED vs RANKED (Week ${weekNum})`)
-    sections.push(`(Ranks shown are the ranks entering Week ${weekNum}, not post-week ranks. Use these when describing matchups.)`)
+    sections.push(`(Ranks shown are each team's entering rank — the rank they were ranked DURING the game.)`)
     for (const g of top25vTop25) sections.push(fmtGameLine(g, dynasty))
     sections.push('')
   }
@@ -576,7 +756,6 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   // Top-25 results vs unranked teams
   if (top25vUnranked.length > 0) {
     sections.push(`TOP-25 vs UNRANKED RESULTS (Week ${weekNum})`)
-    sections.push(`(Ranks shown are the ranks entering Week ${weekNum}.)`)
     for (const g of top25vUnranked) sections.push(fmtGameLine(g, dynasty))
     sections.push('')
   }
@@ -586,7 +765,6 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   // bucket has no overlap with them.
   if (everyGameLine.length > 0) {
     sections.push(`OTHER FBS GAMES — UNRANKED MATCHUPS (Week ${weekNum})`)
-    sections.push(`(Ranks not applicable — both teams entered the week unranked.)`)
     for (const g of everyGameLine) sections.push(fmtGameLine(g, dynasty))
     sections.push('')
   }
@@ -620,6 +798,30 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   if (tackleLeaders.length > 0) {
     seasonStatBlocks.push(`Tackle leaders:\n${tackleLeaders.map(p => `  ${p.name} (${p.team}) — ${p.tackles} tackles (${p.games} g)`).join('\n')}`)
   }
+
+  // Heisman watch — front-runners across the three offensive yardage
+  // categories. Just naming them as "current Heisman front-runners"
+  // unlocks a beat the AI was previously missing — without this framing
+  // the stat leaders read as encyclopedia entries, not award storylines.
+  const heismanCandidates = []
+  if (passLeaders[0]) heismanCandidates.push({ ...passLeaders[0], lane: 'passing' })
+  if (rushLeaders[0]) heismanCandidates.push({ ...rushLeaders[0], lane: 'rushing' })
+  if (recLeaders[0]) heismanCandidates.push({ ...recLeaders[0], lane: 'receiving' })
+  // Also include the #2 in each lane if their stats are within ~10% of #1
+  // — close races deserve to be noted, blowouts don't.
+  const closeChase = (l1, l2, key) => l1 && l2 && l2[key] >= l1[key] * 0.9
+  if (closeChase(passLeaders[0], passLeaders[1], 'passYds')) heismanCandidates.push({ ...passLeaders[1], lane: 'passing (chasing)' })
+  if (closeChase(rushLeaders[0], rushLeaders[1], 'rushYds')) heismanCandidates.push({ ...rushLeaders[1], lane: 'rushing (chasing)' })
+  if (closeChase(recLeaders[0], recLeaders[1], 'recYds')) heismanCandidates.push({ ...recLeaders[1], lane: 'receiving (chasing)' })
+  for (const h of heismanCandidates) {
+    let line
+    if (h.lane.startsWith('passing')) line = `${h.name} (${h.team}) — passing leader: ${h.passYds} yds, ${h.passTD || 0} TD, ${h.passInt || 0} INT`
+    else if (h.lane.startsWith('rushing')) line = `${h.name} (${h.team}) — rushing leader: ${h.rushYds} yds, ${h.rushTD || 0} TD`
+    else line = `${h.name} (${h.team}) — receiving leader: ${h.recYds} yds, ${h.recTD || 0} TD`
+    if (h.lane.includes('chasing')) line += ' [chasing the leader]'
+    heismanWatchLines.push(line)
+  }
+
   if (seasonStatBlocks.length > 0) {
     sections.push(`CUMULATIVE SEASON STAT LEADERS (through Week ${weekNum}, derived from box scores we have)`)
     sections.push(seasonStatBlocks.join('\n'))
@@ -695,6 +897,106 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     sections.push('')
   }
 
+  // Per-team prior-year context for every team in this week's games.
+  // Lets the recap write lines like "After their CFP semifinal run last
+  // season, Ole Miss has limped to 3-5 through the first half of the
+  // year." Without this, the weekly recap had ZERO per-team historical
+  // data — just last year's national top 5 — and the AI couldn't frame
+  // any individual program's arc.
+  // CURRENT-SEASON RECORDS — every team in the dynasty with at least one
+  // played game this year. Reference data: the AI doesn't have to use
+  // every line, but having every record in front of it means it can
+  // anchor any team it mentions ("Tennessee, now 7-2, ...") instead of
+  // having to derive the record from a long schedule.
+  if (allTeamRecordLines.length > 0) {
+    sections.push(`CURRENT-SEASON RECORDS — ALL TEAMS (${yearNum})`)
+    sections.push(`Reference data — every team in the dynasty with a game played this year. You don't need to mention every team. When a team appears in your recap, this is its authoritative record; never invent a different one.`)
+    for (const line of allTeamRecordLines) sections.push(line)
+    sections.push('')
+  }
+
+  if (allTeamPriorContextLines.length > 0) {
+    sections.push(`PRIOR-YEAR CONTEXT — ALL TEAMS (${priorYear} season finish)`)
+    sections.push(`Reference data covering every team with a notable prior-year finish (top-25 final ranking, bowl, or CFP appearance). Use to set up year-over-year storylines: "after [last year's finish], Team X is now [this year's record]." Required: if a team you're discussing finished top-10 last year OR played in the CFP, reference their prior-year finish at least once. You don't need to mention every team here; pull what fits the storylines you're already writing.`)
+    for (const line of allTeamPriorContextLines) sections.push(line)
+    sections.push('')
+  }
+
+  // Coaching tenure for every team in the dynasty. Unlocks hot-seat /
+  // first-year / era-builder beats anywhere in the recap.
+  if (allTeamCoachLines.length > 0) {
+    sections.push(`COACHING TENURE & STINT RECORDS — ALL TEAMS`)
+    sections.push(`Reference data — head coach + tenure year + stint record for every team where coaching-staff data exists. When a coach's tenure or stint is dramatic (first year, sub-.500 multi-year stint, dominant 3+ year stint), let it carry the framing — "in his fourth year, Coach X is feeling the seat heat up", "first-year head coach already 6-0", "year three of Saban with a 22-7 stint — building a real era." Skip teams where the data is unremarkable.`)
+    for (const line of allTeamCoachLines) sections.push(line)
+    sections.push('')
+  }
+
+  // Recruiting class context — every team with class-rank data.
+  if (allTeamRecruitingLines.length > 0) {
+    sections.push(`RECRUITING CLASS CONTEXT — ALL TEAMS`)
+    sections.push(`Reference data — recruiting class ranks for every team where they exist. Frame the gap between recruiting hype and on-field results when wide enough to be a story: "after signing the #3 class last cycle, Texas was supposed to be loaded — instead they're 4-4." Or the inverse: "the talent infusion is real — a top-15 class on top of last year's #4." Skip teams where the data is unremarkable.`)
+    for (const line of allTeamRecruitingLines) sections.push(line)
+    sections.push('')
+  }
+
+  // Quality wins / bad losses — concrete record-quality anchors for every
+  // team that has at least one quality win or bad loss this year.
+  if (allTeamQualityLines.length > 0) {
+    sections.push(`QUALITY WINS & BAD LOSSES TALLY — ALL TEAMS (current season)`)
+    sections.push(`Reference data. A 7-3 team with 2 ranked wins and 0 bad losses is "playing themselves into the at-large picture." A 7-3 team with 0 ranked wins and 1 bad loss "has the record but not the resume." Pull these to anchor any record claim you make.`)
+    for (const line of allTeamQualityLines) sections.push(line)
+    sections.push('')
+  }
+
+  // Per-game last-meeting context — the revenge / rematch / extends-streak hook.
+  if (lastMeetingLines.length > 0) {
+    sections.push(`LAST MEETINGS (most recent prior matchup for each game this week)`)
+    sections.push(`When describing a game where the loser-of-last-time won this time, frame it as "got revenge" / "avenged last year's loss" / "exorcised last season's ghosts." When the same team wins again, frame it as "swept again" / "extended their hold on the series." Don't force this — only use it when the data here applies to a game you're already writing about.`)
+    for (const line of lastMeetingLines) sections.push(line)
+    sections.push('')
+  }
+
+  // Rivalry / trophy game flags. Lets the recap call rivalry games by
+  // name ("the Iron Bowl") rather than "the Alabama-Auburn game."
+  if (rivalryLines.length > 0) {
+    sections.push(`RIVALRY / TROPHY GAMES THIS WEEK`)
+    sections.push(`Refer to each of these games by its trophy/rivalry name at least once. Rivalry framing carries weight on its own — winning a rivalry game when you're 4-6 is a real story; losing one when you're 9-1 is a real wound.`)
+    for (const line of rivalryLines) sections.push(line)
+    sections.push('')
+  }
+
+  // CFP projection — the 12-team field if the season ended today.
+  if (cfpProjectionLines.length > 0) {
+    sections.push(`CFP PROJECTION (where the 12-team field would land if the season ended after Week ${weekNum})`)
+    sections.push(`Use sparingly — one line per team you mention by name. "Tennessee has played its way into a Sugar Bowl projection." / "the Big Ten still has a path with both Iowa and Wisconsin in the projected field." Don't list the entire bracket; thread it through the prose.`)
+    for (const line of cfpProjectionLines) sections.push(line)
+    sections.push('')
+  }
+
+  // Heisman watch list — front-runners and chasers across the three
+  // offensive yardage categories.
+  if (heismanWatchLines.length > 0) {
+    sections.push(`HEISMAN WATCH (current statistical front-runners)`)
+    sections.push(`Use this framing when one of these players had a big game this week. "His third 300-yard game cements him as the Heisman front-runner." / "the Heisman race tightened: now within 50 yards of the leader." Don't crown anyone — describe the race.`)
+    for (const line of heismanWatchLines) sections.push(line)
+    sections.push('')
+  }
+
+  // Season-long POW trail — multi-time award winners across the season.
+  if (seasonPOWLeaders.length > 0) {
+    sections.push(`SEASON-LONG POW TRAIL (players with 2+ POW awards this season)`)
+    sections.push(`Use to thread through stat lines from this week — "his fourth conference POW of the year." / "now a three-time national defensive POW." Don't enumerate the list; surface relevant entries when the player appears in this week's box scores.`)
+    for (const p of seasonPOWLeaders) {
+      const parts = []
+      if (p.confOffense) parts.push(`${p.confOffense} conf off`)
+      if (p.confDefense) parts.push(`${p.confDefense} conf def`)
+      if (p.natlOffense) parts.push(`${p.natlOffense} natl off`)
+      if (p.natlDefense) parts.push(`${p.natlDefense} natl def`)
+      sections.push(`${p.name}: ${parts.join(', ')} POW (total ${p.total})`)
+    }
+    sections.push('')
+  }
+
   const dataBlock = sections.join('\n')
 
   // Build naming-rule lines for ambiguous schools (e.g. "Miami" → two
@@ -724,35 +1026,162 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     ``,
     `This is a NATIONAL recap covering the entire FBS landscape — every notable game, every storyline, every standout performance the data shows. Treat all teams equally. Do NOT center the narrative on any single program. The reader is a college football fan who wants the week's whole picture.`,
     ``,
-    `Tone: ESPN / The Athletic / 247Sports beat-writing — informed, slightly dramatic, but never breathless. Lead with the biggest games and biggest moves. Save individual performances and poll movement for the back half.`,
+    `═══════════════════════════════════════════════════════════`,
+    `VOICE & WRITING QUALITY — DO NOT SKIP, THESE ARE THE BAR`,
+    `═══════════════════════════════════════════════════════════`,
+    `Write like Stewart Mandel, Andy Staples, Pat Forde, or Heather Dinich at The Athletic / Yahoo Sports — confident, opinionated, willing to advance theses, conversational without being sloppy. NOT AP wire copy. NOT a list of scores stitched with verbs. Top reporters argue something. So do you.`,
+    ``,
+    `THESIS-DRIVEN, NOT EVENT-DRIVEN. The recap is an argument, not a report. Pick the week's central story FIRST, then organize every section to support, complicate, or extend it. If the week's central story is "the SEC is in free-fall," every section should orbit that thesis: Tennessee's collapse is the headline, the SEC's other Top-25 results either confirm or challenge it, the rest of the league benefits in the playoff picture, etc.`,
+    ``,
+    `═══════════════════════════════════════════════════════════`,
+    `RULE A — THE LEDE MUST ARGUE SOMETHING`,
+    `═══════════════════════════════════════════════════════════`,
+    `Your first sentence is a CLAIM about the week, not a description of the loudest score.`,
+    ``,
+    `❌ ANTI-PATTERN (forbidden, this is what AP wire writes):`,
+    `   "The week's loudest result came in the SEC, where unranked South Carolina stunned #15 Tennessee 38-35."`,
+    `   "Saturday saw a slate of top-25 blowouts and one major upset."`,
+    `   "Week 11 produced fireworks across the country."`,
+    ``,
+    `✅ PRO-PATTERN (this is what The Athletic writes):`,
+    `   "The SEC's six-week chaos finally toppled a top-five team — and the College Football Playoff committee just inherited the headache."`,
+    `   "Tennessee's title hopes died in Columbia, but the obituary started writing itself a month ago."`,
+    `   "Clemson's #1 ranking is starting to look like a clerical error."`,
+    `   "Three top-five teams flirted with disaster Saturday. Only one of them paid the bill."`,
+    `   "If you've watched the SEC for the last 42 days, you know how Tennessee's loss to South Carolina ended before it started."`,
+    ``,
+    `Notice what these openings have in common: they advance a CLAIM, name the week's tension, and force the reader forward. The anti-patterns just announce that football was played. NEVER open with "The week's loudest result..." or any variant of "the biggest news / the loudest game / the headline result."`,
+    ``,
+    `═══════════════════════════════════════════════════════════`,
+    `RULE B — NO SCORE-DUMP CONSTRUCTION. ONE DETAIL PER TEAM, MINIMUM.`,
+    `═══════════════════════════════════════════════════════════`,
+    `Score-dump = stitching three or more game results in a row with nothing but team names + verbs + scores. This is the most common AI failure mode in sports recaps and it makes the writing feel like a CSV with adverbs.`,
+    ``,
+    `❌ ANTI-PATTERN (six blowouts in a row, no analysis, no detail):`,
+    `   "#3 Notre Dame flattened North Carolina 55-10. #5 Oregon rolled into Bloomington and dropped 52-16 on Indiana. #6 Ohio State beat Illinois 49-13, and #7 USC put 56-28 on Penn State."`,
+    ``,
+    `✅ PRO-PATTERN (every team gets one distinguishing detail beyond the score):`,
+    `   "Notre Dame's machine kept humming — 55-10 over North Carolina was their fourth 50-burger of the season, and the playoff committee is running out of reasons not to slot the Irish in the top two. Oregon's 52-16 in Bloomington was less a statement game than a maintenance check, but Will Stein's offense extended its scoreless-quarter streak to 11. Ohio State's 49-13 over Illinois delivered exactly the result preseason #4 was supposed to deliver — first-year head coach Ryan Day is now 7-1, but his 'quality wins' column reads zero."`,
+    ``,
+    `Required when listing more than two consecutive games: each team named must get ONE distinguishing detail from the data the prompt provides. Approved sources for that detail (rotate so it doesn't feel mechanical):`,
+    `   • Prior-year finish or postseason narrative cue ("a year removed from the title game", "after last season's CFP first-round exit")`,
+    `   • Coaching tenure or framing cue ("first-year head coach", "year four with a sub-.500 stint", "in his seventh year")`,
+    `   • Recruiting class context ("riding a top-10 class arrival", "the talent the #4 class promised showed up")`,
+    `   • Quality-wins / bad-losses tally ("now with two ranked wins on the résumé", "still searching for a quality win")`,
+    `   • Current-season streak or record-quality angle ("now 8-1, but on a four-game cover-the-spread tear", "back-to-back blowout wins")`,
+    `   • Rivalry/trophy game name when applicable ("the Iron Bowl", "the Egg Bowl")`,
+    `   • Prior-year final ranking ("preseason #4 finally looking like the team that finished #4 last year")`,
+    `   • Last-meeting / revenge framing from the LAST MEETINGS section`,
+    ``,
+    `If the data doesn't support ANY distinguishing detail for a team, that team probably doesn't merit being in the recap. Drop them.`,
+    ``,
+    `═══════════════════════════════════════════════════════════`,
+    `RULE C — VERB DIVERSITY. NO BANNED VERB MORE THAN TWICE.`,
+    `═══════════════════════════════════════════════════════════`,
+    `These verbs are AI-tells: "rolled", "drilled", "flattened", "crushed", "edged", "topped", "hammered", "handled", "dropped" (as in "dropped 52 on"). Use any of them at most TWICE per recap. Top writers vary their result language by what the data actually shows:`,
+    `   • Lopsided + early dominance: "embarrassed Maryland from the opening drive", "made an example of Indiana on the road", "ran out of patience with Penn State by halftime"`,
+    `   • Lopsided + late: "buried late after a coin-flip first half", "pulled away in the third quarter and never looked back"`,
+    `   • One-score: "survived NC State", "outlasted Pittsburgh in a track meet", "stole one in Lubbock", "needed a fourth-quarter touchdown to put Wake Forest away"`,
+    `   • Upset: "stunned", "took down", "knocked off", "ambushed", "ended Tennessee's playoff dream"`,
+    `   • Maintenance win over inferior opponent: "kept the lights on against UMass", "did the required work against Vanderbilt", "took care of business"`,
+    `If you find yourself reaching for the same verb a third time, it means you're in score-dump mode. Stop, pick a different angle, rewrite the sentence.`,
+    ``,
+    `═══════════════════════════════════════════════════════════`,
+    `RULE D — EVERY MAJOR SECTION ENDS WITH AN EARNED CLAIM`,
+    `═══════════════════════════════════════════════════════════`,
+    `A "major section" is any H2-headed section in your recap (HEADLINES, AROUND THE TOP 25, POLL MOVEMENT, AROUND THE COUNTRY, etc.). The last sentence of each must be a CLAIM that goes beyond reporting facts — a take the data here supports. If you can't defend a take with the data, drop the section entirely.`,
+    ``,
+    `Examples of earned claims (each one has data behind it):`,
+    `   • "The Tigers' seven-point margin was the closest call any top-five team produced this week, and Clemson's playoff résumé is starting to look softer than its ranking."`,
+    `   • "Two of the top five played one-score games. The committee will notice."`,
+    `   • "Texas just hammered the team that played for the title last January. The Longhorns' 4-loss season is suddenly the most interesting at-large pitch in the country."`,
+    `   • "Ohio State is 9-1, ranked #6, and has not yet beaten a top-25 team. That's a problem."`,
+    ``,
+    `These are CLAIMS, not summaries. They argue something. The data block supports each one (margins, prior-year context, quality-wins tally, etc.).`,
+    ``,
+    `═══════════════════════════════════════════════════════════`,
+    `RULE E — PRIOR-YEAR CONTEXT IS HARD-REQUIRED, NOT SUGGESTED`,
+    `═══════════════════════════════════════════════════════════`,
+    `If a team that finished TOP-10 LAST YEAR or PLAYED IN THE CFP appears in your recap, their prior-year finish must be referenced when you describe them. This is a hard rule.`,
+    ``,
+    `THE FAILURE MODE: in a previous recap you generated, Texas blew out Ole Miss 52-20. Ole Miss had finished #4 the prior year and made the CFP semifinal — a fact in the data block. The recap mentioned the score and dropped Ole Miss. The Texas-Ole Miss line was wasted because the prior-year context that gives the result its weight ("a year removed from playing for the title, Ole Miss took a 52-20 beating") was never written.`,
+    ``,
+    `SELF-CHECK before sending: list every team you NAMED in the recap. For each, look at the PRIOR-YEAR CONTEXT block. If a team you named finished top-10 last year or played in the CFP and your recap doesn't reference that, REWRITE the relevant sentence. Output is incomplete without this.`,
+    ``,
+    `═══════════════════════════════════════════════════════════`,
+    `RULE F — SECTIONS MUST CONNECT, NOT SILO`,
+    `═══════════════════════════════════════════════════════════`,
+    `Every section after the first must open with a sentence that references the previous section's thesis or extends it. Sections cannot read as independent reports of separate topics.`,
+    ``,
+    `❌ ANTI-PATTERN (silos):`,
+    `   "## Tennessee Falls in Columbia [...]`,
+    `    ## Top of the Poll Pours It On [...]`,
+    `    ## Around the Top 25 [...]"`,
+    `   Each section is its own little article. The reader bounces between unrelated topics.`,
+    ``,
+    `✅ PRO-PATTERN (connective tissue, the recap reads as ONE argument):`,
+    `   "## Tennessee Falls in Columbia [...]"`,
+    `   "## Who Profits From Tennessee's Collapse — While the SEC's title contender turned into bowl-eligibility worry, three other top-10 teams used their off week to do the basics. [...]"`,
+    `   "## The Playoff Picture Just Reshuffled — That redistribution flows straight into the projected 12-team field. [...]"`,
+    ``,
+    `Each opening sentence picks up the prior section's thread. The recap is one argument made in stages, not five mini-articles glued together.`,
+    ``,
+    `═══════════════════════════════════════════════════════════`,
+    `RULE G — POLL MOVEMENT IS A STORY, NOT A LADDER`,
+    `═══════════════════════════════════════════════════════════`,
+    `When describing rank movement across multiple weeks, do not just narrate the numbers. Characterize the trajectory. The data is a fact; the story is what the data MEANS.`,
+    ``,
+    `❌ "Tennessee rose to #2 entering Week 9, fell to #6 the next week, and was at #15 by Saturday."`,
+    `✅ "Tennessee's six-week descent — from #2 to outside the Top 25 in 42 days — is the worst rolling collapse in college football this season. Title contender to bowl-eligibility worry, in less than half a season."`,
+    ``,
+    `═══════════════════════════════════════════════════════════`,
+    `MANDATORY SELF-CRITIQUE PASS BEFORE YOU SEND`,
+    `═══════════════════════════════════════════════════════════`,
+    `Read your draft top to bottom and answer each of these questions HONESTLY. If any answer is no, REWRITE before sending. Do not skip this. Do not paraphrase the questions to make the answer easier.`,
+    ``,
+    `   1. Does my lede ARGUE something? (Not "describe", not "announce" — argue.)`,
+    `   2. Is there a single THESIS the whole piece is organized around? Could I name it in one sentence?`,
+    `   3. Did I use prior-year context for EVERY team I named that finished top-10 last year or played in the CFP?`,
+    `   4. Did I use any banned verb (rolled, drilled, flattened, crushed, edged, topped, hammered, handled) more than twice?`,
+    `   5. When I listed three or more games consecutively, did each team get one distinguishing detail beyond the score?`,
+    `   6. Does each major section's last sentence make a CLAIM, not just summarize?`,
+    `   7. Does each section after the first open with a sentence that connects back to the prior section?`,
+    `   8. If I describe rank movement across weeks, did I CHARACTERIZE it (collapse / surge / freefall) or just narrate numbers?`,
+    ``,
+    `Eight checks. If any fails, rewrite the offending paragraph. Do not send a draft that hasn't passed every one.`,
     ``,
     FACTUAL_GUARDRAIL.trim(),
     ``,
     CONFERENCE_GUARDRAIL.trim(),
     ``,
     `═══════════════════════════════════════════════════════════`,
-    `RANK USAGE — READ CAREFULLY`,
+    `RANK USAGE — READ THIS CAREFULLY`,
     `═══════════════════════════════════════════════════════════`,
-    `Every team1Rank/team2Rank in the data is the rank the team CARRIED INTO that game (the "pre-game" or "entering" rank). Two distinct kinds of rank values appear in the data block:`,
+    `Every "#N TeamName" you see in a game line is the team's ENTERING rank — the rank they carried INTO that matchup. There is only one number per team per game, and it is always the matchup-framing (pre-game) rank.`,
     ``,
-    `  • ENTERING-WEEK-${weekNum} RANK — the rank teams brought INTO Week ${weekNum}. Shown next to each team in the game lines (HEADLINE / TOP-25 vs UNRANKED / ALL ENTERED FBS GAMES sections). Use when describing the matchup itself ("the #4 team faced the #11 team in the game").`,
-    `  • LATEST-AVAILABLE TOP 25 — the most recent poll snapshot we can derive. Read the section's exact label below — it'll either say "POST-WEEK ${weekNum} TOP 25" (if Week ${weekNum + 1} game data was already entered, giving us the actual post-Week ${weekNum} poll) OR "MOST RECENT TOP 25 SNAPSHOT" (if not, in which case it's stale and represents the poll teams entered Week ${weekNum} with, NOT the post-Week ${weekNum} poll).`,
+    `Example: "South Carolina Gamecocks 38, #6 Tennessee Volunteers 35" means Tennessee was #6 BEFORE the game (and lost). The #6 is NOT a post-game rank.`,
+    ``,
+    `Two distinct rank surfaces in the data block:`,
+    ``,
+    `  • GAME-LINE RANK (the "#N" next to a team in each game line) — the entering rank that team carried INTO that game. Use this when describing matchups and what each team WAS at kickoff.`,
+    `  • TOP 25 EVOLUTION ROWS — labeled "Entering Week W". Each row is the snapshot of teams that entered that week ranked. Compare consecutive rows to characterize rank movement ("Tennessee held #2 from Week 9 through Week 11" / "South Carolina jumped from unranked into the Top 25").`,
     ``,
     `WRITING RULES:`,
-    `- Describe matchups using ENTERING ranks ("the #4 team beat the #11 team", not the post-week ranks).`,
-    `- When the latest snapshot is labeled "POST-WEEK ${weekNum}", you may say "Team X is now #N" for the current poll.`,
-    `- When the latest snapshot is labeled "MOST RECENT" (i.e. Week ${weekNum + 1} data isn't available), DO NOT claim definitive post-Week ${weekNum} rankings. Instead infer ("after the loss, Tennessee should fall in next week's poll") or describe the trajectory using the EVOLUTION section.`,
-    `- Mixing these up is a common error: don't write "the #1 team beat #21 Duke" if Duke entered Week ${weekNum} at #14 — use the entering rank #14. Track post-week movement separately via the EVOLUTION rows.`,
+    `- Describe matchups using the entering rank shown in the game line ("#6 Tennessee fell to South Carolina"). That number IS the entering rank already — no derivation needed.`,
+    `- Describe rank movement by comparing consecutive Evolution rows ("Tennessee entered Week 11 ranked #2; the post-Week-11 poll has them at #6" — pull the post-Week-11 snapshot from the LATEST-AVAILABLE TOP 25 section labeled "POST-WEEK ${weekNum} TOP 25").`,
+    `- When the latest snapshot is labeled "POST-WEEK ${weekNum} TOP 25", you may say "Team X is now #N" for the current poll.`,
+    `- When the latest snapshot is labeled "MOST RECENT" (Week ${weekNum + 1} data isn't available), describe the result and infer movement ("after the loss, Tennessee should fall in next week's poll") rather than asserting definitive post-Week ${weekNum} rankings.`,
+    `- DO NOT invent a "post-game rank" for a team in a particular game from the game-line number. The game-line number is ENTERING rank only. The team's post-game rank for week W is the team's entering rank for week W+1, which lives in the next Evolution row (or the LATEST-AVAILABLE snapshot if W is the recap week).`,
     ``,
     `═══════════════════════════════════════════════════════════`,
     `WHAT TO COVER`,
     `═══════════════════════════════════════════════════════════`,
     `Aim for 500-800 words across 3-5 H2 sections. Quality over volume. Pick the structure that fits the week, but a typical strong week looks like:`,
     ``,
-    `  1. HEADLINES & UPSETS — the biggest games of the week, including ranked-vs-ranked, top-10 losses, and any upset (ranked team falling to unranked). Lead with the loudest result. Group every consequential ranked game here so they're not split across multiple sections.`,
-    `  2. AROUND THE TOP 25 — the rest of the ranked teams' results, briefly. Mostly a single paragraph that name-checks what each ranked team did.`,
+    `  1. HEADLINES & UPSETS — the biggest games of the week, including ranked-vs-ranked, top-10 losses, and any upset (ranked team falling to unranked). Lead with the loudest result. Group every consequential ranked game here so they're not split across multiple sections. When a featured team has notable prior-year context (top-10 finish, CFP appearance, defending champs) — visible in the PRIOR-YEAR CONTEXT section — weave it in: "a year removed from the title game...", "after last season's CFP semifinal run...", etc. When a featured game appears in LAST MEETINGS, name it as a rematch and use revenge / repeat-domination framing.`,
+    `  2. AROUND THE TOP 25 — the rest of the ranked teams' results, briefly. Mostly a single paragraph that name-checks what each ranked team did. Where prior-year context tightens the story (a top-5 finisher now scuffling, an unranked finisher now ranked), USE IT.`,
     `  3. POLL MOVEMENT — if (and only if) the EVOLUTION section shows a clear trajectory across recent weeks. Compare consecutive "Entering Week W" rows. Each slot 1-25 has exactly one team — never describe ties.`,
-    `  4. AROUND THE COUNTRY — selected unranked-vs-unranked storylines. Be selective: lopsided blowouts (≥30 pts), upsets, conference rivalries, and one-score thrillers. Skip games that are just middle-of-the-road results.`,
+    `  4. AROUND THE COUNTRY — selected unranked-vs-unranked storylines. Be selective: lopsided blowouts (≥30 pts), upsets, conference rivalries, and one-score thrillers. Skip games that are just middle-of-the-road results. Rivalry rematches with revenge/streak data attached (LAST MEETINGS) are good candidates here even if otherwise unremarkable.`,
     ``,
     `Optional extras (only when warranted by the data):`,
     `  - AWARDS / HEISMAN PICTURE — only if a player is leading a major stat category (passing/rushing/receiving yds, sacks) by a noticeable margin. If nobody clears that bar, SKIP.`,
@@ -794,7 +1223,7 @@ export function buildPreseasonRecapPrompt(dynasty, year) {
   // ----- Final-poll top 25 from each prior year -----
   const finalPollLines = []
   for (const y of pastYears) {
-    const finalMedia = dynasty?.finalPolls?.[y]?.media
+    const finalMedia = dynasty?.finalPollsByYear?.[y]?.media
     if (Array.isArray(finalMedia) && finalMedia.length > 0) {
       finalPollLines.push(`-- ${y} final poll --`)
       for (const r of finalMedia) {
@@ -820,7 +1249,7 @@ export function buildPreseasonRecapPrompt(dynasty, year) {
   const top5Tally = {}
   const top10Tally = {}
   for (const y of pastYears) {
-    const finalMedia = dynasty?.finalPolls?.[y]?.media
+    const finalMedia = dynasty?.finalPollsByYear?.[y]?.media
     if (!Array.isArray(finalMedia)) continue
     for (const r of finalMedia) {
       const name = teamDisplay(r.tid, r.team, dynasty)
@@ -839,7 +1268,7 @@ export function buildPreseasonRecapPrompt(dynasty, year) {
 
   // ----- Saved preseason rankings for the upcoming year, if any -----
   const presPolls = dynasty?.preseasonRankingsByYear?.[yearNum]
-    || dynasty?.finalPolls?.[yearNum]?.preseason
+    || dynasty?.finalPollsByYear?.[yearNum]?.preseason
     || null
   const preseasonTop25Lines = []
   if (Array.isArray(presPolls) && presPolls.length > 0) {
@@ -949,7 +1378,7 @@ export function buildPreseasonTop25Prompt(dynasty, year) {
   // Final-poll snapshots from prior seasons inform a defensible preseason Top 25.
   const histLines = []
   for (const y of pastYears) {
-    const finalMedia = dynasty?.finalPolls?.[y]?.media
+    const finalMedia = dynasty?.finalPollsByYear?.[y]?.media
     if (Array.isArray(finalMedia) && finalMedia.length > 0) {
       histLines.push(`-- ${y} final poll --`)
       for (const r of finalMedia) {
@@ -977,25 +1406,65 @@ export function buildPreseasonTop25Prompt(dynasty, year) {
     alignmentBlock ? `CONFERENCE ALIGNMENT (${yearNum}) — THIS OVERRIDES YOUR REAL-WORLD KNOWLEDGE:\n${alignmentBlock}` : ``,
   ].filter(Boolean).join('\n')
 
+  // Build an abbr → display-name list for THIS dynasty so the AI uses
+  // the user's actual team naming (FCS placeholders, teambuilder
+  // takeovers, custom teams) — not real-world abbreviations.
+  const teamAbbrLines = []
+  if (dynasty?.teams && typeof dynasty.teams === 'object') {
+    const entries = Object.values(dynasty.teams)
+      .filter(t => t && t.abbr && t.name)
+      .map(t => ({ abbr: String(t.abbr).toUpperCase(), name: t.name }))
+    entries.sort((a, b) => a.abbr.localeCompare(b.abbr))
+    for (const { abbr, name } of entries) teamAbbrLines.push(`${abbr} = ${name}`)
+  }
+
   return [
-    `You are helping a CFB dynasty mode user fill in a Preseason Top 25 for ${yearNum}.`,
+    `You are helping a CFB dynasty mode user populate the ${yearNum} Preseason Top 25.`,
     ``,
-    `Output exactly 25 lines, one team per line, ranked #1 to #25. Each line is two tab-separated fields:`,
+    `═══════════════════════════════════════════════════════════`,
+    `MODE A — SCREENSHOT TRANSCRIPTION (preferred when the user attaches an image)`,
+    `═══════════════════════════════════════════════════════════`,
+    `If the user has attached a screenshot of EA CFB's Preseason Top 25 page (the in-game poll, the Pre-Season Top 25 standings page, or a media outlet's poll), TRANSCRIBE it into the output format below. Treat the screenshot as the source of truth and ignore your own opinions about who "should" be ranked. Read the rank order verbatim. If the screenshot shows fewer than 25 teams, pad the missing slots as blank lines (just the rank, no team) — do NOT invent teams to fill the bottom of the poll.`,
     ``,
-    `<rank>\\t<team abbreviation>`,
+    `If multiple screenshots are attached (e.g. the user split the page into two images), stitch them together in rank order — duplicates between screenshots are confirmation, not separate ranks.`,
     ``,
-    `Use UPPERCASE FBS abbreviations the user will type into a strict-dropdown sheet (BAMA, OSU, UGA, MICH, etc.). Do NOT use full names, mascots, or city names.`,
+    `═══════════════════════════════════════════════════════════`,
+    `MODE B — INFER FROM DYNASTY HISTORY (when no screenshot is attached)`,
+    `═══════════════════════════════════════════════════════════`,
+    `Build a defensible Top 25 from the prior-season data block at the bottom of this prompt. Anchor your picks in the dynasty's actual history — recent final polls, Heisman winners, conference alignment. If the dynasty has no prior history saved (first season or fresh dynasty), default to a reasonable real-world preseason consensus and surface a single line at the very top prefixed exactly "PRE-NOTE: …" explaining the assumption. The user will read and delete the PRE-NOTE before pasting.`,
+    ``,
+    `═══════════════════════════════════════════════════════════`,
+    `OUTPUT FORMAT — read carefully, the user pastes this directly into a Google Sheet`,
+    `═══════════════════════════════════════════════════════════`,
+    `Output EXACTLY 25 lines. Each line is ONE team abbreviation in UPPERCASE. Lines are in rank order — line 1 is #1, line 2 is #2, ..., line 25 is #25.`,
+    ``,
+    `   Example (made-up values, not your output):`,
+    `       BAMA`,
+    `       UGA`,
+    `       OSU`,
+    `       ...`,
+    ``,
+    `STRICT RULES:`,
+    `   1. ONE team abbreviation per line. No rank numbers, no full names, no mascots, no city names, no "Tied with…" notes.`,
+    `   2. Abbreviations MUST come from the TEAM ABBREVIATIONS list at the bottom of this prompt — these are the only abbrs the user's strict-dropdown sheet will accept. Anything else is rejected on paste.`,
+    `   3. EXACTLY 25 lines (or 24 lines + 1 blank line, etc., if the screenshot only had partial data — leave the missing slot blank, don't pad with a guess).`,
+    `   4. No header row, no commentary, no closing remarks. The user pastes your output starting at cell B2 of the sheet (or copies into the tracker's row form). Anything other than 25 lines of team abbreviations breaks both flows.`,
+    `   5. Wrap your output in a single \`\`\`tsv ... \`\`\` fenced block so the user can copy-paste cleanly without selecting any prose.`,
+    ``,
+    `If you generated a PRE-NOTE (Mode B only, no prior data), put it on a single line ABOVE the fenced block — never inside it.`,
     ``,
     FACTUAL_GUARDRAIL.trim(),
     ``,
     CONFERENCE_GUARDRAIL.trim(),
     ``,
-    `Apply the guardrail to ranking choices: ground your Top 25 in the past-season data below. If the dynasty has no prior history, default to a reasonable real-world preseason consensus and SAY SO in a single PRE-NOTE line above the data, prefixed exactly with "PRE-NOTE:". The user will read and delete that note before pasting.`,
-    ``,
-    `Output ONLY the 25 ranked lines (and an optional PRE-NOTE line above). No headers, no commentary, no closing remarks.`,
+    `═══════════════════════════════════════════════════════════`,
+    `TEAM ABBREVIATIONS (every team your output must use one of)`,
+    `═══════════════════════════════════════════════════════════`,
+    `These are the ONLY valid values for the strict-dropdown sheet. Includes every team in this dynasty — FBS, FCS placeholders, and any custom / teambuilder teams. If a screenshot shows a team not on this list, omit that line (leave blank) rather than substituting a similar-name team.`,
+    teamAbbrLines.length > 0 ? teamAbbrLines.join('\n') : '(no team abbreviations available — dynasty teams data is empty)',
     ``,
     `═══════════════════════════════════════════════════════════`,
-    `DATA`,
+    `DATA — prior-season context (for Mode B, ignored in Mode A)`,
     `═══════════════════════════════════════════════════════════`,
     dataBlock,
   ].join('\n')

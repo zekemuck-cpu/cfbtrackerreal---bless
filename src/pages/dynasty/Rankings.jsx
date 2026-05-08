@@ -1,10 +1,12 @@
+import { useState } from 'react'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { useDynasty, buildLiveTop25FromGames, calculateTeamRecordFromGames } from '../../context/DynastyContext'
+import { useDynasty, calculateTeamRecordFromGames } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { TEAMS, resolveTid } from '../../data/teamRegistry'
-import { PageHero, Card, EmptyState, TitleWithYear } from '../../components/ui'
+import { PageHero, Card, EmptyState, TitleWithYear, Button } from '../../components/ui'
+import Top25SheetModal from '../../components/Top25SheetModal'
 
 const getSchoolName = stripMascotFromName
 
@@ -75,8 +77,9 @@ export default function Rankings() {
   const { year: urlYear } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { currentDynasty } = useDynasty()
+  const { currentDynasty, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
+  const [showEditSheet, setShowEditSheet] = useState(false)
 
   if (!currentDynasty) return null
 
@@ -100,21 +103,25 @@ export default function Rankings() {
   // saved final poll seeds it once the season ends.
   const displayYear = urlYear ? parseInt(urlYear) : Number(currentDynasty.currentYear)
 
-  // Available weeks for the displayed year — any week that has at least
-  // one game with a team rank entry. This is what powers the inline
-  // week selector. Computed straight from games[] so it adds no storage.
+  // Available weeks for the displayed year — any week where any team
+  // has a rankByWeek entry. This is the canonical store for entering-
+  // week ranks (= the rank each team was during that week's games).
   const yearPolls = finalPolls[displayYear] || {}
   const savedMedia = Array.isArray(yearPolls.media) ? yearPolls.media : []
   const availableWeeks = (() => {
     const weeksSet = new Set()
-    ;(currentDynasty.games || []).forEach(g => {
-      if (!g || Number(g.year) !== displayYear) return
-      const wk = typeof g.week === 'number' ? g.week : parseInt(g.week, 10)
-      if (!Number.isFinite(wk)) return
-      const r1 = g.team1Rank, r2 = g.team2Rank
-      const has = (n) => typeof n === 'number' && n >= 1 && n <= 25
-      if (has(r1) || has(r2)) weeksSet.add(wk)
-    })
+    const teams = currentDynasty.teams || {}
+    for (const team of Object.values(teams)) {
+      const rbw = team?.byYear?.[displayYear]?.rankByWeek
+        ?? team?.byYear?.[String(displayYear)]?.rankByWeek
+      if (!rbw) continue
+      for (const k of Object.keys(rbw)) {
+        const wk = Number(k)
+        if (!Number.isFinite(wk)) continue
+        const v = rbw[k]
+        if (typeof v === 'number' && v >= 1 && v <= 25) weeksSet.add(wk)
+      }
+    }
     return Array.from(weeksSet).sort((a, b) => a - b)
   })()
   const latestWeek = availableWeeks.length > 0 ? availableWeeks[availableWeeks.length - 1] : null
@@ -143,15 +150,30 @@ export default function Rankings() {
   }
 
   // Build the Top 25 for the selected snapshot. 'final' uses the saved
-  // poll; everything else builds from games up through that week.
+  // poll. Otherwise, walk every team's rankByWeek[selectedWeek] —
+  // that's the rank each team was DURING the selected week. First
+  // team to claim each rank slot 1-25 wins (defends against any
+  // accidental duplicates).
   let top25 = []
-  let liveWeek = null
   if (selectedWeek === 'final') {
     top25 = savedMedia
   } else if (selectedWeek != null) {
-    const live = buildLiveTop25FromGames(currentDynasty, displayYear, { upToWeek: selectedWeek })
-    top25 = live.entries
-    liveWeek = live.week ?? selectedWeek
+    const slotMap = new Map()
+    const teams = currentDynasty.teams || {}
+    for (const [tidKey, team] of Object.entries(teams)) {
+      const rbw = team?.byYear?.[displayYear]?.rankByWeek
+        ?? team?.byYear?.[String(displayYear)]?.rankByWeek
+      if (!rbw) continue
+      const v = rbw[selectedWeek] ?? rbw[String(selectedWeek)]
+      if (typeof v !== 'number' || v < 1 || v > 25) continue
+      if (slotMap.has(v)) continue
+      slotMap.set(v, {
+        rank: v,
+        tid: Number(tidKey),
+        team: team.abbr,
+      })
+    }
+    top25 = [...slotMap.values()].sort((a, b) => a.rank - b.rank)
   }
   const usingLive = selectedWeek !== 'final'
 
@@ -310,17 +332,33 @@ export default function Rankings() {
     )
   }
 
-  // Options for the inline week selector — these labels also drive the
-  // eyebrow text, so they read as natural language ("After Week 5" /
-  // "Final Poll") rather than terse chip labels. Latest week first so
-  // the freshest snapshot lives at the top of the dropdown.
+  // Options for the inline week selector — labels drive the eyebrow
+  // text. The new rank semantics are entering-week ranks (= the rank
+  // each team was DURING that week's games), so plain "Week N" reads
+  // correctly. Special week keys map to postseason labels.
+  const weekLabel = (w) => {
+    if (w === 0) return 'Preseason Rankings'
+    if (w === 100) return 'Conference Championships'
+    if (w === 101) return 'CFP First Round'
+    if (w === 102) return 'CFP Quarterfinals'
+    if (w === 103) return 'CFP Semifinals'
+    if (w === 104) return 'National Championship'
+    if (w === 105) return 'Final Poll'
+    return `Week ${w}`
+  }
+  // When rankByWeek already has a Final Poll entry (week 105 — seeded
+  // by the migration / FinalPollsModal save flow from finalPollsByYear),
+  // the legacy `final` selector that reads finalPollsByYear directly
+  // is redundant — week 105 is the same data sourced from rankByWeek.
+  // Suppress the duplicate to keep the dropdown clean.
+  const hasFinalInRankByWeek = availableWeeks.includes(105)
   const weekOptions = [
-    ...(hasSavedFinal ? [{ value: 'final', label: 'Final Poll' }] : []),
-    ...[...availableWeeks].reverse().map(w => ({ value: w, label: `After Week ${w}` })),
+    ...(hasSavedFinal && !hasFinalInRankByWeek ? [{ value: 'final', label: 'Final Poll' }] : []),
+    ...[...availableWeeks].reverse().map(w => ({ value: w, label: weekLabel(w) })),
   ]
   const selectedLabel =
     selectedWeek === 'final' ? 'Final Poll'
-    : selectedWeek != null ? `After Week ${selectedWeek}`
+    : selectedWeek != null ? weekLabel(selectedWeek)
     : null
 
   // Only render the selector when the user has more than one option;
@@ -350,11 +388,18 @@ export default function Rankings() {
             label="Top 25"
           />
         }
+        actions={!isViewOnly ? (
+          <Button variant="outline" size="sm" onClick={() => setShowEditSheet(true)}>
+            Edit Rankings
+          </Button>
+        ) : null}
       />
 
       <div className="max-w-2xl mx-auto">
         <PollColumn data={top25} pollType="media" />
       </div>
+
+      <Top25SheetModal isOpen={showEditSheet} onClose={() => setShowEditSheet(false)} />
 
       <style>{`
         .ranking-row:hover {

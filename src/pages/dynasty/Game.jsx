@@ -987,12 +987,11 @@ export default function Game() {
   const eventLogo = bowlLogo || confLogo || conferenceMatchupLogo
   const eventLogoAlt = bowlLogo ? game.bowlName : (confLogo ? `${confName} Championship` : (conferenceMatchupLogo ? `${userConf}` : 'Event'))
 
-  // Get rankings. For CPU games, displayTeam is the viewing perspective (often
-  // the winner) which is independent of visual side — so we have to resolve
-  // perspective→team1/2, then apply the leftTeam/rightTeam mapping. The old
-  // code conflated the two and rendered team1Rank on the visual left even
-  // when the display team was actually on the right (e.g. UNC #10 at home
-  // showed as "FCS Midwest #10").
+  // Rankings — read straight from game.team1Rank / team2Rank. The
+  // stored value IS each team's entering rank (rank during the game)
+  // — migrated for old dynasties, kept in sync at every save through
+  // the EA-shift logic in saveWeeklyScores / addGame / updateGame.
+  // No further lookup or derivation needed at read time.
   let leftRank, rightRank
   if (isCPUGame) {
     const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
@@ -1003,7 +1002,6 @@ export default function Game() {
     leftRank = leftTeam === 'user' ? displayRank : oppRank
     rightRank = rightTeam === 'user' ? displayRank : oppRank
   } else {
-    // For user games, use perspective ranks or fallback to game fields
     const userRank = perspective?.userRank ?? game.userRank ?? game.team1Rank
     const oppRank = perspective?.opponentRank ?? game.opponentRank ?? game.team2Rank
     leftRank = leftTeam === 'user' ? userRank : oppRank

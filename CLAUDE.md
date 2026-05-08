@@ -40,6 +40,19 @@ npm run build    # Build for production
 
 Do NOT commit automatically. Only commit when user explicitly requests it.
 
+### Version stamp on every commit
+
+The footer version (e.g. `v2026.05.07.0010`) is **auto-generated at build time** by `vite.config.js` — it's `YYYY.MM.DD.NNNN` where `NNNN` is the count of today's commits. There is no hardcoded version string to bump; the build pipeline does it from git history.
+
+**What this means in practice:** every commit that ships code MUST be paired with a fresh `npm run build` so the new bundle hash + version stamp land in `dist/index.html`. Workflow:
+
+1. Make code changes.
+2. `npm run build` (also catches errors per the rule above).
+3. `git add` source changes + `dist/index.html` (use `git commit -a` — `dist/` is gitignored but `dist/index.html` is tracked, so `git add dist/index.html` is rejected without `-f`).
+4. Commit + push.
+
+If you change source without rebuilding, the deployed footer version won't move and the bundle hash in `dist/index.html` stays stale — the user can't tell their fix shipped.
+
 ## UI/UX Guidelines
 
 **NO decorative icons or symbols.** Keep the UI clean and text-based.

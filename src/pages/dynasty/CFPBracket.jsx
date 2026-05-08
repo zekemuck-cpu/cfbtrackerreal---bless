@@ -166,15 +166,101 @@ export default function CFPBracket() {
   const handleYearChange = (year) => {
     navigate(`${pathPrefix}/cfp-bracket/${year}`)
   }
-  const cfpSeeds = currentDynasty.cfpSeedsByYear?.[displayYear] || []
+  const storedSeeds = currentDynasty.cfpSeedsByYear?.[displayYear] || []
   const bowlConfig = currentDynasty.cfpBowlConfigByYear?.[displayYear] || DEFAULT_BOWL_CONFIG
   const textColor = 'var(--surface-1)'
 
+  // Defensive fallback: if cfpSeedsByYear is empty for this year but
+  // CFP games actually exist in dynasty.games (the seeds got lost
+  // somehow but the bracket structure didn't), reconstruct the seed
+  // list from the games' cfpSlot / team1Tid / team2Tid pairs.
+  //
+  // First-round games hold seeds 5-12 directly (cfpSlot encodes the
+  // seed pair: cfpfr1 = 8 vs 9, cfpfr2 = 5 vs 12, cfpfr3 = 7 vs 10,
+  // cfpfr4 = 6 vs 11 — see DEFAULT_BOWL_CONFIG / CFP_BRACKET_FLOW).
+  // Quarterfinals hold the bye seeds (1-4) in the team1Tid slot.
+  //
+  // This recovers visibility for past-year brackets in the case
+  // where cfpSeedsByYear got wiped but the user's CFP game shells
+  // are still on file. The user can then re-save the seeds via the
+  // dedicated CFP entry flow if they want them stamped properly.
+  const reconstructedSeeds = useMemo(() => {
+    if (storedSeeds.length > 0) return null  // no need
+    const cfpGames = (currentDynasty.games || []).filter(g => {
+      if (!g) return false
+      if (Number(g.year) !== Number(displayYear)) return false
+      const t = detectGameType(g)
+      return t === GAME_TYPES.CFP_FIRST_ROUND
+        || t === GAME_TYPES.CFP_QUARTERFINAL
+        || t === GAME_TYPES.CFP_SEMIFINAL
+        || t === GAME_TYPES.CFP_CHAMPIONSHIP
+    })
+    if (cfpGames.length === 0) return null
+
+    // First round: cfpSlot encodes the seed pair.
+    const FIRST_ROUND_SEED_PAIRS = {
+      cfpfr1: { home: 8, away: 9 },
+      cfpfr2: { home: 5, away: 12 },
+      cfpfr3: { home: 7, away: 10 },
+      cfpfr4: { home: 6, away: 11 },
+    }
+    // Quarterfinals: cfpSlot identifies which bye seed (1-4) is
+    // team1. The away team is the first-round winner that fed in.
+    const QF_BYE_SEEDS = { cfpqf1: 1, cfpqf2: 4, cfpqf3: 3, cfpqf4: 2 }
+
+    const seedMap = new Map() // seed → { tid, team }
+    const setSeed = (seed, tid, abbr) => {
+      if (seed == null || (tid == null && !abbr)) return
+      if (!seedMap.has(seed)) {
+        seedMap.set(seed, {
+          seed,
+          tid: tid != null ? Number(tid) : null,
+          team: abbr || null,
+        })
+      }
+    }
+    for (const g of cfpGames) {
+      const slot = g.cfpSlot || ''
+      const t1Tid = g.team1Tid != null ? Number(g.team1Tid) : null
+      const t2Tid = g.team2Tid != null ? Number(g.team2Tid) : null
+      if (FIRST_ROUND_SEED_PAIRS[slot]) {
+        // First round — both teams are the seeds the slot encodes.
+        const pair = FIRST_ROUND_SEED_PAIRS[slot]
+        // homeTeamTid (or team1Tid as fallback) is the higher seed
+        // (lower number). Map by which side matches homeTeamTid.
+        const homeTid = g.homeTeamTid != null ? Number(g.homeTeamTid) : t1Tid
+        if (homeTid === t1Tid) {
+          setSeed(pair.home, t1Tid, g.team1)
+          setSeed(pair.away, t2Tid, g.team2)
+        } else if (homeTid === t2Tid) {
+          setSeed(pair.home, t2Tid, g.team2)
+          setSeed(pair.away, t1Tid, g.team1)
+        } else {
+          // No reliable home identifier — use team1 as home by convention.
+          setSeed(pair.home, t1Tid, g.team1)
+          setSeed(pair.away, t2Tid, g.team2)
+        }
+      } else if (QF_BYE_SEEDS[slot]) {
+        const byeSeed = QF_BYE_SEEDS[slot]
+        // team1 is the bye-seed team in QF games per the bracket
+        // construction convention.
+        setSeed(byeSeed, t1Tid, g.team1)
+      }
+    }
+    if (seedMap.size === 0) return null
+    return [...seedMap.values()].sort((a, b) => a.seed - b.seed)
+  }, [storedSeeds.length, currentDynasty.games, displayYear])
+
+  // Final cfpSeeds list — prefer stored seeds, fall back to the
+  // reconstruction from games if stored is empty but games exist.
+  const cfpSeeds = storedSeeds.length > 0
+    ? storedSeeds
+    : (reconstructedSeeds || [])
+
   // CFP projection — read-only snapshot of where the field would
   // land based on the current rankings + conference assignments. We
-  // ONLY surface this panel when the actual bracket hasn't been
-  // entered yet (cfpSeeds empty). Existing brackets are untouched —
-  // this just fills the empty state with a useful preview.
+  // ONLY surface this panel when no actual bracket data is
+  // recoverable (cfpSeeds AND reconstructedSeeds both empty).
   const projection = useMemo(
     () => buildCFPProjection(currentDynasty, displayYear),
     [currentDynasty, displayYear]

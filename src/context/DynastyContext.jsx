@@ -1210,6 +1210,581 @@ export function getCurrentTeamRecord(dynasty) {
  * @param {number} year - Year to check
  * @returns {{ rank: number, source: 'final_poll'|'game'|null, week?: number|string } | null}
  */
+// ──────────────────────────────────────────────────────────────────────
+// Per-team-per-week ranks — the authoritative store.
+//
+// Storage shape: dynasty.teams[tid].byYear[year].rankByWeek = {
+//   0: 5, 1: 5, 2: 8, 3: 8, ..., 11: 6, 12: 15,
+//   100: 4, 101: 4, ...   // CC + CFP weeks use the same numeric keys
+//                         // getGameOrder() emits.
+// }
+//
+// rankByWeek[N] = the rank the team CARRIED INTO Week N (entering
+// Week N rank). For display, you look up rankByWeek[gameWeek] for the
+// teams in that game.
+//
+// Why team-level not game-level: a team's rank is a property of the
+// team at that moment in the season, not of any one game. Storing it
+// per-game forces every read site to re-derive entering rank from the
+// prior game; storing it per-team-per-week makes every read a one-line
+// dictionary lookup.
+//
+// EA quirk: when the user enters a Week N scores sheet, the screenshot
+// shows the post-Week-N ranks (= entering Week N+1). Those entries
+// must be stored as rankByWeek[N+1], not rankByWeek[N]. CPU games
+// (everyone else's matchups) follow this rule. User games — where
+// the user controls a team in the matchup — have always been entered
+// with the pre-game (entering) rank, so they go straight into
+// rankByWeek[gameWeek] without shifting.
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Get the user's tid for a given year. Mirrors getUserGamePerspective's
+ * resolution but returns just the tid for a one-shot lookup.
+ */
+export function getUserTidForYear(dynasty, year) {
+  if (!dynasty || year == null) return null
+  const yearNum = Number(year)
+  const yearStr = String(year)
+  if (yearNum === Number(dynasty.currentYear)) {
+    const tid = getUserTeamTid(dynasty)
+    if (tid != null) return Number(tid)
+  }
+  const fromByYear = dynasty.coachTeamByYear?.[yearNum]?.tid
+    ?? dynasty.coachTeamByYear?.[yearStr]?.tid
+  if (fromByYear != null) return Number(fromByYear)
+  const abbrFromByYear = dynasty.coachTeamByYear?.[yearNum]?.team
+    ?? dynasty.coachTeamByYear?.[yearStr]?.team
+  if (abbrFromByYear) {
+    const tid = getTidFromAbbr(abbrFromByYear, dynasty)
+    if (tid != null) return Number(tid)
+  }
+  if (dynasty.teamName) {
+    const tid = getTidFromAbbr(dynasty.teamName, dynasty)
+    if (tid != null) return Number(tid)
+  }
+  return null
+}
+
+/**
+ * Whether a stored game was entered through the user-game flow
+ * (GameEntryModal — pre-game ranks) or the CPU-game flow
+ * (WeeklyScoresModal — post-game ranks). User games' team1Rank /
+ * team2Rank are entering ranks; CPU games' are post-game ranks.
+ */
+export function isUserGame(dynasty, game) {
+  if (!dynasty || !game) return false
+  const userTid = getUserTidForYear(dynasty, game.year)
+  if (userTid == null) return false
+  if (game.team1Tid != null && Number(game.team1Tid) === userTid) return true
+  if (game.team2Tid != null && Number(game.team2Tid) === userTid) return true
+  if (game.userTid != null && Number(game.userTid) === userTid) return true
+  // Legacy fallback — older user games used a userTeam abbr field.
+  if (game.userTeam) {
+    const ut = getTidFromAbbr(game.userTeam, dynasty)
+    if (ut != null && Number(ut) === userTid) return true
+  }
+  return false
+}
+
+/**
+ * Read the rank a team CARRIED INTO a given week (entering rank).
+ * Returns the integer rank (1-25) or null if unranked / unknown.
+ *
+ * Falls back to dynasty.preseasonRankingsByYear for week 0 / week 1
+ * when no rankByWeek data is stored yet (e.g. before the first
+ * weekly-scores save of the year).
+ */
+export function getTeamRankForWeek(dynasty, tidOrAbbr, year, week) {
+  if (!dynasty || tidOrAbbr == null || year == null || week == null) return null
+  const tid = typeof tidOrAbbr === 'string' && !/^\d+$/.test(tidOrAbbr)
+    ? getTidFromAbbr(tidOrAbbr, dynasty)
+    : Number(tidOrAbbr)
+  if (tid == null) return null
+  const yearNum = Number(year)
+  const yearStr = String(year)
+  const byYear = dynasty.teams?.[tid]?.byYear
+  const entry = byYear?.[yearNum]?.rankByWeek ?? byYear?.[yearStr]?.rankByWeek
+  if (entry) {
+    const v = entry[week] ?? entry[String(week)] ?? entry[Number(week)]
+    if (v == null) return null
+    const n = Number(v)
+    return n >= 1 && n <= 25 ? n : null
+  }
+  // Preseason fallback for week 0 / week 1 — pull from the dynasty's
+  // preseason poll if no rankByWeek data is stored yet.
+  if (Number(week) <= 1) {
+    const presPolls = dynasty.preseasonRankingsByYear?.[yearNum]
+      || dynasty.preseasonRankingsByYear?.[yearStr]
+    if (Array.isArray(presPolls)) {
+      const entry2 = presPolls.find(p =>
+        p && (
+          (p.tid != null && Number(p.tid) === tid) ||
+          (p.team && getTidFromAbbr(p.team, dynasty) === tid)
+        )
+      )
+      if (entry2?.rank) return Number(entry2.rank)
+    }
+  }
+  return null
+}
+
+/**
+ * Migration: walk every stored game and seed each team's
+ * rankByWeek map. User games' stored rank → rankByWeek[gameWeek];
+ * CPU games' stored rank → rankByWeek[gameWeek + 1] (post-game →
+ * entering next week).
+ *
+ * Idempotent — gated on dynasty._rankByWeekMigrated. Re-running
+ * (via a Danger Zone admin action) will overwrite existing
+ * rankByWeek data with the freshly recomputed values.
+ *
+ * Conflict resolution: when both a CPU game and a user game would
+ * write to the same rankByWeek[N] slot for a team, we apply CPU
+ * writes first then overlay user-game writes — the user has stated
+ * user-game ranks are always correct and should win conflicts.
+ */
+export function migrateRanksToRankByWeek(dynasty, options = {}) {
+  if (!dynasty || !Array.isArray(dynasty.games)) return dynasty
+  const { force = false } = options
+  // V4 of the migration: bumps from V3 to re-run with stronger tid
+  // resolution for legacy preseason / final poll entries. V3 only
+  // resolved tids via the explicit `tid` field or getTidFromAbbr.
+  // V4 also walks dynasty.teams for case-insensitive abbr / name
+  // matches — older dynasties with only abbr-keyed final polls now
+  // seed rankByWeek correctly. Without this, the Top 25 sheet's
+  // pre-fill would miss those entries, and saving the sheet could
+  // wipe stored rankByWeek data the user couldn't see in the sheet.
+  if (dynasty._rankByWeekMigratedV4 && !force) return dynasty
+
+  const games = dynasty.games
+  const teamsCopy = { ...(dynasty.teams || {}) }
+
+  // Helper: bump a single rank into a team-year's rankByWeek slot.
+  const writeRank = (tid, year, weekKey, rank) => {
+    if (tid == null || year == null || weekKey == null) return
+    if (typeof rank !== 'number' || rank < 1 || rank > 25) return
+    const tidKey = String(tid)
+    const yearKey = String(year)
+    const team = teamsCopy[tidKey] || teamsCopy[tid] || {}
+    const byYear = { ...(team.byYear || {}) }
+    const yearEntry = { ...(byYear[yearKey] || byYear[year] || {}) }
+    const rankByWeek = { ...(yearEntry.rankByWeek || {}) }
+    rankByWeek[weekKey] = rank
+    yearEntry.rankByWeek = rankByWeek
+    byYear[yearKey] = yearEntry
+    teamsCopy[tidKey] = { ...team, byYear }
+  }
+
+  // Determine each game's "week key" — regular weeks use the integer
+  // week; CC / CFP / bowls use 100+ to match getGameOrder() semantics
+  // and avoid collision with regular weeks.
+  const weekKeyOf = (g) => {
+    if (g.isCFPChampionship) return 104
+    if (g.isCFPSemifinal) return 103
+    if (g.isCFPQuarterfinal) return 102
+    if (g.isCFPFirstRound) return 101
+    if (g.isConferenceChampionship) return 100
+    if (g.isBowlGame) return 100
+    const w = Number(g.week)
+    return Number.isFinite(w) ? w : null
+  }
+
+  // Two passes — CPU first, user games second so user-game ranks win
+  // any conflict with the same team in the same week.
+  for (const pass of ['cpu', 'user']) {
+    for (const g of games) {
+      if (!g || g.year == null) continue
+      const userOwned = isUserGame(dynasty, g)
+      if (pass === 'cpu' && userOwned) continue
+      if (pass === 'user' && !userOwned) continue
+      const wk = weekKeyOf(g)
+      if (wk == null) continue
+      // User games: stored rank = entering rank → write to rankByWeek[wk].
+      // CPU games: stored rank = post-game rank → write to rankByWeek[wk+1]
+      // (= entering next week). We don't know what "next week" means for
+      // postseason games (CC → CFP1 → CFPQ → ...) so post-game shifts
+      // for those games go to the next event in the sequence.
+      const targetKey = userOwned ? wk : (wk >= 100 ? wk + 1 : wk + 1)
+      const t1 = g.team1Tid != null ? Number(g.team1Tid) : null
+      const t2 = g.team2Tid != null ? Number(g.team2Tid) : null
+      const r1 = typeof g.team1Rank === 'number' ? g.team1Rank : null
+      const r2 = typeof g.team2Rank === 'number' ? g.team2Rank : null
+      if (t1 != null && r1 != null) writeRank(t1, g.year, targetKey, r1)
+      if (t2 != null && r2 != null) writeRank(t2, g.year, targetKey, r2)
+    }
+  }
+
+  // Seed week-0 / week-1 from preseason rankings so display lookups
+  // for early-season games don't return null when no game has been
+  // played yet.
+  // Preseason poll seeding is below (uses the loose tid resolver
+  // defined just before — handles legacy abbr-only entries that
+  // getTidFromAbbr alone can't always resolve).
+  const presByYear = dynasty.preseasonRankingsByYear || {}
+
+  // Seed week-105 ("Final Poll" — post-Natty rank) from existing
+  // finalPollsByYear data. Mirrors the per-team-per-week store with
+  // whatever the user already entered through the end-of-season
+  // recap flow, so the Top 25 page's "Final Poll" column and the
+  // Edit-Rankings sheet stay in sync without requiring a re-save.
+  //
+  // Aggressive tid resolution: legacy entries often have only an abbr
+  // (no tid). Try multiple paths to resolve every entry — explicit
+  // tid → getTidFromAbbr → walk dynasty.teams for a case-insensitive
+  // abbr match → walk dynasty.teams for a case-insensitive name match.
+  // The cost of a missed resolution is the entry not seeding rankByWeek,
+  // which means the Top 25 sheet creator can't pre-fill it, which means
+  // the user could accidentally clear it on save (the bug we're fixing).
+  const resolveTidLoose = (entry) => {
+    if (!entry) return null
+    if (entry.tid != null) {
+      const n = Number(entry.tid)
+      if (Number.isFinite(n)) return n
+    }
+    if (entry.team) {
+      const fromAbbr = getTidFromAbbr(entry.team, dynasty)
+      if (fromAbbr != null) return Number(fromAbbr)
+      const wantedUpper = String(entry.team).toUpperCase()
+      const wantedTrim = String(entry.team).trim().toLowerCase()
+      for (const [tidKey, team] of Object.entries(dynasty.teams || {})) {
+        if (!team) continue
+        if (team.abbr && String(team.abbr).toUpperCase() === wantedUpper) return Number(tidKey)
+        if (team.name && String(team.name).trim().toLowerCase() === wantedTrim) return Number(tidKey)
+      }
+    }
+    return null
+  }
+  const finalPollsByYear = dynasty.finalPollsByYear || {}
+  for (const [year, polls] of Object.entries(finalPollsByYear)) {
+    const media = polls?.media
+    if (!Array.isArray(media)) continue
+    for (const e of media) {
+      const tid = resolveTidLoose(e)
+      if (tid == null) continue
+      if (typeof e.rank !== 'number') continue
+      writeRank(tid, year, 105, e.rank)
+    }
+  }
+  // Same loose resolution for preseason polls — also legacy data
+  // that might predate the tid-everywhere migration.
+  for (const [year, polls] of Object.entries(presByYear)) {
+    if (!Array.isArray(polls)) continue
+    for (const p of polls) {
+      const tid = resolveTidLoose(p)
+      if (tid == null) continue
+      if (typeof p.rank !== 'number') continue
+      writeRank(tid, year, 0, p.rank)
+      writeRank(tid, year, 1, p.rank)
+    }
+  }
+
+  // Now that rankByWeek is fully populated, rewrite every game's
+  // team1Rank/team2Rank to the team's ENTERING rank for that game's
+  // week. After this rewrite, every game record's stored rank IS the
+  // rank during the game — no further derivation needed at read time.
+  const readEntering = (tid, year, week) => {
+    if (tid == null || year == null || week == null) return null
+    const t = teamsCopy[String(tid)] || teamsCopy[tid]
+    const rbw = t?.byYear?.[String(year)]?.rankByWeek ?? t?.byYear?.[year]?.rankByWeek
+    if (!rbw) return null
+    const v = rbw[week] ?? rbw[String(week)]
+    if (typeof v !== 'number' || v < 1 || v > 25) return null
+    return v
+  }
+  const rewrittenGames = games.map(g => {
+    if (!g || g.year == null) return g
+    const wk = weekKeyOf(g)
+    if (wk == null) return g
+    let next = g
+    if (g.team1Tid != null) {
+      const r = readEntering(Number(g.team1Tid), g.year, wk)
+      const stored = typeof g.team1Rank === 'number' ? g.team1Rank : null
+      if (r !== stored) next = { ...next, team1Rank: r }
+    }
+    if (g.team2Tid != null) {
+      const r = readEntering(Number(g.team2Tid), g.year, wk)
+      const stored = typeof g.team2Rank === 'number' ? g.team2Rank : null
+      if (r !== stored) next = { ...next, team2Rank: r }
+    }
+    return next
+  })
+
+  return {
+    ...dynasty,
+    games: rewrittenGames,
+    teams: teamsCopy,
+    _rankByWeekMigrated: true,
+    _rankByWeekMigratedV3: true,
+    _rankByWeekMigratedV4: true,
+  }
+}
+
+/**
+ * Safe rebuild for already-migrated dynasties. Walks every game and
+ * rewrites dynasty.teams[*].byYear[*].rankByWeek using each game's
+ * CURRENT team1Rank/team2Rank — which after migration IS the entering
+ * rank, no shift required. Re-applies preseason poll seeds at week 0/1
+ * and final poll seeds at week 105.
+ *
+ * Why this exists: migrateRanksToRankByWeek's CPU-shift logic assumes
+ * raw post-game-rank data. Running it twice corrupts everything (the
+ * second pass shifts already-shifted entering ranks by +1). The Danger
+ * Zone "Rebuild" button uses THIS function instead, which is safe to
+ * run any number of times because it doesn't apply any shifts.
+ */
+export function rebuildRankByWeekFromCurrentState(dynasty) {
+  if (!dynasty) return dynasty?.teams || {}
+
+  // Start with a teams object where every team's byYear.rankByWeek
+  // is wiped — we're rebuilding from scratch, no merging.
+  const teamsCopy = {}
+  for (const [tidKey, team] of Object.entries(dynasty.teams || {})) {
+    if (!team) { teamsCopy[tidKey] = team; continue }
+    const byYear = {}
+    for (const [yearKey, yEntry] of Object.entries(team.byYear || {})) {
+      if (!yEntry) { byYear[yearKey] = yEntry; continue }
+      // Drop rankByWeek; keep everything else (coachingStaff, etc.).
+      const { rankByWeek: _drop, ...rest } = yEntry
+      byYear[yearKey] = rest
+    }
+    teamsCopy[tidKey] = { ...team, byYear }
+  }
+
+  const writeRank = (tid, year, weekKey, rank) => {
+    if (tid == null || year == null || weekKey == null) return
+    if (typeof rank !== 'number' || rank < 1 || rank > 25) return
+    const tidKey = String(tid)
+    const yearKey = String(year)
+    const team = teamsCopy[tidKey] || teamsCopy[tid] || {}
+    const byYear = { ...(team.byYear || {}) }
+    const yearEntry = { ...(byYear[yearKey] || byYear[year] || {}) }
+    const rankByWeek = { ...(yearEntry.rankByWeek || {}) }
+    rankByWeek[weekKey] = rank
+    yearEntry.rankByWeek = rankByWeek
+    byYear[yearKey] = yearEntry
+    teamsCopy[tidKey] = { ...team, byYear }
+  }
+
+  const weekKeyOf = (g) => {
+    if (g.isCFPChampionship) return 104
+    if (g.isCFPSemifinal) return 103
+    if (g.isCFPQuarterfinal) return 102
+    if (g.isCFPFirstRound) return 101
+    if (g.isConferenceChampionship) return 100
+    if (g.isBowlGame) return 100
+    const w = Number(g.week)
+    return Number.isFinite(w) ? w : null
+  }
+
+  // Walk every game; team1Rank/team2Rank ARE the entering rank by now.
+  for (const g of (dynasty.games || [])) {
+    if (!g || g.year == null) continue
+    const wk = weekKeyOf(g)
+    if (wk == null) continue
+    if (g.team1Tid != null && typeof g.team1Rank === 'number') {
+      writeRank(Number(g.team1Tid), g.year, wk, g.team1Rank)
+    }
+    if (g.team2Tid != null && typeof g.team2Rank === 'number') {
+      writeRank(Number(g.team2Tid), g.year, wk, g.team2Rank)
+    }
+  }
+
+  // Re-seed preseason at week 0/1 and final poll at week 105 from
+  // their canonical stores.
+  const presByYear = dynasty.preseasonRankingsByYear || {}
+  for (const [year, polls] of Object.entries(presByYear)) {
+    if (!Array.isArray(polls)) continue
+    for (const p of polls) {
+      const tid = p?.tid != null ? Number(p.tid) : (p?.team ? getTidFromAbbr(p.team, dynasty) : null)
+      if (tid == null || typeof p.rank !== 'number') continue
+      writeRank(tid, year, 0, p.rank)
+      writeRank(tid, year, 1, p.rank)
+    }
+  }
+  const finalPollsByYear = dynasty.finalPollsByYear || {}
+  for (const [year, polls] of Object.entries(finalPollsByYear)) {
+    const media = polls?.media
+    if (!Array.isArray(media)) continue
+    for (const e of media) {
+      const tid = e?.tid != null ? Number(e.tid) : (e?.team ? getTidFromAbbr(e.team, dynasty) : null)
+      if (tid == null || typeof e.rank !== 'number') continue
+      writeRank(tid, year, 105, e.rank)
+    }
+  }
+
+  return teamsCopy
+}
+
+/**
+ * Given a single saved game + the current dynasty.teams object, return
+ * a NEW dynasty.teams object with that game's rank updates applied.
+ * Used by addGame and updateGame so every save keeps rankByWeek in
+ * sync without forcing the caller to know the EA shift rules.
+ *
+ * Same shift logic as the migration: user games' team1Rank /
+ * team2Rank go to rankByWeek[gameWeek]; CPU games' go to
+ * rankByWeek[gameWeek + 1] (post-game rank → entering next week).
+ */
+export function applyGameRanksToTeams(dynasty, game) {
+  if (!dynasty || !game || game.year == null) return dynasty.teams || {}
+
+  const teamsCopy = { ...(dynasty.teams || {}) }
+  const writeRank = (tid, year, weekKey, rank) => {
+    if (tid == null || year == null || weekKey == null) return
+    if (typeof rank !== 'number' || rank < 1 || rank > 25) return
+    const tidKey = String(tid)
+    const team = teamsCopy[tidKey] || teamsCopy[tid] || {}
+    const byYear = { ...(team.byYear || {}) }
+    const yearKey = String(year)
+    const yearEntry = { ...(byYear[yearKey] || byYear[year] || {}) }
+    const rankByWeek = { ...(yearEntry.rankByWeek || {}) }
+    rankByWeek[weekKey] = rank
+    yearEntry.rankByWeek = rankByWeek
+    byYear[yearKey] = yearEntry
+    teamsCopy[tidKey] = { ...team, byYear }
+  }
+
+  const weekKey = (() => {
+    if (game.isCFPChampionship) return 104
+    if (game.isCFPSemifinal) return 103
+    if (game.isCFPQuarterfinal) return 102
+    if (game.isCFPFirstRound) return 101
+    if (game.isConferenceChampionship) return 100
+    if (game.isBowlGame) return 100
+    const w = Number(game.week)
+    return Number.isFinite(w) ? w : null
+  })()
+  if (weekKey == null) return teamsCopy
+
+  // The stored game.team1Rank / team2Rank is now ALWAYS the entering
+  // rank for that game's week (post-migration semantics). Direct edits
+  // through addGame / updateGame come through here — the user is
+  // editing the entering rank field they see in the UI, so we mirror
+  // it straight into rankByWeek[weekKey] without any shift.
+  //
+  // The EA shift (post-game → entering-next-week) only happens at
+  // the weekly-scoreboard save flow (saveWeeklyScores), which writes
+  // rankByWeek[weekKey + 1] internally before the game record itself
+  // gets its team1Rank/team2Rank set to the entering rank.
+  const t1 = game.team1Tid != null ? Number(game.team1Tid) : null
+  const t2 = game.team2Tid != null ? Number(game.team2Tid) : null
+  const r1 = typeof game.team1Rank === 'number' ? game.team1Rank : null
+  const r2 = typeof game.team2Rank === 'number' ? game.team2Rank : null
+  if (t1 != null && r1 != null) writeRank(t1, game.year, weekKey, r1)
+  if (t2 != null && r2 != null) writeRank(t2, game.year, weekKey, r2)
+
+  return teamsCopy
+}
+
+/**
+ * Apply a Top 25 sheet sync-back diff to dynasty.teams. Diff shape
+ * matches readTop25FromSheet's output:
+ *
+ *   { [tid]: { [year]: { [weekKey]: rank | null } } }
+ *
+ * `rank` (1-25) sets or replaces the team's rankByWeek slot.
+ * `null` clears the slot (= the user removed the team from that
+ * (rank, week) cell on the sheet).
+ *
+ * Returns the new dynasty.teams object — caller wraps it in an
+ * updateDynasty({ teams }) call. Pure / immutable; doesn't mutate the
+ * input.
+ */
+export function applyTop25SheetDiff(dynasty, diff) {
+  if (!dynasty || !diff || typeof diff !== 'object') return dynasty?.teams || {}
+  const teamsCopy = { ...(dynasty.teams || {}) }
+  for (const [tidKey, byYear] of Object.entries(diff)) {
+    if (!byYear || typeof byYear !== 'object') continue
+    const tidStr = String(tidKey)
+    const team = teamsCopy[tidStr] || teamsCopy[Number(tidStr)] || {}
+    const teamByYear = { ...(team.byYear || {}) }
+    for (const [yearKey, weekUpdates] of Object.entries(byYear)) {
+      if (!weekUpdates || typeof weekUpdates !== 'object') continue
+      const yearEntry = { ...(teamByYear[yearKey] || teamByYear[Number(yearKey)] || {}) }
+      const rankByWeek = { ...(yearEntry.rankByWeek || {}) }
+      for (const [weekKey, value] of Object.entries(weekUpdates)) {
+        if (value == null) {
+          delete rankByWeek[weekKey]
+          delete rankByWeek[Number(weekKey)]
+        } else {
+          const n = Number(value)
+          if (Number.isFinite(n) && n >= 1 && n <= 25) rankByWeek[weekKey] = n
+        }
+      }
+      yearEntry.rankByWeek = rankByWeek
+      teamByYear[yearKey] = yearEntry
+    }
+    teamsCopy[tidStr] = { ...team, byYear: teamByYear }
+  }
+  return teamsCopy
+}
+
+/**
+ * Build a human-readable diff summary from a Top 25 sheet sync-back
+ * diff + the current dynasty state. Shape:
+ *
+ *   {
+ *     byYear: {
+ *       [year]: {
+ *         added:   [{ tid, abbr, weekKey, rank }],     // new ranking entries
+ *         removed: [{ tid, abbr, weekKey, rank }],     // entries cleared
+ *         changed: [{ tid, abbr, weekKey, oldRank, newRank }],
+ *       }
+ *     },
+ *     totals: { added, removed, changed },
+ *   }
+ *
+ * Used by the Top 25 sheet modal to show the user every change before
+ * applying — they confirm or cancel.
+ */
+export function buildTop25Diff(dynasty, diff) {
+  if (!dynasty || !diff || typeof diff !== 'object') return { byYear: {}, totals: { added: 0, removed: 0, changed: 0 } }
+
+  const teamAbbr = (tidKey) => {
+    const t = dynasty.teams?.[tidKey] || dynasty.teams?.[Number(tidKey)]
+    return t?.abbr || tidKey
+  }
+  const readOld = (tidKey, year, weekKey) => {
+    const t = dynasty.teams?.[tidKey] || dynasty.teams?.[Number(tidKey)]
+    const rbw = t?.byYear?.[year]?.rankByWeek ?? t?.byYear?.[String(year)]?.rankByWeek
+    if (!rbw) return null
+    const v = rbw[weekKey] ?? rbw[String(weekKey)]
+    return typeof v === 'number' ? v : null
+  }
+
+  const byYear = {}
+  let totalAdded = 0, totalRemoved = 0, totalChanged = 0
+  for (const [tidKey, byYearMap] of Object.entries(diff)) {
+    for (const [year, weekUpdates] of Object.entries(byYearMap || {})) {
+      const yearEntry = byYear[year] || (byYear[year] = { added: [], removed: [], changed: [] })
+      for (const [weekKey, newVal] of Object.entries(weekUpdates || {})) {
+        const wk = Number(weekKey)
+        if (!Number.isFinite(wk)) continue
+        const oldRank = readOld(tidKey, year, wk)
+        const abbr = teamAbbr(tidKey)
+        if (newVal == null) {
+          if (oldRank != null) {
+            yearEntry.removed.push({ tid: Number(tidKey), abbr, weekKey: wk, rank: oldRank })
+            totalRemoved += 1
+          }
+        } else {
+          const newRank = Number(newVal)
+          if (!Number.isFinite(newRank)) continue
+          if (oldRank == null) {
+            yearEntry.added.push({ tid: Number(tidKey), abbr, weekKey: wk, rank: newRank })
+            totalAdded += 1
+          } else if (oldRank !== newRank) {
+            yearEntry.changed.push({ tid: Number(tidKey), abbr, weekKey: wk, oldRank, newRank })
+            totalChanged += 1
+          }
+        }
+      }
+    }
+  }
+  return { byYear, totals: { added: totalAdded, removed: totalRemoved, changed: totalChanged } }
+}
+
 export function getTeamRanking(dynasty, tidOrAbbr, year) {
   if (!dynasty || !tidOrAbbr || !year) return null
 
@@ -4918,6 +5493,17 @@ export function DynastyProvider({ children }) {
       // backfill (only acts when the logo is empty).
       migrated = migrateFCSFiveTeams(migrated)
 
+      // Per-team-per-week ranks. Walks every stored game and seeds
+      // dynasty.teams[tid].byYear[year].rankByWeek so display sites
+      // can do a one-line lookup ("what's team T's rank entering
+      // Week N?") instead of deriving entering rank from a prior
+      // game's stored rank. User games' stored team1Rank/team2Rank
+      // are pre-game ranks (entering); CPU games' are post-game
+      // ranks (= entering next week). Migration handles both.
+      if (!migrated._rankByWeekMigrated) {
+        migrated = migrateRanksToRankByWeek(migrated)
+      }
+
       // Heal movementByYear at LOAD time so the in-memory player has clean
       // canonical entries before any render. Two cases:
       //   1. { type: 'unknown', legacyType, raw } poison shapes from an
@@ -6904,6 +7490,13 @@ export function DynastyProvider({ children }) {
     // cfpResultsByYear is deprecated and only kept for reading legacy data
     const updates = { games: updatedGames }
 
+    // Sync per-team-per-week ranks. User games store entering rank
+    // directly; CPU games' stored rank is the EA-screenshot post-game
+    // rank, which equals each team's entering-next-week rank.
+    if (typeof game.team1Rank === 'number' || typeof game.team2Rank === 'number') {
+      updates.teams = applyGameRanksToTeams(dynasty, game)
+    }
+
     // Determine if we need to process box score stats
     const hasBoxScoreToProcess = cleanGameData.boxScore && !isCPUGame
 
@@ -7039,6 +7632,14 @@ export function DynastyProvider({ children }) {
       }
     }
 
+    // Per-team-per-week rank update from this game's stored ranks.
+    // Same EA-shift rule: user games' rank → rankByWeek[gameWeek];
+    // CPU games' rank → rankByWeek[gameWeek + 1].
+    let teamsUpdate = null
+    if (typeof gameData.team1Rank === 'number' || typeof gameData.team2Rank === 'number') {
+      teamsUpdate = applyGameRanksToTeams(dynasty, gameData)
+    }
+
     // OPTIMIZED PATH: Cloud storage - save individual games + record updates only
     if (isCloudStorage) {
       try {
@@ -7062,9 +7663,11 @@ export function DynastyProvider({ children }) {
 
         // Update dynasty document with ONLY record updates (not games array)
         // This is the key optimization - we don't rewrite all 261 games
-        if (Object.keys(recordUpdates).length > 0) {
-          console.log('[updateGame] Updating dynasty with record updates only:', Object.keys(recordUpdates))
-          await updateDynasty(dynastyId, recordUpdates, { skipGamesSubcollection: true })
+        const cloudUpdates = { ...recordUpdates }
+        if (teamsUpdate) cloudUpdates.teams = teamsUpdate
+        if (Object.keys(cloudUpdates).length > 0) {
+          console.log('[updateGame] Updating dynasty with record updates only:', Object.keys(cloudUpdates))
+          await updateDynasty(dynastyId, cloudUpdates, { skipGamesSubcollection: true })
         }
 
         // Re-stamp now that writes are durable.
@@ -7091,7 +7694,9 @@ export function DynastyProvider({ children }) {
 
     // FALLBACK PATH: Local storage or cloud error - use batch update
     console.log(`[updateGame] BATCH: Saving via updateDynasty (local storage or fallback)`)
-    await updateDynasty(dynastyId, { games: updatedGames, ...recordUpdates })
+    const batchUpdates = { games: updatedGames, ...recordUpdates }
+    if (teamsUpdate) batchUpdates.teams = teamsUpdate
+    await updateDynasty(dynastyId, batchUpdates)
 
     return gameData
   }
@@ -7326,11 +7931,18 @@ export function DynastyProvider({ children }) {
       // downstream pages (CC History, CFP auto-bid logic, etc.).
       const isConfChampImport = isConferenceChampionshipCandidate(homeConf, awayConf, row.neutral)
 
-      // Ranks: column A = home (team1), column D = away (team2)
+      // Ranks: column A = home (team1), column D = away (team2). User-
+      // entered ranks here are EA-screenshot post-game ranks. We DON'T
+      // store them on this Week N game record — those land on rankByWeek
+      // [N+1] (= the team's entering rank for the next week) below.
+      // The Week N game's stored team1Rank / team2Rank get filled in
+      // post-loop with each team's ENTERING Week N rank, which lives
+      // in rankByWeek[N] (populated when the prior week's sheet was
+      // saved, or during migration / preseason seed).
       const homeRankRaw = row.homeRank
       const awayRankRaw = row.awayRank
-      const team1Rank = (typeof homeRankRaw === 'number' && homeRankRaw >= 1 && homeRankRaw <= 25) ? homeRankRaw : null
-      const team2Rank = (typeof awayRankRaw === 'number' && awayRankRaw >= 1 && awayRankRaw <= 25) ? awayRankRaw : null
+      const homePostGameRank = (typeof homeRankRaw === 'number' && homeRankRaw >= 1 && homeRankRaw <= 25) ? homeRankRaw : null
+      const awayPostGameRank = (typeof awayRankRaw === 'number' && awayRankRaw >= 1 && awayRankRaw <= 25) ? awayRankRaw : null
 
       newByPair.set(key, {
         id: existing?.id || idForGame(homeTid, awayTid),
@@ -7341,14 +7953,19 @@ export function DynastyProvider({ children }) {
         team2Tid,
         team1Score,
         team2Score,
-        team1Rank,
-        team2Rank,
+        team1Rank: null, // filled below from rankByWeek[weekNum] (entering rank)
+        team2Rank: null,
         homeTeamTid,
         winnerTid,
         isConferenceGame,
         ...(isConfChampImport ? { isConferenceChampionship: true, conference: homeConf } : {}),
         isPlayed: true,
         source: 'weekly-scores',
+        // Stash the user-entered EA-screenshot values so the post-loop
+        // shift can write them to rankByWeek[weekNum + 1] for both
+        // teams. Removed from the saved record below.
+        _team1PostGameRank: homePostGameRank,
+        _team2PostGameRank: awayPostGameRank,
         createdAt: existing?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       })
@@ -7373,7 +7990,135 @@ export function DynastyProvider({ children }) {
     })
 
     const newGamesArr = Array.from(newByPair.values())
-    const updatedGames = [...filtered, ...newGamesArr]
+
+    // ─── EA-shift pass for ranks ─────────────────────────────────
+    // EA quirk: the ranks shown next to teams in EA's schedule for
+    // ANY past week are actually the CURRENT dynasty week's ranks,
+    // not the historical ranks from when those games happened. So
+    // whatever rank the user enters via the weekly sheet — no
+    // matter which past week the sheet is for — represents the
+    // team's entering rank for the user's CURRENT week.
+    //
+    // For the typical TODO flow (user is in Week N+1 entering
+    // Week N's scores) currentWeek == weekNum + 1, so this matches
+    // the old "shift +1" logic. For catch-up entries (user is in
+    // Week 12 going back to enter Week 1 scores from a current EA
+    // screenshot), the entered ranks correctly land on
+    // rankByWeek[12] — the actual truth — instead of being
+    // mis-shifted to rankByWeek[2].
+    //
+    // Three steps:
+    //   (a) push user-entered ranks into rankByWeek[currentWeek]
+    //       for both teams in each saved game.
+    //   (b) set each new game's stored team1Rank / team2Rank to
+    //       each team's pre-existing rankByWeek[N] value (their
+    //       entering rank for THIS Week N game). Set when the
+    //       user was actually in Week N — null for catch-up
+    //       entries since we can't recover that historical rank.
+    //   (c) propagate the entered ranks to any currentWeek game
+    //       record already in dynasty.games (the user game played
+    //       this week, etc.) so its stored team1Rank / team2Rank
+    //       reflects the same value.
+    // The "current week" we want here is the regular-season slot the
+    // entered ranks should land on. EA's quirk: ranks visible in the
+    // current schedule view always reflect the user's CURRENT
+    // dynasty week regardless of which past week they're looking at.
+    //
+    // Phase-aware shift:
+    //   - preseason / regular_season — currentWeek IS a regular-
+    //     season slot (0-15), use it directly.
+    //   - conference_championship — the CC week (typically 14-15
+    //     in this dynasty's calendar) is the right propagation
+    //     slot. dynasty.currentWeek RESETS to 1 in this phase per
+    //     the advance-week logic, so we can't use it. Fall back
+    //     to weekNum + 1.
+    //   - postseason — same problem, currentWeek cycles 1-5
+    //     within the phase. Fall back to weekNum + 1, which
+    //     under typical TODO flow IS the correct slot for
+    //     CPU-game saves entered during the same week.
+    //   - any other phase / unset — fall back to weekNum + 1.
+    //
+    // The fallback (weekNum + 1) preserves correct behavior for
+    // the typical TODO flow (user one week ahead of the games
+    // they're entering), at the cost of catching up entries when
+    // the user is multiple weeks ahead during postseason. Catch-
+    // up entries during postseason are an edge case the dynasty
+    // structure doesn't fully support anyway — the regular-season
+    // ranks at that point are already historical.
+    const currentWeek = Number(dynasty.currentWeek)
+    const phase = dynasty.currentPhase
+    const isRegularPhase = phase === 'preseason' || phase === 'regular_season'
+    const propagationWeek = (isRegularPhase && Number.isFinite(currentWeek) && currentWeek > 0)
+      ? currentWeek
+      : weekNum + 1
+    const teamsCopy = { ...(dynasty.teams || {}) }
+    const writeRankByWeek = (tid, weekKey, rank) => {
+      if (tid == null || weekKey == null || typeof rank !== 'number' || rank < 1 || rank > 25) return
+      const tidKey = String(tid)
+      const team = teamsCopy[tidKey] || teamsCopy[tid] || {}
+      const byYear = { ...(team.byYear || {}) }
+      const yearKey = String(yearNum)
+      const yearEntry = { ...(byYear[yearKey] || byYear[yearNum] || {}) }
+      const rankByWeek = { ...(yearEntry.rankByWeek || {}) }
+      rankByWeek[weekKey] = rank
+      yearEntry.rankByWeek = rankByWeek
+      byYear[yearKey] = yearEntry
+      teamsCopy[tidKey] = { ...team, byYear }
+    }
+    const readRankByWeek = (tid, weekKey) => {
+      if (tid == null || weekKey == null) return null
+      const t = teamsCopy[String(tid)] || teamsCopy[tid]
+      const rbw = t?.byYear?.[String(yearNum)]?.rankByWeek ?? t?.byYear?.[yearNum]?.rankByWeek
+      if (!rbw) return null
+      const v = rbw[weekKey] ?? rbw[String(weekKey)]
+      if (typeof v !== 'number' || v < 1 || v > 25) return null
+      return v
+    }
+
+    // Step (a): push user-entered ranks into rankByWeek[propagationWeek]
+    // (= dynasty.currentWeek when known, fallback to weekNum + 1).
+    for (const g of newGamesArr) {
+      if (typeof g._team1PostGameRank === 'number') writeRankByWeek(g.team1Tid, propagationWeek, g._team1PostGameRank)
+      if (typeof g._team2PostGameRank === 'number') writeRankByWeek(g.team2Tid, propagationWeek, g._team2PostGameRank)
+    }
+
+    // Step (b): set each new game's stored rank to each team's
+    // entering-Week-N rank (already in rankByWeek[N]). For typical
+    // TODO entries, this was set when the prior week's sheet was
+    // saved. For catch-up entries it'll be null — there's no way
+    // to recover historical week-N ranks from EA, since EA only
+    // shows current ranks regardless of which week you view.
+    // Strip the _teamXPostGameRank stash fields.
+    for (const g of newGamesArr) {
+      g.team1Rank = readRankByWeek(g.team1Tid, weekNum)
+      g.team2Rank = readRankByWeek(g.team2Tid, weekNum)
+      delete g._team1PostGameRank
+      delete g._team2PostGameRank
+    }
+
+    // Step (c): if any team's currentWeek game already exists in the
+    // dynasty's games array (the user's own user game played during
+    // currentWeek, an already-entered game, etc.), update its stored
+    // rank to the just-pushed entering-currentWeek rank.
+    const updatedGames = [...filtered, ...newGamesArr].map(g => {
+      if (!g || g.year == null) return g
+      if (Number(g.year) !== yearNum) return g
+      if (Number(g.week) !== propagationWeek) return g
+      let next = g
+      if (g.team1Tid != null) {
+        const r = readRankByWeek(Number(g.team1Tid), propagationWeek)
+        if (r != null && r !== (typeof g.team1Rank === 'number' ? g.team1Rank : null)) {
+          next = { ...next, team1Rank: r }
+        }
+      }
+      if (g.team2Tid != null) {
+        const r = readRankByWeek(Number(g.team2Tid), propagationWeek)
+        if (r != null && r !== (typeof g.team2Rank === 'number' ? g.team2Rank : null)) {
+          next = { ...next, team2Rank: r }
+        }
+      }
+      return next
+    })
 
     // Track that this week's scores were entered (used by dashboard to-do)
     const existingTracker = dynasty.weeklyScoresEntered || {}
@@ -7391,6 +8136,7 @@ export function DynastyProvider({ children }) {
 
     await updateDynasty(dynastyId, {
       games: updatedGames,
+      teams: teamsCopy,
       weeklyScoresEntered: updatedTracker,
     })
 

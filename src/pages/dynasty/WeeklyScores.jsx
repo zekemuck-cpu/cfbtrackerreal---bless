@@ -48,6 +48,8 @@ function GameCard({ game, teams, pathPrefix, recordsByTid, domId }) {
   }
 
   const scoreFor = (tid) => (tid === t1 ? team1Score : team2Score)
+  // Stored game.team1Rank / team2Rank IS the entering rank (rank
+  // during the game) post-migration. Just read it directly.
   const rankFor = (tid) => {
     const raw = tid === t1 ? game.team1Rank : game.team2Rank
     if (raw == null || raw === '') return null
