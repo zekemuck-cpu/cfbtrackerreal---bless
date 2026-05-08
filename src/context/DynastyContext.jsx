@@ -7325,20 +7325,37 @@ export function DynastyProvider({ children }) {
     const newGamesArr = Array.from(newByPair.values())
 
     // ─── EA-shift pass for ranks ─────────────────────────────────
-    // The user-entered ranks on each row of the weekly sheet are
-    // post-Week-N ranks (= entering-Week-(N+1) ranks). Two things
-    // happen now:
-    //   (a) push each user-entered rank into rankByWeek[N+1] for
-    //       its team — this is what the team enters NEXT week with.
+    // EA quirk: the ranks shown next to teams in EA's schedule for
+    // ANY past week are actually the CURRENT dynasty week's ranks,
+    // not the historical ranks from when those games happened. So
+    // whatever rank the user enters via the weekly sheet — no
+    // matter which past week the sheet is for — represents the
+    // team's entering rank for the user's CURRENT week.
+    //
+    // For the typical TODO flow (user is in Week N+1 entering
+    // Week N's scores) currentWeek == weekNum + 1, so this matches
+    // the old "shift +1" logic. For catch-up entries (user is in
+    // Week 12 going back to enter Week 1 scores from a current EA
+    // screenshot), the entered ranks correctly land on
+    // rankByWeek[12] — the actual truth — instead of being
+    // mis-shifted to rankByWeek[2].
+    //
+    // Three steps:
+    //   (a) push user-entered ranks into rankByWeek[currentWeek]
+    //       for both teams in each saved game.
     //   (b) set each new game's stored team1Rank / team2Rank to
     //       each team's pre-existing rankByWeek[N] value (their
-    //       entering rank for THIS Week N game). That value was
-    //       populated when the prior week's sheet was saved (or
-    //       seeded from preseason for week 1).
-    //   (c) propagate the user-entered Week N+1 entering ranks to
-    //       any Week-N+1 game record already in dynasty.games (so
-    //       the next-week game card displays the correct rank
-    //       without waiting for that sheet to be saved).
+    //       entering rank for THIS Week N game). Set when the
+    //       user was actually in Week N — null for catch-up
+    //       entries since we can't recover that historical rank.
+    //   (c) propagate the entered ranks to any currentWeek game
+    //       record already in dynasty.games (the user game played
+    //       this week, etc.) so its stored team1Rank / team2Rank
+    //       reflects the same value.
+    const currentWeek = Number(dynasty.currentWeek)
+    const propagationWeek = Number.isFinite(currentWeek) && currentWeek > 0
+      ? currentWeek
+      : weekNum + 1 // fallback when currentWeek isn't set
     const teamsCopy = { ...(dynasty.teams || {}) }
     const writeRankByWeek = (tid, weekKey, rank) => {
       if (tid == null || weekKey == null || typeof rank !== 'number' || rank < 1 || rank > 25) return
@@ -7363,16 +7380,20 @@ export function DynastyProvider({ children }) {
       return v
     }
 
-    // Step (a): push user-entered post-game ranks into rankByWeek[N+1].
+    // Step (a): push user-entered ranks into rankByWeek[propagationWeek]
+    // (= dynasty.currentWeek when known, fallback to weekNum + 1).
     for (const g of newGamesArr) {
-      if (typeof g._team1PostGameRank === 'number') writeRankByWeek(g.team1Tid, weekNum + 1, g._team1PostGameRank)
-      if (typeof g._team2PostGameRank === 'number') writeRankByWeek(g.team2Tid, weekNum + 1, g._team2PostGameRank)
+      if (typeof g._team1PostGameRank === 'number') writeRankByWeek(g.team1Tid, propagationWeek, g._team1PostGameRank)
+      if (typeof g._team2PostGameRank === 'number') writeRankByWeek(g.team2Tid, propagationWeek, g._team2PostGameRank)
     }
 
     // Step (b): set each new game's stored rank to each team's
-    // entering-Week-N rank (already in rankByWeek[N]). Strip the
-    // _teamXPostGameRank stash fields — they were only for the
-    // shift; they don't belong on the persisted record.
+    // entering-Week-N rank (already in rankByWeek[N]). For typical
+    // TODO entries, this was set when the prior week's sheet was
+    // saved. For catch-up entries it'll be null — there's no way
+    // to recover historical week-N ranks from EA, since EA only
+    // shows current ranks regardless of which week you view.
+    // Strip the _teamXPostGameRank stash fields.
     for (const g of newGamesArr) {
       g.team1Rank = readRankByWeek(g.team1Tid, weekNum)
       g.team2Rank = readRankByWeek(g.team2Tid, weekNum)
@@ -7380,24 +7401,23 @@ export function DynastyProvider({ children }) {
       delete g._team2PostGameRank
     }
 
-    // Step (c): if any team's Week-(N+1) game already exists in the
-    // dynasty's games array (from a schedule pre-fill, an already-
-    // entered user game, etc.), update its stored rank for that team
-    // to the user-entered rank we just pushed into rankByWeek[N+1].
-    // Walk the full updatedGames list and patch in place.
+    // Step (c): if any team's currentWeek game already exists in the
+    // dynasty's games array (the user's own user game played during
+    // currentWeek, an already-entered game, etc.), update its stored
+    // rank to the just-pushed entering-currentWeek rank.
     const updatedGames = [...filtered, ...newGamesArr].map(g => {
       if (!g || g.year == null) return g
       if (Number(g.year) !== yearNum) return g
-      if (Number(g.week) !== weekNum + 1) return g
+      if (Number(g.week) !== propagationWeek) return g
       let next = g
       if (g.team1Tid != null) {
-        const r = readRankByWeek(Number(g.team1Tid), weekNum + 1)
+        const r = readRankByWeek(Number(g.team1Tid), propagationWeek)
         if (r != null && r !== (typeof g.team1Rank === 'number' ? g.team1Rank : null)) {
           next = { ...next, team1Rank: r }
         }
       }
       if (g.team2Tid != null) {
-        const r = readRankByWeek(Number(g.team2Tid), weekNum + 1)
+        const r = readRankByWeek(Number(g.team2Tid), propagationWeek)
         if (r != null && r !== (typeof g.team2Rank === 'number' ? g.team2Rank : null)) {
           next = { ...next, team2Rank: r }
         }
