@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useDynasty, propagateCFPWinner, GAME_TYPES, isPlayerOnRoster } from '../../context/DynastyContext'
+import { useDynasty, propagateCFPWinner, GAME_TYPES, isPlayerOnRoster, migrateRanksToRankByWeek } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/ui/Toast'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
@@ -1554,6 +1554,26 @@ export default function DangerZone() {
     }
   }
 
+  const [rankByWeekStatus, setRankByWeekStatus] = useState(null)
+  const handleRankByWeekMigration = async () => {
+    setRankByWeekStatus('running')
+    try {
+      // Force-rerun the migration by passing { force: true }; this
+      // overwrites whatever rankByWeek values are currently stored
+      // with the freshly recomputed values from every game's
+      // team1Rank/team2Rank fields. Persists the updated teams map
+      // straight to the dynasty document.
+      const updated = migrateRanksToRankByWeek(currentDynasty, { force: true })
+      await updateDynasty(currentDynasty.id, {
+        teams: updated.teams,
+        _rankByWeekMigrated: true,
+      })
+      setRankByWeekStatus({ success: true, message: 'Per-team-per-week ranks rebuilt from every stored game.' })
+    } catch (error) {
+      setRankByWeekStatus({ success: false, message: 'Rebuild failed: ' + error.message })
+    }
+  }
+
   const handleSubcollectionMigration = async () => {
     setSubcollectionMigrationStatus('running')
     try {
@@ -2440,6 +2460,39 @@ export default function DangerZone() {
               <StatusLine status={optimizeStatus} />
             </div>
           )}
+        </Card>
+
+        {/* Per-team-per-week ranks migration. Force-rebuilds
+            dynasty.teams[tid].byYear[year].rankByWeek from every
+            stored game's team1Rank/team2Rank with the EA shift rule
+            (CPU games' rank → entering next week; user games'
+            rank → entering this week). Use when the displayed rank
+            on a game card looks wrong and a hard refresh hasn't
+            fixed it. Idempotent — running it again only overwrites
+            with the freshly recomputed values. */}
+        <Card className="p-4 sm:p-5">
+          <div className="space-y-3">
+            <div>
+              <div className="text-display-sm text-txt-primary font-semibold">Rebuild per-team-per-week ranks</div>
+              <p className="text-xs text-txt-secondary mt-1">
+                Recomputes <code>dynasty.teams[tid].byYear[year].rankByWeek</code> from every stored game.
+                User games' ranks land at <code>rankByWeek[gameWeek]</code>; CPU games' ranks shift to{' '}
+                <code>rankByWeek[gameWeek + 1]</code> (post-game = entering next week, EA's quirk).
+                Only run this if a game's displayed rank looks wrong after a hard refresh.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 pt-2" style={{ borderTop: '1px solid var(--surface-4)' }}>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleRankByWeekMigration}
+                disabled={rankByWeekStatus === 'running'}
+              >
+                {rankByWeekStatus === 'running' ? 'Rebuilding...' : 'Rebuild Ranks'}
+              </Button>
+            </div>
+            <StatusLine status={rankByWeekStatus} />
+          </div>
         </Card>
       </div>
 
