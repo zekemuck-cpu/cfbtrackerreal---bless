@@ -486,19 +486,27 @@ export default function GameEdit() {
   const gameHomeTeamTid = formData.location === 'home' ? team1Tid :
                           formData.location === 'away' ? team2Tid : null
 
-  // Calculate team records - uses centralized function, excludes current game being edited
+  // Calculate team records - uses centralized function, excludes current game being edited.
+  // For CPU/opponent teams, dynasty.games[] only has user-vs-them
+  // games, so calc is sparse. Compare against the coverage-aware
+  // helper (which checks teams[tid].byYear[year].record + standings
+  // row + teamRecordsByTeamYear) and use whichever covers more games.
   const calculateTeamRecord = (tid, year) => {
     if (!currentDynasty?.games || !tid) return ''
 
-    // Use centralized calculation, excluding the current game
-    const record = calculateTeamRecordFromGames(currentDynasty, tid, year, {
+    const calc = calculateTeamRecordFromGames(currentDynasty, tid, year, {
       upToGameId: existingGame?.id // Exclude current game from calculation
     })
-
-    // Return empty string if no games found - don't auto-fill "0-0"
-    if (record.wins === 0 && record.losses === 0) return ''
-
-    return `${record.wins}-${record.losses}`
+    const calcGames = (calc.wins || 0) + (calc.losses || 0)
+    const helperRec = getTeamRecord(currentDynasty, tid, year)
+    const helperGames = (helperRec?.wins || 0) + (helperRec?.losses || 0)
+    // Helper wins when it covers more games (i.e. CPU opponent has a
+    // stored full season but we only logged 1 user-vs-them game).
+    if (helperRec && helperGames > calcGames) {
+      return `${helperRec.wins}-${helperRec.losses}`
+    }
+    if (calcGames === 0) return ''
+    return `${calc.wins}-${calc.losses}`
   }
 
   // Live POST-game record helper. Computes overall and conference records
@@ -517,18 +525,29 @@ export default function GameEdit() {
       upToGameId: existingGame?.id,
     })
     let { wins = 0, losses = 0, confWins = 0, confLosses = 0 } = baseline
+    const baselineGames = (wins || 0) + (losses || 0)
 
-    // Step 2: if we have no saved games for this team, fall back to the
-    // record in standings / byYear (uploaded via Weekly Scores). Subtract
-    // the current game from that snapshot if it's already been counted.
-    if (wins === 0 && losses === 0 && confWins === 0 && confLosses === 0) {
-      const stored = getTeamRecord(currentDynasty, tid, gameYear)
-      if (stored) {
-        wins = stored.wins || 0
-        losses = stored.losses || 0
-        confWins = stored.confWins || 0
-        confLosses = stored.confLosses || 0
-      }
+    // Step 2: if the standings / byYear snapshot covers more games
+    // than our saved-games baseline (e.g. a CPU opponent has a full
+    // 9-4 season on file but we've only logged 1 user-vs-them game),
+    // prefer that. Previous gate fired only when baseline was fully
+    // zero, which let a sparse 1-0 baseline override a complete 9-4
+    // stored record. Subtract the current game from the snapshot if
+    // it's already been counted.
+    const stored = getTeamRecord(currentDynasty, tid, gameYear)
+    const storedGames = (stored?.wins || 0) + (stored?.losses || 0)
+    if (stored && storedGames > baselineGames) {
+      wins = stored.wins || 0
+      losses = stored.losses || 0
+      confWins = stored.confWins || 0
+      confLosses = stored.confLosses || 0
+    }
+    // The original existing-game-counted-already guard lived in the
+    // same `if` arm, but only ran when baseline was empty. Lifting
+    // it out so it runs whenever we adopted the stored snapshot —
+    // we still need to back the current game out of the snapshot
+    // before adding the in-progress score back below.
+    if (stored && storedGames > baselineGames) {
       if (existingGame?.team1Score != null && existingGame?.team2Score != null) {
         const t1 = Number(existingGame.team1Tid)
         const isT1 = Number(tid) === t1

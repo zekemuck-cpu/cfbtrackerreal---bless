@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { useDynasty, calculateTeamRecordFromGames, getCustomConferencesForYear } from '../../context/DynastyContext'
+import { useDynasty, calculateTeamRecordFromGames, getTeamRecord, getCustomConferencesForYear } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
@@ -256,19 +256,31 @@ export default function ConferenceStandings() {
     // here while the team page still showed 9-4 — exactly the bug the
     // user reported. Ties go to calc since it carries per-game point-diff
     // numbers the saved standings row can't give us.
+    // Coverage-aware record: getTeamRecord checks every stored source
+    // (teams[tid].byYear[year].record, teamRecordsByTeamYear, the
+    // standings row itself) and returns whichever covers the most
+    // games, falling back to the live calc when nothing stored does.
+    // Without this, a single user-vs-Duke game would show Duke 0-1
+    // even when their stored 9-4 lives in `teams[tid].byYear[year]`
+    // — exactly the bug reported on the conference standings page.
+    const recordFromHelper = linkTid ? getTeamRecord(currentDynasty, linkTid, displayYear) : null
     const calc = linkTid ? calculateTeamRecordFromGames(currentDynasty, linkTid, displayYear) : null
     const calcGames = calc ? (calc.wins + calc.losses) : 0
-    const storedGames = (team.wins || 0) + (team.losses || 0)
-    const useLive = calcGames > 0 && calcGames >= storedGames
-    const liveWins = useLive ? calc.wins : (team.wins || 0)
-    const liveLosses = useLive ? calc.losses : (team.losses || 0)
-    const liveConfWins = useLive ? (calc.confWins || 0) : (team.confWins || 0)
-    const liveConfLosses = useLive ? (calc.confLosses || 0) : (team.confLosses || 0)
-    // PF/PA mirror the same coverage rule. When the saved standings row
-    // covers more games, its PF/PA wins; calc PF/PA only tracks the
-    // recorded subset.
-    const livePointsFor = useLive ? (calc.pointsFor || 0) : (team.pointsFor || 0)
-    const livePointsAgainst = useLive ? (calc.pointsAgainst || 0) : (team.pointsAgainst || 0)
+    const helperGames = recordFromHelper ? (recordFromHelper.wins + recordFromHelper.losses) : 0
+    // The helper already handles the calc-vs-stored coverage decision.
+    // Use its result for W-L and conf record; fall back to the inline
+    // standings-row values only when the helper turned up nothing
+    // (very early-season + no stored record anywhere).
+    const liveWins = recordFromHelper ? recordFromHelper.wins : (team.wins || 0)
+    const liveLosses = recordFromHelper ? recordFromHelper.losses : (team.losses || 0)
+    const liveConfWins = recordFromHelper ? (recordFromHelper.confWins || 0) : (team.confWins || 0)
+    const liveConfLosses = recordFromHelper ? (recordFromHelper.confLosses || 0) : (team.confLosses || 0)
+    // PF/PA aren't on the helper's return shape — pick them with the
+    // same coverage rule: live calc wins when it covers as many
+    // games as the helper turned up, else use the standings row.
+    const useLivePoints = calcGames > 0 && calcGames >= helperGames
+    const livePointsFor = useLivePoints ? (calc.pointsFor || 0) : (team.pointsFor || 0)
+    const livePointsAgainst = useLivePoints ? (calc.pointsAgainst || 0) : (team.pointsAgainst || 0)
     const livePointDiff = livePointsFor - livePointsAgainst
     const diffColor = livePointDiff !== 0 ? 'var(--text-primary)' : 'var(--text-tertiary)'
     const isLeader = rank === 1
@@ -474,26 +486,30 @@ export default function ConferenceStandings() {
               const teamsSrc = currentDynasty?.teams || currentDynasty?.customTeams
               const enriched = teams.map(t => {
                 const tid = t.tid != null ? Number(t.tid) : resolveTid(t.team, teamsSrc || TEAMS)
+                // Use the same coverage-aware helper as the row render
+                // above. Without it the sort would happily reorder a
+                // 9-4 stored team behind a 1-0 sparse-calc team, which
+                // is precisely how Duke ended up at the bottom of the
+                // 2032 ACC despite having a winning season on file.
+                const helperRec = tid ? getTeamRecord(currentDynasty, tid, displayYear) : null
                 const calc = tid ? calculateTeamRecordFromGames(currentDynasty, tid, displayYear) : null
-                // Coverage-aware sort: same rule as the row render above.
-                // Use calc only when it covers >= the saved standings'
-                // games count, so a partial weekly-scores entry can't
-                // demote a team whose full season is on file from the
-                // standings sheet.
                 const calcGames = calc ? (calc.wins + calc.losses) : 0
-                const storedGames = (t.wins || 0) + (t.losses || 0)
-                const useLive = calcGames > 0 && calcGames >= storedGames
-                const liveDiff = useLive
+                const helperGames = helperRec ? (helperRec.wins + helperRec.losses) : 0
+                // Live calc carries the per-game point-diff numbers the
+                // helper doesn't; use it for diff only when it covers
+                // as many games as the helper turned up.
+                const useLivePoints = calcGames > 0 && calcGames >= helperGames
+                const liveDiff = useLivePoints
                   ? (calc.pointsFor || 0) - (calc.pointsAgainst || 0)
                   : (t.pointsFor || 0) - (t.pointsAgainst || 0)
                 return {
                   ...t,
-                  _liveWins: useLive ? calc.wins : (t.wins || 0),
-                  _liveLosses: useLive ? calc.losses : (t.losses || 0),
-                  _liveConfWins: useLive ? (calc.confWins || 0) : (t.confWins || 0),
-                  _liveConfLosses: useLive ? (calc.confLosses || 0) : (t.confLosses || 0),
+                  _liveWins: helperRec ? helperRec.wins : (t.wins || 0),
+                  _liveLosses: helperRec ? helperRec.losses : (t.losses || 0),
+                  _liveConfWins: helperRec ? (helperRec.confWins || 0) : (t.confWins || 0),
+                  _liveConfLosses: helperRec ? (helperRec.confLosses || 0) : (t.confLosses || 0),
                   _liveDiff: liveDiff,
-                  _isLive: useLive,
+                  _isLive: !!helperRec,
                 }
               })
               const anyLive = enriched.some(t => t._isLive)

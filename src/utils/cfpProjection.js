@@ -25,6 +25,7 @@ import {
   buildLiveTop25FromGames,
   getCustomConferencesForYear,
   calculateTeamRecordFromGames,
+  getTeamRecord,
 } from '../context/DynastyContext'
 import { conferenceTeams as DEFAULT_CONFERENCE_TEAMS } from '../data/conferenceTeams'
 import { resolveTid } from '../data/teamRegistry'
@@ -103,12 +104,27 @@ export function buildCFPProjection(dynasty, year) {
     if (teamAbbrs.length === 0) return null
     const standings = teamAbbrs.map(abbr => {
       const tid = resolveTid(abbr, teamsSrc)
+      // Use the coverage-aware helper instead of raw calc — for
+      // non-user teams, dynasty.games[] only has user-vs-them games
+      // so raw calc would seed conference champions based on a
+      // single bowl game outcome. The helper picks the most-complete
+      // record source (stored standings row, byYear teamRecord, or
+      // calc, whichever covers the most games).
+      const helperRec = tid ? getTeamRecord(dynasty, tid, year) : null
       const calc = tid ? calculateTeamRecordFromGames(dynasty, tid, year) : null
-      const wins = calc?.wins || 0
-      const losses = calc?.losses || 0
-      const confWins = calc?.confWins || 0
-      const confLosses = calc?.confLosses || 0
-      const diff = (calc?.pointsFor || 0) - (calc?.pointsAgainst || 0)
+      const wins = helperRec?.wins || 0
+      const losses = helperRec?.losses || 0
+      const confWins = helperRec?.confWins || 0
+      const confLosses = helperRec?.confLosses || 0
+      // Point diff isn't on the helper's return shape; use calc's
+      // diff but only when calc covers as many games as the helper
+      // turned up — otherwise default to 0 so a sparse-game blowout
+      // can't tiebreak in favor of a non-user team.
+      const calcGames = calc ? (calc.wins || 0) + (calc.losses || 0) : 0
+      const helperGames = wins + losses
+      const diff = calcGames > 0 && calcGames >= helperGames
+        ? (calc.pointsFor || 0) - (calc.pointsAgainst || 0)
+        : 0
       const rank = rankByAbbr.get(abbr) ?? Infinity
       return { abbr, tid, wins, losses, confWins, confLosses, diff, rank }
     })
