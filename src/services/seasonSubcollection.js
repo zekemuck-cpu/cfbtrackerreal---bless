@@ -256,20 +256,17 @@ export async function writeSeasonalUpdate(dynastyId, byYear) {
   const years = Object.keys(byYear)
   if (years.length === 0) return []
 
-  // Use a batch when there are multiple seasons to keep the network
-  // payload tight. Single-year writes go through setDoc directly.
-  if (years.length === 1) {
-    const yearKey = years[0]
-    const ref = doc(db, DYNASTIES_COLLECTION, dynastyId, SEASONS_SUBCOLLECTION, String(yearKey))
-    await setDoc(ref, { year: Number(yearKey), ...byYear[yearKey] }, { merge: true })
-    return [yearKey]
-  }
-
+  // Always use a batch — even for a single year — so we can include
+  // the main-doc lastModified bump atomically. The bump is what makes
+  // subscribeToDynasties on other devices fire; without it, this
+  // subcollection write is invisible to Device B's listener.
+  const mainDocRef = doc(db, DYNASTIES_COLLECTION, dynastyId)
   const batch = writeBatch(db)
   for (const yearKey of years) {
     const ref = doc(db, DYNASTIES_COLLECTION, dynastyId, SEASONS_SUBCOLLECTION, String(yearKey))
     batch.set(ref, { year: Number(yearKey), ...byYear[yearKey] }, { merge: true })
   }
+  batch.update(mainDocRef, { lastModified: Date.now() })
   await batch.commit()
   return years
 }

@@ -480,6 +480,21 @@ export async function getGamesSubcollection(dynastyId, options = {}) {
 }
 
 /**
+ * Bump the dynasty main doc's `lastModified` field in the same writeBatch
+ * as a subcollection write. This is the cross-device-sync trigger:
+ * subscribeToDynasties listens to the MAIN doc; subcollection writes
+ * alone don't fire it, so without this bump Device B never learns
+ * about a save Device A made to the games / players / weekRecaps
+ * subcollections. Adding the update to the batch keeps the whole
+ * thing atomic — either everything lands or nothing does — and adds
+ * zero round-trips because batches are one network call.
+ */
+function bumpDynastyLastModifiedInBatch(batch, dynastyId) {
+  const mainDocRef = doc(db, DYNASTIES_COLLECTION, dynastyId)
+  batch.update(mainDocRef, { lastModified: Date.now() })
+}
+
+/**
  * Save a single player to the players subcollection
  * Uses player.pid as document ID for consistent updates
  * This is the EFFICIENT method for single-player updates (1 write instead of N)
@@ -504,7 +519,14 @@ export async function savePlayerToSubcollection(dynastyId, player) {
     // the write. Callers (updatePlayer) always pass the full player object,
     // so a full replace is safe and correct.
     console.log(`[savePlayerToSubcollection] WRITING ${player.pid} (${player.name}) — teamsByYear:`, JSON.stringify(playerData.teamsByYear))
-    await setDoc(playerRef, playerData)
+    // writeBatch combines the player write + main-doc lastModified
+    // bump into one atomic network call. Without the bump the
+    // dynasty listener on other devices doesn't fire — see
+    // bumpDynastyLastModifiedInBatch comment.
+    const batch = writeBatch(db)
+    batch.set(playerRef, playerData)
+    bumpDynastyLastModifiedInBatch(batch, dynastyId)
+    await batch.commit()
 
     // Wait for server confirmation
     await waitForPendingWrites(db)
@@ -661,7 +683,11 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
 export async function deletePlayerFromSubcollection(dynastyId, playerId) {
   try {
     const playerRef = doc(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION, String(playerId))
-    await deleteDoc(playerRef)
+    // Atomic delete + main-doc bump so other devices' listener fires.
+    const batch = writeBatch(db)
+    batch.delete(playerRef)
+    bumpDynastyLastModifiedInBatch(batch, dynastyId)
+    await batch.commit()
 
     // Wait for server confirmation
     await waitForPendingWrites(db)
@@ -689,7 +715,14 @@ export async function saveGameToSubcollection(dynastyId, game) {
     const { _firestoreId, ...rawGameData } = game
     const gameData = sanitizeForFirestore(rawGameData)
 
-    await setDoc(gameRef, gameData)
+    // Atomic: game write + main-doc lastModified bump in one batch.
+    // Without the bump, the dynasty listener on other devices never
+    // fires for subcollection-only writes — that's the recap-saved-
+    // on-laptop-but-missing-on-phone bug.
+    const batch = writeBatch(db)
+    batch.set(gameRef, gameData)
+    bumpDynastyLastModifiedInBatch(batch, dynastyId)
+    await batch.commit()
 
     // Wait for server confirmation
     await waitForPendingWrites(db)
@@ -757,6 +790,8 @@ export async function saveChangedPlayers(dynastyId, changedPlayers = []) {
   }
 
   if (count === 0) return
+  // Cross-device sync trigger — see bumpDynastyLastModifiedInBatch.
+  bumpDynastyLastModifiedInBatch(batch, dynastyId)
   await batch.commit()
   await waitForPendingWrites(db)
   console.log(`[saveChangedPlayers] Wrote ${count} changed players in 1 batch`)
@@ -784,6 +819,8 @@ export async function saveWeeklyGamesChanges(dynastyId, gamesToSet = [], gameIds
     batch.delete(gameRef)
   }
 
+  // Cross-device sync trigger — see bumpDynastyLastModifiedInBatch.
+  bumpDynastyLastModifiedInBatch(batch, dynastyId)
   await batch.commit()
   await waitForPendingWrites(db)
   console.log(`[saveWeeklyGamesChanges] Committed ${gamesToSet?.length || 0} sets + ${gameIdsToDelete?.length || 0} deletes in 1 batch`)
@@ -838,6 +875,8 @@ export async function saveChangedPlayersAndGame(dynastyId, changedPlayers, game)
     playerCount++
   }
 
+  // Cross-device sync trigger — see bumpDynastyLastModifiedInBatch.
+  bumpDynastyLastModifiedInBatch(batch, dynastyId)
   await batch.commit()
   // Single waitForPendingWrites covers the whole batch.
   await waitForPendingWrites(db)
@@ -951,7 +990,11 @@ export async function saveGamesToSubcollection(dynastyId, games, options = {}) {
 export async function deleteGameFromSubcollection(dynastyId, gameId) {
   try {
     const gameRef = doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, String(gameId))
-    await deleteDoc(gameRef)
+    // Atomic delete + main-doc bump so other devices' listener fires.
+    const batch = writeBatch(db)
+    batch.delete(gameRef)
+    bumpDynastyLastModifiedInBatch(batch, dynastyId)
+    await batch.commit()
 
     // Wait for server confirmation
     await waitForPendingWrites(db)
@@ -1001,7 +1044,14 @@ export async function saveWeekRecapToSubcollection(dynastyId, year, week, recap)
     text: recap?.text || '',
   })
 
-  await setDoc(ref, payload)
+  // Atomic: recap write + main-doc lastModified bump in one batch
+  // so subscribeToDynasties on Device B fires (subcollection-only
+  // writes don't reach a main-doc listener). See
+  // bumpDynastyLastModifiedInBatch.
+  const batch = writeBatch(db)
+  batch.set(ref, payload)
+  bumpDynastyLastModifiedInBatch(batch, dynastyId)
+  await batch.commit()
 
   // Step 2 — block until the SDK confirms every pending write was
   // acked by the server. Without this, setDoc resolves on cache write
@@ -1035,7 +1085,11 @@ export async function saveWeekRecapToSubcollection(dynastyId, year, week, recap)
 
 export async function deleteWeekRecapFromSubcollection(dynastyId, year, week) {
   const ref = doc(db, DYNASTIES_COLLECTION, dynastyId, WEEK_RECAPS_SUBCOLLECTION, recapDocId(year, week))
-  await deleteDoc(ref)
+  // Atomic delete + main-doc bump so other devices' listener fires.
+  const batch = writeBatch(db)
+  batch.delete(ref)
+  bumpDynastyLastModifiedInBatch(batch, dynastyId)
+  await batch.commit()
 }
 
 /**
