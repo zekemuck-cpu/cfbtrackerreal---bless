@@ -7574,10 +7574,38 @@ export function DynastyProvider({ children }) {
     //       record already in dynasty.games (the user game played
     //       this week, etc.) so its stored team1Rank / team2Rank
     //       reflects the same value.
+    // The "current week" we want here is the regular-season slot the
+    // entered ranks should land on. EA's quirk: ranks visible in the
+    // current schedule view always reflect the user's CURRENT
+    // dynasty week regardless of which past week they're looking at.
+    //
+    // Phase-aware shift:
+    //   - preseason / regular_season — currentWeek IS a regular-
+    //     season slot (0-15), use it directly.
+    //   - conference_championship — the CC week (typically 14-15
+    //     in this dynasty's calendar) is the right propagation
+    //     slot. dynasty.currentWeek RESETS to 1 in this phase per
+    //     the advance-week logic, so we can't use it. Fall back
+    //     to weekNum + 1.
+    //   - postseason — same problem, currentWeek cycles 1-5
+    //     within the phase. Fall back to weekNum + 1, which
+    //     under typical TODO flow IS the correct slot for
+    //     CPU-game saves entered during the same week.
+    //   - any other phase / unset — fall back to weekNum + 1.
+    //
+    // The fallback (weekNum + 1) preserves correct behavior for
+    // the typical TODO flow (user one week ahead of the games
+    // they're entering), at the cost of catching up entries when
+    // the user is multiple weeks ahead during postseason. Catch-
+    // up entries during postseason are an edge case the dynasty
+    // structure doesn't fully support anyway — the regular-season
+    // ranks at that point are already historical.
     const currentWeek = Number(dynasty.currentWeek)
-    const propagationWeek = Number.isFinite(currentWeek) && currentWeek > 0
+    const phase = dynasty.currentPhase
+    const isRegularPhase = phase === 'preseason' || phase === 'regular_season'
+    const propagationWeek = (isRegularPhase && Number.isFinite(currentWeek) && currentWeek > 0)
       ? currentWeek
-      : weekNum + 1 // fallback when currentWeek isn't set
+      : weekNum + 1
     const teamsCopy = { ...(dynasty.teams || {}) }
     const writeRankByWeek = (tid, weekKey, rank) => {
       if (tid == null || weekKey == null || typeof rank !== 'number' || rank < 1 || rank > 25) return
