@@ -450,29 +450,28 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     }
   }
 
-  // Weekly evolution: for each week W from 0..weekNum-1, the poll teams
-  // FINISHED week W with (= the poll teams ENTERED week W+1 with).
-  // We label the row by what teams ENTERED with so the AI can read it
-  // as a chronological progression. Each row labeled "Entering Week
-  // W+1" is built from week W stored ranks (which are post-week W).
+  // Weekly evolution: for each week W, the snapshot of teams that
+  // ENTERED week W ranked. After the V3 migration, game.team1Rank
+  // IS the team's entering rank for that game's week — so reading
+  // week W games gives us the entering-W snapshot directly. Label
+  // matches the source week (no off-by-one shift).
   const top25ByWeek = []
-  for (let w = 0; w <= weekNum; w++) {
-    // postWeek=w means "the poll AFTER week w" = "the poll entering
-    // week w+1." We display labeled by entering-week.
+  for (let w = 0; w <= weekNum + 1; w++) {
     const snap = buildSnapshotPostWeek(w)
-    if (snap.rows.length > 0) top25ByWeek.push({ week: w + 1, rows: snap.rows })
+    if (snap.rows.length > 0) top25ByWeek.push({ week: w, rows: snap.rows })
   }
 
-  // Latest derivable poll — the post-Week N poll, observable directly
-  // from Week N games' stored ranks (storage convention is post-game).
-  // If Week N has no entered games yet, we fall back to the most
-  // recent prior week with data and note the staleness.
-  const peekSnapshot = buildSnapshotPostWeek(weekNum)
-  const hasFreshPostWeekPoll = peekSnapshot.latestWeek === weekNum
+  // Latest derivable poll — the entering-Week-(N+1) snapshot, which
+  // equals the post-Week-N rankings. Built from week N+1 games'
+  // stored entering ranks if those games are entered. Otherwise
+  // fall back to the most recent earlier snapshot and note the
+  // staleness.
+  const peekSnapshot = buildSnapshotPostWeek(weekNum + 1)
+  const hasFreshPostWeekPoll = peekSnapshot.latestWeek === weekNum + 1
   const rankSnapshot = peekSnapshot.rows
   const rankSnapshotLabel = hasFreshPostWeekPoll
-    ? `POST-WEEK ${weekNum} TOP 25 (the rankings AFTER Week ${weekNum} games — built directly from each team's stored post-game rank in Week ${weekNum})`
-    : `MOST RECENT TOP 25 SNAPSHOT (post-Week ${peekSnapshot.latestWeek ?? Math.max(0, weekNum - 1)} — Week ${weekNum} stored ranks were not all available yet, so the post-Week ${weekNum} poll is not directly observable. Use this as a baseline and infer movement from this week's results.)`
+    ? `POST-WEEK ${weekNum} TOP 25 (= the rankings teams ENTERED Week ${weekNum + 1} with — built from each team's stored entering rank on Week ${weekNum + 1} games)`
+    : `MOST RECENT TOP 25 SNAPSHOT (entering Week ${peekSnapshot.latestWeek ?? Math.max(0, weekNum)} — Week ${weekNum + 1} games haven't been entered yet, so the post-Week ${weekNum} poll isn't directly observable. Use this as a baseline and infer movement from this week's results.)`
 
   // ----- Section: Cumulative stat leaders (season-to-date) -----
   // Aggregates every box score we have through this week into a per-player
@@ -1156,26 +1155,23 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     CONFERENCE_GUARDRAIL.trim(),
     ``,
     `═══════════════════════════════════════════════════════════`,
-    `RANK USAGE — READ THIS CAREFULLY (the #1 historical confusion source)`,
+    `RANK USAGE — READ THIS CAREFULLY`,
     `═══════════════════════════════════════════════════════════`,
-    `EA's schedule UI shows the rank each team holds AFTER playing that week's game (the post-game rank). The rank a team CARRIED INTO the game (the entering rank, the matchup-framing rank) is what they finished the PREVIOUS week with.`,
+    `Every "#N TeamName" you see in a game line is the team's ENTERING rank — the rank they carried INTO that matchup. There is only one number per team per game, and it is always the matchup-framing (pre-game) rank.`,
     ``,
-    `In the game lines below, each team appears as "[entering→post-game] Team Score" — e.g. "[#2→#6] Tennessee 35, [UR→#15] South Carolina 38" means Tennessee entered the game at #2 and finished at #6, while South Carolina was unranked entering and rose to #15.`,
+    `Example: "South Carolina Gamecocks 38, #6 Tennessee Volunteers 35" means Tennessee was #6 BEFORE the game (and lost). The #6 is NOT a post-game rank.`,
     ``,
     `Two distinct rank surfaces in the data block:`,
     ``,
-    `  • ENTERING RANK (the [#X] left of the arrow) — the rank a team CARRIED INTO the matchup. Use when describing the matchup itself ("the #2 team faced the unranked South Carolina"). This is the matchup-framing rank.`,
-    `  • POST-GAME RANK (the [#X] right of the arrow) — the rank a team finished with AFTER the game. Use when describing rank movement ("Tennessee fell to #15 after the loss", "South Carolina entered the Top 25 at #15"). This is the after-the-result rank.`,
-    `  • LATEST-AVAILABLE TOP 25 — the most recent poll snapshot we can derive. Labeled either "POST-WEEK ${weekNum} TOP 25" (if Week ${weekNum + 1} games were entered already, so we know the actual post-week poll) or "MOST RECENT TOP 25 SNAPSHOT" (if not, in which case it's stale).`,
+    `  • GAME-LINE RANK (the "#N" next to a team in each game line) — the entering rank that team carried INTO that game. Use this when describing matchups and what each team WAS at kickoff.`,
+    `  • TOP 25 EVOLUTION ROWS — labeled "Entering Week W". Each row is the snapshot of teams that entered that week ranked. Compare consecutive rows to characterize rank movement ("Tennessee held #2 from Week 9 through Week 11" / "South Carolina jumped from unranked into the Top 25").`,
     ``,
-    `WRITING RULES — get these right or the recap is wrong:`,
-    `- Describe matchups using the ENTERING rank ("the #4 team beat the #11 team" — these are the [#X→...] left numbers).`,
-    `- Describe rank movement using the POST-GAME rank ("Tennessee fell from #2 to #15 over three weeks" — these are the [...→#X] right numbers across consecutive weeks).`,
-    `- DO NOT use a team's post-game rank as its matchup rank. Saying "the #15 Tennessee team" when describing the South Carolina loss is wrong — Tennessee was #6 entering the game, not #15. #15 is where they LANDED.`,
-    `- DO NOT use a team's entering rank to describe the result. "Tennessee held its #2 ranking after the loss" is wrong — #2 was their entering rank; the post-game rank is what shifts.`,
-    `- The historical recap output you produced previously had this exact bug: "Tennessee climbed to #2 entering Week 9, fell to #6 the next week, were already at #15 heading into Saturday" — every one of those was off by one week. The correct phrasing: "Tennessee was #2 AFTER Week 9, #6 AFTER Week 10, and #15 AFTER Week 11." Track post-week movement using the AFTER-GAME ([→#X]) numbers in consecutive weeks of the same team's data.`,
-    `- When the latest snapshot is labeled "POST-WEEK ${weekNum}", you may say "Team X is now #N" for the current poll.`,
+    `WRITING RULES:`,
+    `- Describe matchups using the entering rank shown in the game line ("#6 Tennessee fell to South Carolina"). That number IS the entering rank already — no derivation needed.`,
+    `- Describe rank movement by comparing consecutive Evolution rows ("Tennessee entered Week 11 ranked #2; the post-Week-11 poll has them at #6" — pull the post-Week-11 snapshot from the LATEST-AVAILABLE TOP 25 section labeled "POST-WEEK ${weekNum} TOP 25").`,
+    `- When the latest snapshot is labeled "POST-WEEK ${weekNum} TOP 25", you may say "Team X is now #N" for the current poll.`,
     `- When the latest snapshot is labeled "MOST RECENT" (Week ${weekNum + 1} data isn't available), describe the result and infer movement ("after the loss, Tennessee should fall in next week's poll") rather than asserting definitive post-Week ${weekNum} rankings.`,
+    `- DO NOT invent a "post-game rank" for a team in a particular game from the game-line number. The game-line number is ENTERING rank only. The team's post-game rank for week W is the team's entering rank for week W+1, which lives in the next Evolution row (or the LATEST-AVAILABLE snapshot if W is the recap week).`,
     ``,
     `═══════════════════════════════════════════════════════════`,
     `WHAT TO COVER`,

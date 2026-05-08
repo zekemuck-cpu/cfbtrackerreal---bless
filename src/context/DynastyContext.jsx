@@ -1299,7 +1299,13 @@ export function getTeamRankForWeek(dynasty, tidOrAbbr, year, week) {
 export function migrateRanksToRankByWeek(dynasty, options = {}) {
   if (!dynasty || !Array.isArray(dynasty.games)) return dynasty
   const { force = false } = options
-  if (dynasty._rankByWeekMigrated && !force) return dynasty
+  // V3 of the migration: previous V1 only seeded rankByWeek without
+  // rewriting game records, so dynasties that ran V1 still have
+  // game.team1Rank/team2Rank in raw post-game form. V3 (this code)
+  // also rewrites games to entering-rank form. The flag bump
+  // (_rankByWeekMigratedV3) ensures V1-migrated dynasties get the
+  // rewrite step on next load.
+  if (dynasty._rankByWeekMigratedV3 && !force) return dynasty
 
   const games = dynasty.games
   const teamsCopy = { ...(dynasty.teams || {}) }
@@ -1428,6 +1434,7 @@ export function migrateRanksToRankByWeek(dynasty, options = {}) {
     games: rewrittenGames,
     teams: teamsCopy,
     _rankByWeekMigrated: true,
+    _rankByWeekMigratedV3: true,
   }
 }
 
