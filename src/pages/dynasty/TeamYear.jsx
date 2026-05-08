@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo, useLayoutEffect, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamConferenceForDynasty, calculateTeamRecordFromGames, getTeamRanking, getRecruitingCommitments, getPlayerPositionForYear, getPlayerOverallForYear, lookupByTeamYear } from '../../context/DynastyContext'
+import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamConferenceForDynasty, calculateTeamRecordFromGames, getTeamRanking, getRecruitingCommitments, getPlayerPositionForYear, getPlayerOverallForYear, lookupByTeamYear, getPlayersLeaving } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 // Team colors are derived from the viewed team, not the user's team
 import { getContrastTextColor, getContrastRatio } from '../../utils/colorUtils'
@@ -287,6 +287,195 @@ function TabBar({ tabs, activeKey, onSelect, accentColor }) {
         }}
         aria-hidden="true"
       />
+    </div>
+  )
+}
+
+// Roster-tab position filter pill. Atomic groups (QB/WR/TE) render
+// as a plain button; composite groups (OL/DL/LB/DB/K/P/RB) get a
+// hover dropdown that lists each sub-position with its own count so
+// the user can drill into "just the LTs" without leaving this row.
+//
+// Behaviors:
+//   - Clicking the main button selects the WHOLE group.
+//   - Hovering (or focusing) a composite tab opens the dropdown.
+//     Mouseleave on the wrapper closes it after a short hover-grace
+//     window so quickly tracking the cursor down to the menu doesn't
+//     dismiss it.
+//   - Clicking a sub-position selects ONLY that position.
+//   - Mobile (no hover capability): tapping the chevron opens/closes
+//     the menu; tapping the label still selects the whole group.
+//   - Active highlight extends to whichever sub-position is selected.
+function PositionFilterTab({
+  groupKey,
+  label,
+  count,
+  isActive,
+  activeSubPosition,
+  subPositions,        // array of position strings to show in the menu (already filtered to count > 0)
+  bySubPosition,
+  accent,
+  disabled,
+  onSelectGroup,
+  onSelectSub,
+}) {
+  const [open, setOpen] = useState(false)
+  const closeTimerRef = useRef(null)
+  // Tracks "user explicitly dismissed via click on the main tab" so
+  // the dropdown stays closed until the cursor leaves and re-enters
+  // — otherwise the wrapper's onMouseEnter would re-open it the
+  // instant the click finished, which feels broken (you click the
+  // tab to select it, the menu closes for a frame, then snaps back
+  // because you're still hovering).
+  const suppressUntilLeaveRef = useRef(false)
+
+  const hasMenu = Array.isArray(subPositions) && subPositions.length > 0
+
+  // Hover-grace pattern — a small delay before closing so the user
+  // can move the cursor from the trigger to the dropdown without it
+  // disappearing.
+  const scheduleClose = () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    closeTimerRef.current = setTimeout(() => setOpen(false), 120)
+  }
+  const cancelClose = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+  }
+  useEffect(() => () => cancelClose(), [])
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => {
+        if (!hasMenu || disabled) return
+        if (suppressUntilLeaveRef.current) return
+        cancelClose()
+        setOpen(true)
+      }}
+      onMouseLeave={() => {
+        // Cursor left — clear the click-suppression so a subsequent
+        // re-entry will open the menu again, and schedule the close
+        // for any currently-open menu.
+        suppressUntilLeaveRef.current = false
+        if (!hasMenu) return
+        scheduleClose()
+      }}
+    >
+      {/* Tab body — both buttons stretch to the same height so the
+          underline accent sits flush across them. Inside each button
+          content centers vertically so the chevron lines up with the
+          text instead of floating above it (the previous items-baseline
+          flex put the chevron's bottom edge at the text baseline,
+          which read as detached). */}
+      <div className="flex items-stretch">
+        <button
+          onClick={() => {
+            onSelectGroup(groupKey)
+            // Selecting the whole group should close the menu. The
+            // suppression ref keeps it closed even though the cursor
+            // is still over the wrapper (which would otherwise re-fire
+            // mouseenter and re-open it).
+            cancelClose()
+            setOpen(false)
+            suppressUntilLeaveRef.current = true
+          }}
+          disabled={disabled}
+          className="py-2 pl-2.5 pr-1.5 flex items-baseline gap-1.5 transition-all disabled:opacity-40"
+          style={{ borderBottom: `2px solid ${isActive ? accent : 'transparent'}` }}
+        >
+          <span
+            className="text-sm font-semibold uppercase tracking-wider"
+            style={{
+              color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontFamily: 'var(--font-display)',
+            }}
+          >
+            {label}
+          </span>
+          <span
+            className="tabular text-sm font-bold"
+            style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)' }}
+          >
+            {count}
+          </span>
+        </button>
+        {hasMenu && !disabled && (
+          <button
+            type="button"
+            onClick={() => setOpen(o => !o)}
+            aria-label={`Show ${label} sub-positions`}
+            aria-expanded={open}
+            className="pr-2 pl-0 flex items-center justify-center transition-all"
+            style={{ borderBottom: `2px solid ${isActive ? accent : 'transparent'}` }}
+          >
+            <svg
+              className="w-2.5 h-2.5 transition-transform"
+              viewBox="0 0 12 12"
+              fill="none"
+              style={{
+                transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+                color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                opacity: 0.7,
+              }}
+              aria-hidden="true"
+            >
+              <path d="M3 4.5 L6 7.5 L9 4.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {hasMenu && open && (
+        <div
+          className="absolute left-0 top-full mt-1 z-30 min-w-[140px] rounded-md overflow-hidden"
+          style={{
+            backgroundColor: 'var(--surface-2)',
+            border: '1px solid var(--surface-4)',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+          }}
+          onMouseEnter={cancelClose}
+          onMouseLeave={scheduleClose}
+        >
+          {subPositions.map(pos => {
+            const subActive = activeSubPosition === pos
+            const subCount = bySubPosition?.[pos] || 0
+            return (
+              <button
+                key={pos}
+                type="button"
+                onClick={() => {
+                  onSelectSub(pos)
+                  setOpen(false)
+                }}
+                className="w-full flex items-baseline justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-surface-3"
+                style={{
+                  borderLeft: `2px solid ${subActive ? accent : 'transparent'}`,
+                  backgroundColor: subActive ? 'var(--surface-3)' : 'transparent',
+                }}
+              >
+                <span
+                  className="text-xs font-semibold uppercase tracking-wider"
+                  style={{
+                    color: subActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    letterSpacing: '1.2px',
+                  }}
+                >
+                  {pos}
+                </span>
+                <span
+                  className="tabular text-xs font-bold"
+                  style={{ color: subActive ? 'var(--text-primary)' : 'var(--text-tertiary)' }}
+                >
+                  {subCount}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -1448,6 +1637,147 @@ export default function TeamYear() {
     isPlayerOnRoster(p, tid, selectedYear)
   )
 
+  // ─── Departures: players who actually left the team after
+  // `selectedYear`. We require POSITIVE evidence — earlier this just
+  // looked at "on team in Y but not Y+1", which over-reported for the
+  // current year (Y+1 doesn't exist yet, so every roster player looked
+  // like they'd left). Now a player must show one of:
+  //   1. an explicit departure movement for `selectedYear`, OR
+  //   2. an entry in playersLeavingByYear[selectedYear] (user marked
+  //      them in the Players Leaving sheet), OR
+  //   3. they're on a DIFFERENT team in selectedYear + 1 (confirmed
+  //      transfer with new destination).
+  // Recommitters (movementByYear[selectedYear]?.type === 'recommit')
+  // are excluded since they came back to the same team.
+  const departures = useMemo(() => {
+    const nextYear = selectedYear + 1
+    const leavingList = getPlayersLeaving(currentDynasty, tid, selectedYear) || []
+    const leavingByPid = new Map()
+    for (const entry of leavingList) {
+      if (entry?.pid != null) leavingByPid.set(entry.pid, entry)
+    }
+
+    // Read-time reclassifier — same heuristic as playerHeal but applied
+    // here so the view is correct independent of whether the heal has
+    // persisted yet. Generic transfer_out stubs (no destination, no
+    // reason) are upgraded to pro_draft when the player has a draftYear
+    // matching the row, or to graduated when the player's class for the
+    // year was Sr / RS Sr.
+    const isGenericPortalStub = (m) =>
+      m && m.type === 'departure' && m.departure === 'transfer_out'
+      && m.toTid == null && (m.reason == null || m.reason === '')
+
+    const draftRoundFromPlayer = (p) => p.draftRound != null ? p.draftRound : null
+
+    const out = []
+    for (const p of teamPlayers) {
+      const rawMv = p.movementByYear?.[selectedYear] ?? p.movementByYear?.[String(selectedYear)]
+
+      // Recommit — explicitly came back, not a departure.
+      if (rawMv?.type === 'recommit') continue
+
+      // Apply read-time reclassification. This is purely a view-layer
+      // upgrade — the underlying record is untouched.
+      let mv = rawMv
+      if (isGenericPortalStub(rawMv)) {
+        const playerDraftYear = Number(p.draftYear)
+        const yearClass = p.classByYear?.[selectedYear] ?? p.classByYear?.[String(selectedYear)]
+        if (Number.isFinite(playerDraftYear) && playerDraftYear === selectedYear) {
+          mv = {
+            type: 'departure',
+            departure: 'pro_draft',
+            ...(p.draftRound != null ? { draftRound: p.draftRound } : {}),
+          }
+        } else if (yearClass === 'Sr' || yearClass === 'RS Sr') {
+          mv = { type: 'departure', departure: 'graduated' }
+        }
+      }
+
+      // Destination next year (for confirmed transfers).
+      const nextYearTid = p.teamsByYear?.[nextYear] ?? p.teamsByYear?.[String(nextYear)]
+      const nextYearTidNum = nextYearTid != null ? Number(nextYearTid) : null
+      const wentToAnotherTeam = Number.isFinite(nextYearTidNum) && nextYearTidNum !== tid
+
+      // Three signals for "actually left":
+      const hasDepartureMovement = mv?.type === 'departure'
+      const isInLeavingSheet = leavingByPid.has(p.pid)
+      const hasNextYearOnDifferentTeam = wentToAnotherTeam
+
+      if (!hasDepartureMovement && !isInLeavingSheet && !hasNextYearOnDifferentTeam) {
+        continue
+      }
+
+      // Categorize. Movement record wins; then leaving-sheet reason;
+      // then destination-only inference.
+      let category, label, destinationTid = null, reason = null
+      if (mv?.type === 'departure' && mv?.departure === 'pro_draft') {
+        category = 'pro_draft'
+        label = 'NFL Draft'
+        const dr = mv.draftRound != null ? mv.draftRound : draftRoundFromPlayer(p)
+        if (dr) {
+          // Normalize to "Nth Round Pick". draftRound usually arrives as
+          // "6th Round" already (from the draft sheet) but legacy values
+          // like "6" or "6th" can show up too — handle both shapes.
+          const raw = String(dr).trim()
+          const hasRound = /round/i.test(raw)
+          reason = hasRound ? `${raw} Pick` : `${raw} Round Pick`
+        }
+      } else if (mv?.type === 'departure' && mv?.departure === 'graduated') {
+        category = 'graduated'
+        label = 'Graduated'
+      } else if (mv?.type === 'departure' && mv?.departure === 'transfer_out') {
+        category = 'transfer'
+        label = 'Transfer Portal'
+        destinationTid = mv.toTid != null ? Number(mv.toTid) : (wentToAnotherTeam ? nextYearTidNum : null)
+        reason = mv.reason || null
+      } else if (isInLeavingSheet) {
+        // Marked as leaving via the sheet but no movement record yet —
+        // user is mid-flow. Use the sheet's reason.
+        const sheetReason = leavingByPid.get(p.pid)?.reason || ''
+        if (sheetReason === 'Pro Draft') {
+          category = 'pro_draft'
+          label = 'NFL Draft'
+        } else if (sheetReason === 'Graduating') {
+          category = 'graduated'
+          label = 'Graduated'
+        } else {
+          category = 'transfer'
+          label = 'Transfer Portal'
+          destinationTid = wentToAnotherTeam ? nextYearTidNum : null
+          reason = sheetReason || null
+        }
+      } else if (wentToAnotherTeam) {
+        // Confirmed move to another team with no movement tag.
+        category = 'transfer'
+        label = 'Transfer Portal'
+        destinationTid = nextYearTidNum
+      } else {
+        // Should be unreachable given the gating above.
+        continue
+      }
+
+      out.push({ player: p, category, label, destinationTid, reason })
+    }
+
+    // Sort: category first, then OVR (desc) for that year, then name.
+    // Per user — top-rated departures lead each section so the most
+    // notable losses surface immediately.
+    const order = { pro_draft: 0, graduated: 1, transfer: 2, unknown: 3 }
+    const ovrFor = (p) => {
+      const v = p.overallByYear?.[selectedYear] ?? p.overallByYear?.[String(selectedYear)] ?? p.overall
+      const n = Number(v)
+      return Number.isFinite(n) ? n : -1
+    }
+    out.sort((a, b) => {
+      const oc = (order[a.category] ?? 9) - (order[b.category] ?? 9)
+      if (oc !== 0) return oc
+      const od = ovrFor(b.player) - ovrFor(a.player)
+      if (od !== 0) return od
+      return (a.player.name || '').localeCompare(b.player.name || '')
+    })
+    return out
+  }, [teamPlayers, tid, selectedYear, currentDynasty])
+
   // Get team leaders from player.statsByYear (single source of truth)
   const teamLeaders = useMemo(() => {
     // Helper to get stats from player.statsByYear
@@ -2029,13 +2359,25 @@ export default function TeamYear() {
     'K/P': { label: 'K/P', positions: ['K', 'P'] },
   }
 
-  // Filter players by position group — uses the selected season's position
-  // so historical roster views bucket players as of that year.
-  const filteredTeamPlayers = positionFilter === 'all'
-    ? sortedTeamPlayers
-    : sortedTeamPlayers.filter(p => positionGroups[positionFilter]?.positions?.includes(getPlayerPositionForYear(p, selectedYear)))
+  // Filter players by position. Filter value can be:
+  //   - 'all'                — every player
+  //   - a group key (OL, DL) — every position in that group
+  //   - a specific position string (LT, MIKE, CB) — exact match
+  // Lets the per-group hover-dropdown drill into a single position
+  // without needing a parallel state field.
+  const filteredTeamPlayers = (() => {
+    if (positionFilter === 'all') return sortedTeamPlayers
+    const groupPositions = positionGroups[positionFilter]?.positions
+    if (groupPositions) {
+      return sortedTeamPlayers.filter(p => groupPositions.includes(getPlayerPositionForYear(p, selectedYear)))
+    }
+    // Specific position string — direct equality match.
+    return sortedTeamPlayers.filter(p => getPlayerPositionForYear(p, selectedYear) === positionFilter)
+  })()
 
-  // Aggregate roster stats + position breakdown for the scorebug strip
+  // Aggregate roster stats + position breakdown for the scorebug strip.
+  // Adds bySubPosition so the hover dropdown can show counts per actual
+  // position (not just per group).
   const rosterStats = useMemo(() => {
     const ovrs = sortedTeamPlayers.map(p => getPlayerOverallForYear(p, selectedYear) || 0).filter(n => n > 0)
     const avgOvr = ovrs.length ? Math.round(ovrs.reduce((s, n) => s + n, 0) / ovrs.length) : 0
@@ -2043,11 +2385,17 @@ export default function TeamYear() {
     const eightyPlus = ovrs.filter(n => n >= 80).length
     const starPlus = sortedTeamPlayers.filter(p => ['Elite', 'Star'].includes(p.devTrait)).length
     const byPosition = {}
+    const bySubPosition = {}
+    sortedTeamPlayers.forEach(p => {
+      const pos = getPlayerPositionForYear(p, selectedYear)
+      if (!pos) return
+      bySubPosition[pos] = (bySubPosition[pos] || 0) + 1
+    })
     Object.keys(positionGroups).forEach(key => {
       if (key === 'all') return
       byPosition[key] = sortedTeamPlayers.filter(p => positionGroups[key].positions?.includes(getPlayerPositionForYear(p, selectedYear))).length
     })
-    return { avgOvr, topOvr, eightyPlus, starPlus, byPosition }
+    return { avgOvr, topOvr, eightyPlus, starPlus, byPosition, bySubPosition }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortedTeamPlayers, selectedYear])
 
@@ -2692,7 +3040,11 @@ export default function TeamYear() {
         </div>
       </div>
 
-      {/* Tab Navigation — single sliding underline */}
+      {/* Tab Navigation — single sliding underline. Departures tab
+          is hidden when this team has nothing to show for the year
+          (most commonly the current season before the leaving sheet
+          is filled in) so it doesn't clutter the bar with an empty
+          page the user can't usefully navigate to. */}
       <TabBar
         tabs={[
           { key: 'home', label: 'Home' },
@@ -2700,6 +3052,7 @@ export default function TeamYear() {
           { key: 'stats', label: 'Stats' },
           { key: 'roster', label: 'Roster' },
           { key: 'recruiting', label: 'Recruiting' },
+          ...(departures.length > 0 ? [{ key: 'departures', label: 'Departures' }] : []),
           { key: 'history', label: 'History' }
         ]}
         activeKey={activeTab}
@@ -3488,53 +3841,76 @@ export default function TeamYear() {
         <div>
           {/* Filter bar — flows with the page instead of floating in a card */}
           <div className="border-b border-surface-4">
-            {/* Position filter with per-group counts */}
-            <div className="py-2 flex items-center gap-1 flex-wrap">
-              {[
-                { key: 'all', label: 'All' },
-                { key: 'QB', label: 'QB' },
-                { key: 'RB', label: 'RB' },
-                { key: 'WR', label: 'WR' },
-                { key: 'TE', label: 'TE' },
-                { key: 'OL', label: 'OL' },
-                { key: 'DL', label: 'DL' },
-                { key: 'LB', label: 'LB' },
-                { key: 'DB', label: 'DB' },
-                { key: 'K/P', label: 'K/P' },
-              ].map(({ key, label }) => {
-                const count = key === 'all' ? sortedTeamPlayers.length : (rosterStats.byPosition[key] || 0)
-                const isActive = positionFilter === key
-                const dim = count === 0 && key !== 'all'
-                return (
-                  <button
-                    key={key}
-                    onClick={() => setPositionFilter(key)}
-                    disabled={dim}
-                    className="py-2 px-2.5 flex items-baseline gap-1.5 transition-all disabled:opacity-40"
-                    style={{ borderBottom: `2px solid ${isActive ? teamInfo.backgroundColor : 'transparent'}` }}
-                  >
-                    <span
-                      className="text-sm font-semibold uppercase tracking-wider"
-                      style={{
-                        color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                        fontFamily: 'var(--font-display)',
-                      }}
-                    >
-                      {label}
-                    </span>
-                    <span
-                      className="tabular text-sm font-bold"
-                      style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)' }}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                )
-              })}
+            {/* Position filter with per-group counts. Composite groups
+                (RB / OL / DL / LB / DB / K-P) get a hover dropdown that
+                lets the user drill into a single position. The selected
+                filter can be a group key or a specific position string;
+                filteredTeamPlayers handles both shapes.
+                Mobile: pills live in a single horizontally-scrolling
+                row instead of wrapping into a second uneven line. The
+                edit button is pulled OUT of the scroll area and
+                pinned to the right so it never disappears off-screen.
+                Desktop (sm:): pills wrap as before. Scrollbar is
+                visually hidden — the position underline + chevron
+                already telegraph the row is interactive. */}
+            <div className="py-2 flex items-stretch gap-1">
+              <div
+                className="position-filter-row flex-1 min-w-0 flex items-stretch gap-1 overflow-x-auto sm:flex-wrap sm:overflow-visible"
+                style={{
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
+                  WebkitOverflowScrolling: 'touch',
+                }}
+              >
+                {/* WebKit scrollbar can't be hidden via inline style;
+                    Firefox/IE handled by the inline scrollbarWidth /
+                    msOverflowStyle above. */}
+                <style>{`.position-filter-row::-webkit-scrollbar{display:none}`}</style>
+                {[
+                  { key: 'all', label: 'All' },
+                  { key: 'QB', label: 'QB' },
+                  { key: 'RB', label: 'RB' },
+                  { key: 'WR', label: 'WR' },
+                  { key: 'TE', label: 'TE' },
+                  { key: 'OL', label: 'OL' },
+                  { key: 'DL', label: 'DL' },
+                  { key: 'LB', label: 'LB' },
+                  { key: 'DB', label: 'DB' },
+                  { key: 'K/P', label: 'K/P' },
+                ].map(({ key, label }) => {
+                  const count = key === 'all' ? sortedTeamPlayers.length : (rosterStats.byPosition[key] || 0)
+                  const groupPositions = positionGroups[key]?.positions || null
+                  const subPositions = groupPositions && groupPositions.length > 1
+                    ? groupPositions.filter(p => (rosterStats.bySubPosition?.[p] || 0) > 0)
+                    : null
+                  const matchesGroup = positionFilter === key
+                  const matchesSub = !!groupPositions && groupPositions.includes(positionFilter)
+                  const isActive = matchesGroup || matchesSub
+                  const activeSubPosition = matchesSub ? positionFilter : null
+                  const dim = count === 0 && key !== 'all'
+                  return (
+                    <div key={key} className="flex-shrink-0">
+                      <PositionFilterTab
+                        groupKey={key}
+                        label={label}
+                        count={count}
+                        isActive={isActive}
+                        activeSubPosition={activeSubPosition}
+                        subPositions={subPositions}
+                        bySubPosition={rosterStats.bySubPosition}
+                        accent={teamInfo.backgroundColor}
+                        disabled={dim}
+                        onSelectGroup={setPositionFilter}
+                        onSelectSub={setPositionFilter}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
               {!isViewOnly && (
                 <button
                   onClick={() => setShowRosterModal(true)}
-                  className="ml-auto p-1.5 sm:p-2 rounded-lg transition-colors text-txt-secondary hover:text-txt-primary hover:bg-surface-3"
+                  className="flex-shrink-0 self-center p-1.5 sm:p-2 rounded-lg transition-colors text-txt-secondary hover:text-txt-primary hover:bg-surface-3"
                   title="Edit Roster"
                 >
                   <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3800,8 +4176,11 @@ export default function TeamYear() {
       {/* STATS TAB */}
       {activeTab === 'stats' && (
         <div className="space-y-4">
-          {/* Player/Team Sub-tabs + Edit Buttons */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          {/* Sub-tabs row + edit buttons share a single row at every
+              breakpoint so the edit controls don't sit alone on a band
+              of mobile vertical space. Mobile uses compact button labels
+              (GP / Detailed); desktop spells them out. */}
+          <div className="flex items-center justify-between gap-2">
             <div className="flex border-b border-surface-4">
               {[
                 { key: 'player', label: 'Player' },
@@ -3828,28 +4207,35 @@ export default function TeamYear() {
                 )
               })}
             </div>
-            {/* Edit Buttons - only show for non-view-only */}
             {!isViewOnly && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 <button
                   onClick={() => setShowStatsEntryModal(true)}
-                  className="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all press"
+                  className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-semibold transition-colors"
                   style={{
                     backgroundColor: teamInfo.backgroundColor,
                     color: teamBgText
                   }}
                 >
-                  Edit GP/Snaps
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  <span className="sm:hidden">GP</span>
+                  <span className="hidden sm:inline">Edit GP/Snaps</span>
                 </button>
                 <button
                   onClick={() => setShowDetailedStatsModal(true)}
-                  className="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all press"
+                  className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-semibold transition-colors"
                   style={{
                     backgroundColor: teamInfo.backgroundColor,
                     color: teamBgText
                   }}
                 >
-                  Edit Detailed Stats
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  <span className="sm:hidden">Detailed</span>
+                  <span className="hidden sm:inline">Edit Detailed Stats</span>
                 </button>
               </div>
             )}
@@ -4371,32 +4757,46 @@ export default function TeamYear() {
 
       {/* SCHEDULE TAB */}
       {activeTab === 'schedule' && (
-        <div className="space-y-4">
-          {/* Schedule action bar — edit button for this team's schedule.
-              Available on any team (not just the user's), so a coach
-              can populate Florida's schedule from Florida's page. */}
-          {!isViewOnly && (
-            <div className="flex items-center justify-end gap-3 flex-wrap px-1">
+        <div className="space-y-3">
+          {/* Empty-state pattern matches the recruiting tab: eyebrow +
+              short message + entry-point button, all inside one card.
+              No standalone "Schedule" eyebrow row when games exist —
+              the edit pencil for populated schedules is tucked into
+              the upper-right of the games card below. */}
+          {teamYearGames.length === 0 && !isViewOnly && (
+            <div className="card p-8 text-center">
+              <div className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '2px' }}>NO SCHEDULE</div>
+              <p className="text-sm text-txt-secondary mb-4">No games have been recorded for {teamAbbr} · {selectedYear}.</p>
               <button
                 type="button"
                 onClick={() => setShowScheduleModal(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-sm label-sm transition-colors hover:opacity-90"
                 style={{
                   backgroundColor: teamInfo.backgroundColor,
-                  color: teamInfo.textColor,
+                  color: teamBgText,
+                  letterSpacing: '1.5px'
                 }}
               >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                {teamYearGames.length > 0 ? 'Edit Schedule' : 'Enter Schedule'}
+                ENTER SCHEDULE
               </button>
             </div>
           )}
 
           {/* Schedule - shows games played by this team this year */}
           {teamYearGames.length > 0 && (
-        <div className="card-elevated overflow-hidden">
+        <div className="card-elevated overflow-hidden relative">
+          {!isViewOnly && (
+            <button
+              type="button"
+              onClick={() => setShowScheduleModal(true)}
+              className="absolute top-2.5 right-2.5 z-10 p-1.5 rounded-md transition-colors text-txt-tertiary hover:text-txt-primary hover:bg-surface-3"
+              title="Edit Schedule"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+          )}
           <div>
             {/* Column headers for stat leaders - show at md breakpoint */}
             <div className="hidden md:flex items-center gap-3 py-3 px-4 text-xs font-semibold uppercase tracking-wider" style={{ borderBottom: `1px solid ${accentColor}15`, color: accentColorMuted }}>
@@ -5298,6 +5698,358 @@ export default function TeamYear() {
                 })}
               </div>
             )}
+          </div>
+        )
+      })()}
+
+      {/* Departures Tab — broadcast scorebug × sports almanac styling
+          to match the recruiting tab pattern. Hero card category tiles
+          are clickable (auto-scroll to that section). Each row pairs
+          a player photo + identity with their career line at this team
+          and a colored destination chip painted in the destination
+          team's colors (same chip pattern as the Recruiting FROM-chip). */}
+      {activeTab === 'departures' && (() => {
+        const viewedPrimary = teamInfo.backgroundColor
+
+        const groups = [
+          { key: 'pro_draft', label: 'NFL Draft', short: 'Draft' },
+          { key: 'graduated', label: 'Graduated', short: 'Grads' },
+          { key: 'transfer',  label: 'Transfer Portal', short: 'Portal' },
+          { key: 'unknown',   label: 'Other', short: 'Other' },
+        ]
+        const byCategory = {}
+        for (const d of departures) (byCategory[d.category] ||= []).push(d)
+
+        const counts = Object.fromEntries(groups.map(g => [g.key, byCategory[g.key]?.length || 0]))
+
+        // Smooth-scroll to the section anchor when a hero tile is clicked.
+        // anchorId() makes the deep-link target stable so the user can
+        // also share an URL ending in #departures-pro_draft etc.
+        const anchorId = (key) => `departures-${key}`
+        const scrollToCategory = (key) => {
+          if (!counts[key]) return
+          const el = document.getElementById(anchorId(key))
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }
+        }
+
+        // Compute career stats AT THIS TEAM only — sum the player's
+        // statsByYear for every year they spent on `tid`. Position
+        // dictates the line we render: QB shows passing, RB shows
+        // rushing, WR/TE shows receiving, defenders show tackles +
+        // sacks + INTs, K shows FG, P shows punts. Returns a short
+        // string of 2-4 stat fragments separated by a middle dot.
+        const teamCareerLine = (player) => {
+          const stats = player.statsByYear || {}
+          const teamYears = []
+          for (const yr of Object.keys(stats)) {
+            const yNum = Number(yr)
+            const onTeam = player.teamsByYear?.[yNum] ?? player.teamsByYear?.[yr]
+            if (Number(onTeam) === Number(tid)) teamYears.push(yr)
+          }
+          if (teamYears.length === 0) return null
+          const totals = { pass: { yds: 0, td: 0, int: 0 }, rush: { yds: 0, td: 0, car: 0 }, rec: { yds: 0, td: 0, rec: 0 }, def: { tkl: 0, sacks: 0, int: 0 }, kick: { fgm: 0, fga: 0 }, punt: { punts: 0, yds: 0 } }
+          for (const yr of teamYears) {
+            const s = stats[yr] || {}
+            const p = s.passing || {}, r = s.rushing || {}, w = s.receiving || {}, d = s.defense || s.defensive || {}, k = s.kicking || {}, pu = s.punting || {}
+            totals.pass.yds += Number(p.yds) || 0; totals.pass.td += Number(p.td) || 0; totals.pass.int += Number(p.int) || 0
+            totals.rush.yds += Number(r.yds) || 0; totals.rush.td += Number(r.td) || 0; totals.rush.car += Number(r.car) || 0
+            totals.rec.yds  += Number(w.yds) || 0; totals.rec.td  += Number(w.td) || 0; totals.rec.rec += Number(w.rec) || 0
+            // tkl is solo + ast or stored combined as tkl
+            const tkl = Number(d.tkl) || (Number(d.solo) || Number(d.soloTkl) || 0) + (Number(d.ast) || Number(d.astTkl) || 0)
+            totals.def.tkl += tkl
+            totals.def.sacks += Number(d.sacks) || 0
+            totals.def.int += Number(d.int) || Number(d.ints) || 0
+            totals.kick.fgm += Number(k.fgm) || 0; totals.kick.fga += Number(k.fga) || 0
+            totals.punt.punts += Number(pu.punts) || 0; totals.punt.yds += Number(pu.yds) || 0
+          }
+          const fmtNum = (n) => n >= 1000 ? n.toLocaleString() : String(n)
+          const pos = (player.position || '').toUpperCase()
+          const offGroup = ['QB', 'RB', 'HB', 'FB', 'WR', 'TE'].includes(pos)
+          const defGroup = ['DT', 'DE', 'DL', 'EDGE', 'LEDG', 'REDG', 'OLB', 'MLB', 'LB', 'WILL', 'MIKE', 'SAM', 'CB', 'S', 'FS', 'SS', 'DB'].includes(pos)
+          const isQB = pos === 'QB'
+          const isRB = pos === 'RB' || pos === 'HB' || pos === 'FB'
+          const isWR = pos === 'WR' || pos === 'TE'
+          const isK = pos === 'K'
+          const isP = pos === 'P'
+          const parts = []
+          if (isQB && totals.pass.yds > 0) {
+            parts.push(`${fmtNum(totals.pass.yds)} PASS YDS`)
+            if (totals.pass.td) parts.push(`${totals.pass.td} TD`)
+            if (totals.pass.int) parts.push(`${totals.pass.int} INT`)
+          } else if (isRB && totals.rush.yds > 0) {
+            parts.push(`${fmtNum(totals.rush.yds)} RUSH YDS`)
+            if (totals.rush.td) parts.push(`${totals.rush.td} TD`)
+          } else if (isWR && (totals.rec.rec > 0 || totals.rec.yds > 0)) {
+            if (totals.rec.rec) parts.push(`${totals.rec.rec} REC`)
+            parts.push(`${fmtNum(totals.rec.yds)} YDS`)
+            if (totals.rec.td) parts.push(`${totals.rec.td} TD`)
+          } else if (defGroup && totals.def.tkl + totals.def.sacks + totals.def.int > 0) {
+            if (totals.def.tkl) parts.push(`${totals.def.tkl} TKL`)
+            if (totals.def.sacks) parts.push(`${totals.def.sacks} SACK`)
+            if (totals.def.int) parts.push(`${totals.def.int} INT`)
+          } else if (isK && totals.kick.fga > 0) {
+            parts.push(`${totals.kick.fgm}/${totals.kick.fga} FG`)
+          } else if (isP && totals.punt.punts > 0) {
+            const avg = totals.punt.punts > 0 ? (totals.punt.yds / totals.punt.punts).toFixed(1) : '0'
+            parts.push(`${totals.punt.punts} PUNTS`)
+            parts.push(`${avg} AVG`)
+          } else if (offGroup) {
+            // OL or other offense w/ no passing/rushing/receiving — skip
+          }
+          return parts.length > 0 ? parts.join(' · ') : null
+        }
+
+        if (departures.length === 0) {
+          return (
+            <div className="space-y-4">
+              <div className="card p-8 text-center">
+                <div className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '2px' }}>NO DEPARTURES</div>
+                <p className="text-sm text-txt-secondary">
+                  Players who left {teamAbbr} after the {selectedYear} season will appear here.
+                </p>
+              </div>
+            </div>
+          )
+        }
+
+        return (
+          <div className="space-y-4">
+            {/* HERO CARD — single row: total tile on the left, 4-up
+                breakdown on the right. Previously the total tile sat
+                alone on a padded row above the breakdown which wasted
+                a lot of horizontal space. Each breakdown cell is a
+                clickable scroll target for its section. */}
+            <div className="card overflow-hidden">
+              <div className="h-[3px] w-full" style={{ backgroundColor: viewedPrimary }} aria-hidden="true" />
+              <div className="flex flex-col sm:flex-row sm:items-stretch">
+                <div
+                  className="flex items-center gap-3 sm:gap-4 px-4 py-3 sm:px-5 flex-shrink-0"
+                  style={{ backgroundColor: 'var(--surface-3)', borderLeft: `3px solid ${viewedPrimary}` }}
+                >
+                  <div className="text-4xl sm:text-5xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                    {departures.length}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Departures</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 flex-1 border-t sm:border-t-0 sm:border-l border-surface-4">
+                  {groups.map(group => {
+                    const count = counts[group.key]
+                    const interactive = count > 0
+                    return (
+                      <button
+                        key={group.key}
+                        type="button"
+                        onClick={() => scrollToCategory(group.key)}
+                        disabled={!interactive}
+                        className={`px-2 py-3 text-center border-r border-surface-4 last:border-r-0 transition-colors ${interactive ? 'hover:bg-surface-3 cursor-pointer' : 'cursor-default'}`}
+                        aria-label={interactive ? `Scroll to ${group.label}` : undefined}
+                      >
+                        <div className="text-2xl font-black tabular leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif", color: interactive ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                          {count}
+                        </div>
+                        <div className="mt-1">
+                          <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{group.short}</span>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* GROUPED TABLE — one card per non-empty category */}
+            {groups.map(group => {
+              const items = byCategory[group.key]
+              if (!items || items.length === 0) return null
+              return (
+                <div
+                  key={group.key}
+                  id={anchorId(group.key)}
+                  className="card overflow-hidden scroll-mt-20"
+                >
+                  {/* Section header — neutral surface band, no accent
+                      colors. Category is conveyed by the label text
+                      alone, matching the rest of the site's
+                      monochrome aesthetic. */}
+                  <div
+                    className="flex items-baseline gap-3 px-4 py-2.5 border-b border-surface-4"
+                    style={{ backgroundColor: 'var(--surface-2)' }}
+                  >
+                    <h3 className="label-sm text-txt-primary" style={{ letterSpacing: '1.5px', fontWeight: 700 }}>{group.label}</h3>
+                    <span className="label-xs text-txt-tertiary tabular-nums" style={{ letterSpacing: '1.5px' }}>{items.length}</span>
+                  </div>
+
+                  {/* Column header — desktop only.
+                      cols: photo | Player | Pos | OVR | Career | Outcome
+                      OVR widened + larger column gap so the number
+                      doesn't crowd the career line on its right. */}
+                  <div className="hidden sm:grid grid-cols-[44px_minmax(140px,1.5fr)_56px_64px_minmax(180px,2fr)_minmax(140px,auto)] gap-x-5 items-center px-4 py-2 border-b border-surface-4 bg-surface-2/50">
+                    <span aria-hidden="true" />
+                    <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Player</span>
+                    <span className="label-xs text-txt-tertiary text-center" style={{ letterSpacing: '1.5px' }}>Pos</span>
+                    <span className="label-xs text-txt-tertiary text-right" style={{ letterSpacing: '1.5px' }}>OVR</span>
+                    <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{teamAbbr} Career</span>
+                    <span className="label-xs text-txt-tertiary text-right" style={{ letterSpacing: '1.5px' }}>
+                      {group.key === 'transfer' ? 'Destination' : group.key === 'pro_draft' ? 'Round' : 'Reason'}
+                    </span>
+                  </div>
+
+                  {items.map(({ player, label, destinationTid, reason }) => {
+                    const cls = player.classByYear?.[selectedYear] ?? player.classByYear?.[String(selectedYear)] ?? player.year
+                    const ovr = player.overallByYear?.[selectedYear] ?? player.overallByYear?.[String(selectedYear)] ?? player.overall
+                    const career = teamCareerLine(player)
+                    const destTeam = destinationTid != null
+                      ? (currentDynasty.teams?.[destinationTid] || currentDynasty.teams?.[String(destinationTid)])
+                      : null
+                    const destPrimary = destTeam?.primaryColor || destTeam?.backgroundColor
+                    const destSecondary = destTeam?.secondaryColor || destTeam?.textColor || '#ffffff'
+                    const destLogo = destTeam?.logo || null
+                    const destAbbr = destTeam?.abbr || null
+                    const destName = destTeam?.name ? stripMascotFromName(destTeam.name) || destTeam.name : null
+                    const themed = !!destPrimary
+
+                    // The right-most column carries: a colored destination
+                    // chip for transfers, a draft-round chip for drafts,
+                    // a plain reason string for graduates / other.
+                    let outcomeContent
+                    if (destinationTid != null) {
+                      outcomeContent = (
+                        <span
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase max-w-full"
+                          style={{
+                            letterSpacing: '1.5px',
+                            color: themed ? destSecondary : 'var(--text-secondary)',
+                            backgroundColor: themed ? destPrimary : 'transparent',
+                            border: themed ? `1px solid ${destPrimary}` : '1px solid var(--surface-5)',
+                          }}
+                        >
+                          <span
+                            className="flex-shrink-0 opacity-70"
+                            style={{ color: themed ? destSecondary : 'var(--text-tertiary)' }}
+                          >
+                            TO
+                          </span>
+                          {destLogo && (
+                            <img
+                              src={destLogo}
+                              alt=""
+                              className="w-3.5 h-3.5 object-contain flex-shrink-0 rounded-sm"
+                              style={themed ? { backgroundColor: destSecondary, padding: '1px' } : undefined}
+                            />
+                          )}
+                          <span className="truncate" style={{ color: themed ? destSecondary : undefined }}>
+                            {destName || destAbbr || '—'}
+                          </span>
+                        </span>
+                      )
+                    } else if (group.key === 'pro_draft' && reason) {
+                      outcomeContent = (
+                        <span
+                          className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest"
+                          style={{
+                            letterSpacing: '1.5px',
+                            color: 'var(--text-secondary)',
+                            border: '1px solid var(--surface-5)',
+                          }}
+                        >
+                          {reason}
+                        </span>
+                      )
+                    } else if (reason) {
+                      outcomeContent = (
+                        <span className="text-xs font-semibold text-txt-secondary truncate">{reason}</span>
+                      )
+                    } else {
+                      outcomeContent = (
+                        <span className="label-xs uppercase tabular text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{label}</span>
+                      )
+                    }
+
+                    return (
+                      <Link
+                        key={player.pid}
+                        to={`${pathPrefix}/player/${player.pid}`}
+                        className="grid grid-cols-[40px_1fr] sm:grid-cols-[44px_minmax(140px,1.5fr)_56px_64px_minmax(180px,2fr)_minmax(140px,auto)] gap-x-3 sm:gap-x-5 items-center px-4 py-2.5 border-b border-surface-4 last:border-b-0 hover:bg-surface-3 transition-colors"
+                      >
+                        {/* Photo */}
+                        {player.pictureUrl ? (
+                          <img
+                            src={player.pictureUrl}
+                            alt={player.name}
+                            className="w-9 h-9 sm:w-10 sm:h-10 object-cover rounded-md flex-shrink-0"
+                            style={{ border: '1px solid var(--surface-4)' }}
+                          />
+                        ) : (
+                          <div
+                            className="w-9 h-9 sm:w-10 sm:h-10 rounded-md flex items-center justify-center flex-shrink-0"
+                            style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
+                          >
+                            <span className="text-[10px] font-black uppercase text-txt-secondary tabular-nums" style={{ letterSpacing: '0.05em' }}>
+                              {(player.position || 'ATH').slice(0, 3)}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Name + class. On mobile we cram pos/ovr/career
+                            into the second cell as a compact stack. */}
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-txt-primary truncate">{player.name}</div>
+                          <div className="flex items-center gap-1.5 mt-0.5 sm:hidden">
+                            {cls && (
+                              <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1px' }}>{String(cls).toUpperCase()}</span>
+                            )}
+                            <span className="text-[11px] font-bold text-txt-secondary uppercase tracking-wider">{player.position || '—'}</span>
+                            {ovr != null && (
+                              <>
+                                <span className="text-txt-muted">·</span>
+                                <span className="text-[11px] font-black tabular-nums text-txt-secondary" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>{ovr}</span>
+                              </>
+                            )}
+                          </div>
+                          {/* Desktop class subline */}
+                          {cls && (
+                            <div className="hidden sm:block label-xs text-txt-tertiary mt-0.5" style={{ letterSpacing: '1px' }}>
+                              {String(cls).toUpperCase()}
+                            </div>
+                          )}
+                          {/* Mobile career line + outcome stacked below */}
+                          {(career || outcomeContent) && (
+                            <div className="sm:hidden flex flex-col gap-1 mt-1.5">
+                              {career && (
+                                <span className="text-[11px] font-semibold tabular text-txt-secondary" style={{ letterSpacing: '0.5px' }}>{career}</span>
+                              )}
+                              <div>{outcomeContent}</div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Desktop: Pos / OVR / Career / Outcome columns */}
+                        <span className="hidden sm:block text-xs font-bold text-txt-secondary uppercase tracking-wider text-center">
+                          {player.position || '—'}
+                        </span>
+                        <span className="hidden sm:block text-right tabular-nums">
+                          {ovr != null ? (
+                            <span className="text-base font-black text-txt-primary" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>{ovr}</span>
+                          ) : (
+                            <span className="text-txt-muted">—</span>
+                          )}
+                        </span>
+                        <span className="hidden sm:block text-[11px] font-semibold tabular text-txt-secondary truncate" style={{ letterSpacing: '0.5px' }}>
+                          {career || <span className="text-txt-muted">—</span>}
+                        </span>
+                        <div className="hidden sm:flex items-center justify-end min-w-0">
+                          {outcomeContent}
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )
+            })}
           </div>
         )
       })()}

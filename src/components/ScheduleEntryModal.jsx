@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import AIPromptModal from './AIPromptModal'
-import SheetToolbar, { SheetErrorBanner } from './SheetToolbar'
+import SheetToolbar from './SheetToolbar'
+import AuthErrorModal from './AuthErrorModal'
+import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
 import {
   createScheduleSheet,
   readScheduleFromScheduleSheet,
@@ -30,21 +32,19 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
   const targetTeamAbbr = teamTid
     ? getAbbrFromTid(currentDynasty?.teams, teamTid)
     : (currentDynasty?.teamName || '')
-  const { user, signOut, refreshSession } = useAuth()
+  const { user } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
-  const [refreshing, setRefreshing] = useState(false)
+  const auth = useAuthErrorHandler()
   const [syncing, setSyncing] = useState(false)
   const [deletingSheet, setDeletingSheet] = useState(false)
   const [creatingSheet, setCreatingSheet] = useState(false)
   const [sheetId, setSheetId] = useState(null)
   const [showDeletedNote, setShowDeletedNote] = useState(false)
-  const [retryCount, setRetryCount] = useState(0)
   const [useEmbedded, setUseEmbedded] = useState(() => {
     // Load preference from localStorage
     return localStorage.getItem('sheetEmbedPreference') === 'true'
   })
-  const [showSessionError, setShowSessionError] = useState(false)
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [showAIPrompt, setShowAIPrompt] = useState(false)
@@ -263,7 +263,7 @@ FINAL CHECK before you send the answer
     }
 
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, retryCount, showDeletedNote, teamTid, currentYear, displayTeamName, targetTeamAbbr])
+  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote, teamTid, currentYear, displayTeamName, targetTeamAbbr])
 
   // Reset state when modal closes
   useEffect(() => {
@@ -437,12 +437,10 @@ FINAL CHECK before you send the answer
 
       // Reset local state to trigger new sheet creation
       setSheetId(null)
-      setRetryCount(c => c + 1)
+      auth.retry()
     } catch (error) {
       console.error('Failed to regenerate sheet:', error)
-      if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
-        setShowSessionError(true)
-      } else {
+      if (!auth.handleError(error)) {
         toast.error('Failed to regenerate sheet. Please try again.')
       }
     } finally {
@@ -576,25 +574,6 @@ FINAL CHECK before you send the answer
               </button>
             </div>
 
-            {/* Session Error Banner */}
-            {showSessionError && (
-              <SheetErrorBanner
-                teamColors={teamColors}
-                onReload={() => {
-                  setShowSessionError(false)
-                  setRetryCount(c => c + 1)
-                }}
-                onOpenNewTab={() => window.open(`https://docs.google.com/spreadsheets/d/${sheetId}/edit`, '_blank')}
-                onRefreshSession={async () => {
-                  const success = await refreshSession()
-                  if (success) {
-                    setShowSessionError(false)
-                    setRetryCount(c => c + 1)
-                  }
-                }}
-              />
-            )}
-
             {useEmbedded ? (
               /* Embedded iframe view with toolbar */
               <>
@@ -604,7 +583,6 @@ FINAL CHECK before you send the answer
                     embedUrl={embedUrl}
                     teamColors={teamColors}
                     title="Schedule Google Sheet"
-                    onSessionError={() => setShowSessionError(true)}
                   />
                 </div>
 
@@ -717,36 +695,12 @@ FINAL CHECK before you send the answer
             )}
           </div>
         ) : (
+          // Fallback placeholder for the brief moment between modal
+          // open and initSheet completing — or when initSheet failed
+          // and AuthErrorModal is up to handle the recovery action.
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-lg mb-4 text-txt-primary">
-                Your session has expired. Click below to refresh.
-              </p>
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={async () => {
-                    setRefreshing(true)
-                    try {
-                      const success = await refreshSession()
-                      if (success) {
-                        setRetryCount(c => c + 1)
-                      }
-                    } catch (e) {
-                      console.error('Refresh failed:', e)
-                    }
-                    setRefreshing(false)
-                  }}
-                  disabled={refreshing}
-                  className="px-4 py-2 rounded font-semibold transition-colors"
-                  style={{
-                    backgroundColor: 'var(--text-primary)',
-                    color: 'var(--surface-1)',
-                    opacity: refreshing ? 0.7 : 1
-                  }}
-                >
-                  {refreshing ? 'Refreshing...' : 'Refresh Session'}
-                </button>
-              </div>
+            <div className="text-center text-sm text-txt-secondary">
+              {auth.showAuthError ? 'Refresh your session to continue.' : 'Setting up sheet…'}
             </div>
           </div>
         )}
@@ -767,6 +721,13 @@ FINAL CHECK before you send the answer
         primaryColor={teamColors?.primary}
         onClose={handleCancelConfirm}
         onConfirm={handleConfirmSave}
+      />
+
+      <AuthErrorModal
+        isOpen={auth.showAuthError}
+        onClose={auth.closeAuthError}
+        onRefresh={auth.retry}
+        teamColors={teamColors}
       />
     </div>,
     document.body,

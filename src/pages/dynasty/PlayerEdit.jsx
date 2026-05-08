@@ -11,6 +11,50 @@ import ImageUpload from '../../components/ImageUpload'
 import PlayerCards from '../../components/PlayerCards'
 import { getPlayerCards } from '../../utils/playerCards'
 import { uploadImage } from '../../utils/imageUpload'
+import { healPlayer, PLAYER_HEAL_VERSION } from '../../utils/playerHeal'
+
+// Year input with a local draft state. Controlled <input type="number">
+// + an onChange that gates on `value > 1900 && < 2100` would reject
+// every intermediate keystroke during typing — so a user trying to
+// edit a year (or replace "2027" with "2030") couldn't type the first
+// digit because parseInt("2") fails the gate, the state never updates,
+// the controlled value snaps back, and the keystroke disappears. Hold
+// the in-progress value in local state, commit on blur or Enter, sync
+// back when the underlying year changes (e.g. addYear stamped a new
+// row).
+function YearInput({ year, onCommit, className }) {
+  const [draft, setDraft] = useState(String(year))
+  const [focused, setFocused] = useState(false)
+  // Re-sync only when the underlying year changes AND the input isn't
+  // being actively edited; otherwise typing in the middle of a value
+  // would get clobbered by the prop sync.
+  useEffect(() => {
+    if (!focused) setDraft(String(year))
+  }, [year, focused])
+  const commit = () => {
+    const n = parseInt(draft, 10)
+    if (Number.isFinite(n) && n > 1900 && n < 2100 && n !== year) {
+      onCommit(year, n)
+    } else {
+      // Bad value — revert.
+      setDraft(String(year))
+    }
+  }
+  return (
+    <input
+      type="number"
+      value={draft}
+      onFocus={() => setFocused(true)}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => { setFocused(false); commit() }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') { e.target.blur() }
+        else if (e.key === 'Escape') { setDraft(String(year)); e.target.blur() }
+      }}
+      className={className}
+    />
+  )
+}
 
 // Helper to check if a stint reason indicates a transfer
 const isTransferReason = (reason) => ['portal_in', 'transfer', 'juco_in'].includes(reason)
@@ -311,13 +355,21 @@ export default function PlayerEdit() {
     return currentDynasty
   }, [dynastyId, currentDynasty, dynasties])
 
-  // Find player - try both string and number pid matching
+  // Find player - try both string and number pid matching, then run
+  // the same in-memory heal the player profile uses so the editor
+  // sees canonical shapes (sanitized by-year maps, normalized
+  // accolades, healed movement) regardless of whether the profile has
+  // been visited recently. Single source of truth — both pages walk
+  // identical heal logic and converge to the same record.
   const player = useMemo(() => {
     if (!dynasty?.players) return null
-    // Try exact match first, then try parseInt for numeric pids
-    return dynasty.players.find(p => p.pid === pid) ||
-           dynasty.players.find(p => p.pid === parseInt(pid))
-  }, [dynasty?.players, pid])
+    const raw = dynasty.players.find(p => p.pid === pid) ||
+                dynasty.players.find(p => p.pid === parseInt(pid))
+    if (!raw) return null
+    if (raw._v2HealVersion === PLAYER_HEAL_VERSION) return raw
+    const { player: healed, changed } = healPlayer(raw, { currentYear: dynasty?.currentYear })
+    return changed ? healed : raw
+  }, [dynasty?.players, pid, dynasty?.currentYear])
 
   // Get player's team for colors (not dynasty's current team)
   // Use the most recent year in teamsByYear to correctly reflect transfers
@@ -511,7 +563,13 @@ export default function PlayerEdit() {
         return acc
       }, {}),
 
-      // Awards
+      // Awards. The player heal (utils/playerHeal.js) normalizes
+      // award names to canonical keys and dedupes by (year + key) on
+      // every profile mount, persisting once when the record needs
+      // cleanup — so by the time we reach this page the accolades
+      // are already in the canonical shape PlayerEdit's dropdown
+      // expects. The save path filters empty rows the same way the
+      // heal does, so storage stays consistent end to end.
       accolades: player.accolades || [],
 
       // Stats for current year (converted from nested to flat)
@@ -789,8 +847,18 @@ export default function PlayerEdit() {
       const existingYearStats = player.statsByYear?.[statsYear] || {}
       const emittedCategories = flatStatsToNested(formData.stats, existingYearStats)
       const mergedCategories = {}
+      // gamesPlayed and snapsPlayed are top-level NUMBER fields on the
+      // year stats record, not category objects. Spreading a number
+      // into an object via `{ ...existing, ...fields }` evaluates to
+      // `{}` (the empty-object React #31 trigger that crashed the
+      // CJ Carr profile). Pass numeric leaves through verbatim and
+      // only do the field-level merge for actual category objects.
       for (const [cat, fields] of Object.entries(emittedCategories)) {
-        mergedCategories[cat] = { ...(existingYearStats[cat] || {}), ...fields }
+        if (fields == null || typeof fields !== 'object' || Array.isArray(fields)) {
+          mergedCategories[cat] = fields
+        } else {
+          mergedCategories[cat] = { ...(existingYearStats[cat] || {}), ...fields }
+        }
       }
       updatedPlayer.statsByYear = {
         ...player.statsByYear,
@@ -1174,8 +1242,30 @@ export default function PlayerEdit() {
                       Class
                     </label>
                     <select
-                      value={formData.year || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, year: e.target.value }))}
+                      value={(() => {
+                        // Read from the canonical store (classByYear)
+                        // for the current year, with the legacy
+                        // top-level as fallback. Same pattern as the
+                        // dev-trait dropdown so syncDerivedFieldsFromV2's
+                        // "by-year wins" derivation can't clobber the
+                        // user's pick.
+                        const yr = dynasty?.currentYear
+                        const fromMap = yr != null
+                          ? (formData.classByYear?.[yr] ?? formData.classByYear?.[String(yr)])
+                          : null
+                        return fromMap || formData.year || ''
+                      })()}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        const yr = dynasty?.currentYear
+                        setFormData(prev => ({
+                          ...prev,
+                          year: value,
+                          classByYear: yr != null
+                            ? { ...(prev.classByYear || {}), [yr]: value }
+                            : (prev.classByYear || {}),
+                        }))
+                      }}
                       className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary bg-surface-2"
                     >
                       <option value="">--</option>
@@ -1239,8 +1329,35 @@ export default function PlayerEdit() {
                       Dev Trait
                     </label>
                     <select
-                      value={formData.devTrait || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, devTrait: e.target.value }))}
+                      value={(() => {
+                        // Display the current-year value from devTraitByYear
+                        // so the dropdown stays in sync with the canonical
+                        // store. Falls back to the legacy top-level value
+                        // for unmigrated records.
+                        const yr = dynasty?.currentYear
+                        const fromMap = yr != null
+                          ? (formData.devTraitByYear?.[yr] ?? formData.devTraitByYear?.[String(yr)])
+                          : null
+                        return fromMap || formData.devTrait || ''
+                      })()}
+                      onChange={(e) => {
+                        // Stamp BOTH the by-year map (canonical) and the
+                        // top-level mirror so the change survives
+                        // syncDerivedFieldsFromV2's "by-year wins"
+                        // re-derivation. Previously only the top-level
+                        // was updated and the sync clobbered it back to
+                        // the old by-year value on save — that's why
+                        // dev-trait edits appeared to revert.
+                        const value = e.target.value
+                        const yr = dynasty?.currentYear
+                        setFormData(prev => ({
+                          ...prev,
+                          devTrait: value,
+                          devTraitByYear: yr != null
+                            ? { ...(prev.devTraitByYear || {}), [yr]: value }
+                            : (prev.devTraitByYear || {}),
+                        }))
+                      }}
                       className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary bg-surface-2"
                     >
                       <option value="">Select trait</option>
@@ -1651,8 +1768,32 @@ export default function PlayerEdit() {
                   )
                 }
 
-                // Movement after a season
-                const movement = formData.movementByYear?.[year] || formData.movementByYear?.[String(year)] || {}
+                // Movement after a season. Apply the same read-time
+                // reclassification we do on the team Departures view:
+                // a generic { type:'departure', departure:'transfer_out',
+                // toTid:null, reason:null } stub on a year that the
+                // player was actually drafted in (player.draftYear
+                // matches) is a leftover from the legacy leaving-sheet
+                // clobber bug. Surface as the right outcome here so
+                // the dropdown shows "Declared for Draft" / "Graduated"
+                // even before the heal has persisted the canonical
+                // shape back to storage.
+                const rawMovement = formData.movementByYear?.[year] || formData.movementByYear?.[String(year)] || {}
+                let movement = rawMovement
+                const isGenericPortalStub =
+                  rawMovement?.type === 'departure'
+                  && rawMovement?.departure === 'transfer_out'
+                  && rawMovement?.toTid == null
+                  && (rawMovement?.reason == null || rawMovement?.reason === '')
+                if (isGenericPortalStub) {
+                  const playerDraftYear = Number(formData.draftYear)
+                  const yearClass = formData.classByYear?.[year] ?? formData.classByYear?.[String(year)]
+                  if (Number.isFinite(playerDraftYear) && playerDraftYear === Number(year)) {
+                    movement = { type: 'departure', departure: 'pro_draft' }
+                  } else if (yearClass === 'Sr' || yearClass === 'RS Sr') {
+                    movement = { type: 'departure', departure: 'graduated' }
+                  }
+                }
                 const rawType = movement.type || ''
                 const movementType = normalizeMovementType(rawType, movement)
                 // Canonical 'departure/transfer_out' uses .toTid; legacy
@@ -1844,13 +1985,9 @@ export default function PlayerEdit() {
                           <div key={year} className="border-b border-surface-4 last:border-b-0">
                             {/* Desktop row */}
                             <div className="hidden sm:grid grid-cols-[68px_1fr_100px_70px_100px_36px] gap-2 px-4 py-2.5 items-center hover:bg-surface-2/50">
-                              <input
-                                type="number"
-                                value={year}
-                                onChange={(e) => {
-                                  const newYear = parseInt(e.target.value)
-                                  if (newYear && newYear > 1900 && newYear < 2100) changeYear(year, newYear)
-                                }}
+                              <YearInput
+                                year={year}
+                                onCommit={changeYear}
                                 className="w-full px-1 py-1.5 text-sm font-bold rounded-lg border border-transparent hover:border-surface-4 focus:border-blue-500 focus:outline-none text-txt-primary text-center bg-transparent"
                               />
                               <select
@@ -1942,13 +2079,9 @@ export default function PlayerEdit() {
                             <div className="sm:hidden px-4 py-3">
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
-                                  <input
-                                    type="number"
-                                    value={year}
-                                    onChange={(e) => {
-                                      const newYear = parseInt(e.target.value)
-                                      if (newYear && newYear > 1900 && newYear < 2100) changeYear(year, newYear)
-                                    }}
+                                  <YearInput
+                                    year={year}
+                                    onCommit={changeYear}
                                     className="w-16 px-1 py-0.5 font-bold text-txt-primary rounded-lg border border-transparent hover:border-surface-4 focus:border-blue-500 focus:outline-none text-center bg-transparent"
                                   />
                                   {logoUrl && (

@@ -425,6 +425,41 @@ export function AuthProvider({ children }) {
     }
   }, [tokenExpiringSoon, user])
 
+  // Re-check the OAuth token whenever the tab regains focus. The
+  // setupTokenRefreshTimer setTimeout doesn't fire reliably in
+  // backgrounded tabs (browsers throttle it; mobile sometimes kills
+  // the tab outright), so a user coming back after an hour-plus
+  // absence could be sitting on an already-expired token with
+  // tokenExpiringSoon still false. The next sheet operation would
+  // throw OAuthError and surface the modal, but the better experience
+  // is to flag it the moment they come back so a silent refresh has a
+  // chance to land before they tap anything.
+  useEffect(() => {
+    if (!user) return
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      const expiry = parseInt(localStorage.getItem('google_token_expiry') || '0')
+      if (!expiry) return
+      const now = Date.now()
+      // Treat anything within 5 minutes of expiry the same as the
+      // setupTokenRefreshTimer warning window so the silent-refresh
+      // effect above kicks in.
+      const expiringWindowMs = 5 * 60 * 1000
+      if (now >= expiry - expiringWindowMs) {
+        // Reset the attempt flag so the auto-refresh effect re-fires
+        // even if a previous silent refresh attempt has already been
+        // marked as tried (e.g. one that quietly failed while the tab
+        // was in the background).
+        autoRefreshAttemptedRef.current = false
+        setTokenExpiringSoon(true)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    // Also fire once on mount in case the tab is already visible.
+    onVisible()
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [user])
+
   const value = {
     user,
     accessToken,

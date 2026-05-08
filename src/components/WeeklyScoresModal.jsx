@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
 import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import {
@@ -43,20 +44,19 @@ const isMobileDevice = () => {
  */
 export default function WeeklyScoresModal({ isOpen, onClose, year, week, teamColors }) {
   const { currentDynasty, saveWeeklyScores } = useDynasty()
-  const { user, refreshSession } = useAuth()
+  const { user } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
-  const [refreshing, setRefreshing] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [deletingSheet, setDeletingSheet] = useState(false)
   const [creatingSheet, setCreatingSheet] = useState(false)
   const [sheetId, setSheetId] = useState(null)
   const [sheetTitle, setSheetTitle] = useState(null)
   const [showDeletedNote, setShowDeletedNote] = useState(false)
-  const [retryCount, setRetryCount] = useState(0)
+  const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
-  const [showAuthError, setShowAuthError] = useState(false)
+
   const [useEmbedded, setUseEmbedded] = useState(() => localStorage.getItem('sheetEmbedPreference') === 'true')
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
@@ -587,9 +587,7 @@ Don't just glance at this list. Physically execute each check on your draft.
           setSheetTitle(sheetInfo.sheetTitle)
         } catch (error) {
           console.error('Failed to create weekly scores sheet:', error)
-          if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
-            setShowAuthError(true)
-          } else {
+          if (!auth.handleError(error)) {
             toast.error('Failed to create Google Sheet. Try again or sign back in.')
           }
         } finally {
@@ -600,7 +598,7 @@ Don't just glance at this list. Physically execute each check on your draft.
     }
     createSheet()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, retryCount, showDeletedNote, year, week])
+  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote, year, week])
 
   useEffect(() => {
     if (!isOpen) {
@@ -635,9 +633,7 @@ Don't just glance at this list. Physically execute each check on your draft.
       }
     } catch (error) {
       console.error('Weekly scores save failed:', error)
-      if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
-        setShowAuthError(true)
-      } else {
+      if (!auth.handleError(error)) {
         toast.error('Failed to save. Make sure data is properly formatted.')
       }
     } finally {
@@ -660,12 +656,10 @@ Don't just glance at this list. Physically execute each check on your draft.
       await deleteGoogleSheet(sheetId)
       setSheetId(null)
       setSheetTitle(null)
-      setRetryCount(c => c + 1)
+      auth.retry()
     } catch (error) {
       console.error('Failed to regenerate sheet:', error)
-      if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
-        setShowAuthError(true)
-      } else {
+      if (!auth.handleError(error)) {
         toast.error('Failed to regenerate sheet. Please try again.')
       }
     } finally {
@@ -844,63 +838,16 @@ Don't just glance at this list. Physically execute each check on your draft.
                     {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
                   </button>
                 </div>
-              ) : (
-                <>
-                  <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-                    <SheetToolbar
-                      sheetId={sheetId}
-                      embedUrl={embedUrl}
-                      teamColors={teamColors}
-                      title={`Week ${week} Scores Google Sheet`}
-                      onSessionError={() => setShowAuthError(true)}
-                    />
-                  </div>
-                  <div className="text-xs mt-2 space-y-1" style={{ color: 'var(--text-secondary)' }}>
-                    <p><strong>Columns:</strong> Home Team | Home Rank | Home Score | Away Team | Away Rank | Away Score | Neutral?</p>
-                    <p>Rank columns: enter 1–25 if the team was ranked, or leave blank. "Y" in Neutral marks neutral-site games (kickoff classics, etc).</p>
-                  </div>
-                </>
-              )}
+              ) : null}
             </div>
-          ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <p className="text-lg mb-4 text-txt-primary">
-                  Your session has expired. Click below to refresh.
-                </p>
-                <div className="flex gap-3 justify-center">
-                  <button
-                    onClick={async () => {
-                      setRefreshing(true)
-                      try {
-                        const success = await refreshSession()
-                        if (success) setRetryCount(c => c + 1)
-                      } catch (e) {
-                        console.error('Refresh failed:', e)
-                      }
-                      setRefreshing(false)
-                    }}
-                    disabled={refreshing}
-                    className="px-4 py-2 rounded font-semibold transition-colors"
-                    style={{
-                      backgroundColor: 'var(--text-primary)',
-                      color: 'var(--surface-1)',
-                      opacity: refreshing ? 0.7 : 1
-                    }}
-                  >
-                    {refreshing ? 'Refreshing...' : 'Refresh Session'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
 
       <AuthErrorModal
-        isOpen={showAuthError}
-        onClose={() => setShowAuthError(false)}
-        onRefresh={() => setRetryCount(c => c + 1)}
+        isOpen={auth.showAuthError}
+        onClose={auth.closeAuthError}
+        onRefresh={auth.retry}
         teamColors={teamColors}
       />
 

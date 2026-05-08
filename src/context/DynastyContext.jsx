@@ -20,8 +20,29 @@ import {
   savePlayerToSubcollection,
   deletePlayerFromSubcollection,
   saveGameToSubcollection,
-  deleteGameFromSubcollection
+  deleteGameFromSubcollection,
+  // Week recap subcollection (extracted out of the main doc to keep
+  // long-running dynasties under Firestore's 1 MB document cap).
+  saveWeekRecapToSubcollection,
+  deleteWeekRecapFromSubcollection,
+  getWeekRecapsSubcollection,
+  migrateWeekRecapsToSubcollection
 } from '../services/dynastyService'
+import {
+  PER_YEAR_FIELDS,
+  PER_TEAM_YEAR_FIELDS,
+  isSeasonalField,
+  getSeasonsSubcollection,
+  splitSeasonalUpdateByYear,
+  writeSeasonalUpdate,
+  migrateSeasonalFieldsToSubcollection
+} from '../services/seasonSubcollection'
+
+// Sets the listener uses to rehydrate seasonal fields from per-season
+// docs back into the legacy `<field>ByYear` / `<field>ByTeamYear`
+// shapes consumers already read.
+const PER_YEAR_NAMES = new Set(PER_YEAR_FIELDS)
+const ALL_SEASONAL_FIELD_NAMES = [...PER_YEAR_FIELDS, ...PER_TEAM_YEAR_FIELDS]
 import { indexedDBStorage, storageService } from '../services/storage'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
@@ -61,6 +82,7 @@ import {
 } from '../data/teamRegistry'
 import { findMatchingPlayer, getPlayerLastHonorDescription, normalizePlayerName } from '../utils/playerMatching'
 import { syncDerivedFieldsFromV2, legacyMovementToCanonical } from '../data/rosterModel'
+import { normalizeAwardName } from '../utils/playerHeal'
 import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId, CFP_BRACKET_SLOTS, DEFAULT_BOWL_CONFIG, getBowlForSlot, CFP_BRACKET_FLOW, getBracketFlowConfig } from '../data/cfpConstants'
 import { migrateDynastyToEditors, needsEditorsMigration, getMemberTeams, snapshotAllMembersForYear, getCoachNameForUid } from '../data/leagueModel'
 import { isSameWeek, isSameYear } from '../utils/compareUtils'
@@ -5190,18 +5212,70 @@ export function DynastyProvider({ children }) {
     setLoadingDynastyId(dynastyId)
 
     try {
-      // Load subcollections from Firestore
-      const [subcollectionPlayers, subcollectionGames] = await Promise.all([
+      // Load subcollections from Firestore. Seasons subcollection is
+      // loaded here too so the lazy-load entry point picks up the
+      // sharded-out per-year/per-team-year data and triggers migration
+      // on any legacy data still on the main doc — without this, a
+      // user navigating directly into a dynasty (the common case) only
+      // gets the migration on the next subscribeToDynasties fire,
+      // which may never come if no writes happen.
+      const [subcollectionPlayers, subcollectionGames, subcollectionSeasons] = await Promise.all([
         getPlayersSubcollection(dynastyId),
-        getGamesSubcollection(dynastyId)
+        getGamesSubcollection(dynastyId),
+        getSeasonsSubcollection(dynastyId),
       ])
 
       // Use subcollection data if available, otherwise fall back to main document
       const players = subcollectionPlayers.length > 0 ? subcollectionPlayers : (dynasty.players || [])
       const games = subcollectionGames.length > 0 ? subcollectionGames : (dynasty.games || [])
 
+      // Rehydrate seasonal fields — same merge-then-migrate pattern as
+      // the listener's path. Sub wins per-(field, year) on overlap so
+      // a partial-migration state can't drop data.
+      const mergedSeasonal = {}
+      for (const field of ALL_SEASONAL_FIELD_NAMES) {
+        const legacy = dynasty[field]
+        const fromSub = subcollectionSeasons[field]
+        const hasLegacy = legacy && typeof legacy === 'object' && Object.keys(legacy).length > 0
+        const hasSub = fromSub && typeof fromSub === 'object' && Object.keys(fromSub).length > 0
+        if (!hasLegacy && !hasSub) continue
+        if (PER_YEAR_NAMES.has(field)) {
+          mergedSeasonal[field] = { ...(legacy || {}), ...(fromSub || {}) }
+        } else {
+          const out = {}
+          for (const [teamKey, yearMap] of Object.entries(legacy || {})) {
+            out[teamKey] = { ...(yearMap || {}) }
+          }
+          for (const [teamKey, yearMap] of Object.entries(fromSub || {})) {
+            out[teamKey] = { ...(out[teamKey] || {}), ...(yearMap || {}) }
+          }
+          mergedSeasonal[field] = out
+        }
+      }
+
+      // Detect any legacy seasonal data still on the main doc and
+      // kick off background migration. Same pattern as the listener.
+      const legacySeasonalSnapshot = {}
+      let hasLegacySeasonal = false
+      for (const field of ALL_SEASONAL_FIELD_NAMES) {
+        const value = dynasty[field]
+        if (value && typeof value === 'object' && Object.keys(value).length > 0) {
+          legacySeasonalSnapshot[field] = value
+          hasLegacySeasonal = true
+        }
+      }
+      if (hasLegacySeasonal) {
+        migrateSeasonalFieldsToSubcollection(dynastyId, legacySeasonalSnapshot)
+          .then(({ migrated, cleared }) => {
+            console.log(`[season migration] ${dynastyId}: migrated ${migrated.length} season(s), cleared ${cleared.length} field(s)`)
+          })
+          .catch(err => {
+            console.warn(`[season migration] failed for ${dynastyId}:`, err?.code || err?.message || err)
+          })
+      }
+
       // Apply migrations to the loaded data
-      const dynastyWithData = { ...dynasty, players, games }
+      const dynastyWithData = { ...dynasty, players, games, ...mergedSeasonal }
       const [migratedDynasty] = applyMigrations([dynastyWithData])
 
       // Write the loaded data back into whichever list owns it.
@@ -5713,14 +5787,100 @@ export function DynastyProvider({ children }) {
             }
 
             // Load subcollections for this dynasty
-            const [subcollectionPlayers, subcollectionGames] = await Promise.all([
+            const [subcollectionPlayers, subcollectionGames, subcollectionRecaps, subcollectionSeasons] = await Promise.all([
               getPlayersSubcollection(dynasty.id),
-              getGamesSubcollection(dynasty.id)
+              getGamesSubcollection(dynasty.id),
+              getWeekRecapsSubcollection(dynasty.id),
+              getSeasonsSubcollection(dynasty.id)
             ])
 
             // Use subcollection data if it exists, otherwise fall back to main document
             const players = subcollectionPlayers.length > 0 ? subcollectionPlayers : (dynasty.players || [])
             const games = subcollectionGames.length > 0 ? subcollectionGames : (dynasty.games || [])
+
+            // Week recaps: merge legacy (main-doc field) + subcollection
+            // sources, with the subcollection winning per-(year, week) for
+            // any overlap. Merging instead of preferring one source is
+            // load-bearing — a previous save may have written the new
+            // recap to the subcollection and started the legacy-field
+            // cleanup but had the deleteField step fail (network drop,
+            // app close mid-save). In that state both sources are
+            // partial: legacy is missing the new recap, subcollection is
+            // missing the not-yet-migrated old recaps. Either-or would
+            // appear to drop data on the next load.
+            const legacyRecaps = dynasty.weekRecapsByYear || {}
+            const legacyKeys = Object.keys(legacyRecaps)
+            const subKeys = Object.keys(subcollectionRecaps || {})
+            const weekRecapsByYear = {}
+            for (const y of legacyKeys) {
+              weekRecapsByYear[y] = { ...(legacyRecaps[y] || {}) }
+            }
+            for (const y of subKeys) {
+              if (!weekRecapsByYear[y]) weekRecapsByYear[y] = {}
+              Object.assign(weekRecapsByYear[y], subcollectionRecaps[y] || {})
+            }
+
+            if (legacyKeys.length > 0) {
+              // Fire-and-forget — UI uses `weekRecapsByYear` regardless of
+              // which storage tier holds the data, so the user can keep
+              // working while migration runs in the background.
+              migrateWeekRecapsToSubcollection(dynasty.id, legacyRecaps).catch(err => {
+                console.warn(`[recap migration] failed for ${dynasty.id}:`, err?.code || err?.message || err)
+              })
+            }
+
+            // Season-scoped fields: same merge-then-migrate pattern as
+            // weekRecaps. The season subcollection holds every per-year
+            // and per-team-year field that used to live as a ByYear /
+            // ByTeamYear map on the main doc. We rehydrate the legacy
+            // shapes from the subcollection, merge with anything still
+            // on the main doc (so a partial-migration state doesn't
+            // appear to drop data), and surface them under the same
+            // field names consumers already read.
+            const mergedSeasonal = {}
+            for (const field of ALL_SEASONAL_FIELD_NAMES) {
+              const legacy = dynasty[field]
+              const fromSub = subcollectionSeasons[field]
+              const hasLegacy = legacy && typeof legacy === 'object' && Object.keys(legacy).length > 0
+              const hasSub = fromSub && typeof fromSub === 'object' && Object.keys(fromSub).length > 0
+              if (!hasLegacy && !hasSub) continue
+              if (PER_YEAR_NAMES.has(field)) {
+                // shape: { [year]: data } — merge year-by-year, sub wins
+                mergedSeasonal[field] = { ...(legacy || {}), ...(fromSub || {}) }
+              } else {
+                // shape: { [teamKey]: { [year]: data } } — deep merge,
+                // sub wins per-(teamKey, year)
+                const out = {}
+                for (const [teamKey, yearMap] of Object.entries(legacy || {})) {
+                  out[teamKey] = { ...(yearMap || {}) }
+                }
+                for (const [teamKey, yearMap] of Object.entries(fromSub || {})) {
+                  out[teamKey] = { ...(out[teamKey] || {}), ...(yearMap || {}) }
+                }
+                mergedSeasonal[field] = out
+              }
+            }
+
+            // Detect whether ANY of the seasonal fields still has data
+            // on the main doc — if so, kick off background migration.
+            const legacySeasonalSnapshot = {}
+            let hasLegacySeasonal = false
+            for (const field of ALL_SEASONAL_FIELD_NAMES) {
+              const value = dynasty[field]
+              if (value && typeof value === 'object' && Object.keys(value).length > 0) {
+                legacySeasonalSnapshot[field] = value
+                hasLegacySeasonal = true
+              }
+            }
+            if (hasLegacySeasonal) {
+              migrateSeasonalFieldsToSubcollection(dynasty.id, legacySeasonalSnapshot)
+                .then(({ migrated, cleared }) => {
+                  console.log(`[season migration] ${dynasty.id}: migrated ${migrated.length} season(s), cleared ${cleared.length} field(s)`)
+                })
+                .catch(err => {
+                  console.warn(`[season migration] failed for ${dynasty.id}:`, err?.code || err?.message || err)
+                })
+            }
 
             // Mark as loaded
             loadedDynastyIdsRef.current.add(dynasty.id)
@@ -5728,7 +5888,9 @@ export function DynastyProvider({ children }) {
             return {
               ...taggedDynasty,
               players,
-              games
+              games,
+              weekRecapsByYear,
+              ...mergedSeasonal,
             }
           } catch (err) {
             console.error(`Error loading subcollections for dynasty ${dynasty.id}:`, err)
@@ -6420,6 +6582,56 @@ export function DynastyProvider({ children }) {
         delete mainDocUpdates.games
       }
 
+      // Route season-scoped fields (allAmericansByYear, schedulesByTeamYear,
+      // recruitingCommitmentsByTeamYear, etc) to the seasons subcollection.
+      // Same justification as players/games: keeps the parent dynasty doc
+      // under Firestore's 1 MiB cap on long-running dynasties.
+      //
+      // Handles two write shapes:
+      //   - full field: { allAmericansByYear: { 2034: ..., 2033: ... } }
+      //     → fanned out via splitSeasonalUpdateByYear
+      //   - dot-notation path: { 'schedulesByTeamYear.UT.2029': [...] }
+      //     → expanded into the same per-year shape and fanned out
+      // Both paths produce a year-keyed map of season-doc patches that
+      // writeSeasonalUpdate persists with setDoc({merge: true}).
+      const seasonalCollect = {}
+      const seasonalDotKeys = []
+      for (const key of Object.keys(mainDocUpdates)) {
+        if (isSeasonalField(key)) {
+          seasonalCollect[key] = mainDocUpdates[key]
+          delete mainDocUpdates[key]
+          continue
+        }
+        if (key.includes('.')) {
+          const topLevel = key.split('.')[0]
+          if (isSeasonalField(topLevel)) {
+            seasonalDotKeys.push(key)
+          }
+        }
+      }
+      // Expand dot-notation keys into the same nested shape full-field
+      // writes use, so a single call to splitSeasonalUpdateByYear
+      // handles both.
+      for (const key of seasonalDotKeys) {
+        const parts = key.split('.')
+        const topLevel = parts[0]
+        const value = mainDocUpdates[key]
+        delete mainDocUpdates[key]
+        if (!seasonalCollect[topLevel]) seasonalCollect[topLevel] = {}
+        let target = seasonalCollect[topLevel]
+        for (let i = 1; i < parts.length - 1; i++) {
+          if (!target[parts[i]]) target[parts[i]] = {}
+          target = target[parts[i]]
+        }
+        target[parts[parts.length - 1]] = value
+      }
+      if (Object.keys(seasonalCollect).length > 0) {
+        const byYear = splitSeasonalUpdateByYear(seasonalCollect)
+        if (Object.keys(byYear).length > 0) {
+          subcollectionPromises.push(writeSeasonalUpdate(dynastyId, byYear))
+        }
+      }
+
       // Execute subcollection writes and main doc update in parallel
       const writePromises = [...subcollectionPromises]
 
@@ -6501,6 +6713,126 @@ export function DynastyProvider({ children }) {
     } catch (error) {
       console.error('Error updating dynasty:', error)
       throw error
+    }
+  }
+
+  // ─── Week recap save/delete ────────────────────────────────────────
+  // Recaps moved out of the main `dynasty.weekRecapsByYear` field into
+  // a per-doc `weekRecaps/{year-week}` subcollection. The trigger was a
+  // beta dynasty whose main doc reached 1,051,303 bytes — past the 1 MB
+  // Firestore cap — and started rejecting EVERY write with
+  // INVALID_ARGUMENT. Subcollection storage scales without that ceiling.
+  //
+  // The first save on any dynasty that still has the legacy field
+  // migrates all existing entries to the subcollection and clears the
+  // field via deleteField (which shrinks the parent doc and so is not
+  // blocked by the size cap that's blocking normal updates).
+  //
+  // Local-only dynasties keep using the embedded map in IndexedDB —
+  // there's no equivalent size limit there, and routing through the
+  // subcollection helpers (which talk to Firestore) would error out.
+  const saveWeekRecap = async (dynastyId, year, week, recap) => {
+    if (blockIfReadOnly(dynastyId, 'save week recap')) return
+
+    let dynasty = String(currentDynasty?.id) === String(dynastyId)
+      ? currentDynasty
+      : dynasties.find(d => String(d.id) === String(dynastyId))
+    if (!dynasty) throw new Error('Dynasty not found')
+
+    const looksLikeFirebaseId = typeof dynastyId === 'string' && dynastyId.length >= 20 && !/^\d+$/.test(dynastyId)
+    const isCloud = looksLikeFirebaseId || (dynasty.storageType === 'cloud' && user)
+
+    const yearN = Number(year)
+    const weekN = Number(week)
+    const entry = {
+      generatedAt: recap?.generatedAt ?? Date.now(),
+      text: String(recap?.text || '')
+    }
+
+    if (isCloud) {
+      // 1. Write the new recap to its own subcollection doc — this is
+      //    the actual save, and it succeeds regardless of how bloated
+      //    the parent dynasty doc currently is.
+      await saveWeekRecapToSubcollection(dynastyId, yearN, weekN, entry)
+
+      // 2. If the parent doc still carries the legacy embedded map,
+      //    move every entry into the subcollection and then clear the
+      //    field. The deleteField shrinks the parent and is the only
+      //    write to the parent we can do once it's over 1 MB.
+      const legacy = dynasty.weekRecapsByYear
+      const legacyKeys = legacy ? Object.keys(legacy) : []
+      if (legacyKeys.length > 0) {
+        try {
+          await migrateWeekRecapsToSubcollection(dynastyId, legacy)
+        } catch (migErr) {
+          console.warn('[saveWeekRecap] legacy field migration failed:', migErr?.code || migErr?.message || migErr)
+          // Not fatal — the new recap is saved. Migration retries on next save.
+        }
+      }
+    } else {
+      // Local-only dynasty — the embedded map in IndexedDB has no size
+      // ceiling, so just keep using updateDynasty.
+      const cur = dynasty.weekRecapsByYear || {}
+      const yr = { ...(cur[yearN] || {}) }
+      yr[weekN] = entry
+      await updateDynasty(dynastyId, { weekRecapsByYear: { ...cur, [yearN]: yr } })
+      return
+    }
+
+    // Cloud-path local-state update: merge the new entry into
+    // weekRecapsByYear so the UI reflects the change without waiting
+    // for the listener to round-trip the subcollection.
+    const apply = (prev) => {
+      if (!prev) return prev
+      const cur = prev.weekRecapsByYear || {}
+      const yr = { ...(cur[yearN] || {}) }
+      yr[weekN] = entry
+      return { ...prev, weekRecapsByYear: { ...cur, [yearN]: yr } }
+    }
+    setDynasties(prev => prev.map(d =>
+      String(d.id) === String(dynastyId) ? apply(d) : d
+    ))
+    if (String(currentDynasty?.id) === String(dynastyId)) {
+      setCurrentDynasty(prev => prev ? apply(prev) : prev)
+    }
+  }
+
+  const deleteWeekRecap = async (dynastyId, year, week) => {
+    if (blockIfReadOnly(dynastyId, 'delete week recap')) return
+
+    let dynasty = String(currentDynasty?.id) === String(dynastyId)
+      ? currentDynasty
+      : dynasties.find(d => String(d.id) === String(dynastyId))
+    if (!dynasty) throw new Error('Dynasty not found')
+
+    const looksLikeFirebaseId = typeof dynastyId === 'string' && dynastyId.length >= 20 && !/^\d+$/.test(dynastyId)
+    const isCloud = looksLikeFirebaseId || (dynasty.storageType === 'cloud' && user)
+
+    const yearN = Number(year)
+    const weekN = Number(week)
+
+    if (isCloud) {
+      await deleteWeekRecapFromSubcollection(dynastyId, yearN, weekN)
+    } else {
+      const cur = dynasty.weekRecapsByYear || {}
+      const yr = { ...(cur[yearN] || {}) }
+      delete yr[weekN]
+      await updateDynasty(dynastyId, { weekRecapsByYear: { ...cur, [yearN]: yr } })
+      return
+    }
+
+    const apply = (prev) => {
+      if (!prev) return prev
+      const cur = prev.weekRecapsByYear || {}
+      const yr = { ...(cur[yearN] || {}) }
+      delete yr[weekN]
+      return { ...prev, weekRecapsByYear: { ...cur, [yearN]: yr } }
+    }
+    setDynasties(prev => prev.map(d =>
+      String(d.id) === String(dynastyId) ? apply(d) : d
+    ))
+    if (String(currentDynasty?.id) === String(dynastyId)) {
+      setCurrentDynasty(prev => prev ? apply(prev) : prev)
     }
   }
 
@@ -6630,7 +6962,6 @@ export function DynastyProvider({ children }) {
 
   const addGame = async (dynastyId, gameData) => {
     if (blockIfReadOnly(dynastyId, 'add game')) return
-    console.log('[addGame] Called with:', { dynastyId, gameId: gameData.id, cfpSlot: gameData.cfpSlot, bowlName: gameData.bowlName, team1Tid: gameData.team1Tid, team2Tid: gameData.team2Tid, isCFPQuarterfinal: gameData.isCFPQuarterfinal })
 
     // Helper to recursively remove undefined values (Firestore doesn't accept undefined)
     const removeUndefined = (obj) => {
@@ -7179,13 +7510,6 @@ export function DynastyProvider({ children }) {
     if (blockIfReadOnly(dynastyId, 'update game')) return
     const { recordUpdates = {}, cfpGamesToPropagate = [] } = options
 
-    console.log('[updateGame] Called with:', {
-      dynastyId,
-      gameId: gameData.id,
-      hasCFPPropagation: cfpGamesToPropagate.length > 0,
-      hasRecordUpdates: Object.keys(recordUpdates).length > 0
-    })
-
     // Find dynasty
     let dynasty = String(currentDynasty?.id) === String(dynastyId)
       ? currentDynasty
@@ -7234,8 +7558,6 @@ export function DynastyProvider({ children }) {
 
     // OPTIMIZED PATH: Cloud storage - save individual games + record updates only
     if (isCloudStorage) {
-      console.log(`[updateGame] OPTIMIZED: Saving ${1 + cfpGamesToPropagate.length} game(s) to cloud individually`)
-
       try {
         // Set listener-skip guards so the real-time listener doesn't
         // overwrite our games array with a stale subcollection read.
@@ -7246,14 +7568,12 @@ export function DynastyProvider({ children }) {
 
         // Save main game to subcollection
         await saveGameToSubcollection(dynastyId, updatedGames.find(g => g.id === gameData.id))
-        console.log(`[updateGame] Saved main game: ${gameData.id}`)
 
         // Save any CFP propagated games
         for (const propagatedGame of cfpGamesToPropagate) {
           const fullPropGame = updatedGames.find(g => g.id === propagatedGame.id)
           if (fullPropGame) {
             await saveGameToSubcollection(dynastyId, fullPropGame)
-            console.log(`[updateGame] Saved propagated game: ${propagatedGame.id}`)
           }
         }
 
@@ -8611,33 +8931,17 @@ export function DynastyProvider({ children }) {
         }
 
         // NEW USER TEAM SYSTEM: Apply pending user team (flip pendingUserId to userId)
-        // This handles the case where user selected a new job during Bowl Weeks
-        console.log('[advanceWeek] POSTSEASON -> OFFSEASON transition')
-        console.log('[advanceWeek] dynasty.newJobData:', dynasty.newJobData)
-        console.log('[advanceWeek] additionalUpdates.teams exists:', !!additionalUpdates.teams)
-        console.log('[advanceWeek] dynasty.teams exists:', !!dynasty.teams)
-
+        // This handles the case where user selected a new job during Bowl Weeks.
         try {
           let teamsBeforeFlip = additionalUpdates.teams || dynasty.teams
-          console.log('[advanceWeek] teamsBeforeFlip exists:', !!teamsBeforeFlip)
 
-          // Log teams with userId/pendingUserId before calling applyPendingUserTeam
           if (teamsBeforeFlip) {
-            console.log('[advanceWeek] Teams with userId/pendingUserId BEFORE applyPendingUserTeam:')
-            for (const [tidStr, team] of Object.entries(teamsBeforeFlip)) {
-              if (team.userId || team.pendingUserId) {
-                console.log(`  tid ${tidStr} (${team.name}): userId=${team.userId}, pendingUserId=${team.pendingUserId}`)
-              }
-            }
-
             // FALLBACK: If newJobData says user is taking a new job but pendingUserId wasn't set
             // (e.g., job was selected before this code was added), set it now before flip
             if (newJobData?.takingNewJob && newJobData.team) {
               const hasPendingUser = Object.values(teamsBeforeFlip).some(t => t.pendingUserId === 'currentUser')
               if (!hasPendingUser) {
-                console.log('[advanceWeek] FALLBACK: No pendingUserId found, setting it from newJobData')
                 const newTeamTid = getTidFromTeamName(newJobData.team, teamsBeforeFlip)
-                console.log(`[advanceWeek] FALLBACK: New team tid=${newTeamTid} for team="${newJobData.team}"`)
                 if (newTeamTid && teamsBeforeFlip[newTeamTid]) {
                   teamsBeforeFlip = {
                     ...teamsBeforeFlip,
@@ -8647,21 +8951,12 @@ export function DynastyProvider({ children }) {
                       coachPosition: newJobData.position || 'HC'
                     }
                   }
-                  console.log(`[advanceWeek] FALLBACK: Set pendingUserId on tid ${newTeamTid} (${teamsBeforeFlip[newTeamTid].name})`)
                 }
               }
             }
 
             const teamsAfterFlip = applyPendingUserTeam(teamsBeforeFlip)
             additionalUpdates.teams = teamsAfterFlip
-
-            // Log teams with userId/pendingUserId after
-            console.log('[advanceWeek] Teams with userId/pendingUserId AFTER applyPendingUserTeam:')
-            for (const [tidStr, team] of Object.entries(teamsAfterFlip)) {
-              if (team.userId || team.pendingUserId) {
-                console.log(`  tid ${tidStr} (${team.name}): userId=${team.userId}, pendingUserId=${team.pendingUserId}`)
-              }
-            }
 
             // Sync the unified per-user team system to the job that
             // just went into effect. The TIMING above (when the flip
@@ -12635,14 +12930,23 @@ export function DynastyProvider({ children }) {
       if (playerCount > 0) {
         reportProgress('players', `Importing players (0/${playerCount})...`, 25)
 
-        // Import players in batches and report progress
+        // Import players in batches and report progress.
+        //
+        // PERF: Previously this passed `players.slice(0, batchEnd)` to
+        // savePlayersToSubcollection on every iteration — meaning each
+        // batch re-saved every prior batch on top of the new one. For
+        // 1027 players that became 500 + 1000 + 1027 = 2527 doc writes
+        // instead of 1027, and the cost grew quadratically with player
+        // count. The user's BAMA dynasty was hanging at "Importing
+        // players (0/1027)" because of this. Pass only the new batch.
         const BATCH_SIZE = 500
         for (let i = 0; i < playerCount; i += BATCH_SIZE) {
-          const batchPlayers = players.slice(i, i + BATCH_SIZE)
           const batchEnd = Math.min(i + BATCH_SIZE, playerCount)
+          const batchPlayers = players.slice(i, batchEnd)
 
-          // Save this batch
-          await savePlayersToSubcollection(result.id, players.slice(0, batchEnd))
+          // Save just this batch — savePlayersToSubcollection upserts
+          // by pid, so each call only writes the docs it was handed.
+          await savePlayersToSubcollection(result.id, batchPlayers)
 
           // Calculate progress (players are 25-60% of total)
           const playerProgress = 25 + Math.round((batchEnd / playerCount) * 35)
@@ -12654,13 +12958,13 @@ export function DynastyProvider({ children }) {
       if (gameCount > 0) {
         reportProgress('games', `Importing games (0/${gameCount})...`, 65)
 
-        // Import games in batches and report progress
+        // Same fix as the player loop above — pass only the new batch.
         const BATCH_SIZE = 500
         for (let i = 0; i < gameCount; i += BATCH_SIZE) {
           const batchEnd = Math.min(i + BATCH_SIZE, gameCount)
+          const batchGames = games.slice(i, batchEnd)
 
-          // Save this batch
-          await saveGamesToSubcollection(result.id, games.slice(0, batchEnd))
+          await saveGamesToSubcollection(result.id, batchGames)
 
           // Calculate progress (games are 65-95% of total)
           const gameProgress = 65 + Math.round((batchEnd / gameCount) * 30)
@@ -12954,18 +13258,27 @@ export function DynastyProvider({ children }) {
 
         // Add honor entry based on type
         if (update.honorType === 'awards') {
-          // Check for duplicate
-          const isDupe = updatedPlayer.accolades.some(a =>
-            a.year === update.entry.year && a.award === update.entry.award
-          )
-          if (!isDupe) {
-            updatedPlayer.accolades.push({
-              year: update.entry.year,
-              award: update.entry.award || update.entry.awardKey,
-              team: update.entry.team,
-              position: update.entry.position,
-              class: update.entry.class
-            })
+          // Normalize the award name to the canonical key before
+          // dedup or storage — legacy entries on existing players
+          // sometimes hold the LABEL ("Chuck Bednarik Award") while
+          // the dropdown stores the KEY ("chuckBednarik"). Without
+          // normalization the dupe check missed label-vs-key matches
+          // and pushed a second ghost row on every sync. After
+          // normalization both rows compare as the same canonical key.
+          const awardName = normalizeAwardName(update.entry.award || update.entry.awardKey)
+          if (awardName && update.entry.year) {
+            const isDupe = updatedPlayer.accolades.some(a =>
+              a.year === update.entry.year && normalizeAwardName(a.award) === awardName
+            )
+            if (!isDupe) {
+              updatedPlayer.accolades.push({
+                year: update.entry.year,
+                award: awardName,
+                team: update.entry.team,
+                position: update.entry.position,
+                class: update.entry.class
+              })
+            }
           }
         } else if (update.honorType === 'allAmericans') {
           const isDupe = updatedPlayer.allAmericans.some(a =>
@@ -13027,17 +13340,23 @@ export function DynastyProvider({ children }) {
         if (!existingInBatch.allConference) existingInBatch.allConference = []
 
         if (newPlayer.honorType === 'awards') {
-          const isDupe = existingInBatch.accolades.some(a =>
-            a.year === newPlayer.entry.year && a.award === (newPlayer.entry.award || newPlayer.entry.awardKey)
-          )
-          if (!isDupe) {
-            existingInBatch.accolades.push({
-              year: newPlayer.entry.year,
-              award: newPlayer.entry.award || newPlayer.entry.awardKey,
-              team: newPlayer.entry.team,
-              position: newPlayer.entry.position,
-              class: newPlayer.entry.class
-            })
+          // Same normalization rationale as the updates path above —
+          // canonicalize to the dropdown key so label/key dupes
+          // collapse and writes use a single stored shape.
+          const awardName = normalizeAwardName(newPlayer.entry.award || newPlayer.entry.awardKey)
+          if (awardName && newPlayer.entry.year) {
+            const isDupe = existingInBatch.accolades.some(a =>
+              a.year === newPlayer.entry.year && normalizeAwardName(a.award) === awardName
+            )
+            if (!isDupe) {
+              existingInBatch.accolades.push({
+                year: newPlayer.entry.year,
+                award: awardName,
+                team: newPlayer.entry.team,
+                position: newPlayer.entry.position,
+                class: newPlayer.entry.class
+              })
+            }
           }
         } else if (newPlayer.honorType === 'allAmericans') {
           const isDupe = existingInBatch.allAmericans.some(a =>
@@ -13090,15 +13409,19 @@ export function DynastyProvider({ children }) {
         isHonorOnly: false,
       }
 
-      // Add the honor entry
+      // Add the honor entry. Award name canonicalized to the dropdown
+      // key so storage has a single source of truth.
       if (newPlayer.honorType === 'awards') {
-        player.accolades.push({
-          year: newPlayer.entry.year,
-          award: newPlayer.entry.award || newPlayer.entry.awardKey,
-          team: newPlayer.entry.team,
-          position: newPlayer.entry.position,
-          class: newPlayer.entry.class
-        })
+        const awardName = normalizeAwardName(newPlayer.entry.award || newPlayer.entry.awardKey)
+        if (awardName && newPlayer.entry.year) {
+          player.accolades.push({
+            year: newPlayer.entry.year,
+            award: awardName,
+            team: newPlayer.entry.team,
+            position: newPlayer.entry.position,
+            class: newPlayer.entry.class
+          })
+        }
       } else if (newPlayer.honorType === 'allAmericans') {
         player.allAmericans.push({
           year: newPlayer.entry.year,
@@ -13722,6 +14045,8 @@ export function DynastyProvider({ children }) {
     isViewOnly,
     createDynasty,
     updateDynasty,
+    saveWeekRecap,
+    deleteWeekRecap,
     deleteDynasty,
     selectDynasty,
     addGame,

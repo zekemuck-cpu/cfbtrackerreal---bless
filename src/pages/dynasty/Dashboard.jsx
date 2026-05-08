@@ -1303,6 +1303,27 @@ export default function Dashboard() {
           return { type: 'departure', departure: 'transfer_out', toTid: null, reason }
         })()
 
+        // CRITICAL: Preserve specific recorded outcomes. The leaving
+        // sheet captures the user's INTENT ("this player is leaving for
+        // X reason"); the actual outcome (drafted / graduated) is
+        // recorded separately by handleDraftResultsSave or auto-grad.
+        // If a more-specific outcome already exists for this year,
+        // don't clobber it with the generic transfer_out path —
+        // re-saving the leaving sheet was overwriting drafted players
+        // back into "in the portal", which is the user-reported bug.
+        const existingMovement = player.movementByYear?.[Number(year)]
+          ?? player.movementByYear?.[String(year)]
+        const isMoreSpecific = existingMovement
+          && existingMovement.type === 'departure'
+          && (existingMovement.departure === 'pro_draft'
+              || existingMovement.departure === 'graduated')
+        const isWritingGenericTransferOut = movementByYearEntry.departure === 'transfer_out'
+          && movementByYearEntry.toTid == null
+        if (isMoreSpecific && isWritingGenericTransferOut) {
+          // Keep the existing specific outcome; nothing to update.
+          return player
+        }
+
         return {
           ...player,
           movementByYear: {
@@ -3472,10 +3493,6 @@ export default function Dashboard() {
               const isNeutral = gameLocation === 'neutral'
               const userIsAway = gameLocation === 'away'
               const atSymbol = isNeutral ? 'vs' : (userIsAway ? '@' : 'vs')
-              const userScore = playedGame?.perspective?.userScore ?? null
-              const oppScore = playedGame?.perspective?.opponentScore ?? null
-              const userWon = playedGame?.perspective?.userWon
-
               const handleEnterGame = () => {
                 if (gameRecord) {
                   navigate(`${pathPrefix}/game/${gameRecord.id}/edit`, { state: { from: location.pathname } })
@@ -3535,11 +3552,10 @@ export default function Dashboard() {
                 const renderLogo = (url, abbr, key) => url
                   ? <img key={key} src={url} alt={abbr || ''} className="w-7 h-7 sm:w-8 sm:h-8 object-contain flex-shrink-0" />
                   : <div key={key} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 border-dashed border-surface-4 flex items-center justify-center text-[9px] font-bold text-txt-secondary flex-shrink-0">{abbr ? abbr.charAt(0) : 'TBD'}</div>
+                // Score + result subtitle removed per user request — the
+                // logos + VS line tells the matchup, score belongs on the
+                // game page, not the dashboard row.
                 let gameSubtitle = null
-                if (gameDone) {
-                  const resultLabel = userWon == null ? 'Final' : (userWon ? 'W' : 'L')
-                  gameSubtitle = `${userScore}–${oppScore} · ${resultLabel}`
-                }
                 todos.push({
                   key: 'game-entry',
                   done: gameDone,
@@ -3587,8 +3603,8 @@ export default function Dashboard() {
                   title = `${currentDynasty.currentYear} Class Score: ${formatRecruitingClassScore(classScore)}`
                   subtitle = hasCurWeek ? `Recruiting · Week ${currentDynasty.currentWeek}` : `${currentDynasty.currentYear} class`
                 } else {
-                  title = hasCurWeek ? `Recruiting · Week ${currentDynasty.currentWeek}` : 'Recruiting'
-                  subtitle = `Awaiting commits for the ${currentDynasty.currentYear} class`
+                  title = hasCurWeek ? `Week ${currentDynasty.currentWeek} Commits` : 'Commits'
+                  subtitle = null
                 }
                 todos.push({
                   key: 'recruiting',

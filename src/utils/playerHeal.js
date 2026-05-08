@@ -119,6 +119,63 @@ function healMovementByYear(mby) {
   return { value: cleaned, changed }
 }
 
+// Reclassify generic "in the portal" entries that are actually a more
+// specific outcome the user already recorded elsewhere on the player.
+// Background: re-saving the Players Leaving sheet was clobbering
+// drafted/graduated players back to `{ type: 'departure', departure:
+// 'transfer_out', toTid: null, reason: null }`, because the sheet's
+// catch-all branch treated anything not "Pro Draft" / "Graduating" as
+// portal-unknown. handleDraftResultsSave still kept draftRound /
+// draftYear on the top-level fields, so we can detect the mismatch:
+//
+//   - If movementByYear[player.draftYear] is the generic transfer_out
+//     stub, but player.draftYear / draftRound are set, restore
+//     pro_draft.
+//   - If movementByYear[lastSeasonYear] is the generic transfer_out
+//     stub and the player's class for that year was Sr / RS Sr,
+//     restore graduated. (Seniors who hit their final year and exit
+//     are graduating by definition; the only reason they'd land on
+//     the leaving sheet with a portal reason is the same clobber.)
+//
+// The heuristic is conservative: only fires when the existing entry is
+// the EXACT generic stub (transfer_out + null toTid + null reason).
+// Real portal entries with a destination or a real reason pass through.
+function reclassifyMisclassifiedDepartures(mby, player) {
+  if (!mby || typeof mby !== 'object') return { value: mby, changed: false }
+  const isGenericPortalStub = (m) =>
+    m && m.type === 'departure' && m.departure === 'transfer_out'
+    && m.toTid == null && (m.reason == null || m.reason === '')
+  const cleaned = { ...mby }
+  let changed = false
+
+  // Draft case — strongest signal. draftYear matches a generic stub.
+  const draftYear = Number(player?.draftYear)
+  if (Number.isFinite(draftYear)) {
+    const key = mby[draftYear] !== undefined ? draftYear : (mby[String(draftYear)] !== undefined ? String(draftYear) : null)
+    if (key !== null && isGenericPortalStub(cleaned[key])) {
+      cleaned[key] = {
+        type: 'departure',
+        departure: 'pro_draft',
+        ...(player.draftRound != null ? { draftRound: player.draftRound } : {}),
+      }
+      changed = true
+    }
+  }
+
+  // Graduation case — class for the stub year was Sr / RS Sr.
+  const classByYear = player?.classByYear || {}
+  for (const [yearKey, m] of Object.entries(cleaned)) {
+    if (!isGenericPortalStub(m)) continue
+    const cls = classByYear[yearKey] ?? classByYear[Number(yearKey)] ?? classByYear[String(yearKey)]
+    if (cls === 'Sr' || cls === 'RS Sr') {
+      cleaned[yearKey] = { type: 'departure', departure: 'graduated' }
+      changed = true
+    }
+  }
+
+  return { value: cleaned, changed }
+}
+
 function healTeamsByYear(tby) {
   if (!tby || typeof tby !== 'object') return { value: tby, changed: false }
   const cleaned = {}
@@ -147,6 +204,291 @@ function healTeamsByYear(tby) {
     changed = true
   }
   return { value: cleaned, changed }
+}
+
+// Coerce a stats value to a number-or-null. Stats slots like
+// gamesPlayed / snapsPlayed / yds / td / etc. are read directly into
+// JSX as `<td>{y.gamesPlayed}</td>`. A bad migration left `{}` in the
+// gamesPlayed slot of CJ Carr's record, which crashed the render with
+// React #31 because `{} || 0` evaluates to `{}` (truthy). Anything
+// non-numeric becomes 0 here so renders stay safe.
+function statNumber(v) {
+  if (v == null) return 0
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
+// Heal one stat-category sub-object (passing / rushing / etc.) by
+// coercing every value to a number. Returns the cleaned object plus a
+// `changed` flag so the caller can short-circuit identity preservation.
+function healStatCategory(cat) {
+  if (!cat || typeof cat !== 'object') return { value: null, changed: !!cat }
+  let changed = false
+  const cleaned = {}
+  for (const [k, v] of Object.entries(cat)) {
+    const safe = statNumber(v)
+    if (safe !== v) changed = true
+    cleaned[k] = safe
+  }
+  return { value: cleaned, changed }
+}
+
+// Walk statsByYear and sanitize every leaf. gamesPlayed / snapsPlayed
+// must be numbers; each category (passing/rushing/etc.) must be an
+// object whose fields are numbers. Drops year entries that are
+// completely malformed.
+function healStatsByYear(stats) {
+  if (!stats || typeof stats !== 'object') return { value: stats, changed: false }
+  const cleaned = {}
+  let changed = false
+  for (const [yr, year] of Object.entries(stats)) {
+    if (!year || typeof year !== 'object') {
+      changed = true
+      continue
+    }
+    const next = {}
+    for (const [key, val] of Object.entries(year)) {
+      if (key === 'gamesPlayed' || key === 'snapsPlayed') {
+        const safe = statNumber(val)
+        if (safe !== val) changed = true
+        next[key] = safe
+        continue
+      }
+      // Recognized category key — sanitize each numeric field.
+      if (
+        key === 'passing' || key === 'rushing' || key === 'receiving' ||
+        key === 'blocking' || key === 'defense' || key === 'defensive' ||
+        key === 'kicking' || key === 'punting' || key === 'kickReturn' ||
+        key === 'puntReturn'
+      ) {
+        const r = healStatCategory(val)
+        if (r.changed) changed = true
+        if (r.value) next[key] = r.value
+        else changed = true
+        continue
+      }
+      // Unknown key — pass through unless it's clearly bad.
+      if (val != null && typeof val === 'object' && !Array.isArray(val)) {
+        // Object-shaped unknown key — drop to be safe.
+        changed = true
+        continue
+      }
+      next[key] = val
+    }
+    cleaned[yr] = next
+  }
+  return { value: cleaned, changed }
+}
+
+// Coerce a value into something that's safe to interpolate into JSX
+// — string/number/boolean only. Objects in render-bound slots are the
+// classic React #31 trigger ("Objects are not valid as a React child")
+// and the offending shape is most often an empty {} that survived a
+// partial migration. Anything non-primitive becomes null.
+function primitiveOrNull(v) {
+  if (v == null) return null
+  const t = typeof v
+  if (t === 'string' || t === 'number' || t === 'boolean') return v
+  return null
+}
+
+// Heal a per-year map whose values must be primitives (classByYear,
+// overallByYear, devTraitByYear, positionByYear). Drops year entries
+// whose value is an object — better an absent year than a render crash.
+function healPrimitiveByYearMap(map, coerce = primitiveOrNull) {
+  if (!map || typeof map !== 'object') return { value: map, changed: false }
+  const cleaned = {}
+  let changed = false
+  for (const [yearKey, raw] of Object.entries(map)) {
+    const safe = coerce(raw)
+    if (safe == null && raw != null) {
+      changed = true
+      continue
+    }
+    if (safe == null) {
+      changed = true
+      continue
+    }
+    cleaned[yearKey] = safe
+    if (safe !== raw) changed = true
+  }
+  return { value: cleaned, changed }
+}
+
+// Award-name normalization. PlayerEdit's dropdown stores canonical
+// keys ('chuckBednarik') but legacy sync paths sometimes wrote LABELS
+// ('Chuck Bednarik Award') and even older builds wrote LEGACY KEYS
+// with an 'Award'/'Trophy' suffix ('chuckBednarikAward'). Three
+// shapes for the same value left players with multiple accolade rows
+// per award — one rendering correctly in the dropdown, others as
+// "Select award" ghosts.
+//
+// Map below resolves all three shapes (label / canonical key / legacy
+// key) to the canonical key. After normalization there's exactly one
+// stored shape per award and the dropdown, the profile awards
+// section, and processHonorPlayers' dedup all line up.
+const AWARD_LABEL_TO_KEY = {
+  'all-american 1st team':       'allAm1st',
+  'all american 1st team':       'allAm1st',
+  'all-american 2nd team':       'allAm2nd',
+  'all american 2nd team':       'allAm2nd',
+  'freshman all-american':       'allAmFr',
+  'freshman all american':       'allAmFr',
+  'all-conference 1st team':     'allConf1st',
+  'all conference 1st team':     'allConf1st',
+  'all-conference 2nd team':     'allConf2nd',
+  'all conference 2nd team':     'allConf2nd',
+  'freshman all-conference':     'allConfFr',
+  'freshman all conference':     'allConfFr',
+  'heisman trophy':              'heisman',
+  'heisman':                     'heisman',
+  'maxwell award':               'maxwell',
+  'walter camp award':           'walterCamp',
+  "davey o'brien award":         'daveyObrien',
+  'davey obrien award':          'daveyObrien',
+  'doak walker award':           'doakWalker',
+  'fred biletnikoff award':      'fredBiletnikoff',
+  'biletnikoff award':           'fredBiletnikoff',
+  'john mackey award':           'johnMackey',
+  'mackey award':                'johnMackey',
+  'unitas golden arm award':     'unitasGoldenArm',
+  'chuck bednarik award':        'chuckBednarik',
+  'bednarik award':              'chuckBednarik',
+  'bronco nagurski trophy':      'broncoNagurski',
+  'nagurski trophy':             'broncoNagurski',
+  'jim thorpe award':            'jimThorpe',
+  'thorpe award':                'jimThorpe',
+  'dick butkus award':           'dickButkus',
+  'butkus award':                'dickButkus',
+  'edge rusher of the year':     'edgeRusherOfTheYear',
+  'outland trophy':              'outland',
+  'lombardi award':              'lombardi',
+  'rimington trophy':            'rimington',
+  'lou groza award':             'louGroza',
+  'groza award':                 'louGroza',
+  'ray guy award':               'rayGuy',
+  'returner of the year':        'returnerOfTheYear',
+}
+
+// Legacy KEY → canonical key. Pre-2026 builds wrote 'maxwellAward'
+// and 'bronkoNagurskiTrophy' style keys (canonical keys + suffix).
+// Treat them like aliases so dedup-by-canonical collapses pairs.
+const AWARD_LEGACY_KEY_TO_KEY = {
+  maxwellAward:           'maxwell',
+  walterCampAward:        'walterCamp',
+  daveyObrienAward:       'daveyObrien',
+  chuckBednarikAward:     'chuckBednarik',
+  bronkoNagurskiTrophy:   'broncoNagurski',
+  broncoNagurskiTrophy:   'broncoNagurski',
+  butkusAward:            'dickButkus',
+  dickButkusAward:        'dickButkus',
+  lombardiAward:          'lombardi',
+  outlandTrophy:          'outland',
+  jimThorpeAward:         'jimThorpe',
+  thorpeAward:            'jimThorpe',
+  biletnikoffAward:       'fredBiletnikoff',
+  fredBiletnikoffAward:   'fredBiletnikoff',
+  johnMackeyAward:        'johnMackey',
+  mackeyAward:            'johnMackey',
+  rimingtonTrophy:        'rimington',
+  rayGuyAward:            'rayGuy',
+  louGrozaAward:          'louGroza',
+  grozaAward:             'louGroza',
+  doakWalkerAward:        'doakWalker',
+  unitasGoldenArmAward:   'unitasGoldenArm',
+  heismanTrophy:          'heisman',
+  heismanRunnerUp:        'heismanFinalist',
+}
+
+// Exported so processHonorPlayers (and any future writer) can convert
+// inbound award names to the canonical key BEFORE comparing/storing —
+// without it the dupe check would miss label-vs-key (or legacy-key
+// vs canonical-key) matches and create new ghost rows on every sync.
+//
+// Resolution order:
+//   1. Already a canonical key in the recognized set → pass through.
+//   2. Legacy key alias (e.g. chuckBednarikAward) → map to canonical.
+//   3. Display label (e.g. "Chuck Bednarik Award") → map to canonical.
+//   4. Fallback: trim and return the original string so unknown awards
+//      aren't silently dropped — the user can still see them.
+export function normalizeAwardName(raw) {
+  if (raw == null) return null
+  const s = String(raw).trim()
+  if (!s) return null
+  // Legacy key alias check first (e.g. 'chuckBednarikAward' is a
+  // valid camelCase identifier so the regex below would let it pass
+  // through unchanged otherwise).
+  if (Object.prototype.hasOwnProperty.call(AWARD_LEGACY_KEY_TO_KEY, s)) {
+    return AWARD_LEGACY_KEY_TO_KEY[s]
+  }
+  // Already a canonical-shaped key (lowercase, no spaces) — pass through.
+  if (/^[a-z][a-zA-Z0-9]*$/.test(s)) return s
+  // Label form — map to key.
+  const key = AWARD_LABEL_TO_KEY[s.toLowerCase()]
+  return key || s
+}
+
+// Walk player.accolades and: drop empties, normalize legacy
+// label-stored awards to their canonical keys, dedupe by (year + key)
+// keeping the first encounter. The PlayerEdit save path uses the same
+// shape so this is safe — the editor's dropdown values are the keys
+// we're normalizing to.
+function healAccolades(accolades) {
+  if (!Array.isArray(accolades)) return { value: accolades, changed: false }
+  const cleaned = []
+  const seen = new Set()
+  let changed = false
+  for (const a of accolades) {
+    if (!a || typeof a !== 'object') {
+      changed = true
+      continue
+    }
+    const year = a.year
+    const award = normalizeAwardName(a.award)
+    if (!year || !award) {
+      changed = true
+      continue
+    }
+    const key = `${year}|${award}`
+    if (seen.has(key)) {
+      changed = true
+      continue
+    }
+    seen.add(key)
+    if (award !== a.award) changed = true
+    cleaned.push({ ...a, award })
+  }
+  return { value: cleaned, changed }
+}
+
+// Top-level scalar fields read directly into JSX in the player profile
+// (header card, stat strip, biography line, sidebar). Must be primitives
+// or null — anything object-shaped here is what crashes the page with
+// React #31.
+const SCALAR_FIELDS = [
+  'name', 'firstName', 'lastName', 'position', 'archetype', 'jerseyNumber',
+  'year', 'overall', 'devTrait', 'height', 'weight', 'hometown', 'state',
+  'pictureUrl', 'notes', 'recruitYear', 'previousTeam', 'team', 'stars',
+  'nationalRank', 'stateRank', 'positionRank', 'gemBust', 'draftRound',
+  'draftPick', 'draftYear', 'pid',
+]
+
+function healScalarFields(player) {
+  let changed = false
+  let next = player
+  for (const key of SCALAR_FIELDS) {
+    if (!(key in player)) continue
+    const safe = primitiveOrNull(player[key])
+    if (safe === player[key]) continue
+    if (next === player) next = { ...player }
+    if (safe == null) {
+      delete next[key]
+    } else {
+      next[key] = safe
+    }
+    changed = true
+  }
+  return { value: next, changed }
 }
 
 function healTeamHistory(history) {
@@ -228,6 +570,18 @@ export function healPlayer(player, options = {}) {
       changed = true
     }
   }
+  // Reclassify generic "in the portal" stubs that should be pro_draft
+  // (player has draftYear / draftRound) or graduated (class was Sr/RS
+  // Sr). Runs AFTER healMovementByYear so we operate on canonical
+  // entries.
+  {
+    const r = reclassifyMisclassifiedDepartures(next.movementByYear, next)
+    if (r.changed) {
+      next = next === player ? { ...player } : next
+      next.movementByYear = r.value
+      changed = true
+    }
+  }
   if ('teamsByYear' in player) {
     const r = healTeamsByYear(player.teamsByYear)
     if (r.changed) {
@@ -241,6 +595,57 @@ export function healPlayer(player, options = {}) {
     if (r.changed) {
       next = next === player ? { ...player } : next
       next.teamHistory = r.value
+      changed = true
+    }
+  }
+  // Per-year primitive maps. classByYear / overallByYear / devTraitByYear
+  // / positionByYear are read directly into JSX in the year-by-year
+  // tables and the sidebar timeline. An object value at any year is the
+  // most common React #31 trigger we still see in the wild — sanitize
+  // each map by dropping non-primitive year entries.
+  for (const key of ['classByYear', 'overallByYear', 'devTraitByYear', 'positionByYear']) {
+    if (!(key in player)) continue
+    const r = healPrimitiveByYearMap(player[key])
+    if (r.changed) {
+      next = next === player ? { ...player } : next
+      next[key] = r.value
+      changed = true
+    }
+  }
+  // Top-level scalar fields. The header card / biography line / sidebar
+  // read these directly; an object value here is exactly the empty-{}
+  // child the user reported.
+  const scalar = healScalarFields(next)
+  if (scalar.changed) {
+    next = scalar.value
+    changed = true
+  }
+  // statsByYear leaves. The year-by-year stat tables render values
+  // directly (`<td>{y.gamesPlayed}</td>`), and a single object-shaped
+  // gamesPlayed/snapsPlayed/yds/etc. crashes the page with React #31.
+  // A real player record from the user (CJ Carr) shipped with
+  // gamesPlayed: {} from some partial migration. Coerce every leaf
+  // to a number.
+  if ('statsByYear' in next) {
+    const r = healStatsByYear(next.statsByYear)
+    if (r.changed) {
+      next = next === player ? { ...player, ...next } : { ...next }
+      next.statsByYear = r.value
+      changed = true
+    }
+  }
+  // Accolades — drop empties, normalize legacy label-stored awards
+  // back to the canonical key (matching PlayerEdit's dropdown values),
+  // and dedupe by (year + canonical key). Players who got accolades
+  // through both manual entry (label) and a sync (key) ended up with
+  // two rows for the same award, the label one rendering as a "Select
+  // award" ghost in the editor. The cleaned list persists on next
+  // save so storage gets a single source of truth.
+  if ('accolades' in next) {
+    const r = healAccolades(next.accolades)
+    if (r.changed) {
+      next = next === player ? { ...player, ...next } : { ...next }
+      next.accolades = r.value
       changed = true
     }
   }
@@ -272,10 +677,36 @@ export function healPlayer(player, options = {}) {
 }
 
 // Bump this string when adding new heal logic so the next profile view
-// re-runs the walk on every player. Format YYYY.MM.DD lets you grep
-// commits for "HEAL_VERSION" alongside dated changelog entries.
+// re-runs the walk on every player. Format YYYY.MM.DD.vvvv (vvvv is a
+// 4-digit sequence number resetting daily) keeps stamps lexicographically
+// sortable and unambiguous when multiple bumps land the same day.
 //
-// 2026.05.07: also strip legacy player.movements[] array and sync
+// 2026.05.07.0001: also strip legacy player.movements[] array and sync
 // player.year / .overall / .devTrait / .team to the current-year
 // values from the by-year maps.
-export const PLAYER_HEAL_VERSION = '2026.05.07'
+// 2026.05.07.0002: sanitize per-year primitive maps (classByYear,
+// overallByYear, devTraitByYear, positionByYear) and top-level scalar
+// fields (position, archetype, height, hometown, state, etc.) — drop
+// non-primitive values that crash the renderer with React #31.
+// 2026.05.07.0003: sanitize statsByYear leaves — coerce gamesPlayed,
+// snapsPlayed, and every category field (passing/rushing/etc.) to a
+// number. CJ Carr's record had statsByYear[year].gamesPlayed = {} which
+// crashed the year-by-year table render.
+// 2026.05.07.0004: reclassify generic transfer_out stubs that are
+// actually drafted (player has draftYear/draftRound) or graduated
+// (class was Sr/RS Sr). User reported "previous players are being
+// marked as in the portal and not what actually happened (draft,
+// graduation)" — root cause: re-saving the Players Leaving sheet
+// clobbered specific outcomes back to portal-unknown.
+// 2026.05.07.0005: normalize accolade award names back to canonical
+// keys (legacy syncs wrote labels like "Chuck Bednarik Award" while
+// PlayerEdit's dropdown stores keys like "chuckBednarik") and dedupe
+// by (year + canonical key). User reported ghost "Select award" rows
+// in the editor — those were duplicate accolades whose award value
+// didn't match any dropdown <option value=>.
+// 2026.05.07.0006: extend normalization to ALSO collapse legacy KEY
+// aliases (chuckBednarikAward / heismanTrophy / etc) to the canonical
+// key so the storage record holds exactly one shape per award name.
+// Player.jsx awards section drops its dual canonical+legacy lookup
+// map in this round and runs every accolade through normalizeAwardName.
+export const PLAYER_HEAL_VERSION = '2026.05.07.0006'

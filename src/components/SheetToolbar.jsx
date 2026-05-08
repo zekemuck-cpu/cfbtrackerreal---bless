@@ -1,48 +1,43 @@
 import { useState, useEffect, useRef } from 'react'
 
 /**
- * SheetToolbar - Toolbar for embedded Google Sheets with reload, open in new tab,
- * and automatic session error detection.
+ * SheetToolbar — toolbar for an embedded Google Sheets iframe with a
+ * reload button and an "open in new tab" escape hatch.
+ *
+ * Cross-origin iframe restrictions block reliable session-error
+ * detection (the iframe's onerror event almost never fires for valid
+ * cross-origin documents), so the toolbar deliberately does NOT try to
+ * surface session errors itself. Auth errors instead surface from the
+ * SHEET API CALLS the parent modal makes (createSheet, syncFromSheet,
+ * etc.) — those throw OAuthError, which auth.handleError() routes to
+ * the standard AuthErrorModal popup. A previous `onSessionError` prop
+ * was kept around for years but never fired; removed during the reauth
+ * audit cleanup.
  */
 export default function SheetToolbar({
   sheetId,
   embedUrl,
   teamColors,
   title = 'Google Sheet',
-  onSessionError
 }) {
   const [iframeKey, setIframeKey] = useState(0)
-  const [hasError, setHasError] = useState(false)
   const [isReloading, setIsReloading] = useState(false)
   const iframeRef = useRef(null)
 
-  // Reset error state when sheetId changes
+  // Reset key when sheetId changes so the iframe re-mounts cleanly.
   useEffect(() => {
-    setHasError(false)
     setIframeKey(0)
   }, [sheetId])
 
   const handleReload = () => {
     setIsReloading(true)
-    setHasError(false)
     setIframeKey(k => k + 1)
-    // Brief loading state for user feedback
+    // Brief loading state for user feedback.
     setTimeout(() => setIsReloading(false), 1000)
   }
 
   const handleOpenInNewTab = () => {
     window.open(`https://docs.google.com/spreadsheets/d/${sheetId}/edit`, '_blank')
-  }
-
-  // Detect iframe load errors (session mismatch, etc.)
-  // Note: Cross-origin restrictions severely limit what we can detect.
-  // The onError event rarely fires for cross-origin iframes, so we
-  // DON'T trigger onSessionError here to avoid false positives.
-  // Users can manually click "Reload" or "Open in New Tab" if needed.
-  const handleIframeError = () => {
-    setHasError(true)
-    // Don't call onSessionError - it causes false positives
-    // onSessionError?.()
   }
 
   return (
@@ -100,28 +95,6 @@ export default function SheetToolbar({
             Open in New Tab
           </button>
         </div>
-
-        {/* Session warning */}
-        {hasError && (
-          <div
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
-            style={{
-              backgroundColor: '#FEF3C7',
-              color: '#92400E',
-              border: '1px solid #F59E0B'
-            }}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-            Session issue? Try reload or open in new tab
-          </div>
-        )}
       </div>
 
       {/* Iframe container */}
@@ -147,49 +120,7 @@ export default function SheetToolbar({
           className="w-full h-full"
           frameBorder="0"
           title={title}
-          onError={handleIframeError}
         />
-      </div>
-    </div>
-  )
-}
-
-/**
- * SheetErrorBanner - A banner component to show when there are auth/session issues
- * Can be used standalone when more control is needed
- */
-export function SheetErrorBanner({ teamColors, onReload, onOpenNewTab, onRefreshSession }) {
-  return (
-    <div
-      className="p-4 rounded-lg mb-3"
-      style={{
-        backgroundColor: '#FEF3C7',
-        border: '1px solid #F59E0B'
-      }}
-    >
-      <div className="flex items-start gap-3">
-        <svg className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-          />
-        </svg>
-        <div className="flex-1">
-          <h4 className="font-semibold text-amber-800 mb-1">Session expired</h4>
-          <p className="text-sm text-amber-700 mb-3">
-            Your Google sign-in has expired — this happens every so often. Refresh the session to keep going.
-          </p>
-          {onRefreshSession && (
-            <button
-              onClick={onRefreshSession}
-              className="px-4 py-2 bg-amber-600 text-white rounded text-sm font-semibold hover:bg-amber-700 transition-colors"
-            >
-              Refresh Session
-            </button>
-          )}
-        </div>
       </div>
     </div>
   )

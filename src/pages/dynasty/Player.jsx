@@ -19,7 +19,7 @@ import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
 import InlineScoringHighlights from '../../components/InlineScoringHighlights'
 import { getPlayerGameLog } from '../../utils/boxScoreAggregator'
 import { sortPlaysChronologically } from '../../utils/scoringPlayOrder'
-import { healPlayer, PLAYER_HEAL_VERSION } from '../../utils/playerHeal'
+import { healPlayer, PLAYER_HEAL_VERSION, normalizeAwardName } from '../../utils/playerHeal'
 import { buildTimelineEvents, eventsForYear, labelForEventKind } from '../../utils/playerTimeline'
 
 // Load premium fonts
@@ -670,8 +670,12 @@ function PlayerInner() {
         year,
         team: yearTeam,
         class: playerClass,
-        gamesPlayed: ownYearStats?.gamesPlayed || 0,
-        snapsPlayed: ownYearStats?.snapsPlayed || 0,
+        // Coerce to a number even if the stored value is malformed
+        // (e.g. an empty object `{}` from a partial migration). `||`
+        // alone would let a truthy non-number through and crash the
+        // <td>{y.gamesPlayed}</td> render with React #31.
+        gamesPlayed: Number(ownYearStats?.gamesPlayed) || 0,
+        snapsPlayed: Number(ownYearStats?.snapsPlayed) || 0,
         passing: passing ? {
           cmp: passing.cmp ?? passing.comp ?? 0,
           att: passing.att ?? passing.attempts ?? 0,
@@ -1416,11 +1420,12 @@ function PlayerInner() {
     const allAmericans = player?.allAmericans || []
     const allConference = player?.allConference || []
 
-    // Map each known award-key form (canonical AND legacy) to its
-    // display label. The reducer below normalizes either form to the
-    // same label so "maxwell" and "maxwellAward" merge into one plate.
+    // Canonical-key → display label map. Every accolade's `award`
+    // value is normalized via normalizeAwardName before lookup, so
+    // legacy label-stored entries ("Chuck Bednarik Award") and legacy
+    // KEY aliases ("chuckBednarikAward") collapse onto the canonical
+    // key here. Single shape per award, single lookup.
     const AWARD_LABELS = {
-      // Canonical keys (Awards.jsx AWARD_DISPLAY) — current source of truth
       maxwell: 'Maxwell',
       walterCamp: 'Walter Camp',
       daveyObrien: "Davey O'Brien",
@@ -1439,33 +1444,17 @@ function PlayerInner() {
       unitasGoldenArm: 'Unitas Golden Arm',
       edgeRusherOfTheYear: 'Edge Rusher of the Year',
       returnerOfTheYear: 'Returner of the Year',
-      // Legacy keys still in some saved data
-      maxwellAward: 'Maxwell',
-      walterCampAward: 'Walter Camp',
-      daveyObrienAward: "Davey O'Brien",
-      chuckBednarikAward: 'Bednarik',
-      bronkoNagurskiTrophy: 'Nagurski',
-      butkusAward: 'Butkus',
-      lombardiAward: 'Lombardi',
-      outlandTrophy: 'Outland',
-      jimThorpeAward: 'Thorpe',
-      biletnikoffAward: 'Biletnikoff',
-      johnMackeyAward: 'Mackey',
-      rimingtonTrophy: 'Rimington',
-      rayGuyAward: 'Ray Guy',
-      louGrozaAward: 'Lou Groza',
-      doakWalkerAward: 'Doak Walker',
-      // Other player honors (already worked, kept for completeness)
+      // Other player honors that don't have a label form in the
+      // dropdown but still surface on the profile awards plate.
       tedHendricksAward: 'Hendricks',
       paulHornungAward: 'Paul Hornung',
       bowlMVP: 'Bowl MVP',
       cfpChampMVP: 'CFP Title MVP',
     }
 
-    // Tier 1 — gold/highlighted (Heisman is its own bucket)
-    const HEISMAN_KEYS = new Set(['heisman', 'heismanTrophy'])
+    // Tier 1 — Heisman (canonical key only after normalization).
     const heismanYears = accolades
-      .filter(a => HEISMAN_KEYS.has(a.award))
+      .filter(a => normalizeAwardName(a.award) === 'heisman')
       .map(a => Number(a.year))
       .filter(Number.isFinite)
       .sort((a, b) => a - b)
@@ -1475,20 +1464,21 @@ function PlayerInner() {
     // player never won — a finalist year is still a notable career mark.
     // Drop overlapping years that the player ALSO won outright so a Heisman
     // winner's plate isn't "won + finalist" for the same season.
-    const FINALIST_KEYS = new Set(['heismanFinalist', 'heismanRunnerUp'])
     const winnerYearSet = new Set(heismanYears)
     const finalistYears = accolades
-      .filter(a => FINALIST_KEYS.has(a.award))
+      .filter(a => normalizeAwardName(a.award) === 'heismanFinalist')
       .map(a => Number(a.year))
       .filter(y => Number.isFinite(y) && !winnerYearSet.has(y))
       .sort((a, b) => a - b)
     const finalistCount = finalistYears.length
 
-    // Tier 2 — major named awards. Aggregate by display label so
-    // "maxwell" and "maxwellAward" both land in the same Maxwell plate.
+    // Tier 2 — major named awards. After normalization every accolade
+    // resolves to its canonical key; we look that up in AWARD_LABELS
+    // and aggregate by display label.
     const majorByLabel = {} // label -> { years: number[], firstSeen: idx for stable sort }
     accolades.forEach((a, idx) => {
-      const label = AWARD_LABELS[a.award]
+      const key = normalizeAwardName(a.award)
+      const label = AWARD_LABELS[key]
       if (!label) return
       if (!majorByLabel[label]) majorByLabel[label] = { years: [], firstSeen: idx }
       const yr = Number(a.year)
@@ -1510,9 +1500,10 @@ function PlayerInner() {
     const acSecondYears = yearsForDesignation(allConference, 'second')
     const acFreshmanYears = yearsForDesignation(allConference, 'freshman')
 
-    // Tier 4 — conference POYs. Track years for the same "(yr, yr)" treatment.
+    // Tier 4 — conference POYs. Match through normalizeAwardName so
+    // legacy aliases collapse onto the canonical keys.
     const yearsForAwardSet = (keys) => accolades
-      .filter(a => keys.has(a.award))
+      .filter(a => keys.has(normalizeAwardName(a.award)))
       .map(a => Number(a.year))
       .filter(Number.isFinite)
       .sort((a, b) => a - b)
@@ -1857,7 +1848,7 @@ function PlayerInner() {
 
               <div className="flex items-center gap-2 mb-2">
                 <Link
-                  to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}`}
+                  to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}?tab=roster`}
                   className="inline-flex items-center gap-2 text-base font-bold uppercase tracking-wider hover:underline text-txt-secondary"
                   style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}
                 >

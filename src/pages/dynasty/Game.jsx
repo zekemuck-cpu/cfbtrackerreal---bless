@@ -8,6 +8,7 @@ import { getTeamColors } from '../../data/teamColors'
 import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear, getCustomConferencesForYear } from '../../context/DynastyContext'
 import CardComposer from '../../components/CardComposer'
 import { getCardsForGame } from '../../utils/playerCards'
+import { getTeamLogoRobust } from '../../utils/teamLogo'
 import FlippableCard from '../../components/FlippableCard'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 // useTeamColors not needed - using neutral colors for game recap
@@ -123,46 +124,9 @@ function getMascotName(abbr, teamsData = null) {
   return mascotMap[abbr] || null
 }
 
-// Robust logo lookup that tries multiple methods
-function getTeamLogoRobust(teamInput, teamsData = null) {
-  if (!teamInput) return null
-
-  // 1. Try tid-based lookup first if teams data provided
-  if (teamsData) {
-    const logo = getTeamLogo(teamInput, teamsData)
-    if (logo) return logo
-  }
-
-  // 2. Try direct lookup (if teamInput is already a full mascot name)
-  let logo = getTeamLogo(teamInput, teamsData)
-  if (logo) return logo
-
-  // 3. Try as abbreviation via getMascotName
-  const mascotName = getMascotName(teamInput, teamsData)
-  if (mascotName) {
-    logo = getTeamLogo(mascotName, teamsData)
-    if (logo) return logo
-  }
-
-  // 4. Try uppercase abbreviation (handle case sensitivity)
-  const upperInput = teamInput.toUpperCase()
-  if (upperInput !== teamInput) {
-    const mascotNameUpper = getMascotName(upperInput, teamsData)
-    if (mascotNameUpper) {
-      logo = getTeamLogo(mascotNameUpper, teamsData)
-      if (logo) return logo
-    }
-  }
-
-  // 5. Try looking up in teamAbbreviations map directly
-  const teamData = teamAbbreviations[teamInput] || teamAbbreviations[upperInput]
-  if (teamData?.name) {
-    logo = getTeamLogo(teamData.name, teamsData)
-    if (logo) return logo
-  }
-
-  return null
-}
+// Robust logo lookup that tries multiple methods. Implementation
+// extracted to src/utils/teamLogo.js so Game.jsx + GameEdit.jsx
+// share a single source of truth.
 
 // Robust color lookup that tries multiple methods
 // Note: getTeamColors returns a default orange (#ea580c) for unknown teams,

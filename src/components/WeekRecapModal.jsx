@@ -19,7 +19,7 @@ import { buildWeekRecapPrompt, buildPreseasonRecapPrompt } from '../utils/recapP
  *   onSaved — optional callback fired with the saved text after a successful save
  */
 export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved }) {
-  const { currentDynasty, updateDynasty, isViewOnly } = useDynasty()
+  const { currentDynasty, saveWeekRecap, deleteWeekRecap, isViewOnly } = useDynasty()
   const { toast } = useToast()
   const yearNum = Number(year)
   const weekNum = Number(week)
@@ -82,17 +82,26 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
     try {
       // Merge into the existing year/week map. Build the full nested object so
       // local-storage and Firestore both get a clean replace at the parent.
-      const cur = currentDynasty.weekRecapsByYear || {}
-      const yr = { ...(cur[yearNum] || {}) }
-      yr[weekNum] = { generatedAt: Date.now(), text: trimmed }
-      const next = { ...cur, [yearNum]: yr }
-      await updateDynasty(currentDynasty.id, { weekRecapsByYear: next })
+      // Single-doc subcollection write — bypasses the 1 MB main-doc cap
+      // that was breaking saves on long-running dynasties.
+      await saveWeekRecap(currentDynasty.id, yearNum, weekNum, {
+        generatedAt: Date.now(),
+        text: trimmed
+      })
       toast.success('Recap saved.')
       onSaved?.(trimmed)
       onClose?.()
     } catch (err) {
       console.error('[WeekRecapModal] save failed:', err)
-      toast.error('Could not save the recap. Try again.')
+      // Surface the real failure (Firestore code + message) instead of a
+      // generic "try again" toast — ALABAMA PRINCE was hitting this with
+      // no diagnostic info, and the fix depends on which Firestore error
+      // it actually is (permission-denied, resource-exhausted for >1MB
+      // doc, unauthenticated for an expired token, etc.).
+      const code = err?.code || err?.name
+      const msg = err?.message || 'Unknown error'
+      const detail = code ? `${code}: ${msg}` : msg
+      toast.error(`Could not save: ${detail}`)
     } finally {
       setSaving(false)
     }
@@ -103,17 +112,16 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
     if (!window.confirm('Delete this saved recap? You can regenerate it any time.')) return
     setSaving(true)
     try {
-      const cur = currentDynasty.weekRecapsByYear || {}
-      const yr = { ...(cur[yearNum] || {}) }
-      delete yr[weekNum]
-      const next = { ...cur, [yearNum]: yr }
-      await updateDynasty(currentDynasty.id, { weekRecapsByYear: next })
+      await deleteWeekRecap(currentDynasty.id, yearNum, weekNum)
       toast.success('Recap deleted.')
       setDraft('')
       onClose?.()
     } catch (err) {
       console.error('[WeekRecapModal] delete failed:', err)
-      toast.error('Could not delete the recap.')
+      const code = err?.code || err?.name
+      const msg = err?.message || 'Unknown error'
+      const detail = code ? `${code}: ${msg}` : msg
+      toast.error(`Could not delete: ${detail}`)
     } finally {
       setSaving(false)
     }

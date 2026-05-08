@@ -26,6 +26,8 @@ import {
   SectionHeader,
   LoadingState,
 } from '../../components/ui'
+import { doc, getDocFromServer } from 'firebase/firestore'
+import { db } from '../../config/firebase'
 
 export default function DangerZone() {
   const { currentDynasty, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly, syncAllPlayersStats } = useDynasty()
@@ -88,6 +90,8 @@ export default function DangerZone() {
 
   // Schedule link fix state
   const [scheduleLinkFixStatus, setScheduleLinkFixStatus] = useState(null)
+  const [storageAnalysisStatus, setStorageAnalysisStatus] = useState(null)
+  const [storageAnalysisDetail, setStorageAnalysisDetail] = useState(null)
 
   if (!currentDynasty) {
     return <LoadingState message="Loading..." />
@@ -135,6 +139,164 @@ export default function DangerZone() {
       setClearCacheStatus({ success: true, message: `Cleared ${keysToRemove.length} items` })
     } catch (error) {
       setClearCacheStatus({ success: false, message: 'Failed: ' + error.message })
+    }
+  }
+
+  // Diagnostic — measure each top-level field's contribution to the
+  // ACTUAL Firestore main-doc size, not the in-memory React state size.
+  // Critical distinction: after a subcollection migration, the
+  // listener merges subcollection data back into dynasty.fieldByYear
+  // shapes so consumers don't notice. If we measure currentDynasty
+  // directly, the size doesn't drop after migration — even though the
+  // Firestore doc DID shrink. So we read the main doc straight from
+  // Firestore (server, no cache) and analyze that.
+  //
+  // Bytes are JSON.stringify().length, which understates Firestore's
+  // on-disk size by some per-field metadata overhead but the relative
+  // ranking of fields is what we care about.
+  const handleAnalyzeStorage = async () => {
+    setStorageAnalysisStatus('running')
+    setStorageAnalysisDetail(null)
+    try {
+      if (!currentDynasty) throw new Error('No dynasty loaded')
+
+      const TRANSIENT_FIELDS = new Set([
+        '_firestoreId',
+      ])
+
+      const sizeOf = (value) => {
+        try {
+          return JSON.stringify(value === undefined ? null : value).length
+        } catch (_) {
+          return 0
+        }
+      }
+      const fmt = (n) => {
+        if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(2)} MB`
+        if (n >= 1024) return `${(n / 1024).toFixed(1)} KB`
+        return `${n} B`
+      }
+
+      // Source-of-truth for the main doc: read the live document from
+      // the Firestore server, bypassing the SDK's cache. This is the
+      // ONLY way to know what's actually counting against the 1 MiB
+      // cap — currentDynasty in-memory has subcollection data merged
+      // in and would lie about the doc size.
+      let mainDocData = {}
+      let serverFetchFailed = false
+      try {
+        const ref = doc(db, 'dynasties', currentDynasty.id)
+        const snap = await getDocFromServer(ref)
+        mainDocData = snap.exists() ? snap.data() : {}
+      } catch (err) {
+        // Could be offline, permissions, or rate-limit. Fall back to
+        // measuring the in-memory dynasty (less accurate post-migration
+        // but better than nothing) and flag the result so the user
+        // doesn't trust it.
+        console.warn('[StorageAnalysis] server fetch failed, falling back to in-memory:', err?.code || err?.message)
+        mainDocData = currentDynasty
+        serverFetchFailed = true
+      }
+
+      const entries = []
+      let mainDocTotal = 0
+      for (const [key, value] of Object.entries(mainDocData)) {
+        if (TRANSIENT_FIELDS.has(key)) continue
+        const bytes = sizeOf(value)
+        mainDocTotal += bytes
+        entries.push({ key, bytes })
+      }
+      entries.sort((a, b) => b.bytes - a.bytes)
+
+      const lines = []
+      if (serverFetchFailed) {
+        lines.push('⚠️  COULD NOT READ FROM FIRESTORE — falling back to in-memory state.')
+        lines.push('   Numbers may overstate the actual main-doc size. Check console for the error.')
+        lines.push('')
+      }
+      lines.push(`Main dynasty doc: ${fmt(mainDocTotal)} of 1.00 MB cap (${(mainDocTotal / (1024 * 1024) * 100).toFixed(1)}%)`)
+      lines.push('')
+      lines.push('Top fields on the main doc:')
+      const top = entries.slice(0, 30)
+      for (const { key, bytes } of top) {
+        if (bytes < 100) break
+        const pct = mainDocTotal > 0 ? ((bytes / mainDocTotal) * 100).toFixed(1) : '0'
+        lines.push(`  ${key.padEnd(40)} ${fmt(bytes).padStart(10)}   (${pct}%)`)
+      }
+      const restBytes = entries.slice(30).reduce((s, e) => s + e.bytes, 0)
+      if (restBytes > 0) {
+        lines.push(`  ${'(everything else)'.padEnd(40)} ${fmt(restBytes).padStart(10)}`)
+      }
+
+      // Subcollection summary from the in-memory state. This is just
+      // an info panel; subcollection docs each have their own 1 MiB
+      // cap so individual sizes here don't matter for the cap question
+      // — what matters is per-doc size, which neither players nor
+      // games comes close to since each record is its own doc.
+      lines.push('')
+      lines.push('Subcollections (loaded into React state, not on main doc):')
+      const subFields = ['players', 'games', 'weekRecapsByYear']
+      // Plus all the seasonal fields that have been migrated to
+      // dynasties/{id}/seasons/{year} as of cb40757.
+      const SEASONAL_NAMES = [
+        'allAmericansByYear', 'awardsByYear', 'bowlEligibilityDataByYear', 'bowlGamesByYear', 'bowlResultsByYear',
+        'cfpBowlConfigByYear', 'cfpResultsByYear', 'cfpSeedsByYear', 'conferenceChampionshipDataByYear',
+        'conferenceChampionshipsByYear', 'conferenceStandingsByYear', 'customConferencesByYear',
+        'detailedStatsByYear', 'draftResultsByYear', 'finalPollsByYear', 'fringeCaseClassByYear',
+        'lockedCoachingStaffByYear', 'playersLeavingByYear', 'playerStatsByYear', 'portalTransferClassByYear',
+        'positionChangesByYear', 'preseasonRankingsByYear', 'rankingsByYear', 'rankingsHistoryByYear',
+        'recruitOverallsByYear', 'seasonAwardsByYear', 'teamStatsByYear', 'trainingResultsByYear',
+        'transferDestinationsByYear',
+        'bowlEligibilityDataByTeamYear', 'coachingStaffByTeamYear', 'conferenceByTeamYear',
+        'conferenceChampionshipDataByTeamYear', 'draftResultsByTeamYear', 'encourageTransfersByTeamYear',
+        'fringeCaseClassByTeamYear', 'playersLeavingByTeamYear', 'portalTransferClassByTeamYear',
+        'preseasonSetupByTeamYear', 'rankingsByTeamYear', 'recruitingClassRankByTeamYear',
+        'recruitingCommitmentsByTeamYear', 'recruitsByTeamYear', 'schedulesByTeamYear',
+        'teamRatingsByTeamYear', 'teamRecordsByTeamYear', 'trainingResultsByTeamYear',
+        'transferDestinationsByTeamYear',
+      ]
+      for (const key of subFields) {
+        const value = currentDynasty[key]
+        if (value === undefined || value === null) continue
+        let detail = ''
+        if (Array.isArray(value)) detail = ` — ${value.length} records`
+        else if (typeof value === 'object') {
+          const totalEntries = Object.keys(value).length
+          if (totalEntries) detail = ` — ${totalEntries} entries`
+        }
+        lines.push(`  ${key.padEnd(40)} ${fmt(sizeOf(value)).padStart(10)}${detail}`)
+      }
+      // Aggregate all seasonal fields under one line — too many to
+      // list individually and they all share the same `seasons/{year}`
+      // doc.
+      let seasonalLoadedTotal = 0
+      let seasonalFieldCount = 0
+      for (const field of SEASONAL_NAMES) {
+        const value = currentDynasty[field]
+        if (value && typeof value === 'object' && Object.keys(value).length > 0) {
+          seasonalLoadedTotal += sizeOf(value)
+          seasonalFieldCount++
+        }
+      }
+      if (seasonalFieldCount > 0) {
+        lines.push(`  ${'seasons/* (rehydrated, all fields)'.padEnd(40)} ${fmt(seasonalLoadedTotal).padStart(10)} — ${seasonalFieldCount} fields loaded`)
+      }
+
+      lines.push('')
+      lines.push(`Run timestamp: ${new Date().toISOString()}`)
+      lines.push(`Dynasty: ${currentDynasty.name || currentDynasty.id}`)
+      lines.push(`Source: ${serverFetchFailed ? 'in-memory fallback ⚠️' : 'Firestore server (live)'}`)
+
+      const detailText = lines.join('\n')
+      console.log('[StorageAnalysis]\n' + detailText)
+      setStorageAnalysisDetail(detailText)
+      const summary = serverFetchFailed
+        ? `⚠️ in-memory fallback. Main doc: ${fmt(mainDocTotal)}. See console.`
+        : `Main doc: ${fmt(mainDocTotal)} (${(mainDocTotal / (1024 * 1024) * 100).toFixed(0)}% of cap). Top: ${entries[0]?.key || '—'}.`
+      setStorageAnalysisStatus({ success: true, message: summary })
+    } catch (error) {
+      console.error('[StorageAnalysis] failed:', error)
+      setStorageAnalysisStatus({ success: false, message: 'Failed: ' + (error?.message || 'unknown') })
     }
   }
 
@@ -1703,12 +1865,20 @@ export default function DangerZone() {
           if (dup.overallByYear) {
             merged.overallByYear = { ...merged.overallByYear, ...dup.overallByYear }
           }
-          // Merge movements
-          if (dup.movements && dup.movements.length > 0) {
-            const existingMovements = merged.movements || []
-            const existingKeys = new Set(existingMovements.map(m => `${m.year}-${m.type}`))
-            const newMovements = dup.movements.filter(m => !existingKeys.has(`${m.year}-${m.type}`))
-            merged.movements = [...existingMovements, ...newMovements]
+          // Merge movements — prefer the canonical movementByYear map.
+          // Year-by-year merge: dup wins only when merged is empty for
+          // that year, so we don't clobber a known-good entry with a
+          // legacy stub. syncDerivedFieldsFromV2 strips the legacy
+          // movements[] array on save, so writing it here is dead;
+          // merging movementByYear is the actual single-source-of-truth.
+          if (dup.movementByYear && typeof dup.movementByYear === 'object') {
+            const mergedByYear = { ...(merged.movementByYear || {}) }
+            for (const [yr, mv] of Object.entries(dup.movementByYear)) {
+              if (mv && !mergedByYear[yr] && !mergedByYear[String(yr)]) {
+                mergedByYear[yr] = mv
+              }
+            }
+            merged.movementByYear = mergedByYear
           }
           // Keep highest overall rating
           if (dup.overall && (!merged.overall || dup.overall > merged.overall)) {
@@ -1866,12 +2036,44 @@ export default function DangerZone() {
   }
 
   // Compact Action Card
-  const ActionCard = ({ title, description, buttonText, onClick, status, variant = 'primary' }) => {
+  // ActionCard accepts a `danger` flag for actions that have known
+  // failure modes on legacy dynasties (CFP repair has miswired user
+  // brackets, class fixers can clobber canonical classByYear maps).
+  // Danger cards get:
+  //   - a left rail in --accent-error
+  //   - a "USE WITH CAUTION" eyebrow above the title
+  //   - a confirm dialog that requires the user to acknowledge they
+  //     have a backup before the destructive handler runs
+  // Safer handlers pass through unchanged.
+  const ActionCard = ({ title, description, buttonText, onClick, status, variant = 'primary', danger = false }) => {
     const isRunning = status === 'running'
 
+    const guardedClick = async () => {
+      if (!danger) {
+        onClick?.()
+        return
+      }
+      const ok = await confirm({
+        title: `Run "${title}"?`,
+        message: `This action can corrupt records on dynasties that started on older backend versions. ${description} Make sure you've downloaded a backup before continuing.`,
+        confirmLabel: 'I have a backup — run it',
+        cancelLabel: 'Cancel',
+        variant: 'danger',
+      })
+      if (ok) onClick?.()
+    }
+
     return (
-      <Card className="flex flex-col h-full">
+      <Card
+        className="flex flex-col h-full"
+        style={danger ? { borderLeft: '3px solid var(--accent-error)' } : undefined}
+      >
         <div className="mb-3">
+          {danger && (
+            <div className="label-xs mb-1.5" style={{ color: 'var(--accent-error)', letterSpacing: '1.5px' }}>
+              USE WITH CAUTION
+            </div>
+          )}
           <h3 className="label-sm text-txt-primary m-0">{title}</h3>
           <p className="text-xs mt-1 text-txt-tertiary leading-relaxed m-0">
             {description}
@@ -1879,9 +2081,9 @@ export default function DangerZone() {
         </div>
         <div className="mt-auto">
           <Button
-            variant={variant}
+            variant={danger ? 'danger' : variant}
             size="sm"
-            onClick={onClick}
+            onClick={guardedClick}
             disabled={isRunning}
             className="w-full"
           >
@@ -1943,17 +2145,18 @@ export default function DangerZone() {
         </div>
       </Card>
 
-      {/* Quick Fixes Section */}
+      {/* Common Fixes — safe to run on any dynasty. These walk the
+          canonical v2 stores and apply idempotent cleanup. */}
       <div>
         <SectionHeader
           size="sm"
-          title="Quick Fixes"
-          subtitle="Common issues, safe to run"
+          title="Common Fixes"
+          subtitle="Safe to run, idempotent"
         />
         <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
           <ActionCard
             title="Consolidate to v2"
-            description="Recommended. Migrates every player to the canonical v2 schema, drops ghost records, resolves movement collisions, trims stale post-departure entries, and strips deprecated legacy fields. Safe to re-run."
+            description="Recommended first step. Migrates every player to the canonical v2 schema, drops ghost records, resolves movement collisions, trims stale post-departure entries, and strips deprecated legacy fields. Safe to re-run."
             buttonText="Consolidate"
             onClick={handleV2Consolidate}
             status={v2ConsolidateStatus}
@@ -1980,13 +2183,6 @@ export default function DangerZone() {
             status={scheduleLinkFixStatus}
           />
           <ActionCard
-            title="Repair CFP Games"
-            description="Fixes misaligned CFP bracket slots, bowl names, and game links"
-            buttonText="Repair CFP"
-            onClick={handleRepairCFPGames}
-            status={cfpRepairStatus}
-          />
-          <ActionCard
             title="Repair CCG Games"
             description="Adds missing conference field to Conference Championship games"
             buttonText="Repair CCG"
@@ -2001,19 +2197,50 @@ export default function DangerZone() {
             status={duplicateMergeStatus}
           />
           <ActionCard
-            title="Fix Player Classes"
-            description="Auto-fills entryYear, entryClass, and classByYear for all players"
-            buttonText="Fix Classes"
-            onClick={handleFixClassData}
-            status={classDataFixStatus}
+            title="Sync Honors to Players"
+            description="Links awards, All-Americans & All-Conference to player records. Normalizes legacy award names back to canonical keys so the editor stays clean."
+            buttonText="Sync Honors"
+            onClick={handleSyncHonorsToPlayers}
+            status={honorsSyncStatus}
           />
-          <ActionCard
-            title="Advance Classes"
-            description="Select players to age up. Shows games played for redshirt detection"
-            buttonText="Select Players"
-            onClick={handleOpenAdvanceModal}
-            status={advanceClassesStatus}
-          />
+          {/* Storage size diagnostic — surfaces which dynasty fields are
+              taking up the most space in the main Firestore doc, since
+              that doc is capped at 1 MiB and all writes fail once it's
+              over. Output is multi-line so this gets a full custom
+              card instead of using ActionCard's single-line StatusLine. */}
+          <Card className="flex flex-col h-full sm:col-span-2 md:col-span-2">
+            <div className="mb-3">
+              <h3 className="label-sm text-txt-primary m-0">Analyze Storage Size</h3>
+              <p className="text-xs mt-1 text-txt-tertiary leading-relaxed m-0">
+                Reports how many bytes each top-level dynasty field is using on the main Firestore doc (1 MiB cap). Run this if writes are failing with "document too big", or to see which field will be the next migration target.
+              </p>
+            </div>
+            <div className="mt-auto space-y-2">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleAnalyzeStorage}
+                disabled={storageAnalysisStatus === 'running'}
+                className="w-full"
+              >
+                {storageAnalysisStatus === 'running' ? 'Analyzing...' : 'Analyze Size'}
+              </Button>
+              <StatusLine status={storageAnalysisStatus} />
+              {storageAnalysisDetail && (
+                <pre
+                  className="text-[11px] mt-2 p-3 rounded-md overflow-auto whitespace-pre font-mono"
+                  style={{
+                    backgroundColor: 'var(--surface-3)',
+                    color: 'var(--text-secondary)',
+                    border: '1px solid var(--surface-4)',
+                    maxHeight: '320px',
+                  }}
+                >
+                  {storageAnalysisDetail}
+                </pre>
+              )}
+            </div>
+          </Card>
           {/* Custom card for Stats Sync with year selector */}
           <Card className="flex flex-col h-full">
             <div className="mb-3">
@@ -2343,20 +2570,42 @@ export default function DangerZone() {
         </Card>
       </div>
 
-      {/* Advanced Player Fixes */}
+      {/* Use With Caution — these handlers were written for older
+          dynasty schemas and have known failure modes on legacy
+          dynasties (CFP repair has miswired user brackets / national
+          championship winners; class fixers can clobber the canonical
+          classByYear map). Each one prompts for a backup-acknowledged
+          confirm before running. */}
       <div>
         <SectionHeader
           size="sm"
-          title="Player Data Repair"
-          subtitle="Advanced fixes for player records"
+          title="Use With Caution"
+          subtitle="Known to corrupt records on dynasties started on older builds — back up first."
         />
-        <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
           <ActionCard
-            title="Sync Honors to Players"
-            description="Links awards, All-Americans & All-Conference to player records"
-            buttonText="Sync Honors"
-            onClick={handleSyncHonorsToPlayers}
-            status={honorsSyncStatus}
+            danger
+            title="Repair CFP Games"
+            description="Tries to fix misaligned CFP bracket slots, bowl names, and game links. Has miswired first-year brackets and assigned the wrong team a national championship on legacy dynasties."
+            buttonText="Repair CFP"
+            onClick={handleRepairCFPGames}
+            status={cfpRepairStatus}
+          />
+          <ActionCard
+            danger
+            title="Fix Player Classes"
+            description="Auto-fills entryYear / entryClass / classByYear by inference. Can overwrite the canonical classByYear map with stale legacy values."
+            buttonText="Fix Classes"
+            onClick={handleFixClassData}
+            status={classDataFixStatus}
+          />
+          <ActionCard
+            danger
+            title="Advance Classes"
+            description="Manually age up selected players. Use only when normal season advance didn't progress someone correctly — running this on already-advanced players double-progresses them."
+            buttonText="Select Players"
+            onClick={handleOpenAdvanceModal}
+            status={advanceClassesStatus}
           />
         </div>
       </div>

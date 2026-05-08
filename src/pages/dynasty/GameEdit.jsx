@@ -13,6 +13,7 @@ import { getTeamConference } from '../../data/conferenceTeams'
 import BoxScoreSheetModal from '../../components/BoxScoreSheetModal'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName } from '../../data/cfpConstants'
 import { PageHero, Card, Button, EmptyState, Input, Select, Textarea } from '../../components/ui'
+import { getTeamLogoRobust } from '../../utils/teamLogo'
 import { getTeamColors } from '../../data/teamColors'
 import { uploadImagesToImgBB } from '../../utils/imgbb'
 import TeamPermissionBanner from '../../components/TeamPermissionBanner'
@@ -87,21 +88,10 @@ function getMascotName(abbr, teamsData = null) {
 }
 
 // Robust logo lookup
-function getTeamLogoRobust(teamInput, teamsData = null) {
-  if (!teamInput) return null
-  if (teamsData) {
-    const logo = getTeamLogo(teamInput, teamsData)
-    if (logo) return logo
-  }
-  let logo = getTeamLogo(teamInput, teamsData)
-  if (logo) return logo
-  const mascotName = getMascotName(teamInput, teamsData)
-  if (mascotName) {
-    logo = getTeamLogo(mascotName, teamsData)
-    if (logo) return logo
-  }
-  return null
-}
+// getTeamLogoRobust now lives in src/utils/teamLogo.js. Single
+// source of truth shared with Game.jsx; the previous local copy
+// here was a partial re-implementation missing the uppercase-abbr
+// and teamAbbreviations fallbacks.
 
 // Helper to get ordinal suffix (1st, 2nd, 3rd, 4th, etc.)
 const getOrdinalSuffix = (num) => {
@@ -230,6 +220,11 @@ export default function GameEdit() {
   // can show a "Uploading X photo(s)…" indicator and disable the file
   // picker while a batch is in progress.
   const [photoUploadCount, setPhotoUploadCount] = useState(0)
+  // Per-photo progress so the user sees "X of 21" + a progress bar
+  // instead of just "Uploading 21 photos…" for the duration of the
+  // batch. Bumps as each upload settles (success or failure).
+  const [photoUploadDone, setPhotoUploadDone] = useState(0)
+  const [photoUploadFailed, setPhotoUploadFailed] = useState(0)
 
   // When ON, opponent Record and Conf inputs are read-only and show the
   // live "after this game finished" computation from `liveRecordFor`.
@@ -1934,38 +1929,68 @@ export default function GameEdit() {
         )}
       </Card>
 
-      {/* Photos — bulk upload to ImgBB. Each picked file is uploaded
-          in parallel and appended to formData.photos as its own URL.
-          The Game page then surfaces these in a "Photos" tab gallery. */}
+      {/* Photos — bulk upload to imgbb. Each picked file is uploaded
+          in parallel; thumbnails are appended progressively (one by
+          one as each upload settles) so the user sees forward progress
+          instead of waiting on a static spinner for a long batch. The
+          Game page surfaces these in a "Photos" tab gallery. */}
       <Card>
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
           <h3 className="label-sm text-txt-primary">Photos</h3>
-          <span className="label-xs text-txt-tertiary">
+          <span className="label-xs text-txt-tertiary tabular-nums">
             {photoUploadCount > 0
-              ? `Uploading ${photoUploadCount}…`
+              ? `${photoUploadDone} of ${photoUploadCount}${photoUploadFailed > 0 ? ` · ${photoUploadFailed} failed` : ''}`
               : `${formData.photos.length} ${formData.photos.length === 1 ? 'photo' : 'photos'}`}
           </span>
         </div>
         <p className="text-xs text-txt-tertiary mb-3">
-          Upload one or many photos at once — each one is hosted on ImgBB and shows up under the Photos tab on the game page.
+          Upload one or many photos at once — each one is hosted on imgbb and shows up under the Photos tab on the game page.
         </p>
 
         <label
-          className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg cursor-pointer mb-3 transition-colors text-sm font-semibold"
+          className="relative flex items-center justify-center gap-2 px-4 py-3 rounded-lg cursor-pointer mb-3 transition-colors text-sm font-semibold overflow-hidden"
           style={{
             backgroundColor: 'var(--surface-3)',
             border: '1.5px dashed var(--surface-5)',
             color: 'var(--text-secondary)',
-            opacity: photoUploadCount > 0 ? 0.6 : 1,
+            opacity: photoUploadCount > 0 ? 0.85 : 1,
             pointerEvents: photoUploadCount > 0 ? 'none' : 'auto',
           }}
         >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          {photoUploadCount > 0
-            ? `Uploading ${photoUploadCount} photo${photoUploadCount === 1 ? '' : 's'}…`
-            : 'Click to select photo(s) — bulk upload supported'}
+          {/* Progress bar — fills left-to-right as photos finish.
+              Sits behind the label text so the count remains readable. */}
+          {photoUploadCount > 0 && (
+            <div
+              className="absolute inset-y-0 left-0 transition-[width] duration-300 ease-out"
+              style={{
+                width: `${Math.round((photoUploadDone / photoUploadCount) * 100)}%`,
+                backgroundColor: 'var(--accent-info, #3b82f6)',
+                opacity: 0.18,
+              }}
+              aria-hidden="true"
+            />
+          )}
+          <span className="relative flex items-center gap-2">
+            {photoUploadCount > 0 ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" d="M12 3a9 9 0 1 1-6.36 2.64" />
+                </svg>
+                <span className="tabular-nums">
+                  Uploading {photoUploadDone} of {photoUploadCount}
+                  {photoUploadFailed > 0 && ` · ${photoUploadFailed} failed`}
+                  …
+                </span>
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Click to select photo(s) — bulk upload supported
+              </>
+            )}
+          </span>
           <input
             type="file"
             accept="image/*"
@@ -1977,11 +2002,25 @@ export default function GameEdit() {
               e.target.value = '' // allow re-picking the same files later
               if (files.length === 0) return
               setPhotoUploadCount(files.length)
+              setPhotoUploadDone(0)
+              setPhotoUploadFailed(0)
               try {
-                const { urls, errors } = await uploadImagesToImgBB(files)
-                if (urls.length > 0) {
-                  setFormData(prev => ({ ...prev, photos: [...(prev.photos || []), ...urls] }))
-                }
+                // Append each successful URL the moment its upload
+                // settles, so thumbnails materialize one by one. Counter
+                // ticks for both successes and failures — what the user
+                // wants to know is "is it making progress," not "is it
+                // succeeding," and a stalled counter is the actual
+                // failure mode worth surfacing.
+                const { urls, errors } = await uploadImagesToImgBB(files, {
+                  onProgress: ({ done, ok, url }) => {
+                    setPhotoUploadDone(done)
+                    if (ok && url) {
+                      setFormData(prev => ({ ...prev, photos: [...(prev.photos || []), url] }))
+                    } else if (!ok) {
+                      setPhotoUploadFailed(prev => prev + 1)
+                    }
+                  }
+                })
                 if (errors.length > 0) {
                   setToastMessage(
                     urls.length > 0
@@ -1997,6 +2036,8 @@ export default function GameEdit() {
                 }
               } finally {
                 setPhotoUploadCount(0)
+                setPhotoUploadDone(0)
+                setPhotoUploadFailed(0)
               }
             }}
           />

@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import AIPromptModal from './AIPromptModal'
-import SheetToolbar, { SheetErrorBanner } from './SheetToolbar'
+import SheetToolbar from './SheetToolbar'
+import AuthErrorModal from './AuthErrorModal'
+import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
 import {
   createGameBoxScoreSheet,
   createScoringSummarySheet,
@@ -48,21 +50,19 @@ export default function BoxScoreSheetModal({
   teamColors
 }) {
   const { currentDynasty, updateDynasty, addGame, isViewOnly } = useDynasty()
-  const { user, signOut, refreshSession } = useAuth()
+  const { user } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
 
-  const [refreshing, setRefreshing] = useState(false)
+  const auth = useAuthErrorHandler()
   const [syncing, setSyncing] = useState(false)
   const [deletingSheet, setDeletingSheet] = useState(false)
   const [creatingSheet, setCreatingSheet] = useState(false)
   const [sheetId, setSheetId] = useState(null)
   const [showDeletedNote, setShowDeletedNote] = useState(false)
-  const [retryCount, setRetryCount] = useState(0)
   const [useEmbedded, setUseEmbedded] = useState(() => {
     return localStorage.getItem('sheetEmbedPreference') === 'true'
   })
-  const [showSessionError, setShowSessionError] = useState(false)
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [ignoreExistingSheetId, setIgnoreExistingSheetId] = useState(false)
@@ -986,31 +986,39 @@ output that fails any of them.`,
     }
   }, [isOpen])
 
-  // Reset session error when modal opens or sheetId changes
-  useEffect(() => {
-    if (isOpen) {
-      setShowSessionError(false)
-    }
-  }, [isOpen, sheetId])
-
   // Load existing sheet or create new one
   useEffect(() => {
     const initSheet = async () => {
       // Use ref for immediate check to prevent race conditions (state updates are async)
-      // Also check showSessionError to stop retrying on OAuth failures
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !showSessionError) {
-        // Check for existing sheet (unless we're regenerating and should ignore it)
+      // Also gate on auth.showAuthError so we don't loop on OAuth failures
+      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !auth.showAuthError) {
+        // Optimistic existing-sheet path: in the common case the sheet
+        // already exists, so render the iframe IMMEDIATELY rather than
+        // making the user wait on a Drive API existence probe before
+        // anything visible happens. Verify in the background; if the
+        // sheet was actually trashed, fall back to regenerate.
+        // (Previous code awaited sheetExists serially, which on slow
+        // connections added 1-2s of blank-modal wait per open.)
         if (existingSheetId && !ignoreExistingSheetId) {
-          const stillExists = await sheetExists(existingSheetId)
-          if (stillExists) {
-            setSheetId(existingSheetId)
-            return
-          }
-          await saveSheetIdToGame(null)
-          if (onSheetCreated) {
-            onSheetCreated(null)
-          }
-          // stale sheet (trashed in Drive); fall through to regenerate
+          setSheetId(existingSheetId)
+          ;(async () => {
+            try {
+              const stillExists = await sheetExists(existingSheetId)
+              if (stillExists) return
+              // Stale sheet (trashed in Drive). Clear state, drop the
+              // sheet ID from the game, and bump retryCount so the
+              // initSheet effect re-runs and creates a fresh sheet.
+              setSheetId(null)
+              await saveSheetIdToGame(null)
+              if (onSheetCreated) onSheetCreated(null)
+              auth.retry()
+            } catch {
+              // Probe failed — assume the sheet is still live (matches
+              // sheetExists' own optimistic fallback) and let the iframe
+              // surface any real errors itself.
+            }
+          })()
+          return
         }
 
         // Create new sheet - set ref immediately to prevent concurrent calls
@@ -1081,10 +1089,7 @@ output that fails any of them.`,
           await saveSheetIdToGame(sheetInfo.spreadsheetId)
         } catch (error) {
           console.error('Failed to create sheet:', error)
-          // Check if it's an OAuth/token error
-          if (error.message?.includes('OAuth') || error.message?.includes('token') || error.message?.includes('expired')) {
-            setShowSessionError(true)
-          }
+          auth.handleError(error)
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false
@@ -1093,7 +1098,7 @@ output that fails any of them.`,
     }
 
     initSheet()
-  }, [isOpen, user, sheetId, creatingSheet, existingSheetId, retryCount, showDeletedNote, ignoreExistingSheetId])
+  }, [isOpen, user, sheetId, creatingSheet, existingSheetId, auth.retryCount, showDeletedNote, ignoreExistingSheetId])
 
   // Reset state when modal closes
   useEffect(() => {
@@ -1174,10 +1179,7 @@ output that fails any of them.`,
       onClose()
     } catch (error) {
       console.error(error)
-      // Check if it's an OAuth/token error
-      if (error.message?.includes('OAuth') || error.message?.includes('token') || error.message?.includes('expired')) {
-        setShowSessionError(true)
-      } else {
+      if (!auth.handleError(error)) {
         toast.error('Failed to sync from Google Sheets. Make sure data is properly formatted.')
       }
     } finally {
@@ -1211,10 +1213,7 @@ output that fails any of them.`,
       }, 2500)
     } catch (error) {
       console.error('Failed to sync/move to trash:', error)
-      // Check if it's an OAuth/token error
-      if (error.message?.includes('OAuth') || error.message?.includes('token') || error.message?.includes('expired')) {
-        setShowSessionError(true)
-      } else {
+      if (!auth.handleError(error)) {
         toast.error(`Failed to sync/move to trash: ${error.message || 'Unknown error'}`)
       }
     } finally {
@@ -1310,13 +1309,10 @@ output that fails any of them.`,
       // Ignore the old existingSheetId prop so we create a fresh sheet
       setIgnoreExistingSheetId(true)
       setSheetId(null)
-      setRetryCount(c => c + 1)
+      auth.retry()
     } catch (error) {
       console.error('Failed to regenerate sheet:', error)
-      // Check if it's an OAuth/token error
-      if (error.message?.includes('OAuth') || error.message?.includes('token') || error.message?.includes('expired')) {
-        setShowSessionError(true)
-      } else {
+      if (!auth.handleError(error)) {
         toast.error('Failed to regenerate sheet. Please try again.')
       }
     } finally {
@@ -1456,25 +1452,6 @@ output that fails any of them.`,
               </button>
             </div>
 
-            {/* Session Error Banner */}
-            {showSessionError && (
-              <SheetErrorBanner
-                teamColors={teamColors}
-                onReload={() => {
-                  setShowSessionError(false)
-                  setRetryCount(c => c + 1)
-                }}
-                onOpenNewTab={() => window.open(`https://docs.google.com/spreadsheets/d/${sheetId}/edit`, '_blank')}
-                onRefreshSession={async () => {
-                  const success = await refreshSession()
-                  if (success) {
-                    setShowSessionError(false)
-                    setRetryCount(c => c + 1)
-                  }
-                }}
-              />
-            )}
-
             {useEmbedded ? (
               /* Embedded iframe view with toolbar */
               <>
@@ -1484,7 +1461,6 @@ output that fails any of them.`,
                     embedUrl={embedUrl}
                     teamColors={teamColors}
                     title={`${config.title} Google Sheet`}
-                    onSessionError={() => setShowSessionError(true)}
                   />
                 </div>
 
@@ -1596,65 +1572,15 @@ output that fails any of them.`,
             )}
           </div>
         ) : (
+          // Fallback placeholder for the brief moment between modal
+          // open and initSheet completing — or when initSheet failed
+          // and AuthErrorModal is up to handle the recovery action.
+          // No inline refresh UI here anymore: AuthErrorModal (rendered
+          // at the bottom of this component) is the single source of
+          // session-expired controls.
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-lg mb-4 text-txt-primary">
-                Your session has expired. Click below to refresh.
-              </p>
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={async () => {
-                    setRefreshing(true)
-                    try {
-                      const success = await refreshSession()
-                      if (success) {
-                        // Clear the error state first, then trigger retry
-                        setShowSessionError(false)
-                        // Small delay to ensure token is ready
-                        setTimeout(() => {
-                          setRetryCount(c => c + 1)
-                        }, 500)
-                      } else {
-                        // refreshSession returned false — popup was
-                        // dismissed or browser blocked it. Tell the
-                        // user explicitly so they don't sit on the
-                        // same screen wondering what happened.
-                        toast.error("Couldn't refresh — Google sign-in was dismissed or blocked. Try again, or sign out and back in.")
-                      }
-                    } catch (e) {
-                      console.error('Refresh failed:', e)
-                      toast.error(`Refresh failed: ${e?.message || 'unknown error'}. Try signing out and back in.`)
-                    }
-                    setRefreshing(false)
-                  }}
-                  disabled={refreshing}
-                  className="px-4 py-2 rounded font-semibold transition-colors"
-                  style={{
-                    backgroundColor: 'var(--text-primary)',
-                    color: 'var(--surface-1)',
-                    opacity: refreshing ? 0.7 : 1
-                  }}
-                >
-                  {refreshing ? 'Refreshing...' : 'Refresh Session'}
-                </button>
-                <button
-                  onClick={async () => {
-                    // Last-resort path — if the refresh popup keeps
-                    // failing, tearing the session down completely
-                    // and signing back in always works.
-                    try {
-                      await signOut()
-                      toast.success('Signed out — sign back in to continue.')
-                    } catch (e) {
-                      toast.error(`Sign out failed: ${e?.message || 'unknown error'}`)
-                    }
-                  }}
-                  disabled={refreshing}
-                  className="px-4 py-2 rounded text-xs font-semibold border border-surface-4 text-txt-secondary hover:text-txt-primary hover:bg-surface-3 transition-colors"
-                >
-                  Sign out
-                </button>
-              </div>
+            <div className="text-center text-sm text-txt-secondary">
+              {auth.showAuthError ? 'Refresh your session to continue.' : 'Setting up sheet…'}
             </div>
           </div>
         )}
@@ -1667,6 +1593,12 @@ output that fails any of them.`,
         title={aiPromptTitle}
         prompt={aiPrompt}
         pasteTarget={aiPasteTarget}
+      />
+      <AuthErrorModal
+        isOpen={auth.showAuthError}
+        onClose={auth.closeAuthError}
+        onRefresh={auth.retry}
+        teamColors={teamColors}
       />
     </div>,
     document.body,

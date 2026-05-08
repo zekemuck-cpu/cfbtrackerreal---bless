@@ -25,6 +25,7 @@ const DYNASTIES_COLLECTION = 'dynasties'
 const PLAYERS_SUBCOLLECTION = 'players'
 const GAMES_SUBCOLLECTION = 'games'
 const INVITES_SUBCOLLECTION = 'invites'
+const WEEK_RECAPS_SUBCOLLECTION = 'weekRecaps'
 
 // Batch size limit for Firestore (max 500 per batch)
 const BATCH_SIZE = 450
@@ -789,6 +790,98 @@ export async function deleteGameFromSubcollection(dynastyId, gameId) {
     console.error('Error deleting game from subcollection:', error)
     throw error
   }
+}
+
+// ─── Week Recaps subcollection ──────────────────────────────────────
+// Recaps are AI-generated narrative text, often several KB each. Long-
+// running dynasties were pushing the parent dynasty document past the
+// 1 MB Firestore size cap (one beta doc was 1,051,303 bytes), at which
+// point ALL writes to the dynasty document fail with INVALID_ARGUMENT
+// — including totally unrelated saves like preseason setup. Storing
+// each recap as its own doc keyed by `${year}-${week}` keeps the parent
+// doc lean and lets recap volume scale freely.
+
+const recapDocId = (year, week) => `${Number(year)}-${Number(week)}`
+
+/**
+ * Save a single week recap as its own subcollection doc.
+ */
+export async function saveWeekRecapToSubcollection(dynastyId, year, week, recap) {
+  const ref = doc(db, DYNASTIES_COLLECTION, dynastyId, WEEK_RECAPS_SUBCOLLECTION, recapDocId(year, week))
+  await setDoc(ref, sanitizeForFirestore({
+    year: Number(year),
+    week: Number(week),
+    generatedAt: recap?.generatedAt ?? Date.now(),
+    text: recap?.text || ''
+  }))
+}
+
+export async function deleteWeekRecapFromSubcollection(dynastyId, year, week) {
+  const ref = doc(db, DYNASTIES_COLLECTION, dynastyId, WEEK_RECAPS_SUBCOLLECTION, recapDocId(year, week))
+  await deleteDoc(ref)
+}
+
+/**
+ * Load all week recaps and rebuild the legacy `{ [year]: { [week]: {...} } }`
+ * shape that consumers (Dashboard, WeeklyScores, WeekRecapModal) already
+ * expect. Cache-first like other subcollection reads.
+ */
+export async function getWeekRecapsSubcollection(dynastyId) {
+  const ref = collection(db, DYNASTIES_COLLECTION, dynastyId, WEEK_RECAPS_SUBCOLLECTION)
+  try {
+    const cached = await getDocsFromCache(ref)
+    if (!cached.empty) {
+      getDocsFromServer(ref).catch(() => {})
+      return buildRecapsMap(cached.docs)
+    }
+  } catch (_) { /* fall through to network */ }
+  try {
+    const snap = await getDocs(ref)
+    return buildRecapsMap(snap.docs)
+  } catch (error) {
+    console.error('Error fetching weekRecaps subcollection:', error)
+    return {}
+  }
+}
+
+function buildRecapsMap(docs) {
+  const out = {}
+  for (const d of docs) {
+    const data = d.data()
+    const y = Number(data.year)
+    const w = Number(data.week)
+    if (!Number.isFinite(y) || !Number.isFinite(w)) continue
+    if (!out[y]) out[y] = {}
+    out[y][w] = { generatedAt: data.generatedAt, text: data.text || '' }
+  }
+  return out
+}
+
+/**
+ * One-shot migration for dynasties that still have the legacy
+ * `weekRecapsByYear` map embedded on the main document. Writes each
+ * year/week to the subcollection, then clears the field via deleteField
+ * — that removal SHRINKS the parent doc, which is the only path back
+ * under the 1 MB cap once the doc has gone over.
+ *
+ * Idempotent: setDoc replaces, deleteField on an absent field is a no-op.
+ */
+export async function migrateWeekRecapsToSubcollection(dynastyId, legacyRecapsByYear) {
+  if (!legacyRecapsByYear || typeof legacyRecapsByYear !== 'object') return
+  const writes = []
+  for (const [year, weeks] of Object.entries(legacyRecapsByYear)) {
+    if (!weeks || typeof weeks !== 'object') continue
+    for (const [week, recap] of Object.entries(weeks)) {
+      if (!recap || typeof recap !== 'object' || !recap.text) continue
+      writes.push(saveWeekRecapToSubcollection(dynastyId, year, week, recap))
+    }
+  }
+  await Promise.all(writes)
+  // Clear the legacy field on the main doc — atomic field deletion,
+  // which shrinks the resulting doc and so isn't subject to the 1 MB
+  // cap that blocks normal updates on bloated dynasties.
+  const ref = doc(db, DYNASTIES_COLLECTION, dynastyId)
+  await updateDoc(ref, { weekRecapsByYear: deleteField() })
 }
 
 /**

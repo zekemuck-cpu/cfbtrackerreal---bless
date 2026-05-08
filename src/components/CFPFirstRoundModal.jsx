@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
 import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import { getModalColors } from '../utils/colorUtils'
@@ -24,19 +25,18 @@ const isMobileDevice = () => {
 
 export default function CFPFirstRoundModal({ isOpen, onClose, onSave, currentYear, teamColors }) {
   const { currentDynasty } = useDynasty()
-  const { user, signOut, refreshSession } = useAuth()
+  const { user, signOut } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
-  const [refreshing, setRefreshing] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [deletingSheet, setDeletingSheet] = useState(false)
   const [creatingSheet, setCreatingSheet] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [sheetId, setSheetId] = useState(null)
   const [showDeletedNote, setShowDeletedNote] = useState(false)
-  const [retryCount, setRetryCount] = useState(0)
+  const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
-  const [showAuthError, setShowAuthError] = useState(false)
+
   const [useEmbedded, setUseEmbedded] = useState(() => {
     return localStorage.getItem('sheetEmbedPreference') === 'true'
   })
@@ -176,7 +176,7 @@ FINAL CHECK before you send the answer
     }
 
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, retryCount, showDeletedNote])
+  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote])
 
   useEffect(() => {
     if (!isOpen) {
@@ -238,12 +238,10 @@ FINAL CHECK before you send the answer
     try {
       await deleteGoogleSheet(sheetId)
       setSheetId(null)
-      setRetryCount(c => c + 1)
+      auth.retry()
     } catch (error) {
       console.error('Failed to regenerate sheet:', error)
-      if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
-        setShowAuthError(true)
-      } else {
+      if (!auth.handleError(error)) {
         toast.error('Failed to regenerate sheet. Please try again.')
       }
     } finally {
@@ -432,65 +430,16 @@ FINAL CHECK before you send the answer
                   {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
                 </button>
               </div>
-            ) : (
-              <>
-                <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-                  <SheetToolbar
-                    sheetId={sheetId}
-                    embedUrl={embedUrl}
-                    teamColors={teamColors}
-                    title="CFP First Round Google Sheet"
-                    onSessionError={() => setShowAuthError(true)}
-                  />
-                </div>
-                <div className="text-xs mt-2 space-y-1" style={{ color: 'var(--text-secondary)' }}>
-                  <p><strong>Columns:</strong> Game | Higher Seed | Lower Seed | Higher Score | Lower Score</p>
-                  <p>Enter the teams and scores for each First Round game. Winners advance to Quarterfinals.</p>
-                </div>
-              </>
-            )}
+            ) : null}
           </div>
-        ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-lg mb-4 text-txt-primary">
-                Your session has expired. Click below to refresh.
-              </p>
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={async () => {
-                    setRefreshing(true)
-                    try {
-                      const success = await refreshSession()
-                      if (success) {
-                        setRetryCount(c => c + 1)
-                      }
-                    } catch (e) {
-                      console.error('Refresh failed:', e)
-                    }
-                    setRefreshing(false)
-                  }}
-                  disabled={refreshing}
-                  className="px-4 py-2 rounded font-semibold transition-colors"
-                  style={{
-                    backgroundColor: 'var(--text-primary)',
-                    color: 'var(--surface-1)',
-                    opacity: refreshing ? 0.7 : 1
-                  }}
-                >
-                  {refreshing ? 'Refreshing...' : 'Refresh Session'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        ) : null}
         </div>
       </div>
 
       <AuthErrorModal
-        isOpen={showAuthError}
-        onClose={() => setShowAuthError(false)}
-        onRefresh={() => setRetryCount(c => c + 1)}
+        isOpen={auth.showAuthError}
+        onClose={auth.closeAuthError}
+        onRefresh={auth.retry}
         teamColors={teamColors}
       />
       <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} CFP First Round Results`} prompt={aiPrompt} pasteTarget={`Cell B2 of the "CFP First Round" tab`} />
