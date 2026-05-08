@@ -567,7 +567,7 @@ function buildEnhancedPlayerHighlights(boxScore, side, players, allGames, year, 
  * Get head-to-head history between two teams
  * Returns past matchups from all seasons in the dynasty
  */
-function getHeadToHeadHistory(allGames, team1, team2, currentYear, maxGames = 5, dynasty = null) {
+export function getHeadToHeadHistory(allGames, team1, team2, currentYear, maxGames = 5, dynasty = null) {
   const history = []
 
   // Get tids for unified format matching. Pass dynasty so teambuilder-renamed
@@ -958,92 +958,205 @@ function getBowlHistory(allGames, teamAbbr, currentYear, maxGames = 3, dynasty =
 
 /**
  * Get a team's postseason result from the prior year (the year before the current game)
- * Returns bowl game or CFP participation details from the previous season
+ * Returns the DEEPEST round the team reached, plus a one-line narrative cue
+ * the AI can drop straight into prose ("nearly won the natty",
+ * "lost in the CFP semifinals", "won their bowl game", etc.).
+ *
+ * Earlier versions returned whichever postseason game iterated first in
+ * `allGames`, which meant a team that played both their CFP first-round and
+ * the National Championship would be reported as "CFP First Round" if that
+ * game happened to come first in the array. The fix: rank every postseason
+ * game we find, take the deepest one. National Championship > Semifinal >
+ * Quarterfinal > First Round > Bowl.
  */
-function getPriorYearPostseason(allGames, teamAbbr, currentYear, dynasty = null) {
+export function getPriorYearPostseason(allGames, teamAbbr, currentYear, dynasty = null) {
   const priorYear = Number(currentYear) - 1
   // Pass dynasty so a teambuilder-renamed team's abbr resolves to its tid.
   const teamTid = getTidFromAbbr(teamAbbr, dynasty)
+
+  // Rank ordering — higher = deeper round. Used to pick the team's
+  // furthest-played postseason game when multiple are present.
+  const roundDepth = (g) => {
+    if (g.isCFPChampionship) return 5
+    if (g.isCFPSemifinal) return 4
+    if (g.isCFPQuarterfinal) return 3
+    if (g.isCFPFirstRound) return 2
+    if (g.isBowlGame) return 1
+    return 0
+  }
+
+  let best = null
+  let bestDepth = -1
 
   for (const g of allGames) {
     if (Number(g.year) !== priorYear) continue
     if (!g.isBowlGame && !g.isCFPFirstRound && !g.isCFPQuarterfinal && !g.isCFPSemifinal && !g.isCFPChampionship) continue
 
-    // Check if this team was in the game (support both formats)
     const teamInGameLegacy = g.userTeam === teamAbbr || g.team1 === teamAbbr || g.team2 === teamAbbr
     const teamInGameUnified = teamTid && (g.team1Tid === teamTid || g.team2Tid === teamTid || g.userTid === teamTid)
+    if (!teamInGameLegacy && !teamInGameUnified) continue
 
-    if (teamInGameLegacy || teamInGameUnified) {
-      let won, opponent, score, gameName
+    const depth = roundDepth(g)
+    if (depth <= bestDepth) continue
+    bestDepth = depth
+    best = g
+  }
 
-      // Determine result based on game format
-      if (g.team1Tid && g.team2Tid) {
-        // Unified format - resolve opponent from tid
-        const isTeam1 = (teamTid && g.team1Tid === teamTid) || g.team1 === teamAbbr
-        won = isTeam1 ? g.team1Score > g.team2Score : g.team2Score > g.team1Score
-        const opponentTid = isTeam1 ? g.team2Tid : g.team1Tid
-        // Get opponent abbr from tid, fallback to g.team2/g.team1 if available
-        const opponentInfo = getGameTeamInfo(TEAMS, opponentTid)
-        opponent = opponentInfo?.abbr || (isTeam1 ? g.team2 : g.team1) || opponentTid
-        score = `${isTeam1 ? g.team1Score : g.team2Score}-${isTeam1 ? g.team2Score : g.team1Score}`
-      } else if (g.team1 && g.team2) {
-        // Legacy CPU game format
-        const isTeam1 = g.team1 === teamAbbr
-        won = isTeam1 ? g.team1Score > g.team2Score : g.team2Score > g.team1Score
-        opponent = isTeam1 ? g.team2 : g.team1
-        score = `${isTeam1 ? g.team1Score : g.team2Score}-${isTeam1 ? g.team2Score : g.team1Score}`
-      } else {
-        // Legacy user game format
-        won = g.result === 'win' || g.result === 'W'
-        // Try to get opponent from opponentTid if opponent abbr not available
-        if (g.opponent) {
-          opponent = g.opponent
-        } else if (g.opponentTid) {
-          const oppInfo = getGameTeamInfo(TEAMS, g.opponentTid)
-          opponent = oppInfo?.abbr || g.opponentTid
-        }
-        score = `${g.teamScore}-${g.opponentScore}`
-      }
+  if (!best) return null
 
-      // Determine game type name
-      if (g.isCFPChampionship) {
-        gameName = 'National Championship'
-      } else if (g.isCFPSemifinal) {
-        gameName = g.bowlName || 'CFP Semifinal'
-      } else if (g.isCFPQuarterfinal) {
-        gameName = g.bowlName || 'CFP Quarterfinal'
-      } else if (g.isCFPFirstRound) {
-        gameName = 'CFP First Round'
-      } else {
-        gameName = g.bowlName || 'Bowl Game'
-      }
+  const g = best
+  let won, opponent, score
 
-      // For CFP games, check if they made it further
-      let cfpRound = null
-      if (g.isCFPChampionship) {
-        cfpRound = 'National Championship'
-      } else if (g.isCFPSemifinal) {
-        cfpRound = 'CFP Semifinal'
-      } else if (g.isCFPQuarterfinal) {
-        cfpRound = 'CFP Quarterfinal'
-      } else if (g.isCFPFirstRound) {
-        cfpRound = 'CFP First Round'
-      }
+  if (g.team1Tid && g.team2Tid) {
+    const isTeam1 = (teamTid && g.team1Tid === teamTid) || g.team1 === teamAbbr
+    won = isTeam1 ? g.team1Score > g.team2Score : g.team2Score > g.team1Score
+    const opponentTid = isTeam1 ? g.team2Tid : g.team1Tid
+    const opponentInfo = getGameTeamInfo(TEAMS, opponentTid)
+    opponent = opponentInfo?.abbr || (isTeam1 ? g.team2 : g.team1) || opponentTid
+    score = `${isTeam1 ? g.team1Score : g.team2Score}-${isTeam1 ? g.team2Score : g.team1Score}`
+  } else if (g.team1 && g.team2) {
+    const isTeam1 = g.team1 === teamAbbr
+    won = isTeam1 ? g.team1Score > g.team2Score : g.team2Score > g.team1Score
+    opponent = isTeam1 ? g.team2 : g.team1
+    score = `${isTeam1 ? g.team1Score : g.team2Score}-${isTeam1 ? g.team2Score : g.team1Score}`
+  } else {
+    won = g.result === 'win' || g.result === 'W'
+    if (g.opponent) {
+      opponent = g.opponent
+    } else if (g.opponentTid) {
+      const oppInfo = getGameTeamInfo(TEAMS, g.opponentTid)
+      opponent = oppInfo?.abbr || g.opponentTid
+    }
+    score = `${g.teamScore}-${g.opponentScore}`
+  }
 
-      return {
-        year: priorYear,
-        gameName,
-        result: won ? 'W' : 'L',
-        opponent,
-        score,
-        isCFP: g.isCFPFirstRound || g.isCFPQuarterfinal || g.isCFPSemifinal || g.isCFPChampionship,
-        cfpRound,
-        wonNationalChampionship: g.isCFPChampionship && won
-      }
+  let gameName, cfpRound = null
+  if (g.isCFPChampionship) {
+    gameName = 'National Championship'
+    cfpRound = 'National Championship'
+  } else if (g.isCFPSemifinal) {
+    gameName = g.bowlName || 'CFP Semifinal'
+    cfpRound = 'CFP Semifinal'
+  } else if (g.isCFPQuarterfinal) {
+    gameName = g.bowlName || 'CFP Quarterfinal'
+    cfpRound = 'CFP Quarterfinal'
+  } else if (g.isCFPFirstRound) {
+    gameName = 'CFP First Round'
+    cfpRound = 'CFP First Round'
+  } else {
+    gameName = g.bowlName || 'Bowl Game'
+  }
+
+  // Narrative cue — a single phrase the AI can drop directly into prose.
+  // Distinguishes the all-important cases (won the natty, almost won the
+  // natty, made the playoff and lost early, lost their bowl, etc.) so the
+  // recap doesn't have to interpret the structured fields.
+  let narrativeCue
+  if (g.isCFPChampionship && won) narrativeCue = `won the National Championship in ${priorYear}`
+  else if (g.isCFPChampionship && !won) narrativeCue = `lost the ${priorYear} National Championship Game (a play away from the title)`
+  else if (g.isCFPSemifinal && won) narrativeCue = `advanced to the ${priorYear} CFP National Championship`
+  else if (g.isCFPSemifinal && !won) narrativeCue = `fell in the ${priorYear} CFP semifinals (one game shy of the title game)`
+  else if (g.isCFPQuarterfinal && won) narrativeCue = `reached the ${priorYear} CFP semifinals`
+  else if (g.isCFPQuarterfinal && !won) narrativeCue = `was eliminated in the ${priorYear} CFP quarterfinals`
+  else if (g.isCFPFirstRound && won) narrativeCue = `won their ${priorYear} CFP first-round game`
+  else if (g.isCFPFirstRound && !won) narrativeCue = `was bounced in the ${priorYear} CFP first round`
+  else if (g.isBowlGame && won) narrativeCue = `won the ${priorYear} ${gameName}`
+  else if (g.isBowlGame && !won) narrativeCue = `lost the ${priorYear} ${gameName}`
+
+  return {
+    year: priorYear,
+    gameName,
+    result: won ? 'W' : 'L',
+    opponent,
+    score,
+    isCFP: g.isCFPFirstRound || g.isCFPQuarterfinal || g.isCFPSemifinal || g.isCFPChampionship,
+    cfpRound,
+    wonNationalChampionship: g.isCFPChampionship && won,
+    lostNationalChampionship: g.isCFPChampionship && !won,
+    deepestRound: gameName,
+    narrativeCue,
+  }
+}
+
+/**
+ * Get a team's final-poll ranking from a given year (defaults to prior year).
+ * Returns the integer rank (1-25) the team finished at, or null if not ranked
+ * / no poll on file. Reads dynasty.finalPollsByYear[year].media — the same
+ * shape DynastyContext.getTeamRanking uses, so this stays in sync with the
+ * Rankings page.
+ */
+export function getTeamFinalRank(dynasty, teamAbbr, year) {
+  if (!dynasty || !teamAbbr || !year) return null
+  const teamTid = getTidFromAbbr(teamAbbr, dynasty)
+  const media = dynasty?.finalPollsByYear?.[year]?.media
+  if (!Array.isArray(media)) return null
+  const entry = media.find(p =>
+    p && (
+      (teamTid != null && Number(p.tid) === Number(teamTid)) ||
+      p.team === teamAbbr
+    )
+  )
+  return entry?.rank ?? null
+}
+
+/**
+ * Summarize a head-to-head history list into the storyline cues the AI needs
+ * to write framing-rich prose. Reduces "we have 5 prior matchups" into:
+ *   - the most-recent matchup (year, winner, score) — the rematch anchor
+ *   - whether the most-recent meeting was a loss for team1 / team2 (revenge cue)
+ *   - the dominant team in the rivalry across the visible history
+ *   - the current consecutive-wins streak from one side (e.g. "Alabama has won
+ *     the last 4 meetings") — only when the streak is ≥ 2 games long
+ *
+ * Inputs `team1` / `team2` should be the same identifiers the head-to-head
+ * list was built with — typically full team names (since getHeadToHeadHistory
+ * resolves tids to names before pushing into the list).
+ */
+export function summarizeHeadToHead(headToHeadList, team1Name, team2Name) {
+  if (!Array.isArray(headToHeadList) || headToHeadList.length === 0) return null
+
+  // History is sorted most-recent-first by getHeadToHeadHistory.
+  const sorted = headToHeadList
+
+  const team1Wins = sorted.filter(h => h.winner === team1Name).length
+  const team2Wins = sorted.filter(h => h.winner === team2Name).length
+
+  // Last meeting = the most-recent prior matchup.
+  const last = sorted[0]
+  const team1WonLast = last?.winner === team1Name
+  const team2WonLast = last?.winner === team2Name
+
+  // Walk from the most-recent backwards; count consecutive same-winner games.
+  let streakWinner = last?.winner || null
+  let streakLength = 0
+  if (streakWinner) {
+    for (const h of sorted) {
+      if (h.winner === streakWinner) streakLength += 1
+      else break
     }
   }
 
-  return null
+  return {
+    isRematch: true, // by definition — we have at least one prior meeting
+    totalMeetings: sorted.length,
+    team1Wins,
+    team2Wins,
+    lastMeeting: last
+      ? {
+          year: last.year,
+          winner: last.winner,
+          loser: last.loser,
+          winnerScore: last.winnerScore,
+          loserScore: last.loserScore,
+          gameType: last.gameType,
+        }
+      : null,
+    team1LostLastMeeting: team2WonLast === true,
+    team2LostLastMeeting: team1WonLast === true,
+    currentStreak: streakLength >= 2 && streakWinner
+      ? { winner: streakWinner, count: streakLength }
+      : null,
+  }
 }
 
 /**
@@ -1682,6 +1795,12 @@ export function buildGameRecapContext(dynasty, game) {
   const team1PriorPostseason = getPriorYearPostseason(allGames, team1, year, dynasty)
   const team2PriorPostseason = getPriorYearPostseason(allGames, team2, year, dynasty)
 
+  // Prior-year final ranking — paired with prior postseason gives the AI the
+  // "preseason expectation set by last year's finish" angle the user wants
+  // ("Ole Miss finished #4 a year ago after their CFP semifinal run...").
+  const team1PriorYearFinalRank = getTeamFinalRank(dynasty, team1, Number(year) - 1)
+  const team2PriorYearFinalRank = getTeamFinalRank(dynasty, team2, Number(year) - 1)
+
   // NEW: Get player performance trends from box score (using determined sides)
   let team1PlayerTrends = []
   let team2PlayerTrends = []
@@ -1828,9 +1947,20 @@ export function buildGameRecapContext(dynasty, game) {
     bowlName: game.bowlName,
     cfpSeed: game.cfpSeed,
 
-    // HISTORICAL DATA
-    // Head-to-head history between these two teams
-    headToHead: getHeadToHeadHistory(allGames, team1, team2, year, 5, dynasty),
+    // HISTORICAL DATA — head-to-head history between these two teams.
+    // We pull a deeper window (10 games) so the streak summary below has
+    // enough history to compute against, then expose the top-5 slice as
+    // the raw `headToHead` list for the prompt's matchup-list section.
+    ...(() => {
+      const fullHistory = getHeadToHeadHistory(allGames, team1, team2, year, 10, dynasty)
+      return {
+        headToHead: fullHistory.slice(0, 5),
+        // Compact summary — flags for revenge/rematch/streak framing the
+        // AI can drop straight into prose without computing anything from
+        // the raw matchup list itself.
+        headToHeadSummary: summarizeHeadToHead(fullHistory, team1FullName, team2FullName),
+      }
+    })(),
 
     // CFP bracket context (only for CFP games)
     cfpBracket: getCFPBracketContext(dynasty, game),
@@ -1856,6 +1986,11 @@ export function buildGameRecapContext(dynasty, game) {
     // NEW: Prior year postseason results (bowl/CFP from previous season)
     team1PriorPostseason,
     team2PriorPostseason,
+
+    // NEW: Prior year final-poll ranking for both teams. Pairs with prior
+    // postseason for the "this team finished last year ranked #N" framing.
+    team1PriorYearFinalRank,
+    team2PriorYearFinalRank,
 
     // NEW: Player performance trends (hot streaks, bounce backs)
     team1PlayerTrends,
@@ -2567,18 +2702,46 @@ ${team2Name.toUpperCase()} INDIVIDUAL STATS
     }
   }
 
-  // Add head-to-head history (rivalry context)
+  // Add head-to-head history (rivalry context) + a one-line cue block that
+  // tells the AI exactly how to use it. Without explicit framing the AI
+  // tended to ignore this section and never wrote "revenge / rematch /
+  // avenging" prose even when the data clearly supported it.
   if (ctx.headToHead && ctx.headToHead.length > 0) {
     prompt += `\n
 ===========================================
 HEAD-TO-HEAD HISTORY (${ctx.team1FullName} vs ${ctx.team2FullName})
 ===========================================`
     ctx.headToHead.forEach(h => {
-      // Convert abbreviations to full names
       const winnerName = getTeamName(h.winner) || h.winner
       const loserName = getTeamName(h.loser) || h.loser
       prompt += `\n  ${h.year}: ${winnerName} def. ${loserName} ${h.winnerScore}-${h.loserScore} (${h.gameType})`
     })
+
+    if (ctx.headToHeadSummary) {
+      const s = ctx.headToHeadSummary
+      prompt += `\n\nRIVALRY FRAMING — use whichever of these naturally fits the lede or a body paragraph:`
+      if (s.lastMeeting) {
+        const lm = s.lastMeeting
+        prompt += `\n  • Last meeting (${lm.year}): ${lm.winner} beat ${lm.loser} ${lm.winnerScore}-${lm.loserScore} in the ${lm.gameType}.`
+      }
+      // Revenge / avenge cues — the explicit verbs the user asked for. Only
+      // emit when this is a genuine rematch where the team that lost last
+      // time has the chance to flip the result THIS time. The AI then
+      // decides whether the actual result of THIS game extends or breaks
+      // the trend (it has the live boxscore — we don't pre-bake the spin).
+      if (s.team1LostLastMeeting) {
+        prompt += `\n  • REVENGE ANGLE AVAILABLE: ${ctx.team1FullName} lost to ${ctx.team2FullName} the last time these two played (${s.lastMeeting.year}). If ${ctx.team1FullName} wins this game, "avenged last year's loss" / "got revenge" / "exorcised last season's ghosts" is a legitimate framing. If ${ctx.team1FullName} loses again, "couldn't reverse last year's outcome" / "swept again" works.`
+      }
+      if (s.team2LostLastMeeting) {
+        prompt += `\n  • REVENGE ANGLE AVAILABLE: ${ctx.team2FullName} lost to ${ctx.team1FullName} the last time these two played (${s.lastMeeting.year}). If ${ctx.team2FullName} wins this game, "avenged last year's loss" / "got their revenge" applies. If ${ctx.team2FullName} loses again, "couldn't avenge it" works.`
+      }
+      if (s.currentStreak) {
+        prompt += `\n  • CURRENT STREAK: ${s.currentStreak.winner} has won ${s.currentStreak.count} straight against ${s.currentStreak.winner === ctx.team1FullName ? ctx.team2FullName : ctx.team1FullName}. If that team wins again here, "extended their dominance to ${s.currentStreak.count + 1} straight"; if the streak breaks, "snapped a ${s.currentStreak.count}-game skid in the series."`
+      }
+      if (!s.currentStreak && (s.team1Wins > 0 || s.team2Wins > 0) && s.totalMeetings >= 3) {
+        prompt += `\n  • Series record across visible history: ${ctx.team1FullName} ${s.team1Wins}, ${ctx.team2FullName} ${s.team2Wins}.`
+      }
+    }
   }
 
   // Add CFP bracket context
@@ -2653,33 +2816,50 @@ PAST SEASON RECORDS
     }
   }
 
-  // Add prior year postseason results (bowl/CFP from previous season)
-  if (ctx.team1PriorPostseason || ctx.team2PriorPostseason) {
+  // Add prior year postseason results — paired with prior-year final ranking
+  // as a setup/contrast tool. The previous version of this section said
+  // "optional context, only mention if it naturally fits" and the AI
+  // overwhelmingly skipped it. The user explicitly asked for things like
+  // "After nearly winning the natty last season, Ole Miss has struggled to
+  // recapture that same form" — which requires actively comparing prior peak
+  // to current trajectory. This section now actively instructs the AI to
+  // build that comparison.
+  if (ctx.team1PriorPostseason || ctx.team2PriorPostseason || ctx.team1PriorYearFinalRank || ctx.team2PriorYearFinalRank) {
+    const priorYear = Number(ctx.year) - 1
     prompt += `\n
 ===========================================
-PRIOR YEAR POSTSEASON RESULTS
+PRIOR-SEASON CONTEXT (${priorYear} season — last year)
 ===========================================
-Use this context to enrich your narrative when relevant (e.g., defending national champions, coming off a bowl win, etc.). This is optional context - only mention if it naturally fits the story.`
-    if (ctx.team1PriorPostseason) {
-      const p = ctx.team1PriorPostseason
-      const oppName = getTeamName(p.opponent) || p.opponent
-      prompt += `\n${ctx.team1FullName} (${p.year}): ${p.result} ${p.score} vs ${oppName} (${p.gameName})`
-      if (p.wonNationalChampionship) {
-        prompt += ` - NATIONAL CHAMPIONS`
-      } else if (p.isCFP) {
-        prompt += ` - Made CFP (${p.cfpRound})`
+USE THIS ACTIVELY. A strong recap lede or early body paragraph contrasts where each team WAS (last year's finish) with where they ARE (this year's trajectory in the SEASON RECORD section below). Do not bury this — it's how readers locate stakes.
+
+The kinds of framing this section unlocks (drop in verbatim or paraphrase, only when the data supports it):
+  • "After [last year's deep run], Team X has [this year's record/streak]..."
+  • "Coming off [bowl loss], Team Y looked to [this game's result]..."
+  • "A year removed from playing for the title, Ole Miss is now [W-L]..."
+  • "The defending [bowl/national] champions [extended/lost]..."
+  • Contrast plays: a team that finished top-5 last year and is now scuffling deserves a "fall from grace" beat. A team that finished unranked and is now ranked deserves the "leap forward" beat.
+
+Required: if a team has a NOTABLE prior-year finish (top-15 final ranking, CFP appearance, or a bowl win/loss), you must reference it at least once in your recap unless the live game is so dominant a storyline that historical framing would dilute it.`
+
+    const renderPriorContext = (teamName, finalRank, prior) => {
+      const bits = []
+      if (finalRank) bits.push(`finished ${priorYear} ranked #${finalRank} in the final poll`)
+      if (prior?.narrativeCue) bits.push(prior.narrativeCue)
+      else if (prior) {
+        const oppName = getTeamName(prior.opponent) || prior.opponent
+        bits.push(`${prior.result === 'W' ? 'won' : 'lost'} ${prior.gameName} ${prior.score} vs ${oppName}`)
       }
+      if (bits.length === 0) return null
+      let line = `\n${teamName} (${priorYear}): ${bits.join('; ')}`
+      if (prior?.wonNationalChampionship) line += ` — DEFENDING NATIONAL CHAMPIONS this season`
+      else if (prior?.lostNationalChampionship) line += ` — came one game shy of the title`
+      return line
     }
-    if (ctx.team2PriorPostseason) {
-      const p = ctx.team2PriorPostseason
-      const oppName = getTeamName(p.opponent) || p.opponent
-      prompt += `\n${ctx.team2FullName} (${p.year}): ${p.result} ${p.score} vs ${oppName} (${p.gameName})`
-      if (p.wonNationalChampionship) {
-        prompt += ` - NATIONAL CHAMPIONS`
-      } else if (p.isCFP) {
-        prompt += ` - Made CFP (${p.cfpRound})`
-      }
-    }
+
+    const t1Line = renderPriorContext(ctx.team1FullName, ctx.team1PriorYearFinalRank, ctx.team1PriorPostseason)
+    const t2Line = renderPriorContext(ctx.team2FullName, ctx.team2PriorYearFinalRank, ctx.team2PriorPostseason)
+    if (t1Line) prompt += t1Line
+    if (t2Line) prompt += t2Line
   }
 
   // Both teams' current season results (week-by-week, compact form). For

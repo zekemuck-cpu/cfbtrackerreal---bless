@@ -24,6 +24,11 @@
 import { getMascotName } from '../data/teams'
 import { ambiguousNamingRules } from './recapTeamNames'
 import { conferenceTeams as DEFAULT_CONFERENCES } from '../data/conferenceTeams'
+import {
+  getPriorYearPostseason,
+  getTeamFinalRank,
+  getHeadToHeadHistory,
+} from '../services/geminiService'
 
 const TWO_DIGIT = (y) => String(y).slice(-2)
 
@@ -523,18 +528,94 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   })()
   const priorYearLines = []
   for (const y of priorYears) {
-    const finalMedia = dynasty?.finalPolls?.[y]?.media
+    // Canonical key is `finalPollsByYear` — DynastyContext, Rankings page,
+    // Dashboard all read from there. The previous read from `finalPolls`
+    // (no `ByYear` suffix) silently returned undefined every time, so this
+    // section emitted nothing in practice and the AI never had the
+    // prior-year national poll to draw from.
+    const finalMedia = dynasty?.finalPollsByYear?.[y]?.media
     if (Array.isArray(finalMedia) && finalMedia.length > 0) {
-      const top5 = finalMedia.slice(0, 5).map(e => `#${e.rank} ${teamDisplay(e.tid, e.team, dynasty)}`).join(', ')
-      priorYearLines.push(`${y} final poll top 5: ${top5}.`)
+      const top10 = finalMedia.slice(0, 10).map(e => `#${e.rank} ${teamDisplay(e.tid, e.team, dynasty)}`).join(', ')
+      priorYearLines.push(`${y} final poll top 10: ${top10}.`)
     }
     const aw = dynasty?.awardsByYear?.[y] || {}
     if (aw.heisman?.player || aw.heisman?.name) priorYearLines.push(`${y} Heisman: ${aw.heisman.player || aw.heisman.name}.`)
   }
 
+  // ----- Per-team prior-year context for every team that played this week -----
+  // The user's note: weekly recaps mentioned a team's preseason rank but
+  // never their actual prior-year postseason finish, so it had no way to
+  // write "after nearly winning the natty last season..." for any
+  // individual team. The fix is to bundle, for every team in this week's
+  // games, the same prior-year context the per-game recap already gets:
+  //   - prior-year final poll rank
+  //   - prior-year deepest postseason result (with a one-line narrative cue)
+  //   - last meeting between this game's two teams (for revenge/rematch
+  //     framing on a per-game basis)
+  // De-duped by team across the week — Florida + LSU each show up once
+  // even if both played in this week.
+  const priorYear = yearNum - 1
+  const teamsThisWeek = new Map() // tid -> { tid, abbr, name }
+  for (const g of weekGames) {
+    if (g.team1Tid != null) {
+      teamsThisWeek.set(Number(g.team1Tid), {
+        tid: Number(g.team1Tid),
+        abbr: g.team1,
+        name: teamDisplay(g.team1Tid, g.team1, dynasty),
+      })
+    } else if (g.team1) {
+      teamsThisWeek.set(`abbr:${g.team1}`, { tid: null, abbr: g.team1, name: teamDisplay(null, g.team1, dynasty) })
+    }
+    if (g.team2Tid != null) {
+      teamsThisWeek.set(Number(g.team2Tid), {
+        tid: Number(g.team2Tid),
+        abbr: g.team2,
+        name: teamDisplay(g.team2Tid, g.team2, dynasty),
+      })
+    } else if (g.team2) {
+      teamsThisWeek.set(`abbr:${g.team2}`, { tid: null, abbr: g.team2, name: teamDisplay(null, g.team2, dynasty) })
+    }
+  }
+
+  const teamPriorContextLines = []
+  for (const t of teamsThisWeek.values()) {
+    const finalRank = getTeamFinalRank(dynasty, t.abbr, priorYear)
+    const prior = getPriorYearPostseason(allDynastyGames, t.abbr, yearNum, dynasty)
+    if (!finalRank && !prior) continue
+    const bits = []
+    if (finalRank) bits.push(`finished ${priorYear} #${finalRank}`)
+    if (prior?.narrativeCue) bits.push(prior.narrativeCue)
+    else if (prior) {
+      bits.push(`${prior.result === 'W' ? 'won' : 'lost'} ${prior.gameName} ${prior.score}`)
+    }
+    if (prior?.wonNationalChampionship) bits.push('— DEFENDING NATIONAL CHAMPIONS')
+    else if (prior?.lostNationalChampionship) bits.push('— came one game short of the title')
+    teamPriorContextLines.push(`${t.name}: ${bits.join('; ')}`)
+  }
+  teamPriorContextLines.sort()
+
+  // For each game this week, include the most-recent prior matchup between
+  // the same two teams. Powers per-game revenge/rematch framing in the weekly
+  // recap. Only the LAST meeting (we'd blow up the prompt otherwise — there
+  // are dozens of weekly games and each could have years of history).
+  const lastMeetingLines = []
+  for (const g of weekGames) {
+    const team1Abbr = g.team1
+    const team2Abbr = g.team2
+    if (!team1Abbr || !team2Abbr) continue
+    const history = getHeadToHeadHistory(allDynastyGames, team1Abbr, team2Abbr, yearNum, 1, dynasty)
+    if (!Array.isArray(history) || history.length === 0) continue
+    const last = history[0]
+    const t1Name = teamDisplay(g.team1Tid, g.team1, dynasty)
+    const t2Name = teamDisplay(g.team2Tid, g.team2, dynasty)
+    lastMeetingLines.push(
+      `${t1Name} vs ${t2Name} — last met ${last.year}: ${last.winner} def. ${last.loser} ${last.winnerScore}-${last.loserScore} (${last.gameType}). Revenge angle live for ${last.loser} this week.`
+    )
+  }
+
   // ----- Section: Saved preseason poll for current year (if any) -----
   const presPolls = dynasty?.preseasonRankingsByYear?.[yearNum]
-    || dynasty?.finalPolls?.[yearNum]?.preseason
+    || dynasty?.finalPollsByYear?.[yearNum]?.preseason
     || null
   const preseasonTop25Lines = []
   if (Array.isArray(presPolls) && presPolls.length > 0) {
@@ -695,6 +776,27 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     sections.push('')
   }
 
+  // Per-team prior-year context for every team in this week's games.
+  // Lets the recap write lines like "After their CFP semifinal run last
+  // season, Ole Miss has limped to 3-5 through the first half of the
+  // year." Without this, the weekly recap had ZERO per-team historical
+  // data — just last year's national top 5 — and the AI couldn't frame
+  // any individual program's arc.
+  if (teamPriorContextLines.length > 0) {
+    sections.push(`PRIOR-YEAR CONTEXT FOR TEAMS THAT PLAYED THIS WEEK (${priorYear} season — last year)`)
+    sections.push(`Use this to set up year-over-year storylines: "after [last year's finish], Team X is now [this year's record/streak]." Required: if a team in your recap finished top-10 last year OR played in the CFP, you must reference their prior-year finish at least once when describing them. Skip ONLY when the live game itself is so dominant that the historical framing would dilute it.`)
+    for (const line of teamPriorContextLines) sections.push(line)
+    sections.push('')
+  }
+
+  // Per-game last-meeting context — the revenge / rematch / extends-streak hook.
+  if (lastMeetingLines.length > 0) {
+    sections.push(`LAST MEETINGS (most recent prior matchup for each game this week)`)
+    sections.push(`When describing a game where the loser-of-last-time won this time, frame it as "got revenge" / "avenged last year's loss" / "exorcised last season's ghosts." When the same team wins again, frame it as "swept again" / "extended their hold on the series." Don't force this — only use it when the data here applies to a game you're already writing about.`)
+    for (const line of lastMeetingLines) sections.push(line)
+    sections.push('')
+  }
+
   const dataBlock = sections.join('\n')
 
   // Build naming-rule lines for ambiguous schools (e.g. "Miami" → two
@@ -749,10 +851,10 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     `═══════════════════════════════════════════════════════════`,
     `Aim for 500-800 words across 3-5 H2 sections. Quality over volume. Pick the structure that fits the week, but a typical strong week looks like:`,
     ``,
-    `  1. HEADLINES & UPSETS — the biggest games of the week, including ranked-vs-ranked, top-10 losses, and any upset (ranked team falling to unranked). Lead with the loudest result. Group every consequential ranked game here so they're not split across multiple sections.`,
-    `  2. AROUND THE TOP 25 — the rest of the ranked teams' results, briefly. Mostly a single paragraph that name-checks what each ranked team did.`,
+    `  1. HEADLINES & UPSETS — the biggest games of the week, including ranked-vs-ranked, top-10 losses, and any upset (ranked team falling to unranked). Lead with the loudest result. Group every consequential ranked game here so they're not split across multiple sections. When a featured team has notable prior-year context (top-10 finish, CFP appearance, defending champs) — visible in the PRIOR-YEAR CONTEXT section — weave it in: "a year removed from the title game...", "after last season's CFP semifinal run...", etc. When a featured game appears in LAST MEETINGS, name it as a rematch and use revenge / repeat-domination framing.`,
+    `  2. AROUND THE TOP 25 — the rest of the ranked teams' results, briefly. Mostly a single paragraph that name-checks what each ranked team did. Where prior-year context tightens the story (a top-5 finisher now scuffling, an unranked finisher now ranked), USE IT.`,
     `  3. POLL MOVEMENT — if (and only if) the EVOLUTION section shows a clear trajectory across recent weeks. Compare consecutive "Entering Week W" rows. Each slot 1-25 has exactly one team — never describe ties.`,
-    `  4. AROUND THE COUNTRY — selected unranked-vs-unranked storylines. Be selective: lopsided blowouts (≥30 pts), upsets, conference rivalries, and one-score thrillers. Skip games that are just middle-of-the-road results.`,
+    `  4. AROUND THE COUNTRY — selected unranked-vs-unranked storylines. Be selective: lopsided blowouts (≥30 pts), upsets, conference rivalries, and one-score thrillers. Skip games that are just middle-of-the-road results. Rivalry rematches with revenge/streak data attached (LAST MEETINGS) are good candidates here even if otherwise unremarkable.`,
     ``,
     `Optional extras (only when warranted by the data):`,
     `  - AWARDS / HEISMAN PICTURE — only if a player is leading a major stat category (passing/rushing/receiving yds, sacks) by a noticeable margin. If nobody clears that bar, SKIP.`,
@@ -794,7 +896,7 @@ export function buildPreseasonRecapPrompt(dynasty, year) {
   // ----- Final-poll top 25 from each prior year -----
   const finalPollLines = []
   for (const y of pastYears) {
-    const finalMedia = dynasty?.finalPolls?.[y]?.media
+    const finalMedia = dynasty?.finalPollsByYear?.[y]?.media
     if (Array.isArray(finalMedia) && finalMedia.length > 0) {
       finalPollLines.push(`-- ${y} final poll --`)
       for (const r of finalMedia) {
@@ -820,7 +922,7 @@ export function buildPreseasonRecapPrompt(dynasty, year) {
   const top5Tally = {}
   const top10Tally = {}
   for (const y of pastYears) {
-    const finalMedia = dynasty?.finalPolls?.[y]?.media
+    const finalMedia = dynasty?.finalPollsByYear?.[y]?.media
     if (!Array.isArray(finalMedia)) continue
     for (const r of finalMedia) {
       const name = teamDisplay(r.tid, r.team, dynasty)
@@ -839,7 +941,7 @@ export function buildPreseasonRecapPrompt(dynasty, year) {
 
   // ----- Saved preseason rankings for the upcoming year, if any -----
   const presPolls = dynasty?.preseasonRankingsByYear?.[yearNum]
-    || dynasty?.finalPolls?.[yearNum]?.preseason
+    || dynasty?.finalPollsByYear?.[yearNum]?.preseason
     || null
   const preseasonTop25Lines = []
   if (Array.isArray(presPolls) && presPolls.length > 0) {
@@ -949,7 +1051,7 @@ export function buildPreseasonTop25Prompt(dynasty, year) {
   // Final-poll snapshots from prior seasons inform a defensible preseason Top 25.
   const histLines = []
   for (const y of pastYears) {
-    const finalMedia = dynasty?.finalPolls?.[y]?.media
+    const finalMedia = dynasty?.finalPollsByYear?.[y]?.media
     if (Array.isArray(finalMedia) && finalMedia.length > 0) {
       histLines.push(`-- ${y} final poll --`)
       for (const r of finalMedia) {
