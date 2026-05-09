@@ -8500,19 +8500,33 @@ export function DynastyProvider({ children }) {
     //   - don't claim a slot a played team already wrote
     //   - don't overwrite a tid a played team already wrote (the
     //     prompt's worked example uses CLEM as a bye row and the
-    //     AI sometimes copies that team in even when it played)
+    //     AI sometimes copies that team in even when it played).
+    //     The tid guard covers a played team's tid REGARDLESS of
+    //     whether the AI managed to extract a rank for the played
+    //     row — beta tester report (Alabama Prince, Michigan vs
+    //     Vandy Wk 3) is exactly this: the AI got the game scores
+    //     but missed Michigan's rank in the played row, so
+    //     Michigan wasn't in playedTids, so the bye-rank step
+    //     blindly wrote Michigan's "1" from the bye block over
+    //     whatever the prior rankByWeek[currentWeek] held —
+    //     leaving the Wk 4 Top 25 with Michigan at #1 even though
+    //     they lost to Vandy and should be #19.
     const byeRanks = Array.isArray(weeklyGames?.byeRanks) ? weeklyGames.byeRanks : []
     if (haveCurrentWeek && byeRanks.length > 0) {
       const playedSlots = new Set()
       const playedTids = new Set()
       for (const g of newGamesArr) {
+        // Add played tids unconditionally — a team that PLAYED this
+        // week never belongs in the bye-rank block. Whether the
+        // played row carries a rank or not is irrelevant to that
+        // question.
+        if (g.team1Tid != null) playedTids.add(Number(g.team1Tid))
+        if (g.team2Tid != null) playedTids.add(Number(g.team2Tid))
         if (typeof g._team1CurrentWeekRank === 'number') {
           playedSlots.add(g._team1CurrentWeekRank)
-          if (g.team1Tid != null) playedTids.add(Number(g.team1Tid))
         }
         if (typeof g._team2CurrentWeekRank === 'number') {
           playedSlots.add(g._team2CurrentWeekRank)
-          if (g.team2Tid != null) playedTids.add(Number(g.team2Tid))
         }
       }
       const seenByeRanks = new Set()
