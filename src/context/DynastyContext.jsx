@@ -5319,6 +5319,19 @@ export function DynastyProvider({ children }) {
       // when the dynasty is no longer the current one.
       const onFreshGames = (fresh) => {
         if (skipListenerUpdatesCountRef.current > 0) return // active save in flight; don't clobber
+        // Defensive timestamp guard. Firestore's eventual consistency
+        // sometimes delivers a stale subcollection snapshot (cached or
+        // mid-flight) AFTER a local save's listener-skip count has
+        // decremented to 0. Without this check, that stale fresh
+        // overwrites the just-saved games array — beta tester report
+        // shows up as "games disappear from the weekly recap right
+        // after entering them, but the individual team page still
+        // shows them" (the recap reads currentDynasty.games which got
+        // clobbered; the team page uses a different lookup).
+        if (lastGamesUpdateDynastyIdRef.current === dynastyId &&
+            Date.now() - lastGamesUpdateTimestampRef.current < 10000) {
+          return
+        }
         setDynasties(prev => prev.map(d =>
           String(d.id) === String(dynastyId) ? { ...d, games: fresh } : d
         ))
@@ -5329,6 +5342,10 @@ export function DynastyProvider({ children }) {
       }
       const onFreshPlayers = (fresh) => {
         if (skipListenerUpdatesCountRef.current > 0) return
+        if (lastPlayersUpdateDynastyIdRef.current === dynastyId &&
+            Date.now() - lastPlayersUpdateTimestampRef.current < 10000) {
+          return
+        }
         setDynasties(prev => prev.map(d =>
           String(d.id) === String(dynastyId) ? { ...d, players: fresh } : d
         ))
@@ -6168,7 +6185,20 @@ export function DynastyProvider({ children }) {
           const preserved = {
             ...updated,
             ...(recentPlayerUpdate && prevCurrent.players ? { players: prevCurrent.players } : {}),
-            ...(recentGamesUpdate && prevCurrent.games ? { games: prevCurrent.games } : {})
+            ...(recentGamesUpdate && prevCurrent.games ? { games: prevCurrent.games } : {}),
+            // saveWeeklyScores writes both `teams` (where rankByWeek
+            // lives) and `weeklyScoresEntered` to the main doc
+            // alongside the games subcollection write. Without
+            // preserving them on the same recent-update window, a
+            // stale main-doc snapshot delivered after the listener-
+            // skip count decrements can clobber the just-saved poll
+            // — beta tester report shows up as "ranking reverts to
+            // last week's poll after refresh" while the games stay
+            // intact (because games is already preserved). The Top
+            // 25 page then "fights for which ranking it wants to
+            // display" as the listener oscillates.
+            ...(recentGamesUpdate && prevCurrent.teams ? { teams: prevCurrent.teams } : {}),
+            ...(recentGamesUpdate && prevCurrent.weeklyScoresEntered ? { weeklyScoresEntered: prevCurrent.weeklyScoresEntered } : {}),
           }
           // Also reflect the preserved version in the dynasties array
           // so the home page doesn't briefly show stale Firestore data
