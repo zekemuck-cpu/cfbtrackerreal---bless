@@ -386,100 +386,70 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     }
   }
 
-  // ----- Section: Weekly post-week-rank snapshots -----
-  // The team1Rank/team2Rank fields on a game record are the ranks teams
-  // hold AFTER playing that game (EA's schedule UI shows post-game
-  // ranks; storing what the user sees gives us post-game). So a snapshot
-  // built from games where week == W tells us the post-Week-W poll
-  // (= the poll teams enter Week W+1 with).
-  //
-  // To get the "poll entering Week W" snapshot, we read week W-1 games
-  // (their stored ranks are post-Week-W-1 = entering Week W).
-  //
-  // For the recap of Week N just finished, the most useful "current" poll
-  // is the post-Week N poll — observable directly from Week N games'
-  // stored ranks. We retain the buildSnapshot helper here for both
-  // entering-week and post-week reads.
-  //
-  // The two-pass fill (matches Rankings.jsx) guarantees each rank slot
-  // 1-25 belongs to exactly one team — no fake ties from teams sharing a
-  // slot across different weeks.
-  const isRankedRow = (n) => isRanked(n)
-  // "Poll AFTER week W" — observations come from week W games (whose
-  // stored ranks are post-game / post-week ranks for those teams).
-  // For older teams that didn't play this week, we fall back to their
-  // most recent prior post-game rank.
-  const buildSnapshotPostWeek = (postWeek) => {
-    const weekBuckets = new Map()
-    const observe = (wk, rank, tid, abbr) => {
-      if (!isRankedRow(rank)) return
-      if (!weekBuckets.has(wk)) weekBuckets.set(wk, new Map())
-      const bucket = weekBuckets.get(wk)
-      if (bucket.has(rank)) return
-      bucket.set(rank, { tid: tid != null ? Number(tid) : null, abbr: abbr || null })
-    }
-    for (const g of games) {
-      const gw = Number(g.week)
-      if (!Number.isFinite(gw) || gw > postWeek) continue
-      observe(gw, g.team1Rank, g.team1Tid, g.team1)
-      observe(gw, g.team2Rank, g.team2Tid, g.team2)
-    }
-    if (weekBuckets.size === 0) return { rows: [], latestWeek: null }
-    const sortedWeeks = [...weekBuckets.keys()].sort((a, b) => b - a)
-    const teamNewestRank = new Map()
-    const teamKeyOf = (tid, abbr) => tid != null ? `tid:${tid}` : `abbr:${abbr || ''}`
-    for (const wk of sortedWeeks) {
-      const bucket = weekBuckets.get(wk)
-      for (const [rank, info] of bucket.entries()) {
-        const key = teamKeyOf(info.tid, info.abbr)
-        if (!key) continue
-        if (!teamNewestRank.has(key)) teamNewestRank.set(key, { rank, tid: info.tid, abbr: info.abbr })
-      }
-    }
+  // ----- Section: Weekly poll snapshots -----
+  // Read from dynasty.teams[*].byYear[year].rankByWeek — the canonical
+  // poll store the Rankings page also reads from. Each team's
+  // rankByWeek[W] is its rank ENTERING Week W (= post-Week-(W-1)
+  // poll). After PR #117, saveWeeklyScores writes the user-entered
+  // weekly-scores ranks straight into rankByWeek[currentWeek]; before
+  // that change, this code reconstructed the snapshot from the
+  // game-record team1Rank/team2Rank fields, which were only populated
+  // for games played that week and went stale (or empty) when those
+  // game records were wiped on a re-save. The rankByWeek read survives
+  // those gaps, so a Week 9 recap pulls Wk 9's actual poll instead of
+  // falling all the way back to Wk 6 just because the Wk 7-9 game
+  // records lost their rank fields. The Rankings page does the same
+  // first-claim-wins per slot 1-25 to rule out stale duplicates.
+  const buildSnapshotEnteringWeek = (week) => {
     const slotMap = new Map()
-    for (const wk of sortedWeeks) {
-      const bucket = weekBuckets.get(wk)
-      for (const [rank, info] of bucket.entries()) {
-        if (slotMap.has(rank)) continue
-        const key = teamKeyOf(info.tid, info.abbr)
-        const newest = teamNewestRank.get(key)
-        if (!newest || newest.rank !== rank) continue
-        slotMap.set(rank, {
-          rank,
-          tid: info.tid,
-          name: teamDisplay(info.tid, info.abbr, dynasty),
-        })
-      }
-      if (slotMap.size === 25) break
+    for (const [tidStr, team] of Object.entries(dynasty?.teams || {})) {
+      const rbw = team?.byYear?.[yearNum]?.rankByWeek ?? team?.byYear?.[String(yearNum)]?.rankByWeek
+      if (!rbw || typeof rbw !== 'object') continue
+      const v = rbw[week] ?? rbw[String(week)]
+      if (!isRanked(v)) continue
+      if (slotMap.has(v)) continue
+      slotMap.set(v, {
+        rank: v,
+        tid: Number(tidStr),
+        name: teamDisplay(Number(tidStr), team.abbr, dynasty),
+      })
     }
-    return {
-      rows: [...slotMap.values()].sort((a, b) => a.rank - b.rank),
-      latestWeek: sortedWeeks[0] ?? null,
-    }
+    return [...slotMap.values()].sort((a, b) => a.rank - b.rank)
   }
 
-  // Weekly evolution: for each week W, the snapshot of teams that
-  // ENTERED week W ranked. After the V3 migration, game.team1Rank
-  // IS the team's entering rank for that game's week — so reading
-  // week W games gives us the entering-W snapshot directly. Label
-  // matches the source week (no off-by-one shift).
+  // Find the most recent populated poll, preferring `preferredWeek`
+  // and walking back to fill in if recent weeks are sparse. ≥10
+  // entries is the threshold for "substantial enough to anchor the
+  // recap on" — under that the snapshot is more misleading than
+  // useful.
+  const buildPeekSnapshot = (preferredWeek) => {
+    for (let w = preferredWeek; w >= 0; w--) {
+      const rows = buildSnapshotEnteringWeek(w)
+      if (rows.length >= 10) return { rows, latestWeek: w }
+    }
+    return { rows: [], latestWeek: null }
+  }
+
+  // Per-week evolution: for each week W from 0 → weekNum+1, the
+  // snapshot of teams that ENTERED Week W ranked. Sparse weeks (data
+  // loss, partial entry) just get omitted from the evolution block
+  // rather than feeding the AI a one-row "Top 25" that misrepresents
+  // the state of the dynasty.
   const top25ByWeek = []
   for (let w = 0; w <= weekNum + 1; w++) {
-    const snap = buildSnapshotPostWeek(w)
-    if (snap.rows.length > 0) top25ByWeek.push({ week: w, rows: snap.rows })
+    const rows = buildSnapshotEnteringWeek(w)
+    if (rows.length >= 10) top25ByWeek.push({ week: w, rows })
   }
 
-  // Latest derivable poll — the entering-Week-(N+1) snapshot, which
-  // equals the post-Week-N rankings. Built from week N+1 games'
-  // stored entering ranks if those games are entered. Otherwise
-  // fall back to the most recent earlier snapshot and note the
-  // staleness.
-  const peekSnapshot = buildSnapshotPostWeek(weekNum + 1)
+  // Latest derivable poll — entering-Week-(N+1) = post-Week-N. Fresh
+  // when the user has just entered Week N's scores during their
+  // current Week-N+1 session (the typical recap flow).
+  const peekSnapshot = buildPeekSnapshot(weekNum + 1)
   const hasFreshPostWeekPoll = peekSnapshot.latestWeek === weekNum + 1
   const rankSnapshot = peekSnapshot.rows
   const rankSnapshotLabel = hasFreshPostWeekPoll
-    ? `POST-WEEK ${weekNum} TOP 25 (= the rankings teams ENTERED Week ${weekNum + 1} with — built from each team's stored entering rank on Week ${weekNum + 1} games)`
-    : `MOST RECENT TOP 25 SNAPSHOT (entering Week ${peekSnapshot.latestWeek ?? Math.max(0, weekNum)} — Week ${weekNum + 1} games haven't been entered yet, so the post-Week ${weekNum} poll isn't directly observable. Use this as a baseline and infer movement from this week's results.)`
+    ? `POST-WEEK ${weekNum} TOP 25 (= the rankings teams ENTERED Week ${weekNum + 1} with — read from each team's rankByWeek[${weekNum + 1}])`
+    : `MOST RECENT TOP 25 SNAPSHOT (entering Week ${peekSnapshot.latestWeek ?? Math.max(0, weekNum)} — the post-Week ${weekNum} poll isn't populated yet for this dynasty. Use this as a baseline and infer movement from this week's results.)`
 
   // ----- Section: Cumulative stat leaders (season-to-date) -----
   // Aggregates every box score we have through this week into a per-player
