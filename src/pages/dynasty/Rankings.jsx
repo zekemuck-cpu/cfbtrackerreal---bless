@@ -108,8 +108,13 @@ export default function Rankings() {
   // week ranks (= the rank each team was during that week's games).
   const yearPolls = finalPolls[displayYear] || {}
   const savedMedia = Array.isArray(yearPolls.media) ? yearPolls.media : []
-  const availableWeeks = (() => {
-    const weeksSet = new Set()
+  // Track per-week populated counts so we can default the view to a
+  // FULLY-POPULATED week. A sparse week (only bye teams populated, no
+  // game block saved yet) is technically a valid Top 25 snapshot but
+  // a confusing default — the user lands on Wk N+1 right after saving
+  // Wk N and sees just the bye teams.
+  const weekCounts = (() => {
+    const counts = new Map()
     const teams = currentDynasty.teams || {}
     for (const team of Object.values(teams)) {
       const rbw = team?.byYear?.[displayYear]?.rankByWeek
@@ -119,23 +124,35 @@ export default function Rankings() {
         const wk = Number(k)
         if (!Number.isFinite(wk)) continue
         const v = rbw[k]
-        if (typeof v === 'number' && v >= 1 && v <= 25) weeksSet.add(wk)
+        if (typeof v !== 'number' || v < 1 || v > 25) continue
+        counts.set(wk, (counts.get(wk) || 0) + 1)
       }
     }
-    return Array.from(weeksSet).sort((a, b) => a - b)
+    return counts
   })()
-  const latestWeek = availableWeeks.length > 0 ? availableWeeks[availableWeeks.length - 1] : null
+  const availableWeeks = Array.from(weekCounts.keys()).sort((a, b) => a - b)
+  // For default selection: prefer the latest week that has a fairly
+  // complete Top 25 (≥10 entries). Sparse weeks remain selectable via
+  // the URL ?week= param but won't be the auto-default.
+  const POPULATED_THRESHOLD = 10
+  const populatedWeeks = availableWeeks.filter(w => (weekCounts.get(w) || 0) >= POPULATED_THRESHOLD)
+  const defaultWeek = populatedWeeks.length > 0
+    ? populatedWeeks[populatedWeeks.length - 1]
+    : (availableWeeks.length > 0 ? availableWeeks[availableWeeks.length - 1] : null)
+  // latestWeek retained for the URL/clean-default check below.
+  const latestWeek = defaultWeek
   const hasSavedFinal = savedMedia.length > 0
 
   // Selection: 'final' (only when a saved final poll exists), or a
   // specific week number. URL-driven via ?week= so the snapshot is
-  // shareable. Default = final poll if saved, otherwise latest week.
+  // shareable. Default = final poll if saved, otherwise latest fully
+  // populated week.
   const urlWeek = searchParams.get('week')
   const parsedUrlWeek = urlWeek != null ? parseInt(urlWeek, 10) : NaN
   const selectedWeek =
     urlWeek === 'final' && hasSavedFinal ? 'final'
     : Number.isFinite(parsedUrlWeek) && availableWeeks.includes(parsedUrlWeek) ? parsedUrlWeek
-    : (hasSavedFinal ? 'final' : latestWeek)
+    : (hasSavedFinal ? 'final' : defaultWeek)
 
   const setSelectedWeek = (next) => {
     const params = new URLSearchParams(searchParams)
