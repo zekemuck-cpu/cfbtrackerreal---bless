@@ -8449,14 +8449,27 @@ export function DynastyProvider({ children }) {
     // ─── Rank pass ───────────────────────────────────────────────
     // Spec, in plain terms:
     //   1. The ranks the user entered alongside the Week N scores
-    //      are each team's rank for the user's CURRENT dynasty
-    //      week — that's what CFB26 shows in the schedule view at
-    //      all times. Save those into rankByWeek[currentWeek] for
-    //      each team.
+    //      are each team's rank ENTERING Week N (the rank attached
+    //      to that team in the Week N scoreboard screenshot — i.e.,
+    //      where they sat in the poll going into the game). Save
+    //      those into rankByWeek[N] for each team.
     //   2. Each saved Week N game's own stored team1Rank /
-    //      team2Rank is pulled from rankByWeek[N] for each team —
-    //      the rank that was saved the previous week, when
-    //      currentWeek was N.
+    //      team2Rank is the same value — read back from rankByWeek[N]
+    //      so it stays consistent when the user re-saves later.
+    //
+    // EARLIER BUG (Alabama Prince repro): step (1) used
+    // rankByWeek[currentWeek] instead of rankByWeek[weekNum]. With
+    // the typical workflow (open Dashboard "Enter Week N Scores"
+    // task while you're already on dynasty Week N+1, so currentWeek
+    // != weekNum), the rank-write went to the WRONG slot. Worse, on
+    // re-save of an OLDER week (e.g. fixing Wk 3 while on Wk 5), the
+    // entered Wk 3 ranks landed on rankByWeek[currentWeek] and
+    // CLOBBERED whatever the later-week save had correctly written.
+    // Result: every team that played in BOTH the saved week and a
+    // later week ended up with the OLDER week's rank in the LATER
+    // week's slot — exactly the "Wk 4 Top 25 shows Michigan at #1"
+    // symptom Alabama Prince reported. Fix: pin the write target to
+    // weekNum so each save updates ITS OWN week and never the others.
     const currentWeek = Number(dynasty.currentWeek)
     const haveCurrentWeek = Number.isFinite(currentWeek) && currentWeek > 0
 
@@ -8484,35 +8497,32 @@ export function DynastyProvider({ children }) {
       return v
     }
 
-    // (1a) Push user-entered ranks into rankByWeek[currentWeek] for
-    // every team that played a game in this save.
-    if (haveCurrentWeek) {
-      for (const g of newGamesArr) {
-        if (typeof g._team1CurrentWeekRank === 'number') writeRankByWeek(g.team1Tid, currentWeek, g._team1CurrentWeekRank)
-        if (typeof g._team2CurrentWeekRank === 'number') writeRankByWeek(g.team2Tid, currentWeek, g._team2CurrentWeekRank)
-      }
+    // (1a) Push user-entered ranks into rankByWeek[weekNum] — the
+    // slot for the week being saved — for every team that played a
+    // game in this save. Pinning the write target to weekNum (not
+    // currentWeek) means each weekly save only ever updates ITS OWN
+    // week's rank slot. Re-saving Wk 3 while on Wk 5 no longer
+    // clobbers Wk 4's or Wk 5's rank picture.
+    for (const g of newGamesArr) {
+      if (typeof g._team1CurrentWeekRank === 'number') writeRankByWeek(g.team1Tid, weekNum, g._team1CurrentWeekRank)
+      if (typeof g._team2CurrentWeekRank === 'number') writeRankByWeek(g.team2Tid, weekNum, g._team2CurrentWeekRank)
     }
 
-    // (1b) Bye-week block. The AI also emits one row per ranked team
-    // that didn't play this week, with the team's inferred new rank
-    // (also a current-dynasty-week rank). Those go to the same
-    // rankByWeek[currentWeek] slot, with two guards:
+    // (1b) Bye-week block. The AI emits one row per ranked team that
+    // didn't play this week, with the team's inferred rank for the
+    // SAME week. Those go to the same rankByWeek[weekNum] slot, with
+    // two guards:
     //   - don't claim a slot a played team already wrote
     //   - don't overwrite a tid a played team already wrote (the
     //     prompt's worked example uses CLEM as a bye row and the
     //     AI sometimes copies that team in even when it played).
     //     The tid guard covers a played team's tid REGARDLESS of
     //     whether the AI managed to extract a rank for the played
-    //     row — beta tester report (Alabama Prince, Michigan vs
-    //     Vandy Wk 3) is exactly this: the AI got the game scores
-    //     but missed Michigan's rank in the played row, so
-    //     Michigan wasn't in playedTids, so the bye-rank step
-    //     blindly wrote Michigan's "1" from the bye block over
-    //     whatever the prior rankByWeek[currentWeek] held —
-    //     leaving the Wk 4 Top 25 with Michigan at #1 even though
-    //     they lost to Vandy and should be #19.
+    //     row — without it, the bye-rank step would blindly write a
+    //     played team's bye-block "rank" over the rank that team's
+    //     own game row had already set.
     const byeRanks = Array.isArray(weeklyGames?.byeRanks) ? weeklyGames.byeRanks : []
-    if (haveCurrentWeek && byeRanks.length > 0) {
+    if (byeRanks.length > 0) {
       const playedSlots = new Set()
       const playedTids = new Set()
       for (const g of newGamesArr) {
@@ -8538,7 +8548,7 @@ export function DynastyProvider({ children }) {
         if (playedSlots.has(r)) continue
         if (playedTids.has(Number(entry.tid))) continue
         seenByeRanks.add(r)
-        writeRankByWeek(entry.tid, currentWeek, r)
+        writeRankByWeek(entry.tid, weekNum, r)
       }
     }
 
@@ -8552,24 +8562,24 @@ export function DynastyProvider({ children }) {
       delete g._team2CurrentWeekRank
     }
 
-    // Sync any current-week game record already on file (e.g., the
+    // Sync any saved-week game record already on file (e.g., the
     // user's own game from the schedule flow) so its stored rank
-    // matches the freshly-written rankByWeek[currentWeek]. Other
-    // weeks' games are unaffected — their stored rank reflects what
-    // rankByWeek held when each of those weeks was the current week.
+    // matches the freshly-written rankByWeek[weekNum]. Other weeks'
+    // games are unaffected — their stored rank reflects whatever
+    // rankByWeek held when each of those weeks was last saved.
     const updatedGames = [...filtered, ...newGamesArr].map(g => {
       if (!g || g.year == null) return g
       if (Number(g.year) !== yearNum) return g
-      if (!haveCurrentWeek || Number(g.week) !== currentWeek) return g
+      if (Number(g.week) !== weekNum) return g
       let next = g
       if (g.team1Tid != null) {
-        const r = readRankByWeek(Number(g.team1Tid), currentWeek)
+        const r = readRankByWeek(Number(g.team1Tid), weekNum)
         if (r != null && r !== (typeof g.team1Rank === 'number' ? g.team1Rank : null)) {
           next = { ...next, team1Rank: r }
         }
       }
       if (g.team2Tid != null) {
-        const r = readRankByWeek(Number(g.team2Tid), currentWeek)
+        const r = readRankByWeek(Number(g.team2Tid), weekNum)
         if (r != null && r !== (typeof g.team2Rank === 'number' ? g.team2Rank : null)) {
           next = { ...next, team2Rank: r }
         }
