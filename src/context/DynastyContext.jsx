@@ -1334,31 +1334,29 @@ export function getTeamRankForWeek(dynasty, tidOrAbbr, year, week) {
 
 /**
  * Migration: walk every stored game and seed each team's
- * rankByWeek map. User games' stored rank → rankByWeek[gameWeek];
- * CPU games' stored rank → rankByWeek[gameWeek + 1] (post-game →
- * entering next week).
+ * rankByWeek map. Each game's stored team1Rank/team2Rank IS the
+ * rank entering that game's week — no shift required, regardless of
+ * whether the game was a user game or a CPU game. The save flow
+ * (saveWeeklyScores + addGame/updateGame's applyGameRanksToTeams)
+ * persists ranks consistently with this semantic, so the migration
+ * just mirrors them straight into rankByWeek[gameWeek].
  *
- * Idempotent — gated on dynasty._rankByWeekMigrated. Re-running
- * (via a Danger Zone admin action) will overwrite existing
- * rankByWeek data with the freshly recomputed values.
- *
- * Conflict resolution: when both a CPU game and a user game would
- * write to the same rankByWeek[N] slot for a team, we apply CPU
- * writes first then overlay user-game writes — the user has stated
- * user-game ranks are always correct and should win conflicts.
+ * Idempotent — gated on dynasty._rankByWeekMigratedV5. Re-running
+ * (via a Danger Zone admin action) will overwrite existing rankByWeek
+ * data with the freshly recomputed values.
  */
 export function migrateRanksToRankByWeek(dynasty, options = {}) {
   if (!dynasty || !Array.isArray(dynasty.games)) return dynasty
   const { force = false } = options
-  // V4 of the migration: bumps from V3 to re-run with stronger tid
-  // resolution for legacy preseason / final poll entries. V3 only
-  // resolved tids via the explicit `tid` field or getTidFromAbbr.
-  // V4 also walks dynasty.teams for case-insensitive abbr / name
-  // matches — older dynasties with only abbr-keyed final polls now
-  // seed rankByWeek correctly. Without this, the Top 25 sheet's
-  // pre-fill would miss those entries, and saving the sheet could
-  // wipe stored rankByWeek data the user couldn't see in the sheet.
-  if (dynasty._rankByWeekMigratedV4 && !force) return dynasty
+  // V5 of the migration: bumps from V4 to re-run with the corrected
+  // semantic. Earlier versions applied a +1 week shift to CPU games
+  // ("post-game → entering next week"), but the live save flow has
+  // since been pinned to write entering-week ranks directly. Running
+  // V4 on a post-fix dynasty would re-shift already-correct data and
+  // corrupt rankByWeek by one week for every CPU-game team. V5 drops
+  // the shift entirely so migration ↔ rebuild ↔ live save all use
+  // the same model: stored game rank = entering-week rank.
+  if (dynasty._rankByWeekMigratedV5 && !force) return dynasty
 
   const games = dynasty.games
   const teamsCopy = { ...(dynasty.teams || {}) }
@@ -1393,29 +1391,20 @@ export function migrateRanksToRankByWeek(dynasty, options = {}) {
     return Number.isFinite(w) ? w : null
   }
 
-  // Two passes — CPU first, user games second so user-game ranks win
-  // any conflict with the same team in the same week.
-  for (const pass of ['cpu', 'user']) {
-    for (const g of games) {
-      if (!g || g.year == null) continue
-      const userOwned = isUserGame(dynasty, g)
-      if (pass === 'cpu' && userOwned) continue
-      if (pass === 'user' && !userOwned) continue
-      const wk = weekKeyOf(g)
-      if (wk == null) continue
-      // User games: stored rank = entering rank → write to rankByWeek[wk].
-      // CPU games: stored rank = post-game rank → write to rankByWeek[wk+1]
-      // (= entering next week). We don't know what "next week" means for
-      // postseason games (CC → CFP1 → CFPQ → ...) so post-game shifts
-      // for those games go to the next event in the sequence.
-      const targetKey = userOwned ? wk : (wk >= 100 ? wk + 1 : wk + 1)
-      const t1 = g.team1Tid != null ? Number(g.team1Tid) : null
-      const t2 = g.team2Tid != null ? Number(g.team2Tid) : null
-      const r1 = typeof g.team1Rank === 'number' ? g.team1Rank : null
-      const r2 = typeof g.team2Rank === 'number' ? g.team2Rank : null
-      if (t1 != null && r1 != null) writeRank(t1, g.year, targetKey, r1)
-      if (t2 != null && r2 != null) writeRank(t2, g.year, targetKey, r2)
-    }
+  // Single pass — every game's stored rank goes to rankByWeek[gameWeek]
+  // unshifted. The earlier two-pass user/CPU split existed to overlay
+  // user-game writes on top of shifted CPU-game writes; with the shift
+  // gone, both flavors target the same slot and the order doesn't matter.
+  for (const g of games) {
+    if (!g || g.year == null) continue
+    const wk = weekKeyOf(g)
+    if (wk == null) continue
+    const t1 = g.team1Tid != null ? Number(g.team1Tid) : null
+    const t2 = g.team2Tid != null ? Number(g.team2Tid) : null
+    const r1 = typeof g.team1Rank === 'number' ? g.team1Rank : null
+    const r2 = typeof g.team2Rank === 'number' ? g.team2Rank : null
+    if (t1 != null && r1 != null) writeRank(t1, g.year, wk, r1)
+    if (t2 != null && r2 != null) writeRank(t2, g.year, wk, r2)
   }
 
   // Seed week-0 / week-1 from preseason rankings so display lookups
@@ -1520,6 +1509,7 @@ export function migrateRanksToRankByWeek(dynasty, options = {}) {
     _rankByWeekMigrated: true,
     _rankByWeekMigratedV3: true,
     _rankByWeekMigratedV4: true,
+    _rankByWeekMigratedV5: true,
   }
 }
 
@@ -5598,7 +5588,12 @@ export function DynastyProvider({ children }) {
       // game's stored rank. User games' stored team1Rank/team2Rank
       // are pre-game ranks (entering); CPU games' are post-game
       // ranks (= entering next week). Migration handles both.
-      if (!migrated._rankByWeekMigrated) {
+      // Gate on the latest migration version so dynasties that ran
+      // older versions get re-migrated with the corrected semantic
+      // (V5 dropped the buggy CPU-game shift). Without bumping the
+      // gate flag, a V4-marked dynasty would skip the rerun and stay
+      // off-by-one for every CPU-game team.
+      if (!migrated._rankByWeekMigratedV5) {
         migrated = migrateRanksToRankByWeek(migrated)
       }
 
