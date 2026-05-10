@@ -820,6 +820,23 @@ export async function saveWeeklyGamesChanges(dynastyId, gamesToSet = [], gameIds
   const totalOps = (gamesToSet?.length || 0) + (gameIdsToDelete?.length || 0)
   if (totalOps === 0) return
 
+  // CRITICAL: when an ID appears in BOTH gamesToSet and gameIdsToDelete,
+  // we must NOT issue a delete for it — Firestore writeBatch executes
+  // ops in submission order, and a later delete will wipe out a game
+  // we just set in the same batch. saveWeeklyScores's existing-id-reuse
+  // pattern (`id: existing?.id || idForGame(...)`) puts the same ID in
+  // both arrays for any matchup that existed before AND exists now;
+  // without this filter the new write got reverted by the trailing
+  // delete, leaving only brand-new matchups in the subcollection. That
+  // was the "games are gone" bug — Alabama Prince's Wk 4 re-save
+  // tracked 62 games but only 3 actually persisted (the 2 new
+  // matchups + the user-team game that uses a non-weekly id).
+  const setIdSet = new Set()
+  for (const game of gamesToSet || []) {
+    if (game?.id) setIdSet.add(String(game.id))
+  }
+  const safeDeletes = (gameIdsToDelete || []).filter(id => id != null && !setIdSet.has(String(id)))
+
   // Firestore caps writeBatch at 500 ops. ~60-130 game inserts plus a
   // handful of deletions stays comfortably under that on every realistic
   // weekly slate; if that ever grows, split into multiple batches.
@@ -832,8 +849,7 @@ export async function saveWeeklyGamesChanges(dynastyId, gamesToSet = [], gameIds
     batch.set(gameRef, sanitizeForFirestore(rawGame))
   }
 
-  for (const gameId of gameIdsToDelete || []) {
-    if (gameId == null) continue
+  for (const gameId of safeDeletes) {
     const gameRef = doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, String(gameId))
     batch.delete(gameRef)
   }
@@ -842,7 +858,7 @@ export async function saveWeeklyGamesChanges(dynastyId, gamesToSet = [], gameIds
   bumpDynastyLastModifiedInBatch(batch, dynastyId)
   await batch.commit()
   await waitForPendingWrites(db)
-  console.log(`[saveWeeklyGamesChanges] Committed ${gamesToSet?.length || 0} sets + ${gameIdsToDelete?.length || 0} deletes in 1 batch`)
+  console.log(`[saveWeeklyGamesChanges] Committed ${gamesToSet?.length || 0} sets + ${safeDeletes.length} deletes (${(gameIdsToDelete?.length || 0) - safeDeletes.length} delete-then-set duplicates filtered) in 1 batch`)
 }
 
 /**
