@@ -8749,6 +8749,7 @@ export function DynastyProvider({ children }) {
         if (g.team2Tid != null) targetWeekGameTids.add(Number(g.team2Tid))
       }
       const seenByeRanks = new Set()
+      const byeBlockTids = new Set()
       for (const entry of byeRanks) {
         if (!entry || typeof entry.tid !== 'number') continue
         const r = entry.rank
@@ -8761,7 +8762,50 @@ export function DynastyProvider({ children }) {
         // a carry-forward inference.
         if (targetWeekGameTids.has(Number(entry.tid))) continue
         seenByeRanks.add(r)
+        byeBlockTids.add(Number(entry.tid))
         writeRankByWeek(entry.tid, targetWeek, r)
+      }
+
+      // (1c) Heal stale rankByWeek[targetWeek] entries for played
+      // teams. A team that played Wk N and is NOT in Wk N's bye block
+      // doesn't carry an entering-Wk-(N+1) rank from this save — they
+      // either dropped out of the poll OR their new rank will be set
+      // when Wk N+1's game block runs.
+      //
+      // Old pre-Wave-2 saves (when bye block + game block both wrote
+      // to rankByWeek[currentWeek]) frequently left played teams with
+      // a stale entry in rankByWeek[N+1] = their entering-Wk-N rank
+      // value. Reports from beta testers ("BOIS lost in Wk 12 but
+      // team page still shows them ranked entering Wk 13") trace to
+      // exactly this leftover. Without this purge the data would stay
+      // corrupted forever — re-saves wouldn't clear it.
+      //
+      // Guard: don't purge if the team has a Wk N+1 game on file (a
+      // future-week game implies a legit entering-(N+1) rank lives
+      // there). The targetWeekGameTids set we already built above
+      // captures that.
+      if (targetWeek > weekNum) {
+        for (const tid of playedTids) {
+          if (byeBlockTids.has(tid)) continue
+          if (targetWeekGameTids.has(tid)) continue
+          const team = teamsCopy[String(tid)] || teamsCopy[tid]
+          if (!team) continue
+          const yearKey = String(yearNum)
+          const yearEntry = team.byYear?.[yearKey] || team.byYear?.[yearNum]
+          const rbw = yearEntry?.rankByWeek
+          if (!rbw) continue
+          const cur = rbw[targetWeek] ?? rbw[String(targetWeek)]
+          if (typeof cur !== 'number') continue
+          // Clone-and-delete so we don't mutate the source.
+          const newByYear = { ...(team.byYear || {}) }
+          const newYearEntry = { ...(newByYear[yearKey] || newByYear[yearNum] || {}) }
+          const newRbw = { ...(newYearEntry.rankByWeek || {}) }
+          delete newRbw[targetWeek]
+          delete newRbw[String(targetWeek)]
+          newYearEntry.rankByWeek = newRbw
+          newByYear[yearKey] = newYearEntry
+          teamsCopy[String(tid)] = { ...team, byYear: newByYear }
+        }
       }
     }
 
