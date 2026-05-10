@@ -105,12 +105,49 @@ function recordFromGames(games, year, tid, upToWeek = null) {
 // ENTERING rank for this game (rank during the matchup) — the EA
 // shift is handled at write time so by read time the stored value
 // IS what we want to display.
-function fmtGameLine(game, dynasty) {
+// Build per-team conference annotations for inline use in game lines.
+// Memoized via the alignment block so we don't re-scan the dynasty
+// once per game. Returns a function (tidOrAbbr) => 'Pac-12' | null.
+function makeConferenceLookup(dynasty, year) {
+  const alignment = getConferenceAlignmentForYear(dynasty, year)
+  const byAbbr = new Map() // abbr UPPER → conference name
+  for (const [conf, abbrs] of Object.entries(alignment || {})) {
+    if (!Array.isArray(abbrs)) continue
+    for (const a of abbrs) {
+      if (!a) continue
+      byAbbr.set(String(a).toUpperCase(), conf)
+    }
+  }
+  return (tidOrAbbr, fallbackAbbr) => {
+    let abbr = null
+    if (typeof tidOrAbbr === 'number' || (typeof tidOrAbbr === 'string' && /^\d+$/.test(tidOrAbbr))) {
+      const team = dynasty?.teams?.[String(tidOrAbbr)] || dynasty?.teams?.[Number(tidOrAbbr)]
+      abbr = team?.abbr || null
+    } else if (typeof tidOrAbbr === 'string') {
+      abbr = tidOrAbbr
+    }
+    if (!abbr && fallbackAbbr) abbr = fallbackAbbr
+    if (!abbr) return null
+    return byAbbr.get(String(abbr).toUpperCase()) || null
+  }
+}
+
+function fmtGameLine(game, dynasty, confLookup) {
   const t1 = teamDisplay(game.team1Tid, game.team1, dynasty)
   const t2 = teamDisplay(game.team2Tid, game.team2, dynasty)
   const s1 = game.team1Score, s2 = game.team2Score
   const r1 = typeof game.team1Rank === 'number' ? `#${game.team1Rank} ` : ''
   const r2 = typeof game.team2Rank === 'number' ? `#${game.team2Rank} ` : ''
+  // Inline conference annotation. The AI was writing things like
+  // "the Mountain West produced…" for games whose teams the user has
+  // moved into the Pac-12. Putting each team's CURRENT dynasty
+  // conference right next to the name makes the misattribution
+  // impossible — the AI sees "Hawaii (Pac-12) 35, Boise State
+  // (Pac-12) 14" and can't pretend they're MWC games.
+  const c1 = confLookup ? confLookup(game.team1Tid, game.team1) : null
+  const c2 = confLookup ? confLookup(game.team2Tid, game.team2) : null
+  const t1Full = c1 ? `${t1} (${c1})` : t1
+  const t2Full = c2 ? `${t2} (${c2})` : t2
   const home = game.homeTeamTid == null
     ? 'neutral site'
     : Number(game.homeTeamTid) === Number(game.team1Tid)
@@ -118,9 +155,9 @@ function fmtGameLine(game, dynasty) {
       : `at ${t2}`
   const ot = game.ot ? ' (OT)' : ''
   if (s1 == null || s2 == null) {
-    return `${r1}${t1} vs ${r2}${t2}${ot} — score not entered (${home})`
+    return `${r1}${t1Full} vs ${r2}${t2Full}${ot} — score not entered (${home})`
   }
-  return `${r1}${t1} ${s1}, ${r2}${t2} ${s2}${ot} (${home})`
+  return `${r1}${t1Full} ${s1}, ${r2}${t2Full} ${s2}${ot} (${home})`
 }
 
 // ---------------------------------------------------------------------------
@@ -722,21 +759,25 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   sections.push(`Week being recapped: ${weekNum}`)
   sections.push('')
 
+  // Conference lookup for inline annotation in every game line.
+  // Built once per recap so we don't rescan the alignment per game.
+  const confLookup = makeConferenceLookup(dynasty, yearNum)
+
   // Headline games — top 25 vs top 25. Stored game.team1Rank / team2Rank
   // is each team's ENTERING rank for that game (the rank during the
   // matchup) — the EA shift is handled at write time, so by read
   // time the value on the game record is what we want to show.
   if (top25vTop25.length > 0) {
     sections.push(`HEADLINE GAMES — RANKED vs RANKED (Week ${weekNum})`)
-    sections.push(`(Ranks shown are each team's entering rank — the rank they were ranked DURING the game.)`)
-    for (const g of top25vTop25) sections.push(fmtGameLine(g, dynasty))
+    sections.push(`(Ranks shown are each team's entering rank — the rank they were ranked DURING the game. Conferences in parens are the dynasty's CURRENT alignment, not real life.)`)
+    for (const g of top25vTop25) sections.push(fmtGameLine(g, dynasty, confLookup))
     sections.push('')
   }
 
   // Top-25 results vs unranked teams
   if (top25vUnranked.length > 0) {
     sections.push(`TOP-25 vs UNRANKED RESULTS (Week ${weekNum})`)
-    for (const g of top25vUnranked) sections.push(fmtGameLine(g, dynasty))
+    for (const g of top25vUnranked) sections.push(fmtGameLine(g, dynasty, confLookup))
     sections.push('')
   }
 
@@ -745,7 +786,7 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   // bucket has no overlap with them.
   if (everyGameLine.length > 0) {
     sections.push(`OTHER FBS GAMES — UNRANKED MATCHUPS (Week ${weekNum})`)
-    for (const g of everyGameLine) sections.push(fmtGameLine(g, dynasty))
+    for (const g of everyGameLine) sections.push(fmtGameLine(g, dynasty, confLookup))
     sections.push('')
   }
 
@@ -1161,7 +1202,7 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     `  1. HEADLINES & UPSETS — the biggest games of the week, including ranked-vs-ranked, top-10 losses, and any upset (ranked team falling to unranked). Lead with the loudest result. Group every consequential ranked game here so they're not split across multiple sections. When a featured team has notable prior-year context (top-10 finish, CFP appearance, defending champs) — visible in the PRIOR-YEAR CONTEXT section — weave it in: "a year removed from the title game...", "after last season's CFP semifinal run...", etc. When a featured game appears in LAST MEETINGS, name it as a rematch and use revenge / repeat-domination framing.`,
     `  2. AROUND THE TOP 25 — the rest of the ranked teams' results, briefly. Mostly a single paragraph that name-checks what each ranked team did. Where prior-year context tightens the story (a top-5 finisher now scuffling, an unranked finisher now ranked), USE IT.`,
     `  3. POLL MOVEMENT — if (and only if) the EVOLUTION section shows a clear trajectory across recent weeks. Compare consecutive "Entering Week W" rows. Each slot 1-25 has exactly one team — never describe ties.`,
-    `  4. AROUND THE COUNTRY — selected unranked-vs-unranked storylines. Be selective: lopsided blowouts (≥30 pts), upsets, conference rivalries, and one-score thrillers. Skip games that are just middle-of-the-road results. Rivalry rematches with revenge/streak data attached (LAST MEETINGS) are good candidates here even if otherwise unremarkable.`,
+    `  4. AROUND THE COUNTRY — selected unranked-vs-unranked storylines. Be selective: lopsided blowouts (≥30 pts), upsets, conference rivalries, and one-score thrillers. Skip games that are just middle-of-the-road results. Rivalry rematches with revenge/streak data attached (LAST MEETINGS) are good candidates here even if otherwise unremarkable. CRITICAL: any conference label you write in this section MUST be the conference shown in parens next to the team in that game's data line — NEVER pull a conference label from real-world memory. If a game says "Hawaii (Pac-12) 35, Boise State (Pac-12) 14", you MUST write "Pac-12" if you reference a conference for those teams, NOT "Mountain West".`,
     ``,
     `Optional extras (only when warranted by the data):`,
     `  - AWARDS / HEISMAN PICTURE — only if a player is leading a major stat category (passing/rushing/receiving yds, sacks) by a noticeable margin. If nobody clears that bar, SKIP.`,

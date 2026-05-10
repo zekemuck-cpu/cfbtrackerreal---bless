@@ -1796,6 +1796,42 @@ export function getTeamRanking(dynasty, tidOrAbbr, year) {
     const byYear = dynasty.teams?.[tid]?.byYear || dynasty.teams?.[String(tid)]?.byYear
     const rankByWeek = byYear?.[year]?.rankByWeek ?? byYear?.[String(year)]?.rankByWeek
     if (rankByWeek && typeof rankByWeek === 'object') {
+      // Find the dynasty's "current snapshot week" — the latest week
+      // ANY team has rankByWeek populated for in this year. We anchor
+      // every team's reported rank to that same week so a team that
+      // fell out of the poll shows as unranked (null), not as their
+      // last-known rank from a past week.
+      //
+      // Without this, a team that was #25 in Wk 4 and dropped out in
+      // Wk 5 still showed "#25" on the team header — confusing users
+      // who saw the AI recap explicitly say the team was now unranked.
+      let snapshotWeek = -Infinity
+      for (const team of Object.values(dynasty.teams || {})) {
+        const tRbw = team?.byYear?.[year]?.rankByWeek ?? team?.byYear?.[String(year)]?.rankByWeek
+        if (!tRbw || typeof tRbw !== 'object') continue
+        for (const k of Object.keys(tRbw)) {
+          const wk = Number(k)
+          if (!Number.isFinite(wk)) continue
+          const v = tRbw[k]
+          if (typeof v !== 'number' || v < 1 || v > 25) continue
+          if (wk > snapshotWeek) snapshotWeek = wk
+        }
+      }
+      if (snapshotWeek > -Infinity) {
+        const v = rankByWeek[snapshotWeek] ?? rankByWeek[String(snapshotWeek)]
+        if (typeof v === 'number' && v >= 1 && v <= 25) {
+          return { rank: v, source: 'rank_by_week', week: snapshotWeek }
+        }
+        // This team has rankByWeek data for some weeks but NOT the
+        // snapshot week — they're currently unranked. Return null
+        // here (don't fall through to legacy "highest populated week"
+        // behavior, which would return their last-known rank).
+        return null
+      }
+      // Fallback: dynasty-wide snapshotWeek not findable (no team has
+      // any rankByWeek data this year). Use this team's highest
+      // populated week — preserves the legacy behavior for legacy
+      // dynasties where rankByWeek was sparse before the V5 migration.
       let latestWeek = -Infinity
       let latestRank = null
       for (const [k, v] of Object.entries(rankByWeek)) {

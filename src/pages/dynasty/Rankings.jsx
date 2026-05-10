@@ -159,11 +159,6 @@ export default function Rankings() {
     top25 = savedMedia
   } else if (selectedWeek != null) {
     // Primary source: rankByWeek[selectedWeek] across every team.
-    // Fallback: per-game team1Rank/team2Rank for games whose week
-    // matches selectedWeek. The fallback only fills slots that aren't
-    // already claimed by rankByWeek — never overwrites — so a team
-    // with valid rankByWeek data always wins over a game-derived
-    // value (the rankByWeek slot is the canonical source).
     const slotMap = new Map()
     const claimedTids = new Set()
     const teams = currentDynasty.teams || {}
@@ -182,31 +177,44 @@ export default function Rankings() {
       claimedTids.add(Number(tidKey))
     }
 
-    // Game-record fallback. Only fills empty slots and only with teams
-    // that aren't already in the slotMap, so a team that has a valid
-    // rankByWeek entry can't double-fill from a game record at a
-    // different rank. Walk in tid-order for stability.
-    const games = currentDynasty.games || []
-    for (const g of games) {
-      if (!g) continue
-      if (Number(g.year) !== Number(displayYear)) continue
-      if (Number(g.week) !== Number(selectedWeek)) continue
-      const sides = [
-        { tid: g.team1Tid, rank: g.team1Rank, abbr: g.team1 },
-        { tid: g.team2Tid, rank: g.team2Rank, abbr: g.team2 },
-      ]
-      for (const s of sides) {
-        if (typeof s.rank !== 'number' || s.rank < 1 || s.rank > 25) continue
-        const tid = s.tid != null ? Number(s.tid) : null
-        if (tid != null && claimedTids.has(tid)) continue
-        if (slotMap.has(s.rank)) continue
-        const team = tid != null ? teams[String(tid)] || teams[tid] : null
-        slotMap.set(s.rank, {
-          rank: s.rank,
-          tid,
-          team: team?.abbr || s.abbr || null,
-        })
-        if (tid != null) claimedTids.add(tid)
+    // Game-record fallback. ONLY fires when rankByWeek[selectedWeek]
+    // is essentially empty across the entire dynasty (< 5 teams) —
+    // i.e., the picture for this week hasn't been saved yet, so the
+    // user gets at least a partial Top 25 from game records instead
+    // of nothing.
+    //
+    // CRITICAL: this guard prevents the fallback from "resurrecting"
+    // a team the user explicitly removed from the poll. Scenario:
+    // user saves Wk 4 with team A at #25, then edits the Top 25
+    // sheet to remove team A from Wk 4 entirely (rankByWeek[4][A]
+    // cleared). The team A's Wk 4 game record still has team1Rank=25
+    // — without this guard, the fallback would re-add them. Now we
+    // only run the fallback when the rankByWeek[selectedWeek] picture
+    // is sparse enough to be considered "not yet entered" (< 5 entries).
+    const RBW_FALLBACK_THRESHOLD = 5
+    if (slotMap.size < RBW_FALLBACK_THRESHOLD) {
+      const games = currentDynasty.games || []
+      for (const g of games) {
+        if (!g) continue
+        if (Number(g.year) !== Number(displayYear)) continue
+        if (Number(g.week) !== Number(selectedWeek)) continue
+        const sides = [
+          { tid: g.team1Tid, rank: g.team1Rank, abbr: g.team1 },
+          { tid: g.team2Tid, rank: g.team2Rank, abbr: g.team2 },
+        ]
+        for (const s of sides) {
+          if (typeof s.rank !== 'number' || s.rank < 1 || s.rank > 25) continue
+          const tid = s.tid != null ? Number(s.tid) : null
+          if (tid != null && claimedTids.has(tid)) continue
+          if (slotMap.has(s.rank)) continue
+          const team = tid != null ? teams[String(tid)] || teams[tid] : null
+          slotMap.set(s.rank, {
+            rank: s.rank,
+            tid,
+            team: team?.abbr || s.abbr || null,
+          })
+          if (tid != null) claimedTids.add(tid)
+        }
       }
     }
     top25 = [...slotMap.values()].sort((a, b) => a.rank - b.rank)
