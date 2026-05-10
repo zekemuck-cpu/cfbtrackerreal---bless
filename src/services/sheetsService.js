@@ -14592,6 +14592,75 @@ export async function createTop25Sheet(dynastyName, dynasty) {
  * The caller is responsible for showing a confirmation diff and
  * applying the updates with the appropriate guardrails.
  */
+/**
+ * Refresh the Top 25 sheet's data cells to match the dynasty's current
+ * rankByWeek state. Called when re-opening an existing sheet so the
+ * pre-fill stays in sync with weekly-scores saves that landed since
+ * the sheet was created.
+ *
+ * Without this, a user who creates the sheet on Wk 3, saves Wks 4-12
+ * via the weekly-scores flow, then opens the Top 25 sheet to fix one
+ * cell, sees a "diff: 42 removed" because the sheet still reflects
+ * the Wk 3 state — every rankByWeek entry that landed via weekly
+ * saves looks like a deletion.
+ *
+ * Walks every "[year] Top 25" tab on the spreadsheet and rewrites the
+ * data range with freshly-built rows from buildTop25TabRows. Header
+ * stays identical, so we ignore that row and only stomp the 25 data
+ * rows. Years that exist on the sheet but not in the dynasty get
+ * cleared (data rows blanked); years that exist in the dynasty but
+ * not on the sheet are NOT auto-added — that's a structural change
+ * worth a fresh sheet, not a silent edit.
+ */
+export async function refreshTop25SheetData(spreadsheetId, dynasty) {
+  if (!dynasty) throw new Error('refreshTop25SheetData: dynasty is required')
+  const accessToken = await getAccessToken()
+
+  const metaRes = await fetch(
+    `${SHEETS_API_BASE}/${spreadsheetId}?fields=sheets.properties(title)`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  )
+  if (!metaRes.ok) {
+    const err = await metaRes.json().catch(() => ({}))
+    throw new Error(`refreshTop25SheetData: meta fetch failed — ${err.error?.message || metaRes.status}`)
+  }
+  const meta = await metaRes.json()
+  const tabs = (meta.sheets || []).map(s => s.properties).filter(Boolean)
+
+  const NUM_COLS = 1 + TOP25_WEEK_KEYS.length
+  const NUM_ROWS = 1 + TOP25_NUM_RANKS
+
+  const valueRanges = []
+  for (const t of tabs) {
+    const m = t?.title?.match(/^(\d{4})\s+Top\s+25$/i)
+    if (!m) continue
+    const year = Number(m[1])
+    if (!Number.isFinite(year)) continue
+    const rows = buildTop25TabRows(dynasty, year)
+    valueRanges.push({
+      range: `'${t.title}'!A1:${String.fromCharCode(64 + NUM_COLS)}${NUM_ROWS}`,
+      majorDimension: 'ROWS',
+      values: rows,
+    })
+  }
+
+  if (valueRanges.length === 0) return { refreshedTabs: 0 }
+
+  const valuesRes = await fetch(
+    `${SHEETS_API_BASE}/${spreadsheetId}/values:batchUpdate`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ valueInputOption: 'RAW', data: valueRanges }),
+    },
+  )
+  if (!valuesRes.ok) {
+    const err = await valuesRes.json().catch(() => ({}))
+    throw new Error(`refreshTop25SheetData: values batchUpdate failed — ${err.error?.message || valuesRes.status}`)
+  }
+  return { refreshedTabs: valueRanges.length }
+}
+
 export async function readTop25FromSheet(spreadsheetId, dynasty) {
   if (!dynasty) throw new Error('readTop25FromSheet: dynasty is required')
 

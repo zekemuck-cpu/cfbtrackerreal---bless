@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import {
   createTop25Sheet,
   readTop25FromSheet,
+  refreshTop25SheetData,
   deleteGoogleSheet,
   getSingleSheetEmbedUrl,
 } from '../services/sheetsService'
@@ -58,6 +59,12 @@ export default function Top25SheetModal({ isOpen, onClose }) {
   const auth = useAuthErrorHandler()
   const [pendingSave, setPendingSave] = useState(null) // { diff, summary, alsoDelete }
   const creatingSheetRef = useRef(false)
+  // Track which sheet IDs have already been refreshed against the
+  // current dynasty so we don't re-stomp the user's in-flight edits
+  // on re-renders. One refresh per modal-open per sheet is enough —
+  // it brings the sheet's pre-fill in sync with the dynasty's current
+  // rankByWeek before the user starts editing.
+  const refreshedSheetRef = useRef(null)
 
   // Track mobile breakpoint so we can swap the iframe for an
   // open-in-Sheets CTA — Google's embedded view is unusable in a
@@ -75,6 +82,33 @@ export default function Top25SheetModal({ isOpen, onClose }) {
       setSheetId(currentDynasty.top25SheetId)
     }
   }, [isOpen, currentDynasty?.top25SheetId, sheetId, showDeletedNote])
+
+  // Refresh the existing sheet's pre-fill from the current dynasty
+  // every time the modal opens with a stored sheet. Without this, a
+  // sheet created weeks ago shows the rankByWeek picture from THAT
+  // moment — every newer entry that landed via weekly-scores saves
+  // since then is missing from the sheet, and read-back interprets
+  // the gap as "remove these 42 entries." Refresh aligns the sheet
+  // with the current dynasty so the diff only contains the user's
+  // actual in-modal edits.
+  useEffect(() => {
+    if (!isOpen || !user || !sheetId || isViewOnly) return
+    if (refreshedSheetRef.current === sheetId) return
+    refreshedSheetRef.current = sheetId
+    refreshTop25SheetData(sheetId, currentDynasty).catch((error) => {
+      console.error('Failed to refresh Top 25 sheet pre-fill:', error)
+      // Don't surface a toast — the modal still works, just with
+      // the slightly-stale pre-fill. Reset the marker so a later
+      // open retries the refresh.
+      refreshedSheetRef.current = null
+    })
+  }, [isOpen, user, sheetId, isViewOnly, currentDynasty])
+
+  // Clear the refresh marker on close so the next open triggers a
+  // fresh sync.
+  useEffect(() => {
+    if (!isOpen) refreshedSheetRef.current = null
+  }, [isOpen])
 
   // Create the sheet on first open / after a delete.
   useEffect(() => {
