@@ -925,30 +925,26 @@ Don't just glance at this list. Physically execute each check on your draft.
     for (let w = 0; w <= 16; w++) opts.push(w)
     return opts
   }, [])
-  const rankWeekPicker = (
-    <div className="flex items-center gap-2 text-xs">
-      <label htmlFor="weekly-rank-week" className="text-txt-secondary whitespace-nowrap">
-        Update rankings for week:
-      </label>
-      <select
-        id="weekly-rank-week"
-        value={rankWeek ?? ''}
-        onChange={(e) => setRankWeek(Number(e.target.value))}
-        disabled={syncing || deletingSheet}
-        className="px-2 py-1 rounded border border-surface-4 bg-surface-1 text-txt-primary text-xs disabled:opacity-60"
-      >
-        {rankWeekOptions.map(w => (
-          <option key={w} value={w}>
-            Week {w}{w === dynastyCurrentWeek ? ' (current)' : ''}
-          </option>
-        ))}
-      </select>
-    </div>
+
+  const rankWeekSelect = (
+    <select
+      id="weekly-rank-week"
+      value={rankWeek ?? ''}
+      onChange={(e) => setRankWeek(Number(e.target.value))}
+      disabled={syncing || deletingSheet}
+      className="px-3 py-2 rounded-md bg-surface-2 border border-surface-4 hover:border-surface-5 text-txt-primary text-sm font-medium tabular-nums focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-3 disabled:opacity-60 transition-colors"
+    >
+      {rankWeekOptions.map(w => (
+        <option key={w} value={w}>
+          Week {w}{w === dynastyCurrentWeek ? ' (current)' : ''}
+        </option>
+      ))}
+    </select>
   )
 
   return createPortal(
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
       style={{ margin: 0 }}
       onMouseDown={onClose}
     >
@@ -956,181 +952,229 @@ Don't just glance at this list. Physically execute each check on your draft.
         className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-4rem)] sm:h-[95dvh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="h-[3px] w-full" style={{ backgroundColor: 'var(--text-primary)' }} aria-hidden="true" />
-        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-surface-4">
-          <h2 className="text-2xl font-bold text-txt-primary">{headerLabel}</h2>
+        <div className="flex items-center justify-between px-5 sm:px-7 py-4 border-b border-surface-4">
+          <div className="flex flex-col">
+            <span className="label-xs text-txt-tertiary">Weekly Scores</span>
+            <h2 className="text-xl sm:text-2xl font-bold text-txt-primary tracking-tight tabular-nums">
+              {year} <span className="text-txt-tertiary font-medium">·</span> Week {week}
+            </h2>
+          </div>
           <button
             aria-label="Close"
             onClick={onClose}
-            className="text-txt-tertiary hover:text-txt-primary transition-colors"
+            className="text-txt-tertiary hover:text-txt-primary transition-colors -mr-1 p-1.5 rounded-md hover:bg-surface-2"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
+        <div className="flex-1 flex flex-col overflow-hidden">
           {isLoading ? (
-            <div className="flex-1 flex items-center justify-center">
+            <div className="flex-1 flex items-center justify-center p-6">
               <div className="text-center">
                 <div
-                  className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4"
+                  className="animate-spin w-10 h-10 border-2 rounded-full mx-auto mb-4"
                   style={{ borderColor: 'var(--text-primary)', borderTopColor: 'transparent' }}
                 />
-                <p className="text-lg font-semibold text-txt-primary">
-                  Creating Week {week} Scores Sheet...
+                <p className="label-xs text-txt-tertiary mb-2">Creating Sheet</p>
+                <p className="text-base font-semibold text-txt-primary">
+                  Week {week} workspace
                 </p>
-                <p className="text-sm mt-2 text-txt-tertiary">
-                  Setting up freeform sheet for up to {WEEKLY_SCORES_MAX_ROWS} games
+                <p className="text-xs mt-2 text-txt-tertiary tabular-nums">
+                  Up to {WEEKLY_SCORES_MAX_ROWS} rows · 1 tab
                 </p>
                 <SheetLoadingHint active={isLoading} />
               </div>
             </div>
           ) : showDeletedNote ? (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="card p-8 border-l-[3px] text-center max-w-sm" style={{ borderLeftColor: 'var(--surface-5)' }}>
+            <div className="flex-1 flex items-center justify-center p-6">
+              <div className="text-center max-w-sm">
                 <p className="label-xs text-txt-tertiary mb-2">Status</p>
-                <p className="text-xl font-bold text-txt-primary mb-2">Saved &amp; Moved to Trash</p>
+                <p className="text-xl font-bold text-txt-primary mb-1">Saved</p>
                 <p className="text-sm text-txt-secondary">
-                  Week {week} scores saved to your dynasty.
+                  Week {week} scores synced. Sheet moved to Drive trash.
                 </p>
               </div>
             </div>
           ) : sheetId ? (
             <div className="flex-1 flex flex-col overflow-hidden">
-              {!isMobile && useEmbedded && (
-                <div className="mb-3">
-                  <div className="flex gap-3 flex-wrap items-center">
+              {!isMobile && useEmbedded ? (
+                <>
+                  <div className="px-5 sm:px-7 py-3 border-b border-surface-4 flex flex-wrap gap-2 items-center">
                     <button
                       onClick={() => handleSave(true)}
                       disabled={syncing || deletingSheet}
-                      className={`px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
-                      style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
+                      className={`btn-refined btn-refined--solid ${highlightSave ? 'animate-pulse-subtle' : ''}`}
                     >
-                      {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
+                      {deletingSheet ? 'Saving…' : 'Save & move to trash'}
                     </button>
                     <button
                       onClick={() => handleSave(false)}
                       disabled={syncing || deletingSheet}
-                      className="btn btn-secondary text-sm"
+                      className="btn-refined"
                     >
-                      {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
+                      {syncing ? 'Saving…' : 'Save & keep sheet'}
                     </button>
-                    {rankWeekPicker}
+
+                    <span className="mx-1 h-6 w-px bg-surface-4" aria-hidden="true" />
+
+                    <label htmlFor="weekly-rank-week" className="label-xs text-txt-tertiary">
+                      Rankings week
+                    </label>
+                    {rankWeekSelect}
+
+                    <span className="mx-1 h-6 w-px bg-surface-4" aria-hidden="true" />
+
                     <button
                       onClick={() => setShowAIPrompt(true)}
-                      className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                      className="btn-refined"
                     >
-                      AI Prompt
+                      AI prompt
                     </button>
+
+                    <div className="ml-auto flex items-center gap-2">
+                      <button
+                        onClick={handleDeleteSheetOnly}
+                        disabled={syncing || deletingSheet || regenerating}
+                        className="btn-refined"
+                      >
+                        {deletingSheet ? 'Deleting…' : 'Delete sheet'}
+                      </button>
+                      <button
+                        onClick={handleRegenerateSheet}
+                        disabled={syncing || deletingSheet || regenerating}
+                        className="btn-refined btn-refined--danger"
+                      >
+                        {regenerating ? 'Regenerating…' : 'Regenerate'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="px-5 sm:px-7 py-2 flex items-center justify-end">
                     <button
-                      onClick={handleDeleteSheetOnly}
-                      disabled={syncing || deletingSheet || regenerating}
-                      className="px-4 py-2 rounded-lg font-semibold text-sm disabled:opacity-60 transition-colors border border-surface-4 hover:bg-surface-2 text-txt-secondary ml-auto"
+                      onClick={() => {
+                        const newValue = !useEmbedded
+                        setUseEmbedded(newValue)
+                        localStorage.setItem('sheetEmbedPreference', newValue.toString())
+                      }}
+                      className="text-xs text-txt-tertiary hover:text-txt-primary transition-colors underline decoration-dotted underline-offset-4"
                     >
-                      {deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}
+                      ← Back to default view
                     </button>
-                    <button
-                      onClick={handleRegenerateSheet}
-                      disabled={syncing || deletingSheet || regenerating}
-                      className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
-                      style={{ backgroundColor: 'transparent', borderColor: '#EF4444', color: '#EF4444' }}
-                    >
-                      {regenerating ? 'Regenerating...' : 'Regenerate sheet'}
-                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 overflow-y-auto">
+                  <div className="max-w-md mx-auto px-5 sm:px-7 py-6 sm:py-10 flex flex-col gap-7">
+
+                    {/* HOW-TO panel */}
+                    <section>
+                      <p className="label-xs text-txt-tertiary mb-3">How to enter scores</p>
+                      <ol className="card p-4 border-l-[3px] text-sm space-y-2.5 text-txt-secondary" style={{ borderLeftColor: 'var(--surface-5)' }}>
+                        <li className="flex gap-4">
+                          <span className="label-xs text-txt-tertiary tabular-nums pt-0.5">01</span>
+                          <span>Tap <span className="text-txt-primary font-medium">AI Prompt</span> to copy the prompt + send your scoreboard screenshots to your AI.</span>
+                        </li>
+                        <li className="flex gap-4">
+                          <span className="label-xs text-txt-tertiary tabular-nums pt-0.5">02</span>
+                          <span>Open the sheet and paste the AI's TSV output at cell <span className="font-mono text-txt-primary">A2</span>.</span>
+                        </li>
+                        <li className="flex gap-4">
+                          <span className="label-xs text-txt-tertiary tabular-nums pt-0.5">03</span>
+                          <span>Return here and click <span className="text-txt-primary font-medium">Save</span> to sync results into your dynasty.</span>
+                        </li>
+                      </ol>
+                    </section>
+
+                    {/* SHEET ACTIONS */}
+                    <section className="flex flex-col sm:flex-row gap-2">
+                      <a
+                        href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-refined btn-refined--lg flex-1 justify-center"
+                        style={{ backgroundColor: '#0F9D58', borderColor: '#0F9D58', color: '#FFFFFF' }}
+                      >
+                        Open Google Sheets
+                      </a>
+                      <button
+                        onClick={() => setShowAIPrompt(true)}
+                        className="btn-refined btn-refined--lg flex-1 justify-center"
+                      >
+                        AI Prompt
+                      </button>
+                    </section>
+
+                    {/* RANKINGS WEEK */}
+                    <section>
+                      <label htmlFor="weekly-rank-week" className="label-xs text-txt-tertiary block mb-2">
+                        Rankings week
+                      </label>
+                      {rankWeekSelect}
+                      <p className="text-xs text-txt-tertiary mt-2 leading-relaxed">
+                        The Top 25 the AI extracts from your screenshot lands in this week's slot. Defaults to your dynasty's current week.
+                      </p>
+                    </section>
+
+                    {/* SAVE */}
+                    <section>
+                      <p className="label-xs text-txt-tertiary mb-3">Save</p>
+                      <div className="flex flex-col gap-2">
+                        <button
+                          onClick={() => handleSave(true)}
+                          disabled={syncing || deletingSheet}
+                          className={`btn-refined btn-refined--solid btn-refined--lg w-full justify-center ${highlightSave ? 'animate-pulse-subtle' : ''}`}
+                        >
+                          {deletingSheet ? 'Saving…' : 'Save & move to trash'}
+                        </button>
+                        <button
+                          onClick={() => handleSave(false)}
+                          disabled={syncing || deletingSheet}
+                          className="btn-refined btn-refined--lg w-full justify-center"
+                        >
+                          {syncing ? 'Saving…' : 'Save & keep sheet'}
+                        </button>
+                      </div>
+                      <p className="text-xs text-txt-tertiary mt-2 leading-relaxed">
+                        <span className="text-txt-secondary font-medium">Save</span> moves the sheet to your Drive trash after syncing. <span className="text-txt-secondary font-medium">Save &amp; keep</span> leaves it open for re-edits.
+                      </p>
+                    </section>
+
+                    {/* TROUBLESHOOTING */}
+                    <section className="pt-2 border-t border-surface-4 flex items-center gap-5 justify-center flex-wrap">
+                      <button
+                        onClick={handleDeleteSheetOnly}
+                        disabled={syncing || deletingSheet || regenerating}
+                        className="text-xs text-txt-tertiary hover:text-txt-primary transition-colors disabled:opacity-60 underline decoration-dotted underline-offset-4"
+                      >
+                        {deletingSheet ? 'Deleting…' : 'Delete sheet (no save)'}
+                      </button>
+                      <button
+                        onClick={handleRegenerateSheet}
+                        disabled={syncing || deletingSheet || regenerating}
+                        className="text-xs text-txt-tertiary hover:text-[color:var(--accent-error)] transition-colors disabled:opacity-60 underline decoration-dotted underline-offset-4"
+                      >
+                        {regenerating ? 'Regenerating…' : 'Regenerate sheet'}
+                      </button>
+                      {!isMobile && (
+                        <button
+                          onClick={() => {
+                            const newValue = !useEmbedded
+                            setUseEmbedded(newValue)
+                            localStorage.setItem('sheetEmbedPreference', newValue.toString())
+                          }}
+                          className="text-xs text-txt-tertiary hover:text-txt-primary transition-colors underline decoration-dotted underline-offset-4"
+                        >
+                          Try embedded view (beta)
+                        </button>
+                      )}
+                    </section>
+
                   </div>
                 </div>
               )}
-
-              {!isMobile && (
-                <div className="flex items-center justify-end mb-2">
-                  <button
-                    onClick={() => {
-                      const newValue = !useEmbedded
-                      setUseEmbedded(newValue)
-                      localStorage.setItem('sheetEmbedPreference', newValue.toString())
-                    }}
-                    className="text-xs px-3 py-1 rounded-full border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
-                  >
-                    {useEmbedded ? '← Back to default view' : 'Try embedded view (beta)'}
-                  </button>
-                </div>
-              )}
-
-              {isMobile || !useEmbedded ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-                  <h3 className="label-xs text-txt-tertiary mb-2">Data Entry</h3>
-                  <p className="text-2xl font-bold text-txt-primary mb-6">Edit in Google Sheets</p>
-                  <div className="text-left mb-6 max-w-sm w-full card p-4 border-l-[3px]" style={{ borderLeftColor: 'var(--surface-5)' }}>
-                    <p className="label-xs text-txt-tertiary mb-3">Instructions</p>
-                    <ol className="text-sm space-y-2 text-txt-secondary">
-                      <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">1.</span><span>Tap "AI Prompt" to copy the prompt + send your scoreboard screenshots to your AI</span></li>
-                      <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">2.</span><span>Open Google Sheets and paste the AI's TSV output at cell A2</span></li>
-                      <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">3.</span><span>Return here and tap "Save" to sync results into your dynasty</span></li>
-                    </ol>
-                  </div>
-                  <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
-                    <a
-                      href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2"
-                      style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}
-                    >
-                      <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
-                        <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
-                      </svg>
-                      Open Google Sheets
-                    </a>
-                    <button
-                      onClick={() => setShowAIPrompt(true)}
-                      className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
-                    >
-                      AI Prompt
-                    </button>
-                  </div>
-
-                  <div className="mb-3">{rankWeekPicker}</div>
-
-                  <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
-                    <button
-                      onClick={() => handleSave(true)}
-                      disabled={syncing || deletingSheet}
-                      className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
-                      style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                    >
-                      {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
-                    </button>
-                    <button
-                      onClick={() => handleSave(false)}
-                      disabled={syncing || deletingSheet}
-                      className="btn btn-secondary px-6 py-3 text-sm"
-                    >
-                      {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
-                    </button>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
-                    <button
-                      onClick={handleDeleteSheetOnly}
-                      disabled={syncing || deletingSheet || regenerating}
-                      className="text-xs px-4 py-2 rounded-lg font-medium transition-colors border border-surface-4 hover:bg-surface-2 text-txt-secondary disabled:opacity-60"
-                    >
-                      {deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}
-                    </button>
-                    <button
-                      onClick={handleRegenerateSheet}
-                      disabled={syncing || deletingSheet || regenerating}
-                      className="text-xs px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-colors border"
-                      style={{ backgroundColor: 'transparent', borderColor: '#EF4444', color: '#EF4444' }}
-                    >
-                      {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
             </div>
           ) : null}
         </div>
