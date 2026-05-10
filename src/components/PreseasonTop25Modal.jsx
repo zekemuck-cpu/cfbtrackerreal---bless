@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useDynasty } from '../context/DynastyContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
+import SheetModalHeader from './ui/SheetModalHeader'
 import { useAuth } from '../context/AuthContext'
 import { teams as TEAM_NAMES, getMascotName } from '../data/teams'
 import { getTidFromTeamName, TEAMS } from '../data/teamRegistry'
@@ -328,27 +329,7 @@ export default function PreseasonTop25Modal({ isOpen, onClose, year, teamColors 
         className="card-elevated w-full sm:w-[min(880px,95vw)] max-h-[calc(100dvh-4rem)] sm:max-h-[88vh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="h-[3px] w-full" style={{ backgroundColor: teamColors?.primary || 'var(--surface-5)' }} aria-hidden="true" />
-
-        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-surface-4">
-          <div className="min-w-0">
-            <h2 className="text-xl sm:text-2xl font-bold text-txt-primary truncate">
-              {yearNum} Preseason Top 25
-            </h2>
-            <p className="text-xs text-txt-tertiary mt-0.5">
-              Saved per-year. Powers the preseason recap and is referenced by week-1 ranks.
-            </p>
-          </div>
-          <button
-            aria-label="Close"
-            onClick={onClose}
-            className="text-txt-tertiary hover:text-txt-primary transition-colors flex-shrink-0 ml-3"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+        <SheetModalHeader eyebrow="Preseason" title={`${yearNum} Top 25`} onClose={onClose} />
 
         <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5">
           {showSheet ? (

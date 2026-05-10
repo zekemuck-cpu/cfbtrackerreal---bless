@@ -169,7 +169,7 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
 
   return createPortal(
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[10000] py-8 px-4 sm:p-4 modal-backdrop-in"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] py-8 px-4 sm:p-4 modal-backdrop-in"
       style={{ margin: 0 }}
       onMouseDown={(e) => { e.stopPropagation(); onClose() }}
     >
@@ -177,19 +177,17 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
         className="card-elevated w-full sm:w-[min(880px,95vw)] max-h-[calc(100dvh-4rem)] sm:max-h-[88vh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="h-[3px] w-full" style={{ backgroundColor: 'var(--surface-5)' }} aria-hidden="true" />
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-surface-4">
-          <div className="min-w-0">
-            <h2 className="text-xl sm:text-2xl font-bold text-txt-primary truncate">{heading}</h2>
+        <div className="flex items-center justify-between px-5 sm:px-7 py-4 border-b border-surface-4">
+          <div className="flex flex-col min-w-0">
+            <span className="label-xs text-txt-tertiary">Week Recap</span>
+            <h2 className="text-xl sm:text-2xl font-bold text-txt-primary tracking-tight truncate">{heading}</h2>
           </div>
           <button
             aria-label="Close"
             onClick={onClose}
-            className="text-txt-tertiary hover:text-txt-primary transition-colors flex-shrink-0 ml-3"
+            className="text-txt-tertiary hover:text-txt-primary transition-colors -mr-1 p-1.5 rounded-md hover:bg-surface-2 flex-shrink-0"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>

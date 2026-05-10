@@ -3,6 +3,7 @@ import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
+import SheetModalHeader from './ui/SheetModalHeader'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
 import AIPromptModal from './AIPromptModal'
@@ -334,29 +335,16 @@ FINAL CHECK before you send
 
   return (
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
       style={{ margin: 0 }}
       onMouseDown={handleClose}
     >
       <div
-        className="rounded-xl border shadow-xl w-full sm:w-[95vw] max-h-[calc(100dvh-4rem)] sm:h-[95dvh] flex flex-col p-4 sm:p-6"
-        style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
+        className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-4rem)] sm:h-[95dvh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-            Portal Transfer Class Assignment
-          </h2>
-          <button aria-label="Close"
-            onClick={handleClose}
-            className="hover:opacity-70"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+        <SheetModalHeader eyebrow="Transfer Portal" title="Portal Transfer Class" onClose={handleClose} />
+        <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
 
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
@@ -583,6 +571,7 @@ FINAL CHECK before you send
             <p style={{ color: 'var(--text-primary)' }}>Failed to create sheet. Please try again.</p>
           </div>
         )}
+        </div>
       </div>
 
       {/* Auth Error Modal */}

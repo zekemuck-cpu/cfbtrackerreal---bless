@@ -469,9 +469,12 @@ function Top25DiffConfirmModal({ summary, yearTotals, unknownAbbrs, alsoDelete, 
         className="card-elevated w-full max-w-2xl max-h-[85dvh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-surface-4">
-          <h3 className="text-xl font-bold text-txt-primary">Confirm Rankings Save</h3>
-          <button onClick={onCancel} aria-label="Close" className="text-txt-tertiary hover:text-txt-primary">
+        <div className="flex items-center justify-between px-5 sm:px-7 py-4 border-b border-surface-4">
+          <div className="flex flex-col">
+            <span className="label-xs text-txt-tertiary">Review Changes</span>
+            <h3 className="text-xl font-bold text-txt-primary tracking-tight">Confirm Rankings Save</h3>
+          </div>
+          <button onClick={onCancel} aria-label="Close" className="text-txt-tertiary hover:text-txt-primary transition-colors -mr-1 p-1.5 rounded-md hover:bg-surface-2 flex-shrink-0">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
@@ -537,21 +540,20 @@ function Top25DiffConfirmModal({ summary, yearTotals, unknownAbbrs, alsoDelete, 
           )}
         </div>
 
-        <div className="px-5 py-4 border-t border-surface-4 flex justify-end gap-2">
+        <div className="px-5 sm:px-7 py-4 border-t border-surface-4 flex justify-end gap-2">
           <button
             onClick={onCancel}
             disabled={applying}
-            className="px-4 py-2 rounded-lg text-sm font-semibold border border-surface-4 hover:bg-surface-2 disabled:opacity-60 text-txt-primary"
+            className="btn-refined"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
             disabled={applying || noChanges}
-            className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-60"
-            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-0)' }}
+            className="btn-refined btn-refined--solid"
           >
-            {applying ? 'Applying…' : (noChanges ? 'Nothing to Save' : 'Confirm & Save')}
+            {applying ? 'Applying…' : (noChanges ? 'Nothing to save' : 'Confirm & save')}
           </button>
         </div>
       </div>

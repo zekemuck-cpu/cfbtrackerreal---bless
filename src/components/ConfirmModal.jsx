@@ -39,7 +39,7 @@ export default function ConfirmModal({
     <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[9999] flex items-center justify-center py-8 px-4 sm:p-4" style={{ margin: 0 }}>
       {/* Backdrop */}
       <div
-        className="absolute inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60"
+        className="absolute inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-70"
         onMouseDown={loading ? undefined : onClose}
       />
 

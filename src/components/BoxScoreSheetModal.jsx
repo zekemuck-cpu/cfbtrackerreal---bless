@@ -20,6 +20,7 @@ import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
+import SheetModalHeader from './ui/SheetModalHeader'
 import { getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFromAbbr } from '../data/teamRegistry'
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
@@ -1364,7 +1365,7 @@ output that fails any of them.`,
 
   return createPortal(
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
       style={{ margin: 0 }}
       onMouseDown={handleClose}
     >
@@ -1372,26 +1373,7 @@ output that fails any of them.`,
         className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-4rem)] sm:h-[95dvh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-surface-4">
-          <div className="flex-1">
-            <h2 className="text-2xl font-bold text-txt-primary">
-              {config.title}
-            </h2>
-            {sheetType !== 'scoring' && sheetType !== 'teamStats' && (
-              <p className="text-xs mt-1 text-txt-secondary">
-                Reminder: This is not mandatory to be entered every game. You will have the option to enter all player season stats at the end of the season.
-              </p>
-            )}
-          </div>
-          <button aria-label="Close"
-            onClick={handleClose}
-            className="text-txt-tertiary hover:text-txt-primary transition-colors ml-4"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+        <SheetModalHeader eyebrow="Box Score" title={config.title} onClose={handleClose} />
 
         <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
         {isLoading ? (
