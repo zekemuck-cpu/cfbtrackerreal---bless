@@ -733,9 +733,64 @@ Don't just glance at this list. Physically execute each check on your draft.
         sheetTitle,
         currentDynasty?.teams || currentDynasty?.customTeams,
       )
+
+      // Surface dropped rows BEFORE saving — the parser collects rows
+      // it couldn't classify (unknown abbrs, malformed scores, etc.)
+      // so they don't silently vanish. User confirms before continuing.
+      const dropped = Array.isArray(games?.droppedRows) ? games.droppedRows : []
+      if (dropped.length > 0) {
+        const lines = dropped.slice(0, 8).map(d => {
+          if (d.kind === 'game' && d.reason === 'unknown-abbr') {
+            const which = d.missing === 'both' ? 'both teams' : d.missing === 'home' ? `home "${d.home}"` : `away "${d.away}"`
+            return `• Game ${d.home} vs ${d.away}: ${which} not in team registry`
+          }
+          if (d.kind === 'game' && d.reason === 'malformed-score') {
+            const parts = []
+            if (d.rawHome) parts.push(`home "${d.rawHome}"`)
+            if (d.rawAway) parts.push(`away "${d.rawAway}"`)
+            return `• Game ${d.home} vs ${d.away}: malformed score (${parts.join(', ') || 'unparseable'})`
+          }
+          if (d.kind === 'bye' && d.reason === 'unknown-abbr') {
+            return `• Bye row #${d.rank}: "${d.team}" not in team registry`
+          }
+          return `• ${d.kind} dropped (${d.reason})`
+        })
+        const more = dropped.length > 8 ? `\n…and ${dropped.length - 8} more` : ''
+        const proceed = await confirm({
+          title: `${dropped.length} row${dropped.length === 1 ? '' : 's'} will be dropped`,
+          message: `These rows couldn't be parsed and won't be saved:\n\n${lines.join('\n')}${more}\n\nFix the sheet and try again, or continue without these rows.`,
+          confirmLabel: 'Save anyway',
+          variant: 'danger',
+        })
+        if (!proceed) {
+          setDeletingSheet(false)
+          setSyncing(false)
+          return
+        }
+      }
+
+      // "Significant drop in count" guard. If this save would replace
+      // a previously-saved week's games with substantially fewer rows
+      // (≥10 fewer or ≤80% of prior), confirm before silently shrinking
+      // the data. Only enforced when prior save had a meaningful count.
+      const priorCount = Number(currentDynasty?.weeklyScoresEntered?.[year]?.[week]?.gameCount) || 0
+      const newCount = games.filter(g => typeof g.homeScore === 'number' && typeof g.awayScore === 'number').length
+      if (priorCount >= 20 && newCount < priorCount * 0.8 && (priorCount - newCount) >= 10) {
+        const ok = await confirm({
+          title: 'Game count dropped sharply',
+          message: `Previous save had ${priorCount} games for Week ${week}. This save has ${newCount}. Continuing will replace the existing data with fewer rows.`,
+          confirmLabel: 'Continue',
+          variant: 'danger',
+        })
+        if (!ok) {
+          setDeletingSheet(false)
+          setSyncing(false)
+          return
+        }
+      }
+
       await saveWeeklyScores(currentDynasty.id, games, year, week)
-      const playedCount = games.filter(g => typeof g.homeScore === 'number' && typeof g.awayScore === 'number').length
-      toast.success(`Saved ${playedCount} game${playedCount === 1 ? '' : 's'} for Week ${week}.`)
+      toast.success(`Saved ${newCount} game${newCount === 1 ? '' : 's'} for Week ${week}.`)
 
       if (alsoDelete) {
         try { await deleteGoogleSheet(sheetId) } catch (e) { console.error('Failed to delete sheet:', e) }

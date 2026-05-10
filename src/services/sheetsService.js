@@ -3701,13 +3701,43 @@ export async function readWeeklyScoresFromSheet(spreadsheetId, sheetTitle, dynas
 
     const parseRank = (raw) => {
       if (raw === undefined || raw === '' || raw === null) return null
-      const n = parseInt(raw, 10)
+      // Strip whitespace, commas, common non-rank tokens. The full
+      // value must parse cleanly to an integer in 1..25; partials
+      // (e.g. "25+") fall through as null. We do NOT silently truncate
+      // — the previous behavior accepted "1,234" as 1, which broke
+      // ranks across the board.
+      const s = String(raw).trim()
+      if (!s) return null
+      // Reject obvious non-rank text outright so we can flag it.
+      if (/^(NR|UNR|—|-|N\/A)$/i.test(s)) return null
+      // Strict integer parse — anything other than digits (with
+      // optional whitespace) fails.
+      if (!/^\d+$/.test(s.replace(/\s+/g, ''))) return null
+      const n = parseInt(s.replace(/\s+/g, ''), 10)
       if (isNaN(n) || n < 1 || n > 25) return null
+      return n
+    }
+
+    // Strict score parse. Strips whitespace + leading sign, rejects
+    // commas / decimals / non-numeric text. Returns null on any
+    // malformed input — caller decides whether to drop the row.
+    const parseScore = (raw) => {
+      if (raw === undefined || raw === '' || raw === null) return null
+      const s = String(raw).trim()
+      if (!s) return null
+      // No commas (was the bug — "1,234" parsed as 1). No decimals
+      // either (CFB scores are integers).
+      if (!/^\d+$/.test(s)) return null
+      const n = parseInt(s, 10)
+      if (isNaN(n) || n < 0 || n > 200) return null
       return n
     }
 
     const games = []
     const byeRanks = []
+    // Track rows the parser dropped so the caller can surface them
+    // in the save-confirmation modal (instead of silent loss).
+    const droppedRows = []
     // Content-based classification — works regardless of where the
     // AI's paste lands the rows. A row is a game when both team
     // columns (A and D) are non-empty AND the team abbrs differ.
@@ -3725,7 +3755,10 @@ export async function readWeeklyScoresFromSheet(spreadsheetId, sheetTitle, dynas
         const byeRank = parseRank(row[1])
         if (byeRank == null) continue
         const byeTid = getTidFromAbbr(colA, dynastyTeams)
-        if (!byeTid) continue
+        if (!byeTid) {
+          droppedRows.push({ kind: 'bye', reason: 'unknown-abbr', team: colA, rank: byeRank })
+          continue
+        }
         byeRanks.push({ team: colA, tid: byeTid, rank: byeRank })
         continue
       }
@@ -3736,19 +3769,44 @@ export async function readWeeklyScoresFromSheet(spreadsheetId, sheetTitle, dynas
       if (homeAbbr === awayAbbr) continue
 
       const homeRank = parseRank(row[1])
-      const homeScoreRaw = row[2]
       const awayRank = parseRank(row[4])
-      const awayScoreRaw = row[5]
-      const parsedHome = (homeScoreRaw === undefined || homeScoreRaw === '') ? null : parseInt(homeScoreRaw, 10)
-      const parsedAway = (awayScoreRaw === undefined || awayScoreRaw === '') ? null : parseInt(awayScoreRaw, 10)
-      const homeScore = parsedHome !== null && !isNaN(parsedHome) ? parsedHome : null
-      const awayScore = parsedAway !== null && !isNaN(parsedAway) ? parsedAway : null
+      const homeScore = parseScore(row[2])
+      const awayScore = parseScore(row[5])
       const neutralFlag = (row[6] || '').toString().trim().toUpperCase()
       const neutral = neutralFlag === 'Y' || neutralFlag === 'YES' || neutralFlag === '1' || neutralFlag === 'TRUE'
 
       const homeTid = getTidFromAbbr(homeAbbr, dynastyTeams)
       const awayTid = getTidFromAbbr(awayAbbr, dynastyTeams)
-      if (!homeTid || !awayTid) continue
+      if (!homeTid || !awayTid) {
+        droppedRows.push({
+          kind: 'game',
+          reason: 'unknown-abbr',
+          home: homeAbbr,
+          away: awayAbbr,
+          missing: !homeTid && !awayTid ? 'both' : (!homeTid ? 'home' : 'away'),
+        })
+        continue
+      }
+
+      // If a score was provided in raw form but failed strict parsing
+      // (e.g., "1,234" or "31.5"), refuse to save the row instead of
+      // silently picking a wrong winner. Both sides must parse OR
+      // both must be blank (= unscored / scheduled).
+      const homeRaw = row[2]
+      const awayRaw = row[5]
+      const homeProvided = homeRaw !== undefined && String(homeRaw).trim() !== ''
+      const awayProvided = awayRaw !== undefined && String(awayRaw).trim() !== ''
+      if ((homeProvided && homeScore == null) || (awayProvided && awayScore == null)) {
+        droppedRows.push({
+          kind: 'game',
+          reason: 'malformed-score',
+          home: homeAbbr,
+          away: awayAbbr,
+          rawHome: homeProvided ? String(homeRaw) : null,
+          rawAway: awayProvided ? String(awayRaw) : null,
+        })
+        continue
+      }
 
       games.push({
         homeTeam: homeAbbr,
@@ -3765,9 +3823,10 @@ export async function readWeeklyScoresFromSheet(spreadsheetId, sheetTitle, dynas
 
     // Backward-compat: callers that destructure as an array still
     // get just the games list (Array.isArray on the return). New
-    // callers read .byeRanks off the same returned array (JS arrays
-    // are objects).
+    // callers read .byeRanks / .droppedRows off the same returned
+    // array (JS arrays are objects).
     games.byeRanks = byeRanks
+    games.droppedRows = droppedRows
     return games
   } catch (error) {
     console.error('Error reading weekly scores:', error)
