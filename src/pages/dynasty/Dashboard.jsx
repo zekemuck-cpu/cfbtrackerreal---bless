@@ -773,13 +773,11 @@ export default function Dashboard() {
     // Use userTeamTid from the team with userId: 'currentUser' (single source of truth)
     if (!userTeamTid) return null
 
-    // For conference lookup, use the ORIGINAL team's abbreviation (from static TEAMS)
-    // This ensures teambuilder teams inherit the replaced team's conference position
-    const originalTeamAbbr = TEAMS[userTeamTid]?.abbr
-    if (!originalTeamAbbr) return null
-
-    // Use getTeamConference with custom conferences
-    return getTeamConference(originalTeamAbbr, customConferences)
+    // Resolve via tid against dynasty.teams so realignment overrides (which
+    // are keyed by the dynasty's CURRENT abbr — i.e. a TB team's new abbr)
+    // are honored. Looking up by static TEAMS[tid].abbr misses TB overrides
+    // and falls through to the stale default conference.
+    return getTeamConference(userTeamTid, customConferences, currentDynasty.teams)
   }
 
   const userTeamConference = getUserTeamConference()
