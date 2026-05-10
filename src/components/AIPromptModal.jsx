@@ -14,7 +14,7 @@ import { useToast } from './ui/Toast'
  *                 Either a string (single paste target) or an array of
  *                 strings (multiple — e.g. one per tab for the All-
  *                 Conference sheet's 10 conference tabs). Rendered as
- *                 a prominent banner near the top of the modal so the
+ *                 a labeled panel near the top of the modal so the
  *                 user can't miss it.
  */
 export default function AIPromptModal({ isOpen, onClose, title, prompt, pasteTarget }) {
@@ -52,7 +52,7 @@ export default function AIPromptModal({ isOpen, onClose, title, prompt, pasteTar
 
   return createPortal(
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[10000] py-8 px-4 sm:p-4 modal-backdrop-in"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] py-8 px-4 sm:p-4 modal-backdrop-in"
       style={{ margin: 0 }}
       onMouseDown={(e) => {
         // Stop the mousedown from bubbling through the React tree to a parent
@@ -66,70 +66,66 @@ export default function AIPromptModal({ isOpen, onClose, title, prompt, pasteTar
         className="card-elevated w-full sm:w-[min(720px,95vw)] max-h-[calc(100dvh-4rem)] sm:max-h-[85vh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="h-[3px] w-full" style={{ backgroundColor: 'var(--surface-5)' }} aria-hidden="true" />
-        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-surface-4">
-          <h2 className="text-xl font-bold text-txt-primary">AI Prompt — {title}</h2>
+        <div className="flex items-center justify-between px-5 sm:px-7 py-4 border-b border-surface-4">
+          <div className="flex flex-col min-w-0">
+            <span className="label-xs text-txt-tertiary">AI Prompt</span>
+            <h2 className="text-lg sm:text-xl font-bold text-txt-primary tracking-tight truncate">
+              {title}
+            </h2>
+          </div>
           <button
             aria-label="Close"
             onClick={onClose}
-            className="text-txt-tertiary hover:text-txt-primary transition-colors"
+            className="text-txt-tertiary hover:text-txt-primary transition-colors -mr-1 p-1.5 rounded-md hover:bg-surface-2 flex-shrink-0"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
-        <div className="flex-1 overflow-hidden flex flex-col p-4 sm:p-6 gap-4">
+
+        <div className="flex-1 overflow-hidden flex flex-col px-5 sm:px-7 py-5 gap-4">
           <p className="text-sm text-txt-secondary leading-relaxed">
-            Copy this prompt into your AI chat tool along with screenshots of the source data.
-            The AI will return a tab-separated block you can paste directly into the Google Sheet.
+            Copy this prompt into your AI chat tool along with screenshots of the source data. The AI returns a tab-separated block you paste directly into the Google Sheet.
           </p>
+
           {pasteTarget && (
-            <div
-              className="rounded-md p-3 text-sm"
-              style={{
-                backgroundColor: 'var(--surface-2)',
-                borderLeft: '3px solid var(--accent-warning)',
-              }}
-            >
-              <div className="label-xs text-txt-tertiary mb-1" style={{ letterSpacing: '1.5px' }}>
-                Paste target
-              </div>
+            <div className="rounded-md bg-surface-2 border border-surface-4 px-4 py-3">
+              <p className="label-xs text-txt-tertiary mb-1.5">Paste target</p>
               {Array.isArray(pasteTarget) ? (
-                <ul className="space-y-0.5 text-txt-primary font-medium">
+                <ul className="space-y-0.5 text-sm font-mono text-txt-primary">
                   {pasteTarget.map((target, i) => (
-                    <li key={i} className="leading-snug">
-                      <span className="font-mono">{target}</span>
-                    </li>
+                    <li key={i} className="leading-snug">{target}</li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-txt-primary font-medium leading-snug">
-                  <span className="font-mono">{pasteTarget}</span>
+                <p className="text-sm font-mono text-txt-primary leading-snug">
+                  {pasteTarget}
                 </p>
               )}
             </div>
           )}
+
           <textarea
             ref={textareaRef}
             readOnly
             value={prompt}
-            className="flex-1 w-full min-h-[240px] rounded-md border border-surface-4 bg-surface-2 text-txt-primary text-sm font-mono p-3 resize-none focus:outline-none focus:ring-2 focus:ring-surface-5"
+            className="flex-1 w-full min-h-[240px] rounded-md bg-surface-2 border border-surface-4 hover:border-surface-5 focus:border-surface-5 text-txt-primary text-sm font-mono p-3 resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-3 transition-colors"
             style={{ fontVariantNumeric: 'tabular-nums' }}
           />
-          <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center justify-end">
+
+          <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+              className="btn-refined justify-center"
             >
               Close
             </button>
             <button
               onClick={handleCopy}
-              className="px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.98]"
-              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
+              className="btn-refined btn-refined--solid justify-center"
             >
-              {copied ? 'Copied!' : 'Copy prompt'}
+              {copied ? 'Copied' : 'Copy prompt'}
             </button>
           </div>
         </div>

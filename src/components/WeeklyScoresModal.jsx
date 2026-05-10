@@ -61,6 +61,7 @@ export default function WeeklyScoresModal({ isOpen, onClose, year, week, teamCol
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [showAIPrompt, setShowAIPrompt] = useState(false)
+  const [showInstructions, setShowInstructions] = useState(false)
   const creatingSheetRef = useRef(false)
 
   // Which week's rankByWeek slot to write the screenshot's poll into.
@@ -949,7 +950,7 @@ Don't just glance at this list. Physically execute each check on your draft.
       onMouseDown={onClose}
     >
       <div
-        className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-4rem)] sm:h-[95dvh] flex flex-col overflow-hidden"
+        className="card-elevated relative w-full sm:w-[95vw] max-h-[calc(100dvh-4rem)] sm:h-[95dvh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 sm:px-7 py-4 border-b border-surface-4">
@@ -1067,29 +1068,23 @@ Don't just glance at this list. Physically execute each check on your draft.
                 </>
               ) : (
                 <div className="flex-1 overflow-y-auto">
-                  <div className="max-w-md mx-auto px-5 sm:px-7 py-6 sm:py-10 flex flex-col gap-7">
+                  <div className="max-w-md mx-auto px-5 sm:px-7 py-6 flex flex-col gap-5">
 
-                    {/* HOW-TO panel */}
-                    <section>
-                      <p className="label-xs text-txt-tertiary mb-3">How to enter scores</p>
-                      <ol className="card p-4 border-l-[3px] text-sm space-y-2.5 text-txt-secondary" style={{ borderLeftColor: 'var(--surface-5)' }}>
-                        <li className="flex gap-4">
-                          <span className="label-xs text-txt-tertiary tabular-nums pt-0.5">01</span>
-                          <span>Tap <span className="text-txt-primary font-medium">AI Prompt</span> to copy the prompt + send your scoreboard screenshots to your AI.</span>
-                        </li>
-                        <li className="flex gap-4">
-                          <span className="label-xs text-txt-tertiary tabular-nums pt-0.5">02</span>
-                          <span>Open the sheet and paste the AI's TSV output at cell <span className="font-mono text-txt-primary">A2</span>.</span>
-                        </li>
-                        <li className="flex gap-4">
-                          <span className="label-xs text-txt-tertiary tabular-nums pt-0.5">03</span>
-                          <span>Return here and click <span className="text-txt-primary font-medium">Save</span> to sync results into your dynasty.</span>
-                        </li>
-                      </ol>
-                    </section>
+                    {/* HOW-TO trigger — opens a popover instead of taking up vertical space */}
+                    <div className="flex items-center justify-end -mb-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowInstructions(true)}
+                        className="inline-flex items-center gap-1.5 text-xs text-txt-tertiary hover:text-txt-primary transition-colors"
+                        aria-label="How to enter scores"
+                      >
+                        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-surface-5 text-[10px] font-bold tabular-nums">i</span>
+                        How to enter scores
+                      </button>
+                    </div>
 
-                    {/* SHEET ACTIONS */}
-                    <section className="flex flex-col sm:flex-row gap-2">
+                    {/* SHEET ACTIONS — equal-width row */}
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <a
                         href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
                         target="_blank"
@@ -1105,7 +1100,7 @@ Don't just glance at this list. Physically execute each check on your draft.
                       >
                         AI Prompt
                       </button>
-                    </section>
+                    </div>
 
                     {/* RANKINGS WEEK */}
                     <section>
@@ -1118,7 +1113,7 @@ Don't just glance at this list. Physically execute each check on your draft.
                       </p>
                     </section>
 
-                    {/* SAVE */}
+                    {/* SAVE / CANCEL — three matching full-width buttons */}
                     <section>
                       <p className="label-xs text-txt-tertiary mb-3">Save</p>
                       <div className="flex flex-col gap-2">
@@ -1136,21 +1131,21 @@ Don't just glance at this list. Physically execute each check on your draft.
                         >
                           {syncing ? 'Saving…' : 'Save & keep sheet'}
                         </button>
+                        <button
+                          onClick={handleDeleteSheetOnly}
+                          disabled={syncing || deletingSheet || regenerating}
+                          className="btn-refined btn-refined--lg btn-refined--danger w-full justify-center"
+                        >
+                          {deletingSheet ? 'Deleting…' : 'Delete sheet (no save)'}
+                        </button>
                       </div>
                       <p className="text-xs text-txt-tertiary mt-2 leading-relaxed">
-                        <span className="text-txt-secondary font-medium">Save</span> moves the sheet to your Drive trash after syncing. <span className="text-txt-secondary font-medium">Save &amp; keep</span> leaves it open for re-edits.
+                        <span className="text-txt-secondary font-medium">Save</span> moves the sheet to Drive trash. <span className="text-txt-secondary font-medium">Save &amp; keep</span> leaves it open. <span className="text-txt-secondary font-medium">Delete</span> tosses the sheet without saving anything.
                       </p>
                     </section>
 
-                    {/* TROUBLESHOOTING */}
+                    {/* TROUBLESHOOTING — recovery only */}
                     <section className="pt-2 border-t border-surface-4 flex items-center gap-5 justify-center flex-wrap">
-                      <button
-                        onClick={handleDeleteSheetOnly}
-                        disabled={syncing || deletingSheet || regenerating}
-                        className="text-xs text-txt-tertiary hover:text-txt-primary transition-colors disabled:opacity-60 underline decoration-dotted underline-offset-4"
-                      >
-                        {deletingSheet ? 'Deleting…' : 'Delete sheet (no save)'}
-                      </button>
                       <button
                         onClick={handleRegenerateSheet}
                         disabled={syncing || deletingSheet || regenerating}
@@ -1178,6 +1173,50 @@ Don't just glance at this list. Physically execute each check on your draft.
             </div>
           ) : null}
         </div>
+
+        {/* Instructions popover — overlays the modal body, dismissed
+            by backdrop click or X. Triggered by the (i) button next
+            to the action row. Saves vertical real estate vs. an
+            always-visible step list. */}
+        {showInstructions && (
+          <div
+            className="absolute inset-0 z-10 flex items-center justify-center p-5 bg-black bg-opacity-60"
+            onMouseDown={() => setShowInstructions(false)}
+          >
+            <div
+              className="card-elevated w-full max-w-sm p-5"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <p className="label-xs text-txt-tertiary">How to enter scores</p>
+                <button
+                  type="button"
+                  onClick={() => setShowInstructions(false)}
+                  aria-label="Close"
+                  className="text-txt-tertiary hover:text-txt-primary transition-colors -mr-1 p-1 rounded-md hover:bg-surface-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <ol className="text-sm space-y-3 text-txt-secondary">
+                <li className="flex gap-4">
+                  <span className="label-xs text-txt-tertiary tabular-nums pt-0.5">01</span>
+                  <span>Tap <span className="text-txt-primary font-medium">AI Prompt</span> to copy the prompt + send your scoreboard screenshots to your AI.</span>
+                </li>
+                <li className="flex gap-4">
+                  <span className="label-xs text-txt-tertiary tabular-nums pt-0.5">02</span>
+                  <span>Open the sheet and paste the AI's TSV output at cell <span className="font-mono text-txt-primary">A2</span>.</span>
+                </li>
+                <li className="flex gap-4">
+                  <span className="label-xs text-txt-tertiary tabular-nums pt-0.5">03</span>
+                  <span>Return here and click <span className="text-txt-primary font-medium">Save</span> to sync results into your dynasty.</span>
+                </li>
+              </ol>
+            </div>
+          </div>
+        )}
       </div>
 
       <AuthErrorModal
