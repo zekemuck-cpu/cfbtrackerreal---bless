@@ -211,6 +211,9 @@ FINAL CHECK before you send
           setSheetId(sheetInfo.sheetId)
         } catch (error) {
           console.error('Failed to create conference standings sheet:', error)
+          if (!auth.handleError(error)) {
+            toast.error('Failed to create the conference standings sheet — try again or contact support.')
+          }
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false

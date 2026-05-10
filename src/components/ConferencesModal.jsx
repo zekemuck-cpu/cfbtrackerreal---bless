@@ -252,6 +252,14 @@ FINAL CHECK before you send
           })
         } catch (error) {
           console.error('Failed to create conferences sheet:', error)
+          // Without this branch the OAuth-expired case silently failed:
+          // the modal flipped out of "creating…" with no toast and no
+          // re-auth prompt. Route through auth.handleError so the
+          // AuthErrorModal fires; fall back to a toast for anything
+          // else so the user knows the save didn't go through.
+          if (!auth.handleError(error)) {
+            toast.error('Failed to create the conferences sheet — try again or contact support.')
+          }
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false

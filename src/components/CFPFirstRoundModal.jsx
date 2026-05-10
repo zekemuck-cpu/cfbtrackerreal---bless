@@ -169,6 +169,9 @@ FINAL CHECK before you send the answer
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {
           console.error('Failed to create CFP First Round sheet:', error)
+          if (!auth.handleError(error)) {
+            toast.error('Failed to create the CFP First Round sheet — try again or contact support.')
+          }
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false

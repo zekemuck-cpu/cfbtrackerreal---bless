@@ -197,6 +197,9 @@ FINAL CHECK before you send
           setSheetId(sheetInfo.sheetId)
         } catch (error) {
           console.error('Failed to create final polls sheet:', error)
+          if (!auth.handleError(error)) {
+            toast.error('Failed to create the final polls sheet — try again or contact support.')
+          }
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false

@@ -193,6 +193,9 @@ FINAL CHECK before you send the answer
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {
           console.error('Failed to create CFP seeds sheet:', error)
+          if (!auth.handleError(error)) {
+            toast.error('Failed to create the CFP seeds sheet — try again or contact support.')
+          }
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false
