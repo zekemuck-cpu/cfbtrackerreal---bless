@@ -8621,29 +8621,23 @@ export function DynastyProvider({ children }) {
     const newGamesArr = Array.from(newByPair.values())
 
     // ─── Rank pass ───────────────────────────────────────────────
-    // Spec, in plain terms:
-    //   1. The ranks the user entered alongside the Week N scores
-    //      are each team's rank ENTERING Week N (the rank attached
-    //      to that team in the Week N scoreboard screenshot — i.e.,
-    //      where they sat in the poll going into the game). Save
-    //      those into rankByWeek[N] for each team.
-    //   2. Each saved Week N game's own stored team1Rank /
-    //      team2Rank is the same value — read back from rankByWeek[N]
-    //      so it stays consistent when the user re-saves later.
+    // SIMPLE SPEC. The Google Sheet does two things:
     //
-    // EARLIER BUG (Alabama Prince repro): step (1) used
-    // rankByWeek[currentWeek] instead of rankByWeek[weekNum]. With
-    // the typical workflow (open Dashboard "Enter Week N Scores"
-    // task while you're already on dynasty Week N+1, so currentWeek
-    // != weekNum), the rank-write went to the WRONG slot. Worse, on
-    // re-save of an OLDER week (e.g. fixing Wk 3 while on Wk 5), the
-    // entered Wk 3 ranks landed on rankByWeek[currentWeek] and
-    // CLOBBERED whatever the later-week save had correctly written.
-    // Result: every team that played in BOTH the saved week and a
-    // later week ended up with the OLDER week's rank in the LATER
-    // week's slot — exactly the "Wk 4 Top 25 shows Michigan at #1"
-    // symptom Alabama Prince reported. Fix: pin the write target to
-    // weekNum so each save updates ITS OWN week and never the others.
+    //   1. Save game scores for the week being entered (weekNum).
+    //   2. Save each team's CURRENT poll rank (from the screenshot)
+    //      to rankByWeek[currentWeek]. The screenshot the user pastes
+    //      shows the dynasty's CURRENT poll regardless of which past
+    //      week's scores they're transcribing — so all entered ranks
+    //      live in the rankByWeek[currentWeek] slot.
+    //
+    // Each saved game's team1Rank / team2Rank stores whatever the AI
+    // extracted from the screenshot for that game's row — a snapshot
+    // of the rank the user actually saw, no derivation, no rankByWeek
+    // round-trip.
+    //
+    // The PLAYED-TID guard on the bye block is the only non-trivial
+    // bit: a team in newGamesArr can never be a bye team, even if the
+    // AI mistakenly puts them in the bye block (PR #125's fix).
     const currentWeek = Number(dynasty.currentWeek)
     const haveCurrentWeek = Number.isFinite(currentWeek) && currentWeek > 0
 
@@ -8661,189 +8655,57 @@ export function DynastyProvider({ children }) {
       byYear[yearKey] = yearEntry
       teamsCopy[tidKey] = { ...team, byYear }
     }
-    const readRankByWeek = (tid, weekKey) => {
-      if (tid == null || weekKey == null) return null
-      const t = teamsCopy[String(tid)] || teamsCopy[tid]
-      const rbw = t?.byYear?.[String(yearNum)]?.rankByWeek ?? t?.byYear?.[yearNum]?.rankByWeek
-      if (!rbw) return null
-      const v = rbw[weekKey] ?? rbw[String(weekKey)]
-      if (typeof v !== 'number' || v < 1 || v > 25) return null
-      return v
+
+    // (1a) Played-team ranks → rankByWeek[currentWeek].
+    if (haveCurrentWeek) {
+      for (const g of newGamesArr) {
+        if (typeof g._team1CurrentWeekRank === 'number') writeRankByWeek(g.team1Tid, currentWeek, g._team1CurrentWeekRank)
+        if (typeof g._team2CurrentWeekRank === 'number') writeRankByWeek(g.team2Tid, currentWeek, g._team2CurrentWeekRank)
+      }
     }
 
-    // (1a) Push user-entered ranks into rankByWeek[weekNum] — the
-    // slot for the week being saved — for every team that played a
-    // game in this save. Pinning the write target to weekNum (not
-    // currentWeek) means each weekly save only ever updates ITS OWN
-    // week's rank slot. Re-saving Wk 3 while on Wk 5 no longer
-    // clobbers Wk 4's or Wk 5's rank picture.
-    for (const g of newGamesArr) {
-      if (typeof g._team1CurrentWeekRank === 'number') writeRankByWeek(g.team1Tid, weekNum, g._team1CurrentWeekRank)
-      if (typeof g._team2CurrentWeekRank === 'number') writeRankByWeek(g.team2Tid, weekNum, g._team2CurrentWeekRank)
-    }
-
-    // (1b) Bye-week block. The AI emits one row per ranked team that
-    // didn't play this week, with the team's NEW rank for the upcoming
-    // week — i.e., the rank in the post-Wk-N poll = entering-Wk-(N+1).
-    // These belong in rankByWeek[weekNum + 1], NOT rankByWeek[weekNum]:
+    // (1b) Bye-team ranks → same rankByWeek[currentWeek] slot. This
+    // is the user's CURRENT poll, with played teams from the game
+    // block and bye teams from the bye block — together they form a
+    // complete Top 25 picture for currentWeek.
     //
-    //   - rankByWeek[N]   = entering-Wk-N picture (= during-Wk-N games).
-    //                       Filled by Wk N's game-block ranks.
-    //   - rankByWeek[N+1] = entering-Wk-(N+1) picture (= post-Wk-N).
-    //                       Filled by Wk N's bye-block ranks (carrying
-    //                       forward) AND by Wk N+1's game-block ranks
-    //                       when that week is saved (overwriting where
-    //                       a team plays).
-    //
-    // Earlier code wrote bye ranks to rankByWeek[weekNum], conflating
-    // two distinct week-pictures into the same slot — bye teams'
-    // entering-Wk-(N+1) ranks would overwrite played teams' entering-
-    // Wk-N ranks (or vice versa). That's why "the bye-week Top 25
-    // teams aren't being kept" reports kept showing up: a played team
-    // at rank 5 entering Wk N would get overwritten by a bye team's
-    // rank 5 entering Wk N+1, or the bye team's rank-5 slot would be
-    // claimed by a played team and silently dropped.
-    //
-    // The played-tid and seen-rank guards still apply, but at the
-    // weekNum+1 slot now: a team that played Wk N still gets its
-    // entering-Wk N rank in rankByWeek[N] (from step 1a) — it just
-    // doesn't ALSO get a stale bye-block entry forced into the next
-    // week's slot.
+    // Played-tid guard: a played team can never be on bye. If the AI
+    // put them in the bye block by mistake, skip the entry.
     const byeRanks = Array.isArray(weeklyGames?.byeRanks) ? weeklyGames.byeRanks : []
-    const byeWeek = weekNum + 1
-    if (byeRanks.length > 0) {
-      // Skip postseason saves (weekNum >= 100 = CC/CFP/bowls). The
-      // "+1 week" semantic doesn't apply linearly across the
-      // CC → CFP1 → QF → SF → Natty progression; treat any postseason
-      // save's bye block as already-pinned to the same slot.
-      const targetWeek = weekNum >= 100 ? weekNum : byeWeek
+    if (haveCurrentWeek && byeRanks.length > 0) {
       const playedTids = new Set()
       for (const g of newGamesArr) {
-        // Add played tids unconditionally — a team that PLAYED this
-        // week never belongs in the bye-rank block. Whether the
-        // played row carries a rank or not is irrelevant to that
-        // question.
         if (g.team1Tid != null) playedTids.add(Number(g.team1Tid))
         if (g.team2Tid != null) playedTids.add(Number(g.team2Tid))
       }
-      // ALSO collect tids that already played in Wk targetWeek (per
-      // dynasty.games). This is the critical guard against
-      // out-of-order saves: the bye block of Wk N is a CARRY-FORWARD
-      // PREDICTION for Wk N+1's poll picture; if Wk N+1's actual game
-      // record already exists for a team, that team's authoritative
-      // entering-Wk-(N+1) rank lives on that game row. Letting Wk N's
-      // bye block stomp it would replace a real value with a stale
-      // guess.
-      //
-      // Without this guard, Alabama Prince's out-of-order save flow
-      // (Wk 1 saved at 02:28, Wk 0 saved later at 02:34) caused Wk 0's
-      // bye block to overwrite Wk 1's correctly-saved game ranks at
-      // rankByWeek[1] — every team Wk 0 saw on bye reverted to its
-      // preseason rank in the Wk 1 picture. "Putting last week's
-      // ranking on some teams" was exactly this.
-      const targetWeekGameTids = new Set()
-      for (const g of (dynasty.games || [])) {
-        if (!g || Number(g.year) !== yearNum) continue
-        if (Number(g.week) !== targetWeek) continue
-        if (g.team1Tid != null) targetWeekGameTids.add(Number(g.team1Tid))
-        if (g.team2Tid != null) targetWeekGameTids.add(Number(g.team2Tid))
-      }
       const seenByeRanks = new Set()
-      const byeBlockTids = new Set()
       for (const entry of byeRanks) {
         if (!entry || typeof entry.tid !== 'number') continue
         const r = entry.rank
         if (typeof r !== 'number' || r < 1 || r > 25) continue
         if (seenByeRanks.has(r)) continue
         if (playedTids.has(Number(entry.tid))) continue
-        // Authoritative-source guard: skip bye-block writes for teams
-        // that have a real Wk targetWeek game on file. Their entering-
-        // Wk-targetWeek rank is the rank shown in that game row, not
-        // a carry-forward inference.
-        if (targetWeekGameTids.has(Number(entry.tid))) continue
         seenByeRanks.add(r)
-        byeBlockTids.add(Number(entry.tid))
-        writeRankByWeek(entry.tid, targetWeek, r)
-      }
-
-      // (1c) Heal stale rankByWeek[targetWeek] entries for played
-      // teams. A team that played Wk N and is NOT in Wk N's bye block
-      // doesn't carry an entering-Wk-(N+1) rank from this save — they
-      // either dropped out of the poll OR their new rank will be set
-      // when Wk N+1's game block runs.
-      //
-      // Old pre-Wave-2 saves (when bye block + game block both wrote
-      // to rankByWeek[currentWeek]) frequently left played teams with
-      // a stale entry in rankByWeek[N+1] = their entering-Wk-N rank
-      // value. Reports from beta testers ("BOIS lost in Wk 12 but
-      // team page still shows them ranked entering Wk 13") trace to
-      // exactly this leftover. Without this purge the data would stay
-      // corrupted forever — re-saves wouldn't clear it.
-      //
-      // Guard: don't purge if the team has a Wk N+1 game on file (a
-      // future-week game implies a legit entering-(N+1) rank lives
-      // there). The targetWeekGameTids set we already built above
-      // captures that.
-      if (targetWeek > weekNum) {
-        for (const tid of playedTids) {
-          if (byeBlockTids.has(tid)) continue
-          if (targetWeekGameTids.has(tid)) continue
-          const team = teamsCopy[String(tid)] || teamsCopy[tid]
-          if (!team) continue
-          const yearKey = String(yearNum)
-          const yearEntry = team.byYear?.[yearKey] || team.byYear?.[yearNum]
-          const rbw = yearEntry?.rankByWeek
-          if (!rbw) continue
-          const cur = rbw[targetWeek] ?? rbw[String(targetWeek)]
-          if (typeof cur !== 'number') continue
-          // Clone-and-delete so we don't mutate the source.
-          const newByYear = { ...(team.byYear || {}) }
-          const newYearEntry = { ...(newByYear[yearKey] || newByYear[yearNum] || {}) }
-          const newRbw = { ...(newYearEntry.rankByWeek || {}) }
-          delete newRbw[targetWeek]
-          delete newRbw[String(targetWeek)]
-          newYearEntry.rankByWeek = newRbw
-          newByYear[yearKey] = newYearEntry
-          teamsCopy[String(tid)] = { ...team, byYear: newByYear }
-        }
+        writeRankByWeek(entry.tid, currentWeek, r)
       }
     }
 
-
-    // (2) Each saved Week N game's stored rank is pulled from
-    // rankByWeek[N] for each team — the rank saved the previous
-    // week when the user was in Week N. Strip the stash fields.
+    // (2) Each saved game stores the rank the AI extracted on its
+    // row — whatever the screenshot showed for that team. No
+    // rankByWeek round-trip; the row's rank IS the source.
     for (const g of newGamesArr) {
-      g.team1Rank = readRankByWeek(g.team1Tid, weekNum)
-      g.team2Rank = readRankByWeek(g.team2Tid, weekNum)
+      g.team1Rank = typeof g._team1CurrentWeekRank === 'number' ? g._team1CurrentWeekRank : null
+      g.team2Rank = typeof g._team2CurrentWeekRank === 'number' ? g._team2CurrentWeekRank : null
       delete g._team1CurrentWeekRank
       delete g._team2CurrentWeekRank
     }
 
-    // Sync any saved-week game record already on file (e.g., the
-    // user's own game from the schedule flow) so its stored rank
-    // matches the freshly-written rankByWeek[weekNum]. Other weeks'
-    // games are unaffected — their stored rank reflects whatever
-    // rankByWeek held when each of those weeks was last saved.
-    const updatedGames = [...filtered, ...newGamesArr].map(g => {
-      if (!g || g.year == null) return g
-      if (Number(g.year) !== yearNum) return g
-      if (Number(g.week) !== weekNum) return g
-      let next = g
-      if (g.team1Tid != null) {
-        const r = readRankByWeek(Number(g.team1Tid), weekNum)
-        if (r != null && r !== (typeof g.team1Rank === 'number' ? g.team1Rank : null)) {
-          next = { ...next, team1Rank: r }
-        }
-      }
-      if (g.team2Tid != null) {
-        const r = readRankByWeek(Number(g.team2Tid), weekNum)
-        if (r != null && r !== (typeof g.team2Rank === 'number' ? g.team2Rank : null)) {
-          next = { ...next, team2Rank: r }
-        }
-      }
-      return next
-    })
+    // Build the final games array — preserved games (filtered) plus
+    // the freshly built newGamesArr. Each game in newGamesArr already
+    // has team1Rank/team2Rank set directly from the AI's row in step
+    // (2) above; existing games (like the user's schedule-flow game)
+    // keep whatever ranks they already had.
+    const updatedGames = [...filtered, ...newGamesArr]
 
     // Track that this week's scores were entered (used by dashboard to-do)
     const existingTracker = dynasty.weeklyScoresEntered || {}
