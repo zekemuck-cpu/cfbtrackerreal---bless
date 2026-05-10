@@ -8726,6 +8726,28 @@ export function DynastyProvider({ children }) {
         if (g.team1Tid != null) playedTids.add(Number(g.team1Tid))
         if (g.team2Tid != null) playedTids.add(Number(g.team2Tid))
       }
+      // ALSO collect tids that already played in Wk targetWeek (per
+      // dynasty.games). This is the critical guard against
+      // out-of-order saves: the bye block of Wk N is a CARRY-FORWARD
+      // PREDICTION for Wk N+1's poll picture; if Wk N+1's actual game
+      // record already exists for a team, that team's authoritative
+      // entering-Wk-(N+1) rank lives on that game row. Letting Wk N's
+      // bye block stomp it would replace a real value with a stale
+      // guess.
+      //
+      // Without this guard, Alabama Prince's out-of-order save flow
+      // (Wk 1 saved at 02:28, Wk 0 saved later at 02:34) caused Wk 0's
+      // bye block to overwrite Wk 1's correctly-saved game ranks at
+      // rankByWeek[1] — every team Wk 0 saw on bye reverted to its
+      // preseason rank in the Wk 1 picture. "Putting last week's
+      // ranking on some teams" was exactly this.
+      const targetWeekGameTids = new Set()
+      for (const g of (dynasty.games || [])) {
+        if (!g || Number(g.year) !== yearNum) continue
+        if (Number(g.week) !== targetWeek) continue
+        if (g.team1Tid != null) targetWeekGameTids.add(Number(g.team1Tid))
+        if (g.team2Tid != null) targetWeekGameTids.add(Number(g.team2Tid))
+      }
       const seenByeRanks = new Set()
       for (const entry of byeRanks) {
         if (!entry || typeof entry.tid !== 'number') continue
@@ -8733,6 +8755,11 @@ export function DynastyProvider({ children }) {
         if (typeof r !== 'number' || r < 1 || r > 25) continue
         if (seenByeRanks.has(r)) continue
         if (playedTids.has(Number(entry.tid))) continue
+        // Authoritative-source guard: skip bye-block writes for teams
+        // that have a real Wk targetWeek game on file. Their entering-
+        // Wk-targetWeek rank is the rank shown in that game row, not
+        // a carry-forward inference.
+        if (targetWeekGameTids.has(Number(entry.tid))) continue
         seenByeRanks.add(r)
         writeRankByWeek(entry.tid, targetWeek, r)
       }
