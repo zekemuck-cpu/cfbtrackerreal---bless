@@ -63,6 +63,19 @@ export default function WeeklyScoresModal({ isOpen, onClose, year, week, teamCol
   const [showAIPrompt, setShowAIPrompt] = useState(false)
   const creatingSheetRef = useRef(false)
 
+  // Which week's rankByWeek slot to write the screenshot's poll into.
+  // Defaults to the dynasty's currentWeek (= what the user sees in CFB26
+  // right now). User can override when they're backfilling — e.g. they
+  // forgot to save last week, so the screenshot they're pasting actually
+  // shows last week's poll, not today's. Without the override, every
+  // re-save silently overwrites the current poll with stale data.
+  const [rankWeek, setRankWeek] = useState(null)
+  useEffect(() => {
+    if (!isOpen) return
+    const cw = Number(currentDynasty?.currentWeek)
+    setRankWeek(Number.isFinite(cw) && cw > 0 ? cw : Number(week) || 1)
+  }, [isOpen, currentDynasty?.currentWeek, week])
+
   const userTid = currentDynasty ? getCurrentTeamTid(currentDynasty) : null
   const userTeam = userTid ? currentDynasty?.teams?.[userTid] : null
   const userAbbr = userTeam?.abbr || null
@@ -819,7 +832,7 @@ Don't just glance at this list. Physically execute each check on your draft.
         }
       }
 
-      await saveWeeklyScores(currentDynasty.id, games, year, week)
+      await saveWeeklyScores(currentDynasty.id, games, year, week, rankWeek)
       toast.success(`Saved ${newCount} game${newCount === 1 ? '' : 's'} for Week ${week}.`)
 
       if (alsoDelete) {
@@ -906,6 +919,33 @@ Don't just glance at this list. Physically execute each check on your draft.
   const isLoading = creatingSheet
   const headerLabel = `${year} Week ${week} Scores`
 
+  const dynastyCurrentWeek = Number(currentDynasty?.currentWeek)
+  const rankWeekOptions = useMemo(() => {
+    const opts = []
+    for (let w = 0; w <= 16; w++) opts.push(w)
+    return opts
+  }, [])
+  const rankWeekPicker = (
+    <div className="flex items-center gap-2 text-xs">
+      <label htmlFor="weekly-rank-week" className="text-txt-secondary whitespace-nowrap">
+        Update rankings for week:
+      </label>
+      <select
+        id="weekly-rank-week"
+        value={rankWeek ?? ''}
+        onChange={(e) => setRankWeek(Number(e.target.value))}
+        disabled={syncing || deletingSheet}
+        className="px-2 py-1 rounded border border-surface-4 bg-surface-1 text-txt-primary text-xs disabled:opacity-60"
+      >
+        {rankWeekOptions.map(w => (
+          <option key={w} value={w}>
+            Week {w}{w === dynastyCurrentWeek ? ' (current)' : ''}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+
   return createPortal(
     <div
       className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
@@ -977,6 +1017,7 @@ Don't just glance at this list. Physically execute each check on your draft.
                     >
                       {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                     </button>
+                    {rankWeekPicker}
                     <button
                       onClick={() => setShowAIPrompt(true)}
                       className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
@@ -1050,6 +1091,8 @@ Don't just glance at this list. Physically execute each check on your draft.
                       AI Prompt
                     </button>
                   </div>
+
+                  <div className="mb-3">{rankWeekPicker}</div>
 
                   <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
                     <button

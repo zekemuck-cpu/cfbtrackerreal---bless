@@ -8379,7 +8379,7 @@ export function DynastyProvider({ children }) {
   // imports update in place. Games involving the user's own team that already
   // have scores entered through the schedule flow are PRESERVED — we never
   // overwrite the user's own results.
-  const saveWeeklyScores = async (dynastyId, weeklyGames, year, week) => {
+  const saveWeeklyScores = async (dynastyId, weeklyGames, year, week, rankWeekOverride = null) => {
     if (blockIfReadOnly(dynastyId, 'save weekly scores')) return
     const dynasty = await findDynastyById(dynastyId)
     if (!dynasty) return []
@@ -8638,7 +8638,15 @@ export function DynastyProvider({ children }) {
     // The PLAYED-TID guard on the bye block is the only non-trivial
     // bit: a team in newGamesArr can never be a bye team, even if the
     // AI mistakenly puts them in the bye block (PR #125's fix).
-    const currentWeek = Number(dynasty.currentWeek)
+    // The week we write screenshot ranks to. By default this is the
+    // dynasty's currentWeek (the user's "right now" poll). Callers can
+    // override when they know the screenshot they pasted is from a
+    // different week (e.g. backfilling history) — passing
+    // rankWeekOverride lets the modal target a specific slot instead
+    // of always clobbering currentWeek.
+    const overrideWeek = Number(rankWeekOverride)
+    const haveOverride = Number.isFinite(overrideWeek) && overrideWeek > 0
+    const currentWeek = haveOverride ? overrideWeek : Number(dynasty.currentWeek)
     const haveCurrentWeek = Number.isFinite(currentWeek) && currentWeek > 0
 
     const teamsCopy = { ...(dynasty.teams || {}) }
@@ -8654,6 +8662,15 @@ export function DynastyProvider({ children }) {
       yearEntry.rankByWeek = rankByWeek
       byYear[yearKey] = yearEntry
       teamsCopy[tidKey] = { ...team, byYear }
+    }
+    const readRankByWeek = (tid, weekKey) => {
+      if (tid == null || weekKey == null) return null
+      const t = teamsCopy[String(tid)] || teamsCopy[tid]
+      const rbw = t?.byYear?.[String(yearNum)]?.rankByWeek ?? t?.byYear?.[yearNum]?.rankByWeek
+      if (!rbw) return null
+      const v = rbw[weekKey] ?? rbw[String(weekKey)]
+      if (typeof v !== 'number' || v < 1 || v > 25) return null
+      return v
     }
 
     // (1a) Played-team ranks → rankByWeek[currentWeek].
@@ -8690,12 +8707,15 @@ export function DynastyProvider({ children }) {
       }
     }
 
-    // (2) Each saved game stores the rank the AI extracted on its
-    // row — whatever the screenshot showed for that team. No
-    // rankByWeek round-trip; the row's rank IS the source.
+    // (2) Each saved game stores the team's rank "during the game"
+    // (entering-Wk N), read back from rankByWeek[weekNum]. The screenshot
+    // the AI parsed shows the user's CURRENT poll (entering-currentWeek),
+    // which we already wrote to rankByWeek[currentWeek] in step (1).
+    // For the Wk N game record we want the historical entering-Wk N rank
+    // — that was set on the prior save when the user was in dynasty Wk N.
     for (const g of newGamesArr) {
-      g.team1Rank = typeof g._team1CurrentWeekRank === 'number' ? g._team1CurrentWeekRank : null
-      g.team2Rank = typeof g._team2CurrentWeekRank === 'number' ? g._team2CurrentWeekRank : null
+      g.team1Rank = readRankByWeek(g.team1Tid, weekNum)
+      g.team2Rank = readRankByWeek(g.team2Tid, weekNum)
       delete g._team1CurrentWeekRank
       delete g._team2CurrentWeekRank
     }
