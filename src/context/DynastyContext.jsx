@@ -13743,16 +13743,47 @@ export function DynastyProvider({ children }) {
 
       reportProgress('complete', 'Import complete!', 100)
     } else {
-      // Production mode: Firestore - use subcollections for players and games
-      // This avoids the 1MB document size limit
+      // Production mode: Firestore - use subcollections for players,
+      // games, week recaps, AND every PER_YEAR / PER_TEAM_YEAR
+      // seasonal field. This avoids the 1 MB document size limit:
+      // a long-running dynasty's
+      //   recruitingCommitmentsByTeamYear (~300 KB)
+      //   allAmericansByYear (~240 KB)
+      //   weekRecapsByYear (~85 KB)
+      //   schedulesByTeamYear (~60 KB)
+      //   conferenceStandingsByYear (~35 KB)
+      // alone routinely exceed the 1 MiB cap. Earlier import code
+      // only stripped players + games and left the rest on the main
+      // doc, which Firestore rejected with "exceeds the maximum
+      // allowed size of 1,048,576 bytes" — see Alabama Prince's
+      // import failure at 1,082,432 bytes.
 
-      // Extract players and games for subcollections
-      const { players, games, ...mainDocData } = cleanDynastyData
+      // Extract players, games, week recaps, and seasonal fields.
+      // Whatever's left in mainDocData is identity + small per-year
+      // scalars + dynasty.teams, which together fit comfortably.
+      const { players, games, weekRecapsByYear, ...rest } = cleanDynastyData
       const playerCount = players?.length || 0
       const gameCount = games?.length || 0
 
-      // Mark as using subcollections
+      // Pull every seasonal field off rest. Each gets routed to the
+      // seasons subcollection via splitSeasonalUpdateByYear.
+      const seasonalForSplit = {}
+      const mainDocData = {}
+      for (const [k, v] of Object.entries(rest)) {
+        if (isSeasonalField(k)) {
+          if (v && typeof v === 'object' && Object.keys(v).length > 0) {
+            seasonalForSplit[k] = v
+          }
+          // either way, don't put seasonal field on main doc
+          continue
+        }
+        mainDocData[k] = v
+      }
+
+      // Mark as using subcollections + flag that seasonal fields are
+      // now in the subcollection (skip a redundant migration pass).
       mainDocData._subcollectionsMigrated = true
+      mainDocData._seasonsMigratedAt = new Date().toISOString()
       // CRITICAL: this branch writes to Firestore, so the doc MUST declare
       // storageType: 'cloud'. Earlier in this function we defaulted to
       // 'local' (line ~9776) for the IndexedDB path; override it here.
@@ -13760,10 +13791,46 @@ export function DynastyProvider({ children }) {
       // unless storageType is exactly 'cloud'.
       mainDocData.storageType = 'cloud'
 
-      // Stage 2: Create the main dynasty document (without players/games)
+      // Stage 2: Create the main dynasty document (without players/games/seasonals)
       reportProgress('creating', 'Creating dynasty record...', 15)
       const result = await createDynastyInFirestore(user.uid, mainDocData)
       reportProgress('creating', 'Dynasty record created', 20)
+
+      // Stage 2b: Fan seasonal fields out into the seasons subcollection.
+      // splitSeasonalUpdateByYear turns { allAmericansByYear: { 2027: [...] } }
+      // into { 2027: { allAmericans: [...] } }, then writeSeasonalUpdate
+      // setDoc({merge: true})s each year's payload into seasons/{year}.
+      const seasonalKeyCount = Object.keys(seasonalForSplit).length
+      if (seasonalKeyCount > 0) {
+        reportProgress('seasonal', 'Importing seasonal data...', 22)
+        const byYear = splitSeasonalUpdateByYear(seasonalForSplit)
+        if (Object.keys(byYear).length > 0) {
+          await writeSeasonalUpdate(result.id, byYear)
+        }
+      }
+
+      // Stage 2c: Save week recaps to their dedicated subcollection.
+      // Each (year, week) becomes its own doc — same shape used by
+      // saveWeekRecapToSubcollection in normal save flow.
+      if (weekRecapsByYear && typeof weekRecapsByYear === 'object') {
+        const recapEntries = []
+        for (const [yearStr, weeks] of Object.entries(weekRecapsByYear)) {
+          if (!weeks || typeof weeks !== 'object') continue
+          for (const [weekStr, entry] of Object.entries(weeks)) {
+            if (!entry || typeof entry !== 'object') continue
+            const yearN = Number(yearStr); const weekN = Number(weekStr)
+            if (!Number.isFinite(yearN) || !Number.isFinite(weekN)) continue
+            recapEntries.push({ yearN, weekN, entry })
+          }
+        }
+        if (recapEntries.length > 0) {
+          reportProgress('recaps', `Importing ${recapEntries.length} week recap${recapEntries.length === 1 ? '' : 's'}...`, 23)
+          for (const { yearN, weekN, entry } of recapEntries) {
+            try { await saveWeekRecapToSubcollection(result.id, yearN, weekN, entry) }
+            catch (err) { console.warn('[import] week recap save failed:', yearN, weekN, err?.message) }
+          }
+        }
+      }
 
       // Stage 3: Save players to subcollection if there are any
       if (playerCount > 0) {
