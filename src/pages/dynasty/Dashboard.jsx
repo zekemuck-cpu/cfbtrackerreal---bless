@@ -3048,7 +3048,7 @@ export default function Dashboard() {
                         <span className="text-txt-tertiary"> ({headerConfWins}-{headerConfLosses})</span>
                       )}
                     </span>
-                    {currentDynasty.currentPhase !== 'preseason' && userTeamConference && (
+                    {userTeamConference && (
                       <>
                         <span className="text-txt-tertiary">•</span>
                         <span className="font-medium">{userTeamConference}</span>
