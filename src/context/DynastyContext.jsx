@@ -2135,29 +2135,15 @@ export function getRecordAsOfGame(dynasty, game, tid) {
     includeUpToWeek: true
   })
 
-  // Coverage check: for non-user teams, dynasty.games[] only contains
-  // user-vs-them games, so calc is sparse and would show e.g. "1-0" for
-  // a team whose stored full-season record is 9-4. The "as-of"
-  // semantic (record at this point in time) only makes sense when we
-  // actually have the team's full game-by-game history, which we
-  // don't for non-user teams. Fall back to whichever stored source
-  // covers the most games — practically that's the team's end-of-
-  // season record, which is closer to what the user expects to see
-  // next to a CPU opponent's name than a sparse partial calc.
-  const helperRec = getTeamRecord(dynasty, tid, game.year)
-  const calcGames = (calc.wins || 0) + (calc.losses || 0)
-  const helperGames = (helperRec?.wins || 0) + (helperRec?.losses || 0)
-  if (helperRec && helperGames > calcGames) {
-    return {
-      overall: `${helperRec.wins}-${helperRec.losses}`,
-      conference: `${helperRec.confWins || 0}-${helperRec.confLosses || 0}`,
-      wins: helperRec.wins,
-      losses: helperRec.losses,
-      confWins: helperRec.confWins || 0,
-      confLosses: helperRec.confLosses || 0,
-    }
-  }
-
+  // No helper fallback. The previous implementation preferred the
+  // stored full-season record whenever it covered more games than
+  // calc — which meant a Wk 1 game would display the team's season-
+  // end "5-6" instead of the correct as-of-Wk-1 "0-1". For the user
+  // team where dynasty.games has full history, calc is exact; for
+  // CPU teams calc is sparse but at least temporally accurate (it
+  // reflects the games we actually know about). Manual override on
+  // game.team1Record / team2Record (set in GameEdit) is consulted at
+  // the call site if calc returns zeros.
   return {
     overall: `${calc.wins}-${calc.losses}`,
     conference: `${calc.confWins}-${calc.confLosses}`,

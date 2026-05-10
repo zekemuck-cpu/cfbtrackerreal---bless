@@ -1103,11 +1103,13 @@ Don't just glance at this list. Physically execute each check on your draft.
                     </div>
 
                     {/* RANKINGS WEEK */}
-                    <section>
+                    <section className="text-center">
                       <label htmlFor="weekly-rank-week" className="label-xs text-txt-tertiary block mb-2">
                         Rankings week
                       </label>
-                      {rankWeekSelect}
+                      <div className="flex justify-center">
+                        {rankWeekSelect}
+                      </div>
                       <p className="text-xs text-txt-tertiary mt-2 leading-relaxed">
                         The Top 25 the AI extracts from your screenshot lands in this week's slot. Defaults to your dynasty's current week.
                       </p>

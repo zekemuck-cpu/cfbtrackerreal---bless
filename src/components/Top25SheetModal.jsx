@@ -273,7 +273,7 @@ export default function Top25SheetModal({ isOpen, onClose }) {
 
   return createPortal(
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
       style={{ margin: 0 }}
       onMouseDown={onClose}
     >
@@ -281,105 +281,128 @@ export default function Top25SheetModal({ isOpen, onClose }) {
         className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-4rem)] sm:h-[95dvh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-surface-4">
-          <h2 className="text-2xl font-bold text-txt-primary">Top 25 Rankings</h2>
+        <div className="flex items-center justify-between px-5 sm:px-7 py-4 border-b border-surface-4">
+          <div className="flex flex-col">
+            <span className="label-xs text-txt-tertiary">Rankings</span>
+            <h2 className="text-xl sm:text-2xl font-bold text-txt-primary tracking-tight">Top 25</h2>
+          </div>
           <button
             aria-label="Close"
             onClick={onClose}
-            className="text-txt-tertiary hover:text-txt-primary transition-colors"
+            className="text-txt-tertiary hover:text-txt-primary transition-colors -mr-1 p-1.5 rounded-md hover:bg-surface-2"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
+        <div className="flex-1 flex flex-col overflow-hidden">
           {creatingSheet ? (
-            <div className="flex-1 flex items-center justify-center">
+            <div className="flex-1 flex items-center justify-center p-6">
               <div className="text-center">
-                <div className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4" style={{ borderColor: 'var(--text-primary)', borderTopColor: 'transparent' }} />
-                <p className="text-lg font-semibold text-txt-primary">Creating Top 25 Sheet...</p>
-                <p className="text-sm mt-2 text-txt-secondary">One tab per dynasty year, pre-filled from current rankings.</p>
+                <div className="animate-spin w-10 h-10 border-2 rounded-full mx-auto mb-4" style={{ borderColor: 'var(--text-primary)', borderTopColor: 'transparent' }} />
+                <p className="label-xs text-txt-tertiary mb-2">Creating Sheet</p>
+                <p className="text-base font-semibold text-txt-primary">Top 25 workspace</p>
+                <p className="text-xs mt-2 text-txt-tertiary">One tab per dynasty year, pre-filled from current rankings.</p>
                 <SheetLoadingHint active={creatingSheet} />
               </div>
             </div>
           ) : showDeletedNote ? (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="card p-8 border-l-[3px] text-center max-w-sm" style={{ borderLeftColor: 'var(--surface-5)' }}>
+            <div className="flex-1 flex items-center justify-center p-6">
+              <div className="text-center max-w-sm">
                 <p className="label-xs text-txt-tertiary mb-2">Status</p>
-                <p className="text-xl font-bold text-txt-primary mb-2">Saved &amp; Moved to Trash</p>
-                <p className="text-sm text-txt-secondary">Rankings updated in your dynasty.</p>
+                <p className="text-xl font-bold text-txt-primary mb-1">Saved</p>
+                <p className="text-sm text-txt-secondary">Rankings updated. Sheet moved to Drive trash.</p>
               </div>
             </div>
           ) : sheetId ? (
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="mb-3 flex flex-wrap gap-2 sm:gap-3 items-center">
-                <button
-                  onClick={() => handleParseAndPreview(true)}
-                  disabled={syncing || deletingSheet}
-                  className="px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm disabled:opacity-60 transition-colors"
-                  style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-0)' }}
-                >
-                  {syncing ? 'Reading…' : 'Save & Delete Sheet'}
-                </button>
-                <button
-                  onClick={() => handleParseAndPreview(false)}
-                  disabled={syncing || deletingSheet}
-                  className="px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm disabled:opacity-60 transition-colors border border-surface-4 hover:bg-surface-2 text-txt-primary"
-                >
-                  {syncing ? 'Reading…' : 'Save (Keep Sheet)'}
-                </button>
-                <button
-                  onClick={handleDeleteSheetOnly}
-                  disabled={syncing || deletingSheet}
-                  className="px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm disabled:opacity-60 transition-colors border border-surface-4 hover:bg-surface-2 text-txt-secondary ml-auto"
-                >
-                  {deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}
-                </button>
-              </div>
-
-              {isMobile ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-                  <h3 className="label-xs text-txt-tertiary mb-2">Edit Rankings</h3>
-                  <p className="text-2xl font-bold text-txt-primary mb-6">Edit in Google Sheets</p>
-                  <div className="text-left mb-6 max-w-sm w-full card p-4 border-l-[3px]" style={{ borderLeftColor: 'var(--surface-5)' }}>
-                    <p className="label-xs text-txt-tertiary mb-3">Instructions</p>
-                    <ol className="text-sm space-y-2 text-txt-secondary">
-                      <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">1.</span><span>Tap "Open Google Sheets" to edit your Top 25 by week</span></li>
-                      <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">2.</span><span>Return here and tap "Save" to sync rankings into your dynasty</span></li>
-                    </ol>
-                  </div>
+            isMobile ? (
+              <div className="flex-1 overflow-y-auto">
+                <div className="max-w-md mx-auto px-5 sm:px-7 py-6 flex flex-col gap-5">
                   <a
                     href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2"
-                    style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}
+                    className="btn-refined btn-refined--lg w-full justify-center"
+                    style={{ backgroundColor: '#0F9D58', borderColor: '#0F9D58', color: '#FFFFFF' }}
                   >
-                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
-                      <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
-                    </svg>
                     Open Google Sheets
                   </a>
+                  <p className="text-xs text-txt-tertiary text-center leading-relaxed">
+                    Edit your Top 25 by week in Google Sheets, then return here and tap Save below.
+                  </p>
+                  <section>
+                    <p className="label-xs text-txt-tertiary mb-3">Save</p>
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={() => handleParseAndPreview(true)}
+                        disabled={syncing || deletingSheet}
+                        className="btn-refined btn-refined--solid btn-refined--lg w-full justify-center"
+                      >
+                        {syncing ? 'Reading…' : 'Save & delete sheet'}
+                      </button>
+                      <button
+                        onClick={() => handleParseAndPreview(false)}
+                        disabled={syncing || deletingSheet}
+                        className="btn-refined btn-refined--lg w-full justify-center"
+                      >
+                        {syncing ? 'Reading…' : 'Save & keep sheet'}
+                      </button>
+                      <button
+                        onClick={handleDeleteSheetOnly}
+                        disabled={syncing || deletingSheet}
+                        className="btn-refined btn-refined--lg btn-refined--danger w-full justify-center"
+                      >
+                        {deletingSheet ? 'Deleting…' : 'Delete sheet (no save)'}
+                      </button>
+                    </div>
+                  </section>
                 </div>
-              ) : embedUrl ? (
-                <div className="flex-1 rounded-lg overflow-hidden border border-surface-4">
-                  <iframe
-                    title="Top 25 Sheet"
-                    src={embedUrl}
-                    className="w-full h-full"
-                    style={{ minHeight: 480 }}
-                  />
+              </div>
+            ) : (
+              <>
+                <div className="px-5 sm:px-7 py-3 border-b border-surface-4 flex flex-wrap gap-2 items-center">
+                  <button
+                    onClick={() => handleParseAndPreview(true)}
+                    disabled={syncing || deletingSheet}
+                    className="btn-refined btn-refined--solid"
+                  >
+                    {syncing ? 'Reading…' : 'Save & delete sheet'}
+                  </button>
+                  <button
+                    onClick={() => handleParseAndPreview(false)}
+                    disabled={syncing || deletingSheet}
+                    className="btn-refined"
+                  >
+                    {syncing ? 'Reading…' : 'Save & keep sheet'}
+                  </button>
+                  <button
+                    onClick={handleDeleteSheetOnly}
+                    disabled={syncing || deletingSheet}
+                    className="btn-refined btn-refined--danger ml-auto"
+                  >
+                    {deletingSheet ? 'Deleting…' : 'Delete sheet (no save)'}
+                  </button>
                 </div>
-              ) : (
-                <div className="flex-1 flex items-center justify-center text-txt-tertiary text-sm">
-                  Sheet ready. Open it in Google Sheets to edit:
-                  <a href={`https://docs.google.com/spreadsheets/d/${sheetId}`} target="_blank" rel="noopener noreferrer" className="ml-2 underline text-txt-primary">Open</a>
-                </div>
-              )}
-            </div>
+                {embedUrl ? (
+                  <div className="flex-1 px-5 sm:px-7 pb-5 pt-3">
+                    <div className="h-full rounded-md overflow-hidden border border-surface-4">
+                      <iframe
+                        title="Top 25 Sheet"
+                        src={embedUrl}
+                        className="w-full h-full"
+                        style={{ minHeight: 480 }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center text-txt-tertiary text-sm p-6">
+                    Sheet ready. <a href={`https://docs.google.com/spreadsheets/d/${sheetId}`} target="_blank" rel="noopener noreferrer" className="ml-2 underline text-txt-primary">Open in Google Sheets</a>
+                  </div>
+                )}
+              </>
+            )
           ) : null}
         </div>
       </div>

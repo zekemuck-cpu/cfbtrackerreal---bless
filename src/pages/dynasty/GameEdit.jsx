@@ -486,25 +486,18 @@ export default function GameEdit() {
   const gameHomeTeamTid = formData.location === 'home' ? team1Tid :
                           formData.location === 'away' ? team2Tid : null
 
-  // Calculate team records - uses centralized function, excludes current game being edited.
-  // For CPU/opponent teams, dynasty.games[] only has user-vs-them
-  // games, so calc is sparse. Compare against the coverage-aware
-  // helper (which checks teams[tid].byYear[year].record + standings
-  // row + teamRecordsByTeamYear) and use whichever covers more games.
+  // Pre-game record for this team — calculated from saved games only,
+  // current game excluded. No fallback to the stored full-season helper
+  // because that overrides the as-of-game truth with the team's end-
+  // of-season totals (which made every Wk 1 game display "5-6" etc.).
+  // For CPU teams calc is sparse, but the user has the manual override
+  // toggle below to fix that case by hand.
   const calculateTeamRecord = (tid, year) => {
     if (!currentDynasty?.games || !tid) return ''
-
     const calc = calculateTeamRecordFromGames(currentDynasty, tid, year, {
-      upToGameId: existingGame?.id // Exclude current game from calculation
+      upToGameId: existingGame?.id
     })
     const calcGames = (calc.wins || 0) + (calc.losses || 0)
-    const helperRec = getTeamRecord(currentDynasty, tid, year)
-    const helperGames = (helperRec?.wins || 0) + (helperRec?.losses || 0)
-    // Helper wins when it covers more games (i.e. CPU opponent has a
-    // stored full season but we only logged 1 user-vs-them game).
-    if (helperRec && helperGames > calcGames) {
-      return `${helperRec.wins}-${helperRec.losses}`
-    }
     if (calcGames === 0) return ''
     return `${calc.wins}-${calc.losses}`
   }
@@ -520,46 +513,18 @@ export default function GameEdit() {
   const liveRecordFor = (tid) => {
     if (!tid || !currentDynasty) return { record: '', confRecord: '' }
 
-    // Step 1: pregame baseline from saved games (current game excluded).
+    // Pre-game baseline from saved games only (current game excluded).
+    // No stored-helper fallback — using the team's full-season totals
+    // here was the bug that caused saved games to capture the wrong
+    // record (e.g. Wk 1 saved as "5-6" because that's the team's
+    // eventual season-end record). For CPU teams the baseline is
+    // sparse; the user has the manual override toggle below.
     let baseline = calculateTeamRecordFromGames(currentDynasty, tid, gameYear, {
       upToGameId: existingGame?.id,
     })
     let { wins = 0, losses = 0, confWins = 0, confLosses = 0 } = baseline
-    const baselineGames = (wins || 0) + (losses || 0)
 
-    // Step 2: if the standings / byYear snapshot covers more games
-    // than our saved-games baseline (e.g. a CPU opponent has a full
-    // 9-4 season on file but we've only logged 1 user-vs-them game),
-    // prefer that. Previous gate fired only when baseline was fully
-    // zero, which let a sparse 1-0 baseline override a complete 9-4
-    // stored record. Subtract the current game from the snapshot if
-    // it's already been counted.
-    const stored = getTeamRecord(currentDynasty, tid, gameYear)
-    const storedGames = (stored?.wins || 0) + (stored?.losses || 0)
-    if (stored && storedGames > baselineGames) {
-      wins = stored.wins || 0
-      losses = stored.losses || 0
-      confWins = stored.confWins || 0
-      confLosses = stored.confLosses || 0
-    }
-    // The original existing-game-counted-already guard lived in the
-    // same `if` arm, but only ran when baseline was empty. Lifting
-    // it out so it runs whenever we adopted the stored snapshot —
-    // we still need to back the current game out of the snapshot
-    // before adding the in-progress score back below.
-    if (stored && storedGames > baselineGames) {
-      if (existingGame?.team1Score != null && existingGame?.team2Score != null) {
-        const t1 = Number(existingGame.team1Tid)
-        const isT1 = Number(tid) === t1
-        const teamScore = isT1 ? existingGame.team1Score : existingGame.team2Score
-        const oppScore  = isT1 ? existingGame.team2Score : existingGame.team1Score
-        const wasConf   = !!(existingGame.isConferenceGame)
-        if (teamScore > oppScore)      { wins = Math.max(0, wins - 1);     if (wasConf) confWins   = Math.max(0, confWins - 1) }
-        else if (teamScore < oppScore) { losses = Math.max(0, losses - 1); if (wasConf) confLosses = Math.max(0, confLosses - 1) }
-      }
-    }
-
-    // Step 3: apply the in-progress current game from formData.
+    // Apply the in-progress current game from formData.
     const t1Score = parseInt(formData.team1Score, 10)
     const t2Score = parseInt(formData.team2Score, 10)
     const confNow = !!(formData.isConferenceGame || isConferenceGame)
