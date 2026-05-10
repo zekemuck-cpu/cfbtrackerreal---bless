@@ -31,6 +31,38 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
 
+  // Compute the "current rank snapshot" for the saved-week's poll —
+  // the slice of rankByWeek[weekNum] across all teams. We compare
+  // this against the snapshot stored on the saved recap to flag
+  // drift. If they diverge, the recap text references rank values
+  // that no longer match the dynasty's current state.
+  const currentRankSnapshot = useMemo(() => {
+    if (!currentDynasty || !Number.isFinite(yearNum) || !Number.isFinite(weekNum)) return null
+    const snap = {}
+    const teams = currentDynasty.teams || {}
+    for (const [tidKey, team] of Object.entries(teams)) {
+      const rbw = team?.byYear?.[yearNum]?.rankByWeek
+        ?? team?.byYear?.[String(yearNum)]?.rankByWeek
+      if (!rbw) continue
+      const v = rbw[weekNum] ?? rbw[String(weekNum)]
+      if (typeof v !== 'number' || v < 1 || v > 25) continue
+      snap[tidKey] = v
+    }
+    return snap
+  }, [currentDynasty, yearNum, weekNum])
+
+  const recapDrift = useMemo(() => {
+    if (!existingRecap?.rankSnapshot || !currentRankSnapshot) return null
+    const stored = existingRecap.rankSnapshot
+    const changed = []
+    const allKeys = new Set([...Object.keys(stored), ...Object.keys(currentRankSnapshot)])
+    for (const k of allKeys) {
+      if (stored[k] !== currentRankSnapshot[k]) changed.push(k)
+    }
+    if (changed.length === 0) return null
+    return { count: changed.length }
+  }, [existingRecap, currentRankSnapshot])
+
   // Re-pull the existing recap whenever the modal re-opens or the (year, week)
   // changes — keeps the textarea in sync with persisted state and supports
   // re-editing without reloading the page.
@@ -86,7 +118,13 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
       // that was breaking saves on long-running dynasties.
       await saveWeekRecap(currentDynasty.id, yearNum, weekNum, {
         generatedAt: Date.now(),
-        text: trimmed
+        text: trimmed,
+        // Snapshot of rankByWeek[weekNum] at save time. We compare
+        // this against the live snapshot when the recap is re-opened
+        // — if any team's rank has changed since save, we surface a
+        // "stale" badge so the user knows the text references old
+        // numbers. Cheap to store (one int per ranked team).
+        rankSnapshot: currentRankSnapshot || {},
       })
       toast.success('Recap saved.')
       onSaved?.(trimmed)
@@ -182,7 +220,7 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
           </section>
 
           <section>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-y-1">
               <label className="text-sm font-semibold text-txt-primary">Paste the AI's recap</label>
               {existingRecap?.generatedAt && (
                 <span className="text-xs text-txt-tertiary">
@@ -190,6 +228,23 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
                 </span>
               )}
             </div>
+            {recapDrift && (
+              <div
+                className="mb-2 rounded-md px-3 py-2 text-xs flex items-start gap-2"
+                style={{
+                  backgroundColor: 'rgba(251, 191, 36, 0.10)',
+                  border: '1px solid rgba(251, 191, 36, 0.30)',
+                  color: '#fcd34d',
+                }}
+              >
+                <span className="font-bold flex-shrink-0">Stale:</span>
+                <span>
+                  Rankings have changed for {recapDrift.count}{' '}
+                  team{recapDrift.count === 1 ? '' : 's'} since this recap was generated.
+                  The text below may reference outdated rank numbers — regenerate to refresh.
+                </span>
+              </div>
+            )}
             <textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}

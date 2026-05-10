@@ -6929,8 +6929,21 @@ export function DynastyProvider({ children }) {
       // Execute subcollection writes and main doc update in parallel
       const writePromises = [...subcollectionPromises]
 
-      // Only update main doc if there are non-subcollection updates
+      // Defensive routing assertion — any seasonal field reaching the
+      // main doc means the strip step above missed it. Log loudly so
+      // we catch the bug at write time instead of debugging it from
+      // diverged-data symptoms later. Doesn't block the write — the
+      // worst case is one stale field on the main doc, fixable with
+      // a touch later. Better than crashing the user's save.
       if (Object.keys(mainDocUpdates).length > 0) {
+        const leakedSeasonal = Object.keys(mainDocUpdates).filter(k =>
+          isSeasonalField(k) || (k.includes('.') && isSeasonalField(k.split('.')[0]))
+        )
+        if (leakedSeasonal.length > 0) {
+          console.warn(
+            `[updateDynasty] Seasonal field(s) leaked into main-doc update — should have been routed to seasons subcollection: ${leakedSeasonal.join(', ')}`
+          )
+        }
         writePromises.push(updateDynastyInFirestore(dynastyId, mainDocUpdates))
       }
 
@@ -8715,6 +8728,31 @@ export function DynastyProvider({ children }) {
         // Step 2: persist non-games fields via updateDynasty with
         // skipGamesSubcollection=true so the slow full-rewrite is
         // skipped. teams + weeklyScoresEntered land on the main doc.
+        //
+        // Document-size guard. Firestore caps single docs at 1 MiB.
+        // dynasty.teams carries every team's byYear[*].rankByWeek +
+        // coachingStaff + record across all years — on a 20-year,
+        // 134-team dynasty it can creep toward the cap and silently
+        // fail the write. We warn at 800 KB (80% of cap) and toast
+        // at 950 KB (within striking distance) so the user has a
+        // chance to investigate before a save blows up. Phase 1 of
+        // a planned subcollection split — the migration to per-team-
+        // per-year subdocs is pending; this guard makes the failure
+        // mode visible in the meantime.
+        try {
+          const TEAMS_DOC_SOFT_LIMIT = 800 * 1024
+          const TEAMS_DOC_HARD_WARN = 950 * 1024
+          const size = new Blob([JSON.stringify(teamsCopy)]).size
+          if (size >= TEAMS_DOC_HARD_WARN) {
+            console.warn(`[saveWeeklyScores] dynasty.teams payload is ${(size / 1024).toFixed(0)} KB — within ${((1024 * 1024 - size) / 1024).toFixed(0)} KB of Firestore's 1 MiB single-doc cap. The next several weekly saves may fail. Subcollection split is pending.`)
+            try {
+              toast?.warning?.(`Dynasty data nearing Firestore size limit (${(size / 1024).toFixed(0)} KB / 1024 KB). Saves may start failing soon — please contact support.`, { duration: 12000 })
+            } catch {/* toast may not be available in every code path */}
+          } else if (size >= TEAMS_DOC_SOFT_LIMIT) {
+            console.warn(`[saveWeeklyScores] dynasty.teams payload is ${(size / 1024).toFixed(0)} KB — approaching the 1 MiB cap. (Threshold ${(TEAMS_DOC_SOFT_LIMIT / 1024).toFixed(0)} KB.)`)
+          }
+        } catch {/* size estimate is best-effort; never block the save */}
+
         await updateDynasty(dynastyId, {
           teams: teamsCopy,
           weeklyScoresEntered: updatedTracker,
