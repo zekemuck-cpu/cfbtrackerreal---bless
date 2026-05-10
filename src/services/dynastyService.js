@@ -705,14 +705,33 @@ export async function deletePlayerFromSubcollection(dynastyId, playerId) {
  * @param {string} dynastyId - The dynasty document ID
  * @param {Object} game - The game object (must have id)
  */
+// Strip stash fields and other underscore-prefixed transient fields
+// before persisting a game record. The weekly-scores rank pass uses
+// `_team1CurrentWeekRank` / `_team2CurrentWeekRank` to carry the
+// user's entered rank from one step to the next, and they're meant
+// to be deleted before the game is saved. Doing the strip at the
+// service boundary too is defense-in-depth — any future caller path
+// that bypasses the strip in saveWeeklyScores can't accidentally
+// persist these fields.
+function stripTransientGameFields(game) {
+  if (!game || typeof game !== 'object') return game
+  const cleaned = {}
+  for (const [k, v] of Object.entries(game)) {
+    if (k === '_firestoreId') continue
+    if (k.startsWith('_team1CurrentWeekRank')) continue
+    if (k.startsWith('_team2CurrentWeekRank')) continue
+    cleaned[k] = v
+  }
+  return cleaned
+}
+
 export async function saveGameToSubcollection(dynastyId, game) {
   try {
     if (!game.id) {
       throw new Error('Game must have an id')
     }
     const gameRef = doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, String(game.id))
-    // Remove _firestoreId before saving and sanitize
-    const { _firestoreId, ...rawGameData } = game
+    const rawGameData = stripTransientGameFields(game)
     const gameData = sanitizeForFirestore(rawGameData)
 
     // Atomic: game write + main-doc lastModified bump in one batch.
@@ -809,7 +828,7 @@ export async function saveWeeklyGamesChanges(dynastyId, gamesToSet = [], gameIds
   for (const game of gamesToSet || []) {
     if (!game?.id) continue
     const gameRef = doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, String(game.id))
-    const { _firestoreId: _gFid, ...rawGame } = game
+    const rawGame = stripTransientGameFields(game)
     batch.set(gameRef, sanitizeForFirestore(rawGame))
   }
 

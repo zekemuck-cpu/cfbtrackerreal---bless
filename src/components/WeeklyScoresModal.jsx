@@ -107,23 +107,53 @@ export default function WeeklyScoresModal({ isOpen, onClose, year, week, teamCol
   // ranked teams had a bye this week (their abbr won't appear in
   // any game row), and where those bye teams should slot in the
   // post-week poll given the leapfrogs/drops it just transcribed.
+  //
+  // Fallback: if rankByWeek[weekNum] is empty (first-time open of a
+  // week's modal under the new save semantic — rankByWeek[N] only
+  // gets populated when Wk N is itself saved), fall back to the
+  // most recent populated week BEFORE weekNum. The carry-forward
+  // gives the AI a reasonable baseline for bye reasoning, even if
+  // it's slightly stale (the AI is going to re-derive the new poll
+  // anyway from the games block + prior baseline).
   const prevWeekTop25Block = useMemo(() => {
     if (!currentDynasty) return ''
     const yearNum = Number(year)
     const weekNum = Number(week)
     if (!Number.isFinite(yearNum) || !Number.isFinite(weekNum) || weekNum <= 0) return ''
     const teams = currentDynasty.teams || {}
-    const slotMap = new Map() // rank → abbr
-    for (const team of Object.values(teams)) {
-      const rbw = team?.byYear?.[yearNum]?.rankByWeek
-        ?? team?.byYear?.[String(yearNum)]?.rankByWeek
-      if (!rbw) continue
-      const v = rbw[weekNum] ?? rbw[String(weekNum)]
-      if (typeof v !== 'number' || v < 1 || v > 25) continue
-      if (!slotMap.has(v)) slotMap.set(v, team.abbr)
+
+    // Try the exact week first; if no team has a value there, walk
+    // backward up to 4 weeks looking for the most recent populated
+    // picture. Each call to slotsAtWeek returns Map(rank → abbr).
+    const slotsAtWeek = (wk) => {
+      const slots = new Map()
+      for (const team of Object.values(teams)) {
+        const rbw = team?.byYear?.[yearNum]?.rankByWeek
+          ?? team?.byYear?.[String(yearNum)]?.rankByWeek
+        if (!rbw) continue
+        const v = rbw[wk] ?? rbw[String(wk)]
+        if (typeof v !== 'number' || v < 1 || v > 25) continue
+        if (!slots.has(v)) slots.set(v, team.abbr)
+      }
+      return slots
+    }
+    let slotMap = slotsAtWeek(weekNum)
+    let sourceWeek = weekNum
+    if (slotMap.size === 0) {
+      for (let probe = weekNum - 1; probe >= Math.max(0, weekNum - 4); probe--) {
+        const candidate = slotsAtWeek(probe)
+        if (candidate.size > 0) {
+          slotMap = candidate
+          sourceWeek = probe
+          break
+        }
+      }
     }
     if (slotMap.size === 0) return ''
     const lines = []
+    if (sourceWeek !== weekNum) {
+      lines.push(`  (carried forward from Week ${sourceWeek}; entering-Week-${weekNum} poll not yet stored)`)
+    }
     for (let r = 1; r <= 25; r++) {
       const abbr = slotMap.get(r)
       if (abbr) lines.push(`  #${r} ${abbr}`)
@@ -600,7 +630,7 @@ Don't just glance at this list. Physically execute each check on your draft.
 [ ] WORKSHEET vs TSV (winner consistency). For every TSV row, find the matching WS line. The team with the higher score in the worksheet's middle block (the screen-order summary) MUST equal WINNER on that worksheet line, AND must equal whichever team has the higher score in the TSV row (whether that's Col C or Col F). If any row's TSV winner disagrees with the worksheet's WINNER, you introduced a score-swap during the worksheet→TSV derivation. Fix the TSV row.
 [ ] TEAM COVERAGE (rule F in PRE-EXTRACTION COUNT). Every team you saw in the screenshots is now either (a) in a row of your output, or (b) confirmed on bye. No team silently disappeared. If you can name a team you remember seeing that doesn't appear in EITHER place, you have a missing game — go find it.
 [ ] No header row, no commentary, no follow-up text (except the optional "X games dropped" note ONLY if N > ${WEEKLY_SCORES_MAX_ROWS}).
-[ ] BYE BLOCK PRESENT: every team in the PRIOR-WEEK TOP 25 above is accounted for. Either (a) they appear in a game row (their new rank shows there), or (b) they appear in the bye block with a derived new rank. No ranked team silently drops out.
+[ ] BYE BLOCK PRESENT: IF the PRIOR-WEEK TOP 25 block above has data, every team in it is accounted for — either (a) they appear in a game row, or (b) they appear in the bye block with a derived new rank. NO ranked team silently drops out. IF the PRIOR-WEEK TOP 25 block above is EMPTY ("(no prior-week Top 25 stored)"), emit an EMPTY bye block — do NOT invent bye entries from real-world poll knowledge or memory. The dynasty's stored picture is the only source of truth here.
 [ ] BYE BLOCK COL D EMPTY: every bye row's column D (4th tab-separated cell) is BLANK. If you accidentally put a team abbr in col D of a bye row, the importer treats it as a game with that abbr.
 [ ] BYE RANKS UNIQUE + IN RANGE: every rank in the bye block is 1-25, no rank repeats, and no rank in the bye block matches a rank already shown for a played team in the games block. The new poll has 25 unique ranks total.`,
     includeTeamMap: true,

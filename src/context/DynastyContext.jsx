@@ -5165,8 +5165,22 @@ export function DynastyProvider({ children }) {
   const [migrated, setMigrated] = useState(false)
   // Ref to skip Firestore listener updates after manual local state update
   // This prevents the listener from overwriting fresh local changes with stale Firestore data
-  // Uses a counter to skip multiple updates (optimistic + server confirm)
+  // Uses a counter to skip multiple updates (optimistic + server confirm).
+  // CAPPED at SKIP_COUNT_MAX to prevent runaway accumulation under burst
+  // saves — every Math.max(current, 3) call clamps to at most 6 ignored
+  // snapshots, avoiding the "burst saves stall cross-device sync for 10s+"
+  // behavior the audit flagged.
   const skipListenerUpdatesCountRef = useRef(0)
+  const SKIP_COUNT_MAX = 6
+  // Centralized bump — replaces ad-hoc Math.max(current, 3) calls with
+  // a clamped form so the count can't accumulate past SKIP_COUNT_MAX
+  // under burst saves. Returns the new value for callers that want to
+  // read it back.
+  const bumpSkipCount = (atLeast = 3) => {
+    const next = Math.min(Math.max(skipListenerUpdatesCountRef.current, atLeast), SKIP_COUNT_MAX)
+    skipListenerUpdatesCountRef.current = next
+    return next
+  }
   // Flag to prevent listener updates during phase transitions (more robust than counter)
   // Set to true when starting a phase transition, cleared when complete
   const phaseTransitionInProgressRef = useRef(false)
@@ -7717,7 +7731,7 @@ export function DynastyProvider({ children }) {
       try {
         // Set listener-skip guards so the real-time listener doesn't
         // overwrite our local games array with a stale subcollection read.
-        skipListenerUpdatesCountRef.current = Math.max(skipListenerUpdatesCountRef.current, 3)
+        bumpSkipCount(3)
         skipListenerTimestampRef.current = Date.now()
         lastGamesUpdateTimestampRef.current = Date.now()
         lastGamesUpdateDynastyIdRef.current = dynastyId
@@ -7757,7 +7771,7 @@ export function DynastyProvider({ children }) {
       console.log(`[addGame] OPTIMIZED: Saving 1 game + ${changedPlayers.length} changed players (skipping full-roster rewrite)`)
 
       try {
-        skipListenerUpdatesCountRef.current = Math.max(skipListenerUpdatesCountRef.current, 3)
+        bumpSkipCount(3)
         skipListenerTimestampRef.current = Date.now()
         lastGamesUpdateTimestampRef.current = Date.now()
         lastGamesUpdateDynastyIdRef.current = dynastyId
@@ -7874,7 +7888,7 @@ export function DynastyProvider({ children }) {
       try {
         // Set listener-skip guards so the real-time listener doesn't
         // overwrite our games array with a stale subcollection read.
-        skipListenerUpdatesCountRef.current = Math.max(skipListenerUpdatesCountRef.current, 3)
+        bumpSkipCount(3)
         skipListenerTimestampRef.current = Date.now()
         lastGamesUpdateTimestampRef.current = Date.now()
         lastGamesUpdateDynastyIdRef.current = dynastyId
@@ -8079,7 +8093,7 @@ export function DynastyProvider({ children }) {
 
     if (isCloudStorage) {
       try {
-        skipListenerUpdatesCountRef.current = Math.max(skipListenerUpdatesCountRef.current, 3)
+        bumpSkipCount(3)
         skipListenerTimestampRef.current = Date.now()
         lastGamesUpdateTimestampRef.current = Date.now()
         lastGamesUpdateDynastyIdRef.current = dynastyId
@@ -8140,7 +8154,7 @@ export function DynastyProvider({ children }) {
 
     if (isCloudStorage && changed.length > 0) {
       try {
-        skipListenerUpdatesCountRef.current = Math.max(skipListenerUpdatesCountRef.current, 3)
+        bumpSkipCount(3)
         skipListenerTimestampRef.current = Date.now()
         lastPlayersUpdateTimestampRef.current = Date.now()
         lastPlayersUpdateDynastyIdRef.current = dynastyId
@@ -8197,7 +8211,7 @@ export function DynastyProvider({ children }) {
 
     if (isCloudStorage) {
       try {
-        skipListenerUpdatesCountRef.current = Math.max(skipListenerUpdatesCountRef.current, 3)
+        bumpSkipCount(3)
         skipListenerTimestampRef.current = Date.now()
         lastGamesUpdateTimestampRef.current = Date.now()
         lastGamesUpdateDynastyIdRef.current = dynastyId
@@ -8576,6 +8590,7 @@ export function DynastyProvider({ children }) {
       }
     }
 
+
     // (2) Each saved Week N game's stored rank is pulled from
     // rankByWeek[N] for each team — the rank saved the previous
     // week when the user was in Week N. Strip the stash fields.
@@ -8639,7 +8654,7 @@ export function DynastyProvider({ children }) {
       try {
         // Listener-skip guards so the snapshot doesn't undo our local
         // games array with a stale subcollection read.
-        skipListenerUpdatesCountRef.current = Math.max(skipListenerUpdatesCountRef.current, 3)
+        bumpSkipCount(3)
         skipListenerTimestampRef.current = Date.now()
         lastGamesUpdateTimestampRef.current = Date.now()
         lastGamesUpdateDynastyIdRef.current = dynastyId
@@ -12734,7 +12749,7 @@ export function DynastyProvider({ children }) {
         // Set listener-skip guards so the real-time listener doesn't
         // overwrite our local state with a stale subcollection read.
         // (See the matching fix in deletePlayer — same root cause.)
-        skipListenerUpdatesCountRef.current = Math.max(skipListenerUpdatesCountRef.current, 3)
+        bumpSkipCount(3)
         skipListenerTimestampRef.current = Date.now()
         lastPlayersUpdateTimestampRef.current = Date.now()
         lastPlayersUpdateDynastyIdRef.current = dynastyId
@@ -12846,7 +12861,7 @@ export function DynastyProvider({ children }) {
 
           // Set listener-skip guards for both players AND games subcollections
           // so the real-time listener doesn't clobber our local changes.
-          skipListenerUpdatesCountRef.current = Math.max(skipListenerUpdatesCountRef.current, 3)
+          bumpSkipCount(3)
           skipListenerTimestampRef.current = Date.now()
           lastPlayersUpdateTimestampRef.current = Date.now()
           lastPlayersUpdateDynastyIdRef.current = dynastyId
@@ -12932,7 +12947,7 @@ export function DynastyProvider({ children }) {
         // See the listener's guard at the top of subscribeToDynasties'
         // callback: it preserves local state when the refs below are set
         // and younger than 10s.
-        skipListenerUpdatesCountRef.current = Math.max(skipListenerUpdatesCountRef.current, 3)
+        bumpSkipCount(3)
         skipListenerTimestampRef.current = Date.now()
         lastPlayersUpdateTimestampRef.current = Date.now()
         lastPlayersUpdateDynastyIdRef.current = dynastyId
