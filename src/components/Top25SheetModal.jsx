@@ -12,7 +12,13 @@ const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
   return window.innerWidth < 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 }
-import { useDynasty, applyTop25SheetDiff, buildTop25Diff } from '../context/DynastyContext'
+import {
+  useDynasty,
+  applyTop25SheetDiff,
+  buildTop25Diff,
+  syncGameRanksFromRankByWeek,
+  affectedYearWeeksFromTop25Diff,
+} from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
@@ -192,7 +198,24 @@ export default function Top25SheetModal({ isOpen, onClose }) {
     setSyncing(true)
     try {
       const newTeams = applyTop25SheetDiff(currentDynasty, pendingSave.diff)
-      await updateDynasty(currentDynasty.id, { teams: newTeams })
+      // Also sync games[].team1Rank/team2Rank so the Game page and
+      // team game-log displays match the corrected rankByWeek picture.
+      // Without this, editing a team's Wk N rank via the Top 25 sheet
+      // updated rankByWeek but left every Wk N game record showing the
+      // old rank — Rankings page showed the correction, Game page and
+      // recap text didn't. Beta tester reports of "putting last week's
+      // ranking on the game" trace back to this divergence.
+      const affectedWeeks = affectedYearWeeksFromTop25Diff(pendingSave.diff)
+      const newGames = syncGameRanksFromRankByWeek(
+        currentDynasty.games || [],
+        newTeams,
+        affectedWeeks,
+      )
+      const updatePayload = { teams: newTeams }
+      if (newGames !== (currentDynasty.games || [])) {
+        updatePayload.games = newGames
+      }
+      await updateDynasty(currentDynasty.id, updatePayload)
 
       const { summary } = pendingSave
       toast.success(

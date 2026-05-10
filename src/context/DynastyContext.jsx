@@ -1714,6 +1714,93 @@ export function applyTop25SheetDiff(dynasty, diff) {
 }
 
 /**
+ * Sync games[].team1Rank/team2Rank to match the canonical rankByWeek
+ * snapshot in `teams`. Walks every game whose (year, week) appears in
+ * the affected map and rewrites its stored ranks from rankByWeek.
+ *
+ * Why: Top 25 sheet edits write to teams.byYear[year].rankByWeek but
+ * leave games[].team1Rank/team2Rank untouched. The two stores then
+ * diverge — Rankings page (rankByWeek) shows the corrected rank, Game
+ * page (game record) shows the stale one. Beta tester reports of
+ * "putting the last week ranking" trace back to this divergence.
+ *
+ * `affectedYears`: { [year]: Set<weekNumber> } — only games at these
+ * (year, week) coordinates get touched. CFP/bowl/CC week keys (>=100)
+ * pass through; the helper walks the integer week coords only.
+ *
+ * Returns the new games array. Pure / immutable.
+ */
+export function syncGameRanksFromRankByWeek(games, teams, affectedYears) {
+  if (!Array.isArray(games)) return games || []
+  if (!teams || typeof teams !== 'object') return games
+  if (!affectedYears || typeof affectedYears !== 'object') return games
+
+  const readRank = (tid, year, week) => {
+    if (tid == null || year == null || week == null) return null
+    const t = teams[String(tid)] || teams[tid]
+    const rbw = t?.byYear?.[String(year)]?.rankByWeek ?? t?.byYear?.[year]?.rankByWeek
+    if (!rbw) return null
+    const v = rbw[week] ?? rbw[String(week)]
+    if (typeof v !== 'number' || v < 1 || v > 25) return null
+    return v
+  }
+
+  let mutated = false
+  const next = games.map(g => {
+    if (!g || g.year == null || g.week == null) return g
+    const yr = Number(g.year)
+    const wk = Number(g.week)
+    if (!Number.isFinite(yr) || !Number.isFinite(wk)) return g
+    const weeks = affectedYears[yr] || affectedYears[String(yr)]
+    if (!weeks || !weeks.has(wk)) return g
+
+    let updated = g
+    if (g.team1Tid != null) {
+      const r = readRank(g.team1Tid, yr, wk)
+      const stored = typeof g.team1Rank === 'number' ? g.team1Rank : null
+      if (r !== stored) {
+        updated = { ...updated, team1Rank: r }
+        mutated = true
+      }
+    }
+    if (g.team2Tid != null) {
+      const r = readRank(g.team2Tid, yr, wk)
+      const stored = typeof g.team2Rank === 'number' ? g.team2Rank : null
+      if (r !== stored) {
+        updated = { ...updated, team2Rank: r }
+        mutated = true
+      }
+    }
+    return updated
+  })
+  return mutated ? next : games
+}
+
+/**
+ * Helper: extract the (year, week) coordinates touched by a Top 25
+ * sheet diff. Used to scope syncGameRanksFromRankByWeek to only the
+ * weeks the user actually edited.
+ */
+export function affectedYearWeeksFromTop25Diff(diff) {
+  const out = {}
+  if (!diff || typeof diff !== 'object') return out
+  for (const byYear of Object.values(diff)) {
+    if (!byYear || typeof byYear !== 'object') continue
+    for (const [yearKey, weekUpdates] of Object.entries(byYear)) {
+      if (!weekUpdates || typeof weekUpdates !== 'object') continue
+      const yr = Number(yearKey)
+      if (!Number.isFinite(yr)) continue
+      if (!out[yr]) out[yr] = new Set()
+      for (const k of Object.keys(weekUpdates)) {
+        const wk = Number(k)
+        if (Number.isFinite(wk)) out[yr].add(wk)
+      }
+    }
+  }
+  return out
+}
+
+/**
  * Build a human-readable diff summary from a Top 25 sheet sync-back
  * diff + the current dynasty state. Shape:
  *

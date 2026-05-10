@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useDynasty, propagateCFPWinner, GAME_TYPES, isPlayerOnRoster, rebuildRankByWeekFromCurrentState } from '../../context/DynastyContext'
+import { useDynasty, propagateCFPWinner, GAME_TYPES, isPlayerOnRoster, rebuildRankByWeekFromCurrentState, syncGameRanksFromRankByWeek } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/ui/Toast'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
@@ -1782,6 +1782,49 @@ export default function DangerZone() {
     }
   }
 
+  const [syncGamesStatus, setSyncGamesStatus] = useState(null)
+  const handleSyncGamesFromRankByWeek = async () => {
+    setSyncGamesStatus('running')
+    try {
+      // Heal divergent game.team1Rank/team2Rank values by overwriting
+      // them with whatever rankByWeek[year][week] currently holds for
+      // each team. Use this when a Top 25 sheet edit corrected the
+      // poll picture but the per-game stored ranks still reflect the
+      // old values — Rankings page is right, Game pages are wrong.
+      // Walks every (year, week) the dynasty has rankByWeek data for.
+      const teams = currentDynasty.teams || {}
+      const allYearWeeks = {}
+      for (const team of Object.values(teams)) {
+        if (!team?.byYear) continue
+        for (const [yearKey, yEntry] of Object.entries(team.byYear)) {
+          const yr = Number(yearKey)
+          if (!Number.isFinite(yr)) continue
+          const rbw = yEntry?.rankByWeek
+          if (!rbw) continue
+          if (!allYearWeeks[yr]) allYearWeeks[yr] = new Set()
+          for (const k of Object.keys(rbw)) {
+            const wk = Number(k)
+            if (Number.isFinite(wk)) allYearWeeks[yr].add(wk)
+          }
+        }
+      }
+      const newGames = syncGameRanksFromRankByWeek(currentDynasty.games || [], teams, allYearWeeks)
+      if (newGames === currentDynasty.games) {
+        setSyncGamesStatus({ success: true, message: 'No game-rank changes — every stored rank already matches the Top 25 picture.' })
+        return
+      }
+      let changed = 0
+      const before = currentDynasty.games || []
+      for (let i = 0; i < newGames.length; i++) {
+        if (newGames[i] !== before[i]) changed++
+      }
+      await updateDynasty(currentDynasty.id, { games: newGames })
+      setSyncGamesStatus({ success: true, message: `Updated ${changed} game record${changed === 1 ? '' : 's'} to match the current Top 25 picture.` })
+    } catch (error) {
+      setSyncGamesStatus({ success: false, message: 'Sync failed: ' + error.message })
+    }
+  }
+
   const handleSubcollectionMigration = async () => {
     setSubcollectionMigrationStatus('running')
     try {
@@ -2771,9 +2814,8 @@ export default function DangerZone() {
               <div className="text-display-sm text-txt-primary font-semibold">Rebuild per-team-per-week ranks</div>
               <p className="text-xs text-txt-secondary mt-1">
                 Recomputes <code>dynasty.teams[tid].byYear[year].rankByWeek</code> from every stored game.
-                User games' ranks land at <code>rankByWeek[gameWeek]</code>; CPU games' ranks shift to{' '}
-                <code>rankByWeek[gameWeek + 1]</code> (post-game = entering next week, EA's quirk).
-                Only run this if a game's displayed rank looks wrong after a hard refresh.
+                Each game's stored rank IS the entering rank, so no shift is applied.
+                Use when the Top 25 page disagrees with what each game record shows — this trusts the GAMES.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 pt-2" style={{ borderTop: '1px solid var(--surface-4)' }}>
@@ -2783,10 +2825,24 @@ export default function DangerZone() {
                 onClick={handleRankByWeekMigration}
                 disabled={rankByWeekStatus === 'running'}
               >
-                {rankByWeekStatus === 'running' ? 'Rebuilding...' : 'Rebuild Ranks'}
+                {rankByWeekStatus === 'running' ? 'Rebuilding...' : 'Rebuild Ranks (from games)'}
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSyncGamesFromRankByWeek}
+                disabled={syncGamesStatus === 'running'}
+              >
+                {syncGamesStatus === 'running' ? 'Syncing...' : 'Sync Games (from Top 25)'}
               </Button>
             </div>
+            <p className="text-[11px] text-txt-tertiary mt-1">
+              "Sync Games" goes the OTHER direction — rewrites every game's stored rank to match the
+              <code> rankByWeek</code> picture. Run this when you've edited the Top 25 sheet to fix
+              a week's poll and the Game pages still show the old ranks.
+            </p>
             <StatusLine status={rankByWeekStatus} />
+            <StatusLine status={syncGamesStatus} />
           </div>
         </Card>
       </div>
