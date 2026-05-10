@@ -8583,21 +8583,40 @@ export function DynastyProvider({ children }) {
     }
 
     // (1b) Bye-week block. The AI emits one row per ranked team that
-    // didn't play this week, with the team's inferred rank for the
-    // SAME week. Those go to the same rankByWeek[weekNum] slot, with
-    // two guards:
-    //   - don't claim a slot a played team already wrote
-    //   - don't overwrite a tid a played team already wrote (the
-    //     prompt's worked example uses CLEM as a bye row and the
-    //     AI sometimes copies that team in even when it played).
-    //     The tid guard covers a played team's tid REGARDLESS of
-    //     whether the AI managed to extract a rank for the played
-    //     row — without it, the bye-rank step would blindly write a
-    //     played team's bye-block "rank" over the rank that team's
-    //     own game row had already set.
+    // didn't play this week, with the team's NEW rank for the upcoming
+    // week — i.e., the rank in the post-Wk-N poll = entering-Wk-(N+1).
+    // These belong in rankByWeek[weekNum + 1], NOT rankByWeek[weekNum]:
+    //
+    //   - rankByWeek[N]   = entering-Wk-N picture (= during-Wk-N games).
+    //                       Filled by Wk N's game-block ranks.
+    //   - rankByWeek[N+1] = entering-Wk-(N+1) picture (= post-Wk-N).
+    //                       Filled by Wk N's bye-block ranks (carrying
+    //                       forward) AND by Wk N+1's game-block ranks
+    //                       when that week is saved (overwriting where
+    //                       a team plays).
+    //
+    // Earlier code wrote bye ranks to rankByWeek[weekNum], conflating
+    // two distinct week-pictures into the same slot — bye teams'
+    // entering-Wk-(N+1) ranks would overwrite played teams' entering-
+    // Wk-N ranks (or vice versa). That's why "the bye-week Top 25
+    // teams aren't being kept" reports kept showing up: a played team
+    // at rank 5 entering Wk N would get overwritten by a bye team's
+    // rank 5 entering Wk N+1, or the bye team's rank-5 slot would be
+    // claimed by a played team and silently dropped.
+    //
+    // The played-tid and seen-rank guards still apply, but at the
+    // weekNum+1 slot now: a team that played Wk N still gets its
+    // entering-Wk N rank in rankByWeek[N] (from step 1a) — it just
+    // doesn't ALSO get a stale bye-block entry forced into the next
+    // week's slot.
     const byeRanks = Array.isArray(weeklyGames?.byeRanks) ? weeklyGames.byeRanks : []
+    const byeWeek = weekNum + 1
     if (byeRanks.length > 0) {
-      const playedSlots = new Set()
+      // Skip postseason saves (weekNum >= 100 = CC/CFP/bowls). The
+      // "+1 week" semantic doesn't apply linearly across the
+      // CC → CFP1 → QF → SF → Natty progression; treat any postseason
+      // save's bye block as already-pinned to the same slot.
+      const targetWeek = weekNum >= 100 ? weekNum : byeWeek
       const playedTids = new Set()
       for (const g of newGamesArr) {
         // Add played tids unconditionally — a team that PLAYED this
@@ -8606,12 +8625,6 @@ export function DynastyProvider({ children }) {
         // question.
         if (g.team1Tid != null) playedTids.add(Number(g.team1Tid))
         if (g.team2Tid != null) playedTids.add(Number(g.team2Tid))
-        if (typeof g._team1CurrentWeekRank === 'number') {
-          playedSlots.add(g._team1CurrentWeekRank)
-        }
-        if (typeof g._team2CurrentWeekRank === 'number') {
-          playedSlots.add(g._team2CurrentWeekRank)
-        }
       }
       const seenByeRanks = new Set()
       for (const entry of byeRanks) {
@@ -8619,10 +8632,9 @@ export function DynastyProvider({ children }) {
         const r = entry.rank
         if (typeof r !== 'number' || r < 1 || r > 25) continue
         if (seenByeRanks.has(r)) continue
-        if (playedSlots.has(r)) continue
         if (playedTids.has(Number(entry.tid))) continue
         seenByeRanks.add(r)
-        writeRankByWeek(entry.tid, weekNum, r)
+        writeRankByWeek(entry.tid, targetWeek, r)
       }
     }
 
