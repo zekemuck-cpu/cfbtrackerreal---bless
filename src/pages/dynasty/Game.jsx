@@ -990,22 +990,34 @@ export default function Game() {
   // Rankings — read straight from game.team1Rank / team2Rank. The
   // stored value IS each team's entering rank (rank during the game)
   // — migrated for old dynasties, kept in sync at every save through
-  // the EA-shift logic in saveWeeklyScores / addGame / updateGame.
-  // No further lookup or derivation needed at read time.
+  // saveWeeklyScores / addGame / updateGame. No further lookup or
+  // derivation needed at read time.
+  //
+  // Both CPU and user game branches use the same precedence: stored
+  // game ranks are authoritative, perspective.{user,opponent}Rank is
+  // a legacy fallback only (older user games persisted ranks under
+  // those alias fields before tid-based normalization). Keeping the
+  // precedence identical avoids the "Game page shows #3 but team
+  // page shows #5 for the same matchup" drift we used to hit.
   let leftRank, rightRank
-  if (isCPUGame) {
+  {
     const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
     const team1Abbr = team1Info?.abbr || game.team1
-    const isDisplayTeam1 = displayTeamAbbr === team1Abbr
+    // For user games, "user team" maps to whichever side of the
+    // stored game has perspective.userTid; for CPU games it maps to
+    // displayTeamAbbr (the team the page is being viewed from).
+    const userTidForGame = perspective?.userTid ?? null
+    const isDisplayTeam1 = userTidForGame != null
+      ? Number(game.team1Tid) === Number(userTidForGame)
+      : displayTeamAbbr === team1Abbr
+    // Stored ranks first; legacy aliases (perspective.userRank /
+    // game.userRank / game.opponentRank) only when stored is null.
     const displayRank = isDisplayTeam1 ? game.team1Rank : game.team2Rank
     const oppRank = isDisplayTeam1 ? game.team2Rank : game.team1Rank
-    leftRank = leftTeam === 'user' ? displayRank : oppRank
-    rightRank = rightTeam === 'user' ? displayRank : oppRank
-  } else {
-    const userRank = perspective?.userRank ?? game.userRank ?? game.team1Rank
-    const oppRank = perspective?.opponentRank ?? game.opponentRank ?? game.team2Rank
-    leftRank = leftTeam === 'user' ? userRank : oppRank
-    rightRank = rightTeam === 'user' ? userRank : oppRank
+    const userRankFinal = displayRank ?? perspective?.userRank ?? game.userRank ?? null
+    const oppRankFinal = oppRank ?? perspective?.opponentRank ?? game.opponentRank ?? null
+    leftRank = leftTeam === 'user' ? userRankFinal : oppRankFinal
+    rightRank = rightTeam === 'user' ? userRankFinal : oppRankFinal
   }
 
   // Team data for rendering

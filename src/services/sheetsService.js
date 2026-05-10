@@ -14689,12 +14689,20 @@ export async function refreshTop25SheetData(spreadsheetId, dynasty) {
   const NUM_COLS = 1 + TOP25_WEEK_KEYS.length
   const NUM_ROWS = 1 + TOP25_NUM_RANKS
 
+  // Only refresh the dynasty's current year tab. Past-year tabs are
+  // already protected from accidental deletions in readTop25FromSheet
+  // (blank cells on past years are treated as "keep" not "remove"),
+  // and refreshing them here would stomp any in-flight user edits to
+  // past-year data. Future-year tabs are also left alone — the user
+  // may be staging next season's preseason picture.
+  const dynastyYear = Number(dynasty.currentYear)
   const valueRanges = []
   for (const t of tabs) {
     const m = t?.title?.match(/^(\d{4})\s+Top\s+25$/i)
     if (!m) continue
     const year = Number(m[1])
     if (!Number.isFinite(year)) continue
+    if (Number.isFinite(dynastyYear) && year !== dynastyYear) continue
     const rows = buildTop25TabRows(dynasty, year)
     valueRanges.push({
       range: `'${t.title}'!A1:${String.fromCharCode(64 + NUM_COLS)}${NUM_ROWS}`,

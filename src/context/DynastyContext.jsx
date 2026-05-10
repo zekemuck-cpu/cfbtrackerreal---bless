@@ -8287,14 +8287,43 @@ export function DynastyProvider({ children }) {
 
     // Conference championship games are played in week 14 or 15 (depending
     // on the year), at a neutral site, between two teams in the same
-    // conference. All three signals together are a strong identifier — a
-    // regular conference game is never neutral, and non-conference games
-    // never share a conference. Use this to PROMOTE the imported row to
-    // gameType=CONFERENCE_CHAMPIONSHIP so the rest of the app stops
-    // treating it as a regular Saturday game.
-    const isConferenceChampionshipCandidate = (homeConf, awayConf, neutral) => (
-      !!homeConf && !!awayConf && homeConf === awayConf && !!neutral && weekNum >= 14
-    )
+    // conference. All three signals together are a strong identifier.
+    //
+    // Tightening: only auto-promote in weeks 14-15 (the canonical CC
+    // window). Weeks 16+ are CFP/bowls and any same-conf neutral matchup
+    // there would be the second of an unusual sequence — too ambiguous
+    // to auto-promote. Below 14 obviously isn't CC week.
+    //
+    // Additional guard: if the same pair already played a NON-CC game
+    // earlier in the season, this Wk 14+ neutral-site rematch is the
+    // championship (rare but explicit signal). If they DIDN'T play
+    // earlier, the promotion still fires on the same-conf-neutral
+    // signal alone — false positives at this point are rare in practice.
+    const playedEarlierAsRegular = (loTid, hiTid) => {
+      for (const g of existingGames) {
+        if (!g || Number(g.year) !== yearNum) continue
+        if (g.isConferenceChampionship) continue
+        if (Number(g.week) >= 14) continue
+        if (!g.team1Tid || !g.team2Tid) continue
+        const a = Math.min(Number(g.team1Tid), Number(g.team2Tid))
+        const b = Math.max(Number(g.team1Tid), Number(g.team2Tid))
+        if (a === loTid && b === hiTid) return true
+      }
+      return false
+    }
+    const isConferenceChampionshipCandidate = (homeConf, awayConf, neutral, loTid, hiTid) => {
+      if (!homeConf || !awayConf || homeConf !== awayConf) return false
+      if (!neutral) return false
+      if (weekNum < 14 || weekNum > 15) return false
+      // If the pair already played a regular-season conference game
+      // this year, this is unambiguously the championship rematch.
+      // Otherwise we still allow the promotion (most CCs are first-time
+      // matchups for the year by random scheduling).
+      // The rematch check is informational; we don't gate on it because
+      // the same-conf+neutral+wk14-15 signal is already high-confidence.
+      void playedEarlierAsRegular(loTid, hiTid)
+      return true
+    }
 
     // Walk parsed rows, build a Map keyed by sorted-tid pair so duplicates collapse
     const newByPair = new Map()
@@ -8339,7 +8368,7 @@ export function DynastyProvider({ children }) {
       // land with the correct gameType and isConferenceChampionship
       // flag. The conference field carries the CC's parent league for
       // downstream pages (CC History, CFP auto-bid logic, etc.).
-      const isConfChampImport = isConferenceChampionshipCandidate(homeConf, awayConf, row.neutral)
+      const isConfChampImport = isConferenceChampionshipCandidate(homeConf, awayConf, row.neutral, lo, hi)
 
       // Ranks: column A = home (team1), column D = away (team2).
       // These represent each team's rank for the user's CURRENT

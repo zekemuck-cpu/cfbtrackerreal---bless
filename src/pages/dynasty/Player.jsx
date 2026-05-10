@@ -960,6 +960,7 @@ function PlayerInner() {
         null
 
       let teamScore = null, opponentScore = null, opponentAbbr = null, opponentTid = null, location = 'home'
+      let teamRank = null, opponentRank = null
       if (game.team1Tid != null && game.team2Tid != null) {
         const playerIsTeam1 = game.team1Tid === playerTid
         const playerIsTeam2 = game.team2Tid === playerTid
@@ -970,6 +971,8 @@ function PlayerInner() {
         opponentScore = onTeam1 ? game.team2Score : game.team1Score
         opponentTid = onTeam1 ? game.team2Tid : game.team1Tid
         opponentAbbr = teams[opponentTid]?.abbr || (onTeam1 ? game.team2 : game.team1) || ''
+        teamRank = onTeam1 ? game.team1Rank : game.team2Rank
+        opponentRank = onTeam1 ? game.team2Rank : game.team1Rank
         const isNeutral = game.homeTeamTid == null || game.homeTeamTid === undefined
         location = isNeutral ? 'neutral' : (game.homeTeamTid === (onTeam1 ? game.team1Tid : game.team2Tid) ? 'home' : 'away')
       } else if (game.opponent != null) {
@@ -977,6 +980,8 @@ function PlayerInner() {
         opponentScore = game.opponentScore
         opponentAbbr = game.opponent
         opponentTid = getTidFromAbbr(game.opponent, dynasty)
+        teamRank = game.team1Rank ?? game.userRank ?? null
+        opponentRank = game.team2Rank ?? game.opponentRank ?? null
         location = game.location || 'home'
       }
 
@@ -990,6 +995,8 @@ function PlayerInner() {
         opponentScore,
         opponent: opponentAbbr,
         opponentTid,
+        teamRank,
+        opponentRank,
         location,
         result,
       }
