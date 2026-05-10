@@ -1883,25 +1883,46 @@ export function getTeamRanking(dynasty, tidOrAbbr, year) {
     const byYear = dynasty.teams?.[tid]?.byYear || dynasty.teams?.[String(tid)]?.byYear
     const rankByWeek = byYear?.[year]?.rankByWeek ?? byYear?.[String(year)]?.rankByWeek
     if (rankByWeek && typeof rankByWeek === 'object') {
-      // Find the dynasty's "current snapshot week" — the latest week
-      // ANY team has rankByWeek populated for in this year. We anchor
-      // every team's reported rank to that same week so a team that
-      // fell out of the poll shows as unranked (null), not as their
-      // last-known rank from a past week.
+      // Find the dynasty's "current snapshot week" — the week the user
+      // is in right now (dynasty.currentWeek), not whatever week the
+      // user most recently wrote ranks to. We anchor every team's
+      // reported rank to that week so a team that fell out of the poll
+      // shows as unranked (null), not as their last-known rank from a
+      // past week.
       //
-      // Without this, a team that was #25 in Wk 4 and dropped out in
-      // Wk 5 still showed "#25" on the team header — confusing users
-      // who saw the AI recap explicitly say the team was now unranked.
+      // Anchoring to currentWeek (not max-populated) matters when the
+      // user backfills a future week's poll via the rankings-week
+      // override in WeeklyScoresModal. Otherwise the team page would
+      // jump to the future-week snapshot instead of staying on the
+      // dynasty's actual current week.
+      //
+      // Fallback: if dynasty.currentWeek isn't set or has no data, use
+      // the latest populated week across all teams — keeps legacy
+      // dynasties from regressing.
+      const isYearMatch = Number(dynasty.currentYear) === Number(year)
+      const cw = isYearMatch ? Number(dynasty.currentWeek) : NaN
       let snapshotWeek = -Infinity
-      for (const team of Object.values(dynasty.teams || {})) {
-        const tRbw = team?.byYear?.[year]?.rankByWeek ?? team?.byYear?.[String(year)]?.rankByWeek
-        if (!tRbw || typeof tRbw !== 'object') continue
-        for (const k of Object.keys(tRbw)) {
-          const wk = Number(k)
-          if (!Number.isFinite(wk)) continue
-          const v = tRbw[k]
-          if (typeof v !== 'number' || v < 1 || v > 25) continue
-          if (wk > snapshotWeek) snapshotWeek = wk
+      if (Number.isFinite(cw) && cw >= 0) {
+        // Confirm at least one team has data for currentWeek; if not,
+        // fall through to the legacy "max populated" path.
+        for (const team of Object.values(dynasty.teams || {})) {
+          const tRbw = team?.byYear?.[year]?.rankByWeek ?? team?.byYear?.[String(year)]?.rankByWeek
+          if (!tRbw || typeof tRbw !== 'object') continue
+          const v = tRbw[cw] ?? tRbw[String(cw)]
+          if (typeof v === 'number' && v >= 1 && v <= 25) { snapshotWeek = cw; break }
+        }
+      }
+      if (snapshotWeek === -Infinity) {
+        for (const team of Object.values(dynasty.teams || {})) {
+          const tRbw = team?.byYear?.[year]?.rankByWeek ?? team?.byYear?.[String(year)]?.rankByWeek
+          if (!tRbw || typeof tRbw !== 'object') continue
+          for (const k of Object.keys(tRbw)) {
+            const wk = Number(k)
+            if (!Number.isFinite(wk)) continue
+            const v = tRbw[k]
+            if (typeof v !== 'number' || v < 1 || v > 25) continue
+            if (wk > snapshotWeek) snapshotWeek = wk
+          }
         }
       }
       if (snapshotWeek > -Infinity) {
