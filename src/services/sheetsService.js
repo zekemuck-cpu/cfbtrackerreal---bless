@@ -2805,14 +2805,14 @@ const CFP_FIRST_ROUND_MATCHUPS = [
 
 // Regular bowl games for Bowl Week 2 (8 games - excludes CFP Quarterfinals)
 const BOWL_GAMES_WEEK_2_REGULAR = [
-  'Bahamas Bowl',
   'Citrus Bowl',
   "Duke's Mayo Bowl",
   'First Responder Bowl',
   'Gator Bowl',
   'Reliaquest Bowl',
   'Sun Bowl',
-  'Texas Bowl'
+  'Texas Bowl',
+  'Xbox Bowl'
 ]
 
 // CFP Quarterfinal matchup definitions by bye seed

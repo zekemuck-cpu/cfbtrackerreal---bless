@@ -141,7 +141,6 @@ Column A (Bowl Game) is pre-filled alphabetically. The possible pre-filled bowl 
 
 Possible pre-filled Bowl Game names (sheet is sorted alphabetically — the exact names for the CFP QF bowls vary by the user's configuration, but every CFP QF row ends with " (CFP QF)"):
   Regular Week 2 bowls:
-    - Bahamas Bowl
     - Citrus Bowl
     - Duke's Mayo Bowl
     - First Responder Bowl
@@ -149,6 +148,7 @@ Possible pre-filled Bowl Game names (sheet is sorted alphabetically — the exac
     - Reliaquest Bowl
     - Sun Bowl
     - Texas Bowl
+    - Xbox Bowl
   CFP Quarterfinal bowls (4 rows, names from user config, each suffixed "(CFP QF)"):
     - <Seed-1 QF bowl> (CFP QF)     default: Sugar Bowl (CFP QF)
     - <Seed-2 QF bowl> (CFP QF)     default: Cotton Bowl (CFP QF)

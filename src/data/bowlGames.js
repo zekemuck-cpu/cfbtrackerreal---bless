@@ -156,8 +156,8 @@ export const bowlGames = {
     name: 'Texas Bowl',
     logo: 'https://i.imgur.com/g30Jyaw.png'
   },
-  'Bahamas Bowl': {
-    name: 'Bahamas Bowl',
+  'Xbox Bowl': {
+    name: 'Xbox Bowl',
     logo: 'https://i.imgur.com/by2uPWl.png'
   }
 }

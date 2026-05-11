@@ -1257,13 +1257,26 @@ export default function Game() {
     })
   })()
 
-  // Determine which team is "home" in the boxScore sense (matching BoxScoreSheetModal logic)
-  // For home/neutral games: user is home in boxScore, opponent is away
-  // For away games: opponent is home in boxScore, user is away
-  // This is DIFFERENT from visual layout (left/right) which is based on scoreboard convention
-  const boxScoreHomeIsUser = location === 'home' || location === 'neutral'
-  const boxScoreHomeTeamData = boxScoreHomeIsUser ? getTeamData('user') : getTeamData('opponent')
-  const boxScoreAwayTeamData = boxScoreHomeIsUser ? getTeamData('opponent') : getTeamData('user')
+  // Map left/right visual sides to the boxScore.home/away slots by tid,
+  // matching BoxScoreSheetModal and GameEdit. boxScore.home holds the
+  // actual home team's stats — or team1's stats at neutral sites by
+  // convention — NOT the user's. Mapping by user/location flipped data
+  // whenever the user was on the away or low-seeded side (e.g. CFP
+  // semifinals where seeding, not location, decides which side is left).
+  const team1IsBoxScoreHome = game.homeTeamTid == null
+    ? true
+    : Number(game.homeTeamTid) === Number(game.team1Tid)
+  const team1AbbrForFallback = game.team1Tid
+    ? (currentDynasty?.teams?.[game.team1Tid]?.abbr || TEAMS[game.team1Tid]?.abbr)
+    : game.team1
+  const isLeftTeam1 = leftData.tid != null && game.team1Tid != null
+    ? Number(leftData.tid) === Number(game.team1Tid)
+    : (team1AbbrForFallback
+        ? leftData.abbr === team1AbbrForFallback
+        : leftTeam === 'user')
+  const leftIsBoxScoreHome = isLeftTeam1 === team1IsBoxScoreHome
+  const boxScoreHomeTeamData = leftIsBoxScoreHome ? leftData : rightData
+  const boxScoreAwayTeamData = leftIsBoxScoreHome ? rightData : leftData
 
   // Winner takes more of the gradient with smooth blend - winner gets 70%, blend zone in middle
   // For unplayed games, use 50-50 split
@@ -2796,10 +2809,10 @@ export default function Game() {
           {/* Box Score Tab - Team tabs on mobile, side-by-side on desktop */}
           {activeTab === 'boxscore' && game.boxScore && (() => {
             // Get team data for box score
-            const leftData_bs = boxScoreHomeIsUser ? (leftTeam === 'user' ? game.boxScore.home : game.boxScore.away) : (leftTeam === 'user' ? game.boxScore.away : game.boxScore.home)
-            const rightData_bs = boxScoreHomeIsUser ? (leftTeam === 'user' ? game.boxScore.away : game.boxScore.home) : (leftTeam === 'user' ? game.boxScore.home : game.boxScore.away)
-            const leftTeamData_bs = boxScoreHomeIsUser ? (leftTeam === 'user' ? boxScoreHomeTeamData : boxScoreAwayTeamData) : (leftTeam === 'user' ? boxScoreAwayTeamData : boxScoreHomeTeamData)
-            const rightTeamData_bs = boxScoreHomeIsUser ? (leftTeam === 'user' ? boxScoreAwayTeamData : boxScoreHomeTeamData) : (leftTeam === 'user' ? boxScoreHomeTeamData : boxScoreAwayTeamData)
+            const leftData_bs = leftIsBoxScoreHome ? game.boxScore.home : game.boxScore.away
+            const rightData_bs = leftIsBoxScoreHome ? game.boxScore.away : game.boxScore.home
+            const leftTeamData_bs = leftData
+            const rightTeamData_bs = rightData
 
             // Helper to render a team's stat table for a specific stat category
             const renderTeamStatTable = (teamData, teamInfo, statKey, showTeamHeader = true) => {
@@ -3068,7 +3081,7 @@ export default function Game() {
         const awayTeamAbbrForLink = getAbbrFromTeamName(awayStats.teamAbbr) || awayStats.teamAbbr
 
         // Get team colors for display
-        const leftIsHome = boxScoreHomeIsUser ? (leftTeam === 'user') : (leftTeam !== 'user')
+        const leftIsHome = leftIsBoxScoreHome
         const leftTeamAbbr = leftIsHome ? homeTeamAbbrForLink : awayTeamAbbrForLink
         const rightTeamAbbr = leftIsHome ? awayTeamAbbrForLink : homeTeamAbbrForLink
         const leftTeamStats = leftIsHome ? homeStats : awayStats
