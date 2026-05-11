@@ -627,11 +627,19 @@ export default function Dashboard() {
   // reads games[] as the single source of truth (matches CFP's pattern);
   // without this back-fill, existing dynasties whose wizard completed
   // under the old flow — no shell auto-created — would silently lose
-  // their Bowl Game tile after the refactor. Idempotent: skips years
-  // where the shell already exists.
+  // their Bowl Game tile after the refactor.
+  //
+  // Deps deliberately exclude `currentDynasty.games`: an earlier draft
+  // included it and the effect re-ran on every game add/edit/delete,
+  // walking games[] once per bowl-year on each render. With ~1000
+  // games × ~10 years, that's a measurable per-interaction lag spike.
+  // The migration only needs to react to bowl-wizard data changes;
+  // the ref guard ensures it runs at most once per dynasty session.
+  const bowlMigrationDoneRef = useRef(new Set())
   useEffect(() => {
     if (!currentDynasty?.id) return
     if (isViewOnly) return
+    if (bowlMigrationDoneRef.current.has(currentDynasty.id)) return
     const byYear = currentDynasty.bowlEligibilityDataByYear
     if (!byYear || typeof byYear !== 'object') return
     const games = currentDynasty.games || []
@@ -660,10 +668,11 @@ export default function Dashboard() {
       })
       touched = true
     }
+    bowlMigrationDoneRef.current.add(currentDynasty.id)
     if (touched) {
       updateDynasty(currentDynasty.id, { games: mutated })
     }
-  }, [currentDynasty?.id, currentDynasty?.bowlEligibilityDataByYear, currentDynasty?.games, currentDynasty?.teams, isViewOnly, updateDynasty])
+  }, [currentDynasty?.id, currentDynasty?.bowlEligibilityDataByYear, currentDynasty?.teams, isViewOnly, updateDynasty])
 
   // Restore new job state from saved dynasty data
   // If user declined in a previous week, reset so they can be asked again
