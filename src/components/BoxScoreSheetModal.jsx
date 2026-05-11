@@ -261,209 +261,93 @@ export default function BoxScoreSheetModal({
         opponentRoster: scoringOpponentRoster,
         rosterLabel: `${userIsHome ? homeTeamAbbr : awayTeamAbbr} ROSTER (user-controlled team — for team-assignment, see below)`,
         opponentRosterLabel: `${userIsHome ? awayTeamAbbr : homeTeamAbbr} ROSTER (opponent team — for team-assignment, see below)`,
-        structure: `This sheet holds the FULL play-by-play log for this game. Up to 300 rows × 13 columns. You will output ONE row per play, in chronological order (earliest first).
+        structure: `Output the full play-by-play of this game as 13-col TSV. One row per highlight line, chronological order (earliest first). Paste at cell A2 of the "Scoring Summary" tab.
 
 ═══════════════════════════════════════════════════════════
-THE JOB
+SPEED MODE — DO NOT DELIBERATE
 ═══════════════════════════════════════════════════════════
-For each highlight line on the CFB26 Highlights screen, output ONE row of 13 tab-separated structured atoms. NO prose. The frontend reconstructs the readable sentence ("2nd & 10 on UK 45. 25 yard rush by Donte Ware.") from your atoms.
+You are TRANSCRIBING what the screenshots literally say. You are NOT analyzing football, fact-checking, or reasoning about possessions. Treat each highlight line as ground truth and move on.
 
-The granular Play Type (col M) is the key: it encodes WHAT happened AND its result ("Pass Knocked Away", "Field Goal Missed", "Sack"). The frontend reads M plus the player names in B/C plus the yards in D and writes the natural-language line. You don't.
+Specifically, DO NOT:
+  ✗ Reconcile yardages ("does -2 make sense here?" — yes, write -2)
+  ✗ Cross-check player names against the roster on every play — the rosters are a lookup table ONLY for cases where CFB26 prints an abbreviated name (e.g. "K. Law"). Full names always go in verbatim, even if you don't see them in the roster block.
+  ✗ Think about which team has possession at any given moment — the simple rules below pin it down without further reasoning.
+  ✗ Double-check yourself or "verify" anything. Write the row and move to the next play.
 
-═══════════════════════════════════════════════════════════
-THE 13 COLUMNS
-═══════════════════════════════════════════════════════════
-Col | Header        | What to write
-----+---------------+----------------------------------------------------------
- A  | Team          | "${homeTeamAbbr}" or "${awayTeamAbbr}" — offensive team. Required.
- B  | Scorer        | PRIMARY PLAYER on the play (see "PLAYER PLACEMENT" below).
- C  | Passer        | QB on any pass play (complete, incomplete, sacked, INT, knocked away).
- D  | Yards         | Yards gained/lost on the play. For FGs: the FG distance.
- E  | Score Type    | ONLY when the play scores. Strict dropdown (see below). Blank otherwise.
- F  | PAT Result    | ONLY on TD rows when PAT outcome is visible. Strict dropdown. Blank otherwise.
- G  | Quarter       | "1"/"2"/"3"/"4"/"OT"/"2OT"/etc. Required.
- H  | Time Left     | MM:SS with leading zeros. Required.
- I  | Video Link    | Blank.
- J  | Down          | "1"/"2"/"3"/"4" if the line has a down prefix. Blank for kickoffs/PATs.
- K  | Distance      | Yards-to-go (number) or "Goal" (for "& Goal" lines). Blank if Down blank.
- L  | Field Pos     | "<TEAM_ABBR> <YARD>" copied verbatim from the prefix (e.g. "UK 45", "LOU 7").
- M  | Play Type     | Granular dropdown — encodes the play's result. See list below.
+You should be writing rows almost as fast as you can read the lines. If you catch yourself reasoning about football, STOP — just transcribe what the line says.
 
 ═══════════════════════════════════════════════════════════
-PLAY TYPE (col M) — pick the one that matches
+13 COLUMNS (TSV order — exactly 12 tabs per row)
 ═══════════════════════════════════════════════════════════
-  • "Rush"               — "X yard rush by [player]"
-  • "Pass Complete"      — "[QB] pass to [receiver] for X yards"
-  • "Pass Incomplete"    — "[QB] incomplete pass; intended for [receiver]"
-  • "Pass Knocked Away"  — "[QB] pass knocked away by [defender]"
-  • "Pass Intercepted"   — "[QB] pass intercepted by [defender]"
-  • "Sack"               — "[QB] sacked for a X yard loss"
-  • "Kickoff Return"     — "Kickoff on [yardline]. [player] returns kick for X yards"
-  • "Punt Return"        — "X yard punt return by [player]"
-  • "Field Goal Made"    — "[kicker] X yard field goal good"
-  • "Field Goal Missed"  — "[kicker] missed a X yard field goal"
-  • "PAT"                — "Extra point good/missed/blocked by [kicker]"
-  • "Penalty"            — any standalone penalty line
-  • "Fumble Recovery"    — "Fumble recovered by [player] for X yards"
-  • "Safety"             — a safety
-  • "Other"              — anything that doesn't fit
+A Team        — "${homeTeamAbbr}" or "${awayTeamAbbr}". The offensive team. Required.
+B Scorer      — the primary player named on the line. Required when one is named.
+C Passer      — QB. Required on any pass play (complete / incomplete / sacked / INT / knocked away).
+D Yards       — the yardage number the line states. Negative for losses & sacks. For FGs, the FG distance.
+E Score Type  — ONLY when the play scores. See list below. Blank otherwise.
+F PAT Result  — ONLY on TD rows when the PAT outcome is visible. Blank otherwise.
+G Quarter     — "1"/"2"/"3"/"4"/"OT"/"2OT"/etc. Required.
+H Time Left   — MM:SS with leading zeros. Required.
+I Video Link  — blank.
+J Down        — "1"/"2"/"3"/"4" if the line has "Nth & X" prefix. Blank for kickoffs/PATs.
+K Distance    — number or "Goal" (when the line says "& Goal"). Blank if J blank.
+L Field Pos   — copy verbatim from the prefix: "UK 45", "LOU 7", "MID 50".
+M Play Type   — see list below.
 
 ═══════════════════════════════════════════════════════════
-PLAYER PLACEMENT — who goes in col B (Scorer) and col C (Passer)
+PLAY TYPE (col M) — match by phrasing
 ═══════════════════════════════════════════════════════════
-Col B = the play's PRIMARY player. Col C = the QB on any pass play (even incomplete / sack / INT / knocked away).
-
-By Play Type:
-  • Rush                → B = ball carrier.                                          C = blank.
-  • Pass Complete       → B = receiver who caught it.                                 C = QB.
-  • Pass Incomplete     → B = intended receiver (after "intended for ...").           C = QB.
-  • Pass Knocked Away   → B = defender (after "knocked away by ...").                 C = QB.
-  • Pass Intercepted    → B = defender (after "intercepted by ...").                  C = QB.
-  • Sack                → B = blank.                                                  C = QB (the sacked player).
-  • Kickoff Return      → B = returner.                                               C = blank.
-  • Punt Return         → B = returner.                                               C = blank.
-  • Field Goal Made     → B = kicker.                                                 C = blank.
-  • Field Goal Missed   → B = kicker.                                                 C = blank.
-  • PAT                 → B = kicker (or scorer of 2-pt conversion).                  C = blank.
-  • Penalty             → B = blank (or the named penalty target if the line says so).C = blank.
-  • Fumble Recovery     → B = recovering player.                                      C = blank.
-  • Safety              → B = blank or defender if shown.                             C = blank.
-  • Other               → B = whoever the line names as primary.                      C = blank.
-
-If CFB26's highlight prints a full name, copy it VERBATIM. The roster blocks above are only a tiebreaker when CFB26 abbreviates a name. An opponent name that isn't in the roster block IS NOT a reason to blank the cell.
+"X yard rush by Y"                  → Rush             B=Y
+"X pass to Y for N yards"           → Pass Complete    B=Y      C=X
+"X incomplete pass; intended for Y" → Pass Incomplete  B=Y      C=X
+"X pass knocked away by Y"          → Pass Knocked Away B=Y     C=X
+"X pass intercepted by Y"           → Pass Intercepted B=Y      C=X
+"X sacked for a N yard loss"        → Sack             B=blank  C=X      D=-N
+"Kickoff on FP. Y returns kick…"    → Kickoff Return   B=Y      L=FP
+"N yard punt return by Y"           → Punt Return      B=Y
+"Y N yard field goal good"          → Field Goal Made  B=Y      D=N      E=Field Goal
+"Y missed a N yard field goal"      → Field Goal Missed B=Y     D=N
+"Extra point good by Y"             → PAT              B=Y      E=PAT    F=Made XP
+"Fumble recovered by Y for N yards" → Fumble Recovery  B=Y
+"…penalty against…"                 → Penalty
+"Safety"                            → Safety
+Anything else                       → Other
 
 ═══════════════════════════════════════════════════════════
-YARDS (col D)
+COL A (which team had the ball) — ONE-PASS RULES, NO RE-CHECKING
 ═══════════════════════════════════════════════════════════
-The number of yards the play gained or lost. Examples from the highlights:
+Look at the line. The PLAYER named tells you who's on offense:
+  • Rush / Pass / Sack / FG / PAT  → A = team of the player in B (or in C for sacks)
+  • Kickoff Return / Punt Return / Fumble Recovery → A = team of the returner / recoverer (B). Possession flipped on these — that's fine, don't second-guess.
 
-  • "25 yard rush by Donte Ware"             → D = 25
-  • "pass to Earl Whimper for 12 yards"      → D = 12
-  • "-2 yard rush by David Incognito"        → D = -2
-  • "sacked for a 10 yard loss"              → D = -10  (sacks are always negative)
-  • "6 yard punt return by Quincy Merchant"  → D = 6
-  • "missed a 27 yard field goal"            → D = 27   (the FG distance, even though it missed)
-  • "Fumble recovered ... for 0 yards"       → D = 0
-  • "10 yard penalty against the offense"    → D = 10   (penalty yardage)
-  • "incomplete pass"                        → D = 0    (or blank)
-  • "knocked away" / "intercepted"           → D = 0    (or blank)
-  • PAT row                                  → D = blank
+Look each name up in the rosters ONCE per game. After that, trust the assignment. Don't re-verify on every play.
 
 ═══════════════════════════════════════════════════════════
-DOWN / DISTANCE / FIELD POS (cols J, K, L)
+SCORE TYPE (col E) WHEN A PLAY SCORES
 ═══════════════════════════════════════════════════════════
-Most highlights start with "<Down> & <Distance> on <Field Pos>." Parse it:
+Rushing TD / Passing TD / Field Goal / Safety / Kick Return TD / Punt Return TD / INT Return TD / Fumble Return TD / Blocked Punt/FG TD / PAT
 
-  "1st & 10 on UK 25. ..."     → J="1", K="10",   L="UK 25"
-  "3rd & 5 on LOU 15. ..."     → J="3", K="5",    L="LOU 15"
-  "4th & 2 on LOU 40. ..."     → J="4", K="2",    L="LOU 40"
-  "1st & Goal on LOU 7. ..."   → J="1", K="Goal", L="LOU 7"
-  "2nd & Goal on UK 3. ..."    → J="2", K="Goal", L="UK 3"
-
-Lines WITHOUT a down-and-distance prefix (kickoffs / PATs): leave J and K blank, but still fill L from the line's "Kickoff on UK 35." / "PAT on LOU 3." prefix.
-
-Field Pos is descriptive of where the ball is on the field — it is NOT who has the ball. "1st & Goal on LOU 7" usually means the OPPOSING team is about to score against LOU. Always determine team-with-ball (col A) from the PLAYER named on the line, not from Field Pos.
+PAT Result (F) on TD rows only when visible: Made XP / Missed XP / Blocked XP / Converted 2PT / Failed 2PT
 
 ═══════════════════════════════════════════════════════════
-SCORE TYPE (col E) and PAT RESULT (col F) — scoring plays only
+ORDER + FORMAT
 ═══════════════════════════════════════════════════════════
-Fill E (and F where applicable) ONLY when the play scores. Leave both blank otherwise.
+CFB26's Highlights screen lists plays in reverse-chronological order (lowest time at the top). Output them CHRONOLOGICALLY (earliest first). Within a quarter: bottom of the screenshot first. Q1 → Q2 → Q3 → Q4 → OT.
 
-  • Rushing TD             → E = "Rushing TD",        Play Type M = "Rush"
-  • Passing TD             → E = "Passing TD",        Play Type M = "Pass Complete"
-  • Field Goal made        → E = "Field Goal",        Play Type M = "Field Goal Made"
-  • Safety                 → E = "Safety",            Play Type M = "Safety"
-  • Kickoff Return TD      → E = "Kick Return TD",    Play Type M = "Kickoff Return"
-  • Punt Return TD         → E = "Punt Return TD",    Play Type M = "Punt Return"
-  • INT Return TD          → E = "INT Return TD",     Play Type M = "Pass Intercepted"
-  • Fumble Return TD       → E = "Fumble Return TD",  Play Type M = "Fumble Recovery"
-  • Blocked Punt/FG TD     → E = "Blocked Punt/FG TD", Play Type M = "Other"
-
-F (PAT Result) on TD rows only when the PAT outcome is visible. Strict dropdown: "Made XP" / "Missed XP" / "Blocked XP" / "Converted 2PT" / "Failed 2PT". Leave blank if not visible. Field goals and safeties: F is always blank.
+Output is one TSV block. No header row. No prose. No checklist. No commentary. Just rows.
 
 ═══════════════════════════════════════════════════════════
-WHAT YOU ARE LOOKING AT
+TWO REFERENCE ROWS (use these as templates)
 ═══════════════════════════════════════════════════════════
-CFB26's "Highlights" screen shows every play, one quarter per screenshot, in REVERSE chronological order — the play with LOWEST time remaining is at the TOP of the list. Output orders plays CHRONOLOGICALLY (earliest first). Within a quarter: BOTTOM of the screenshot is output FIRST. Across quarters: Q1 → Q2 → Q3 → Q4 → OT.
+"2nd & 10 on UK 45. 25 yard rush by Donte Ware."
+→ UK	Donte Ware		25				2	09:42		2	10	UK 45	Rush
 
-The user typically uploads multiple screenshots — one per quarter. Walk each screenshot bottom-to-top, then move to the next quarter.
+"3rd & 5 on LOU 10. Donte Ware pass knocked away by Larry Long."
+→ UK	Larry Long	Donte Ware	0				2	12:00		3	5	LOU 10	Pass Knocked Away
 
-═══════════════════════════════════════════════════════════
-TEAM (col A) — which team had the ball
-═══════════════════════════════════════════════════════════
-Use the rosters above:
+(A=UK on the second row because UK was on offense — Donte Ware is UK's QB. Larry Long is the LOU defender who made the play, but A is the offensive team.)
 
-  • Name on ${userIsHome ? homeTeamAbbr : awayTeamAbbr} roster → A = "${userIsHome ? homeTeamAbbr : awayTeamAbbr}"
-  • Name on ${userIsHome ? awayTeamAbbr : homeTeamAbbr} roster → A = "${userIsHome ? awayTeamAbbr : homeTeamAbbr}"
-
-For defensive plays (Pass Knocked Away / Pass Intercepted / Sack / Fumble Recovery), col A is still the OFFENSIVE team (the team that had possession when the play began). The defender in B is on the OTHER team.
-
-═══════════════════════════════════════════════════════════
-RULES
-═══════════════════════════════════════════════════════════
-1. ONE ROW PER PLAY. Up to 300 rows.
-2. CHRONOLOGICAL ORDER. Earliest play first.
-3. EVERY row: Team (A), Quarter (G), Time Left (H) filled.
-4. EXACTLY 13 tab-separated values per row (12 tabs). Paste at cell A2.
-5. No header row. No commentary. SINGLE TSV block.
-6. No commas in numbers. Time Left uses MM:SS with leading zeros.
-
-═══════════════════════════════════════════════════════════
-REQUIRED OUTPUT FORMAT
-═══════════════════════════════════════════════════════════
 === ALL PLAYS — paste at cell A2 of "Scoring Summary" tab ===
-<Team>\\t<Scorer>\\t<Passer>\\t<Yards>\\t<Score Type>\\t<PAT Result>\\t<Quarter>\\t<Time Left>\\t<Video Link>\\t<Down>\\t<Distance>\\t<Field Pos>\\t<Play Type>
-... one row per play, chronological
-
-(Each \\t is a LITERAL TAB.)
-
-═══════════════════════════════════════════════════════════
-EXAMPLES — taken directly from the kind of screenshot you'll see
-═══════════════════════════════════════════════════════════
-Highlight: "2nd & 10 on UK 45. 25 yard rush by Donte Ware."
-Row:       UK<TAB><TAB>Donte Ware<TAB><TAB>25<TAB><TAB><TAB>2<TAB>09:42<TAB><TAB>2<TAB>10<TAB>UK 45<TAB>Rush
-                                                                                                    (proper layout: A=UK B=Donte Ware C=blank D=25 E=blank F=blank G=2 H=09:42 I=blank J=2 K=10 L=UK 45 M=Rush)
-
-Highlight: "1st & 10 on UK 45. Donte Ware incomplete pass; intended for Frank Hall."
-Row atoms: A=UK B=Frank Hall C=Donte Ware D=0 E=blank F=blank G=2 H=09:44 I=blank J=1 K=10 L=UK 45 M=Pass Incomplete
-
-Highlight: "3rd & 5 on LOU 10. Donte Ware pass knocked away by Larry Long."
-Row atoms: A=UK B=Larry Long C=Donte Ware D=0 E=blank F=blank G=2 H=12:00 I=blank J=3 K=5 L=LOU 10 M=Pass Knocked Away
-(Note: col A is still UK — UK had the ball — even though the player named in col B is on LOU)
-
-Highlight: "2nd & 13 on LOU 38. Edward Reed sacked for a 10 yard loss."
-Row atoms: A=LOU B=blank C=Edward Reed D=-10 E=blank F=blank G=1 H=01:44 I=blank J=2 K=13 L=LOU 38 M=Sack
-
-Highlight: "Kickoff on UK 35. Jason Cummings returns kick for 19 yards."
-Row atoms: A=LOU B=Jason Cummings C=blank D=19 E=blank F=blank G=1 H=03:16 I=blank J=blank K=blank L=UK 35 M=Kickoff Return
-(LOU is receiving the kick — Jason Cummings is on LOU's roster)
-
-Highlight: "4th & 5 on LOU 10. Sam Cage missed a 27 yard field goal."
-Row atoms: A=UK B=Sam Cage C=blank D=27 E=blank F=blank G=2 H=11:55 I=blank J=4 K=5 L=LOU 10 M=Field Goal Missed
-
-Highlight: "2nd & Goal on LOU 7. 7 yard rush by Frank Hall for a TD."
-Row atoms: A=UK B=Frank Hall C=blank D=7 E=Rushing TD F=Made XP G=1 H=03:18 I=blank J=2 K=Goal L=LOU 7 M=Rush
-(F = Made XP only if the next row says the PAT was good; otherwise blank and you'll get a separate PAT row)
-
-Highlight: "PAT on LOU 3. Extra point good by Sam Cage."
-Row atoms: A=UK B=Sam Cage C=blank D=blank E=PAT F=Made XP G=1 H=03:16 I=blank J=blank K=blank L=LOU 3 M=PAT
-(If the previous TD row already encoded the PAT in its F col, this standalone PAT row can be omitted.)
-
-Highlight: "3rd & 23 on LOU 29. Fumble recovered by Ezekiel Chanoine for 0 yards."
-Row atoms: A=UK B=Ezekiel Chanoine C=blank D=0 E=blank F=blank G=1 H=01:04 I=blank J=3 K=23 L=LOU 29 M=Fumble Recovery
-(Determine col A from which team's player recovered — fumble recoveries flip possession.)
-
-═══════════════════════════════════════════════════════════
-FINAL CHECK
-═══════════════════════════════════════════════════════════
-[ ] One row per play. Chronological order (Q1 first, OT last).
-[ ] 13 tab-separated values per row (12 tabs).
-[ ] Team (A), Quarter (G), Time Left (H) filled on every row.
-[ ] Play Type (M) uses ONLY the granular dropdown values listed above.
-[ ] Players placed per the PLAYER PLACEMENT table (Pass Knocked Away → defender in B, etc.).
-[ ] Down/Distance/Field Pos populated whenever the line has the "& on" prefix.
-[ ] Score Type (E) filled ONLY when the play actually scores.
-[ ] No commas in numbers. No header row. No commentary.`,
+<TSV here, no preamble>`,
         includeTeamMap: true,
         dynastyTeams: currentDynasty?.teams,
       })
