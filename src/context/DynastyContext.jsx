@@ -484,7 +484,7 @@ export function createOrUpdateCFPGameShells(existingGames, seedsWithTid, year, b
  *
  * @param {Array}  existingGames - Current games array from dynasty
  * @param {Object} params
- * @param {string} params.bowlName  - Full bowl name (e.g. "Bahamas Bowl")
+ * @param {string} params.bowlName  - Full bowl name (e.g. "Xbox Bowl")
  * @param {number} params.year      - Dynasty year (e.g. 2030)
  * @param {number} params.userTid   - User's team tid (offensive side, team1)
  * @param {number} params.opponentTid - Opponent team tid
