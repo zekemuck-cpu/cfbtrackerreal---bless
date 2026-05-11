@@ -12226,10 +12226,10 @@ export async function createScoringSummarySheet(homeTeamAbbr, awayTeamAbbr, year
 
 // Pre-fill scoring summary sheet with existing data.
 //
-// The sheet has 15 cols (A-O): legacy 9-col scoring schema (A-I)
-// plus play-by-play extension (J-O). Existing dynasty data only
-// populates A-I; that's expected and the J-O cells stay empty for
-// those rows. New all-plays data populates all 15.
+// The sheet has 13 cols (A-M): legacy 9-col scoring schema (A-I)
+// plus play-by-play extension (J-M). Existing dynasty data only
+// populates A-I; that's expected and the J-M cells stay empty for
+// those rows. New all-plays data populates all 13.
 async function prefillScoringSummaryData(spreadsheetId, accessToken, scoringData) {
   if (!scoringData || scoringData.length === 0) return
 
@@ -12244,22 +12244,18 @@ async function prefillScoringSummaryData(spreadsheetId, accessToken, scoringData
     play.quarter || '',
     play.timeLeft || '',
     play.videoLink || '',
-    // J-N — play-by-play extension. `description` is the new
-    // single-column home for the play's natural-language text;
-    // we accept the old `notes` or `outcome` field as a fallback
-    // for legacy data that hasn't been re-synced under the new
-    // schema yet.
+    // J-M — play-by-play extension. Pure atoms; the frontend
+    // reconstructs the highlight string from these + A-I.
     play.down || '',
     play.distance || '',
     play.fieldPos || '',
     play.playType || '',
-    play.description || play.notes || play.outcome || '',
   ])
 
   // Write data to sheet starting at row 2 (after headers). Range
-  // covers all 14 cols A-N; legacy rows just send empty strings for
+  // covers all 13 cols A-M; legacy rows just send empty strings for
   // the new cols.
-  const range = `'${SCORING_SUMMARY.title}'!A2:N${rows.length + 1}`
+  const range = `'${SCORING_SUMMARY.title}'!A2:M${rows.length + 1}`
   const response = await fetchWithTimeout(
     `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
     {
@@ -12516,13 +12512,6 @@ async function initializeScoringSummarySheet(spreadsheetId, accessToken, sheetId
     }
   })
 
-  // Description column (N, index 13) has no dropdown — it's freeform
-  // natural-language play text. The earlier schema had an Outcome
-  // dropdown here, which the AI struggled to fill consistently
-  // because outcomes overlap with information already in the
-  // description (1st Down / Incomplete / TD all derivable from the
-  // play text). Removed entirely.
-
   // Add conditional formatting for team colors
   const teamFormattingRules = generateScoringTeamFormattingRules(sheetId, homeTeamAbbr, awayTeamAbbr, SCORING_SUMMARY.rowCount, dynastyTeams)
   requests.push(...teamFormattingRules)
@@ -12671,23 +12660,23 @@ export async function readGameBoxScoreFromSheet(spreadsheetId, dynastyTeams = nu
 // fields are populated to decide what to render (Scores Only checkbox).
 //
 // Back-compat: old 9-col sheets only have data through col I; cols
-// J-N come back empty for those rows. Old 30-row sheets only have
+// J-M come back empty for those rows. Old 30-row sheets only have
 // data through row 31; rows 32-301 come back empty. The Google Sheets
 // API gracefully truncates a read range that exceeds the grid bounds,
-// so reading A2:N301 against an old 9-col/30-row sheet returns the
+// so reading A2:M301 against an old 9-col/30-row sheet returns the
 // rows that exist with the cols that exist — no error.
 //
-// Old 15-col sheets (from the brief earlier schema with separate
-// Outcome and Notes columns) read fine too: we now stop at col N,
-// so the old col-O Notes data is dropped on the next sync. Old col-N
-// Outcome data is picked up as the new Description field, which is
-// inaccurate but harmless until the user regenerates.
+// Older 14-col sheets (with a Description column at N) and 15-col
+// sheets (with separate Outcome + Notes cols at N/O) read fine too:
+// we now stop at col M, so any col-N+ data on legacy sheets is
+// silently dropped on the next sync. The frontend reconstructs the
+// highlight string from the structured atoms in A-M instead.
 export async function readScoringSummaryFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
-    // Read all 14 cols × 300 data rows.
-    const range = `'${SCORING_SUMMARY.title}'!A2:N${SCORING_SUMMARY.rowCount + 1}`
+    // Read all 13 cols × 300 data rows.
+    const range = `'${SCORING_SUMMARY.title}'!A2:M${SCORING_SUMMARY.rowCount + 1}`
     const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`,
       {
@@ -12718,10 +12707,10 @@ export async function readScoringSummaryFromSheet(spreadsheetId, dynastyTeams = 
     //
     // Critical: scoring-play detection here is via column E
     // (Score Type) and column F (PAT Result, for 2PT), NEVER via
-    // column N (Outcome). That keeps scoring-only users on the same
-    // strict filter the old reader used. PBP-only rows are accepted
-    // via the playType / down / scorer signals — all-plays uploads
-    // populate at least one of those on every row.
+    // column M (Play Type). That keeps scoring-only users on the
+    // same strict filter the old reader used. PBP-only rows are
+    // accepted via the playType / down / scorer signals — all-plays
+    // uploads populate at least one of those on every row.
     return rows
       .filter(row => {
         const hasTeam = row[0] && row[0].trim()
@@ -12752,13 +12741,12 @@ export async function readScoringSummaryFromSheet(spreadsheetId, dynastyTeams = 
         quarter: (row[6] || '').trim(),
         timeLeft: (row[7] || '').trim(),
         videoLink: (row[8] || '').trim(),
-        // Play-by-play extension (J-N). Empty strings on legacy
+        // Play-by-play extension (J-M). Empty strings on legacy
         // sheets / scoring-only rows; populated on all-plays rows.
         down: (row[9] || '').trim(),
         distance: (row[10] || '').trim(),
         fieldPos: (row[11] || '').trim(),
         playType: (row[12] || '').trim(),
-        description: (row[13] || '').trim(),
       }))
   } catch (error) {
     console.error('Error reading scoring summary:', error)

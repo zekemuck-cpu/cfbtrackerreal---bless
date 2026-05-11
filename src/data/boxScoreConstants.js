@@ -115,13 +115,13 @@ export function computeUnifiedTabLayout() {
 //   • Scoring-only entry — user fills only cols A-I, the legacy 9-col
 //     shape. Existing dynasties' sheets work unchanged with this subset.
 //   • Full play-by-play entry — user (or the all-plays AI prompt) fills
-//     all 15 cols across up to 300 rows.
+//     all 13 cols across up to 300 rows.
 //
 // The backend stores whatever the user filled per row. There is no
 // "mode" — the display layer filters by which columns are populated
 // to decide what to show ("Scores Only" checkbox vs. full PBP view).
 //
-// Cols J-O are the play-by-play extension. They're empty for users
+// Cols J-M are the play-by-play extension. They're empty for users
 // who only enter scoring data; the existing display code reads cols
 // A-I and ignores the rest.
 export const SCORING_SUMMARY = {
@@ -130,7 +130,10 @@ export const SCORING_SUMMARY = {
     // Cols A-I — legacy 9-col scoring summary shape. KEEP THESE
     // INDICES STABLE. Existing dynasties' data and the existing
     // display code in Game.jsx assume these positions. Scoring-only
-    // users only ever fill these nine columns.
+    // users only ever fill these nine columns. In all-plays mode the
+    // AI also fills these where applicable (B = primary player on
+    // any play; C = passer on pass plays; D = yards; E/F = only when
+    // the play actually scores).
     'Team',         // A
     'Scorer',       // B
     'Passer',       // C
@@ -140,24 +143,17 @@ export const SCORING_SUMMARY = {
     'Quarter',      // G
     'Time Left',    // H
     'Video Link',   // I
-    // Cols J-N — play-by-play extension. Optional. Filled by the
-    // all-plays AI prompt; left blank by scoring-only users.
-    //
-    // The earlier 15-col version had separate Outcome and Notes
-    // columns; the AI consistently confused which player went
-    // where (jamming the QB into both Scorer and Passer, the
-    // receiver into Notes, the outcome into yet another col).
-    // Replaced with a single Description column holding the
-    // verbatim play text from the CFB26 highlight — same source
-    // the user sees on screen. The AI's job is now: read the
-    // line, extract Down/Distance/Field Pos/Play Type, copy the
-    // rest into Description. Player names live in Description
-    // where they belong.
+    // Cols J-M — play-by-play extension. Pure structured atoms; the
+    // frontend reconstructs the natural-language highlight string
+    // ("2nd & 10 on UK 45. 25 yard rush by Donte Ware.") from these
+    // four cols plus A-I. No prose column. The granular Play Type
+    // taxonomy carries the play's result inline (Pass Knocked Away,
+    // Field Goal Missed, etc.) so we don't need a separate outcome
+    // or description column.
     'Down',         // J — 1 / 2 / 3 / 4 (blank for kickoffs, PATs)
-    'Distance',     // K — yards-to-go, or "G" for goal
-    'Field Pos',    // L — e.g. "LOU 7" or "UK 39" (descriptive yard line)
-    'Play Type',    // M — Rush / Pass / Sack / Kickoff / Punt / FG / Penalty / Other
-    'Description',  // N — verbatim play description ("Edward Reed pass to Melvin Rugan for 31 yards")
+    'Distance',     // K — number, "Goal", or blank
+    'Field Pos',    // L — "UK 45" or "LOU 7" (combined side + yard line)
+    'Play Type',    // M — granular taxonomy (see PLAY_TYPES below)
   ],
   rowCount: 300,
 }
@@ -194,20 +190,26 @@ export const QUARTERS = ['1', '2', '3', '4', 'OT', '2OT', '3OT', '4OT']
 export const DOWNS = ['', '1', '2', '3', '4']
 
 // Play Type dropdown options (col M — for play-by-play rows).
-// Coarser than the prior version on purpose: the play's outcome
-// (1st Down / TD / Incomplete / etc.) is in the Description column
-// already, so Play Type only needs to capture the BROAD category
-// (run / pass / kick / etc.) for filtering and drive parsing.
+// Granular taxonomy. Encodes the play's RESULT into the type itself
+// (Pass Knocked Away, Field Goal Missed, etc.) so the frontend can
+// reconstruct the full highlight string from this + the player atoms
+// in cols A-I, with no prose/description column needed.
 export const PLAY_TYPES = [
   '',
   'Rush',
-  'Pass',
+  'Pass Complete',
+  'Pass Incomplete',
+  'Pass Knocked Away',
+  'Pass Intercepted',
   'Sack',
-  'Kickoff',
-  'Punt',
-  'Field Goal',
+  'Kickoff Return',
+  'Punt Return',
+  'Field Goal Made',
+  'Field Goal Missed',
   'PAT',
   'Penalty',
+  'Fumble Recovery',
+  'Safety',
   'Other',
 ]
 

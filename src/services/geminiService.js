@@ -3914,10 +3914,14 @@ ${flowLines.join('\n')}`
       return `${ord} & ${dist}`
     }
 
-    // Compact one-line play description. Prefers the new Description
-    // column for non-scoring plays (verbatim CFB26 highlight text).
-    // For scoring plays, leads with the score type so the "this play
-    // scored" signal is preserved.
+    // Compact one-line play description. Reconstructs the play's
+    // natural-language sentence from the structured atoms (Play Type
+    // + scorer/passer/yards). For scoring rows, leads with the score
+    // type so the "this play scored" signal is preserved.
+    //
+    // Legacy fallback: games saved under the previous schema may
+    // still carry a `description` / `outcome` / `notes` field. If
+    // atom assembly produces nothing, use that text.
     const fmtPlayDesc = (play) => {
       const isScoring = isScoringPlay(play)
       const scoreType = (play.scoreType || '').trim()
@@ -3925,10 +3929,10 @@ ${flowLines.join('\n')}`
       const yards = (play.yards || '').toString().trim()
       const primary = (play.scorer || '').trim()
       const secondary = (play.passer || '').trim()
+      const playType = (play.playType || '').trim()
 
-      // For scoring rows, lead with the score type. The PBP section
-      // doesn't want to lose the "this play scored" signal even if the
-      // user also filled the Description column.
+      // For scoring rows, lead with the score type — concise,
+      // explicitly flags the play as a score for downstream prompts.
       if (isScoring && scoreType) {
         const yardClause = yards ? `${yards} yd` : ''
         const passFrom = secondary ? ` from ${secondary}` : ''
@@ -3936,13 +3940,81 @@ ${flowLines.join('\n')}`
         return `${yardClause ? yardClause + ' ' : ''}${scoreType}: ${primary}${passFrom}${pat}`.trim()
       }
 
-      // Non-scoring play: prefer the Description column. Fall back
-      // to assembling from legacy fields when the row was entered
-      // under the old 15-col schema.
+      // Non-scoring play: reconstruct sentence from atoms. The
+      // granular Play Type taxonomy ("Pass Knocked Away", "Field
+      // Goal Missed", etc.) tells us the template.
+      const yardsNum = Number(yards)
+      const yardsAbs = Number.isFinite(yardsNum) ? Math.abs(yardsNum) : null
+      const isTD = /TD/i.test(scoreType)
+      let sentence = ''
+      switch (playType) {
+        case 'Rush':
+          if (primary) {
+            sentence = yards ? `${yards} yard rush by ${primary}` : `Rush by ${primary}`
+            if (isTD) sentence += ` for a TD`
+          }
+          break
+        case 'Pass Complete':
+          if (secondary) {
+            sentence = primary && yards ? `${secondary} pass to ${primary} for ${yards} yards` : (primary ? `${secondary} pass to ${primary}` : `${secondary} pass complete`)
+            if (isTD) sentence += ` for a TD`
+          }
+          break
+        case 'Pass Incomplete':
+          sentence = secondary ? (primary ? `${secondary} incomplete pass; intended for ${primary}` : `${secondary} incomplete pass`) : ''
+          break
+        case 'Pass Knocked Away':
+          sentence = secondary ? (primary ? `${secondary} pass knocked away by ${primary}` : `${secondary} pass knocked away`) : ''
+          break
+        case 'Pass Intercepted':
+          sentence = secondary ? (primary ? `${secondary} pass intercepted by ${primary}` : `${secondary} pass intercepted`) : ''
+          break
+        case 'Sack':
+          sentence = secondary ? (yardsAbs != null ? `${secondary} sacked for a ${yardsAbs} yard loss` : `${secondary} sacked`) : ''
+          break
+        case 'Kickoff Return':
+          sentence = primary ? (yards ? `${primary} returns kick for ${yards} yards` : `${primary} returns kick`) : ''
+          break
+        case 'Punt Return':
+          sentence = primary ? (yards ? `${yards} yard punt return by ${primary}` : `Punt return by ${primary}`) : ''
+          break
+        case 'Field Goal Made':
+          sentence = primary ? (yards ? `${primary} ${yards} yard field goal good` : `${primary} field goal good`) : ''
+          break
+        case 'Field Goal Missed':
+          sentence = primary ? (yards ? `${primary} missed a ${yards} yard field goal` : `${primary} missed a field goal`) : ''
+          break
+        case 'PAT': {
+          const pat = patResult.toLowerCase()
+          const result = pat.includes('made') ? 'good' : pat.includes('missed') ? 'no good' : pat.includes('blocked') ? 'blocked' : pat.includes('converted') ? 'converted (2PT)' : pat.includes('failed') ? 'failed (2PT)' : 'good'
+          sentence = primary ? `Extra point ${result} by ${primary}` : `Extra point ${result}`
+          break
+        }
+        case 'Penalty':
+          sentence = yards ? `Penalty for ${yards} yards` : 'Penalty'
+          break
+        case 'Fumble Recovery':
+          sentence = primary ? (yards ? `Fumble recovered by ${primary} for ${yards} yards` : `Fumble recovered by ${primary}`) : ''
+          break
+        case 'Safety':
+          sentence = primary ? `Safety on ${primary}` : 'Safety'
+          break
+        default: {
+          // Unknown / legacy play type — synthesize something readable.
+          const parts = []
+          if (playType) parts.push(playType)
+          if (primary && secondary) parts.push(`${primary} → ${secondary}`)
+          else if (primary) parts.push(primary)
+          if (yards) parts.push(`${yards} yd`)
+          sentence = parts.join(' · ')
+        }
+      }
+
+      if (sentence) return sentence
+
+      // Legacy fallback — games stored under the previous schema.
       const desc = (play.description || '').trim()
       if (desc) return desc
-
-      const playType = (play.playType || '').trim()
       const outcome = (play.outcome || '').trim()
       const notes = (play.notes || '').trim()
       const parts = []

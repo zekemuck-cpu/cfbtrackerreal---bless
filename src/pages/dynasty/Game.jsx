@@ -180,6 +180,87 @@ const defaultColors = {
   secondary: '#f3f4f6'   // Gray-100
 }
 
+// Reconstruct a natural-language play description from the structured
+// atoms produced by the all-plays AI prompt. The granular Play Type
+// (Pass Knocked Away / Field Goal Missed / etc.) tells us which
+// sentence template to use; player names come from B (scorer) and C
+// (passer); yards from D; TD flag from E.
+function buildHighlightSentence(play) {
+  const primary = (play.scorer || '').trim()
+  const passer = (play.passer || '').trim()
+  const playType = (play.playType || '').trim()
+  const scoreType = (play.scoreType || '').trim()
+  const isTD = /TD/i.test(scoreType)
+  const rawYards = play.yards
+  const yardsStr = rawYards !== undefined && rawYards !== null && rawYards !== '' ? String(rawYards) : ''
+  const yardsNum = Number(yardsStr)
+  const yardsAbs = Number.isFinite(yardsNum) ? Math.abs(yardsNum) : null
+
+  switch (playType) {
+    case 'Rush': {
+      if (!primary) return ''
+      const base = yardsStr ? `${yardsStr} yard rush by ${primary}` : `Rush by ${primary}`
+      return isTD ? `${base} for a TD` : base
+    }
+    case 'Pass Complete': {
+      if (!passer || !primary) return ''
+      const base = yardsStr ? `${passer} pass to ${primary} for ${yardsStr} yards` : `${passer} pass to ${primary}`
+      return isTD ? `${base} for a TD` : base
+    }
+    case 'Pass Incomplete':
+      if (!passer) return ''
+      return primary ? `${passer} incomplete pass; intended for ${primary}` : `${passer} incomplete pass`
+    case 'Pass Knocked Away':
+      if (!passer) return ''
+      return primary ? `${passer} pass knocked away by ${primary}` : `${passer} pass knocked away`
+    case 'Pass Intercepted':
+      if (!passer) return ''
+      return primary ? `${passer} pass intercepted by ${primary}` : `${passer} pass intercepted`
+    case 'Sack':
+      if (!passer) return ''
+      return yardsAbs != null ? `${passer} sacked for a ${yardsAbs} yard loss` : `${passer} sacked`
+    case 'Kickoff Return':
+      if (!primary) return ''
+      return yardsStr ? `${primary} returns kick for ${yardsStr} yards` : `${primary} returns kick`
+    case 'Punt Return':
+      if (!primary) return ''
+      return yardsStr ? `${yardsStr} yard punt return by ${primary}` : `Punt return by ${primary}`
+    case 'Field Goal Made':
+      if (!primary) return ''
+      return yardsStr ? `${primary} ${yardsStr} yard field goal good` : `${primary} field goal good`
+    case 'Field Goal Missed':
+      if (!primary) return ''
+      return yardsStr ? `${primary} missed a ${yardsStr} yard field goal` : `${primary} missed a field goal`
+    case 'PAT': {
+      const pat = (play.patResult || '').toLowerCase()
+      const result = pat.includes('made') ? 'good'
+        : pat.includes('missed') ? 'no good'
+        : pat.includes('blocked') ? 'blocked'
+        : pat.includes('converted') ? 'converted (2PT)'
+        : pat.includes('failed') ? 'failed (2PT)'
+        : 'good'
+      return primary ? `Extra point ${result} by ${primary}` : `Extra point ${result}`
+    }
+    case 'Penalty':
+      return yardsStr ? `Penalty for ${yardsStr} yards` : 'Penalty'
+    case 'Fumble Recovery':
+      if (!primary) return ''
+      return yardsStr ? `Fumble recovered by ${primary} for ${yardsStr} yards` : `Fumble recovered by ${primary}`
+    case 'Safety':
+      return primary ? `Safety on ${primary}` : 'Safety'
+    case 'Other':
+    case '':
+    default: {
+      const parts = []
+      if (playType && playType !== 'Other') parts.push(playType)
+      if (primary && passer) parts.push(`${passer} → ${primary}`)
+      else if (primary) parts.push(primary)
+      if (yardsStr) parts.push(`${yardsStr} yds`)
+      return parts.join(' · ')
+    }
+  }
+}
+
 export default function Game() {
   const { id, gameId } = useParams()
   const navigate = useNavigate()
@@ -2253,40 +2334,30 @@ export default function Game() {
               return drive
             }
 
-            // Compact rendering for a non-scoring play row (used in
-            // both the unchecked "show all plays" view and inside the
-            // expanded-drive sub-rows).
+            // Compact rendering for a non-scoring play row. The frontend
+            // reconstructs a natural-language sentence from the play's
+            // structured atoms (Play Type + scorer/passer/yards/score
+            // type). The granular Play Type taxonomy ("Pass Knocked
+            // Away", "Field Goal Missed", etc.) tells us which sentence
+            // template to use.
             //
-            // Reads from the new single Description column. Falls back
-            // to the legacy {playType, scorer, passer, yards, outcome,
-            // notes} shape for data entered under the old 15-col
-            // schema — those values are stitched together into a
-            // single line so old games still render cleanly.
+            // Legacy fallback: games saved before the schema migration
+            // may still carry a `description` field. If atom assembly
+            // produces nothing, use that text instead.
             const renderPBPRow = (play, key) => {
               const resolved = resolvePlayTeamData(play)
               const colors = resolved.colors
                 || getTeamColorsRobust(resolved.abbr)
                 || { primary: '#666', secondary: '#333' }
               const isLeft = isPlayOnLeftSide(play)
-              const dist = play.distance === 'G' ? 'Goal' : play.distance
-              const downDist = play.down ? `${play.down}${play.down === '1' ? 'st' : play.down === '2' ? 'nd' : play.down === '3' ? 'rd' : 'th'}${dist ? ` & ${dist}` : ''}` : ''
+              const dist = (play.distance || '').toString().trim()
+              const distLabel = dist === 'G' ? 'Goal' : dist
+              const downDist = play.down ? `${play.down}${play.down === '1' ? 'st' : play.down === '2' ? 'nd' : play.down === '3' ? 'rd' : 'th'}${distLabel ? ` & ${distLabel}` : ''}` : ''
 
-              // Prefer the new Description column. If absent, fall
-              // back to assembling from legacy fields so old data
-              // still reads naturally.
-              let body = (play.description || '').trim()
-              if (!body) {
-                const parts = []
-                if (play.playType) parts.push(play.playType)
-                const primary = play.scorer || ''
-                const secondary = play.passer || ''
-                if (primary && secondary) parts.push(`${primary} → ${secondary}`)
-                else if (primary) parts.push(primary)
-                if (play.yards) parts.push(`${play.yards} yd${Math.abs(Number(play.yards)) === 1 ? '' : 's'}`)
-                if (play.outcome) parts.push(play.outcome)
-                if (play.notes) parts.push(play.notes)
-                body = parts.join(' · ')
-              }
+              const body = buildHighlightSentence(play)
+                || (play.description || '').trim()
+                || (play.outcome || '').trim()
+                || (play.notes || '').trim()
 
               return (
                 <div key={key} className="flex items-stretch text-[11px] sm:text-xs">
