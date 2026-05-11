@@ -2,17 +2,21 @@
  * CFP projection — pure snapshot of where the 12-team field would
  * land if the regular season ended today.
  *
- * Selection rules (intentionally simple — no Monte Carlo, no
- * future-game simulation):
+ * Selection rules (mirrors the EA CFB 26 / official CFP logic so the
+ * dynasty tracker bracket matches the in-game bracket at all times):
  *
  *   1. P4 champions (4) — for each of ACC, Big Ten, Big 12, SEC,
  *      pick the team currently leading the conference standings
  *      (best conf record, falling back to overall record, point diff,
- *      and finally national rank). When no conference game has been
- *      played yet, the highest-ranked team in the conference becomes
- *      the projected champion.
- *   2. G6 auto-bid (1) — the highest-ranked team across the American,
- *      Conference USA, MAC, Mountain West, Pac-12, and Sun Belt.
+ *      and finally national rank).
+ *   2. G6 auto-bid (1) — pick the leader of each of the six G5
+ *      conferences (American, Conference USA, MAC, Mountain West,
+ *      Pac-12, Sun Belt) using the same standings logic, then take
+ *      the highest-ranked among those six leaders. NOT the highest-
+ *      ranked G6 team overall — that variant put Boise State (a
+ *      ranked-but-non-champion G6 team) into the bracket while EA
+ *      correctly seeded Louisiana (lower-ranked but a Sun Belt
+ *      champion).
  *   3. At-large bids (7) — the next 7 highest-ranked teams not
  *      already in.
  *   4. Seed 1-12 strictly by national ranking.
@@ -95,11 +99,11 @@ export function buildCFPProjection(dynasty, year) {
     return null
   }
 
-  // For each P4 conference: pull the leader from the live conference
+  // For any conference: pull the leader from the live conference
   // standings (best conf record, then overall, then point diff). Fall
   // back to the highest-ranked team in the conference when no
   // conference games have been played yet.
-  const pickP4Champ = (conf) => {
+  const pickConfChamp = (conf) => {
     const teamAbbrs = Array.isArray(confMap[conf]) ? confMap[conf] : []
     if (teamAbbrs.length === 0) return null
     const standings = teamAbbrs.map(abbr => {
@@ -145,27 +149,35 @@ export function buildCFPProjection(dynasty, year) {
     const leader = standings[0]
     if (!leader) return null
     const rank = leader.rank === Infinity ? null : leader.rank
-    return { team: leader.abbr, tid: leader.tid, rank, conference: conf, bid: 'p4-champ' }
+    return { team: leader.abbr, tid: leader.tid, rank, conference: conf }
   }
 
   const used = new Set()
   const projected = []
 
   for (const conf of P4_CONFERENCES) {
-    const champ = pickP4Champ(conf)
+    const champ = pickConfChamp(conf)
     if (champ && !used.has(champ.team)) {
-      projected.push(champ)
+      projected.push({ ...champ, bid: 'p4-champ' })
       used.add(champ.team)
     }
   }
 
-  // G6 auto-bid — highest-ranked G6 team.
-  const g6Champ = rankings.find(r => {
-    const c = conferenceOf(r.team)
-    return c && G6_CONFERENCES.includes(c) && !used.has(r.team)
-  })
+  // G6 auto-bid — highest-ranked G5 conference *champion*, not the
+  // highest-ranked G5 team overall. Compute each G6 conference's
+  // leader the same way the P4 champs were picked, then take the
+  // top-ranked among those six leaders.
+  let g6Champ = null
+  for (const conf of G6_CONFERENCES) {
+    const leader = pickConfChamp(conf)
+    if (!leader || used.has(leader.team)) continue
+    if (g6Champ == null) { g6Champ = leader; continue }
+    const a = leader.rank ?? Infinity
+    const b = g6Champ.rank ?? Infinity
+    if (a < b) g6Champ = leader
+  }
   if (g6Champ) {
-    projected.push({ ...g6Champ, conference: conferenceOf(g6Champ.team), bid: 'g6-champ' })
+    projected.push({ ...g6Champ, bid: 'g6-champ' })
     used.add(g6Champ.team)
   }
 
