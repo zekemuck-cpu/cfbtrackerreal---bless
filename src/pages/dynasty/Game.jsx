@@ -703,6 +703,67 @@ export default function Game() {
     return getCardsForGame(currentDynasty, game?.id)
   }, [currentDynasty, game?.id])
 
+  // Memoized name → pid map for player-link lookups. MUST be declared
+  // before the early returns below so hook order stays stable across
+  // renders (React would otherwise throw error #310 — "Rendered more
+  // hooks than during the previous render" — once data finishes
+  // loading and the function stops bailing out early).
+  const playerPidByName = useMemo(() => {
+    const map = new Map()
+    for (const p of currentDynasty?.players || []) {
+      if (p?.name && p?.pid) map.set(p.name, p.pid)
+    }
+    return map
+  }, [currentDynasty?.players])
+
+  // Recap player-link patterns. Also hoisted above the early returns
+  // for hook-order stability. Heavy lifting only happens when the
+  // dynasty + box score are both populated; null otherwise.
+  const recapPlayerLinks = useMemo(() => {
+    if (!game?.boxScore) return null
+    const sides = [game.boxScore.home, game.boxScore.away].filter(Boolean)
+    const categories = ['passing', 'rushing', 'receiving', 'defense', 'kicking']
+    const names = new Set()
+    for (const side of sides) {
+      for (const cat of categories) {
+        for (const row of (side[cat] || [])) {
+          if (row.playerName) names.add(row.playerName)
+        }
+      }
+    }
+    if (!names.size) return null
+    const lastCount = new Map()
+    for (const name of names) {
+      const parts = name.trim().split(/\s+/)
+      const last = parts[parts.length - 1]
+      lastCount.set(last, (lastCount.get(last) || 0) + 1)
+    }
+    const makeRender = (href) => (matchedText, key) => (
+      <Link
+        key={key}
+        to={href}
+        className="font-normal no-underline text-txt-primary hover:text-txt-secondary hover:underline underline-offset-[3px] decoration-surface-5 transition-colors"
+      >
+        {matchedText}
+      </Link>
+    )
+    const links = []
+    for (const name of names) {
+      const pid = playerPidByName.get(name)
+      if (!pid) continue
+      const render = makeRender(`${pathPrefix}/player/${pid}`)
+      links.push({ pattern: name, render })
+      const parts = name.trim().split(/\s+/)
+      if (parts.length > 1) {
+        const last = parts[parts.length - 1]
+        if (lastCount.get(last) === 1 && last !== name) {
+          links.push({ pattern: last, render })
+        }
+      }
+    }
+    return links.length ? links : null
+  }, [game?.boxScore, playerPidByName, pathPrefix])
+
   if (!currentDynasty) {
     return <LoadingState message="Loading dynasty..." />
   }
@@ -822,80 +883,10 @@ export default function Game() {
   }
 
   // Helper function to get player PID by name
-  // Memoized name → pid map across the whole dynasty. Without this,
-  // every lookup did `players.find(p => p.name === name)` — O(N) per
-  // name. Game.jsx re-renders frequently (recap text, tab switches,
-  // score edits), so the per-render cost compounded — for dynasties
-  // with 500-2000 players × ~30-80 box-score names per game, that's
-  // tens of thousands of string comparisons per render, on the hot
-  // path. Map lookup is O(1).
-  const playerPidByName = useMemo(() => {
-    const map = new Map()
-    for (const p of currentDynasty?.players || []) {
-      if (p?.name && p?.pid) map.set(p.name, p.pid)
-    }
-    return map
-  }, [currentDynasty?.players])
-
+  // playerPidByName + recapPlayerLinks are hoisted above the early
+  // returns in this function (see ~line 705) so hook order stays
+  // stable. getPlayerPID is just a thin closure over the map.
   const getPlayerPID = (playerName) => playerPidByName.get(playerName)
-
-  // Build name → Link patterns for inline recap linking. Every unique full
-  // name from the game's box score gets a link. Last-only names also link,
-  // but only when unambiguous in this game (two "Johnson"s in one game would
-  // be silently skipped rather than pointed at the wrong player).
-  //
-  // Memoized — the IIFE used to run on every Game.jsx render, building
-  // a fresh array and fresh render closures even when nothing changed,
-  // which also forced <FormattedRecap> to re-render and re-parse the
-  // markdown body. Now only recomputes when the box score or player
-  // map actually change.
-  const recapPlayerLinks = useMemo(() => {
-    if (!game?.boxScore) return null
-    const sides = [game.boxScore.home, game.boxScore.away].filter(Boolean)
-    const categories = ['passing', 'rushing', 'receiving', 'defense', 'kicking']
-    const names = new Set()
-    for (const side of sides) {
-      for (const cat of categories) {
-        for (const row of (side[cat] || [])) {
-          if (row.playerName) names.add(row.playerName)
-        }
-      }
-    }
-    if (!names.size) return null
-    const lastCount = new Map()
-    for (const name of names) {
-      const parts = name.trim().split(/\s+/)
-      const last = parts[parts.length - 1]
-      lastCount.set(last, (lastCount.get(last) || 0) + 1)
-    }
-    // Player-name links render as plain body text until hovered. `font-normal`
-    // + `no-underline` override any surrounding <strong> so a name inside a
-    // **bold** markdown span doesn't read as a double-emphasis link.
-    const makeRender = (href) => (matchedText, key) => (
-      <Link
-        key={key}
-        to={href}
-        className="font-normal no-underline text-txt-primary hover:text-txt-secondary hover:underline underline-offset-[3px] decoration-surface-5 transition-colors"
-      >
-        {matchedText}
-      </Link>
-    )
-    const links = []
-    for (const name of names) {
-      const pid = playerPidByName.get(name)
-      if (!pid) continue
-      const render = makeRender(`${pathPrefix}/player/${pid}`)
-      links.push({ pattern: name, render })
-      const parts = name.trim().split(/\s+/)
-      if (parts.length > 1) {
-        const last = parts[parts.length - 1]
-        if (lastCount.get(last) === 1 && last !== name) {
-          links.push({ pattern: last, render })
-        }
-      }
-    }
-    return links.length ? links : null
-  }, [game?.boxScore, playerPidByName, pathPrefix])
 
   // Helper function to get full player object by name
   const getPlayerByName = (playerName) => {
