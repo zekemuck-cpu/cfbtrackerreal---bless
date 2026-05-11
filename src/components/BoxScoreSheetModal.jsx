@@ -264,17 +264,24 @@ export default function BoxScoreSheetModal({
         structure: `Output the full play-by-play of this game as 13-col TSV. One row per highlight line, chronological order (earliest first). Paste at cell A2 of the "Scoring Summary" tab.
 
 ═══════════════════════════════════════════════════════════
-SPEED MODE — DO NOT DELIBERATE
+TRANSCRIBE, DON'T REASON — accuracy through copying, not football logic
 ═══════════════════════════════════════════════════════════
-You are TRANSCRIBING what the screenshots literally say. You are NOT analyzing football, fact-checking, or reasoning about possessions. Treat each highlight line as ground truth and move on.
+Every row must match its source line exactly. 100% accuracy is the bar. But the ONLY thing you check is "did I copy the line's values into the right columns?" — you do NOT apply football reasoning on top.
 
-Specifically, DO NOT:
-  ✗ Reconcile yardages ("does -2 make sense here?" — yes, write -2)
-  ✗ Cross-check player names against the roster on every play — the rosters are a lookup table ONLY for cases where CFB26 prints an abbreviated name (e.g. "K. Law"). Full names always go in verbatim, even if you don't see them in the roster block.
-  ✗ Think about which team has possession at any given moment — the simple rules below pin it down without further reasoning.
-  ✗ Double-check yourself or "verify" anything. Write the row and move to the next play.
+Checking you SHOULD do (fast, mechanical):
+  ✓ Names spelled exactly as printed on the line.
+  ✓ Numbers in the right cells — yards in D, down in J, distance in K.
+  ✓ Negative numbers stay negative (-2 yard rush → D=-2).
+  ✓ Chronological order: earliest play first.
+  ✓ Exactly 13 cols (12 tabs) per row.
 
-You should be writing rows almost as fast as you can read the lines. If you catch yourself reasoning about football, STOP — just transcribe what the line says.
+Reasoning you should NOT do:
+  ✗ "Does -2 yards make sense?" — yes, write -2.
+  ✗ "Should this team have possession here?" — the player named on the line tells you who's on offense, that's the answer.
+  ✗ Cross-check rosters every play. Look up each name ONCE the first time you see it, then trust the team assignment.
+  ✗ Reconcile contradictions or "fix" what the screenshot says. If the line and your understanding of football disagree, the line wins.
+
+If a line is ambiguous, write what's printed and move on. Don't pause to deliberate. The user can fix edge cases after.
 
 ═══════════════════════════════════════════════════════════
 13 COLUMNS (TSV order — exactly 12 tabs per row)
