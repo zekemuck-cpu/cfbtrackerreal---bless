@@ -52,7 +52,7 @@ export default class PlayerErrorBoundary extends Component {
             {editPath && (
               <Link
                 to={editPath}
-                className="px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 rounded-lg text-sm font-semibold bg-surface-3 text-white hover:bg-surface-4 transition-colors"
               >
                 Open Editor
               </Link>

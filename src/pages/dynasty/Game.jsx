@@ -749,7 +749,7 @@ export default function Game() {
       <Link
         key={key}
         to={href}
-        className="font-normal no-underline text-txt-primary hover:text-blue-300 hover:underline underline-offset-[3px] decoration-blue-400 transition-colors"
+        className="font-normal no-underline text-txt-primary hover:text-txt-secondary hover:underline underline-offset-[3px] decoration-surface-5 transition-colors"
       >
         {matchedText}
       </Link>
@@ -1777,7 +1777,7 @@ export default function Game() {
                 value={defaultTabPref}
                 onChange={(e) => persistDefaultTabPref(e.target.value)}
                 title="Default tab for this device"
-                className="bg-transparent border border-surface-4 rounded px-1.5 py-0.5 text-[11px] text-txt-secondary hover:text-txt-primary hover:border-surface-5 focus:outline-none focus:border-blue-500 transition-colors"
+                className="bg-transparent border border-surface-4 rounded px-1.5 py-0.5 text-[11px] text-txt-secondary hover:text-txt-primary hover:border-surface-5 focus:outline-none focus:border-surface-5 transition-colors"
               >
                 <option value="auto">Auto</option>
                 <option value="gamecast">Gamecast</option>
@@ -1910,7 +1910,7 @@ export default function Game() {
                     {editorHref && (
                       <>
                         {' '}
-                        <Link to={editorHref} className="text-blue-400 hover:text-blue-300 underline underline-offset-2">
+                        <Link to={editorHref} className="text-txt-primary hover:text-txt-secondary underline underline-offset-2">
                           Add one in the game editor
                         </Link>.
                       </>
@@ -2328,7 +2328,7 @@ export default function Game() {
                         setHighlightsStartIndex(0)
                         setShowHighlightsModal(true)
                       }}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
+                      className="flex items-center gap-2 px-4 py-2 bg-surface-3 hover:bg-surface-3 text-white text-sm font-medium rounded-lg transition-colors"
                     >
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M8 5v14l11-7z" />
@@ -2473,7 +2473,7 @@ export default function Game() {
                             ) : (
                               <>
                                 {scorerPID ? (
-                                  <Link to={`${pathPrefix}/player/${scorerPID}`} className="font-medium hover:underline hover:text-blue-300">
+                                  <Link to={`${pathPrefix}/player/${scorerPID}`} className="font-medium hover:underline hover:text-txt-secondary">
                                     {play.scorer}
                                   </Link>
                                 ) : <span className="font-medium">{play.scorer}</span>}
@@ -2481,7 +2481,7 @@ export default function Game() {
                                   <>
                                     {' from '}
                                     {passerPID ? (
-                                      <Link to={`${pathPrefix}/player/${passerPID}`} className="font-medium hover:underline hover:text-blue-300">
+                                      <Link to={`${pathPrefix}/player/${passerPID}`} className="font-medium hover:underline hover:text-txt-secondary">
                                         {play.passer}
                                       </Link>
                                     ) : <span className="font-medium">{play.passer}</span>}
@@ -2504,7 +2504,7 @@ export default function Game() {
                             className="flex-shrink-0 p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors"
                             title="Watch video clip"
                           >
-                            <svg className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 hover:text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 sm:w-5 sm:h-5 text-txt-primary hover:text-txt-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
@@ -2567,7 +2567,7 @@ export default function Game() {
                       {' '}
                       <Link
                         to={`${pathPrefix}/game/${gameId}/edit`}
-                        className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
+                        className="text-txt-primary hover:text-txt-secondary underline underline-offset-2"
                       >
                         Add one in the game editor
                       </Link>.
@@ -2661,7 +2661,7 @@ export default function Game() {
                                   className={`py-1.5 px-2 whitespace-nowrap ${colIdx === 0 ? 'text-left' : 'text-center text-txt-secondary'}`}
                                 >
                                   {colIdx === 0 && playerPID ? (
-                                    <Link to={`${pathPrefix}/player/${playerPID}`} className="text-white hover:underline hover:text-blue-300">
+                                    <Link to={`${pathPrefix}/player/${playerPID}`} className="text-white hover:underline hover:text-txt-secondary">
                                       {cell.value}
                                     </Link>
                                   ) : colIdx === 0 ? (

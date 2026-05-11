@@ -183,7 +183,7 @@ export default function CardStylePicker({ value, onChange, styles = CARD_STYLES 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by brand, year, or set name…"
-            className="w-full pl-10 pr-3 py-2.5 rounded-lg bg-surface-3 border border-surface-4 text-txt-primary text-sm focus:border-blue-500 focus:outline-none"
+            className="w-full pl-10 pr-3 py-2.5 rounded-lg bg-surface-3 border border-surface-4 text-txt-primary text-sm focus:border-surface-5 focus:outline-none"
           />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -197,9 +197,9 @@ export default function CardStylePicker({ value, onChange, styles = CARD_STYLES 
                 className="px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-colors"
                 style={{
                   letterSpacing: '1.2px',
-                  backgroundColor: active ? '#3b82f6' : 'var(--surface-3)',
-                  color: active ? '#fff' : 'var(--text-secondary)',
-                  border: '1px solid ' + (active ? '#3b82f6' : 'var(--surface-4)'),
+                  backgroundColor: active ? 'var(--text-primary)' : 'var(--surface-3)',
+                  color: active ? 'var(--surface-1)' : 'var(--text-secondary)',
+                  border: '1px solid ' + (active ? 'var(--text-primary)' : 'var(--surface-4)'),
                 }}
               >
                 {g.label}
@@ -285,8 +285,8 @@ function StyleCell({ style, selected, onClick }) {
         backgroundColor: selected
           ? 'color-mix(in srgb, ' + accent + ' 12%, var(--surface-2))'
           : 'var(--surface-2)',
-        border: '1px solid ' + (selected ? '#3b82f6' : 'var(--surface-4)'),
-        boxShadow: selected ? '0 0 0 2px rgba(59, 130, 246, 0.35)' : 'none',
+        border: '1px solid ' + (selected ? 'var(--text-primary)' : 'var(--surface-4)'),
+        boxShadow: selected ? '0 0 0 2px color-mix(in srgb, var(--text-primary) 30%, transparent)' : 'none',
       }}
     >
       {/* Era-color left rail — instant scan-pick by decade. */}
@@ -301,9 +301,9 @@ function StyleCell({ style, selected, onClick }) {
         <span
           aria-hidden="true"
           className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: '#3b82f6' }}
+          style={{ backgroundColor: 'var(--text-primary)' }}
         >
-          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-3 h-3" style={{ color: 'var(--surface-1)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
           </svg>
         </span>

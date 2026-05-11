@@ -559,7 +559,7 @@ export default function LeagueSettings() {
                   }
                 }}
                 disabled={isBusy}
-                className="font-display font-bold text-txt-primary bg-transparent border-b border-transparent hover:border-surface-4 focus:border-blue-500 focus:outline-none px-1 -mx-1 py-0 text-base leading-tight min-w-[140px]"
+                className="font-display font-bold text-txt-primary bg-transparent border-b border-transparent hover:border-surface-4 focus:border-surface-5 focus:outline-none px-1 -mx-1 py-0 text-base leading-tight min-w-[140px]"
               />
             ) : (
               <span className="font-display font-bold text-txt-primary text-base leading-tight">
@@ -627,7 +627,7 @@ export default function LeagueSettings() {
                   e.target.value = ''
                 }}
                 disabled={isBusy}
-                className="text-[11px] px-2 py-1 rounded-md bg-surface-1 border border-surface-4 text-txt-tertiary hover:text-txt-primary hover:bg-surface-3 transition-colors cursor-pointer focus:outline-none focus:border-blue-500"
+                className="text-[11px] px-2 py-1 rounded-md bg-surface-1 border border-surface-4 text-txt-tertiary hover:text-txt-primary hover:bg-surface-3 transition-colors cursor-pointer focus:outline-none focus:border-surface-5"
               >
                 <option value="">{teams.length === 0 ? 'Assign team…' : '+ Add'}</option>
                 {availableTeamOptions.map(t => (
@@ -829,7 +829,7 @@ export default function LeagueSettings() {
                 value={inviteExpiry}
                 onChange={(e) => setInviteExpiry(e.target.value)}
                 disabled={busyUid === '__invite__'}
-                className="text-xs px-2 py-1 rounded-md bg-surface-2 border border-surface-4 text-txt-primary cursor-pointer focus:outline-none focus:border-blue-500"
+                className="text-xs px-2 py-1 rounded-md bg-surface-2 border border-surface-4 text-txt-primary cursor-pointer focus:outline-none focus:border-surface-5"
               >
                 <option value="never">Never</option>
                 <option value="1d">1 day</option>
@@ -901,7 +901,7 @@ export default function LeagueSettings() {
                   value={pendingUid}
                   onChange={e => setPendingUid(e.target.value)}
                   placeholder="Paste their User ID"
-                  className="w-full px-3 py-2 rounded-md bg-surface-2 text-txt-primary text-sm font-mono border border-surface-4 focus:border-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2 rounded-md bg-surface-2 text-txt-primary text-sm font-mono border border-surface-4 focus:border-surface-5 focus:outline-none"
                 />
               </div>
               <Button type="submit" variant="outline" size="sm" disabled={busyUid === '__add__' || !pendingUid.trim()}>

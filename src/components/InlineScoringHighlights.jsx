@@ -133,7 +133,7 @@ export default function InlineScoringHighlights({
 
       {/* Progress bar */}
       <div className="h-0.5 bg-surface-3">
-        <div className="h-full bg-blue-500 transition-all duration-300 ease-out" style={{ width: `${progressPct}%` }} />
+        <div className="h-full bg-surface-3 transition-all duration-300 ease-out" style={{ width: `${progressPct}%` }} />
       </div>
 
       {/* Caption + controls */}
@@ -159,7 +159,7 @@ export default function InlineScoringHighlights({
             onClick={togglePlay}
             aria-label={isPlaying ? 'Pause auto-advance' : 'Resume auto-advance'}
             title={isPlaying ? 'Pause auto-advance' : 'Resume auto-advance'}
-            className="w-7 h-7 rounded-md flex items-center justify-center text-blue-400 hover:text-blue-300 hover:bg-surface-3 transition-colors"
+            className="w-7 h-7 rounded-md flex items-center justify-center text-txt-primary hover:text-txt-secondary hover:bg-surface-3 transition-colors"
           >
             {isPlaying ? (
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">

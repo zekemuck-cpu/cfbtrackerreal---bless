@@ -1029,7 +1029,7 @@ export default function PlayerEdit() {
                       onChange={(e) => setFormData(prev => ({ ...prev, pictureUrl: e.target.value }))}
                       onPaste={handlePaste}
                       placeholder="Paste image URL or Ctrl+V to paste image..."
-                      className="w-full px-3 py-2 text-sm border border-surface-4 rounded-lg focus:outline-none focus:border-blue-400 mb-3"
+                      className="w-full px-3 py-2 text-sm border border-surface-4 rounded-lg focus:outline-none focus:border-surface-5 mb-3"
                     />
 
                     {/* Action Buttons */}
@@ -1045,7 +1045,7 @@ export default function PlayerEdit() {
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={uploading}
-                        className="flex-1 px-3 py-2 text-xs font-medium bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center gap-1"
+                        className="flex-1 px-3 py-2 text-xs font-medium bg-surface-3 text-white rounded-lg hover:bg-surface-3 disabled:opacity-50 flex items-center justify-center gap-1"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -1084,8 +1084,8 @@ export default function PlayerEdit() {
 
                     {uploading && (
                       <div className="mt-2 flex items-center justify-center gap-2">
-                        <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                        <span className="text-xs text-blue-600">{uploadStatus || 'Uploading...'}</span>
+                        <div className="w-3 h-3 border-2 border-surface-5 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs text-txt-primary">{uploadStatus || 'Uploading...'}</span>
                       </div>
                     )}
                   </div>
@@ -1202,7 +1202,7 @@ export default function PlayerEdit() {
                       type="text"
                       value={formData.firstName || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary"
                       placeholder="John"
                     />
                   </div>
@@ -1214,7 +1214,7 @@ export default function PlayerEdit() {
                       type="text"
                       value={formData.lastName || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary"
                       placeholder="Smith"
                     />
                   </div>
@@ -1229,7 +1229,7 @@ export default function PlayerEdit() {
                     <select
                       value={formData.position || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, position: e.target.value, archetype: '' }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary bg-surface-2"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary bg-surface-2"
                     >
                       <option value="">--</option>
                       {POSITIONS.map(pos => (
@@ -1266,7 +1266,7 @@ export default function PlayerEdit() {
                             : (prev.classByYear || {}),
                         }))
                       }}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary bg-surface-2"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary bg-surface-2"
                     >
                       <option value="">--</option>
                       {CLASSES.map(cls => (
@@ -1282,7 +1282,7 @@ export default function PlayerEdit() {
                       type="text"
                       value={formData.jerseyNumber || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, jerseyNumber: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary"
                       placeholder="12"
                     />
                   </div>
@@ -1300,7 +1300,7 @@ export default function PlayerEdit() {
                         const year = dynasty?.currentYear || new Date().getFullYear()
                         updateOverallForYear(year, value)
                       }}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary font-bold text-center"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary font-bold text-center"
                       placeholder="--"
                     />
                   </div>
@@ -1315,7 +1315,7 @@ export default function PlayerEdit() {
                     <select
                       value={formData.archetype || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, archetype: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary bg-surface-2"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary bg-surface-2"
                       disabled={!formData.position}
                     >
                       <option value="">Select archetype</option>
@@ -1358,7 +1358,7 @@ export default function PlayerEdit() {
                             : (prev.devTraitByYear || {}),
                         }))
                       }}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary bg-surface-2"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary bg-surface-2"
                     >
                       <option value="">Select trait</option>
                       {DEV_TRAITS.map(trait => (
@@ -1389,7 +1389,7 @@ export default function PlayerEdit() {
                       type="text"
                       value={formData.hometown || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, hometown: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary"
                       placeholder="Dallas"
                     />
                   </div>
@@ -1400,7 +1400,7 @@ export default function PlayerEdit() {
                     <select
                       value={formData.state || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary bg-surface-2"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary bg-surface-2"
                     >
                       <option value="">Select state</option>
                       {STATES.map(st => (
@@ -1420,7 +1420,7 @@ export default function PlayerEdit() {
                       type="text"
                       value={formData.height || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, height: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary"
                       placeholder="6'2&quot;"
                     />
                   </div>
@@ -1432,7 +1432,7 @@ export default function PlayerEdit() {
                       type="number"
                       value={formData.weight || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, weight: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary"
                       placeholder="220"
                     />
                   </div>
@@ -1455,7 +1455,7 @@ export default function PlayerEdit() {
                   value={formData.notes || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                   rows={4}
-                  className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary resize-none"
+                  className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary resize-none"
                   placeholder="Add notes about this player..."
                 />
               </div>
@@ -1481,7 +1481,7 @@ export default function PlayerEdit() {
                     setFormData(prev => ({ ...prev, highlights: lines }))
                   }}
                   rows={5}
-                  className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary resize-none font-mono text-xs"
+                  className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary resize-none font-mono text-xs"
                   placeholder={`https://youtu.be/abc123\nhttps://imgur.com/a/xyz789\nhttps://i.imgur.com/clip.mp4`}
                 />
                 {(formData.highlights || []).length > 0 && (
@@ -1988,12 +1988,12 @@ export default function PlayerEdit() {
                               <YearInput
                                 year={year}
                                 onCommit={changeYear}
-                                className="w-full px-1 py-1.5 text-sm font-bold rounded-lg border border-transparent hover:border-surface-4 focus:border-blue-500 focus:outline-none text-txt-primary text-center bg-transparent"
+                                className="w-full px-1 py-1.5 text-sm font-bold rounded-lg border border-transparent hover:border-surface-4 focus:border-surface-5 focus:outline-none text-txt-primary text-center bg-transparent"
                               />
                               <select
                                 value={teamTid || ''}
                                 onChange={(e) => updateYearField('teamsByYear', year, e.target.value ? Number(e.target.value) : '')}
-                                className="w-full px-2 py-1.5 text-sm rounded-lg border border-surface-4 focus:border-blue-500 focus:outline-none bg-surface-2 text-txt-primary"
+                                className="w-full px-2 py-1.5 text-sm rounded-lg border border-surface-4 focus:border-surface-5 focus:outline-none bg-surface-2 text-txt-primary"
                               >
                                 <option value="">--</option>
                                 {teamOptions.map(t => (
@@ -2003,7 +2003,7 @@ export default function PlayerEdit() {
                               <select
                                 value={playerClass}
                                 onChange={(e) => updateYearField('classByYear', year, e.target.value)}
-                                className="w-full px-2 py-1.5 text-sm rounded-lg border border-surface-4 focus:border-blue-500 focus:outline-none bg-surface-2 text-txt-primary"
+                                className="w-full px-2 py-1.5 text-sm rounded-lg border border-surface-4 focus:border-surface-5 focus:outline-none bg-surface-2 text-txt-primary"
                               >
                                 <option value="">--</option>
                                 {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -2015,7 +2015,7 @@ export default function PlayerEdit() {
                                   max="99"
                                   value={ovr}
                                   onChange={(e) => updateYearField('overallByYear', year, e.target.value ? parseInt(e.target.value) : '')}
-                                  className="w-full px-2 py-1.5 text-sm rounded-lg border border-surface-4 focus:border-blue-500 focus:outline-none text-txt-primary text-center"
+                                  className="w-full px-2 py-1.5 text-sm rounded-lg border border-surface-4 focus:border-surface-5 focus:outline-none text-txt-primary text-center"
                                   placeholder="--"
                                 />
                                 {ovrChange !== null && ovrChange !== 0 && (
@@ -2033,7 +2033,7 @@ export default function PlayerEdit() {
                               <select
                                 value={devTrait}
                                 onChange={(e) => updateYearField('devTraitByYear', year, e.target.value)}
-                                className="w-full px-2 py-1.5 text-sm rounded-lg border border-surface-4 focus:border-blue-500 focus:outline-none bg-surface-2 text-txt-primary"
+                                className="w-full px-2 py-1.5 text-sm rounded-lg border border-surface-4 focus:border-surface-5 focus:outline-none bg-surface-2 text-txt-primary"
                               >
                                 <option value="">--</option>
                                 {DEV_TRAITS.map(d => <option key={d} value={d}>{d}</option>)}
@@ -2082,7 +2082,7 @@ export default function PlayerEdit() {
                                   <YearInput
                                     year={year}
                                     onCommit={changeYear}
-                                    className="w-16 px-1 py-0.5 font-bold text-txt-primary rounded-lg border border-transparent hover:border-surface-4 focus:border-blue-500 focus:outline-none text-center bg-transparent"
+                                    className="w-16 px-1 py-0.5 font-bold text-txt-primary rounded-lg border border-transparent hover:border-surface-4 focus:border-surface-5 focus:outline-none text-center bg-transparent"
                                   />
                                   {logoUrl && (
                                     <img src={logoUrl} alt="" className="w-5 h-5 object-contain" />
@@ -2116,7 +2116,7 @@ export default function PlayerEdit() {
                                   <select
                                     value={teamTid || ''}
                                     onChange={(e) => updateYearField('teamsByYear', year, e.target.value ? Number(e.target.value) : '')}
-                                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-surface-4 focus:border-blue-500 focus:outline-none bg-surface-2 text-txt-primary"
+                                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-surface-4 focus:border-surface-5 focus:outline-none bg-surface-2 text-txt-primary"
                                   >
                                     <option value="">--</option>
                                     {teamOptions.map(t => (
@@ -2129,7 +2129,7 @@ export default function PlayerEdit() {
                                   <select
                                     value={playerClass}
                                     onChange={(e) => updateYearField('classByYear', year, e.target.value)}
-                                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-surface-4 focus:border-blue-500 focus:outline-none bg-surface-2 text-txt-primary"
+                                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-surface-4 focus:border-surface-5 focus:outline-none bg-surface-2 text-txt-primary"
                                   >
                                     <option value="">--</option>
                                     {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -2143,7 +2143,7 @@ export default function PlayerEdit() {
                                     max="99"
                                     value={ovr}
                                     onChange={(e) => updateYearField('overallByYear', year, e.target.value ? parseInt(e.target.value) : '')}
-                                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-surface-4 focus:border-blue-500 focus:outline-none text-txt-primary text-center"
+                                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-surface-4 focus:border-surface-5 focus:outline-none text-txt-primary text-center"
                                     placeholder="--"
                                   />
                                 </div>
@@ -2152,7 +2152,7 @@ export default function PlayerEdit() {
                                   <select
                                     value={devTrait}
                                     onChange={(e) => updateYearField('devTraitByYear', year, e.target.value)}
-                                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-surface-4 focus:border-blue-500 focus:outline-none bg-surface-2 text-txt-primary"
+                                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-surface-4 focus:border-surface-5 focus:outline-none bg-surface-2 text-txt-primary"
                                   >
                                     <option value="">--</option>
                                     {DEV_TRAITS.map(d => <option key={d} value={d}>{d}</option>)}
@@ -2211,7 +2211,7 @@ export default function PlayerEdit() {
                     <select
                       value={formData.stars || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, stars: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary bg-surface-2"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary bg-surface-2"
                     >
                       <option value="">--</option>
                       <option value="5">5-Star</option>
@@ -2230,7 +2230,7 @@ export default function PlayerEdit() {
                       min="1"
                       value={formData.nationalRank || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, nationalRank: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary"
                       placeholder="#1"
                     />
                   </div>
@@ -2243,7 +2243,7 @@ export default function PlayerEdit() {
                       min="1"
                       value={formData.positionRank || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, positionRank: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary"
                       placeholder="#1"
                     />
                   </div>
@@ -2256,7 +2256,7 @@ export default function PlayerEdit() {
                       min="1"
                       value={formData.stateRank || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, stateRank: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary"
                       placeholder="#1"
                     />
                   </div>
@@ -2271,7 +2271,7 @@ export default function PlayerEdit() {
                     <select
                       value={formData.gemBust || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, gemBust: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary bg-surface-2"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary bg-surface-2"
                     >
                       <option value="">Normal</option>
                       <option value="gem">Gem</option>
@@ -2296,7 +2296,7 @@ export default function PlayerEdit() {
                           previousTeam: isPortal ? prev.previousTeam : ''
                         }))
                       }}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary bg-surface-2"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary bg-surface-2"
                     >
                       <option value="no">No</option>
                       <option value="yes">Yes</option>
@@ -2312,7 +2312,7 @@ export default function PlayerEdit() {
                         const tid = e.target.value ? Number(e.target.value) : null
                         setFormData(prev => ({ ...prev, previousTeam: tid }))
                       }}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none transition-colors text-txt-primary bg-surface-2"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary bg-surface-2"
                       disabled={!formData.isPortal}
                     >
                       <option value="">Select team...</option>
@@ -2419,7 +2419,7 @@ export default function PlayerEdit() {
                       setFormData(prev => ({ ...prev, stats: newStats }))
                       toast.error(`Synced stats from ${totals.gamesPlayed} games for ${yearToSync}`)
                     }}
-                    className="px-3 py-1.5 rounded-lg text-sm font-medium border border-blue-500 text-blue-600 hover:bg-blue-50 flex items-center gap-1.5"
+                    className="px-3 py-1.5 rounded-lg text-sm font-medium border border-surface-5 text-txt-primary hover:bg-surface-2 flex items-center gap-1.5"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -2434,7 +2434,7 @@ export default function PlayerEdit() {
                       const yearStats = player.statsByYear?.[year] || {}
                       setFormData(prev => ({ ...prev, stats: nestedStatsToFlat(yearStats) }))
                     }}
-                    className="px-3 py-1.5 rounded-lg text-sm font-semibold border border-surface-4 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface-2 text-txt-primary"
+                    className="px-3 py-1.5 rounded-lg text-sm font-semibold border border-surface-4 focus:outline-none focus:ring-2 focus:ring-[var(--surface-5)] bg-surface-2 text-txt-primary"
                   >
                     {availableYears.map(year => (
                       <option key={year} value={year}>{year}</option>
@@ -2445,7 +2445,7 @@ export default function PlayerEdit() {
 
               <div className="p-5">
                 {boxScoreTotals && (
-                  <div className="mb-5 p-4 rounded-lg bg-blue-50 border border-blue-200">
+                  <div className="mb-5 p-4 rounded-lg bg-surface-2 border border-surface-4">
                     <div className="text-xs font-semibold text-txt-muted uppercase tracking-wide mb-2">
                       Box Score Totals (Auto-calculated)
                     </div>
@@ -2481,7 +2481,7 @@ export default function PlayerEdit() {
                               ...prev,
                               stats: { ...prev.stats, [stat.key]: e.target.value ? parseInt(e.target.value) : '' }
                             }))}
-                            className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none text-center text-txt-primary"
+                            className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none text-center text-txt-primary"
                           />
                         </div>
                       ))}
@@ -2510,7 +2510,7 @@ export default function PlayerEdit() {
                               ...prev,
                               stats: { ...prev.stats, [stat.key]: e.target.value ? parseInt(e.target.value) : '' }
                             }))}
-                            className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none text-center text-txt-primary"
+                            className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none text-center text-txt-primary"
                           />
                         </div>
                       ))}
@@ -2539,7 +2539,7 @@ export default function PlayerEdit() {
                               ...prev,
                               stats: { ...prev.stats, [stat.key]: e.target.value ? parseInt(e.target.value) : '' }
                             }))}
-                            className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none text-center text-txt-primary"
+                            className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none text-center text-txt-primary"
                           />
                         </div>
                       ))}
@@ -2579,7 +2579,7 @@ export default function PlayerEdit() {
                                       : parseInt(e.target.value))
                               }
                             }))}
-                            className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none text-center text-txt-primary"
+                            className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none text-center text-txt-primary"
                           />
                         </div>
                       ))}
@@ -2605,7 +2605,7 @@ export default function PlayerEdit() {
                               ...prev,
                               stats: { ...prev.stats, [stat.key]: e.target.value ? parseInt(e.target.value) : '' }
                             }))}
-                            className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none text-center text-txt-primary"
+                            className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none text-center text-txt-primary"
                           />
                         </div>
                       ))}
@@ -2634,7 +2634,7 @@ export default function PlayerEdit() {
                                 ...prev,
                                 stats: { ...prev.stats, [stat.key]: e.target.value ? parseInt(e.target.value) : '' }
                               }))}
-                              className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none text-center text-txt-primary"
+                              className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none text-center text-txt-primary"
                             />
                           </div>
                         ))}
@@ -2659,7 +2659,7 @@ export default function PlayerEdit() {
                                 ...prev,
                                 stats: { ...prev.stats, [stat.key]: e.target.value ? parseInt(e.target.value) : '' }
                               }))}
-                              className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none text-center text-txt-primary"
+                              className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none text-center text-txt-primary"
                             />
                           </div>
                         ))}
@@ -2697,7 +2697,7 @@ export default function PlayerEdit() {
                               ...prev,
                               stats: { ...prev.stats, [stat.key]: e.target.value ? parseInt(e.target.value) : '' }
                             }))}
-                            className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none text-center text-txt-primary"
+                            className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none text-center text-txt-primary"
                           />
                         </div>
                       ))}
@@ -2718,7 +2718,7 @@ export default function PlayerEdit() {
                           ...prev,
                           stats: { ...prev.stats, gamesPlayed: e.target.value ? parseInt(e.target.value) : '' }
                         }))}
-                        className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none text-center text-txt-primary"
+                        className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none text-center text-txt-primary"
                       />
                     </div>
                     <div>
@@ -2730,7 +2730,7 @@ export default function PlayerEdit() {
                           ...prev,
                           stats: { ...prev.stats, snapsPlayed: e.target.value ? parseInt(e.target.value) : '' }
                         }))}
-                        className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none text-center text-txt-primary"
+                        className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none text-center text-txt-primary"
                       />
                     </div>
                   </div>
@@ -2752,7 +2752,7 @@ export default function PlayerEdit() {
                 </h2>
                 <button
                   onClick={addAccolade}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors bg-blue-500 text-white hover:bg-blue-600"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors bg-surface-3 text-white hover:bg-surface-3"
                 >
                   + Add Award
                 </button>
@@ -2764,7 +2764,7 @@ export default function PlayerEdit() {
                     <p className="text-txt-muted mb-4">No awards yet</p>
                     <button
                       onClick={addAccolade}
-                      className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-blue-500 text-white hover:bg-blue-600"
+                      className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-surface-3 text-white hover:bg-surface-3"
                     >
                       Add First Award
                     </button>
@@ -2781,7 +2781,7 @@ export default function PlayerEdit() {
                             type="number"
                             value={accolade.year || ''}
                             onChange={(e) => updateAccolade(index, 'year', e.target.value)}
-                            className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none text-center text-txt-primary"
+                            className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none text-center text-txt-primary"
                             placeholder="Year"
                           />
                         </div>
@@ -2789,7 +2789,7 @@ export default function PlayerEdit() {
                           <select
                             value={accolade.award || ''}
                             onChange={(e) => updateAccolade(index, 'award', e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none text-txt-primary bg-surface-2"
+                            className="w-full px-3 py-2 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none text-txt-primary bg-surface-2"
                           >
                             <option value="">Select award</option>
                             <optgroup label="Honor Teams">

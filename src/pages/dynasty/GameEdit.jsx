@@ -2033,8 +2033,8 @@ export default function GameEdit() {
               className="absolute inset-y-0 left-0 transition-[width] duration-300 ease-out"
               style={{
                 width: `${Math.round((photoUploadDone / photoUploadCount) * 100)}%`,
-                backgroundColor: 'var(--accent-info, #3b82f6)',
-                opacity: 0.18,
+                backgroundColor: 'var(--text-primary)',
+                opacity: 0.12,
               }}
               aria-hidden="true"
             />

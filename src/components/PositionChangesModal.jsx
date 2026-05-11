@@ -410,7 +410,7 @@ export default function PositionChangesModal({
   const [positionChanges, setPositionChanges] = useState([{ playerId: '', oldPosition: '', newPosition: '' }])
   const [saving, setSaving] = useState(false)
 
-  const primaryColor = teamColors?.primary || '#3b82f6'
+  const primaryColor = teamColors?.primary || 'var(--text-primary)'
   const primaryBgText = getContrastTextColor(primaryColor)
 
   const sortedPlayers = [...players].sort((a, b) =>

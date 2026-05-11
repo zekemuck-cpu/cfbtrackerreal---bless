@@ -1112,9 +1112,9 @@ export default function CFPBracket() {
           <span
             className="px-1.5 py-0.5 rounded text-[10px] font-black tracking-[0.22em] flex-shrink-0"
             style={{
-              backgroundColor: 'rgba(59, 130, 246, 0.18)',
-              color: '#93c5fd',
-              border: '1px solid rgba(59, 130, 246, 0.35)',
+              backgroundColor: 'var(--surface-3)',
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--surface-5)',
             }}
           >
             PROJECTION

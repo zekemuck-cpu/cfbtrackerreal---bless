@@ -189,7 +189,7 @@ export default function MemberOnboardingModal() {
           value={labelDraft}
           onChange={(e) => setLabelDraft(e.target.value)}
           placeholder="e.g. Nick Saban"
-          className="w-full px-3 py-2 rounded-md bg-surface-2 text-txt-primary text-sm border border-surface-4 focus:border-blue-500 focus:outline-none"
+          className="w-full px-3 py-2 rounded-md bg-surface-2 text-txt-primary text-sm border border-surface-4 focus:border-surface-5 focus:outline-none"
           disabled={busy}
         />
       </div>
@@ -202,7 +202,7 @@ export default function MemberOnboardingModal() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search teams…"
-          className="w-full px-3 py-2 rounded-md bg-surface-2 text-txt-primary text-sm border border-surface-4 focus:border-blue-500 focus:outline-none mb-2"
+          className="w-full px-3 py-2 rounded-md bg-surface-2 text-txt-primary text-sm border border-surface-4 focus:border-surface-5 focus:outline-none mb-2"
           disabled={busy}
         />
         <div

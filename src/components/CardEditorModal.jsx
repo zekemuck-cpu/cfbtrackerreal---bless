@@ -38,8 +38,9 @@ const PHASES = [
   { id: 'generate', label: 'Generate', short: '03' },
 ]
 
-// Default accent when teamColors prop is missing.
-const FALLBACK_ACCENT = '#3b82f6'
+// Default accent when teamColors prop is missing. Pulls from
+// the design system's surface tones instead of system blue.
+const FALLBACK_ACCENT = 'var(--surface-5)'
 
 export default function CardEditorModal({
   card,

@@ -41,8 +41,7 @@ export default function CardCollection() {
             <button
               type="button"
               onClick={() => setShowPlayerPicker(true)}
-              className="px-4 py-2 rounded-md text-sm font-bold transition-colors"
-              style={{ backgroundColor: '#3b82f6', color: '#fff' }}
+              className="btn-refined btn-refined--solid"
             >
               + Add new card
             </button>
@@ -231,7 +230,7 @@ function PlayerPickerModal({ dynasty, onPick, onClose }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by name, jersey number, or school…"
-            className="w-full px-4 py-2.5 rounded-md bg-surface-3 border border-surface-4 text-txt-primary text-sm focus:border-blue-500 focus:outline-none"
+            className="w-full px-4 py-2.5 rounded-md bg-surface-3 border border-surface-4 text-txt-primary text-sm focus:border-surface-5 focus:outline-none"
           />
         </div>
 
@@ -258,7 +257,7 @@ function PlayerPickerModal({ dynasty, onPick, onClose }) {
                         {teamName ? <span className="ml-1">· {teamName}</span> : null}
                       </div>
                     </div>
-                    <span className="text-[11px] font-semibold text-blue-400 flex-shrink-0">
+                    <span className="text-[11px] font-semibold text-txt-primary flex-shrink-0">
                       Pick →
                     </span>
                   </button>

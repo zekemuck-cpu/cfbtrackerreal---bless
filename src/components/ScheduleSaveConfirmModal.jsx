@@ -27,7 +27,7 @@ export default function ScheduleSaveConfirmModal({
   onClose,
   onConfirm,
   diff,
-  primaryColor = '#3b82f6',
+  primaryColor = 'var(--text-primary)',
 }) {
   useEffect(() => {
     if (!isOpen) return

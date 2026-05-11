@@ -242,7 +242,7 @@ export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
                       handleClaim(year, v)
                     }}
                     disabled={isBusy}
-                    className="text-xs px-2 py-1 rounded-md bg-surface-2 border border-surface-4 text-txt-secondary cursor-pointer focus:outline-none focus:border-blue-500"
+                    className="text-xs px-2 py-1 rounded-md bg-surface-2 border border-surface-4 text-txt-secondary cursor-pointer focus:outline-none focus:border-surface-5"
                     style={{ maxWidth: '160px' }}
                   >
                     <option value="">{tids.length === 0 ? 'Assign team…' : '+ Add team…'}</option>

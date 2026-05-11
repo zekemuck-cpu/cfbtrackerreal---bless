@@ -592,7 +592,7 @@ export default function CoachCareer() {
                   value={effectiveSelectedUid || ''}
                   onChange={e => setSelectedUid(e.target.value)}
                   aria-label="Switch career view"
-                  className="text-xs font-semibold px-2 py-1 rounded-md bg-surface-2 border border-surface-4 text-txt-primary cursor-pointer focus:outline-none focus:border-blue-500 normal-case"
+                  className="text-xs font-semibold px-2 py-1 rounded-md bg-surface-2 border border-surface-4 text-txt-primary cursor-pointer focus:outline-none focus:border-surface-5 normal-case"
                   style={{ letterSpacing: '0' }}
                 >
                   {userOptions.map(opt => (

@@ -501,7 +501,7 @@ export default function ScoringHighlightsModal({
             <select
               value={currentPlay?.gameInfo?.year || ''}
               onChange={(e) => jumpToSeason(e.target.value)}
-              className="px-2.5 py-1 bg-surface-3 text-white rounded-md text-xs border border-surface-4 hover:border-surface-5 focus:border-blue-500 focus:outline-none"
+              className="px-2.5 py-1 bg-surface-3 text-white rounded-md text-xs border border-surface-4 hover:border-surface-5 focus:border-surface-5 focus:outline-none"
               aria-label="Season"
             >
               {seasons.map(year => (
@@ -514,7 +514,7 @@ export default function ScoringHighlightsModal({
             <div className="relative" ref={gameDropdownRef}>
               <button
                 onClick={() => setShowGameDropdown(!showGameDropdown)}
-                className="flex items-center gap-1.5 px-2.5 py-1 bg-surface-3 text-white rounded-md text-xs border border-surface-4 hover:border-surface-5 focus:outline-none focus:border-blue-500 max-w-[220px]"
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-surface-3 text-white rounded-md text-xs border border-surface-4 hover:border-surface-5 focus:outline-none focus:border-surface-5 max-w-[220px]"
               >
                 {currentPlay?.gameInfo?.opponentLogo && (
                   <img
@@ -612,7 +612,7 @@ export default function ScoringHighlightsModal({
                 href={currentPlay?.videoLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-400 hover:text-blue-300 underline"
+                className="text-txt-primary hover:text-txt-secondary underline"
               >
                 Open in new tab
               </a>
@@ -624,7 +624,7 @@ export default function ScoringHighlightsModal({
         {/* Progress bar between video and footer */}
         <div className="h-0.5 bg-surface-3 flex-shrink-0 relative">
           <div
-            className="h-full bg-blue-500 transition-all duration-300 ease-out"
+            className="h-full bg-surface-3 transition-all duration-300 ease-out"
             style={{ width: `${progressPct}%` }}
           />
         </div>
@@ -664,7 +664,7 @@ export default function ScoringHighlightsModal({
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); goToPlayer(picturePlayer) }}
-                      className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-surface-3 hidden sm:block ring-1 ring-transparent hover:ring-blue-500/60 transition-all cursor-pointer"
+                      className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-surface-3 hidden sm:block ring-1 ring-transparent hover:ring-[var(--surface-5)]/60 transition-all cursor-pointer"
                       title={`View ${picturePlayer.name}`}
                       aria-label={`View ${picturePlayer.name}`}
                     >
@@ -733,7 +733,7 @@ export default function ScoringHighlightsModal({
 
             <button
               onClick={handlePlayPause}
-              className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 text-white hover:bg-blue-500 active:scale-95 transition-all flex-shrink-0 shadow-lg shadow-blue-600/20"
+              className="flex items-center justify-center w-10 h-10 rounded-full bg-surface-3 text-white hover:bg-surface-3 active:scale-95 transition-all flex-shrink-0 shadow-lg shadow-black/20"
               title={isPlaying ? 'Pause auto-advance' : 'Resume auto-advance'}
               aria-label={isPlaying ? 'Pause' : 'Play'}
             >
@@ -802,11 +802,11 @@ export default function ScoringHighlightsModal({
                 }}
                 title="View game details"
                 aria-label="View game details"
-                className="group flex-shrink-0 flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg bg-surface-3/60 hover:bg-blue-600/20 ring-1 ring-transparent hover:ring-blue-500/50 transition-colors focus:outline-none focus:ring-blue-500 cursor-pointer"
+                className="group flex-shrink-0 flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg bg-surface-3/60 hover:bg-surface-3/20 ring-1 ring-transparent hover:ring-[var(--surface-5)]/50 transition-colors focus:outline-none focus:ring-[var(--surface-5)] cursor-pointer"
               >
                 {scoreInner}
                 <svg
-                  className="w-3.5 h-3.5 text-txt-muted group-hover:text-blue-400 transition-colors ml-0.5"
+                  className="w-3.5 h-3.5 text-txt-muted group-hover:text-txt-primary transition-colors ml-0.5"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"

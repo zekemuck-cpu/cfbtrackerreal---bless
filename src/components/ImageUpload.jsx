@@ -369,11 +369,11 @@ export default function ImageUpload({
       {/* Drop zone / Paste area */}
       <div
         className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
-          dragOver ? 'border-blue-500 bg-blue-50' : ''
+          dragOver ? 'border-surface-5 bg-surface-2' : ''
         } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
         style={{
-          borderColor: dragOver ? '#3b82f6' : 'var(--surface-5)',
-          backgroundColor: dragOver ? '#eff6ff' : 'transparent'
+          borderColor: dragOver ? 'var(--text-primary)' : 'var(--surface-5)',
+          backgroundColor: dragOver ? 'var(--surface-2)' : 'transparent'
         }}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
