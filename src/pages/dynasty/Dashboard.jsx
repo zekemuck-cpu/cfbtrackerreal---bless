@@ -4126,6 +4126,20 @@ export default function Dashboard() {
             const userBowlIsWeek1 = selectedBowl && isBowlInWeek1(selectedBowl)
             const userBowlIsWeek2 = selectedBowl && isBowlInWeek2(selectedBowl)
 
+            // CFP seed entry creates a SHELL for each CFP game with both
+            // scores set to null. So `userCFPFirstRoundGame` is truthy as
+            // soon as the user enters their seed, before they've actually
+            // played the game. Same trap for `userBowlGame` if a shell got
+            // created upstream. Using the shell's existence as the "this
+            // task is done" signal made the dashboard tile flip to a green
+            // ✓ "Edit" state the moment seeds were entered — Jay saw that
+            // and assumed the entry was done, so the "Enter your CFP game"
+            // to-do never read as actionable. Switch the completion check
+            // to whether SCORES are actually populated.
+            const hasGameScores = (g) => !!g && g.team1Score != null && g.team2Score != null
+            const userCFPFirstRoundScoresEntered = hasGameScores(userCFPFirstRoundGame)
+            const userBowlGameScoresEntered = hasGameScores(userBowlGame)
+
             // Filter team dropdown for bowl opponent
             const filteredBowlTeams = bowlOpponentSearch
               ? Object.entries(teamAbbreviations)
@@ -4660,11 +4674,15 @@ export default function Dashboard() {
                       )
                     })()}
 
-                    {/* Task 4: Enter YOUR CFP First Round Game (if seeded 5-12) */}
+                    {/* Task 4: Enter YOUR CFP First Round Game (if seeded 5-12).
+                        Completion is keyed on whether SCORES are entered, not
+                        whether the shell game exists — seed entry pre-creates
+                        the shell, so checking shell-exists made this tile
+                        show green ✓ "Edit" before the user did anything. */}
                     {hasCFPSeedsData && userInCFPFirstRound && (
                       <div
                         className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                        style={userCFPFirstRoundGame ? {
+                        style={userCFPFirstRoundScoresEntered ? {
                           backgroundColor: 'rgba(34, 197, 94, 0.1)',
                           border: '1px solid rgba(34, 197, 94, 0.3)'
                         } : {
@@ -4675,22 +4693,22 @@ export default function Dashboard() {
                         <div className="flex items-center gap-2 sm:gap-3">
                           <div
                             className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                              userCFPFirstRoundGame ? 'bg-green-500 text-white' : ''
+                              userCFPFirstRoundScoresEntered ? 'bg-green-500 text-white' : ''
                             }`}
-                            style={!userCFPFirstRoundGame ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
+                            style={!userCFPFirstRoundScoresEntered ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                           >
-                            {userCFPFirstRoundGame ? (
+                            {userCFPFirstRoundScoresEntered ? (
                               <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                               </svg>
                             ) : <span className="font-bold text-sm sm:text-base">4</span>}
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: userCFPFirstRoundGame ? '#22c55e' : '#fafafa' }}>
+                            <div className="text-sm sm:text-base font-semibold" style={{ color: userCFPFirstRoundScoresEntered ? '#22c55e' : '#fafafa' }}>
                               Enter Your CFP First Round Game
                             </div>
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userCFPFirstRoundGame ? '#22c55e' : '#a1a1aa' }}>
-                              {userCFPFirstRoundGame ? `✓ ${userCFPFirstRoundGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPFirstRoundGame.perspective?.userScore || 0, userCFPFirstRoundGame.perspective?.opponentScore || 0)}-${Math.min(userCFPFirstRoundGame.perspective?.userScore || 0, userCFPFirstRoundGame.perspective?.opponentScore || 0)}` : `#${userCFPSeed} vs #${17 - userCFPSeed} ${getMascotName(userCFPOpponent)}`}
+                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userCFPFirstRoundScoresEntered ? '#22c55e' : '#a1a1aa' }}>
+                              {userCFPFirstRoundScoresEntered ? `✓ ${userCFPFirstRoundGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPFirstRoundGame.perspective?.userScore || 0, userCFPFirstRoundGame.perspective?.opponentScore || 0)}-${Math.min(userCFPFirstRoundGame.perspective?.userScore || 0, userCFPFirstRoundGame.perspective?.opponentScore || 0)}` : `#${userCFPSeed} vs #${17 - userCFPSeed} ${getMascotName(userCFPOpponent)}`}
                             </div>
                           </div>
                         </div>
@@ -4716,16 +4734,18 @@ export default function Dashboard() {
                           className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
                           style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                         >
-                          {(userCFPFirstRoundGame || (userCFPFirstRoundShell?.team1Score !== null)) ? 'Edit' : 'Enter'}
+                          {userCFPFirstRoundScoresEntered ? 'Edit' : 'Enter'}
                         </button>
                       </div>
                     )}
 
-                    {/* Task 4b: Enter YOUR Bowl Game (if Week 1 bowl, non-CFP team) */}
+                    {/* Task 4b: Enter YOUR Bowl Game (if Week 1 bowl, non-CFP team).
+                        Same fix as Task 4 — gate "complete" on scores, not shell
+                        existence, in case the bowl shell was pre-created. */}
                     {hasCFPSeedsData && !userCFPSeed && bowlEligible && selectedBowl && bowlOpponent && userBowlIsWeek1 && (
                       <div
                         className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                        style={userBowlGame ? {
+                        style={userBowlGameScoresEntered ? {
                           backgroundColor: 'rgba(34, 197, 94, 0.1)',
                           border: '1px solid rgba(34, 197, 94, 0.3)'
                         } : {
@@ -4736,22 +4756,22 @@ export default function Dashboard() {
                         <div className="flex items-center gap-2 sm:gap-3">
                           <div
                             className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                              userBowlGame ? 'bg-green-500 text-white' : ''
+                              userBowlGameScoresEntered ? 'bg-green-500 text-white' : ''
                             }`}
-                            style={!userBowlGame ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
+                            style={!userBowlGameScoresEntered ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
                           >
-                            {userBowlGame ? (
+                            {userBowlGameScoresEntered ? (
                               <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                               </svg>
                             ) : <span className="font-bold text-sm sm:text-base">4</span>}
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: userBowlGame ? '#22c55e' : '#fafafa' }}>
+                            <div className="text-sm sm:text-base font-semibold" style={{ color: userBowlGameScoresEntered ? '#22c55e' : '#fafafa' }}>
                               Enter Your {selectedBowl} Game
                             </div>
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userBowlGame ? '#22c55e' : '#a1a1aa' }}>
-                              {userBowlGame ? `✓ ${userBowlGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}-${Math.min(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}` : `vs ${bowlOpponent}`}
+                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userBowlGameScoresEntered ? '#22c55e' : '#a1a1aa' }}>
+                              {userBowlGameScoresEntered ? `✓ ${userBowlGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}-${Math.min(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}` : `vs ${bowlOpponent}`}
                             </div>
                           </div>
                         </div>
@@ -4776,7 +4796,7 @@ export default function Dashboard() {
                           className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
                           style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
                         >
-                          {userBowlGame ? 'Edit' : 'Enter'}
+                          {userBowlGameScoresEntered ? 'Edit' : 'Enter'}
                         </button>
                       </div>
                     )}
@@ -5089,14 +5109,7 @@ export default function Dashboard() {
                         (2026-05-11) — confirmed against the STONY dynasty
                         export: STONY is seed 5, cfpfr1-2030 shell exists
                         with team1Score=null/team2Score=null, currentWeek=2. */}
-                    {userInCFPFirstRound && (() => {
-                      const scoresEntered = userCFPFirstRoundGame &&
-                        userCFPFirstRoundGame.team1Score !== null &&
-                        userCFPFirstRoundGame.team2Score !== null &&
-                        userCFPFirstRoundGame.team1Score !== undefined &&
-                        userCFPFirstRoundGame.team2Score !== undefined
-                      if (scoresEntered) return null
-                      return (
+                    {userInCFPFirstRound && !userCFPFirstRoundScoresEntered && (
                         <div
                           className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all"
                           style={{
@@ -5145,8 +5158,7 @@ export default function Dashboard() {
                             </button>
                           )}
                         </div>
-                      )
-                    })()}
+                    )}
 
                     {/* Task 2: Enter YOUR Bowl Game (if Week 2 bowl) */}
                     {bowlEligible && selectedBowl && bowlOpponent && userBowlIsWeek2 && (
