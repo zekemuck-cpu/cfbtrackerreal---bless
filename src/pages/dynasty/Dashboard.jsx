@@ -5079,6 +5079,75 @@ export default function Dashboard() {
                       )}
                     </div>
 
+                    {/* Carry-over from Week 1: Enter YOUR CFP First Round Game
+                        if the user is in the first round but advanced to
+                        Week 2 without entering their own game. Without this
+                        tile the user is locked out — the Week 1 tile no
+                        longer renders (gated by week === 1) and the QF tile
+                        requires userWonFirstRound, which is false when the
+                        first-round game has no scores. Reported by Jay
+                        (2026-05-11) — confirmed against the STONY dynasty
+                        export: STONY is seed 5, cfpfr1-2030 shell exists
+                        with team1Score=null/team2Score=null, currentWeek=2. */}
+                    {userInCFPFirstRound && (() => {
+                      const scoresEntered = userCFPFirstRoundGame &&
+                        userCFPFirstRoundGame.team1Score !== null &&
+                        userCFPFirstRoundGame.team2Score !== null &&
+                        userCFPFirstRoundGame.team1Score !== undefined &&
+                        userCFPFirstRoundGame.team2Score !== undefined
+                      if (scoresEntered) return null
+                      return (
+                        <div
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                          style={{
+                            backgroundColor: 'var(--surface-3)',
+                            border: '1px solid var(--surface-4)'
+                          }}
+                        >
+                          <div className="flex items-center gap-3 sm:gap-4">
+                            <div
+                              className="w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0"
+                              style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' }}
+                            >
+                              <span className="font-bold text-sm sm:text-base">!</span>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm sm:text-base font-semibold text-txt-primary">
+                                Enter Your CFP First Round Game
+                              </div>
+                              <div className="text-xs sm:text-sm mt-0.5 text-txt-tertiary">
+                                Missed from Week 1 — #{userCFPSeed} vs #{17 - userCFPSeed} {getMascotName(userCFPOpponent)}
+                              </div>
+                            </div>
+                          </div>
+                          {isViewOnly ? <ViewOnlyBadge /> : (
+                            <button
+                              onClick={() => {
+                                const gameToEdit = userCFPFirstRoundGame || userCFPFirstRoundShell
+                                if (gameToEdit) {
+                                  navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
+                                } else {
+                                  const opponentTid = typeof userCFPOpponent === 'number' ? userCFPOpponent : getTidFromAbbr(userCFPOpponent, currentDynasty)
+                                  const params = new URLSearchParams({
+                                    week: 'CFP First Round',
+                                    year: currentDynasty.currentYear?.toString() || '',
+                                    team1Tid: userTeamTid?.toString() || '',
+                                    team2Tid: opponentTid?.toString() || '',
+                                    gameType: 'cfp_first_round'
+                                  })
+                                  navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                                }
+                              }}
+                              className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm self-end sm:self-auto transition-all hover:shadow-md active:scale-[0.98]"
+                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
+                            >
+                              Enter
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })()}
+
                     {/* Task 2: Enter YOUR Bowl Game (if Week 2 bowl) */}
                     {bowlEligible && selectedBowl && bowlOpponent && userBowlIsWeek2 && (
                       <div
