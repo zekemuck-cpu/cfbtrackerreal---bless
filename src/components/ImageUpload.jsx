@@ -115,20 +115,73 @@ export default function ImageUpload({
     return new File([blob], `pasted.${ext}`, { type: blob.type })
   }
 
+  // Some hosts gate their image content behind session cookies / auth
+  // tokens — the URL only renders inside that host's own pages and
+  // returns 401/403 from any other origin. Pasting such a URL would
+  // silently produce a broken <img> icon, so we reject these upfront
+  // with an actionable error. The list is the known-bad set we've hit
+  // in the wild; other URLs go through the load-verification path
+  // below as a generic safety net.
+  const isKnownAuthGatedUrl = (url) => {
+    try {
+      const u = new URL(url)
+      // ChatGPT backend serves images via session-authenticated routes
+      // (chatgpt.com/backend-api/estuary/content?id=…). These never
+      // load outside of a logged-in ChatGPT tab.
+      if (/(^|\.)chatgpt\.com$/i.test(u.hostname) && /^\/backend-api\//i.test(u.pathname)) return true
+      return false
+    } catch {
+      return false
+    }
+  }
+
+  // Verify a URL actually renders as an image (not a broken link)
+  // before we set it as the value. Uses an off-DOM <img> with onload /
+  // onerror so we get a real answer regardless of CORS — the browser
+  // can still display cross-origin images even when `fetch` is blocked.
+  const verifyImageLoads = (url) => new Promise(resolve => {
+    const probe = new window.Image()
+    let settled = false
+    const finish = (ok) => {
+      if (settled) return
+      settled = true
+      resolve(ok)
+    }
+    probe.onload = () => finish(true)
+    probe.onerror = () => finish(false)
+    probe.src = url
+    setTimeout(() => finish(false), 8000)
+  })
+
   // Take a URL the user pasted (from HTML or plain text) and either
   // fetch+upload it (preferred) or fall back to using it as-is in the
   // value field. The "as-is" path is the safety net for hosts that
   // block CORS on their image CDN — the URL still works in an <img>
-  // tag, just not for re-upload.
+  // tag, just not for re-upload. Before accepting that fallback we
+  // verify the URL actually loads so we don't silently produce a
+  // broken-image icon (the ChatGPT backend-api failure mode).
   const handlePastedUrl = async (url) => {
+    const cleanUrl = url.trim()
+
+    if (isKnownAuthGatedUrl(cleanUrl)) {
+      toast.error('That ChatGPT link needs login to load. Right-click the image and choose "Copy image" (not "Copy link"), or save it and upload the file.')
+      return false
+    }
+
     try {
-      const file = await urlToImageFile(url)
+      const file = await urlToImageFile(cleanUrl)
       await handleFile(file)
       return true
     } catch {
-      // CORS blocked or wasn't an image — use the URL directly.
-      // (e.g. ChatGPT's signed openai-labs URLs typically allow this.)
-      onChange(url.trim())
+      // CORS blocked or wasn't an image — verify it actually renders
+      // before we set it as-is. Without this check, broken auth-gated
+      // URLs would slip through and show a broken-image icon.
+      const ok = await verifyImageLoads(cleanUrl)
+      if (!ok) {
+        toast.error("That URL doesn't load as an image. Try right-click → \"Copy image\", or save the file and upload it.")
+        return false
+      }
+      onChange(cleanUrl)
       toast.success('Image URL set. If it stops loading later, paste again — some hosts expire links.')
       return true
     }
