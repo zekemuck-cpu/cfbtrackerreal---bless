@@ -822,16 +822,34 @@ export default function Game() {
   }
 
   // Helper function to get player PID by name
-  const getPlayerPID = (playerName) => {
-    const player = currentDynasty?.players?.find(p => p.name === playerName)
-    return player?.pid
-  }
+  // Memoized name → pid map across the whole dynasty. Without this,
+  // every lookup did `players.find(p => p.name === name)` — O(N) per
+  // name. Game.jsx re-renders frequently (recap text, tab switches,
+  // score edits), so the per-render cost compounded — for dynasties
+  // with 500-2000 players × ~30-80 box-score names per game, that's
+  // tens of thousands of string comparisons per render, on the hot
+  // path. Map lookup is O(1).
+  const playerPidByName = useMemo(() => {
+    const map = new Map()
+    for (const p of currentDynasty?.players || []) {
+      if (p?.name && p?.pid) map.set(p.name, p.pid)
+    }
+    return map
+  }, [currentDynasty?.players])
+
+  const getPlayerPID = (playerName) => playerPidByName.get(playerName)
 
   // Build name → Link patterns for inline recap linking. Every unique full
   // name from the game's box score gets a link. Last-only names also link,
   // but only when unambiguous in this game (two "Johnson"s in one game would
   // be silently skipped rather than pointed at the wrong player).
-  const recapPlayerLinks = (() => {
+  //
+  // Memoized — the IIFE used to run on every Game.jsx render, building
+  // a fresh array and fresh render closures even when nothing changed,
+  // which also forced <FormattedRecap> to re-render and re-parse the
+  // markdown body. Now only recomputes when the box score or player
+  // map actually change.
+  const recapPlayerLinks = useMemo(() => {
     if (!game?.boxScore) return null
     const sides = [game.boxScore.home, game.boxScore.away].filter(Boolean)
     const categories = ['passing', 'rushing', 'receiving', 'defense', 'kicking']
@@ -864,7 +882,7 @@ export default function Game() {
     )
     const links = []
     for (const name of names) {
-      const pid = getPlayerPID(name)
+      const pid = playerPidByName.get(name)
       if (!pid) continue
       const render = makeRender(`${pathPrefix}/player/${pid}`)
       links.push({ pattern: name, render })
@@ -877,7 +895,7 @@ export default function Game() {
       }
     }
     return links.length ? links : null
-  })()
+  }, [game?.boxScore, playerPidByName, pathPrefix])
 
   // Helper function to get full player object by name
   const getPlayerByName = (playerName) => {

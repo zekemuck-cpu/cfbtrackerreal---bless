@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 
 // Lightweight renderer for AI-generated game recaps. Supports the small
 // subset of markdown we ask the model to emit: **bold**, *italic* / _italic_,
@@ -181,7 +181,7 @@ function renderInline(text, keyPrefix, playerRegex, lookup) {
   return out
 }
 
-export default function FormattedRecap({ text, className = '', playerLinks = null }) {
+function FormattedRecapImpl({ text, className = '', playerLinks = null }) {
   if (!text) return null
 
   // `playerLinks` was the original prop name (back when it only auto-linked
@@ -249,3 +249,11 @@ export default function FormattedRecap({ text, className = '', playerLinks = nul
     </div>
   )
 }
+
+// Wrap in React.memo so re-renders of the parent (Game.jsx tab switches,
+// score edits, etc.) don't re-walk the markdown blocks when `text` and
+// `playerLinks` are stable. The internal useMemo on the compiled regex
+// already shields the regex work; React.memo skips the whole function
+// invocation. Long recaps (~500-800 words, many paragraphs) showed up as
+// perceptible lag during unrelated state updates without this.
+export default memo(FormattedRecapImpl)
