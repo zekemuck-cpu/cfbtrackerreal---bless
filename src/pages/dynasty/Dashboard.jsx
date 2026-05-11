@@ -4166,6 +4166,11 @@ export default function Dashboard() {
             const userBowlGame = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear))
             const userCFPFirstRoundGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPFirstRound || g.gameType === GAME_TYPES.CFP_FIRST_ROUND) && isSameYear(g.year, currentDynasty.currentYear))
             const userCFPFirstRoundShell = findUserCFPGameShell(currentDynasty, 'first_round', currentDynasty.currentYear)
+            // Hoisted from their original position further down in this IIFE
+            // (was ~line 4254) so the Has*/ScoresEntered booleans below can
+            // reference them without hitting a temporal-dead-zone error.
+            const userCFPQuarterfinalGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPQuarterfinal || g.gameType === GAME_TYPES.CFP_QUARTERFINAL) && isSameYear(g.year, currentDynasty.currentYear))
+            const userCFPQuarterfinalShell = findUserCFPGameShell(currentDynasty, 'quarterfinal', currentDynasty.currentYear)
             const userBowlIsWeek1 = selectedBowl && isBowlInWeek1(selectedBowl)
             const userBowlIsWeek2 = selectedBowl && isBowlInWeek2(selectedBowl)
 
@@ -4248,11 +4253,8 @@ export default function Dashboard() {
             const userHasCFPBye = userCFPSeed && userCFPSeed <= 4
             const userInCFPFirstRound = userCFPSeed && userCFPSeed >= 5 && userCFPSeed <= 12
 
-            // CFP Quarterfinals tracking
-            // Try to find via findCurrentTeamGame (works when both teams have tids set)
-            // Also check for shell (works even when team2Tid is null for bye seeds)
-            const userCFPQuarterfinalGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPQuarterfinal || g.gameType === GAME_TYPES.CFP_QUARTERFINAL) && isSameYear(g.year, currentDynasty.currentYear))
-            const userCFPQuarterfinalShell = findUserCFPGameShell(currentDynasty, 'quarterfinal', currentDynasty.currentYear)
+            // CFP Quarterfinals — game + shell hoisted above. Just the
+            // legacy results list here for QF opponent calculation below.
             const firstRoundResults = currentDynasty.cfpResultsByYear?.[currentDynasty.currentYear]?.firstRound || []
 
             // User is in QF if they have a bye (seed 1-4) OR won their First Round game (seed 5-12)
