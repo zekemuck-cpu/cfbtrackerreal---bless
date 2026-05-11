@@ -261,12 +261,14 @@ export default function BoxScoreSheetModal({
         opponentRoster: scoringOpponentRoster,
         rosterLabel: `${userIsHome ? homeTeamAbbr : awayTeamAbbr} ROSTER (user-controlled team — for team-assignment, see below)`,
         opponentRosterLabel: `${userIsHome ? awayTeamAbbr : homeTeamAbbr} ROSTER (opponent team — for team-assignment, see below)`,
-        structure: `Output the full play-by-play of this game as 13-col TSV. One row per highlight line, chronological order (earliest first). Paste at cell A2 of the "Scoring Summary" tab.
+        structure: `This is an OCR task: extract structured data from images into TSV. Prioritize responding quickly rather than thinking deeply. Extended thinking adds latency and is NOT helpful here — when in doubt, respond directly. Skip every preamble and begin output immediately with the first row's first character.
+
+Output the full play-by-play of this game as 13-col TSV — one row per highlight line, chronological order (earliest first). The user will copy your reply verbatim and paste it at cell A2 of the "Scoring Summary" tab in Google Sheets, so your reply must contain ONLY tab-separated rows. No XML, no markdown fences, no header row, no preamble, no commentary. The first character of your reply is the team abbreviation of the first play.
 
 ═══════════════════════════════════════════════════════════
 TRANSCRIBE, DON'T REASON — accuracy through copying, not football logic
 ═══════════════════════════════════════════════════════════
-Every row must match its source line exactly. 100% accuracy is the bar. But the ONLY thing you check is "did I copy the line's values into the right columns?" — you do NOT apply football reasoning on top.
+Every row must match its source line exactly. 100% transcription accuracy is the bar. But the ONLY thing you check is "did I copy the line's values into the right columns?" — you do NOT apply football reasoning on top.
 
 Checking you SHOULD do (fast, mechanical):
   ✓ Names spelled exactly as printed on the line.
@@ -275,13 +277,16 @@ Checking you SHOULD do (fast, mechanical):
   ✓ Chronological order: earliest play first.
   ✓ Exactly 13 cols (12 tabs) per row.
 
-Reasoning you should NOT do:
-  ✗ "Does -2 yards make sense?" — yes, write -2.
-  ✗ "Should this team have possession here?" — the player named on the line tells you who's on offense, that's the answer.
-  ✗ Cross-check rosters every play. Look up each name ONCE the first time you see it, then trust the team assignment.
-  ✗ Reconcile contradictions or "fix" what the screenshot says. If the line and your understanding of football disagree, the line wins.
+Reasoning you must NOT do (each of these has been observed slowing this task to a halt):
+  ✗ Do NOT trace kickoff returns or punts across plays to "figure out where the drive starts." The next play's Field Pos is on the next line; just read it.
+  ✗ Do NOT compute or verify field position math ("LOU 14 + 31 = LOU 45, that checks out"). Skip the math. Copy the Field Pos from each line as printed.
+  ✗ Do NOT reconcile yard-line discrepancies. If line N says "LOU 45" and line N+1 says "LOU 49," write both verbatim. Don't pause to investigate the off-by-4.
+  ✗ Do NOT trace possession across plays. Each line's player tells you that line's possession; nothing else does.
+  ✗ Do NOT cross-check rosters on every play. Look each name up ONCE the first time you see it, then trust the team assignment forever after.
+  ✗ Do NOT reconcile contradictions or "fix" what the screenshot says. If the line and your understanding of football disagree, the line wins.
+  ✗ Do NOT verify -2 / -7 / odd-looking yardages. If the line says -2, write -2 and move on.
 
-If a line is ambiguous, write what's printed and move on. Don't pause to deliberate. The user can fix edge cases after.
+ILLEGIBLE / UNSURE escape: if a cell value is illegible or ambiguous, write \`?\` for that cell and move on. Don't pause to figure it out. The user can fix \`?\` cells after.
 
 ═══════════════════════════════════════════════════════════
 13 COLUMNS (TSV order — exactly 12 tabs per row)
@@ -340,8 +345,6 @@ ORDER + FORMAT
 ═══════════════════════════════════════════════════════════
 CFB26's Highlights screen lists plays in reverse-chronological order (lowest time at the top). Output them CHRONOLOGICALLY (earliest first). Within a quarter: bottom of the screenshot first. Q1 → Q2 → Q3 → Q4 → OT.
 
-Output is one TSV block. No header row. No prose. No checklist. No commentary. Just rows.
-
 ═══════════════════════════════════════════════════════════
 TWO REFERENCE ROWS (use these as templates)
 ═══════════════════════════════════════════════════════════
@@ -351,10 +354,7 @@ TWO REFERENCE ROWS (use these as templates)
 "3rd & 5 on LOU 10. Donte Ware pass knocked away by Larry Long."
 → UK	Larry Long	Donte Ware	0				2	12:00		3	5	LOU 10	Pass Knocked Away
 
-(A=UK on the second row because UK was on offense — Donte Ware is UK's QB. Larry Long is the LOU defender who made the play, but A is the offensive team.)
-
-=== ALL PLAYS — paste at cell A2 of "Scoring Summary" tab ===
-<TSV here, no preamble>`,
+(A=UK on the second row because UK was on offense — Donte Ware is UK's QB. Larry Long is the LOU defender who made the play, but A is the offensive team.)`,
         includeTeamMap: true,
         dynastyTeams: currentDynasty?.teams,
       })
