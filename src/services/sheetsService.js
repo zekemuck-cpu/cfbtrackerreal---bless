@@ -3,7 +3,7 @@
 import { teamAbbreviations, getTeamAbbreviationsList, getSelectableTeamsList, getSchedulableTeamsList } from '../data/teamAbbreviations'
 import { getAbbrFromTeamName, getTidFromAbbr, TEAMS as DEFAULT_TEAMS } from '../data/teamRegistry'
 import { conferenceTeams as CANONICAL_CONFERENCES } from '../data/conferenceTeams'
-import { STAT_TABS, STAT_TAB_ORDER, SCORING_SUMMARY, SCORE_TYPES, PAT_RESULTS, QUARTERS, DOWNS, PLAY_TYPES, OUTCOMES, AI_UNIFIED_TAB, computeUnifiedTabLayout } from '../data/boxScoreConstants'
+import { STAT_TABS, STAT_TAB_ORDER, SCORING_SUMMARY, SCORE_TYPES, PAT_RESULTS, QUARTERS, DOWNS, PLAY_TYPES, AI_UNIFIED_TAB, computeUnifiedTabLayout } from '../data/boxScoreConstants'
 import { isPlayerOnRoster, getPlayerClassForYear } from '../context/DynastyContext'
 import { OAuthError } from '../utils/authErrors'
 
@@ -12234,7 +12234,7 @@ async function prefillScoringSummaryData(spreadsheetId, accessToken, scoringData
   if (!scoringData || scoringData.length === 0) return
 
   const rows = scoringData.map(play => [
-    // A-I — legacy fields
+    // A-I — legacy fields (scoring summary; untouched)
     play.team || '',
     play.scorer || '',
     play.passer || '',
@@ -12244,19 +12244,22 @@ async function prefillScoringSummaryData(spreadsheetId, accessToken, scoringData
     play.quarter || '',
     play.timeLeft || '',
     play.videoLink || '',
-    // J-O — play-by-play extension (undefined-safe for legacy rows)
+    // J-N — play-by-play extension. `description` is the new
+    // single-column home for the play's natural-language text;
+    // we accept the old `notes` or `outcome` field as a fallback
+    // for legacy data that hasn't been re-synced under the new
+    // schema yet.
     play.down || '',
     play.distance || '',
     play.fieldPos || '',
     play.playType || '',
-    play.outcome || '',
-    play.notes || '',
+    play.description || play.notes || play.outcome || '',
   ])
 
   // Write data to sheet starting at row 2 (after headers). Range
-  // covers all 15 cols A-O; legacy rows just send empty strings for
+  // covers all 14 cols A-N; legacy rows just send empty strings for
   // the new cols.
-  const range = `'${SCORING_SUMMARY.title}'!A2:O${rows.length + 1}`
+  const range = `'${SCORING_SUMMARY.title}'!A2:N${rows.length + 1}`
   const response = await fetchWithTimeout(
     `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
     {
@@ -12513,26 +12516,12 @@ async function initializeScoringSummarySheet(spreadsheetId, accessToken, sheetId
     }
   })
 
-  // Outcome dropdown (column N - index 13) — play-by-play extension.
-  requests.push({
-    setDataValidation: {
-      range: {
-        sheetId: sheetId,
-        startRowIndex: 1,
-        endRowIndex: SCORING_SUMMARY.rowCount + 1,
-        startColumnIndex: 13,
-        endColumnIndex: 14
-      },
-      rule: {
-        condition: {
-          type: 'ONE_OF_LIST',
-          values: OUTCOMES.map(o => ({ userEnteredValue: o }))
-        },
-        showCustomUi: true,
-        strict: false,
-      }
-    }
-  })
+  // Description column (N, index 13) has no dropdown — it's freeform
+  // natural-language play text. The earlier schema had an Outcome
+  // dropdown here, which the AI struggled to fill consistently
+  // because outcomes overlap with information already in the
+  // description (1st Down / Incomplete / TD all derivable from the
+  // play text). Removed entirely.
 
   // Add conditional formatting for team colors
   const teamFormattingRules = generateScoringTeamFormattingRules(sheetId, homeTeamAbbr, awayTeamAbbr, SCORING_SUMMARY.rowCount, dynastyTeams)
@@ -12671,28 +12660,34 @@ export async function readGameBoxScoreFromSheet(spreadsheetId, dynastyTeams = nu
 
 // Read scoring summary / plays from sheet.
 //
-// The sheet has 15 cols (A-O) × up to 300 rows. Cols A-I are the
-// legacy scoring summary shape; cols J-O are the play-by-play
+// The sheet has 14 cols (A-N) × up to 300 rows. Cols A-I are the
+// legacy scoring summary shape; cols J-N are the play-by-play
 // extension. A given row may be:
-//   • a scoring play (cols A-I filled, J-O optional)
-//   • a non-scoring play (cols A + J-O filled, E/F blank)
-//   • both (a scoring play with full PBP detail, all 15 cols filled)
+//   • a scoring play (cols A-I filled, J-N optional)
+//   • a non-scoring play (cols A + J-N filled, B-F blank)
+//   • both (a scoring play with full PBP detail, all 14 cols filled)
 //
 // We return every row the user filled. The frontend filters by which
 // fields are populated to decide what to render (Scores Only checkbox).
 //
 // Back-compat: old 9-col sheets only have data through col I; cols
-// J-O come back empty for those rows. Old 30-row sheets only have
+// J-N come back empty for those rows. Old 30-row sheets only have
 // data through row 31; rows 32-301 come back empty. The Google Sheets
 // API gracefully truncates a read range that exceeds the grid bounds,
-// so reading A2:O301 against an old 9-col/30-row sheet returns the
+// so reading A2:N301 against an old 9-col/30-row sheet returns the
 // rows that exist with the cols that exist — no error.
+//
+// Old 15-col sheets (from the brief earlier schema with separate
+// Outcome and Notes columns) read fine too: we now stop at col N,
+// so the old col-O Notes data is dropped on the next sync. Old col-N
+// Outcome data is picked up as the new Description field, which is
+// inaccurate but harmless until the user regenerates.
 export async function readScoringSummaryFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
-    // Read all 15 cols × 300 data rows.
-    const range = `'${SCORING_SUMMARY.title}'!A2:O${SCORING_SUMMARY.rowCount + 1}`
+    // Read all 14 cols × 300 data rows.
+    const range = `'${SCORING_SUMMARY.title}'!A2:N${SCORING_SUMMARY.rowCount + 1}`
     const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`,
       {
@@ -12757,14 +12752,13 @@ export async function readScoringSummaryFromSheet(spreadsheetId, dynastyTeams = 
         quarter: (row[6] || '').trim(),
         timeLeft: (row[7] || '').trim(),
         videoLink: (row[8] || '').trim(),
-        // Play-by-play extension (J-O). Empty strings on legacy
+        // Play-by-play extension (J-N). Empty strings on legacy
         // sheets / scoring-only rows; populated on all-plays rows.
         down: (row[9] || '').trim(),
         distance: (row[10] || '').trim(),
         fieldPos: (row[11] || '').trim(),
         playType: (row[12] || '').trim(),
-        outcome: (row[13] || '').trim(),
-        notes: (row[14] || '').trim(),
+        description: (row[13] || '').trim(),
       }))
   } catch (error) {
     console.error('Error reading scoring summary:', error)

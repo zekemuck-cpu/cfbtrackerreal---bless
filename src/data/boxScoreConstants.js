@@ -129,7 +129,8 @@ export const SCORING_SUMMARY = {
   headers: [
     // Cols A-I — legacy 9-col scoring summary shape. KEEP THESE
     // INDICES STABLE. Existing dynasties' data and the existing
-    // display code in Game.jsx assume these positions.
+    // display code in Game.jsx assume these positions. Scoring-only
+    // users only ever fill these nine columns.
     'Team',         // A
     'Scorer',       // B
     'Passer',       // C
@@ -139,14 +140,24 @@ export const SCORING_SUMMARY = {
     'Quarter',      // G
     'Time Left',    // H
     'Video Link',   // I
-    // Cols J-O — play-by-play extension. Optional. Filled by the
+    // Cols J-N — play-by-play extension. Optional. Filled by the
     // all-plays AI prompt; left blank by scoring-only users.
+    //
+    // The earlier 15-col version had separate Outcome and Notes
+    // columns; the AI consistently confused which player went
+    // where (jamming the QB into both Scorer and Passer, the
+    // receiver into Notes, the outcome into yet another col).
+    // Replaced with a single Description column holding the
+    // verbatim play text from the CFB26 highlight — same source
+    // the user sees on screen. The AI's job is now: read the
+    // line, extract Down/Distance/Field Pos/Play Type, copy the
+    // rest into Description. Player names live in Description
+    // where they belong.
     'Down',         // J — 1 / 2 / 3 / 4 (blank for kickoffs, PATs)
     'Distance',     // K — yards-to-go, or "G" for goal
     'Field Pos',    // L — e.g. "LOU 7" or "UK 39" (descriptive yard line)
-    'Play Type',    // M — Rush / Pass Comp / Pass Inc / etc.
-    'Outcome',      // N — TD / 1st Down / Turnover / Incomplete / etc.
-    'Notes',        // O — freeform
+    'Play Type',    // M — Rush / Pass / Sack / Kickoff / Punt / FG / Penalty / Other
+    'Description',  // N — verbatim play description ("Edward Reed pass to Melvin Rugan for 31 yards")
   ],
   rowCount: 300,
 }
@@ -183,39 +194,21 @@ export const QUARTERS = ['1', '2', '3', '4', 'OT', '2OT', '3OT', '4OT']
 export const DOWNS = ['', '1', '2', '3', '4']
 
 // Play Type dropdown options (col M — for play-by-play rows).
-// Empty default lets scoring-only rows leave it blank.
+// Coarser than the prior version on purpose: the play's outcome
+// (1st Down / TD / Incomplete / etc.) is in the Description column
+// already, so Play Type only needs to capture the BROAD category
+// (run / pass / kick / etc.) for filtering and drive parsing.
 export const PLAY_TYPES = [
   '',
   'Rush',
-  'Pass Complete',
-  'Pass Incomplete',
-  'Pass Sack',
+  'Pass',
+  'Sack',
+  'Kickoff',
   'Punt',
   'Field Goal',
-  'Kickoff',
   'PAT',
   'Penalty',
   'Other',
-]
-
-// Outcome dropdown options (col N — for play-by-play rows). Empty
-// default lets scoring-only rows leave it blank.
-export const OUTCOMES = [
-  '',
-  'TD',
-  'FG Made',
-  'FG Missed',
-  '1st Down',
-  'Turnover',
-  'INT',
-  'Fumble Lost',
-  'Sack',
-  'Incomplete',
-  'No Gain',
-  'Out of Bounds',
-  'Touchback',
-  'Penalty',
-  'Safety',
 ]
 
 // Helper to get all stat tabs as array

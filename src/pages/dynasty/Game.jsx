@@ -2222,12 +2222,17 @@ export default function Game() {
             const isScoringPlay = (p) => !!p.scoreType || is2PTAttempt(p)
 
             // Detect whether this game has play-by-play data on file.
-            // A play-by-play row populates at least one of the
-            // PBP-only fields (down, playType, fieldPos). If no row
-            // has any of those, this game was scored-only — the
-            // "Scores Only" checkbox is locked checked + no drive
-            // expansion is offered.
-            const hasPBPData = chronoPlays.some(p => p.down || p.playType || p.fieldPos)
+            // A play-by-play row populates at least one of the PBP-only
+            // fields. If no row has any of those, this game was scored-
+            // only — the "Scores Only" checkbox is locked checked + no
+            // drive expansion is offered.
+            const hasPBPData = chronoPlays.some(p =>
+              p.down || p.playType || p.fieldPos || p.description ||
+              // Legacy 15-col data shape — accept the old field names
+              // as PBP signals too so games saved before the schema
+              // simplification still render their drive context.
+              p.outcome || p.notes
+            )
 
             // Walk backward from a scoring play to find the drive that
             // ended with that play. A drive is a consecutive run of
@@ -2251,6 +2256,12 @@ export default function Game() {
             // Compact rendering for a non-scoring play row (used in
             // both the unchecked "show all plays" view and inside the
             // expanded-drive sub-rows).
+            //
+            // Reads from the new single Description column. Falls back
+            // to the legacy {playType, scorer, passer, yards, outcome,
+            // notes} shape for data entered under the old 15-col
+            // schema — those values are stitched together into a
+            // single line so old games still render cleanly.
             const renderPBPRow = (play, key) => {
               const resolved = resolvePlayTeamData(play)
               const colors = resolved.colors
@@ -2259,11 +2270,24 @@ export default function Game() {
               const isLeft = isPlayOnLeftSide(play)
               const dist = play.distance === 'G' ? 'Goal' : play.distance
               const downDist = play.down ? `${play.down}${play.down === '1' ? 'st' : play.down === '2' ? 'nd' : play.down === '3' ? 'rd' : 'th'}${dist ? ` & ${dist}` : ''}` : ''
-              const yards = play.yards ? `${play.yards} yd${Math.abs(Number(play.yards)) === 1 ? '' : 's'}` : ''
-              const primary = play.scorer || ''
-              const secondary = play.passer || ''
-              const playType = play.playType || ''
-              const outcome = play.outcome || ''
+
+              // Prefer the new Description column. If absent, fall
+              // back to assembling from legacy fields so old data
+              // still reads naturally.
+              let body = (play.description || '').trim()
+              if (!body) {
+                const parts = []
+                if (play.playType) parts.push(play.playType)
+                const primary = play.scorer || ''
+                const secondary = play.passer || ''
+                if (primary && secondary) parts.push(`${primary} → ${secondary}`)
+                else if (primary) parts.push(primary)
+                if (play.yards) parts.push(`${play.yards} yd${Math.abs(Number(play.yards)) === 1 ? '' : 's'}`)
+                if (play.outcome) parts.push(play.outcome)
+                if (play.notes) parts.push(play.notes)
+                body = parts.join(' · ')
+              }
+
               return (
                 <div key={key} className="flex items-stretch text-[11px] sm:text-xs">
                   <div className="w-1 flex-shrink-0" style={{ backgroundColor: colors.primary, opacity: 0.5 }} />
@@ -2280,25 +2304,7 @@ export default function Game() {
                     {play.fieldPos && (
                       <div className="flex-shrink-0 font-mono text-txt-muted">{play.fieldPos}</div>
                     )}
-                    <div className="flex-1 min-w-0 truncate">
-                      {playType && <span className="text-txt-secondary">{playType}</span>}
-                      {primary && (
-                        <span>
-                          {playType && <span className="text-txt-muted"> · </span>}
-                          <span className="font-medium text-txt-secondary">{primary}</span>
-                        </span>
-                      )}
-                      {secondary && (
-                        <span>
-                          {' → '}
-                          <span className="font-medium text-txt-secondary">{secondary}</span>
-                        </span>
-                      )}
-                      {yards && <span className="text-txt-muted"> · {yards}</span>}
-                      {outcome && (
-                        <span className="text-txt-muted"> · {outcome}</span>
-                      )}
-                    </div>
+                    <div className="flex-1 min-w-0 truncate text-txt-secondary">{body}</div>
                     <div className={`flex-shrink-0 w-2 h-2 rounded-full ${isLeft ? 'mr-auto' : 'ml-auto'}`} style={{ backgroundColor: colors.primary }} />
                   </div>
                 </div>

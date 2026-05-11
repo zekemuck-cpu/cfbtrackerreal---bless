@@ -259,152 +259,159 @@ export default function BoxScoreSheetModal({
         title: `${baseTitle} — All Plays`,
         roster: scoringUserRoster,
         opponentRoster: scoringOpponentRoster,
-        rosterLabel: `${userIsHome ? homeTeamAbbr : awayTeamAbbr} ROSTER (user-controlled team — disambiguation reference for abbreviated names)`,
-        opponentRosterLabel: `${userIsHome ? awayTeamAbbr : homeTeamAbbr} ROSTER (opponent team — disambiguation reference for abbreviated names)`,
-        structure: `This sheet has ONE tab: "Scoring Summary" — despite the legacy name, it holds the FULL play-by-play log for this game. Up to 300 rows × 15 columns. You will output ONE row per play in CHRONOLOGICAL order (earliest play first).
+        rosterLabel: `${userIsHome ? homeTeamAbbr : awayTeamAbbr} ROSTER (user-controlled team — for team-assignment, see below)`,
+        opponentRosterLabel: `${userIsHome ? awayTeamAbbr : homeTeamAbbr} ROSTER (opponent team — for team-assignment, see below)`,
+        structure: `This sheet has ONE tab named "Scoring Summary" — but it holds the FULL play-by-play log for this game. Up to 300 rows × 14 columns. You will output ONE row per play, in chronological order (earliest first).
+
+═══════════════════════════════════════════════════════════
+THE JOB IN PLAIN LANGUAGE
+═══════════════════════════════════════════════════════════
+For each highlight line on the CFB26 Highlights screenshot, output ONE row. Most rows only need SIX fields filled:
+
+  • A — Team (which team had the ball — derived from the player names)
+  • G — Quarter (1 / 2 / 3 / 4 / OT / 2OT / ...)
+  • H — Time Left (MM:SS, e.g. "03:21")
+  • J / K / L — Down / Distance / Field Pos (if the highlight starts with "<Down> & <Distance> on <Field Pos>.")
+  • M — Play Type (Rush / Pass / Sack / Kickoff / Punt / Field Goal / PAT / Penalty / Other)
+  • N — Description: COPY THE HIGHLIGHT TEXT VERBATIM.
+
+That's it. The description column is the heart of the row — every player name, every yardage number, every nuance the highlight captured lives there in natural-language form. You do NOT need to extract receivers, defenders, sack credits, or yardage into separate cells — the description carries them.
+
+If a play happens to ALSO be a scoring play, also fill the legacy scoring fields (B-F) per the rules below so the Scores Only view of the recap still works.
 
 ═══════════════════════════════════════════════════════════
 WHAT YOU ARE LOOKING AT
 ═══════════════════════════════════════════════════════════
-The user pastes screenshots of EA College Football 26's post-game "Highlights" screen. That screen shows every play of the game, ONE QUARTER AT A TIME, with the following format:
+EA College Football 26's "Highlights" screen shows every play of the game, one quarter per screenshot, in REVERSE chronological order — the most recent play (lowest time remaining) is at the top, the earliest play of the quarter is at the bottom.
+
+Sample row layout from the screenshot:
 
   TIME    RATING    HIGHLIGHT
   3:21    N/A       1st & Goal on LOU 7. Donte Ware incomplete pass; intended for Quincy Merchant.
   4:08    N/A       3rd & 5 on LOU 15. Donte Ware pass to Earl Whimper for 13 yards.
-  4:49    N/A       2nd & 10 on LOU 20. Donte Ware pass to Doug Wayne for 5 yards.
-  ...
+  …
   6:52    N/A       4th & 1 on UK 39. 13 yard rush by Stephen Dahl.
 
-CRITICAL ORDERING NOTE: CFB26's Highlights screen lists plays from LATEST → EARLIEST within each quarter (the play with the lowest time-remaining is at the TOP, the play with the highest time-remaining is at the BOTTOM). Game-time-wise, MORE time remaining = EARLIER play. Your output must put the EARLIEST play first, so within a quarter the play at the BOTTOM of the screenshot is output first and the play at the TOP is output last.
+Your output orders the plays CHRONOLOGICALLY (earliest first). Within a quarter, the play at the BOTTOM of the screenshot is output FIRST. Across quarters: Q1 → Q2 → Q3 → Q4 → OT.
 
-The user typically uploads multiple screenshots — one per quarter (Q1, Q2, Q3, Q4, plus OT if applicable). Your output covers EVERY play across EVERY quarter, in chronological order: Q1 plays first (earliest → latest within Q1), then Q2 plays, then Q3, then Q4, then OT.
-
-═══════════════════════════════════════════════════════════
-PARSING EACH PLAY DESCRIPTION
-═══════════════════════════════════════════════════════════
-Every highlight line follows this pattern:
-
-  <Down> & <Distance> on <Field Pos>. <Play description>.
-
-For example: "3rd & 5 on LOU 15. Donte Ware pass to Earl Whimper for 13 yards."
-  • Down = "3"
-  • Distance = "5"
-  • Field Pos = "LOU 15"
-  • Play type / players / yards = parsed from the description
-
-Down & Distance:
-  • "1st & 10" → Down = "1", Distance = "10"
-  • "3rd & 5"  → Down = "3", Distance = "5"
-  • "4th & 2"  → Down = "4", Distance = "2"
-  • "1st & Goal" → Down = "1", Distance = "G"
-  • Kickoffs / PATs / penalty pre-snap typically have no down-distance prefix — leave Down + Distance blank.
-
-Field Position: copy the literal "<TEAM_ABBR> <YARD>" string into the Field Pos column (col L). Examples: "LOU 7", "UK 39", "MID 50" (midfield), or "LOU 50" / "UK 50" (also midfield, EA labels by side of field).
-
-Play description patterns (Play Type / Outcome / players / yards):
-
-  • "<X> yard rush by <Player>." → Play Type = Rush, Primary Player = <Player>, Yards = X
-  • "Rush by <Player> for <X> yards." → same as above
-  • "<Passer> pass to <Receiver> for <X> yards." → Play Type = Pass Complete, Primary = <Passer>, Secondary = <Receiver>, Yards = X
-  • "<Passer> incomplete pass; intended for <Receiver>." → Play Type = Pass Incomplete, Primary = <Passer>, Secondary = <Receiver>, Yards = 0
-  • "<Passer> pass thrown away." → Play Type = Pass Incomplete, Primary = <Passer>, Yards = 0
-  • "<Passer> pass dropped by <Receiver>." → Play Type = Pass Incomplete, Primary = <Passer>, Secondary = <Receiver>, Yards = 0
-  • "<Passer> sacked by <Defender> for -<X> yards." → Play Type = Pass Sack, Primary = <Passer>, Secondary = <Defender>, Yards = -X
-  • "<Kicker> <X> yard field goal good." → Play Type = Field Goal, Primary = <Kicker>, Yards = X, Outcome = FG Made
-  • "<Kicker> <X> yard field goal no good." → Play Type = Field Goal, Primary = <Kicker>, Yards = X, Outcome = FG Missed
-  • "Punt by <Punter> for <X> yards." → Play Type = Punt, Primary = <Punter>, Yards = X
-  • "Kickoff by <Kicker>." → Play Type = Kickoff, Primary = <Kicker>, leave down + distance blank
-  • Anything else (penalty, fumble, INT, safety, blocked kick, etc.) → use Play Type = "Other" and put the description in Notes (col O)
-
-Outcome (col N) — set this based on the play result:
-  • Touchdown of any kind → "TD"
-  • Field goal made → "FG Made"
-  • Field goal missed → "FG Missed"
-  • Yards gained ≥ Distance to go → "1st Down"
-  • Pass incomplete → "Incomplete"
-  • Sack → "Sack"
-  • Fumble lost / interception → "Turnover" (or "INT" / "Fumble Lost" if specifically identified)
-  • Safety → "Safety"
-  • Punt → "Touchback" if endzone, else blank
-  • Otherwise (run for short gain, no first down, no score, etc.) → "No Gain" if 0 yards, otherwise blank
+The user typically uploads multiple screenshots — one per quarter. Walk each screenshot bottom-to-top, then move to the next quarter's screenshot. Your output covers every play across every quarter.
 
 ═══════════════════════════════════════════════════════════
-WHICH TEAM HAS THE BALL — use the rosters
+PARSING DOWN / DISTANCE / FIELD POS (cols J, K, L)
 ═══════════════════════════════════════════════════════════
-Each play's Team (col A) is determined by which roster the PRIMARY PLAYER belongs to. Check both roster blocks above:
-  • If the primary player is in the ${userIsHome ? homeTeamAbbr : awayTeamAbbr} roster → Team = "${userIsHome ? homeTeamAbbr : awayTeamAbbr}"
-  • If the primary player is in the ${userIsHome ? awayTeamAbbr : homeTeamAbbr} roster → Team = "${userIsHome ? awayTeamAbbr : homeTeamAbbr}"
+Most highlight lines start with a down-and-distance prefix:
 
-The "<TEAM> <YARD>" in Field Pos describes WHICH END OF THE FIELD the ball is at — it does NOT determine which team has the ball. Example: "1st & Goal on LOU 7" means the ball is 7 yards from LOU's end zone, but the team with the ball might be UK (going FOR a TD against LOU). Determine team-with-ball from the PLAYER, not the field position.
+  "1st & 10 on UK 25. <description>"   →  Down="1", Distance="10", Field Pos="UK 25"
+  "3rd & 5 on LOU 15. <description>"   →  Down="3", Distance="5",  Field Pos="LOU 15"
+  "4th & 2 on LOU 40. <description>"   →  Down="4", Distance="2",  Field Pos="LOU 40"
+  "1st & Goal on LOU 7. <description>" →  Down="1", Distance="G",  Field Pos="LOU 7"
 
-═══════════════════════════════════════════════════════════
-SCORING PLAYS — fill the legacy scoring fields TOO
-═══════════════════════════════════════════════════════════
-For plays that result in a score (TD / FG made / safety), ALSO fill the legacy scoring columns so the Scores Only display works:
+Lines WITHOUT a down-and-distance prefix (kickoffs, PATs, pre-snap penalties): leave J, K, L blank.
 
-  • Score Type (col E):
-      - Rushing TD: "Rushing TD"
-      - Passing TD: "Passing TD" (also fill col C with the QB)
-      - Field Goal: "Field Goal"
-      - Safety: "Safety"
-      - Return TDs (kickoff/punt/INT/fumble): the appropriate "<Type> Return TD"
-      - Blocked kick return TD: "Blocked Punt/FG TD"
-  • PAT Result (col F): If the next play after a TD is a PAT attempt, encode it here on the TD row (Made XP / Missed XP / Blocked XP / Converted 2PT / Failed 2PT) and DO NOT emit a separate row for the PAT. If you can't tell from the Highlights screen, leave PAT blank — Score Type alone is enough for the scoring summary to render.
-
-The Quarter (col G) and Time Left (col H) MUST be filled on EVERY row (not just scoring plays). They drive chronological sorting.
+Field Pos is the literal "<TEAM_ABBR> <YARD>" string copied from the screenshot. Examples: "LOU 7", "UK 39", "MID 50". This tells you which END of the field the ball is at — NOT which team has the ball.
 
 ═══════════════════════════════════════════════════════════
-THE 15 COLUMNS — exact order
+PLAY TYPE (col M) — coarse category
+═══════════════════════════════════════════════════════════
+One of these dropdown values (the description carries all the detail):
+
+  • "Rush"        — any rushing play (rush, scramble, designed run)
+  • "Pass"        — any pass attempt (complete, incomplete, dropped, thrown away — all "Pass")
+  • "Sack"        — sack
+  • "Kickoff"     — kickoff (and its return)
+  • "Punt"        — punt (and its return)
+  • "Field Goal"  — FG attempt (made or missed)
+  • "PAT"         — extra point or 2-point conversion try (standalone row only, if shown)
+  • "Penalty"     — pre-snap penalty that doesn't fit the play above
+  • "Other"       — anything else (safety, blocked kick, etc.)
+
+═══════════════════════════════════════════════════════════
+DESCRIPTION (col N) — verbatim copy
+═══════════════════════════════════════════════════════════
+Copy the highlight text into the Description column EXACTLY as it appears on the screenshot, MINUS the down-and-distance prefix that you already parsed into cols J/K/L. The screenshot's line for a play looks like:
+
+  "1st & Goal on LOU 7. Donte Ware incomplete pass; intended for Quincy Merchant."
+
+Your Description column gets the part after the period:
+
+  Donte Ware incomplete pass; intended for Quincy Merchant.
+
+For lines that have NO down-and-distance prefix (kickoffs / PATs), the entire line goes into Description.
+
+If a screenshot row contains TWO sentences (e.g. "1st & Goal on LOU 7. Donte Ware incomplete pass; intended for Quincy Merchant. Penalty: Offsides, UK, 5 yards."), copy both sentences into Description as one cell.
+
+DO NOT try to extract receivers, sack credits, yardage gained, defenders, or anything else into separate columns. The Description IS where those go.
+
+═══════════════════════════════════════════════════════════
+TEAM (col A) — which team had the ball
+═══════════════════════════════════════════════════════════
+Use the rosters above to figure out which team the offensive player belongs to:
+
+  • If a name in the description is on the ${userIsHome ? homeTeamAbbr : awayTeamAbbr} roster → Team = "${userIsHome ? homeTeamAbbr : awayTeamAbbr}"
+  • If a name in the description is on the ${userIsHome ? awayTeamAbbr : homeTeamAbbr} roster → Team = "${userIsHome ? awayTeamAbbr : homeTeamAbbr}"
+
+The "<TEAM> <YARD>" in Field Pos is descriptive of where on the field the ball is — it is NOT who has the ball. "1st & Goal on LOU 7" usually means the OPPOSING team is about to score against LOU. Always determine team-with-ball from the PLAYER named in the description.
+
+═══════════════════════════════════════════════════════════
+SCORING PLAYS — also fill cols B-F
+═══════════════════════════════════════════════════════════
+When a play results in a score (TD / FG made / safety), fill the legacy scoring columns IN ADDITION TO J-N so the Scores Only view of the recap still renders correctly. The rules are exactly the same as the standalone Scoring Summary AI prompt, summarized:
+
+  • B — Scorer: the player credited with the TD (rusher on rushing TDs, receiver on passing TDs, kicker on FGs, returner on return TDs).
+  • C — Passer: the QB on passing TDs only. Blank otherwise.
+  • D — Yards: the yardage of the scoring play (e.g. 6 for a 6-yard TD pass; the FG distance for a field goal). Blank for safeties.
+  • E — Score Type: strict dropdown — "Rushing TD" / "Passing TD" / "Field Goal" / "Safety" / "Kick Return TD" / "Punt Return TD" / "INT Return TD" / "Fumble Return TD" / "Blocked Punt/FG TD".
+  • F — PAT Result: "Made XP" / "Missed XP" / "Blocked XP" / "Converted 2PT" / "Failed 2PT". Blank on field goals + safeties. If the Highlights screen doesn't show the PAT outcome, leave PAT blank.
+
+═══════════════════════════════════════════════════════════
+THE 14 COLUMNS — exact order
 ═══════════════════════════════════════════════════════════
 Col | Header        | What to write
-----+---------------+-----------------------------------------------------------
- A  | Team          | "${homeTeamAbbr}" or "${awayTeamAbbr}" (strict dropdown). Determined from primary player's roster.
- B  | Scorer        | Primary player (rusher / passer / kicker / scorer / returner). Required on every play with an identified player.
- C  | Passer        | On passing plays (Pass Complete / Pass Incomplete / Pass Sack), this is the QB. Otherwise blank. (For passing TDs, this is the QB and B is the receiver — matches the legacy scoring summary convention.)
- D  | Yards         | Yards on the play (integer; negative allowed for sacks/losses). For Pass Incomplete, use 0. For Kickoffs, use the kick distance.
- E  | Score Type    | ONLY for scoring plays. Empty for non-scoring plays. Strict dropdown.
- F  | PAT Result    | ONLY for TD rows where you can identify the PAT outcome. Empty otherwise.
- G  | Quarter       | "1" / "2" / "3" / "4" / "OT" / "2OT" / "3OT" / "4OT". REQUIRED on every play.
- H  | Time Left     | MM:SS with leading zeros ("03:21", "00:15"). REQUIRED on every play.
+----+---------------+--------------------------------------------------------------
+ A  | Team          | "${homeTeamAbbr}" or "${awayTeamAbbr}". Required on every row.
+ B  | Scorer        | Scoring plays only — see above. Blank for non-scoring plays.
+ C  | Passer        | Passing TDs only — QB name. Blank otherwise.
+ D  | Yards         | Scoring plays only — TD/FG yardage. Blank for non-scoring rows.
+ E  | Score Type    | Scoring plays only — strict dropdown.
+ F  | PAT Result    | TD rows only when the PAT outcome is visible. Strict dropdown.
+ G  | Quarter       | Required on every row. "1"/"2"/"3"/"4"/"OT"/"2OT"/"3OT"/"4OT".
+ H  | Time Left     | Required on every row. MM:SS with leading zeros.
  I  | Video Link    | Blank.
- J  | Down          | "1" / "2" / "3" / "4", or blank for kickoffs / PATs / pre-snap penalties.
- K  | Distance      | Yards-to-go (integer) or "G" for goal. Blank where Down is blank.
- L  | Field Pos     | "<TEAM_ABBR> <YARD>" exactly as the screenshot shows ("LOU 7", "UK 39", "MID 50").
- M  | Play Type     | Strict dropdown: "Rush" / "Pass Complete" / "Pass Incomplete" / "Pass Sack" / "Punt" / "Field Goal" / "Kickoff" / "PAT" / "Penalty" / "Other".
- N  | Outcome       | Strict dropdown — see Outcome list above. May be blank for unremarkable run-of-play.
- O  | Notes         | Optional freeform. Use for play details that don't fit any other column (penalty descriptions, etc.).
+ J  | Down          | "1"/"2"/"3"/"4" if the highlight has a down prefix. Blank otherwise.
+ K  | Distance      | Yards-to-go (integer) or "G" for goal. Blank if Down is blank.
+ L  | Field Pos     | "<TEAM_ABBR> <YARD>" copied verbatim from the highlight prefix.
+ M  | Play Type     | One of: Rush / Pass / Sack / Kickoff / Punt / Field Goal / PAT / Penalty / Other.
+ N  | Description   | The play's natural-language text from the highlight, minus the down-and-distance prefix.
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES
 ═══════════════════════════════════════════════════════════
 1. ONE ROW PER PLAY. CFB games typically have 120-180 plays. Output up to 300 rows.
-2. CHRONOLOGICAL ORDER (earliest first). Within a quarter, the play with HIGHER time-remaining (e.g. 12:45) comes BEFORE the play with lower time-remaining (e.g. 02:13). Across quarters, Q1 → Q2 → Q3 → Q4 → OT.
-3. EVERY row must have Team (col A), Quarter (col G), and Time Left (col H) filled.
-4. Output ALL 15 columns per row, paste at cell A2.
-5. NO COMMAS in numbers. INTEGERS for yards (negative allowed). Time Left is MM:SS with leading zeros.
-6. Strict dropdowns on cols A, E, F, G. Use the exact values listed — wrong value = rejection.
-7. No header row in your output. No commentary. SINGLE TSV block.
+2. CHRONOLOGICAL ORDER (earliest play first). Within a quarter, higher time-remaining = earlier play.
+3. EVERY row must have Team (A), Quarter (G), and Time Left (H) filled.
+4. Output EXACTLY 14 tab-separated values per row (13 tabs). Paste at cell A2.
+5. No header row. No commentary. SINGLE TSV block.
+6. No commas in numbers. Time Left uses MM:SS with leading zeros.
 
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
 === ALL PLAYS — paste at cell A2 of "Scoring Summary" tab ===
-<Team>\\t<Scorer>\\t<Passer>\\t<Yards>\\t<Score Type>\\t<PAT Result>\\t<Quarter>\\t<Time Left>\\t<Video Link>\\t<Down>\\t<Distance>\\t<Field Pos>\\t<Play Type>\\t<Outcome>\\t<Notes>
+<Team>\\t<Scorer>\\t<Passer>\\t<Yards>\\t<Score Type>\\t<PAT Result>\\t<Quarter>\\t<Time Left>\\t<Video Link>\\t<Down>\\t<Distance>\\t<Field Pos>\\t<Play Type>\\t<Description>
 ... one row per play, chronological
 
-(Each \\t above represents a LITERAL TAB character — use actual tabs.)
+(Each \\t above is a LITERAL TAB. Use actual tab characters.)
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK
 ═══════════════════════════════════════════════════════════
-[ ] Total row count matches the play count across all uploaded screenshots
-[ ] All rows in chronological order (Q1 earliest first, OT last)
-[ ] Every row has 15 tab-separated values (14 tabs per line)
-[ ] Team (A), Quarter (G), Time Left (H) populated on every row
-[ ] Scoring plays ALSO have Score Type (E) filled so the Scores Only view renders correctly
-[ ] Field Pos uses the literal "<TEAM> <YARD>" form from the screenshot
-[ ] Down is "1"-"4" or blank (kickoffs/PATs); Distance is integer or "G" or blank
-[ ] Play Type is one of the 10 listed dropdown values (or blank for genuinely unclassifiable plays)`,
+[ ] One row per play in the screenshots. Plays in chronological order (Q1 first, OT last).
+[ ] Every row has 14 tab-separated values (13 tabs).
+[ ] Team (A), Quarter (G), Time Left (H) populated on every row.
+[ ] Down/Distance/Field Pos (J/K/L) populated whenever the highlight has a "<Down> & <Distance> on <Field Pos>." prefix; blank for kickoffs/PATs.
+[ ] Description (N) is verbatim play text from the highlight (minus the down prefix you parsed). No paraphrasing.
+[ ] Scoring plays ALSO have Score Type (E) — and Scorer (B), Yards (D), and Passer (C if passing TD), PAT Result (F if visible).
+[ ] No commas in numbers, no header row, no commentary.`,
         includeTeamMap: true,
         dynastyTeams: currentDynasty?.teams,
       })

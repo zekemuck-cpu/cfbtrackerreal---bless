@@ -3725,9 +3725,10 @@ FOCUS: Write from ${ctx.userTeamName}'s perspective as the primary team.
   }
   // A play is "PBP-only" (carries play-by-play extension fields).
   // Used to detect whether the new PLAY-BY-PLAY section should
-  // render at all.
+  // render at all. Accept legacy 15-col fields too so older games
+  // still surface their drive context.
   const hasAnyPBPData = (ctx.scoringSummary || []).some(p =>
-    p && (p.playType || p.down || p.fieldPos || p.outcome)
+    p && (p.description || p.playType || p.down || p.fieldPos || p.outcome || p.notes)
   )
   const scoringOnlyList = (ctx.scoringSummary || []).filter(isScoringPlay)
 
@@ -3913,21 +3914,21 @@ ${flowLines.join('\n')}`
       return `${ord} & ${dist}`
     }
 
-    // Compact one-line play description. Combines play type + players +
-    // yards + outcome. Keeps the wording terse so a 200-play game stays
-    // under ~3k tokens of PBP context.
+    // Compact one-line play description. Prefers the new Description
+    // column for non-scoring plays (verbatim CFB26 highlight text).
+    // For scoring plays, leads with the score type so the "this play
+    // scored" signal is preserved.
     const fmtPlayDesc = (play) => {
       const isScoring = isScoringPlay(play)
-      const primary = (play.scorer || '').trim()
-      const secondary = (play.passer || '').trim()
-      const yards = (play.yards || '').toString().trim()
-      const playType = (play.playType || '').trim()
-      const outcome = (play.outcome || '').trim()
       const scoreType = (play.scoreType || '').trim()
       const patResult = (play.patResult || '').trim()
+      const yards = (play.yards || '').toString().trim()
+      const primary = (play.scorer || '').trim()
+      const secondary = (play.passer || '').trim()
 
       // For scoring rows, lead with the score type. The PBP section
-      // doesn't want to lose the "this play scored" signal.
+      // doesn't want to lose the "this play scored" signal even if the
+      // user also filled the Description column.
       if (isScoring && scoreType) {
         const yardClause = yards ? `${yards} yd` : ''
         const passFrom = secondary ? ` from ${secondary}` : ''
@@ -3935,24 +3936,41 @@ ${flowLines.join('\n')}`
         return `${yardClause ? yardClause + ' ' : ''}${scoreType}: ${primary}${passFrom}${pat}`.trim()
       }
 
-      // Non-scoring play: play type + players + yards + outcome.
+      // Non-scoring play: prefer the Description column. Fall back
+      // to assembling from legacy fields when the row was entered
+      // under the old 15-col schema.
+      const desc = (play.description || '').trim()
+      if (desc) return desc
+
+      const playType = (play.playType || '').trim()
+      const outcome = (play.outcome || '').trim()
+      const notes = (play.notes || '').trim()
       const parts = []
       if (playType) parts.push(playType)
       if (primary && secondary) parts.push(`${primary} → ${secondary}`)
       else if (primary) parts.push(primary)
       if (yards) parts.push(`${yards} yd`)
       if (outcome) parts.push(`(${outcome})`)
-      const text = parts.join(' · ')
-      return text || (play.notes || '').trim()
+      if (notes) parts.push(notes)
+      return parts.join(' · ')
     }
 
     // Strict hygiene filter — only rows with quarter+time and at least
-    // one descriptive field.
+    // one descriptive field. The new Description column counts;
+    // legacy fields (outcome, notes) also count for back-compat.
     const pbpRows = (ctx.scoringSummary || []).filter(p =>
       p &&
       p.quarter && String(p.quarter).trim() &&
       p.timeLeft && String(p.timeLeft).trim() &&
-      ((p.playType || '').trim() || (p.down || '').trim() || (p.scorer || '').trim() || (p.scoreType || '').trim())
+      (
+        (p.description || '').trim() ||
+        (p.playType || '').trim() ||
+        (p.down || '').trim() ||
+        (p.scorer || '').trim() ||
+        (p.scoreType || '').trim() ||
+        (p.outcome || '').trim() ||
+        (p.notes || '').trim()
+      )
     )
 
     if (pbpRows.length > 0) {
