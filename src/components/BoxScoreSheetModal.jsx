@@ -329,9 +329,33 @@ COL A (which team had the ball) — ONE-PASS RULES, NO RE-CHECKING
 ═══════════════════════════════════════════════════════════
 Look at the line. The PLAYER named tells you who's on offense:
   • Rush / Pass / Sack / FG / PAT  → A = team of the player in B (or in C for sacks)
-  • Kickoff Return / Punt Return / Fumble Recovery → A = team of the returner / recoverer (B). Possession flipped on these — that's fine, don't second-guess.
+  • Kickoff Return / Punt Return / Fumble Recovery / Pass Intercepted → A = team of the returner / recoverer / interceptor (B). Possession flipped on these — that's fine, don't second-guess.
 
 Look each name up in the rosters ONCE per game. After that, trust the assignment. Don't re-verify on every play.
+
+═══════════════════════════════════════════════════════════
+⚠ CRITICAL: FIELD POSITION TEAM ≠ TEAM WITH THE BALL
+═══════════════════════════════════════════════════════════
+The team abbreviation inside the Field Pos string ("UK 35", "LOU 7", "MID 50") is a GEOGRAPHIC reference describing which END of the field the ball is on — it is NOT who has the ball. Confusing these two flips col A on every play and ruins the entire sheet. This is the #1 failure mode for this task. Read carefully.
+
+Three scenarios where field-pos team ≠ offensive team. In all three, col A is the OPPOSITE team from the field-pos prefix:
+
+1. KICKOFF — "Kickoff on UK 35. Jason Cummings returns kick for 19 yards."
+   - "UK 35" means UK is kicking FROM their own 35-yard line.
+   - The OTHER team (whoever Jason Cummings plays for) is receiving and now has the ball.
+   - Col A = team of Jason Cummings. NOT UK.
+
+2. RED-ZONE TD — "1st & Goal on UK 6. Edward Reed pass to Duke Lamar for a 6 yard TD."
+   - Ball is at UK's 6-yard line — someone is about to score AGAINST UK.
+   - The offensive team is the OPPOSING team (the one driving into UK's end zone).
+   - Col A = team of Edward Reed (and Duke Lamar). NOT UK.
+
+3. INTERCEPTION RETURN INTO ENEMY TERRITORY — "Pass intercepted by Larry Long, returned to UK 22."
+   - Larry Long picked off the pass and is now running it; ball is on UK's 22.
+   - Larry Long's team intercepted — they have the ball now.
+   - Col A = team of Larry Long. NOT UK.
+
+The ONLY reliable signal for col A is the PLAYER named on the line. Field Pos goes in col L for display; it never determines col A. If you find yourself looking at the field-pos prefix to decide col A, STOP and look at the player instead.
 
 ═══════════════════════════════════════════════════════════
 SCORE TYPE (col E) WHEN A PLAY SCORES
@@ -346,15 +370,21 @@ ORDER + FORMAT
 CFB26's Highlights screen lists plays in reverse-chronological order (lowest time at the top). Output them CHRONOLOGICALLY (earliest first). Within a quarter: bottom of the screenshot first. Q1 → Q2 → Q3 → Q4 → OT.
 
 ═══════════════════════════════════════════════════════════
-TWO REFERENCE ROWS (use these as templates)
+REFERENCE ROWS (templates — note how col A is decided)
 ═══════════════════════════════════════════════════════════
-"2nd & 10 on UK 45. 25 yard rush by Donte Ware."
+"2nd & 10 on UK 45. 25 yard rush by Donte Ware."  (UK's QB has the ball in UK territory)
 → UK	Donte Ware		25				2	09:42		2	10	UK 45	Rush
 
-"3rd & 5 on LOU 10. Donte Ware pass knocked away by Larry Long."
+"Kickoff on UK 35. Jason Cummings returns kick for 19 yards."  (UK is KICKING; Jason Cummings is LOU's returner)
+→ LOU	Jason Cummings		19				1	14:55			UK 35	Kickoff Return
+
+"1st & Goal on UK 6. Edward Reed pass to Duke Lamar for a 6 yard TD."  (LOU driving INTO UK's end zone — Edward Reed is LOU's QB)
+→ LOU	Duke Lamar	Edward Reed	6	Passing TD	Made XP	1	08:55		1	Goal	UK 6	Pass Complete
+
+"3rd & 5 on LOU 10. Donte Ware pass knocked away by Larry Long."  (UK has the ball; Larry Long is LOU's defender)
 → UK	Larry Long	Donte Ware	0				2	12:00		3	5	LOU 10	Pass Knocked Away
 
-(A=UK on the second row because UK was on offense — Donte Ware is UK's QB. Larry Long is the LOU defender who made the play, but A is the offensive team.)`,
+Notice: rows 2, 3, and 4 all have a Field Pos that names a team ≠ col A. That's the normal case, not the exception. Decide col A from the PLAYER, every time.`,
         includeTeamMap: true,
         dynastyTeams: currentDynasty?.teams,
       })
