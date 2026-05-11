@@ -37,6 +37,25 @@ import { resolveTid } from '../data/teamRegistry'
 const P4_CONFERENCES = ['ACC', 'Big Ten', 'Big 12', 'SEC']
 const G6_CONFERENCES = ['American', 'Conference USA', 'MAC', 'Mountain West', 'Pac-12', 'Sun Belt']
 
+// conferenceStandingsByYear uses different conference keys than
+// customConferencesByYear ("MWC" vs "Mountain West", "C-USA" vs
+// "Conference USA"). Each canonical name maps to every variant that
+// might appear in the standings store; the lookup tries them in
+// order so a saved standings row is found regardless of which sheet
+// flavor produced it.
+const CONF_ALIASES = {
+  'Mountain West': ['Mountain West', 'MWC', 'Mtn West'],
+  'Conference USA': ['Conference USA', 'C-USA', 'CUSA'],
+  'Big Ten': ['Big Ten', 'B1G'],
+  'Big 12': ['Big 12', 'Big12'],
+  'Pac-12': ['Pac-12', 'PAC-12', 'Pac 12'],
+  'Sun Belt': ['Sun Belt', 'SBC'],
+  'American': ['American', 'AAC'],
+  'MAC': ['MAC'],
+  'SEC': ['SEC'],
+  'ACC': ['ACC'],
+}
+
 const BID_LABELS = {
   'p4-champ': 'Projected Conf. Champion',
   'g6-champ': 'Projected G6 Auto-Bid',
@@ -99,11 +118,60 @@ export function buildCFPProjection(dynasty, year) {
     return null
   }
 
+  // Stored conference standings (the data the Conference Standings
+  // sheet writes). Indexed by conference name with aliasing — when
+  // present, the row with rank=1 (or the top of the sorted list) is
+  // the conference champion. This is the SAME data source the rest
+  // of the app already uses to populate per-team confWins/confLosses
+  // values; surfacing it here makes the projection match what the
+  // user sees on the standings page.
+  const standingsByConf = dynasty.conferenceStandingsByYear?.[year]
+    || dynasty.conferenceStandingsByYear?.[String(year)]
+    || null
+
+  const standingsRowsForConf = (conf) => {
+    if (!standingsByConf) return null
+    const aliases = CONF_ALIASES[conf] || [conf]
+    for (const key of aliases) {
+      const rows = standingsByConf[key]
+      if (Array.isArray(rows) && rows.length > 0) return rows
+    }
+    return null
+  }
+
   // For any conference: pull the leader from the live conference
   // standings (best conf record, then overall, then point diff). Fall
   // back to the highest-ranked team in the conference when no
   // conference games have been played yet.
   const pickConfChamp = (conf) => {
+    // Highest-priority data source: the saved conference standings
+    // store. If the user has entered standings for this year, the
+    // top row (by rank, or by wins/losses if rank is missing) is the
+    // champion. Without this branch the projection was forced to
+    // guess from sparse per-team conf records and ended up picking a
+    // ranked-but-not-champion G5 team for the auto-bid (Boise State
+    // over Louisiana for the 2034 Sun Belt vs Pac-12 case).
+    const rows = standingsRowsForConf(conf)
+    if (rows) {
+      const sorted = [...rows].sort((a, b) => {
+        const ar = Number(a.rank)
+        const br = Number(b.rank)
+        if (Number.isFinite(ar) && Number.isFinite(br) && ar !== br) return ar - br
+        const aw = Number(a.wins) || 0, al = Number(a.losses) || 0
+        const bw = Number(b.wins) || 0, bl = Number(b.losses) || 0
+        if (bw !== aw) return bw - aw
+        if (al !== bl) return al - bl
+        return 0
+      })
+      const top = sorted[0]
+      if (top) {
+        const abbr = top.team || top.abbr
+        const tid = top.tid != null ? Number(top.tid) : (abbr ? resolveTid(abbr, teamsSrc) : null)
+        const rank = abbr ? (rankByAbbr.get(abbr) ?? null) : null
+        if (abbr) return { team: abbr, tid, rank, conference: conf }
+      }
+    }
+
     const teamAbbrs = Array.isArray(confMap[conf]) ? confMap[conf] : []
     if (teamAbbrs.length === 0) return null
     const standings = teamAbbrs.map(abbr => {
