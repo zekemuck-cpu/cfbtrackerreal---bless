@@ -68,6 +68,11 @@ export default function BoxScoreSheetModal({
   const [regenerating, setRegenerating] = useState(false)
   const [ignoreExistingSheetId, setIgnoreExistingSheetId] = useState(false)
   const [showAIPrompt, setShowAIPrompt] = useState(false)
+  // For sheetType === 'scoring' only — the user can choose which of the
+  // two AI prompts to copy: 'scoring' (just scoring plays from the
+  // Scoring Summary screenshot) or 'allPlays' (every play from the
+  // Highlights screen). Other sheet types ignore this.
+  const [scoringPromptMode, setScoringPromptMode] = useState('scoring')
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -210,9 +215,14 @@ export default function BoxScoreSheetModal({
         }
       case 'scoring':
         return {
-          title: 'Scoring Summary',
+          // User-facing label is "Plays" — same sheet supports both
+          // scoring-only entry (legacy 9-col workflow) and full play-
+          // by-play entry (15 cols × 300 rows). The Google Sheet's
+          // tab name stays "Scoring Summary" for back-compat with
+          // every existing dynasty's saved sheets.
+          title: 'Plays',
           sheetIdKey: 'scoringSummarySheetId',
-          instructions: 'Enter each scoring play with team, scorer, and details'
+          instructions: 'Enter scoring plays or every play with the appropriate AI prompt below.'
         }
       case 'teamStats':
         return {
@@ -243,6 +253,162 @@ export default function BoxScoreSheetModal({
     const userIsAway = userTidForGameYear && awayTeamTid === userTidForGameYear
     const scoringUserRoster = userIsHome ? homeRosterObjects : (userIsAway ? awayRosterObjects : [])
     const scoringOpponentRoster = userIsHome ? awayRosterObjects : (userIsAway ? homeRosterObjects : [])
+
+    if (sheetType === 'scoring' && scoringPromptMode === 'allPlays') {
+      return buildAIPrompt({
+        title: `${baseTitle} — All Plays`,
+        roster: scoringUserRoster,
+        opponentRoster: scoringOpponentRoster,
+        rosterLabel: `${userIsHome ? homeTeamAbbr : awayTeamAbbr} ROSTER (user-controlled team — disambiguation reference for abbreviated names)`,
+        opponentRosterLabel: `${userIsHome ? awayTeamAbbr : homeTeamAbbr} ROSTER (opponent team — disambiguation reference for abbreviated names)`,
+        structure: `This sheet has ONE tab: "Scoring Summary" — despite the legacy name, it holds the FULL play-by-play log for this game. Up to 300 rows × 15 columns. You will output ONE row per play in CHRONOLOGICAL order (earliest play first).
+
+═══════════════════════════════════════════════════════════
+WHAT YOU ARE LOOKING AT
+═══════════════════════════════════════════════════════════
+The user pastes screenshots of EA College Football 26's post-game "Highlights" screen. That screen shows every play of the game, ONE QUARTER AT A TIME, with the following format:
+
+  TIME    RATING    HIGHLIGHT
+  3:21    N/A       1st & Goal on LOU 7. Donte Ware incomplete pass; intended for Quincy Merchant.
+  4:08    N/A       3rd & 5 on LOU 15. Donte Ware pass to Earl Whimper for 13 yards.
+  4:49    N/A       2nd & 10 on LOU 20. Donte Ware pass to Doug Wayne for 5 yards.
+  ...
+  6:52    N/A       4th & 1 on UK 39. 13 yard rush by Stephen Dahl.
+
+CRITICAL ORDERING NOTE: CFB26's Highlights screen lists plays from LATEST → EARLIEST within each quarter (the play with the lowest time-remaining is at the TOP, the play with the highest time-remaining is at the BOTTOM). Game-time-wise, MORE time remaining = EARLIER play. Your output must put the EARLIEST play first, so within a quarter the play at the BOTTOM of the screenshot is output first and the play at the TOP is output last.
+
+The user typically uploads multiple screenshots — one per quarter (Q1, Q2, Q3, Q4, plus OT if applicable). Your output covers EVERY play across EVERY quarter, in chronological order: Q1 plays first (earliest → latest within Q1), then Q2 plays, then Q3, then Q4, then OT.
+
+═══════════════════════════════════════════════════════════
+PARSING EACH PLAY DESCRIPTION
+═══════════════════════════════════════════════════════════
+Every highlight line follows this pattern:
+
+  <Down> & <Distance> on <Field Pos>. <Play description>.
+
+For example: "3rd & 5 on LOU 15. Donte Ware pass to Earl Whimper for 13 yards."
+  • Down = "3"
+  • Distance = "5"
+  • Field Pos = "LOU 15"
+  • Play type / players / yards = parsed from the description
+
+Down & Distance:
+  • "1st & 10" → Down = "1", Distance = "10"
+  • "3rd & 5"  → Down = "3", Distance = "5"
+  • "4th & 2"  → Down = "4", Distance = "2"
+  • "1st & Goal" → Down = "1", Distance = "G"
+  • Kickoffs / PATs / penalty pre-snap typically have no down-distance prefix — leave Down + Distance blank.
+
+Field Position: copy the literal "<TEAM_ABBR> <YARD>" string into the Field Pos column (col L). Examples: "LOU 7", "UK 39", "MID 50" (midfield), or "LOU 50" / "UK 50" (also midfield, EA labels by side of field).
+
+Play description patterns (Play Type / Outcome / players / yards):
+
+  • "<X> yard rush by <Player>." → Play Type = Rush, Primary Player = <Player>, Yards = X
+  • "Rush by <Player> for <X> yards." → same as above
+  • "<Passer> pass to <Receiver> for <X> yards." → Play Type = Pass Complete, Primary = <Passer>, Secondary = <Receiver>, Yards = X
+  • "<Passer> incomplete pass; intended for <Receiver>." → Play Type = Pass Incomplete, Primary = <Passer>, Secondary = <Receiver>, Yards = 0
+  • "<Passer> pass thrown away." → Play Type = Pass Incomplete, Primary = <Passer>, Yards = 0
+  • "<Passer> pass dropped by <Receiver>." → Play Type = Pass Incomplete, Primary = <Passer>, Secondary = <Receiver>, Yards = 0
+  • "<Passer> sacked by <Defender> for -<X> yards." → Play Type = Pass Sack, Primary = <Passer>, Secondary = <Defender>, Yards = -X
+  • "<Kicker> <X> yard field goal good." → Play Type = Field Goal, Primary = <Kicker>, Yards = X, Outcome = FG Made
+  • "<Kicker> <X> yard field goal no good." → Play Type = Field Goal, Primary = <Kicker>, Yards = X, Outcome = FG Missed
+  • "Punt by <Punter> for <X> yards." → Play Type = Punt, Primary = <Punter>, Yards = X
+  • "Kickoff by <Kicker>." → Play Type = Kickoff, Primary = <Kicker>, leave down + distance blank
+  • Anything else (penalty, fumble, INT, safety, blocked kick, etc.) → use Play Type = "Other" and put the description in Notes (col O)
+
+Outcome (col N) — set this based on the play result:
+  • Touchdown of any kind → "TD"
+  • Field goal made → "FG Made"
+  • Field goal missed → "FG Missed"
+  • Yards gained ≥ Distance to go → "1st Down"
+  • Pass incomplete → "Incomplete"
+  • Sack → "Sack"
+  • Fumble lost / interception → "Turnover" (or "INT" / "Fumble Lost" if specifically identified)
+  • Safety → "Safety"
+  • Punt → "Touchback" if endzone, else blank
+  • Otherwise (run for short gain, no first down, no score, etc.) → "No Gain" if 0 yards, otherwise blank
+
+═══════════════════════════════════════════════════════════
+WHICH TEAM HAS THE BALL — use the rosters
+═══════════════════════════════════════════════════════════
+Each play's Team (col A) is determined by which roster the PRIMARY PLAYER belongs to. Check both roster blocks above:
+  • If the primary player is in the ${userIsHome ? homeTeamAbbr : awayTeamAbbr} roster → Team = "${userIsHome ? homeTeamAbbr : awayTeamAbbr}"
+  • If the primary player is in the ${userIsHome ? awayTeamAbbr : homeTeamAbbr} roster → Team = "${userIsHome ? awayTeamAbbr : homeTeamAbbr}"
+
+The "<TEAM> <YARD>" in Field Pos describes WHICH END OF THE FIELD the ball is at — it does NOT determine which team has the ball. Example: "1st & Goal on LOU 7" means the ball is 7 yards from LOU's end zone, but the team with the ball might be UK (going FOR a TD against LOU). Determine team-with-ball from the PLAYER, not the field position.
+
+═══════════════════════════════════════════════════════════
+SCORING PLAYS — fill the legacy scoring fields TOO
+═══════════════════════════════════════════════════════════
+For plays that result in a score (TD / FG made / safety), ALSO fill the legacy scoring columns so the Scores Only display works:
+
+  • Score Type (col E):
+      - Rushing TD: "Rushing TD"
+      - Passing TD: "Passing TD" (also fill col C with the QB)
+      - Field Goal: "Field Goal"
+      - Safety: "Safety"
+      - Return TDs (kickoff/punt/INT/fumble): the appropriate "<Type> Return TD"
+      - Blocked kick return TD: "Blocked Punt/FG TD"
+  • PAT Result (col F): If the next play after a TD is a PAT attempt, encode it here on the TD row (Made XP / Missed XP / Blocked XP / Converted 2PT / Failed 2PT) and DO NOT emit a separate row for the PAT. If you can't tell from the Highlights screen, leave PAT blank — Score Type alone is enough for the scoring summary to render.
+
+The Quarter (col G) and Time Left (col H) MUST be filled on EVERY row (not just scoring plays). They drive chronological sorting.
+
+═══════════════════════════════════════════════════════════
+THE 15 COLUMNS — exact order
+═══════════════════════════════════════════════════════════
+Col | Header        | What to write
+----+---------------+-----------------------------------------------------------
+ A  | Team          | "${homeTeamAbbr}" or "${awayTeamAbbr}" (strict dropdown). Determined from primary player's roster.
+ B  | Scorer        | Primary player (rusher / passer / kicker / scorer / returner). Required on every play with an identified player.
+ C  | Passer        | On passing plays (Pass Complete / Pass Incomplete / Pass Sack), this is the QB. Otherwise blank. (For passing TDs, this is the QB and B is the receiver — matches the legacy scoring summary convention.)
+ D  | Yards         | Yards on the play (integer; negative allowed for sacks/losses). For Pass Incomplete, use 0. For Kickoffs, use the kick distance.
+ E  | Score Type    | ONLY for scoring plays. Empty for non-scoring plays. Strict dropdown.
+ F  | PAT Result    | ONLY for TD rows where you can identify the PAT outcome. Empty otherwise.
+ G  | Quarter       | "1" / "2" / "3" / "4" / "OT" / "2OT" / "3OT" / "4OT". REQUIRED on every play.
+ H  | Time Left     | MM:SS with leading zeros ("03:21", "00:15"). REQUIRED on every play.
+ I  | Video Link    | Blank.
+ J  | Down          | "1" / "2" / "3" / "4", or blank for kickoffs / PATs / pre-snap penalties.
+ K  | Distance      | Yards-to-go (integer) or "G" for goal. Blank where Down is blank.
+ L  | Field Pos     | "<TEAM_ABBR> <YARD>" exactly as the screenshot shows ("LOU 7", "UK 39", "MID 50").
+ M  | Play Type     | Strict dropdown: "Rush" / "Pass Complete" / "Pass Incomplete" / "Pass Sack" / "Punt" / "Field Goal" / "Kickoff" / "PAT" / "Penalty" / "Other".
+ N  | Outcome       | Strict dropdown — see Outcome list above. May be blank for unremarkable run-of-play.
+ O  | Notes         | Optional freeform. Use for play details that don't fit any other column (penalty descriptions, etc.).
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES
+═══════════════════════════════════════════════════════════
+1. ONE ROW PER PLAY. CFB games typically have 120-180 plays. Output up to 300 rows.
+2. CHRONOLOGICAL ORDER (earliest first). Within a quarter, the play with HIGHER time-remaining (e.g. 12:45) comes BEFORE the play with lower time-remaining (e.g. 02:13). Across quarters, Q1 → Q2 → Q3 → Q4 → OT.
+3. EVERY row must have Team (col A), Quarter (col G), and Time Left (col H) filled.
+4. Output ALL 15 columns per row, paste at cell A2.
+5. NO COMMAS in numbers. INTEGERS for yards (negative allowed). Time Left is MM:SS with leading zeros.
+6. Strict dropdowns on cols A, E, F, G. Use the exact values listed — wrong value = rejection.
+7. No header row in your output. No commentary. SINGLE TSV block.
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== ALL PLAYS — paste at cell A2 of "Scoring Summary" tab ===
+<Team>\\t<Scorer>\\t<Passer>\\t<Yards>\\t<Score Type>\\t<PAT Result>\\t<Quarter>\\t<Time Left>\\t<Video Link>\\t<Down>\\t<Distance>\\t<Field Pos>\\t<Play Type>\\t<Outcome>\\t<Notes>
+... one row per play, chronological
+
+(Each \\t above represents a LITERAL TAB character — use actual tabs.)
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK
+═══════════════════════════════════════════════════════════
+[ ] Total row count matches the play count across all uploaded screenshots
+[ ] All rows in chronological order (Q1 earliest first, OT last)
+[ ] Every row has 15 tab-separated values (14 tabs per line)
+[ ] Team (A), Quarter (G), Time Left (H) populated on every row
+[ ] Scoring plays ALSO have Score Type (E) filled so the Scores Only view renders correctly
+[ ] Field Pos uses the literal "<TEAM> <YARD>" form from the screenshot
+[ ] Down is "1"-"4" or blank (kickoffs/PATs); Distance is integer or "G" or blank
+[ ] Play Type is one of the 10 listed dropdown values (or blank for genuinely unclassifiable plays)`,
+        includeTeamMap: true,
+        dynastyTeams: currentDynasty?.teams,
+      })
+    }
 
     if (sheetType === 'scoring') {
       return buildAIPrompt({
@@ -912,17 +1078,21 @@ output that fails any of them.`,
       includeTeamMap: true,
       dynastyTeams: currentDynasty?.teams,
     })
-  }, [sheetType, config.teamAbbr, config.opponentAbbr, config.isUserControlled, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear, homeRosterObjects, awayRosterObjects, homeTeamTid, awayTeamTid, userTidForGameYear, currentDynasty?.teams])
+  }, [sheetType, scoringPromptMode, config.teamAbbr, config.opponentAbbr, config.isUserControlled, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear, homeRosterObjects, awayRosterObjects, homeTeamTid, awayTeamTid, userTidForGameYear, currentDynasty?.teams])
 
   const aiPromptTitle = useMemo(() => {
     const weekLabel = game?.week != null ? `Week ${game.week}` : 'Game'
     const yearLabel = gameYear || ''
     const matchupLabel = `${awayTeamAbbr} @ ${homeTeamAbbr}`.trim()
     const baseTitle = `${yearLabel} ${weekLabel} ${matchupLabel}`.trim()
-    if (sheetType === 'scoring') return `${baseTitle} — Scoring Summary`
+    if (sheetType === 'scoring') {
+      return scoringPromptMode === 'allPlays'
+        ? `${baseTitle} — All Plays`
+        : `${baseTitle} — Scoring Summary`
+    }
     if (sheetType === 'teamStats') return `${baseTitle} — Team Stats`
     return `${baseTitle} — ${config.teamAbbr || ''} Player Stats`
-  }, [sheetType, config.teamAbbr, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear])
+  }, [sheetType, scoringPromptMode, config.teamAbbr, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear])
 
   // Where the user should paste the AI's reply. Surfaced prominently in
   // the AI Prompt modal so the user doesn't have to fish through the
@@ -931,6 +1101,8 @@ output that fails any of them.`,
   // individual category tabs like Passing / Rushing — those are driven
   // by formulas off the AI All in One tab).
   const aiPasteTarget = useMemo(() => {
+    // Both scoring AND all-plays modes target the same tab (col A2),
+    // since they write different subsets of the same 15-col schema.
     if (sheetType === 'scoring') return `Cell A2 of the "Scoring Summary" tab`
     if (sheetType === 'teamStats') return `Cell B2 of the "Team Stats" tab`
     // Player-stats sheet: single mega-paste into the AI All in One tab.
@@ -1430,12 +1602,29 @@ output that fails any of them.`,
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
-                  <button
-                    onClick={() => setShowAIPrompt(true)}
-                    className="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
-                  >
-                    AI Prompt
-                  </button>
+                  {sheetType === 'scoring' ? (
+                    <>
+                      <button
+                        onClick={() => { setScoringPromptMode('scoring'); setShowAIPrompt(true) }}
+                        className="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                      >
+                        Scoring Summary AI Prompt
+                      </button>
+                      <button
+                        onClick={() => { setScoringPromptMode('allPlays'); setShowAIPrompt(true) }}
+                        className="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                      >
+                        All Plays AI Prompt
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => setShowAIPrompt(true)}
+                      className="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                    >
+                      AI Prompt
+                    </button>
+                  )}
                   <button
                     onClick={handleDeleteSheetOnly}
                     disabled={syncing || deletingSheet || regenerating}
@@ -1542,12 +1731,29 @@ output that fails any of them.`,
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>
                   </a>
-                  <button
-                    onClick={() => setShowAIPrompt(true)}
-                    className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
-                  >
-                    AI Prompt
-                  </button>
+                  {sheetType === 'scoring' ? (
+                    <>
+                      <button
+                        onClick={() => { setScoringPromptMode('scoring'); setShowAIPrompt(true) }}
+                        className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                      >
+                        Scoring Summary AI Prompt
+                      </button>
+                      <button
+                        onClick={() => { setScoringPromptMode('allPlays'); setShowAIPrompt(true) }}
+                        className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                      >
+                        All Plays AI Prompt
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => setShowAIPrompt(true)}
+                      className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                    >
+                      AI Prompt
+                    </button>
+                  )}
                 </div>
 
                 {/* Centered Save Buttons */}

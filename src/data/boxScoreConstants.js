@@ -109,14 +109,49 @@ export function computeUnifiedTabLayout() {
   return { sections, totalRows: row - 1, maxCols }
 }
 
-// Scoring Summary configuration
+// Scoring Summary / Plays Entry configuration.
+//
+// One sheet serves both use cases:
+//   • Scoring-only entry — user fills only cols A-I, the legacy 9-col
+//     shape. Existing dynasties' sheets work unchanged with this subset.
+//   • Full play-by-play entry — user (or the all-plays AI prompt) fills
+//     all 15 cols across up to 300 rows.
+//
+// The backend stores whatever the user filled per row. There is no
+// "mode" — the display layer filters by which columns are populated
+// to decide what to show ("Scores Only" checkbox vs. full PBP view).
+//
+// Cols J-O are the play-by-play extension. They're empty for users
+// who only enter scoring data; the existing display code reads cols
+// A-I and ignores the rest.
 export const SCORING_SUMMARY = {
   title: 'Scoring Summary',
-  headers: ['Team', 'Scorer', 'Passer', 'Yards', 'Score Type', 'PAT Result', 'Quarter', 'Time Left', 'Video Link'],
-  rowCount: 30
+  headers: [
+    // Cols A-I — legacy 9-col scoring summary shape. KEEP THESE
+    // INDICES STABLE. Existing dynasties' data and the existing
+    // display code in Game.jsx assume these positions.
+    'Team',         // A
+    'Scorer',       // B
+    'Passer',       // C
+    'Yards',        // D
+    'Score Type',   // E
+    'PAT Result',   // F
+    'Quarter',      // G
+    'Time Left',    // H
+    'Video Link',   // I
+    // Cols J-O — play-by-play extension. Optional. Filled by the
+    // all-plays AI prompt; left blank by scoring-only users.
+    'Down',         // J — 1 / 2 / 3 / 4 (blank for kickoffs, PATs)
+    'Distance',     // K — yards-to-go, or "G" for goal
+    'Field Pos',    // L — e.g. "LOU 7" or "UK 39" (descriptive yard line)
+    'Play Type',    // M — Rush / Pass Comp / Pass Inc / etc.
+    'Outcome',      // N — TD / 1st Down / Turnover / Incomplete / etc.
+    'Notes',        // O — freeform
+  ],
+  rowCount: 300,
 }
 
-// Score type dropdown options
+// Score type dropdown options (col E)
 export const SCORE_TYPES = [
   'Rushing TD',
   'Passing TD',
@@ -129,7 +164,7 @@ export const SCORE_TYPES = [
   'Blocked Punt/FG TD'
 ]
 
-// PAT Result dropdown options (for after touchdowns)
+// PAT Result dropdown options (col F — for after touchdowns)
 export const PAT_RESULTS = [
   '',  // Empty option for non-TD plays (FG, Safety)
   'Made XP',
@@ -139,8 +174,49 @@ export const PAT_RESULTS = [
   'Failed 2PT'
 ]
 
-// Quarter dropdown options
+// Quarter dropdown options (col G)
 export const QUARTERS = ['1', '2', '3', '4', 'OT', '2OT', '3OT', '4OT']
+
+// Down dropdown options (col J — for play-by-play rows). Empty
+// string is the default for plays where down doesn't apply (PATs,
+// kickoffs).
+export const DOWNS = ['', '1', '2', '3', '4']
+
+// Play Type dropdown options (col M — for play-by-play rows).
+// Empty default lets scoring-only rows leave it blank.
+export const PLAY_TYPES = [
+  '',
+  'Rush',
+  'Pass Complete',
+  'Pass Incomplete',
+  'Pass Sack',
+  'Punt',
+  'Field Goal',
+  'Kickoff',
+  'PAT',
+  'Penalty',
+  'Other',
+]
+
+// Outcome dropdown options (col N — for play-by-play rows). Empty
+// default lets scoring-only rows leave it blank.
+export const OUTCOMES = [
+  '',
+  'TD',
+  'FG Made',
+  'FG Missed',
+  '1st Down',
+  'Turnover',
+  'INT',
+  'Fumble Lost',
+  'Sack',
+  'Incomplete',
+  'No Gain',
+  'Out of Bounds',
+  'Touchback',
+  'Penalty',
+  'Safety',
+]
 
 // Helper to get all stat tabs as array
 export const getStatTabsArray = () => STAT_TAB_ORDER.map(key => STAT_TABS[key])

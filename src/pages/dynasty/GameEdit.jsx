@@ -1891,7 +1891,7 @@ export default function GameEdit() {
                 },
                 {
                   key: 'scoring-summary',
-                  label: 'Scoring Summary',
+                  label: 'Plays',
                   onClick: () => openBoxScoreModal('scoring'),
                   connected: !!existingGame?.scoringSummarySheetId,
                   logo: null

@@ -3,7 +3,7 @@
 import { teamAbbreviations, getTeamAbbreviationsList, getSelectableTeamsList, getSchedulableTeamsList } from '../data/teamAbbreviations'
 import { getAbbrFromTeamName, getTidFromAbbr, TEAMS as DEFAULT_TEAMS } from '../data/teamRegistry'
 import { conferenceTeams as CANONICAL_CONFERENCES } from '../data/conferenceTeams'
-import { STAT_TABS, STAT_TAB_ORDER, SCORING_SUMMARY, SCORE_TYPES, PAT_RESULTS, QUARTERS, AI_UNIFIED_TAB, computeUnifiedTabLayout } from '../data/boxScoreConstants'
+import { STAT_TABS, STAT_TAB_ORDER, SCORING_SUMMARY, SCORE_TYPES, PAT_RESULTS, QUARTERS, DOWNS, PLAY_TYPES, OUTCOMES, AI_UNIFIED_TAB, computeUnifiedTabLayout } from '../data/boxScoreConstants'
 import { isPlayerOnRoster, getPlayerClassForYear } from '../context/DynastyContext'
 import { OAuthError } from '../utils/authErrors'
 
@@ -12224,13 +12224,17 @@ export async function createScoringSummarySheet(homeTeamAbbr, awayTeamAbbr, year
   }
 }
 
-// Pre-fill scoring summary sheet with existing data
+// Pre-fill scoring summary sheet with existing data.
+//
+// The sheet has 15 cols (A-O): legacy 9-col scoring schema (A-I)
+// plus play-by-play extension (J-O). Existing dynasty data only
+// populates A-I; that's expected and the J-O cells stay empty for
+// those rows. New all-plays data populates all 15.
 async function prefillScoringSummaryData(spreadsheetId, accessToken, scoringData) {
   if (!scoringData || scoringData.length === 0) return
 
-  // Convert scoring data objects to row arrays
-  // Headers: Team, Scorer, Passer, Yards, Score Type, PAT Result, Quarter, Time Left, Video Link
   const rows = scoringData.map(play => [
+    // A-I — legacy fields
     play.team || '',
     play.scorer || '',
     play.passer || '',
@@ -12239,11 +12243,20 @@ async function prefillScoringSummaryData(spreadsheetId, accessToken, scoringData
     play.patResult || '',
     play.quarter || '',
     play.timeLeft || '',
-    play.videoLink || ''
+    play.videoLink || '',
+    // J-O — play-by-play extension (undefined-safe for legacy rows)
+    play.down || '',
+    play.distance || '',
+    play.fieldPos || '',
+    play.playType || '',
+    play.outcome || '',
+    play.notes || '',
   ])
 
-  // Write data to sheet starting at row 2 (after headers)
-  const range = `'${SCORING_SUMMARY.title}'!A2:I${rows.length + 1}`
+  // Write data to sheet starting at row 2 (after headers). Range
+  // covers all 15 cols A-O; legacy rows just send empty strings for
+  // the new cols.
+  const range = `'${SCORING_SUMMARY.title}'!A2:O${rows.length + 1}`
   const response = await fetchWithTimeout(
     `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
     {
@@ -12456,6 +12469,71 @@ async function initializeScoringSummarySheet(spreadsheetId, accessToken, sheetId
 
   }
 
+  // Down dropdown (column J - index 9) — play-by-play extension.
+  // Empty default + strict: false so scoring-only rows can leave it
+  // blank without the sheet rejecting the cell.
+  requests.push({
+    setDataValidation: {
+      range: {
+        sheetId: sheetId,
+        startRowIndex: 1,
+        endRowIndex: SCORING_SUMMARY.rowCount + 1,
+        startColumnIndex: 9,
+        endColumnIndex: 10
+      },
+      rule: {
+        condition: {
+          type: 'ONE_OF_LIST',
+          values: DOWNS.map(d => ({ userEnteredValue: d }))
+        },
+        showCustomUi: true,
+        strict: false,
+      }
+    }
+  })
+
+  // Play Type dropdown (column M - index 12) — play-by-play extension.
+  requests.push({
+    setDataValidation: {
+      range: {
+        sheetId: sheetId,
+        startRowIndex: 1,
+        endRowIndex: SCORING_SUMMARY.rowCount + 1,
+        startColumnIndex: 12,
+        endColumnIndex: 13
+      },
+      rule: {
+        condition: {
+          type: 'ONE_OF_LIST',
+          values: PLAY_TYPES.map(t => ({ userEnteredValue: t }))
+        },
+        showCustomUi: true,
+        strict: false,
+      }
+    }
+  })
+
+  // Outcome dropdown (column N - index 13) — play-by-play extension.
+  requests.push({
+    setDataValidation: {
+      range: {
+        sheetId: sheetId,
+        startRowIndex: 1,
+        endRowIndex: SCORING_SUMMARY.rowCount + 1,
+        startColumnIndex: 13,
+        endColumnIndex: 14
+      },
+      rule: {
+        condition: {
+          type: 'ONE_OF_LIST',
+          values: OUTCOMES.map(o => ({ userEnteredValue: o }))
+        },
+        showCustomUi: true,
+        strict: false,
+      }
+    }
+  })
+
   // Add conditional formatting for team colors
   const teamFormattingRules = generateScoringTeamFormattingRules(sheetId, homeTeamAbbr, awayTeamAbbr, SCORING_SUMMARY.rowCount, dynastyTeams)
   requests.push(...teamFormattingRules)
@@ -12591,13 +12669,30 @@ export async function readGameBoxScoreFromSheet(spreadsheetId, dynastyTeams = nu
   }
 }
 
-// Read scoring summary from sheet
+// Read scoring summary / plays from sheet.
+//
+// The sheet has 15 cols (A-O) × up to 300 rows. Cols A-I are the
+// legacy scoring summary shape; cols J-O are the play-by-play
+// extension. A given row may be:
+//   • a scoring play (cols A-I filled, J-O optional)
+//   • a non-scoring play (cols A + J-O filled, E/F blank)
+//   • both (a scoring play with full PBP detail, all 15 cols filled)
+//
+// We return every row the user filled. The frontend filters by which
+// fields are populated to decide what to render (Scores Only checkbox).
+//
+// Back-compat: old 9-col sheets only have data through col I; cols
+// J-O come back empty for those rows. Old 30-row sheets only have
+// data through row 31; rows 32-301 come back empty. The Google Sheets
+// API gracefully truncates a read range that exceeds the grid bounds,
+// so reading A2:O301 against an old 9-col/30-row sheet returns the
+// rows that exist with the cols that exist — no error.
 export async function readScoringSummaryFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
-    // Updated to column J (10 columns) to include Video Link
-    const range = `'${SCORING_SUMMARY.title}'!A2:J${SCORING_SUMMARY.rowCount + 1}`
+    // Read all 15 cols × 300 data rows.
+    const range = `'${SCORING_SUMMARY.title}'!A2:O${SCORING_SUMMARY.rowCount + 1}`
     const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`,
       {
@@ -12615,17 +12710,17 @@ export async function readScoringSummaryFromSheet(spreadsheetId, dynastyTeams = 
     const data = await response.json()
     const rows = data.values || []
 
-    // Parse rows into objects - columns: Team, Scorer, Passer, Yards, Score Type, PAT Result, Quarter, Time Left, Video Link
+    // Filter: keep any row where the user has filled the team column
+    // (the strict dropdown — they explicitly picked a team for that
+    // row). A row without a team is treated as truly empty / a stray
+    // edit and dropped. Scoring-only data uploads only fill rows that
+    // have scoring info, so the result is identical for that path.
+    // All-plays uploads fill every row that has a play, so the
+    // result includes non-scoring rows.
     return rows
-      .filter(row => {
-        const hasTeam = row[0] && row[0].trim()
-        const hasScoreType = row[4] && row[4].trim()
-        const patResult = (row[5] || '').trim()
-        const is2PTAttempt = patResult.includes('2PT')
-        // Must have team AND (score type OR 2PT attempt)
-        return hasTeam && (hasScoreType || is2PTAttempt)
-      })
+      .filter(row => row[0] && row[0].trim())
       .map(row => ({
+        // Legacy 9-col fields (A-I).
         team: (row[0] || '').trim().toUpperCase(),
         scorer: (row[1] || '').trim(),
         passer: (row[2] || '').trim(),
@@ -12634,7 +12729,15 @@ export async function readScoringSummaryFromSheet(spreadsheetId, dynastyTeams = 
         patResult: (row[5] || '').trim(),
         quarter: (row[6] || '').trim(),
         timeLeft: (row[7] || '').trim(),
-        videoLink: (row[8] || '').trim()
+        videoLink: (row[8] || '').trim(),
+        // Play-by-play extension (J-O). Empty strings on legacy
+        // sheets / scoring-only rows; populated on all-plays rows.
+        down: (row[9] || '').trim(),
+        distance: (row[10] || '').trim(),
+        fieldPos: (row[11] || '').trim(),
+        playType: (row[12] || '').trim(),
+        outcome: (row[13] || '').trim(),
+        notes: (row[14] || '').trim(),
       }))
   } catch (error) {
     console.error('Error reading scoring summary:', error)

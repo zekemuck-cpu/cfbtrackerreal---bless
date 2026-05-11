@@ -238,6 +238,15 @@ export default function Game() {
   // editing happens in the game editor (GameEdit.jsx).
   const [showHighlightsModal, setShowHighlightsModal] = useState(false)
   const [highlightsStartIndex, setHighlightsStartIndex] = useState(0)
+  // Scoring tab — "Scores Only" toggle. Default checked: show only
+  // scoring plays (today's behavior). Uncheck to show every play the
+  // user entered via the All Plays AI prompt. If no PBP data exists,
+  // there's nothing to toggle to, so the checkbox is locked checked.
+  const [scoresOnly, setScoresOnly] = useState(true)
+  // Set of scoring-play indices (in the chronologically-sorted array)
+  // that the user has expanded to reveal their drive. Cleared when the
+  // game switches.
+  const [expandedDrives, setExpandedDrives] = useState(() => new Set())
 
   // Reset sort when changing stat tabs
   useEffect(() => {
@@ -1738,7 +1747,7 @@ export default function Game() {
               {[
                 { key: 'gamecast', label: 'Gamecast', shortLabel: 'Cast', show: true },
                 { key: 'boxscore', label: 'Box Score', shortLabel: 'Box', show: hasBoxScoreData },
-                { key: 'scoring', label: 'Scoring', shortLabel: 'Plays', show: game.boxScore?.scoringSummary?.length > 0 },
+                { key: 'scoring', label: 'Plays', shortLabel: 'Plays', show: game.boxScore?.scoringSummary?.length > 0 },
                 { key: 'recap', label: 'Recap', shortLabel: 'Recap', show: hasRecapOrCanGenerate },
                 { key: 'stats', label: 'Team Stats', shortLabel: 'Stats', show: game.boxScore?.teamStats && (game.boxScore.teamStats.home || game.boxScore.teamStats.away) },
                 { key: 'ratings', label: 'Ratings', shortLabel: 'Rtg', show: !isCPUGame && (game.team1Overall || game.team1Offense || game.team1Defense || game.team2Overall || game.opponentOverall) },
@@ -2202,6 +2211,113 @@ export default function Game() {
 
             const hasVideoLinks = playsWithScores.some(p => p.videoLink)
 
+            // Scoring vs play-by-play classification.
+            //
+            // A row is a "scoring play" if scoreType is set OR the row
+            // is a standalone 2PT attempt (no scorer + 2PT in either
+            // field). These render with the full scoring card + running
+            // score. All other rows are play-by-play extras — only
+            // visible when "Scores Only" is unchecked, and rendered
+            // compactly.
+            const isScoringPlay = (p) => !!p.scoreType || is2PTAttempt(p)
+
+            // Detect whether this game has play-by-play data on file.
+            // A play-by-play row populates at least one of the
+            // PBP-only fields (down, playType, fieldPos). If no row
+            // has any of those, this game was scored-only — the
+            // "Scores Only" checkbox is locked checked + no drive
+            // expansion is offered.
+            const hasPBPData = chronoPlays.some(p => p.down || p.playType || p.fieldPos)
+
+            // Walk backward from a scoring play to find the drive that
+            // ended with that play. A drive is a consecutive run of
+            // plays by the same team — possession changes break the
+            // chain. Returns the plays in chronological order with the
+            // scoring play last.
+            const findDrive = (idx) => {
+              const target = playsWithScores[idx]
+              if (!target) return []
+              const team = (target.team || '').toUpperCase()
+              const drive = [target]
+              for (let i = idx - 1; i >= 0; i--) {
+                const prev = playsWithScores[i]
+                if (!prev) break
+                if ((prev.team || '').toUpperCase() !== team) break
+                drive.unshift(prev)
+              }
+              return drive
+            }
+
+            // Compact rendering for a non-scoring play row (used in
+            // both the unchecked "show all plays" view and inside the
+            // expanded-drive sub-rows).
+            const renderPBPRow = (play, key) => {
+              const resolved = resolvePlayTeamData(play)
+              const colors = resolved.colors
+                || getTeamColorsRobust(resolved.abbr)
+                || { primary: '#666', secondary: '#333' }
+              const isLeft = isPlayOnLeftSide(play)
+              const dist = play.distance === 'G' ? 'Goal' : play.distance
+              const downDist = play.down ? `${play.down}${play.down === '1' ? 'st' : play.down === '2' ? 'nd' : play.down === '3' ? 'rd' : 'th'}${dist ? ` & ${dist}` : ''}` : ''
+              const yards = play.yards ? `${play.yards} yd${Math.abs(Number(play.yards)) === 1 ? '' : 's'}` : ''
+              const primary = play.scorer || ''
+              const secondary = play.passer || ''
+              const playType = play.playType || ''
+              const outcome = play.outcome || ''
+              return (
+                <div key={key} className="flex items-stretch text-[11px] sm:text-xs">
+                  <div className="w-1 flex-shrink-0" style={{ backgroundColor: colors.primary, opacity: 0.5 }} />
+                  <div
+                    className="flex-1 flex items-center gap-2 sm:gap-3 px-3 py-1.5 text-txt-tertiary"
+                    style={{ background: `linear-gradient(90deg, ${colors.primary}10 0%, transparent 60%)` }}
+                  >
+                    <div className="w-10 sm:w-12 text-center flex-shrink-0">
+                      <div className="font-mono">{play.timeLeft}</div>
+                    </div>
+                    {downDist && (
+                      <div className="flex-shrink-0 font-semibold text-txt-secondary tabular-nums">{downDist}</div>
+                    )}
+                    {play.fieldPos && (
+                      <div className="flex-shrink-0 font-mono text-txt-muted">{play.fieldPos}</div>
+                    )}
+                    <div className="flex-1 min-w-0 truncate">
+                      {playType && <span className="text-txt-secondary">{playType}</span>}
+                      {primary && (
+                        <span>
+                          {playType && <span className="text-txt-muted"> · </span>}
+                          <span className="font-medium text-txt-secondary">{primary}</span>
+                        </span>
+                      )}
+                      {secondary && (
+                        <span>
+                          {' → '}
+                          <span className="font-medium text-txt-secondary">{secondary}</span>
+                        </span>
+                      )}
+                      {yards && <span className="text-txt-muted"> · {yards}</span>}
+                      {outcome && (
+                        <span className="text-txt-muted"> · {outcome}</span>
+                      )}
+                    </div>
+                    <div className={`flex-shrink-0 w-2 h-2 rounded-full ${isLeft ? 'mr-auto' : 'ml-auto'}`} style={{ backgroundColor: colors.primary }} />
+                  </div>
+                </div>
+              )
+            }
+
+            const toggleDriveExpansion = (idx) => {
+              setExpandedDrives(prev => {
+                const next = new Set(prev)
+                if (next.has(idx)) next.delete(idx)
+                else next.add(idx)
+                return next
+              })
+            }
+
+            // If no PBP data exists, force scoresOnly to be true
+            // (no other content to show; checkbox is purely informational).
+            const effectiveScoresOnly = hasPBPData ? scoresOnly : true
+
             return (
               <div>
                 {/* Watch All Scores button - only show if there are video links */}
@@ -2221,8 +2337,49 @@ export default function Game() {
                     </button>
                   </div>
                 )}
+
+                {/* Scores Only toggle. Always rendered for consistent UX —
+                    when no PBP data exists, it's checked and disabled
+                    (there's nothing else to show; the checkbox is
+                    informational). When PBP data exists, unchecking
+                    reveals every play; checking shows scoring plays
+                    with drive-expansion chevrons. */}
+                <div className="px-4 py-2.5 border-b border-surface-3/50 flex items-center justify-between gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={effectiveScoresOnly}
+                      disabled={!hasPBPData}
+                      onChange={(e) => setScoresOnly(e.target.checked)}
+                      className="w-4 h-4 rounded border-surface-4 bg-surface-2 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                    />
+                    <span className="text-xs sm:text-sm text-txt-secondary">Scores only</span>
+                  </label>
+                  {hasPBPData && effectiveScoresOnly && (
+                    <span className="text-[10px] sm:text-xs text-txt-muted">
+                      Tap a play to see its drive
+                    </span>
+                  )}
+                </div>
+
                 <div className="divide-y divide-surface-3/50">
                 {playsWithScores.map((play, idx) => {
+                  const isScoring = isScoringPlay(play)
+
+                  // Non-scoring play in Scores Only mode → hidden entirely.
+                  if (!isScoring && effectiveScoresOnly) return null
+
+                  // Non-scoring play in All Plays mode → compact PBP row.
+                  if (!isScoring) return renderPBPRow(play, idx)
+
+                  // Scoring play — full card. In Scores Only mode AND with
+                  // PBP data, the card is expandable to reveal the drive
+                  // (consecutive same-team plays leading to this score).
+                  const drive = hasPBPData ? findDrive(idx) : [play]
+                  const drivePrior = drive.slice(0, -1) // plays before the scoring play
+                  const canExpand = effectiveScoresOnly && drivePrior.length > 0
+                  const isExpanded = expandedDrives.has(idx)
+
                   const resolvedPlayTeam = resolvePlayTeamData(play)
                   const playTeamColors = resolvedPlayTeam.colors
                     || getTeamColorsRobust(resolvedPlayTeam.abbr)
@@ -2231,7 +2388,17 @@ export default function Game() {
                   const passerPID = play.passer ? getPlayerPID(play.passer) : null
                   const isLeftTeam = isPlayOnLeftSide(play)
                   return (
-                    <div key={idx} className="flex items-stretch">
+                    <div key={idx}>
+                    <div
+                      className={`flex items-stretch ${canExpand ? 'cursor-pointer' : ''}`}
+                      onClick={canExpand ? (e) => {
+                        // Don't toggle drive expansion when the user
+                        // clicks the inline player link or the video
+                        // button — those have their own handlers.
+                        if (e.target.closest('a, button')) return
+                        toggleDriveExpansion(idx)
+                      } : undefined}
+                    >
                       {/* Team color bar on left */}
                       <div
                         className="w-1 flex-shrink-0"
@@ -2343,7 +2510,37 @@ export default function Game() {
                             </svg>
                           </button>
                         )}
+                        {/* Drive expand chevron — only when there are prior plays
+                            in this drive to reveal. Rotates 180° on expand. */}
+                        {canExpand && (
+                          <div
+                            className="flex-shrink-0 p-1.5 sm:p-2 transition-transform"
+                            style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                            aria-hidden="true"
+                          >
+                            <svg className="w-4 h-4 sm:w-5 sm:h-5 text-txt-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        )}
                       </div>
+                    </div>
+                    {/* Drive sub-rows — the prior plays of the drive this
+                        scoring play ended. Animated max-height transition;
+                        1500px is high enough for any realistic drive (max
+                        observed ~15 plays at ~50px each = 750px), and the
+                        excess doesn't visibly affect the timing because we
+                        animate to that ceiling only when actually open. */}
+                    {canExpand && (
+                      <div
+                        className="overflow-hidden transition-all duration-300 ease-out"
+                        style={{ maxHeight: isExpanded ? '1500px' : '0' }}
+                      >
+                        <div className="bg-surface-2/40 divide-y divide-surface-3/30 pl-2 sm:pl-3 border-l-2 border-surface-4/50">
+                          {drivePrior.map((dp, didx) => renderPBPRow(dp, `drive-${idx}-${didx}`))}
+                        </div>
+                      </div>
+                    )}
                     </div>
                   )
                 })}
