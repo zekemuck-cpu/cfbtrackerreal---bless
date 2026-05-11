@@ -3255,8 +3255,18 @@ export default function TeamYear() {
 
           {/* Three-column home layout: leaders | prev+next | schedule */}
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)_minmax(0,340px)] gap-y-8 lg:gap-x-8 xl:gap-x-10">
-          {/* LEFT: Stat Leaders (editorial grid, collapses to stacked rows in the rail) */}
-          <aside className="lg:order-1 min-w-0">
+          {/* LEFT: Stat Leaders (or Top Rated fallback when no box scores
+              have been entered yet). On mobile (single column), real
+              Stat Leaders read as a hero and sit at the top; the Top
+              Rated fallback is reference content and gets pushed to
+              the bottom of the stack (after prev/next game + schedule)
+              so the user lands on the most-recent game first. lg:order-1
+              keeps the rail in the left column at desktop breakpoints
+              regardless. */}
+          {(() => {
+            const hasStatLeaders = !!(teamLeaders.passing || teamLeaders.rushing || teamLeaders.receiving || teamLeaders.tackles || teamLeaders.interceptions)
+            return (
+          <aside className={`min-w-0 ${hasStatLeaders ? 'lg:order-1' : 'order-last lg:order-1'}`}>
           {(teamLeaders.passing || teamLeaders.rushing || teamLeaders.receiving || teamLeaders.tackles || teamLeaders.interceptions) && (() => {
             const leaders = [
               teamLeaders.passing && { key: 'passing', label: 'Passing', valueText: teamLeaders.passing.stats.yards.toLocaleString(), unit: 'YDS', sub: `${teamLeaders.passing.stats.comp}/${teamLeaders.passing.stats.attempts} · ${teamLeaders.passing.stats.tD} TD · ${teamLeaders.passing.stats.int} INT`, data: teamLeaders.passing, fallback: 'P' },
@@ -3412,6 +3422,8 @@ export default function TeamYear() {
           })()}
 
           </aside>
+            )
+          })()}
 
           {/* MIDDLE: Previous + Next Game (editorial scorebug) */}
           <section className="lg:order-2 min-w-0">
