@@ -2327,7 +2327,22 @@ export default function Game() {
             // score. All other rows are play-by-play extras — only
             // visible when "Scores Only" is unchecked, and rendered
             // compactly.
-            const isScoringPlay = (p) => !!p.scoreType || is2PTAttempt(p)
+            //
+            // Exception: standalone PAT rows (extra-point attempts) are
+            // NOT promoted to scoring cards. The PAT result is already
+            // shown on the parent TD row via the patResult chip, so a
+            // separate "PAT — Made XP" card right under the TD is just
+            // visual noise. PAT rows still render as PBP rows in the
+            // drive expansion when "Scores Only" is off. 2PT conversion
+            // rows (where the patResult or scoreType contains "2PT")
+            // DO still promote — those are worth 2 points and deserve
+            // their own card when they happen standalone.
+            const isScoringPlay = (p) => {
+              if (is2PTAttempt(p)) return true
+              const st = (p.scoreType || '').trim()
+              if (st === 'PAT') return false
+              return !!st
+            }
 
             // Detect whether this game has play-by-play data on file.
             // A play-by-play row populates at least one of the PBP-only
