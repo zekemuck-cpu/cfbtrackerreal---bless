@@ -473,6 +473,79 @@ export function createOrUpdateCFPGameShells(existingGames, seedsWithTid, year, b
 }
 
 /**
+ * Create or update the user's bowl game shell when the bowl wizard completes.
+ * Mirrors the CFP shell pattern: once the user has answered bowl-eligible? +
+ * picked a bowl + picked an opponent, a shell appears in games[] so the
+ * dashboard's "Enter Your Bowl Game" tile can detect it via a games[] lookup
+ * instead of bowlEligibilityDataByYear + form-state flags.
+ *
+ * Idempotent. If a shell already exists for this user-team / year, it's
+ * updated in place (preserving scores and any user edits to the shell).
+ *
+ * @param {Array}  existingGames - Current games array from dynasty
+ * @param {Object} params
+ * @param {string} params.bowlName  - Full bowl name (e.g. "Bahamas Bowl")
+ * @param {number} params.year      - Dynasty year (e.g. 2030)
+ * @param {number} params.userTid   - User's team tid (offensive side, team1)
+ * @param {number} params.opponentTid - Opponent team tid
+ * @param {boolean} params.isWeek1  - true if the bowl is a Week-1 bowl
+ * @returns {Array} Updated games array with the bowl shell created/updated
+ */
+export function createOrUpdateBowlGameShell(existingGames, { bowlName, year, userTid, opponentTid, isWeek1 }) {
+  if (!bowlName || !year || !userTid || !opponentTid) return existingGames
+
+  const games = [...existingGames]
+  const slug = String(bowlName).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  const id = `bowl-${year}-${slug}`
+
+  // Locate any existing bowl shell for the user this year (regardless
+  // of id — the user may have changed bowl names mid-flow, which would
+  // produce a stale shell under the previous slug).
+  const existingIdx = games.findIndex(g =>
+    g && g.isBowlGame &&
+    Number(g.year) === Number(year) &&
+    (g.team1Tid === userTid || g.team2Tid === userTid)
+  )
+
+  const shell = {
+    id,
+    isBowlGame: true,
+    bowlName,
+    bowlWeek: isWeek1 ? 'week1' : 'week2',
+    year: Number(year),
+    week: 'Bowl',
+    gameType: 'bowl',
+    team1Tid: userTid,
+    team2Tid: opponentTid,
+    team1Score: null,
+    team2Score: null,
+    homeTeamTid: null,
+    winnerTid: null,
+    gameNote: '',
+    links: '',
+    createdAt: new Date().toISOString(),
+  }
+
+  if (existingIdx >= 0) {
+    // Preserve any scores / edits already on the existing shell, but
+    // refresh the bowl name / week / opponent in case the user changed
+    // their wizard answers.
+    const prev = games[existingIdx]
+    games[existingIdx] = {
+      ...prev,
+      bowlName,
+      bowlWeek: shell.bowlWeek,
+      team2Tid: opponentTid,
+      // Keep the original id stable — don't churn shell ids on wizard edits.
+    }
+  } else {
+    games.push(shell)
+  }
+
+  return games
+}
+
+/**
  * Propagate CFP winner to the next round game shell
  * Called after a CFP game is saved with a result
  *

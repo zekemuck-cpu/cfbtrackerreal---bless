@@ -19,7 +19,7 @@ import path from 'path'
 // `new Date().toISOString().slice(0, 10)` below, so the date itself
 // flips automatically at UTC midnight — only the counter needs the
 // manual reset.
-const MANUAL_BUILD = '0007'
+const MANUAL_BUILD = '0008'
 
 function buildAppVersion() {
   const today = new Date().toISOString().slice(0, 10)

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
-import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord, getCurrentTeamRanking, getEncourageTransfers, getRecruitingCommitments, getConferenceChampionshipData, createOrUpdateCFPGameShells, getUserCFPGameStatus, getCFPRoundDisplayName, propagateCFPWinner, findUserCFPGameShell, isPlayerOnRoster, getPlayerClassForYear, lookupByTeamYear, getTeamConferenceForDynasty } from '../../context/DynastyContext'
+import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord, getCurrentTeamRanking, getEncourageTransfers, getRecruitingCommitments, getConferenceChampionshipData, createOrUpdateCFPGameShells, createOrUpdateBowlGameShell, getUserCFPGameStatus, getCFPRoundDisplayName, propagateCFPWinner, findUserCFPGameShell, isPlayerOnRoster, getPlayerClassForYear, lookupByTeamYear, getTeamConferenceForDynasty } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
@@ -621,6 +621,49 @@ export default function Dashboard() {
       setBowlOpponent('')
     }
   }, [currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.bowlEligibilityDataByYear])
+
+  // One-time migration: back-fill missing bowl game shells from
+  // bowlEligibilityDataByYear. Detection of "user has a bowl game" now
+  // reads games[] as the single source of truth (matches CFP's pattern);
+  // without this back-fill, existing dynasties whose wizard completed
+  // under the old flow — no shell auto-created — would silently lose
+  // their Bowl Game tile after the refactor. Idempotent: skips years
+  // where the shell already exists.
+  useEffect(() => {
+    if (!currentDynasty?.id) return
+    if (isViewOnly) return
+    const byYear = currentDynasty.bowlEligibilityDataByYear
+    if (!byYear || typeof byYear !== 'object') return
+    const games = currentDynasty.games || []
+    const userTid = getUserTeamTid(currentDynasty)
+    if (!userTid) return
+
+    let mutated = games
+    let touched = false
+    for (const [yearStr, data] of Object.entries(byYear)) {
+      if (!data || !data.eligible || !data.bowlGame || !data.opponent) continue
+      const year = Number(yearStr)
+      if (!Number.isFinite(year)) continue
+      const alreadyHasShell = mutated.some(g =>
+        g && g.isBowlGame && Number(g.year) === year &&
+        (g.team1Tid === userTid || g.team2Tid === userTid)
+      )
+      if (alreadyHasShell) continue
+      const opponentTid = getTidFromTeamName(data.opponent, currentDynasty?.teams)
+      if (!opponentTid) continue
+      mutated = createOrUpdateBowlGameShell(mutated, {
+        bowlName: data.bowlGame,
+        year,
+        userTid,
+        opponentTid,
+        isWeek1: isBowlInWeek1(data.bowlGame),
+      })
+      touched = true
+    }
+    if (touched) {
+      updateDynasty(currentDynasty.id, { games: mutated })
+    }
+  }, [currentDynasty?.id, currentDynasty?.bowlEligibilityDataByYear, currentDynasty?.games, currentDynasty?.teams, isViewOnly, updateDynasty])
 
   // Restore new job state from saved dynasty data
   // If user declined in a previous week, reset so they can be asked again
@@ -4139,6 +4182,27 @@ export default function Dashboard() {
             const hasGameScores = (g) => !!g && g.team1Score != null && g.team2Score != null
             const userCFPFirstRoundScoresEntered = hasGameScores(userCFPFirstRoundGame)
             const userBowlGameScoresEntered = hasGameScores(userBowlGame)
+            const userCFPQuarterfinalScoresEntered = hasGameScores(userCFPQuarterfinalGame)
+
+            // Single source of truth for each game-entry to-do tile:
+            // does the user have a game shell of this type in games[]?
+            // No seed math, no wizard-state flags, no bowl-eligibility
+            // gates. CFP shells get auto-created when seeds are entered;
+            // bowl shells get auto-created when the bowl wizard completes
+            // (see the createOrUpdateBowlGameShell call above + the
+            // legacy back-fill useEffect). After that, "user has a CFP
+            // first round game" is one games[] lookup.
+            //
+            // The tile stays visible AFTER scores are entered (shows as
+            // green ✓ "Edit" via the *ScoresEntered booleans) so the user
+            // can still re-edit. The shell-existence check is the gate;
+            // the scores check is the completion styling.
+            const userHasCFPFirstRoundGame = !!userCFPFirstRoundGame
+            const userHasCFPQuarterfinalGame = !!userCFPQuarterfinalGame
+            const userHasBowlWeek1Game = !!userBowlGame && userBowlGame.bowlWeek === 'week1'
+            const userHasBowlWeek2Game = !!userBowlGame && userBowlGame.bowlWeek === 'week2'
+            // SF + NC equivalents defined later in this IIFE, after the
+            // SF/NC game variables are introduced (~line 4326, ~4413).
 
             // Filter team dropdown for bowl opponent
             const filteredBowlTeams = bowlOpponentSearch
@@ -4263,6 +4327,9 @@ export default function Dashboard() {
             // CFP Semifinals tracking
             const userCFPSemifinalGame = findCurrentTeamGame(currentDynasty, g => g.isCFPSemifinal && isSameYear(g.year, currentDynasty.currentYear))
             const userCFPSemifinalShell = findUserCFPGameShell(currentDynasty, 'semifinal', currentDynasty.currentYear)
+            // Game-entry gate counterpart to userHasCFPFirstRoundGame etc.
+            // — single rule: does the user have a SF game shell in games[]?
+            const userHasCFPSemifinalGame = !!userCFPSemifinalGame
             // Uses unified format: check perspective for win
             const userWonQuarterfinal = userCFPQuarterfinalGame?.perspective?.userWon
             const userInCFPSemifinal = userInCFPQuarterfinal && userWonQuarterfinal
@@ -4350,6 +4417,9 @@ export default function Dashboard() {
             // CFP Championship tracking
             const userCFPChampionshipGame = findCurrentTeamGame(currentDynasty, g => g.isCFPChampionship && isSameYear(g.year, currentDynasty.currentYear))
             const userCFPChampionshipShell = findUserCFPGameShell(currentDynasty, 'championship', currentDynasty.currentYear)
+            // Game-entry gate counterpart — single rule, same shape as the
+            // other Has* booleans.
+            const userHasCFPChampionshipGame = !!userCFPChampionshipGame
             // Uses unified format: check perspective for win
             const userWonSemifinal = userCFPSemifinalGame?.perspective?.userWon
             const userInCFPChampionship = userInCFPSemifinal && userWonSemifinal
@@ -4656,11 +4726,28 @@ export default function Dashboard() {
                                     setBowlOpponent(value)
                                     const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
                                     const currentBowlData = existingByYear[currentYear] || {}
+                                    // Auto-create the bowl game shell now that the wizard
+                                    // has all three answers (eligible + bowl + opponent).
+                                    // The dashboard's game-entry detection reads games[]
+                                    // as a single source of truth — without this shell,
+                                    // the Bowl Game tile would have to fall back to
+                                    // wizard-state checks (the old 25-predicate approach).
+                                    const opponentTid = getTidFromTeamName(value, currentDynasty?.teams)
+                                    const updatedGames = opponentTid
+                                      ? createOrUpdateBowlGameShell(currentDynasty.games || [], {
+                                          bowlName: selectedBowl,
+                                          year: currentYear,
+                                          userTid: userTeamTid,
+                                          opponentTid,
+                                          isWeek1: isBowlInWeek1(selectedBowl),
+                                        })
+                                      : (currentDynasty.games || [])
                                     await updateDynasty(currentDynasty.id, {
                                       bowlEligibilityDataByYear: {
                                         ...existingByYear,
                                         [currentYear]: { ...currentBowlData, opponent: value }
-                                      }
+                                      },
+                                      games: updatedGames,
                                     })
                                   }}
                                   placeholder="Search for opponent..."
@@ -4674,12 +4761,11 @@ export default function Dashboard() {
                       )
                     })()}
 
-                    {/* Task 4: Enter YOUR CFP First Round Game (if seeded 5-12).
-                        Completion is keyed on whether SCORES are entered, not
-                        whether the shell game exists — seed entry pre-creates
-                        the shell, so checking shell-exists made this tile
-                        show green ✓ "Edit" before the user did anything. */}
-                    {hasCFPSeedsData && userInCFPFirstRound && (
+                    {/* Task 4: Enter YOUR CFP First Round Game.
+                        Renders when the user has a CFP First Round game shell
+                        in games[]. Same predicate shape as every other game-
+                        entry tile — no seed math, no wizard flags. */}
+                    {userHasCFPFirstRoundGame && (
                       <div
                         className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                         style={userCFPFirstRoundScoresEntered ? {
@@ -4739,10 +4825,10 @@ export default function Dashboard() {
                       </div>
                     )}
 
-                    {/* Task 4b: Enter YOUR Bowl Game (if Week 1 bowl, non-CFP team).
-                        Same fix as Task 4 — gate "complete" on scores, not shell
-                        existence, in case the bowl shell was pre-created. */}
-                    {hasCFPSeedsData && !userCFPSeed && bowlEligible && selectedBowl && bowlOpponent && userBowlIsWeek1 && (
+                    {/* Task 4b: Enter YOUR Bowl Game (Week 1 bowl).
+                        Same predicate shape as the CFP First Round tile,
+                        just narrowed to bowl games with bowlWeek='week1'. */}
+                    {userHasBowlWeek1Game && (
                       <div
                         className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                         style={userBowlGameScoresEntered ? {
@@ -5109,7 +5195,12 @@ export default function Dashboard() {
                         (2026-05-11) — confirmed against the STONY dynasty
                         export: STONY is seed 5, cfpfr1-2030 shell exists
                         with team1Score=null/team2Score=null, currentWeek=2. */}
-                    {userInCFPFirstRound && !userCFPFirstRoundScoresEntered && (
+                    {/* Same Bowl Week 1 CFP First Round tile shape, but in
+                        Week 2 — surfaces a missed first-round game. Only
+                        renders if the user has the shell AND scores are
+                        not yet entered (otherwise the FR is done and the
+                        QF tile below takes over). */}
+                    {userHasCFPFirstRoundGame && !userCFPFirstRoundScoresEntered && (
                         <div
                           className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all"
                           style={{
@@ -5160,8 +5251,8 @@ export default function Dashboard() {
                         </div>
                     )}
 
-                    {/* Task 2: Enter YOUR Bowl Game (if Week 2 bowl) */}
-                    {bowlEligible && selectedBowl && bowlOpponent && userBowlIsWeek2 && (
+                    {/* Task 2: Enter YOUR Bowl Game (Week 2 bowl). */}
+                    {userHasBowlWeek2Game && (
                       <div
                         className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all"
                         style={userBowlGame ? {
@@ -5222,11 +5313,14 @@ export default function Dashboard() {
                       </div>
                     )}
 
-                    {/* Task: Enter YOUR CFP Quarterfinal Game (if in CFP and advancing to QF) */}
-                    {/* Bye teams (seeds 1-4) see this immediately in Bowl Week 2; First Round winners see it after winning */}
-                    {userInCFPQuarterfinal && (userHasCFPBye || userWonFirstRound || hasBowlWeek1Data) && (() => {
-                      // Check if game has actual scores entered (not just a shell)
-                      const qfGamePlayed = userCFPQuarterfinalGame && userCFPQuarterfinalGame.team1Score !== null && userCFPQuarterfinalGame.team2Score !== null
+                    {/* Task: Enter YOUR CFP Quarterfinal Game.
+                        Bye seeds (1-4) see this immediately because their
+                        QF shell has them as team1Tid from seed entry.
+                        First-round winners see it after their FR win
+                        propagates them into the shell's team2Tid via
+                        propagateCFPWinner. */}
+                    {userHasCFPQuarterfinalGame && (() => {
+                      const qfGamePlayed = userCFPQuarterfinalScoresEntered
                       return (
                       <div
                         className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all"
@@ -6352,8 +6446,11 @@ export default function Dashboard() {
                     </div>
                   )}
 
-                  {/* Task: Enter YOUR CFP Semifinal Game (Week 3 only, if user is in SF AND Bowl Week 2 data entered) */}
-                  {week === 3 && userInCFPSemifinal && hasBowlWeek2Data && (
+                  {/* Task: Enter YOUR CFP Semifinal Game (Week 3 only).
+                      Single detection rule: user has an SF game shell in
+                      games[]. Sequencing on hasBowlWeek2Data ensures
+                      prior-week bowls are entered first. */}
+                  {week === 3 && userHasCFPSemifinalGame && hasBowlWeek2Data && (
                     <div
                       className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                       style={userCFPSemifinalGame ? {
@@ -6481,7 +6578,7 @@ export default function Dashboard() {
 
                   {/* Task: Enter YOUR CFP Championship Game (Week 4 only, if user is in Championship) */}
                   {/* This comes AFTER the SF results so we know the opponent */}
-                  {week === 4 && userInCFPChampionship && (() => {
+                  {week === 4 && userHasCFPChampionshipGame && (() => {
                     // Use unified games[] array (source of truth) with fallback to legacy cfpResultsByYear
                     const unifiedSFData = getGamesByType(currentDynasty, GAME_TYPES.CFP_SEMIFINAL, currentDynasty.currentYear)
                     const legacySFData = currentDynasty.cfpResultsByYear?.[currentDynasty.currentYear]?.semifinals || []
