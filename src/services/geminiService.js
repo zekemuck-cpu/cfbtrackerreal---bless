@@ -3705,8 +3705,33 @@ FOCUS: Write from ${ctx.userTeamName}'s perspective as the primary team.
 - Still include opponent stats and context, but ${ctx.userTeamName} should be the protagonist`
   }
 
-  // Add scoring summary (CRITICAL for game flow narrative)
-  if (ctx.scoringSummary && ctx.scoringSummary.length > 0) {
+  // Add scoring summary (CRITICAL for game flow narrative).
+  //
+  // The "scoringSummary" array can now hold every play the user
+  // entered — scoring AND non-scoring — when they used the All Plays
+  // entry. The recap prompt cares about TWO different views of it:
+  //   • SCORING SUMMARY section: only plays that actually scored
+  //     (or were a 2PT attempt). Non-scoring rows would render as
+  //     "(, )" garbage with running score 0,0 — must be filtered.
+  //   • PLAY-BY-PLAY section (below): every play, used for drive
+  //     narration. Only rendered when PBP data exists.
+  //
+  // A play is "scoring" if it has a scoreType set, OR a standalone
+  // 2PT attempt (scoreType or patResult contains "2PT").
+  const isScoringPlay = (p) => {
+    const s = p?.scoreType || ''
+    const r = p?.patResult || ''
+    return !!s || r.includes('2PT') || s.includes('2PT')
+  }
+  // A play is "PBP-only" (carries play-by-play extension fields).
+  // Used to detect whether the new PLAY-BY-PLAY section should
+  // render at all.
+  const hasAnyPBPData = (ctx.scoringSummary || []).some(p =>
+    p && (p.playType || p.down || p.fieldPos || p.outcome)
+  )
+  const scoringOnlyList = (ctx.scoringSummary || []).filter(isScoringPlay)
+
+  if (scoringOnlyList.length > 0) {
     prompt += `\n
 ===========================================
 SCORING SUMMARY (in chronological order)
@@ -3728,7 +3753,7 @@ SCORING SUMMARY (in chronological order)
     }
     let team1Running = 0
     let team2Running = 0
-    ctx.scoringSummary.forEach((play, idx) => {
+    scoringOnlyList.forEach((play, idx) => {
       const scoreType = play.scoreType || ''
       const patResult = play.patResult || ''
 
@@ -3846,6 +3871,148 @@ SCORING SUMMARY (in chronological order)
 GAME FLOW FACTS — DO NOT CONTRADICT THESE
 ===========================================
 ${flowLines.join('\n')}`
+  }
+
+  // Play-by-play section — full drive-level detail when the user has
+  // entered every play via the All Plays AI prompt. Renders separately
+  // from the Scoring Summary section so the AI has:
+  //   • a concise list of scoring plays (above), AND
+  //   • a complete play-by-play log here, for drive narration and
+  //     specific-play references.
+  //
+  // Closed-book discipline applies: the AI must not invent plays not in
+  // this list. The guardrail line at the bottom of the section spells
+  // that out explicitly.
+  //
+  // Data hygiene: only include rows that have BOTH a quarter and a
+  // time (the chronological keys) AND at least one of {playType, down,
+  // scorer, scoreType}. A row with no descriptive fields is a stray
+  // user edit and would just confuse the AI.
+  if (hasAnyPBPData && Array.isArray(ctx.scoringSummary) && ctx.scoringSummary.length > 0) {
+    const ctxT1Upbp = ctx.team1?.toUpperCase()
+    const ctxT2Upbp = ctx.team2?.toUpperCase()
+    const playTeamLabel = (play) => {
+      const u = play.team?.toUpperCase()
+      if (ctx.team1Tid != null && ctx.team2Tid != null && ctxT1Upbp && ctxT2Upbp) {
+        const tid = u === ctxT1Upbp ? ctx.team1Tid : (u === ctxT2Upbp ? ctx.team2Tid : null)
+        if (tid != null) return tid === ctx.team1Tid ? ctx.team1FullName : ctx.team2FullName
+      }
+      return u === ctxT1Upbp ? ctx.team1FullName : (u === ctxT2Upbp ? ctx.team2FullName : (play.team || ''))
+    }
+
+    // Format down-and-distance ("3rd & 5", "1st & Goal"). Returns "" if
+    // the row doesn't carry down data (e.g. a kickoff, PAT, scoring
+    // summary that didn't include down/distance).
+    const fmtDownDist = (play) => {
+      const d = (play.down || '').trim()
+      if (!d) return ''
+      const dist = (play.distance || '').trim()
+      const ord = d === '1' ? '1st' : d === '2' ? '2nd' : d === '3' ? '3rd' : d === '4' ? '4th' : d
+      if (!dist) return ord
+      if (dist === 'G' || /goal/i.test(dist)) return `${ord} & Goal`
+      return `${ord} & ${dist}`
+    }
+
+    // Compact one-line play description. Combines play type + players +
+    // yards + outcome. Keeps the wording terse so a 200-play game stays
+    // under ~3k tokens of PBP context.
+    const fmtPlayDesc = (play) => {
+      const isScoring = isScoringPlay(play)
+      const primary = (play.scorer || '').trim()
+      const secondary = (play.passer || '').trim()
+      const yards = (play.yards || '').toString().trim()
+      const playType = (play.playType || '').trim()
+      const outcome = (play.outcome || '').trim()
+      const scoreType = (play.scoreType || '').trim()
+      const patResult = (play.patResult || '').trim()
+
+      // For scoring rows, lead with the score type. The PBP section
+      // doesn't want to lose the "this play scored" signal.
+      if (isScoring && scoreType) {
+        const yardClause = yards ? `${yards} yd` : ''
+        const passFrom = secondary ? ` from ${secondary}` : ''
+        const pat = patResult ? ` (PAT: ${patResult})` : ''
+        return `${yardClause ? yardClause + ' ' : ''}${scoreType}: ${primary}${passFrom}${pat}`.trim()
+      }
+
+      // Non-scoring play: play type + players + yards + outcome.
+      const parts = []
+      if (playType) parts.push(playType)
+      if (primary && secondary) parts.push(`${primary} → ${secondary}`)
+      else if (primary) parts.push(primary)
+      if (yards) parts.push(`${yards} yd`)
+      if (outcome) parts.push(`(${outcome})`)
+      const text = parts.join(' · ')
+      return text || (play.notes || '').trim()
+    }
+
+    // Strict hygiene filter — only rows with quarter+time and at least
+    // one descriptive field.
+    const pbpRows = (ctx.scoringSummary || []).filter(p =>
+      p &&
+      p.quarter && String(p.quarter).trim() &&
+      p.timeLeft && String(p.timeLeft).trim() &&
+      ((p.playType || '').trim() || (p.down || '').trim() || (p.scorer || '').trim() || (p.scoreType || '').trim())
+    )
+
+    if (pbpRows.length > 0) {
+      // Group by quarter for readability. quarter values are "1"/"2"/.../"OT"/"2OT".
+      const byQuarter = new Map()
+      for (const p of pbpRows) {
+        const q = String(p.quarter).trim().toUpperCase()
+        if (!byQuarter.has(q)) byQuarter.set(q, [])
+        byQuarter.get(q).push(p)
+      }
+      // Sort quarter keys: 1, 2, 3, 4, OT, 2OT, 3OT, ...
+      const quarterRank = (q) => {
+        if (/^\d+$/.test(q)) return parseInt(q, 10)
+        const m = q.match(/^(\d*)OT$/)
+        if (m) return 4 + (m[1] ? parseInt(m[1], 10) : 1)
+        return 99
+      }
+      const orderedQuarters = [...byQuarter.keys()].sort((a, b) => quarterRank(a) - quarterRank(b))
+
+      prompt += `\n
+===========================================
+PLAY-BY-PLAY (every play, chronological)
+===========================================
+This section lists every play of the game. Use it to narrate drives, identify momentum shifts, describe failed red-zone trips and critical 4th-down conversions. EVERY play referenced in your recap must appear in this list — do NOT invent plays.`
+
+      for (const q of orderedQuarters) {
+        const label = /^\d+$/.test(q) ? `QUARTER ${q}` : (q === 'OT' ? 'OVERTIME' : `${q.replace('OT', '')}OT`)
+        prompt += `\n\n${label}`
+        // Within a quarter, the clock counts DOWN — so earlier plays
+        // have MORE time remaining. Sort descending by time so the
+        // list is chronological.
+        const parseTime = (t) => {
+          const [m, s] = String(t || '0:00').split(':')
+          return (parseInt(m, 10) || 0) * 60 + (parseInt(s, 10) || 0)
+        }
+        const sorted = byQuarter.get(q).slice().sort((a, b) => parseTime(b.timeLeft) - parseTime(a.timeLeft))
+        for (const play of sorted) {
+          const dd = fmtDownDist(play)
+          const fp = (play.fieldPos || '').trim()
+          const desc = fmtPlayDesc(play)
+          const teamLabel = playTeamLabel(play)
+          // Compact line:  TIME  [TEAM] (downDist on fieldPos) — desc
+          const dDistAndPos = [dd, fp].filter(Boolean).join(' on ')
+          const head = dDistAndPos ? `(${dDistAndPos}) — ` : ''
+          prompt += `\n  ${play.timeLeft}  [${teamLabel}]  ${head}${desc}`
+        }
+      }
+
+      prompt += `\n
+USE THIS DATA FOR:
+- Describing scoring drives by their components ("a 9-play, 75-yard march capped by a 1-yard touchdown plunge"). Count plays only if they appear in this list.
+- Citing specific key moments by quarter + time ("the 4th-and-2 conversion at the LOU 40 with 5:30 left in the first").
+- Drive flow: when team changes between consecutive entries here, possession changed (kickoff, punt, turnover, or score). The list does not always tag the change explicitly — infer from the team brackets.
+
+DO NOT:
+- Invent any play not present in this list.
+- Describe a player's involvement that contradicts the play description above.
+- Pretend a player did something on a play where the data shows someone else as the primary/secondary actor.
+- Reference yardage, down, or distance numbers that don't match the data verbatim.`
+    }
   }
 
   // Add team stats if available
