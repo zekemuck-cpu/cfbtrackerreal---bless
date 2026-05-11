@@ -12710,15 +12710,42 @@ export async function readScoringSummaryFromSheet(spreadsheetId, dynastyTeams = 
     const data = await response.json()
     const rows = data.values || []
 
-    // Filter: keep any row where the user has filled the team column
-    // (the strict dropdown — they explicitly picked a team for that
-    // row). A row without a team is treated as truly empty / a stray
-    // edit and dropped. Scoring-only data uploads only fill rows that
-    // have scoring info, so the result is identical for that path.
-    // All-plays uploads fill every row that has a play, so the
-    // result includes non-scoring rows.
+    // Filter: keep a row when the team column is set AND at least
+    // one other meaningful field is set. Two failure modes this
+    // guards against:
+    //   (a) A user clicking the Team dropdown on an unused row by
+    //       accident and walking away — old reader dropped these
+    //       (because hasScoreType was false), and we MUST preserve
+    //       that behavior for scoring-only users so their data shape
+    //       doesn't change.
+    //   (b) A stray PBP-only edit where only one field was filled.
+    //       We also drop that.
+    //
+    // Critical: scoring-play detection here is via column E
+    // (Score Type) and column F (PAT Result, for 2PT), NEVER via
+    // column N (Outcome). That keeps scoring-only users on the same
+    // strict filter the old reader used. PBP-only rows are accepted
+    // via the playType / down / scorer signals — all-plays uploads
+    // populate at least one of those on every row.
     return rows
-      .filter(row => row[0] && row[0].trim())
+      .filter(row => {
+        const hasTeam = row[0] && row[0].trim()
+        if (!hasTeam) return false
+        const hasScoreType = row[4] && row[4].trim()
+        const patResult = (row[5] || '').trim()
+        const is2PTAttempt = patResult.includes('2PT')
+        // Old strict-scoring path — preserved exactly for back-compat.
+        if (hasScoreType || is2PTAttempt) return true
+        // New PBP path — accept non-scoring play rows when at least
+        // one descriptive PBP field is filled. Without this guard a
+        // user who only typed in column A on a row would get a stray
+        // empty record in their array; with it, a row needs to carry
+        // real data to survive the filter.
+        const hasDown = row[9] && row[9].trim()
+        const hasPlayType = row[12] && row[12].trim()
+        const hasScorer = row[1] && row[1].trim()
+        return hasDown || hasPlayType || hasScorer
+      })
       .map(row => ({
         // Legacy 9-col fields (A-I).
         team: (row[0] || '').trim().toUpperCase(),
