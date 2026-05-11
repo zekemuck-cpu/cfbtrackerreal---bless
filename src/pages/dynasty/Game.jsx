@@ -180,6 +180,33 @@ const defaultColors = {
   secondary: '#f3f4f6'   // Gray-100
 }
 
+// Small uppercase chip describing the play's category. Colored by
+// outcome valence: red for plays that lost yards / killed the drive
+// (sack, INT, missed FG), emerald for plays that scored, neutral for
+// standard plays. Used on the PBP row.
+function getPlayTypeBadge(playType) {
+  const t = (playType || '').toLowerCase()
+  if (!t) return null
+  switch (t) {
+    case 'sack':              return { label: 'SACK',    bg: 'bg-red-500/15',     text: 'text-red-300' }
+    case 'pass intercepted':  return { label: 'INT',     bg: 'bg-red-500/15',     text: 'text-red-300' }
+    case 'field goal missed': return { label: 'FG MISS', bg: 'bg-red-500/15',     text: 'text-red-300' }
+    case 'pass knocked away': return { label: 'PBU',     bg: 'bg-amber-500/15',   text: 'text-amber-300' }
+    case 'pass incomplete':   return { label: 'INC',     bg: 'bg-surface-3/70',   text: 'text-txt-tertiary' }
+    case 'field goal made':   return { label: 'FG',      bg: 'bg-emerald-500/15', text: 'text-emerald-300' }
+    case 'pat':               return { label: 'XP',      bg: 'bg-emerald-500/15', text: 'text-emerald-300' }
+    case 'rush':              return { label: 'RUN',     bg: 'bg-surface-3/70',   text: 'text-txt-secondary' }
+    case 'pass complete':
+    case 'pass':              return { label: 'PASS',    bg: 'bg-surface-3/70',   text: 'text-txt-secondary' }
+    case 'kickoff return':    return { label: 'KR',      bg: 'bg-violet-500/15',  text: 'text-violet-300' }
+    case 'punt return':       return { label: 'PR',      bg: 'bg-violet-500/15',  text: 'text-violet-300' }
+    case 'fumble recovery':   return { label: 'FUM',     bg: 'bg-orange-500/15',  text: 'text-orange-300' }
+    case 'safety':            return { label: 'SAF',     bg: 'bg-purple-500/15',  text: 'text-purple-300' }
+    case 'penalty':           return { label: 'FLAG',    bg: 'bg-yellow-500/15',  text: 'text-yellow-300' }
+    default:                  return { label: t.slice(0, 4).toUpperCase(), bg: 'bg-surface-3/60', text: 'text-txt-tertiary' }
+  }
+}
+
 // Reconstruct a natural-language play description from the structured
 // atoms produced by the all-plays AI prompt. The granular Play Type
 // (Pass Knocked Away / Field Goal Missed / etc.) tells us which
@@ -2334,49 +2361,130 @@ export default function Game() {
               return drive
             }
 
-            // Compact rendering for a non-scoring play row. The frontend
-            // reconstructs a natural-language sentence from the play's
-            // structured atoms (Play Type + scorer/passer/yards/score
-            // type). The granular Play Type taxonomy ("Pass Knocked
-            // Away", "Field Goal Missed", etc.) tells us which sentence
-            // template to use.
+            // Compact rendering for a non-scoring play row. Renders the
+            // play's structured atoms as discrete visual slots — time,
+            // down & distance chip, field position, play type badge,
+            // player names, yards, and an optional 1st-down indicator.
             //
-            // Legacy fallback: games saved before the schema migration
-            // may still carry a `description` field. If atom assembly
-            // produces nothing, use that text instead.
+            // Legacy fallback: games saved under earlier schemas may
+            // not carry structured atoms. In that case we fall back to
+            // the assembled-sentence body so the row still renders.
             const renderPBPRow = (play, key) => {
               const resolved = resolvePlayTeamData(play)
               const colors = resolved.colors
                 || getTeamColorsRobust(resolved.abbr)
                 || { primary: '#666', secondary: '#333' }
-              const isLeft = isPlayOnLeftSide(play)
               const dist = (play.distance || '').toString().trim()
-              const distLabel = dist === 'G' ? 'Goal' : dist
-              const downDist = play.down ? `${play.down}${play.down === '1' ? 'st' : play.down === '2' ? 'nd' : play.down === '3' ? 'rd' : 'th'}${distLabel ? ` & ${distLabel}` : ''}` : ''
+              const distLabel = dist === 'G' || /goal/i.test(dist) ? 'Goal' : dist
+              const downOrd = play.down === '1' ? '1st' : play.down === '2' ? '2nd' : play.down === '3' ? '3rd' : play.down === '4' ? '4th' : play.down
+              const downDist = play.down ? `${downOrd}${distLabel ? ` & ${distLabel}` : ''}` : ''
 
-              const body = buildHighlightSentence(play)
-                || (play.description || '').trim()
-                || (play.outcome || '').trim()
-                || (play.notes || '').trim()
+              const playType = (play.playType || '').trim()
+              const typeBadge = getPlayTypeBadge(playType)
+              const scorer = (play.scorer || '').trim()
+              const passer = (play.passer || '').trim()
+              const yards = (play.yards || '').toString().trim()
+              const yardsNum = Number(yards)
+              const yardsValid = yards !== '' && Number.isFinite(yardsNum)
+              const scoreType = (play.scoreType || '').trim()
+              const isTD = /TD/i.test(scoreType)
+              const outcomeText = `${play.outcome || ''} ${play.notes || ''}`.toLowerCase()
+              const isFirstDown = /1st\s*down/.test(outcomeText)
+              const isIncompleteType = playType === 'Pass Incomplete' || playType === 'Pass Knocked Away'
+
+              // Whether we have atoms to lay out by slot. If not, fall
+              // back to a single-string body (legacy data path).
+              const hasAtoms = !!(playType || scorer || passer || yardsValid)
+              const fallbackBody = !hasAtoms
+                ? (buildHighlightSentence(play)
+                  || (play.description || '').trim()
+                  || (play.outcome || '').trim()
+                  || (play.notes || '').trim())
+                : ''
+
+              // Player display — handles common AI mis-fill where both
+              // Scorer and Passer get the QB's name, by collapsing the
+              // duplicate to a single name instead of "X → X".
+              const sameNames = passer && scorer && passer === scorer
+              const playerEl = hasAtoms ? (
+                passer && scorer && !sameNames ? (
+                  <span className="truncate">
+                    <span className="text-txt-primary font-medium">{passer}</span>
+                    <span className="text-txt-muted mx-1.5">→</span>
+                    <span className="text-txt-primary font-medium">{scorer}</span>
+                  </span>
+                ) : passer ? (
+                  <span className="text-txt-primary font-medium truncate">{passer}</span>
+                ) : scorer ? (
+                  <span className="text-txt-primary font-medium truncate">{scorer}</span>
+                ) : (
+                  <span className="text-txt-muted">—</span>
+                )
+              ) : (
+                <span className="text-txt-secondary truncate">{fallbackBody || '—'}</span>
+              )
 
               return (
-                <div key={key} className="flex items-stretch text-[11px] sm:text-xs">
-                  <div className="w-1 flex-shrink-0" style={{ backgroundColor: colors.primary, opacity: 0.5 }} />
+                <div key={key} className="flex items-stretch text-[11px] sm:text-xs group">
+                  {/* Team color stripe — slightly thicker than before for visibility */}
+                  <div className="w-1 flex-shrink-0" style={{ backgroundColor: colors.primary, opacity: 0.7 }} />
                   <div
-                    className="flex-1 flex items-center gap-2 sm:gap-3 px-3 py-1.5 text-txt-tertiary"
-                    style={{ background: `linear-gradient(90deg, ${colors.primary}10 0%, transparent 60%)` }}
+                    className="flex-1 flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 transition-colors hover:bg-surface-2/40"
+                    style={{ background: `linear-gradient(90deg, ${colors.primary}0c 0%, transparent 55%)` }}
                   >
-                    <div className="w-10 sm:w-12 text-center flex-shrink-0">
-                      <div className="font-mono">{play.timeLeft}</div>
+                    {/* Time */}
+                    <div className="w-10 sm:w-12 flex-shrink-0 font-mono text-txt-muted tabular-nums text-center">
+                      {play.timeLeft}
                     </div>
-                    {downDist && (
-                      <div className="flex-shrink-0 font-semibold text-txt-secondary tabular-nums">{downDist}</div>
+
+                    {/* Down & Distance chip */}
+                    {downDist ? (
+                      <div className="flex-shrink-0 px-2 py-0.5 rounded-md bg-surface-3/70 text-txt-secondary font-semibold tabular-nums min-w-[58px] sm:min-w-[64px] text-center">
+                        {downDist}
+                      </div>
+                    ) : (
+                      <div className="w-[58px] sm:w-[64px] flex-shrink-0" />
                     )}
-                    {play.fieldPos && (
-                      <div className="flex-shrink-0 font-mono text-txt-muted">{play.fieldPos}</div>
+
+                    {/* Field position */}
+                    <div className="flex-shrink-0 font-mono text-txt-muted w-12 sm:w-14 tabular-nums text-left">
+                      {play.fieldPos || ''}
+                    </div>
+
+                    {/* Play type badge */}
+                    {typeBadge ? (
+                      <div className={`flex-shrink-0 px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-bold tracking-wider ${typeBadge.bg} ${typeBadge.text}`}>
+                        {typeBadge.label}
+                      </div>
+                    ) : (
+                      <div className="w-12 flex-shrink-0" />
                     )}
-                    <div className="flex-1 min-w-0 truncate text-txt-secondary">{body}</div>
-                    <div className={`flex-shrink-0 w-2 h-2 rounded-full ${isLeft ? 'mr-auto' : 'ml-auto'}`} style={{ backgroundColor: colors.primary }} />
+
+                    {/* Player names (or fallback body) */}
+                    <div className="flex-1 min-w-0 text-txt-secondary flex items-center overflow-hidden">
+                      {playerEl}
+                    </div>
+
+                    {/* Yards — signed, color-coded */}
+                    {yardsValid && (
+                      <div className={`flex-shrink-0 font-mono tabular-nums font-semibold w-10 sm:w-12 text-right ${
+                        yardsNum > 0 ? 'text-emerald-300' :
+                        yardsNum < 0 ? 'text-red-300' :
+                        isIncompleteType ? 'text-txt-muted italic' :
+                        'text-txt-muted'
+                      }`}>
+                        {isIncompleteType && yardsNum === 0 ? 'inc' : (yardsNum > 0 ? `+${yardsNum}` : yardsNum)}
+                      </div>
+                    )}
+
+                    {/* Result chip — 1st Down or TD */}
+                    <div className="flex-shrink-0 w-12 sm:w-14 text-right">
+                      {isTD ? (
+                        <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">TD</span>
+                      ) : isFirstDown ? (
+                        <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">1st</span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               )
@@ -2613,7 +2721,13 @@ export default function Game() {
                         className="overflow-hidden transition-all duration-300 ease-out"
                         style={{ maxHeight: isExpanded ? '1500px' : '0' }}
                       >
-                        <div className="bg-surface-2/40 divide-y divide-surface-3/30 pl-2 sm:pl-3 border-l-2 border-surface-4/50">
+                        <div
+                          className="divide-y divide-surface-3/20"
+                          style={{
+                            background: `linear-gradient(180deg, ${playTeamColors.primary}10 0%, ${playTeamColors.primary}05 100%)`,
+                            borderTop: `1px solid ${playTeamColors.primary}30`,
+                          }}
+                        >
                           {drivePrior.map((dp, didx) => renderPBPRow(dp, `drive-${idx}-${didx}`))}
                         </div>
                       </div>
