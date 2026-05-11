@@ -76,8 +76,28 @@ export function buildCFPProjection(dynasty, year) {
     return { available: false, reason: 'No dynasty or year supplied.' }
   }
 
-  // 1. Get the current Top 25 — uses end-of-season final poll if
-  //    one exists, otherwise rebuilds from per-game rank entries.
+  // 1. Get the current Top 25.
+  //
+  // Priority order:
+  //   a) End-of-season final poll (finalPollsByYear) — most authoritative,
+  //      used once the season's wrapped.
+  //   b) rankByWeek[latestWeek] across every team in dynasty.teams —
+  //      the canonical per-week poll store the Top 25 Sheet writes to
+  //      and the Rankings page reads from. We pick the LATEST week that
+  //      has at least ~10 ranked teams (matches Rankings page default).
+  //   c) buildLiveTop25FromGames as a last-resort fallback for legacy
+  //      saves that never populated rankByWeek.
+  //
+  // Why we don't use buildLiveTop25FromGames directly: each game record
+  // carries team1Rank/team2Rank as a per-game snapshot of the rank
+  // AT GAME TIME. Across an entire 13-week season those snapshots are
+  // wildly inconsistent — multiple teams claim the same rank in the
+  // same week because different game screenshots were parsed at
+  // different points in the week. Reconstructing the Top 25 from
+  // those collisions makes us pick teams nondeterministically (e.g.
+  // BOIS, FAU, IOWA, UNC all claim #22 in Wk 12 in this save). The
+  // rankByWeek store is the user's explicit Top 25 entry, free of
+  // those collisions.
   const finalPoll = dynasty.finalPollsByYear?.[year]?.media
   let rankings, latestWeek
   if (Array.isArray(finalPoll) && finalPoll.length > 0) {
@@ -87,9 +107,53 @@ export function buildCFPProjection(dynasty, year) {
       .sort((a, b) => a.rank - b.rank)
     latestWeek = 'Final'
   } else {
-    const live = buildLiveTop25FromGames(dynasty, year)
-    rankings = live.entries || []
-    latestWeek = live.week
+    // Walk rankByWeek across every team to find the latest fully-
+    // populated week (≥10 ranked teams). Build the Top 25 from that
+    // week's slots, dropping duplicate rank claims (first team to
+    // claim each slot wins — same defense the Rankings page uses).
+    const POPULATED_THRESHOLD = 10
+    const teams = dynasty.teams || {}
+    const weekCounts = new Map() // wk -> count of teams ranked that week
+    for (const team of Object.values(teams)) {
+      const rbw = team?.byYear?.[year]?.rankByWeek ?? team?.byYear?.[String(year)]?.rankByWeek
+      if (!rbw) continue
+      for (const [wkKey, v] of Object.entries(rbw)) {
+        const wk = Number(wkKey)
+        if (!Number.isFinite(wk)) continue
+        if (typeof v !== 'number' || v < 1 || v > 25) continue
+        weekCounts.set(wk, (weekCounts.get(wk) || 0) + 1)
+      }
+    }
+    let chosenWeek = null
+    if (weekCounts.size > 0) {
+      const populated = [...weekCounts.entries()]
+        .filter(([, c]) => c >= POPULATED_THRESHOLD)
+        .map(([w]) => w)
+        .sort((a, b) => b - a)
+      if (populated.length > 0) {
+        chosenWeek = populated[0]
+      } else {
+        // No fully-populated week — pick latest week with ANY data.
+        chosenWeek = [...weekCounts.keys()].sort((a, b) => b - a)[0]
+      }
+    }
+    if (chosenWeek != null) {
+      const slotMap = new Map() // rank -> { rank, team, tid }
+      for (const [tidKey, team] of Object.entries(teams)) {
+        const rbw = team?.byYear?.[year]?.rankByWeek ?? team?.byYear?.[String(year)]?.rankByWeek
+        if (!rbw) continue
+        const v = rbw[chosenWeek] ?? rbw[String(chosenWeek)]
+        if (typeof v !== 'number' || v < 1 || v > 25) continue
+        if (slotMap.has(v)) continue
+        slotMap.set(v, { rank: v, team: team.abbr || null, tid: Number(tidKey) })
+      }
+      rankings = [...slotMap.values()].sort((a, b) => a.rank - b.rank)
+      latestWeek = chosenWeek
+    } else {
+      const live = buildLiveTop25FromGames(dynasty, year)
+      rankings = live.entries || []
+      latestWeek = live.week
+    }
   }
 
   if (!rankings || rankings.length === 0) {
