@@ -329,6 +329,18 @@ function PositionFilterTab({
   // because you're still hovering).
   const suppressUntilLeaveRef = useRef(false)
 
+  // Hover-only behavior is desktop-only. On touch devices the
+  // compatibility mouseenter/mouseleave events fire around every tap
+  // and race with the chevron's click handler — the symptom is the
+  // arrow rotating and the menu either never staying visible or
+  // closing again within 120ms because mouseleave scheduleClose
+  // immediately follows the click. We gate the hover handlers on
+  // hover capability so the only interaction model on mobile is
+  // click-toggle.
+  const canHover = typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(hover: hover) and (pointer: fine)').matches
+
   const hasMenu = Array.isArray(subPositions) && subPositions.length > 0
 
   // Hover-grace pattern — a small delay before closing so the user
@@ -346,23 +358,45 @@ function PositionFilterTab({
   }
   useEffect(() => () => cancelClose(), [])
 
+  // Tap-outside-to-close. On desktop the hover-grace covers this
+  // (mouseleave the wrapper → schedule close). On mobile there's no
+  // mouseleave equivalent, so without this listener the menu stays
+  // open until the user explicitly taps the chevron again or picks
+  // a sub-position. The listener is only attached while open + on
+  // touch devices to avoid interfering with desktop hover behavior.
+  const wrapperRef = useRef(null)
+  useEffect(() => {
+    if (!open || canHover) return
+    const handle = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setOpen(false)
+      }
+    }
+    // Pointerdown fires before click; using it avoids a flash where
+    // tapping a sub-position selects it, the menu closes, and then
+    // the outside-click handler re-fires on the now-cleared DOM.
+    document.addEventListener('pointerdown', handle)
+    return () => document.removeEventListener('pointerdown', handle)
+  }, [open, canHover])
+
   return (
     <div
+      ref={wrapperRef}
       className="relative"
-      onMouseEnter={() => {
+      onMouseEnter={canHover ? () => {
         if (!hasMenu || disabled) return
         if (suppressUntilLeaveRef.current) return
         cancelClose()
         setOpen(true)
-      }}
-      onMouseLeave={() => {
+      } : undefined}
+      onMouseLeave={canHover ? () => {
         // Cursor left — clear the click-suppression so a subsequent
         // re-entry will open the menu again, and schedule the close
         // for any currently-open menu.
         suppressUntilLeaveRef.current = false
         if (!hasMenu) return
         scheduleClose()
-      }}
+      } : undefined}
     >
       {/* Tab body — both buttons stretch to the same height so the
           underline accent sits flush across them. Inside each button
@@ -436,8 +470,8 @@ function PositionFilterTab({
             border: '1px solid var(--surface-4)',
             boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
           }}
-          onMouseEnter={cancelClose}
-          onMouseLeave={scheduleClose}
+          onMouseEnter={canHover ? cancelClose : undefined}
+          onMouseLeave={canHover ? scheduleClose : undefined}
         >
           {subPositions.map(pos => {
             const subActive = activeSubPosition === pos
