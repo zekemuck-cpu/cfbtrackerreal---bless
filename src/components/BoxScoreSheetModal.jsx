@@ -266,27 +266,18 @@ export default function BoxScoreSheetModal({
 Output the full play-by-play of this game as 13-col TSV — one row per highlight line, chronological order (earliest first). The user will copy your reply verbatim and paste it at cell A2 of the "Scoring Summary" tab in Google Sheets, so your reply must contain ONLY tab-separated rows. No XML, no markdown fences, no header row, no preamble, no commentary. The first character of your reply is the team abbreviation of the first play.
 
 ═══════════════════════════════════════════════════════════
-TRANSCRIBE, DON'T REASON — accuracy through copying, not football logic
+TRANSCRIBE, DON'T REASON
 ═══════════════════════════════════════════════════════════
-Every row must match its source line exactly. 100% transcription accuracy is the bar. But the ONLY thing you check is "did I copy the line's values into the right columns?" — you do NOT apply football reasoning on top.
+100% transcription accuracy is required. Mechanical QC only — name spellings, numbers in the right cells, negatives preserved (-2 stays -2), chronological order, exactly 13 cols (12 tabs) per row.
 
-Checking you SHOULD do (fast, mechanical):
-  ✓ Names spelled exactly as printed on the line.
-  ✓ Numbers in the right cells — yards in D, down in J, distance in K.
-  ✓ Negative numbers stay negative (-2 yard rush → D=-2).
-  ✓ Chronological order: earliest play first.
-  ✓ Exactly 13 cols (12 tabs) per row.
+You must NOT apply football reasoning on top:
+  ✗ "Does -2 yards make sense?" — yes, write -2.
+  ✗ Don't trace possession / drives / kickoff returns across plays.
+  ✗ Don't compute or reconcile field-position math (LOU 14 + 31 = LOU 45 — skip the check).
+  ✗ Don't cross-check rosters every play. Look up each name ONCE, then trust.
+  ✗ Don't "fix" what the screenshot says. Line and football logic disagree → the line wins.
 
-Reasoning you must NOT do (each of these has been observed slowing this task to a halt):
-  ✗ Do NOT trace kickoff returns or punts across plays to "figure out where the drive starts." The next play's Field Pos is on the next line; just read it.
-  ✗ Do NOT compute or verify field position math ("LOU 14 + 31 = LOU 45, that checks out"). Skip the math. Copy the Field Pos from each line as printed.
-  ✗ Do NOT reconcile yard-line discrepancies. If line N says "LOU 45" and line N+1 says "LOU 49," write both verbatim. Don't pause to investigate the off-by-4.
-  ✗ Do NOT trace possession across plays. Each line's player tells you that line's possession; nothing else does.
-  ✗ Do NOT cross-check rosters on every play. Look each name up ONCE the first time you see it, then trust the team assignment forever after.
-  ✗ Do NOT reconcile contradictions or "fix" what the screenshot says. If the line and your understanding of football disagree, the line wins.
-  ✗ Do NOT verify -2 / -7 / odd-looking yardages. If the line says -2, write -2 and move on.
-
-ILLEGIBLE / UNSURE escape: if a cell value is illegible or ambiguous, write \`?\` for that cell and move on. Don't pause to figure it out. The user can fix \`?\` cells after.
+If a cell is illegible or ambiguous, write \`?\` for that cell and move on. The user fixes \`?\` cells after.
 
 ═══════════════════════════════════════════════════════════
 13 COLUMNS (TSV order — exactly 12 tabs per row)
@@ -325,37 +316,17 @@ PLAY TYPE (col M) — match by phrasing
 Anything else                       → Other
 
 ═══════════════════════════════════════════════════════════
-COL A (which team had the ball) — ONE-PASS RULES, NO RE-CHECKING
+COL A — derive from the PLAYER, never from Field Pos
 ═══════════════════════════════════════════════════════════
-Look at the line. The PLAYER named tells you who's on offense:
-  • Rush / Pass / Sack / FG / PAT  → A = team of the player in B (or in C for sacks)
-  • Kickoff Return / Punt Return / Fumble Recovery / Pass Intercepted → A = team of the returner / recoverer / interceptor (B). Possession flipped on these — that's fine, don't second-guess.
+The team abbreviation inside Field Pos ("UK 35", "LOU 7", "MID 50") is a GEOGRAPHIC label — it describes which END of the field the ball is on, NOT who has the ball. Confusing them flips col A on every play and ruins the sheet. This is the #1 failure mode for this task.
 
-Look each name up in the rosters ONCE per game. After that, trust the assignment. Don't re-verify on every play.
+Rule: col A = team of the PLAYER named on the line.
+  • Rush / Pass / Sack / FG / PAT → team of player in B (or C for sacks)
+  • Kickoff Return / Punt Return / Pass Intercepted / Fumble Recovery → team of the returner / interceptor / recoverer (B). Possession just flipped — that's fine.
 
-═══════════════════════════════════════════════════════════
-⚠ CRITICAL: FIELD POSITION TEAM ≠ TEAM WITH THE BALL
-═══════════════════════════════════════════════════════════
-The team abbreviation inside the Field Pos string ("UK 35", "LOU 7", "MID 50") is a GEOGRAPHIC reference describing which END of the field the ball is on — it is NOT who has the ball. Confusing these two flips col A on every play and ruins the entire sheet. This is the #1 failure mode for this task. Read carefully.
+Anchor example: "Kickoff on UK 35. Jason Cummings returns kick for 19 yards." → A = LOU. ("UK 35" means UK is kicking FROM their own 35; Jason Cummings is LOU's returner.) Same pattern for "1st & Goal on UK 6" — that means someone is scoring AGAINST UK, so the offense is the OPPOSING team, not UK.
 
-Three scenarios where field-pos team ≠ offensive team. In all three, col A is the OPPOSITE team from the field-pos prefix:
-
-1. KICKOFF — "Kickoff on UK 35. Jason Cummings returns kick for 19 yards."
-   - "UK 35" means UK is kicking FROM their own 35-yard line.
-   - The OTHER team (whoever Jason Cummings plays for) is receiving and now has the ball.
-   - Col A = team of Jason Cummings. NOT UK.
-
-2. RED-ZONE TD — "1st & Goal on UK 6. Edward Reed pass to Duke Lamar for a 6 yard TD."
-   - Ball is at UK's 6-yard line — someone is about to score AGAINST UK.
-   - The offensive team is the OPPOSING team (the one driving into UK's end zone).
-   - Col A = team of Edward Reed (and Duke Lamar). NOT UK.
-
-3. INTERCEPTION RETURN INTO ENEMY TERRITORY — "Pass intercepted by Larry Long, returned to UK 22."
-   - Larry Long picked off the pass and is now running it; ball is on UK's 22.
-   - Larry Long's team intercepted — they have the ball now.
-   - Col A = team of Larry Long. NOT UK.
-
-The ONLY reliable signal for col A is the PLAYER named on the line. Field Pos goes in col L for display; it never determines col A. If you find yourself looking at the field-pos prefix to decide col A, STOP and look at the player instead.
+Look each player up in the rosters ONCE per game, then trust the assignment.
 
 ═══════════════════════════════════════════════════════════
 SCORE TYPE (col E) WHEN A PLAY SCORES
