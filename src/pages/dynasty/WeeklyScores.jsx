@@ -283,14 +283,26 @@ export default function WeeklyScores() {
   const displayYear = urlYear ? parseInt(urlYear, 10) : currentYear
   const displayWeek = urlWeek != null ? parseInt(urlWeek, 10) : Math.max(0, (currentDynasty.currentPhase === 'regular_season' ? Number(currentDynasty.currentWeek) - 1 : 15))
   // Memoize the recap link patterns — buildRecapLinks builds hundreds of
-  // patterns from dynasty.games + .teams. Inlined in JSX it ran on every
-  // render; with the page's tab-switching state churning, every tab click
-  // paid the cost of rebuilding the whole pattern set, which is what the
-  // user perceived as "tab switches taking forever."
-  const recapLinks = useMemo(
-    () => buildRecapLinks(currentDynasty, displayYear, pathPrefix),
-    [currentDynasty?.id, displayYear, currentDynasty?.games, currentDynasty?.teams, pathPrefix]
-  )
+  // patterns from dynasty.games + .teams. Gated on tab + recap presence:
+  // skip the build entirely when the user is on the Scores tab or the
+  // week has no recap. Otherwise every dynasty.games / .teams reference
+  // change (any Firestore write) rebuilds the full pattern set even
+  // though it wouldn't be rendered.
+  const recapLinks = useMemo(() => {
+    if (tabParam !== 'recap') return null
+    const recapText = currentDynasty?.weekRecapsByYear?.[displayYear]?.[displayWeek]?.text
+    if (!recapText) return null
+    return buildRecapLinks(currentDynasty, displayYear, pathPrefix)
+  }, [
+    tabParam,
+    currentDynasty?.id,
+    displayYear,
+    displayWeek,
+    currentDynasty?.games,
+    currentDynasty?.teams,
+    currentDynasty?.weekRecapsByYear,
+    pathPrefix,
+  ])
 
   const handleYearChange = (y) => navigate(`${pathPrefix}/weekly-scores/${y}/${displayWeek}`)
   const handleWeekChange = (w) => navigate(`${pathPrefix}/weekly-scores/${displayYear}/${w}`)

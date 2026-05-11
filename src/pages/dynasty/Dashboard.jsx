@@ -108,15 +108,32 @@ export default function Dashboard() {
   const teamRoster = getCurrentRoster(currentDynasty)
   const teamPreseasonSetup = getCurrentPreseasonSetup(currentDynasty)
   const teamRatings = getCurrentTeamRatings(currentDynasty)
-  // Recap link patterns are derived from dynasty.games + dynasty.teams + the
-  // year. Hundreds of patterns get built; without memoization this fired
-  // on every Dashboard render and turned into perceptible lag every time
-  // anything in the page state changed (modal opens, button hovers, etc).
-  // Recompute only when the inputs that matter actually change.
-  const recapLinks = useMemo(
-    () => buildRecapLinks(currentDynasty, Number(currentDynasty?.currentYear), pathPrefix),
-    [currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.games, currentDynasty?.teams, pathPrefix]
-  )
+  // Recap link patterns are derived from dynasty.games + dynasty.teams +
+  // the year. Hundreds of patterns get built; the work is real, so we
+  // only do it when a recap is actually going to be rendered (the
+  // Dashboard's recap card only shows in regular_season after week 1).
+  // Without this guard the build fired on every Dashboard render —
+  // dynasty.games is a fresh array reference after any Firestore write,
+  // which busted the memo even when the user wasn't on a screen that
+  // shows the recap.
+  const recapLinks = useMemo(() => {
+    if (currentDynasty?.currentPhase !== 'regular_season') return null
+    const cw = Number(currentDynasty?.currentWeek)
+    if (!Number.isFinite(cw) || cw < 2) return null
+    const yr = Number(currentDynasty?.currentYear)
+    const lastWeekText = currentDynasty?.weekRecapsByYear?.[yr]?.[cw - 1]?.text
+    if (!lastWeekText) return null
+    return buildRecapLinks(currentDynasty, yr, pathPrefix)
+  }, [
+    currentDynasty?.id,
+    currentDynasty?.currentYear,
+    currentDynasty?.currentWeek,
+    currentDynasty?.currentPhase,
+    currentDynasty?.games,
+    currentDynasty?.teams,
+    currentDynasty?.weekRecapsByYear,
+    pathPrefix,
+  ])
   // Pass uid so a member's per-uid override (Members page → Your Coaching
   // Staff) wins over the legacy single-staff field. Multi-coach dynasties
   // depend on this so each user sees their own coordinators in the
