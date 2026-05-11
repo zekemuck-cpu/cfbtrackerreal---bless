@@ -4142,8 +4142,20 @@ export default function Dashboard() {
             // Check if user's team is in the CFP - prefer tid lookup
             const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
             const cfpSeeds = currentDynasty.cfpSeedsByYear?.[currentDynasty.currentYear] || []
-            // Check tid first, then abbr for backward compatibility
-            const userCFPSeed = cfpSeeds.find(s => s.tid === userTeamTid)?.seed || null
+            // Tid match with Number coercion (some legacy entries store tid
+            // as a string), then fall back to abbr for entries written under
+            // the older schema that didn't carry a tid. Without this fallback
+            // a user whose seed was saved as `{seed, team}` instead of
+            // `{seed, tid}` would never resolve here — the Enter CFP First
+            // Round tile would silently not render even though they ARE in
+            // the bracket. Reported by Jay (2026-05-11): "in bowl week 1,
+            // first round of CFP, but no 'enter game' button."
+            const userCFPSeed = cfpSeeds.find(s => {
+              if (!s) return false
+              if (s.tid != null && userTeamTid != null && Number(s.tid) === Number(userTeamTid)) return true
+              if (s.team && userTeamAbbr && String(s.team).toUpperCase() === String(userTeamAbbr).toUpperCase()) return true
+              return false
+            })?.seed || null
 
             // Calculate CFP first round opponent (5v12, 6v11, 7v10, 8v9) - returns tid
             const getCFPFirstRoundOpponent = (seed) => {
