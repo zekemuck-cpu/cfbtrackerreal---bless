@@ -2563,7 +2563,7 @@ export default function TeamYear() {
           <div className="flex-1 min-w-0">
             {/* Year Selector - embedded in season label */}
             <div className="flex items-center gap-1.5">
-              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded cursor-pointer hover:bg-surface-3 transition-colors bg-surface-2 border border-surface-4">
+              <div className="dropdown-chrome inline-flex items-center gap-1 px-2 py-0.5 rounded cursor-pointer hover:bg-surface-3 transition-colors bg-surface-2 border border-surface-4">
                 <select
                   value={selectedYear}
                   onChange={(e) => {
@@ -2571,7 +2571,7 @@ export default function TeamYear() {
                     const tabParam = activeTab && activeTab !== 'home' ? `?tab=${activeTab}` : ''
                     navigate(`${pathPrefix}/team/${tid}/${newYear}${tabParam}`)
                   }}
-                  className="bg-transparent text-xs sm:text-sm font-bold uppercase tracking-wide cursor-pointer focus:outline-none appearance-none text-txt-primary"
+                  className="dropdown-chrome__control bg-transparent text-xs sm:text-sm font-bold uppercase tracking-wide cursor-pointer focus:outline-none appearance-none text-txt-primary"
                 >
                   {availableYears.map((y) => (
                     <option key={y} value={y} style={{ color: '#fff', backgroundColor: '#1a1a1a' }}>
@@ -2611,7 +2611,7 @@ export default function TeamYear() {
                 </Link>
               ) : null}
               {/* Team Selector - embedded in team name */}
-              <div className="inline-flex items-center gap-1 rounded-lg cursor-pointer hover:bg-surface-3 transition-colors bg-surface-2 border border-surface-4">
+              <div className="dropdown-chrome inline-flex items-center gap-1 rounded-lg cursor-pointer hover:bg-surface-3 transition-colors bg-surface-2 border border-surface-4">
                 <select
                   value={tid}
                   onChange={(e) => {
@@ -2619,7 +2619,7 @@ export default function TeamYear() {
                     const tabParam = activeTab && activeTab !== 'home' ? `?tab=${activeTab}` : ''
                     navigate(`${pathPrefix}/team/${newTid}/${selectedYear}${tabParam}`)
                   }}
-                  className="bg-transparent display-md text-txt-primary cursor-pointer focus:outline-none appearance-none px-2 py-0.5"
+                  className="dropdown-chrome__control bg-transparent display-md text-txt-primary cursor-pointer focus:outline-none appearance-none px-2 py-0.5"
                   style={{
                     width: `${Math.max((mascotName || teamInfo.name || '').length * 0.72 + 3.5, 12)}ch`,
                     maxWidth: '100%'

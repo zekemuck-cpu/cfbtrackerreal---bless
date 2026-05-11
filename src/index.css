@@ -458,6 +458,28 @@ button.card-elevated:hover {
   outline-offset: 2px;
 }
 
+/* Form-control accent (selected option, checkbox tick, etc.).
+   Without this, browsers default to system blue — jarring against the
+   dark theme. Falling back to surface-5 keeps the controls on-brand
+   even when a page hasn't scoped its own --team-primary. */
+:root {
+  accent-color: var(--team-primary, var(--surface-5, #42454f));
+}
+
+/* Tailwind's `focus:ring-2` utility (without a ring-color modifier)
+   inherits its color from --tw-ring-color, which Tailwind defaults
+   to a system blue. That's the source of the bright-blue focus ring
+   that read as an out-of-brand accent against the dark theme on
+   inputs across game entry / team page / and elsewhere. Pinning it
+   here to a subtle on-brand color makes every `focus:ring-N` site
+   render a clean surface-toned indicator unless an explicit
+   `focus:ring-{color}` overrides it. */
+*,
+::before,
+::after {
+  --tw-ring-color: color-mix(in srgb, var(--text-primary) 25%, transparent);
+}
+
 /* Transition utilities */
 .transition-all-fast {
   transition: all var(--dur-fast) var(--ease-out-quint);
@@ -989,6 +1011,31 @@ select:focus-visible,
 .focus-ring:focus-visible {
   outline: 2px solid var(--team-primary, #ea580c) !important;
   outline-offset: 2px !important;
+}
+
+/* Cosmetic-dropdown helpers — used by navigation selects (year picker,
+   team switcher, etc.) where the dropdown is a chrome element rather
+   than a data-entry field. The default focus-visible outline on these
+   was reading as a stark blue rectangle around the dropdown because
+   browsers render a system focus highlight on top of (or in place of)
+   the CSS outline when `<select>` elements take focus.
+
+   Pattern:
+     <div class="dropdown-chrome">
+       <select class="dropdown-chrome__control">…</select>
+     </div>
+
+   The wrapper handles focus indication via a subtle border shift on
+   focus-within; the select itself gets no visible focus ring. Keyboard
+   accessibility is preserved because the wrapper border change is
+   visible and the control still receives focus. */
+.dropdown-chrome__control:focus,
+.dropdown-chrome__control:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+.dropdown-chrome:focus-within {
+  border-color: var(--surface-5);
 }
 
 /* ============================================
