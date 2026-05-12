@@ -2488,67 +2488,69 @@ export default function Game() {
                 <span className="text-txt-secondary truncate">{fallbackBody || '—'}</span>
               )
 
-              // PBP row layout — strictly typeset. No colored chips, no
-              // accent fills. Team color is conveyed by a thin 3px left
-              // rail (per DESIGN.md). All labels use the same uppercase
-              // tracked treatment in text-tertiary; numerics in text-
-              // secondary tabular-nums. Hierarchy is built with size and
-              // weight, not color.
+              // PBP row layout — reorganized for fast scanning. Each row
+              // reads left-to-right as: WHEN, WHERE, WHAT, WHO.
+              //   • Time (when)
+              //   • Field pos + down/dist (where) — middot separator
+              //     when both exist so they read as one compound clause
+              //   • Play + yards (what) — bold, the "answer" of the row.
+              //     Yards inline with play type so "RUN +22" reads as
+              //     one unit instead of being split to the row's far
+              //     right. 1st-down or incomplete tag rides along here.
+              //   • Player names (who) — flows right with truncation.
+              // Hierarchy via weight only; team color is just the rail.
+              const yardsDisplay = yardsValid && !(isIncompleteType && yardsNum === 0)
+                ? (yardsNum > 0 ? `+${yardsNum}` : String(yardsNum))
+                : null
+              const playLabel = typeBadge?.label || ''
+              const showInc = isIncompleteType && (!yardsValid || yardsNum === 0)
               return (
                 <div key={key} className="flex items-stretch text-[11px] sm:text-xs group transition-colors hover:bg-surface-2/60">
                   <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: colors.primary }} />
-                  <div className="flex-1 flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 min-w-0">
-                    {/* Time */}
-                    <div className="w-10 sm:w-12 flex-shrink-0 font-display font-semibold text-txt-tertiary tabular-nums text-center">
+                  <div className="flex-1 flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-2 sm:py-2.5 min-w-0">
+                    {/* WHEN: time */}
+                    <div className="w-10 sm:w-12 flex-shrink-0 font-display font-semibold text-txt-tertiary tabular-nums text-left">
                       {play.timeLeft}
                     </div>
 
-                    {/* Down & Distance */}
-                    {downDist ? (
-                      <div className="flex-shrink-0 font-display font-semibold uppercase tracking-wider text-txt-secondary tabular-nums min-w-[60px] sm:min-w-[64px] text-center">
-                        {downDist}
-                      </div>
-                    ) : (
-                      <div className="min-w-[60px] sm:min-w-[64px] flex-shrink-0" />
-                    )}
-
-                    {/* Field position */}
-                    <div className="flex-shrink-0 font-display text-txt-tertiary w-12 sm:w-14 tabular-nums text-left">
-                      {play.fieldPos || ''}
+                    {/* WHERE: field pos · down & distance — one compound
+                        clause, middot separator when both are present. */}
+                    <div className="flex-shrink-0 font-display text-txt-tertiary tabular-nums text-left min-w-[80px] sm:min-w-[120px]">
+                      {play.fieldPos && (
+                        <span className="text-txt-secondary">{play.fieldPos}</span>
+                      )}
+                      {play.fieldPos && downDist && (
+                        <span className="text-txt-muted mx-1.5">·</span>
+                      )}
+                      {downDist && (
+                        <span className="font-semibold uppercase tracking-wider">{downDist}</span>
+                      )}
                     </div>
 
-                    {/* Play type — plain uppercase label, no chip */}
-                    {typeBadge ? (
-                      <div className="flex-shrink-0 font-display font-bold uppercase tracking-[0.1em] text-txt-tertiary text-[10px] sm:text-[11px] w-12 sm:w-14 text-left">
-                        {typeBadge.label}
-                      </div>
-                    ) : (
-                      <div className="w-12 sm:w-14 flex-shrink-0" />
-                    )}
+                    {/* WHAT: play type + inline yards. The visual answer
+                        of the row — bold, slightly heavier than the
+                        context columns. */}
+                    <div className="flex-shrink-0 font-display font-bold uppercase tracking-[0.08em] text-[11px] sm:text-xs min-w-[95px] sm:min-w-[110px] text-left">
+                      {playLabel && (
+                        <span className="text-txt-primary">{playLabel}</span>
+                      )}
+                      {yardsDisplay && (
+                        <span className="text-txt-secondary tabular-nums ml-1.5">{yardsDisplay}</span>
+                      )}
+                      {showInc && (
+                        <span className="text-txt-tertiary normal-case italic font-normal ml-1.5">inc</span>
+                      )}
+                      {isFirstDown && (
+                        <span className="text-txt-tertiary font-semibold ml-2">· 1st dn</span>
+                      )}
+                      {isTD && (
+                        <span className="text-txt-primary ml-2">· TD</span>
+                      )}
+                    </div>
 
-                    {/* Player names (or fallback body) */}
+                    {/* WHO: player names, flows right with truncation. */}
                     <div className="flex-1 min-w-0 text-txt-secondary flex items-center overflow-hidden">
                       {playerEl}
-                    </div>
-
-                    {/* Yards — signed tabular, neutral color. Hierarchy
-                        comes from weight (bold) not green/red fills. */}
-                    {yardsValid && (
-                      <div className="flex-shrink-0 font-display font-bold tabular-nums w-10 sm:w-12 text-right text-txt-secondary">
-                        {isIncompleteType && yardsNum === 0
-                          ? <span className="italic font-normal text-txt-tertiary">inc</span>
-                          : (yardsNum > 0 ? `+${yardsNum}` : yardsNum)}
-                      </div>
-                    )}
-
-                    {/* Result label — TD or 1st down, both as plain
-                        uppercase tracked text instead of colored pills. */}
-                    <div className="flex-shrink-0 w-12 sm:w-14 text-right">
-                      {isTD ? (
-                        <span className="font-display font-bold uppercase tracking-[0.1em] text-txt-primary text-[10px] sm:text-[11px]">TD</span>
-                      ) : isFirstDown ? (
-                        <span className="font-display font-semibold uppercase tracking-[0.1em] text-txt-tertiary text-[10px] sm:text-[11px]">1st dn</span>
-                      ) : null}
                     </div>
                   </div>
                 </div>
