@@ -2,6 +2,7 @@
 // Aggregates per-game box score stats into season totals for players
 
 import { getCurrentTeamAbbr, TEAMS, getGameTeamInfo } from '../data/teamRegistry'
+import { canonicalBoxScore } from './boxScoreHelpers'
 
 /**
  * Normalize a player name for comparison
@@ -90,15 +91,21 @@ export function aggregatePlayerBoxScoreStats(dynasty, playerName, year, teamAbbr
 
   // Process each game
   yearGames.forEach(game => {
-    const boxScore = game.boxScore
-    if (!boxScore) return
+    if (!game?.boxScore) return
+
+    // Read via canonicalBoxScore so both legacy {home, away} games AND
+    // tid-keyed {byTid} games surface their player stats. Reading
+    // game.boxScore.home/away directly (the previous behavior) silently
+    // returned no data for tid-keyed games — career totals would be
+    // missing every game stored under the new shape.
+    const canon = canonicalBoxScore(game, dynasty?.teams)
+    const sides = canon ? Object.values(canon.byTid || {}) : []
 
     let foundInGame = false
 
-    // Search BOTH sides of the box score to find the player
-    // This is more robust than relying on location field
-    for (const side of ['home', 'away']) {
-      const sideBoxScore = boxScore[side]
+    // Search every team's slot to find the player. (More robust than
+    // relying on location field, and naturally handles canonical games.)
+    for (const sideBoxScore of sides) {
       if (!sideBoxScore) continue
 
       // Process each stat category
@@ -172,25 +179,25 @@ export function getPlayerSeasonStatsFromBoxScores(dynasty, player) {
   const playerName = player.name
   const teamAbbr = player.team
 
-  // Find all years where this player appears in box scores
-  // Simple: if player is in the box score, include the year
+  // Find all years where this player appears in box scores. Reads
+  // through canonicalBoxScore so tid-keyed games are walked the same
+  // as legacy {home, away} games — without it, post-refactor games
+  // were silently skipped and the player career-stats page lost years.
   const years = new Set()
   dynasty.games.forEach(game => {
     if (!game.boxScore || !game.year) return
-
     const gameYear = Number(game.year)
-    const boxScore = game.boxScore
-
-    // Check if player appears in this game's box score
-    const checkCategory = (side) => {
-      if (!boxScore[side]) return false
-      return Object.values(boxScore[side]).some(category =>
+    const canon = canonicalBoxScore(game, dynasty?.teams)
+    const sides = canon ? Object.values(canon.byTid || {}) : []
+    const playerInSide = (sideBoxScore) => {
+      if (!sideBoxScore) return false
+      return Object.values(sideBoxScore).some(category =>
         Array.isArray(category) && category.some(p =>
           normalizeName(p.playerName) === normalizeName(playerName)
         )
       )
     }
-    if (checkCategory('home') || checkCategory('away')) {
+    if (sides.some(playerInSide)) {
       years.add(gameYear)
     }
   })
@@ -363,19 +370,23 @@ export function getPlayerGameLog(dynasty, playerName, year, teamAbbr) {
   const categories = ['passing', 'rushing', 'receiving', 'blocking', 'defense', 'kicking', 'punting', 'kickReturn', 'puntReturn']
 
   yearGames.forEach(game => {
-    const boxScore = game.boxScore
-    if (!boxScore) return
+    if (!game?.boxScore) return
 
-    // Search BOTH home and away box scores for this player
-    // This handles all cases: user's team, opponent team, any team
-    let playerFoundIn = null // 'home' or 'away'
+    // Read via canonicalBoxScore so both legacy {home, away} games AND
+    // tid-keyed {byTid} games surface. playerFoundInTid is the tid of
+    // the team slot the player was found in; downstream we compare it
+    // to game.team1Tid/team2Tid to derive team/opponent + scores.
+    const canon = canonicalBoxScore(game, dynasty?.teams)
+    const byTidEntries = canon ? Object.entries(canon.byTid || {}) : []
+
+    let playerFoundInTid = null
     let playerStats = {}
 
-    for (const side of ['home', 'away']) {
-      if (!boxScore[side]) continue
+    for (const [tidStr, sideBoxScore] of byTidEntries) {
+      if (!sideBoxScore) continue
 
       categories.forEach(category => {
-        const categoryStats = boxScore[side][category]
+        const categoryStats = sideBoxScore[category]
         if (!categoryStats || !Array.isArray(categoryStats)) return
 
         const found = categoryStats.find(p =>
@@ -383,15 +394,19 @@ export function getPlayerGameLog(dynasty, playerName, year, teamAbbr) {
         )
 
         if (found) {
-          playerFoundIn = side
+          playerFoundInTid = Number(tidStr)
           playerStats[category] = { ...found }
         }
       })
 
-      if (playerFoundIn) break // Found player, stop searching
+      if (playerFoundInTid != null) break // Found player, stop searching
     }
 
-    if (!playerFoundIn) return // Player not in this game
+    if (playerFoundInTid == null) return // Player not in this game
+    // Legacy compatibility flag for the score-assignment blocks below
+    // that still expect a string discriminator. team1 ⇒ 'home',
+    // team2 ⇒ 'away' to match the old convention.
+    const playerFoundIn = Number(playerFoundInTid) === Number(game.team1Tid) ? 'home' : 'away'
 
     // SIMPLE APPROACH: Player was found in box score - determine opponent and scores
     // based on which side (home/away) the player was on

@@ -18,6 +18,7 @@ import OverallProgressionModal from '../../components/OverallProgressionModal'
 import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
 import InlineScoringHighlights from '../../components/InlineScoringHighlights'
 import { getPlayerGameLog } from '../../utils/boxScoreAggregator'
+import { canonicalBoxScore } from '../../utils/boxScoreHelpers'
 import { sortPlaysChronologically } from '../../utils/scoringPlayOrder'
 import { healPlayer, PLAYER_HEAL_VERSION, normalizeAwardName } from '../../utils/playerHeal'
 import { buildTimelineEvents, eventsForYear, labelForEventKind } from '../../utils/playerTimeline'
@@ -548,14 +549,27 @@ function PlayerInner() {
       let playerStats = null
       let foundInTeam = null
 
-      for (const side of ['home', 'away']) {
-        if (!game.boxScore[side]) continue
+      // Read via canonicalBoxScore so tid-keyed games (post-c6065f1) AND
+      // legacy {home, away} games both surface. Iteration is by tid; we
+      // map back to the 'home'/'away' discriminator the downstream
+      // score-assignment blocks expect so we don't have to rewrite them.
+      const canon = canonicalBoxScore(game, teams)
+      const byTidEntries = canon ? Object.entries(canon.byTid || {}) : []
+      for (const [tidStr, sideBoxScore] of byTidEntries) {
+        if (!sideBoxScore) continue
         for (const category of statCategories) {
-          const categoryStats = game.boxScore[side][category] || []
+          const categoryStats = sideBoxScore[category] || []
           const found = categoryStats.find(s => normalizeName(s.playerName) === normalizedPlayerName)
           if (found) {
             playerStats = { ...found, category }
-            foundInTeam = side
+            // Map to 'home'/'away' for the downstream score blocks: the
+            // player's tid is the "home" slot if it's team1 AND team1 is
+            // home (or neutral, where team1 is treated as home), or if
+            // it's team2 AND team2 is home. Otherwise 'away'.
+            const playerTid = Number(tidStr)
+            const isTeam1Home = game.homeTeamTid === game.team1Tid || game.homeTeamTid == null
+            const isOnTeam1 = Number(game.team1Tid) === playerTid
+            foundInTeam = (isOnTeam1 ? isTeam1Home : !isTeam1Home) ? 'home' : 'away'
             break
           }
         }
