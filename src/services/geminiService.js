@@ -99,9 +99,21 @@ function getPlayerRecentGames(playerName, allGames, year, currentGameOrder, team
         const entries = boxSide[category] || []
         const playerEntry = entries.find(p => normalizePlayerName(p.playerName) === normalized)
         if (playerEntry) {
+          // Opponent fallback: prefer the explicit game.opponent field,
+          // otherwise pick the side of game.team1/team2 that isn't the
+          // player's team. Previously this branched on a `side` loop
+          // variable from the old home/away loop — that variable went
+          // away in the tid-keyed canonical-box-score refactor and the
+          // dangling reference threw "Can't find variable: side" on
+          // every game-recap prompt copy. Reported by ALABAMA PRINCE
+          // 2026-05-11.
+          const opponentName = game.opponent
+            || (game.team1 && game.team1 === teamAbbr ? game.team2 : null)
+            || (game.team2 && game.team2 === teamAbbr ? game.team1 : null)
+            || ''
           results.push({
             week: game.week,
-            opponent: game.opponent || (side === 'home' ? game.team2 : game.team1),
+            opponent: opponentName,
             result: game.result,
             category,
             stats: playerEntry
