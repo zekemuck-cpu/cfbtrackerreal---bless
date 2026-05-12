@@ -48,7 +48,7 @@ export default function AwardsModal({ isOpen, onClose, onSave, currentYear, team
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Season Awards`,
-    structure: `This sheet has ONE tab named "${currentYear}" (the current year). It has 5 columns and 22 rows: row 1 is a protected header, rows 2-22 are the 21 awards.
+    structure: `This sheet has ONE tab named "${currentYear}" (the current year). It has 5 columns and 23 rows: row 1 is a protected header, rows 2-23 are the 22 awards.
 
 Column A (Award name) is PRE-FILLED and PROTECTED — you never output it.
 You fill columns B (Player), C (Position), D (Team), E (Class).
@@ -57,16 +57,16 @@ You fill columns B (Player), C (Position), D (Team), E (Class).
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
 1. Output ONLY columns B, C, D, E. Never output column A (Award name), the header row, row numbers, or any labels.
-2. Row order is FIXED. You must output exactly 21 data rows in the exact order shown below — one per award.
+2. Row order is FIXED. You must output exactly 22 data rows in the exact order shown below — one per award.
 3. NO COMMAS in any value. No totals, no explanation text, no "N/A", no dashes.
 4. BLANK field for unknown (empty string between the tabs). Never guess, never write "Unknown", never put zero.
 5. Use ONLY the literal dropdown values listed — wrong spelling/casing = Google Sheets rejects it.
 6. Team column (D) uses the ABBREVIATION from the mapping at the bottom of this prompt — NEVER full names or mascots.
-7. COACH AWARDS (rows 5 "Bear Bryant Coach of the Year" and 17 "Broyles") have cells C, D, E MERGED into ONE wide cell that holds the Team. The merge anchor is column C. For those two rows only, output exactly 3 tab characters yielding 4 fields: CoachName<TAB>TeamAbbr<TAB><TAB>. Concretely: field1=CoachName, field2=TeamAbbr, field3=EMPTY, field4=EMPTY. All other 19 rows output 3 tab characters yielding 4 fields: Player<TAB>Position<TAB>Team<TAB>Class. NEVER put the team in field 3 on coach rows — that lands inside the merged region and leaves column C blank.
-8. ONE TSV block total — exactly 21 lines. Label it with the paste target.
+7. COACH AWARDS (rows 5 "Bear Bryant Coach of the Year" and 17 "Broyles") have cells C, D, E MERGED into ONE wide cell that holds the Team. The merge anchor is column C. For those two rows only, output exactly 3 tab characters yielding 4 fields: CoachName<TAB>TeamAbbr<TAB><TAB>. Concretely: field1=CoachName, field2=TeamAbbr, field3=EMPTY, field4=EMPTY. All other 20 rows output 3 tab characters yielding 4 fields: Player<TAB>Position<TAB>Team<TAB>Class. NEVER put the team in field 3 on coach rows — that lands inside the merged region and leaves column C blank.
+8. ONE TSV block total — exactly 22 lines. Label it with the paste target.
 
 ═══════════════════════════════════════════════════════════
-TAB "${currentYear}" — 21 rows × 4 output columns
+TAB "${currentYear}" — 22 rows × 4 output columns
 Paste at cell B2 of the "${currentYear}" tab
 ═══════════════════════════════════════════════════════════
 
@@ -95,6 +95,7 @@ Sheet Row | Col A (PROTECTED, DO NOT OUTPUT) | Your output (tab-separated)
    20     | Lou Groza                        | Player<TAB>Position<TAB>Team<TAB>Class
    21     | Ray Guy                          | Player<TAB>Position<TAB>Team<TAB>Class
    22     | Returner of the Year             | Player<TAB>Position<TAB>Team<TAB>Class
+   23     | Shaun Alexander                  | Player<TAB>Position<TAB>Team<TAB>Class           (FRESHMAN — Most Outstanding Freshman; Class is almost always Fr / RS Fr)
 
 Field formats:
 - Player: full name string (e.g. "John Smith"). Leave blank if unknown.
@@ -131,13 +132,14 @@ REQUIRED OUTPUT FORMAT
 <Lou Groza row: Player\\tPosition\\tTeam\\tClass>
 <Ray Guy row: Player\\tPosition\\tTeam\\tClass>
 <Returner of the Year row: Player\\tPosition\\tTeam\\tClass>
+<Shaun Alexander row: Player\\tPosition\\tTeam\\tClass>
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send
 ═══════════════════════════════════════════════════════════
-[ ] Exactly 21 lines in the block, in the exact order above (Heisman first, Returner of the Year last)
+[ ] Exactly 22 lines in the block, in the exact order above (Heisman first, Shaun Alexander last)
 [ ] Rows 4 (Bear Bryant, 4th line) and 16 (Broyles, 16th line) each have 4 tab-separated fields in this exact order: CoachName<TAB>Team<TAB><TAB> — Team is the SECOND field (col C, the merge anchor), the third and fourth fields are EMPTY (they are merged-away cells D & E). Do NOT leave field 2 empty and put the team in field 3 — that would land the team in column D inside the merged region and leave column C blank.
-[ ] All other 19 rows have 4 tab-separated non-empty slots: Player, Position, Team, Class (individual fields may be blank if unknown)
+[ ] All other 20 rows have 4 tab-separated non-empty slots: Player, Position, Team, Class (individual fields may be blank if unknown)
 [ ] All Position values are from the exact list: QB, HB, FB, WR, TE, LT, LG, C, RG, RT, LEDG, REDG, DT, SAM, MIKE, WILL, CB, FS, SS, K, P
 [ ] All Class values are from the exact list: Fr, RS Fr, So, RS So, Jr, RS Jr, Sr, RS Sr
 [ ] All Team values are uppercase abbreviations from the mapping — no full names

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
+import { getCurrentTeamTid, getTidFromAbbr } from '../data/teamRegistry'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
@@ -61,18 +62,24 @@ export default function StatsEntryModal({
   // lookup so EA-CFB screenshots with initial-abbreviated names can be
   // resolved to the full names the strict Google Sheets dropdown expects.
   const userRoster = useMemo(() => {
+    // Filter by TID + pass dynasty so teambuilder-renamed teams resolve.
+    // Previously this passed an abbr string with no dynasty arg, which
+    // failed for teambuilder teams whose custom abbr isn't in static TEAMS.
+    const teamTid = overrideTeamAbbr
+      ? getTidFromAbbr(overrideTeamAbbr, currentDynasty)
+      : getCurrentTeamTid(currentDynasty)
     const teamAbbrForRoster = overrideTeamAbbr ||
       currentDynasty?.teams?.[currentDynasty?.currentTid]?.abbr ||
       currentDynasty?.teamName
     const all = currentDynasty?.players || []
     return all
-      .filter(p => isPlayerOnRoster(p, teamAbbrForRoster, currentYear))
+      .filter(p => isPlayerOnRoster(p, teamTid ?? teamAbbrForRoster, currentYear, currentDynasty))
       .map(p => ({
         name: p.name,
         jerseyNumber: p.jerseyNumber,
         position: p.position,
       }))
-  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, overrideTeamAbbr, currentYear])
+  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, overrideTeamAbbr, currentYear, currentDynasty])
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} GP/Snaps Entry`,
@@ -187,16 +194,27 @@ FINAL CHECK before you send
         creatingSheetRef.current = true
         setCreatingSheet(true)
         try {
-          // Get current team abbreviation - use override if provided
-          const { getCurrentTeamAbbr } = await import('../data/teamRegistry')
+          // Get current team — prefer the TID (canonical, teambuilder-safe)
+          // for roster filtering. The abbr-based path silently fails for
+          // teambuilder-renamed teams whose custom abbr isn't in static
+          // TEAMS, which produced the bug Jay reported (2026-05-12): the
+          // Player dropdown showed only one stale graduate because every
+          // current-roster player's teamsByYear entry is a TID number that
+          // can't be matched against an unresolvable abbr.
+          const { getCurrentTeamAbbr, getCurrentTeamTid, getTidFromAbbr } = await import('../data/teamRegistry')
           const userTeamAbbr = overrideTeamAbbr || getCurrentTeamAbbr(currentDynasty)
+          const userTeamTid = overrideTeamAbbr
+            ? getTidFromAbbr(overrideTeamAbbr, currentDynasty)
+            : getCurrentTeamTid(currentDynasty)
           const dynastyTeamName = overrideTeamName || currentDynasty?.teamName
           const startYear = currentDynasty?.startYear || currentYear
 
-          // Get the full roster for this team and year
+          // Get the full roster for this team and year. Pass tid + dynasty
+          // so teambuilder-renamed teams resolve correctly; fall back to
+          // abbr lookup for the rare legacy case where tid resolution fails.
           const allPlayers = currentDynasty?.players || []
           const players = allPlayers.filter(player =>
-            isPlayerOnRoster(player, userTeamAbbr, currentYear)
+            isPlayerOnRoster(player, userTeamTid ?? userTeamAbbr, currentYear, currentDynasty)
           )
 
           // Get existing stats to pre-fill gamesPlayed/snapsPlayed

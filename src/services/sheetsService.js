@@ -7688,7 +7688,9 @@ const AWARDS_LIST = [
   'Rimington',
   'Lou Groza',
   'Ray Guy',
-  'Returner of the Year'
+  'Returner of the Year',
+  // Most outstanding freshman. Reported missing by ALABAMA PRINCE 2026-05-12.
+  'Shaun Alexander'
 ]
 
 /**
