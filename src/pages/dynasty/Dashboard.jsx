@@ -892,9 +892,30 @@ export default function Dashboard() {
       }
     }
 
-    console.log('[Dashboard CFP Shell Effect] Saving shells for year', year, '- games count:', updatedGames.length)
+    // GUARD: only persist if the CFP shells' meaningful data (tids +
+    // scores + slot) actually changed. createOrUpdateCFPGameShells and
+    // propagateCFPWinner are pure functions that return new arrays of
+    // new objects even when there's nothing to propagate — without
+    // this guard the effect re-fires on every Firestore snapshot and
+    // queues a no-op write, exhausting Firebase's write queue after a
+    // few minutes ("Write stream exhausted maximum allowed queued
+    // writes") and turning the dashboard laggy. The specific trigger:
+    // user is in postseason with one FR game un-entered, which leaves
+    // a QF shell with null team2Tid, which keeps needsWinnerPropagation
+    // pinned to true even though there's nothing actually to propagate.
+    // Report from 2026-05-11.
+    const cfpFingerprint = (games) => {
+      const shells = (games || []).filter(g => g?.cfpSlot && Number(g.year) === Number(year))
+      return shells
+        .map(g => `${g.cfpSlot}|${g.team1Tid ?? ''}|${g.team2Tid ?? ''}|${g.team1Score ?? ''}|${g.team2Score ?? ''}`)
+        .sort()
+        .join(';')
+    }
+    if (cfpFingerprint(updatedGames) === cfpFingerprint(existingGames)) {
+      return
+    }
 
-    // Save the shells
+    console.log('[Dashboard CFP Shell Effect] Saving shells for year', year, '- games count:', updatedGames.length)
     updateDynasty(currentDynasty.id, { games: updatedGames })
   }, [currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.currentPhase, currentDynasty?.cfpSeedsByYear, currentDynasty?.games?.length, isViewOnly, isLoadingDynastyData])
 
