@@ -251,12 +251,12 @@ const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min
 // to the correct tid — without it the user's TB roster won't be found because
 // getTidFromAbbr only checks the static FBS map.
 export const generateRandomBoxScore = (players, teamScore, opponentScore, userTeamAbbr, opponentAbbr, year, dynastyTeams = null) => {
-  if (!players || players.length === 0) {
-    return { home: {}, away: {}, scoringSummary: [] }
-  }
-
   // Convert userTeamAbbr to tid for comparison (handles both tid and abbr input)
   const userTeamTid = typeof userTeamAbbr === 'number' ? userTeamAbbr : getTidFromAbbr(userTeamAbbr, dynastyTeams)
+
+  if (!players || players.length === 0) {
+    return { byTid: {}, teamStatsByTid: {}, scoringSummary: [] }
+  }
 
   // Helper to check if a team value matches user team (handles both tid and abbr)
   const matchesUserTeam = (teamValue) => {
@@ -490,8 +490,12 @@ export const generateRandomBoxScore = (players, teamScore, opponentScore, userTe
     { passing, rushing, receiving, kicking }
   )
 
-  return {
-    home: {
+  // Canonical byTid shape: stats are keyed by the user team's tid. The
+  // opponent slot is intentionally absent (no opponent roster to generate
+  // from); a caller can fill it in later via setPlayerStatsForTid.
+  const byTid = {}
+  if (userTeamTid != null) {
+    byTid[userTeamTid] = {
       passing,
       rushing,
       receiving,
@@ -501,8 +505,11 @@ export const generateRandomBoxScore = (players, teamScore, opponentScore, userTe
       punting,
       kickReturn,
       puntReturn
-    },
-    away: {}, // Opponent stats left empty (user can fill in if desired)
+    }
+  }
+  return {
+    byTid,
+    teamStatsByTid: {},
     scoringSummary
   }
 }

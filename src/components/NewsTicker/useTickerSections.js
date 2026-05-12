@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { getCurrentSchedule, getUserGamePerspective, getTeamRecord } from '../../context/DynastyContext'
 import { TEAMS, resolveTid, getGameTeamInfo, getAbbrFromTeamName, getCurrentTeamTid, getTidFromAbbr } from '../../data/teamRegistry'
+import { getPlayerStatsForTid } from '../../utils/boxScoreHelpers'
 import { isSameWeek, isSameYear } from '../../utils/compareUtils'
 import { formatScoreHighLow } from '../../utils/scoreFormat'
 
@@ -220,7 +221,8 @@ export function useTickerSections(dynasty) {
       const opp = info?.opponentAbbr || getTeamAbbr(game.opponent, teams)
       const isWin = info?.isWin ?? (game.result === 'win')
       const loc = info?.location || game.location
-      const stats = loc === 'away' ? game.boxScore?.away : game.boxScore?.home
+      const ownTid = ownTeamAbbr ? getTidFromAbbr(ownTeamAbbr, teams) : null
+      const stats = ownTid != null ? getPlayerStatsForTid(game, ownTid, teams) : null
 
       const hasStats = (stats?.passing?.length > 0)
         || (stats?.rushing?.length > 0)
@@ -495,8 +497,8 @@ export function useTickerSections(dynasty) {
       const playerGameStats = {}
       sortedSeasonGames.forEach((game, gameIdx) => {
         const info = getGameInfo(game)
-        const loc = info?.location || game.location
-        const stats = loc === 'away' ? game.boxScore?.away : game.boxScore?.home
+        const userTid = game.perspective?.userTid
+        const stats = userTid != null ? getPlayerStatsForTid(game, userTid, teams) : null
         if (!stats) return
 
         // Process each stat category
@@ -854,9 +856,8 @@ export function useTickerSections(dynasty) {
       let bestPass = { yds: 0, player: null, game: null }
 
       allUserGamesForRecords.forEach(g => {
-        const info = getGameInfo(g)
-        const loc = info?.location || g.location
-        const stats = loc === 'away' ? g.boxScore?.away : g.boxScore?.home
+        const userTid = g.perspective?.userTid
+        const stats = userTid != null ? getPlayerStatsForTid(g, userTid, teams) : null
         if (!stats) return
 
         stats.rushing?.forEach(r => {

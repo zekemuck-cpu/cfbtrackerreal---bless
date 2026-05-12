@@ -24,6 +24,7 @@ import SheetModalHeader from './ui/SheetModalHeader'
 import { getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFromAbbr } from '../data/teamRegistry'
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
+import { getPlayerStatsForTid, getTeamStatsForTid, getPlayerStatsSheetIdForTid, canonicalBoxScore, setScoringSummary } from '../utils/boxScoreHelpers'
 import { AI_UNIFIED_TAB, computeUnifiedTabLayout } from '../data/boxScoreConstants'
 import SheetLoadingHint from './SheetLoadingHint'
 
@@ -35,7 +36,10 @@ import SheetLoadingHint from './SheetLoadingHint'
  * - onClose: () => void
  * - onSave: (data) => void - Called with the synced data (stats or scoring summary)
  * - onSheetCreated: (sheetId) => void - Called when a new sheet is created
- * - sheetType: 'homeStats' | 'awayStats' | 'scoring'
+ * - sheetType: 'playerStats' | 'scoring' | 'teamStats'
+ * - targetTid: number — required for sheetType === 'playerStats'.
+ *              Identifies which team this sheet is for. The other team's
+ *              tid is taken from the game (team1Tid / team2Tid).
  * - existingSheetId: string | null - Existing sheet ID if already created
  * - game: { id, week, year, opponent, location }
  * - teamColors: { primary, secondary }
@@ -46,6 +50,7 @@ export default function BoxScoreSheetModal({
   onSave,
   onSheetCreated,
   sheetType,
+  targetTid = null,
   existingSheetId,
   game,
   teamColors
@@ -188,29 +193,54 @@ export default function BoxScoreSheetModal({
   const isHomeTeamUserControlled = userTidForGameYear && homeTeamTid === userTidForGameYear
   const isAwayTeamUserControlled = userTidForGameYear && awayTeamTid === userTidForGameYear
 
+  // Player-stats sheets are now keyed by `targetTid` rather than home/away
+  // — eliminates the storage ambiguity at neutral sites where "home" was
+  // just team1 by convention. The "other" team is whichever of the
+  // game's two tids isn't the target; falls back gracefully when only
+  // one tid is known.
+  const targetTidNum = targetTid != null ? Number(targetTid) : null
+  const otherTidNum = (() => {
+    if (targetTidNum == null) return null
+    const t1 = game?.team1Tid != null ? Number(game.team1Tid) : null
+    const t2 = game?.team2Tid != null ? Number(game.team2Tid) : null
+    if (t1 != null && t1 !== targetTidNum) return t1
+    if (t2 != null && t2 !== targetTidNum) return t2
+    return null
+  })()
+  // Resolve target team's abbr/name through the existing home/away
+  // computations so a teambuilder-renamed team gets the same label here
+  // as it does everywhere else in the dynasty.
+  const tidToSide = (tid) => {
+    if (tid == null) return null
+    if (Number(tid) === Number(homeTeamTid)) return 'home'
+    if (Number(tid) === Number(awayTeamTid)) return 'away'
+    return null
+  }
+  const targetSide = tidToSide(targetTidNum)
+  const otherSide = tidToSide(otherTidNum)
+  const targetTeamAbbr = targetSide === 'home' ? homeTeamAbbr : (targetSide === 'away' ? awayTeamAbbr : '')
+  const targetTeamName = targetSide === 'home' ? homeTeamName : (targetSide === 'away' ? awayTeamName : '')
+  const otherTeamAbbr  = otherSide  === 'home' ? homeTeamAbbr : (otherSide  === 'away' ? awayTeamAbbr : '')
+  const targetRoster        = targetSide === 'home' ? homeRoster        : (targetSide === 'away' ? awayRoster        : [])
+  const targetRosterObjects = targetSide === 'home' ? homeRosterObjects : (targetSide === 'away' ? awayRosterObjects : [])
+  const isTargetUserControlled = userTidForGameYear && targetTidNum === Number(userTidForGameYear)
+
   // Determine title and team info based on sheet type
   const getSheetConfig = () => {
     switch (sheetType) {
-      case 'homeStats':
+      case 'playerStats':
         return {
-          title: `${homeTeamAbbr} Player Stats`,
-          teamAbbr: homeTeamAbbr,
-          teamName: homeTeamName,
-          opponentAbbr: awayTeamAbbr,
-          roster: homeRoster,
-          isUserControlled: isHomeTeamUserControlled,
-          sheetIdKey: 'homeStatsSheetId',
-          instructions: 'Enter player statistics for each category tab (Passing, Rushing, Receiving, etc.)'
-        }
-      case 'awayStats':
-        return {
-          title: `${awayTeamAbbr} Player Stats`,
-          teamAbbr: awayTeamAbbr,
-          teamName: awayTeamName,
-          opponentAbbr: homeTeamAbbr,
-          roster: awayRoster,
-          isUserControlled: isAwayTeamUserControlled,
-          sheetIdKey: 'awayStatsSheetId',
+          title: `${targetTeamAbbr || 'Team'} Player Stats`,
+          teamAbbr: targetTeamAbbr,
+          teamName: targetTeamName,
+          opponentAbbr: otherTeamAbbr,
+          roster: targetRoster,
+          isUserControlled: !!isTargetUserControlled,
+          // sheetIdKey is intentionally absent — player-stats sheet IDs
+          // are stored tid-keyed (playerStatsSheetIdByTid[targetTid]),
+          // not as a top-level field. saveSheetIdToGame branches on
+          // sheetType to handle this.
+          sheetIdKey: null,
           instructions: 'Enter player statistics for each category tab (Passing, Rushing, Receiving, etc.)'
         }
       case 'scoring':
@@ -748,14 +778,14 @@ SELF-CHECK BEFORE YOU SEND — run every line
       })
     }
 
-    // Player stats (homeStats or awayStats) — 9 tabs
+    // Player stats (sheetType === 'playerStats') — 9 tabs
     const teamAbbr = config.teamAbbr || ''
     const opponentAbbrLabel = config.opponentAbbr || ''
     // Only pass roster when the tab is the user-controlled team — Column A
-    // is a strict roster dropdown only for the user's team.
-    const playerStatsRoster = config.isUserControlled
-      ? (sheetType === 'homeStats' ? homeRosterObjects : awayRosterObjects)
-      : []
+    // is a strict roster dropdown only for the user's team. The roster
+    // belongs to the target team (the one this sheet is for), regardless
+    // of whether that team is home or away in the game.
+    const playerStatsRoster = config.isUserControlled ? targetRosterObjects : []
     const layout = computeUnifiedTabLayout()
     const sectionSummary = layout.sections
       .map(s => `  ${s.title}: rows ${s.dataStart}–${s.dataEnd} (${s.rowCount} data rows)`)
@@ -1064,7 +1094,7 @@ output that fails any of them.`,
       includeTeamMap: true,
       dynastyTeams: currentDynasty?.teams,
     })
-  }, [sheetType, scoringPromptMode, config.teamAbbr, config.opponentAbbr, config.isUserControlled, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear, homeRosterObjects, awayRosterObjects, homeTeamTid, awayTeamTid, userTidForGameYear, currentDynasty?.teams])
+  }, [sheetType, scoringPromptMode, config.teamAbbr, config.opponentAbbr, config.isUserControlled, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear, homeRosterObjects, awayRosterObjects, targetRosterObjects, homeTeamTid, awayTeamTid, targetTidNum, userTidForGameYear, currentDynasty?.teams])
 
   const aiPromptTitle = useMemo(() => {
     const weekLabel = game?.week != null ? `Week ${game.week}` : 'Game'
@@ -1102,10 +1132,9 @@ output that fails any of them.`,
   const regenWipeShort = useMemo(() => {
     if (sheetType === 'scoring') return 'scoring summary'
     if (sheetType === 'teamStats') return 'team stats'
-    if (sheetType === 'homeStats') return `${homeTeamAbbr || 'home'} stats`
-    if (sheetType === 'awayStats') return `${awayTeamAbbr || 'away'} stats`
+    if (sheetType === 'playerStats') return `${targetTeamAbbr || 'team'} stats`
     return 'saved data'
-  }, [sheetType, homeTeamAbbr, awayTeamAbbr])
+  }, [sheetType, targetTeamAbbr])
 
   // Highlight save button when user returns to window
   useEffect(() => {
@@ -1203,21 +1232,31 @@ output that fails any of them.`,
               currentDynasty?.teams || currentDynasty?.customTeams
             )
           } else if (sheetType === 'teamStats') {
-            // Get existing team stats data to pre-fill
-            const existingTeamStats = game?.boxScore?.teamStats || null
+            // Get existing team stats data to pre-fill. The sheet helper
+            // takes byTid input and projects onto its home/away columns
+            // using the abbrs we pass.
+            const teamsForResolve = currentDynasty?.teams || currentDynasty?.customTeams
+            const existingTeamStatsByTid = {}
+            if (homeTeamTid != null) {
+              const stats = getTeamStatsForTid(game, homeTeamTid, teamsForResolve)
+              if (stats) existingTeamStatsByTid[Number(homeTeamTid)] = stats
+            }
+            if (awayTeamTid != null) {
+              const stats = getTeamStatsForTid(game, awayTeamTid, teamsForResolve)
+              if (stats) existingTeamStatsByTid[Number(awayTeamTid)] = stats
+            }
             sheetInfo = await createGameTeamStatsSheet(
               homeTeamAbbr,
               awayTeamAbbr,
               year,
               week,
-              existingTeamStats,
-              currentDynasty?.teams || currentDynasty?.customTeams
+              Object.keys(existingTeamStatsByTid).length > 0 ? existingTeamStatsByTid : null,
+              teamsForResolve
             )
           } else {
-            // Get existing player stats to pre-fill (homeStats or awayStats)
-            const existingPlayerStats = sheetType === 'homeStats'
-              ? game?.boxScore?.home || null
-              : game?.boxScore?.away || null
+            // Player stats — read existing data for the target team via
+            // the canonical byTid store (with legacy fallback).
+            const existingPlayerStats = getPlayerStatsForTid(game, targetTidNum, currentDynasty?.teams || currentDynasty?.customTeams)
             // Only enforce strict dropdown for user-controlled teams (current + past teams from coachTeamByYear)
             // Opponent teams should allow free text entry even if they have some players in the dynasty
             const roster = config.roster || []
@@ -1277,6 +1316,18 @@ output that fails any of them.`,
     if (!currentDynasty || !game?.id) {
       return
     }
+    if (sheetType === 'playerStats') {
+      if (targetTidNum == null) return
+      // Player-stats sheet IDs live in a tid-keyed map. Merge the new id
+      // in rather than overwriting the whole map.
+      const prev = game?.playerStatsSheetIdByTid || {}
+      const next = { ...prev, [targetTidNum]: newSheetId }
+      await patchGameFields(currentDynasty.id, game.id, {
+        playerStatsSheetIdByTid: next,
+      })
+      return
+    }
+    if (!config.sheetIdKey) return
     await patchGameFields(currentDynasty.id, game.id, {
       [config.sheetIdKey]: newSheetId,
     })
@@ -1399,8 +1450,7 @@ output that fails any of them.`,
     const wipeLabel = (() => {
       if (sheetType === 'scoring') return 'the scoring summary for this game'
       if (sheetType === 'teamStats') return 'the team stats for this game'
-      if (sheetType === 'homeStats') return `${homeTeamAbbr} player stats for this game`
-      if (sheetType === 'awayStats') return `${awayTeamAbbr} player stats for this game`
+      if (sheetType === 'playerStats') return `${targetTeamAbbr || 'team'} player stats for this game`
       return 'the data for this sheet'
     })()
 
@@ -1430,16 +1480,37 @@ output that fails any of them.`,
         const games = currentDynasty.games || []
         const prevGame = games.find(g => g.id === game.id)
         if (prevGame) {
-          const prevBoxScore = prevGame?.boxScore || {}
-          const sliceKey =
-            sheetType === 'scoring' ? 'scoringSummary'
-            : sheetType === 'teamStats' ? 'teamStats'
-            : sheetType === 'homeStats' ? 'home'
-            : sheetType === 'awayStats' ? 'away'
-            : null
-          const nextBoxScore = sliceKey
-            ? { ...prevBoxScore, [sliceKey]: null }
-            : prevBoxScore
+          // Reset just this sheet's slice of the boxScore. Player-stats
+          // and team-stats slices are tid-keyed in the new shape; scoring
+          // is still a single array.
+          const teamsForResolve = currentDynasty?.teams || currentDynasty?.customTeams
+          let updatedGame = { ...prevGame }
+          if (sheetType === 'scoring') {
+            updatedGame = setScoringSummary(updatedGame, [], teamsForResolve)
+            updatedGame.scoringSummarySheetId = null
+          } else if (sheetType === 'teamStats') {
+            // One sheet, both teams — drop the whole teamStatsByTid map.
+            const canon = canonicalBoxScore(updatedGame, teamsForResolve) || { byTid: {}, teamStatsByTid: {}, scoringSummary: [] }
+            updatedGame.boxScore = {
+              byTid: canon.byTid,
+              teamStatsByTid: {},
+              scoringSummary: canon.scoringSummary || []
+            }
+            updatedGame.teamStatsSheetId = null
+          } else if (sheetType === 'playerStats' && targetTidNum != null) {
+            const canon = canonicalBoxScore(updatedGame, teamsForResolve) || { byTid: {}, teamStatsByTid: {}, scoringSummary: [] }
+            const nextByTid = { ...canon.byTid }
+            delete nextByTid[targetTidNum]
+            updatedGame.boxScore = {
+              byTid: nextByTid,
+              teamStatsByTid: canon.teamStatsByTid,
+              scoringSummary: canon.scoringSummary || []
+            }
+            const prevMap = updatedGame.playerStatsSheetIdByTid || {}
+            const nextMap = { ...prevMap }
+            delete nextMap[targetTidNum]
+            updatedGame.playerStatsSheetIdByTid = nextMap
+          }
           // For non-CPU games, addGame's box-score processing recomputes
           // statsContributed from the new boxScore (correct delta).
           // For CPU games (isCPUGame), addGame skips the box-score path
@@ -1449,12 +1520,7 @@ output that fails any of them.`,
           // front handles both cases:
           //   non-CPU → overridden by the new computed value at line ~5754 of DynastyContext
           //   CPU     → stays null, which is correct for an unaggregated game
-          const updatedGame = {
-            ...prevGame,
-            [config.sheetIdKey]: null,
-            boxScore: nextBoxScore,
-            statsContributed: null,
-          }
+          updatedGame.statsContributed = null
           await addGame(currentDynasty.id, updatedGame)
         }
       }
@@ -1489,12 +1555,23 @@ output that fails any of them.`,
     try {
       await deleteGoogleSheet(sheetId)
       // Clear the saved sheet-ID reference on the game so reopening
-      // doesn't try to resume the now-deleted sheet.
+      // doesn't try to resume the now-deleted sheet. Player-stats sheet
+      // IDs live in a tid-keyed map; other sheet types use a single field.
       if (game?.id) {
         const games = currentDynasty.games || []
         const prevGame = games.find(g => g.id === game.id)
         if (prevGame) {
-          const updatedGame = { ...prevGame, [config.sheetIdKey]: null }
+          let updatedGame
+          if (sheetType === 'playerStats' && targetTidNum != null) {
+            const prevMap = prevGame.playerStatsSheetIdByTid || {}
+            const nextMap = { ...prevMap }
+            delete nextMap[targetTidNum]
+            updatedGame = { ...prevGame, playerStatsSheetIdByTid: nextMap }
+          } else if (config.sheetIdKey) {
+            updatedGame = { ...prevGame, [config.sheetIdKey]: null }
+          } else {
+            updatedGame = prevGame
+          }
           await addGame(currentDynasty.id, updatedGame)
         }
       }

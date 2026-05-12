@@ -17,6 +17,7 @@ import { getConferenceLogo } from '../../data/conferenceLogos'
 import { getTeamConference } from '../../data/conferenceTeams'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName, getBowlForSlot, DEFAULT_BOWL_CONFIG } from '../../data/cfpConstants'
 import { STAT_TABS, STAT_TAB_ORDER } from '../../data/boxScoreConstants'
+import { canonicalBoxScore, getPlayerStatsForTid, getTeamStatsForTid, listPlayerStatsTids, hasAnyPlayerStats, hasAnyTeamStats, PLAYER_STAT_KEYS } from '../../utils/boxScoreHelpers'
 import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
 import InlineScoringHighlights from '../../components/InlineScoringHighlights'
 import FormattedRecap from '../../components/FormattedRecap'
@@ -721,7 +722,9 @@ export default function Game() {
   // dynasty + box score are both populated; null otherwise.
   const recapPlayerLinks = useMemo(() => {
     if (!game?.boxScore) return null
-    const sides = [game.boxScore.home, game.boxScore.away].filter(Boolean)
+    const canon = canonicalBoxScore(game, teams)
+    if (!canon) return null
+    const sides = Object.values(canon.byTid || {}).filter(Boolean)
     const categories = ['passing', 'rushing', 'receiving', 'defense', 'kicking']
     const names = new Set()
     for (const side of sides) {
@@ -792,7 +795,7 @@ export default function Game() {
   // sections actually have content. When the recap exists but the box score
   // hasn't been entered, Gamecast renders a near-empty leaders rail, so we
   // route straight to the standalone Recap tab.
-  const hasBoxForLeaders = !!(game.boxScore?.home || game.boxScore?.away)
+  const hasBoxForLeaders = hasAnyPlayerStats(game, teams)
   const autoDefaultTab = game.aiRecap
     ? (hasBoxForLeaders ? 'gamecast' : 'recap')
     : 'boxscore'
@@ -898,8 +901,9 @@ export default function Game() {
     if (!game.boxScore) return null
     const stats = []
 
-    // Search both home and away teams
-    const searchTeams = [game.boxScore.home, game.boxScore.away].filter(Boolean)
+    // Search both teams via the canonical tid-keyed store
+    const canon = canonicalBoxScore(game, teams)
+    const searchTeams = canon ? Object.values(canon.byTid || {}).filter(Boolean) : []
 
     for (const teamData of searchTeams) {
       // Check passing
@@ -1257,26 +1261,9 @@ export default function Game() {
     })
   })()
 
-  // Map left/right visual sides to the boxScore.home/away slots by tid,
-  // matching BoxScoreSheetModal and GameEdit. boxScore.home holds the
-  // actual home team's stats — or team1's stats at neutral sites by
-  // convention — NOT the user's. Mapping by user/location flipped data
-  // whenever the user was on the away or low-seeded side (e.g. CFP
-  // semifinals where seeding, not location, decides which side is left).
-  const team1IsBoxScoreHome = game.homeTeamTid == null
-    ? true
-    : Number(game.homeTeamTid) === Number(game.team1Tid)
-  const team1AbbrForFallback = game.team1Tid
-    ? (currentDynasty?.teams?.[game.team1Tid]?.abbr || TEAMS[game.team1Tid]?.abbr)
-    : game.team1
-  const isLeftTeam1 = leftData.tid != null && game.team1Tid != null
-    ? Number(leftData.tid) === Number(game.team1Tid)
-    : (team1AbbrForFallback
-        ? leftData.abbr === team1AbbrForFallback
-        : leftTeam === 'user')
-  const leftIsBoxScoreHome = isLeftTeam1 === team1IsBoxScoreHome
-  const boxScoreHomeTeamData = leftIsBoxScoreHome ? leftData : rightData
-  const boxScoreAwayTeamData = leftIsBoxScoreHome ? rightData : leftData
+  // Box-score data is keyed by tid (see canonicalBoxScore in
+  // boxScoreHelpers.js). The visual left/right sides are just visual —
+  // each side asks for its own tid's slot. No home/away mapping needed.
 
   // Winner takes more of the gradient with smooth blend - winner gets 70%, blend zone in middle
   // For unplayed games, use 50-50 split
@@ -1863,11 +1850,8 @@ export default function Game() {
         <div className="bg-surface-1 rounded-xl overflow-hidden shadow-lg">
           {/* Tab Bar - always fits screen width */}
           {(() => {
-            // Check if box score has any actual player data
-            const hasBoxScoreData = game.boxScore && (
-              game.boxScore.home && STAT_TAB_ORDER.some(key => game.boxScore.home[key]?.length > 0) ||
-              game.boxScore.away && STAT_TAB_ORDER.some(key => game.boxScore.away[key]?.length > 0)
-            )
+            // Check if box score has any actual player data (in either team's slot)
+            const hasBoxScoreData = hasAnyPlayerStats(game, teams)
             // Check if recap exists or can be generated
             const hasRecapOrCanGenerate = game.aiRecap || !isViewOnly
 
@@ -1879,7 +1863,7 @@ export default function Game() {
                 { key: 'boxscore', label: 'Box Score', shortLabel: 'Box', show: hasBoxScoreData },
                 { key: 'scoring', label: 'Plays', shortLabel: 'Plays', show: game.boxScore?.scoringSummary?.length > 0 },
                 { key: 'recap', label: 'Recap', shortLabel: 'Recap', show: hasRecapOrCanGenerate },
-                { key: 'stats', label: 'Team Stats', shortLabel: 'Stats', show: game.boxScore?.teamStats && (game.boxScore.teamStats.home || game.boxScore.teamStats.away) },
+                { key: 'stats', label: 'Team Stats', shortLabel: 'Stats', show: hasAnyTeamStats(game, teams) },
                 { key: 'ratings', label: 'Ratings', shortLabel: 'Rtg', show: !isCPUGame && (game.team1Overall || game.team1Offense || game.team1Defense || game.team2Overall || game.opponentOverall) },
                 { key: 'awards', label: 'Awards', shortLabel: 'Awards', show: !isCPUGame && (game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW) },
                 { key: 'cards', label: 'Cards', shortLabel: 'Cards', show: cardsForGame.length > 0 },
@@ -1975,15 +1959,20 @@ export default function Game() {
               if (int) parts.push(`${int} INT`)
               return parts.join(', ') || null
             }
-            const homeBs = game.boxScore?.home
-            const awayBs = game.boxScore?.away
+            // Pull each side's box-score slot by tid so the Game-Leaders
+            // panel's rows display the correct team's top performer
+            // alongside the correct team logo. leftBs / rightBs follow
+            // the visual layout (matches leftData / rightData above) —
+            // not the home/away semantic, which doesn't exist anymore.
+            const leftBs  = getPlayerStatsForTid(game, leftData.tid,  teams)
+            const rightBs = getPlayerStatsForTid(game, rightData.tid, teams)
             const categories = [
               { key: 'passing',   label: 'Passing',   score: getYards,   fmt: fmtPassing },
               { key: 'rushing',   label: 'Rushing',   score: getYards,   fmt: fmtRushing },
               { key: 'receiving', label: 'Receiving', score: getYards,   fmt: fmtReceiving },
               { key: 'defense',   label: 'Defense',   score: getTackles, fmt: fmtDefense },
             ]
-            const hasBoxForLeaders = !!(homeBs || awayBs)
+            const hasBoxForLeaders = !!(leftBs || rightBs)
 
             const LeaderRow = ({ player, statLine, teamData }) => {
               const pid = getPlayerPID(player)
@@ -2096,11 +2085,11 @@ export default function Game() {
                   ) : (
                     <div>
                       {categories.map((cat, catIdx) => {
-                        const homeTop = topBy(homeBs?.[cat.key], cat.score)
-                        const awayTop = topBy(awayBs?.[cat.key], cat.score)
-                        const homeLine = homeTop && cat.fmt(homeTop)
-                        const awayLine = awayTop && cat.fmt(awayTop)
-                        if (!homeLine && !awayLine) return null
+                        const leftTop  = topBy(leftBs?.[cat.key],  cat.score)
+                        const rightTop = topBy(rightBs?.[cat.key], cat.score)
+                        const leftLine  = leftTop  && cat.fmt(leftTop)
+                        const rightLine = rightTop && cat.fmt(rightTop)
+                        if (!leftLine && !rightLine) return null
                         return (
                           <div
                             key={cat.key}
@@ -2110,11 +2099,11 @@ export default function Game() {
                               {cat.label}
                             </div>
                             <div className="space-y-1.5">
-                              {homeLine && (
-                                <LeaderRow player={homeTop.playerName} statLine={homeLine} teamData={boxScoreHomeTeamData} />
+                              {leftLine && (
+                                <LeaderRow player={leftTop.playerName} statLine={leftLine} teamData={leftData} />
                               )}
-                              {awayLine && (
-                                <LeaderRow player={awayTop.playerName} statLine={awayLine} teamData={boxScoreAwayTeamData} />
+                              {rightLine && (
+                                <LeaderRow player={rightTop.playerName} statLine={rightLine} teamData={rightData} />
                               )}
                             </div>
                           </div>
@@ -2808,9 +2797,10 @@ export default function Game() {
 
           {/* Box Score Tab - Team tabs on mobile, side-by-side on desktop */}
           {activeTab === 'boxscore' && game.boxScore && (() => {
-            // Get team data for box score
-            const leftData_bs = leftIsBoxScoreHome ? game.boxScore.home : game.boxScore.away
-            const rightData_bs = leftIsBoxScoreHome ? game.boxScore.away : game.boxScore.home
+            // Player-stats data is tid-keyed; look each side up directly.
+            // No home/away mapping needed — and no chance of mismatch.
+            const leftData_bs  = getPlayerStatsForTid(game, leftData.tid,  teams) || {}
+            const rightData_bs = getPlayerStatsForTid(game, rightData.tid, teams) || {}
             const leftTeamData_bs = leftData
             const rightTeamData_bs = rightData
 
@@ -3074,18 +3064,12 @@ export default function Game() {
           })()}
 
           {/* Team Stats Tab */}
-          {activeTab === 'stats' && game.boxScore?.teamStats && (game.boxScore.teamStats.home || game.boxScore.teamStats.away) && (() => {
-        const homeStats = game.boxScore.teamStats.home || {}
-        const awayStats = game.boxScore.teamStats.away || {}
-        const homeTeamAbbrForLink = getAbbrFromTeamName(homeStats.teamAbbr) || homeStats.teamAbbr
-        const awayTeamAbbrForLink = getAbbrFromTeamName(awayStats.teamAbbr) || awayStats.teamAbbr
-
-        // Get team colors for display
-        const leftIsHome = leftIsBoxScoreHome
-        const leftTeamAbbr = leftIsHome ? homeTeamAbbrForLink : awayTeamAbbrForLink
-        const rightTeamAbbr = leftIsHome ? awayTeamAbbrForLink : homeTeamAbbrForLink
-        const leftTeamStats = leftIsHome ? homeStats : awayStats
-        const rightTeamStats = leftIsHome ? awayStats : homeStats
+          {activeTab === 'stats' && hasAnyTeamStats(game, teams) && (() => {
+        // Team stats are stored byTid; pull each side's slot directly.
+        const leftTeamStats  = getTeamStatsForTid(game, leftData.tid,  teams) || {}
+        const rightTeamStats = getTeamStatsForTid(game, rightData.tid, teams) || {}
+        const leftTeamAbbr   = getAbbrFromTeamName(leftTeamStats.teamAbbr)  || leftTeamStats.teamAbbr  || leftData.abbr
+        const rightTeamAbbr  = getAbbrFromTeamName(rightTeamStats.teamAbbr) || rightTeamStats.teamAbbr || rightData.abbr
 
         // Get team colors
         const leftTeamColors = getTeamColorsRobust(leftTeamAbbr) || leftData.colors

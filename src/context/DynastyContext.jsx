@@ -2589,9 +2589,19 @@ function extractBoxScoreContribution(boxScore) {
 
   const contribution = {}
 
-  // Search both sides of box score
-  for (const side of ['home', 'away']) {
-    const sideBoxScore = boxScore[side]
+  // Walk every team's stat block in either shape (byTid for canonical
+  // games, home/away for legacy games waiting to be migrated on next
+  // write). Both produce the same per-player aggregation regardless.
+  const sides = []
+  if (boxScore.byTid && typeof boxScore.byTid === 'object') {
+    for (const side of Object.values(boxScore.byTid)) {
+      if (side) sides.push(side)
+    }
+  }
+  if (boxScore.home) sides.push(boxScore.home)
+  if (boxScore.away) sides.push(boxScore.away)
+
+  for (const sideBoxScore of sides) {
     if (!sideBoxScore) continue
 
     // Process each stat category
@@ -3953,19 +3963,28 @@ export function getPlayersNeedingClassConfirmation(dynasty) {
       const boxScore = game.boxScore
       if (!boxScore) return
 
-      // Check if player appears in either home or away box score
-      const checkSide = (side) => {
-        if (!boxScore[side]) return false
-        return Object.values(boxScore[side]).some(category =>
+      // Walk every team's stat block in either shape (canonical byTid
+      // or legacy home/away) — if the player appears on either team,
+      // count this as a game played.
+      const checkSlot = (slot) => {
+        if (!slot) return false
+        return Object.values(slot).some(category =>
           Array.isArray(category) && category.some(p =>
             normalizeName(p.playerName) === normalizedPlayerName
           )
         )
       }
 
-      if (checkSide('home') || checkSide('away')) {
-        gameCount++
+      let found = false
+      if (boxScore.byTid && typeof boxScore.byTid === 'object') {
+        for (const slot of Object.values(boxScore.byTid)) {
+          if (checkSlot(slot)) { found = true; break }
+        }
       }
+      if (!found && (checkSlot(boxScore.home) || checkSlot(boxScore.away))) {
+        found = true
+      }
+      if (found) gameCount++
     })
 
     return gameCount
@@ -13004,14 +13023,23 @@ export function DynastyProvider({ children }) {
     if (nameChanged) {
       console.log(`[updatePlayer] Name changed from "${oldName}" to "${newName}" - updating box scores`)
 
-      // Helper to check if a game's box score contains the old name
+      // Helper to check if a game's box score contains the old name.
+      // Walks every team's stat block in the canonical (or legacy) shape.
       const gameHasPlayerName = (game, name) => {
         if (!game.boxScore) return false
         const checkStats = (stats) => Array.isArray(stats) && stats.some(row => row.playerName === name)
         const checkSide = (side) => side && Object.values(side).some(checkStats)
-        return checkSide(game.boxScore.home) || checkSide(game.boxScore.away) ||
-          (Array.isArray(game.boxScore.scoringSummary) &&
-           game.boxScore.scoringSummary.some(play => play.scorer === name || play.passer === name))
+        const bs = game.boxScore
+        // New shape: byTid
+        if (bs.byTid) {
+          for (const side of Object.values(bs.byTid)) {
+            if (checkSide(side)) return true
+          }
+        }
+        // Legacy shape: home/away
+        if (checkSide(bs.home) || checkSide(bs.away)) return true
+        return Array.isArray(bs.scoringSummary) &&
+          bs.scoringSummary.some(play => play.scorer === name || play.passer === name)
       }
 
       // Helper to update player names in a stat category
@@ -13025,25 +13053,34 @@ export function DynastyProvider({ children }) {
         })
       }
 
+      // Rewrite every team's stat block in either shape (canonical byTid
+      // or legacy home/away) — name renames have to land in storage
+      // regardless of which shape the game is currently in.
+      const renamePlayerInSide = (side) => {
+        if (!side) return side
+        const out = { ...side }
+        Object.keys(out).forEach(category => {
+          out[category] = updateStatCategory(out[category])
+        })
+        return out
+      }
+
       const updatedGames = (dynasty.games || []).map(game => {
         if (!game.boxScore) return game
 
-        // Update both home and away box scores
         const updatedBoxScore = { ...game.boxScore }
 
-        if (updatedBoxScore.home) {
-          updatedBoxScore.home = { ...updatedBoxScore.home }
-          Object.keys(updatedBoxScore.home).forEach(category => {
-            updatedBoxScore.home[category] = updateStatCategory(updatedBoxScore.home[category])
-          })
+        // New shape: rewrite every tid's slot
+        if (updatedBoxScore.byTid) {
+          const nextByTid = {}
+          for (const [tidKey, side] of Object.entries(updatedBoxScore.byTid)) {
+            nextByTid[tidKey] = renamePlayerInSide(side)
+          }
+          updatedBoxScore.byTid = nextByTid
         }
-
-        if (updatedBoxScore.away) {
-          updatedBoxScore.away = { ...updatedBoxScore.away }
-          Object.keys(updatedBoxScore.away).forEach(category => {
-            updatedBoxScore.away[category] = updateStatCategory(updatedBoxScore.away[category])
-          })
-        }
+        // Legacy shape: rewrite home/away if present
+        if (updatedBoxScore.home) updatedBoxScore.home = renamePlayerInSide(updatedBoxScore.home)
+        if (updatedBoxScore.away) updatedBoxScore.away = renamePlayerInSide(updatedBoxScore.away)
 
         // Also update scoring summary if it contains the player's name
         if (Array.isArray(updatedBoxScore.scoringSummary)) {
