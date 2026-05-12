@@ -292,7 +292,7 @@ export default function WeeklyScores() {
     if (tabParam !== 'recap') return null
     const recapText = currentDynasty?.weekRecapsByYear?.[displayYear]?.[displayWeek]?.text
     if (!recapText) return null
-    return buildRecapLinks(currentDynasty, displayYear, pathPrefix)
+    return buildRecapLinks(currentDynasty, displayYear, pathPrefix, recapText)
   }, [
     tabParam,
     currentDynasty?.id,

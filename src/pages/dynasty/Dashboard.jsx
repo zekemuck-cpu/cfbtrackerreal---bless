@@ -123,7 +123,7 @@ export default function Dashboard() {
     const yr = Number(currentDynasty?.currentYear)
     const lastWeekText = currentDynasty?.weekRecapsByYear?.[yr]?.[cw - 1]?.text
     if (!lastWeekText) return null
-    return buildRecapLinks(currentDynasty, yr, pathPrefix)
+    return buildRecapLinks(currentDynasty, yr, pathPrefix, lastWeekText)
   }, [
     currentDynasty?.id,
     currentDynasty?.currentYear,

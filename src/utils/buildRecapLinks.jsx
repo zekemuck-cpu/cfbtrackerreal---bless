@@ -26,7 +26,7 @@ import { buildRecapTeamNames } from './recapTeamNames'
  * Mascot-only patterns ("Tigers", "Bulldogs") are intentionally skipped
  * because too many FBS programs share them.
  */
-export default function buildRecapLinks(dynasty, year, pathPrefix) {
+export default function buildRecapLinks(dynasty, year, pathPrefix, recapText = null) {
   if (!dynasty || !pathPrefix) return []
   const yearNum = Number(year)
   const teams = dynasty.teams || TEAMS
@@ -34,6 +34,17 @@ export default function buildRecapLinks(dynasty, year, pathPrefix) {
 
   // Helper: regex-escape a literal so it can be embedded inside a raw regex.
   const escForRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+  // When the actual recap text is provided, skip every pattern whose
+  // literal string can't possibly appear in it. A dynasty has hundreds of
+  // teams and dozens-to-hundreds of games per year, but a single recap
+  // typically names ~5-10 teams and a couple of scores — registering the
+  // rest just bloats the compiled regex FormattedRecap runs against every
+  // chunk. Substring filtering here drops pattern count from ~1500 to
+  // ~20 for a typical Dashboard render and is the difference between a
+  // visibly laggy dashboard and a snappy one.
+  const filterText = typeof recapText === 'string' && recapText ? recapText : null
+  const textHasRankPrefix = filterText ? /#\d/.test(filterText) : true
 
   // ----- Team links -----
   // Naming rules are derived from the team registry + per-year games
@@ -60,6 +71,7 @@ export default function buildRecapLinks(dynasty, year, pathPrefix) {
 
     for (const p of namePatterns) {
       if (!p || p.length < 3) continue
+      if (filterText && !filterText.includes(p)) continue
       // Rank-prefixed form: "#9 Alabama" links as a single block to the
       // team page. Raw regex so the leading "#" + digits + space is part
       // of the match. The non-word lookbehind keeps "blah#9 Alabama"
@@ -71,10 +83,12 @@ export default function buildRecapLinks(dynasty, year, pathPrefix) {
       // omitted for names that end in ")" (e.g. "Miami (OH)") since
       // \b doesn't fire after a non-word character.
       const trailingBoundary = /[A-Za-z0-9_]$/.test(p) ? '\\b' : ''
-      links.push({
-        regex: `(?<![A-Za-z0-9_])#\\d{1,2}\\s+${escForRegex(p)}${trailingBoundary}`,
-        render: renderTeam,
-      })
+      if (textHasRankPrefix) {
+        links.push({
+          regex: `(?<![A-Za-z0-9_])#\\d{1,2}\\s+${escForRegex(p)}${trailingBoundary}`,
+          render: renderTeam,
+        })
+      }
       // Plain literal — fallback when no rank prefix appears in prose.
       links.push({ pattern: p, render: renderTeam })
     }
@@ -126,6 +140,9 @@ export default function buildRecapLinks(dynasty, year, pathPrefix) {
   )
 
   for (const [score, group] of scoreGroups.entries()) {
+    // A score that doesn't appear in the recap text contributes only dead
+    // patterns to the combined regex — skip the whole group up front.
+    if (filterText && !filterText.includes(score)) continue
     if (group.length === 1) {
       // Score is unique — register a plain literal pattern. Bare "X-Y"
       // anywhere in the recap text links to the one game with that score.
@@ -143,6 +160,7 @@ export default function buildRecapLinks(dynasty, year, pathPrefix) {
       const gameHref = `${pathPrefix}/game/${yg.id}`
       const allTeamNames = [...yg.team1Names, ...yg.team2Names]
       for (const name of allTeamNames) {
+        if (filterText && !filterText.includes(name)) continue
         // Lookbehind: assert team name + whitespace appears before the score.
         // \b after the name keeps "Tennessee" from matching inside "TennesseeX".
         // [^\\n]{0,4} accommodates punctuation/markup like "Tennessee, 56-35"
