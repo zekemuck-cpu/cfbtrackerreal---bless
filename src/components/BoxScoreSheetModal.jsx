@@ -339,7 +339,7 @@ PLAY TYPE (col M) — match by phrasing
 "N yard punt return by Y"           → Punt Return      B=Y
 "Y N yard field goal good"          → Field Goal Made  B=Y      D=N      E=Field Goal
 "Y missed a N yard field goal"      → Field Goal Missed B=Y     D=N
-"Extra point good by Y"             → PAT              B=Y      E=PAT    F=Made XP
+"Extra point good/missed/blocked by Y" → DO NOT EMIT a new row. Instead, set F on the preceding TD row to "Made XP" / "Missed XP" / "Blocked XP". See the PAT section below.
 "Fumble recovered by Y for N yards" → Fumble Recovery  B=Y
 "…penalty against…"                 → Penalty
 "Safety"                            → Safety
@@ -361,36 +361,33 @@ Look each player up in the rosters ONCE per game, then trust the assignment.
 ═══════════════════════════════════════════════════════════
 SCORE TYPE (col E) WHEN A PLAY SCORES
 ═══════════════════════════════════════════════════════════
-Rushing TD / Passing TD / Field Goal / Safety / Kick Return TD / Punt Return TD / INT Return TD / Fumble Return TD / Blocked Punt/FG TD / PAT
+Rushing TD / Passing TD / Field Goal / Safety / Kick Return TD / Punt Return TD / INT Return TD / Fumble Return TD / Blocked Punt/FG TD
+
+(No "PAT" — PAT attempts NEVER get their own row. See PAT section below.)
 
 PAT Result (F) on TD rows only when visible: Made XP / Missed XP / Blocked XP / Converted 2PT / Failed 2PT
 
 ═══════════════════════════════════════════════════════════
-DUAL-ENCODING for PATs (extra-point attempts) — read carefully
+PAT (extra-point attempts) — collapse into the TD row
 ═══════════════════════════════════════════════════════════
-When a TD is followed by an extra-point attempt, you emit TWO rows:
-  1. The TD row itself                    (E = "Rushing TD" / "Passing TD" / etc.)
-  2. The PAT row right after it           (E = "PAT", B = kicker's name)
-
-YOU MUST FILL COLUMN F ON **BOTH** ROWS WITH THE SAME PAT RESULT.
+When a TD is followed by an extra-point attempt, you emit EXACTLY ONE row:
+the TD row itself, with the PAT outcome encoded in column F.
 
   - TD row: F = "Made XP" (or "Missed XP" / "Blocked XP" / "Converted 2PT" / "Failed 2PT")
-  - PAT row: F = same value as the TD row above it
+  - DO NOT emit a separate PAT row. No row with E = "PAT". No row with
+    Play Type = "PAT". The kicker's name is not preserved in this sheet.
 
-Why both rows: the front-end reads column F off the TD row to compute the
-running score (TD = 6 pts + XP = 1 pt). The PAT row alone shows the kicker
-in the play-by-play but does NOT contribute its own points. If you leave the
-TD row's column F blank and only write F on the PAT row, the score will be
-WRONG by 1 point per made XP — the user will have to manually edit it.
+Why one row: the front-end reads column F off the TD row to compute the
+running score (TD = 6 + XP = 1). A separate PAT row is redundant noise
+in the play list — the Made/Missed/Blocked outcome is already visible
+on the TD row's chip.
 
-Worked example — Bama's 9-yd TD pass + Rico Melendez's XP:
+Worked example — Bama's 9-yd TD pass with a good XP:
   → BAMA  Lorenzo Corra  CJ Carr   9  Passing TD  Made XP  2  10:09        2  Goal  LSU 9  Pass Complete
-  → BAMA  Rico Melendez            0  PAT         Made XP  2  10:05                  LSU 3  PAT
 
-Both rows have "Made XP" in column F. This is REQUIRED, not optional.
-
-For Failed 2PT / Missed XP / Blocked XP, the same rule applies — same value
-on both rows.
+That's it. ONE row. No follow-up "BAMA Rico Melendez ... PAT ... Made XP"
+row underneath. Same rule for Missed XP / Blocked XP / Converted 2PT /
+Failed 2PT — always one row, the TD row.
 
 ═══════════════════════════════════════════════════════════
 ORDER — this is the #2 failure mode, read it slowly
@@ -488,7 +485,10 @@ SCORE TYPE — use these EXACT strings (col E)
 Valid values for col E when a play scores:
   Rushing TD | Passing TD | Field Goal | Safety
   Kick Return TD | Punt Return TD | INT Return TD
-  Fumble Return TD | Blocked Punt/FG TD | PAT
+  Fumble Return TD | Blocked Punt/FG TD
+
+There is no "PAT" value — extra points are encoded as column F on the
+TD row, not as their own row.
 
 Do NOT paraphrase. "Interception TD" → use "INT Return TD" instead.
 "FG" → use "Field Goal". "Kickoff Return TD" → use "Kick Return TD".
@@ -540,12 +540,15 @@ have to delete by hand.
     cells; each empty cell still costs one tab.
 
 [ ] SCORE TYPE WHITELIST: scan col E across every row. Each value
-    is EXACTLY one of the 10 valid strings, or empty. NEVER a digit
-    ("2"), a time ("11:40"), or a paraphrase ("Interception TD",
-    "Kickoff Return TD", "FG").
+    is EXACTLY one of the 9 valid scoring strings, or empty. NEVER
+    "PAT" (extra points live in column F, not column E), NEVER a
+    digit ("2"), NEVER a time ("11:40"), NEVER a paraphrase
+    ("Interception TD", "Kickoff Return TD", "FG").
 
-[ ] PAT DUAL-ENCODING: for every TD row, col F is filled. For every
-    PAT row that follows, col F has the same value as the TD above.
+[ ] PAT COLLAPSED: every TD row has col F filled (Made XP / Missed
+    XP / Blocked XP / Converted 2PT / Failed 2PT). NO row has E="PAT"
+    or Play Type="PAT". The XP attempt lives only in the TD row's
+    column F — no separate row for the kicker.
 
 [ ] QUARTER / TIME on every row: col G is one of the 8 valid quarter
     strings (NOT empty, NOT "Q1"). Col H is MM:SS with leading zeros.
