@@ -720,9 +720,17 @@ export default function Game() {
   // Recap player-link patterns. Also hoisted above the early returns
   // for hook-order stability. Heavy lifting only happens when the
   // dynasty + box score are both populated; null otherwise.
+  //
+  // `teams` is resolved inline here from currentDynasty?.teams rather
+  // than reading the `teams` const declared further down — that const
+  // lives below the early returns, which would put it in the temporal
+  // dead zone for this useMemo on first render and crash with
+  // "Cannot access 'teams' before initialization." Inline resolution
+  // keeps the hook self-contained.
   const recapPlayerLinks = useMemo(() => {
     if (!game?.boxScore) return null
-    const canon = canonicalBoxScore(game, teams)
+    const teamsForCanon = currentDynasty?.teams || TEAMS
+    const canon = canonicalBoxScore(game, teamsForCanon)
     if (!canon) return null
     const sides = Object.values(canon.byTid || {}).filter(Boolean)
     const categories = ['passing', 'rushing', 'receiving', 'defense', 'kicking']
@@ -765,7 +773,7 @@ export default function Game() {
       }
     }
     return links.length ? links : null
-  }, [game?.boxScore, playerPidByName, pathPrefix])
+  }, [game?.boxScore, playerPidByName, pathPrefix, currentDynasty?.teams])
 
   if (!currentDynasty) {
     return <LoadingState message="Loading dynasty..." />
