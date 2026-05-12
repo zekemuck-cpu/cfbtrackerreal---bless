@@ -2488,36 +2488,35 @@ export default function Game() {
                 <span className="text-txt-secondary truncate">{fallbackBody || '—'}</span>
               )
 
+              // PBP row layout — compact, typeset, no fill. Team color
+              // is conveyed by a thin 2px left rail only (per DESIGN.md).
+              // Numerics use tabular-nums + display font for column align.
               return (
-                <div key={key} className="flex items-stretch text-[11px] sm:text-xs group">
-                  {/* Team color stripe — slightly thicker than before for visibility */}
-                  <div className="w-1 flex-shrink-0" style={{ backgroundColor: colors.primary, opacity: 0.7 }} />
-                  <div
-                    className="flex-1 flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 transition-colors hover:bg-surface-2/40"
-                    style={{ background: `linear-gradient(90deg, ${colors.primary}0c 0%, transparent 55%)` }}
-                  >
+                <div key={key} className="flex items-stretch text-[11px] sm:text-xs group transition-colors hover:bg-surface-2/60">
+                  <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: colors.primary }} />
+                  <div className="flex-1 flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 min-w-0">
                     {/* Time */}
-                    <div className="w-10 sm:w-12 flex-shrink-0 font-mono text-txt-muted tabular-nums text-center">
+                    <div className="w-10 sm:w-12 flex-shrink-0 font-display font-semibold text-txt-tertiary tabular-nums text-center">
                       {play.timeLeft}
                     </div>
 
-                    {/* Down & Distance chip */}
+                    {/* Down & Distance */}
                     {downDist ? (
-                      <div className="flex-shrink-0 px-2 py-0.5 rounded-md bg-surface-3/70 text-txt-secondary font-semibold tabular-nums min-w-[58px] sm:min-w-[64px] text-center">
+                      <div className="flex-shrink-0 font-display font-semibold uppercase tracking-wider text-txt-secondary tabular-nums min-w-[60px] sm:min-w-[64px] text-center">
                         {downDist}
                       </div>
                     ) : (
-                      <div className="w-[58px] sm:w-[64px] flex-shrink-0" />
+                      <div className="min-w-[60px] sm:min-w-[64px] flex-shrink-0" />
                     )}
 
                     {/* Field position */}
-                    <div className="flex-shrink-0 font-mono text-txt-muted w-12 sm:w-14 tabular-nums text-left">
+                    <div className="flex-shrink-0 font-display text-txt-tertiary w-12 sm:w-14 tabular-nums text-left">
                       {play.fieldPos || ''}
                     </div>
 
                     {/* Play type badge */}
                     {typeBadge ? (
-                      <div className={`flex-shrink-0 px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-bold tracking-wider ${typeBadge.bg} ${typeBadge.text}`}>
+                      <div className={`flex-shrink-0 px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-bold tracking-[0.08em] ${typeBadge.bg} ${typeBadge.text}`}>
                         {typeBadge.label}
                       </div>
                     ) : (
@@ -2529,9 +2528,9 @@ export default function Game() {
                       {playerEl}
                     </div>
 
-                    {/* Yards — signed, color-coded */}
+                    {/* Yards — signed, color-coded, tabular */}
                     {yardsValid && (
-                      <div className={`flex-shrink-0 font-mono tabular-nums font-semibold w-10 sm:w-12 text-right ${
+                      <div className={`flex-shrink-0 font-display font-bold tabular-nums w-10 sm:w-12 text-right ${
                         yardsNum > 0 ? 'text-emerald-300' :
                         yardsNum < 0 ? 'text-red-300' :
                         isIncompleteType ? 'text-txt-muted italic' :
@@ -2544,9 +2543,9 @@ export default function Game() {
                     {/* Result chip — 1st Down or TD */}
                     <div className="flex-shrink-0 w-12 sm:w-14 text-right">
                       {isTD ? (
-                        <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">TD</span>
+                        <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.08em]">TD</span>
                       ) : isFirstDown ? (
-                        <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">1st</span>
+                        <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.08em]">1st</span>
                       ) : null}
                     </div>
                   </div>
@@ -2569,49 +2568,47 @@ export default function Game() {
 
             return (
               <div>
-                {/* Watch All Scores button - only show if there are video links */}
-                {hasVideoLinks && (
-                  <div className="px-4 py-3 border-b border-surface-3/50">
-                    <button
-                      onClick={() => {
-                        setHighlightsStartIndex(0)
-                        setShowHighlightsModal(true)
-                      }}
-                      className="flex items-center gap-2 px-4 py-2 bg-surface-3 hover:bg-surface-3 text-white text-sm font-medium rounded-lg transition-colors"
-                    >
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                      Watch All Scores
-                    </button>
+                {/* Toolbar: Watch All Scores (when video data exists) + Scores
+                    Only toggle. Single row to keep visual density tight.
+                    Hint text shifts to the right when the checkbox is on
+                    and PBP data exists. */}
+                <div className="px-3 sm:px-4 py-2.5 border-b border-surface-3 flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    {hasVideoLinks && (
+                      <button
+                        onClick={() => {
+                          setHighlightsStartIndex(0)
+                          setShowHighlightsModal(true)
+                        }}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-surface-3 hover:bg-surface-4 text-txt-primary text-xs font-display font-semibold uppercase tracking-[0.08em] rounded-md transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                        Watch all scores
+                      </button>
+                    )}
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={effectiveScoresOnly}
+                        disabled={!hasPBPData}
+                        onChange={(e) => setScoresOnly(e.target.checked)}
+                        className="w-4 h-4 rounded border-surface-4 bg-surface-2 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed accent-team-primary"
+                      />
+                      <span className="text-[11px] sm:text-xs font-display font-semibold uppercase tracking-[0.08em] text-txt-secondary">
+                        Scores only
+                      </span>
+                    </label>
                   </div>
-                )}
-
-                {/* Scores Only toggle. Always rendered for consistent UX —
-                    when no PBP data exists, it's checked and disabled
-                    (there's nothing else to show; the checkbox is
-                    informational). When PBP data exists, unchecking
-                    reveals every play; checking shows scoring plays
-                    with drive-expansion chevrons. */}
-                <div className="px-4 py-2.5 border-b border-surface-3/50 flex items-center justify-between gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={effectiveScoresOnly}
-                      disabled={!hasPBPData}
-                      onChange={(e) => setScoresOnly(e.target.checked)}
-                      className="w-4 h-4 rounded border-surface-4 bg-surface-2 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
-                    />
-                    <span className="text-xs sm:text-sm text-txt-secondary">Scores only</span>
-                  </label>
                   {hasPBPData && effectiveScoresOnly && (
-                    <span className="text-[10px] sm:text-xs text-txt-muted">
+                    <span className="text-[10px] sm:text-[11px] text-txt-tertiary italic">
                       Tap a play to see its drive
                     </span>
                   )}
                 </div>
 
-                <div className="divide-y divide-surface-3/50">
+                <div className="divide-y divide-surface-3">
                 {playsWithScores.map((play, idx) => {
                   const isScoring = isScoringPlay(play)
 
@@ -2636,10 +2633,25 @@ export default function Game() {
                   const scorerPID = getPlayerPID(play.scorer)
                   const passerPID = play.passer ? getPlayerPID(play.passer) : null
                   const isLeftTeam = isPlayOnLeftSide(play)
+                  // Scoring card layout — broadcast scorebug aesthetic:
+                  //   • 4px team-color left rail (the ONLY team-color fill)
+                  //   • Quarter chip in neutral surface-3 with team-color
+                  //     left accent (uppercase tracked label)
+                  //   • Running score is the visual hero (display-md font,
+                  //     tabular-nums). Active team's number sits in
+                  //     text-primary; opponent's in text-tertiary so the
+                  //     scoring side reads instantly even without color.
+                  //   • Score type rendered as all-caps tracked label.
+                  //   • PAT chip in semantic success/danger (low alpha).
+                  //   • Hover: surface-2/60 base shift, no gradient.
+                  const quarterLabel = ['1', '2', '3', '4', 1, 2, 3, 4].includes(play.quarter) ? `Q${play.quarter}` : (play.quarter || 'OT')
+                  const scoreTypeLabel = (is2PTAttempt(play) ? '2PT Conversion' : (play.scoreType || '')).toUpperCase()
+                  const patIsGood = play.patResult && (play.patResult.includes('Made') || play.patResult.includes('Converted'))
+                  const twoPtGood = is2PTAttempt(play) && is2PTConverted(play)
                   return (
                     <div key={idx}>
                     <div
-                      className={`flex items-stretch ${canExpand ? 'cursor-pointer' : ''}`}
+                      className={`flex items-stretch transition-colors hover:bg-surface-2/60 ${canExpand ? 'cursor-pointer' : ''}`}
                       onClick={canExpand ? (e) => {
                         // Don't toggle drive expansion when the user
                         // clicks the inline player link or the video
@@ -2648,89 +2660,77 @@ export default function Game() {
                         toggleDriveExpansion(idx)
                       } : undefined}
                     >
-                      {/* Team color bar on left */}
-                      <div
-                        className="w-1 flex-shrink-0"
-                        style={{ backgroundColor: playTeamColors.primary }}
-                      />
-                      {/* Main content with team-colored background */}
-                      <div
-                        className="flex-1 flex items-center gap-2 sm:gap-3 px-3 py-2.5 sm:py-3"
-                        style={{
-                          background: `linear-gradient(90deg, ${playTeamColors.primary}20 0%, ${playTeamColors.primary}05 50%, transparent 100%)`
-                        }}
-                      >
-                        {/* Quarter and time */}
-                        <div className="text-center flex-shrink-0 w-10 sm:w-12">
-                          <div
-                            className="text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded"
-                            style={{ backgroundColor: playTeamColors.primary + '40', color: 'white' }}
-                          >
-                            {['1', '2', '3', '4', 1, 2, 3, 4].includes(play.quarter) ? `Q${play.quarter}` : 'OT'}
+                      {/* 4px team-color rail — the only team-color fill on the row */}
+                      <div className="w-1 flex-shrink-0" style={{ backgroundColor: playTeamColors.primary }} />
+                      <div className="flex-1 flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 sm:py-3.5 min-w-0">
+                        {/* Quarter chip + time stacked */}
+                        <div className="flex-shrink-0 w-11 sm:w-12">
+                          <div className="font-display font-bold text-[10px] sm:text-[11px] uppercase tracking-[0.1em] text-txt-secondary bg-surface-3 rounded px-1.5 py-0.5 text-center">
+                            {quarterLabel}
                           </div>
-                          <div className="text-txt-muted text-[10px] sm:text-xs mt-0.5 font-mono">{play.timeLeft}</div>
+                          <div className="text-txt-tertiary text-[10px] sm:text-[11px] font-display tabular-nums text-center mt-1">
+                            {play.timeLeft}
+                          </div>
                         </div>
-                        {/* Running Score */}
-                        <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0 min-w-[50px] sm:min-w-[60px] justify-center">
-                          <span className={`text-sm sm:text-base font-bold tabular-nums ${isLeftTeam ? 'text-white' : 'text-txt-muted'}`}>
-                            {play.runningLeftScore}
-                          </span>
-                          <span className="text-txt-tertiary text-xs">-</span>
-                          <span className={`text-sm sm:text-base font-bold tabular-nums ${!isLeftTeam ? 'text-white' : 'text-txt-muted'}`}>
-                            {play.runningRightScore}
-                          </span>
-                        </div>
-                        {/* Team logo — uses tid-resolved registry data so a
-                            renamed teambuilder team's logo still renders. */}
-                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-surface-2/50 p-1">
+
+                        {/* Team logo + running score (the hero). The scoring
+                            team's number reads in text-primary so the side
+                            with the score is unmistakable. */}
+                        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                           <img
                             src={resolvedPlayTeam.logo
                               || getTeamLogo(getMascotName(resolvedPlayTeam.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || resolvedPlayTeam.abbr)}
                             alt={resolvedPlayTeam.abbr}
-                            className="w-full h-full object-contain"
+                            className="w-7 h-7 sm:w-8 sm:h-8 object-contain flex-shrink-0"
                           />
+                          <div className="font-display font-extrabold text-xl sm:text-2xl tabular-nums tracking-tight leading-none flex items-baseline gap-1">
+                            <span className={isLeftTeam ? 'text-txt-primary' : 'text-txt-tertiary'}>{play.runningLeftScore}</span>
+                            <span className="text-txt-muted text-base font-normal">–</span>
+                            <span className={!isLeftTeam ? 'text-txt-primary' : 'text-txt-tertiary'}>{play.runningRightScore}</span>
+                          </div>
                         </div>
-                        {/* Play details */}
+
+                        {/* Play details — score type + scorer + PAT chip */}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                            <span className="text-txt-secondary text-xs sm:text-sm">
-                              {is2PTAttempt(play) ? '2PT Conversion' : play.scoreType}
-                              {play.yards && <span className="text-txt-muted"> ({play.yards} yds)</span>}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-display font-semibold uppercase tracking-[0.06em] text-txt-primary text-xs sm:text-sm">
+                              {scoreTypeLabel}
                             </span>
+                            {play.yards != null && play.yards !== '' && (
+                              <span className="text-txt-tertiary font-display tabular-nums text-xs sm:text-sm">
+                                {play.yards} YD{Math.abs(Number(play.yards)) === 1 ? '' : 'S'}
+                              </span>
+                            )}
                             {play.patResult && !is2PTAttempt(play) && (
-                              <span className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded ${
-                                play.patResult.includes('Made') || play.patResult.includes('Converted')
-                                  ? 'bg-green-500/20 text-green-400'
-                                  : 'bg-red-500/20 text-red-400'
+                              <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.1em] px-1.5 py-0.5 rounded ${
+                                patIsGood ? 'bg-emerald-500/15 text-emerald-300' : 'bg-red-500/15 text-red-300'
                               }`}>
                                 {play.patResult}
                               </span>
                             )}
                             {is2PTAttempt(play) && (
-                              <span className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded ${
-                                is2PTConverted(play)
-                                  ? 'bg-green-500/20 text-green-400'
-                                  : 'bg-red-500/20 text-red-400'
+                              <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.1em] px-1.5 py-0.5 rounded ${
+                                twoPtGood ? 'bg-emerald-500/15 text-emerald-300' : 'bg-red-500/15 text-red-300'
                               }`}>
-                                {is2PTConverted(play) ? 'Good' : 'Failed'}
+                                {twoPtGood ? '2PT Good' : '2PT Failed'}
                               </span>
                             )}
                           </div>
-                          <div className="text-txt-tertiary text-[10px] sm:text-xs mt-0.5 truncate">
+                          <div className="text-txt-secondary text-[11px] sm:text-xs mt-1 truncate">
                             {is2PTAttempt(play) ? (
-                              <span>{is2PTConverted(play) ? 'Successful conversion' : 'Conversion failed'}</span>
+                              <span className="italic text-txt-tertiary">{twoPtGood ? 'Successful conversion' : 'Conversion failed'}</span>
                             ) : (
                               <>
                                 {scorerPID ? (
-                                  <Link to={`${pathPrefix}/player/${scorerPID}`} className="font-medium hover:underline hover:text-txt-secondary">
+                                  <Link to={`${pathPrefix}/player/${scorerPID}`} className="font-medium text-txt-secondary hover:text-txt-primary hover:underline underline-offset-2">
                                     {play.scorer}
                                   </Link>
                                 ) : <span className="font-medium">{play.scorer}</span>}
                                 {play.passer && (
                                   <>
-                                    {' from '}
+                                    <span className="text-txt-muted"> from </span>
                                     {passerPID ? (
-                                      <Link to={`${pathPrefix}/player/${passerPID}`} className="font-medium hover:underline hover:text-txt-secondary">
+                                      <Link to={`${pathPrefix}/player/${passerPID}`} className="font-medium text-txt-secondary hover:text-txt-primary hover:underline underline-offset-2">
                                         {play.passer}
                                       </Link>
                                     ) : <span className="font-medium">{play.passer}</span>}
@@ -2740,30 +2740,29 @@ export default function Game() {
                             )}
                           </div>
                         </div>
-                        {/* Video Link Button */}
+
+                        {/* Video Link Button — load-bearing icon, kept as a
+                            tight ghost button with a subtle hover ring. */}
                         {play.videoLink && (
                           <button
                             onClick={() => {
-                              // Find this play's index in the filtered list (only plays with videoLinks)
                               const playsWithVideoLinks = playsWithScores.filter(p => p.videoLink)
                               const videoIndex = playsWithVideoLinks.findIndex(p => p === play)
                               setHighlightsStartIndex(videoIndex >= 0 ? videoIndex : 0)
                               setShowHighlightsModal(true)
                             }}
-                            className="flex-shrink-0 p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors"
+                            className="flex-shrink-0 p-1.5 sm:p-2 rounded-md text-txt-tertiary hover:text-txt-primary hover:bg-surface-3 transition-colors"
                             title="Watch video clip"
                           >
-                            <svg className="w-4 h-4 sm:w-5 sm:h-5 text-txt-primary hover:text-txt-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                           </button>
                         )}
-                        {/* Drive expand chevron — only when there are prior plays
-                            in this drive to reveal. Rotates 180° on expand. */}
                         {canExpand && (
                           <div
-                            className="flex-shrink-0 p-1.5 sm:p-2 transition-transform"
+                            className="flex-shrink-0 p-1.5 sm:p-2 transition-transform text-txt-tertiary"
                             style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
                             aria-hidden="true"
                           >
@@ -2785,13 +2784,7 @@ export default function Game() {
                         className="overflow-hidden transition-all duration-300 ease-out"
                         style={{ maxHeight: isExpanded ? '1500px' : '0' }}
                       >
-                        <div
-                          className="divide-y divide-surface-3/20"
-                          style={{
-                            background: `linear-gradient(180deg, ${playTeamColors.primary}10 0%, ${playTeamColors.primary}05 100%)`,
-                            borderTop: `1px solid ${playTeamColors.primary}30`,
-                          }}
-                        >
+                        <div className="bg-surface-0/60 divide-y divide-surface-3/30 border-t border-surface-3">
                           {drivePrior.map((dp, didx) => renderPBPRow(dp, `drive-${idx}-${didx}`))}
                         </div>
                       </div>
