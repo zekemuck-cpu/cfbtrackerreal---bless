@@ -366,6 +366,33 @@ Rushing TD / Passing TD / Field Goal / Safety / Kick Return TD / Punt Return TD 
 PAT Result (F) on TD rows only when visible: Made XP / Missed XP / Blocked XP / Converted 2PT / Failed 2PT
 
 ═══════════════════════════════════════════════════════════
+DUAL-ENCODING for PATs (extra-point attempts) — read carefully
+═══════════════════════════════════════════════════════════
+When a TD is followed by an extra-point attempt, you emit TWO rows:
+  1. The TD row itself                    (E = "Rushing TD" / "Passing TD" / etc.)
+  2. The PAT row right after it           (E = "PAT", B = kicker's name)
+
+YOU MUST FILL COLUMN F ON **BOTH** ROWS WITH THE SAME PAT RESULT.
+
+  - TD row: F = "Made XP" (or "Missed XP" / "Blocked XP" / "Converted 2PT" / "Failed 2PT")
+  - PAT row: F = same value as the TD row above it
+
+Why both rows: the front-end reads column F off the TD row to compute the
+running score (TD = 6 pts + XP = 1 pt). The PAT row alone shows the kicker
+in the play-by-play but does NOT contribute its own points. If you leave the
+TD row's column F blank and only write F on the PAT row, the score will be
+WRONG by 1 point per made XP — the user will have to manually edit it.
+
+Worked example — Bama's 9-yd TD pass + Rico Melendez's XP:
+  → BAMA  Lorenzo Corra  CJ Carr   9  Passing TD  Made XP  2  10:09        2  Goal  LSU 9  Pass Complete
+  → BAMA  Rico Melendez            0  PAT         Made XP  2  10:05                  LSU 3  PAT
+
+Both rows have "Made XP" in column F. This is REQUIRED, not optional.
+
+For Failed 2PT / Missed XP / Blocked XP, the same rule applies — same value
+on both rows.
+
+═══════════════════════════════════════════════════════════
 ORDER — this is the #2 failure mode, read it slowly
 ═══════════════════════════════════════════════════════════
 The game clock COUNTS DOWN inside each quarter (12:00 → 00:00). So within ONE quarter:

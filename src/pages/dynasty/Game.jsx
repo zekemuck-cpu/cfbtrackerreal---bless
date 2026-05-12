@@ -21,7 +21,7 @@ import { canonicalBoxScore, getPlayerStatsForTid, getTeamStatsForTid, listPlayer
 import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
 import InlineScoringHighlights from '../../components/InlineScoringHighlights'
 import FormattedRecap from '../../components/FormattedRecap'
-import { sortPlaysChronologically } from '../../utils/scoringPlayOrder'
+import { sortPlaysChronologically, collapsePatRowsIntoTDs } from '../../utils/scoringPlayOrder'
 import {
   PageHero,
   Card,
@@ -2142,7 +2142,7 @@ export default function Game() {
                 {/* RIGHT: Scoring · Ratings · Awards — sibling sections with shared rhythm */}
                 <aside className="order-3 min-w-0 space-y-7">
                   {(() => {
-                    const playsWithVideo = sortPlaysChronologically(game.boxScore?.scoringSummary)
+                    const playsWithVideo = sortPlaysChronologically(collapsePatRowsIntoTDs(game.boxScore?.scoringSummary))
                       .map(p => ({ ...p, gameInfo: { ...(p.gameInfo || {}), gameId } }))
                       .filter(p => p.videoLink)
                     if (!playsWithVideo.length) return null
@@ -2291,7 +2291,13 @@ export default function Game() {
             // Sort plays chronologically (Q1 → OT, time-left descending within a quarter)
             // so running scores accumulate in real game order — and the videoIndex
             // passed to ScoringHighlightsModal matches the modal's own ordering.
-            const chronoPlays = sortPlaysChronologically(game.boxScore.scoringSummary)
+            // collapsePatRowsIntoTDs: the All Plays AI entry emits PATs as their
+            // own rows; merge their patResult onto the preceding TD so XP points
+            // count toward the running score regardless of which entry path
+            // produced the data.
+            const chronoPlays = sortPlaysChronologically(
+              collapsePatRowsIntoTDs(game.boxScore.scoringSummary)
+            )
 
             // Tid-based "is this play on the left side?" check. Each play's
             // team is stored as an abbr; we resolve via the game's two team
@@ -3627,7 +3633,7 @@ export default function Game() {
       <ScoringHighlightsModal
         isOpen={showHighlightsModal}
         onClose={() => setShowHighlightsModal(false)}
-        scoringPlays={sortPlaysChronologically(game.boxScore?.scoringSummary).map(p => ({
+        scoringPlays={sortPlaysChronologically(collapsePatRowsIntoTDs(game.boxScore?.scoringSummary)).map(p => ({
           ...p,
           gameInfo: { ...(p.gameInfo || {}), gameId }
         }))}

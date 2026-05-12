@@ -40,3 +40,46 @@ export function compareByGameTime(a, b) {
 export function sortPlaysChronologically(plays) {
   return [...(plays || [])].sort(compareByGameTime)
 }
+
+// Merge standalone PAT rows' patResult onto the preceding TD row.
+//
+// The All Plays AI prompt emits PATs as their own rows (scoreType="PAT",
+// patResult="Made XP"). The Scoring Summary prompt collapses PAT into the
+// TD row's column F. Both shapes can land in the same scoringSummary
+// array depending on which entry path the user took. Downstream code
+// (running score, recap math) only reads patResult off the TD row, so
+// the standalone-row shape silently costs the team its 1-pt XP every
+// time — visible as a "Made XP" chip that doesn't bump the score.
+//
+// Normalizer: for each standalone PAT row, walk backward to the most
+// recent preceding scoring row. If that row is a TD from the same team
+// with empty patResult, copy this PAT row's patResult onto it. The PAT
+// row stays in place — it's still useful for PBP display (kicker name,
+// time, etc.) and its getPlayPoints() yields 0 so there's no double-
+// count.
+//
+// Returns a new array; only rows whose patResult was filled get cloned.
+export function collapsePatRowsIntoTDs(plays) {
+  if (!Array.isArray(plays) || plays.length === 0) return plays || []
+  const chrono = sortPlaysChronologically(plays)
+  const overrides = new Map()
+  for (let i = 0; i < chrono.length; i++) {
+    const p = chrono[i]
+    const st = (p?.scoreType || '').trim()
+    if (st !== 'PAT') continue
+    if (!p.patResult) continue
+    const team = (p.team || '').toUpperCase()
+    for (let j = i - 1; j >= 0; j--) {
+      const prev = chrono[j]
+      const prevSt = (prev?.scoreType || '').trim()
+      if (!prevSt) continue
+      if (!/TD/.test(prevSt)) break
+      if ((prev.team || '').toUpperCase() !== team) break
+      if (prev.patResult) break
+      overrides.set(prev, { ...prev, patResult: p.patResult })
+      break
+    }
+  }
+  if (overrides.size === 0) return plays
+  return plays.map((p) => overrides.get(p) || p)
+}

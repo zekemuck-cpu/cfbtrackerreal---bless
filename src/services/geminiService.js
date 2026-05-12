@@ -13,6 +13,7 @@ import { getTeamConference } from '../data/conferenceTeams'
 import { getUserGamePerspective, getLockedCoachingStaff, getCustomConferencesForYear } from '../context/DynastyContext'
 import { buildCFPProjection } from '../utils/cfpProjection'
 import { canonicalBoxScore, getPlayerStatsForTid, getTeamStatsForTid } from '../utils/boxScoreHelpers'
+import { collapsePatRowsIntoTDs } from '../utils/scoringPlayOrder'
 
 // ============================================
 // HELPER FUNCTIONS FOR DATA EXTRACTION
@@ -3713,10 +3714,19 @@ FOCUS: Write from ${ctx.userTeamName}'s perspective as the primary team.
   //   • PLAY-BY-PLAY section (below): every play, used for drive
   //     narration. Only rendered when PBP data exists.
   //
-  // A play is "scoring" if it has a scoreType set, OR a standalone
-  // 2PT attempt (scoreType or patResult contains "2PT").
+  // collapsePatRowsIntoTDs: in All Plays mode the AI emits PATs as
+  // their own rows (scoreType="PAT", patResult on the PAT row). Merge
+  // that patResult onto the preceding TD row so the running-score
+  // math here adds the XP point. The PAT row itself is still kept in
+  // the array for PBP context.
+  const normalizedPlays = collapsePatRowsIntoTDs(ctx.scoringSummary || [])
+  // A play is "scoring" if it has a scoreType set (excluding standalone
+  // PAT rows — their patResult has already been folded into the
+  // preceding TD), OR a standalone 2PT attempt (no scorer + 2PT in
+  // either field).
   const isScoringPlay = (p) => {
-    const s = p?.scoreType || ''
+    const s = (p?.scoreType || '').trim()
+    if (s === 'PAT') return false
     const r = p?.patResult || ''
     return !!s || r.includes('2PT') || s.includes('2PT')
   }
@@ -3724,10 +3734,10 @@ FOCUS: Write from ${ctx.userTeamName}'s perspective as the primary team.
   // Used to detect whether the new PLAY-BY-PLAY section should
   // render at all. Accept legacy 15-col fields too so older games
   // still surface their drive context.
-  const hasAnyPBPData = (ctx.scoringSummary || []).some(p =>
+  const hasAnyPBPData = normalizedPlays.some(p =>
     p && (p.description || p.playType || p.down || p.fieldPos || p.outcome || p.notes)
   )
-  const scoringOnlyList = (ctx.scoringSummary || []).filter(isScoringPlay)
+  const scoringOnlyList = normalizedPlays.filter(isScoringPlay)
 
   if (scoringOnlyList.length > 0) {
     prompt += `\n
@@ -3804,7 +3814,9 @@ SCORING SUMMARY (in chronological order)
     let otT1 = 0, otT2 = 0
     let leadChanges = 0
     let lastLeader = 0 // -1 = team2, 0 = tied, 1 = team1
-    ctx.scoringSummary.forEach((play) => {
+    // Use normalizedPlays (PAT results already collapsed onto preceding
+    // TD row) so flow math doesn't undercount XPs from All Plays mode.
+    normalizedPlays.forEach((play) => {
       const scoreType = play.scoreType || ''
       const patResult = play.patResult || ''
       let pts = 0
@@ -3833,7 +3845,7 @@ SCORING SUMMARY (in chronological order)
       if (leader !== 0) lastLeader = leader
     })
     // If no plays after Q4, regT matches current; if only regulation, otT is 0
-    if (ctx.scoringSummary.every((p) => quarterRankForFlow(p.quarter) <= 4)) {
+    if (normalizedPlays.every((p) => quarterRankForFlow(p.quarter) <= 4)) {
       regT1 = t1; regT2 = t2
     }
     const finalT1 = t1
