@@ -797,6 +797,12 @@ export default function Game() {
     )
   }
 
+  // Hoisted above hasBoxForLeaders below — it reads `teams`, and the
+  // previous order put the const declaration after that read, which
+  // crashed with TDZ ("Cannot access 'teams' before initialization")
+  // on every game-page render after the merged tid-keyed box-score PR.
+  const teams = currentDynasty?.teams || TEAMS
+
   // Resolve the active tab now that we know whether a recap exists. URL param
   // wins if present so shared links keep working; otherwise use the per-device
   // preference, and if that's "auto" fall back to a smart pick based on which
@@ -812,7 +818,6 @@ export default function Game() {
 
   // Get user perspective for this game (if user's team was in it)
   const perspective = getUserGamePerspective(game, currentDynasty)
-  const teams = currentDynasty?.teams || TEAMS
 
   // Check if this is a CPU vs CPU game (user was not coaching either team)
   const isCPUGame = !perspective
