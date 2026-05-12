@@ -336,9 +336,44 @@ Rushing TD / Passing TD / Field Goal / Safety / Kick Return TD / Punt Return TD 
 PAT Result (F) on TD rows only when visible: Made XP / Missed XP / Blocked XP / Converted 2PT / Failed 2PT
 
 ═══════════════════════════════════════════════════════════
-ORDER + FORMAT
+ORDER — this is the #2 failure mode, read it slowly
 ═══════════════════════════════════════════════════════════
-CFB26's Highlights screen lists plays in reverse-chronological order (lowest time at the top). Output them CHRONOLOGICALLY (earliest first). Within a quarter: bottom of the screenshot first. Q1 → Q2 → Q3 → Q4 → OT.
+The game clock COUNTS DOWN inside each quarter (12:00 → 00:00). So within ONE quarter:
+  • EARLIER in real time = HIGHER time-left value (12:00 is the FIRST play of the quarter)
+  • LATER in real time  = LOWER  time-left value (00:00 is the LAST play of the quarter)
+
+CFB26's Highlights screen lists plays REVERSE-chronologically — newest on TOP, oldest on BOTTOM. So inside one screenshot, the TOP row has the SMALLEST time-left value (most recent) and the BOTTOM row has the LARGEST time-left value (oldest).
+
+Your output is CHRONOLOGICAL (earliest first):
+  • Across quarters:        Q1 → Q2 → Q3 → Q4 → OT → 2OT → …
+  • Within a quarter:        sort by time-left DESCENDING (12:00 first, 00:00 last)
+
+═══════════════════════════════════════════════════════════
+MULTI-SCREENSHOT MERGE — this is what bit the last run
+═══════════════════════════════════════════════════════════
+The user almost always pastes MORE THAN ONE screenshot per game, because the Highlights screen scrolls. Each screenshot is a WINDOW into the same Q1/Q2/Q3/Q4 list — and consecutive screenshots typically OVERLAP by a few rows as the user scrolls.
+
+Treat all screenshots as ONE POOL of plays — do NOT emit them screenshot-by-screenshot:
+  1. Collect every play visible across ALL screenshots into one list.
+  2. DEDUPE: if (quarter, time-left, play-text) match between two screenshots (overlap during scroll), keep ONE copy.
+  3. SORT globally: first by quarter ascending (1 → OT…), then within each quarter by time-left DESCENDING (12:00 → 00:00).
+  4. Emit the sorted, deduped list in one continuous TSV block.
+
+❌ FAIL MODE — emitting each screenshot as a contiguous block produces a sawtooth timeline like
+   "Q4 6:34 … 3:24, Q4 6:21 … 2:20, Q4 10:24 … 7:00, Q4 12:00 … 10:34, Q4 0:59 … 0:10, Q4 2:16 … 0:48"
+   — same quarter, but time-left jumps backward every time a new screenshot starts. Instantly visible to the user.
+
+✅ Worked example (Q4 only):
+  Screenshot A (top of Q4 list)    shows times: 2:20, 2:36, 5:01, 5:41, 6:21
+  Screenshot B (middle of Q4 list) shows times: 5:01, 5:41, 6:21, 7:00, 7:42
+  Screenshot C (bottom of Q4 list) shows times: 7:00, 7:42, 10:24, 11:57, 12:00
+
+  Merged + deduped + sorted Q4 output (in this exact order):
+    12:00, 11:57, 10:24, 7:42, 7:00, 6:21, 5:41, 5:01, 2:36, 2:20
+
+  Times decrease monotonically through the quarter. Overlap rows (5:01, 5:41, 6:21, 7:00, 7:42) each appear ONCE.
+
+SANITY CHECK before emitting: within one quarter, time-left must DECREASE monotonically as you move down rows. If a row's time-left is HIGHER than the previous row's (e.g. "6:21" written right after "3:24", or "10:24" after "2:20") — STOP. You skipped the merge step. Re-collect across screenshots and re-sort before emitting.
 
 ═══════════════════════════════════════════════════════════
 REFERENCE ROWS (templates — note how col A is decided)
