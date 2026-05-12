@@ -2488,9 +2488,12 @@ export default function Game() {
                 <span className="text-txt-secondary truncate">{fallbackBody || '—'}</span>
               )
 
-              // PBP row layout — compact, typeset, no fill. Team color
-              // is conveyed by a thin 2px left rail only (per DESIGN.md).
-              // Numerics use tabular-nums + display font for column align.
+              // PBP row layout — strictly typeset. No colored chips, no
+              // accent fills. Team color is conveyed by a thin 3px left
+              // rail (per DESIGN.md). All labels use the same uppercase
+              // tracked treatment in text-tertiary; numerics in text-
+              // secondary tabular-nums. Hierarchy is built with size and
+              // weight, not color.
               return (
                 <div key={key} className="flex items-stretch text-[11px] sm:text-xs group transition-colors hover:bg-surface-2/60">
                   <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: colors.primary }} />
@@ -2514,13 +2517,13 @@ export default function Game() {
                       {play.fieldPos || ''}
                     </div>
 
-                    {/* Play type badge */}
+                    {/* Play type — plain uppercase label, no chip */}
                     {typeBadge ? (
-                      <div className={`flex-shrink-0 px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-bold tracking-[0.08em] ${typeBadge.bg} ${typeBadge.text}`}>
+                      <div className="flex-shrink-0 font-display font-bold uppercase tracking-[0.1em] text-txt-tertiary text-[10px] sm:text-[11px] w-12 sm:w-14 text-left">
                         {typeBadge.label}
                       </div>
                     ) : (
-                      <div className="w-12 flex-shrink-0" />
+                      <div className="w-12 sm:w-14 flex-shrink-0" />
                     )}
 
                     {/* Player names (or fallback body) */}
@@ -2528,24 +2531,23 @@ export default function Game() {
                       {playerEl}
                     </div>
 
-                    {/* Yards — signed, color-coded, tabular */}
+                    {/* Yards — signed tabular, neutral color. Hierarchy
+                        comes from weight (bold) not green/red fills. */}
                     {yardsValid && (
-                      <div className={`flex-shrink-0 font-display font-bold tabular-nums w-10 sm:w-12 text-right ${
-                        yardsNum > 0 ? 'text-emerald-300' :
-                        yardsNum < 0 ? 'text-red-300' :
-                        isIncompleteType ? 'text-txt-muted italic' :
-                        'text-txt-muted'
-                      }`}>
-                        {isIncompleteType && yardsNum === 0 ? 'inc' : (yardsNum > 0 ? `+${yardsNum}` : yardsNum)}
+                      <div className="flex-shrink-0 font-display font-bold tabular-nums w-10 sm:w-12 text-right text-txt-secondary">
+                        {isIncompleteType && yardsNum === 0
+                          ? <span className="italic font-normal text-txt-tertiary">inc</span>
+                          : (yardsNum > 0 ? `+${yardsNum}` : yardsNum)}
                       </div>
                     )}
 
-                    {/* Result chip — 1st Down or TD */}
+                    {/* Result label — TD or 1st down, both as plain
+                        uppercase tracked text instead of colored pills. */}
                     <div className="flex-shrink-0 w-12 sm:w-14 text-right">
                       {isTD ? (
-                        <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.08em]">TD</span>
+                        <span className="font-display font-bold uppercase tracking-[0.1em] text-txt-primary text-[10px] sm:text-[11px]">TD</span>
                       ) : isFirstDown ? (
-                        <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.08em]">1st</span>
+                        <span className="font-display font-semibold uppercase tracking-[0.1em] text-txt-tertiary text-[10px] sm:text-[11px]">1st dn</span>
                       ) : null}
                     </div>
                   </div>
@@ -2702,15 +2704,15 @@ export default function Game() {
                               </span>
                             )}
                             {play.patResult && !is2PTAttempt(play) && (
-                              <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.1em] px-1.5 py-0.5 rounded ${
-                                patIsGood ? 'bg-emerald-500/15 text-emerald-300' : 'bg-red-500/15 text-red-300'
+                              <span className={`font-display font-bold uppercase tracking-[0.1em] text-[10px] sm:text-[11px] ${
+                                patIsGood ? 'text-txt-tertiary' : 'text-txt-muted line-through decoration-1'
                               }`}>
                                 {play.patResult}
                               </span>
                             )}
                             {is2PTAttempt(play) && (
-                              <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.1em] px-1.5 py-0.5 rounded ${
-                                twoPtGood ? 'bg-emerald-500/15 text-emerald-300' : 'bg-red-500/15 text-red-300'
+                              <span className={`font-display font-bold uppercase tracking-[0.1em] text-[10px] sm:text-[11px] ${
+                                twoPtGood ? 'text-txt-tertiary' : 'text-txt-muted line-through decoration-1'
                               }`}>
                                 {twoPtGood ? '2PT Good' : '2PT Failed'}
                               </span>
