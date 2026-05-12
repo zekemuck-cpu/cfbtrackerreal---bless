@@ -5,6 +5,7 @@ import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCust
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 // Team colors are derived from the viewed team, not the user's team
 import { getContrastTextColor, getContrastRatio } from '../../utils/colorUtils'
+import { canonicalBoxScore, getPlayerStatsForTid, getTeamStatsForTid, hasAnyTeamStats } from '../../utils/boxScoreHelpers'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { bowlLogos } from '../../data/bowlLogos'
 import { getCFPGameId, getSlotIdFromBowlName, getCFPSlotDisplayName, getFirstRoundSlotId } from '../../data/cfpConstants'
@@ -1310,38 +1311,15 @@ export default function TeamYear() {
       possSeconds: 0
     }
 
+    const teamsForResolve = currentDynasty?.teams
     games.forEach(game => {
       // Only count games from this year
       if (Number(game.year) !== selectedYear) return
-      if (!game.boxScore?.teamStats) return
+      if (!game.boxScore) return
 
-      // Pick this team's stats side via tid first (survives teambuilder
-      // renames). Fall back to abbr only when neither side has team1/team2
-      // tids on the game.
-      const t1Tid = game.team1Tid != null ? Number(game.team1Tid) : null
-      const t2Tid = game.team2Tid != null ? Number(game.team2Tid) : null
-      const homeTid = game.homeTeamTid != null ? Number(game.homeTeamTid) : null
-      const isTeam1 = t1Tid != null && t1Tid === Number(tid)
-      const isTeam2 = t2Tid != null && t2Tid === Number(tid)
-
-      let teamStats = null
-      if (isTeam1) {
-        teamStats = (homeTid === Number(tid))
-          ? game.boxScore.teamStats.home
-          : game.boxScore.teamStats.away
-      } else if (isTeam2) {
-        teamStats = (homeTid === Number(tid))
-          ? game.boxScore.teamStats.home
-          : game.boxScore.teamStats.away
-      } else {
-        // Legacy fallback for games with no team1Tid/team2Tid
-        const homeAbbr = game.boxScore.teamStats.home?.teamAbbr?.toUpperCase()
-        const awayAbbr = game.boxScore.teamStats.away?.teamAbbr?.toUpperCase()
-        const targetAbbr = teamAbbr.toUpperCase()
-        if (homeAbbr === targetAbbr) teamStats = game.boxScore.teamStats.home
-        else if (awayAbbr === targetAbbr) teamStats = game.boxScore.teamStats.away
-      }
-
+      // Team stats are keyed by tid in the canonical store; legacy games
+      // are resolved on the fly via the helper.
+      const teamStats = getTeamStatsForTid(game, tid, teamsForResolve)
       if (!teamStats) return
 
       stats.gamesWithStats++
@@ -2142,28 +2120,12 @@ export default function TeamYear() {
         if (favoriteStatus === 'underdog') underdogGames.push(gameWithPerspective)
       }
 
-      // Get box score stats. Tid path FIRST so a teambuilder team renamed
-      // mid-dynasty still aggregates pre-rename games — comparing the
-      // boxScore's stored teamAbbr (snapshot at game time) against the
-      // current registry abbr was silently dropping those games entirely.
+      // Team stats are stored keyed by tid in the canonical box-score
+      // shape — no home/away resolution needed at the call site. Legacy
+      // {home, away} games are migrated lazily by the helper using the
+      // game's homeTeamTid + team1/team2 metadata.
       if (!game.boxScore) return
-
-      let teamSide = null
-      const _isMyHome = game.homeTeamTid != null && Number(game.homeTeamTid) === Number(tid)
-      if (isTeam1) teamSide = _isMyHome ? 'home' : 'away'
-      else if (isTeam2) teamSide = _isMyHome ? 'away' : 'home'
-
-      if (!teamSide) {
-        const homeAbbr = game.boxScore.teamStats?.home?.teamAbbr?.toUpperCase()
-        const awayAbbr = game.boxScore.teamStats?.away?.teamAbbr?.toUpperCase()
-        const targetAbbr = teamAbbr?.toUpperCase()
-        if (homeAbbr === targetAbbr) teamSide = 'home'
-        else if (awayAbbr === targetAbbr) teamSide = 'away'
-      }
-
-      if (!teamSide) return
-
-      const ts = game.boxScore.teamStats?.[teamSide]
+      const ts = getTeamStatsForTid(game, tid, currentDynasty?.teams)
       if (ts) {
         // Offense
         passYards += parseInt(ts.passYards || ts.passingYards) || 0
@@ -3110,39 +3072,15 @@ export default function TeamYear() {
         const getGameSpecificStats = (game) => {
           if (!game || !game.boxScore) return null
 
-          // Use tid-based lookup to find the correct boxScore side
-          // Get tids from boxScore.teamStats (convert abbr to tid if needed)
-          const homeAbbr = game.boxScore.teamStats?.home?.teamAbbr
-          const awayAbbr = game.boxScore.teamStats?.away?.teamAbbr
-          const homeTid = homeAbbr ? resolveTid(homeAbbr, teamsSource) : null
-          const awayTid = awayAbbr ? resolveTid(awayAbbr, teamsSource) : null
-
-          let ourBoxScore, oppBoxScore
-
-          if (homeTid === tid) {
-            ourBoxScore = game.boxScore.home
-            oppBoxScore = game.boxScore.away
-          } else if (awayTid === tid) {
-            ourBoxScore = game.boxScore.away
-            oppBoxScore = game.boxScore.home
-          } else {
-            // Fallback: use game's team1/team2 tid fields
-            const isTeam1 = game.team1Tid === tid
-            const isTeam2 = game.team2Tid === tid
-
-            if (!isTeam1 && !isTeam2) return null
-
-            const team1IsHome = game.homeTeamTid === game.team1Tid ||
-                                (!game.homeTeamTid && game.location === 'home')
-
-            if (isTeam1) {
-              ourBoxScore = team1IsHome ? game.boxScore.home : game.boxScore.away
-              oppBoxScore = team1IsHome ? game.boxScore.away : game.boxScore.home
-            } else {
-              ourBoxScore = team1IsHome ? game.boxScore.away : game.boxScore.home
-              oppBoxScore = team1IsHome ? game.boxScore.home : game.boxScore.away
-            }
-          }
+          // Player stats are stored keyed by tid; pull this team's slot
+          // and (whichever the other team is) the opponent's slot.
+          const ourBoxScore = getPlayerStatsForTid(game, tid, teamsSource)
+          if (!ourBoxScore) return null
+          const canon = canonicalBoxScore(game, teamsSource)
+          const oppTid = Object.keys(canon?.byTid || {})
+            .map(k => Number(k))
+            .find(t => t !== Number(tid))
+          const oppBoxScore = oppTid != null ? canon.byTid[oppTid] : null
 
           // Helper to get top passer with comp/att yards format
           const getTopPasser = (boxScore) => {
@@ -4854,78 +4792,20 @@ export default function TeamYear() {
               const isLoss = displayResult === 'loss' || displayResult === 'L'
               const hasResult = isWin || isLoss
 
-              // Get team stats from boxScore. Tid-based side selection so
-              // a teambuilder team renamed mid-dynasty still gets its
-              // pre-rename game stats; abbr fallback for legacy games
-              // missing team1Tid/team2Tid.
+              // Get team stats from boxScore. Tid-keyed lookup; legacy
+              // games are migrated lazily inside the helper.
               const getGameStats = () => {
-                if (!game.boxScore?.teamStats) return null
-                const t1Tid = game.team1Tid != null ? Number(game.team1Tid) : null
-                const t2Tid = game.team2Tid != null ? Number(game.team2Tid) : null
-                const homeTid = game.homeTeamTid != null ? Number(game.homeTeamTid) : null
-                const tNum = Number(tid)
-                if (t1Tid === tNum || t2Tid === tNum) {
-                  return (homeTid === tNum)
-                    ? game.boxScore.teamStats.home
-                    : game.boxScore.teamStats.away
-                }
-                const homeAbbr = game.boxScore.teamStats.home?.teamAbbr?.toUpperCase()
-                const awayAbbr = game.boxScore.teamStats.away?.teamAbbr?.toUpperCase()
-                const targetAbbr = teamAbbr.toUpperCase()
-                if (homeAbbr === targetAbbr) return game.boxScore.teamStats.home
-                if (awayAbbr === targetAbbr) return game.boxScore.teamStats.away
-                return null
+                if (!game.boxScore) return null
+                return getTeamStatsForTid(game, tid, teamsSource)
               }
               const gameStats = getGameStats()
 
-              // Get stat leaders from boxScore
+              // Get stat leaders from boxScore — pulled by tid via the
+              // canonical store. Legacy {home, away} games are migrated
+              // by the helper using teamStats teamAbbr → homeTeamTid →
+              // team1-at-neutral conventions.
               const getStatLeaders = () => {
-                if (!game.boxScore) return null
-
-                // Method 1: use teamStats abbr (preferred when present —
-                // it's the most authoritative since the user explicitly
-                // entered the team identifier in the Team Stats sheet).
-                const homeAbbr = game.boxScore.teamStats?.home?.teamAbbr
-                const awayAbbr = game.boxScore.teamStats?.away?.teamAbbr
-                const homeTid = homeAbbr ? resolveTid(homeAbbr, teamsSource) : null
-                const awayTid = awayAbbr ? resolveTid(awayAbbr, teamsSource) : null
-
-                let teamData = null
-                if (homeTid != null && Number(homeTid) === Number(tid)) {
-                  teamData = game.boxScore.home
-                } else if (awayTid != null && Number(awayTid) === Number(tid)) {
-                  teamData = game.boxScore.away
-                }
-
-                // Method 2 fallback: when teamStats hasn't been entered
-                // (e.g. user filled in the per-player box score for the
-                // game but never opened the separate Team Stats sheet —
-                // common for Week 1 of a new dynasty), Method 1 returns
-                // null and the schedule row shows no leaders. Resolve
-                // the home/away mapping from the canonical game tid
-                // fields instead so leaders still surface.
-                if (!teamData) {
-                  const tidNum = Number(tid)
-                  const t1 = game.team1Tid != null ? Number(game.team1Tid) : null
-                  const t2 = game.team2Tid != null ? Number(game.team2Tid) : null
-                  const homeTeamTidNum = game.homeTeamTid != null ? Number(game.homeTeamTid) : null
-                  if (homeTeamTidNum != null) {
-                    // Home team's stats live under boxScore.home; the
-                    // other team is on boxScore.away.
-                    if (homeTeamTidNum === tidNum) {
-                      teamData = game.boxScore.home
-                    } else if (t1 === tidNum || t2 === tidNum) {
-                      teamData = game.boxScore.away
-                    }
-                  } else if (t1 === tidNum) {
-                    // Neutral / unknown home — fall back to the team1 →
-                    // home, team2 → away convention used by the entry UI.
-                    teamData = game.boxScore.home
-                  } else if (t2 === tidNum) {
-                    teamData = game.boxScore.away
-                  }
-                }
-
+                const teamData = getPlayerStatsForTid(game, tid, teamsSource)
                 if (!teamData) return null
 
                 // Get top passer by yards (field is playerName or player, yards or yds)

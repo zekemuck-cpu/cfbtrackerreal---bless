@@ -12789,7 +12789,9 @@ const TEAM_STATS_ROWS = [
 ]
 
 // Create a game team stats sheet with a single tab (columns for away and home teams)
-// existingData: optional object { home: {...}, away: {...} } to pre-fill (from game.boxScore.teamStats)
+// existingData: optional tid-keyed map { [tid]: {...stats} } to pre-fill.
+// We map tid→column internally via homeTeamAbbr / awayTeamAbbr so callers
+// never need to think about the sheet's home/away column layout.
 export async function createGameTeamStatsSheet(homeTeamAbbr, awayTeamAbbr, year, week, existingData = null, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
@@ -12838,9 +12840,19 @@ export async function createGameTeamStatsSheet(homeTeamAbbr, awayTeamAbbr, year,
     ])
 
     // Prefill runs after init for the same dropdown-ordering reason as the
-    // other game sheets.
-    if (existingData && (existingData.home || existingData.away)) {
-      await prefillTeamStatsData(sheet.spreadsheetId, accessToken, existingData)
+    // other game sheets. existingData arrives tid-keyed; project it onto
+    // the sheet's home/away columns using the abbrs we just wrote into
+    // the header row.
+    if (existingData && Object.keys(existingData).length > 0) {
+      const homeTid = homeTeamAbbr ? getTidFromAbbr(homeTeamAbbr, dynastyTeams) : null
+      const awayTid = awayTeamAbbr ? getTidFromAbbr(awayTeamAbbr, dynastyTeams) : null
+      const slotData = {
+        home: homeTid != null ? (existingData[Number(homeTid)] || existingData[String(homeTid)]) : null,
+        away: awayTid != null ? (existingData[Number(awayTid)] || existingData[String(awayTid)]) : null,
+      }
+      if (slotData.home || slotData.away) {
+        await prefillTeamStatsData(sheet.spreadsheetId, accessToken, slotData)
+      }
     }
 
     return {
@@ -13081,15 +13093,17 @@ export async function readGameTeamStatsFromSheet(spreadsheetId, dynastyTeams = n
       throw new Error('Team stats sheet is empty')
     }
 
-    // Header row contains: Stat, AwayAbbr, HomeAbbr
+    // Header row contains: Stat, AwayAbbr, HomeAbbr. The sheet itself still
+    // uses home/away columns (that's a UI affordance for the user filling
+    // it out), but we return data keyed by tid via the abbr→tid lookup
+    // so storage stays in the canonical byTid shape. Callers that need to
+    // know which side was which still get teamAbbr inside each entry.
     const headerRow = rows[0]
     const awayTeamAbbr = headerRow[1] || ''
     const homeTeamAbbr = headerRow[2] || ''
 
-    const teamStats = {
-      away: { teamAbbr: awayTeamAbbr },
-      home: { teamAbbr: homeTeamAbbr }
-    }
+    const awayEntry = { teamAbbr: awayTeamAbbr }
+    const homeEntry = { teamAbbr: homeTeamAbbr }
 
     // Parse data rows (starting from row 2)
     for (let i = 1; i < rows.length && i <= TEAM_STATS_ROWS.length; i++) {
@@ -13104,11 +13118,17 @@ export async function readGameTeamStatsFromSheet(spreadsheetId, dynastyTeams = n
         .replace(/[^a-z0-9]+(.)/g, (_, c) => c.toUpperCase())
         .replace(/^./, c => c.toLowerCase())
 
-      teamStats.away[camelKey] = awayValue === '' ? null : (isNaN(Number(awayValue)) ? awayValue : Number(awayValue))
-      teamStats.home[camelKey] = homeValue === '' ? null : (isNaN(Number(homeValue)) ? homeValue : Number(homeValue))
+      awayEntry[camelKey] = awayValue === '' ? null : (isNaN(Number(awayValue)) ? awayValue : Number(awayValue))
+      homeEntry[camelKey] = homeValue === '' ? null : (isNaN(Number(homeValue)) ? homeValue : Number(homeValue))
     }
 
-    return teamStats
+    const teamStatsByTid = {}
+    const awayTid = awayTeamAbbr ? getTidFromAbbr(awayTeamAbbr, dynastyTeams) : null
+    const homeTid = homeTeamAbbr ? getTidFromAbbr(homeTeamAbbr, dynastyTeams) : null
+    if (awayTid != null) teamStatsByTid[Number(awayTid)] = awayEntry
+    if (homeTid != null) teamStatsByTid[Number(homeTid)] = homeEntry
+
+    return teamStatsByTid
   } catch (error) {
     console.error('Error reading team stats:', error)
     throw error

@@ -7,6 +7,7 @@ import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getCurrentTeamAbbr, getCurrentTeamTid, getTidFromAbbr, getGameTeamInfo, TEAMS, getAbbrFromTeamName } from '../data/teamRegistry'
 import { getTeamConference } from '../data/conferenceTeams'
 import { generateRandomBoxScore } from '../data/boxScoreConstants'
+import { canonicalBoxScore, hasPlayerStatsForTid, getPlayerStatsSheetIdForTid, setPlayerStatsForTid, hasAnyTeamStats } from '../utils/boxScoreHelpers'
 import { getFullRecapPrompt } from '../services/geminiService'
 import { isSameWeek } from '../utils/compareUtils'
 import BoxScoreSheetModal from './BoxScoreSheetModal'
@@ -92,6 +93,71 @@ export default function GameEntryModal({
   const updateBoxScoreDirectly = async (updatedGame) => {
     if (!currentDynasty?.id) return
     await addGame(currentDynasty.id, updatedGame)
+  }
+
+  // Resolve which tid is "home" and which is "away" for the box-score
+  // sheet buttons. Used as the targetTid for player-stats modals and
+  // for the completion-state lookups, so storage and UI agree on which
+  // tid each side maps to.
+  const resolveSidesForBoxScore = (sourceGame) => {
+    const t1 = sourceGame?.team1Tid != null ? Number(sourceGame.team1Tid) : null
+    const t2 = sourceGame?.team2Tid != null ? Number(sourceGame.team2Tid) : null
+    const hT = sourceGame?.homeTeamTid != null ? Number(sourceGame.homeTeamTid) : null
+    if (hT != null && t1 != null && t2 != null) {
+      if (hT === t1) return { homeTid: t1, awayTid: t2 }
+      if (hT === t2) return { homeTid: t2, awayTid: t1 }
+    }
+    // homeTeamTid is null (neutral) — team1 = home by convention.
+    return { homeTid: t1, awayTid: t2 }
+  }
+
+  // Build the canonical game object the BoxScoreSheetModal expects when
+  // we open it for a brand-new game (the actual game record doesn't
+  // exist yet). Mirrors the shape produced by the unified save path so
+  // the modal's home/away resolution and target-tid mapping work the
+  // same as for saved games.
+  const buildModalGameContext = () => {
+    const latest = getLatestGameData()
+    if (latest) return latest
+
+    const userTid = effectiveTeamTid
+    const userAbbr = effectiveGame?.team1 || passedTeam1 || ''
+    const rawOpp = gameData.opponent || ''
+    const oppAbbr = getAbbrFromTeamName(rawOpp) || rawOpp
+    const oppTid = effectiveGame?.team2Tid != null
+      ? Number(effectiveGame.team2Tid)
+      : (oppAbbr ? getTidFromAbbr(oppAbbr, currentDynasty) : null)
+
+    // Mirror the save path's neutral/CFP/conference-championship logic
+    // so the modal sees the same homeTeamTid the save will store.
+    const isNeutralGame =
+      isConferenceChampionship ||
+      !!effectiveGame?.isConferenceChampionship ||
+      !!bowlName || !!effectiveGame?.isBowlGame ||
+      !!effectiveGame?.isCFPFirstRound || !!effectiveGame?.isCFPQuarterfinal ||
+      !!effectiveGame?.isCFPSemifinal || !!effectiveGame?.isCFPChampionship
+    let homeTeamTid = null
+    if (!isNeutralGame) {
+      if (gameData.location === 'home') homeTeamTid = userTid
+      else if (gameData.location === 'away') homeTeamTid = oppTid
+    }
+
+    return {
+      id: tempGameId,
+      week: actualWeekNumber,
+      year: actualYear,
+      opponent: gameData.opponent,
+      location: gameData.location,
+      team1: userAbbr || effectiveGame?.team1 || passedTeam1,
+      team2: oppAbbr || effectiveGame?.team2 || passedTeam2,
+      team1Tid: isCPUGame
+        ? (effectiveGame?.team1Tid != null ? Number(effectiveGame.team1Tid) : null)
+        : (userTid != null ? Number(userTid) : null),
+      team2Tid: isCPUGame
+        ? (effectiveGame?.team2Tid != null ? Number(effectiveGame.team2Tid) : null)
+        : (oppTid != null ? Number(oppTid) : null),
+      homeTeamTid,
+    }
   }
 
   // Auto-save form before opening stats modals (for existing games only)
@@ -197,10 +263,12 @@ export default function GameEntryModal({
   const [showScoringModal, setShowScoringModal] = useState(false)
   const [showTeamStatsModal, setShowTeamStatsModal] = useState(false)
   const [tempGameId, setTempGameId] = useState(null) // Pre-generated ID for new games
-  const [pendingHomeStats, setPendingHomeStats] = useState(null) // Home team stats for new games
-  const [pendingAwayStats, setPendingAwayStats] = useState(null) // Away team stats for new games
-  const [pendingScoringSummary, setPendingScoringSummary] = useState(null) // Scoring summary for new games
-  const [pendingTeamStats, setPendingTeamStats] = useState(null) // Team stats for new games
+  // Pending data for a NOT-yet-saved game (existing games persist directly
+  // via updateBoxScoreDirectly). All keyed by tid so home/away ambiguity
+  // never enters storage.
+  const [pendingPlayerStatsByTid, setPendingPlayerStatsByTid] = useState(null) // { [tid]: {passing:[], rushing:[], ...} }
+  const [pendingTeamStatsByTid, setPendingTeamStatsByTid] = useState(null)     // { [tid]: { firstDowns, ... } }
+  const [pendingScoringSummary, setPendingScoringSummary] = useState(null)     // [...plays]
   const [pendingSheetIds, setPendingSheetIds] = useState({}) // Sheet IDs for new games
   const [conferencePOW, setConferencePOW] = useState('') // Player name for conference offensive POW
   const [confDefensePOW, setConfDefensePOW] = useState('') // Player name for conference defensive POW
@@ -1066,8 +1134,8 @@ export default function GameEntryModal({
     // Reset all new game state when modal closes
     if (!isOpen) {
       setTempGameId(null)
-      setPendingHomeStats(null)
-      setPendingAwayStats(null)
+      setPendingPlayerStatsByTid(null)
+      setPendingTeamStatsByTid(null)
       setPendingScoringSummary(null)
       setPendingSheetIds({})
     }
@@ -1382,26 +1450,29 @@ export default function GameEntryModal({
       ...(restGameData.aiRecap && { aiRecap: restGameData.aiRecap }),
       ...(restGameData.gameNote && { gameNote: restGameData.gameNote }),
 
-      // Box score handling:
-      // 1. If we have new pending data, use it
+      // Box score handling — single source of truth is the canonical
+      // byTid shape:
+      // 1. If we have new pending data, use it (already tid-keyed)
       // 2. If no pending data but existing game has boxScore, preserve it
+      //    (legacy shapes are migrated lazily on read by the helpers)
       // 3. Otherwise, no boxScore
-      ...((pendingHomeStats || pendingAwayStats || pendingScoringSummary || pendingTeamStats) ? {
+      ...((pendingPlayerStatsByTid || pendingTeamStatsByTid || pendingScoringSummary) ? {
         boxScore: {
-          home: pendingHomeStats || {},
-          away: pendingAwayStats || {},
+          byTid: pendingPlayerStatsByTid || {},
+          teamStatsByTid: pendingTeamStatsByTid || {},
           scoringSummary: pendingScoringSummary || [],
-          teamStats: pendingTeamStats || null
         }
       } : effectiveGame?.boxScore ? {
         boxScore: effectiveGame.boxScore
       } : {}),
-      // Sheet IDs - preserve existing or use new pending
-      ...((pendingSheetIds.homeStatsSheetId || effectiveGame?.homeStatsSheetId) && {
-        homeStatsSheetId: pendingSheetIds.homeStatsSheetId || effectiveGame.homeStatsSheetId
-      }),
-      ...((pendingSheetIds.awayStatsSheetId || effectiveGame?.awayStatsSheetId) && {
-        awayStatsSheetId: pendingSheetIds.awayStatsSheetId || effectiveGame.awayStatsSheetId
+      // Sheet IDs - preserve existing or use new pending. Player-stats
+      // sheet IDs live in a tid-keyed map; the others are still one per
+      // game (one shared sheet for both teams).
+      ...((pendingSheetIds.playerStatsSheetIdByTid || effectiveGame?.playerStatsSheetIdByTid) && {
+        playerStatsSheetIdByTid: {
+          ...(effectiveGame?.playerStatsSheetIdByTid || {}),
+          ...(pendingSheetIds.playerStatsSheetIdByTid || {}),
+        }
       }),
       ...((pendingSheetIds.scoringSummarySheetId || effectiveGame?.scoringSummarySheetId) && {
         scoringSummarySheetId: pendingSheetIds.scoringSummarySheetId || effectiveGame.scoringSummarySheetId
@@ -1531,10 +1602,9 @@ export default function GameEntryModal({
     const rawOpp = gameData.opponent || scheduledGame?.opponent || 'OPP'
     const opponentAbbr = getAbbrFromTeamName(rawOpp) || rawOpp
 
-    // Determine home/away based on location
-    const isUserHome = gameData.location === 'home' || gameData.location === 'neutral'
-
-    // Generate position-based box score
+    // Generate position-based box score. The generator returns tid-keyed
+    // data ({ byTid, teamStatsByTid, scoringSummary }) — no home/away
+    // swap needed at the call site.
     const boxScore = generateRandomBoxScore(
       currentDynasty?.players || [],
       finalTeamScore,
@@ -1545,15 +1615,7 @@ export default function GameEntryModal({
       currentDynasty?.teams
     )
 
-    // Adjust home/away based on actual game location
-    if (isUserHome) {
-      setPendingHomeStats(boxScore.home)
-      setPendingAwayStats(boxScore.away)
-    } else {
-      // User is away team, so swap
-      setPendingHomeStats(boxScore.away)
-      setPendingAwayStats(boxScore.home)
-    }
+    setPendingPlayerStatsByTid(boxScore.byTid || {})
     setPendingScoringSummary(boxScore.scoringSummary)
 
     // Auto-submit after state updates
@@ -3003,23 +3065,38 @@ export default function GameEntryModal({
                 awayAbbr = isTeamHome ? oppAbbr : teamAbbr
               }
 
-              // Check if stats already entered (via data or sheet creation)
-              const hasHomeStats = existingGame?.boxScore?.home && Object.keys(existingGame.boxScore.home).length > 0
-              const hasAwayStats = existingGame?.boxScore?.away && Object.keys(existingGame.boxScore.away).length > 0
+              // Resolve home/away tids — buttons key their stats by tid,
+              // so completion checks mirror that.
+              const homeTeamTidForBtn = homeAbbr ? getTidFromAbbr(homeAbbr, currentDynasty) : null
+              const awayTeamTidForBtn = awayAbbr ? getTidFromAbbr(awayAbbr, currentDynasty) : null
+              const numHomeTid = homeTeamTidForBtn != null ? Number(homeTeamTidForBtn) : null
+              const numAwayTid = awayTeamTidForBtn != null ? Number(awayTeamTidForBtn) : null
+
+              // Check if stats already entered (via data or sheet creation).
+              // Reads route through the helpers so legacy {home, away}
+              // games still report their entered state correctly.
+              const teamsForResolve = currentDynasty?.teams || TEAMS
+              const hasHomeStats = numHomeTid != null && hasPlayerStatsForTid(existingGame, numHomeTid, teamsForResolve)
+              const hasAwayStats = numAwayTid != null && hasPlayerStatsForTid(existingGame, numAwayTid, teamsForResolve)
               const hasScoring = existingGame?.boxScore?.scoringSummary?.length > 0
-              const hasTeamStats = existingGame?.boxScore?.teamStats && (existingGame.boxScore.teamStats.home || existingGame.boxScore.teamStats.away)
+              const hasTeamStats = hasAnyTeamStats(existingGame, teamsForResolve)
+
+              // Pending state (for not-yet-saved games)
+              const pendingHomeStatsHas = numHomeTid != null && !!pendingPlayerStatsByTid?.[numHomeTid]
+              const pendingAwayStatsHas = numAwayTid != null && !!pendingPlayerStatsByTid?.[numAwayTid]
 
               // Also check if sheets have been created (even if data not synced yet)
-              const hasHomeSheet = existingGame?.homeStatsSheetId || pendingSheetIds.homeStatsSheetId
-              const hasAwaySheet = existingGame?.awayStatsSheetId || pendingSheetIds.awayStatsSheetId
+              const pendingSheetMap = pendingSheetIds.playerStatsSheetIdByTid || {}
+              const hasHomeSheet = numHomeTid != null && (getPlayerStatsSheetIdForTid(existingGame, numHomeTid, teamsForResolve) || pendingSheetMap[numHomeTid])
+              const hasAwaySheet = numAwayTid != null && (getPlayerStatsSheetIdForTid(existingGame, numAwayTid, teamsForResolve) || pendingSheetMap[numAwayTid])
               const hasScoringSheet = existingGame?.scoringSummarySheetId || pendingSheetIds.scoringSummarySheetId
               const hasTeamStatsSheet = existingGame?.teamStatsSheetId || pendingSheetIds.teamStatsSheetId
 
               // Combine checks - completed if has data OR has sheet
-              const homeCompleted = hasHomeStats || pendingHomeStats || hasHomeSheet
-              const awayCompleted = hasAwayStats || pendingAwayStats || hasAwaySheet
+              const homeCompleted = hasHomeStats || pendingHomeStatsHas || hasHomeSheet
+              const awayCompleted = hasAwayStats || pendingAwayStatsHas || hasAwaySheet
               const scoringCompleted = hasScoring || pendingScoringSummary || hasScoringSheet
-              const teamStatsCompleted = hasTeamStats || pendingTeamStats || hasTeamStatsSheet
+              const teamStatsCompleted = hasTeamStats || pendingTeamStatsByTid || hasTeamStatsSheet
 
               return (
                 <div className="mt-4 space-y-2">
@@ -3120,90 +3197,86 @@ export default function GameEntryModal({
         </form>
 
         {/* Home Stats Modal */}
-        {showHomeStatsModal && (
+        {showHomeStatsModal && (() => {
+          const modalGame = buildModalGameContext()
+          const { homeTid: homeTargetTid } = resolveSidesForBoxScore(modalGame)
+          const teamsForResolve = currentDynasty?.teams || currentDynasty?.customTeams
+          return (
           <BoxScoreSheetModal
             isOpen={showHomeStatsModal}
             onClose={() => setShowHomeStatsModal(false)}
             onSave={async (stats) => {
               if (existingGame) {
-                // Existing game - update directly without closing GameEntryModal
                 const latestGame = getLatestGameData()
-                const updatedGame = {
-                  ...latestGame,
-                  boxScore: {
-                    ...latestGame.boxScore,
-                    home: stats
-                  }
-                }
+                const updatedGame = setPlayerStatsForTid(latestGame, homeTargetTid, stats || {}, teamsForResolve)
                 await updateBoxScoreDirectly(updatedGame)
               } else {
-                // New game - store for later
-                setPendingHomeStats(stats)
+                setPendingPlayerStatsByTid(prev => ({ ...(prev || {}), [homeTargetTid]: stats || {} }))
               }
             }}
             onSheetCreated={(sheetId) => {
               if (!existingGame) {
-                setPendingSheetIds(prev => ({ ...prev, homeStatsSheetId: sheetId }))
+                setPendingSheetIds(prev => ({
+                  ...prev,
+                  playerStatsSheetIdByTid: {
+                    ...(prev.playerStatsSheetIdByTid || {}),
+                    [homeTargetTid]: sheetId,
+                  },
+                }))
               }
             }}
-            sheetType="homeStats"
-            existingSheetId={getLatestGameData()?.homeStatsSheetId || pendingSheetIds.homeStatsSheetId}
-            game={getLatestGameData() || {
-              id: tempGameId,
-              week: actualWeekNumber,
-              year: actualYear,
-              opponent: gameData.opponent,
-              location: gameData.location,
-              // CPU game: has team1/team2 but no userTeam
-              team1: effectiveGame?.team1 || passedTeam1,
-              team2: effectiveGame?.team2 || passedTeam2
-            }}
+            sheetType="playerStats"
+            targetTid={homeTargetTid}
+            existingSheetId={
+              getPlayerStatsSheetIdForTid(getLatestGameData(), homeTargetTid, teamsForResolve)
+              || (pendingSheetIds.playerStatsSheetIdByTid?.[homeTargetTid] ?? null)
+            }
+            game={modalGame}
             teamColors={teamColors}
           />
-        )}
+          )
+        })()}
 
         {/* Away Stats Modal */}
-        {showAwayStatsModal && (
+        {showAwayStatsModal && (() => {
+          const modalGame = buildModalGameContext()
+          const { awayTid: awayTargetTid } = resolveSidesForBoxScore(modalGame)
+          const teamsForResolve = currentDynasty?.teams || currentDynasty?.customTeams
+          return (
           <BoxScoreSheetModal
             isOpen={showAwayStatsModal}
             onClose={() => setShowAwayStatsModal(false)}
             onSave={async (stats) => {
               if (existingGame) {
-                // Existing game - update directly without closing GameEntryModal
                 const latestGame = getLatestGameData()
-                const updatedGame = {
-                  ...latestGame,
-                  boxScore: {
-                    ...latestGame.boxScore,
-                    away: stats
-                  }
-                }
+                const updatedGame = setPlayerStatsForTid(latestGame, awayTargetTid, stats || {}, teamsForResolve)
                 await updateBoxScoreDirectly(updatedGame)
               } else {
-                // New game - store for later
-                setPendingAwayStats(stats)
+                setPendingPlayerStatsByTid(prev => ({ ...(prev || {}), [awayTargetTid]: stats || {} }))
               }
             }}
             onSheetCreated={(sheetId) => {
               if (!existingGame) {
-                setPendingSheetIds(prev => ({ ...prev, awayStatsSheetId: sheetId }))
+                setPendingSheetIds(prev => ({
+                  ...prev,
+                  playerStatsSheetIdByTid: {
+                    ...(prev.playerStatsSheetIdByTid || {}),
+                    [awayTargetTid]: sheetId,
+                  },
+                }))
               }
             }}
-            sheetType="awayStats"
-            existingSheetId={getLatestGameData()?.awayStatsSheetId || pendingSheetIds.awayStatsSheetId}
-            game={getLatestGameData() || {
-              id: tempGameId,
-              week: actualWeekNumber,
-              year: actualYear,
-              opponent: gameData.opponent,
-              location: gameData.location,
-              // CPU game: has team1/team2 but no userTeam
-              team1: effectiveGame?.team1 || passedTeam1,
-              team2: effectiveGame?.team2 || passedTeam2
-            }}
+            sheetType="playerStats"
+            targetTid={awayTargetTid}
+            existingSheetId={
+              getPlayerStatsSheetIdForTid(getLatestGameData(), awayTargetTid, teamsForResolve)
+              || (pendingSheetIds.playerStatsSheetIdByTid?.[awayTargetTid] ?? null)
+            }
+            game={modalGame}
             teamColors={teamColors}
           />
-        )}
+          )
+        })()}
 
         {/* Scoring Summary Modal */}
         {showScoringModal && (
@@ -3212,18 +3285,19 @@ export default function GameEntryModal({
             onClose={() => setShowScoringModal(false)}
             onSave={async (scoringSummary) => {
               if (existingGame) {
-                // Existing game - update directly without closing GameEntryModal
                 const latestGame = getLatestGameData()
+                const teamsForResolve = currentDynasty?.teams || currentDynasty?.customTeams
+                const canon = canonicalBoxScore(latestGame, teamsForResolve) || { byTid: {}, teamStatsByTid: {}, scoringSummary: [] }
                 const updatedGame = {
                   ...latestGame,
                   boxScore: {
-                    ...latestGame.boxScore,
-                    scoringSummary
-                  }
+                    byTid: canon.byTid,
+                    teamStatsByTid: canon.teamStatsByTid,
+                    scoringSummary: scoringSummary || [],
+                  },
                 }
                 await updateBoxScoreDirectly(updatedGame)
               } else {
-                // New game - store for later
                 setPendingScoringSummary(scoringSummary)
               }
             }}
@@ -3234,16 +3308,7 @@ export default function GameEntryModal({
             }}
             sheetType="scoring"
             existingSheetId={getLatestGameData()?.scoringSummarySheetId || pendingSheetIds.scoringSummarySheetId}
-            game={getLatestGameData() || {
-              id: tempGameId,
-              week: actualWeekNumber,
-              year: actualYear,
-              opponent: gameData.opponent,
-              location: gameData.location,
-              // CPU game: has team1/team2 but no userTeam
-              team1: effectiveGame?.team1 || passedTeam1,
-              team2: effectiveGame?.team2 || passedTeam2
-            }}
+            game={buildModalGameContext()}
             teamColors={teamColors}
           />
         )}
@@ -3253,21 +3318,22 @@ export default function GameEntryModal({
           <BoxScoreSheetModal
             isOpen={showTeamStatsModal}
             onClose={() => setShowTeamStatsModal(false)}
-            onSave={async (teamStats) => {
+            onSave={async (teamStatsByTid) => {
               if (existingGame) {
-                // Existing game - update directly without closing GameEntryModal
                 const latestGame = getLatestGameData()
+                const teamsForResolve = currentDynasty?.teams || currentDynasty?.customTeams
+                const canon = canonicalBoxScore(latestGame, teamsForResolve) || { byTid: {}, teamStatsByTid: {}, scoringSummary: [] }
                 const updatedGame = {
                   ...latestGame,
                   boxScore: {
-                    ...latestGame.boxScore,
-                    teamStats
-                  }
+                    byTid: canon.byTid,
+                    teamStatsByTid: teamStatsByTid || {},
+                    scoringSummary: canon.scoringSummary || [],
+                  },
                 }
                 await updateBoxScoreDirectly(updatedGame)
               } else {
-                // New game - store for later
-                setPendingTeamStats(teamStats)
+                setPendingTeamStatsByTid(teamStatsByTid || {})
               }
             }}
             onSheetCreated={(sheetId) => {
@@ -3277,16 +3343,7 @@ export default function GameEntryModal({
             }}
             sheetType="teamStats"
             existingSheetId={getLatestGameData()?.teamStatsSheetId || pendingSheetIds.teamStatsSheetId}
-            game={getLatestGameData() || {
-              id: tempGameId,
-              week: actualWeekNumber,
-              year: actualYear,
-              opponent: gameData.opponent,
-              location: gameData.location,
-              // CPU game: has team1/team2 but no userTeam
-              team1: effectiveGame?.team1 || passedTeam1,
-              team2: effectiveGame?.team2 || passedTeam2
-            }}
+            game={buildModalGameContext()}
             teamColors={teamColors}
           />
         )}

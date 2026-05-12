@@ -11,6 +11,7 @@ import { getBowlLogo } from '../../data/bowlLogos'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { getTeamConference } from '../../data/conferenceTeams'
 import BoxScoreSheetModal from '../../components/BoxScoreSheetModal'
+import { setPlayerStatsForTid, setTeamStatsForTid, setScoringSummary, getPlayerStatsSheetIdForTid, canonicalBoxScore } from '../../utils/boxScoreHelpers'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName } from '../../data/cfpConstants'
 import { PageHero, Card, Button, EmptyState, Input, Select, Textarea } from '../../components/ui'
 import { getTeamLogoRobust } from '../../utils/teamLogo'
@@ -177,7 +178,11 @@ export default function GameEdit() {
 
   // Box score sheet modal state
   const [showBoxScoreModal, setShowBoxScoreModal] = useState(false)
-  const [boxScoreModalType, setBoxScoreModalType] = useState(null) // 'homeStats', 'awayStats', 'scoring', 'teamStats'
+  const [boxScoreModalType, setBoxScoreModalType] = useState(null) // 'playerStats' | 'scoring' | 'teamStats'
+  // For 'playerStats' only — the tid of the team this sheet covers.
+  // Routes the modal, the saved data, and the saved sheet ID by tid, so
+  // there's no home/away ambiguity to resolve on read.
+  const [boxScoreModalTargetTid, setBoxScoreModalTargetTid] = useState(null)
 
   // Recap state — copy-prompt only, no live AI calls.
   const [recapError, setRecapError] = useState(null)
@@ -481,8 +486,9 @@ export default function GameEdit() {
   const isLeftUserTeam = leftTeamTid === userTidForGame
   const isRightUserTeam = rightTeamTid === userTidForGame
 
-  // Compute actual homeTeamTid based on current location setting (for modal sheet type mapping)
-  // This is used to correctly map team buttons to 'homeStats' or 'awayStats'
+  // Resolve the home-team tid from the current location setting. Box-
+  // score sheets are now tid-keyed, so this only feeds the read-time
+  // home/away derivation for legacy fallback in the helpers.
   const gameHomeTeamTid = formData.location === 'home' ? team1Tid :
                           formData.location === 'away' ? team2Tid : null
 
@@ -1289,11 +1295,12 @@ export default function GameEdit() {
   // the "Page Unresponsive" dialog before the modal even rendered.
   // Fire-and-forget: the silent save still runs, just doesn't gate
   // modal display on it. Modal mounts in <100ms.
-  const openBoxScoreModal = (type) => {
+  const openBoxScoreModal = (type, targetTid = null) => {
     saveGameDataSilently().catch(error => {
       console.error('[openBoxScoreModal] background save failed:', error)
     })
     setBoxScoreModalType(type)
+    setBoxScoreModalTargetTid(type === 'playerStats' ? (targetTid != null ? Number(targetTid) : null) : null)
     setShowBoxScoreModal(true)
   }
 
@@ -1306,23 +1313,29 @@ export default function GameEdit() {
       const existingGame = games.find(g => g.id === currentGameId)
 
       if (existingGame) {
-        const updatedGame = { ...existingGame }
+        const teamsForResolve = currentDynasty?.teams || currentDynasty?.customTeams
+        let updatedGame = existingGame
 
-        // Ensure boxScore object exists
-        if (!updatedGame.boxScore) {
-          updatedGame.boxScore = {}
-        }
-
-        // Update game with box score data based on sheet type
-        // All data goes under game.boxScore to match Game.jsx expectations
+        // Route each sheet's data to the canonical byTid store via the
+        // helpers. Player-stats data is keyed by the target team's tid;
+        // team-stats data arrives already tid-keyed from the sheet reader;
+        // scoringSummary is a flat array (unchanged).
         if (boxScoreModalType === 'teamStats') {
-          updatedGame.boxScore.teamStats = data
+          const canon = canonicalBoxScore(updatedGame, teamsForResolve) || { byTid: {}, teamStatsByTid: {}, scoringSummary: [] }
+          updatedGame = {
+            ...updatedGame,
+            boxScore: {
+              byTid: canon.byTid,
+              teamStatsByTid: data || {},
+              scoringSummary: canon.scoringSummary || []
+            }
+          }
         } else if (boxScoreModalType === 'scoring') {
-          updatedGame.boxScore.scoringSummary = data
-        } else if (boxScoreModalType === 'homeStats') {
-          updatedGame.boxScore.home = data
-        } else if (boxScoreModalType === 'awayStats') {
-          updatedGame.boxScore.away = data
+          updatedGame = setScoringSummary(updatedGame, data || [], teamsForResolve)
+        } else if (boxScoreModalType === 'playerStats') {
+          if (boxScoreModalTargetTid != null) {
+            updatedGame = setPlayerStatsForTid(updatedGame, boxScoreModalTargetTid, data || {}, teamsForResolve)
+          }
         }
 
         // Use addGame to ensure delta tracking is applied for player stats
@@ -1343,17 +1356,17 @@ export default function GameEdit() {
       const existingGame = games.find(g => g.id === currentGameId)
 
       if (existingGame) {
-        const updatedGame = { ...existingGame }
+        let updatedGame = { ...existingGame }
 
-        // Save sheet ID based on modal type
+        // Player-stats sheet IDs live in a tid-keyed map. Other sheet
+        // types use a single top-level field.
         if (boxScoreModalType === 'teamStats') {
           updatedGame.teamStatsSheetId = sheetId
         } else if (boxScoreModalType === 'scoring') {
           updatedGame.scoringSummarySheetId = sheetId
-        } else if (boxScoreModalType === 'homeStats') {
-          updatedGame.homeStatsSheetId = sheetId
-        } else if (boxScoreModalType === 'awayStats') {
-          updatedGame.awayStatsSheetId = sheetId
+        } else if (boxScoreModalType === 'playerStats' && boxScoreModalTargetTid != null) {
+          const prev = updatedGame.playerStatsSheetIdByTid || {}
+          updatedGame.playerStatsSheetIdByTid = { ...prev, [boxScoreModalTargetTid]: sheetId }
         }
 
         await addGame(currentDynasty.id, updatedGame)
@@ -1366,11 +1379,14 @@ export default function GameEdit() {
   // Get existing sheet ID based on modal type
   const getExistingSheetId = () => {
     if (!existingGame) return null
+    const teamsForResolve = currentDynasty?.teams || currentDynasty?.customTeams
     switch (boxScoreModalType) {
       case 'teamStats': return existingGame.teamStatsSheetId
       case 'scoring': return existingGame.scoringSummarySheetId
-      case 'homeStats': return existingGame.homeStatsSheetId
-      case 'awayStats': return existingGame.awayStatsSheetId
+      case 'playerStats':
+        return boxScoreModalTargetTid != null
+          ? getPlayerStatsSheetIdForTid(existingGame, boxScoreModalTargetTid, teamsForResolve)
+          : null
       default: return null
     }
   }
@@ -1866,27 +1882,15 @@ export default function GameEdit() {
                 {
                   key: 'left-stats',
                   label: `${leftTeamAbbr} Stats`,
-                  onClick: () => openBoxScoreModal(
-                    gameHomeTeamTid === null
-                      ? (displayLeftTeam === 'team1' ? 'homeStats' : 'awayStats')
-                      : (leftTeamTid === gameHomeTeamTid ? 'homeStats' : 'awayStats')
-                  ),
-                  connected: !!(gameHomeTeamTid === null
-                    ? (displayLeftTeam === 'team1' ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId)
-                    : (leftTeamTid === gameHomeTeamTid ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId)),
+                  onClick: () => openBoxScoreModal('playerStats', leftTeamTid),
+                  connected: !!getPlayerStatsSheetIdForTid(existingGame, leftTeamTid, currentDynasty?.teams || currentDynasty?.customTeams),
                   logo: leftTeamLogo
                 },
                 {
                   key: 'right-stats',
                   label: `${rightTeamAbbr} Stats`,
-                  onClick: () => openBoxScoreModal(
-                    gameHomeTeamTid === null
-                      ? (displayRightTeam === 'team1' ? 'homeStats' : 'awayStats')
-                      : (rightTeamTid === gameHomeTeamTid ? 'homeStats' : 'awayStats')
-                  ),
-                  connected: !!(gameHomeTeamTid === null
-                    ? (displayRightTeam === 'team1' ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId)
-                    : (rightTeamTid === gameHomeTeamTid ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId)),
+                  onClick: () => openBoxScoreModal('playerStats', rightTeamTid),
+                  connected: !!getPlayerStatsSheetIdForTid(existingGame, rightTeamTid, currentDynasty?.teams || currentDynasty?.customTeams),
                   logo: rightTeamLogo
                 },
                 {
@@ -2253,6 +2257,7 @@ export default function GameEdit() {
           onSheetCreated={handleSheetCreated}
           existingSheetId={getExistingSheetId()}
           sheetType={boxScoreModalType}
+          targetTid={boxScoreModalTargetTid}
           game={existingGame ? {
             ...existingGame,
             // Override homeTeamTid with current form state if changed

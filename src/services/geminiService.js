@@ -12,6 +12,7 @@ import { getCurrentTeamAbbr, TEAMS, getGameTeamInfo, getNameByAbbr, getTidFromAb
 import { getTeamConference } from '../data/conferenceTeams'
 import { getUserGamePerspective, getLockedCoachingStaff, getCustomConferencesForYear } from '../context/DynastyContext'
 import { buildCFPProjection } from '../utils/cfpProjection'
+import { canonicalBoxScore, getPlayerStatsForTid, getTeamStatsForTid } from '../utils/boxScoreHelpers'
 
 // ============================================
 // HELPER FUNCTIONS FOR DATA EXTRACTION
@@ -86,9 +87,11 @@ function getPlayerRecentGames(playerName, allGames, year, currentGameOrder, team
 
   const results = []
   for (const game of recentGames) {
-    // Search both sides of box score for this player
-    for (const side of ['home', 'away']) {
-      const boxSide = game.boxScore[side]
+    // Search every team's slot in the canonical store. Helper migrates
+    // legacy {home, away} games on the fly.
+    const canon = canonicalBoxScore(game)
+    const slots = canon ? Object.values(canon.byTid || {}) : []
+    for (const boxSide of slots) {
       if (!boxSide) continue
 
       // Check all stat categories
@@ -367,7 +370,7 @@ function getSeasonResultsBeforeGame(allGames, teamAbbr, year, currentGameOrder, 
 /**
  * Build enhanced player context with season stats and recent games
  */
-function buildEnhancedPlayerHighlights(boxScore, side, players, allGames, year, currentGameOrder, teamAbbr) {
+function buildEnhancedPlayerHighlights(teamStats, players, allGames, year, currentGameOrder, teamAbbr) {
   const highlights = {
     passing: [],
     rushing: [],
@@ -375,11 +378,12 @@ function buildEnhancedPlayerHighlights(boxScore, side, players, allGames, year, 
     defense: [],
     kicking: []
   }
+  if (!teamStats) return highlights
 
   // Extract passing leaders with enhanced context
   // Note: Box score from sheets uses: comp, attempts, yards, tD, iNT (camelCase from headers)
-  if (boxScore[side]?.passing?.length > 0) {
-    const passers = boxScore[side].passing.filter(p => (p.attempts || p.att) > 0)
+  if (teamStats.passing?.length > 0) {
+    const passers = teamStats.passing.filter(p => (p.attempts || p.att) > 0)
     passers.forEach(p => {
       const player = getPlayerByName(players, p.playerName)
       const seasonStats = player ? getPlayerSeasonStats(player, year) : null
@@ -418,8 +422,8 @@ function buildEnhancedPlayerHighlights(boxScore, side, players, allGames, year, 
 
   // Extract rushing leaders with enhanced context
   // Note: Box score from sheets uses: carries, yards, tD (camelCase from headers)
-  if (boxScore[side]?.rushing?.length > 0) {
-    const rushers = boxScore[side].rushing.filter(p => (p.carries || p.car) > 0).slice(0, 3)
+  if (teamStats?.rushing?.length > 0) {
+    const rushers = teamStats.rushing.filter(p => (p.carries || p.car) > 0).slice(0, 3)
     rushers.forEach(p => {
       const player = getPlayerByName(players, p.playerName)
       const seasonStats = player ? getPlayerSeasonStats(player, year) : null
@@ -454,8 +458,8 @@ function buildEnhancedPlayerHighlights(boxScore, side, players, allGames, year, 
 
   // Extract receiving leaders with enhanced context
   // Note: Box score from sheets uses: receptions, yards, tD (camelCase from headers)
-  if (boxScore[side]?.receiving?.length > 0) {
-    const receivers = boxScore[side].receiving.filter(p => (p.receptions || p.rec) > 0).slice(0, 3)
+  if (teamStats?.receiving?.length > 0) {
+    const receivers = teamStats.receiving.filter(p => (p.receptions || p.rec) > 0).slice(0, 3)
     receivers.forEach(p => {
       const player = getPlayerByName(players, p.playerName)
       const seasonStats = player ? getPlayerSeasonStats(player, year) : null
@@ -489,8 +493,8 @@ function buildEnhancedPlayerHighlights(boxScore, side, players, allGames, year, 
   }
 
   // Extract defensive standouts with enhanced context
-  if (boxScore[side]?.defense?.length > 0) {
-    const defenders = boxScore[side].defense
+  if (teamStats?.defense?.length > 0) {
+    const defenders = teamStats.defense
       .map(p => ({
         ...p,
         totalTackles: (parseFloat(p.solo) || 0) + (parseFloat(p.assists) || 0)
@@ -530,8 +534,8 @@ function buildEnhancedPlayerHighlights(boxScore, side, players, allGames, year, 
 
   // Extract kicking with enhanced context
   // Note: Box score from sheets uses: fGM, fGA, fGLong (camelCase from headers like 'FGM', 'FGA', 'FG Long')
-  if (boxScore[side]?.kicking?.length > 0) {
-    boxScore[side].kicking.forEach(p => {
+  if (teamStats?.kicking?.length > 0) {
+    teamStats.kicking.forEach(p => {
       // Handle both field name formats
       const fgm = p.fGM ?? p.fgm ?? 0
       const fga = p.fGA ?? p.fga ?? 0
@@ -1986,7 +1990,7 @@ export function getPlayerSeasonHighFlags(allGames, year, currentGameOrder, curre
     if (prev != null) flags[name][key + 'PrevHigh'] = prev
   }
   for (const side of ['home', 'away']) {
-    const block = currentGame.boxScore[side]
+    const block = currentGame.teamStats
     if (!block) continue
     for (const p of (block.passing || [])) setFlag(p?.name || p?.playerName, 'passYds', p?.passYds ?? p?.yds)
     for (const p of (block.rushing || [])) setFlag(p?.name || p?.playerName, 'rushYds', p?.rushYds ?? p?.yds)
@@ -2294,13 +2298,14 @@ function getOpponentSeasonResults(allGames, opponentAbbr, year, currentGameOrder
  * Get performance trends for players in the box score
  * Shows if players are on hot streaks, bouncing back, etc.
  */
-function getPlayerPerformanceTrends(boxScore, side, players, allGames, year, currentGameOrder, dynasty = null) {
+function getPlayerPerformanceTrends(teamStats, players, allGames, year, currentGameOrder, dynasty = null) {
   const trends = []
+  if (!teamStats) return trends
 
-  // Get all players from this side of the box score
+  // Get all players from this team's box score
   const playerNames = new Set()
   for (const category of ['passing', 'rushing', 'receiving', 'defense']) {
-    const entries = boxScore?.[side]?.[category] || []
+    const entries = teamStats[category] || []
     entries.forEach(p => {
       if (p.playerName) playerNames.add(p.playerName)
     })
@@ -2474,9 +2479,9 @@ export function buildGameRecapContext(dynasty, game) {
     (hasUnifiedFormat && !game.userTeam && !game.opponent)
   )
 
-  // Determine teams and scores based on game type
-  // CRITICAL: For user games, team1 MUST be user's team and team2 MUST be opponent
-  // because boxScore.home ALWAYS contains user's stats regardless of location
+  // Determine teams and scores based on game type. team1/team2 are
+  // labels for the prompt template; box-score data is resolved by tid
+  // independently below, so home/away no longer dictates this ordering.
   let team1, team2, team1Score, team2Score
   // Tids carried alongside abbrs so downstream scoring/lead-flow logic can
   // resolve play.team (abbr string) → tid via the game's two teams. Critical
@@ -2710,39 +2715,16 @@ export function buildGameRecapContext(dynasty, game) {
     isUserTeam1InGameData = game.team1Tid === currentGamePerspective.userTid
   }
 
-  // Determine which box score side has which team's stats. Tid-based via
-  // game.homeTeamTid (canonical) so a teambuilder team renamed mid-dynasty
-  // still attributes pre-rename game stats to the right side. Abbr fallback
-  // for legacy games where homeTeamTid isn't stored.
-  let team1Side = 'home'
-  let team2Side = 'away'
-
-  if (game.boxScore?.teamStats) {
-    const homeTid = game.homeTeamTid != null ? Number(game.homeTeamTid) : null
-    const t1Tid = team1Tid != null ? Number(team1Tid) : null
-    if (homeTid != null && t1Tid != null) {
-      // team1 is on the home side iff its tid matches homeTeamTid
-      if (homeTid === t1Tid) {
-        team1Side = 'home'; team2Side = 'away'
-      } else {
-        team1Side = 'away'; team2Side = 'home'
-      }
-    } else {
-      // Legacy abbr path
-      const homeAbbr = game.boxScore.teamStats.home?.teamAbbr?.toUpperCase()
-      const awayAbbr = game.boxScore.teamStats.away?.teamAbbr?.toUpperCase()
-      if (homeAbbr && awayAbbr && awayAbbr === team1?.toUpperCase()) {
-        team1Side = 'away'; team2Side = 'home'
-      }
-    }
-  }
+  // (Removed home/away → team1/team2 mapping block: box-score lookups
+  // now go directly through getPlayerStatsForTid / getTeamStatsForTid
+  // by tid, so no side resolution is needed at this layer.)
 
   // Extract box score stats with enhanced player context
   let boxScoreContext = null
   if (game.boxScore) {
     boxScoreContext = {
-      team1: buildEnhancedPlayerHighlights(game.boxScore, team1Side, players, allGames, year, thisGameOrder, team1),
-      team2: buildEnhancedPlayerHighlights(game.boxScore, team2Side, players, allGames, year, thisGameOrder, team2),
+      team1: buildEnhancedPlayerHighlights(getPlayerStatsForTid(game, team1Tid, teams), players, allGames, year, thisGameOrder, team1),
+      team2: buildEnhancedPlayerHighlights(getPlayerStatsForTid(game, team2Tid, teams), players, allGames, year, thisGameOrder, team2),
       team1Name: getNameByAbbr(teams, team1) || getTeamName(team1) || team1,
       team2Name: getNameByAbbr(teams, team2) || getTeamName(team2) || team2
     }
@@ -2907,8 +2889,8 @@ export function buildGameRecapContext(dynasty, game) {
   let team1PlayerTrends = []
   let team2PlayerTrends = []
   if (game.boxScore) {
-    team1PlayerTrends = getPlayerPerformanceTrends(game.boxScore, team1Side, players, allGames, year, thisGameOrder, dynasty)
-    team2PlayerTrends = getPlayerPerformanceTrends(game.boxScore, team2Side, players, allGames, year, thisGameOrder, dynasty)
+    team1PlayerTrends = getPlayerPerformanceTrends(getPlayerStatsForTid(game, team1Tid, teams), players, allGames, year, thisGameOrder, dynasty)
+    team2PlayerTrends = getPlayerPerformanceTrends(getPlayerStatsForTid(game, team2Tid, teams), players, allGames, year, thisGameOrder, dynasty)
   }
 
   // Map quarters correctly based on team position in original game data
@@ -3041,11 +3023,12 @@ export function buildGameRecapContext(dynasty, game) {
     // Scoring summary - each scoring play in order
     scoringSummary: game.boxScore?.scoringSummary || [],
 
-    // Team stats (first downs, turnovers, 3rd down, possession, etc.)
-    // Swap home/away to match team1/team2 order when user is team2 in unified format
-    teamStats: game.boxScore?.teamStats ? {
-      home: game.boxScore.teamStats[team1Side] || {},
-      away: game.boxScore.teamStats[team2Side] || {}
+    // Team stats by team1/team2 (resolved by tid via the canonical
+    // boxScore store). The downstream prompt uses these as team1/team2
+    // labels, not home/away.
+    teamStats: (game?.boxScore && (game.boxScore.byTid || game.boxScore.teamStats)) ? {
+      team1: getTeamStatsForTid(game, team1Tid, teams) || {},
+      team2: getTeamStatsForTid(game, team2Tid, teams) || {}
     } : null,
 
     // Bowl/CFP info
@@ -3185,7 +3168,7 @@ export function buildGameRecapContext(dynasty, game) {
 /**
  * Extract highlights from one side of a box score
  */
-function extractHighlightsForSide(boxScore, side) {
+function extractHighlightsForSide(teamStats) {
   const highlights = {
     passing: [],
     rushing: [],
@@ -3193,10 +3176,11 @@ function extractHighlightsForSide(boxScore, side) {
     defense: [],
     kicking: []
   }
+  if (!teamStats) return highlights
 
   // Extract passing leaders
-  if (boxScore[side]?.passing?.length > 0) {
-    const passers = boxScore[side].passing.filter(p => p.att > 0)
+  if (teamStats?.passing?.length > 0) {
+    const passers = teamStats.passing.filter(p => p.att > 0)
     passers.forEach(p => {
       highlights.passing.push({
         player: p.playerName,
@@ -3206,8 +3190,8 @@ function extractHighlightsForSide(boxScore, side) {
   }
 
   // Extract rushing leaders
-  if (boxScore[side]?.rushing?.length > 0) {
-    const rushers = boxScore[side].rushing.filter(p => p.car > 0).slice(0, 3)
+  if (teamStats?.rushing?.length > 0) {
+    const rushers = teamStats.rushing.filter(p => p.car > 0).slice(0, 3)
     rushers.forEach(p => {
       highlights.rushing.push({
         player: p.playerName,
@@ -3217,8 +3201,8 @@ function extractHighlightsForSide(boxScore, side) {
   }
 
   // Extract receiving leaders
-  if (boxScore[side]?.receiving?.length > 0) {
-    const receivers = boxScore[side].receiving.filter(p => p.rec > 0).slice(0, 3)
+  if (teamStats?.receiving?.length > 0) {
+    const receivers = teamStats.receiving.filter(p => p.rec > 0).slice(0, 3)
     receivers.forEach(p => {
       highlights.receiving.push({
         player: p.playerName,
@@ -3228,8 +3212,8 @@ function extractHighlightsForSide(boxScore, side) {
   }
 
   // Extract defensive standouts
-  if (boxScore[side]?.defense?.length > 0) {
-    const defenders = boxScore[side].defense
+  if (teamStats?.defense?.length > 0) {
+    const defenders = teamStats.defense
       .map(p => ({
         ...p,
         totalTackles: (parseFloat(p.solo) || 0) + (parseFloat(p.assists) || 0)
@@ -3254,8 +3238,8 @@ function extractHighlightsForSide(boxScore, side) {
   }
 
   // Extract kicking
-  if (boxScore[side]?.kicking?.length > 0) {
-    boxScore[side].kicking.forEach(p => {
+  if (teamStats?.kicking?.length > 0) {
+    teamStats.kicking.forEach(p => {
       if (p.fgm > 0 || p.fga > 0) {
         highlights.kicking.push({
           player: p.playerName,
@@ -3269,19 +3253,20 @@ function extractHighlightsForSide(boxScore, side) {
 }
 
 /**
- * Extract box score highlights for both teams
- * team1 is home (or user team for user games), team2 is away (or opponent)
- * IMPORTANT: For user games, boxScore.home ALWAYS contains user's stats regardless of location
+ * Extract box score highlights for both teams.
+ * Player stats live in the canonical byTid store; look each side up by
+ * its team1Tid / team2Tid (the function still takes the legacy team1/
+ * team2 abbreviations for the team-name labels in the output).
  */
 function extractBoxScoreHighlightsForBothTeams(boxScore, team1, team2, game) {
-  // boxScore.home always contains team1 (user's team for user games, team1 for CPU games)
-  // boxScore.away always contains team2 (opponent for user games, team2 for CPU games)
-  const team1Side = 'home'
-  const team2Side = 'away'
-
+  const team1Tid = game?.team1Tid
+  const team2Tid = game?.team2Tid
+  // Construct a minimal game wrapper so the helper can do its canonical
+  // resolution — boxScore is passed in directly here for legacy callers.
+  const gameForLookup = { ...(game || {}), boxScore }
   return {
-    team1: extractHighlightsForSide(boxScore, team1Side),
-    team2: extractHighlightsForSide(boxScore, team2Side),
+    team1: extractHighlightsForSide(getPlayerStatsForTid(gameForLookup, team1Tid)),
+    team2: extractHighlightsForSide(getPlayerStatsForTid(gameForLookup, team2Tid)),
     team1Name: getTeamName(team1) || team1,
     team2Name: getTeamName(team2) || team2
   }
@@ -4105,25 +4090,27 @@ DO NOT:
     }
   }
 
-  // Add team stats if available
+  // Add team stats if available. ctx.teamStats is keyed by team1/team2
+  // (each side resolved by tid via the canonical store). The prompt
+  // labels each column with the team's full name regardless of whether
+  // it was physically home or away.
   if (ctx.teamStats) {
-    const home = ctx.teamStats.home || {}
-    const away = ctx.teamStats.away || {}
-    // For user games, home side is always user's stats regardless of location
-    const homeTeamName = ctx.isCPUGame ? (getTeamName(home.teamAbbr) || home.teamAbbr || ctx.team1FullName) : ctx.team1FullName
-    const awayTeamName = ctx.isCPUGame ? (getTeamName(away.teamAbbr) || away.teamAbbr || ctx.team2FullName) : ctx.team2FullName
+    const t1 = ctx.teamStats.team1 || {}
+    const t2 = ctx.teamStats.team2 || {}
+    const team1ColName = ctx.isCPUGame ? (getTeamName(t1.teamAbbr) || t1.teamAbbr || ctx.team1FullName) : ctx.team1FullName
+    const team2ColName = ctx.isCPUGame ? (getTeamName(t2.teamAbbr) || t2.teamAbbr || ctx.team2FullName) : ctx.team2FullName
     prompt += `\n
 ===========================================
 TEAM STATISTICS
 ===========================================
-                        ${homeTeamName}    ${awayTeamName}
-First Downs:            ${home.firstDowns ?? '-'}         ${away.firstDowns ?? '-'}
-Total Yards:            ${home.totalYards ?? home.totalOffense ?? '-'}       ${away.totalYards ?? away.totalOffense ?? '-'}
-Rushing (ATT-YDS):      ${home.rushAttempts ?? '-'}-${home.rushYards ?? '-'}     ${away.rushAttempts ?? '-'}-${away.rushYards ?? '-'}
-Passing (CMP-ATT-YDS):  ${home.completions ?? '-'}-${home.passAttempts ?? '-'}-${home.passingYards ?? home.passYards ?? '-'}   ${away.completions ?? '-'}-${away.passAttempts ?? '-'}-${away.passingYards ?? away.passYards ?? '-'}
-Turnovers:              ${home.turnovers ?? '-'}         ${away.turnovers ?? '-'}
-3rd Down:               ${home['3rdDownConv'] ?? '-'}/${home['3rdDownAtt'] ?? '-'}       ${away['3rdDownConv'] ?? '-'}/${away['3rdDownAtt'] ?? '-'}
-Possession:             ${home.possMinutes ?? ''}:${String(home.possSeconds ?? '').padStart(2, '0')}      ${away.possMinutes ?? ''}:${String(away.possSeconds ?? '').padStart(2, '0')}`
+                        ${team1ColName}    ${team2ColName}
+First Downs:            ${t1.firstDowns ?? '-'}         ${t2.firstDowns ?? '-'}
+Total Yards:            ${t1.totalYards ?? t1.totalOffense ?? '-'}       ${t2.totalYards ?? t2.totalOffense ?? '-'}
+Rushing (ATT-YDS):      ${t1.rushAttempts ?? '-'}-${t1.rushYards ?? '-'}     ${t2.rushAttempts ?? '-'}-${t2.rushYards ?? '-'}
+Passing (CMP-ATT-YDS):  ${t1.completions ?? '-'}-${t1.passAttempts ?? '-'}-${t1.passingYards ?? t1.passYards ?? '-'}   ${t2.completions ?? '-'}-${t2.passAttempts ?? '-'}-${t2.passingYards ?? t2.passYards ?? '-'}
+Turnovers:              ${t1.turnovers ?? '-'}         ${t2.turnovers ?? '-'}
+3rd Down:               ${t1['3rdDownConv'] ?? '-'}/${t1['3rdDownAtt'] ?? '-'}       ${t2['3rdDownConv'] ?? '-'}/${t2['3rdDownAtt'] ?? '-'}
+Possession:             ${t1.possMinutes ?? ''}:${String(t1.possSeconds ?? '').padStart(2, '0')}      ${t2.possMinutes ?? ''}:${String(t2.possSeconds ?? '').padStart(2, '0')}`
   }
 
   // Add coaching staff so the AI can name coaches instead of writing "Coach's team"

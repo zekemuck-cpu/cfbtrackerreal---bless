@@ -4,6 +4,7 @@ import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRost
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
+import { getPlayerStatsForTid, getTeamStatsForTid, hasAnyPlayerStats } from '../../utils/boxScoreHelpers'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getTeamByAbbr, getTidFromAbbr, getTidFromTeamName, setTeamYearField, getCurrentTeamTid, getCurrentTeamAbbr, getOriginalTeamAbbr, getGameTeamInfo, getGameOpponentInfo, getAbbrFromTeamName, getNameByAbbr, setPendingUserTeam, clearPendingUserTeam, getPendingUserTeamTid, getUserTeamTid } from '../../data/teamRegistry'
 import { getTeamLogo, teams } from '../../data/teams'
@@ -275,44 +276,39 @@ export default function Dashboard() {
 
       if (!game.boxScore) return
 
-      // Determine which side we are on (home or away) based on homeTeamTid
+      // All box-score lookups go through the tid-keyed helpers so a
+      // teambuilder team renamed mid-dynasty still aggregates pre-rename
+      // games, and legacy {home, away} games still resolve correctly.
       const userTid = perspective.userTid
-      const isHome = game.homeTeamTid === userTid
+      const teamsForResolve = currentDynasty?.teams
+      const ourPlayerBoxScore = getPlayerStatsForTid(game, userTid, teamsForResolve)
+      const oppTid = (game.team1Tid === userTid) ? game.team2Tid : game.team1Tid
+      const ourTeamStats = getTeamStatsForTid(game, userTid, teamsForResolve)
+      const oppTeamStats = oppTid != null ? getTeamStatsForTid(game, oppTid, teamsForResolve) : null
 
-      // Get our player box score (for defensive stats like sacks, INTs)
-      const ourPlayerBoxScore = isHome ? game.boxScore.home : game.boxScore.away
+      // Aggregate offense from team stats.
+      if (ourTeamStats) {
+        gamesWithStats++
+        // Box score team stats reach us under two key schemas depending on
+        // path: the Team Stats sheet round-trip camelCases labels ("Total
+        // Yards" → totalYards, "Passing Yards" → passingYards), while some
+        // older/AI paths write "totalOffense"/"passYards" directly. Read
+        // both so aggregation doesn't silently drop values.
+        totalOffense += parseFloat(ourTeamStats.totalOffense ?? ourTeamStats.totalYards) || 0
+        rushAttempts += parseFloat(ourTeamStats.rushAttempts) || 0
+        rushYards += parseFloat(ourTeamStats.rushYards) || 0
+        rushTds += parseFloat(ourTeamStats.rushTds) || 0
+        passAttempts += parseFloat(ourTeamStats.passAttempts) || 0
+        passYards += parseFloat(ourTeamStats.passYards ?? ourTeamStats.passingYards) || 0
+        passTds += parseFloat(ourTeamStats.passTds) || 0
+        firstDowns += parseFloat(ourTeamStats.firstDowns) || 0
+      }
 
-      // Aggregate offense from team stats. Pick side via isHome (tid-derived)
-      // so a teambuilder team renamed mid-dynasty still aggregates pre-rename
-      // games — comparing teamStats.home.teamAbbr (stored at game time) to
-      // currentTeamAbbr (current registry value) silently dropped them.
-      if (game.boxScore.teamStats) {
-        const ourTeamStats = isHome ? game.boxScore.teamStats.home : game.boxScore.teamStats.away
-        const oppTeamStats = isHome ? game.boxScore.teamStats.away : game.boxScore.teamStats.home
-
-        if (ourTeamStats) {
-          gamesWithStats++
-          // Box score team stats reach us under two key schemas depending on
-          // path: the Team Stats sheet round-trip camelCases labels ("Total
-          // Yards" → totalYards, "Passing Yards" → passingYards), while some
-          // older/AI paths write "totalOffense"/"passYards" directly. Read
-          // both so aggregation doesn't silently drop values.
-          totalOffense += parseFloat(ourTeamStats.totalOffense ?? ourTeamStats.totalYards) || 0
-          rushAttempts += parseFloat(ourTeamStats.rushAttempts) || 0
-          rushYards += parseFloat(ourTeamStats.rushYards) || 0
-          rushTds += parseFloat(ourTeamStats.rushTds) || 0
-          passAttempts += parseFloat(ourTeamStats.passAttempts) || 0
-          passYards += parseFloat(ourTeamStats.passYards ?? ourTeamStats.passingYards) || 0
-          passTds += parseFloat(ourTeamStats.passTds) || 0
-          firstDowns += parseFloat(ourTeamStats.firstDowns) || 0
-        }
-
-        // Opponent's offense = our defense allowed
-        if (oppTeamStats) {
-          defTotalYards += parseFloat(oppTeamStats.totalOffense ?? oppTeamStats.totalYards) || 0
-          defPassYards += parseFloat(oppTeamStats.passYards ?? oppTeamStats.passingYards) || 0
-          defRushYards += parseFloat(oppTeamStats.rushYards) || 0
-        }
+      // Opponent's offense = our defense allowed
+      if (oppTeamStats) {
+        defTotalYards += parseFloat(oppTeamStats.totalOffense ?? oppTeamStats.totalYards) || 0
+        defPassYards += parseFloat(oppTeamStats.passYards ?? oppTeamStats.passingYards) || 0
+        defRushYards += parseFloat(oppTeamStats.rushYards) || 0
       }
 
       // Aggregate defensive player stats (sacks, forced fumbles, interceptions)
@@ -6044,7 +6040,7 @@ export default function Dashboard() {
 
                       // Also check for box score data - unlocks this task too
                       const yearGames = (currentDynasty?.games || []).filter(g => Number(g.year) === Number(year))
-                      const hasBoxScoreData = yearGames.some(g => g.boxScore && (g.boxScore.home || g.boxScore.away))
+                      const hasBoxScoreData = yearGames.some(g => g.boxScore && hasAnyPlayerStats(g, currentDynasty?.teams))
 
                       const isCompleted = currentDynasty?.detailedStatsCompletedByYear?.[year] || currentDynasty?.detailedStatsCompletedByYear?.[String(year)]
                       const taskNumber = !userInCFPChampionship ? 3 : 2
