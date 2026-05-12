@@ -8,6 +8,7 @@ import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
 import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
+import SheetModalAIHero from './ui/SheetModalAIHero'
 import {
   createWeeklyScoresSheet,
   readWeeklyScoresFromSheet,
@@ -1001,6 +1002,12 @@ Don't just glance at this list. Physically execute each check on your draft.
             </div>
           ) : sheetId ? (
             <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="px-5 sm:px-7 pt-4 pb-3">
+                <SheetModalAIHero
+                  tagline="Skip the typing. Let AI fill the weekly scores."
+                  buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
+                />
+              </div>
               {!isMobile && useEmbedded ? (
                 <>
                   <div className="px-5 sm:px-7 py-3 border-b border-surface-4 flex flex-wrap gap-2 items-center">
@@ -1025,15 +1032,6 @@ Don't just glance at this list. Physically execute each check on your draft.
                       Rankings week
                     </label>
                     {rankWeekSelect}
-
-                    <span className="mx-1 h-6 w-px bg-surface-4" aria-hidden="true" />
-
-                    <button
-                      onClick={() => setShowAIPrompt(true)}
-                      className="btn-refined"
-                    >
-                      AI prompt
-                    </button>
 
                     <div className="ml-auto flex items-center gap-2">
                       <button
@@ -1083,7 +1081,7 @@ Don't just glance at this list. Physically execute each check on your draft.
                       </button>
                     </div>
 
-                    {/* SHEET ACTIONS — equal-width row */}
+                    {/* SHEET ACTIONS — full-width Open Sheets button */}
                     <div className="flex flex-col sm:flex-row gap-2">
                       <a
                         href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
@@ -1094,12 +1092,6 @@ Don't just glance at this list. Physically execute each check on your draft.
                       >
                         Open Google Sheets
                       </a>
-                      <button
-                        onClick={() => setShowAIPrompt(true)}
-                        className="btn-refined btn-refined--lg flex-1 justify-center"
-                      >
-                        AI Prompt
-                      </button>
                     </div>
 
                     {/* RANKINGS WEEK */}

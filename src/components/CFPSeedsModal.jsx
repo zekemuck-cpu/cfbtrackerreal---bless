@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import SheetModalHeader from './ui/SheetModalHeader'
+import SheetModalAIHero from './ui/SheetModalAIHero'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
 import AIPromptModal from './AIPromptModal'
@@ -365,9 +366,9 @@ FINAL CHECK before you send the answer
             </div>
           </div>
         ) : sheetId ? (
-          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+          <div className="flex-1 flex flex-col overflow-hidden min-h-0 gap-3">
             {/* Bowl Configuration Section — pinned at top */}
-            <div className="mb-3 p-3 rounded-lg border flex-shrink-0" style={{ borderColor: modalColors.border, backgroundColor: modalColors.headerBg }}>
+            <div className="p-3 rounded-lg border flex-shrink-0" style={{ borderColor: modalColors.border, backgroundColor: modalColors.headerBg }}>
               <div className="flex items-center justify-between mb-2">
                 <h4 className="text-xs font-bold uppercase" style={{ color: 'var(--text-primary)', letterSpacing: '1.5px' }}>
                   Bowl Game Assignments
@@ -421,21 +422,10 @@ FINAL CHECK before you send the answer
               })()}
             </div>
 
-            {/* Toggle between embedded and new tab */}
-            {!isMobile && (
-              <div className="flex items-center justify-end mb-2 flex-shrink-0">
-                <button
-                  onClick={() => {
-                    const newValue = !useEmbedded
-                    setUseEmbedded(newValue)
-                    localStorage.setItem('sheetEmbedPreference', newValue.toString())
-                  }}
-                  className="text-xs px-3 py-1 rounded-full border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
-                >
-                  {useEmbedded ? '← Back to default view' : 'Try embedded view (beta)'}
-                </button>
-              </div>
-            )}
+            <SheetModalAIHero
+              tagline="Skip the typing. Let AI fill the CFP seeds."
+              buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
+            />
 
             {/* Mobile / Non-embedded View — scrollable */}
             {isMobile || !useEmbedded ? (
@@ -456,7 +446,6 @@ FINAL CHECK before you send the answer
                     <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
                     Open Google Sheets
                   </a>
-                  <button onClick={() => setShowAIPrompt(true)} className="px-5 py-3 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
                 </div>
 
                 {/* Centered Save Buttons */}
@@ -500,45 +489,6 @@ FINAL CHECK before you send the answer
               </div>
             ) : (
               <>
-                {/* Embedded-view action bar (save / keep / regenerate) */}
-                <div className="mb-2 flex-shrink-0">
-                  <div className="flex gap-2 flex-wrap items-center">
-                    <button
-                      onClick={handleSyncAndDelete}
-                      disabled={syncing || deletingSheet}
-                      className={`px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
-                      style={{
-                        backgroundColor: 'var(--text-primary)',
-                        color: 'var(--surface-1)'
-                      }}
-                    >
-                      {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
-                    </button>
-                    <button
-                      onClick={handleSyncFromSheet}
-                      disabled={syncing || deletingSheet}
-                      className="btn btn-secondary text-sm"
-                    >
-                      {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
-                    </button>
-                    <button onClick={() => setShowAIPrompt(true)} className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
-                    <button
-                      onClick={handleDeleteSheetOnly}
-                      disabled={syncing || deletingSheet || regenerating}
-                      className="px-4 py-2 rounded-lg font-semibold text-sm disabled:opacity-60 transition-colors border border-surface-4 hover:bg-surface-2 text-txt-secondary ml-auto"
-                    >
-                      {deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}
-                    </button>
-                    <button
-                      onClick={handleRegenerateSheet}
-                      disabled={syncing || deletingSheet || regenerating}
-                      className="bg-surface-3 hover:bg-surface-4 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm"
-                    >
-                      {regenerating ? 'Regenerating...' : 'Regenerate sheet'}
-                    </button>
-                  </div>
-                </div>
-
                 <div className="flex-1 flex flex-col overflow-hidden min-h-0">
                   <SheetToolbar
                     sheetId={sheetId}
@@ -547,7 +497,18 @@ FINAL CHECK before you send the answer
                     title="CFP Seeds Google Sheet"
                   />
                 </div>
+                <div className="flex flex-wrap gap-2 items-center pt-1">
+                  <button onClick={handleSyncAndDelete} disabled={syncing || deletingSheet} className={`px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90 transition-all disabled:opacity-60 ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`} style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}>{deletingSheet ? 'Saving…' : 'Save & Move to Trash'}</button>
+                  <button onClick={handleSyncFromSheet} disabled={syncing || deletingSheet} className="px-4 py-2 rounded-lg font-semibold text-sm border border-surface-4 hover:bg-surface-2 text-txt-primary disabled:opacity-60 transition-colors">{syncing ? 'Syncing…' : 'Save & Keep Sheet'}</button>
+                  <button onClick={handleDeleteSheetOnly} disabled={syncing || deletingSheet || regenerating} className="px-4 py-2 rounded-lg font-semibold text-sm border border-surface-4 hover:bg-surface-2 text-txt-secondary disabled:opacity-60 transition-colors ml-auto">{deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}</button>
+                  <button onClick={handleRegenerateSheet} disabled={syncing || deletingSheet || regenerating} className="px-4 py-2 rounded-lg font-semibold text-sm border hover:bg-surface-2 transition-colors disabled:opacity-60" style={{ backgroundColor: 'transparent', borderColor: 'var(--accent-error)', color: 'var(--accent-error)' }}>{regenerating ? 'Regenerating…' : 'Regenerate'}</button>
+                </div>
               </>
+            )}
+            {!isMobile && (
+              <div className="flex items-center justify-end">
+                <button onClick={() => { const newValue = !useEmbedded; setUseEmbedded(newValue); localStorage.setItem('sheetEmbedPreference', newValue.toString()); }} className="text-[11px] px-2.5 py-1 rounded-full border border-surface-4 text-txt-tertiary hover:text-txt-secondary hover:border-surface-5 transition-colors bg-transparent">{useEmbedded ? '← Back to default view' : 'Try embedded view (beta)'}</button>
+              </div>
             )}
           </div>
         ) : null}

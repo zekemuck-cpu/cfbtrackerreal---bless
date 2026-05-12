@@ -16,6 +16,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import SheetModalHeader from './ui/SheetModalHeader'
+import SheetModalAIHero from './ui/SheetModalAIHero'
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
@@ -526,77 +527,11 @@ FINAL CHECK before you send the answer
             </div>
           </div>
         ) : sheetId ? (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Action Buttons - only show at top for embedded view */}
-            {useEmbedded && (
-              <div className="mb-3">
-                <div className="flex gap-2 sm:gap-3 flex-wrap items-center">
-                  <button
-                    onClick={handleSyncAndDelete}
-                    disabled={syncing || deletingSheet}
-                    className={`px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-xs sm:text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
-                    style={{
-                      backgroundColor: 'var(--text-primary)',
-                      color: 'var(--surface-1)'
-                    }}
-                  >
-                    {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
-                  </button>
-                  <button
-                    onClick={handleSyncFromSheet}
-                    disabled={syncing || deletingSheet}
-                    className="btn btn-secondary text-xs sm:text-sm"
-                  >
-                    {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
-                  </button>
-                  <button
-                    onClick={() => setShowAIPrompt(true)}
-                    className="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
-                  >
-                    AI Prompt
-                  </button>
-                  <button
-                    onClick={handleDeleteSheetOnly}
-                    disabled={syncing || deletingSheet || regenerating}
-                    className="px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm disabled:opacity-60 transition-colors border border-surface-4 hover:bg-surface-2 text-txt-secondary ml-auto"
-                  >
-                    {deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}
-                  </button>
-                  <button
-                    onClick={handleRegenerateSheet}
-                    disabled={syncing || deletingSheet || regenerating}
-                    className="px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-xs sm:text-sm border-2"
-                    style={{
-                      backgroundColor: 'transparent',
-                      borderColor: '#EF4444',
-                      color: '#EF4444'
-                    }}
-                  >
-                    {regenerating ? 'Regenerating...' : 'Regenerate sheet'}
-                  </button>
-                  {highlightSave && (
-                    <span className="text-xs font-medium animate-bounce" style={{ color: 'var(--text-primary)' }}>
-
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Toggle between embedded and new tab */}
-            <div className="flex items-center justify-end mb-2">
-              <button
-                onClick={() => {
-                  const newValue = !useEmbedded
-                  setUseEmbedded(newValue)
-                  localStorage.setItem('sheetEmbedPreference', newValue.toString())
-                }}
-                className="text-xs px-3 py-1 rounded-full border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
-              >
-                {useEmbedded ? '← Back to default view' : 'Try embedded view (beta)'}
-              </button>
-            </div>
-
+          <div className="flex-1 flex flex-col overflow-hidden gap-3">
+            <SheetModalAIHero
+              tagline="Skip the typing. Let AI fill the schedule."
+              buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
+            />
             {useEmbedded ? (
               /* Embedded iframe view with toolbar */
               <>
@@ -608,8 +543,13 @@ FINAL CHECK before you send the answer
                     title="Schedule Google Sheet"
                   />
                 </div>
-
-                <div className="text-xs mt-2 space-y-1 text-txt-tertiary">
+                <div className="flex flex-wrap gap-2 items-center pt-1">
+                  <button onClick={handleSyncAndDelete} disabled={syncing || deletingSheet} className={`px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90 transition-all disabled:opacity-60 ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`} style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}>{deletingSheet ? 'Saving…' : 'Save & Move to Trash'}</button>
+                  <button onClick={handleSyncFromSheet} disabled={syncing || deletingSheet} className="px-4 py-2 rounded-lg font-semibold text-sm border border-surface-4 hover:bg-surface-2 text-txt-primary disabled:opacity-60 transition-colors">{syncing ? 'Syncing…' : 'Save & Keep Sheet'}</button>
+                  <button onClick={handleDeleteSheetOnly} disabled={syncing || deletingSheet || regenerating} className="px-4 py-2 rounded-lg font-semibold text-sm border border-surface-4 hover:bg-surface-2 text-txt-secondary disabled:opacity-60 transition-colors ml-auto">{deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}</button>
+                  <button onClick={handleRegenerateSheet} disabled={syncing || deletingSheet || regenerating} className="px-4 py-2 rounded-lg font-semibold text-sm border hover:bg-surface-2 transition-colors disabled:opacity-60" style={{ backgroundColor: 'transparent', borderColor: 'var(--accent-error)', color: 'var(--accent-error)' }}>{regenerating ? 'Regenerating…' : 'Regenerate'}</button>
+                </div>
+                <div className="text-xs space-y-1 text-txt-tertiary">
                   <p><strong className="text-txt-primary">Columns:</strong> Week | User Team | CPU Team | Site</p>
                   <p>Enter your regular-season schedule (Weeks 0 through 15). Select opponents and Home/Road/Neutral for each game; use "BYE" for bye weeks.</p>
                 </div>
@@ -662,12 +602,6 @@ FINAL CHECK before you send the answer
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>
                   </a>
-                  <button
-                    onClick={() => setShowAIPrompt(true)}
-                    className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
-                  >
-                    AI Prompt
-                  </button>
                 </div>
 
                 {/* Centered Save Buttons */}
@@ -725,6 +659,9 @@ FINAL CHECK before you send the answer
                 </div>
               </div>
             )}
+            <div className="flex items-center justify-end">
+              <button onClick={() => { const newValue = !useEmbedded; setUseEmbedded(newValue); localStorage.setItem('sheetEmbedPreference', newValue.toString()); }} className="text-[11px] px-2.5 py-1 rounded-full border border-surface-4 text-txt-tertiary hover:text-txt-secondary hover:border-surface-5 transition-colors bg-transparent">{useEmbedded ? '← Back to default view' : 'Try embedded view (beta)'}</button>
+            </div>
           </div>
         ) : (
           // Fallback placeholder for the brief moment between modal

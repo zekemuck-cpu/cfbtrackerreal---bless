@@ -4,6 +4,7 @@ import { useDynasty } from '../context/DynastyContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import SheetModalHeader from './ui/SheetModalHeader'
+import SheetModalAIHero from './ui/SheetModalAIHero'
 import { useAuth } from '../context/AuthContext'
 import { teams as TEAM_NAMES, getMascotName } from '../data/teams'
 import { getTidFromTeamName, TEAMS } from '../data/teamRegistry'
@@ -346,8 +347,12 @@ export default function PreseasonTop25Modal({ isOpen, onClose, year, teamColors 
               </div>
             ) : sheetId ? (
               <div className="space-y-3">
+                <SheetModalAIHero
+                  tagline="Skip the typing. Let AI fill the preseason Top 25."
+                  buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
+                />
                 <div className="text-xs text-txt-tertiary">
-                  Edit ranks in the sheet below — column B uses a strict team dropdown (every team in this dynasty). Use the AI Prompt button to automate from a screenshot. Save & Sync to pull the entries back into your dynasty.
+                  Edit ranks in the sheet below — column B uses a strict team dropdown (every team in this dynasty). Save & Sync to pull the entries back into your dynasty.
                 </div>
                 <iframe
                   title="Preseason Rankings Sheet"
