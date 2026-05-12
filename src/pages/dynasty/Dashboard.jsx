@@ -5261,758 +5261,439 @@ export default function Dashboard() {
               )
             }
 
-            // Week 2: Week 1 Bowl Results (incl. CFP First Round) + User's bowl game (if Week 2 bowl) + Week 2 bowl results
+            // Week 2: Week 1 Bowl Results (incl. CFP First Round) + User's bowl game (if Week 2 bowl) + Week 2 bowl results.
+            // Unified with the in-season todo design via renderTodoList. Each tile is one
+            // entry in the `todos` array; multi-step wizards (Taking a New Job,
+            // Coordinator Vacancy) appear as completed-state rows in the list with
+            // their interactive UI rendered as separate panels below when mid-flow.
             if (week === 2) {
+              const bw2Todos = []
+
+              bw2Todos.push({
+                key: 'bw1-results',
+                done: hasBowlWeek1Data,
+                title: 'Week 1 Bowl Results',
+                subtitle: totalEnteredWeek1 === 30
+                  ? 'All 30 games entered'
+                  : `${totalEnteredWeek1}/30 games entered (incl. CFP First Round)`,
+                onAction: () => setShowBowlWeek1Modal(true),
+                actionLabel: hasBowlWeek1Data ? 'Edit' : 'Enter',
+              })
+
+              if (userHasCFPFirstRoundGame && !userCFPFirstRoundScoresEntered) {
+                bw2Todos.push({
+                  key: 'cfp-fr-carryover',
+                  done: false,
+                  title: 'Enter Your CFP First Round Game',
+                  subtitle: `Missed from Week 1 — #${userCFPSeed} vs #${17 - userCFPSeed} ${getMascotName(userCFPOpponent)}`,
+                  onAction: () => {
+                    const gameToEdit = userCFPFirstRoundGame || userCFPFirstRoundShell
+                    if (gameToEdit) {
+                      navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
+                    } else {
+                      const opponentTid = typeof userCFPOpponent === 'number' ? userCFPOpponent : getTidFromAbbr(userCFPOpponent, currentDynasty)
+                      const params = new URLSearchParams({
+                        week: 'CFP First Round',
+                        year: currentDynasty.currentYear?.toString() || '',
+                        team1Tid: userTeamTid?.toString() || '',
+                        team2Tid: opponentTid?.toString() || '',
+                        gameType: 'cfp_first_round',
+                      })
+                      navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                    }
+                  },
+                  actionLabel: 'Enter',
+                })
+              }
+
+              if (userHasBowlWeek2Game) {
+                bw2Todos.push({
+                  key: 'bowl-week2',
+                  done: userBowlGameScoresEntered,
+                  title: `Enter Your ${selectedBowl} Game`,
+                  subtitle: userBowlGameScoresEntered && userBowlGame
+                    ? `${userBowlGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}-${Math.min(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}`
+                    : `vs ${bowlOpponent}`,
+                  onAction: () => {
+                    if (userBowlGame) {
+                      navigate(`${pathPrefix}/game/${userBowlGame.id}/edit`, { state: { from: location.pathname } })
+                    } else {
+                      const opponentTid = getTidFromTeamName(bowlOpponent, currentDynasty?.teams)
+                      const params = new URLSearchParams({
+                        week: 'Bowl',
+                        year: currentDynasty.currentYear?.toString() || '',
+                        team1Tid: userTeamTid?.toString() || '',
+                        team2Tid: opponentTid?.toString() || '',
+                        gameType: 'bowl',
+                        bowlName: selectedBowl || '',
+                      })
+                      navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                    }
+                  },
+                  actionLabel: userBowlGameScoresEntered ? 'Edit' : 'Enter',
+                })
+              }
+
+              if (userHasCFPQuarterfinalGame) {
+                const qfDone = userCFPQuarterfinalScoresEntered
+                bw2Todos.push({
+                  key: 'cfp-qf',
+                  done: qfDone,
+                  title: `Enter Your ${userQFBowlName} Game (CFP QF)`,
+                  subtitle: qfDone
+                    ? `${userCFPQuarterfinalGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPQuarterfinalGame.perspective?.userScore || 0, userCFPQuarterfinalGame.perspective?.opponentScore || 0)}-${Math.min(userCFPQuarterfinalGame.perspective?.userScore || 0, userCFPQuarterfinalGame.perspective?.opponentScore || 0)}`
+                    : `#${userCFPSeed} vs ${userQFOpponent ? getMascotName(userQFOpponent) : 'TBD'}`,
+                  onAction: () => {
+                    const gameToEdit = userCFPQuarterfinalGame || userCFPQuarterfinalShell
+                    if (gameToEdit) {
+                      navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
+                    } else {
+                      const opponentTid = typeof userQFOpponent === 'number' ? userQFOpponent : getTidFromAbbr(userQFOpponent, currentDynasty)
+                      const params = new URLSearchParams({
+                        week: 'CFP Quarterfinal',
+                        year: currentDynasty.currentYear?.toString() || '',
+                        team1Tid: userTeamTid?.toString() || '',
+                        team2Tid: opponentTid?.toString() || '',
+                        gameType: 'cfp_quarterfinal',
+                        bowlName: userQFBowlName || '',
+                      })
+                      navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                    }
+                  },
+                  actionLabel: qfDone ? 'Edit' : 'Enter',
+                })
+              }
+
+              // Taking a New Job — todo row. Wizard panel below the list when mid-flow.
+              const newJobDone = takingNewJob !== null && (takingNewJob === false || (newJobTeam && newJobPosition))
+              bw2Todos.push({
+                key: 'new-job-bw2',
+                done: newJobDone,
+                title: 'Taking a New Job? (Bowl Week 2)',
+                subtitle: newJobDone
+                  ? takingNewJob === true
+                    ? `${newJobPosition} at ${getTeamNameFromAbbr(newJobTeam)}`
+                    : 'Staying with current team'
+                  : 'Yes or no?',
+                onAction: newJobDone ? async () => {
+                  setTakingNewJob(null)
+                  setNewJobTeam('')
+                  setNewJobPosition('')
+                  const updatedTeams = clearPendingUserTeam(currentDynasty.teams)
+                  await updateDynasty(currentDynasty.id, {
+                    newJobData: null,
+                    teams: updatedTeams,
+                  })
+                } : undefined,
+                actionLabel: newJobDone ? 'Edit' : undefined,
+              })
+
+              // Coordinator Vacancy — only render when applicable. Wizard panels below.
+              const ccDataForYear = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear] || {}
+              const firedOC = ccDataForYear.firedOCName
+              const firedDC = ccDataForYear.firedDCName
+              const showCoordinator = currentDynasty.coachPosition === 'HC' && (firedOC || firedDC)
+              let coordOcFilled, coordDcFilled, coordAllFilled, coordOcAnswered, coordDcAnswered, coordAllAnswered
+              if (showCoordinator) {
+                coordOcFilled = !firedOC || (filledOCVacancy === true && newOCName)
+                coordDcFilled = !firedDC || (filledDCVacancy === true && newDCName)
+                coordAllFilled = coordOcFilled && coordDcFilled
+                coordOcAnswered = !firedOC || filledOCVacancy !== null
+                coordDcAnswered = !firedDC || filledDCVacancy !== null
+                coordAllAnswered = coordOcAnswered && coordDcAnswered
+                if (!coordAllFilled) {
+                  bw2Todos.push({
+                    key: 'coord-vacancy',
+                    done: false,
+                    title: `Fill Coordinator ${firedOC && firedDC ? 'Vacancies' : 'Vacancy'}`,
+                    subtitle: coordAllAnswered
+                      ? `${firedOC ? (coordOcFilled ? `OC: ${newOCName}` : 'OC: Not filled yet') : ''}${firedOC && firedDC ? ' • ' : ''}${firedDC ? (coordDcFilled ? `DC: ${newDCName}` : 'DC: Not filled yet') : ''}`
+                      : 'Has the vacancy been filled?',
+                    onAction: coordAllAnswered ? async () => {
+                      setFilledOCVacancy(null)
+                      setFilledDCVacancy(null)
+                      setNewOCName('')
+                      setNewDCName('')
+                      await updateDynasty(currentDynasty.id, { pendingCoordinatorHires: null })
+                    } : undefined,
+                    actionLabel: coordAllAnswered ? 'Edit' : undefined,
+                  })
+                }
+              }
+
+              // Recruiting Commitments
+              const bw2CommitmentKey = getCommitmentKey()
+              const bw2UserTidForCommits = getUserTeamTid(currentDynasty)
+              const bw2CommitmentsForYear = getRecruitingCommitments(currentDynasty, bw2UserTidForCommits, currentDynasty.currentYear)
+              const bw2WeekCommitments = bw2CommitmentsForYear?.[bw2CommitmentKey]
+              const bw2HasCommitmentsData = bw2WeekCommitments !== undefined
+              const bw2CommitmentsCount = bw2WeekCommitments?.length || 0
+              const bw2ClassScore = calculateRecruitingClassScore(flattenClassCommitments(bw2CommitmentsForYear))
+
+              bw2Todos.push({
+                key: 'recruiting-bw2',
+                done: bw2HasCommitmentsData,
+                title: bw2HasCommitmentsData ? 'Recruiting Commitments' : 'Any commitments this week?',
+                subtitle: bw2HasCommitmentsData
+                  ? bw2CommitmentsCount > 0
+                    ? `${bw2CommitmentsCount} commitment${bw2CommitmentsCount !== 1 ? 's' : ''} recorded`
+                    : 'No commitments this week'
+                  : 'Record any recruiting commitments',
+                onAction: () => setShowRecruitingModal(true),
+                actionLabel: bw2HasCommitmentsData ? 'Edit' : 'Yes',
+                extraTools: !bw2HasCommitmentsData ? (
+                  <>
+                    <SellVsSendButton onClick={() => setShowSellCalc(true)} />
+                    <button
+                      onClick={handleNoCommitments}
+                      className="btn-refined text-center"
+                    >
+                      No
+                    </button>
+                  </>
+                ) : null,
+                inlineAction: bw2HasCommitmentsData && bw2ClassScore > 0 ? {
+                  label: `Class Score ${formatRecruitingClassScore(bw2ClassScore)}`,
+                  onClick: () => navigate(`${pathPrefix}/recruiting/${bw2UserTidForCommits}/${currentDynasty.currentYear}`),
+                } : null,
+              })
+
               return (
                 <>
-                  <h3 className="text-lg sm:text-xl font-bold mb-4 sm:mb-5 text-txt-primary">
+                  <h3 className="font-display font-bold leading-none text-txt-primary px-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
                     Bowl Week 2
                   </h3>
-                  <div className="space-y-3">
-                    {/* Task 1: Enter Week 1 Bowl Results (includes CFP First Round) */}
-                    <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all"
-                      style={hasBowlWeek1Data ? {
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        border: '1px solid rgba(34, 197, 94, 0.3)'
-                      } : {
-                        backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--surface-4)'
-                      }}
-                    >
-                      <div className="flex items-center gap-3 sm:gap-4">
-                        <div
-                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                            hasBowlWeek1Data ? 'bg-green-500 text-white' : ''
-                          }`}
-                          style={!hasBowlWeek1Data ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
-                        >
-                          {hasBowlWeek1Data ? (
-                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : <span className="font-bold text-sm sm:text-base">1</span>}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasBowlWeek1Data ? '#22c55e' : '#fafafa' }}>
-                            Week 1 Bowl Results
-                          </div>
-                          <div className="text-xs sm:text-sm mt-0.5" style={{ color: hasBowlWeek1Data ? '#22c55e' : '#a1a1aa' }}>
-                            {totalEnteredWeek1 === 30 ? '✓ All 30 games entered' : `${totalEnteredWeek1}/30 games entered (incl. CFP First Round)`}
-                          </div>
-                        </div>
-                      </div>
-                      {isViewOnly ? <ViewOnlyBadge /> : (
-                        <button
-                          onClick={() => setShowBowlWeek1Modal(true)}
-                          className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm self-end sm:self-auto transition-all hover:shadow-md active:scale-[0.98]"
-                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                        >
-                          {hasBowlWeek1Data ? 'Edit' : 'Enter'}
-                        </button>
-                      )}
-                    </div>
+                  {renderTodoList({ todos: bw2Todos, isViewOnly })}
 
-                    {/* Carry-over from Week 1: Enter YOUR CFP First Round Game
-                        if the user is in the first round but advanced to
-                        Week 2 without entering their own game. Without this
-                        tile the user is locked out — the Week 1 tile no
-                        longer renders (gated by week === 1) and the QF tile
-                        requires userWonFirstRound, which is false when the
-                        first-round game has no scores. Reported by Jay
-                        (2026-05-11) — confirmed against the STONY dynasty
-                        export: STONY is seed 5, cfpfr1-2030 shell exists
-                        with team1Score=null/team2Score=null, currentWeek=2. */}
-                    {/* Same Bowl Week 1 CFP First Round tile shape, but in
-                        Week 2 — surfaces a missed first-round game. Only
-                        renders if the user has the shell AND scores are
-                        not yet entered (otherwise the FR is done and the
-                        QF tile below takes over). */}
-                    {userHasCFPFirstRoundGame && !userCFPFirstRoundScoresEntered && (
-                        <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all"
-                          style={{
-                            backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--surface-4)'
+                  {/* Inline wizard panels (rendered below the unified todos list
+                      when the wizard is mid-flow). Same interactive behavior as
+                      before — just visually decoupled from the to-do row chrome. */}
+                  {takingNewJob === null && (
+                    <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
+                      <p className="mb-3 text-xs sm:text-sm font-medium text-txt-secondary">Taking a new job this offseason?</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={async () => {
+                            setTakingNewJob(true)
+                            await updateDynasty(currentDynasty.id, {
+                              newJobData: { takingNewJob: true, team: '', position: '' },
+                            })
                           }}
+                          className="btn-refined btn-refined--solid"
                         >
-                          <div className="flex items-center gap-3 sm:gap-4">
-                            <div
-                              className="w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0"
-                              style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' }}
-                            >
-                              <span className="font-bold text-sm sm:text-base">!</span>
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold text-txt-primary">
-                                Enter Your CFP First Round Game
-                              </div>
-                              <div className="text-xs sm:text-sm mt-0.5 text-txt-tertiary">
-                                Missed from Week 1 — #{userCFPSeed} vs #{17 - userCFPSeed} {getMascotName(userCFPOpponent)}
-                              </div>
-                            </div>
-                          </div>
-                          {isViewOnly ? <ViewOnlyBadge /> : (
-                            <button
-                              onClick={() => {
-                                const gameToEdit = userCFPFirstRoundGame || userCFPFirstRoundShell
-                                if (gameToEdit) {
-                                  navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
-                                } else {
-                                  const opponentTid = typeof userCFPOpponent === 'number' ? userCFPOpponent : getTidFromAbbr(userCFPOpponent, currentDynasty)
-                                  const params = new URLSearchParams({
-                                    week: 'CFP First Round',
-                                    year: currentDynasty.currentYear?.toString() || '',
-                                    team1Tid: userTeamTid?.toString() || '',
-                                    team2Tid: opponentTid?.toString() || '',
-                                    gameType: 'cfp_first_round'
-                                  })
-                                  navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
-                                }
-                              }}
-                              className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm self-end sm:self-auto transition-all hover:shadow-md active:scale-[0.98]"
-                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                            >
-                              Enter
-                            </button>
-                          )}
-                        </div>
-                    )}
-
-                    {/* Task 2: Enter YOUR Bowl Game (Week 2 bowl). */}
-                    {userHasBowlWeek2Game && (
-                      <div
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all"
-                        style={userBowlGame ? {
-                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                          border: '1px solid rgba(34, 197, 94, 0.3)'
-                        } : {
-                          backgroundColor: 'var(--surface-3)',
-                          border: '1px solid var(--surface-4)'
-                        }}
-                      >
-                        <div className="flex items-center gap-3 sm:gap-4">
-                          <div
-                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                              userBowlGame ? 'bg-green-500 text-white' : ''
-                            }`}
-                            style={!userBowlGame ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
-                          >
-                            {userBowlGame ? (
-                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : <span className="font-bold text-sm sm:text-base">2</span>}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: userBowlGame ? '#22c55e' : '#fafafa' }}>
-                              Enter Your {selectedBowl} Game
-                            </div>
-                            <div className="text-xs sm:text-sm mt-0.5" style={{ color: userBowlGame ? '#22c55e' : '#a1a1aa' }}>
-                              {userBowlGame ? `✓ ${userBowlGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}-${Math.min(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}` : `vs ${bowlOpponent}`}
-                            </div>
-                          </div>
-                        </div>
-                        {isViewOnly ? <ViewOnlyBadge /> : (
-                          <button
-                            onClick={() => {
-                              if (userBowlGame) {
-                                navigate(`${pathPrefix}/game/${userBowlGame.id}/edit`, { state: { from: location.pathname } })
-                              } else {
-                                // bowlOpponent is a team name (e.g., "Texas Longhorns"), not abbreviation
-                                const opponentTid = getTidFromTeamName(bowlOpponent, currentDynasty?.teams)
-                                const params = new URLSearchParams({
-                                  week: 'Bowl',
-                                  year: currentDynasty.currentYear?.toString() || '',
-                                  team1Tid: userTeamTid?.toString() || '',
-                                  team2Tid: opponentTid?.toString() || '',
-                                  gameType: 'bowl',
-                                  bowlName: selectedBowl || ''
-                                })
-                                navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
-                              }
-                            }}
-                            className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm self-end sm:self-auto transition-all hover:shadow-md active:scale-[0.98]"
-                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                          >
-                            {userBowlGame ? 'Edit' : 'Enter'}
-                          </button>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Task: Enter YOUR CFP Quarterfinal Game.
-                        Bye seeds (1-4) see this immediately because their
-                        QF shell has them as team1Tid from seed entry.
-                        First-round winners see it after their FR win
-                        propagates them into the shell's team2Tid via
-                        propagateCFPWinner. */}
-                    {userHasCFPQuarterfinalGame && (() => {
-                      const qfGamePlayed = userCFPQuarterfinalScoresEntered
-                      return (
-                      <div
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all"
-                        style={qfGamePlayed ? {
-                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                          border: '1px solid rgba(34, 197, 94, 0.3)'
-                        } : {
-                          backgroundColor: 'var(--surface-3)',
-                          border: '1px solid var(--surface-4)'
-                        }}
-                      >
-                        <div className="flex items-center gap-3 sm:gap-4">
-                          <div
-                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                              qfGamePlayed ? 'bg-green-500 text-white' : ''
-                            }`}
-                            style={!qfGamePlayed ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
-                          >
-                            {qfGamePlayed ? (
-                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : <span className="font-bold text-sm sm:text-base">{(bowlEligible && selectedBowl && bowlOpponent && userBowlIsWeek2) ? 3 : 2}</span>}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: qfGamePlayed ? '#22c55e' : '#fafafa' }}>
-                              Enter Your {userQFBowlName} Game (CFP QF)
-                            </div>
-                            <div className="text-xs sm:text-sm mt-0.5" style={{ color: qfGamePlayed ? '#22c55e' : '#a1a1aa' }}>
-                              {qfGamePlayed
-                                ? `✓ ${userCFPQuarterfinalGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPQuarterfinalGame.perspective?.userScore || 0, userCFPQuarterfinalGame.perspective?.opponentScore || 0)}-${Math.min(userCFPQuarterfinalGame.perspective?.userScore || 0, userCFPQuarterfinalGame.perspective?.opponentScore || 0)}`
-                                : `#${userCFPSeed} vs ${userQFOpponent ? getMascotName(userQFOpponent) : 'TBD'}`}
-                            </div>
-                          </div>
-                        </div>
+                          Yes
+                        </button>
                         <button
-                          onClick={() => {
-                            // Use game with perspective first, then shell, then create new
-                            const gameToEdit = userCFPQuarterfinalGame || userCFPQuarterfinalShell
-                            if (gameToEdit) {
-                              navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
-                            } else {
-                              // userQFOpponent can be a tid (number) or abbreviation (string)
-                              const opponentTid = typeof userQFOpponent === 'number' ? userQFOpponent : getTidFromAbbr(userQFOpponent, currentDynasty)
-                              const params = new URLSearchParams({
-                                week: 'CFP Quarterfinal',
-                                year: currentDynasty.currentYear?.toString() || '',
-                                team1Tid: userTeamTid?.toString() || '',
-                                team2Tid: opponentTid?.toString() || '',
-                                gameType: 'cfp_quarterfinal',
-                                bowlName: userQFBowlName || ''
+                          onClick={async () => {
+                            setTakingNewJob(false)
+                            await updateDynasty(currentDynasty.id, {
+                              newJobData: { takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek },
+                            })
+                          }}
+                          className="btn-refined btn-refined--solid"
+                        >
+                          No
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {takingNewJob === true && !newJobTeam && (
+                    <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
+                      <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Which team?</p>
+                      <div className="max-w-xs">
+                        <SearchableSelect
+                          options={teams}
+                          value={newJobTeam}
+                          onChange={async (value) => {
+                            setNewJobTeam(value)
+                            await updateDynasty(currentDynasty.id, {
+                              newJobData: { ...currentDynasty.newJobData, takingNewJob: true, team: value },
+                            })
+                          }}
+                          placeholder="Search for team..."
+                          teamColors={teamColors}
+                          dynastyTeams={currentDynasty?.teams}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {takingNewJob === true && newJobTeam && !newJobPosition && (
+                    <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
+                      <p className="mb-2 text-xs sm:text-sm text-txt-secondary">
+                        New team: <strong className="text-txt-primary">{getTeamNameFromAbbr(newJobTeam)}</strong>
+                      </p>
+                      <p className="mb-2 text-xs sm:text-sm text-txt-secondary">What position?</p>
+                      <div className="flex gap-2 flex-wrap">
+                        {['HC', 'OC', 'DC'].map(pos => (
+                          <button
+                            key={pos}
+                            onClick={async () => {
+                              setNewJobPosition(pos)
+                              const newTeamTid = getTidFromTeamName(currentDynasty.newJobData?.team, currentDynasty.teams)
+                              const updatedTeams = newTeamTid
+                                ? setPendingUserTeam(currentDynasty.teams, newTeamTid, pos)
+                                : currentDynasty.teams
+                              await updateDynasty(currentDynasty.id, {
+                                newJobData: { ...currentDynasty.newJobData, takingNewJob: true, position: pos },
+                                teams: updatedTeams,
                               })
-                              navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                            }}
+                            className="btn-refined btn-refined--solid"
+                          >
+                            {pos === 'HC' ? 'Head Coach' : pos === 'OC' ? 'Offensive Coordinator' : 'Defensive Coordinator'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Coordinator vacancy wizard */}
+                  {showCoordinator && firedOC && filledOCVacancy === null && (
+                    <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
+                      <p className="mb-3 text-xs sm:text-sm font-medium text-txt-secondary">
+                        You fired {firedOC} (OC). Has the position been filled?
+                      </p>
+                      <div className="flex gap-2">
+                        <button onClick={() => setFilledOCVacancy(true)} className="btn-refined btn-refined--solid">Yes</button>
+                        <button
+                          onClick={async () => {
+                            setFilledOCVacancy(false)
+                            await updateDynasty(currentDynasty.id, {
+                              pendingCoordinatorHires: {
+                                ...currentDynasty.pendingCoordinatorHires,
+                                filledOC: false,
+                                newOCName: null,
+                              },
+                            })
+                          }}
+                          className="btn-refined btn-refined--solid"
+                        >
+                          Not Yet
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {showCoordinator && firedOC && filledOCVacancy === true && !newOCName && (
+                    <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
+                      <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Enter new OC name:</p>
+                      <div className="flex gap-2 max-w-sm">
+                        <input
+                          type="text"
+                          id="new-oc-name"
+                          className="flex-1 px-3 py-2 border-2 rounded-lg focus:outline-none"
+                          style={{ borderColor: 'var(--text-primary)' }}
+                          placeholder="New OC name..."
+                          onKeyDown={async (e) => {
+                            if (e.key === 'Enter' && e.target.value.trim()) {
+                              const name = e.target.value.trim()
+                              setNewOCName(name)
+                              await updateDynasty(currentDynasty.id, {
+                                pendingCoordinatorHires: {
+                                  ...currentDynasty.pendingCoordinatorHires,
+                                  filledOC: true,
+                                  newOCName: name,
+                                },
+                              })
                             }
                           }}
-                          className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm self-end sm:self-auto transition-all hover:shadow-md active:scale-[0.98]"
-                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
+                        />
+                        <button
+                          onClick={async () => {
+                            const input = document.getElementById('new-oc-name')
+                            if (input?.value.trim()) {
+                              const name = input.value.trim()
+                              setNewOCName(name)
+                              await updateDynasty(currentDynasty.id, {
+                                pendingCoordinatorHires: {
+                                  ...currentDynasty.pendingCoordinatorHires,
+                                  filledOC: true,
+                                  newOCName: name,
+                                },
+                              })
+                            }
+                          }}
+                          className="btn-refined btn-refined--solid"
                         >
-                          {qfGamePlayed ? 'Edit' : 'Enter'}
+                          Save
                         </button>
                       </div>
-                      )})()}
-
-                    {/* Task: Taking a New Job? (appears every bowl week until accepted) */}
-                    {(() => {
-                      // Task number depends on how many tasks are showing above
-                      let newJobTaskNum = 2
-                      if (bowlEligible && selectedBowl && bowlOpponent && userBowlIsWeek2) newJobTaskNum++
-                      if (userInCFPQuarterfinal && (userWonFirstRound || hasBowlWeek1Data)) newJobTaskNum++
-                      return (
-                    <div
-                      className="p-4 rounded-xl transition-all"
-                      style={takingNewJob !== null ? {
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        border: '1px solid rgba(34, 197, 94, 0.3)'
-                      } : {
-                        backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--surface-4)'
-                      }}
-                    >
-                      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 ${takingNewJob === null || (takingNewJob === true && (!newJobTeam || !newJobPosition)) ? 'mb-3' : ''}`}>
-                        <div className="flex items-center gap-3 sm:gap-4">
-                          <div
-                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                              takingNewJob !== null ? 'bg-green-500 text-white' : ''
-                            }`}
-                            style={takingNewJob === null ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
-                          >
-                            {takingNewJob !== null ? (
-                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : <span className="font-bold text-sm sm:text-base">{newJobTaskNum}</span>}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: takingNewJob !== null ? '#22c55e' : '#fafafa' }}>
-                              Taking a New Job? (Bowl Week 2)
-                            </div>
-                            {takingNewJob === true && newJobTeam && newJobPosition && (
-                              <div className="text-xs sm:text-sm mt-0.5" style={{ color: '#22c55e' }}>
-                                ✓ {newJobPosition} at {getTeamNameFromAbbr(newJobTeam)}
-                              </div>
-                            )}
-                            {takingNewJob === false && (
-                              <div className="text-xs sm:text-sm mt-0.5" style={{ color: '#22c55e' }}>
-                                ✓ Staying with current team
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        {(takingNewJob === false || (takingNewJob === true && newJobTeam && newJobPosition)) && (
-                          <button
-                            onClick={async () => {
-                              setTakingNewJob(null)
-                              setNewJobTeam('')
-                              setNewJobPosition('')
-                              // Clear pendingUserId from any team
-                              const updatedTeams = clearPendingUserTeam(currentDynasty.teams)
-                              await updateDynasty(currentDynasty.id, {
-                                newJobData: null,
-                                teams: updatedTeams
-                              })
-                            }}
-                            className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm self-end sm:self-auto transition-all hover:shadow-md active:scale-[0.98]"
-                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                          >
-                            Edit
-                          </button>
-                        )}
-                      </div>
-
-                      {takingNewJob === null && (
-                        <div className="ml-13 pl-10">
-                          <div className="flex gap-3">
-                            <button
-                              onClick={async () => {
-                                setTakingNewJob(true)
-                                await updateDynasty(currentDynasty.id, {
-                                  newJobData: { takingNewJob: true, team: '', position: '' }
-                                })
-                              }}
-                              className="px-6 py-2.5 rounded-lg font-semibold transition-all hover:shadow-md active:scale-[0.98]"
-                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                            >
-                              Yes
-                            </button>
-                            <button
-                              onClick={async () => {
-                                setTakingNewJob(false)
-                                await updateDynasty(currentDynasty.id, {
-                                  newJobData: { takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek }
-                                })
-                              }}
-                              className="px-6 py-2.5 rounded-lg font-semibold transition-all hover:shadow-md active:scale-[0.98]"
-                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                            >
-                              No
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                      {takingNewJob === true && !newJobTeam && (
-                        <div className="ml-13 pl-10">
-                          <p className="mb-2" style={{ color: '#a1a1aa' }}>Which team?</p>
-                          <div className="max-w-xs">
-                            <SearchableSelect
-                              options={teams}
-                              value={newJobTeam}
-                              onChange={async (value) => {
-                                setNewJobTeam(value)
-                                // IMPORTANT: Always include takingNewJob: true to prevent state loss
-                                await updateDynasty(currentDynasty.id, {
-                                  newJobData: { ...currentDynasty.newJobData, takingNewJob: true, team: value }
-                                })
-                              }}
-                              placeholder="Search for team..."
-                              teamColors={teamColors}
-                              dynastyTeams={currentDynasty?.teams}
-                            />
-                          </div>
-                        </div>
-                      )}
-                      {takingNewJob === true && newJobTeam && !newJobPosition && (
-                        <div className="ml-13 pl-10">
-                          <p className="mb-2" style={{ color: '#a1a1aa' }}>
-                            New team: <strong style={{ color: '#fafafa' }}>{getTeamNameFromAbbr(newJobTeam)}</strong>
-                          </p>
-                          <p className="mb-2" style={{ color: '#a1a1aa' }}>What position?</p>
-                          <div className="flex gap-2 flex-wrap">
-                            {['HC', 'OC', 'DC'].map(pos => (
-                              <button
-                                key={pos}
-                                onClick={async () => {
-                                  setNewJobPosition(pos)
-                                  // Get tid of the new team and set pendingUserId
-                                  const newTeamTid = getTidFromTeamName(currentDynasty.newJobData?.team, currentDynasty.teams)
-                                  const updatedTeams = newTeamTid
-                                    ? setPendingUserTeam(currentDynasty.teams, newTeamTid, pos)
-                                    : currentDynasty.teams
-                                  // IMPORTANT: Always include takingNewJob: true to prevent state loss
-                                  await updateDynasty(currentDynasty.id, {
-                                    newJobData: { ...currentDynasty.newJobData, takingNewJob: true, position: pos },
-                                    teams: updatedTeams
-                                  })
-                                }}
-                                className="px-4 py-2 rounded-lg font-semibold hover:opacity-90"
-                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                              >
-                                {pos === 'HC' ? 'Head Coach' : pos === 'OC' ? 'Offensive Coordinator' : 'Defensive Coordinator'}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
-                      )
-                    })()}
-
-                    {/* Task: Fill Coordinator Vacancy (appears in Bowl Week 2+ if coordinator was fired) */}
-                    {currentDynasty.coachPosition === 'HC' && (() => {
-                      const ccDataForYear = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear] || {}
-                      return ccDataForYear.firedOCName || ccDataForYear.firedDCName
-                    })() &&
-                    (() => {
-                      const ccDataForYear = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear] || {}
-                      const firedOC = ccDataForYear.firedOCName
-                      const firedDC = ccDataForYear.firedDCName
-                      // Only mark as done if vacancy is actually filled (user said Yes and entered name)
-                      const ocFilled = !firedOC || (filledOCVacancy === true && newOCName)
-                      const dcFilled = !firedDC || (filledDCVacancy === true && newDCName)
-                      const allFilled = ocFilled && dcFilled
-                      // Task is "answered" but not filled - user said "Not Yet"
-                      const ocAnswered = !firedOC || filledOCVacancy !== null
-                      const dcAnswered = !firedDC || filledDCVacancy !== null
-                      const allAnswered = ocAnswered && dcAnswered
-
-                      // If all positions are filled, don't show this task at all
-                      if (allFilled) return null
-
-                      // Calculate task number
-                      let taskNum = 2 // Base: after Week 1 results
-                      if (bowlEligible && selectedBowl && bowlOpponent && userBowlIsWeek2) taskNum++ // User bowl game
-                      taskNum++ // After "Taking a New Job?"
-
-                      return (
-                        <div
-                          className="p-3 sm:p-4 transition-all"
-                          style={{
-                            backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--surface-4)'
+                  )}
+                  {showCoordinator && firedDC && coordOcAnswered && filledDCVacancy === null && (
+                    <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
+                      <p className="mb-3 text-xs sm:text-sm font-medium text-txt-secondary">
+                        You fired {firedDC} (DC). Has the position been filled?
+                      </p>
+                      <div className="flex gap-2">
+                        <button onClick={() => setFilledDCVacancy(true)} className="btn-refined btn-refined--solid">Yes</button>
+                        <button
+                          onClick={async () => {
+                            setFilledDCVacancy(false)
+                            await updateDynasty(currentDynasty.id, {
+                              pendingCoordinatorHires: {
+                                ...currentDynasty.pendingCoordinatorHires,
+                                filledDC: false,
+                                newDCName: null,
+                              },
+                            })
                           }}
+                          className="btn-refined btn-refined--solid"
                         >
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
-                            <div className="flex items-center gap-2 sm:gap-3">
-                              <div
-                                className="w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0"
-                                style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' }}
-                              >
-                                <span className="font-bold text-sm sm:text-base">{taskNum}</span>
-                              </div>
-                              <div className="min-w-0">
-                                <div className="text-sm sm:text-base font-semibold" style={{ color: '#fafafa' }}>
-                                  Fill Coordinator {firedOC && firedDC ? 'Vacancies' : 'Vacancy'}
-                                </div>
-                                {/* Show status if user answered but vacancy not filled */}
-                                {allAnswered && !allFilled && (
-                                  <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#a1a1aa' }}>
-                                    {firedOC && (ocFilled ? `✓ OC: ${newOCName}` : 'OC: Not filled yet')}
-                                    {firedOC && firedDC && ' • '}
-                                    {firedDC && (dcFilled ? `✓ DC: ${newDCName}` : 'DC: Not filled yet')}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            {allAnswered && !allFilled && (
-                              <button
-                                onClick={async () => {
-                                  setFilledOCVacancy(null)
-                                  setFilledDCVacancy(null)
-                                  setNewOCName('')
-                                  setNewDCName('')
-                                  await updateDynasty(currentDynasty.id, { pendingCoordinatorHires: null })
-                                }}
-                                className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                              >
-                                Edit
-                              </button>
-                            )}
-                          </div>
-
-                          {/* OC Vacancy Questions */}
-                          {firedOC && filledOCVacancy === null && (
-                            <div className="ml-13 pl-10 mt-3">
-                              <p className="mb-2 font-medium" style={{ color: '#a1a1aa' }}>
-                                You fired {firedOC} (OC). Has the position been filled?
-                              </p>
-                              <div className="flex gap-3">
-                                <button
-                                  onClick={() => setFilledOCVacancy(true)}
-                                  className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                                  style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                                >
-                                  Yes
-                                </button>
-                                <button
-                                  onClick={async () => {
-                                    setFilledOCVacancy(false)
-                                    await updateDynasty(currentDynasty.id, {
-                                      pendingCoordinatorHires: {
-                                        ...currentDynasty.pendingCoordinatorHires,
-                                        filledOC: false,
-                                        newOCName: null
-                                      }
-                                    })
-                                  }}
-                                  className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                                  style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                                >
-                                  Not Yet
-                                </button>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* OC Name Input */}
-                          {firedOC && filledOCVacancy === true && !newOCName && (
-                            <div className="ml-13 pl-10 mt-3">
-                              <p className="mb-2 font-medium" style={{ color: '#a1a1aa' }}>
-                                Enter new OC name:
-                              </p>
-                              <div className="flex gap-2 max-w-sm">
-                                <input
-                                  type="text"
-                                  id="new-oc-name"
-                                  className="flex-1 px-3 py-2 border-2 rounded-lg focus:outline-none"
-                                  style={{ borderColor: 'var(--text-primary)' }}
-                                  placeholder="New OC name..."
-                                  onKeyDown={async (e) => {
-                                    if (e.key === 'Enter' && e.target.value.trim()) {
-                                      const name = e.target.value.trim()
-                                      setNewOCName(name)
-                                      await updateDynasty(currentDynasty.id, {
-                                        pendingCoordinatorHires: {
-                                          ...currentDynasty.pendingCoordinatorHires,
-                                          filledOC: true,
-                                          newOCName: name
-                                        }
-                                      })
-                                    }
-                                  }}
-                                />
-                                <button
-                                  onClick={async () => {
-                                    const input = document.getElementById('new-oc-name')
-                                    if (input?.value.trim()) {
-                                      const name = input.value.trim()
-                                      setNewOCName(name)
-                                      await updateDynasty(currentDynasty.id, {
-                                        pendingCoordinatorHires: {
-                                          ...currentDynasty.pendingCoordinatorHires,
-                                          filledOC: true,
-                                          newOCName: name
-                                        }
-                                      })
-                                    }
-                                  }}
-                                  className="px-4 py-2 rounded-lg font-semibold hover:opacity-90"
-                                  style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                                >
-                                  Save
-                                </button>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* DC Vacancy Questions (only show after OC is done) */}
-                          {firedDC && ocAnswered && filledDCVacancy === null && (
-                            <div className="ml-13 pl-10 mt-3">
-                              <p className="mb-2 font-medium" style={{ color: '#a1a1aa' }}>
-                                You fired {firedDC} (DC). Has the position been filled?
-                              </p>
-                              <div className="flex gap-3">
-                                <button
-                                  onClick={() => setFilledDCVacancy(true)}
-                                  className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                                  style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                                >
-                                  Yes
-                                </button>
-                                <button
-                                  onClick={async () => {
-                                    setFilledDCVacancy(false)
-                                    await updateDynasty(currentDynasty.id, {
-                                      pendingCoordinatorHires: {
-                                        ...currentDynasty.pendingCoordinatorHires,
-                                        filledDC: false,
-                                        newDCName: null
-                                      }
-                                    })
-                                  }}
-                                  className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                                  style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                                >
-                                  Not Yet
-                                </button>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* DC Name Input */}
-                          {firedDC && ocAnswered && filledDCVacancy === true && !newDCName && (
-                            <div className="ml-13 pl-10 mt-3">
-                              <p className="mb-2 font-medium" style={{ color: '#a1a1aa' }}>
-                                Enter new DC name:
-                              </p>
-                              <div className="flex gap-2 max-w-sm">
-                                <input
-                                  type="text"
-                                  id="new-dc-name"
-                                  className="flex-1 px-3 py-2 border-2 rounded-lg focus:outline-none"
-                                  style={{ borderColor: 'var(--text-primary)' }}
-                                  placeholder="New DC name..."
-                                  onKeyDown={async (e) => {
-                                    if (e.key === 'Enter' && e.target.value.trim()) {
-                                      const name = e.target.value.trim()
-                                      setNewDCName(name)
-                                      await updateDynasty(currentDynasty.id, {
-                                        pendingCoordinatorHires: {
-                                          ...currentDynasty.pendingCoordinatorHires,
-                                          filledDC: true,
-                                          newDCName: name
-                                        }
-                                      })
-                                    }
-                                  }}
-                                />
-                                <button
-                                  onClick={async () => {
-                                    const input = document.getElementById('new-dc-name')
-                                    if (input?.value.trim()) {
-                                      const name = input.value.trim()
-                                      setNewDCName(name)
-                                      await updateDynasty(currentDynasty.id, {
-                                        pendingCoordinatorHires: {
-                                          ...currentDynasty.pendingCoordinatorHires,
-                                          filledDC: true,
-                                          newDCName: name
-                                        }
-                                      })
-                                    }
-                                  }}
-                                  className="px-4 py-2 rounded-lg font-semibold hover:opacity-90"
-                                  style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                                >
-                                  Save
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })()}
-
-                    {/* Task: Recruiting Commitments (Bowl Week 2) */}
-                    {(() => {
-                      const commitmentKey = getCommitmentKey()
-                      const userTidForCommits = getUserTeamTid(currentDynasty)
-                      const commitmentsForYear = getRecruitingCommitments(currentDynasty, userTidForCommits, currentDynasty.currentYear)
-                      const weekCommitments = commitmentsForYear?.[commitmentKey]
-                      const hasCommitmentsData = weekCommitments !== undefined
-                      const commitmentsCount = weekCommitments?.length || 0
-                      const classScore = calculateRecruitingClassScore(flattenClassCommitments(commitmentsForYear))
-                      // Task number: starts at base, increments based on visible tasks
-                      let taskNum = 2
-                      if (bowlEligible && selectedBowl && bowlOpponent && userBowlIsWeek2) taskNum++
-                      if (userInCFPQuarterfinal && (userWonFirstRound || hasBowlWeek1Data)) taskNum++
-                      taskNum++ // After "Taking a New Job" task
-                      const ccDataForTaskNum = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear] || {}
-                      if (currentDynasty.coachPosition === 'HC' && (ccDataForTaskNum.firedOCName || ccDataForTaskNum.firedDCName)) taskNum++ // After coordinator hire task
-
-                      return (
-                        <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all"
-                          style={hasCommitmentsData ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                            border: '1px solid rgba(34, 197, 94, 0.3)'
-                          } : {
-                            backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--surface-4)'
+                          Not Yet
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {showCoordinator && firedDC && coordOcAnswered && filledDCVacancy === true && !newDCName && (
+                    <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
+                      <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Enter new DC name:</p>
+                      <div className="flex gap-2 max-w-sm">
+                        <input
+                          type="text"
+                          id="new-dc-name"
+                          className="flex-1 px-3 py-2 border-2 rounded-lg focus:outline-none"
+                          style={{ borderColor: 'var(--text-primary)' }}
+                          placeholder="New DC name..."
+                          onKeyDown={async (e) => {
+                            if (e.key === 'Enter' && e.target.value.trim()) {
+                              const name = e.target.value.trim()
+                              setNewDCName(name)
+                              await updateDynasty(currentDynasty.id, {
+                                pendingCoordinatorHires: {
+                                  ...currentDynasty.pendingCoordinatorHires,
+                                  filledDC: true,
+                                  newDCName: name,
+                                },
+                              })
+                            }
                           }}
+                        />
+                        <button
+                          onClick={async () => {
+                            const input = document.getElementById('new-dc-name')
+                            if (input?.value.trim()) {
+                              const name = input.value.trim()
+                              setNewDCName(name)
+                              await updateDynasty(currentDynasty.id, {
+                                pendingCoordinatorHires: {
+                                  ...currentDynasty.pendingCoordinatorHires,
+                                  filledDC: true,
+                                  newDCName: name,
+                                },
+                              })
+                            }
+                          }}
+                          className="btn-refined btn-refined--solid"
                         >
-                          <div className="flex items-center gap-3 sm:gap-4">
-                            <div
-                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 font-bold ${
-                                hasCommitmentsData ? 'bg-green-500 text-white' : ''
-                              }`}
-                              style={!hasCommitmentsData ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
-                            >
-                              {hasCommitmentsData ? (
-                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                </svg>
-                              ) : taskNum}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasCommitmentsData ? '#22c55e' : '#fafafa' }}>
-                                {hasCommitmentsData ? 'Recruiting Commitments' : 'Any commitments this week?'}
-                              </div>
-                              <div className="text-xs sm:text-sm mt-0.5" style={{ color: hasCommitmentsData ? '#22c55e' : '#a1a1aa' }}>
-                                {hasCommitmentsData
-                                  ? commitmentsCount > 0
-                                    ? `✓ ${commitmentsCount} commitment${commitmentsCount !== 1 ? 's' : ''} recorded`
-                                    : '✓ No commitments this week'
-                                  : 'Record any recruiting commitments'}
-                              </div>
-                              {classScore > 0 && (
-                                <Link
-                                  to={`${pathPrefix}/recruiting/${userTidForCommits}/${currentDynasty.currentYear}`}
-                                  className="block w-fit text-[10px] sm:text-xs mt-1 font-bold uppercase text-txt-tertiary hover:text-team-primary transition-colors"
-                                  style={{ letterSpacing: '1.5px' }}
-                                  title="View recruiting class"
-                                >
-                                  Class Score <span className="tabular text-txt-primary ml-1">{formatRecruitingClassScore(classScore)}</span>
-                                </Link>
-                              )}
-                              <RecruitingInsightLink className="mt-1" />
-                            </div>
-                          </div>
-                          {!hasCommitmentsData ? (
-                            <div className="flex gap-2 self-end sm:self-auto items-center">
-                              <SellVsSendButton onClick={() => setShowSellCalc(true)} />
-                              <button
-                                onClick={handleNoCommitments}
-                                className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm transition-all hover:shadow-md active:scale-[0.98]"
-                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                              >
-                                No
-                              </button>
-                              <button
-                                onClick={() => setShowRecruitingModal(true)}
-                                className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm transition-all hover:shadow-md active:scale-[0.98]"
-                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                              >
-                                Yes
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => setShowRecruitingModal(true)}
-                              className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm self-end sm:self-auto transition-all hover:shadow-md active:scale-[0.98]"
-                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                            >
-                              Edit
-                            </button>
-                          )}
-                        </div>
-                      )
-                    })()}
-
-                  </div>
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </>
               )
             }
+
 
             // Week 5: End of Season Recap - Enter championship result if user wasn't in it
             if (week === 5) {
