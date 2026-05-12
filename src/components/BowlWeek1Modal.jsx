@@ -298,6 +298,13 @@ FINAL CHECK before you send the answer
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {
           console.error('Failed to create bowl sheet:', error)
+          // Route OAuth/auth errors through the auth-error modal so the
+          // user sees an actionable prompt instead of a silent failure.
+          // Other catches in this modal already use this pattern; the
+          // sheet-creation catch was missed and just console.error-d
+          // ("Try refreshing your session or sign out and sign back in"
+          //  was never surfaced to the user).
+          auth.handleError(error)
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false

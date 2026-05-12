@@ -256,6 +256,7 @@ FINAL CHECK before you send the answer
           })
         } catch (error) {
           console.error('Failed to create schedule sheet:', error)
+          auth.handleError(error)
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false

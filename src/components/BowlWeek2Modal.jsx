@@ -501,6 +501,7 @@ FINAL CHECK before you send the answer
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {
           console.error('Failed to create bowl Week 2 sheet:', error)
+          auth.handleError(error)
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false

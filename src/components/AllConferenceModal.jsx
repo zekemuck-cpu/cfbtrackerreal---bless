@@ -256,6 +256,7 @@ FINAL CHECK before you send
           })
         } catch (error) {
           console.error('Failed to create all-conference sheet:', error)
+          auth.handleError(error)
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false

@@ -187,6 +187,7 @@ FINAL CHECK before you send the answer
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {
           console.error('Failed to create CFP Quarterfinals sheet:', error)
+          auth.handleError(error)
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false
