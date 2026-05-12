@@ -16,7 +16,8 @@
  */
 export default function SheetManualEntry({ sheetId, whatToDo, tabs, tip }) {
   return (
-    <div className="flex flex-col items-center text-center w-full max-w-md mx-auto pt-2 pb-4 px-4">
+    <div className="flex-1 flex flex-col items-center justify-center w-full text-center px-4 py-6 min-h-0">
+      <div className="w-full max-w-md flex flex-col items-center">
       <ol
         className="text-left text-sm space-y-2 text-txt-secondary w-full card p-4 border-l-[3px] mb-5"
         style={{ borderLeftColor: 'var(--surface-5)' }}
@@ -64,6 +65,7 @@ export default function SheetManualEntry({ sheetId, whatToDo, tabs, tip }) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
         </svg>
       </a>
+      </div>
     </div>
   )
 }
