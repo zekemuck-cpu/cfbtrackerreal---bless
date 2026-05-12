@@ -2367,11 +2367,30 @@ export default function Game() {
             // rows (where the patResult or scoreType contains "2PT")
             // DO still promote — those are worth 2 points and deserve
             // their own card when they happen standalone.
+            // The truthy-only check used to live here would treat ANY
+            // non-empty string in column E as a scoring play — including
+            // misaligned TSV junk like "2" (a quarter number that
+            // shifted left from a Penalty row the AI emitted with too
+            // few empty cells). The result was ghost OT-tagged scoring
+            // cards at the top of the Plays tab with 0-0 running scores.
+            //
+            // Tighten by requiring the score type to actually look like
+            // one: ends in "TD", is "Field Goal" / "Safety", or contains
+            // those words. Catches both the canonical labels and
+            // reasonable AI paraphrases like "Interception TD" while
+            // still rejecting "2" / "11:40" / pure digits.
+            const looksLikeScoreType = (st) => {
+              if (!st) return false
+              if (/\bTD\b/i.test(st)) return true
+              if (/Field Goal/i.test(st)) return true
+              if (/Safety/i.test(st)) return true
+              return false
+            }
             const isScoringPlay = (p) => {
               if (is2PTAttempt(p)) return true
               const st = (p.scoreType || '').trim()
               if (st === 'PAT') return false
-              return !!st
+              return looksLikeScoreType(st)
             }
 
             // Detect whether this game has play-by-play data on file.

@@ -3720,15 +3720,27 @@ FOCUS: Write from ${ctx.userTeamName}'s perspective as the primary team.
   // math here adds the XP point. The PAT row itself is still kept in
   // the array for PBP context.
   const normalizedPlays = collapsePatRowsIntoTDs(ctx.scoringSummary || [])
-  // A play is "scoring" if it has a scoreType set (excluding standalone
-  // PAT rows — their patResult has already been folded into the
-  // preceding TD), OR a standalone 2PT attempt (no scorer + 2PT in
-  // either field).
+  // A play is "scoring" if it has a recognizable scoring-type label
+  // (TD / Field Goal / Safety) — excluding standalone PAT rows whose
+  // patResult has already been folded onto the preceding TD — OR a
+  // standalone 2PT attempt. Rejecting unrecognized labels guards
+  // against misaligned TSV junk: a Penalty row the AI emitted with
+  // too few empty cells can leave a quarter number ("2") sitting in
+  // the scoreType slot. Truthy-only would have surfaced that as a
+  // ghost scoring entry in the recap.
+  const looksLikeScoreType = (s) => {
+    if (!s) return false
+    if (/\bTD\b/i.test(s)) return true
+    if (/Field Goal/i.test(s)) return true
+    if (/Safety/i.test(s)) return true
+    return false
+  }
   const isScoringPlay = (p) => {
     const s = (p?.scoreType || '').trim()
     if (s === 'PAT') return false
     const r = p?.patResult || ''
-    return !!s || r.includes('2PT') || s.includes('2PT')
+    if (looksLikeScoreType(s)) return true
+    return r.includes('2PT') || s.includes('2PT')
   }
   // A play is "PBP-only" (carries play-by-play extension fields).
   // Used to detect whether the new PLAY-BY-PLAY section should

@@ -447,7 +447,54 @@ REFERENCE ROWS (templates — note how col A is decided)
 "3rd & 5 on LOU 10. Donte Ware pass knocked away by Larry Long."  (UK has the ball; Larry Long is LOU's defender)
 → UK	Larry Long	Donte Ware	0				2	12:00		3	5	LOU 10	Pass Knocked Away
 
-Notice: rows 2, 3, and 4 all have a Field Pos that names a team ≠ col A. That's the normal case, not the exception. Decide col A from the PLAYER, every time.`,
+"2nd & 5 on LOU 25. Penalty against LOU, 5 yards. (no named player)"  (penalty with no player named)
+→ LOU						2	11:40		2	5	LOU 25	Penalty
+
+Notice: rows 2, 3, and 4 all have a Field Pos that names a team ≠ col A. That's the normal case, not the exception. Decide col A from the PLAYER, every time.
+
+═══════════════════════════════════════════════════════════
+🚨 COLUMN ALIGNMENT — every row MUST have EXACTLY 12 tabs (13 cells) 🚨
+═══════════════════════════════════════════════════════════
+This is the #3 failure mode and it silently corrupts the sheet.
+
+When a play has no Scorer, no Passer, no Yards, no Score Type, and no
+PAT Result — like a Penalty or a generic "Other" row — you MUST still
+emit the EMPTY cells with their tabs. Do NOT collapse them.
+
+❌ WRONG (penalty row with collapsed empty cells — only 9 tabs):
+   LOU				2	11:40		2	5	LOU 25	Penalty
+   What ends up in the sheet:
+     Score Type = "2"   ← quarter number leaked into col E
+     PAT Result = "11:40"  ← time leaked into col F
+   The front-end then thinks "2" is a scoring play and renders a
+   ghost scoring card. THIS BREAKS THE PLAYS TAB.
+
+✅ RIGHT (penalty row with EVERY empty cell tabbed — 12 tabs):
+   LOU						2	11:40		2	5	LOU 25	Penalty
+   Six leading empty cells (Scorer, Passer, Yards, Score Type, PAT,
+   then Quarter starts at col G). Count the tabs: 12.
+
+Rule: BEFORE EMITTING ANY ROW, count tab characters. The count must
+be EXACTLY 12. If it's less, you collapsed empty cells — go back and
+add the missing tabs.
+
+Score Type column (col E): if the play is NOT a score, this cell is
+EMPTY. Never a quarter number. Never a yardage. Never a time. Empty.
+Same for PAT Result (col F) — empty unless it's a TD/PAT/2PT row.
+
+═══════════════════════════════════════════════════════════
+SCORE TYPE — use these EXACT strings (col E)
+═══════════════════════════════════════════════════════════
+Valid values for col E when a play scores:
+  Rushing TD | Passing TD | Field Goal | Safety
+  Kick Return TD | Punt Return TD | INT Return TD
+  Fumble Return TD | Blocked Punt/FG TD | PAT
+
+Do NOT paraphrase. "Interception TD" → use "INT Return TD" instead.
+"FG" → use "Field Goal". "Kickoff Return TD" → use "Kick Return TD".
+The front-end's score-running logic looks at these EXACT strings; a
+paraphrased label still renders the play but breaks downstream
+aggregations (season stat rollups, awards counters).`,
         includeTeamMap: true,
         dynastyTeams: currentDynasty?.teams,
       })
