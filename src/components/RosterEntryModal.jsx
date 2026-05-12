@@ -12,7 +12,7 @@ import {
   prefillRosterSheet
 } from '../services/sheetsService'
 import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
-import { getCurrentTeamAbbr } from '../data/teamRegistry'
+import { getCurrentTeamAbbr, getCurrentTeamTid } from '../data/teamRegistry'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
@@ -200,11 +200,12 @@ FINAL CHECK before you send
           )
           setSheetId(sheetInfo.spreadsheetId)
 
-          // Get current roster for this team and pre-fill the sheet
-          // Use unified isPlayerOnRoster for consistent filtering across all components
+          // Get current roster for this team and pre-fill the sheet.
+          // Teambuilder-safe: use tid + dynasty so renamed teams resolve.
           const teamAbbr = getCurrentTeamAbbr(currentDynasty)
+          const teamTid = getCurrentTeamTid(currentDynasty)
           const currentRoster = (currentDynasty?.players || []).filter(p =>
-            isPlayerOnRoster(p, teamAbbr, currentYear)
+            isPlayerOnRoster(p, teamTid ?? teamAbbr, currentYear, currentDynasty)
           )
 
           if (currentRoster.length > 0) {

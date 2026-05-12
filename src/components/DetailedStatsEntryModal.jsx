@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
+import { getCurrentTeamTid, getTidFromAbbr } from '../data/teamRegistry'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
@@ -111,14 +112,18 @@ export default function DetailedStatsEntryModal({
   const [showAIPrompt, setShowAIPrompt] = useState(false)
 
   const userRoster = useMemo(() => {
+    // Teambuilder-safe: filter by TID + pass dynasty for abbr fallback
+    const teamTid = overrideTeamAbbr
+      ? getTidFromAbbr(overrideTeamAbbr, currentDynasty)
+      : getCurrentTeamTid(currentDynasty)
     const teamAbbrForRoster = overrideTeamAbbr ||
       currentDynasty?.teams?.[currentDynasty?.currentTid]?.abbr ||
       currentDynasty?.teamName
     const all = currentDynasty?.players || []
     return all
-      .filter(p => isPlayerOnRoster(p, teamAbbrForRoster, currentYear))
+      .filter(p => isPlayerOnRoster(p, teamTid ?? teamAbbrForRoster, currentYear, currentDynasty))
       .map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }))
-  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, overrideTeamAbbr, currentYear])
+  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, overrideTeamAbbr, currentYear, currentDynasty])
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Detailed Stats Entry`,
@@ -402,16 +407,20 @@ FINAL CHECK before you send
         creatingSheetRef.current = true
         setCreatingSheet(true)
         try {
-          // Get current team abbreviation - use override if provided
+          // Get current team — prefer TID for teambuilder-safe roster filter
           const { getCurrentTeamAbbr } = await import('../data/teamRegistry')
           const userTeamAbbr = overrideTeamAbbr || getCurrentTeamAbbr(currentDynasty)
+          const userTeamTid = overrideTeamAbbr
+            ? getTidFromAbbr(overrideTeamAbbr, currentDynasty)
+            : getCurrentTeamTid(currentDynasty)
           const dynastyTeamName = overrideTeamName || currentDynasty?.teamName
           const startYear = currentDynasty?.startYear || currentYear
 
-          // Get the full roster for this team and year
+          // Get the full roster for this team and year. Pass tid + dynasty
+          // so teambuilder-renamed teams resolve correctly.
           const allPlayers = currentDynasty?.players || []
           const currentRoster = allPlayers.filter(player =>
-            isPlayerOnRoster(player, userTeamAbbr, currentYear)
+            isPlayerOnRoster(player, userTeamTid ?? userTeamAbbr, currentYear, currentDynasty)
           )
 
           // Get existing stats to pre-fill gamesPlayed/snapsPlayed

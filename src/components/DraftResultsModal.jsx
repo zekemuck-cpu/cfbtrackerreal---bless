@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
+import { getCurrentTeamTid } from '../data/teamRegistry'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
@@ -47,14 +48,16 @@ export default function DraftResultsModal({ isOpen, onClose, onSave, currentYear
   const [showAIPrompt, setShowAIPrompt] = useState(false)
 
   const userRoster = useMemo(() => {
+    // Teambuilder-safe: filter by TID + pass dynasty for abbr fallback
+    const teamTid = getCurrentTeamTid(currentDynasty)
     const teamAbbrForRoster =
       currentDynasty?.teams?.[currentDynasty?.currentTid]?.abbr ||
       currentDynasty?.teamName
     const all = currentDynasty?.players || []
     return all
-      .filter(p => isPlayerOnRoster(p, teamAbbrForRoster, currentYear))
+      .filter(p => isPlayerOnRoster(p, teamTid ?? teamAbbrForRoster, currentYear, currentDynasty))
       .map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }))
-  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, currentYear])
+  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, currentYear, currentDynasty])
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Draft Results`,

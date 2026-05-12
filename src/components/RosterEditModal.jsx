@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useDynasty, getCurrentRoster, isPlayerOnRoster } from '../context/DynastyContext'
+import { getCurrentTeamTid, getTidFromAbbr } from '../data/teamRegistry'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
@@ -49,14 +50,25 @@ export default function RosterEditModal({ isOpen, onClose, onSave, currentYear, 
   const [showAIPrompt, setShowAIPrompt] = useState(false)
 
   const userRoster = useMemo(() => {
+    // Filter by TID (teambuilder-safe) and pass currentDynasty so the
+    // legacy abbr fallback inside isPlayerOnRoster resolves teambuilder-
+    // renamed teams. Previously this passed an abbr string with no
+    // dynasty arg, which silently failed for teambuilder teams whose
+    // custom abbr isn't in static TEAMS — the roster sheet rendered
+    // only the rare graduate whose teamsByYear stored the matching abbr
+    // STRING instead of a TID number. Reported by Jay (Stony Brook)
+    // 2026-05-12: Edit Roster sheet showed Jalen Holoway alone.
+    const teamTid = teamAbbr
+      ? getTidFromAbbr(teamAbbr, currentDynasty)
+      : getCurrentTeamTid(currentDynasty)
     const teamAbbrForRoster = teamAbbr ||
       currentDynasty?.teams?.[currentDynasty?.currentTid]?.abbr ||
       currentDynasty?.teamName
     const all = currentDynasty?.players || []
     return all
-      .filter(p => isPlayerOnRoster(p, teamAbbrForRoster, currentYear))
+      .filter(p => isPlayerOnRoster(p, teamTid ?? teamAbbrForRoster, currentYear, currentDynasty))
       .map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }))
-  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, teamAbbr, currentYear])
+  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, teamAbbr, currentYear, currentDynasty])
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} ${teamAbbr ? `${teamAbbr} ` : ''}Roster Edit`,
@@ -235,14 +247,18 @@ FINAL CHECK before you send
             currentYear
           )
 
-          // Pre-fill with the CURRENT roster using unified isPlayerOnRoster helper
-          // This ensures consistent filtering across all components
-          const targetTeam = teamAbbr || getCurrentRoster(currentDynasty)[0]?.team
+          // Pre-fill with the CURRENT roster using unified isPlayerOnRoster
+          // helper. Filter by TID (teambuilder-safe) with abbr fallback;
+          // pass currentDynasty so the legacy abbr path resolves correctly.
+          const targetTid = teamAbbr
+            ? getTidFromAbbr(teamAbbr, currentDynasty)
+            : getCurrentTeamTid(currentDynasty)
+          const targetTeam = targetTid ?? (teamAbbr || getCurrentRoster(currentDynasty)[0]?.team)
           const selectedYear = currentYear
 
           // Use unified isPlayerOnRoster for consistent filtering
           let existingPlayers = (currentDynasty?.players || []).filter(p =>
-            isPlayerOnRoster(p, targetTeam, selectedYear)
+            isPlayerOnRoster(p, targetTeam, selectedYear, currentDynasty)
           )
           if (existingPlayers.length > 0) {
             await prefillRosterSheet(sheetInfo.spreadsheetId, existingPlayers)

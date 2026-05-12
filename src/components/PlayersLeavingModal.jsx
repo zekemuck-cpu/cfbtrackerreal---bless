@@ -15,7 +15,7 @@ import {
   getSheetEmbedUrl,
   sheetExists
 } from '../services/sheetsService'
-import { getCurrentTeamAbbr } from '../data/teamRegistry'
+import { getCurrentTeamAbbr, getCurrentTeamTid } from '../data/teamRegistry'
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
@@ -47,14 +47,16 @@ export default function PlayersLeavingModal({ isOpen, onClose, onSave, currentYe
   const [showAIPrompt, setShowAIPrompt] = useState(false)
 
   const userRoster = useMemo(() => {
+    // Teambuilder-safe: filter by TID + pass dynasty for abbr fallback
+    const teamTid = getCurrentTeamTid(currentDynasty)
     const teamAbbrForRoster =
       currentDynasty?.teams?.[currentDynasty?.currentTid]?.abbr ||
       currentDynasty?.teamName
     const all = currentDynasty?.players || []
     return all
-      .filter(p => isPlayerOnRoster(p, teamAbbrForRoster, currentYear))
+      .filter(p => isPlayerOnRoster(p, teamTid ?? teamAbbrForRoster, currentYear, currentDynasty))
       .map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }))
-  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, currentYear])
+  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, currentYear, currentDynasty])
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Players Leaving`,
