@@ -312,3 +312,60 @@ export function migrateGameToCanonical(game, teamsRegistry = null) {
   }
   return out
 }
+
+// Manual repair tool: swap the box-score slot owned by team1Tid with
+// the one owned by team2Tid for a single game. Used when a saved game
+// has its player stats / team stats / sheet IDs attributed to the
+// wrong team (e.g. legacy {home, away} data entered with a different
+// home/away convention than the migration heuristic picks). Returns a
+// new game object in canonical shape with the two slots swapped.
+//
+// No-ops (returns the game unchanged) if the game is missing team1Tid
+// or team2Tid — there's no defined swap target in that case.
+export function swapBoxScoreTeams(game, teamsRegistry = null) {
+  if (!game) return game
+  const t1 = asTid(game.team1Tid)
+  const t2 = asTid(game.team2Tid)
+  if (t1 == null || t2 == null || t1 === t2) return game
+
+  // Canonicalize first so legacy {home, away} games migrate before swap.
+  const canon = canonicalBoxScore(game, teamsRegistry)
+
+  const swapByTidMap = (map) => {
+    if (!map) return {}
+    const next = { ...map }
+    const a = next[t1]
+    const b = next[t2]
+    if (a !== undefined) next[t2] = a; else delete next[t2]
+    if (b !== undefined) next[t1] = b; else delete next[t1]
+    return next
+  }
+
+  const swappedByTid = canon ? swapByTidMap(canon.byTid) : {}
+  const swappedTeamStatsByTid = canon ? swapByTidMap(canon.teamStatsByTid) : {}
+
+  const { home, away, teamStats, homeStatsSheetId, awayStatsSheetId, ...rest } = game
+  const out = {
+    ...rest,
+    boxScore: {
+      byTid: swappedByTid,
+      teamStatsByTid: swappedTeamStatsByTid,
+      scoringSummary: canon?.scoringSummary || [],
+    },
+  }
+
+  // Swap the player-stats sheet IDs too so the per-team Edit buttons
+  // open the correct sheet for the now-correct team.
+  const sheetMap = { ...(game.playerStatsSheetIdByTid || {}) }
+  // Pull legacy home/away IDs into the map first, then swap.
+  if (homeStatsSheetId || awayStatsSheetId) {
+    const { homeTid, awayTid } = resolveLegacySlotTids(game, teamsRegistry)
+    if (homeTid != null && homeStatsSheetId && sheetMap[homeTid] == null) sheetMap[homeTid] = homeStatsSheetId
+    if (awayTid != null && awayStatsSheetId && sheetMap[awayTid] == null) sheetMap[awayTid] = awayStatsSheetId
+  }
+  const swappedSheetMap = swapByTidMap(sheetMap)
+  if (Object.keys(swappedSheetMap).length > 0) {
+    out.playerStatsSheetIdByTid = swappedSheetMap
+  }
+  return out
+}
