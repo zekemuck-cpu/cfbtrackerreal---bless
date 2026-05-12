@@ -67,6 +67,89 @@ const normalizePlayerName = (name) => {
   return name.trim().toLowerCase()
 }
 
+// Shared todo-row renderer used by both the in-season weekly todo
+// block and the bowl-week branches. Each item in `todos`:
+//   { key, done, title, subtitle?, viewTo?, onAction?, actionLabel?,
+//     extraTools?, extraLeading?, inlineAction? }
+// - done: bool → green vs red status dot
+// - viewTo: nav target for the "View" link (or omitted to suppress)
+// - actionLabel + onAction: primary action button text + handler
+// - extraTools / extraLeading: optional adornments (e.g. recruiting-row
+//   icons, status text below the title)
+function renderTodoList({ todos, isViewOnly }) {
+  if (!todos || todos.length === 0) return null
+  return (
+    <div className="media-card overflow-hidden">
+      {todos.map((todo, idx) => (
+        <div
+          key={todo.key}
+          className="px-3 py-2.5 sm:px-5 sm:py-4 flex items-center gap-2 sm:gap-4"
+          style={idx > 0 ? { borderTop: '1px solid var(--surface-4)' } : undefined}
+        >
+          <div className="flex-1 min-w-0 flex items-center gap-2 sm:gap-3">
+            <span
+              aria-hidden="true"
+              className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{
+                backgroundColor: todo.done
+                  ? 'var(--accent-success)'
+                  : 'var(--accent-error)',
+              }}
+            />
+            {todo.extraLeading}
+            <div className="min-w-0">
+              <div
+                className="font-display font-bold leading-tight text-txt-primary truncate"
+                style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
+              >
+                {todo.title}
+              </div>
+              {todo.subtitle && (
+                <div className="hidden sm:block text-xs sm:text-[13px] mt-0.5 text-txt-tertiary">
+                  {todo.subtitle}
+                </div>
+              )}
+              {todo.inlineAction && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); todo.inlineAction.onClick() }}
+                  className="mt-1 text-[11px] uppercase font-bold text-txt-tertiary hover:text-txt-secondary underline underline-offset-2 transition-colors"
+                  style={{ letterSpacing: '1.2px' }}
+                >
+                  {todo.inlineAction.label}
+                </button>
+              )}
+            </div>
+          </div>
+          {!isViewOnly && todo.actionLabel && (
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              {todo.extraTools}
+              <div
+                className="grid gap-1.5 sm:gap-2 items-center"
+                style={{ gridTemplateColumns: '5rem 6.5rem' }}
+              >
+                {todo.viewTo ? (
+                  <Link to={todo.viewTo} className="btn-refined text-center">
+                    View
+                  </Link>
+                ) : (
+                  <span aria-hidden="true" />
+                )}
+                <button
+                  onClick={todo.onAction}
+                  className="btn-refined btn-refined--solid text-center"
+                >
+                  {todo.actionLabel}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const { currentDynasty, loadingDynastyId, saveSchedule, saveRoster, saveTeamRatings, saveCoachingStaff, saveConferences, saveConferenceAlignment, addGame, saveCPUBowlGames, saveCFPGames, saveCPUConferenceChampionships, updateDynasty, processHonorPlayers, isViewOnly, exportDynasty } = useDynasty()
 
