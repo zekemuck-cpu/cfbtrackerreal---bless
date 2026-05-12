@@ -5,6 +5,7 @@ import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import SheetModalHeader from './ui/SheetModalHeader'
 import SheetModalAIHero from './ui/SheetModalAIHero'
+import SheetManualEntry from './ui/SheetManualEntry'
 import { useAuth } from '../context/AuthContext'
 import { teams as TEAM_NAMES, getMascotName } from '../data/teams'
 import { getTidFromTeamName, TEAMS } from '../data/teamRegistry'
@@ -346,20 +347,19 @@ export default function PreseasonTop25Modal({ isOpen, onClose, year, teamColors 
                 </div>
               </div>
             ) : sheetId ? (
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 <SheetModalAIHero
                   tagline="Skip the typing. Let AI fill the preseason Top 25."
                   buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
                 />
-                <div className="text-xs text-txt-tertiary">
-                  Edit ranks in the sheet below — column B uses a strict team dropdown (every team in this dynasty). Save & Sync to pull the entries back into your dynasty.
+                <div className="flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
+                  <iframe
+                    title="Preseason Rankings Sheet"
+                    src={getSingleSheetEmbedUrl(sheetId)}
+                    className="w-full"
+                    style={{ minHeight: 460, height: '52vh' }}
+                  />
                 </div>
-                <iframe
-                  title="Preseason Rankings Sheet"
-                  src={getSingleSheetEmbedUrl(sheetId)}
-                  className="w-full rounded-lg border border-surface-4"
-                  style={{ minHeight: 460, height: '52vh' }}
-                />
               </div>
             ) : (
               <div className="text-center py-8 text-txt-tertiary text-sm">Sheet not loaded.</div>

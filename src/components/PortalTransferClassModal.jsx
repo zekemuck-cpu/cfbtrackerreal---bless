@@ -6,6 +6,7 @@ import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import SheetModalHeader from './ui/SheetModalHeader'
 import SheetModalAIHero from './ui/SheetModalAIHero'
+import SheetManualEntry from './ui/SheetManualEntry'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
 import AIPromptModal from './AIPromptModal'
@@ -390,107 +391,22 @@ FINAL CHECK before you send
               buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
             />
             {isMobile || !useEmbedded ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-4 overflow-auto">
-                <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6" style={{ backgroundColor: 'var(--text-primary)' }}>
-                  <svg className="w-10 h-10" fill="none" stroke={modalColors.background} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold mb-3" style={{ color: 'var(--text-primary)' }}>Assign Classes to Portal Transfers</h3>
-                <div className="text-left mb-6 max-w-md">
-                  <div className="p-3 rounded-lg mb-4" style={{ backgroundColor: 'var(--surface-3)' }}>
-                    <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
-                      <strong>Why is this needed?</strong> Portal transfers enter with a class (Fr, So, Jr), but the game doesn't show during recruitment whether they used a redshirt at their previous school. Select whether each transfer should be a redshirt (RS) or regular class for the upcoming season.
-                    </p>
-                  </div>
-                  <p className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Instructions:</p>
-                  <ol className="text-sm space-y-1.5" style={{ color: 'var(--text-secondary)' }}>
-                    <li className="flex gap-2"><span className="font-bold">1.</span><span>Tap the button below to open Google Sheets</span></li>
-                    <li className="flex gap-2"><span className="font-bold">2.</span><span>Each transfer has a dropdown with class options</span></li>
-                    <li className="flex gap-2"><span className="font-bold">3.</span><span>Select the appropriate class for each player</span></li>
-                    <li className="flex gap-2"><span className="font-bold">4.</span><span>Return here and tap "Save" to apply classes</span></li>
-                  </ol>
-                </div>
-                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
-                  <a
-                    href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2"
-                    style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}
-                  >
-                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
-                      <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
-                    </svg>
-                    Open Google Sheets
-                  </a>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
-                  <button
-                    onClick={handleSyncAndDelete}
-                    disabled={syncing || deletingSheet}
-                    className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
-                    style={{
-                      backgroundColor: 'var(--text-primary)',
-                      color: modalColors.background
-                    }}
-                  >
-                    {deletingSheet ? 'Saving...' : '✓ Save & Move to Trash'}
-                  </button>
-                  <button
-                    onClick={handleSyncFromSheet}
-                    disabled={syncing || deletingSheet}
-                    className="px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
-                    style={{
-                      backgroundColor: 'transparent',
-                      borderColor: 'var(--text-primary)',
-                      color: 'var(--text-primary)'
-                    }}
-                  >
-                    {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
-                  </button>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3 items-center justify-center">
-                  <button
-                    onClick={handleDeleteSheetOnly}
-                    disabled={syncing || deletingSheet || regenerating}
-                    className="px-4 py-2 rounded-lg font-semibold text-xs disabled:opacity-60 transition-colors border border-surface-4 hover:bg-surface-2 text-txt-secondary"
-                  >
-                    {deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}
-                  </button>
-                  <button
-                    onClick={handleRegenerateSheet}
-                    disabled={syncing || deletingSheet || regenerating}
-                    className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-xs border-2"
-                    style={{
-                      backgroundColor: 'transparent',
-                      borderColor: '#EF4444',
-                      color: '#EF4444'
-                    }}
-                  >
-                    {regenerating ? 'Regenerating...' : 'Regenerate sheet'}
-                  </button>
-                </div>
-              </div>
+              <SheetManualEntry sheetId={sheetId} whatToDo="Enter transfer portal class members" />
             ) : (
-              <>
-                <div className="flex-1 rounded-lg overflow-hidden border-2 min-h-0" style={{ borderColor: 'var(--text-primary)' }}>
-                  <iframe
-                    src={embedUrl}
-                    className="w-full h-full"
-                    title="Portal Transfer Class Sheet"
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2 items-center pt-1">
-                  <button onClick={handleSyncAndDelete} disabled={syncing || deletingSheet} className={`px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90 transition-all disabled:opacity-60 ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`} style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}>{deletingSheet ? 'Saving…' : 'Save & Move to Trash'}</button>
-                  <button onClick={handleSyncFromSheet} disabled={syncing || deletingSheet} className="px-4 py-2 rounded-lg font-semibold text-sm border border-surface-4 hover:bg-surface-2 text-txt-primary disabled:opacity-60 transition-colors">{syncing ? 'Syncing…' : 'Save & Keep Sheet'}</button>
-                  <button onClick={handleDeleteSheetOnly} disabled={syncing || deletingSheet || regenerating} className="px-4 py-2 rounded-lg font-semibold text-sm border border-surface-4 hover:bg-surface-2 text-txt-secondary disabled:opacity-60 transition-colors ml-auto">{deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}</button>
-                  <button onClick={handleRegenerateSheet} disabled={syncing || deletingSheet || regenerating} className="px-4 py-2 rounded-lg font-semibold text-sm border hover:bg-surface-2 transition-colors disabled:opacity-60" style={{ backgroundColor: 'transparent', borderColor: 'var(--accent-error)', color: 'var(--accent-error)' }}>{regenerating ? 'Regenerating…' : 'Regenerate'}</button>
-                </div>
-              </>
+              <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
+                <iframe
+                  src={embedUrl}
+                  className="w-full h-full"
+                  title="Portal Transfer Class Sheet"
+                />
+              </div>
             )}
+            <div className="flex flex-wrap gap-2 items-center pt-1">
+              <button onClick={handleSyncAndDelete} disabled={syncing || deletingSheet} className={`px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90 transition-all disabled:opacity-60 ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`} style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}>{deletingSheet ? 'Saving…' : 'Save & Move to Trash'}</button>
+              <button onClick={handleSyncFromSheet} disabled={syncing || deletingSheet} className="px-4 py-2 rounded-lg font-semibold text-sm border border-surface-4 hover:bg-surface-2 text-txt-primary disabled:opacity-60 transition-colors">{syncing ? 'Syncing…' : 'Save & Keep Sheet'}</button>
+              <button onClick={handleDeleteSheetOnly} disabled={syncing || deletingSheet || regenerating} className="px-4 py-2 rounded-lg font-semibold text-sm border border-surface-4 hover:bg-surface-2 text-txt-secondary disabled:opacity-60 transition-colors ml-auto">{deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}</button>
+              <button onClick={handleRegenerateSheet} disabled={syncing || deletingSheet || regenerating} className="px-4 py-2 rounded-lg font-semibold text-sm border hover:bg-surface-2 transition-colors disabled:opacity-60" style={{ backgroundColor: 'transparent', borderColor: 'var(--accent-error)', color: 'var(--accent-error)' }}>{regenerating ? 'Regenerating…' : 'Regenerate'}</button>
+            </div>
             {!isMobile && (
               <div className="flex items-center justify-end">
                 <button onClick={() => { const newValue = !useEmbedded; setUseEmbedded(newValue); localStorage.setItem('sheetEmbedPreference', newValue.toString()); }} className="text-[11px] px-2.5 py-1 rounded-full border border-surface-4 text-txt-tertiary hover:text-txt-secondary hover:border-surface-5 transition-colors bg-transparent">{useEmbedded ? '← Back to default view' : 'Try embedded view (beta)'}</button>

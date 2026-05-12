@@ -9,6 +9,7 @@ import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
 import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import SheetModalAIHero from './ui/SheetModalAIHero'
+import SheetManualEntry from './ui/SheetManualEntry'
 import {
   createWeeklyScoresSheet,
   readWeeklyScoresFromSheet,
@@ -1081,18 +1082,8 @@ Don't just glance at this list. Physically execute each check on your draft.
                       </button>
                     </div>
 
-                    {/* SHEET ACTIONS — full-width Open Sheets button */}
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <a
-                        href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn-refined btn-refined--lg flex-1 justify-center"
-                        style={{ backgroundColor: '#0F9D58', borderColor: '#0F9D58', color: '#FFFFFF' }}
-                      >
-                        Open Google Sheets
-                      </a>
-                    </div>
+                    {/* Manual entry — shared primitive replacing the inline Open Sheets CTA */}
+                    <SheetManualEntry sheetId={sheetId} whatToDo="Enter the weekly scores" />
 
                     {/* RANKINGS WEEK */}
                     <section className="text-center">

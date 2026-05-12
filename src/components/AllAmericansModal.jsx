@@ -9,6 +9,7 @@ import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
 import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import SheetEntryPanel from './ui/SheetEntryPanel'
+import SheetManualEntry from './ui/SheetManualEntry'
 import SheetModalHeader from './ui/SheetModalHeader'
 import SheetModalAIHero from './ui/SheetModalAIHero'
 import {
@@ -355,31 +356,18 @@ FINAL CHECK before you send
               buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
             />
             {isMobile || !useEmbedded ? (
-              <SheetEntryPanel
-                sheetId={sheetId}
-                whatToDo="Enter Player, Team, and Class for each position."
-                syncing={syncing}
-                deletingSheet={deletingSheet}
-                regenerating={regenerating}
-                highlightSave={highlightSave}
-                onSaveAndDelete={handleSyncAndDelete}
-                onSaveAndKeep={handleSyncFromSheet}
-                onRegenerate={handleRegenerateSheet}
-                onDeleteSheetOnly={handleDeleteSheetOnly}
-              />
+              <SheetManualEntry sheetId={sheetId} whatToDo="Enter Player, Team, and Class for each position" />
             ) : (
-              <>
-                <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-                  <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="All-Americans" />
-                </div>
-                <div className="flex flex-wrap gap-2 items-center pt-1">
-                  <button onClick={handleSyncAndDelete} disabled={syncing || deletingSheet} className={`px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90 transition-all disabled:opacity-60 ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`} style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}>{deletingSheet ? 'Saving…' : 'Save & Move to Trash'}</button>
-                  <button onClick={handleSyncFromSheet} disabled={syncing || deletingSheet} className="px-4 py-2 rounded-lg font-semibold text-sm border border-surface-4 hover:bg-surface-2 text-txt-primary disabled:opacity-60 transition-colors">{syncing ? 'Syncing…' : 'Save & Keep Sheet'}</button>
-                  <button onClick={handleDeleteSheetOnly} disabled={syncing || deletingSheet || regenerating} className="px-4 py-2 rounded-lg font-semibold text-sm border border-surface-4 hover:bg-surface-2 text-txt-secondary disabled:opacity-60 transition-colors ml-auto">{deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}</button>
-                  <button onClick={handleRegenerateSheet} disabled={syncing || deletingSheet || regenerating} className="px-4 py-2 rounded-lg font-semibold text-sm border hover:bg-surface-2 transition-colors disabled:opacity-60" style={{ backgroundColor: 'transparent', borderColor: 'var(--accent-error)', color: 'var(--accent-error)' }}>{regenerating ? 'Regenerating…' : 'Regenerate'}</button>
-                </div>
-              </>
+              <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
+                <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="All-Americans" />
+              </div>
             )}
+            <div className="flex flex-wrap gap-2 items-center pt-1">
+              <button onClick={handleSyncAndDelete} disabled={syncing || deletingSheet} className={`px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90 transition-all disabled:opacity-60 ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`} style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}>{deletingSheet ? 'Saving…' : 'Save & Move to Trash'}</button>
+              <button onClick={handleSyncFromSheet} disabled={syncing || deletingSheet} className="px-4 py-2 rounded-lg font-semibold text-sm border border-surface-4 hover:bg-surface-2 text-txt-primary disabled:opacity-60 transition-colors">{syncing ? 'Syncing…' : 'Save & Keep Sheet'}</button>
+              <button onClick={handleDeleteSheetOnly} disabled={syncing || deletingSheet || regenerating} className="px-4 py-2 rounded-lg font-semibold text-sm border border-surface-4 hover:bg-surface-2 text-txt-secondary disabled:opacity-60 transition-colors ml-auto">{deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}</button>
+              <button onClick={handleRegenerateSheet} disabled={syncing || deletingSheet || regenerating} className="px-4 py-2 rounded-lg font-semibold text-sm border hover:bg-surface-2 transition-colors disabled:opacity-60" style={{ backgroundColor: 'transparent', borderColor: 'var(--accent-error)', color: 'var(--accent-error)' }}>{regenerating ? 'Regenerating…' : 'Regenerate'}</button>
+            </div>
             {!isMobile && (
               <div className="flex items-center justify-end">
                 <button onClick={() => { const newValue = !useEmbedded; setUseEmbedded(newValue); localStorage.setItem('sheetEmbedPreference', newValue.toString()); }} className="text-[11px] px-2.5 py-1 rounded-full border border-surface-4 text-txt-tertiary hover:text-txt-secondary hover:border-surface-5 transition-colors bg-transparent">{useEmbedded ? '← Back to default view' : 'Try embedded view (beta)'}</button>

@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import SheetModalHeader from './ui/SheetModalHeader'
+import SheetManualEntry from './ui/SheetManualEntry'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
 import AIPromptModal from './AIPromptModal'
@@ -398,28 +399,7 @@ FINAL CHECK before you send
                 on mobile. Manual editing happens here regardless of
                 whether the user pastes AI output or types each cell. */}
             {isMobile || !useEmbedded ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-4 overflow-y-auto">
-                <p className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '1.5px' }}>MANUAL ENTRY</p>
-                <p className="text-xl font-bold text-txt-primary mb-4">Edit in Google Sheets</p>
-                <div className="text-left mb-5 max-w-sm w-full card p-4 border-l-[3px]" style={{ borderLeftColor: 'var(--surface-5)' }}>
-                  <ol className="text-sm space-y-2 text-txt-secondary">
-                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">1.</span><span>Open the sheet in Google Sheets</span></li>
-                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">2.</span><span>Enter award winners (Player, Position, Team, Class)</span></li>
-                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">3.</span><span>Come back here, tap Save</span></li>
-                  </ol>
-                </div>
-                <a
-                  href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-5 py-2.5 rounded-lg font-semibold text-sm border border-surface-4 text-txt-primary hover:bg-surface-2 transition-colors mb-4 inline-flex items-center gap-2"
-                >
-                  Open Google Sheets
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                  </svg>
-                </a>
-              </div>
+              <SheetManualEntry sheetId={sheetId} whatToDo="Enter award winners (Player, Position, Team, Class)" />
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0">
                 <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="Awards" />

@@ -30,53 +30,28 @@ export default function SheetEntryPanel({
   const busy = syncing || deletingSheet || regenerating
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center text-center px-4 py-6 max-w-xl mx-auto w-full">
-      {/* Heading */}
-      <p className="label-xs text-txt-tertiary mb-2">Data Entry</p>
-      <h3 className="text-2xl sm:text-3xl font-bold text-txt-primary mb-2">
-        Edit in Google Sheets
-      </h3>
-      <p className="text-sm text-txt-secondary mb-6 max-w-sm">
-        Open the sheet, fill it in, then come back and click Save.
-      </p>
-
-      {/* Primary CTA */}
-      <a
-        href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-2 px-6 py-3 rounded-md font-semibold text-base transition-all duration-200 hover:opacity-90 active:scale-[0.98] mb-6"
-        style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}
-      >
-        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z" />
-          <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z" />
-        </svg>
-        Open Google Sheets
-        <svg className="w-4 h-4 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-        </svg>
-      </a>
-
-      {/* Three-step explanation (concise, plain English) */}
+    <div className="flex flex-col items-center text-center w-full max-w-md mx-auto pt-2 pb-4 px-4">
+      {/* Three-step explanation (no eyebrow / heading — the parent
+          modal's SheetModalHeader + SheetModalAIHero already say
+          what this panel is). */}
       <ol
-        className="text-left text-sm space-y-1.5 text-txt-secondary max-w-sm w-full mb-6 card p-4 border-l-[3px]"
+        className="text-left text-sm space-y-2 text-txt-secondary w-full card p-4 border-l-[3px] mb-5"
         style={{ borderLeftColor: 'var(--surface-5)' }}
       >
         <li className="flex gap-3">
           <span className="font-bold text-txt-primary tabular-nums">1.</span>
-          <span>Click <span className="text-txt-primary font-medium">Open Google Sheets</span> above (opens in a new tab).</span>
+          <span>Open the sheet in Google Sheets</span>
         </li>
         <li className="flex gap-3">
           <span className="font-bold text-txt-primary tabular-nums">2.</span>
-          <span>{whatToDo || 'Fill in your data.'}</span>
+          <span>{whatToDo || 'Fill in your data'}</span>
         </li>
         <li className="flex gap-3">
           <span className="font-bold text-txt-primary tabular-nums">3.</span>
-          <span>Come back here and click <span className="text-txt-primary font-medium">Save</span> below.</span>
+          <span>Come back here and click <span className="text-txt-primary font-medium">Save</span> below</span>
         </li>
         {(tabs || tip) && (
-          <li className="pt-2 mt-2 border-t border-surface-4 space-y-1.5">
+          <li className="pt-2 mt-2 border-t border-surface-4 space-y-1.5 block">
             {tabs && (
               <p className="text-xs text-txt-tertiary">
                 <span className="font-semibold text-txt-secondary">Tabs:</span> {tabs}
@@ -90,6 +65,24 @@ export default function SheetEntryPanel({
           </li>
         )}
       </ol>
+
+      {/* Primary CTA — Google green */}
+      <a
+        href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md font-semibold text-sm transition-all duration-200 hover:opacity-90 active:scale-[0.98] mb-5"
+        style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}
+      >
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z" />
+          <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z" />
+        </svg>
+        Open Google Sheets
+        <svg className="w-3.5 h-3.5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+        </svg>
+      </a>
 
       {/* Save actions */}
       <div className="w-full max-w-sm flex flex-col sm:flex-row gap-2 mb-3">
