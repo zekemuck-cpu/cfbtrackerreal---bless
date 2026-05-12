@@ -494,7 +494,71 @@ Do NOT paraphrase. "Interception TD" → use "INT Return TD" instead.
 "FG" → use "Field Goal". "Kickoff Return TD" → use "Kick Return TD".
 The front-end's score-running logic looks at these EXACT strings; a
 paraphrased label still renders the play but breaks downstream
-aggregations (season stat rollups, awards counters).`,
+aggregations (season stat rollups, awards counters).
+
+═══════════════════════════════════════════════════════════
+CELL FORMAT — exact strings, no paraphrasing
+═══════════════════════════════════════════════════════════
+These format mistakes silently corrupt the sheet (the dropdown
+rejects them or the front-end misparses). Use the LITERAL form:
+
+  • Quarter (col G): "1" / "2" / "3" / "4" / "OT" / "2OT" / "3OT" / "4OT".
+    NOT "Q1", "1Q", "1st", "Quarter 1", or just the integer 1.
+  • Time Left (col H): "MM:SS" with leading zeros on BOTH parts.
+    "09:30" not "9:30". "00:15" not "0:15". "15:00" not "15:0".
+  • Down (col J): "1" / "2" / "3" / "4". NOT "1st", "2nd", "3rd", "4th".
+  • Distance (col K): a number ("10", "5") OR the literal word "Goal"
+    when the line says "& Goal". NOT "G", "& Goal", "Goal Line", or "&G".
+  • Field Pos (col L): "<ABBR> <number>" e.g. "UK 35", "LOU 7".
+    Special case for the 50-yard line: "MID 50" — NOT "50" alone,
+    NOT "midfield", NOT "50-yard line".
+  • Yards (col D): plain integer, negatives allowed ("-7"). NEVER
+    a percentage, parenthetical, or comma-grouped number ("1,234").
+    Blank when the play has no yardage (incomplete pass, PAT row,
+    penalty without yardage stated).
+
+═══════════════════════════════════════════════════════════
+NO EMBEDDED TABS OR NEWLINES INSIDE A CELL
+═══════════════════════════════════════════════════════════
+A single play = a single row = a single line. If a play description
+spans multiple lines on the screenshot, the OUTPUT row is still ONE
+line. Do NOT emit a literal newline (\\n) or tab (\\t) inside any
+cell value — both will split the row and create misaligned ghost
+rows in the sheet. Use spaces instead.
+
+═══════════════════════════════════════════════════════════
+🚨 FINAL CHECK — physically run these on your draft 🚨
+═══════════════════════════════════════════════════════════
+Before sending, walk through your output. Not a glance — actually
+run each check. Misalignment is the highest-impact failure for this
+sheet because it shows up in the user's Plays tab as garbage they
+have to delete by hand.
+
+[ ] TAB COUNT: every row has EXACTLY 12 tab characters. Count by
+    eye on the suspicious rows — Penalty, Other, Sack, Kickoff
+    Return without a named returner. Each of those has many empty
+    cells; each empty cell still costs one tab.
+
+[ ] SCORE TYPE WHITELIST: scan col E across every row. Each value
+    is EXACTLY one of the 10 valid strings, or empty. NEVER a digit
+    ("2"), a time ("11:40"), or a paraphrase ("Interception TD",
+    "Kickoff Return TD", "FG").
+
+[ ] PAT DUAL-ENCODING: for every TD row, col F is filled. For every
+    PAT row that follows, col F has the same value as the TD above.
+
+[ ] QUARTER / TIME on every row: col G is one of the 8 valid quarter
+    strings (NOT empty, NOT "Q1"). Col H is MM:SS with leading zeros.
+
+[ ] NO NEWLINES INSIDE CELLS: split your draft on newlines. The
+    count equals the number of plays you intended to emit. If it's
+    higher, you let a cell value wrap.
+
+[ ] TEAM ATTRIBUTION: col A is the team of the PLAYER named in B
+    (or C for sacks). NOT the team in Field Pos.
+
+If ANY of these fails, fix the offending row(s) and re-run the
+checks. Do not send output that fails any of them.`,
         includeTeamMap: true,
         dynastyTeams: currentDynasty?.teams,
       })
