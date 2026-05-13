@@ -952,7 +952,11 @@ Don't just glance at this list. Physically execute each check on your draft.
       onMouseDown={onClose}
     >
       <div
-        className="card-elevated relative w-full sm:w-[95vw] max-h-[calc(100dvh-4rem)] sm:h-[95dvh] flex flex-col overflow-hidden"
+        className={`card-elevated relative w-full max-h-[calc(100dvh-4rem)] flex flex-col overflow-hidden ${
+          useEmbedded
+            ? 'sm:w-[95vw] sm:h-[95dvh]'
+            : 'sm:max-w-[680px] sm:h-auto'
+        }`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 sm:px-7 py-4 border-b border-surface-4">

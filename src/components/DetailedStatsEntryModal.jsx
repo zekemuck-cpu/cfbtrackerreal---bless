@@ -628,7 +628,11 @@ FINAL CHECK before you send
       onMouseDown={handleClose}
     >
       <div
-        className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-1.5rem)] sm:max-h-[95dvh] flex flex-col overflow-hidden"
+        className={`card-elevated w-full max-h-[calc(100dvh-1.5rem)] flex flex-col overflow-hidden ${
+          useEmbedded
+            ? 'sm:w-[95vw] sm:max-h-[95dvh]'
+            : 'sm:max-w-[680px] sm:h-auto'
+        }`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <SheetModalHeader eyebrow="Stats" title={`${currentYear} Detailed Stats Entry`} onClose={handleClose} />

@@ -312,7 +312,11 @@ FINAL CHECK before you send the answer
 
   return createPortal(
     <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4" style={{ margin: 0 }} onMouseDown={handleClose}>
-      <div className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-4rem)] sm:h-[95dvh] flex flex-col overflow-hidden" onMouseDown={(e) => e.stopPropagation()}>
+      <div className={`card-elevated w-full max-h-[calc(100dvh-4rem)] flex flex-col overflow-hidden ${
+        useEmbedded
+          ? 'sm:w-[95vw] sm:h-[95dvh]'
+          : 'sm:max-w-[680px] sm:h-auto'
+      }`} onMouseDown={(e) => e.stopPropagation()}>
         <SheetModalHeader eyebrow="Stats" title={`${currentYear} Team Statistics`} onClose={handleClose} />
 
         <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
