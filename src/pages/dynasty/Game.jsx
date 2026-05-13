@@ -182,6 +182,40 @@ const defaultColors = {
 }
 
 // Small uppercase chip describing the play's category. Colored by
+// Splits a plain-text PBP sentence at known player name positions and
+// wraps each match in a <Link>. playerLinks is [{name, href}] sorted
+// longest-first so "John Smith" is found before bare "John" when both
+// are in the list. Returns an array of strings + React nodes — React
+// renders mixed arrays correctly. Falls through to the raw string when
+// there are no players to link.
+function linkifyPBPSentence(sentence, playerLinks) {
+  if (!sentence) return '—'
+  if (!playerLinks?.length) return sentence
+  let chunks = [sentence]
+  for (const { name, href } of playerLinks) {
+    if (!name) continue
+    chunks = chunks.flatMap((chunk, ci) => {
+      if (typeof chunk !== 'string') return [chunk]
+      const idx = chunk.indexOf(name)
+      if (idx === -1) return [chunk]
+      const result = []
+      if (idx > 0) result.push(chunk.slice(0, idx))
+      result.push(
+        <Link
+          key={`pbp-${ci}-${name}`}
+          to={href}
+          className="font-medium text-txt-primary hover:underline underline-offset-[3px] decoration-surface-5 transition-colors"
+        >
+          {name}
+        </Link>
+      )
+      if (idx + name.length < chunk.length) result.push(chunk.slice(idx + name.length))
+      return result
+    })
+  }
+  return chunks
+}
+
 // Reconstruct a natural-language play description from the structured
 // atoms produced by the all-plays AI prompt. The granular Play Type
 // (Pass Knocked Away / Field Goal Missed / etc.) tells us which
@@ -2464,10 +2498,27 @@ export default function Game() {
                 else if (play.fieldPos) situation = play.fieldPos
               }
 
-              const sentence = buildHighlightSentence(play)
+              const rawSentence = buildHighlightSentence(play)
                 || (play.description || '').trim()
                 || (play.outcome || '').trim()
                 || (play.notes || '').trim()
+
+              // Build player → href links for the two players in this play.
+              // Deduplicate by name (same player as both passer and scorer
+              // happens with AI mis-fills). Sort longest-first so "John Smith"
+              // is found before bare "Smith" if both somehow appear.
+              const scorerName = (play.scorer || '').trim()
+              const passerName = (play.passer || '').trim()
+              const scorerPID = getPlayerPID(scorerName)
+              const passerPID = getPlayerPID(passerName)
+              const seenNames = new Set()
+              const pbpPlayerLinks = [
+                scorerName && scorerPID ? { name: scorerName, href: `${pathPrefix}/player/${scorerPID}` } : null,
+                passerName && passerPID ? { name: passerName, href: `${pathPrefix}/player/${passerPID}` } : null,
+              ].filter(x => x && !seenNames.has(x.name) && seenNames.add(x.name))
+               .sort((a, b) => b.name.length - a.name.length)
+
+              const renderedSentence = linkifyPBPSentence(rawSentence, pbpPlayerLinks)
 
               return (
                 <div key={key} className="flex items-stretch text-[11px] sm:text-xs group transition-colors hover:bg-surface-2/60">
@@ -2480,7 +2531,7 @@ export default function Game() {
                       {situation && (
                         <span className="font-semibold text-txt-primary">{situation}. </span>
                       )}
-                      <span>{sentence || '—'}</span>
+                      <span>{renderedSentence}</span>
                     </div>
                   </div>
                 </div>
