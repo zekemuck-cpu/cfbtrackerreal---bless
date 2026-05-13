@@ -452,9 +452,14 @@ button.card-elevated:hover {
   background: var(--text-tertiary);
 }
 
-/* Focus states */
+/* Focus states. Use a neutral off-white outline instead of team-primary
+   so the focus indicator reads as part of the chrome rather than the
+   team's accent — important inside modals where a Kentucky-blue or
+   Alabama-crimson outline against a dark surface looks like an
+   out-of-place colored frame. Matches the --tw-ring-color override
+   below so all keyboard focus indicators share one neutral tone. */
 *:focus-visible {
-  outline: 2px solid var(--team-primary);
+  outline: 2px solid color-mix(in srgb, var(--text-primary) 30%, transparent);
   outline-offset: 2px;
 }
 
@@ -1005,11 +1010,11 @@ textarea:focus-visible,
 select:focus-visible,
 [role="button"]:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid var(--team-primary, #ea580c) !important;
+  outline: 2px solid color-mix(in srgb, var(--text-primary) 30%, transparent) !important;
   outline-offset: 2px !important;
 }
 .focus-ring:focus-visible {
-  outline: 2px solid var(--team-primary, #ea580c) !important;
+  outline: 2px solid color-mix(in srgb, var(--text-primary) 30%, transparent) !important;
   outline-offset: 2px !important;
 }
 
