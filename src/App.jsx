@@ -64,6 +64,7 @@ function AppRoutes() {
             <Route path="coach-career" element={<CoachCareer />} />
             <Route path="coaches" element={<Coaches />} />
             <Route path="players" element={<Players />} />
+            <Route path="players/state/:state" element={<PlayersByState />} />
             <Route path="all-time-lineup" element={<AllTimeLineup />} />
             <Route path="recruiting" element={<Recruiting />} />
             <Route path="recruiting/:tid/:year" element={<Recruiting />} />
@@ -89,6 +90,7 @@ function AppRoutes() {
             <Route path="weekly-scores" element={<WeeklyScores />} />
             <Route path="weekly-scores/:year" element={<WeeklyScores />} />
             <Route path="weekly-scores/:year/:week" element={<WeeklyScores />} />
+            <Route path="cards" element={<CardCollection />} />
             <Route path="game/:gameId" element={<Game />} />
             <Route path="admin" element={<DangerZone />} />
           </Route>
