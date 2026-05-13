@@ -2170,7 +2170,7 @@ export default function Game() {
                 <section className="order-1 lg:order-2 min-w-0">
                   <SectionHead>Game Recap</SectionHead>
                   <div
-                    className="max-w-prose mx-auto overflow-y-auto pr-2 -mr-2"
+                    className="max-w-prose overflow-y-auto pr-2 -mr-2"
                     style={{ maxHeight: 'min(70vh, 720px)' }}
                   >
                     <RecapCenter />
