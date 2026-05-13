@@ -261,37 +261,43 @@ export function buildAIPrompt({
       ? `  • Each file's contents = ONLY the tab-separated data rows for that one tab. No header row, no commentary, no labels INSIDE the file.`
       : `  • The file's contents = ONLY tab-separated data rows. No header row, no commentary, no labels inside the file.`,
     multiBlock
-      ? `  • Your chat message should contain the file attachments and NOTHING ELSE — no preamble, no "Here are the files:", no summary, no follow-up.`
-      : `  • Your chat message should contain the file attachment and NOTHING ELSE — no preamble, no "Here is the file:", no summary, no follow-up.`,
+      ? `  • Your chat message must include, for each attached file, a one-line paste-target label so the user knows where the file goes. Format exactly: "<filename>.tsv → paste at cell <CELL> of the \"<Tab>\" tab". List one per line, one line per file, and NOTHING ELSE — no greeting, no "Here are the files:", no summary, no follow-up.`
+      : `  • Your chat message must include exactly ONE line: "Paste this TSV into cell <CELL> of the \"<Tab>\" tab" — read the structure below for the exact cell + tab. Then the file attachment. NOTHING ELSE — no greeting, no "Here is the file:", no summary, no follow-up.`,
     `  • If your interface lets you generate files via code execution / artifacts / file builder, USE THAT. Don't stop at writing the data inline; finish by attaching it as a .tsv file.`,
     ``,
     multiBlock
-      ? `METHOD B (fallback ONLY when your tool literally cannot attach files): Output ONE labeled \`\`\`tsv fence PER TAB. The label line goes ABOVE its fence; the fence contains ONLY data rows for that tab.`
-      : `METHOD B (fallback ONLY when your tool literally cannot attach files): Output a single fenced TSV code block.`,
+      ? `METHOD B (fallback ONLY when your tool literally cannot attach files): Output ONE labeled \`\`\`tsv fence PER TAB. The label line goes ABOVE its fence and tells the user where to paste; the fence contains ONLY data rows for that tab.`
+      : `METHOD B (fallback ONLY when your tool literally cannot attach files): Output a single fenced TSV code block, preceded by ONE line that tells the user where to paste it.`,
     multiBlock
       ? `  • Layout — exactly this shape, one repetition per tab:`
-      : `  • Wrap the entire output in one \`\`\`tsv ... \`\`\` fence.`,
+      : `  • Layout — exactly this shape:`,
     multiBlock
-      ? `      === TAB NAME — paste at cell <CELL> of "<Tab>" tab ===`
-      : `  • The fenced block must contain ONLY tab-separated data rows — nothing else.`,
+      ? `      Paste this TSV into cell <CELL> of the "<Tab>" tab`
+      : `      Paste this TSV into cell <CELL> of the "<Tab>" tab    ← read the structure below for the exact cell + tab`,
     multiBlock
       ? `      \`\`\`tsv`
-      : `  • Before the fence: NOTHING. No "Here is the output:", no introduction.`,
+      : `      \`\`\`tsv`,
     multiBlock
       ? `      <tab-separated data rows for this tab only>`
-      : `  • After the fence: NOTHING. No "Let me know if you need changes", no "Note:", no "I left X blank because…", no follow-up questions, no summary.`,
+      : `      <tab-separated data rows>`,
     multiBlock
       ? `      \`\`\``
-      : `  • If you must flag an ambiguity, do it BEFORE the fence opens — never after — and keep it to one short line prefixed with "PRE-NOTE:". The user will read it, delete it, and paste only the fenced block.`,
-    multiBlock ? `  • The label line lives OUTSIDE the fence — never inside it.` : null,
-    multiBlock ? `  • Each fence contains ONLY tab-separated data rows. No column header row, no commentary, no totals.` : null,
-    multiBlock ? `  • Before the FIRST label: NOTHING. Between blocks: ONE blank line, nothing else. After the LAST closing fence: NOTHING.` : null,
-    multiBlock ? `  • If you must flag an ambiguity, do it ONCE at the very top before the first label, on a single line prefixed with "PRE-NOTE:".` : null,
+      : `      \`\`\``,
+    multiBlock
+      ? `  • The "Paste this TSV into cell …" line is the ONE allowed non-data line. It lives OUTSIDE the fence, immediately ABOVE the opening backticks.`
+      : `  • The "Paste this TSV into cell …" line is the ONE allowed non-data line. It lives OUTSIDE the fence, immediately ABOVE the opening backticks. Use the EXACT cell + tab name from the structure below — don't paraphrase, don't guess. The user reads this line so they know where to click before pasting.`,
+    multiBlock ? `  • Each fence contains ONLY tab-separated data rows. No column header row, no commentary, no totals.` : `  • The fence contains ONLY tab-separated data rows. No column header row, no commentary, no totals.`,
+    multiBlock
+      ? `  • Before the FIRST paste-target line: NOTHING. Between blocks: ONE blank line, nothing else. After the LAST closing fence: NOTHING.`
+      : `  • Before the paste-target line: NOTHING — no greeting, no "Here is the output:", no "Sure, ", no preamble. After the closing fence: NOTHING — no "Let me know if you need changes", no summary, no follow-up questions.`,
+    multiBlock
+      ? `  • If you must flag an ambiguity, do it ONCE at the very top before the first paste-target line, on a single line prefixed with "PRE-NOTE:".`
+      : `  • If you must flag an ambiguity, do it ONCE on a single line prefixed with "PRE-NOTE:" placed BEFORE the paste-target line — never after the fence.`,
     ``,
     `Hard rules that apply to BOTH methods:`,
     `  1. 100% accuracy or blank. If you are not certain about a cell, leave it blank. Never guess, never invent a plausible value.`,
     `  2. Preserve the exact column order, row order, and row count described below.`,
-    `  3. No column header row, no totals row, no "N/A", no em dashes, no trailing "source: screenshot" annotations. (For multi-tab sheets the per-tab "===" paste-target labels are the ONE allowed exception, and ONLY when they live outside the data fence as described above.)`,
+    `  3. No column header row, no totals row, no "N/A", no em dashes, no trailing "source: screenshot" annotations. The ONLY allowed non-data lines are the "Paste this TSV into cell …" paste-target label(s) that sit OUTSIDE the fence(s) immediately above the opening backticks, as described in Method A/B above.`,
     `  4. Numbers with no thousands separators: "1234" not "1,234".`,
     `  5. Decimals use a period and match the decimal precision specified per-column (e.g. "5.8" not "5.80" not "5,8").`,
     `  6. Tab character (U+0009) between fields when producing TSV — not multiple spaces, not a pipe, not a semicolon. ASCII only inside data: no smart quotes (" "), no en/em dashes (– —), no non-breaking spaces (U+00A0), no zero-width characters (U+200B/U+FEFF).`,
@@ -317,7 +323,7 @@ export function buildAIPrompt({
     `  Pick TWO data rows at random. For each, walk left-to-right through the columns named in the structure and confirm the value at that position matches the spec for that column (integer vs decimal vs blank, sensible magnitude, correct stat). Watch for column-order traps: if the structure flags an inverted-order tab (e.g. "TD vs Long order is swapped"), re-read those tab specs character-by-character before signing off. FIX any swap.`,
     ``,
     `CHECK 4 — Stray text scan.`,
-    `  Re-read your draft top-to-bottom. Anything that is NOT a fence delimiter, an allowed paste-target label (multi-tab only, outside the fence), or a tab-separated data row is contraband. Examples: "Here is", "Let me know", "Note:", "I left X blank because…", bullet points, follow-up questions, em dashes used as connector punctuation, summaries of what you did. DELETE.`,
+    `  Re-read your draft top-to-bottom. The ONLY allowed non-data lines are: (a) the "Paste this TSV into cell <CELL> of the \"<Tab>\" tab" line(s) that sit directly above each fence, (b) the fence delimiters themselves, and (c) an optional one-line "PRE-NOTE:" if you genuinely must flag an ambiguity. Anything else is contraband: greetings, "Here is the output:", "Let me know if you need changes", "Note:", "I left X blank because…", bullet points, follow-up questions, em dashes used as connector punctuation, summaries of what you did. DELETE.`,
     ``,
     `CHECK 5 — Number/character format scan.`,
     `  Search your data rows for: commas inside numbers ("1,234" → "1234"), percent signs, units ("yds", "%"), placeholder strings ("N/A", "—", "-"), parenthetical asides, smart quotes, em dashes, non-breaking spaces. DELETE or BLANK per the rules.`,

@@ -3,52 +3,17 @@
  * that renders when the user is on mobile or has opted out of the
  * embedded iframe view.
  *
- * No section heading, no eyebrow — the parent modal's
- * SheetModalHeader + SheetModalAIHero already establish what this
- * panel is. Just the 3-step instruction card and a primary green
- * "Open Google Sheets" CTA.
+ * Just the primary green CTA — the prior 3-step instruction card was
+ * redundant chrome. The modal's SheetModalAIHero already tells the
+ * user what to do, and the AI's reply leads with a "Paste this TSV
+ * into cell X" line that points to the exact cell.
  *
  * Props:
  *   sheetId — the Google Sheet document ID, used to build the open URL.
- *   whatToDo — step 2 copy describing the data entry task
- *              (e.g. "Enter award winners (Player, Position, Team, Class)").
- *   tabs / tip — optional extra hints rendered inside the instruction card.
  */
-export default function SheetManualEntry({ sheetId, whatToDo, tabs, tip }) {
+export default function SheetManualEntry({ sheetId }) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center w-full text-center px-4 py-6 min-h-0">
-      <div className="w-full max-w-md flex flex-col items-center">
-      <ol
-        className="text-left text-sm space-y-2 text-txt-secondary w-full card p-4 border-l-[3px] mb-5"
-        style={{ borderLeftColor: 'var(--surface-5)' }}
-      >
-        <li className="flex gap-3">
-          <span className="font-bold text-txt-primary tabular-nums">1.</span>
-          <span>Open the sheet in Google Sheets</span>
-        </li>
-        <li className="flex gap-3">
-          <span className="font-bold text-txt-primary tabular-nums">2.</span>
-          <span>{whatToDo || 'Fill in your data'}</span>
-        </li>
-        <li className="flex gap-3">
-          <span className="font-bold text-txt-primary tabular-nums">3.</span>
-          <span>Come back here, tap Save</span>
-        </li>
-        {(tabs || tip) && (
-          <li className="pt-2 mt-2 border-t border-surface-4 space-y-1.5 block">
-            {tabs && (
-              <p className="text-xs text-txt-tertiary">
-                <span className="font-semibold text-txt-secondary">Tabs:</span> {tabs}
-              </p>
-            )}
-            {tip && (
-              <p className="text-xs text-txt-tertiary">
-                <span className="font-semibold text-txt-secondary">Tip:</span> {tip}
-              </p>
-            )}
-          </li>
-        )}
-      </ol>
+    <div className="flex-1 flex flex-col items-center justify-center w-full px-4 py-6 min-h-0">
       <a
         href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
         target="_blank"
@@ -65,7 +30,6 @@ export default function SheetManualEntry({ sheetId, whatToDo, tabs, tip }) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
         </svg>
       </a>
-      </div>
     </div>
   )
 }

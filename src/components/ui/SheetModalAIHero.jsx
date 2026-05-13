@@ -20,7 +20,7 @@
  */
 export default function SheetModalAIHero({
   tagline = 'Skip the typing. Let AI fill the sheet.',
-  description = `Copy the prompt → paste into your AI assistant → paste the AI's reply into the sheet → save.`,
+  description = `Copy the prompt → paste it into your AI assistant along with screenshots from CFB 26 → the AI fills the sheet for you. Paste its TSV reply at the cell it tells you, then save.`,
   buttons = [],
 }) {
   if (!buttons.length) return null

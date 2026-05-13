@@ -63,7 +63,6 @@ export default function WeeklyScoresModal({ isOpen, onClose, year, week, teamCol
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [showAIPrompt, setShowAIPrompt] = useState(false)
-  const [showInstructions, setShowInstructions] = useState(false)
   const creatingSheetRef = useRef(false)
 
   // Which week's rankByWeek slot to write the screenshot's poll into.
@@ -1073,21 +1072,8 @@ Don't just glance at this list. Physically execute each check on your draft.
                 <div className="flex-1 overflow-y-auto">
                   <div className="max-w-md mx-auto px-5 sm:px-7 py-6 flex flex-col gap-5">
 
-                    {/* HOW-TO trigger — opens a popover instead of taking up vertical space */}
-                    <div className="flex items-center justify-end -mb-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowInstructions(true)}
-                        className="inline-flex items-center gap-1.5 text-xs text-txt-tertiary hover:text-txt-primary transition-colors"
-                        aria-label="How to enter scores"
-                      >
-                        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-surface-5 text-[10px] font-bold tabular-nums">i</span>
-                        How to enter scores
-                      </button>
-                    </div>
-
                     {/* Manual entry — shared primitive replacing the inline Open Sheets CTA */}
-                    <SheetManualEntry sheetId={sheetId} whatToDo="Enter the weekly scores" />
+                    <SheetManualEntry sheetId={sheetId} />
 
                     {/* RANKINGS WEEK */}
                     <section className="text-center">
@@ -1163,49 +1149,6 @@ Don't just glance at this list. Physically execute each check on your draft.
           ) : null}
         </div>
 
-        {/* Instructions popover — overlays the modal body, dismissed
-            by backdrop click or X. Triggered by the (i) button next
-            to the action row. Saves vertical real estate vs. an
-            always-visible step list. */}
-        {showInstructions && (
-          <div
-            className="absolute inset-0 z-10 flex items-center justify-center p-5 bg-black bg-opacity-60"
-            onMouseDown={() => setShowInstructions(false)}
-          >
-            <div
-              className="card-elevated w-full max-w-sm p-5"
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <p className="label-xs text-txt-tertiary">How to enter scores</p>
-                <button
-                  type="button"
-                  onClick={() => setShowInstructions(false)}
-                  aria-label="Close"
-                  className="text-txt-tertiary hover:text-txt-primary transition-colors -mr-1 p-1 rounded-md hover:bg-surface-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <ol className="text-sm space-y-3 text-txt-secondary">
-                <li className="flex gap-4">
-                  <span className="label-xs text-txt-tertiary tabular-nums pt-0.5">01</span>
-                  <span>Tap <span className="text-txt-primary font-medium">AI Prompt</span> to copy the prompt + send your scoreboard screenshots to your AI.</span>
-                </li>
-                <li className="flex gap-4">
-                  <span className="label-xs text-txt-tertiary tabular-nums pt-0.5">02</span>
-                  <span>Open the sheet and paste the AI's TSV output at cell <span className="font-mono text-txt-primary">A2</span>.</span>
-                </li>
-                <li className="flex gap-4">
-                  <span className="label-xs text-txt-tertiary tabular-nums pt-0.5">03</span>
-                  <span>Return here and click <span className="text-txt-primary font-medium">Save</span> to sync results into your dynasty.</span>
-                </li>
-              </ol>
-            </div>
-          </div>
-        )}
       </div>
 
       <AuthErrorModal
