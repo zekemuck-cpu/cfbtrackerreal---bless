@@ -227,8 +227,8 @@ function buildHighlightSentence(play) {
   switch (playType) {
     case 'Rush': {
       if (!primary) return ''
-      const base = yardsStr ? `${yardsStr} yard rush by ${primary}` : `Rush by ${primary}`
-      return isTD ? `${base} for a TD` : base
+      if (isTD) return yardsStr ? `${primary} rush for ${yardsStr} yards for a TD` : `${primary} rush for a TD`
+      return yardsStr ? `${primary} rush for ${yardsStr} yards` : `${primary} rush`
     }
     case 'Pass Complete': {
       if (!passer || !primary) return ''
@@ -241,9 +241,16 @@ function buildHighlightSentence(play) {
     case 'Pass Knocked Away':
       if (!passer) return ''
       return primary ? `${passer} pass knocked away by ${primary}` : `${passer} pass knocked away`
-    case 'Pass Intercepted':
+    case 'Pass Intercepted': {
       if (!passer) return ''
-      return primary ? `${passer} pass intercepted by ${primary}` : `${passer} pass intercepted`
+      const tail = isTD ? ' for a TD' : yardsStr ? ` for ${yardsStr} yards` : ''
+      return primary ? `${passer} pass intercepted by ${primary}${tail}` : `${passer} pass intercepted${tail}`
+    }
+    case 'Interception': {
+      if (!primary) return ''
+      const tail = isTD ? ' for a TD' : yardsStr ? ` for ${yardsStr} yards` : ''
+      return `Interception by ${primary}${tail}`
+    }
     case 'Sack':
       if (!passer) return ''
       return yardsAbs != null ? `${passer} sacked for a ${yardsAbs} yard loss` : `${passer} sacked`
@@ -252,7 +259,7 @@ function buildHighlightSentence(play) {
       return yardsStr ? `${primary} returns kick for ${yardsStr} yards` : `${primary} returns kick`
     case 'Punt Return':
       if (!primary) return ''
-      return yardsStr ? `${yardsStr} yard punt return by ${primary}` : `Punt return by ${primary}`
+      return yardsStr ? `${primary} punt return for ${yardsStr} yards` : `${primary} punt return`
     case 'Field Goal Made':
       if (!primary) return ''
       return yardsStr ? `${primary} ${yardsStr} yard field goal good` : `${primary} field goal good`
@@ -2438,119 +2445,44 @@ export default function Game() {
               const colors = resolved.colors
                 || getTeamColorsRobust(resolved.abbr)
                 || { primary: '#666', secondary: '#333' }
+
               const dist = (play.distance || '').toString().trim()
               const distLabel = dist === 'G' || /goal/i.test(dist) ? 'Goal' : dist
               const downOrd = play.down === '1' ? '1st' : play.down === '2' ? '2nd' : play.down === '3' ? '3rd' : play.down === '4' ? '4th' : play.down
-              const downDist = play.down ? `${downOrd}${distLabel ? ` & ${distLabel}` : ''}` : ''
-
               const playType = (play.playType || '').trim()
-              const typeBadge = getPlayTypeBadge(playType)
-              const scorer = (play.scorer || '').trim()
-              const passer = (play.passer || '').trim()
-              const yards = (play.yards || '').toString().trim()
-              const yardsNum = Number(yards)
-              const yardsValid = yards !== '' && Number.isFinite(yardsNum)
-              const scoreType = (play.scoreType || '').trim()
-              const isTD = /TD/i.test(scoreType)
-              const outcomeText = `${play.outcome || ''} ${play.notes || ''}`.toLowerCase()
-              const isFirstDown = /1st\s*down/.test(outcomeText)
-              const isIncompleteType = playType === 'Pass Incomplete' || playType === 'Pass Knocked Away'
 
-              // Whether we have atoms to lay out by slot. If not, fall
-              // back to a single-string body (legacy data path).
-              const hasAtoms = !!(playType || scorer || passer || yardsValid)
-              const fallbackBody = !hasAtoms
-                ? (buildHighlightSentence(play)
-                  || (play.description || '').trim()
-                  || (play.outcome || '').trim()
-                  || (play.notes || '').trim())
-                : ''
+              // Build situation prefix (down & dist on fieldPos)
+              let situation = ''
+              if (playType === 'Kickoff Return') {
+                situation = play.fieldPos ? `Kickoff on ${play.fieldPos}` : 'Kickoff'
+              } else if (playType === 'Punt Return') {
+                situation = play.fieldPos ? `Punt on ${play.fieldPos}` : 'Punt'
+              } else if (playType === 'PAT') {
+                situation = play.fieldPos ? `PAT on ${play.fieldPos}` : 'PAT'
+              } else {
+                const downDist = play.down ? `${downOrd}${distLabel ? ` & ${distLabel}` : ''}` : ''
+                if (downDist && play.fieldPos) situation = `${downDist} on ${play.fieldPos}`
+                else if (downDist) situation = downDist
+                else if (play.fieldPos) situation = play.fieldPos
+              }
 
-              // Player display — handles common AI mis-fill where both
-              // Scorer and Passer get the QB's name, by collapsing the
-              // duplicate to a single name instead of "X → X".
-              const sameNames = passer && scorer && passer === scorer
-              const playerEl = hasAtoms ? (
-                passer && scorer && !sameNames ? (
-                  <span className="truncate">
-                    <span className="text-txt-primary font-medium">{passer}</span>
-                    <span className="text-txt-muted mx-1.5">→</span>
-                    <span className="text-txt-primary font-medium">{scorer}</span>
-                  </span>
-                ) : passer ? (
-                  <span className="text-txt-primary font-medium truncate">{passer}</span>
-                ) : scorer ? (
-                  <span className="text-txt-primary font-medium truncate">{scorer}</span>
-                ) : (
-                  <span className="text-txt-muted">—</span>
-                )
-              ) : (
-                <span className="text-txt-secondary truncate">{fallbackBody || '—'}</span>
-              )
+              const sentence = buildHighlightSentence(play)
+                || (play.description || '').trim()
+                || (play.outcome || '').trim()
+                || (play.notes || '').trim()
 
-              // PBP row layout — reorganized for fast scanning. Each row
-              // reads left-to-right as: WHEN, WHERE, WHAT, WHO.
-              //   • Time (when)
-              //   • Field pos + down/dist (where) — middot separator
-              //     when both exist so they read as one compound clause
-              //   • Play + yards (what) — bold, the "answer" of the row.
-              //     Yards inline with play type so "RUN +22" reads as
-              //     one unit instead of being split to the row's far
-              //     right. 1st-down or incomplete tag rides along here.
-              //   • Player names (who) — flows right with truncation.
-              // Hierarchy via weight only; team color is just the rail.
-              const yardsDisplay = yardsValid && !(isIncompleteType && yardsNum === 0)
-                ? (yardsNum > 0 ? `+${yardsNum}` : String(yardsNum))
-                : null
-              const playLabel = typeBadge?.label || ''
-              const showInc = isIncompleteType && (!yardsValid || yardsNum === 0)
               return (
                 <div key={key} className="flex items-stretch text-[11px] sm:text-xs group transition-colors hover:bg-surface-2/60">
                   <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: colors.primary }} />
-                  <div className="flex-1 flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-2 sm:py-2.5 min-w-0">
-                    {/* WHEN: time */}
-                    <div className="w-10 sm:w-12 flex-shrink-0 font-display font-semibold text-txt-tertiary tabular-nums text-left">
+                  <div className="flex items-baseline gap-3 sm:gap-4 px-3 sm:px-4 py-2 sm:py-2.5 min-w-0 flex-1">
+                    <div className="flex-shrink-0 w-10 sm:w-12 font-display font-semibold text-txt-tertiary tabular-nums">
                       {play.timeLeft}
                     </div>
-
-                    {/* WHERE: field pos · down & distance — one compound
-                        clause, middot separator when both are present. */}
-                    <div className="flex-shrink-0 font-display text-txt-tertiary tabular-nums text-left min-w-[80px] sm:min-w-[120px]">
-                      {play.fieldPos && (
-                        <span className="text-txt-secondary">{play.fieldPos}</span>
+                    <div className="flex-1 min-w-0 text-txt-secondary leading-snug">
+                      {situation && (
+                        <span className="font-semibold text-txt-primary">{situation}. </span>
                       )}
-                      {play.fieldPos && downDist && (
-                        <span className="text-txt-muted mx-1.5">·</span>
-                      )}
-                      {downDist && (
-                        <span className="font-semibold uppercase tracking-wider">{downDist}</span>
-                      )}
-                    </div>
-
-                    {/* WHAT: play type + inline yards. The visual answer
-                        of the row — bold, slightly heavier than the
-                        context columns. */}
-                    <div className="flex-shrink-0 font-display font-bold uppercase tracking-[0.08em] text-[11px] sm:text-xs min-w-[95px] sm:min-w-[110px] text-left">
-                      {playLabel && (
-                        <span className="text-txt-primary">{playLabel}</span>
-                      )}
-                      {yardsDisplay && (
-                        <span className="text-txt-secondary tabular-nums ml-1.5">{yardsDisplay}</span>
-                      )}
-                      {showInc && (
-                        <span className="text-txt-tertiary normal-case italic font-normal ml-1.5">inc</span>
-                      )}
-                      {isFirstDown && (
-                        <span className="text-txt-tertiary font-semibold ml-2">· 1st dn</span>
-                      )}
-                      {isTD && (
-                        <span className="text-txt-primary ml-2">· TD</span>
-                      )}
-                    </div>
-
-                    {/* WHO: player names, flows right with truncation. */}
-                    <div className="flex-1 min-w-0 text-txt-secondary flex items-center overflow-hidden">
-                      {playerEl}
+                      <span>{sentence || '—'}</span>
                     </div>
                   </div>
                 </div>
