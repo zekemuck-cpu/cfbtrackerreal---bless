@@ -5423,6 +5423,17 @@ export function DynastyProvider({ children }) {
   const migrationSaveInProgressRef = useRef(false)
   // Track which cloud dynasties have had their subcollections loaded (lazy loading optimization)
   const loadedDynastyIdsRef = useRef(new Set())
+  // Track which dynasties have ALREADY attempted the legacy-to-subcollection
+  // migrations (recaps + seasonal fields) THIS SESSION. Without this guard,
+  // both migrations re-fire on every Firestore snapshot whenever the legacy
+  // fields are still on the main doc — which means a single failed-or-
+  // partial migration sets up an infinite retry loop driven by the dynasty
+  // listener. Each retry consumes write quota; once Firestore's per-minute
+  // write budget is exhausted, the SDK retries indefinitely at max backoff
+  // and the user starts seeing resource-exhausted errors in console.
+  // Once per session per dynasty is the right cadence — a permanent failure
+  // requires a code fix anyway.
+  const migrationsAttemptedRef = useRef({ recaps: new Set(), seasonal: new Set() })
   // Mirror of currentDynasty?.id readable from the dynasties listener
   // closure without forcing the listener to re-subscribe every time the
   // user opens a different dynasty. Keeping this listener stable across
@@ -6097,6 +6108,8 @@ export function DynastyProvider({ children }) {
 
     // Clear lazy loading cache when user changes (logout or login as different user)
     loadedDynastyIdsRef.current.clear()
+    migrationsAttemptedRef.current.recaps.clear()
+    migrationsAttemptedRef.current.seasonal.clear()
 
     // If user is not signed in (or running under the dev-auth bypass,
     // which has no real Firestore access), skip cloud sync and load
@@ -6287,10 +6300,16 @@ export function DynastyProvider({ children }) {
               Object.assign(weekRecapsByYear[y], subcollectionRecaps[y] || {})
             }
 
-            if (legacyKeys.length > 0) {
+            if (legacyKeys.length > 0 && !migrationsAttemptedRef.current.recaps.has(dynasty.id)) {
               // Fire-and-forget — UI uses `weekRecapsByYear` regardless of
               // which storage tier holds the data, so the user can keep
               // working while migration runs in the background.
+              // Gate behind a per-session ref so the migration can't
+              // re-fire on every snapshot if the cleanup writes fail
+              // (resource-exhausted, rule denial, network drop). One
+              // attempt per dynasty per session is enough — a real
+              // failure needs a code fix anyway.
+              migrationsAttemptedRef.current.recaps.add(dynasty.id)
               migrateWeekRecapsToSubcollection(dynasty.id, legacyRecaps).catch(err => {
                 console.warn(`[recap migration] failed for ${dynasty.id}:`, err?.code || err?.message || err)
               })
@@ -6339,7 +6358,14 @@ export function DynastyProvider({ children }) {
                 hasLegacySeasonal = true
               }
             }
-            if (hasLegacySeasonal) {
+            if (hasLegacySeasonal && !migrationsAttemptedRef.current.seasonal.has(dynasty.id)) {
+              // One attempt per dynasty per session. Same justification as
+              // the recap migration guard above — without this, a failed
+              // cleanup write turns this into an infinite retry loop
+              // driven by every dynasty-listener snapshot. The legacy
+              // fields stay on the main doc, the next snapshot arrives,
+              // and we try to migrate again. Quota exhaustion follows.
+              migrationsAttemptedRef.current.seasonal.add(dynasty.id)
               migrateSeasonalFieldsToSubcollection(dynasty.id, legacySeasonalSnapshot)
                 .then(({ migrated, cleared }) => {
                   console.log(`[season migration] ${dynasty.id}: migrated ${migrated.length} season(s), cleared ${cleared.length} field(s)`)
