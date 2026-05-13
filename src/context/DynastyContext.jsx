@@ -9956,6 +9956,22 @@ export function DynastyProvider({ children }) {
         return isPlayerOnRoster(player, teamTid, previousSeasonYear)
       }
 
+      // Teambuilder imports have been observed leaving isRecruit:true stuck on
+      // players who have multiple seasons of teamsByYear entries — Jay's STONY
+      // dynasty had 20 players with isRecruit:true who'd been on the roster
+      // since 2027. The skip-recruits guards below would silently drop them
+      // every year flip. Treat the flag as stale (i.e. the player is NOT
+      // actually a new recruit) when any prior teamsByYear entry exists.
+      const isStaleRecruitFlag = (player) => {
+        if (!player.isRecruit) return false
+        const tby = player.teamsByYear || {}
+        for (const yKey of Object.keys(tby)) {
+          const y = Number(yKey)
+          if (Number.isFinite(y) && y <= previousSeasonYear) return true
+        }
+        return false
+      }
+
       // Helper to check if player is leaving. Reads BOTH the legacy
       // movements[] array AND the v2 movementByYear map — after the v2
       // migration, movements[] is removed and only movementByYear survives.
@@ -10020,6 +10036,13 @@ export function DynastyProvider({ children }) {
             m?.type === 'departure' ||
             byYearDepartureTypes.has(m?.type) ||
             v2DepartureShapes.has(m?.departure)
+          // A transfer_out with toTid pointing AT this team is actually
+          // someone else's roster losing the player TO us — from our
+          // perspective it's an arrival, not a departure. (Jay's STONY
+          // dynasty had imported portal transfers with arrival events
+          // mis-stored as transfer_out+toTid=2, which caused this loop to
+          // flag the player as "still gone" on every year flip.)
+          if (isDep && m?.departure === 'transfer_out' && m?.toTid === teamTid) continue
           if (isDep && (earliestDeparture == null || y < earliestDeparture)) {
             earliestDeparture = y
           }
@@ -10054,7 +10077,16 @@ export function DynastyProvider({ children }) {
             if (v2ArrivalShapes.has(m?.arrival)) return true
             return false
           })
-          if (!returnedViaLegacy && !returnedViaV2) return true
+          // Implicit-arrival safety net: if teamsByYear shows the player on
+          // THIS team in any year after the departure, they obviously came
+          // back even if no explicit arrival movement was written. Imported
+          // teambuilder data routinely lacks the arrival side of a transfer.
+          const returnedViaTeamsByYear = Object.entries(player.teamsByYear || {}).some(([yStr, t]) => {
+            const y = Number(yStr)
+            if (!Number.isFinite(y) || !cameBackAfter(y)) return false
+            return t === teamTid
+          })
+          if (!returnedViaLegacy && !returnedViaV2 && !returnedViaTeamsByYear) return true
         }
 
         return false
@@ -10081,8 +10113,10 @@ export function DynastyProvider({ children }) {
           return player
         }
 
-        // Skip recruits (they're handled at week 7→8)
-        if (player.isRecruit) {
+        // Skip recruits (they're handled at week 7→8). isStaleRecruitFlag
+        // unsticks the flag so imported players who've been on the roster for
+        // years aren't treated as never-played recruits.
+        if (player.isRecruit && !isStaleRecruitFlag(player)) {
           recruitsSkipped++
           return player
         }
@@ -10584,7 +10618,15 @@ export function DynastyProvider({ children }) {
       // every save, so the previous parallel write was dead code AND used
       // a non-canonical shape that the heal then converted on save.
       const previousSeasonClass = player.classByYear?.[previousSeasonYear]
-      if (previousSeasonClass === 'RS Sr' && !player.isRecruit) {
+      // A stale isRecruit:true flag (see "Skip recruits from other years"
+      // below) would otherwise prevent an actual RS Sr from being marked
+      // graduated.
+      const hasPriorTeamYearForGrad = Object.keys(player.teamsByYear || {}).some(k => {
+        const y = Number(k)
+        return Number.isFinite(y) && y <= previousSeasonYear
+      })
+      const isGenuineRecruit = player.isRecruit && !hasPriorTeamYearForGrad
+      if (previousSeasonClass === 'RS Sr' && !isGenuineRecruit) {
         const existingForYear = player.movementByYear?.[previousSeasonYear]
           || player.movementByYear?.[String(previousSeasonYear)]
         const alreadyGraduated = existingForYear?.type === 'departure'
@@ -10644,8 +10686,16 @@ export function DynastyProvider({ children }) {
         }
       }
 
-      // Skip recruits from other years
-      if (player.isRecruit) return player
+      // Skip recruits from other years. Treat isRecruit:true as stale (and
+      // fall through to the normal carry-over block) when the player already
+      // has prior-year teamsByYear entries — those aren't actually new
+      // recruits, just imported players whose flag never got cleared. See
+      // matching guard in the wk5→6 progression loop above.
+      const hasPriorTeamYear = Object.keys(player.teamsByYear || {}).some(k => {
+        const y = Number(k)
+        return Number.isFinite(y) && y <= previousSeasonYear
+      })
+      if (player.isRecruit && !hasPriorTeamYear) return player
 
       // Class progression already happened at Signing Day (offseason week 6)
       // Here we just need to add teamsByYear and classByYear tracking for the new season
