@@ -10,7 +10,6 @@ import SheetModalFooter from './ui/SheetModalFooter'
 import SheetManualEntry from './ui/SheetManualEntry'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
-import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
@@ -45,7 +44,6 @@ export default function CFPFirstRoundModal({ isOpen, onClose, onSave, currentYea
     return localStorage.getItem('sheetEmbedPreference') === 'true'
   })
   const [highlightSave, setHighlightSave] = useState(false)
-  const [showAIPrompt, setShowAIPrompt] = useState(false)
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} CFP First Round Results`,
@@ -340,7 +338,7 @@ FINAL CHECK before you send the answer
           <div className="flex-1 flex flex-col overflow-hidden gap-3">
             <SheetModalAIHero
               tagline="Skip the typing. Let AI fill the CFP First Round."
-              buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
+              buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
             />
             {isMobile || !useEmbedded ? (
               <SheetManualEntry sheetId={sheetId} />
@@ -373,7 +371,6 @@ FINAL CHECK before you send the answer
         onRefresh={auth.retry}
         teamColors={teamColors}
       />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} CFP First Round Results`} prompt={aiPrompt} pasteTarget={`Cell B2 of the "CFP First Round" tab`} />
     </div>,
     document.body
   )

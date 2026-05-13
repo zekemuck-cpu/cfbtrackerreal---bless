@@ -10,7 +10,6 @@ import SheetModalFooter from './ui/SheetModalFooter'
 import SheetManualEntry from './ui/SheetManualEntry'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
-import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import {
   createConferenceStandingsSheet,
@@ -47,7 +46,6 @@ export default function ConferenceStandingsModal({ isOpen, onClose, onSave, curr
     return localStorage.getItem('sheetEmbedPreference') === 'true'
   })
   const [highlightSave, setHighlightSave] = useState(false)
-  const [showAIPrompt, setShowAIPrompt] = useState(false)
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Conference Standings`,
@@ -365,7 +363,7 @@ FINAL CHECK before you send
           <div className="flex-1 flex flex-col overflow-hidden gap-3">
             <SheetModalAIHero
               tagline="Skip the typing. Let AI fill the conference standings."
-              buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
+              buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
             />
             {isMobile || !useEmbedded ? (
               <SheetManualEntry sheetId={sheetId} />
@@ -392,19 +390,6 @@ FINAL CHECK before you send
         </div>
       </div>
       <AuthErrorModal isOpen={auth.showAuthError} onClose={auth.closeAuthError} onRefresh={auth.retry} teamColors={teamColors} />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Conference Standings`} prompt={aiPrompt} pasteTarget={[
-        'ACC → Cell C2 of the "Standings" tab',
-        'American → Cell C23 of the "Standings" tab',
-        'Big 12 → Cell C44 of the "Standings" tab',
-        'Big Ten → Cell C65 of the "Standings" tab',
-        'Conference USA → Cell C86 of the "Standings" tab',
-        'MAC → Cell C107 of the "Standings" tab',
-        'Mountain West → Cell C128 of the "Standings" tab',
-        'Pac-12 → Cell C149 of the "Standings" tab',
-        'SEC → Cell C170 of the "Standings" tab',
-        'Sun Belt → Cell C191 of the "Standings" tab',
-        'Independent → Cell C212 of the "Standings" tab',
-      ]} />
     </div>,
     document.body,
   )

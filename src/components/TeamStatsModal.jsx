@@ -10,7 +10,6 @@ import SheetManualEntry from './ui/SheetManualEntry'
 import SheetModalFooter from './ui/SheetModalFooter'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
-import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import SheetLoadingHint from './SheetLoadingHint'
 import {
@@ -46,7 +45,6 @@ export default function TeamStatsModal({ isOpen, onClose, onSave, currentYear, t
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
-  const [showAIPrompt, setShowAIPrompt] = useState(false)
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} ${teamName} Team Statistics`,
@@ -340,7 +338,7 @@ FINAL CHECK before you send the answer
           <div className="flex-1 flex flex-col overflow-hidden gap-3">
             <SheetModalAIHero
               tagline="Skip the typing. Let AI fill the team stats."
-              buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
+              buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
             />
             {isMobile || !useEmbedded ? (
               <SheetManualEntry sheetId={sheetId} />
@@ -367,10 +365,6 @@ FINAL CHECK before you send the answer
         </div>
       </div>
       <AuthErrorModal isOpen={auth.showAuthError} onClose={auth.closeAuthError} onRefresh={auth.retry} teamColors={teamColors} />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Team Statistics`} prompt={aiPrompt} pasteTarget={[
-        'Cell B1 of the "Offense" tab',
-        'Cell B1 of the "Defense" tab',
-      ]} />
     </div>,
     document.body,
   )

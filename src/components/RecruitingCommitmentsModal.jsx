@@ -10,7 +10,6 @@ import SheetManualEntry from './ui/SheetManualEntry'
 import SheetModalFooter from './ui/SheetModalFooter'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
-import AIPromptModal from './AIPromptModal'
 import {
   createRecruitingSheet,
   readRecruitingFromSheet,
@@ -58,7 +57,6 @@ export default function RecruitingCommitmentsModal({
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
-  const [showAIPrompt, setShowAIPrompt] = useState(false)
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Recruiting Commitments — ${recruitingLabel || ''}`.trim(),
@@ -443,7 +441,7 @@ FINAL CHECK before you send
           <div className="flex-1 flex flex-col overflow-hidden gap-3">
             <SheetModalAIHero
               tagline="Skip the typing. Let AI fill the recruiting commitments."
-              buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
+              buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
             />
             {isMobile || !useEmbedded ? (
               <SheetManualEntry sheetId={sheetId} />
@@ -484,13 +482,6 @@ FINAL CHECK before you send
         onClose={auth.closeAuthError}
         onRefresh={auth.retry}
         teamColors={teamColors}
-      />
-      <AIPromptModal
-        isOpen={showAIPrompt}
-        onClose={() => setShowAIPrompt(false)}
-        title={`${currentYear} Recruiting Commitments — ${recruitingLabel || ''}`.trim()}
-        prompt={aiPrompt}
-        pasteTarget={`Cell A2 of the "Commitments" tab`}
       />
     </div>,
     document.body,

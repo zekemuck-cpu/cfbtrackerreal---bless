@@ -7,7 +7,6 @@ import { useConfirm } from './ui/ConfirmDialog'
 import SheetModalHeader from './ui/SheetModalHeader'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
-import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import SheetModalAIHero from './ui/SheetModalAIHero'
 import SheetManualEntry from './ui/SheetManualEntry'
@@ -48,7 +47,6 @@ export default function RosterHistoryModal({ isOpen, onClose, teamColors }) {
     return localStorage.getItem('sheetEmbedPreference') === 'true'
   })
   const [highlightSave, setHighlightSave] = useState(false)
-  const [showAIPrompt, setShowAIPrompt] = useState(false)
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -442,7 +440,7 @@ FINAL CHECK before you send
           <div className="flex-1 flex flex-col overflow-hidden gap-3">
             <SheetModalAIHero
               tagline="Skip the typing. Let AI fill the roster history."
-              buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
+              buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
             />
             {isMobile || !useEmbedded ? (
               <SheetManualEntry sheetId={sheetId} />
@@ -476,7 +474,6 @@ FINAL CHECK before you send
         onRefresh={auth.retry}
         teamColors={teamColors}
       />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`Roster History`} prompt={aiPrompt} pasteTarget={`Cell A2 of the "Roster History" tab`} />
     </div>,
     document.body,
   )

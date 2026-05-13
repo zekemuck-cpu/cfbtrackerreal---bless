@@ -8,7 +8,6 @@ import { useConfirm } from './ui/ConfirmDialog'
 import SheetModalHeader from './ui/SheetModalHeader'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
-import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import SheetModalAIHero from './ui/SheetModalAIHero'
 import SheetManualEntry from './ui/SheetManualEntry'
@@ -50,7 +49,6 @@ export default function RosterEditModal({ isOpen, onClose, onSave, currentYear, 
     return localStorage.getItem('sheetEmbedPreference') === 'true'
   })
   const [highlightSave, setHighlightSave] = useState(false)
-  const [showAIPrompt, setShowAIPrompt] = useState(false)
 
   const userRoster = useMemo(() => {
     // Filter by TID (teambuilder-safe) and pass currentDynasty so the
@@ -446,7 +444,7 @@ FINAL CHECK before you send
           <div className="flex-1 flex flex-col overflow-hidden gap-3">
             <SheetModalAIHero
               tagline="Skip the typing. Let AI fill the roster edits."
-              buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
+              buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
             />
             {isMobile || !useEmbedded ? (
               <SheetManualEntry sheetId={sheetId} />
@@ -480,7 +478,6 @@ FINAL CHECK before you send
         onRefresh={auth.retry}
         teamColors={teamColors}
       />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} ${teamAbbr ? `${teamAbbr} ` : ''}Roster Edit`} prompt={aiPrompt} pasteTarget={`Cell A2 of the "Roster" tab`} />
     </div>,
     document.body
   )

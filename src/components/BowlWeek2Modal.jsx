@@ -10,7 +10,6 @@ import SheetModalFooter from './ui/SheetModalFooter'
 import SheetManualEntry from './ui/SheetManualEntry'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
-import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import {
   createBowlWeek2Sheet,
@@ -51,7 +50,6 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
-  const [showAIPrompt, setShowAIPrompt] = useState(false)
 
   // Semifinal host-bowl picks — prompted here (Bowl Week 3) because EA CFB
   // doesn't reveal the SF hosts during Bowl Week 1 when seeds are entered.
@@ -752,7 +750,7 @@ FINAL CHECK before you send the answer
 
             <SheetModalAIHero
               tagline="Skip the typing. Let AI fill the bowl results."
-              buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
+              buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
             />
             {isMobile || !useEmbedded ? (
               <SheetManualEntry sheetId={sheetId} />
@@ -787,13 +785,6 @@ FINAL CHECK before you send the answer
         teamColors={teamColors}
       />
 
-      <AIPromptModal
-        isOpen={showAIPrompt}
-        onClose={() => setShowAIPrompt(false)}
-        title={`${currentYear} Bowl Week 2 Results`}
-        prompt={aiPrompt}
-        pasteTarget={`Cell B2 of the "Bowl Games" tab`}
-      />
     </div>,
     document.body,
   )

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
@@ -51,7 +50,6 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
-  const [showAIPrompt, setShowAIPrompt] = useState(false)
   // Pending save kept around while the confirmation modal is open. The
   // ref-style shape lets a single modal handle both sync-only and
   // sync-and-delete flows.
@@ -536,7 +534,7 @@ FINAL CHECK before you send the answer
           <div className="flex-1 flex flex-col overflow-hidden gap-3">
             <SheetModalAIHero
               tagline="Skip the typing. Let AI fill the schedule."
-              buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
+              buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
             />
             {useEmbedded ? (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
@@ -576,14 +574,6 @@ FINAL CHECK before you send the answer
         )}
         </div>
       </div>
-
-      <AIPromptModal
-        isOpen={showAIPrompt}
-        onClose={() => setShowAIPrompt(false)}
-        title={`${displayTeamName} ${currentYear} Schedule`}
-        prompt={aiPrompt}
-        pasteTarget={`Cell C2 of the "Schedule" tab`}
-      />
 
       <ScheduleSaveConfirmModal
         isOpen={!!pendingSave}

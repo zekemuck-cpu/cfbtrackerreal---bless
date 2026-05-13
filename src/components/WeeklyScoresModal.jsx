@@ -6,7 +6,6 @@ import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
-import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import SheetModalAIHero from './ui/SheetModalAIHero'
 import SheetManualEntry from './ui/SheetManualEntry'
@@ -62,7 +61,6 @@ export default function WeeklyScoresModal({ isOpen, onClose, year, week, teamCol
   const [useEmbedded, setUseEmbedded] = useState(() => localStorage.getItem('sheetEmbedPreference') === 'true')
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
-  const [showAIPrompt, setShowAIPrompt] = useState(false)
   const creatingSheetRef = useRef(false)
 
   // Which week's rankByWeek slot to write the screenshot's poll into.
@@ -1009,7 +1007,7 @@ Don't just glance at this list. Physically execute each check on your draft.
               <div className="px-5 sm:px-7 pt-4 pb-3">
                 <SheetModalAIHero
                   tagline="Skip the typing. Let AI fill the weekly scores."
-                  buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
+                  buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
                 />
               </div>
               {!isMobile && useEmbedded ? (
@@ -1158,13 +1156,6 @@ Don't just glance at this list. Physically execute each check on your draft.
         teamColors={teamColors}
       />
 
-      <AIPromptModal
-        isOpen={showAIPrompt}
-        onClose={() => setShowAIPrompt(false)}
-        title={`${year} Week ${week} Scores`}
-        prompt={aiPrompt}
-        pasteTarget={`Cell A2 of the "Week ${week} Scores" tab`}
-      />
     </div>,
     document.body,
   )

@@ -10,7 +10,6 @@ import SheetModalFooter from './ui/SheetModalFooter'
 import SheetManualEntry from './ui/SheetManualEntry'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
-import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import {
   createConferenceChampionshipSheet,
@@ -48,7 +47,6 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
     return localStorage.getItem('sheetEmbedPreference') === 'true'
   })
   const [highlightSave, setHighlightSave] = useState(false)
-  const [showAIPrompt, setShowAIPrompt] = useState(false)
 
   // Determine which conference (if any) is excluded from the sheet because
   // the user already played their own CC game. Mirrors the logic in the
@@ -483,7 +481,7 @@ ${excludeConferenceForPrompt ? `[ ] No "${excludeConferenceForPrompt}" line — 
           <div className="flex-1 flex flex-col overflow-hidden gap-3">
             <SheetModalAIHero
               tagline="Skip the typing. Let AI fill the conference championships."
-              buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
+              buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
             />
             {isMobile || !useEmbedded ? (
               <SheetManualEntry sheetId={sheetId} />
@@ -517,7 +515,6 @@ ${excludeConferenceForPrompt ? `[ ] No "${excludeConferenceForPrompt}" line — 
         onRefresh={auth.retry}
         teamColors={teamColors}
       />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Conference Championships`} prompt={aiPrompt} pasteTarget={`Cell B2 of the "Conference Championships" tab`} />
     </div>,
     document.body
   )

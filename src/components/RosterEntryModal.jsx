@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
-import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import SheetModalAIHero from './ui/SheetModalAIHero'
 import SheetManualEntry from './ui/SheetManualEntry'
@@ -41,7 +40,6 @@ export default function RosterEntryModal({ isOpen, onClose, onSave, currentYear,
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
-  const [showAIPrompt, setShowAIPrompt] = useState(false)
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Roster Entry`,
@@ -424,7 +422,7 @@ FINAL CHECK before you send
           <div className="flex-1 flex flex-col overflow-hidden gap-3">
             <SheetModalAIHero
               tagline="Skip the typing. Let AI fill the roster."
-              buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
+              buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
             />
             {!useEmbedded ? (
               <SheetManualEntry sheetId={sheetId} />
@@ -458,7 +456,6 @@ FINAL CHECK before you send
         onRefresh={auth.retry}
         teamColors={teamColors}
       />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Roster Entry`} prompt={aiPrompt} pasteTarget={`Cell A2 of the "Roster" tab`} />
     </div>,
     document.body,
   )

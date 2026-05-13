@@ -10,7 +10,6 @@ import SheetManualEntry from './ui/SheetManualEntry'
 import SheetModalFooter from './ui/SheetModalFooter'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
-import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
@@ -45,7 +44,6 @@ export default function FinalPollsModal({ isOpen, onClose, onSave, currentYear, 
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
-  const [showAIPrompt, setShowAIPrompt] = useState(false)
 
   const creatingSheetRef = useRef(false)
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
@@ -343,7 +341,7 @@ FINAL CHECK before you send
           <div className="flex-1 flex flex-col overflow-hidden gap-3">
             <SheetModalAIHero
               tagline="Skip the typing. Let AI fill the final polls."
-              buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
+              buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
             />
             {isMobile || !useEmbedded ? (
               <SheetManualEntry sheetId={sheetId} />
@@ -370,7 +368,6 @@ FINAL CHECK before you send
         </div>
       </div>
       <AuthErrorModal isOpen={auth.showAuthError} onClose={auth.closeAuthError} onRefresh={auth.retry} teamColors={teamColors} />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Final Top 25`} prompt={aiPrompt} pasteTarget={`Cell B2 of the "Polls" tab`} />
     </div>,
     document.body
   )

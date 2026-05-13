@@ -10,7 +10,6 @@ import SheetManualEntry from './ui/SheetManualEntry'
 import SheetModalFooter from './ui/SheetModalFooter'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
-import AIPromptModal from './AIPromptModal'
 import {
   createTrainingResultsSheet,
   readTrainingResultsFromSheet,
@@ -46,7 +45,6 @@ export default function TrainingResultsModal({ isOpen, onClose, onSave, currentY
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
-  const [showAIPrompt, setShowAIPrompt] = useState(false)
 
   // Use the EXACT list of players the sheet is built from (passed in via
   // the `players` prop from Dashboard). That list is the combined
@@ -362,7 +360,7 @@ FINAL CHECK before you send
           <div className="flex-1 flex flex-col overflow-hidden gap-3">
             <SheetModalAIHero
               tagline="Skip the typing. Let AI fill the training results."
-              buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
+              buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
             />
             {isMobile || !useEmbedded ? (
               <SheetManualEntry sheetId={sheetId} />
@@ -403,13 +401,6 @@ FINAL CHECK before you send
         onClose={auth.closeAuthError}
         onRefresh={auth.retry}
         teamColors={teamColors}
-      />
-      <AIPromptModal
-        isOpen={showAIPrompt}
-        onClose={() => setShowAIPrompt(false)}
-        title={`${currentYear} Training Results`}
-        prompt={aiPrompt}
-        pasteTarget={`Cell A2 of the "Training Results" tab`}
       />
     </div>,
     document.body,

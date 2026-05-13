@@ -9,7 +9,6 @@ import SheetManualEntry from './ui/SheetManualEntry'
 import SheetModalFooter from './ui/SheetModalFooter'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
-import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import {
   createAwardsSheet,
@@ -46,7 +45,7 @@ export default function AwardsModal({ isOpen, onClose, onSave, currentYear, team
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
-  const [showAIPrompt, setShowAIPrompt] = useState(false)
+  const [aiPromptCopied, setAIPromptCopied] = useState(false)
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Season Awards`,
@@ -392,11 +391,27 @@ FINAL CHECK before you send
                 </p>
               </div>
               <button
-                onClick={() => setShowAIPrompt(true)}
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(aiPrompt)
+                  } catch (err) {
+                    console.error('Copy failed:', err)
+                    const ta = document.createElement('textarea')
+                    ta.value = aiPrompt
+                    ta.style.position = 'fixed'
+                    ta.style.opacity = '0'
+                    document.body.appendChild(ta)
+                    ta.select()
+                    try { document.execCommand('copy') } catch { /* noop */ }
+                    document.body.removeChild(ta)
+                  }
+                  setAIPromptCopied(true)
+                  setTimeout(() => setAIPromptCopied(false), 2000)
+                }}
                 className="px-4 sm:px-5 py-2.5 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity flex-shrink-0"
                 style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
               >
-                Copy AI Prompt
+                {aiPromptCopied ? 'Copied!' : 'Copy AI Prompt'}
               </button>
             </div>
 
@@ -429,7 +444,6 @@ FINAL CHECK before you send
         </div>
       </div>
       <AuthErrorModal isOpen={auth.showAuthError} onClose={auth.closeAuthError} onRefresh={auth.retry} teamColors={teamColors} />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Season Awards`} prompt={aiPrompt} pasteTarget={`Cell B2 of the "${currentYear}" tab`} />
     </div>,
     document.body,
   )

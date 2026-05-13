@@ -11,7 +11,6 @@ import SheetManualEntry from './ui/SheetManualEntry'
 import SheetModalFooter from './ui/SheetModalFooter'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
-import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import {
   createDetailedStatsSheet,
@@ -112,7 +111,6 @@ export default function DetailedStatsEntryModal({
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
-  const [showAIPrompt, setShowAIPrompt] = useState(false)
 
   const userRoster = useMemo(() => {
     // Teambuilder-safe: filter by TID + pass dynasty for abbr fallback
@@ -674,7 +672,7 @@ FINAL CHECK before you send
           <div className="flex-1 flex flex-col overflow-hidden gap-3">
             <SheetModalAIHero
               tagline="Skip the typing. Let AI fill the season stat totals."
-              buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
+              buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
             />
             {isMobile || !useEmbedded ? (
               <SheetManualEntry sheetId={sheetId} />
@@ -713,23 +711,6 @@ FINAL CHECK before you send
           auth.retry()
         }}
         teamColors={teamColors}
-      />
-      <AIPromptModal
-        isOpen={showAIPrompt}
-        onClose={() => setShowAIPrompt(false)}
-        title={`${currentYear} Detailed Stats Entry`}
-        prompt={aiPrompt}
-        pasteTarget={[
-          'Cell C2 of the "Passing" tab',
-          'Cell C2 of the "Rushing" tab',
-          'Cell C2 of the "Receiving" tab',
-          'Cell C2 of the "Blocking" tab',
-          'Cell C2 of the "Defensive" tab',
-          'Cell C2 of the "Kicking" tab',
-          'Cell C2 of the "Punting" tab',
-          'Cell C2 of the "Kick Return" tab',
-          'Cell C2 of the "Punt Return" tab',
-        ]}
       />
     </div>,
     document.body

@@ -7,7 +7,6 @@ import { useConfirm } from './ui/ConfirmDialog'
 import SheetModalHeader from './ui/SheetModalHeader'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
-import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import SheetModalAIHero from './ui/SheetModalAIHero'
 import SheetModalFooter from './ui/SheetModalFooter'
@@ -47,7 +46,6 @@ export default function AllConferenceModal({ isOpen, onClose, onSave, currentYea
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
-  const [showAIPrompt, setShowAIPrompt] = useState(false)
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} All-Conference`,
@@ -428,7 +426,7 @@ FINAL CHECK before you send
           <div className="flex-1 flex flex-col overflow-hidden gap-3">
             <SheetModalAIHero
               tagline="Skip the typing. Let AI fill the All-Conference roster."
-              buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
+              buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
             />
             {isMobile || !useEmbedded ? (
               <SheetManualEntry sheetId={sheetId} />
@@ -455,13 +453,6 @@ FINAL CHECK before you send
         </div>
       </div>
       <AuthErrorModal isOpen={auth.showAuthError} onClose={auth.closeAuthError} onRefresh={auth.retry} teamColors={teamColors} />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} All-Conference`} prompt={aiPrompt} pasteTarget={(() => {
-        const customConfs = currentDynasty?.conferencesByYear?.[currentYear]
-        const confs = customConfs && Object.keys(customConfs).length > 0
-          ? Object.keys(customConfs).sort()
-          : ['ACC', 'American', 'Big 12', 'Big Ten', 'Conference USA', 'Independent', 'MAC', 'Mountain West', 'Pac-12', 'SEC', 'Sun Belt']
-        return confs.map(c => `${c} → Cell A4 of the "${c}" tab`)
-      })()} />
     </div>,
     document.body,
   )

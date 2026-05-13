@@ -11,7 +11,6 @@ import SheetManualEntry from './ui/SheetManualEntry'
 import SheetModalFooter from './ui/SheetModalFooter'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
-import AIPromptModal from './AIPromptModal'
 import {
   createDraftResultsSheet,
   readDraftResultsFromSheet,
@@ -48,7 +47,6 @@ export default function DraftResultsModal({ isOpen, onClose, onSave, currentYear
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [noDraftDeclarees, setNoDraftDeclarees] = useState(false)
-  const [showAIPrompt, setShowAIPrompt] = useState(false)
 
   const userRoster = useMemo(() => {
     // Teambuilder-safe: filter by TID + pass dynasty for abbr fallback
@@ -420,7 +418,7 @@ FINAL CHECK before you send
           <div className="flex-1 flex flex-col overflow-hidden gap-3">
             <SheetModalAIHero
               tagline="Skip the typing. Let AI fill the draft results."
-              buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
+              buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
             />
             {isMobile || !useEmbedded ? (
               <SheetManualEntry sheetId={sheetId} />
@@ -461,13 +459,6 @@ FINAL CHECK before you send
         onClose={auth.closeAuthError}
         onRefresh={auth.retry}
         teamColors={teamColors}
-      />
-      <AIPromptModal
-        isOpen={showAIPrompt}
-        onClose={() => setShowAIPrompt(false)}
-        title={`${currentYear} Draft Results`}
-        prompt={aiPrompt}
-        pasteTarget={`Cell D2 of the "Draft Results" tab`}
       />
     </div>,
     document.body,

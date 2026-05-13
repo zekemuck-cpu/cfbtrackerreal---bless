@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
@@ -75,13 +74,6 @@ export default function BoxScoreSheetModal({
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [ignoreExistingSheetId, setIgnoreExistingSheetId] = useState(false)
-  const [showAIPrompt, setShowAIPrompt] = useState(false)
-  // For sheetType === 'scoring' only — the user can choose which of the
-  // two AI prompts to copy: 'scoring' (just scoring plays from the
-  // Scoring Summary screenshot) or 'allPlays' (every play from the
-  // Highlights screen). Other sheet types ignore this.
-  const [scoringPromptMode, setScoringPromptMode] = useState('scoring')
-
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
 
@@ -287,8 +279,8 @@ export default function BoxScoreSheetModal({
     const scoringUserRoster = userIsHome ? homeRosterObjects : (userIsAway ? awayRosterObjects : [])
     const scoringOpponentRoster = userIsHome ? awayRosterObjects : (userIsAway ? homeRosterObjects : [])
 
-    if (sheetType === 'scoring' && scoringPromptMode === 'allPlays') {
-      return buildAIPrompt({
+    if (sheetType === 'scoring') {
+      const allPlaysPrompt = buildAIPrompt({
         title: `${baseTitle} — All Plays`,
         roster: scoringUserRoster,
         opponentRoster: scoringOpponentRoster,
@@ -568,10 +560,8 @@ checks. Do not send output that fails any of them.`,
         includeTeamMap: true,
         dynastyTeams: currentDynasty?.teams,
       })
-    }
 
-    if (sheetType === 'scoring') {
-      return buildAIPrompt({
+      const scoringSummaryPrompt = buildAIPrompt({
         title: `${baseTitle} — Scoring Summary`,
         roster: scoringUserRoster,
         opponentRoster: scoringOpponentRoster,
@@ -728,6 +718,8 @@ FINAL CHECK before you send
         includeTeamMap: true,
         dynastyTeams: currentDynasty?.teams,
       })
+
+      return { allPlays: allPlaysPrompt, scoring: scoringSummaryPrompt }
     }
 
     if (sheetType === 'teamStats') {
@@ -1239,36 +1231,7 @@ output that fails any of them.`,
       includeTeamMap: true,
       dynastyTeams: currentDynasty?.teams,
     })
-  }, [sheetType, scoringPromptMode, config.teamAbbr, config.opponentAbbr, config.isUserControlled, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear, homeRosterObjects, awayRosterObjects, targetRosterObjects, homeTeamTid, awayTeamTid, targetTidNum, userTidForGameYear, currentDynasty?.teams])
-
-  const aiPromptTitle = useMemo(() => {
-    const weekLabel = game?.week != null ? `Week ${game.week}` : 'Game'
-    const yearLabel = gameYear || ''
-    const matchupLabel = `${awayTeamAbbr} @ ${homeTeamAbbr}`.trim()
-    const baseTitle = `${yearLabel} ${weekLabel} ${matchupLabel}`.trim()
-    if (sheetType === 'scoring') {
-      return scoringPromptMode === 'allPlays'
-        ? `${baseTitle} — All Plays`
-        : `${baseTitle} — Scoring Summary`
-    }
-    if (sheetType === 'teamStats') return `${baseTitle} — Team Stats`
-    return `${baseTitle} — ${config.teamAbbr || ''} Player Stats`
-  }, [sheetType, scoringPromptMode, config.teamAbbr, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear])
-
-  // Where the user should paste the AI's reply. Surfaced prominently in
-  // the AI Prompt modal so the user doesn't have to fish through the
-  // prompt text to find it. Critically: for player-stats the user
-  // pastes into the consolidated "AI All in One" tab (NOT the
-  // individual category tabs like Passing / Rushing — those are driven
-  // by formulas off the AI All in One tab).
-  const aiPasteTarget = useMemo(() => {
-    // Both scoring AND all-plays modes target the same tab (col A2),
-    // since they write different subsets of the same 15-col schema.
-    if (sheetType === 'scoring') return `Cell A2 of the "Scoring Summary" tab`
-    if (sheetType === 'teamStats') return `Cell B2 of the "Team Stats" tab`
-    // Player-stats sheet: single mega-paste into the AI All in One tab.
-    return `Cell A1 of the "${AI_UNIFIED_TAB.title}" tab — DO NOT paste into the individual category tabs (Passing, Rushing, etc.); those are driven by formulas off the "${AI_UNIFIED_TAB.title}" tab.`
-  }, [sheetType])
+  }, [sheetType, config.teamAbbr, config.opponentAbbr, config.isUserControlled, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear, homeRosterObjects, awayRosterObjects, targetRosterObjects, homeTeamTid, awayTeamTid, targetTidNum, userTidForGameYear, currentDynasty?.teams])
 
   // Short label used inside the Reset/Regenerate button text so the
   // user can tell at a glance what's about to be wiped (e.g. "wipe
@@ -1800,11 +1763,11 @@ output that fails any of them.`,
               tagline="Skip the typing. Let AI fill the box score."
               buttons={sheetType === 'scoring'
                 ? [
-                    { label: 'All Plays AI Prompt', onClick: () => { setScoringPromptMode('allPlays'); setShowAIPrompt(true) } },
-                    { label: 'Scoring Summary AI Prompt', onClick: () => { setScoringPromptMode('scoring'); setShowAIPrompt(true) } },
+                    { label: 'All Plays AI Prompt', prompt: aiPrompt?.allPlays },
+                    { label: 'Scoring Summary AI Prompt', prompt: aiPrompt?.scoring },
                   ]
                 : [
-                    { label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) },
+                    { label: 'Copy AI Prompt', prompt: aiPrompt },
                   ]
               }
             />
@@ -1857,13 +1820,6 @@ output that fails any of them.`,
         </div>
       </div>
 
-      <AIPromptModal
-        isOpen={showAIPrompt}
-        onClose={() => setShowAIPrompt(false)}
-        title={aiPromptTitle}
-        prompt={aiPrompt}
-        pasteTarget={aiPasteTarget}
-      />
       <AuthErrorModal
         isOpen={auth.showAuthError}
         onClose={auth.closeAuthError}
