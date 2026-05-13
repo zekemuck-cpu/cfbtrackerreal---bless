@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
@@ -394,6 +394,13 @@ export default function Game() {
   // that the user has expanded to reveal their drive. Cleared when the
   // game switches.
   const [expandedDrives, setExpandedDrives] = useState(() => new Set())
+  // idx → scoring-row DOM element. Used by toggleDriveExpansion to scroll
+  // the just-expanded row back into view: when a drive expands ABOVE the
+  // row, the row gets pushed down by the drive panel's height. If the
+  // user clicked a row low in the viewport, that push can shove the row
+  // off-screen entirely. scrollIntoView with block:'nearest' is a no-op
+  // when the row is already visible, so it never scrolls unnecessarily.
+  const scoringRowRefs = useRef(new Map())
 
   // Reset sort when changing stat tabs
   useEffect(() => {
@@ -2539,12 +2546,27 @@ export default function Game() {
             }
 
             const toggleDriveExpansion = (idx) => {
+              const willBeExpanded = !expandedDrives.has(idx)
               setExpandedDrives(prev => {
                 const next = new Set(prev)
                 if (next.has(idx)) next.delete(idx)
                 else next.add(idx)
                 return next
               })
+              // On expand only: after the drive-plays max-height animation
+              // completes, gently scroll the scoring row back into view
+              // if it got pushed off-screen by the panel that just unfurled
+              // above it. block:'nearest' = no-op when already visible,
+              // so this never scrolls unnecessarily. 350ms matches the
+              // duration-300 transition with a small buffer.
+              if (willBeExpanded) {
+                setTimeout(() => {
+                  const el = scoringRowRefs.current.get(idx)
+                  if (el && typeof el.scrollIntoView === 'function') {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+                  }
+                }, 350)
+              }
             }
 
             // If no PBP data exists, force scoresOnly to be true
@@ -2635,7 +2657,34 @@ export default function Game() {
                   const twoPtGood = is2PTAttempt(play) && is2PTConverted(play)
                   return (
                     <div key={idx}>
+                    {/* Drive sub-rows render ABOVE the scoring play so the
+                        drive reads chronologically top-to-bottom: prior
+                        downs leading to the score, then the score itself
+                        as the conclusion. (Earlier this rendered AFTER the
+                        scoring row — the visual order was reversed from
+                        the game-time order, which read backwards.) The
+                        max-height animation unfurls the drive plays from
+                        above; the scoring row gets pushed down as a
+                        result, which is the "scoring play drops below"
+                        behavior the user asked for. */}
+                    {canExpand && (
+                      <div
+                        className="overflow-hidden transition-all duration-300 ease-out"
+                        style={{ maxHeight: isExpanded ? '1500px' : '0' }}
+                      >
+                        <div className="bg-surface-0/60 divide-y divide-surface-3/30 border-b border-surface-3">
+                          {drivePrior.map((dp, didx) => renderPBPRow(dp, `drive-${idx}-${didx}`))}
+                        </div>
+                      </div>
+                    )}
                     <div
+                      ref={(el) => {
+                        // Track the DOM node so toggleDriveExpansion can
+                        // scroll this row back into view after the drive
+                        // panel unfurls above it. Map cleared on unmount.
+                        if (el) scoringRowRefs.current.set(idx, el)
+                        else scoringRowRefs.current.delete(idx)
+                      }}
                       className={`flex items-stretch transition-colors hover:bg-surface-2/60 ${canExpand ? 'cursor-pointer' : ''}`}
                       onClick={canExpand ? (e) => {
                         // Don't toggle drive expansion when the user
@@ -2758,22 +2807,6 @@ export default function Game() {
                         )}
                       </div>
                     </div>
-                    {/* Drive sub-rows — the prior plays of the drive this
-                        scoring play ended. Animated max-height transition;
-                        1500px is high enough for any realistic drive (max
-                        observed ~15 plays at ~50px each = 750px), and the
-                        excess doesn't visibly affect the timing because we
-                        animate to that ceiling only when actually open. */}
-                    {canExpand && (
-                      <div
-                        className="overflow-hidden transition-all duration-300 ease-out"
-                        style={{ maxHeight: isExpanded ? '1500px' : '0' }}
-                      >
-                        <div className="bg-surface-0/60 divide-y divide-surface-3/30 border-t border-surface-3">
-                          {drivePrior.map((dp, didx) => renderPBPRow(dp, `drive-${idx}-${didx}`))}
-                        </div>
-                      </div>
-                    )}
                     </div>
                   )
                 })}
