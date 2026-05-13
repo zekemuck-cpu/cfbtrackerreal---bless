@@ -10081,10 +10081,13 @@ export function DynastyProvider({ children }) {
           // THIS team in any year after the departure, they obviously came
           // back even if no explicit arrival movement was written. Imported
           // teambuilder data routinely lacks the arrival side of a transfer.
+          // Stored value can be tid (number) or legacy abbr (string), so
+          // normalize before comparing.
           const returnedViaTeamsByYear = Object.entries(player.teamsByYear || {}).some(([yStr, t]) => {
             const y = Number(yStr)
             if (!Number.isFinite(y) || !cameBackAfter(y)) return false
-            return t === teamTid
+            if (typeof t === 'number') return t === teamTid
+            return getTidFromAbbr(t, dynasty) === teamTid
           })
           if (!returnedViaLegacy && !returnedViaV2 && !returnedViaTeamsByYear) return true
         }
@@ -10587,9 +10590,15 @@ export function DynastyProvider({ children }) {
       if (existingTeamForCurrentSeason) {
         // Player already has a team for next season (set by Transfer Destinations or recommit)
         // Clear isRecruit if applicable (handles recommit players who have teamsByYear set but still have isRecruit: true)
+        // Normalize to tid — teamsByYear can hold a legacy abbr string, but
+        // player.team is canonically a tid (number). Writing the abbr through
+        // would propagate stale data into a field downstream code treats as tid.
+        const existingTeamTid = typeof existingTeamForCurrentSeason === 'number'
+          ? existingTeamForCurrentSeason
+          : getTidFromAbbr(existingTeamForCurrentSeason, dynasty) || existingTeamForCurrentSeason
         return {
           ...player,
-          team: existingTeamForCurrentSeason,
+          team: existingTeamTid,
           isRecruit: false  // Always clear - if they have a team for this season, they're not a recruit
         }
       }

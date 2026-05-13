@@ -579,7 +579,7 @@ export default function DangerZone() {
 
     return players.filter(player => {
       // Use the same roster filter as getCurrentRoster() for consistency
-      return isPlayerOnRoster(player, userTid, currentYear)
+      return isPlayerOnRoster(player, userTid, currentYear, currentDynasty)
     }).map(player => {
       const prevYearStats = player.statsByYear?.[previousYear] || player.statsByYear?.[String(previousYear)]
       const gamesPlayed = prevYearStats?.gamesPlayed

@@ -7604,7 +7604,7 @@ export default function Dashboard() {
                       const allPlayers = currentDynasty?.players || []
                       const fringeCasePlayers = allPlayers.filter(player => {
                         // Must have been on the team for this year (use isPlayerOnRoster for stint support)
-                        if (!isPlayerOnRoster(player, teamTid, year)) return false
+                        if (!isPlayerOnRoster(player, teamTid, year, currentDynasty)) return false
 
                         // Use classByYear to get the PRE-progression class (what they were during the season)
                         // On Signing Day, player.year is POST-progression, so we need the previous class
@@ -7798,8 +7798,8 @@ export default function Dashboard() {
                 if (leavingPids.has(p.pid)) return false
                 if (p.isRecruit) return false
                 if (p.isHonorOnly) return false
-                const wasOnTeamLastYear = isPlayerOnRoster(p, teamTid || teamAbbr, offseasonDataYear)
-                const isOnTeamThisYear = isPlayerOnRoster(p, teamTid || teamAbbr, currentYear)
+                const wasOnTeamLastYear = isPlayerOnRoster(p, teamTid || teamAbbr, offseasonDataYear, currentDynasty)
+                const isOnTeamThisYear = isPlayerOnRoster(p, teamTid || teamAbbr, currentYear, currentDynasty)
                 return wasOnTeamLastYear && isOnTeamThisYear
               })
 
@@ -7811,7 +7811,7 @@ export default function Dashboard() {
                 const isPortalTransfer = (p.isPortal || p.previousTeam) && p.recruitYear === offseasonDataYear
                 if (!isPortalTransfer) return false
                 // Must be on the team this year (uses isPlayerOnRoster for stint-based support)
-                const isOnTeamThisYear = isPlayerOnRoster(p, teamTid || teamAbbr, currentYear)
+                const isOnTeamThisYear = isPlayerOnRoster(p, teamTid || teamAbbr, currentYear, currentDynasty)
                 return isOnTeamThisYear
               })
 
@@ -10223,8 +10223,8 @@ export default function Dashboard() {
             if (leavingPids.has(p.pid)) return false
             if (p.isRecruit) return false
             if (p.isHonorOnly) return false
-            const wasOnTeamLastYear = isPlayerOnRoster(p, teamTid || teamAbbr, offseasonDataYear)
-            const isOnTeamThisYear = isPlayerOnRoster(p, teamTid || teamAbbr, currentYear)
+            const wasOnTeamLastYear = isPlayerOnRoster(p, teamTid || teamAbbr, offseasonDataYear, currentDynasty)
+            const isOnTeamThisYear = isPlayerOnRoster(p, teamTid || teamAbbr, currentYear, currentDynasty)
             return wasOnTeamLastYear && isOnTeamThisYear
           })
 
@@ -10234,7 +10234,7 @@ export default function Dashboard() {
             if (p.isHonorOnly) return false
             const isPortalTransfer = (p.isPortal || p.previousTeam) && p.recruitYear === offseasonDataYear
             if (!isPortalTransfer) return false
-            const isOnTeamThisYear = isPlayerOnRoster(p, teamTid || teamAbbr, currentYear)
+            const isOnTeamThisYear = isPlayerOnRoster(p, teamTid || teamAbbr, currentYear, currentDynasty)
             return isOnTeamThisYear
           })
 
@@ -10327,7 +10327,7 @@ export default function Dashboard() {
           const allPlayers = currentDynasty?.players || []
           return allPlayers.filter(player => {
             // Must have been on the team for this year (use isPlayerOnRoster for stint support)
-            if (!isPlayerOnRoster(player, teamTid, year)) return false
+            if (!isPlayerOnRoster(player, teamTid, year, currentDynasty)) return false
 
             // Use classByYear to get the PRE-progression class (what they were during the season)
             // On Signing Day, player.year is POST-progression, so we need the previous class
