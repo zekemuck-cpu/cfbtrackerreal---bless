@@ -87,7 +87,7 @@ Row | Col | Header (protected)  | Your value                                    
  2+ |  A  | Player              | Full player name, text                                                                | text
  2+ |  B  | Class               | Dropdown — exactly one of the 10 values below                                         | dropdown
  2+ |  C  | Position            | Dropdown — exactly one of the 22 values below                                         | dropdown
- 2+ |  D  | Archetype           | Dropdown — exactly one of the 43 values below                                         | dropdown
+ 2+ |  D  | Archetype           | Dropdown — exactly one of the 44 values below                                         | dropdown
  2+ |  E  | Stars               | Dropdown — exactly one of: ☆  ☆☆  ☆☆☆  ☆☆☆☆  ☆☆☆☆☆   (blank if unknown)               | dropdown (symbols)
  2+ |  F  | Nat. Rank           | Integer (national recruiting rank)                                                    | integer
  2+ |  G  | State Rank          | Integer (rank within state)                                                           | integer
@@ -110,9 +110,9 @@ Column B — Class (10 values):
 Column C — Position (22 values):
   QB, HB, FB, WR, TE, LT, LG, C, RG, RT, LEDG, REDG, DT, SAM, MIKE, WILL, CB, FS, SS, K, P, ATH
 
-Column D — Archetype (43 values — copy EXACTLY, including capitalization and slashes):
+Column D — Archetype (44 values — copy EXACTLY, including capitalization and slashes):
   Backfield Creator, Dual Threat, Pocket Passer, Pure Runner,
-  Backfield Threat, East/West Playmaker, Elusive Bruiser, North/South Receiver, North/South Blocker,
+  Backfield Threat, Contact Seeker, East/West Playmaker, Elusive Bruiser, North/South Receiver, North/South Blocker,
   Blocking, Utility,
   Contested Specialist, Elusive Route Runner, Gadget, Gritty Possession, Physical Route Runner, Route Artist, Speedster,
   Possession, Pure Blocker, Pure Possession, Vertical Threat,
