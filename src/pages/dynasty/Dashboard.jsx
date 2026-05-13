@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { saveWeeklyGamesChanges } from '../../services/dynastyService'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord, getCurrentTeamRanking, getEncourageTransfers, getRecruitingCommitments, getConferenceChampionshipData, createOrUpdateCFPGameShells, createOrUpdateBowlGameShell, getUserCFPGameStatus, getCFPRoundDisplayName, propagateCFPWinner, findUserCFPGameShell, isPlayerOnRoster, getPlayerClassForYear, lookupByTeamYear, getTeamConferenceForDynasty } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
@@ -9512,7 +9513,7 @@ export default function Dashboard() {
             tid: s.tid || getTidFromAbbr(s.team, currentDynasty) // Prefer existing tid, fallback for legacy data
           })).filter(s => s.tid) // Only include if tid resolved
 
-          await updateDynasty(currentDynasty.id, {
+          const metadataUpdates = {
             cfpSeedsByYear: {
               ...existingByYear,
               [year]: seedsTidOnly // tid-only format for teambuilder support
@@ -9525,6 +9526,40 @@ export default function Dashboard() {
               ...(currentDynasty.cfpBowlConfigByYear || {}),
               [year]: bowlConfig // Store bowl configuration per year
             },
+          }
+
+          // Cloud-storage fast path. Saving the FULL games array via
+          // updateDynasty routes through saveGamesToSubcollection with
+          // deleteOrphans=true — that does a full read of every game doc
+          // plus a re-write of every game in the dynasty (1000+ writes
+          // on long-running dynasties). Reported by ALABAMA PRINCE
+          // (2026-05-13): "Taking forever to save and the webpage is
+          // not responding... fail to set the seeding."
+          //
+          // Same shape as the saveWeeklyScores fast path: write only the
+          // ~11 CFP shells via saveWeeklyGamesChanges, then send the
+          // metadata + local-state-sync via updateDynasty with
+          // skipGamesSubcollection so the slow full-rewrite doesn't fire.
+          // The shells we save are filtered out of updatedGames by their
+          // cfpSlot field (set by createOrUpdateCFPGameShells).
+          if (currentDynasty.storageType === 'cloud') {
+            try {
+              const cfpShells = updatedGames.filter(g => g?.cfpSlot && Number(g.year) === Number(year))
+              await saveWeeklyGamesChanges(currentDynasty.id, cfpShells, [])
+              await updateDynasty(currentDynasty.id, {
+                ...metadataUpdates,
+                games: updatedGames, // local-state sync only — won't re-write Firestore
+              }, { skipGamesSubcollection: true })
+              return
+            } catch (err) {
+              console.error('[CFP seeds] fast-path save failed, falling back to full updateDynasty:', err)
+              // Fall through to legacy path below.
+            }
+          }
+
+          // Legacy path — local storage, OR fast-path failure on cloud.
+          await updateDynasty(currentDynasty.id, {
+            ...metadataUpdates,
             games: updatedGames
           })
         }}
