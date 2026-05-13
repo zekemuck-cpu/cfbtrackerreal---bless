@@ -65,6 +65,10 @@ export default function DangerZone() {
   // conference championships (e.g. Army-Navy was being auto-promoted
   // before the Week-15-only fix) and removes the flag.
   const [ccgMisflagStatus, setCcgMisflagStatus] = useState(null)
+  // CCG restore state — re-flags games that look like CCGs but lost
+  // the flag (e.g. an over-aggressive earlier version of the Unflag
+  // tool that stripped any CCG without an exact Week 15 marker).
+  const [ccgRestoreStatus, setCcgRestoreStatus] = useState(null)
 
   // Game deletion state
   const [showGameDeletion, setShowGameDeletion] = useState(false)
@@ -1745,37 +1749,38 @@ export default function DangerZone() {
     }
   }
 
-  // Remove the isConferenceChampionship flag from games that were
-  // mis-classified as CCGs. The Week 14 weekly-scores importer used
-  // to auto-promote ANY Week 14-15 same-conf neutral-site game to a
-  // conference championship — Army-Navy hit that signature every year
-  // (both academies in the American, always Week 14, always neutral)
-  // and got flagged as the "American Championship." The importer is
-  // now Week 15-only, but games already saved under the old rule
-  // still carry the bad flag.
+  // Remove the isConferenceChampionship flag from games that match a
+  // known non-CCG rivalry pair (currently just Army-Navy — the
+  // Week 14 weekly-scores importer used to auto-promote it to the
+  // "American Championship" before the Week-15-only fix).
   //
-  // This tool finds those games (flagged as CCG but matching a known
-  // non-CCG rivalry pair) and unflags them. Conservative — only the
-  // known non-CCG rivalry pair (Army-Navy) is targeted, plus any CCG
-  // flagged outside Week 15 (the only legitimate CCG week).
+  // An earlier version of this tool also stripped the flag from any
+  // CCG without an exact Week 15 marker — that was a bug, because
+  // legitimate CCGs saved through the dedicated CC flow don't have
+  // game.week set at all (it's undefined → NaN !== 15 → stripped).
+  // The "wrong week" criterion is gone; only the rivalry-pair list
+  // drives unflagging now. If something else is mis-flagged, add
+  // its pair to NON_CCG_RIVALRY_PAIRS rather than re-introducing a
+  // heuristic that catches too much.
+  const NON_CCG_RIVALRY_PAIRS = new Set(['ARMY|NAVY'])
+
+  const resolveGameAbbr = (game, side) => {
+    const direct = side === 1 ? game.team1 : game.team2
+    if (direct) return direct
+    const tid = side === 1 ? game.team1Tid : game.team2Tid
+    if (tid != null) {
+      const team = currentDynasty?.teams?.[tid] || TEAMS[tid]
+      return team?.abbr || getOriginalTeamAbbr(tid)
+    }
+    return side === 1 ? game.userTeam : game.opponent
+  }
+
   const handleUnflagWrongCCG = async () => {
     setCcgMisflagStatus('running')
     try {
       const games = currentDynasty.games || []
       let fixedCount = 0
       let checkedCount = 0
-      const NON_CCG_RIVALRY_PAIRS = new Set(['ARMY|NAVY'])
-
-      const resolveAbbr = (game, side) => {
-        const direct = side === 1 ? game.team1 : game.team2
-        if (direct) return direct
-        const tid = side === 1 ? game.team1Tid : game.team2Tid
-        if (tid != null) {
-          const team = currentDynasty?.teams?.[tid] || TEAMS[tid]
-          return team?.abbr || getOriginalTeamAbbr(tid)
-        }
-        return side === 1 ? game.userTeam : game.opponent
-      }
 
       const updatedGames = games.map(game => {
         const isFlaggedCCG = game.isConferenceChampionship
@@ -1783,13 +1788,12 @@ export default function DangerZone() {
         if (!isFlaggedCCG) return game
         checkedCount++
 
-        const a = (resolveAbbr(game, 1) || '').toUpperCase()
-        const b = (resolveAbbr(game, 2) || '').toUpperCase()
+        const a = (resolveGameAbbr(game, 1) || '').toUpperCase()
+        const b = (resolveGameAbbr(game, 2) || '').toUpperCase()
         const pair = a && b ? [a, b].sort().join('|') : null
         const isKnownNonCCG = pair && NON_CCG_RIVALRY_PAIRS.has(pair)
-        const isWrongWeek = Number(game.week) !== 15
 
-        if (!isKnownNonCCG && !isWrongWeek) return game
+        if (!isKnownNonCCG) return game
 
         // Strip the flags + downgrade gameType to regular. Keep score,
         // teams, neutral-site, everything else. The game stays in the
@@ -1797,7 +1801,7 @@ export default function DangerZone() {
         const { isConferenceChampionship: _ccg, ...rest } = game
         const cleaned = { ...rest, gameType: GAME_TYPES.REGULAR }
         fixedCount++
-        console.log(`[CCG Mis-flag] Unflagged game ${game.id} (${a} vs ${b}, Week ${game.week})`)
+        console.log(`[CCG Mis-flag] Unflagged game ${game.id} (${a} vs ${b})`)
         return cleaned
       })
 
@@ -1809,10 +1813,6 @@ export default function DangerZone() {
         return
       }
 
-      // Save the games array. Same fast path as the CFP seeds save:
-      // only the changed games go to Firestore, the rest just update
-      // local state via skipGamesSubcollection. Falls back to the
-      // legacy full-array path on local storage.
       const changedGames = updatedGames.filter((g, i) => g !== games[i])
       if (currentDynasty.storageType === 'cloud') {
         try {
@@ -1829,6 +1829,86 @@ export default function DangerZone() {
     } catch (error) {
       console.error('[CCG Mis-flag] Error:', error)
       setCcgMisflagStatus({ success: false, message: 'Repair failed: ' + error.message })
+    }
+  }
+
+  // Re-flag CCG games that lost their flag. The broken first version
+  // of handleUnflagWrongCCG (shipped briefly in 32fdebc) stripped the
+  // championship flag from any CCG without game.week === 15 — which
+  // hit every legitimate CCG saved through the dedicated CC flow
+  // (those don't carry a week field at all).
+  //
+  // Heuristic for "this game LOOKS like a CCG that lost its flag":
+  //   - `conference` field is set (a non-empty string). This is the
+  //     critical breadcrumb — the strip removed isConferenceChampionship
+  //     and downgraded gameType to 'regular', but `conference` was
+  //     preserved. CCG saves consistently set this; regular conference
+  //     games do not.
+  //   - Currently NOT flagged as CCG.
+  //   - Not in the known non-CCG rivalry list (so we don't re-flag
+  //     Army-Navy if the unflag tool just ran).
+  //
+  // For each match, re-set isConferenceChampionship + gameType. If a
+  // legitimate regular game happens to have a `conference` field, the
+  // user can run "Unflag Wrong CCGs" after with that pair added to
+  // NON_CCG_RIVALRY_PAIRS — but in practice the field is CCG-only.
+  const handleRestoreCCGFlags = async () => {
+    setCcgRestoreStatus('running')
+    try {
+      const games = currentDynasty.games || []
+      let restoredCount = 0
+      let candidateCount = 0
+
+      const updatedGames = games.map(game => {
+        const isFlaggedCCG = game.isConferenceChampionship
+          || game.gameType === 'conference_championship'
+        if (isFlaggedCCG) return game
+
+        // Conference-field breadcrumb. Required: must be a non-empty
+        // string. Regular conference games typically don't have this
+        // field — it's set when saving through the CC flow OR by the
+        // weekly-scores auto-promote.
+        if (!game.conference || typeof game.conference !== 'string') return game
+        candidateCount++
+
+        const a = (resolveGameAbbr(game, 1) || '').toUpperCase()
+        const b = (resolveGameAbbr(game, 2) || '').toUpperCase()
+        const pair = a && b ? [a, b].sort().join('|') : null
+        if (pair && NON_CCG_RIVALRY_PAIRS.has(pair)) return game
+
+        restoredCount++
+        console.log(`[CCG Restore] Re-flagged game ${game.id} (${a} vs ${b}, conference: ${game.conference})`)
+        return {
+          ...game,
+          isConferenceChampionship: true,
+          gameType: GAME_TYPES.CONFERENCE_CHAMPIONSHIP,
+        }
+      })
+
+      if (restoredCount === 0) {
+        setCcgRestoreStatus({ success: true, message: candidateCount === 0
+          ? 'Nothing to restore — no candidate games found.'
+          : `${candidateCount} candidate game(s) inspected; none qualified.`
+        })
+        return
+      }
+
+      const changedGames = updatedGames.filter((g, i) => g !== games[i])
+      if (currentDynasty.storageType === 'cloud') {
+        try {
+          await saveWeeklyGamesChanges(currentDynasty.id, changedGames, [])
+          await updateDynasty(currentDynasty.id, { games: updatedGames }, { skipGamesSubcollection: true })
+          setCcgRestoreStatus({ success: true, message: `Restored CCG flag on ${restoredCount} game(s).` })
+          return
+        } catch (err) {
+          console.error('[CCG Restore] Fast-path failed:', err)
+        }
+      }
+      await updateDynasty(currentDynasty.id, { games: updatedGames })
+      setCcgRestoreStatus({ success: true, message: `Restored CCG flag on ${restoredCount} game(s).` })
+    } catch (error) {
+      console.error('[CCG Restore] Error:', error)
+      setCcgRestoreStatus({ success: false, message: 'Restore failed: ' + error.message })
     }
   }
 
@@ -2368,10 +2448,17 @@ export default function DangerZone() {
           />
           <ActionCard
             title="Unflag Wrong CCG Games"
-            description="Removes the conference-championship flag from games that were mis-classified (Army-Navy auto-promoted before the Week-15-only fix, or any CCG outside Week 15)"
+            description="Removes the conference-championship flag from games matching a known non-CCG rivalry pair (currently just Army-Navy)"
             buttonText="Unflag Wrong CCGs"
             onClick={handleUnflagWrongCCG}
             status={ccgMisflagStatus}
+          />
+          <ActionCard
+            title="Restore CCG Flags"
+            description="Re-flags games that look like CCGs but lost the flag (uses the conference-field breadcrumb left by every CCG save). Run this if an earlier version of the Unflag tool stripped your real championships."
+            buttonText="Restore CCGs"
+            onClick={handleRestoreCCGFlags}
+            status={ccgRestoreStatus}
           />
           <ActionCard
             title="Merge Duplicate Players"
