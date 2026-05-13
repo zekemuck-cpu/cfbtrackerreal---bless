@@ -1720,24 +1720,13 @@ output that fails any of them.`,
                   borderTopColor: 'transparent'
                 }}
               />
-              <p className="text-lg font-semibold text-txt-primary">
-                Creating {config.title} Sheet...
-              </p>
-              <p className="text-sm mt-2 text-txt-secondary">
-                {sheetType === 'scoring' ? 'Setting up scoring summary' : 'Setting up 9 stat category tabs'}
-              </p>
               <SheetLoadingHint active={isLoading} />
             </div>
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="card p-8 border-l-[3px] max-w-md text-center" style={{ borderLeftColor: 'var(--surface-5)' }}>
-              <p className="text-xl font-bold mb-2 text-txt-primary">
-                Saved & Moved to Trash!
-              </p>
-              <p className="text-sm text-txt-secondary">
-                Stats saved to your game.
-              </p>
+              <p className="text-xl font-bold text-txt-primary">Saved</p>
             </div>
           </div>
         ) : sheetId ? (

@@ -341,8 +341,6 @@ export default function PreseasonTop25Modal({ isOpen, onClose, year, teamColors 
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
                   <div className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4" style={{ borderColor: 'var(--text-primary)', borderTopColor: 'transparent' }} />
-                  <p className="text-lg font-semibold text-txt-primary">Creating Preseason Sheet…</p>
-                  <p className="text-sm mt-2 text-txt-secondary">Single-tab, 25 ranks, strict-dropdown team validation.</p>
                   <SheetLoadingHint active={creatingSheet} />
                 </div>
               </div>

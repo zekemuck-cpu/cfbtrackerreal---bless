@@ -14,7 +14,6 @@ export default function SheetModalHeader({ eyebrow, title, onClose }) {
   return (
     <div className="flex items-center justify-between px-5 sm:px-7 py-4 border-b border-surface-4">
       <div className="flex flex-col min-w-0">
-        {eyebrow && <span className="label-xs text-txt-tertiary">{eyebrow}</span>}
         <h2 className="text-xl sm:text-2xl font-bold text-txt-primary tracking-tight truncate">
           {title}
         </h2>

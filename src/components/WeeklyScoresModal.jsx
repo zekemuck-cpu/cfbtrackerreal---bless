@@ -950,9 +950,8 @@ Don't just glance at this list. Physically execute each check on your draft.
       >
         <div className="flex items-center justify-between px-5 sm:px-7 py-4 border-b border-surface-4">
           <div className="flex flex-col">
-            <span className="label-xs text-txt-tertiary">Weekly Scores</span>
             <h2 className="text-xl sm:text-2xl font-bold text-txt-primary tracking-tight tabular-nums">
-              {year} <span className="text-txt-tertiary font-medium">·</span> Week {week}
+              {year} Week {week}
             </h2>
           </div>
           <button
@@ -974,25 +973,12 @@ Don't just glance at this list. Physically execute each check on your draft.
                   className="animate-spin w-10 h-10 border-2 rounded-full mx-auto mb-4"
                   style={{ borderColor: 'var(--text-primary)', borderTopColor: 'transparent' }}
                 />
-                <p className="label-xs text-txt-tertiary mb-2">Creating Sheet</p>
-                <p className="text-base font-semibold text-txt-primary">
-                  Week {week} workspace
-                </p>
-                <p className="text-xs mt-2 text-txt-tertiary tabular-nums">
-                  Up to {WEEKLY_SCORES_MAX_ROWS} rows · 1 tab
-                </p>
                 <SheetLoadingHint active={isLoading} />
               </div>
             </div>
           ) : showDeletedNote ? (
             <div className="flex-1 flex items-center justify-center p-6">
-              <div className="text-center max-w-sm">
-                <p className="label-xs text-txt-tertiary mb-2">Status</p>
-                <p className="text-xl font-bold text-txt-primary mb-1">Saved</p>
-                <p className="text-sm text-txt-secondary">
-                  Week {week} scores synced. Sheet moved to Drive trash.
-                </p>
-              </div>
+              <p className="text-xl font-bold text-txt-primary">Saved</p>
             </div>
           ) : sheetId ? (
             <div className="flex-1 flex flex-col overflow-hidden">

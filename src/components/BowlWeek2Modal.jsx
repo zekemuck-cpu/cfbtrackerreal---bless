@@ -644,24 +644,12 @@ FINAL CHECK before you send the answer
                   borderTopColor: 'transparent'
                 }}
               />
-              <p className="text-lg font-semibold text-txt-primary">
-                Creating Bowl Week 2 Sheet...
-              </p>
-              <p className="text-sm mt-2 text-txt-tertiary">
-                Setting up 12 bowl games
-              </p>
               <SheetLoadingHint active={isLoading} />
             </div>
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="card p-8 border-l-[3px] text-center max-w-sm" style={{ borderLeftColor: 'var(--surface-5)' }}>
-              <p className="label-xs text-txt-tertiary mb-2">Status</p>
-              <p className="text-xl font-bold text-txt-primary mb-2">Saved &amp; Moved to Trash</p>
-              <p className="text-sm text-txt-secondary">
-                Bowl Week 2 data saved to your dynasty.
-              </p>
-            </div>
+            <p className="text-xl font-bold text-txt-primary">Saved</p>
           </div>
         ) : sheetId ? (
           <div className="flex-1 flex flex-col overflow-hidden gap-3">

@@ -43,7 +43,7 @@ export default function SheetModalFooter({
   const tertiaryClass =
     'text-xs text-txt-tertiary hover:text-txt-secondary transition-colors disabled:opacity-60 disabled:cursor-not-allowed underline decoration-dotted underline-offset-4'
   const tertiarySeparator = (
-    <span className="text-txt-muted text-xs" aria-hidden="true">·</span>
+    <span className="text-txt-muted text-xs" aria-hidden="true">—</span>
   )
 
   return (

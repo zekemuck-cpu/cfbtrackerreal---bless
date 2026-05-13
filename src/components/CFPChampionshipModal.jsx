@@ -272,7 +272,7 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
                 className="text-txt-tertiary"
                 style={{ fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 700, color: GOLD }}
               >
-                {currentYear} · CFP Final
+                {currentYear} CFP Final
               </div>
               <h2 className="font-display text-txt-primary m-0 mt-1" style={{ fontSize: 'clamp(1.35rem, 3.2vw, 1.9rem)', fontWeight: 900, letterSpacing: '-0.02em' }}>
                 National Championship

@@ -617,7 +617,6 @@ export default function Layout({ children }) {
                     <span className="font-semibold text-xs sm:text-sm" style={{ color: headerText }}>
                       {currentDynasty.currentYear}
                     </span>
-                    <span className="text-xs" style={{ color: headerText, opacity: 0.5 }}>•</span>
                     <span className="font-medium text-xs sm:text-sm truncate" style={{ color: headerText }}>
                       <span className="sm:hidden">
                         {currentDynasty.currentPhase === 'conference_championship' ? 'CC' :

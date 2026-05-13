@@ -401,28 +401,12 @@ FINAL CHECK before you send
                   borderTopColor: 'transparent'
                 }}
               />
-              <p className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-                Creating Roster History Sheet...
-              </p>
-              <p className="text-sm mt-2" style={{ color: 'var(--text-secondary)' }}>
-                Pre-filling all players with team data
-              </p>
               <SheetLoadingHint active={isLoading} />
             </div>
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: 'var(--text-primary)' }}>
-              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="#ffffff" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <p className="text-xl font-bold mb-2" style={{ color: '#ffffff' }}>
-                Saved & Moved to Trash!
-              </p>
-              <p className="text-sm" style={{ color: '#ffffff', opacity: 0.9 }}>
-                Roster history saved to your dynasty.
-              </p>
-            </div>
+            <p className="text-xl font-bold text-txt-primary">Saved</p>
           </div>
         ) : sheetId ? (
           <div className="flex-1 flex flex-col overflow-hidden gap-3">
