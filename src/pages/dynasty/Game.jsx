@@ -182,32 +182,6 @@ const defaultColors = {
 }
 
 // Small uppercase chip describing the play's category. Colored by
-// outcome valence: red for plays that lost yards / killed the drive
-// (sack, INT, missed FG), emerald for plays that scored, neutral for
-// standard plays. Used on the PBP row.
-function getPlayTypeBadge(playType) {
-  const t = (playType || '').toLowerCase()
-  if (!t) return null
-  switch (t) {
-    case 'sack':              return { label: 'SACK',    bg: 'bg-red-500/15',     text: 'text-red-300' }
-    case 'pass intercepted':  return { label: 'INT',     bg: 'bg-red-500/15',     text: 'text-red-300' }
-    case 'field goal missed': return { label: 'FG MISS', bg: 'bg-red-500/15',     text: 'text-red-300' }
-    case 'pass knocked away': return { label: 'PBU',     bg: 'bg-amber-500/15',   text: 'text-amber-300' }
-    case 'pass incomplete':   return { label: 'INC',     bg: 'bg-surface-3/70',   text: 'text-txt-tertiary' }
-    case 'field goal made':   return { label: 'FG',      bg: 'bg-emerald-500/15', text: 'text-emerald-300' }
-    case 'pat':               return { label: 'XP',      bg: 'bg-emerald-500/15', text: 'text-emerald-300' }
-    case 'rush':              return { label: 'RUN',     bg: 'bg-surface-3/70',   text: 'text-txt-secondary' }
-    case 'pass complete':
-    case 'pass':              return { label: 'PASS',    bg: 'bg-surface-3/70',   text: 'text-txt-secondary' }
-    case 'kickoff return':    return { label: 'KR',      bg: 'bg-violet-500/15',  text: 'text-violet-300' }
-    case 'punt return':       return { label: 'PR',      bg: 'bg-violet-500/15',  text: 'text-violet-300' }
-    case 'fumble recovery':   return { label: 'FUM',     bg: 'bg-orange-500/15',  text: 'text-orange-300' }
-    case 'safety':            return { label: 'SAF',     bg: 'bg-purple-500/15',  text: 'text-purple-300' }
-    case 'penalty':           return { label: 'FLAG',    bg: 'bg-yellow-500/15',  text: 'text-yellow-300' }
-    default:                  return { label: t.slice(0, 4).toUpperCase(), bg: 'bg-surface-3/60', text: 'text-txt-tertiary' }
-  }
-}
-
 // Reconstruct a natural-language play description from the structured
 // atoms produced by the all-plays AI prompt. The granular Play Type
 // (Pass Knocked Away / Field Goal Missed / etc.) tells us which
@@ -228,44 +202,65 @@ function buildHighlightSentence(play) {
     case 'Rush': {
       if (!primary) return ''
       if (isTD) return yardsStr ? `${primary} rush for ${yardsStr} yards for a TD` : `${primary} rush for a TD`
+      if (yardsNum < 0) return `${primary} rush for a ${Math.abs(yardsNum)}-yard loss`
       return yardsStr ? `${primary} rush for ${yardsStr} yards` : `${primary} rush`
     }
+    case 'Pass':
     case 'Pass Complete': {
-      if (!passer || !primary) return ''
+      if (!passer && !primary) return ''
+      if (!passer) {
+        const base = yardsStr ? `Pass to ${primary} for ${yardsStr} yards` : `Pass to ${primary}`
+        return isTD ? `${base} for a TD` : base
+      }
+      if (!primary) {
+        const base = yardsStr ? `${passer} pass for ${yardsStr} yards` : `${passer} pass complete`
+        return isTD ? `${base} for a TD` : base
+      }
       const base = yardsStr ? `${passer} pass to ${primary} for ${yardsStr} yards` : `${passer} pass to ${primary}`
       return isTD ? `${base} for a TD` : base
     }
     case 'Pass Incomplete':
-      if (!passer) return ''
+      if (!passer && !primary) return ''
+      if (!passer) return `Incomplete pass; intended for ${primary}`
       return primary ? `${passer} incomplete pass; intended for ${primary}` : `${passer} incomplete pass`
     case 'Pass Knocked Away':
-      if (!passer) return ''
+      if (!passer && !primary) return ''
+      if (!passer) return `Pass knocked away by ${primary}`
       return primary ? `${passer} pass knocked away by ${primary}` : `${passer} pass knocked away`
     case 'Pass Intercepted': {
-      if (!passer) return ''
-      const tail = isTD ? ' for a TD' : yardsStr ? ` for ${yardsStr} yards` : ''
-      return primary ? `${passer} pass intercepted by ${primary}${tail}` : `${passer} pass intercepted${tail}`
+      const intYards = yardsNum > 0 ? ` for ${yardsStr} yards` : ''
+      const intTail = isTD ? ' for a TD' : intYards
+      if (!passer) return primary ? `Pass intercepted by ${primary}${intTail}` : `Pass intercepted${intTail}`
+      return primary ? `${passer} pass intercepted by ${primary}${intTail}` : `${passer} pass intercepted${intTail}`
     }
     case 'Interception': {
       if (!primary) return ''
-      const tail = isTD ? ' for a TD' : yardsStr ? ` for ${yardsStr} yards` : ''
-      return `Interception by ${primary}${tail}`
+      const intYards = yardsNum > 0 ? ` for ${yardsStr} yards` : ''
+      const intTail = isTD ? ' for a TD' : intYards
+      return `Interception by ${primary}${intTail}`
     }
     case 'Sack':
-      if (!passer) return ''
-      return yardsAbs != null ? `${passer} sacked for a ${yardsAbs} yard loss` : `${passer} sacked`
-    case 'Kickoff Return':
+      if (!passer && !primary) return ''
+      if (!passer) return yardsAbs != null ? `${primary} sacked for a ${yardsAbs}-yard loss` : `${primary} sacked`
+      return yardsAbs != null ? `${passer} sacked for a ${yardsAbs}-yard loss` : `${passer} sacked`
+    case 'Kickoff Return': {
       if (!primary) return ''
-      return yardsStr ? `${primary} returns kick for ${yardsStr} yards` : `${primary} returns kick`
-    case 'Punt Return':
+      const krBase = yardsStr ? `${primary} returns kick for ${yardsStr} yards` : `${primary} returns kick`
+      return isTD ? `${krBase} for a TD` : krBase
+    }
+    case 'Punt Return': {
       if (!primary) return ''
-      return yardsStr ? `${primary} punt return for ${yardsStr} yards` : `${primary} punt return`
+      const prBase = yardsStr ? `${primary} punt return for ${yardsStr} yards` : `${primary} punt return`
+      return isTD ? `${prBase} for a TD` : prBase
+    }
     case 'Field Goal Made':
-      if (!primary) return ''
-      return yardsStr ? `${primary} ${yardsStr} yard field goal good` : `${primary} field goal good`
+      if (yardsStr && primary) return `${primary} ${yardsStr}-yard field goal good`
+      if (yardsStr) return `${yardsStr}-yard field goal good`
+      return primary ? `${primary} field goal good` : 'Field goal good'
     case 'Field Goal Missed':
-      if (!primary) return ''
-      return yardsStr ? `${primary} missed a ${yardsStr} yard field goal` : `${primary} missed a field goal`
+      if (yardsStr && primary) return `${primary} missed a ${yardsStr}-yard field goal`
+      if (yardsStr) return `Missed ${yardsStr}-yard field goal`
+      return primary ? `${primary} missed a field goal` : 'Field goal missed'
     case 'PAT': {
       const pat = (play.patResult || '').toLowerCase()
       const result = pat.includes('made') ? 'good'
@@ -278,9 +273,11 @@ function buildHighlightSentence(play) {
     }
     case 'Penalty':
       return yardsStr ? `Penalty for ${yardsStr} yards` : 'Penalty'
-    case 'Fumble Recovery':
+    case 'Fumble Recovery': {
       if (!primary) return ''
-      return yardsStr ? `Fumble recovered by ${primary} for ${yardsStr} yards` : `Fumble recovered by ${primary}`
+      const fumBase = yardsStr ? `Fumble recovered by ${primary} for ${yardsStr} yards` : `Fumble recovered by ${primary}`
+      return isTD ? `${fumBase} for a TD` : fumBase
+    }
     case 'Safety':
       return primary ? `Safety on ${primary}` : 'Safety'
     case 'Other':
@@ -2432,14 +2429,11 @@ export default function Game() {
               return drive
             }
 
-            // Compact rendering for a non-scoring play row. Renders the
-            // play's structured atoms as discrete visual slots — time,
-            // down & distance chip, field position, play type badge,
-            // player names, yards, and an optional 1st-down indicator.
-            //
-            // Legacy fallback: games saved under earlier schemas may
-            // not carry structured atoms. In that case we fall back to
-            // the assembled-sentence body so the row still renders.
+            // Natural-language play row matching the CFB 26 in-game
+            // highlight format: bold situation prefix ("2nd & 10 on
+            // LOU 41.") followed by the play sentence ("Edward Reed
+            // incomplete pass; intended for Melvin Rugamba.").
+            // Time is a fixed left column; sentence flows right.
             const renderPBPRow = (play, key) => {
               const resolved = resolvePlayTeamData(play)
               const colors = resolved.colors
@@ -2448,10 +2442,14 @@ export default function Game() {
 
               const dist = (play.distance || '').toString().trim()
               const distLabel = dist === 'G' || /goal/i.test(dist) ? 'Goal' : dist
-              const downOrd = play.down === '1' ? '1st' : play.down === '2' ? '2nd' : play.down === '3' ? '3rd' : play.down === '4' ? '4th' : play.down
+              // Coerce to string so numeric down values (1, 2, 3, 4) work
+              // identically to string values ('1', '2', '3', '4').
+              const downStr = String(play.down ?? '').trim()
+              const downOrd = downStr === '1' ? '1st' : downStr === '2' ? '2nd' : downStr === '3' ? '3rd' : downStr === '4' ? '4th' : downStr
               const playType = (play.playType || '').trim()
 
-              // Build situation prefix (down & dist on fieldPos)
+              // Build situation prefix (down & dist on fieldPos).
+              // Kickoff/Punt/PAT have no down, just field position.
               let situation = ''
               if (playType === 'Kickoff Return') {
                 situation = play.fieldPos ? `Kickoff on ${play.fieldPos}` : 'Kickoff'
@@ -2460,7 +2458,7 @@ export default function Game() {
               } else if (playType === 'PAT') {
                 situation = play.fieldPos ? `PAT on ${play.fieldPos}` : 'PAT'
               } else {
-                const downDist = play.down ? `${downOrd}${distLabel ? ` & ${distLabel}` : ''}` : ''
+                const downDist = downStr ? `${downOrd}${distLabel ? ` & ${distLabel}` : ''}` : ''
                 if (downDist && play.fieldPos) situation = `${downDist} on ${play.fieldPos}`
                 else if (downDist) situation = downDist
                 else if (play.fieldPos) situation = play.fieldPos
@@ -2474,9 +2472,9 @@ export default function Game() {
               return (
                 <div key={key} className="flex items-stretch text-[11px] sm:text-xs group transition-colors hover:bg-surface-2/60">
                   <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: colors.primary }} />
-                  <div className="flex items-baseline gap-3 sm:gap-4 px-3 sm:px-4 py-2 sm:py-2.5 min-w-0 flex-1">
-                    <div className="flex-shrink-0 w-10 sm:w-12 font-display font-semibold text-txt-tertiary tabular-nums">
-                      {play.timeLeft}
+                  <div className="flex items-start gap-3 sm:gap-4 px-3 sm:px-4 py-2 sm:py-2.5 min-w-0 flex-1">
+                    <div className="flex-shrink-0 w-10 sm:w-12 font-display font-semibold text-txt-tertiary tabular-nums pt-px">
+                      {play.timeLeft || '—'}
                     </div>
                     <div className="flex-1 min-w-0 text-txt-secondary leading-snug">
                       {situation && (
