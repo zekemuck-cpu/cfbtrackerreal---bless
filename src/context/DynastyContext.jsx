@@ -8586,10 +8586,32 @@ export function DynastyProvider({ children }) {
       }
       return false
     }
+    // Pairs that LOOK like a conference championship (same conf + neutral
+    // + Week 14-15) but are actually rivalry / traditional games that EA's
+    // schedule slots into the same window. Army-Navy is the canonical
+    // example: both academies are in the American, the game is always at
+    // a neutral site (Philadelphia / Foxborough / Soldier Field / etc.),
+    // and it's always Week 14 — the importer was auto-promoting it to
+    // the "American Championship" without an exception.
+    // Set of "ABBR|ABBR" with the LOWER abbr first (alphabetical).
+    const CCG_AUTOPROMOTE_EXCLUSIONS = new Set([
+      'ARMY|NAVY',
+    ])
+    const isExcludedRivalryPair = (loTid, hiTid) => {
+      const a = (getAbbrFromTid(dynasty.teams, loTid) || '').toUpperCase()
+      const b = (getAbbrFromTid(dynasty.teams, hiTid) || '').toUpperCase()
+      if (!a || !b) return false
+      const pair = [a, b].sort().join('|')
+      return CCG_AUTOPROMOTE_EXCLUSIONS.has(pair)
+    }
     const isConferenceChampionshipCandidate = (homeConf, awayConf, neutral, loTid, hiTid) => {
       if (!homeConf || !awayConf || homeConf !== awayConf) return false
       if (!neutral) return false
       if (weekNum < 14 || weekNum > 15) return false
+      // Army-Navy is in the American + neutral + Week 14 every year, but
+      // it's NEVER a conference championship. Block the auto-promote so
+      // the game stays a regular conference game (or rivalry game).
+      if (isExcludedRivalryPair(loTid, hiTid)) return false
       // If the pair already played a regular-season conference game
       // this year, this is unambiguously the championship rematch.
       // Otherwise we still allow the promotion (most CCs are first-time
