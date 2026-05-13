@@ -2546,26 +2546,53 @@ export default function Game() {
             }
 
             const toggleDriveExpansion = (idx) => {
-              const willBeExpanded = !expandedDrives.has(idx)
+              // Visual contract: the scoring row the user clicked must NOT
+              // appear to move. The drive panel grows above it (on expand)
+              // or shrinks above it (on collapse), and the natural result
+              // is that the row gets pushed down / pulled up. We compensate
+              // with a per-frame scroll that keeps the row pinned at the
+              // exact viewport Y position it had when the user clicked.
+              //
+              // How: capture the row's getBoundingClientRect().top BEFORE
+              // toggling state, then on each animation frame for the
+              // duration of the 300ms max-height transition, scroll the
+              // window by (currentTop - anchorTop). The row stays put;
+              // content above the panel shifts up (or back down on
+              // collapse) to make/recover room for the drive plays.
+              //
+              // A previous version used setTimeout + scrollIntoView AFTER
+              // the animation, but the row visibly drifted during the
+              // 300ms transition, then snapped back at the end — the
+              // anchored-from-the-first-frame approach feels stable.
+              const rowEl = scoringRowRefs.current.get(idx)
+              const anchorTop = rowEl ? rowEl.getBoundingClientRect().top : null
+
               setExpandedDrives(prev => {
                 const next = new Set(prev)
                 if (next.has(idx)) next.delete(idx)
                 else next.add(idx)
                 return next
               })
-              // On expand only: after the drive-plays max-height animation
-              // completes, gently scroll the scoring row back into view
-              // if it got pushed off-screen by the panel that just unfurled
-              // above it. block:'nearest' = no-op when already visible,
-              // so this never scrolls unnecessarily. 350ms matches the
-              // duration-300 transition with a small buffer.
-              if (willBeExpanded) {
-                setTimeout(() => {
-                  const el = scoringRowRefs.current.get(idx)
-                  if (el && typeof el.scrollIntoView === 'function') {
-                    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+
+              if (rowEl && anchorTop != null) {
+                const animationMs = 320 // duration-300 + a small buffer
+                const start = performance.now()
+                const tick = () => {
+                  if (!rowEl.isConnected) return
+                  const currentTop = rowEl.getBoundingClientRect().top
+                  const delta = currentTop - anchorTop
+                  // Sub-pixel jitter: don't bother scrolling for movement
+                  // under half a pixel. window.scrollBy(0, delta) is
+                  // instant — exactly what we want here; smooth would
+                  // fight the per-frame correction.
+                  if (Math.abs(delta) > 0.5) {
+                    window.scrollBy(0, delta)
                   }
-                }, 350)
+                  if (performance.now() - start < animationMs) {
+                    requestAnimationFrame(tick)
+                  }
+                }
+                requestAnimationFrame(tick)
               }
             }
 
