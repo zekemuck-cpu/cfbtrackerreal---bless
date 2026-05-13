@@ -1776,42 +1776,64 @@ export default function DangerZone() {
   }
 
   const handleUnflagWrongCCG = async () => {
-    setCcgMisflagStatus('running')
     try {
       const games = currentDynasty.games || []
-      let fixedCount = 0
       let checkedCount = 0
 
-      const updatedGames = games.map(game => {
+      // FIRST: identify what we'd change, WITHOUT modifying anything.
+      // Then show the user a confirm dialog with the list. Two prior
+      // versions of this tool over-matched and silently wiped every CCG
+      // in the dynasty — a preview-and-confirm step makes that
+      // impossible to repeat regardless of any future logic bug.
+      const candidates = []
+      for (const game of games) {
         const isFlaggedCCG = game.isConferenceChampionship
           || game.gameType === 'conference_championship'
-        if (!isFlaggedCCG) return game
+        if (!isFlaggedCCG) continue
         checkedCount++
 
         const a = (resolveGameAbbr(game, 1) || '').toUpperCase()
         const b = (resolveGameAbbr(game, 2) || '').toUpperCase()
         const pair = a && b ? [a, b].sort().join('|') : null
         const isKnownNonCCG = pair && NON_CCG_RIVALRY_PAIRS.has(pair)
+        if (!isKnownNonCCG) continue
 
-        if (!isKnownNonCCG) return game
+        candidates.push({ id: game.id, year: game.year, a, b, conference: game.conference })
+      }
 
-        // Strip the flags + downgrade gameType to regular. Keep score,
-        // teams, neutral-site, everything else. The game stays in the
-        // dynasty, just no longer marked as the conference championship.
-        const { isConferenceChampionship: _ccg, ...rest } = game
-        const cleaned = { ...rest, gameType: GAME_TYPES.REGULAR }
-        fixedCount++
-        console.log(`[CCG Mis-flag] Unflagged game ${game.id} (${a} vs ${b})`)
-        return cleaned
-      })
-
-      if (fixedCount === 0) {
+      if (candidates.length === 0) {
         setCcgMisflagStatus({ success: true, message: checkedCount === 0
           ? 'No conference-championship games to check.'
           : `All ${checkedCount} CCG games look legitimate — nothing to unflag.`
         })
         return
       }
+
+      // Preview dialog. List every game we'd touch so the user can
+      // verify before anything is written. Bail out if they say no.
+      const previewLines = candidates.slice(0, 20).map(c =>
+        `  • ${c.year || '?'} ${c.a} vs ${c.b}${c.conference ? ` (${c.conference})` : ''}`
+      ).join('\n')
+      const overflow = candidates.length > 20 ? `\n  …and ${candidates.length - 20} more` : ''
+      const ok = await confirm({
+        title: `Unflag ${candidates.length} game${candidates.length === 1 ? '' : 's'}?`,
+        message: `Will remove the conference-championship flag from:\n\n${previewLines}${overflow}\n\nMatches the known non-CCG rivalry list (currently only Army-Navy). Continue?`,
+        confirmLabel: 'Unflag',
+        variant: 'danger',
+      })
+      if (!ok) return
+
+      setCcgMisflagStatus('running')
+
+      // Now actually apply the changes.
+      const candidateIds = new Set(candidates.map(c => c.id))
+      let fixedCount = 0
+      const updatedGames = games.map(game => {
+        if (!candidateIds.has(game.id)) return game
+        const { isConferenceChampionship: _ccg, ...rest } = game
+        fixedCount++
+        return { ...rest, gameType: GAME_TYPES.REGULAR }
+      })
 
       const changedGames = updatedGames.filter((g, i) => g !== games[i])
       if (currentDynasty.storageType === 'cloud') {
@@ -1853,45 +1875,60 @@ export default function DangerZone() {
   // user can run "Unflag Wrong CCGs" after with that pair added to
   // NON_CCG_RIVALRY_PAIRS — but in practice the field is CCG-only.
   const handleRestoreCCGFlags = async () => {
-    setCcgRestoreStatus('running')
     try {
       const games = currentDynasty.games || []
-      let restoredCount = 0
-      let candidateCount = 0
+      const candidates = []
 
-      const updatedGames = games.map(game => {
+      for (const game of games) {
         const isFlaggedCCG = game.isConferenceChampionship
           || game.gameType === 'conference_championship'
-        if (isFlaggedCCG) return game
+        if (isFlaggedCCG) continue
 
         // Conference-field breadcrumb. Required: must be a non-empty
         // string. Regular conference games typically don't have this
         // field — it's set when saving through the CC flow OR by the
         // weekly-scores auto-promote.
-        if (!game.conference || typeof game.conference !== 'string') return game
-        candidateCount++
+        if (!game.conference || typeof game.conference !== 'string') continue
 
         const a = (resolveGameAbbr(game, 1) || '').toUpperCase()
         const b = (resolveGameAbbr(game, 2) || '').toUpperCase()
         const pair = a && b ? [a, b].sort().join('|') : null
-        if (pair && NON_CCG_RIVALRY_PAIRS.has(pair)) return game
+        if (pair && NON_CCG_RIVALRY_PAIRS.has(pair)) continue
 
+        candidates.push({ id: game.id, year: game.year, a, b, conference: game.conference })
+      }
+
+      if (candidates.length === 0) {
+        setCcgRestoreStatus({ success: true, message: 'Nothing to restore — no candidate games found.' })
+        return
+      }
+
+      // Preview-and-confirm before writing anything.
+      const previewLines = candidates.slice(0, 20).map(c =>
+        `  • ${c.year || '?'} ${c.a} vs ${c.b}${c.conference ? ` (${c.conference} Championship)` : ''}`
+      ).join('\n')
+      const overflow = candidates.length > 20 ? `\n  …and ${candidates.length - 20} more` : ''
+      const ok = await confirm({
+        title: `Restore CCG flag on ${candidates.length} game${candidates.length === 1 ? '' : 's'}?`,
+        message: `Will re-flag these games as their conference championship:\n\n${previewLines}${overflow}\n\nUses the conference-field breadcrumb left from past CCG saves. Continue?`,
+        confirmLabel: 'Restore',
+        variant: 'default',
+      })
+      if (!ok) return
+
+      setCcgRestoreStatus('running')
+
+      const candidateIds = new Set(candidates.map(c => c.id))
+      let restoredCount = 0
+      const updatedGames = games.map(game => {
+        if (!candidateIds.has(game.id)) return game
         restoredCount++
-        console.log(`[CCG Restore] Re-flagged game ${game.id} (${a} vs ${b}, conference: ${game.conference})`)
         return {
           ...game,
           isConferenceChampionship: true,
           gameType: GAME_TYPES.CONFERENCE_CHAMPIONSHIP,
         }
       })
-
-      if (restoredCount === 0) {
-        setCcgRestoreStatus({ success: true, message: candidateCount === 0
-          ? 'Nothing to restore — no candidate games found.'
-          : `${candidateCount} candidate game(s) inspected; none qualified.`
-        })
-        return
-      }
 
       const changedGames = updatedGames.filter((g, i) => g !== games[i])
       if (currentDynasty.storageType === 'cloud') {
