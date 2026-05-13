@@ -1399,15 +1399,31 @@ async function deleteSubcollection(dynastyId, subcollectionName) {
 /**
  * Delete a dynasty and all its subcollections.
  *
- * Was: sequential (players → games → main doc). Two omissions: the
- * `invites`, `weekRecaps`, and `seasons` subcollections were never
- * deleted, so they orphaned in Firestore forever every time someone
- * deleted a dynasty.
+ * Order matters: wipe every subcollection FIRST (in parallel — they're
+ * independent of each other), THEN wipe the parent dynasty doc. The
+ * earlier version fired all six deletes in parallel via Promise.all
+ * "because subcollections live independently of the parent doc, so
+ * order doesn't matter for correctness." That comment was wrong about
+ * rules:
  *
- * Now: every subcollection wipe runs in parallel with the main-doc
- * delete (subcollections live independently of the parent doc, so
- * order doesn't matter for correctness). On a multi-year dynasty
- * this drops total wall time from ~10s to ~1-2s.
+ *   match /dynasties/{id}/players/{playerId} {
+ *     allow write: if isPremium() && parentDynasty().userId == request.auth.uid;
+ *     ...
+ *   }
+ *   function parentDynasty() {
+ *     return get(/databases/$(database)/documents/dynasties/$(dynastyId)).data;
+ *   }
+ *
+ * Every subcollection's create/delete rule calls parentDynasty() to
+ * check editors[] / owner identity. When the parent doc delete wins
+ * the parallel race, every subcollection batch that lands after it
+ * fails the rule check with "Missing or insufficient permissions" —
+ * parentDynasty() can't read a deleted document.
+ *
+ * Serializing the parent delete after the subcollections costs ~one
+ * extra Firestore round-trip (~300-500ms), which is well worth it for
+ * a delete operation that already runs in the background after the
+ * optimistic UI update.
  */
 export async function deleteDynastyWithSubcollections(dynastyId) {
   try {
@@ -1417,8 +1433,8 @@ export async function deleteDynastyWithSubcollections(dynastyId) {
       deleteSubcollection(dynastyId, WEEK_RECAPS_SUBCOLLECTION),
       deleteSubcollection(dynastyId, SEASONS_SUBCOLLECTION),
       deleteSubcollection(dynastyId, INVITES_SUBCOLLECTION),
-      deleteDoc(doc(db, DYNASTIES_COLLECTION, dynastyId)),
     ])
+    await deleteDoc(doc(db, DYNASTIES_COLLECTION, dynastyId))
   } catch (error) {
     console.error('Error deleting dynasty with subcollections:', error)
     throw error
