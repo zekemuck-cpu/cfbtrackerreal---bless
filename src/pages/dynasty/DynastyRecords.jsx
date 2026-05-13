@@ -94,7 +94,7 @@ const STAT_CATEGORIES = {
       { key: 'tfl', label: 'Tackles for Loss', abbr: 'TFL', field: 'tfl' },
       { key: 'sacks', label: 'Sacks', abbr: 'SCK', field: 'sacks' },
       { key: 'ints', label: 'Interceptions', abbr: 'INT', field: 'int' },
-      { key: 'pdef', label: 'Passes Defensed', abbr: 'PD', field: 'pd' },
+      { key: 'pdef', label: 'Passes Deflected', abbr: 'PD', field: 'pd' },
       { key: 'ff', label: 'Forced Fumbles', abbr: 'FF', field: 'ff' },
       { key: 'fr', label: 'Fumble Recoveries', abbr: 'FR', field: 'fr' },
       { key: 'defTds', label: 'Defensive TDs', abbr: 'TD', field: 'td' },
@@ -1023,7 +1023,7 @@ export default function DynastyRecords() {
           <Modal
             isOpen={!!modalStat}
             onClose={handleClose}
-            title={`${stat.label} · ${modalSubtitle}`}
+            title={stat.label}
             size="lg"
           >
             {fullLeaderboard.length === 0 ? (
@@ -1050,7 +1050,7 @@ export default function DynastyRecords() {
                         className="text-[10px] font-bold uppercase text-txt-tertiary"
                         style={{ letterSpacing: '2.5px' }}
                       >
-                        {stat.abbr} · {mode === 'career' ? 'Career' : 'Single Season'}
+                        {stat.abbr} {mode === 'career' ? 'Career' : 'Single Season'}
                       </div>
                       <div
                         className="text-txt-primary mt-0.5 leading-tight"
