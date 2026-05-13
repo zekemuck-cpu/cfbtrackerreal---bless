@@ -3697,8 +3697,20 @@ export default function Dashboard() {
                   {(() => {
                     const yearNum = Number(currentDynasty.currentYear)
                     const curWeek = Number(currentDynasty.currentWeek)
-                    const hasCurWeek = Number.isFinite(curWeek) && curWeek >= 1
-                    const prevWeek = hasCurWeek ? curWeek - 1 : null
+                    // Week 0 IS a real regular-season week — some teams play
+                    // an early-September Week 0 opener in EA CFB. The previous
+                    // hasCurWeek guard required curWeek >= 1, which silently
+                    // suppressed the game-entry todo (and therefore the
+                    // "Enter Game" button) for users with a Week 0 game on
+                    // their schedule. Reported by Jay (2026-05-13): Week 0
+                    // game against CU, no Enter Game button visible.
+                    // Split into two guards: hasCurWeek includes Week 0
+                    // (drives game-entry / bye / recruiting rows), hasPrevWeek
+                    // keeps the >=1 requirement (drives "Last Week's Scores"
+                    // which needs a real prior week to exist).
+                    const hasCurWeek = Number.isFinite(curWeek) && curWeek >= 0
+                    const hasPrevWeek = Number.isFinite(curWeek) && curWeek >= 1
+                    const prevWeek = hasPrevWeek ? curWeek - 1 : null
 
                     const todos = []
 
@@ -3795,8 +3807,10 @@ export default function Dashboard() {
                 })
               }
 
-              // Row 2: Last Week's Scores
-              if (hasCurWeek) {
+              // Row 2: Last Week's Scores — needs a real previous week to
+              // exist, so this gates on hasPrevWeek (curWeek >= 1). Week 0
+              // has no Week -1 to "log scores for," so this row is skipped.
+              if (hasPrevWeek) {
                 const weeklyEntered = currentDynasty.weeklyScoresEntered?.[yearNum]?.[prevWeek]
                 const savedCount = (currentDynasty.games || []).filter(g =>
                   g && Number(g.year) === yearNum && Number(g.week) === prevWeek
