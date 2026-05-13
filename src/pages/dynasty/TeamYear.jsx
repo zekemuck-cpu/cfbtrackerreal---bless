@@ -3437,29 +3437,28 @@ export default function TeamYear() {
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3 min-w-0">
                   {teamLogo && <img src={teamLogo} alt="" className="w-11 h-11 object-contain flex-shrink-0" />}
-                  {teamRank ? (
-                    <div className="flex flex-col items-start min-w-0">
-                      <span
-                        className="text-[10px] font-semibold uppercase"
-                        style={{ letterSpacing: '1.5px', color: 'var(--text-tertiary)' }}
-                      >
-                        #{teamRank}
-                      </span>
-                      <span
-                        className="text-3xl font-black tabular-nums leading-none"
-                        style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}
-                      >
-                        {lastGameInfo.teamScore}
-                      </span>
-                    </div>
-                  ) : (
+                  {/* Always render the rank-over-score stack so both sides
+                      share the same vertical structure. When a side has no
+                      rank we still render the rank slot with a non-breaking
+                      space so the score sits at the same baseline as the
+                      other side's score — without this, a ranked side puts
+                      the score BELOW the stack center while the unranked
+                      side puts the score AT the row center, and the two
+                      scores end up at different vertical positions. */}
+                  <div className="flex flex-col items-start min-w-0">
+                    <span
+                      className="text-[10px] font-semibold uppercase leading-tight"
+                      style={{ letterSpacing: '1.5px', color: 'var(--text-tertiary)' }}
+                    >
+                      {teamRank ? `#${teamRank}` : ' '}
+                    </span>
                     <span
                       className="text-3xl font-black tabular-nums leading-none"
                       style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}
                     >
                       {lastGameInfo.teamScore}
                     </span>
-                  )}
+                  </div>
                 </div>
                 <span
                   className={`text-[10px] font-bold uppercase px-2 py-1 rounded-sm ${lastGameInfo.isWin ? 'bg-green-600/15 text-green-400' : 'bg-red-600/15 text-red-400'}`}
@@ -3468,29 +3467,20 @@ export default function TeamYear() {
                   {lastGameInfo.isWin ? 'W' : 'L'}
                 </span>
                 <div className="flex items-center gap-3 min-w-0">
-                  {lastGame.opponentRank ? (
-                    <div className="flex flex-col items-end min-w-0">
-                      <span
-                        className="text-[10px] font-semibold uppercase"
-                        style={{ letterSpacing: '1.5px', color: 'var(--text-tertiary)' }}
-                      >
-                        #{lastGame.opponentRank}
-                      </span>
-                      <span
-                        className="text-3xl font-black tabular-nums leading-none"
-                        style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-display)' }}
-                      >
-                        {lastGameInfo.oppScore}
-                      </span>
-                    </div>
-                  ) : (
+                  <div className="flex flex-col items-end min-w-0">
+                    <span
+                      className="text-[10px] font-semibold uppercase leading-tight"
+                      style={{ letterSpacing: '1.5px', color: 'var(--text-tertiary)' }}
+                    >
+                      {lastGame.opponentRank ? `#${lastGame.opponentRank}` : ' '}
+                    </span>
                     <span
                       className="text-3xl font-black tabular-nums leading-none"
                       style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-display)' }}
                     >
                       {lastGameInfo.oppScore}
                     </span>
-                  )}
+                  </div>
                   {lastGameInfo.oppLogo && <img src={lastGameInfo.oppLogo} alt="" className="w-11 h-11 object-contain flex-shrink-0" />}
                 </div>
               </div>
