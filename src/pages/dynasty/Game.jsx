@@ -2687,20 +2687,46 @@ export default function Game() {
                     {/* Drive sub-rows render ABOVE the scoring play so the
                         drive reads chronologically top-to-bottom: prior
                         downs leading to the score, then the score itself
-                        as the conclusion. (Earlier this rendered AFTER the
-                        scoring row — the visual order was reversed from
-                        the game-time order, which read backwards.) The
-                        max-height animation unfurls the drive plays from
-                        above; the scoring row gets pushed down as a
-                        result, which is the "scoring play drops below"
-                        behavior the user asked for. */}
+                        as the conclusion. The scroll-anchor logic in
+                        toggleDriveExpansion keeps the scoring row pinned
+                        to the user's click position while the panel
+                        unfurls / collapses.
+                        ────────────────────────────────────────────────
+                        ANIMATION: grid-template-rows 0fr→1fr auto-sizes
+                        to content height, so the full 300ms is visible
+                        motion. The previous max-height: 0→1500px ran the
+                        full 300ms but visible motion stopped once
+                        max-height passed the content height (~40ms for a
+                        200px drive), leaving 260ms of nothing happening
+                        — that's why it felt snappy / cut off.
+                        On expand: panel grows (0-300ms) and content fades
+                        in slightly delayed (100-300ms) so plays appear
+                        IN rather than slide in cold.
+                        On collapse: content fades out fast (0-180ms)
+                        while panel finishes its shrink — content is
+                        already invisible before the panel finishes
+                        closing, so there's no "rows fly past" feel. */}
                     {canExpand && (
                       <div
-                        className="overflow-hidden transition-all duration-300 ease-out"
-                        style={{ maxHeight: isExpanded ? '1500px' : '0' }}
+                        style={{
+                          display: 'grid',
+                          gridTemplateRows: isExpanded ? '1fr' : '0fr',
+                          transition: 'grid-template-rows 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+                        }}
                       >
-                        <div className="bg-surface-0/60 divide-y divide-surface-3/30 border-b border-surface-3">
-                          {drivePrior.map((dp, didx) => renderPBPRow(dp, `drive-${idx}-${didx}`))}
+                        <div style={{ overflow: 'hidden', minHeight: 0 }}>
+                          <div
+                            className="bg-surface-0/60 divide-y divide-surface-3/30 border-b border-surface-3"
+                            style={{
+                              opacity: isExpanded ? 1 : 0,
+                              transform: isExpanded ? 'translateY(0)' : 'translateY(-4px)',
+                              transition: isExpanded
+                                ? 'opacity 200ms ease-out 100ms, transform 200ms ease-out 100ms'
+                                : 'opacity 180ms ease-in, transform 180ms ease-in',
+                            }}
+                          >
+                            {drivePrior.map((dp, didx) => renderPBPRow(dp, `drive-${idx}-${didx}`))}
+                          </div>
                         </div>
                       </div>
                     )}
