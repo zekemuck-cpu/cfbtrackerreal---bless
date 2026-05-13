@@ -6,6 +6,7 @@ import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import SheetModalHeader from './ui/SheetModalHeader'
 import SheetManualEntry from './ui/SheetManualEntry'
+import SheetModalAIHero from './ui/SheetModalAIHero'
 import SheetModalFooter from './ui/SheetModalFooter'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
@@ -45,7 +46,6 @@ export default function AwardsModal({ isOpen, onClose, onSave, currentYear, team
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
-  const [aiPromptCopied, setAIPromptCopied] = useState(false)
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Season Awards`,
@@ -361,50 +361,10 @@ FINAL CHECK before you send
         ) : sheetId ? (
           <div className="flex-1 flex flex-col overflow-hidden gap-3">
 
-            {/* AI Hero Panel — primary path. The user can run the AI
-                prompt through ChatGPT/Claude/Gemini, paste the response
-                into the sheet below, then save. Manual entry into the
-                sheet is still supported but framed as the secondary
-                path. */}
-            <div
-              className="rounded-lg p-3 sm:p-4 border-l-[3px] flex items-center gap-3 sm:gap-4 flex-wrap"
-              style={{ borderLeftColor: 'var(--text-primary)', backgroundColor: 'var(--surface-2)' }}
-            >
-              <div className="flex-1 min-w-[200px]">
-                <div className="label-xs text-txt-tertiary mb-1" style={{ letterSpacing: '1.5px' }}>
-                  AI WORKFLOW · RECOMMENDED
-                </div>
-                <p className="text-sm text-txt-primary font-semibold">
-                  Skip the typing. Let AI fill the sheet.
-                </p>
-                <p className="text-xs text-txt-secondary mt-1">
-                  Copy the prompt → paste into your AI assistant → paste the AI's reply into the sheet → save.
-                </p>
-              </div>
-              <button
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(aiPrompt)
-                  } catch (err) {
-                    console.error('Copy failed:', err)
-                    const ta = document.createElement('textarea')
-                    ta.value = aiPrompt
-                    ta.style.position = 'fixed'
-                    ta.style.opacity = '0'
-                    document.body.appendChild(ta)
-                    ta.select()
-                    try { document.execCommand('copy') } catch { /* noop */ }
-                    document.body.removeChild(ta)
-                  }
-                  setAIPromptCopied(true)
-                  setTimeout(() => setAIPromptCopied(false), 2000)
-                }}
-                className="px-4 sm:px-5 py-2.5 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity flex-shrink-0"
-                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-              >
-                {aiPromptCopied ? 'Copied!' : 'Copy AI Prompt'}
-              </button>
-            </div>
+            <SheetModalAIHero
+              tagline="Skip the typing. Let AI fill the awards."
+              buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
+            />
 
             {/* Sheet — embedded iframe on desktop, instructional view
                 on mobile. Manual editing happens here regardless of

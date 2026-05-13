@@ -1,19 +1,25 @@
 /**
- * SheetManualEntry — the "edit in Google Sheets" manual-entry path
+ * SheetManualEntry — the "edit in Google Sheets" alternative path
  * that renders when the user is on mobile or has opted out of the
  * embedded iframe view.
  *
- * Just the primary green CTA — the prior 3-step instruction card was
- * redundant chrome. The modal's SheetModalAIHero already tells the
- * user what to do, and the AI's reply leads with a "Paste this TSV
- * into cell X" line that points to the exact cell.
+ * Sits naturally below the AI hero with an "or" divider so the user
+ * reads it as the manual alternative. No flex-1 centering — that
+ * caused dead vertical space.
  *
  * Props:
  *   sheetId — the Google Sheet document ID, used to build the open URL.
  */
 export default function SheetManualEntry({ sheetId }) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center w-full px-4 py-6 min-h-0">
+    <div className="flex flex-col items-center text-center w-full">
+      <div className="flex items-center w-full max-w-xs my-1">
+        <div className="flex-1 h-px bg-surface-4" />
+        <span className="px-3 text-[10px] font-display font-semibold text-txt-tertiary uppercase tracking-[0.15em]">
+          or do it manually
+        </span>
+        <div className="flex-1 h-px bg-surface-4" />
+      </div>
       <a
         href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
         target="_blank"

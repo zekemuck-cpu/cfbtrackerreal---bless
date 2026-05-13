@@ -1,25 +1,27 @@
 /**
- * SheetModalFooter — the unified action row at the bottom of every
- * sheet modal. Primary save actions sit on the left; tertiary
- * destructive actions + the embedded-view toggle sit on the right as
- * a tight row of dotted-underline text links to keep them visually
- * subordinate.
+ * SheetModalFooter — the unified bottom action row for every sheet
+ * modal. Two visual groups:
+ *
+ *   Left:  tertiary actions  — Delete sheet · Reset · Embedded view
+ *          (small dotted-underline text links, visually subordinate)
+ *   Right: primary saves     — Save & keep sheet · Save
+ *          (medium buttons, primary filled, secondary bordered)
+ *
+ * Desktop: single row, tertiary anchored left, primary anchored right.
+ * Mobile: stacks vertically with primary buttons ON TOP (the main
+ * action should be reachable without scrolling), tertiary actions
+ * below as a compact text-link row.
  *
  * Props:
  *   onSaveAndDelete, onSaveAndKeep, onDeleteSheetOnly, onRegenerate
- *     — required handlers wired straight to the parent modal's
- *       existing save/delete/regenerate flow.
+ *     — required handlers wired to the parent modal's existing flow.
  *   syncing, deletingSheet, regenerating, highlightSave
- *     — disabled / loading / highlight states propagated from the
- *       parent.
+ *     — disabled / loading / highlight states propagated from parent.
  *   regenLabel — optional override for the "Regenerate" link text
  *     (BoxScoreSheetModal uses "Reset (wipe <thing>)").
- *   regenTitle — optional `title` attribute for the regenerate
- *     link (BoxScoreSheetModal uses it to spell out exactly what
- *     stats get wiped).
+ *   regenTitle — optional `title` tooltip for the regenerate link.
  *   showEmbeddedToggle — render the "Try embedded view (beta)" /
- *     "Default view" toggle. Pass false on mobile (the embedded
- *     view doesn't work on mobile).
+ *     "Default view" toggle. Pass false on mobile.
  *   useEmbedded, onToggleEmbedded — toggle state + handler.
  */
 export default function SheetModalFooter({
@@ -38,66 +40,63 @@ export default function SheetModalFooter({
   onToggleEmbedded,
 }) {
   const busy = syncing || deletingSheet || regenerating
-  const tertiaryButtonClass =
-    'hover:text-txt-secondary transition-colors disabled:opacity-60 disabled:cursor-not-allowed underline decoration-dotted underline-offset-4'
+  const tertiaryClass =
+    'text-xs text-txt-tertiary hover:text-txt-secondary transition-colors disabled:opacity-60 disabled:cursor-not-allowed underline decoration-dotted underline-offset-4'
+  const tertiarySeparator = (
+    <span className="text-txt-muted text-xs" aria-hidden="true">·</span>
+  )
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-surface-3">
-      {/* Primary save actions — left, full-weight buttons */}
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          onClick={onSaveAndDelete}
-          disabled={syncing || deletingSheet}
-          className={`px-4 py-2 rounded-md font-semibold text-sm hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-60 ${
-            highlightSave ? 'animate-pulse ring-2 ring-offset-2 ring-offset-surface-1' : ''
-          }`}
-          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-        >
-          {deletingSheet ? 'Saving…' : 'Save & Move to Trash'}
-        </button>
-        {onSaveAndKeep && (
-          <button
-            onClick={onSaveAndKeep}
-            disabled={syncing || deletingSheet}
-            className="px-4 py-2 rounded-md font-semibold text-sm border border-surface-4 hover:bg-surface-3 text-txt-primary disabled:opacity-60 transition-colors active:scale-[0.98]"
-          >
-            {syncing ? 'Syncing…' : 'Save & Keep Sheet'}
-          </button>
-        )}
-      </div>
-
-      {/* Tertiary actions — right, subtle dotted-underline links */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-txt-tertiary">
+    <div className="flex flex-col gap-3 pt-4 border-t border-surface-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      {/* Tertiary actions — appears BELOW primary on mobile, LEFT on desktop */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 order-2 sm:order-1">
         {onDeleteSheetOnly && (
-          <button
-            onClick={onDeleteSheetOnly}
-            disabled={busy}
-            className={tertiaryButtonClass}
-          >
-            {deletingSheet ? 'Deleting…' : 'Delete sheet (no save)'}
+          <button onClick={onDeleteSheetOnly} disabled={busy} className={tertiaryClass}>
+            {deletingSheet ? 'Deleting…' : 'Delete sheet'}
           </button>
         )}
-        {onDeleteSheetOnly && onRegenerate && (
-          <span className="text-txt-muted" aria-hidden="true">·</span>
-        )}
+        {onDeleteSheetOnly && onRegenerate && tertiarySeparator}
         {onRegenerate && (
           <button
             onClick={onRegenerate}
             disabled={busy}
             title={regenTitle}
-            className={`${tertiaryButtonClass} hover:text-[color:var(--accent-error)]`}
+            className={`${tertiaryClass} hover:text-[color:var(--accent-error)]`}
           >
-            {regenerating ? 'Regenerating…' : (regenLabel || 'Regenerate')}
+            {regenerating ? 'Regenerating…' : (regenLabel || 'Reset')}
           </button>
         )}
         {showEmbeddedToggle && onToggleEmbedded && (
           <>
-            <span className="text-txt-muted" aria-hidden="true">·</span>
-            <button onClick={onToggleEmbedded} className={tertiaryButtonClass}>
-              {useEmbedded ? 'Default view' : 'Try embedded view (beta)'}
+            {tertiarySeparator}
+            <button onClick={onToggleEmbedded} className={tertiaryClass}>
+              {useEmbedded ? 'Default view' : 'Embedded view (beta)'}
             </button>
           </>
         )}
+      </div>
+
+      {/* Primary save actions — appears ABOVE tertiary on mobile, RIGHT on desktop */}
+      <div className="flex items-center gap-2 order-1 sm:order-2">
+        {onSaveAndKeep && (
+          <button
+            onClick={onSaveAndKeep}
+            disabled={syncing || deletingSheet}
+            className="flex-1 sm:flex-none px-4 py-2 rounded-md font-semibold text-sm border border-surface-4 hover:bg-surface-3 text-txt-primary disabled:opacity-60 transition-colors active:scale-[0.98]"
+          >
+            {syncing ? 'Syncing…' : 'Save & keep'}
+          </button>
+        )}
+        <button
+          onClick={onSaveAndDelete}
+          disabled={syncing || deletingSheet}
+          className={`flex-1 sm:flex-none px-4 py-2 rounded-md font-semibold text-sm hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-60 ${
+            highlightSave ? 'animate-pulse ring-2 ring-offset-2 ring-offset-surface-1' : ''
+          }`}
+          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
+        >
+          {deletingSheet ? 'Saving…' : 'Save & close'}
+        </button>
       </div>
     </div>
   )

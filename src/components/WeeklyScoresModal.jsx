@@ -9,6 +9,7 @@ import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
 import SheetToolbar from './SheetToolbar'
 import SheetModalAIHero from './ui/SheetModalAIHero'
 import SheetManualEntry from './ui/SheetManualEntry'
+import SheetModalFooter from './ui/SheetModalFooter'
 import {
   createWeeklyScoresSheet,
   readWeeklyScoresFromSheet,
@@ -1077,59 +1078,23 @@ Don't just glance at this list. Physically execute each check on your draft.
                       </p>
                     </section>
 
-                    {/* SAVE / CANCEL — three matching full-width buttons */}
-                    <section>
-                      <p className="label-xs text-txt-tertiary mb-3">Save</p>
-                      <div className="flex flex-col gap-2">
-                        <button
-                          onClick={() => handleSave(true)}
-                          disabled={syncing || deletingSheet}
-                          className={`btn-refined btn-refined--solid btn-refined--lg w-full justify-center ${highlightSave ? 'animate-pulse-subtle' : ''}`}
-                        >
-                          {deletingSheet ? 'Saving…' : 'Save & move to trash'}
-                        </button>
-                        <button
-                          onClick={() => handleSave(false)}
-                          disabled={syncing || deletingSheet}
-                          className="btn-refined btn-refined--lg w-full justify-center"
-                        >
-                          {syncing ? 'Saving…' : 'Save & keep sheet'}
-                        </button>
-                        <button
-                          onClick={handleDeleteSheetOnly}
-                          disabled={syncing || deletingSheet || regenerating}
-                          className="btn-refined btn-refined--lg btn-refined--danger w-full justify-center"
-                        >
-                          {deletingSheet ? 'Deleting…' : 'Delete sheet (no save)'}
-                        </button>
-                      </div>
-                      <p className="text-xs text-txt-tertiary mt-2 leading-relaxed">
-                        <span className="text-txt-secondary font-medium">Save</span> moves the sheet to Drive trash. <span className="text-txt-secondary font-medium">Save &amp; keep</span> leaves it open. <span className="text-txt-secondary font-medium">Delete</span> tosses the sheet without saving anything.
-                      </p>
-                    </section>
-
-                    {/* TROUBLESHOOTING — recovery only */}
-                    <section className="pt-2 border-t border-surface-4 flex items-center gap-5 justify-center flex-wrap">
-                      <button
-                        onClick={handleRegenerateSheet}
-                        disabled={syncing || deletingSheet || regenerating}
-                        className="text-xs text-txt-tertiary hover:text-[color:var(--accent-error)] transition-colors disabled:opacity-60 underline decoration-dotted underline-offset-4"
-                      >
-                        {regenerating ? 'Regenerating…' : 'Regenerate sheet'}
-                      </button>
-                      {!isMobile && (
-                        <button
-                          onClick={() => {
-                            const newValue = !useEmbedded
-                            setUseEmbedded(newValue)
-                            localStorage.setItem('sheetEmbedPreference', newValue.toString())
-                          }}
-                          className="text-xs text-txt-tertiary hover:text-txt-primary transition-colors underline decoration-dotted underline-offset-4"
-                        >
-                          Try embedded view (beta)
-                        </button>
-                      )}
-                    </section>
+                    <SheetModalFooter
+                      syncing={syncing}
+                      deletingSheet={deletingSheet}
+                      regenerating={regenerating}
+                      highlightSave={highlightSave}
+                      onSaveAndDelete={() => handleSave(true)}
+                      onSaveAndKeep={() => handleSave(false)}
+                      onDeleteSheetOnly={handleDeleteSheetOnly}
+                      onRegenerate={handleRegenerateSheet}
+                      showEmbeddedToggle={!isMobile}
+                      useEmbedded={useEmbedded}
+                      onToggleEmbedded={() => {
+                        const newValue = !useEmbedded
+                        setUseEmbedded(newValue)
+                        localStorage.setItem('sheetEmbedPreference', newValue.toString())
+                      }}
+                    />
 
                   </div>
                 </div>
