@@ -73,8 +73,8 @@ CRITICAL RULES — read before anything else
 7. BYE WEEKS: If the user has a bye that week, put "BYE" in column C and leave column D BLANK.
 8. BLANK CELLS if the matchup is unknown. Never guess, never use "N/A", "TBD", dash. Never leave column C blank if a game is scheduled — fill the opponent or "BYE".
 9. Never change or output the User Team (column B is pre-filled with ${targetTeamAbbr} on every row).
-10. No header row, no Week numbers, no scores, no commentary, no explanation.
-11. SINGLE TSV block labeled by tab name and paste cell.
+10. No header row, no Week numbers, no scores, no commentary or explanation INSIDE the data. The paste-target label above the fence is required (see Method A/B rules above).
+11. ONE TSV block — preceded by the paste-target label line as required by the Method A/B rules above.
 
 ═══════════════════════════════════════════════════════════
 TAB: "Schedule" — 16 rows × 2 editable columns
@@ -139,7 +139,7 @@ FINAL CHECK before you send the answer
 [ ] Exactly 2 tab-separated values per row (1 tab character per line)
 [ ] Column C: team abbreviation from the mapping, or the literal "BYE", or blank
 [ ] Column D: EXACTLY "Home", "Road", or "Neutral" — not "Away", not any other value; blank on bye weeks
-[ ] No score columns, no week numbers, no user team column, no header row in the output
+[ ] No score columns, no week numbers, no user team column, no header row INSIDE the data (the paste-target label above the fence is required, see Method A/B rules above)
 [ ] Blank cells only where the week's matchup is genuinely unknown — invented nothing`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
@@ -548,7 +548,7 @@ FINAL CHECK before you send the answer
                 />
               </div>
             ) : (
-              <SheetManualEntry sheetId={sheetId} whatToDo="Enter the schedule for each team" />
+              <SheetManualEntry sheetId={sheetId} />
             )}
             <SheetModalFooter
               syncing={syncing}

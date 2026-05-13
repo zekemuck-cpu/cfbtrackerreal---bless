@@ -296,7 +296,7 @@ export default function BoxScoreSheetModal({
         opponentRosterLabel: `${userIsHome ? awayTeamAbbr : homeTeamAbbr} ROSTER (opponent team — for team-assignment, see below)`,
         structure: `This is an OCR task: extract structured data from images into TSV. Prioritize responding quickly rather than thinking deeply. Extended thinking adds latency and is NOT helpful here — when in doubt, respond directly. Skip every preamble and begin output immediately with the first row's first character.
 
-Output the full play-by-play of this game as 13-col TSV — one row per highlight line, chronological order (earliest first). The user will copy your reply verbatim and paste it at cell A2 of the "Scoring Summary" tab in Google Sheets, so your reply must contain ONLY tab-separated rows. No XML, no markdown fences, no header row, no preamble, no commentary. The first character of your reply is the team abbreviation of the first play.
+Output the full play-by-play of this game as 13-col TSV — one row per highlight line, chronological order (earliest first). The user will copy your reply and paste it at cell A2 of the "Scoring Summary" tab in Google Sheets, so the DATA block must contain ONLY tab-separated rows. No XML, no header row inside the data, no preamble or commentary other than the required paste-target label line above the fence (see Method A/B rules above).
 
 ═══════════════════════════════════════════════════════════
 TRANSCRIBE, DON'T REASON
@@ -656,7 +656,7 @@ CRITICAL RULES — read before anything else
 6. Use ONLY the literal dropdown values listed below for columns A, E, F, G. Strict dropdowns — wrong value is rejected.
 7. BLANK CELLS only for genuinely missing/illegible data. NEVER use "N/A". This sheet uses empty string, NOT "N/A", for plays without a PAT.
 8. EVERY scoring play in the screenshot must produce one row, and that row's column B (Scorer) MUST be filled with the name from the screenshot — for BOTH teams equally. Output is rejected if it skips opponent scorers.
-9. No header row, no commentary, no explanation. SINGLE TSV block.
+9. No header row, no commentary or explanation INSIDE the data. ONE TSV block — preceded by the paste-target label line as required by the Method A/B rules above.
 
 ═══════════════════════════════════════════════════════════
 TAB: "Scoring Summary" — up to 30 rows × 9 columns
@@ -749,7 +749,7 @@ At the top of every CFB26 Team Stats screenshot, the away team's logo+abbr appea
 CRITICAL RULES — non-negotiable
 ═══════════════════════════════════════════════════════════
 1. EXACTLY 30 rows of output. Count them before you send.
-2. EACH row = "<away>\\t<home>" — exactly ONE tab character per line. No header row. No labels. No commentary.
+2. EACH row = "<away>\\t<home>" — exactly ONE tab character per line. No header row, no labels, no commentary INSIDE the data. The paste-target label above the fence is required (see Method A/B rules above).
 3. Row order is FIXED — see the 30-row table below. Row 1 = First Downs, row 2 = Total Offense, …, row 30 = Poss Seconds. Never reorder, skip, or add.
 4. Use INTEGERS everywhere EXCEPT row 26 (Punt Avg), which is a one-decimal number like 42.7.
 5. NO COMMAS in numbers ("1234", never "1,234"). NO percent signs. NO units.
@@ -900,7 +900,7 @@ REQUIRED OUTPUT FORMAT
 === TEAM STATS — paste at cell B2 of "Team Stats" tab ===
 <row1 away>\\t<row1 home>
 <row2 away>\\t<row2 home>
-... (30 total rows, in the exact order above, no header, no commentary)
+... (30 total rows, in the exact order above, no header inside the data, no commentary inside the data — the paste-target label above the fence is required, see Method A/B rules above)
 
 ═══════════════════════════════════════════════════════════
 SELF-CHECK BEFORE YOU SEND — run every line
@@ -1143,7 +1143,7 @@ CRITICAL RULES
    These half-credit values come from the screenshot directly. Never invent ".5" — only emit it when the source clearly shows it.
 8. Player names: if this is the user's team, names MUST match the roster (strict dropdown). For opponent, any reasonable name. NEVER "#12" or "J. Smith" when a full name exists in the roster.
 9. ${teamAbbr} players ONLY. No ${opponentAbbrLabel} players in this output.
-10. No commentary, no explanation, no markdown fencing. SINGLE block of ${layout.totalRows} lines.
+10. No commentary or explanation INSIDE the data. ONE block of ${layout.totalRows} lines — preceded by the required paste-target label line above the fence (see Method A/B rules above).
 
 ═══════════════════════════════════════════════════════════
 COLUMN SPEC PER SECTION (for reference)
@@ -1172,7 +1172,7 @@ COMMON MISTAKES — actively avoid these
 ✗ Mixing the "Long" value with TD yardage (Long is the longest SINGLE play)
 ✗ Skipping empty rows: every row position MUST be present in the output, even as a blank line
 ✗ Outputting fewer or more than ${layout.totalRows} total lines
-✗ Adding any text outside the ${layout.totalRows}-line block (no "here is the output:", no markdown fences, no trailing notes)
+✗ Adding stray text outside the data block — apart from the required paste-target label line above the fence (no "here is the output:", no trailing notes, no follow-up questions).
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send — actually run these on your draft
@@ -1229,9 +1229,10 @@ mode of this output and it will silently corrupt the user's sheet.
     half-credits when the screenshot shows them). Every other stat
     is an integer.
 
-[ ] NO COMMENTARY: no markdown fences, no "here is the output:",
-    no trailing notes. The block is exactly ${layout.totalRows} lines and nothing
-    else surrounds it.
+[ ] OUTPUT SHAPE: the required paste-target line above the fence,
+    the fenced block (exactly ${layout.totalRows} lines of data), and
+    nothing else. No "here is the output:", no greetings, no trailing
+    notes.
 
 If ANY of these fails, fix and re-run the checks. Do not send
 output that fails any of them.`,
@@ -1821,7 +1822,7 @@ output that fails any of them.`,
                 />
               </div>
             ) : (
-              <SheetManualEntry sheetId={sheetId} whatToDo={config.instructions} />
+              <SheetManualEntry sheetId={sheetId} />
             )}
 
             <SheetModalFooter

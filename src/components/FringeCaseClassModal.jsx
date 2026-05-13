@@ -77,7 +77,7 @@ CRITICAL RULES — read before anything else
 3. Row order must match the pre-filled player rows EXACTLY from top to bottom as shown in the screenshot. If the sheet shows N pre-filled players, output EXACTLY N lines (blank lines only when the current class is "RS Sr" which has no progression).
 4. Each row's allowed dropdown values are STRICTLY determined by that row's Column C value (the player's ${currentYear} class). You MUST pick one of the allowed values for that row — any other value is rejected by the dropdown.
 5. Use the EXACT literal strings shown below. "RS Fr" with ONE space. No "Fr (RS)", no "RSFr", no "Rs Fr", no "RS-Fr", no "Fr*".
-6. No header row, no commentary, no totals, no explanation.
+6. No header row, no commentary or explanation INSIDE the data, no totals. The paste-target label above the fence is required (see Method A/B rules above).
 7. NEVER output a class that isn't in that row's allowed set.
 
 ═══════════════════════════════════════════════════════════
@@ -128,7 +128,7 @@ FINAL CHECK before you send
 [ ] Every non-blank line is one of that row's allowed values based on Column C (per the table above)
 [ ] No "Fr (RS)" / "So (RS)" / "Jr (RS)" — use the "RS Fr" / "RS So" / "RS Jr" forms only
 [ ] Exact casing: "Fr", "So", "Jr", "Sr", "RS Fr", "RS So", "RS Jr", "RS Sr" (single space, "RS" uppercase)
-[ ] No tabs, no extra columns, no commentary
+[ ] No tabs, no extra columns, no commentary INSIDE the data (the paste-target label above the fence is required, see Method A/B rules above)
 [ ] Blank line ONLY for rows where Column C = "RS Sr" (no progression)
 [ ] No header row, no totals`,
     includeTeamMap: true,
@@ -399,7 +399,7 @@ FINAL CHECK before you send
               buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
             />
             {isMobile || !useEmbedded ? (
-              <SheetManualEntry sheetId={sheetId} whatToDo="Enter fringe-case class members" />
+              <SheetManualEntry sheetId={sheetId} />
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
                 <iframe

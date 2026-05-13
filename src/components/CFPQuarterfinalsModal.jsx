@@ -67,8 +67,8 @@ CRITICAL RULES — read before anything else
    - If an entire game hasn't been played: leave all 5 cells blank.
    - If teams are known but scores aren't: fill columns B and C only; leave D, E, F blank.
 9. Team 1 (column B) is always the bye seed (1, 2, 3, or 4). Team 2 (column C) is always the First Round winner that advanced into that bowl. Do not swap them.
-10. No header row, no Bowl Game text, no commentary, no explanation.
-11. SINGLE TSV block labeled by tab name and paste cell.
+10. No header row, no Bowl Game text, no commentary or explanation INSIDE the data. The paste-target label above the fence is required (see Method A/B rules above).
+11. ONE TSV block — preceded by the paste-target label line as required by the Method A/B rules above.
 
 ═══════════════════════════════════════════════════════════
 TAB: "CFP Quarterfinals" — 4 rows × 5 editable columns
@@ -365,7 +365,7 @@ FINAL CHECK before you send the answer
               buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
             />
             {isMobile || !useEmbedded ? (
-              <SheetManualEntry sheetId={sheetId} whatToDo="Enter CFP Quarterfinal results" />
+              <SheetManualEntry sheetId={sheetId} />
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
                 <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="CFP Quarterfinals" />

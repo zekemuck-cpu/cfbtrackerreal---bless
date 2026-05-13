@@ -75,7 +75,7 @@ CRITICAL RULES — read before anything else
 2. Every line has EXACTLY 2 tab-separated columns (1 tab character): Player<TAB>Transfer Reason.
 3. Column A (Player) must EXACTLY match a player name from the current roster — the Player column is a strict dropdown. Match capitalisation, spacing, and suffixes (Jr./II) character-for-character. A mismatch will silently drop the row.
 4. Column B (Transfer Reason) MUST be one of the 16 literal values listed below — exact case, exact spacing. No free text.
-5. No header row, no blank lines, no commentary, no totals.
+5. No header row, no blank lines, no commentary INSIDE the data, no totals. The paste-target label above the fence is required (see Method A/B rules above).
 6. No commas anywhere.
 
 ═══════════════════════════════════════════════════════════
@@ -116,7 +116,7 @@ FINAL CHECK before you send
     Players cut off at the edge of a screenshot still count.
 [ ] One row per player in the uploaded screenshots — every single one, no skipping
 [ ] Every line has exactly 2 tab-separated columns (1 tab character)
-[ ] No header row, no commentary, no totals
+[ ] No header row, no commentary INSIDE the data, no totals (the paste-target label above the fence is required, see Method A/B rules above)
 [ ] Every Player value matches a current roster name exactly (case + spacing)
 [ ] Every Transfer Reason is one of the 16 literal values listed (exact case)
 [ ] No commas in any cell
@@ -383,7 +383,7 @@ FINAL CHECK before you send
               buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
             />
             {isMobile || !useEmbedded ? (
-              <SheetManualEntry sheetId={sheetId} whatToDo="Mark players who are leaving" />
+              <SheetManualEntry sheetId={sheetId} />
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
                 <iframe

@@ -64,8 +64,8 @@ CRITICAL RULES — read before anything else
 5. INTEGERS have no decimal point: "42" not "42.0".
 6. BLANK LINE when unknown. Never guess. Blank ≠ zero.
 7. ZERO only if the screenshot clearly shows zero.
-8. No header row, no totals, no commentary, no "N/A", no dashes.
-9. TWO separate blocks — one per tab. Label each with the tab name so I know where to paste.
+8. No header row, no totals, no commentary INSIDE the data, no "N/A", no dashes. The paste-target label(s) above each fence are required (see Method A/B rules above).
+9. TWO separate blocks — one per tab — each preceded by the required paste-target label line above its fence (see Method A/B rules above).
 
 ═══════════════════════════════════════════════════════════
 TAB 1: "Offense" — 8 rows
@@ -129,7 +129,7 @@ FINAL CHECK before you send the answer
 [ ] Defense block = exactly 7 lines
 [ ] No commas in any number
 [ ] No column A / stat names anywhere
-[ ] No header row, no total row, no explanation text
+[ ] No header row, no total row, no explanation text INSIDE the data blocks (the paste-target label above each fence is required, see Method A/B rules above)
 [ ] Blank lines for unknowns — did not invent any values`,
   }), [currentYear, teamName])
 
@@ -343,7 +343,7 @@ FINAL CHECK before you send the answer
               buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
             />
             {isMobile || !useEmbedded ? (
-              <SheetManualEntry sheetId={sheetId} whatToDo="Enter team-level stats" />
+              <SheetManualEntry sheetId={sheetId} />
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
                 <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="Team Stats" />

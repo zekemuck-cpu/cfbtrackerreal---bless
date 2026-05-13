@@ -121,7 +121,7 @@ CRITICAL RULES — read before anything else
 5. BLANK LINE (empty, no tabs) if you do not know the CC result for a conference. Never guess. Never invent scores. The blank still counts as that conference's line — keep position so all later lines stay aligned.
 6. Team 1 and Team 2 must BOTH be members of the conference for that row.
 7. Both teams must use UPPERCASE abbreviations from the mapping at the bottom — NEVER full names or nicknames.
-8. ONE TSV block. Label it with the paste target.
+8. ONE TSV block, preceded by the required paste-target label line above the fence (see Method A/B rules above).
 
 ═══════════════════════════════════════════════════════════
 TAB "Conference Championships" — ${totalRows} rows × 4 output columns
@@ -164,7 +164,7 @@ ${excludeConferenceForPrompt ? `[ ] No "${excludeConferenceForPrompt}" line — 
 [ ] All team values are uppercase abbreviations from the mapping — no full names
 [ ] All scores are integers with no commas and no decimals
 [ ] Blank entire lines for unknown results — nothing invented (still keeps the line position)
-[ ] No Conference name, no header row, no commentary in the output`,
+[ ] No Conference name, no header row, no commentary INSIDE the data. The paste-target label above the fence is required (see Method A/B rules above).`,
       includeTeamMap: true,
       dynastyTeams: currentDynasty?.teams,
     })
@@ -486,7 +486,7 @@ ${excludeConferenceForPrompt ? `[ ] No "${excludeConferenceForPrompt}" line — 
               buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
             />
             {isMobile || !useEmbedded ? (
-              <SheetManualEntry sheetId={sheetId} whatToDo="Enter Conference Championship results" />
+              <SheetManualEntry sheetId={sheetId} />
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
                 <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="Conference Championships" />

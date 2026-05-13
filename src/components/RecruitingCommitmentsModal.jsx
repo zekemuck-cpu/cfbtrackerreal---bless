@@ -77,7 +77,7 @@ CRITICAL RULES — read before anything else
 7. Dropdown columns (B, C, D, E, I, L, M, N, O) MUST use EXACTLY one of the literal values listed. Wrong spelling or casing will be rejected.
 8. Column E (Stars) uses ☆ symbols, NOT digits. One symbol = 1 star, five symbols = 5 stars.
 9. Column O (Prev Team) MUST be a team abbreviation from the mapping below, or BLANK. Blank for HS/JUCO recruits; only filled for transfer-portal recruits.
-10. No header row, no totals, no commentary. ONE TSV block.
+10. No header row, no totals, no commentary INSIDE the data. ONE TSV block, preceded by the required paste-target label line above the fence (see Method A/B rules above).
 
 ═══════════════════════════════════════════════════════════
 TAB: "Commitments" — up to 35 rows × 15 columns
@@ -446,7 +446,7 @@ FINAL CHECK before you send
               buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
             />
             {isMobile || !useEmbedded ? (
-              <SheetManualEntry sheetId={sheetId} whatToDo="Enter recruiting commitments" />
+              <SheetManualEntry sheetId={sheetId} />
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
                 <iframe

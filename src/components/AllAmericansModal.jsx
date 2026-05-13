@@ -67,7 +67,7 @@ CRITICAL RULES — read before anything else
 6. BLANK field for unknown (empty between tabs). Never guess. Never invent players.
 7. Use ONLY the literal dropdown values listed below for Position, Team, and Class — wrong spelling = dropdown rejects it.
 8. Team values must be UPPERCASE abbreviations from the mapping at the bottom of this prompt — NEVER full names, city, or nickname.
-9. ONE TSV block, 25 lines, 12 tab-separated fields each. Label it with paste target.
+9. ONE TSV block, 25 lines, 12 tab-separated fields each — preceded by the required paste-target label line above the fence (see Method A/B rules above).
 
 ═══════════════════════════════════════════════════════════
 TAB "${currentYear}" — 25 data rows × 12 fields
@@ -134,7 +134,7 @@ FINAL CHECK before you send
 [ ] All Class values are from the exact list: Fr, RS Fr, So, RS So, Jr, RS Jr, Sr, RS Sr
 [ ] All Freshman-team Class values are Fr or RS Fr (no Sophomores or above in Freshman slot)
 [ ] Blank fields for unknowns — nothing was invented
-[ ] No commas, no header rows, no commentary in the output`,
+[ ] No commas, no header rows, no commentary INSIDE the data. The paste-target label above the fence is required (see Method A/B rules above).`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
   }), [currentYear, currentDynasty?.teams])
@@ -361,7 +361,7 @@ FINAL CHECK before you send
               buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
             />
             {isMobile || !useEmbedded ? (
-              <SheetManualEntry sheetId={sheetId} whatToDo="Enter Player, Team, and Class for each position" />
+              <SheetManualEntry sheetId={sheetId} />
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
                 <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="All-Americans" />

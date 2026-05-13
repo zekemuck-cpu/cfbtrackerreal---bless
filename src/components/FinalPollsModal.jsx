@@ -64,10 +64,10 @@ CRITICAL RULES — read before anything else
 2. Row order is FIXED: rank 1 first, rank 25 last. EXACTLY 25 lines of output.
 3. Each line has EXACTLY 1 field: <Team abbreviation>
 4. Team values must be UPPERCASE abbreviations from the mapping at the bottom — NEVER full names or nicknames.
-5. NO COMMAS. No commentary. No rank numbers. No header row. No tabs.
+5. NO COMMAS. No commentary INSIDE the data. No rank numbers. No header row. No tabs. The paste-target label above the fence is required (see Method A/B rules above).
 6. Each team abbreviation must appear AT MOST ONCE across all 25 ranks — no duplicates in the poll.
 7. BLANK line for unknown ranks (just an empty line between two filled ranks). Never guess.
-8. ONE block. Label it with paste target.
+8. ONE block, preceded by the required paste-target label line above the fence (see Method A/B rules above).
 
 ═══════════════════════════════════════════════════════════
 TAB "Polls" — 25 rows × 1 output column
@@ -148,7 +148,7 @@ FINAL CHECK before you send
 [ ] All team values are uppercase abbreviations from the mapping — no full names
 [ ] No team duplicated across the 25 ranks
 [ ] Blank lines for unknowns — nothing invented
-[ ] No rank numbers, no header row, no commentary in the output`,
+[ ] No rank numbers, no header row, no commentary INSIDE the data. The paste-target label above the fence is required (see Method A/B rules above).`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
   }), [currentYear, currentDynasty?.teams])
@@ -346,7 +346,7 @@ FINAL CHECK before you send
               buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
             />
             {isMobile || !useEmbedded ? (
-              <SheetManualEntry sheetId={sheetId} whatToDo="Enter the final poll rankings" />
+              <SheetManualEntry sheetId={sheetId} />
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
                 <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="Final Polls" />

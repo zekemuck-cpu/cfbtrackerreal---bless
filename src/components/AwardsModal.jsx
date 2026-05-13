@@ -65,7 +65,7 @@ CRITICAL RULES — read before anything else
 5. Use ONLY the literal dropdown values listed — wrong spelling/casing = Google Sheets rejects it.
 6. Team column (D) uses the ABBREVIATION from the mapping at the bottom of this prompt — NEVER full names or mascots.
 7. COACH AWARDS (rows 5 "Bear Bryant Coach of the Year" and 17 "Broyles") have cells C, D, E MERGED into ONE wide cell that holds the Team. The merge anchor is column C. For those two rows only, output exactly 3 tab characters yielding 4 fields: CoachName<TAB>TeamAbbr<TAB><TAB>. Concretely: field1=CoachName, field2=TeamAbbr, field3=EMPTY, field4=EMPTY. All other 20 rows output 3 tab characters yielding 4 fields: Player<TAB>Position<TAB>Team<TAB>Class. NEVER put the team in field 3 on coach rows — that lands inside the merged region and leaves column C blank.
-8. ONE TSV block total — exactly 22 lines. Label it with the paste target.
+8. ONE TSV block total — exactly 22 lines, preceded by the required paste-target label line above the fence (see Method A/B rules above).
 
 ═══════════════════════════════════════════════════════════
 TAB "${currentYear}" — 22 rows × 4 output columns
@@ -146,7 +146,7 @@ FINAL CHECK before you send
 [ ] All Class values are from the exact list: Fr, RS Fr, So, RS So, Jr, RS Jr, Sr, RS Sr
 [ ] All Team values are uppercase abbreviations from the mapping — no full names
 [ ] Blank fields for unknowns — nothing was invented
-[ ] No award name, header row, commas, commentary, or explanation in the output`,
+[ ] No award name, header row, commas, commentary, or explanation INSIDE the data. The paste-target label above the fence is required (see Method A/B rules above).`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
   }), [currentYear, currentDynasty?.teams])
@@ -404,7 +404,7 @@ FINAL CHECK before you send
                 on mobile. Manual editing happens here regardless of
                 whether the user pastes AI output or types each cell. */}
             {isMobile || !useEmbedded ? (
-              <SheetManualEntry sheetId={sheetId} whatToDo="Enter award winners (Player, Position, Team, Class)" />
+              <SheetManualEntry sheetId={sheetId} />
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0">
                 <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="Awards" />

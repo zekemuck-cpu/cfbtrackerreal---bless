@@ -140,7 +140,7 @@ CRITICAL RULES — read before anything else
 1. Output stat columns ONLY (column C onward). NEVER output column A (Name) or column B (Snaps). NEVER output the header row.
 2. ROW ORDER IS FIXED per tab. Produce exactly one output line per pre-filled player row on that tab, in the SAME ORDER as column A. Do NOT reorder, skip, or add rows.
 3. Tab-separated values within a line. Each tab has a FIXED number of stat columns (see spec per tab below); every line must have EXACTLY that many values (that many commas-are-not-allowed; that many values separated by tabs).
-4. Return NINE separate blocks, one per tab, labeled with the tab name and paste target (C2 on that tab).
+4. Return NINE separate blocks, one per tab — each preceded by the required paste-target label line above its fence (e.g. "Paste this TSV into cell C2 of the \"Passing\" tab"), as required by the Method A/B rules above.
 5. NO COMMAS in numbers. "1234" never "1,234". No quotes, no units, no "+/-", no percent signs.
 6. INTEGERS have no decimal point, with these EXCEPTIONS:
    • Passing columns H (Net Yards/Attempt) and I (Adj Net Yards/Attempt) use 1 decimal place.
@@ -148,7 +148,7 @@ CRITICAL RULES — read before anything else
    Every other column on every tab is an integer.
 7. BLANK cell for unknown values — never guess, never use 0, "-", or "N/A". To emit a blank cell between two tab characters, just have nothing between the tabs. To emit a blank line for a player with no visible stats, output the correct number of empty tab-separated cells (that is, N-1 tab characters with nothing between them).
 8. Only the positions listed per tab appear on that tab. Do NOT include quarterbacks on Receiving, for example.
-9. No commentary, no totals, no header row. Nine labeled TSV blocks.
+9. No commentary, no totals, no header row INSIDE the data. Nine TSV blocks, each preceded by the required paste-target label line above its fence (see Method A/B rules above).
 
 ═══════════════════════════════════════════════════════════
 TAB 1: "Passing" — positions filtered to QB only
@@ -342,7 +342,7 @@ FINAL CHECK before you send
 [ ] Per-tab tab-count per line: Passing 8, Rushing 7, Receiving 5, Blocking 1, Defensive 14, Kicking 16, Punting 6, Kick Return 3, Punt Return 3
 [ ] Net Yards/Attempt and Adjusted Net Yards/Attempt (Passing columns H and I) use 1 decimal place; Defensive TFL (E) and Sacks (F) MAY use ".5" half-credits when the screenshot shows them; every other value on every tab is an integer
 [ ] No commas in any number
-[ ] No player name, no Snaps column, no header row, no commentary anywhere in output
+[ ] No player name, no Snaps column, no header row, no commentary INSIDE the data blocks. The paste-target label lines above each fence are required (see Method A/B rules above).
 [ ] Row order within each block matches column A on that tab exactly
 [ ] Blank cells/lines for unknowns — invented nothing`,
     includeTeamMap: false,
@@ -677,7 +677,7 @@ FINAL CHECK before you send
               buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
             />
             {isMobile || !useEmbedded ? (
-              <SheetManualEntry sheetId={sheetId} whatToDo="Enter season stat totals" />
+              <SheetManualEntry sheetId={sheetId} />
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
                 <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="Detailed Stats" />

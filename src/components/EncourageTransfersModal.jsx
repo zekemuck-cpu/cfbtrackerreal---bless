@@ -75,7 +75,7 @@ CRITICAL RULES — read before anything else
 3. Row order must match the pre-filled rows EXACTLY, from top to bottom as shown in the sheet screenshot. One line per pre-filled player. If the sheet shows N players, output EXACTLY N lines.
 4. Every value MUST be the literal string TRUE or FALSE — uppercase, no quotes, no period. Do NOT write "True", "true", "1", "0", "yes", "no", "Y", "N", a checkbox character, or a blank.
 5. TRUE means "encourage this player to transfer out". FALSE means "keep this player / do not encourage transfer". Use FALSE as the default — only mark TRUE when you are confident the coach should push this player out.
-6. No blank lines, no header row, no commentary, no totals, no explanation.
+6. No blank lines, no header row, no commentary or explanation INSIDE the data, no totals. The paste-target label above the fence is required (see Method A/B rules above).
 7. NEVER leave a line blank. Every player row must receive either TRUE or FALSE (when uncertain, use FALSE).
 
 ═══════════════════════════════════════════════════════════
@@ -113,7 +113,7 @@ FINAL CHECK before you send
 [ ] Every line is either the literal TRUE or the literal FALSE (uppercase, no quotes)
 [ ] No tabs, no commas, no other columns
 [ ] No blank lines
-[ ] No header row, no commentary, no totals
+[ ] No header row, no commentary INSIDE the data, no totals (the paste-target label above the fence is required, see Method A/B rules above)
 [ ] Default to FALSE when uncertain — never blank, never guess TRUE`,
     includeTeamMap: false,
   }), [currentYear, userRoster])
@@ -381,7 +381,7 @@ FINAL CHECK before you send
               buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
             />
             {isMobile || !useEmbedded ? (
-              <SheetManualEntry sheetId={sheetId} whatToDo="Mark players to encourage to transfer" />
+              <SheetManualEntry sheetId={sheetId} />
             ) : null}
             <SheetModalFooter
               syncing={syncing}

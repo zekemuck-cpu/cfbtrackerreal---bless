@@ -74,7 +74,7 @@ CRITICAL RULES — read before anything else
 4. Each row's allowed dropdown values are STRICTLY determined by that row's Column C value (the player's incoming ${currentYear} class). You MUST pick one of the allowed values for that row — values from another row's allowed set will be rejected.
 5. Use the EXACT literal strings shown below (case + single space between "RS" and letters). No "RSFr", no "Rs Fr", no "RS-Fr".
 6. BLANK LINE if truly unsure for a given player — do NOT guess. A blank line is better than a wrong value that the dropdown rejects.
-7. No header row, no commentary, no totals, no explanation.
+7. No header row, no commentary or explanation INSIDE the data, no totals. The paste-target label above the fence is required (see Method A/B rules above).
 
 ═══════════════════════════════════════════════════════════
 TAB: "Portal Transfers" — paste at cell D2 of the "Portal Transfers" tab
@@ -123,7 +123,7 @@ FINAL CHECK before you send
 [ ] Exactly N lines, where N = number of pre-filled player rows visible in the screenshots
 [ ] Every non-blank line is one of that row's allowed values based on Column C
 [ ] Exact casing: "Fr", "So", "Jr", "Sr", "RS Fr", "RS So", "RS Jr", "RS Sr" (single space, "RS" uppercase)
-[ ] No tabs, no extra columns, no commentary
+[ ] No tabs, no extra columns, no commentary INSIDE the data (the paste-target label above the fence is required, see Method A/B rules above)
 [ ] Blank lines used for uncertain rows — nothing guessed
 [ ] No header row, no totals`,
     includeTeamMap: true,
@@ -396,7 +396,7 @@ FINAL CHECK before you send
               buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
             />
             {isMobile || !useEmbedded ? (
-              <SheetManualEntry sheetId={sheetId} whatToDo="Enter transfer portal class members" />
+              <SheetManualEntry sheetId={sheetId} />
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
                 <iframe

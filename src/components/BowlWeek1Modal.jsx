@@ -68,8 +68,8 @@ CRITICAL RULES — read before anything else
 7. BLANK CELLS if unknown. Never guess, never use "N/A", "TBD", dash. Zero is only valid if the team truly scored zero.
    - Bowl not yet played: leave all 4 cells blank (4 empty tab-separated fields).
    - Teams known, scores not: fill B and C only; leave D and E blank.
-8. No header row, no Bowl Game text, no winner column, no commentary.
-9. SINGLE TSV block labeled by tab name and paste cell.
+8. No header row, no Bowl Game text, no winner column, no commentary INSIDE the data. The paste-target label above the fence is required (see Method A/B rules above).
+9. ONE TSV block — preceded by the paste-target label line as required by the Method A/B rules above.
 
 ═══════════════════════════════════════════════════════════
 TAB: "Bowl Games" — up to 30 rows × 4 editable columns
@@ -141,7 +141,7 @@ FINAL CHECK before you send the answer
 [ ] Scores are INTEGERS only — no commas, no decimals, no "pts"
 [ ] For CFP First Round rows: Team 1 is the higher seed, Team 2 is the lower seed
 [ ] Blank cells for any unknown scores or unplayed bowls — invented nothing
-[ ] No header row, no bowl name text, no winner column in the output`,
+[ ] No header row, no bowl name text, no winner column INSIDE the data. The paste-target label above the fence is required (see Method A/B rules above).`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
   }), [currentYear, currentDynasty?.teams])
@@ -484,7 +484,7 @@ FINAL CHECK before you send the answer
               buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
             />
             {isMobile || !useEmbedded ? (
-              <SheetManualEntry sheetId={sheetId} whatToDo="Enter Bowl Week 1 results" />
+              <SheetManualEntry sheetId={sheetId} />
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
                 <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="Bowl Week 1" />

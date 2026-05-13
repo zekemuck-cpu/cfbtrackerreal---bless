@@ -177,7 +177,7 @@ FINAL CHECK before you send
 [ ] All Freshman-team Class values are Fr or RS Fr
 [ ] All Team values are uppercase abbreviations from the mapping — and each team is a member of THIS tab's conference
 [ ] Blank fields for unknowns — nothing was invented
-[ ] No commas, no header rows, no commentary in the output`,
+[ ] No commas, no header rows, no commentary INSIDE the data. The paste-target label(s) above each fence are required (see Method A/B rules above).`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
   }), [currentYear, currentDynasty?.teams])
@@ -431,7 +431,7 @@ FINAL CHECK before you send
               buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
             />
             {isMobile || !useEmbedded ? (
-              <SheetManualEntry sheetId={sheetId} whatToDo="Enter the All-Conference selections" />
+              <SheetManualEntry sheetId={sheetId} />
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
                 <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="All-Conference" />

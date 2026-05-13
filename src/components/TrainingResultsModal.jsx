@@ -79,12 +79,12 @@ CRITICAL RULES — read before anything else
    • TRANSFER PORTAL PLAYERS (newly arrived from another team) usually have NO prior OVR recorded in the app. In those cases, compute Past OVR = New OVR − training delta (e.g. a +3 training result with new OVR 84 means Past OVR = 81). Do this for ANY player whose past value you can derive from the screenshot — even if the app doesn't already know it.
    • Leave BLANK only if no past value can be read or derived.
 6. Column 4 (New OVR) = the NEW OVR after training. Integer 40–99. Leave BLANK if unknown. If the screenshot shows a "+N" delta and a Past OVR, compute New OVR = Past OVR + delta.
-7. NO header row. NO commentary. NO blank lines between rows. Each row has exactly 3 tab characters.
+7. NO header row INSIDE the data. NO commentary INSIDE the data. NO blank lines between rows. Each row has exactly 3 tab characters. The paste-target label above the fence is required (see Method A/B rules above).
 8. INTEGERS only in columns C and D. No decimals, no commas, no quotes, no units, no "+/-" signs, no color coding.
 9. NEVER GUESS. If you cannot determine a player's OVR from the screenshots, leave that column blank for that player — the app keeps the previous value.
 
 ═══════════════════════════════════════════════════════════
-REQUIRED OUTPUT FORMAT — fenced TSV block only, no prose before or after
+REQUIRED OUTPUT FORMAT — fenced TSV block, preceded by the required paste-target label line above the fence (see Method A/B rules above); no other prose
 ═══════════════════════════════════════════════════════════
 \`\`\`tsv
 Alex Guess	QB	87	90
@@ -103,7 +103,7 @@ FINAL CHECK before you send
 [ ] Column 1 names match the FULL names in the roster block (no initials)
 [ ] Column 2 positions use canonical abbreviations
 [ ] Columns 3 and 4 are integers 40–99 or blank
-[ ] No header row, no prose, no commas, no +/- signs
+[ ] No header row, no prose INSIDE the data, no commas, no +/- signs (the paste-target label above the fence is required, see Method A/B rules above)
 [ ] Output wrapped in a single \`\`\`tsv ... \`\`\` fence`,
     includeTeamMap: false,
   }), [currentYear, userRoster])
@@ -365,7 +365,7 @@ FINAL CHECK before you send
               buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
             />
             {isMobile || !useEmbedded ? (
-              <SheetManualEntry sheetId={sheetId} whatToDo="Enter training results" />
+              <SheetManualEntry sheetId={sheetId} />
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
                 <iframe

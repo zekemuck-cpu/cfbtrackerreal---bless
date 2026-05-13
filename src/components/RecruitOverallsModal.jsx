@@ -62,7 +62,7 @@ CRITICAL RULES — read before anything else
 5. INTEGERS only. No decimals, no quotes, no units.
 6. BLANK for unknown values — never guess, never use 0, "-", or "N/A". An empty cell = blank. For a line where Overall is known but Jersey # is not, output:  85\\t  (tab then nothing).
 7. Overall range: 40–99. Jersey # range: 0–99.
-8. No header row, no commentary. ONE TSV block.
+8. No header row, no commentary INSIDE the data. ONE TSV block, preceded by the required paste-target label line above the fence (see Method A/B rules above).
 
 ═══════════════════════════════════════════════════════════
 TAB: "Recruit Overalls"
@@ -362,7 +362,7 @@ FINAL CHECK before you send
               buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
             />
             {isMobile || !useEmbedded ? (
-              <SheetManualEntry sheetId={sheetId} whatToDo="Enter recruit overall ratings" />
+              <SheetManualEntry sheetId={sheetId} />
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
                 <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="Recruit Overalls" />

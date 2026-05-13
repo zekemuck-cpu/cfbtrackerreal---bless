@@ -101,7 +101,7 @@ CRITICAL RULES — read before anything else
 6. Snaps Played: integer. NO commas, NO decimals, NO "snaps" suffix.
 7. BLANK cell for unknown values (leave the cell empty between tabs). Never guess. Never use 0 as "unknown".
 8. NO COMMAS in numbers: "1234" not "1,234".
-9. No header row, no totals, no commentary. ONE TSV block.
+9. No header row, no totals, no commentary INSIDE the data. ONE TSV block, preceded by the required paste-target label line above the fence (see Method A/B rules above).
 
 ═══════════════════════════════════════════════════════════
 TAB: "GP/Snaps"
@@ -131,7 +131,7 @@ FINAL CHECK before you send
 [ ] Games Played is an integer 0–15 (or blank)
 [ ] Snaps Played is an integer (or blank)
 [ ] No commas in any number
-[ ] No header row, no totals, no commentary`,
+[ ] No header row, no totals, no commentary INSIDE the data (the paste-target label above the fence is required, see Method A/B rules above)`,
     includeTeamMap: false,
   }), [currentYear, userRoster])
 
@@ -439,7 +439,7 @@ FINAL CHECK before you send
               buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
             />
             {isMobile || !useEmbedded ? (
-              <SheetManualEntry sheetId={sheetId} whatToDo="Enter player stats" />
+              <SheetManualEntry sheetId={sheetId} />
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
                 <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="GP/Snaps" />

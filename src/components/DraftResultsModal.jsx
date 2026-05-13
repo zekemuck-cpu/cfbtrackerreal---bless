@@ -76,7 +76,7 @@ CRITICAL RULES — read before anything else
 3. Exactly ONE value per line: the Draft Round string. No tabs, no numbers alone, no commas, no extra text.
 4. Column D is a STRICT DROPDOWN. Use EXACTLY one of the 8 literal values listed below — case-sensitive, with the space between number and "Round". Any other text is rejected.
 5. BLANK LINE if a player's draft round is unknown or not visible in the screenshots — never guess. Blank preserves row alignment.
-6. No header row, no totals, no commentary. ONE single-column TSV block.
+6. No header row, no totals, no commentary INSIDE the data. ONE single-column TSV block, preceded by the required paste-target label line above the fence (see Method A/B rules above).
 
 ═══════════════════════════════════════════════════════════
 TAB: "Draft Results"
@@ -120,7 +120,7 @@ FINAL CHECK before you send
 [ ] Line count exactly equals the number of pre-filled player rows visible in the screenshots (including blank lines for unknowns)
 [ ] Every non-blank line is EXACTLY one of: 1st Round, 2nd Round, 3rd Round, 4th Round, 5th Round, 6th Round, 7th Round, Undrafted
 [ ] Exact capitalization: "1st Round" (capital R), "Undrafted" (capital U)
-[ ] NO tabs, NO extra text, NO commentary on any line
+[ ] NO tabs, NO extra text, NO commentary INSIDE the data block (the paste-target label above the fence is required, see Method A/B rules above)
 [ ] Row order matches column A in the screenshots exactly
 [ ] Blank lines for unknown players — did not invent any values`,
     includeTeamMap: false,
@@ -423,7 +423,7 @@ FINAL CHECK before you send
               buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
             />
             {isMobile || !useEmbedded ? (
-              <SheetManualEntry sheetId={sheetId} whatToDo="Enter draft results" />
+              <SheetManualEntry sheetId={sheetId} />
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
                 <iframe
