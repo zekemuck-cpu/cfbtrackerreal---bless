@@ -13,13 +13,6 @@
 export default function SheetManualEntry({ sheetId }) {
   return (
     <div className="flex flex-col items-center text-center w-full">
-      <div className="flex items-center w-full max-w-xs my-1">
-        <div className="flex-1 h-px bg-surface-4" />
-        <span className="px-3 text-[10px] font-display font-semibold text-txt-tertiary uppercase tracking-[0.15em]">
-          or do it manually
-        </span>
-        <div className="flex-1 h-px bg-surface-4" />
-      </div>
       <a
         href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
         target="_blank"

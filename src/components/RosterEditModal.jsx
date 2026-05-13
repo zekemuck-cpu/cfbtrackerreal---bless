@@ -397,7 +397,7 @@ FINAL CHECK before you send
         }`}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <SheetModalHeader eyebrow="Roster" title={`${currentYear}${teamAbbr ? ` · ${teamAbbr}` : ''} Roster Edit`} onClose={handleClose} />
+        <SheetModalHeader title={`${currentYear}${teamAbbr ? ` ${teamAbbr}` : ''} Roster Edit`} onClose={handleClose} />
 
         <div className="flex-1 flex flex-col overflow-y-auto min-h-0 p-4 sm:p-6">
         {isLoading ? (

@@ -565,7 +565,7 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
               className="text-txt-tertiary"
               style={{ fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 600 }}
             >
-              {currentYear} · College Football Playoff
+              {currentYear} College Football Playoff
             </div>
             <h2 className="font-display text-txt-primary m-0 mt-1" style={{ fontSize: 'clamp(1.25rem, 3vw, 1.75rem)', fontWeight: 900, letterSpacing: '-0.02em' }}>
               Semifinals

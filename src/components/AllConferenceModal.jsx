@@ -400,18 +400,12 @@ FINAL CHECK before you send
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4" style={{ borderColor: 'var(--text-primary)', borderTopColor: 'transparent' }} />
-              <p className="text-lg font-semibold text-txt-primary">Creating All-Conference Sheet...</p>
-              <p className="text-sm mt-2 text-txt-tertiary">10 conference tabs</p>
               <SheetLoadingHint active={isLoading} />
             </div>
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="card p-8 border-l-[3px] text-center max-w-sm" style={{ borderLeftColor: 'var(--surface-5)' }}>
-              <p className="label-xs text-txt-tertiary mb-2">Status</p>
-              <p className="text-xl font-bold text-txt-primary mb-2">Saved &amp; Moved to Trash</p>
-              <p className="text-sm text-txt-secondary">All-Conference selections saved.</p>
-            </div>
+            <p className="text-xl font-bold text-txt-primary">Saved</p>
           </div>
         ) : sheetId ? (
           <div className="flex-1 flex flex-col overflow-hidden gap-3">
