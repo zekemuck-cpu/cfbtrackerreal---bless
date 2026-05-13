@@ -211,15 +211,6 @@ FINAL CHECK before you send
   }, [isOpen, sheetId, useEmbedded])
 
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
-    return () => { document.body.style.overflow = 'unset' }
-  }, [isOpen])
-
-  useEffect(() => {
     const createSheet = async () => {
       if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
         // Check for existing sheet for this year

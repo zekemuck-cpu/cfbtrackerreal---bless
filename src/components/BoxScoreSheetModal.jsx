@@ -1269,19 +1269,6 @@ output that fails any of them.`,
     }
   }, [isOpen, sheetId, useEmbedded])
 
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
-
-    return () => {
-      document.body.style.overflow = 'unset'
-    }
-  }, [isOpen])
-
   // Load existing sheet or create new one
   useEffect(() => {
     const initSheet = async () => {

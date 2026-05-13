@@ -484,19 +484,6 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
     }
   }, [isOpen, currentYear, currentDynasty, userTeamAbbr])
 
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
-
-    return () => {
-      document.body.style.overflow = 'unset'
-    }
-  }, [isOpen])
-
   const handleScoreChange = (gameIndex, field, value) => {
     const updatedGames = [...games]
     updatedGames[gameIndex] = {

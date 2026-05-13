@@ -179,19 +179,6 @@ FINAL CHECK before you send the answer
     }
   }, [isOpen, sheetId, useEmbedded])
 
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
-
-    return () => {
-      document.body.style.overflow = 'unset'
-    }
-  }, [isOpen])
-
   // Create bowl sheet when modal opens
   useEffect(() => {
     const createSheet = async () => {

@@ -173,19 +173,6 @@ FINAL CHECK before you send
     }
   }, [isOpen, sheetId, useEmbedded])
 
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
-
-    return () => {
-      document.body.style.overflow = 'unset'
-    }
-  }, [isOpen])
-
   // Create roster sheet when modal opens - always create fresh with current data
   useEffect(() => {
     const createSheet = async () => {

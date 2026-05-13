@@ -132,14 +132,11 @@ export default function CardCollection() {
 function PlayerPickerModal({ dynasty, onPick, onClose }) {
   const [query, setQuery] = useState('')
 
-  // Body-scroll lock + Esc-to-close, mirroring the card editor's modal.
+  // Esc-to-close (body scroll lock handled globally by Layout)
   useEffect(() => {
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     const handler = (e) => { if (e.key === 'Escape') onClose?.() }
     document.addEventListener('keydown', handler)
     return () => {
-      document.body.style.overflow = prev
       document.removeEventListener('keydown', handler)
     }
   }, [onClose])

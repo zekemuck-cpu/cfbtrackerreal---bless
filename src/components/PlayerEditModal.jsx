@@ -193,16 +193,6 @@ export default function PlayerEditModalNew({
     return ARCHETYPES[group] || Object.values(ARCHETYPES).flat()
   }, [formData.position])
 
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
-    return () => { document.body.style.overflow = 'unset' }
-  }, [isOpen])
-
   // Helper to get stats for a year
   const getYearStats = (year) => {
     const yearStr = year?.toString()

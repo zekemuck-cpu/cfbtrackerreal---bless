@@ -187,19 +187,6 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
     }
   }, [isOpen, currentYear, currentDynasty])
 
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
-
-    return () => {
-      document.body.style.overflow = 'unset'
-    }
-  }, [isOpen])
-
   const handleScoreChange = (field, value) => {
     setGame(prev => ({
       ...prev,

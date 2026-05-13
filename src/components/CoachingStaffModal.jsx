@@ -25,18 +25,6 @@ export default function CoachingStaffModal({ isOpen, onClose, onSave, teamColors
     }
   }, [isOpen, currentStaff])
 
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
-
-    return () => {
-      document.body.style.overflow = 'unset'
-    }
-  }, [isOpen])
-
   const handleSave = () => {
     if (showHC && !hcName.trim()) {
       toast.error('Please enter the Head Coach name')

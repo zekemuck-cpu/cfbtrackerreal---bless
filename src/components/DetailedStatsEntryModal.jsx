@@ -381,19 +381,6 @@ FINAL CHECK before you send
     }
   }, [isOpen, sheetId, useEmbedded])
 
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
-
-    return () => {
-      document.body.style.overflow = 'unset'
-    }
-  }, [isOpen])
-
   // Create detailed stats sheet when modal opens - ALWAYS create fresh to reflect current player data
   useEffect(() => {
     const createSheet = async () => {

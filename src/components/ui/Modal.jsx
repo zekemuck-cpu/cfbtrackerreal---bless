@@ -51,13 +51,6 @@ export default function Modal({
     return () => window.removeEventListener('keydown', handler)
   }, [isOpen, closeOnEscape, onClose])
 
-  useEffect(() => {
-    if (!isOpen) return
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = previous }
-  }, [isOpen])
-
   if (!isOpen) return null
 
   const sizeClass = SIZES[size] || SIZES.md

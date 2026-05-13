@@ -167,19 +167,6 @@ FINAL CHECK before you send
     }
   }, [isOpen, sheetId, useEmbedded])
 
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
-
-    return () => {
-      document.body.style.overflow = 'unset'
-    }
-  }, [isOpen])
-
   // Get transferring players (those leaving via transfer - NOT graduating or pro draft)
   // Reads from BOTH playersLeavingByYear AND player.leavingYear/leavingReason
   const getTransferringPlayers = () => {

@@ -3686,10 +3686,8 @@ function PhotoLightbox({ photos, index, onClose, onIndexChange }) {
     onIndexChange((index + 1) % total)
   }, [index, total, onIndexChange])
 
-  // Body scroll lock + key handlers
+  // Key handlers (body scroll lock is handled globally by Layout)
   useEffect(() => {
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     const onKey = (e) => {
       if (e.key === 'Escape') onClose?.()
       else if (e.key === 'ArrowLeft') goPrev()
@@ -3697,7 +3695,6 @@ function PhotoLightbox({ photos, index, onClose, onIndexChange }) {
     }
     document.addEventListener('keydown', onKey)
     return () => {
-      document.body.style.overflow = prevOverflow
       document.removeEventListener('keydown', onKey)
     }
   }, [onClose, goPrev, goNext])

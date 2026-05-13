@@ -677,15 +677,6 @@ Don't just glance at this list. Physically execute each check on your draft.
     }
   }, [isOpen, sheetId, useEmbedded])
 
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
-    return () => { document.body.style.overflow = 'unset' }
-  }, [isOpen])
-
   // Build pre-fill from existing games for this year+week (excluding user's own game,
   // which is entered through the schedule flow and shouldn't appear in the sheet)
   const existingForPrefill = useMemo(() => {

@@ -59,13 +59,6 @@ export default function CardEditorModal({
   const updateContextDetails = (patch) =>
     setWorking(w => ({ ...w, contextDetails: { ...(w.contextDetails || {}), ...patch } }))
 
-  // Lock body scroll while modal open
-  useEffect(() => {
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
-  }, [])
-
   // Esc to cancel
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape') onCancel?.() }

@@ -65,19 +65,6 @@ export default function BowlScoreModal({ isOpen, onClose, onSave, currentYear, c
     }
   }, [isOpen, currentWeek, currentYear, currentDynasty])
 
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
-
-    return () => {
-      document.body.style.overflow = 'unset'
-    }
-  }, [isOpen])
-
   const handleGameChange = (index, field, value) => {
     const updatedGames = [...games]
     updatedGames[index] = {

@@ -202,19 +202,6 @@ FINAL CHECK before you send the answer
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
-
-    return () => {
-      document.body.style.overflow = 'unset'
-    }
-  }, [isOpen])
-
   // Highlight save button when user returns to the window
   useEffect(() => {
     if (!isOpen || !sheetId || useEmbedded) return

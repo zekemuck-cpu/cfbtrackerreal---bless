@@ -23,12 +23,6 @@ export default function AIPromptModal({ isOpen, onClose, title, prompt, pasteTar
   const textareaRef = useRef(null)
 
   useEffect(() => {
-    if (!isOpen) return
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = 'unset' }
-  }, [isOpen])
-
-  useEffect(() => {
     if (!isOpen) setCopied(false)
   }, [isOpen])
 

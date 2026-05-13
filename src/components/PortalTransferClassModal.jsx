@@ -163,19 +163,6 @@ FINAL CHECK before you send
     }
   }, [isOpen, sheetId, useEmbedded])
 
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
-
-    return () => {
-      document.body.style.overflow = 'unset'
-    }
-  }, [isOpen])
-
   // Year-specific sheet key (like recruiting sheets) for proper persistence
   const sheetKey = `portalTransferClassSheetId_${currentYear}`
 

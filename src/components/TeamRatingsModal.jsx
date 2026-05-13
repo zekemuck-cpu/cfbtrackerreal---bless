@@ -35,19 +35,6 @@ export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, 
     }
   }, [isOpen, currentRatings])
 
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
-
-    return () => {
-      document.body.style.overflow = 'unset'
-    }
-  }, [isOpen])
-
   const handleSave = () => {
     if (!overall || !offense || !defense) {
       toast.error('Please enter all three ratings (Overall, Offense, Defense)')

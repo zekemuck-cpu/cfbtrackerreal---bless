@@ -118,18 +118,6 @@ FINAL CHECK before you send the answer
   }, [])
 
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
-
-    return () => {
-      document.body.style.overflow = 'unset'
-    }
-  }, [isOpen])
-
-  useEffect(() => {
     if (!isOpen || !sheetId || useEmbedded) return
 
     const handleVisibilityChange = () => {
