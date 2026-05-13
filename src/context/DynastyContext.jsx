@@ -8560,17 +8560,22 @@ export function DynastyProvider({ children }) {
       existingCCByPair.set(`${lo}-${hi}`, g)
     }
 
-    // Conference championship games are played in week 14 or 15 (depending
-    // on the year), at a neutral site, between two teams in the same
-    // conference. All three signals together are a strong identifier.
+    // Conference championship games are played STRICTLY in Week 15 in
+    // EA CFB — that's conference championship week. Week 14 is the last
+    // regular-season window (Army-Navy and any final regular games that
+    // slot there); Week 16+ is CFP / bowls. So a Week 15 same-conf
+    // neutral-site game is unambiguously the conference championship.
     //
-    // Tightening: only auto-promote in weeks 14-15 (the canonical CC
-    // window). Weeks 16+ are CFP/bowls and any same-conf neutral matchup
-    // there would be the second of an unusual sequence — too ambiguous
-    // to auto-promote. Below 14 obviously isn't CC week.
+    // (An earlier version allowed Week 14-15 to handle the EA CFB 25
+    // calendar that sometimes shifted CCs to Week 14. The current EA
+    // CFB calendar doesn't do that, and Week 14 was incorrectly
+    // promoting Army-Navy — both academies in the American, always at a
+    // neutral site, always Week 14 — into the "American Championship".
+    // Tightening to Week 15 only fixes that without needing an Army-
+    // Navy exception list.)
     //
     // Additional guard: if the same pair already played a NON-CC game
-    // earlier in the season, this Wk 14+ neutral-site rematch is the
+    // earlier in the season, this Wk 15 neutral-site rematch is the
     // championship (rare but explicit signal). If they DIDN'T play
     // earlier, the promotion still fires on the same-conf-neutral
     // signal alone — false positives at this point are rare in practice.
@@ -8578,7 +8583,7 @@ export function DynastyProvider({ children }) {
       for (const g of existingGames) {
         if (!g || Number(g.year) !== yearNum) continue
         if (g.isConferenceChampionship) continue
-        if (Number(g.week) >= 14) continue
+        if (Number(g.week) >= 15) continue
         if (!g.team1Tid || !g.team2Tid) continue
         const a = Math.min(Number(g.team1Tid), Number(g.team2Tid))
         const b = Math.max(Number(g.team1Tid), Number(g.team2Tid))
@@ -8586,38 +8591,12 @@ export function DynastyProvider({ children }) {
       }
       return false
     }
-    // Pairs that LOOK like a conference championship (same conf + neutral
-    // + Week 14-15) but are actually rivalry / traditional games that EA's
-    // schedule slots into the same window. Army-Navy is the canonical
-    // example: both academies are in the American, the game is always at
-    // a neutral site (Philadelphia / Foxborough / Soldier Field / etc.),
-    // and it's always Week 14 — the importer was auto-promoting it to
-    // the "American Championship" without an exception.
-    // Set of "ABBR|ABBR" with the LOWER abbr first (alphabetical).
-    const CCG_AUTOPROMOTE_EXCLUSIONS = new Set([
-      'ARMY|NAVY',
-    ])
-    const isExcludedRivalryPair = (loTid, hiTid) => {
-      const a = (getAbbrFromTid(dynasty.teams, loTid) || '').toUpperCase()
-      const b = (getAbbrFromTid(dynasty.teams, hiTid) || '').toUpperCase()
-      if (!a || !b) return false
-      const pair = [a, b].sort().join('|')
-      return CCG_AUTOPROMOTE_EXCLUSIONS.has(pair)
-    }
     const isConferenceChampionshipCandidate = (homeConf, awayConf, neutral, loTid, hiTid) => {
       if (!homeConf || !awayConf || homeConf !== awayConf) return false
       if (!neutral) return false
-      if (weekNum < 14 || weekNum > 15) return false
-      // Army-Navy is in the American + neutral + Week 14 every year, but
-      // it's NEVER a conference championship. Block the auto-promote so
-      // the game stays a regular conference game (or rivalry game).
-      if (isExcludedRivalryPair(loTid, hiTid)) return false
-      // If the pair already played a regular-season conference game
-      // this year, this is unambiguously the championship rematch.
-      // Otherwise we still allow the promotion (most CCs are first-time
-      // matchups for the year by random scheduling).
+      if (weekNum !== 15) return false
       // The rematch check is informational; we don't gate on it because
-      // the same-conf+neutral+wk14-15 signal is already high-confidence.
+      // the same-conf+neutral+Wk15 signal is already high-confidence.
       void playedEarlierAsRegular(loTid, hiTid)
       return true
     }
