@@ -56,6 +56,16 @@ export default function GameEntryModal({
   // Recap state — copy-prompt only, no live AI calls.
   const [recapError, setRecapError] = useState(null)
   const [promptCopied, setPromptCopied] = useState(false)
+  // Recap perspective slider: 5 stops — team1 fan / team1 reporter / neutral / team2 reporter / team2 fan.
+  // Persisted in localStorage so the user's preferred voice carries across games.
+  // Default 'neutral' = the ESPN.com beat-writer voice (current behavior pre-feature).
+  const [recapPerspective, setRecapPerspective] = useState(() => {
+    try { return localStorage.getItem('gameRecapPerspective') || 'neutral' } catch { return 'neutral' }
+  })
+  const [showPerspectivePicker, setShowPerspectivePicker] = useState(false)
+  useEffect(() => {
+    try { localStorage.setItem('gameRecapPerspective', recapPerspective) } catch { /* ignored */ }
+  }, [recapPerspective])
 
   // Detect if this is a CPU vs CPU game from existingGame or passed props
   // In unified model: CPU games have team1/team2 or team1Tid/team2Tid but NO userTeam AND NO opponent
@@ -2951,48 +2961,139 @@ export default function GameEntryModal({
               <h3 className="text-base sm:text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
                 Game Recap
               </h3>
-              <button
-                onClick={async () => {
-                  setRecapError(null)
-                  try {
-                    const gameForRecap = {
-                      ...existingGame,
-                      ...gameData,
-                      teamScore: parseInt(gameData.teamScore) || existingGame?.teamScore,
-                      opponentScore: parseInt(gameData.opponentScore) || existingGame?.opponentScore,
-                      team1Score: parseInt(gameData.team1Score) || existingGame?.team1Score,
-                      team2Score: parseInt(gameData.team2Score) || existingGame?.team2Score,
-                    }
-                    const fullPrompt = getFullRecapPrompt(currentDynasty, gameForRecap)
-                    if (navigator.clipboard && window.isSecureContext) {
-                      await navigator.clipboard.writeText(fullPrompt)
-                    } else {
-                      const ta = document.createElement('textarea')
-                      ta.value = fullPrompt
-                      ta.style.position = 'fixed'
-                      ta.style.left = '-9999px'
-                      document.body.appendChild(ta)
-                      ta.focus()
-                      ta.select()
-                      document.execCommand('copy')
-                      ta.remove()
-                    }
-                    setPromptCopied(true)
-                    setTimeout(() => setPromptCopied(false), 2000)
-                  } catch (err) {
-                    console.error('Failed to copy prompt:', err)
-                    setRecapError('Failed to copy prompt: ' + (err.message || 'unknown error'))
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                style={{
-                  backgroundColor: 'var(--surface-3)',
-                  color: 'var(--text-primary)',
-                  border: `1px solid var(--surface-5)`
-                }}
-              >
-                {promptCopied ? 'Copied!' : 'Copy AI Prompt'}
-              </button>
+              {(() => {
+                // Resolve display names for the two teams in the matchup —
+                // used to label the perspective slider stops. Mirrors the
+                // team1 / team2 ordering buildGameRecapContext uses (user
+                // team is team1 for user games; team1/team2 explicit for CPU).
+                const t1Abbr = isCPUGame
+                  ? (gameData.team1 || passedTeam1 || existingGame?.team1)
+                  : (effectiveTeamAbbr)
+                const t2Abbr = isCPUGame
+                  ? (gameData.team2 || passedTeam2 || existingGame?.team2)
+                  : (gameData.opponent || passedOpponent || existingGame?.opponent)
+                const t1Name = t1Abbr ? (getMascotName(t1Abbr, currentDynasty?.teams) || t1Abbr) : 'Team 1'
+                const t2Name = t2Abbr ? (getMascotName(t2Abbr, currentDynasty?.teams) || t2Abbr) : 'Team 2'
+                const perspectiveOptions = [
+                  { key: 'team1Fan',      label: `${t1Name} fan`,      blurb: `Blog-style, first-person plural ("we" / "our ${t1Name}"). Emotional. Pro-${t1Name}.` },
+                  { key: 'team1Reporter', label: `${t1Name} reporter`, blurb: `Hometown beat writer for ${t1Name}. News-forward, third-person, but ${t1Name}-led framing.` },
+                  { key: 'neutral',       label: 'Neutral national media', blurb: 'ESPN.com beat writer. Inverted-pyramid news, balanced coverage of both teams.' },
+                  { key: 'team2Reporter', label: `${t2Name} reporter`, blurb: `Hometown beat writer for ${t2Name}. News-forward, third-person, but ${t2Name}-led framing.` },
+                  { key: 'team2Fan',      label: `${t2Name} fan`,      blurb: `Blog-style, first-person plural ("we" / "our ${t2Name}"). Emotional. Pro-${t2Name}.` },
+                ]
+                const sliderIdx = Math.max(0, perspectiveOptions.findIndex(p => p.key === recapPerspective))
+                const currentOption = perspectiveOptions[sliderIdx] || perspectiveOptions[2]
+                return (
+                  <div className="flex items-center gap-2 relative">
+                    <button
+                      onClick={async () => {
+                        setRecapError(null)
+                        try {
+                          const gameForRecap = {
+                            ...existingGame,
+                            ...gameData,
+                            teamScore: parseInt(gameData.teamScore) || existingGame?.teamScore,
+                            opponentScore: parseInt(gameData.opponentScore) || existingGame?.opponentScore,
+                            team1Score: parseInt(gameData.team1Score) || existingGame?.team1Score,
+                            team2Score: parseInt(gameData.team2Score) || existingGame?.team2Score,
+                          }
+                          const fullPrompt = getFullRecapPrompt(currentDynasty, gameForRecap, { perspective: recapPerspective })
+                          if (navigator.clipboard && window.isSecureContext) {
+                            await navigator.clipboard.writeText(fullPrompt)
+                          } else {
+                            const ta = document.createElement('textarea')
+                            ta.value = fullPrompt
+                            ta.style.position = 'fixed'
+                            ta.style.left = '-9999px'
+                            document.body.appendChild(ta)
+                            ta.focus()
+                            ta.select()
+                            document.execCommand('copy')
+                            ta.remove()
+                          }
+                          setPromptCopied(true)
+                          setTimeout(() => setPromptCopied(false), 2000)
+                        } catch (err) {
+                          console.error('Failed to copy prompt:', err)
+                          setRecapError('Failed to copy prompt: ' + (err.message || 'unknown error'))
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                      style={{
+                        backgroundColor: 'var(--surface-3)',
+                        color: 'var(--text-primary)',
+                        border: `1px solid var(--surface-5)`
+                      }}
+                    >
+                      {promptCopied ? 'Copied!' : 'Copy AI Prompt'}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Recap perspective settings"
+                      aria-expanded={showPerspectivePicker}
+                      onClick={() => setShowPerspectivePicker(v => !v)}
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-lg transition-all"
+                      style={{
+                        backgroundColor: 'var(--surface-3)',
+                        color: 'var(--text-primary)',
+                        border: `1px solid var(--surface-5)`
+                      }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                      </svg>
+                    </button>
+                    {showPerspectivePicker && (
+                      <div
+                        className="absolute right-0 top-full mt-2 rounded-xl shadow-2xl p-4 z-50 w-[320px] sm:w-[360px]"
+                        style={{
+                          backgroundColor: 'var(--surface-2)',
+                          border: `1px solid var(--surface-5)`,
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>Recap perspective</span>
+                          <button
+                            type="button"
+                            aria-label="Close"
+                            onClick={() => setShowPerspectivePicker(false)}
+                            className="text-xs"
+                            style={{ color: 'var(--text-tertiary)' }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <div className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                          {currentOption.label}
+                        </div>
+                        <p className="text-xs mb-3 leading-snug" style={{ color: 'var(--text-secondary)' }}>
+                          {currentOption.blurb}
+                        </p>
+                        <input
+                          type="range"
+                          min={0}
+                          max={4}
+                          step={1}
+                          value={sliderIdx}
+                          onChange={(e) => setRecapPerspective(perspectiveOptions[Number(e.target.value)].key)}
+                          className="w-full"
+                        />
+                        <div className="flex justify-between mt-2 text-[10px] font-medium" style={{ color: 'var(--text-tertiary)' }}>
+                          <span className="text-left max-w-[60px] leading-tight">{t1Name} fan</span>
+                          <span className="text-center max-w-[60px] leading-tight">{t1Name} beat</span>
+                          <span className="text-center max-w-[60px] leading-tight">Neutral</span>
+                          <span className="text-center max-w-[60px] leading-tight">{t2Name} beat</span>
+                          <span className="text-right max-w-[60px] leading-tight">{t2Name} fan</span>
+                        </div>
+                        <p className="text-[11px] mt-3 italic" style={{ color: 'var(--text-tertiary)' }}>
+                          Slide live-updates what "Copy AI Prompt" produces. Saved across games.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
 
             {/* Instructions */}

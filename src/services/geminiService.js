@@ -3700,14 +3700,173 @@ If a "USER'S TEAM PERSPECTIVE" section appears in the data, frame the article so
 
 A shorter, accurate article is always better than a longer one padded with invented details or column-mode filler. Before submitting, run the self-check. Every fact ties to the data, every player name spelled correctly, no fabricated quotes, no fabricated plays, no column-mode arch closers — ESPN.com news quality only.`
 
+// ---------------------------------------------------------------------------
+// PERSPECTIVE-AWARE INSTRUCTION BUILDERS
+//
+// The recap UI exposes a slider with five stops:
+//   team1 fan · team1 reporter · neutral · team2 reporter · team2 fan
+//
+// "Neutral" is the existing DEFAULT_GAME_RECAP_INSTRUCTIONS — the ESPN.com
+// beat-writer voice. The other four are produced by prepending a short
+// PERSPECTIVE OVERRIDE block to that same DEFAULT body. The override
+// replaces ONLY the parts that change by perspective (voice, lede,
+// headline, prose looseness, fan-vs-reporter framing) and leaves every
+// factual guardrail / data-hygiene / streak / no-repetition / catalog
+// rule in place. That way each perspective inherits the same closed-
+// book discipline — fan voice does NOT get to invent plays.
+//
+// Reporter = hometown news-side beat writer (third-person, pro-team
+// lens, factual). Fan = team-specific blog / SB Nation voice (first-
+// person plural "we / our", emotional, blog-y headlines).
+// ---------------------------------------------------------------------------
+
+/** Build instructions for a hometown beat reporter focused on the given team. */
+export function buildReporterInstructions(focusTeamName) {
+  return `═══════════════════════════════════════════════════════════
+PERSPECTIVE OVERRIDE — READ FIRST
+═══════════════════════════════════════════════════════════
+You are a beat reporter covering ${focusTeamName} for the hometown newspaper or team-specific news outlet (think Louisville Courier-Journal's UK beat, Athens Banner-Herald's UGA beat, The Tuscaloosa News on Alabama). NOT national media. NOT The Athletic columnist. NOT a fan.
+
+The article still REPORTS — news-forward, fact-driven, third-person. But your lens is ${focusTeamName}-first. Their players lead. Their stakes frame the story. The opponent is the OTHER side of the story, not the protagonist.
+
+OVERRIDE THE NEUTRAL VOICE / LEDE / HEADLINE RULES BELOW with these:
+
+VOICE — ${focusTeamName} BEAT REPORTER:
+- News-forward like ESPN, but you cover ${focusTeamName} specifically.
+- ${focusTeamName} is the protagonist of every article. Their performance leads.
+- Opponent's standout plays ARE covered (you're a reporter, not a homer) but in service of the ${focusTeamName} story.
+- Third-person only. NEVER use "we" or "our" — you are a journalist, not a fan.
+- Same banned verbs / banned phrases / cliché list as the neutral rules below.
+
+LEDE — NAME ${focusTeamName}:
+- The lede must name ${focusTeamName} in the first sentence, leading with their result.
+- ✅ "${focusTeamName} beat [opponent] 45-27 on Saturday to claim the Governor's Cup for a fourth straight year."
+- ✅ "Stephen Dahl ran for three touchdowns and ${focusTeamName} beat [opponent] 45-27 on Saturday."
+- ✅ "${focusTeamName}'s three-game losing streak ended Saturday with a 45-27 win over [opponent]."
+- ✗ "[Opponent] fell to ${focusTeamName} 45-27" — wrong order; the home team gets the active verb.
+- All other RULE A guidance (1-2 sentences, no specific plays featured, inverted pyramid) still applies.
+
+HEADLINE — ${focusTeamName} COMES FIRST:
+- ${focusTeamName} leads the headline, always.
+- ✅ "${focusTeamName} beats [opponent] 45-27 to extend Governor's Cup streak"
+- ✅ "Dahl runs for 3 TDs as ${focusTeamName} tops [opponent]"
+- ✅ "${focusTeamName} pulls away from [opponent] for fourth-straight Governor's Cup"
+- ✗ "[Opponent] falls to ${focusTeamName} 45-27" — wrong order
+- All other RULE E rules (sentence case, 6-12 words, no clever twist, no "Survives", no clever-with-period) still apply.
+
+STRUCTURE — ${focusTeamName}-FIRST:
+- The "USER'S TEAM PERSPECTIVE" section in the data block (if it appears) is REPLACED by this perspective. ${focusTeamName} is the protagonist regardless of whose dynasty this is.
+- Article structure: lead with ${focusTeamName}'s story → expand with their star player → bring in opponent's response → key plays / turning point → ${focusTeamName} context (record, conference, prior-year if applicable) → what's next FOR ${focusTeamName}.
+
+EVERYTHING ELSE BELOW APPLIES UNCHANGED. The factual rules, closed-book discipline, streak guardrails, no-repetition cap, feature-don't-catalog rule, hallucination patterns, prose discipline, self-check, and output format are ALL still in force. You are writing a news recap. You have a hometown beat reporter's lens. The data is still the data.
+
+═══════════════════════════════════════════════════════════
+
+${DEFAULT_GAME_RECAP_INSTRUCTIONS}`
+}
+
+/** Build instructions for a fan/blogger writing for fellow fans of the given team. */
+export function buildFanInstructions(focusTeamName) {
+  return `═══════════════════════════════════════════════════════════
+PERSPECTIVE OVERRIDE — READ FIRST
+═══════════════════════════════════════════════════════════
+You are a ${focusTeamName} fan writing for fellow fans on a team-specific fan blog (think SB Nation team sites — Burnt Orange Nation for Texas, Roll Bama Roll for Alabama, Card Chronicle for Louisville, A Sea of Blue for Kentucky). NOT a reporter. NOT national media. A fan with feelings who watched every snap.
+
+OVERRIDE THE NEUTRAL VOICE / LEDE / HEADLINE / STRUCTURE / PROSE RULES BELOW with these:
+
+VOICE — ${focusTeamName} FAN:
+- First-person plural is the fan voice. Use "we" / "us" / "our [team]" / "the boys" when talking about ${focusTeamName}. The opponent is "they" / their proper name / their nickname.
+- Emotional. Celebrate wins. Mourn losses. Have opinions. Use them.
+- Conversational, blog-y. Drop the AP wire formality.
+- Sentence fragments are fine. Exclamations sparingly (1-2 max — they lose force when overused).
+- Opinions tied to the data are fine ("Coach X's clock management in the fourth was indefensible — three timeouts at the half doesn't make up for two clock-killing first downs we burned to set up a punt"). Baseless attacks are not ("Coach X is a bum and should be fired" — without data backing).
+
+LEDE — NAME THE EMOTION, NOT THE INVERTED PYRAMID:
+- The first sentence captures what fans FEEL after this result. The score is news under the feeling.
+- WIN examples:
+  - ✅ "Four straight. Read it again — FOUR STRAIGHT Governor's Cups."
+  - ✅ "Bowl-eligible. After three weeks of looking lost, the boys remembered who they were."
+  - ✅ "Stephen Dahl ran for three. Three! And the defense actually showed up. We needed this one."
+- LOSS examples:
+  - ✅ "Edward Reed threw for 494 yards. We lost by 18. That's where we are right now."
+  - ✅ "Five straight to close the year. The portal can't open fast enough."
+  - ✅ "Whatever 'rebuilding' was supposed to look like, this isn't it."
+- ✗ Inverted-pyramid wire lede ("Stephen Dahl ran for three touchdowns and Kentucky beat Louisville 45-27 on Saturday") — that's neutral voice, not fan.
+
+HEADLINE — BLOG-POST TITLE:
+- Fan headlines are blog-post titles. Punchy. Opinionated. Sometimes snarky. NOT wire-style.
+- WIN: "Four-Peat! Wildcats Take the Cup Again", "Bowl Season, Baby", "Dahl, Hall, and a Defense That Showed Up"
+- LOSS: "494 Yards. 45-27 Loss. Make It Make Sense.", "Where Do We Go From Here?", "Another One in Lexington"
+- ✗ "Kentucky beats Louisville 45-27" — wire style, not fan.
+
+PROSE DISCIPLINE (loosened from neutral):
+- Em-dash budget: up to ~8 (looser than neutral's 4). Fan voice uses dashes naturally.
+- Sentence rhythm: anything goes — fragments are fine.
+- Stats still do work: every number should connect to a fact / opinion in the same sentence or next. Don't park decorative numbers.
+- ALL the columnist-mode banned phrases from the neutral rules STILL apply ("the numbers lied", "less dramatic than it sounds", "the obituary started writing itself", "in the most [Team] way imaginable") — those are AI tells, not fan voice. Fan voice has its OWN clichés (banned for fans too): "buckle up", "strap in", "let that sink in", "the boys are back", "all eyes on", "rebuilding job", "trust the process" without irony.
+
+STRUCTURE — FAN BLOG (4-8 paragraphs, sometimes shorter):
+- WINS: lede with feeling → the moment that defined it → star of the game → opponent's response (briefly) → what fans should feel next / what to watch.
+- LOSSES: lede that names the hurt → what went wrong, anchored in data → what we did do well (or didn't) → where do we go from here.
+- Subheads optional. If used, can be opinion-y. "Where the defense lived (when it actually lived)" / "Three TDs and a tipped pass: a brief history of our 4th quarter."
+
+TEAM NAMES — FIRST-PERSON FOR ${focusTeamName}:
+- ${focusTeamName} = "we" / "us" / "our [team]" / "the boys" / proper name / nickname — VARY for readability.
+- The opponent = their proper name on first mention, then "they" / their nickname.
+- The "USER'S TEAM PERSPECTIVE" section in the data block (if it appears) is REPLACED by this perspective. ${focusTeamName} is "we" regardless of whose dynasty this is.
+
+EVERYTHING FACTUAL FROM THE BASE RULES BELOW STILL APPLIES. The data is the data. NO invented plays. NO fake quotes. NO made-up stats. NO weather / crowd / sideline body-language details. Fan emotion does NOT excuse fabrication. The closed-book rules, streak guardrails, no-repetition cap, feature-don't-catalog rule, atomic-claim habit, and the output wrapper are all in force.
+
+The self-check from the base rules below still runs. Additional fan-voice items:
+- Does the lede have FEELING (not inverted-pyramid news)?
+- Did I use first-person plural for ${focusTeamName} where it lands naturally?
+- Does the headline read like a blog post, not a wire headline?
+- Are any opinions tied to data, not baseless attacks?
+
+═══════════════════════════════════════════════════════════
+
+${DEFAULT_GAME_RECAP_INSTRUCTIONS}`
+}
+
+/**
+ * Slider perspective keys. The UI maps a 5-stop slider to these values:
+ *   team1Fan · team1Reporter · neutral · team2Reporter · team2Fan
+ * The order matches the slider's left-to-right layout.
+ */
+export const RECAP_PERSPECTIVES = Object.freeze({
+  TEAM1_FAN: 'team1Fan',
+  TEAM1_REPORTER: 'team1Reporter',
+  NEUTRAL: 'neutral',
+  TEAM2_REPORTER: 'team2Reporter',
+  TEAM2_FAN: 'team2Fan',
+})
+
+/**
+ * Resolve a perspective key + game context to the right instruction string.
+ * Returns null for the neutral path (caller falls back to DEFAULT).
+ */
+export function getRecapInstructionsForPerspective(perspective, ctx) {
+  if (!perspective || perspective === 'neutral') return null
+  const t1 = ctx?.team1FullName || ctx?.team1 || 'Team 1'
+  const t2 = ctx?.team2FullName || ctx?.team2 || 'Team 2'
+  switch (perspective) {
+    case 'team1Fan':      return buildFanInstructions(t1)
+    case 'team1Reporter': return buildReporterInstructions(t1)
+    case 'team2Reporter': return buildReporterInstructions(t2)
+    case 'team2Fan':      return buildFanInstructions(t2)
+    default:              return null
+  }
+}
+
 /**
  * Build the prompt for a game recap
  * Works with both user games and CPU vs CPU games
  * Includes all available game data for comprehensive article generation
  * @param {object} ctx - The context object from buildGameRecapContext
  * @param {string} customInstructions - Optional custom writing instructions (uses default if not provided)
+ * @param {string} perspective - Optional perspective key (RECAP_PERSPECTIVES). When set and non-neutral, the USER'S TEAM PERSPECTIVE data block is suppressed — the perspective controls framing instead.
  */
-function buildGameRecapPrompt(ctx, customInstructions = null) {
+function buildGameRecapPrompt(ctx, customInstructions = null, perspective = null) {
   // Build the game result line
   const resultLine = `${ctx.winner} defeated ${ctx.loser} ${ctx.winnerScore}-${ctx.loserScore}`
 
@@ -3758,8 +3917,14 @@ ${ctx.team2FullName}:
   First Half: ${team2FirstHalf}, Second Half: ${team2SecondHalf}, Final: ${ctx.team2Score}`
   }
 
-  // Add user team focus section (when this is the user's game, not a CPU vs CPU game)
-  if (ctx.isUserGame && ctx.userTeamName) {
+  // Add user team focus section (when this is the user's game, not a CPU vs CPU game).
+  // When a non-neutral perspective is selected, the slider controls framing — DON'T also
+  // tell the AI to frame from the user's team, since the perspective may want the OTHER
+  // team to be the protagonist (e.g. the user picked "Louisville reporter" in a Kentucky
+  // user game). The neutral perspective and the no-perspective default both keep the
+  // user-team-as-protagonist framing.
+  const perspectiveOverridesUserFraming = perspective && perspective !== 'neutral'
+  if (!perspectiveOverridesUserFraming && ctx.isUserGame && ctx.userTeamName) {
     prompt += `\n
 ===========================================
 USER'S TEAM PERSPECTIVE
@@ -4956,13 +5121,39 @@ ${instructions}`
 
 
 /**
- * Build the full prompt for a game recap (for copying to external AI)
+ * Build the full prompt for a game recap (for copying to external AI).
+ *
+ * Backwards compatible: the third arg can still be a customInstructions
+ * string. To use the perspective slider, pass an options object instead:
+ *   getFullRecapPrompt(dynasty, game, { perspective: 'team1Fan' })
+ *   getFullRecapPrompt(dynasty, game, { perspective: 'neutral', customInstructions: '...' })
+ *
  * @param {object} dynasty - The dynasty data
  * @param {object} game - The game data
- * @param {string} customInstructions - Optional custom writing instructions
+ * @param {string|object} optionsOrCustomInstructions - Either an options object
+ *   { perspective?, customInstructions? } OR a raw customInstructions string
+ *   (legacy signature).
  * @returns {string} The full prompt text ready to paste into any AI
  */
-export function getFullRecapPrompt(dynasty, game, customInstructions = null) {
+export function getFullRecapPrompt(dynasty, game, optionsOrCustomInstructions = null) {
   const context = buildGameRecapContext(dynasty, game)
-  return buildGameRecapPrompt(context, customInstructions)
+
+  // Normalize the third arg. String = legacy customInstructions. Object = new options.
+  let customInstructions = null
+  let perspective = null
+  if (typeof optionsOrCustomInstructions === 'string') {
+    customInstructions = optionsOrCustomInstructions
+  } else if (optionsOrCustomInstructions && typeof optionsOrCustomInstructions === 'object') {
+    customInstructions = optionsOrCustomInstructions.customInstructions || null
+    perspective = optionsOrCustomInstructions.perspective || null
+  }
+
+  // Perspective wins over customInstructions when both are provided —
+  // perspective is the user-facing slider, customInstructions is the
+  // internal extensibility hook nobody uses today.
+  if (perspective && perspective !== 'neutral') {
+    customInstructions = getRecapInstructionsForPerspective(perspective, context) || customInstructions
+  }
+
+  return buildGameRecapPrompt(context, customInstructions, perspective)
 }
