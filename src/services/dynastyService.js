@@ -20,6 +20,11 @@ import {
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { indexedDBStorage } from './storage'
+import {
+  getSeasonsSubcollection,
+  PER_YEAR_FIELDS,
+  PER_TEAM_YEAR_FIELDS,
+} from './seasonSubcollection'
 
 const DYNASTIES_COLLECTION = 'dynasties'
 const PLAYERS_SUBCOLLECTION = 'players'
@@ -1281,27 +1286,77 @@ export async function getPublicDynastyWithSubcollections(shareCode) {
     const mainDoc = await getPublicDynastyByShareCode(shareCode)
     if (!mainDoc) return null
 
-    // Then fetch subcollections
-    const [players, games] = await Promise.all([
+    // Fetch every subcollection the owner-side loader pulls — without
+    // weekRecaps + seasons here, the viewer sees a dynasty with NO
+    // weekly recaps, NO awards, NO conference standings, etc. (the
+    // owner moved that data out of the main doc into per-year + per-
+    // recap subcollections to dodge Firestore's 1 MB cap). Public
+    // share viewers were stuck on the pre-migration shape and
+    // silently lost everything that had been migrated.
+    const [players, games, weekRecaps, seasonalRehydrated] = await Promise.all([
       getPlayersSubcollection(mainDoc.id),
-      getGamesSubcollection(mainDoc.id)
+      getGamesSubcollection(mainDoc.id),
+      getWeekRecapsSubcollection(mainDoc.id),
+      getSeasonsSubcollection(mainDoc.id),
     ])
 
-    // If migrated, always use subcollection data (even if empty)
-    // If not migrated, use main document data
-    if (mainDoc._subcollectionsMigrated) {
-      return {
-        ...mainDoc,
-        players: players,
-        games: games
+    // Merge weekRecaps: legacy main-doc `weekRecapsByYear` UNION
+    // subcollection, with subcollection winning per-(year, week) on
+    // overlap. Same conflict resolution the owner-side path uses —
+    // a partially-migrated dynasty needs both sources to be
+    // visible to the viewer.
+    const legacyRecaps = mainDoc.weekRecapsByYear || {}
+    const weekRecapsByYear = {}
+    for (const y of Object.keys(legacyRecaps)) {
+      weekRecapsByYear[y] = { ...(legacyRecaps[y] || {}) }
+    }
+    for (const y of Object.keys(weekRecaps || {})) {
+      if (!weekRecapsByYear[y]) weekRecapsByYear[y] = {}
+      Object.assign(weekRecapsByYear[y], weekRecaps[y] || {})
+    }
+
+    // Merge seasonal fields the same way. `seasonalRehydrated` is
+    // already in legacy `<field>ByYear` / `<field>ByTeamYear` shape
+    // thanks to getSeasonsSubcollection. Sub wins per-(field, year)
+    // on overlap.
+    const perYearSet = new Set(PER_YEAR_FIELDS)
+    const allSeasonalFields = [...PER_YEAR_FIELDS, ...PER_TEAM_YEAR_FIELDS]
+    const mergedSeasonal = {}
+    for (const field of allSeasonalFields) {
+      const legacy = mainDoc[field]
+      const fromSub = seasonalRehydrated[field]
+      const hasLegacy = legacy && typeof legacy === 'object' && Object.keys(legacy).length > 0
+      const hasSub = fromSub && typeof fromSub === 'object' && Object.keys(fromSub).length > 0
+      if (!hasLegacy && !hasSub) continue
+      if (perYearSet.has(field)) {
+        mergedSeasonal[field] = { ...(legacy || {}), ...(fromSub || {}) }
+      } else {
+        const out = {}
+        for (const [teamKey, yearMap] of Object.entries(legacy || {})) {
+          out[teamKey] = { ...(yearMap || {}) }
+        }
+        for (const [teamKey, yearMap] of Object.entries(fromSub || {})) {
+          out[teamKey] = { ...(out[teamKey] || {}), ...(yearMap || {}) }
+        }
+        mergedSeasonal[field] = out
       }
-    } else {
-      // Not migrated - use subcollections if they have data, otherwise main doc
-      return {
-        ...mainDoc,
-        players: players.length > 0 ? players : (mainDoc.players || []),
-        games: games.length > 0 ? games : (mainDoc.games || [])
-      }
+    }
+
+    // Players / games merge: same _subcollectionsMigrated branch as
+    // before — unchanged, just folded into the larger return.
+    const playersOut = mainDoc._subcollectionsMigrated
+      ? players
+      : (players.length > 0 ? players : (mainDoc.players || []))
+    const gamesOut = mainDoc._subcollectionsMigrated
+      ? games
+      : (games.length > 0 ? games : (mainDoc.games || []))
+
+    return {
+      ...mainDoc,
+      ...mergedSeasonal,
+      players: playersOut,
+      games: gamesOut,
+      weekRecapsByYear,
     }
   } catch (error) {
     console.error('Error fetching public dynasty with subcollections:', error)
