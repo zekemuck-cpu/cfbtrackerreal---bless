@@ -1941,8 +1941,14 @@ export default function Game() {
                 </button>
               ))}
             </div>
-            {/* Quiet per-device default-tab preference, aligned to the tab bar */}
-            <div className="hidden md:flex items-center gap-1.5 pr-3 pl-2 text-[11px] text-txt-muted whitespace-nowrap">
+            {/* Quiet per-device default-tab preference, aligned to the tab bar.
+                Bumped from md: (768px) to lg: (1024px) — between those widths
+                the 8-9 tabs needed the full row to fit without horizontal
+                scroll, and squeezing the Default selector in next to them was
+                producing the "Photos tab cut off + faint scrollbar" cramped
+                look. The selector is a power-user preference; hiding it on
+                narrower screens is the right trade. */}
+            <div className="hidden lg:flex items-center gap-1.5 pr-3 pl-2 text-[11px] text-txt-muted whitespace-nowrap">
               <label htmlFor="default-game-tab" className="tracking-wide uppercase">Default</label>
               <select
                 id="default-game-tab"
@@ -2173,13 +2179,17 @@ export default function Game() {
 
                 {/* CENTER: Recap — display only. Edit via the game editor.
                     Long recaps scroll within the panel so they don't blow
-                    out the page height. */}
+                    out the page height — but ONLY in the lg+ side-by-side
+                    layout where each column has its own bounded space.
+                    Below lg the page is stacked vertically and the page
+                    itself scrolls; having an inner scrollbar there
+                    produced a confusing double-scroll where the user had
+                    to scroll the page to find the recap, then scroll
+                    INSIDE the recap to read the rest. Let the recap flow
+                    naturally below lg. */}
                 <section className="order-1 lg:order-2 min-w-0">
                   <SectionHead>Game Recap</SectionHead>
-                  <div
-                    className="max-w-prose overflow-y-auto pr-2 -mr-2"
-                    style={{ maxHeight: 'min(70vh, 720px)' }}
-                  >
+                  <div className="max-w-prose lg:overflow-y-auto lg:pr-2 lg:-mr-2 lg:max-h-[min(70vh,720px)]">
                     <RecapCenter />
                   </div>
                 </section>
