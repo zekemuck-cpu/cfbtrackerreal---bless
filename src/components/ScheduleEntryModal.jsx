@@ -57,14 +57,14 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${displayTeamName} ${currentYear} Schedule`,
-    structure: `This sheet has ONE tab: "Schedule". It contains 16 rows, one per week for Week 0 through Week 15 of the ${currentYear} season for ${displayTeamName}.
+    structure: `This sheet has ONE tab: "Schedule". It contains 15 rows, one per week for Week 0 through Week 14 of the ${currentYear} season for ${displayTeamName}. Conference championships are entered separately (they're not in the regular-season schedule).
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
 1. OUTPUT COLUMNS C AND D ONLY (2 values per row). Columns A (Week) and B (User Team) are PROTECTED and pre-filled — never output them.
-2. ROW ORDER IS FIXED: row 1 = Week 0, row 2 = Week 1, ..., row 16 = Week 15. Rows are keyed to the pre-filled Week number in column A — never reorder.
-3. Output EXACTLY 16 data rows, each with EXACTLY 2 tab-separated values.
+2. ROW ORDER IS FIXED: row 1 = Week 0, row 2 = Week 1, ..., row 15 = Week 14. Rows are keyed to the pre-filled Week number in column A — never reorder.
+3. Output EXACTLY 15 data rows, each with EXACTLY 2 tab-separated values.
 4. There are NO score columns. Do NOT output scores. This sheet is the pre-game schedule, not the results.
 5. TEAM ABBREVIATIONS ONLY (column C) — use values from the TEAM ABBREVIATIONS mapping below, OR the literal word "BYE" for a bye week. Column C is a strict dropdown.
 6. SITE (column D) must be EXACTLY one of these 3 literal values, case-sensitive: "Home", "Road", "Neutral". Do NOT use "Away" — the sheet's dropdown uses "Road" instead. Do NOT invent other values.
@@ -75,7 +75,7 @@ CRITICAL RULES — read before anything else
 11. ONE TSV block — preceded by the paste-target label line as required by the Method A/B rules above.
 
 ═══════════════════════════════════════════════════════════
-TAB: "Schedule" — 16 rows × 2 editable columns
+TAB: "Schedule" — 15 rows × 2 editable columns
 Paste your block at cell C2 of the "Schedule" tab
 ═══════════════════════════════════════════════════════════
 
@@ -96,7 +96,6 @@ Row | Col A (PROTECTED) | Col B (PROTECTED)    | Col C (CPU Team)               
  13 | 12                | ${targetTeamAbbr}    | opponent abbr, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
  14 | 13                | ${targetTeamAbbr}    | opponent abbr, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
  15 | 14                | ${targetTeamAbbr}    | opponent abbr, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
- 16 | 15                | ${targetTeamAbbr}    | opponent abbr, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
 
 Column C (CPU Team) allowed values (strict dropdown — wrong value is rejected):
   - "BYE" — for a bye week (then leave column D blank)
@@ -126,14 +125,13 @@ REQUIRED OUTPUT FORMAT
 <week 12 CPU Team>\\t<week 12 Site>
 <week 13 CPU Team>\\t<week 13 Site>
 <week 14 CPU Team>\\t<week 14 Site>
-<week 15 CPU Team>\\t<week 15 Site>
 
 (Each \\t above represents a LITERAL TAB character — use actual tab characters in your output, not the text "\\t".)
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send the answer
 ═══════════════════════════════════════════════════════════
-[ ] Exactly 16 data rows (Weeks 0 through 15)
+[ ] Exactly 15 data rows (Weeks 0 through 14)
 [ ] Exactly 2 tab-separated values per row (1 tab character per line)
 [ ] Column C: team abbreviation from the mapping, or the literal "BYE", or blank
 [ ] Column D: EXACTLY "Home", "Road", or "Neutral" — not "Away", not any other value; blank on bye weeks

@@ -13,7 +13,7 @@ import FormattedRecap from '../../components/FormattedRecap'
 import buildRecapLinks from '../../utils/buildRecapLinks'
 import { useTeamColors } from '../../hooks/useTeamColors'
 
-const REGULAR_SEASON_WEEKS = Array.from({ length: 16 }, (_, i) => i)  // 0-15
+const REGULAR_SEASON_WEEKS = Array.from({ length: 15 }, (_, i) => i)  // 0-14 (Week 14 is the last regular-season week; CCG / bowls are separate phases)
 
 // Delegate to the shared mascot-strip helper so this page stays in
 // sync with the canonical list (FCS placeholders + 2/3-word mascots).

@@ -8325,8 +8325,10 @@ export default function Dashboard() {
         <div className="divide-y divide-surface-4 stagger-reveal">
           {teamSchedule && teamSchedule.length > 0 ? (
             <>
-              {/* Render all weeks 0-15, showing bye weeks for missing entries */}
-              {Array.from({ length: 16 }, (_, weekNum) => {
+              {/* Render all weeks 0-14 (15 regular-season weeks), showing
+                  bye weeks for missing entries. Conference championships
+                  live in their own phase, not in the regular schedule. */}
+              {Array.from({ length: 15 }, (_, weekNum) => {
                 const entry = teamSchedule.find(e => Number(e.week) === weekNum)
 
                 // Handle BYE weeks - explicit bye, missing entry, or no opponent

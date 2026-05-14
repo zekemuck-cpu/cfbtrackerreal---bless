@@ -1115,10 +1115,11 @@ async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleS
   try {
     const userTeamAbbr = getAbbrFromTeamName(userTeamName, dynastyTeams)
 
-    // Build schedule data rows - either from existing schedule or empty
-    // Week 0-15 = 16 weeks of regular season
-    const scheduleRows = Array.from({ length: 16 }, (_, i) => {
-      const week = i  // Week 0-15
+    // Build schedule data rows - either from existing schedule or empty.
+    // Week 0-14 = 15 weeks of regular season. Conference championship
+    // week is its own phase, not a numbered regular-season week.
+    const scheduleRows = Array.from({ length: 15 }, (_, i) => {
+      const week = i  // Week 0-14
       const existingGame = existingSchedule.find(g => Number(g.week) === week)
 
       // Convert location to Site format (Home/Road/Neutral)
@@ -1166,7 +1167,7 @@ async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleS
           range: {
             sheetId: scheduleSheetId,
             startRowIndex: 1,
-            endRowIndex: 17,  // 16 data rows (weeks 0-15) + 1 header
+            endRowIndex: 16,  // 15 data rows (weeks 0-14) + 1 header
             startColumnIndex: 0,
             endColumnIndex: 4
           },

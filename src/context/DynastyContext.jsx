@@ -5771,6 +5771,59 @@ export function DynastyProvider({ children }) {
         migrated = migrateToUnifiedGames(migrated)
       }
 
+      // Drop the phantom Week 15. Earlier versions of the app modeled
+      // EA's calendar as 16 regular-season weeks (0-15) followed by
+      // CCG / bowls. EA's actual calendar is 15 regular-season weeks
+      // (0-14), then a dedicated Conference Championship Week, then
+      // bowls / CFP. The fix:
+      //   1) If the dynasty is sitting at currentPhase='regular_season'
+      //      with currentWeek > 14, advance them into the
+      //      conference_championship phase (currentWeek=1) — same
+      //      transition the advance-week button now produces, just
+      //      auto-applied so users don't get stuck in a phase that
+      //      no longer exists.
+      //   2) Any saved game with numeric week=15 AND a CCG flag gets
+      //      its week field rewritten to 'CCG' — matches the
+      //      ConferenceChampionshipModal's storage convention.
+      //   3) Games with numeric week=15 but NOT flagged as CCG are
+      //      left alone — they're "phantom Week 15" data. The Week
+      //      0-14 schedule UI won't render them; user can delete via
+      //      the game editor (or surface via a future Danger Zone
+      //      cleanup tool).
+      // Idempotent — safe to run on every load. Persist via the
+      // _week15Migrated flag so we only mutate on first encounter.
+      if (!migrated._week15Migrated) {
+        let touched = false
+        const next = { ...migrated }
+
+        if (next.currentPhase === 'regular_season' && Number(next.currentWeek) > 14) {
+          next.currentPhase = 'conference_championship'
+          next.currentWeek = 1
+          touched = true
+        }
+
+        if (Array.isArray(next.games) && next.games.length > 0) {
+          let gamesTouched = false
+          const updatedGames = next.games.map(g => {
+            if (!g) return g
+            const isCCG = g.isConferenceChampionship || g.gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP
+            if (!isCCG) return g
+            if (g.week === 15 || g.week === '15') {
+              gamesTouched = true
+              return { ...g, week: 'CCG' }
+            }
+            return g
+          })
+          if (gamesTouched) {
+            next.games = updatedGames
+            touched = true
+          }
+        }
+
+        next._week15Migrated = true
+        migrated = touched ? next : { ...migrated, _week15Migrated: true }
+      }
+
       // Apply stats migration if needed
       if (!migrated._statsMigrated) {
         migrated = migrateStatsToPlayers(migrated)
@@ -8626,46 +8679,16 @@ export function DynastyProvider({ children }) {
       existingCCByPair.set(`${lo}-${hi}`, g)
     }
 
-    // Conference championship games are played STRICTLY in Week 15 in
-    // EA CFB — that's conference championship week. Week 14 is the last
-    // regular-season window (Army-Navy and any final regular games that
-    // slot there); Week 16+ is CFP / bowls. So a Week 15 same-conf
-    // neutral-site game is unambiguously the conference championship.
-    //
-    // (An earlier version allowed Week 14-15 to handle the EA CFB 25
-    // calendar that sometimes shifted CCs to Week 14. The current EA
-    // CFB calendar doesn't do that, and Week 14 was incorrectly
-    // promoting Army-Navy — both academies in the American, always at a
-    // neutral site, always Week 14 — into the "American Championship".
-    // Tightening to Week 15 only fixes that without needing an Army-
-    // Navy exception list.)
-    //
-    // Additional guard: if the same pair already played a NON-CC game
-    // earlier in the season, this Wk 15 neutral-site rematch is the
-    // championship (rare but explicit signal). If they DIDN'T play
-    // earlier, the promotion still fires on the same-conf-neutral
-    // signal alone — false positives at this point are rare in practice.
-    const playedEarlierAsRegular = (loTid, hiTid) => {
-      for (const g of existingGames) {
-        if (!g || Number(g.year) !== yearNum) continue
-        if (g.isConferenceChampionship) continue
-        if (Number(g.week) >= 15) continue
-        if (!g.team1Tid || !g.team2Tid) continue
-        const a = Math.min(Number(g.team1Tid), Number(g.team2Tid))
-        const b = Math.max(Number(g.team1Tid), Number(g.team2Tid))
-        if (a === loTid && b === hiTid) return true
-      }
-      return false
-    }
-    const isConferenceChampionshipCandidate = (homeConf, awayConf, neutral, loTid, hiTid) => {
-      if (!homeConf || !awayConf || homeConf !== awayConf) return false
-      if (!neutral) return false
-      if (weekNum !== 15) return false
-      // The rematch check is informational; we don't gate on it because
-      // the same-conf+neutral+Wk15 signal is already high-confidence.
-      void playedEarlierAsRegular(loTid, hiTid)
-      return true
-    }
+    // Conference championship games come EXCLUSIVELY through the
+    // dedicated ConferenceChampionshipModal flow — never through the
+    // weekly-scores importer. EA's calendar puts the CCG week between
+    // Week 14 (last regular-season week) and the bowl / CFP weeks; it
+    // isn't a numbered regular-season slot. Earlier versions of this
+    // importer auto-promoted Week 14-15 same-conf neutral-site rows to
+    // CCGs, which kept misfiring on Army-Navy and ate hours of
+    // recovery work. The new rule: weekly scores are always REGULAR
+    // games. CCGs go through their own flow with week='CCG'.
+    const isConferenceChampionshipCandidate = () => false
 
     // Walk parsed rows, build a Map keyed by sorted-tid pair so duplicates collapse
     const newByPair = new Map()
@@ -9507,8 +9530,13 @@ export function DynastyProvider({ children }) {
       additionalUpdates.scheduleSheetId = null
       additionalUpdates.rosterSheetId = null
       additionalUpdates.rosterEditSheetId = null
-    } else if (dynasty.currentPhase === 'regular_season' && nextWeek > 15) {
-      // After week 15, move to conference championship week (Week 0-15 = 16 weeks)
+    } else if (dynasty.currentPhase === 'regular_season' && nextWeek > 14) {
+      // After Week 14, move to Conference Championship Week. EA's calendar
+      // is 15 regular-season weeks (0-14), then a dedicated CCG week, then
+      // bowls/CFP. The earlier `nextWeek > 15` cap was off-by-one and let
+      // a phantom Week 15 exist as a regular-season slot — that's the
+      // bug being fixed. CCG week itself isn't numbered; it just lives
+      // under the conference_championship phase with currentWeek=1.
       nextPhase = 'conference_championship'
       nextWeek = 1
 

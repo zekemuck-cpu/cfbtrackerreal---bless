@@ -476,7 +476,7 @@ CRITICAL RULES — output format
    you put that team. If TEAM_LEFT goes to Col A, then SCORE_LEFT goes to
    Col C. If TEAM_LEFT goes to Col D (because it was the visitor), then
    SCORE_LEFT goes to Col F. Score moves with the team, period.
-7. NEUTRAL FLAG: column G is "Y" only when the game is explicitly at a neutral site (kickoff games, neutral-site classics, conference championship venues, the Army-Navy Game). For ordinary home games leave column G BLANK. Do NOT write "N". For Week 15 specifically, see the CONFERENCE CHAMPIONSHIP WEEK section below — every conference championship game MUST be marked Y, and the importer relies on Y to recognize the game as a championship.
+7. NEUTRAL FLAG: column G is "Y" only when the game is explicitly at a neutral site (kickoff games, neutral-site classics, the Army-Navy Game, etc.). For ordinary home games leave column G BLANK. Do NOT write "N". Conference championships are NEVER entered through this weekly-scores flow — they have a dedicated entry modal — so any neutral game you flag here is a regular-season neutral-site game, not a CCG.
 8. FCS OPPONENTS — INCLUDE THEM. EA College Football 26 represents real FCS schools as one of four generic FCS placeholders, and those placeholders ARE in the team mapping at the bottom of this prompt (typically FCSE, FCSM, FCSN, FCSW — but follow whatever appears in your mapping). When a Power-or-Group-of-5 FBS team plays an FCS opponent in Week 0 (or later), that game IS in scope — find the matching FCS placeholder abbreviation in the mapping and write the row. Do NOT drop FCS games — they're part of the user's records.
 9. UNKNOWN ABBREVIATIONS — never invent. If you cannot find a team in the mapping AT ALL after a careful re-scan, OMIT that game (rare — almost everything an in-game screenshot shows is in the mapping, including all FBS teams, FCS placeholders, and any user-renamed teambuilder teams). Re-check the mapping CAREFULLY before omitting — it includes every valid abbreviation for this dynasty.
 10. SKIP bye weeks. Teams on bye are not games and have no row.
@@ -484,26 +484,16 @@ CRITICAL RULES — output format
 12. ${userAbbr ? `OPTIONAL — the user's own team is ${userAbbr}. If you can see their game in the screenshots, INCLUDE it; if not, that's fine — they enter their own game separately and any duplicate row is harmlessly preserved.` : `If the user's own team plays in this week, include the row anyway — duplicates with their separately-entered game are handled automatically.`}
 
 ═══════════════════════════════════════════════════════════
-CONFERENCE CHAMPIONSHIP WEEK (Week 15) — special rules
+WEEK SCOPE — REGULAR-SEASON ONLY (Week 0 through Week 14)
 ═══════════════════════════════════════════════════════════
-EA's calendar puts conference championships STRICTLY in Week 15. Week 14 is the last regular-season week (Army-Navy and any final regular games slot here); Week 16+ is CFP / bowls. So a Week 15 game shown in the CONF CHAMPIONSHIPS sub-screen between two teams in the same conference at a neutral site IS a championship game.
+This flow is for REGULAR-SEASON weeks ONLY: Week 0 through Week 14. Conference championships are entered through a dedicated entry modal (not this one) and are NEVER auto-promoted from this sheet. If the screenshots include a CONF CHAMPIONSHIPS sub-screen, ignore those rows — the user enters them separately.
 
-The importer auto-promotes a Week 15 row to the "conference championship" game type if and only if every condition below is met:
-
-   (A) BOTH teams are in the SAME conference per the DYNASTY CONFERENCE MAP at the bottom of this prompt.
-   (B) Column G is "Y" (neutral site).
-   (C) The week (the value injected at the top of this prompt) IS 15.
-
-So when you encounter a Week 15 matchup at a neutral site between two teams in the same conference (per the dynasty map), set column G to "Y" — period. Do NOT skip it, do NOT leave it blank, do NOT mark it home/away. Conversely, regular-season conference games (not neutral, not championship-week) MUST keep G blank — never bleed the neutral flag onto a normal home game.
-
-WEEK 14 specifically: this is NOT championship week. The Army-Navy Game shows up here at a neutral site (Philadelphia / Foxborough / Soldier Field / etc.) — still mark column G "Y" for Army-Navy because it IS a neutral-site game, but it is NOT a conference championship and the importer will treat it as a regular game.
-
-Use the dynasty's CONFERENCE MAP at the bottom of this prompt — NOT real-world conference assumptions. If the user has moved Alabama and Georgia into the Pac-12 in their dynasty, then a Week 15 BAMA-vs-UGA neutral-site game IS the Pac-12 Championship — record it accordingly. Do not assume a team is in its real-world conference; trust the mapping below.
+Week 14 is the LAST regular-season week. The Army-Navy Game lives here at a neutral site (Philadelphia / Foxborough / Soldier Field / etc.) — still mark column G "Y" because it IS a neutral-site game, but it is just a regular game, NOT a championship.
 
 ═══════════════════════════════════════════════════════════
 DYNASTY CONFERENCE MAP — use this, not real-world assumptions
 ═══════════════════════════════════════════════════════════
-This is the conference alignment for the ${year} season in THIS dynasty. Use it to determine whether a Week 15 matchup is a conference championship (rule above). Each line is "<conference>: <comma-separated team abbreviations>".
+This is the conference alignment for the ${year} season in THIS dynasty. Use it to set conference labels and infer in-conference matchups when needed. Each line is "<conference>: <comma-separated team abbreviations>".
 
 ${conferenceMapBlock || '  (no custom conference data — fall back to standard FBS alignment)'}
 
@@ -917,8 +907,12 @@ Don't just glance at this list. Physically execute each check on your draft.
 
   const dynastyCurrentWeek = Number(currentDynasty?.currentWeek)
   const rankWeekOptions = useMemo(() => {
+    // Weeks 0-14 are the regular season; 15 is the slot for "after Week
+    // 14 / heading into CCG week" rank entry. Bowls / CFP have their
+    // own modals so we don't extend further. (Was 0-16 from when the
+    // app modeled a phantom Week 15 regular-season slot.)
     const opts = []
-    for (let w = 0; w <= 16; w++) opts.push(w)
+    for (let w = 0; w <= 15; w++) opts.push(w)
     return opts
   }, [])
 
