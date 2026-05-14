@@ -70,12 +70,25 @@ export default function WeeklyScoresModal({ isOpen, onClose, year, week, teamCol
   // forgot to save last week, so the screenshot they're pasting actually
   // shows last week's poll, not today's. Without the override, every
   // re-save silently overwrites the current poll with stale data.
+  // Compute the "rank-entry slot that represents the dynasty's current
+  // moment". During regular_season this is just currentWeek. During
+  // conference_championship the dynasty's currentWeek=1 (CCG week is
+  // its own phase, week 1 within the phase) but the SEMANTIC current
+  // rank-entry slot is Week 15 — that's the post-Week-14 / heading-
+  // into-CCG poll, which is what the user is entering when they
+  // import polls during CCG week. Without this distinction the
+  // dropdown labeled regular-season Week 1 as "(current)" while the
+  // dynasty was in CCG week, which is what the user reported.
+  const dynastyCurrentWeek = Number(currentDynasty?.currentWeek)
+  const isCCGPhase = currentDynasty?.currentPhase === 'conference_championship'
+  const effectiveCurrentRankWeek = isCCGPhase ? 15 : dynastyCurrentWeek
+
   const [rankWeek, setRankWeek] = useState(null)
   useEffect(() => {
     if (!isOpen) return
-    const cw = Number(currentDynasty?.currentWeek)
-    setRankWeek(Number.isFinite(cw) && cw > 0 ? cw : Number(week) || 1)
-  }, [isOpen, currentDynasty?.currentWeek, week])
+    const eff = effectiveCurrentRankWeek
+    setRankWeek(Number.isFinite(eff) && eff >= 0 ? eff : (Number(week) || 1))
+  }, [isOpen, effectiveCurrentRankWeek, week])
 
   const userTid = currentDynasty ? getCurrentTeamTid(currentDynasty) : null
   const userTeam = userTid ? currentDynasty?.teams?.[userTid] : null
@@ -905,7 +918,6 @@ Don't just glance at this list. Physically execute each check on your draft.
   const isLoading = creatingSheet
   const headerLabel = `${year} Week ${week} Scores`
 
-  const dynastyCurrentWeek = Number(currentDynasty?.currentWeek)
   const rankWeekOptions = useMemo(() => {
     // Weeks 0-14 are the regular season; 15 is the slot for "after Week
     // 14 / heading into CCG week" rank entry. Bowls / CFP have their
@@ -926,7 +938,7 @@ Don't just glance at this list. Physically execute each check on your draft.
     >
       {rankWeekOptions.map(w => (
         <option key={w} value={w}>
-          Week {w}{w === dynastyCurrentWeek ? ' (current)' : ''}
+          Week {w}{w === effectiveCurrentRankWeek ? ' (current)' : ''}
         </option>
       ))}
     </select>
