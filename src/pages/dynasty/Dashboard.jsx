@@ -100,7 +100,7 @@ function renderTodoList({ todos, isViewOnly }) {
             {todo.extraLeading}
             <div className="min-w-0">
               <div
-                className="font-display font-bold leading-tight text-txt-primary truncate"
+                className="font-display font-bold leading-tight text-txt-primary break-words"
                 style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
               >
                 {todo.title}
@@ -123,26 +123,19 @@ function renderTodoList({ todos, isViewOnly }) {
             </div>
           </div>
           {!isViewOnly && todo.actionLabel && (
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 [&_.btn-refined]:min-w-[4.5rem]">
               {todo.extraTools}
-              <div
-                className="grid gap-1.5 sm:gap-2 items-center"
-                style={{ gridTemplateColumns: '5rem 6.5rem' }}
+              {todo.viewTo && (
+                <Link to={todo.viewTo} className="btn-refined text-center">
+                  View
+                </Link>
+              )}
+              <button
+                onClick={todo.onAction}
+                className="btn-refined btn-refined--solid text-center"
               >
-                {todo.viewTo ? (
-                  <Link to={todo.viewTo} className="btn-refined text-center">
-                    View
-                  </Link>
-                ) : (
-                  <span aria-hidden="true" />
-                )}
-                <button
-                  onClick={todo.onAction}
-                  className="btn-refined btn-refined--solid text-center"
-                >
-                  {todo.actionLabel}
-                </button>
-              </div>
+                {todo.actionLabel}
+              </button>
             </div>
           )}
         </div>
@@ -3563,13 +3556,13 @@ export default function Dashboard() {
                       />
                       <div className="min-w-0">
                         <div
-                          className="font-display font-bold leading-tight text-txt-primary truncate"
+                          className="font-display font-bold leading-tight text-txt-primary break-words"
                           style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
                         >
                           {todo.title}
                         </div>
                         {todo.subtitle && (
-                          <div className="hidden sm:block text-xs sm:text-[13px] mt-0.5 text-txt-tertiary truncate">
+                          <div className="hidden sm:block text-xs sm:text-[13px] mt-0.5 text-txt-tertiary">
                             {todo.subtitle}
                           </div>
                         )}
@@ -3586,26 +3579,19 @@ export default function Dashboard() {
                       </div>
                     </div>
                     {!isViewOnly && todo.actionLabel && (
-                      <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 [&_.btn-refined]:min-w-[4.5rem]">
                         {todo.extraTools}
-                        <div
-                          className="grid gap-1.5 sm:gap-2 items-center"
-                          style={{ gridTemplateColumns: '5rem 6.5rem' }}
+                        {todo.viewTo && (
+                          <Link to={todo.viewTo} className="btn-refined text-center">
+                            View
+                          </Link>
+                        )}
+                        <button
+                          onClick={todo.onAction}
+                          className="btn-refined btn-refined--solid text-center"
                         >
-                          {todo.viewTo ? (
-                            <Link to={todo.viewTo} className="btn-refined text-center">
-                              View
-                            </Link>
-                          ) : (
-                            <span aria-hidden="true" />
-                          )}
-                          <button
-                            onClick={todo.onAction}
-                            className="btn-refined btn-refined--solid text-center"
-                          >
-                            {todo.actionLabel}
-                          </button>
-                        </div>
+                          {todo.actionLabel}
+                        </button>
                       </div>
                     )}
                   </div>
@@ -3877,7 +3863,7 @@ export default function Dashboard() {
                         {todo.extraLeading}
                         <div className="min-w-0">
                           <div
-                            className="font-display font-bold leading-tight text-txt-primary truncate"
+                            className="font-display font-bold leading-tight text-txt-primary break-words"
                             style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
                           >
                             {todo.title}
@@ -3900,37 +3886,19 @@ export default function Dashboard() {
                         </div>
                       </div>
                       {!isViewOnly && todo.actionLabel && (
-                        /* Fixed-width grid for the action area so the
-                           View and Action columns line up across rows
-                           even when one row has no View target (e.g. an
-                           unplayed game has nowhere to "View" yet) and
-                           when label widths differ ("Log" vs "Generate").
-                           Empty <span> placeholder preserves the column
-                           when View is hidden. The whole grid is dropped
-                           on rows that aren't actionable (e.g. the bye-
-                           week informational row). extraTools renders to
-                           the LEFT of the grid (calculator + insight
-                           engine icons on the recruiting row). */
-                        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 [&_.btn-refined]:min-w-[4.5rem]">
                           {todo.extraTools}
-                          <div
-                            className="grid gap-1.5 sm:gap-2 items-center"
-                            style={{ gridTemplateColumns: '5rem 6.5rem' }}
+                          {todo.viewTo && (
+                            <Link to={todo.viewTo} className="btn-refined text-center">
+                              View
+                            </Link>
+                          )}
+                          <button
+                            onClick={todo.onAction}
+                            className="btn-refined btn-refined--solid text-center"
                           >
-                            {todo.viewTo ? (
-                              <Link to={todo.viewTo} className="btn-refined text-center">
-                                View
-                              </Link>
-                            ) : (
-                              <span aria-hidden="true" />
-                            )}
-                            <button
-                              onClick={todo.onAction}
-                              className="btn-refined btn-refined--solid text-center"
-                            >
-                              {todo.actionLabel}
-                            </button>
-                          </div>
+                            {todo.actionLabel}
+                          </button>
                         </div>
                       )}
                     </div>
@@ -3975,10 +3943,7 @@ export default function Dashboard() {
                   ? 'Did not make championship'
                   : 'Made the championship game',
               customActions: ccMadeChampionship === null && !isViewOnly ? (
-                <div
-                  className="grid gap-1.5 sm:gap-2 flex-shrink-0 items-center"
-                  style={{ gridTemplateColumns: '5rem 6.5rem' }}
-                >
+                <div className="flex gap-1.5 sm:gap-2 flex-shrink-0 items-center [&_.btn-refined]:min-w-[4.5rem]">
                   <button
                     onClick={() => handleCCAnswer(false)}
                     className="btn-refined text-center"
@@ -4208,13 +4173,13 @@ export default function Dashboard() {
                       />
                       <div className="min-w-0">
                         <div
-                          className="font-display font-bold leading-tight text-txt-primary truncate"
+                          className="font-display font-bold leading-tight text-txt-primary break-words"
                           style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
                         >
                           {todo.title}
                         </div>
                         {todo.subtitle && (
-                          <div className="hidden sm:block text-xs sm:text-[13px] mt-0.5 text-txt-tertiary truncate">
+                          <div className="hidden sm:block text-xs sm:text-[13px] mt-0.5 text-txt-tertiary">
                             {todo.subtitle}
                           </div>
                         )}
@@ -4231,26 +4196,19 @@ export default function Dashboard() {
                       </div>
                     </div>
                     {todo.customActions ?? (!isViewOnly && todo.actionLabel ? (
-                      <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 [&_.btn-refined]:min-w-[4.5rem]">
                         {todo.extraTools}
-                        <div
-                          className="grid gap-1.5 sm:gap-2 items-center"
-                          style={{ gridTemplateColumns: '5rem 6.5rem' }}
+                        {todo.viewTo && (
+                          <Link to={todo.viewTo} className="btn-refined text-center">
+                            View
+                          </Link>
+                        )}
+                        <button
+                          onClick={todo.onAction}
+                          className="btn-refined btn-refined--solid text-center"
                         >
-                          {todo.viewTo ? (
-                            <Link to={todo.viewTo} className="btn-refined text-center">
-                              View
-                            </Link>
-                          ) : (
-                            <span aria-hidden="true" />
-                          )}
-                          <button
-                            onClick={todo.onAction}
-                            className="btn-refined btn-refined--solid text-center"
-                          >
-                            {todo.actionLabel}
-                          </button>
-                        </div>
+                          {todo.actionLabel}
+                        </button>
                       </div>
                     ) : null)}
                   </div>
