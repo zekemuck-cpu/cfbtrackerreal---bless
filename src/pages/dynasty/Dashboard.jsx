@@ -4688,19 +4688,38 @@ export default function Dashboard() {
                     },
                   })
                 } : showBowlEditButton ? async () => {
-                  setBowlEligible(null)
-                  setSelectedBowl('')
-                  setBowlOpponent('')
-                  const existingBowlGame = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear))
-                  const updatedGames = existingBowlGame
-                    ? currentDynasty.games.filter(g => !(g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear) && getUserGamePerspective(g, currentDynasty)))
-                    : currentDynasty.games
-                  const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
-                  const { [currentYear]: _, ...restByYear } = existingByYear
-                  await updateDynasty(currentDynasty.id, {
-                    bowlEligibilityDataByYear: restByYear,
-                    games: updatedGames,
-                  })
+                  // Complete state (bowl + opponent set): keep the bowl, just re-open opponent picker
+                  if (bowlEligible === true && selectedBowl && bowlOpponent) {
+                    setBowlOpponent('')
+                    const existingBowlGame = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear))
+                    const updatedGames = existingBowlGame
+                      ? currentDynasty.games.filter(g => !(g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear) && getUserGamePerspective(g, currentDynasty)))
+                      : currentDynasty.games
+                    const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
+                    const currentBowlData = existingByYear[currentYear] || {}
+                    await updateDynasty(currentDynasty.id, {
+                      bowlEligibilityDataByYear: {
+                        ...existingByYear,
+                        [currentYear]: { ...currentBowlData, opponent: '' },
+                      },
+                      games: updatedGames,
+                    })
+                  } else {
+                    // Bowl-picker or "No" state: full reset back to Yes/No
+                    setBowlEligible(null)
+                    setSelectedBowl('')
+                    setBowlOpponent('')
+                    const existingBowlGame = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear))
+                    const updatedGames = existingBowlGame
+                      ? currentDynasty.games.filter(g => !(g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear) && getUserGamePerspective(g, currentDynasty)))
+                      : currentDynasty.games
+                    const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
+                    const { [currentYear]: _, ...restByYear } = existingByYear
+                    await updateDynasty(currentDynasty.id, {
+                      bowlEligibilityDataByYear: restByYear,
+                      games: updatedGames,
+                    })
+                  }
                 } : undefined,
                 actionLabel: askingBowlEligibility ? 'Yes' : showBowlEditButton ? 'Edit' : undefined,
                 extraTools: askingBowlEligibility ? (
@@ -4743,7 +4762,27 @@ export default function Dashboard() {
                   </div>
                 ) : !userCFPSeed && bowlEligible === true && selectedBowl && !bowlOpponent ? (
                   <div className="max-w-xs">
-                    <p className="mb-1 text-xs text-txt-tertiary">Playing in: <strong className="text-txt-primary">{selectedBowl}</strong></p>
+                    <div className="flex items-center gap-2 mb-2">
+                      <p className="text-xs sm:text-sm text-txt-secondary">Playing in: <strong className="text-txt-primary">{selectedBowl}</strong></p>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setSelectedBowl('')
+                          const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
+                          const currentBowlData = existingByYear[currentYear] || {}
+                          await updateDynasty(currentDynasty.id, {
+                            bowlEligibilityDataByYear: {
+                              ...existingByYear,
+                              [currentYear]: { ...currentBowlData, bowlGame: '' },
+                            },
+                          })
+                        }}
+                        className="text-[11px] uppercase font-bold text-txt-tertiary hover:text-txt-secondary underline underline-offset-2 transition-colors flex-shrink-0"
+                        style={{ letterSpacing: '1.2px' }}
+                      >
+                        Change
+                      </button>
+                    </div>
                     <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Who is your opponent?</p>
                     <SearchableSelect
                       options={teams}
