@@ -437,7 +437,6 @@ export default function Rankings() {
   const weekLabel = (w) => {
     if (w === 0) return 'Preseason Rankings'
     if (w === 15) return 'Conf Champ Week'  // post-Week-14 / pre-CCG poll slot
-    if (w === 100) return 'Conference Championships'
     if (w === 101) return 'CFP First Round'
     if (w === 102) return 'CFP Quarterfinals'
     if (w === 103) return 'CFP Semifinals'

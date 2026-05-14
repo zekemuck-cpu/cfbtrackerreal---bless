@@ -445,9 +445,6 @@ FINAL CHECK before you send
   // active season for free.
   const embedUrl = sheetId ? getSingleSheetEmbedUrl(sheetId) : null
   const isLoading = creatingSheet || regenerating
-  const yearsLabel = promptYears.length > 0
-    ? `${promptYears.length} year${promptYears.length === 1 ? '' : 's'} · ${promptYears[promptYears.length - 1]}–${promptYears[0]}`
-    : ''
 
   return createPortal(
     <div
@@ -465,7 +462,7 @@ FINAL CHECK before you send
       >
         <SheetModalHeader
           eyebrow="History"
-          title={yearsLabel ? `Conference Championships · ${yearsLabel}` : 'Conference Championships'}
+          title="Conference Championships"
           onClose={onClose}
         />
 

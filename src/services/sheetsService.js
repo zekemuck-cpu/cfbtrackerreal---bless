@@ -14918,10 +14918,19 @@ export async function readFringeCaseClassFromSheet(spreadsheetId, dynastyTeams =
 // ──────────────────────────────────────────────────────────────────────
 
 // Week-key columns. Order matches the headers on the sheet.
-const TOP25_WEEK_KEYS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 100, 101, 102, 103, 104, 105]
+// Slot 15 is the canonical Conference Championship Week rank slot —
+// post-Week-14, pre-CCG-game poll. WeeklyScoresModal writes there when
+// the dynasty is in CCG phase, and getTeamRanking anchors there for
+// CCG-phase reads. The phantom slot 100 ('CC' label) was a leftover
+// from when the schema had two adjacent CCG-week slots; nothing ever
+// wrote to 100, but its presence as a column on the Top 25 sheet led
+// users to enter CCG rankings into a dead column. Dropped here so the
+// sheet exposes ONE clearly-labeled CCG column at slot 15, and any
+// stray slot-100 data is migrated to slot 15 in the dynasty loader.
+const TOP25_WEEK_KEYS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 101, 102, 103, 104, 105]
 const TOP25_WEEK_LABELS = {
   0: 'Preseason',
-  100: 'CC',
+  15: 'CCG',
   101: 'CFP-1',
   102: 'CFP-Q',
   103: 'CFP-S',

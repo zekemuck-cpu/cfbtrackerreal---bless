@@ -5851,6 +5851,53 @@ export function DynastyProvider({ children }) {
         migrated = touched ? next : { ...migrated, _week15MigratedV2: true }
       }
 
+      // Collapse phantom rankByWeek slot 100 into the canonical CCG-week
+      // slot 15. The Top 25 sheet schema used to expose BOTH a "Week 15"
+      // column (slot 15) AND a "CC" column (slot 100) — only slot 15 was
+      // ever written to by code, but users who typed CCG-week rankings
+      // into the "CC" column stranded data at slot 100 where nothing
+      // else in the app reads it. After the schema simplification that
+      // drops slot 100 from TOP25_WEEK_KEYS, that stray data needs to
+      // land at slot 15 so the Rankings page and getTeamRanking see it.
+      // Conflict policy: existing slot-15 data wins (the canonical slot
+      // is authoritative); slot-100-only entries fall through.
+      // Idempotent — gated by _rankSlot100MigratedV1.
+      if (!migrated._rankSlot100MigratedV1) {
+        let touched = false
+        const teamsObj = migrated.teams || {}
+        const nextTeams = {}
+        for (const [tidKey, team] of Object.entries(teamsObj)) {
+          if (!team?.byYear) {
+            nextTeams[tidKey] = team
+            continue
+          }
+          let teamTouched = false
+          const nextByYear = {}
+          for (const [yearKey, yearEntry] of Object.entries(team.byYear)) {
+            const rbw = yearEntry?.rankByWeek
+            if (!rbw || !(100 in rbw || '100' in rbw)) {
+              nextByYear[yearKey] = yearEntry
+              continue
+            }
+            const slot100 = rbw[100] ?? rbw['100']
+            const slot15 = rbw[15] ?? rbw['15']
+            const nextRbw = { ...rbw }
+            delete nextRbw[100]
+            delete nextRbw['100']
+            if (slot15 == null && typeof slot100 === 'number') {
+              nextRbw[15] = slot100
+            }
+            nextByYear[yearKey] = { ...yearEntry, rankByWeek: nextRbw }
+            teamTouched = true
+          }
+          nextTeams[tidKey] = teamTouched ? { ...team, byYear: nextByYear } : team
+          if (teamTouched) touched = true
+        }
+        migrated = touched
+          ? { ...migrated, teams: nextTeams, _rankSlot100MigratedV1: true }
+          : { ...migrated, _rankSlot100MigratedV1: true }
+      }
+
       // Apply stats migration if needed
       if (!migrated._statsMigrated) {
         migrated = migrateStatsToPlayers(migrated)
