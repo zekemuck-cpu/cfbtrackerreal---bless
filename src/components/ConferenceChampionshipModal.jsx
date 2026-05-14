@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { useDynasty } from '../context/DynastyContext'
+import { useDynasty, getCustomConferencesForYear } from '../context/DynastyContext'
+import { conferenceTeams as DEFAULT_CONFERENCE_TEAMS } from '../data/conferenceTeams'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
@@ -75,6 +76,28 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
 
     const orderListInline = sheetConferences.join(', ')
 
+    // Per-conference team membership FOR THIS DYNASTY. Users routinely
+    // realign — e.g. move Missouri + Georgia into the Pac-12 — so the AI
+    // cannot infer membership from real-world knowledge. This block tells
+    // it exactly which teams are eligible for each row's two dropdowns.
+    const customConfs = getCustomConferencesForYear(currentDynasty, currentYear)
+    const sourceMap = customConfs || DEFAULT_CONFERENCE_TEAMS
+    const abbrToName = {}
+    for (const t of Object.values(currentDynasty?.teams || {})) {
+      if (t?.abbr && t?.name) abbrToName[String(t.abbr).toUpperCase()] = t.name
+    }
+    const membershipBlock = sheetConferences.map(conf => {
+      const abbrs = Array.isArray(sourceMap[conf]) ? [...sourceMap[conf]] : []
+      abbrs.sort((a, b) => String(a).localeCompare(String(b)))
+      if (abbrs.length === 0) return `${conf}: (no teams assigned in this dynasty)`
+      const entries = abbrs.map(a => {
+        const upper = String(a).toUpperCase()
+        const name = abbrToName[upper]
+        return name ? `${upper} (${name})` : upper
+      })
+      return `${conf}: ${entries.join(', ')}`
+    }).join('\n')
+
     return buildAIPrompt({
       title: `${currentYear} Conference Championships`,
       structure: `This sheet has ONE tab named "Conference Championships". 5 columns, ${totalRows + 1} rows (1 header + ${totalRows} conferences).
@@ -90,7 +113,7 @@ CRITICAL RULES — read before anything else
 3. ${exclusionNote}
 4. NO COMMAS in scores. Integers only. No decimals.
 5. BLANK LINE (empty, no tabs) if you do not know the CC result for a conference. Never guess. Never invent scores. The blank still counts as that conference's line — keep position so all later lines stay aligned.
-6. Team 1 and Team 2 must BOTH be members of the conference for that row.
+6. Team 1 and Team 2 must BOTH be members of the conference for that row, ACCORDING TO THE CONFERENCE MEMBERSHIP BLOCK BELOW — not according to real-world conferences. Users realign teams (e.g. Missouri and Georgia could be in the Pac-12 in this dynasty). Look every team up in the membership block before you write it.
 7. Both teams must use UPPERCASE abbreviations from the mapping at the bottom — NEVER full names or nicknames.
 8. ONE TSV block, preceded by the required paste-target label line above the fence (see Method A/B rules above).
 
@@ -106,6 +129,15 @@ Sheet Row | Col A (PROTECTED)    | Your output: Team1\\tTeam2\\tTeam1Score\\tTea
 ${rowTable}
 
 Order in plain words: ${orderListInline}.
+
+═══════════════════════════════════════════════════════════
+CONFERENCE MEMBERSHIP — DYNASTY-SPECIFIC, NOT REAL LIFE
+═══════════════════════════════════════════════════════════
+THIS IS THE MOST COMMON MISTAKE. READ TWICE.
+
+The dynasty user can move any team between conferences. The list below is the ONLY source of truth for which teams belong in each conference for this dynasty/year. Do NOT use real-world conference knowledge. Both teams on each output line MUST appear in that row's conference list below — if a team is not listed in the conference for that row, that team is INELIGIBLE for that row.
+
+${membershipBlock}
 
 Per-line output (4 tab-separated fields):
 <Team 1 Abbr>\\t<Team 2 Abbr>\\t<Team 1 Score>\\t<Team 2 Score>
@@ -129,7 +161,7 @@ FINAL CHECK before you send
 [ ] First line is for ${sheetConferences[0]} (NOT alphabetical — match the row table)
 [ ] Last line is for ${sheetConferences[totalRows - 1]}
 [ ] Every non-blank line has exactly 4 tab-separated fields (3 tabs)
-[ ] Both teams on each line are members of that row's conference
+[ ] Both teams on each line appear in that row's conference list in the CONFERENCE MEMBERSHIP block (not your real-world knowledge)
 [ ] Team 1 and Team 2 are different teams
 [ ] All team values are uppercase abbreviations from the mapping — no full names
 [ ] All scores are integers with no commas and no decimals
@@ -138,7 +170,13 @@ FINAL CHECK before you send
       includeTeamMap: true,
       dynastyTeams: currentDynasty?.teams,
     })
-  }, [currentYear, currentDynasty?.teams])
+  }, [
+    currentYear,
+    currentDynasty?.teams,
+    currentDynasty?.customConferences,
+    currentDynasty?.customConferencesByYear,
+    currentDynasty?.conferenceByTeamYear,
+  ])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

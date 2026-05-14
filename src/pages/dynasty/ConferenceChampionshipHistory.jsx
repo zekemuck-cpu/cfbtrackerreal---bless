@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { useDynasty, GAME_TYPES, detectGameType } from '../../context/DynastyContext'
+import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams, getSchoolName } from '../../data/teams'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { TEAMS, getGameTeamInfo } from '../../data/teamRegistry'
 import { getTeamConference } from '../../data/conferenceTeams'
 import { PageHero, Card, EmptyState, Input } from '../../components/ui'
+import ConferenceChampionshipsHistorySheetModal from '../../components/ConferenceChampionshipsHistorySheetModal'
 
 const getMascotName = (abbr, teamsData = null) => {
   if (teamsData) {
@@ -107,10 +109,12 @@ const CONFERENCES = [
 export default function ConferenceChampionshipHistory() {
   const { id } = useParams()
   const [searchParams] = useSearchParams()
-  const { currentDynasty } = useDynasty()
+  const { currentDynasty, isViewOnly } = useDynasty()
+  const { user } = useAuth()
   const pathPrefix = usePathPrefix()
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedConference, setExpandedConference] = useState(null)
+  const [editSheetOpen, setEditSheetOpen] = useState(false)
   const conferenceRefs = useRef({})
 
   useEffect(() => {
@@ -239,9 +243,21 @@ export default function ConferenceChampionshipHistory() {
     return set.size
   })()
 
+  const canEdit = !isViewOnly && !!user
+
   return (
     <div className="space-y-4 page-enter">
-      <PageHero title="Conference Championships">
+      <PageHero
+        title="Conference Championships"
+        actions={canEdit ? (
+          <button
+            onClick={() => setEditSheetOpen(true)}
+            className="btn-refined btn-refined--solid"
+          >
+            Edit
+          </button>
+        ) : null}
+      >
         <div className="max-w-md">
           <Input
             type="text"
@@ -477,6 +493,11 @@ export default function ConferenceChampionshipHistory() {
           .expand-body { animation: none; }
         }
       `}</style>
+
+      <ConferenceChampionshipsHistorySheetModal
+        isOpen={editSheetOpen}
+        onClose={() => setEditSheetOpen(false)}
+      />
     </div>
   )
 }

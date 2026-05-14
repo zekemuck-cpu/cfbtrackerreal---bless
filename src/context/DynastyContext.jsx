@@ -9475,6 +9475,125 @@ export function DynastyProvider({ children }) {
     return newGames
   }
 
+  // Multi-year save flow for the Conference Championships History sheet.
+  // Takes `byYear` shaped as { [year]: championships[] } (the output of
+  // readConferenceChampionshipsHistoryFromSheet) and writes ALL years in
+  // a single updateDynasty call.
+  //
+  // This is an "edit history" flow — the sheet is the source of truth.
+  // Each year's pass FULLY WIPES that year's existing CC games and replaces
+  // them with whatever the sheet dictates. No user-game preservation, no
+  // partial overlays — the sheet wins. (Earlier iterations preserved the
+  // user's CC game when its conference row read blank, which broke
+  // re-submissions where the user was fixing a wrong conference mapping:
+  // the stale user game survived the wipe and shadowed the corrected entry
+  // through dedup. Re-saving the sheet now overwrites cleanly every time.)
+  //
+  // Running every year in a single updateDynasty call (instead of one call
+  // per year) avoids the React-state staleness window where a second
+  // call's findDynastyById would still see the pre-write currentDynasty.
+  //
+  // Returns: { yearsApplied: number[], gameCountsByYear: { [year]: number } }
+  const saveConferenceChampionshipsHistoryFromSheet = async (dynastyId, byYear) => {
+    if (blockIfReadOnly(dynastyId, 'save conference championships history')) return
+
+    const dynasty = await findDynastyById(dynastyId)
+    if (!dynasty) {
+      console.error('[saveCCHistory] Dynasty not found:', dynastyId)
+      return
+    }
+
+    const existingGames = await getDynastyGames(dynasty)
+    const yearsApplied = []
+    const gameCountsByYear = {}
+
+    // CCG detection that survives partial data — some legacy/imported games
+    // only set one of the two flags, so checking either keeps the wipe
+    // exhaustive.
+    const isCCGEntry = (g) =>
+      g?.isConferenceChampionship === true ||
+      g?.gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP
+
+    // Start from the full existing games array and apply each year's
+    // edits in turn. Each year's pass: remove ALL of that year's CC games,
+    // then append the filtered/converted new games.
+    let runningGames = [...existingGames]
+
+    for (const yearKey of Object.keys(byYear || {})) {
+      const year = Number(yearKey)
+      if (!Number.isFinite(year)) continue
+      const championships = Array.isArray(byYear[yearKey]) ? byYear[yearKey] : []
+
+      const userTidForYear = dynasty.coachTeamByYear?.[year]?.tid || getCurrentTeamTid(dynasty)
+
+      const filtered = runningGames.filter(g => {
+        if (Number(g.year) !== Number(year)) return true
+        if (!isCCGEntry(g)) return true
+        return false // drop every CC game for this year — sheet is authoritative
+      })
+
+      const newGamesForYear = championships
+        .filter(cc => {
+          if (!cc?.team1 || !cc?.team2) return false
+          if (cc.team1Score === null || cc.team1Score === undefined) return false
+          if (cc.team2Score === null || cc.team2Score === undefined) return false
+          return true
+        })
+        .map(cc => {
+          const team1Tid = cc.team1Tid || getTidFromAbbr(cc.team1, dynasty)
+          const team2Tid = cc.team2Tid || getTidFromAbbr(cc.team2, dynasty)
+          const team1Score = parseInt(cc.team1Score)
+          const team2Score = parseInt(cc.team2Score)
+          const winnerTid = team1Score > team2Score ? team1Tid : team2Tid
+          return {
+            id: `cc-${year}-${cc.conference?.replace(/\s+/g, '-').toLowerCase() || Date.now()}`,
+            isConferenceChampionship: true,
+            conference: cc.conference,
+            year: Number(year),
+            week: 'CCG',
+            gameType: GAME_TYPES.CONFERENCE_CHAMPIONSHIP,
+            team1Tid,
+            team2Tid,
+            team1Score,
+            team2Score,
+            homeTeamTid: null,
+            winnerTid,
+            gameNote: cc.gameNote || '',
+            links: cc.links || '',
+            createdAt: new Date().toISOString(),
+          }
+        })
+
+      // Deduplicate this year's new entries by conference (prefer the
+      // entry involving the user's team if there's a collision).
+      const seenConfKeys = new Map()
+      const dedupedNew = []
+      for (const game of newGamesForYear) {
+        const key = `cc-${game.year}-${game.conference?.toLowerCase()}`
+        if (seenConfKeys.has(key)) {
+          const existingIdx = seenConfKeys.get(key)
+          const thisIsUserGame = (game.team1Tid === userTidForYear || game.team2Tid === userTidForYear)
+          const existingIsUserGame = (dedupedNew[existingIdx].team1Tid === userTidForYear ||
+                                      dedupedNew[existingIdx].team2Tid === userTidForYear)
+          if (thisIsUserGame && !existingIsUserGame) {
+            dedupedNew[existingIdx] = game
+          }
+          continue
+        }
+        seenConfKeys.set(key, dedupedNew.length)
+        dedupedNew.push(game)
+      }
+
+      runningGames = [...filtered, ...dedupedNew]
+      yearsApplied.push(year)
+      gameCountsByYear[year] = dedupedNew.length
+    }
+
+    await updateDynasty(dynastyId, { games: runningGames })
+
+    return { yearsApplied, gameCountsByYear }
+  }
+
   const advanceWeek = async (dynastyId, classConfirmations = {}) => {
     if (blockIfReadOnly(dynastyId, 'advance week')) return
     console.log('[advanceWeek] ========== STARTING ==========')
@@ -15256,6 +15375,7 @@ export function DynastyProvider({ children }) {
     saveWeeklyScores,
     saveCFPGames,
     saveCPUConferenceChampionships,
+    saveConferenceChampionshipsHistoryFromSheet,
     advanceWeek,
     advanceToNewSeason,
     revertWeek,

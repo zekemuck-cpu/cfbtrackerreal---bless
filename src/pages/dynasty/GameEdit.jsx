@@ -381,7 +381,32 @@ export default function GameEdit() {
   // Game metadata
   const gameYear = existingGame?.year || (queryYear ? parseInt(queryYear) : currentDynasty?.currentYear)
   const gameWeek = existingGame?.week || queryWeek || ''
-  const gameType = existingGame?.gameType || queryGameType || 'regular'
+  // gameType is editable — the user picks "Regular Season" or
+  // "Conference Championship" via the classification dropdown in the
+  // form. Bowl/CFP types stay in the dropdown for display but the picker
+  // disables itself so users can't accidentally convert away from those
+  // (each has matchup/seed/bowl-name state that this form doesn't carry).
+  // Initialized from existingGame / query param so editing a game keeps
+  // its current classification, then hydrated again when existingGame
+  // resolves on async dynasty loads.
+  const [gameType, setGameType] = useState(() =>
+    (existingGame?.gameType) ||
+    (existingGame?.isConferenceChampionship ? 'conference_championship' : null) ||
+    (existingGame?.isBowlGame ? 'bowl' : null) ||
+    (existingGame?.isCFPFirstRound ? 'cfp_first_round' : null) ||
+    (existingGame?.isCFPQuarterfinal ? 'cfp_quarterfinal' : null) ||
+    (existingGame?.isCFPSemifinal ? 'cfp_semifinal' : null) ||
+    (existingGame?.isCFPChampionship ? 'cfp_championship' : null) ||
+    queryGameType ||
+    'regular'
+  )
+  // Conference picker — only used when gameType is conference_championship.
+  // Pre-fills from the game's stored conference, falling back to the query
+  // param and the dynasty's own conference so the dropdown opens on a
+  // sensible default.
+  const [selectedConference, setSelectedConference] = useState(() =>
+    existingGame?.conference || queryConference || currentDynasty?.conference || ''
+  )
   const bowlName = existingGame?.bowlName || queryBowlName || ''
 
   // Determine game title
@@ -946,6 +971,26 @@ export default function GameEdit() {
     }
   }, [existingGame, isNewGame, team1Tid, team2Tid, gameYear, queryLocation])
 
+  // Re-hydrate the classification dropdown when existingGame resolves
+  // late (cloud dynasties load games async — the initial useState reads
+  // run before the game record is in hand, so without this the picker
+  // would stick on 'regular' for any non-regular game opened directly
+  // by URL).
+  useEffect(() => {
+    if (!existingGame) return
+    const derivedType =
+      existingGame.gameType ||
+      (existingGame.isConferenceChampionship ? 'conference_championship' : null) ||
+      (existingGame.isBowlGame ? 'bowl' : null) ||
+      (existingGame.isCFPFirstRound ? 'cfp_first_round' : null) ||
+      (existingGame.isCFPQuarterfinal ? 'cfp_quarterfinal' : null) ||
+      (existingGame.isCFPSemifinal ? 'cfp_semifinal' : null) ||
+      (existingGame.isCFPChampionship ? 'cfp_championship' : null) ||
+      'regular'
+    setGameType(derivedType)
+    if (existingGame.conference) setSelectedConference(existingGame.conference)
+  }, [existingGame?.id])
+
   // Quarter score helpers
   const hasQuarterScores = () => {
     const quarters = formData.quarters
@@ -1060,11 +1105,22 @@ export default function GameEdit() {
       const team1ConfRecordToSave = autoFillRecords ? (live1.confRecord || '') : formData.team1ConfRecord
       const team2ConfRecordToSave = autoFillRecords ? (live2.confRecord || '') : formData.team2ConfRecord
 
+      // Resolve the classification flags from the picker state. We do
+      // this once (here, before assembling gameData) so handleSave +
+      // saveGameDataSilently stay in lockstep — both call into the same
+      // shape. The picker only governs CCG ↔ Regular; bowl/CFP flags
+      // ride along from existingGame because the picker locks itself
+      // when current is one of those.
+      const isCCGType = gameType === 'conference_championship'
+      const conferenceForCCG = isCCGType
+        ? (selectedConference || existingGame?.conference || currentDynasty?.conference || '')
+        : null
+
       const gameData = {
         id: currentGameId || existingGame?.id || `game-${Date.now()}`,
         week: gameWeek,
         year: gameYear,
-        gameType: existingGame?.gameType || gameType,
+        gameType,
         team1Tid,
         team2Tid,
         team1Score: parseInt(formData.team1Score) || 0,
@@ -1092,11 +1148,19 @@ export default function GameEdit() {
         nationalPOW: formData.nationalPOW || '',
         natlDefensePOW: formData.natlDefensePOW || '',
         // NOTE: No userTid - games are team-centric (team1Tid/team2Tid), not user-centric
-        // Set game type flags from existingGame or gameType query param for new games
+        //
+        // CCG flags written unconditionally so type transitions overwrite
+        // stale flags during the {...existingGame, ...gameData} merge.
+        // (Without explicit `false` / `null`, switching a game from CCG
+        // back to Regular would leave the old isConferenceChampionship:
+        // true on the game, breaking every page that filters CC games.)
+        isConferenceChampionship: isCCGType,
+        conference: conferenceForCCG,
+        // Bowl + CFP flags ride along from existingGame — the picker
+        // doesn't allow conversion in or out of those types, so the
+        // existing classification is the truth.
         ...(existingGame?.isBowlGame && { isBowlGame: true, bowlName: existingGame.bowlName }),
         ...(!existingGame && gameType === 'bowl' && { isBowlGame: true, bowlName }),
-        ...(existingGame?.isConferenceChampionship && { isConferenceChampionship: true, conference: existingGame.conference }),
-        ...(!existingGame && gameType === 'conference_championship' && { isConferenceChampionship: true, conference: queryConference || currentDynasty?.conference }),
         ...(existingGame?.isCFPFirstRound && { isCFPFirstRound: true }),
         ...(!existingGame && gameType === 'cfp_first_round' && { isCFPFirstRound: true }),
         ...(existingGame?.isCFPQuarterfinal && { isCFPQuarterfinal: true }),
@@ -1110,6 +1174,11 @@ export default function GameEdit() {
         ...(existingGame?.cfpSlot && { cfpSlot: existingGame.cfpSlot }),
         ...(existingGame?.cfpRound && { cfpRound: existingGame.cfpRound }),
         ...(existingGame?.bowlName && { bowlName: existingGame.bowlName }),
+        // CCG-week normalization: when flipping a game TO conference
+        // championship, set week='CCG' so it sorts/filters with the
+        // other CCGs. Flipping back to Regular leaves the week as-is
+        // (user can edit it separately if needed).
+        ...(isCCGType ? { week: 'CCG' } : {}),
         // Save links as array (filter out empty entries)
         ...(() => {
           const validLinks = formData.links.filter(l => l.trim())
@@ -1239,11 +1308,18 @@ export default function GameEdit() {
       const team1ConfRecordToSave = autoFillRecords ? (live1.confRecord || '') : formData.team1ConfRecord
       const team2ConfRecordToSave = autoFillRecords ? (live2.confRecord || '') : formData.team2ConfRecord
 
+      // Mirror handleSave: classification picker is the source of truth
+      // for CCG vs. Regular. Bowl/CFP flags ride along from existingGame.
+      const isCCGType = gameType === 'conference_championship'
+      const conferenceForCCG = isCCGType
+        ? (selectedConference || existingGame?.conference || currentDynasty?.conference || '')
+        : null
+
       const gameData = {
         id: currentGameId || existingGame?.id || `game-${Date.now()}`,
         week: gameWeek,
         year: gameYear,
-        gameType: existingGame?.gameType || gameType,
+        gameType,
         team1Tid,
         team2Tid,
         team1Score: parseInt(formData.team1Score) || 0,
@@ -1271,11 +1347,12 @@ export default function GameEdit() {
         nationalPOW: formData.nationalPOW || '',
         natlDefensePOW: formData.natlDefensePOW || '',
         // NOTE: No userTid - games are team-centric (team1Tid/team2Tid), not user-centric
-        // Preserve game type flags
+        // CCG flags written unconditionally (see handleSave for why).
+        isConferenceChampionship: isCCGType,
+        conference: conferenceForCCG,
+        // Bowl/CFP flags ride along from existingGame.
         ...(existingGame?.isBowlGame && { isBowlGame: true, bowlName: existingGame.bowlName }),
         ...(!existingGame && gameType === 'bowl' && { isBowlGame: true, bowlName }),
-        ...(existingGame?.isConferenceChampionship && { isConferenceChampionship: true, conference: existingGame.conference }),
-        ...(!existingGame && gameType === 'conference_championship' && { isConferenceChampionship: true, conference: queryConference || currentDynasty?.conference }),
         ...(existingGame?.isCFPFirstRound && { isCFPFirstRound: true }),
         ...(!existingGame && gameType === 'cfp_first_round' && { isCFPFirstRound: true }),
         ...(existingGame?.isCFPQuarterfinal && { isCFPQuarterfinal: true }),
@@ -1289,6 +1366,7 @@ export default function GameEdit() {
         ...(existingGame?.cfpSlot && { cfpSlot: existingGame.cfpSlot }),
         ...(existingGame?.cfpRound && { cfpRound: existingGame.cfpRound }),
         ...(existingGame?.bowlName && { bowlName: existingGame.bowlName }),
+        ...(isCCGType ? { week: 'CCG' } : {}),
         // Save links as array (filter out empty entries)
         ...(() => {
           const validLinks = formData.links.filter(l => l.trim())
@@ -1805,6 +1883,86 @@ export default function GameEdit() {
               </div>
             </div>
           </div>
+        )
+      })()}
+
+      {/* Game classification — lets the user pick what kind of game this is.
+          Currently supports flipping between Regular Season and Conference
+          Championship (the most common correction: a game that was saved with
+          the wrong type, e.g. a CCG accidentally tagged to the wrong
+          conference, or a regular-season matchup that should be marked as a
+          conference championship). Bowl / CFP types stay visible but
+          read-only — those carry matchup / seed state that lives elsewhere
+          (postseason flow), so we don't let users casually convert away from
+          them. */}
+      {(() => {
+        const isManagedType = gameType === 'bowl' || gameType?.startsWith('cfp_')
+        const managedLabelMap = {
+          bowl: 'Bowl Game',
+          cfp_first_round: 'CFP First Round',
+          cfp_quarterfinal: 'CFP Quarterfinal',
+          cfp_semifinal: 'CFP Semifinal',
+          cfp_championship: 'CFP National Championship',
+        }
+        const CONFERENCE_OPTIONS = [
+          'ACC',
+          'American',
+          'Big 12',
+          'Big Ten',
+          'Conference USA',
+          'MAC',
+          'Mountain West',
+          'Pac-12',
+          'SEC',
+          'Sun Belt',
+        ]
+        return (
+          <Card>
+            <h3 className="label-sm text-txt-primary mb-1">Game Type</h3>
+            <p className="text-[11px] text-txt-tertiary mb-3">
+              {isManagedType
+                ? 'Bowl and CFP games are managed via the postseason flow — convert there if you need to change the type.'
+                : 'Switch between a regular-season game and a conference championship. Conference championships pick a conference below.'}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-txt-tertiary mb-1">Classification</label>
+                <Select
+                  size="sm"
+                  value={gameType}
+                  disabled={isManagedType}
+                  onChange={(e) => {
+                    const next = e.target.value
+                    setGameType(next)
+                    if (next === 'conference_championship' && !selectedConference) {
+                      setSelectedConference(currentDynasty?.conference || 'SEC')
+                    }
+                  }}
+                >
+                  <option value="regular">Regular Season</option>
+                  <option value="conference_championship">Conference Championship</option>
+                  {isManagedType && (
+                    <option value={gameType}>{managedLabelMap[gameType] || gameType}</option>
+                  )}
+                </Select>
+              </div>
+              {gameType === 'conference_championship' && (
+                <div>
+                  <label className="block text-xs text-txt-tertiary mb-1">Conference</label>
+                  <Select
+                    size="sm"
+                    value={selectedConference}
+                    onChange={(e) => setSelectedConference(e.target.value)}
+                  >
+                    <option value="">Select a conference…</option>
+                    {CONFERENCE_OPTIONS.map(conf => (
+                      <option key={conf} value={conf}>{conf}</option>
+                    ))}
+                  </Select>
+                </div>
+              )}
+            </div>
+          </Card>
         )
       })()}
 
