@@ -8318,6 +8318,72 @@ export function DynastyProvider({ children }) {
     return newGames
   }
 
+  // Delete a single game by id. Fast path on cloud — one Firestore
+  // delete + local-state update — falls back to the slow
+  // full-array updateDynasty on local storage. If the deleted game
+  // had a box score, we re-aggregate that year's player stats so
+  // season totals don't keep counting the removed game's
+  // contribution.
+  const deleteGame = async (dynastyId, gameId) => {
+    if (blockIfReadOnly(dynastyId, 'delete game')) return
+    if (!gameId) throw new Error('deleteGame: gameId required')
+
+    const dynasty = dynasties.find(d => String(d.id) === String(dynastyId))
+      || (String(currentDynasty?.id) === String(dynastyId) ? currentDynasty : null)
+    if (!dynasty) throw new Error(`deleteGame: dynasty ${dynastyId} not found`)
+
+    const games = dynasty.games || []
+    const target = games.find(g => String(g.id) === String(gameId))
+    if (!target) throw new Error(`deleteGame: game ${gameId} not found`)
+
+    const updatedGames = games.filter(g => String(g.id) !== String(gameId))
+    const yearOfGame = Number(target.year)
+    const hadBoxScore = !!target.boxScore || !!target.statsContributed
+
+    const isCloud = dynasty.storageType === 'cloud'
+
+    if (isCloud) {
+      try {
+        // Listener-skip guards so the snapshot listener doesn't
+        // bring the deleted game back from a stale subcollection
+        // read while our delete is in flight.
+        bumpSkipCount(3)
+        skipListenerTimestampRef.current = Date.now()
+        lastGamesUpdateTimestampRef.current = Date.now()
+        lastGamesUpdateDynastyIdRef.current = dynastyId
+
+        await deleteGameFromSubcollection(dynastyId, gameId)
+
+        // Local state — optimistic and immediate. Same shape the
+        // addGame fast path uses.
+        const updatedDynasty = { ...dynasty, games: updatedGames, lastModified: Date.now() }
+        setDynasties(prev => prev.map(d =>
+          String(d.id) === String(dynastyId) ? updatedDynasty : d
+        ))
+        if (String(currentDynasty?.id) === String(dynastyId)) {
+          setCurrentDynasty(updatedDynasty)
+        }
+      } catch (err) {
+        console.error('[deleteGame] Fast-path delete failed, falling back to full updateDynasty:', err)
+        await updateDynasty(dynastyId, { games: updatedGames })
+      }
+    } else {
+      // Local-storage path: write through updateDynasty.
+      await updateDynasty(dynastyId, { games: updatedGames })
+    }
+
+    // Re-aggregate that year's player stats so season totals don't
+    // keep counting the deleted game's contribution. Skip when the
+    // game had no box score — there's nothing to subtract.
+    if (hadBoxScore && Number.isFinite(yearOfGame)) {
+      try {
+        await syncAllPlayersStats(dynastyId, yearOfGame, { skipGamesPlayed: false })
+      } catch (err) {
+        console.warn(`[deleteGame] Stat resync for year ${yearOfGame} failed (game deleted, but season totals may be slightly off):`, err)
+      }
+    }
+  }
+
   // ─── Targeted single-doc patch helpers ──────────────────────────────
   // Each of these is the "fast path" companion to a heavy-handed
   // updateDynasty({ players: [...all 5000] }) / updateDynasty({ games:
@@ -15113,6 +15179,7 @@ export function DynastyProvider({ children }) {
     selectDynasty,
     addGame,
     updateGame,
+    deleteGame,
     patchGameFields,
     applyChangedPlayers,
     saveGameSetChanges,

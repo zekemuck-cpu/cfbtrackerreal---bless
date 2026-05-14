@@ -14,6 +14,8 @@ import BoxScoreSheetModal from '../../components/BoxScoreSheetModal'
 import { setPlayerStatsForTid, setTeamStatsForTid, setScoringSummary, getPlayerStatsSheetIdForTid, canonicalBoxScore, swapBoxScoreTeams, hasAnyPlayerStats, hasAnyTeamStats } from '../../utils/boxScoreHelpers'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName } from '../../data/cfpConstants'
 import { PageHero, Card, Button, EmptyState, Input, Select, Textarea } from '../../components/ui'
+import { useConfirm } from '../../components/ui/ConfirmDialog'
+import { useToast } from '../../components/ui/Toast'
 import { getTeamLogoRobust } from '../../utils/teamLogo'
 import { getTeamColors } from '../../data/teamColors'
 import { uploadImagesToImgBB } from '../../utils/imgbb'
@@ -144,7 +146,9 @@ export default function GameEdit() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const location = useLocation()
-  const { currentDynasty, updateDynasty, updateGame, addGame, isViewOnly } = useDynasty()
+  const { currentDynasty, updateDynasty, updateGame, addGame, deleteGame, isViewOnly } = useDynasty()
+  const { confirm } = useConfirm()
+  const { toast } = useToast()
   const pathPrefix = usePathPrefix()
   const { user } = useAuth()
 
@@ -1151,6 +1155,35 @@ export default function GameEdit() {
       setToastMessage('Error saving game')
       setShowToast(true)
       setTimeout(() => setShowToast(false), 3000)
+    }
+  }
+
+  // Delete this game. Only available when editing an existing game (not
+  // for the new-game flow). Confirms first, deletes via the context's
+  // fast-path helper (single Firestore delete + local state update +
+  // box-score stat resync), then navigates back.
+  const handleDelete = async () => {
+    const idToDelete = currentGameId || gameId
+    if (!idToDelete || !existingGame) return
+    const t1 = team1Name || team1Abbr || 'Team 1'
+    const t2 = team2Name || team2Abbr || 'Team 2'
+    const ok = await confirm({
+      title: 'Delete this game?',
+      message: `Permanently remove ${t1} vs ${t2} (${gameYear} Week ${existingGame.week ?? '?'}). This cannot be undone. Player season stats from this game will be subtracted automatically if a box score was entered.`,
+      confirmLabel: 'Delete game',
+      variant: 'danger',
+    })
+    if (!ok) return
+    try {
+      await deleteGame(currentDynasty.id, idToDelete)
+      toast?.success?.('Game deleted.')
+      // Navigate back to where the user came from, falling back to the
+      // dashboard if no referrer state.
+      if (location.state?.from) navigate(location.state.from)
+      else navigate(`${pathPrefix}`)
+    } catch (err) {
+      console.error('[GameEdit] delete failed:', err)
+      toast?.error?.('Could not delete the game: ' + (err?.message || 'unknown error'))
     }
   }
 
@@ -2361,10 +2394,24 @@ export default function GameEdit() {
         )}
       </Card>
 
-      {/* Bottom Save/Cancel Buttons */}
-      <div className="flex justify-end gap-3 pb-8">
-        <Button variant="outline" onClick={handleCancel}>Cancel</Button>
-        <Button variant="primary" accentColor="#ffffff" onClick={handleSave}>Save</Button>
+      {/* Bottom Save/Cancel Buttons + Delete (only for existing games) */}
+      <div className="flex items-center pb-8">
+        {/* Delete sits on the LEFT, intentionally separated from Save/Cancel
+            so it can't be hit by accident. Only shown for existing games — a
+            new-game form has nothing to delete. */}
+        {existingGame && !isViewOnly && (
+          <Button
+            variant="outline"
+            onClick={handleDelete}
+            className="text-red-400 border-red-700/40 hover:bg-red-900/20 hover:border-red-600"
+          >
+            Delete game
+          </Button>
+        )}
+        <div className="ml-auto flex gap-3">
+          <Button variant="outline" onClick={handleCancel}>Cancel</Button>
+          <Button variant="primary" accentColor="#ffffff" onClick={handleSave}>Save</Button>
+        </div>
       </div>
 
       {/* Box Score Sheet Modal */}

@@ -101,6 +101,7 @@ export function ViewDynastyProvider({ shareCode, children }) {
 
     // Game operations
     addGame: viewOnlyNoOp('add game'),
+    deleteGame: viewOnlyNoOp('delete game'),
     saveCPUBowlGames: viewOnlyNoOp('save CPU bowl games'),
     saveCPUConferenceChampionships: viewOnlyNoOp('save CPU conference championships'),
 
