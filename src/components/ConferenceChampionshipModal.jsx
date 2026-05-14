@@ -48,27 +48,6 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
   })
   const [highlightSave, setHighlightSave] = useState(false)
 
-  // Determine which conference (if any) is excluded from the sheet because
-  // the user already played their own CC game. Mirrors the logic in the
-  // sheet-creation effect below so the AI prompt and the actual sheet stay
-  // in sync. Returned as the *canonical* conference name from the master
-  // list so the prompt can match it case-insensitively against that list.
-  // The MASTER_CONFERENCES order here MUST exactly match the order used by
-  // createConferenceChampionshipSheet() in services/sheetsService.js.
-  const excludeConferenceForPrompt = useMemo(() => {
-    const MASTER_CONFERENCES = [
-      'American', 'ACC', 'Big 12', 'Big Ten', 'Conference USA',
-      'MAC', 'Mountain West', 'Pac-12', 'SEC', 'Sun Belt',
-    ]
-    const userCCGame = currentDynasty?.games?.find(
-      g => g.isConferenceChampionship && Number(g.year) === Number(currentYear) && g.userTeam
-    )
-    const raw = userCCGame?.conference || currentDynasty?.conference || null
-    if (!raw) return null
-    const norm = String(raw).toLowerCase()
-    return MASTER_CONFERENCES.find(c => c.toLowerCase() === norm) || null
-  }, [currentDynasty?.games, currentDynasty?.conference, currentYear])
-
   const aiPrompt = useMemo(() => {
     // Single source of truth for the row order. Must mirror the array in
     // createConferenceChampionshipSheet() — that's the order column A is
@@ -77,13 +56,9 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
       'American', 'ACC', 'Big 12', 'Big Ten', 'Conference USA',
       'MAC', 'Mountain West', 'Pac-12', 'SEC', 'Sun Belt',
     ]
-    const sheetConferences = excludeConferenceForPrompt
-      ? MASTER_CONFERENCES.filter(c => c !== excludeConferenceForPrompt)
-      : MASTER_CONFERENCES
+    const sheetConferences = MASTER_CONFERENCES
     const totalRows = sheetConferences.length
 
-    // Build the row table dynamically so sheet row numbers stay correct
-    // when a conference is excluded (rows shift up — there is no gap).
     const rowTable = sheetConferences
       .map((conf, i) => {
         const sheetRow = String(i + 2).padStart(5, ' ')
@@ -96,9 +71,7 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
       .map(conf => `<${conf} row: Team1\\tTeam2\\tScore1\\tScore2   OR blank line if unknown>`)
       .join('\n')
 
-    const exclusionNote = excludeConferenceForPrompt
-      ? `IMPORTANT — the "${excludeConferenceForPrompt}" conference is EXCLUDED from this sheet because the user already entered their own CC game for that conference. Output exactly ${totalRows} lines (NOT 10). Do NOT output a "${excludeConferenceForPrompt}" row at all.`
-      : `Output exactly ${totalRows} lines (one per conference, in the exact order listed below).`
+    const exclusionNote = `Output exactly ${totalRows} lines (one per conference, in the exact order listed below).`
 
     const orderListInline = sheetConferences.join(', ')
 
@@ -155,7 +128,6 @@ FINAL CHECK before you send
 [ ] Exactly ${totalRows} lines total, in this EXACT order: ${orderListInline}
 [ ] First line is for ${sheetConferences[0]} (NOT alphabetical — match the row table)
 [ ] Last line is for ${sheetConferences[totalRows - 1]}
-${excludeConferenceForPrompt ? `[ ] No "${excludeConferenceForPrompt}" line — that conference is excluded` : ''}
 [ ] Every non-blank line has exactly 4 tab-separated fields (3 tabs)
 [ ] Both teams on each line are members of that row's conference
 [ ] Team 1 and Team 2 are different teams
@@ -166,7 +138,7 @@ ${excludeConferenceForPrompt ? `[ ] No "${excludeConferenceForPrompt}" line — 
       includeTeamMap: true,
       dynastyTeams: currentDynasty?.teams,
     })
-  }, [currentYear, currentDynasty?.teams, excludeConferenceForPrompt])
+  }, [currentYear, currentDynasty?.teams])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -211,23 +183,8 @@ ${excludeConferenceForPrompt ? `[ ] No "${excludeConferenceForPrompt}" line — 
         creatingSheetRef.current = true
         setCreatingSheet(true)
         try {
-          // Check if user played in a CC game this year - if so, exclude their conference
-          // Debug: log all CC games to help diagnose
-          const allCCGames = currentDynasty?.games?.filter(g => g.isConferenceChampionship) || []
-          console.log('[CC Modal] All CC games:', allCCGames.map(g => ({ year: g.year, yearType: typeof g.year, conf: g.conference, userTeam: g.userTeam })))
-          console.log('[CC Modal] currentYear:', currentYear, 'type:', typeof currentYear)
-
-          // Find user's CC game - must have userTeam set (not just any CC game)
-          const userCCGame = currentDynasty?.games?.find(
-            g => g.isConferenceChampionship && Number(g.year) === Number(currentYear) && g.userTeam
-          )
-          // Get user's conference from:
-          // 1. The user's CC game itself (most reliable - it has the conference they played in)
-          // 2. Fallback to dynasty.conference
-          const userConference = userCCGame?.conference || currentDynasty?.conference || null
-          console.log('[CC Modal] User conference:', userConference, 'userCCGame exists:', !!userCCGame, 'userCCGame:', userCCGame)
-          const excludeConference = userCCGame ? userConference : null
-          console.log('[CC Modal] excludeConference:', excludeConference)
+          // Always include all 10 conferences. The user's already-entered CC
+          // game (if any) is pre-filled via existingCCData below.
 
           // Get existing CC data for pre-filling from multiple sources
           const teams = currentDynasty?.teams || TEAMS
@@ -284,7 +241,7 @@ ${excludeConferenceForPrompt ? `[ ] No "${excludeConferenceForPrompt}" line — 
           const sheetInfo = await createConferenceChampionshipSheet(
             currentDynasty?.teamName || 'Dynasty',
             currentYear,
-            excludeConference,
+            null,
             existingCCData,
             currentDynasty?.teams || currentDynasty?.customTeams
           )
