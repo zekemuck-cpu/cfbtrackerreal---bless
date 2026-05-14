@@ -98,6 +98,18 @@ function GameCard({ game, teams, pathPrefix, recordsByTid, domId }) {
   const statusLabel = !isPlayed ? 'Scheduled' : isTie ? 'Tie' : null
   const showStatusStrip = statusLabel != null || isNeutral
 
+  // For neutral-site games, prefer a meaningful game label over "Neutral".
+  const venueLabel = (() => {
+    const type = detectGameType(game)
+    if (type === GAME_TYPES.CFP_CHAMPIONSHIP) return 'National Championship'
+    if (type === GAME_TYPES.CFP_SEMIFINAL) return game.bowlName || 'CFP Semifinal'
+    if (type === GAME_TYPES.CFP_QUARTERFINAL) return game.bowlName || 'CFP Quarterfinal'
+    if (type === GAME_TYPES.CFP_FIRST_ROUND) return 'CFP First Round'
+    if (type === GAME_TYPES.BOWL) return game.bowlName || 'Bowl Game'
+    if (type === GAME_TYPES.CONFERENCE_CHAMPIONSHIP) return 'Conf Championship'
+    return 'Neutral'
+  })()
+
   const TeamRow = ({ tid, team, score, won, lost, record, rank }) => {
     const mascot = getMascotNameFromTeams(tid, teams) || team?.name || ''
     const school = getSchoolName(mascot) || team?.abbr || `TID ${tid}`
@@ -203,7 +215,7 @@ function GameCard({ game, teams, pathPrefix, recordsByTid, domId }) {
                 textTransform: 'uppercase',
               }}
             >
-              Neutral
+              {venueLabel}
             </span>
           )}
         </div>
