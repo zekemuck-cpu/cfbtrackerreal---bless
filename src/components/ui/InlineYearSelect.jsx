@@ -21,15 +21,17 @@ export default function InlineYearSelect({
   value,
   years,
   onChange,
+  labels = null,
   className = '',
   ariaLabel = 'Select year',
 }) {
   const safeYears = Array.isArray(years) && years.length > 0 ? years : [value]
+  const getLabel = (y) => labels?.[y] ?? y
 
   return (
     <span className={`relative inline-flex items-baseline ${className}`}>
       <span className="tabular-nums" aria-hidden="true">
-        {value}
+        {getLabel(value)}
       </span>
       {/* Dropdown chevron — baseline-aligned, muted */}
       <svg
@@ -55,7 +57,7 @@ export default function InlineYearSelect({
       >
         {safeYears.map((y) => (
           <option key={y} value={y}>
-            {y}
+            {getLabel(y)}
           </option>
         ))}
       </select>
