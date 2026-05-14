@@ -307,6 +307,17 @@ export default function WeeklyScores() {
   const handleYearChange = (y) => navigate(`${pathPrefix}/weekly-scores/${y}/${displayWeek}`)
   const handleWeekChange = (w) => navigate(`${pathPrefix}/weekly-scores/${displayYear}/${w}`)
 
+  // CCG games carry game.week = 'CCG' (a string sentinel). Bucket them
+  // under numeric week 15 — the same slot the Rankings page uses for
+  // the "Conf Champ Week" rank-entry. The plain Number(g.week) check
+  // would silently drop CCG games entirely (Number('CCG') = NaN).
+  const weekBucketFor = (g) => {
+    const isCCG = g.isConferenceChampionship || g.gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP
+    if (isCCG) return 15
+    const wk = Number(g.week)
+    return Number.isFinite(wk) ? wk : null
+  }
+
   // All regular-season + conf-championship games for the selected year, grouped by week
   const gamesByWeek = useMemo(() => {
     const map = new Map()
@@ -315,8 +326,8 @@ export default function WeeklyScores() {
       if (Number(g.year) !== displayYear) continue
       if (g.gameType !== GAME_TYPES.REGULAR && g.gameType !== GAME_TYPES.CONFERENCE_CHAMPIONSHIP) continue
       if (!g.team1Tid || !g.team2Tid) continue
-      const wk = Number(g.week)
-      if (!Number.isFinite(wk)) continue
+      const wk = weekBucketFor(g)
+      if (wk == null) continue
       if (!map.has(wk)) map.set(wk, [])
       map.get(wk).push(g)
     }
@@ -330,7 +341,14 @@ export default function WeeklyScores() {
       (g.gameType === GAME_TYPES.REGULAR || g.gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP) &&
       g.team1Tid && g.team2Tid &&
       typeof g.team1Score === 'number' && typeof g.team2Score === 'number'
-    )).sort((a, b) => Number(a.week) - Number(b.week))
+    )).sort((a, b) => {
+      // CCG games sort after Week 14. Plain Number(a.week) - Number(b.week)
+      // returns NaN for any CCG and ruins the running-record cumulative
+      // walk below.
+      const aw = weekBucketFor(a) ?? Number.POSITIVE_INFINITY
+      const bw = weekBucketFor(b) ?? Number.POSITIVE_INFINITY
+      return aw - bw
+    })
 
     const running = {}
     const result = {}
@@ -346,7 +364,8 @@ export default function WeeklyScores() {
     for (const g of yearGames) {
       const t1 = Number(g.team1Tid)
       const t2 = Number(g.team2Tid)
-      const wk = Number(g.week)
+      const wk = weekBucketFor(g)
+      if (wk == null) continue
       const t1IsPlaceholder = isPlaceholder(t1)
       const t2IsPlaceholder = isPlaceholder(t2)
       if (!t1IsPlaceholder) running[t1] = running[t1] || { w: 0, l: 0, t: 0 }

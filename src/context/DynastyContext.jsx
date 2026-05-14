@@ -1973,7 +1973,15 @@ export function getTeamRanking(dynasty, tidOrAbbr, year) {
       // the latest populated week across all teams — keeps legacy
       // dynasties from regressing.
       const isYearMatch = Number(dynasty.currentYear) === Number(year)
-      const cw = isYearMatch ? Number(dynasty.currentWeek) : NaN
+      // During conference_championship phase the dynasty's currentWeek
+      // is 1 (CCG week is its own phase, indexed week 1 within the
+      // phase) but the SEMANTIC current rank-entry slot is Week 15 —
+      // the post-Week-14 / pre-CCG poll. Anchoring to currentWeek=1
+      // would surface every team's preseason rank (rankByWeek[1] is
+      // seeded with preseason) all over the team pages during CCG
+      // week. Override to slot 15 in that phase.
+      const isCCGPhase = dynasty.currentPhase === 'conference_championship'
+      const cw = isYearMatch ? (isCCGPhase ? 15 : Number(dynasty.currentWeek)) : NaN
       let snapshotWeek = -Infinity
       if (Number.isFinite(cw) && cw >= 0) {
         // Confirm at least one team has data for currentWeek; if not,
@@ -2118,8 +2126,19 @@ export function buildLiveTop25FromGames(dynasty, year, options = {}) {
   }
   for (const g of games) {
     if (!g || Number(g.year) !== yearNum) continue
-    const wk = typeof g.week === 'number' ? g.week : parseInt(g.week, 10)
-    if (!Number.isFinite(wk)) continue
+    // CCG games carry game.week='CCG' (string sentinel). They land in
+    // bucket 15 — the same slot the Rankings page uses for the
+    // post-Week-14 / pre-CCG poll. Without this, parseInt('CCG')=NaN
+    // and the CCG game's stored team1Rank/team2Rank never seed the
+    // live Top 25.
+    const isCCG = g.isConferenceChampionship || g.gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP
+    let wk
+    if (isCCG) {
+      wk = 15
+    } else {
+      wk = typeof g.week === 'number' ? g.week : parseInt(g.week, 10)
+      if (!Number.isFinite(wk)) continue
+    }
     // Optional week ceiling — lets callers ask "what did the Top 25 look
     // like through Week N?" without losing later weeks' game records.
     if (upToWeek != null && Number.isFinite(Number(upToWeek)) && wk > Number(upToWeek)) continue
@@ -5791,8 +5810,8 @@ export function DynastyProvider({ children }) {
       //      the game editor (or surface via a future Danger Zone
       //      cleanup tool).
       // Idempotent — safe to run on every load. Persist via the
-      // _week15Migrated flag so we only mutate on first encounter.
-      if (!migrated._week15Migrated) {
+      // _week15MigratedV2 flag so we only mutate on first encounter.
+      if (!migrated._week15MigratedV2) {
         let touched = false
         const next = { ...migrated }
 
@@ -5808,11 +5827,19 @@ export function DynastyProvider({ children }) {
             if (!g) return g
             const isCCG = g.isConferenceChampionship || g.gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP
             if (!isCCG) return g
-            if (g.week === 15 || g.week === '15') {
-              gamesTouched = true
-              return { ...g, week: 'CCG' }
-            }
-            return g
+            // Normalize every CCG game's week to the string 'CCG'.
+            // Sources of bad week values we've seen in the wild:
+            //   • week: 15 / '15' — old weekly-scores auto-promote
+            //   • week: 'CC' — earlier short-form sentinel (Dashboard
+            //     navigated with week=CC to /game/new before the
+            //     standardization to 'CCG')
+            //   • week: NaN — GameEdit's parseInt('CC') stash bug
+            //   • week: null/undefined/'' — dedicated CC modal sometimes
+            //     omits the field entirely
+            // Anything that isn't already exactly 'CCG' gets rewritten.
+            if (g.week === 'CCG') return g
+            gamesTouched = true
+            return { ...g, week: 'CCG' }
           })
           if (gamesTouched) {
             next.games = updatedGames
@@ -5820,8 +5847,8 @@ export function DynastyProvider({ children }) {
           }
         }
 
-        next._week15Migrated = true
-        migrated = touched ? next : { ...migrated, _week15Migrated: true }
+        next._week15MigratedV2 = true
+        migrated = touched ? next : { ...migrated, _week15MigratedV2: true }
       }
 
       // Apply stats migration if needed
@@ -6093,7 +6120,17 @@ export function DynastyProvider({ children }) {
           if (t1 == null || t2 == null) return
           const year = g.year != null ? Number(g.year) : null
           if (year == null || Number.isNaN(year)) return
-          const week = g.week === '' || g.week == null ? '' : Number(g.week)
+          // Use a stable string key for the week so non-numeric weeks
+          // (CCG games carry week='CCG') don't collapse to NaN and
+          // collide with each other across conferences. Numeric weeks
+          // are stringified to "0".."14"; CCG stays "CCG".
+          let week
+          if (g.week === '' || g.week == null) week = ''
+          else if (typeof g.week === 'string' && !/^\d+$/.test(g.week)) week = g.week.toUpperCase()
+          else {
+            const n = Number(g.week)
+            week = Number.isFinite(n) ? String(n) : 'CCG'
+          }
           const gameType = g.gameType || 'regular'
           const pair = t1 < t2 ? `${t1}-${t2}` : `${t2}-${t1}`
           const key = `${year}|${week}|${gameType}|${pair}`
@@ -11106,11 +11143,15 @@ export function DynastyProvider({ children }) {
         prevWeek = currentWeek - 1
       }
     } else if (currentPhase === 'conference_championship') {
-      // Conference Championship Week 1 → Regular Season Week 15.
-      // Advance fires CC when nextWeek > 15, so wk15 was the LAST regular
-      // season week. Older code returned wk12 here and lost three weeks.
+      // Conference Championship Week 1 → Regular Season Week 14.
+      // Regular season is 0-14 under the new model (15 weeks total).
+      // Advance fires CC when nextWeek > 14, so Week 14 was the last
+      // regular-season week. (Was prevWeek = 15 from when the model
+      // had a phantom Week 15; reverting into that no-longer-valid
+      // slot would land the user in a state the migration would just
+      // bump back into CCG on next load.)
       prevPhase = 'regular_season'
-      prevWeek = 15
+      prevWeek = 14
     } else if (currentPhase === 'postseason') {
       if (currentWeek <= 1) {
         // Postseason Week 1 → Conference Championship Week 1

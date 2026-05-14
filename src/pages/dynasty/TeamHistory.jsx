@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useDynasty, getUserGamePerspective } from '../../context/DynastyContext'
+import { useDynasty, getUserGamePerspective, GAME_TYPES } from '../../context/DynastyContext'
 import { getGameTeamInfo } from '../../data/teamRegistry'
 import { getTeamLogo, getMascotName } from '../../data/teams'
+import { weekSortKey } from '../../utils/compareUtils'
 import {
   PageHero,
   Card,
@@ -16,7 +17,15 @@ import {
 const WEEK_LABEL = (game) => {
   if (game.phase === 'postseason') return 'Bowl'
   if (game.phase === 'conf_championship') return 'CCG'
-  return `Week ${game.week || '?'}`
+  // Detect CCG by flag or gameType too — game.phase isn't on game records
+  // (it lives on the dynasty), so the two checks above almost never fire.
+  // CCG games carry isConferenceChampionship and/or gameType =
+  // 'conference_championship', and game.week may be 'CCG' / 'CC' / 15 /
+  // NaN depending on how it was saved before the migration.
+  if (game.isConferenceChampionship || game.gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP) return 'Conf Champ Week'
+  const w = game.week
+  if (typeof w === 'string' && (w.toUpperCase() === 'CCG' || w.toUpperCase() === 'CC')) return 'Conf Champ Week'
+  return `Week ${w || '?'}`
 }
 
 export default function TeamHistory() {
@@ -66,7 +75,7 @@ export default function TeamHistory() {
 
   const sortedModalGames = getGamesForModal().sort((a, b) => {
     if (b.year !== a.year) return b.year - a.year
-    return (a.week || 0) - (b.week || 0)
+    return weekSortKey(a.week) - weekSortKey(b.week)
   })
 
   const gamesByYear = sortedModalGames.reduce((acc, game) => {

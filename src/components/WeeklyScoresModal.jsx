@@ -936,11 +936,17 @@ Don't just glance at this list. Physically execute each check on your draft.
       disabled={syncing || deletingSheet}
       className="px-3 py-2 rounded-md bg-surface-2 border border-surface-4 hover:border-surface-5 text-txt-primary text-sm font-medium tabular-nums focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-3 disabled:opacity-60 transition-colors"
     >
-      {rankWeekOptions.map(w => (
-        <option key={w} value={w}>
-          Week {w}{w === effectiveCurrentRankWeek ? ' (current)' : ''}
-        </option>
-      ))}
+      {rankWeekOptions.map(w => {
+        // Slot 15 isn't a real regular-season week — it's the rank-entry
+        // slot for the post-Week-14 / heading-into-CCG poll. Label it
+        // accordingly so users in CCG phase don't see a phantom "Week 15".
+        const label = w === 15 ? 'Conf Champ Week' : `Week ${w}`
+        return (
+          <option key={w} value={w}>
+            {label}{w === effectiveCurrentRankWeek ? ' (current)' : ''}
+          </option>
+        )
+      })}
     </select>
   )
 

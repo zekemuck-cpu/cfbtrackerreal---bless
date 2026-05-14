@@ -1773,6 +1773,12 @@ export async function readScheduleFromScheduleSheet(spreadsheetId, dynastyTeams 
           location
         }
       })
+      // Drop any row claiming to be Week 15+: regular season is Week
+      // 0-14 under the new model. CCG / bowls / CFP are entered through
+      // dedicated flows. An old sheet that still has a Week 15 row
+      // would otherwise import as a phantom Week 15 schedule entry that
+      // never displays in the schedule UI.
+      .filter(entry => entry.week >= 0 && entry.week <= 14)
   } catch (error) {
     console.error('Error reading schedule:', error)
     throw error
@@ -2760,6 +2766,454 @@ export async function readConferenceChampionshipsFromSheet(spreadsheetId, dynast
     console.error('[readCCSheet] Error reading CC data:', error)
     throw error
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Multi-year Conference Championships sheet — one Google Sheet, one tab per
+// year. Tab title: `"YYYY Conference Championships"`. Current year tab first,
+// then descending past years. Each tab uses the same 5-column layout as the
+// single-year sheet (Conference, Team 1, Team 2, Team 1 Score, Team 2 Score)
+// and is pre-filled with that year's existing CC games.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CC_HISTORY_CONFERENCES = [
+  'American',
+  'ACC',
+  'Big 12',
+  'Big Ten',
+  'Conference USA',
+  'MAC',
+  'Mountain West',
+  'Pac-12',
+  'SEC',
+  'Sun Belt',
+]
+const CC_HISTORY_NUM_COLS = 5
+const CC_HISTORY_NUM_ROWS = CC_HISTORY_CONFERENCES.length + 1 // header + 10 conf rows
+const CC_HISTORY_TAB_RE = /^(\d{4})\s+Conference\s+Championships$/i
+const CC_HISTORY_TAB_TITLE = (year) => `${year} Conference Championships`
+
+// Walk dynasty.games[] and build a per-year, per-conference snapshot of
+// existing CC games. Returns: { [year]: { [conference]: { team1, team2,
+// team1Score, team2Score } } }. Used to pre-fill each tab so an unedited
+// save round-trips to a no-op.
+function buildCCHistoryPrefill(dynasty) {
+  const teamsByTid = dynasty?.teams || {}
+  const prefill = {}
+  for (const g of (dynasty?.games || [])) {
+    const isCCG = g?.isConferenceChampionship || g?.gameType === 'conference_championship'
+    if (!isCCG) continue
+    const year = Number(g.year)
+    if (!Number.isFinite(year)) continue
+    const conf = g.conference
+    if (!conf) continue
+
+    // Resolve abbrs preferring tid → abbr lookup; fall back to legacy
+    // stored abbrs. This keeps the pre-fill correct after teambuilder
+    // renames.
+    let team1Abbr = g.team1
+    let team2Abbr = g.team2
+    if (g.team1Tid != null) {
+      const t = teamsByTid[g.team1Tid] || teamsByTid[String(g.team1Tid)]
+      if (t?.abbr) team1Abbr = t.abbr
+    }
+    if (g.team2Tid != null) {
+      const t = teamsByTid[g.team2Tid] || teamsByTid[String(g.team2Tid)]
+      if (t?.abbr) team2Abbr = t.abbr
+    }
+    if (!team1Abbr && g.userTeam) team1Abbr = g.userTeam
+    if (!team2Abbr && g.opponent) team2Abbr = g.opponent
+
+    const yearMap = prefill[year] || (prefill[year] = {})
+    yearMap[conf] = {
+      team1: team1Abbr || '',
+      team2: team2Abbr || '',
+      team1Score: g.team1Score ?? g.teamScore ?? null,
+      team2Score: g.team2Score ?? g.opponentScore ?? null,
+    }
+  }
+  return prefill
+}
+
+// Build the 11-row × 5-col value matrix for a single year's tab.
+// Row 0: headers. Rows 1..10: one row per conference (in CC_HISTORY_CONFERENCES order).
+function buildCCHistoryTabRows(yearPrefill) {
+  const rows = [['Conference', 'Team 1', 'Team 2', 'Team 1 Score', 'Team 2 Score']]
+  for (const conf of CC_HISTORY_CONFERENCES) {
+    const existing = (yearPrefill && yearPrefill[conf]) || {}
+    rows.push([
+      conf,
+      existing.team1 || '',
+      existing.team2 || '',
+      existing.team1Score != null ? String(existing.team1Score) : '',
+      existing.team2Score != null ? String(existing.team2Score) : '',
+    ])
+  }
+  return rows
+}
+
+/**
+ * Create a multi-year Conference Championships spreadsheet. One tab per
+ * year — current year first, then strictly descending past years (years
+ * with at least one stored CC game). Each tab uses the same column layout
+ * as the single-year CC sheet and is pre-filled with that year's existing
+ * CC games. Returns `{ spreadsheetId, spreadsheetUrl, years }`.
+ */
+export async function createConferenceChampionshipsHistorySheet(dynastyName, dynasty) {
+  if (!dynasty) throw new Error('createConferenceChampionshipsHistorySheet: dynasty is required')
+
+  // Determine which years to render: union of every year with a stored
+  // CC game and the dynasty's current year (so the active season always
+  // appears even before its CCG is played).
+  const yearSet = new Set()
+  for (const g of (dynasty.games || [])) {
+    if (g?.isConferenceChampionship || g?.gameType === 'conference_championship') {
+      const y = Number(g.year)
+      if (Number.isFinite(y)) yearSet.add(y)
+    }
+  }
+  if (dynasty.currentYear != null) {
+    const cy = Number(dynasty.currentYear)
+    if (Number.isFinite(cy)) yearSet.add(cy)
+  }
+  if (yearSet.size === 0) {
+    throw new Error('createConferenceChampionshipsHistorySheet: no years to render — dynasty has no CC games and no currentYear.')
+  }
+
+  // Current year first, then strictly descending past years.
+  const currentYear = Number(dynasty.currentYear)
+  const orderedYears = [...yearSet]
+    .filter(y => Number.isFinite(y))
+    .sort((a, b) => {
+      if (Number.isFinite(currentYear)) {
+        if (a === currentYear && b !== currentYear) return -1
+        if (b === currentYear && a !== currentYear) return 1
+      }
+      return b - a
+    })
+
+  const accessToken = await getAccessToken()
+  const prefill = buildCCHistoryPrefill(dynasty)
+
+  // Step 1 — create the spreadsheet with one sheet (tab) per year.
+  const createBody = {
+    properties: { title: `${dynastyName} — Conference Championships` },
+    sheets: orderedYears.map(year => ({
+      properties: {
+        title: CC_HISTORY_TAB_TITLE(year),
+        gridProperties: {
+          rowCount: CC_HISTORY_NUM_ROWS,
+          columnCount: CC_HISTORY_NUM_COLS,
+          frozenRowCount: 1,
+        },
+      },
+    })),
+  }
+  const createRes = await fetchWithTimeout(SHEETS_API_BASE, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(createBody),
+  })
+  if (!createRes.ok) {
+    const err = await createRes.json().catch(() => ({}))
+    throw new Error(`createConferenceChampionshipsHistorySheet: create failed — ${err.error?.message || createRes.status}`)
+  }
+  const sheet = await createRes.json()
+  const sheetIdByYear = new Map()
+  for (let i = 0; i < orderedYears.length; i++) {
+    sheetIdByYear.set(orderedYears[i], sheet.sheets[i].properties.sheetId)
+  }
+
+  // Step 2 — pre-fill data for every tab via values batchUpdate.
+  const valueRanges = orderedYears.map(year => ({
+    range: `'${CC_HISTORY_TAB_TITLE(year)}'!A1:E${CC_HISTORY_NUM_ROWS}`,
+    majorDimension: 'ROWS',
+    values: buildCCHistoryTabRows(prefill[year] || {}),
+  }))
+  const valuesRes = await fetchWithTimeout(
+    `${SHEETS_API_BASE}/${sheet.spreadsheetId}/values:batchUpdate`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ valueInputOption: 'RAW', data: valueRanges }),
+    },
+  )
+  if (!valuesRes.ok) {
+    const err = await valuesRes.json().catch(() => ({}))
+    throw new Error(`createConferenceChampionshipsHistorySheet: values batchUpdate failed — ${err.error?.message || valuesRes.status}`)
+  }
+
+  // Step 3 — formatting + validation + protection per tab. Split into
+  // baseRequests (small, awaited) and colorRequests (per-team conditional
+  // formatting, large — deferred to a background batch). Mirrors the
+  // createTop25Sheet pattern.
+  const baseRequests = []
+  const colorRequests = []
+  const teamsMap = getTeamsWithCustom(dynasty.teams)
+  const teamAbbrs = Object.keys(teamsMap).sort()
+  const validationValues = teamAbbrs.map(abbr => ({ userEnteredValue: abbr }))
+
+  for (const year of orderedYears) {
+    const sId = sheetIdByYear.get(year)
+
+    // Whole-tab text format (bold + italic + centered Barlow 10, matching
+    // the single-year sheet).
+    baseRequests.push({
+      repeatCell: {
+        range: { sheetId: sId },
+        cell: {
+          userEnteredFormat: {
+            textFormat: { bold: true, italic: true, fontFamily: 'Barlow', fontSize: 10 },
+            horizontalAlignment: 'CENTER',
+            verticalAlignment: 'MIDDLE',
+          },
+        },
+        fields: 'userEnteredFormat(textFormat,horizontalAlignment,verticalAlignment)',
+      },
+    })
+
+    // Header row gets a darker background.
+    baseRequests.push({
+      repeatCell: {
+        range: { sheetId: sId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: CC_HISTORY_NUM_COLS },
+        cell: {
+          userEnteredFormat: {
+            backgroundColor: { red: 0.13, green: 0.14, blue: 0.18 },
+            textFormat: { foregroundColor: { red: 1, green: 1, blue: 1 }, bold: true, italic: false },
+            horizontalAlignment: 'CENTER',
+          },
+        },
+        fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)',
+      },
+    })
+
+    // STRICT team dropdowns for Team 1 and Team 2 columns.
+    baseRequests.push({
+      setDataValidation: {
+        range: { sheetId: sId, startRowIndex: 1, endRowIndex: CC_HISTORY_NUM_ROWS, startColumnIndex: 1, endColumnIndex: 2 },
+        rule: { condition: { type: 'ONE_OF_LIST', values: validationValues }, showCustomUi: true, strict: true },
+      },
+    })
+    baseRequests.push({
+      setDataValidation: {
+        range: { sheetId: sId, startRowIndex: 1, endRowIndex: CC_HISTORY_NUM_ROWS, startColumnIndex: 2, endColumnIndex: 3 },
+        rule: { condition: { type: 'ONE_OF_LIST', values: validationValues }, showCustomUi: true, strict: true },
+      },
+    })
+
+    // Protect header row and Conference column. Column A is the key we
+    // read back against; the header is structural — neither should drift.
+    baseRequests.push({
+      addProtectedRange: {
+        protectedRange: {
+          range: { sheetId: sId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: CC_HISTORY_NUM_COLS },
+          description: 'Protected header row',
+          warningOnly: false,
+        },
+      },
+    })
+    baseRequests.push({
+      addProtectedRange: {
+        protectedRange: {
+          range: { sheetId: sId, startRowIndex: 1, endRowIndex: CC_HISTORY_NUM_ROWS, startColumnIndex: 0, endColumnIndex: 1 },
+          description: 'Protected Conference column',
+          warningOnly: false,
+        },
+      },
+    })
+
+    // Sensible column widths.
+    baseRequests.push({
+      updateDimensionProperties: {
+        range: { sheetId: sId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 },
+        properties: { pixelSize: 140 },
+        fields: 'pixelSize',
+      },
+    })
+    baseRequests.push({
+      updateDimensionProperties: {
+        range: { sheetId: sId, dimension: 'COLUMNS', startIndex: 1, endIndex: 3 },
+        properties: { pixelSize: 100 },
+        fields: 'pixelSize',
+      },
+    })
+    baseRequests.push({
+      updateDimensionProperties: {
+        range: { sheetId: sId, dimension: 'COLUMNS', startIndex: 3, endIndex: 5 },
+        properties: { pixelSize: 100 },
+        fields: 'pixelSize',
+      },
+    })
+
+    // Per-team conditional formatting (deferred to background — large).
+    for (const [abbr, teamData] of Object.entries(teamsMap)) {
+      for (const colIdx of [1, 2]) {
+        colorRequests.push({
+          addConditionalFormatRule: {
+            rule: {
+              ranges: [{ sheetId: sId, startRowIndex: 1, endRowIndex: CC_HISTORY_NUM_ROWS, startColumnIndex: colIdx, endColumnIndex: colIdx + 1 }],
+              booleanRule: {
+                condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: abbr }] },
+                format: {
+                  backgroundColor: hexToRgb(teamData.backgroundColor),
+                  textFormat: { foregroundColor: hexToRgb(teamData.textColor), bold: true, italic: true },
+                },
+              },
+            },
+            index: 0,
+          },
+        })
+      }
+    }
+  }
+
+  const batchRes = await fetchWithTimeout(
+    `${SHEETS_API_BASE}/${sheet.spreadsheetId}:batchUpdate`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests: baseRequests }),
+    },
+  )
+  if (!batchRes.ok) {
+    const err = await batchRes.json().catch(() => ({}))
+    throw new Error(`createConferenceChampionshipsHistorySheet: batchUpdate failed — ${err.error?.message || batchRes.status}`)
+  }
+
+  await shareSheetPublicly(sheet.spreadsheetId, accessToken)
+
+  // Background: apply per-team conditional formatting. Non-fatal on
+  // failure — the sheet is fully functional without team-color rules.
+  if (colorRequests.length > 0) {
+    fetch(
+      `${SHEETS_API_BASE}/${sheet.spreadsheetId}:batchUpdate`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requests: colorRequests }),
+      },
+    ).then(async (res) => {
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        console.warn('[createCCHistorySheet] background color formatting failed:', err?.error?.message || res.status)
+      }
+    }).catch((err) => {
+      console.warn('[createCCHistorySheet] background color formatting threw:', err)
+    })
+  }
+
+  return {
+    spreadsheetId: sheet.spreadsheetId,
+    spreadsheetUrl: sheet.spreadsheetUrl,
+    years: orderedYears,
+  }
+}
+
+/**
+ * Read every `[YYYY] Conference Championships` tab on a multi-year CC sheet
+ * and return a per-year championships list shaped like the single-year
+ * `readConferenceChampionshipsFromSheet` output, but keyed by year.
+ *
+ * Return shape:
+ *   {
+ *     years: number[],              // present on the sheet, sorted desc
+ *     byYear: {
+ *       [year]: Array<{
+ *         conference, team1, team2, team1Tid, team2Tid,
+ *         team1Score, team2Score, winner, winnerTid
+ *       }>
+ *     },
+ *   }
+ *
+ * Each year's array contains one entry per conference row read from the
+ * sheet (up to 10). Entries with empty teams or missing scores have null
+ * scores so the caller can filter them out (matching the existing
+ * saveCPUConferenceChampionships filter).
+ */
+export async function readConferenceChampionshipsHistoryFromSheet(spreadsheetId, dynastyTeams = null) {
+  const accessToken = await getAccessToken()
+
+  // Resolve tab list so we know which years live on the sheet.
+  const metaRes = await fetchWithTimeout(
+    `${SHEETS_API_BASE}/${spreadsheetId}?fields=sheets.properties(title)`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  )
+  if (!metaRes.ok) {
+    const err = await metaRes.json().catch(() => ({}))
+    throw new Error(`readConferenceChampionshipsHistoryFromSheet: meta fetch failed — ${err.error?.message || metaRes.status}`)
+  }
+  const meta = await metaRes.json()
+  const tabs = (meta.sheets || []).map(s => s.properties).filter(Boolean)
+
+  const ranges = []
+  const yearByRange = new Map()
+  for (const t of tabs) {
+    const m = t?.title?.match(CC_HISTORY_TAB_RE)
+    if (!m) continue
+    const year = Number(m[1])
+    if (!Number.isFinite(year)) continue
+    const rng = `'${t.title}'!A2:E${CC_HISTORY_NUM_ROWS}`
+    ranges.push(rng)
+    yearByRange.set(rng, year)
+  }
+  if (ranges.length === 0) {
+    return { years: [], byYear: {} }
+  }
+
+  const valuesRes = await fetchWithTimeout(
+    `${SHEETS_API_BASE}/${spreadsheetId}/values:batchGet?${ranges.map(r => `ranges=${encodeURIComponent(r)}`).join('&')}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  )
+  if (!valuesRes.ok) {
+    const err = await valuesRes.json().catch(() => ({}))
+    throw new Error(`readConferenceChampionshipsHistoryFromSheet: values batchGet failed — ${err.error?.message || valuesRes.status}`)
+  }
+  const valuesData = await valuesRes.json()
+
+  const byYear = {}
+  for (const r of (valuesData.valueRanges || [])) {
+    const year = yearByRange.get(r.range) ?? yearByRange.get(decodeURIComponent(r.range))
+    if (!Number.isFinite(year)) continue
+    const rows = r.values || []
+    const championships = rows.map(row => {
+      const team1Abbr = (row?.[1] || '').toUpperCase()
+      const team2Abbr = (row?.[2] || '').toUpperCase()
+      const rawT1Score = row?.[3]
+      const rawT2Score = row?.[4]
+      const team1Score = (rawT1Score !== '' && rawT1Score != null) ? parseInt(rawT1Score, 10) : null
+      const team2Score = (rawT2Score !== '' && rawT2Score != null) ? parseInt(rawT2Score, 10) : null
+      const team1Tid = team1Abbr ? getTidFromAbbr(team1Abbr, dynastyTeams) : null
+      const team2Tid = team2Abbr ? getTidFromAbbr(team2Abbr, dynastyTeams) : null
+
+      let winner = null
+      let winnerTid = null
+      if (team1Score != null && team2Score != null && !Number.isNaN(team1Score) && !Number.isNaN(team2Score)) {
+        if (team1Score > team2Score) {
+          winner = team1Abbr || null
+          winnerTid = team1Tid
+        } else if (team2Score > team1Score) {
+          winner = team2Abbr || null
+          winnerTid = team2Tid
+        }
+      }
+
+      return {
+        conference: row?.[0] || '',
+        team1: team1Abbr,
+        team2: team2Abbr,
+        team1Tid,
+        team2Tid,
+        team1Score: Number.isFinite(team1Score) ? team1Score : null,
+        team2Score: Number.isFinite(team2Score) ? team2Score : null,
+        winner,
+        winnerTid,
+      }
+    })
+    byYear[year] = championships
+  }
+
+  const years = Object.keys(byYear).map(Number).filter(Number.isFinite).sort((a, b) => b - a)
+  return { years, byYear }
 }
 
 // Bowl games list for Bowl Week 1 (26 regular bowls + 4 CFP First Round = 30 games)

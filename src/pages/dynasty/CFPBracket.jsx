@@ -1121,7 +1121,7 @@ export default function CFPBracket() {
           </span>
           <span>
             Snapshot of where the field would land if the season ended today
-            {projection.week ? ` (through ${typeof projection.week === 'number' ? `Week ${projection.week}` : projection.week})` : ''}.
+            {projection.week ? ` (through ${typeof projection.week === 'number' ? (projection.week === 15 ? 'Conf Champ Week' : `Week ${projection.week}`) : projection.week})` : ''}.
             Updates as weekly scores come in.
           </span>
           {projection.notes && <span className="text-amber-400">{projection.notes}</span>}

@@ -11,7 +11,30 @@
  */
 export function isSameWeek(a, b) {
   if (a == null || b == null) return false
-  return Number(a) === Number(b)
+  // Numeric comparison covers Week 0-14. CCG games use the string
+  // sentinel 'CCG' (and a few legacy variants 'CC', 15) — Number()
+  // returns NaN for those, and NaN !== NaN, so we'd incorrectly say
+  // two CCG games are different weeks. Fall back to a normalized
+  // string comparison when either side is non-numeric.
+  const an = Number(a)
+  const bn = Number(b)
+  if (Number.isFinite(an) && Number.isFinite(bn)) return an === bn
+  return String(a).toUpperCase() === String(b).toUpperCase()
+}
+
+/**
+ * Stable sort key for game.week. Numeric weeks return their number;
+ * CCG games sort just after Week 14 (chronologically); other strings
+ * sort at the end. Use as `games.sort((a,b) => weekSortKey(a.week) -
+ * weekSortKey(b.week))`.
+ */
+export function weekSortKey(week) {
+  if (week == null || week === '') return Number.POSITIVE_INFINITY
+  const n = Number(week)
+  if (Number.isFinite(n)) return n
+  const upper = String(week).toUpperCase()
+  if (upper === 'CCG' || upper === 'CC') return 14.5
+  return Number.POSITIVE_INFINITY
 }
 
 /**

@@ -655,7 +655,15 @@ export default function GameEdit() {
       }
       gameCreationInProgressRef.current = true
 
-      const targetWeek = queryWeek ? parseInt(queryWeek) : null
+      // CCG games carry week='CCG' (a string sentinel) — parseInt would
+      // produce NaN and stash that into game.week, breaking every
+      // numeric sort/filter downstream. Treat any non-numeric query
+      // week as the literal string and only parse the numeric case.
+      const targetWeek = (() => {
+        if (!queryWeek) return null
+        const parsed = parseInt(queryWeek, 10)
+        return Number.isFinite(parsed) ? parsed : String(queryWeek)
+      })()
       const targetYear = queryYear ? parseInt(queryYear) : currentDynasty.currentYear
       const targetGameType = queryGameType || 'regular'
 
@@ -671,10 +679,21 @@ export default function GameEdit() {
         if (Number(g.year) !== targetYear) return false
         if ((g.gameType || 'regular') !== targetGameType) return false
         // Week match — tolerant of '' (treated as null) so a missing
-        // queryWeek doesn't accidentally match week 0.
-        const gw = g.week === '' || g.week == null ? null : Number(g.week)
-        if (targetWeek != null && gw !== targetWeek) return false
-        if (targetWeek == null && gw != null) return false
+        // queryWeek doesn't accidentally match week 0. CCG games use
+        // the string 'CCG' for game.week, so compare numeric vs. string
+        // explicitly: numeric targets compare numerically against the
+        // game's coerced week, string targets compare string-vs-string.
+        const gwRaw = g.week === '' || g.week == null ? null : g.week
+        if (targetWeek != null) {
+          if (gwRaw == null) return false
+          if (typeof targetWeek === 'string') {
+            if (String(gwRaw).toUpperCase() !== targetWeek.toUpperCase()) return false
+          } else {
+            const gwNum = Number(gwRaw)
+            if (!Number.isFinite(gwNum) || gwNum !== targetWeek) return false
+          }
+        }
+        if (targetWeek == null && gwRaw != null) return false
         // Team-pair match — both teams must be in the game (either order).
         const gT1 = g.team1Tid != null ? Number(g.team1Tid) : null
         const gT2 = g.team2Tid != null ? Number(g.team2Tid) : null

@@ -15,13 +15,19 @@ function getTeamAbbr(teamIdentifier, dynastyTeams = null) {
 
 // Get game order for sorting
 function getGameOrder(g) {
-  if (g.gameType === 'conference_championship') return 100
+  // CCG can be detected via gameType OR the boolean flag (legacy
+  // dynasties had isConferenceChampionship=true with gameType=regular).
+  if (g.gameType === 'conference_championship' || g.isConferenceChampionship) return 100
   if (g.gameType === 'cfp_first_round') return 101
   if (g.gameType === 'cfp_quarterfinal') return 102
   if (g.gameType === 'cfp_semifinal') return 103
   if (g.gameType === 'cfp_championship') return 104
-  if (g.gameType === 'bowl') return 150 + (g.week || 0)
-  return g.week || 0
+  if (g.gameType === 'bowl') return 150 + (Number(g.week) || 0)
+  // Regular games: numeric week. CCG games whose flag/gameType slipped
+  // through the checks above and have week:'CCG' would otherwise return
+  // the literal string and break downstream `a - b` comparisons.
+  const wk = Number(g.week)
+  return Number.isFinite(wk) ? wk : 0
 }
 
 // Check if a game has been played (has scores entered)

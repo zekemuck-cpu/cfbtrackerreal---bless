@@ -86,7 +86,7 @@ export default function GameEntryModal({
   } : null)
 
   // Use existing game's week if available, otherwise use passed weekNumber
-  const actualWeekNumber = existingGame?.week ?? (isConferenceChampionship ? 'CC' : (currentDynasty?.currentPhase === 'regular_season' && weekNumber === 0 ? 1 : weekNumber))
+  const actualWeekNumber = existingGame?.week ?? (isConferenceChampionship ? 'CCG' : (currentDynasty?.currentPhase === 'regular_season' && weekNumber === 0 ? 1 : weekNumber))
   const actualYear = existingGame?.year ?? currentYear ?? currentDynasty?.currentYear
 
   // Helper to get the latest game data from dynasty (for box score syncing)

@@ -436,6 +436,7 @@ export default function Rankings() {
   // correctly. Special week keys map to postseason labels.
   const weekLabel = (w) => {
     if (w === 0) return 'Preseason Rankings'
+    if (w === 15) return 'Conf Champ Week'  // post-Week-14 / pre-CCG poll slot
     if (w === 100) return 'Conference Championships'
     if (w === 101) return 'CFP First Round'
     if (w === 102) return 'CFP Quarterfinals'

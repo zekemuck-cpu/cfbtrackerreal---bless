@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, detectGameType, GAME_TYPES, getTeamGamePerspective, getTeamRanking } from '../../context/DynastyContext'
+import { weekSortKey } from '../../utils/compareUtils'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName, getTidFromAbbr } from '../../data/teamRegistry'
@@ -544,7 +545,10 @@ export default function CoachCareer() {
 
   const sortedGames = getGamesForModal().sort((a, b) => {
     if (b.year !== a.year) return b.year - a.year
-    return (b.week || 0) - (a.week || 0)
+    // weekSortKey handles CCG (sorts at 14.5, after Week 14) and other
+    // non-numeric week sentinels — plain `b.week - a.week` produces NaN
+    // for CCG games and leaves them at arbitrary positions.
+    return weekSortKey(b.week) - weekSortKey(a.week)
   })
 
   const gamesByYear = sortedGames.reduce((acc, game) => {

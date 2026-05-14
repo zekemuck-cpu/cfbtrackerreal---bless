@@ -14,6 +14,7 @@
 // editor those legacy fields are cleared.
 
 import { DEFAULT_TEMPLATE_ID } from '../data/cardTemplates'
+import { weekSortKey } from './compareUtils'
 
 /**
  * Returns the player's cards as an array. Two shapes coexist:
@@ -223,7 +224,7 @@ export function listPlayerGames(player, dynasty) {
 
   return games.sort((a, b) => {
     if (a.year !== b.year) return b.year - a.year
-    return Number(b.week ?? 0) - Number(a.week ?? 0)
+    return weekSortKey(b.week) - weekSortKey(a.week)
   })
 }
 

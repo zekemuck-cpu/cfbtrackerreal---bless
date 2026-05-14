@@ -4061,7 +4061,7 @@ export default function Dashboard() {
                       return null
                     })()
                     const params = new URLSearchParams({
-                      week: 'CC',
+                      week: 'CCG',
                       year: currentDynasty.currentYear?.toString() || '',
                       team1Tid: userTeamTid?.toString() || '',
                       team2Tid: opponentTid?.toString() || '',
@@ -4654,672 +4654,382 @@ export default function Dashboard() {
 
             const userChampOpponent = getCFPChampionshipOpponent()
 
-            // Week 1: CC data, bowl eligibility question, then bowl results
+            // Week 1: CC + CFP seeds + bowl/CFP status (wizard) + user's bowl/CFP
+            // game + new-job wizard + recruiting. Unified with the in-season todo
+            // design via renderTodoList. Multi-step wizards (Bowl Status, Taking a
+            // New Job) appear as rows in the list with their interactive UI rendered
+            // as separate panels below when mid-flow — same shape as Bowl Week 2.
             if (week === 1) {
+              const bw1Todos = []
+
+              bw1Todos.push({
+                key: 'cc-results',
+                done: hasCCData,
+                title: 'Conference Championship Results',
+                subtitle: ccGamesWithScores === totalCCGames
+                  ? `All ${totalCCGames} games entered`
+                  : `${ccGamesWithScores}/${totalCCGames} games entered`,
+                onAction: () => setShowCCModal(true),
+                actionLabel: hasCCData ? 'Edit' : 'Enter',
+              })
+
+              bw1Todos.push({
+                key: 'cfp-seeds',
+                done: hasCFPSeedsData,
+                title: 'CFP Seeds (1-12)',
+                subtitle: hasCFPSeedsData ? 'Seeds entered' : '12 playoff teams',
+                onAction: () => setShowCFPSeedsModal(true),
+                actionLabel: hasCFPSeedsData ? 'Edit' : 'Enter',
+              })
+
+              const bowlTaskComplete = hasCFPSeedsData && (
+                userHasCFPBye || userInCFPFirstRound ||
+                (bowlEligible !== null && (bowlEligible === false || (bowlEligible && selectedBowl && bowlOpponent)))
+              )
+              const showBowlEditButton = hasCFPSeedsData && !userCFPSeed && bowlEligible !== null &&
+                (bowlEligible === false || (bowlEligible && selectedBowl && bowlOpponent))
+              const bowlStatusSubtitle = !hasCFPSeedsData
+                ? 'Enter CFP Seeds first'
+                : userHasCFPBye
+                  ? `#${userCFPSeed} Seed - Bye to Quarterfinals (Week 2)`
+                  : userInCFPFirstRound
+                    ? `#${userCFPSeed} Seed vs #${17 - userCFPSeed} ${getMascotName(userCFPOpponent)}`
+                    : bowlEligible === false
+                      ? 'Not bowl eligible this year'
+                      : bowlEligible === true && selectedBowl && bowlOpponent
+                        ? `${selectedBowl} vs ${bowlOpponent}${userBowlIsWeek2 ? ' (plays in Week 2)' : ''}`
+                        : bowlEligible === true && selectedBowl
+                          ? `Playing in: ${selectedBowl}`
+                          : bowlEligible === true
+                            ? 'Choose your bowl game'
+                            : 'Did you make a bowl game?'
+
+              bw1Todos.push({
+                key: 'bowl-status',
+                done: bowlTaskComplete,
+                title: userCFPSeed ? 'Your CFP Game' : 'Your Bowl Game',
+                subtitle: bowlStatusSubtitle,
+                onAction: showBowlEditButton ? async () => {
+                  setBowlEligible(null)
+                  setSelectedBowl('')
+                  setBowlOpponent('')
+                  const existingBowlGame = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear))
+                  const updatedGames = existingBowlGame
+                    ? currentDynasty.games.filter(g => !(g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear) && getUserGamePerspective(g, currentDynasty)))
+                    : currentDynasty.games
+                  const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
+                  const { [currentYear]: _, ...restByYear } = existingByYear
+                  await updateDynasty(currentDynasty.id, {
+                    bowlEligibilityDataByYear: restByYear,
+                    games: updatedGames,
+                  })
+                } : undefined,
+                actionLabel: showBowlEditButton ? 'Edit' : undefined,
+              })
+
+              if (userHasCFPFirstRoundGame) {
+                bw1Todos.push({
+                  key: 'cfp-fr-game',
+                  done: userCFPFirstRoundScoresEntered,
+                  title: 'Enter Your CFP First Round Game',
+                  subtitle: userCFPFirstRoundScoresEntered
+                    ? `${userCFPFirstRoundGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPFirstRoundGame.perspective?.userScore || 0, userCFPFirstRoundGame.perspective?.opponentScore || 0)}-${Math.min(userCFPFirstRoundGame.perspective?.userScore || 0, userCFPFirstRoundGame.perspective?.opponentScore || 0)}`
+                    : `#${userCFPSeed} vs #${17 - userCFPSeed} ${getMascotName(userCFPOpponent)}`,
+                  onAction: () => {
+                    const gameToEdit = userCFPFirstRoundGame || userCFPFirstRoundShell
+                    if (gameToEdit) {
+                      navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
+                    } else {
+                      const opponentTid = typeof userCFPOpponent === 'number' ? userCFPOpponent : getTidFromAbbr(userCFPOpponent, currentDynasty)
+                      const params = new URLSearchParams({
+                        week: 'CFP First Round',
+                        year: currentDynasty.currentYear?.toString() || '',
+                        team1Tid: userTeamTid?.toString() || '',
+                        team2Tid: opponentTid?.toString() || '',
+                        gameType: 'cfp_first_round',
+                      })
+                      navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                    }
+                  },
+                  actionLabel: userCFPFirstRoundScoresEntered ? 'Edit' : 'Enter',
+                })
+              }
+
+              if (userHasBowlWeek1Game) {
+                bw1Todos.push({
+                  key: 'bowl-week1-game',
+                  done: userBowlGameScoresEntered,
+                  title: `Enter Your ${selectedBowl} Game`,
+                  subtitle: userBowlGameScoresEntered && userBowlGame
+                    ? `${userBowlGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}-${Math.min(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}`
+                    : `vs ${bowlOpponent}`,
+                  onAction: () => {
+                    if (userBowlGame) {
+                      navigate(`${pathPrefix}/game/${userBowlGame.id}/edit`, { state: { from: location.pathname } })
+                    } else {
+                      const opponentTid = getTidFromTeamName(bowlOpponent, currentDynasty?.teams)
+                      const params = new URLSearchParams({
+                        week: 'Bowl',
+                        year: currentDynasty.currentYear?.toString() || '',
+                        team1Tid: userTeamTid?.toString() || '',
+                        team2Tid: opponentTid?.toString() || '',
+                        gameType: 'bowl',
+                        bowlName: selectedBowl || '',
+                      })
+                      navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                    }
+                  },
+                  actionLabel: userBowlGameScoresEntered ? 'Edit' : 'Enter',
+                })
+              }
+
+              const newJobDone = takingNewJob !== null && (takingNewJob === false || (newJobTeam && newJobPosition))
+              bw1Todos.push({
+                key: 'new-job-bw1',
+                done: newJobDone,
+                title: 'Taking a New Job? (Bowl Week 1)',
+                subtitle: newJobDone
+                  ? takingNewJob === true
+                    ? `${newJobPosition} at ${getTeamNameFromAbbr(newJobTeam)}`
+                    : 'Staying with current team'
+                  : 'Yes or no?',
+                onAction: newJobDone ? async () => {
+                  setTakingNewJob(null)
+                  setNewJobTeam('')
+                  setNewJobPosition('')
+                  const updatedTeams = clearPendingUserTeam(currentDynasty.teams)
+                  await updateDynasty(currentDynasty.id, {
+                    newJobData: null,
+                    teams: updatedTeams,
+                  })
+                } : undefined,
+                actionLabel: newJobDone ? 'Edit' : undefined,
+              })
+
+              const bw1CommitmentKey = getCommitmentKey()
+              const bw1UserTidForCommits = getUserTeamTid(currentDynasty)
+              const bw1CommitmentsForYear = getRecruitingCommitments(currentDynasty, bw1UserTidForCommits, currentDynasty.currentYear)
+              const bw1WeekCommitments = bw1CommitmentsForYear?.[bw1CommitmentKey]
+              const bw1HasCommitmentsData = bw1WeekCommitments !== undefined
+              const bw1CommitmentsCount = bw1WeekCommitments?.length || 0
+              const bw1ClassScore = calculateRecruitingClassScore(flattenClassCommitments(bw1CommitmentsForYear))
+
+              bw1Todos.push({
+                key: 'recruiting-bw1',
+                done: bw1HasCommitmentsData,
+                title: bw1HasCommitmentsData ? 'Recruiting Commitments' : 'Any commitments this week?',
+                subtitle: bw1HasCommitmentsData
+                  ? bw1CommitmentsCount > 0
+                    ? `${bw1CommitmentsCount} commitment${bw1CommitmentsCount !== 1 ? 's' : ''} recorded`
+                    : 'No commitments this week'
+                  : 'Record any recruiting commitments',
+                onAction: () => setShowRecruitingModal(true),
+                actionLabel: bw1HasCommitmentsData ? 'Edit' : 'Yes',
+                extraTools: !bw1HasCommitmentsData ? (
+                  <>
+                    <SellVsSendButton onClick={() => setShowSellCalc(true)} />
+                    <button
+                      onClick={handleNoCommitments}
+                      className="btn-refined text-center"
+                    >
+                      No
+                    </button>
+                  </>
+                ) : null,
+                inlineAction: bw1HasCommitmentsData && bw1ClassScore > 0 ? {
+                  label: `Class Score ${formatRecruitingClassScore(bw1ClassScore)}`,
+                  onClick: () => navigate(`${pathPrefix}/recruiting/${bw1UserTidForCommits}/${currentDynasty.currentYear}`),
+                } : null,
+              })
+
               return (
                 <>
-                  <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                    <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
-                      Bowl Week 1
-                    </h3>
-                  </div>
-                  <div className="-space-y-px">
-                    {/* Task 1: CC Results */}
-                    <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                      style={hasCCData ? {
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        border: '1px solid rgba(34, 197, 94, 0.3)'
-                      } : {
-                        backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--surface-4)'
-                      }}
-                    >
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div
-                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                            hasCCData ? 'bg-green-500 text-white' : ''
-                          }`}
-                          style={!hasCCData ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                        >
-                          {hasCCData ? (
-                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : <span className="font-bold text-sm sm:text-base">1</span>}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasCCData ? '#22c55e' : '#fafafa' }}>
-                            Conference Championship Results
-                          </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasCCData ? '#22c55e' : '#a1a1aa' }}>
-                            {ccGamesWithScores === totalCCGames ? `✓ All ${totalCCGames} games entered` : `${ccGamesWithScores}/${totalCCGames} games entered`}
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setShowCCModal(true)}
-                        className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                        style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                      >
-                        {hasCCData ? 'Edit' : 'Enter'}
-                      </button>
-                    </div>
+                  <h3 className="font-display font-bold leading-none text-txt-primary px-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
+                    Bowl Week 1
+                  </h3>
+                  {renderTodoList({ todos: bw1Todos, isViewOnly })}
 
-                    {/* Task 2: CFP Seeds */}
-                    <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                      style={hasCFPSeedsData ? {
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        border: '1px solid rgba(34, 197, 94, 0.3)'
-                      } : {
-                        backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--surface-4)'
-                      }}
-                    >
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div
-                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                            hasCFPSeedsData ? 'bg-green-500 text-white' : ''
-                          }`}
-                          style={!hasCFPSeedsData ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                        >
-                          {hasCFPSeedsData ? (
-                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : <span className="font-bold text-sm sm:text-base">2</span>}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasCFPSeedsData ? '#22c55e' : '#fafafa' }}>
-                            CFP Seeds (1-12)
-                          </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasCFPSeedsData ? '#22c55e' : '#a1a1aa' }}>
-                            {hasCFPSeedsData ? '✓ Seeds entered' : '12 playoff teams'}
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setShowCFPSeedsModal(true)}
-                        className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                        style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                      >
-                        {hasCFPSeedsData ? 'Edit' : 'Enter'}
-                      </button>
-                    </div>
-
-                    {/* Task 3: Bowl/CFP Status */}
-                    {(() => {
-                      const bowlTaskComplete = hasCFPSeedsData && (userHasCFPBye || userInCFPFirstRound || (bowlEligible !== null && (bowlEligible === false || (bowlEligible && selectedBowl && bowlOpponent))))
-                      // Edit button only shows when CFP seeds are entered AND bowl eligibility has been answered
-                      const showBowlEditButton = hasCFPSeedsData && !userCFPSeed && bowlEligible !== null && (bowlEligible === false || (bowlEligible && selectedBowl && bowlOpponent))
-
-                      return (
-                        <div
-                          className="p-3 sm:p-4 transition-all"
-                          style={bowlTaskComplete ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                            border: '1px solid rgba(34, 197, 94, 0.3)'
-                          } : {
-                            backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--surface-4)'
-                          }}
-                        >
-                          <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 ${!bowlTaskComplete || (!hasCFPSeedsData || bowlEligible === null || (!userCFPSeed && bowlEligible && (!selectedBowl || !bowlOpponent))) ? 'mb-3' : ''}`}>
-                            <div className="flex items-center gap-2 sm:gap-3">
-                              <div
-                                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${bowlTaskComplete ? 'bg-green-500 text-white' : ''}`}
-                                style={!bowlTaskComplete ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                              >
-                                {bowlTaskComplete ? (
-                                  <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                  </svg>
-                                ) : <span className="font-bold text-sm sm:text-base">3</span>}
-                              </div>
-                              <div className="min-w-0">
-                                <div className="text-sm sm:text-base font-semibold" style={{ color: bowlTaskComplete ? '#22c55e' : '#fafafa' }}>
-                                  {userCFPSeed ? 'Your CFP Game' : 'Your Bowl Game'}
-                                </div>
-                                {/* Show status text inline when complete */}
-                                {userHasCFPBye && (
-                                  <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
-                                    ✓ #{userCFPSeed} Seed - Bye to Quarterfinals (Week 2)
-                                  </div>
-                                )}
-                                {userInCFPFirstRound && (
-                                  <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
-                                    ✓ #{userCFPSeed} Seed vs #{17 - userCFPSeed} {getMascotName(userCFPOpponent)}
-                                  </div>
-                                )}
-                                {hasCFPSeedsData && !userCFPSeed && bowlEligible === false && (
-                                  <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
-                                    ✓ Not bowl eligible this year
-                                  </div>
-                                )}
-                                {hasCFPSeedsData && !userCFPSeed && bowlEligible && selectedBowl && bowlOpponent && (
-                                  <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
-                                    ✓ {selectedBowl} vs {bowlOpponent}
-                                    {userBowlIsWeek2 && <span className="ml-2 opacity-70">(plays in Week 2)</span>}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            {/* Edit button in header when bowl selection is complete */}
-                            {showBowlEditButton && (
-                              <button
-                                onClick={async () => {
-                                  setBowlEligible(null)
-                                  setSelectedBowl('')
-                                  setBowlOpponent('')
-                                  // Remove any existing bowl game from games array (team-centric)
-                                  // Uses unified format: check if user's team is in the game via perspective
-                                  const existingBowlGame = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear))
-                                  const updatedGames = existingBowlGame
-                                    ? currentDynasty.games.filter(g => !(g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear) && getUserGamePerspective(g, currentDynasty)))
-                                    : currentDynasty.games
-                                  // Clear year-specific bowl eligibility data
-                                  const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
-                                  const { [currentYear]: _, ...restByYear } = existingByYear
-                                  await updateDynasty(currentDynasty.id, {
-                                    bowlEligibilityDataByYear: restByYear,
-                                    games: updatedGames
-                                  })
-                                }}
-                                className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                              >
-                                Edit
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Content area for incomplete states */}
-                          {!hasCFPSeedsData && (
-                            <div className="ml-13 pl-10">
-                              <p className="text-sm" style={{ color: '#a1a1aa' }}>
-                                Enter CFP Seeds first
-                              </p>
-                            </div>
-                          )}
-                          {hasCFPSeedsData && !userCFPSeed && bowlEligible === null && (
-                            <div className="ml-13 pl-10">
-                              <p className="mb-3" style={{ color: '#a1a1aa' }}>Did you make a bowl game?</p>
-                              <div className="flex gap-3">
-                                <button
-                                  onClick={async () => {
-                                    setBowlEligible(true)
-                                    const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
-                                    await updateDynasty(currentDynasty.id, {
-                                      bowlEligibilityDataByYear: {
-                                        ...existingByYear,
-                                        [currentYear]: { eligible: true, bowlGame: '', opponent: '' }
-                                      }
-                                    })
-                                  }}
-                                  className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                                  style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                                >
-                                  Yes
-                                </button>
-                                <button
-                                  onClick={async () => {
-                                    setBowlEligible(false)
-                                    const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
-                                    await updateDynasty(currentDynasty.id, {
-                                      bowlEligibilityDataByYear: {
-                                        ...existingByYear,
-                                        [currentYear]: { eligible: false, bowlGame: null, opponent: null }
-                                      }
-                                    })
-                                  }}
-                                  className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                                  style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                                >
-                                  No
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                          {hasCFPSeedsData && !userCFPSeed && bowlEligible === true && !selectedBowl && (
-                            <div className="ml-13 pl-10">
-                              <p className="mb-2" style={{ color: '#a1a1aa' }}>Which bowl game?</p>
-                              <div className="max-w-xs">
-                                <DropdownSelect
-                                  options={allBowlGames}
-                                  value={selectedBowl}
-                                  onChange={async (bowl) => {
-                                    setSelectedBowl(bowl)
-                                    const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
-                                    const currentBowlData = existingByYear[currentYear] || {}
-                                    await updateDynasty(currentDynasty.id, {
-                                      bowlEligibilityDataByYear: {
-                                        ...existingByYear,
-                                        [currentYear]: { ...currentBowlData, eligible: true, bowlGame: bowl }
-                                      }
-                                    })
-                                  }}
-                                  placeholder="Search bowls..."
-                                  teamColors={teamColors}
-                                />
-                              </div>
-                            </div>
-                          )}
-                          {hasCFPSeedsData && !userCFPSeed && bowlEligible === true && selectedBowl && !bowlOpponent && (
-                            <div className="ml-13 pl-10">
-                              <p className="mb-2" style={{ color: '#a1a1aa' }}>Playing in: <strong style={{ color: '#fafafa' }}>{selectedBowl}</strong></p>
-                              <p className="mb-2" style={{ color: '#a1a1aa' }}>Who is your opponent?</p>
-                              <div className="max-w-xs">
-                                <SearchableSelect
-                                  options={teams}
-                                  value={bowlOpponent}
-                                  onChange={async (value) => {
-                                    setBowlOpponent(value)
-                                    const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
-                                    const currentBowlData = existingByYear[currentYear] || {}
-                                    // Auto-create the bowl game shell now that the wizard
-                                    // has all three answers (eligible + bowl + opponent).
-                                    // The dashboard's game-entry detection reads games[]
-                                    // as a single source of truth — without this shell,
-                                    // the Bowl Game tile would have to fall back to
-                                    // wizard-state checks (the old 25-predicate approach).
-                                    const opponentTid = getTidFromTeamName(value, currentDynasty?.teams)
-                                    const updatedGames = opponentTid
-                                      ? createOrUpdateBowlGameShell(currentDynasty.games || [], {
-                                          bowlName: selectedBowl,
-                                          year: currentYear,
-                                          userTid: userTeamTid,
-                                          opponentTid,
-                                          isWeek1: isBowlInWeek1(selectedBowl),
-                                        })
-                                      : (currentDynasty.games || [])
-                                    await updateDynasty(currentDynasty.id, {
-                                      bowlEligibilityDataByYear: {
-                                        ...existingByYear,
-                                        [currentYear]: { ...currentBowlData, opponent: value }
-                                      },
-                                      games: updatedGames,
-                                    })
-                                  }}
-                                  placeholder="Search for opponent..."
-                                  teamColors={teamColors}
-                                  dynastyTeams={currentDynasty?.teams}
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })()}
-
-                    {/* Task 4: Enter YOUR CFP First Round Game.
-                        Renders when the user has a CFP First Round game shell
-                        in games[]. Same predicate shape as every other game-
-                        entry tile — no seed math, no wizard flags. */}
-                    {userHasCFPFirstRoundGame && (
-                      <div
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                        style={userCFPFirstRoundScoresEntered ? {
-                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                          border: '1px solid rgba(34, 197, 94, 0.3)'
-                        } : {
-                          backgroundColor: 'var(--surface-3)',
-                          border: '1px solid var(--surface-4)'
-                        }}
-                      >
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          <div
-                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                              userCFPFirstRoundScoresEntered ? 'bg-green-500 text-white' : ''
-                            }`}
-                            style={!userCFPFirstRoundScoresEntered ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                          >
-                            {userCFPFirstRoundScoresEntered ? (
-                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : <span className="font-bold text-sm sm:text-base">4</span>}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: userCFPFirstRoundScoresEntered ? '#22c55e' : '#fafafa' }}>
-                              Enter Your CFP First Round Game
-                            </div>
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userCFPFirstRoundScoresEntered ? '#22c55e' : '#a1a1aa' }}>
-                              {userCFPFirstRoundScoresEntered ? `✓ ${userCFPFirstRoundGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPFirstRoundGame.perspective?.userScore || 0, userCFPFirstRoundGame.perspective?.opponentScore || 0)}-${Math.min(userCFPFirstRoundGame.perspective?.userScore || 0, userCFPFirstRoundGame.perspective?.opponentScore || 0)}` : `#${userCFPSeed} vs #${17 - userCFPSeed} ${getMascotName(userCFPOpponent)}`}
-                            </div>
-                          </div>
-                        </div>
+                  {/* Bowl-status wizard panels (only when mid-flow) */}
+                  {hasCFPSeedsData && !userCFPSeed && bowlEligible === null && (
+                    <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
+                      <p className="mb-3 text-xs sm:text-sm font-medium text-txt-secondary">Did you make a bowl game?</p>
+                      <div className="flex gap-2">
                         <button
-                          onClick={() => {
-                            // Use game with perspective first, then shell, then create new
-                            const gameToEdit = userCFPFirstRoundGame || userCFPFirstRoundShell
-                            if (gameToEdit) {
-                              navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
-                            } else {
-                              // userCFPOpponent can be tid (number) or abbr (string)
-                              const opponentTid = typeof userCFPOpponent === 'number' ? userCFPOpponent : getTidFromAbbr(userCFPOpponent, currentDynasty)
-                              const params = new URLSearchParams({
-                                week: 'CFP First Round',
-                                year: currentDynasty.currentYear?.toString() || '',
-                                team1Tid: userTeamTid?.toString() || '',
-                                team2Tid: opponentTid?.toString() || '',
-                                gameType: 'cfp_first_round'
-                              })
-                              navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
-                            }
+                          onClick={async () => {
+                            setBowlEligible(true)
+                            const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
+                            await updateDynasty(currentDynasty.id, {
+                              bowlEligibilityDataByYear: {
+                                ...existingByYear,
+                                [currentYear]: { eligible: true, bowlGame: '', opponent: '' },
+                              },
+                            })
                           }}
-                          className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
+                          className="btn-refined btn-refined--solid"
                         >
-                          {userCFPFirstRoundScoresEntered ? 'Edit' : 'Enter'}
+                          Yes
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setBowlEligible(false)
+                            const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
+                            await updateDynasty(currentDynasty.id, {
+                              bowlEligibilityDataByYear: {
+                                ...existingByYear,
+                                [currentYear]: { eligible: false, bowlGame: null, opponent: null },
+                              },
+                            })
+                          }}
+                          className="btn-refined btn-refined--solid"
+                        >
+                          No
                         </button>
                       </div>
-                    )}
-
-                    {/* Task 4b: Enter YOUR Bowl Game (Week 1 bowl).
-                        Same predicate shape as the CFP First Round tile,
-                        just narrowed to bowl games with bowlWeek='week1'. */}
-                    {userHasBowlWeek1Game && (
-                      <div
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                        style={userBowlGameScoresEntered ? {
-                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                          border: '1px solid rgba(34, 197, 94, 0.3)'
-                        } : {
-                          backgroundColor: 'var(--surface-3)',
-                          border: '1px solid var(--surface-4)'
-                        }}
-                      >
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          <div
-                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                              userBowlGameScoresEntered ? 'bg-green-500 text-white' : ''
-                            }`}
-                            style={!userBowlGameScoresEntered ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                          >
-                            {userBowlGameScoresEntered ? (
-                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : <span className="font-bold text-sm sm:text-base">4</span>}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: userBowlGameScoresEntered ? '#22c55e' : '#fafafa' }}>
-                              Enter Your {selectedBowl} Game
-                            </div>
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userBowlGameScoresEntered ? '#22c55e' : '#a1a1aa' }}>
-                              {userBowlGameScoresEntered ? `✓ ${userBowlGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}-${Math.min(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}` : `vs ${bowlOpponent}`}
-                            </div>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => {
-                            if (userBowlGame) {
-                              navigate(`${pathPrefix}/game/${userBowlGame.id}/edit`, { state: { from: location.pathname } })
-                            } else {
-                              // bowlOpponent is a team name (e.g., "Texas Longhorns"), not abbreviation
-                              const opponentTid = getTidFromTeamName(bowlOpponent, currentDynasty?.teams)
-                              const params = new URLSearchParams({
-                                week: 'Bowl',
-                                year: currentDynasty.currentYear?.toString() || '',
-                                team1Tid: userTeamTid?.toString() || '',
-                                team2Tid: opponentTid?.toString() || '',
-                                gameType: 'bowl',
-                                bowlName: selectedBowl || ''
-                              })
-                              navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
-                            }
+                    </div>
+                  )}
+                  {hasCFPSeedsData && !userCFPSeed && bowlEligible === true && !selectedBowl && (
+                    <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
+                      <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Which bowl game?</p>
+                      <div className="max-w-xs">
+                        <DropdownSelect
+                          options={allBowlGames}
+                          value={selectedBowl}
+                          onChange={async (bowl) => {
+                            setSelectedBowl(bowl)
+                            const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
+                            const currentBowlData = existingByYear[currentYear] || {}
+                            await updateDynasty(currentDynasty.id, {
+                              bowlEligibilityDataByYear: {
+                                ...existingByYear,
+                                [currentYear]: { ...currentBowlData, eligible: true, bowlGame: bowl },
+                              },
+                            })
                           }}
-                          className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
+                          placeholder="Search bowls..."
+                          teamColors={teamColors}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {hasCFPSeedsData && !userCFPSeed && bowlEligible === true && selectedBowl && !bowlOpponent && (
+                    <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
+                      <p className="mb-2 text-xs sm:text-sm text-txt-secondary">
+                        Playing in: <strong className="text-txt-primary">{selectedBowl}</strong>
+                      </p>
+                      <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Who is your opponent?</p>
+                      <div className="max-w-xs">
+                        <SearchableSelect
+                          options={teams}
+                          value={bowlOpponent}
+                          onChange={async (value) => {
+                            setBowlOpponent(value)
+                            const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
+                            const currentBowlData = existingByYear[currentYear] || {}
+                            const opponentTid = getTidFromTeamName(value, currentDynasty?.teams)
+                            const updatedGames = opponentTid
+                              ? createOrUpdateBowlGameShell(currentDynasty.games || [], {
+                                  bowlName: selectedBowl,
+                                  year: currentYear,
+                                  userTid: userTeamTid,
+                                  opponentTid,
+                                  isWeek1: isBowlInWeek1(selectedBowl),
+                                })
+                              : (currentDynasty.games || [])
+                            await updateDynasty(currentDynasty.id, {
+                              bowlEligibilityDataByYear: {
+                                ...existingByYear,
+                                [currentYear]: { ...currentBowlData, opponent: value },
+                              },
+                              games: updatedGames,
+                            })
+                          }}
+                          placeholder="Search for opponent..."
+                          teamColors={teamColors}
+                          dynastyTeams={currentDynasty?.teams}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Taking a New Job wizard panels (only when mid-flow) */}
+                  {takingNewJob === null && (
+                    <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
+                      <p className="mb-3 text-xs sm:text-sm font-medium text-txt-secondary">Taking a new job this offseason?</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={async () => {
+                            setTakingNewJob(true)
+                            await updateDynasty(currentDynasty.id, {
+                              newJobData: { takingNewJob: true, team: '', position: '' },
+                            })
+                          }}
+                          className="btn-refined btn-refined--solid"
                         >
-                          {userBowlGameScoresEntered ? 'Edit' : 'Enter'}
+                          Yes
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setTakingNewJob(false)
+                            await updateDynasty(currentDynasty.id, {
+                              newJobData: { takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek },
+                            })
+                          }}
+                          className="btn-refined btn-refined--solid"
+                        >
+                          No
                         </button>
                       </div>
-                    )}
-
-                    {/* Task: Taking a New Job? */}
-                    <div
-                      className="p-3 sm:p-4 transition-all"
-                      style={takingNewJob !== null ? {
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        border: '1px solid rgba(34, 197, 94, 0.3)'
-                      } : {
-                        backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--surface-4)'
-                      }}
-                    >
-                      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 ${takingNewJob === null || (takingNewJob === true && (!newJobTeam || !newJobPosition)) ? 'mb-3' : ''}`}>
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          <div
-                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                              takingNewJob !== null ? 'bg-green-500 text-white' : ''
-                            }`}
-                            style={takingNewJob === null ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                          >
-                            {takingNewJob !== null ? (
-                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : <span className="font-bold text-sm sm:text-base">5</span>}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: takingNewJob !== null ? '#22c55e' : '#fafafa' }}>
-                              Taking a New Job? (Bowl Week 1)
-                            </div>
-                            {takingNewJob === true && newJobTeam && newJobPosition && (
-                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
-                                ✓ {newJobPosition} at {getTeamNameFromAbbr(newJobTeam)}
-                              </div>
-                            )}
-                            {takingNewJob === false && (
-                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
-                                ✓ Staying with current team
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        {/* Edit button in header when complete */}
-                        {(takingNewJob === false || (takingNewJob === true && newJobTeam && newJobPosition)) && (
+                    </div>
+                  )}
+                  {takingNewJob === true && !newJobTeam && (
+                    <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
+                      <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Which team?</p>
+                      <div className="max-w-xs">
+                        <SearchableSelect
+                          options={teams}
+                          value={newJobTeam}
+                          onChange={async (value) => {
+                            setNewJobTeam(value)
+                            await updateDynasty(currentDynasty.id, {
+                              newJobData: { ...currentDynasty.newJobData, takingNewJob: true, team: value },
+                            })
+                          }}
+                          placeholder="Search for team..."
+                          teamColors={teamColors}
+                          dynastyTeams={currentDynasty?.teams}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {takingNewJob === true && newJobTeam && !newJobPosition && (
+                    <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
+                      <p className="mb-2 text-xs sm:text-sm text-txt-secondary">
+                        New team: <strong className="text-txt-primary">{getTeamNameFromAbbr(newJobTeam)}</strong>
+                      </p>
+                      <p className="mb-2 text-xs sm:text-sm text-txt-secondary">What position?</p>
+                      <div className="flex gap-2 flex-wrap">
+                        {['HC', 'OC', 'DC'].map(pos => (
                           <button
+                            key={pos}
                             onClick={async () => {
-                              setTakingNewJob(null)
-                              setNewJobTeam('')
-                              setNewJobPosition('')
-                              // Clear pendingUserId from any team
-                              const updatedTeams = clearPendingUserTeam(currentDynasty.teams)
+                              setNewJobPosition(pos)
+                              const newTeamTid = getTidFromTeamName(currentDynasty.newJobData?.team, currentDynasty.teams)
+                              const updatedTeams = newTeamTid
+                                ? setPendingUserTeam(currentDynasty.teams, newTeamTid, pos)
+                                : currentDynasty.teams
                               await updateDynasty(currentDynasty.id, {
-                                newJobData: null,
-                                teams: updatedTeams
+                                newJobData: { ...currentDynasty.newJobData, takingNewJob: true, position: pos },
+                                teams: updatedTeams,
                               })
                             }}
-                            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
+                            className="btn-refined btn-refined--solid"
                           >
-                            Edit
+                            {pos === 'HC' ? 'Head Coach' : pos === 'OC' ? 'Offensive Coordinator' : 'Defensive Coordinator'}
                           </button>
-                        )}
+                        ))}
                       </div>
-
-                      {takingNewJob === null && (
-                        <div className="ml-13 pl-10">
-                          <div className="flex gap-3">
-                            <button
-                              onClick={async () => {
-                                setTakingNewJob(true)
-                                await updateDynasty(currentDynasty.id, {
-                                  newJobData: { takingNewJob: true, team: '', position: '' }
-                                })
-                              }}
-                              className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                            >
-                              Yes
-                            </button>
-                            <button
-                              onClick={async () => {
-                                setTakingNewJob(false)
-                                await updateDynasty(currentDynasty.id, {
-                                  newJobData: { takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek }
-                                })
-                              }}
-                              className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                            >
-                              No
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                      {takingNewJob === true && !newJobTeam && (
-                        <div className="ml-13 pl-10">
-                          <p className="mb-2" style={{ color: '#a1a1aa' }}>Which team?</p>
-                          <div className="max-w-xs">
-                            <SearchableSelect
-                              options={teams}
-                              value={newJobTeam}
-                              onChange={async (value) => {
-                                setNewJobTeam(value)
-                                // IMPORTANT: Always include takingNewJob: true to prevent state loss
-                                const updatePayload = {
-                                  newJobData: { ...currentDynasty.newJobData, takingNewJob: true, team: value }
-                                }
-                                await updateDynasty(currentDynasty.id, updatePayload)
-                              }}
-                              placeholder="Search for team..."
-                              teamColors={teamColors}
-                              dynastyTeams={currentDynasty?.teams}
-                            />
-                          </div>
-                        </div>
-                      )}
-                      {takingNewJob === true && newJobTeam && !newJobPosition && (
-                        <div className="ml-13 pl-10">
-                          <p className="mb-2" style={{ color: '#a1a1aa' }}>
-                            New team: <strong style={{ color: '#fafafa' }}>{getTeamNameFromAbbr(newJobTeam)}</strong>
-                          </p>
-                          <p className="mb-2" style={{ color: '#a1a1aa' }}>What position?</p>
-                          <div className="flex gap-2 flex-wrap">
-                            {['HC', 'OC', 'DC'].map(pos => (
-                              <button
-                                key={pos}
-                                onClick={async () => {
-                                  setNewJobPosition(pos)
-                                  // Get tid of the new team and set pendingUserId
-                                  const newTeamTid = getTidFromTeamName(currentDynasty.newJobData?.team, currentDynasty.teams)
-                                  const updatedTeams = newTeamTid
-                                    ? setPendingUserTeam(currentDynasty.teams, newTeamTid, pos)
-                                    : currentDynasty.teams
-                                  // IMPORTANT: Always include takingNewJob: true to prevent state loss
-                                  const updatePayload = {
-                                    newJobData: { ...currentDynasty.newJobData, takingNewJob: true, position: pos },
-                                    teams: updatedTeams
-                                  }
-                                  await updateDynasty(currentDynasty.id, updatePayload)
-                                }}
-                                className="px-4 py-2 rounded-lg font-semibold hover:opacity-90"
-                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                              >
-                                {pos === 'HC' ? 'Head Coach' : pos === 'OC' ? 'Offensive Coordinator' : 'Defensive Coordinator'}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
-
-                    {/* Task: Recruiting Commitments (Bowl Week 1) */}
-                    {(() => {
-                      const commitmentKey = getCommitmentKey()
-                      const userTidForCommits = getUserTeamTid(currentDynasty)
-                      const commitmentsForYear = getRecruitingCommitments(currentDynasty, userTidForCommits, currentDynasty.currentYear)
-                      const weekCommitments = commitmentsForYear?.[commitmentKey]
-                      const hasCommitmentsData = weekCommitments !== undefined
-                      const commitmentsCount = weekCommitments?.length || 0
-                      const classScore = calculateRecruitingClassScore(flattenClassCommitments(commitmentsForYear))
-                      // Task number: after Taking a New Job (which is task 5)
-                      const taskNum = 6
-
-                      return (
-                        <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all"
-                          style={hasCommitmentsData ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                            border: '1px solid rgba(34, 197, 94, 0.3)'
-                          } : {
-                            backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--surface-4)'
-                          }}
-                        >
-                          <div className="flex items-center gap-3 sm:gap-4">
-                            <div
-                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 font-bold ${
-                                hasCommitmentsData ? 'bg-green-500 text-white' : ''
-                              }`}
-                              style={!hasCommitmentsData ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
-                            >
-                              {hasCommitmentsData ? (
-                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                </svg>
-                              ) : taskNum}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasCommitmentsData ? '#22c55e' : '#fafafa' }}>
-                                {hasCommitmentsData ? 'Recruiting Commitments' : 'Any commitments this week?'}
-                              </div>
-                              <div className="text-xs sm:text-sm mt-0.5" style={{ color: hasCommitmentsData ? '#22c55e' : '#a1a1aa' }}>
-                                {hasCommitmentsData
-                                  ? commitmentsCount > 0
-                                    ? `✓ ${commitmentsCount} commitment${commitmentsCount !== 1 ? 's' : ''} recorded`
-                                    : '✓ No commitments this week'
-                                  : 'Record any recruiting commitments'}
-                              </div>
-                              {classScore > 0 && (
-                                <Link
-                                  to={`${pathPrefix}/recruiting/${userTidForCommits}/${currentDynasty.currentYear}`}
-                                  className="block w-fit text-[10px] sm:text-xs mt-1 font-bold uppercase text-txt-tertiary hover:text-team-primary transition-colors"
-                                  style={{ letterSpacing: '1.5px' }}
-                                  title="View recruiting class"
-                                >
-                                  Class Score <span className="tabular text-txt-primary ml-1">{formatRecruitingClassScore(classScore)}</span>
-                                </Link>
-                              )}
-                              <RecruitingInsightLink className="mt-1" />
-                            </div>
-                          </div>
-                          {!hasCommitmentsData ? (
-                            <div className="flex gap-2 self-end sm:self-auto items-center">
-                              <SellVsSendButton onClick={() => setShowSellCalc(true)} />
-                              <button
-                                onClick={handleNoCommitments}
-                                className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm transition-all hover:shadow-md active:scale-[0.98]"
-                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                              >
-                                No
-                              </button>
-                              <button
-                                onClick={() => setShowRecruitingModal(true)}
-                                className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm transition-all hover:shadow-md active:scale-[0.98]"
-                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                              >
-                                Yes
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => setShowRecruitingModal(true)}
-                              className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm self-end sm:self-auto transition-all hover:shadow-md active:scale-[0.98]"
-                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                            >
-                              Edit
-                            </button>
-                          )}
-                        </div>
-                      )
-                    })()}
-
-                  </div>
+                  )}
                 </>
               )
             }
@@ -5758,506 +5468,145 @@ export default function Dashboard() {
             }
 
 
-            // Week 5: End of Season Recap - Enter championship result if user wasn't in it
+            // Week 5: End of Season Recap. Unified with in-season todo design
+            // via renderTodoList — same row chrome, no numbered squares.
             if (week === 5) {
-              // Check unified games[] array first, then fallback to legacy cfpResultsByYear
-              const unifiedChampGames = getGamesByType(currentDynasty, GAME_TYPES.CFP_CHAMPIONSHIP, currentDynasty.currentYear)
-              const legacyChampData = currentDynasty.cfpResultsByYear?.[currentDynasty.currentYear]?.championship || []
+              const yearForW5 = currentDynasty.currentYear
+              const unifiedChampGames = getGamesByType(currentDynasty, GAME_TYPES.CFP_CHAMPIONSHIP, yearForW5)
+              const legacyChampData = currentDynasty.cfpResultsByYear?.[yearForW5]?.championship || []
               const champData = unifiedChampGames.length > 0 ? unifiedChampGames : legacyChampData
-              // Check if actual scores are entered, not just that the shell exists
               const hasChampData = champData.length > 0 && champData[0]?.team1Score !== null && champData[0]?.team1Score !== undefined
+
+              const gpSnapsCompleted = currentDynasty?.gpSnapsCompletedByYear?.[yearForW5] || currentDynasty?.gpSnapsCompletedByYear?.[String(yearForW5)]
+              const gpSnapsPlayerCount = currentDynasty?.players?.filter(p => {
+                const yearStats = p.statsByYear?.[yearForW5] || p.statsByYear?.[String(yearForW5)]
+                return yearStats && (yearStats.gamesPlayed || yearStats.snapsPlayed)
+              }).length || 0
+
+              const yearGamesW5 = (currentDynasty?.games || []).filter(g => Number(g.year) === Number(yearForW5))
+              const hasBoxScoreData = yearGamesW5.some(g => g.boxScore && hasAnyPlayerStats(g, currentDynasty?.teams))
+              const detailedStatsCompleted = currentDynasty?.detailedStatsCompletedByYear?.[yearForW5] || currentDynasty?.detailedStatsCompletedByYear?.[String(yearForW5)]
+              const detailedStatsLocked = !gpSnapsCompleted && !hasBoxScoreData
+
+              const hasStandingsData = currentDynasty?.conferenceStandingsByYear?.[yearForW5] &&
+                Object.keys(currentDynasty.conferenceStandingsByYear[yearForW5]).length > 0
+              const standingsCount = hasStandingsData
+                ? Object.keys(currentDynasty.conferenceStandingsByYear[yearForW5]).length
+                : 0
+
+              const hasPollsData = currentDynasty?.finalPollsByYear?.[yearForW5]?.media?.length > 0
+
+              const hasTeamStats = currentDynasty?.teamStatsByYear?.[yearForW5] &&
+                Object.keys(currentDynasty.teamStatsByYear[yearForW5]).length > 0
+
+              const hasAwards = currentDynasty?.awardsByYear?.[yearForW5] &&
+                Object.keys(currentDynasty.awardsByYear[yearForW5]).length > 0
+              const awardsCount = hasAwards ? Object.keys(currentDynasty.awardsByYear[yearForW5]).length : 0
+
+              const hasAllAmericans = currentDynasty?.allAmericansByYear?.[yearForW5]?.allAmericans?.length > 0
+              const hasAllConference = currentDynasty?.allAmericansByYear?.[yearForW5]?.allConference?.length > 0
+
+              const w5Todos = []
+
+              if (!userInCFPChampionship) {
+                w5Todos.push({
+                  key: 'champ-result',
+                  done: hasChampData,
+                  title: 'National Championship Result',
+                  subtitle: hasChampData
+                    ? (champData[0]?.winner || 'Result entered')
+                    : 'Enter the championship game result',
+                  onAction: () => setShowCFPChampionshipModal(true),
+                  actionLabel: hasChampData ? 'Edit' : 'Enter',
+                })
+              }
+
+              w5Todos.push({
+                key: 'gp-snaps',
+                done: !!gpSnapsCompleted,
+                title: 'GP/Snaps Entry',
+                subtitle: gpSnapsCompleted
+                  ? `Stats entered for ${gpSnapsPlayerCount} players`
+                  : 'Enter games played and snaps for each player',
+                onAction: () => setShowStatsEntryModal(true),
+                actionLabel: gpSnapsCompleted ? 'Edit' : 'Enter',
+              })
+
+              w5Todos.push({
+                key: 'detailed-stats',
+                done: !!detailedStatsCompleted,
+                title: 'Detailed Stats Entry',
+                subtitle: detailedStatsCompleted
+                  ? 'Detailed stats entered across all categories'
+                  : detailedStatsLocked
+                    ? 'Complete GP/Snaps Entry first'
+                    : 'Enter detailed stats by category',
+                onAction: detailedStatsLocked ? undefined : () => setShowDetailedStatsModal(true),
+                actionLabel: detailedStatsLocked ? undefined : (detailedStatsCompleted ? 'Edit' : 'Enter'),
+              })
+
+              w5Todos.push({
+                key: 'conference-standings',
+                done: !!hasStandingsData,
+                title: 'Conference Standings',
+                subtitle: hasStandingsData
+                  ? `Standings entered for ${standingsCount} conferences`
+                  : 'Enter final conference standings',
+                onAction: () => setShowConferenceStandingsModal(true),
+                actionLabel: hasStandingsData ? 'Edit' : 'Enter',
+              })
+
+              w5Todos.push({
+                key: 'final-top25',
+                done: !!hasPollsData,
+                title: 'Final Top 25',
+                subtitle: hasPollsData ? 'Final Top 25 entered' : 'Enter the final media poll',
+                onAction: () => setShowFinalPollsModal(true),
+                actionLabel: hasPollsData ? 'Edit' : 'Enter',
+              })
+
+              w5Todos.push({
+                key: 'team-stats',
+                done: !!hasTeamStats,
+                title: 'Team Statistics',
+                subtitle: hasTeamStats ? 'Team statistics entered' : 'Enter team statistical leaders',
+                onAction: () => setShowTeamStatsModal(true),
+                actionLabel: hasTeamStats ? 'Edit' : 'Enter',
+              })
+
+              w5Todos.push({
+                key: 'season-awards',
+                done: !!hasAwards,
+                title: 'Season Awards',
+                subtitle: hasAwards ? `${awardsCount} awards entered` : 'Enter major award winners',
+                onAction: () => setShowAwardsModal(true),
+                actionLabel: hasAwards ? 'Edit' : 'Enter',
+              })
+
+              w5Todos.push({
+                key: 'all-americans',
+                done: !!hasAllAmericans,
+                title: 'All-Americans',
+                subtitle: hasAllAmericans ? 'All-Americans selections entered' : 'Enter All-America selections',
+                onAction: () => setShowAllAmericansModal(true),
+                actionLabel: hasAllAmericans ? 'Edit' : 'Enter',
+              })
+
+              w5Todos.push({
+                key: 'all-conference',
+                done: !!hasAllConference,
+                title: 'All-Conference',
+                subtitle: hasAllConference ? 'All-Conference selections entered' : 'Enter All-Conference selections',
+                onAction: () => setShowAllConferenceModal(true),
+                actionLabel: hasAllConference ? 'Edit' : 'Enter',
+              })
 
               return (
                 <>
-                  <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                    <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
-                      End of Season Recap
-                    </h3>
-                  </div>
-                  <div className="-space-y-px">
-                    {/* Task: Enter National Championship Result (only if user was NOT in championship) */}
-                    {!userInCFPChampionship && (
-                      <div
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                        style={hasChampData ? {
-                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                          border: '1px solid rgba(34, 197, 94, 0.3)'
-                        } : {
-                          backgroundColor: 'var(--surface-3)',
-                          border: '1px solid var(--surface-4)'
-                        }}
-                      >
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          <div
-                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                              hasChampData ? 'bg-green-500 text-white' : ''
-                            }`}
-                            style={!hasChampData ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                          >
-                            {hasChampData ? (
-                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : <span className="font-bold text-sm sm:text-base">1</span>}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: hasChampData ? '#22c55e' : '#fafafa' }}>
-                              National Championship Result
-                            </div>
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasChampData ? '#22c55e' : '#a1a1aa' }}>
-                              {hasChampData
-                                ? `✓ ${champData[0]?.winner || 'Result entered'}`
-                                : 'Enter the championship game result'}
-                            </div>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => setShowCFPChampionshipModal(true)}
-                          className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                        >
-                          {hasChampData ? 'Edit' : 'Enter'}
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Task: GP/Snaps Entry */}
-                    {(() => {
-                      // Check if user has actually saved GP/Snaps for this year
-                      const year = currentDynasty.currentYear
-                      const isCompleted = currentDynasty?.gpSnapsCompletedByYear?.[year] || currentDynasty?.gpSnapsCompletedByYear?.[String(year)]
-
-                      const playerCount = currentDynasty?.players?.filter(p => {
-                        const yearStats = p.statsByYear?.[year] || p.statsByYear?.[String(year)]
-                        return yearStats && (yearStats.gamesPlayed || yearStats.snapsPlayed)
-                      }).length || 0
-
-                      const taskNumber = !userInCFPChampionship ? 2 : 1
-
-                      return (
-                        <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                          style={isCompleted ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                            border: '1px solid rgba(34, 197, 94, 0.3)'
-                          } : {
-                            backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--surface-4)'
-                          }}
-                        >
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <div
-                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                                isCompleted ? 'bg-green-500 text-white' : ''
-                              }`}
-                              style={!isCompleted ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                            >
-                              {isCompleted ? (
-                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: isCompleted ? '#22c55e' : '#fafafa' }}>
-                                GP/Snaps Entry
-                              </div>
-                              {isCompleted && (
-                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
-                                  ✓ Stats entered for {playerCount} players
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => setShowStatsEntryModal(true)}
-                            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                          >
-                            {isCompleted ? 'Edit' : 'Enter'}
-                          </button>
-                        </div>
-                      )
-                    })()}
-
-                    {/* Task: Detailed Stats Entry */}
-                    {(() => {
-                      // Check if user has actually saved Detailed Stats for this year
-                      const year = currentDynasty.currentYear
-                      const gpSnapsCompleted = currentDynasty?.gpSnapsCompletedByYear?.[year] || currentDynasty?.gpSnapsCompletedByYear?.[String(year)]
-
-                      // Also check for box score data - unlocks this task too
-                      const yearGames = (currentDynasty?.games || []).filter(g => Number(g.year) === Number(year))
-                      const hasBoxScoreData = yearGames.some(g => g.boxScore && hasAnyPlayerStats(g, currentDynasty?.teams))
-
-                      const isCompleted = currentDynasty?.detailedStatsCompletedByYear?.[year] || currentDynasty?.detailedStatsCompletedByYear?.[String(year)]
-                      const taskNumber = !userInCFPChampionship ? 3 : 2
-                      // Unlock if GP/Snaps completed OR has box score data
-                      const isLocked = !gpSnapsCompleted && !hasBoxScoreData
-
-                      return (
-                        <div
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all ${isLocked ? 'opacity-50' : ''}`}
-                          style={isCompleted ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                            border: '1px solid rgba(34, 197, 94, 0.3)'
-                          } : {
-                            backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--surface-4)'
-                          }}
-                        >
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <div
-                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                                isCompleted ? 'bg-green-500 text-white' : ''
-                              }`}
-                              style={!isCompleted ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                            >
-                              {isCompleted ? (
-                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              ) : isLocked ? (
-                                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                </svg>
-                              ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: isCompleted ? '#22c55e' : '#fafafa' }}>
-                                Detailed Stats Entry
-                              </div>
-                              {(isCompleted || isLocked) && (
-                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: isCompleted ? '#22c55e' : '#a1a1aa' }}>
-                                  {isCompleted
-                                    ? '✓ Detailed stats entered across all categories'
-                                    : 'Complete GP/Snaps Entry first'}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => !isLocked && setShowDetailedStatsModal(true)}
-                            disabled={isLocked}
-                            className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-sm self-end sm:self-auto ${isLocked ? 'cursor-not-allowed' : 'hover:opacity-90'}`}
-                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)', opacity: isLocked ? 0.5 : 1 }}
-                          >
-                            {isCompleted ? 'Edit' : 'Enter'}
-                          </button>
-                        </div>
-                      )
-                    })()}
-
-                    {/* Task: Conference Standings Entry */}
-                    {(() => {
-                      const hasStandingsData = currentDynasty?.conferenceStandingsByYear?.[currentDynasty.currentYear] &&
-                        Object.keys(currentDynasty.conferenceStandingsByYear[currentDynasty.currentYear]).length > 0
-                      const taskNumber = !userInCFPChampionship ? 4 : 3
-
-                      return (
-                        <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                          style={hasStandingsData ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                            border: '1px solid rgba(34, 197, 94, 0.3)'
-                          } : {
-                            backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--surface-4)'
-                          }}
-                        >
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <div
-                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                                hasStandingsData ? 'bg-green-500 text-white' : ''
-                              }`}
-                              style={!hasStandingsData ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                            >
-                              {hasStandingsData ? (
-                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasStandingsData ? '#22c55e' : '#fafafa' }}>
-                                Conference Standings
-                              </div>
-                              {hasStandingsData && (
-                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
-                                  ✓ Standings entered for {Object.keys(currentDynasty.conferenceStandingsByYear[currentDynasty.currentYear]).length} conferences
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => setShowConferenceStandingsModal(true)}
-                            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                          >
-                            {hasStandingsData ? 'Edit' : 'Enter'}
-                          </button>
-                        </div>
-                      )
-                    })()}
-
-                    {/* Task: Final Top 25 Entry */}
-                    {(() => {
-                      const hasPollsData = currentDynasty?.finalPollsByYear?.[currentDynasty.currentYear]?.media?.length > 0
-                      const taskNumber = !userInCFPChampionship ? 5 : 4
-
-                      return (
-                        <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                          style={hasPollsData ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                            border: '1px solid rgba(34, 197, 94, 0.3)'
-                          } : {
-                            backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--surface-4)'
-                          }}
-                        >
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <div
-                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                                hasPollsData ? 'bg-green-500 text-white' : ''
-                              }`}
-                              style={!hasPollsData ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                            >
-                              {hasPollsData ? (
-                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasPollsData ? '#22c55e' : '#fafafa' }}>
-                                Final Top 25
-                              </div>
-                              {hasPollsData && (
-                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
-                                  ✓ Final Top 25 entered
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => setShowFinalPollsModal(true)}
-                            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                          >
-                            {hasPollsData ? 'Edit' : 'Enter'}
-                          </button>
-                        </div>
-                      )
-                    })()}
-
-                    {/* Task: Team Statistics Entry */}
-                    {(() => {
-                      const hasTeamStats = currentDynasty?.teamStatsByYear?.[currentDynasty.currentYear] &&
-                        Object.keys(currentDynasty.teamStatsByYear[currentDynasty.currentYear]).length > 0
-                      const taskNumber = !userInCFPChampionship ? 6 : 5
-
-                      return (
-                        <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                          style={hasTeamStats ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                            border: '1px solid rgba(34, 197, 94, 0.3)'
-                          } : {
-                            backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--surface-4)'
-                          }}
-                        >
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <div
-                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                                hasTeamStats ? 'bg-green-500 text-white' : ''
-                              }`}
-                              style={!hasTeamStats ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                            >
-                              {hasTeamStats ? (
-                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasTeamStats ? '#22c55e' : '#fafafa' }}>
-                                Team Statistics
-                              </div>
-                              {hasTeamStats && (
-                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
-                                  ✓ Team statistics entered
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => setShowTeamStatsModal(true)}
-                            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                          >
-                            {hasTeamStats ? 'Edit' : 'Enter'}
-                          </button>
-                        </div>
-                      )
-                    })()}
-
-                    {/* Task: Season Awards Entry */}
-                    {(() => {
-                      const hasAwards = currentDynasty?.awardsByYear?.[currentDynasty.currentYear] &&
-                        Object.keys(currentDynasty.awardsByYear[currentDynasty.currentYear]).length > 0
-                      const taskNumber = !userInCFPChampionship ? 7 : 6
-
-                      return (
-                        <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                          style={hasAwards ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                            border: '1px solid rgba(34, 197, 94, 0.3)'
-                          } : {
-                            backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--surface-4)'
-                          }}
-                        >
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <div
-                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                                hasAwards ? 'bg-green-500 text-white' : ''
-                              }`}
-                              style={!hasAwards ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                            >
-                              {hasAwards ? (
-                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasAwards ? '#22c55e' : '#fafafa' }}>
-                                Season Awards
-                              </div>
-                              {hasAwards && (
-                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
-                                  ✓ {Object.keys(currentDynasty.awardsByYear[currentDynasty.currentYear]).length} awards entered
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => setShowAwardsModal(true)}
-                            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                          >
-                            {hasAwards ? 'Edit' : 'Enter'}
-                          </button>
-                        </div>
-                      )
-                    })()}
-
-                    {/* Task: All-Americans Entry */}
-                    {(() => {
-                      const hasAllAmericans = currentDynasty?.allAmericansByYear?.[currentDynasty.currentYear]?.allAmericans?.length > 0
-                      const taskNumber = !userInCFPChampionship ? 8 : 7
-
-                      return (
-                        <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                          style={hasAllAmericans ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                            border: '1px solid rgba(34, 197, 94, 0.3)'
-                          } : {
-                            backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--surface-4)'
-                          }}
-                        >
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <div
-                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                                hasAllAmericans ? 'bg-green-500 text-white' : ''
-                              }`}
-                              style={!hasAllAmericans ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                            >
-                              {hasAllAmericans ? (
-                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasAllAmericans ? '#22c55e' : '#fafafa' }}>
-                                All-Americans
-                              </div>
-                              {hasAllAmericans && (
-                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
-                                  ✓ All-Americans selections entered
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => setShowAllAmericansModal(true)}
-                            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                          >
-                            {hasAllAmericans ? 'Edit' : 'Enter'}
-                          </button>
-                        </div>
-                      )
-                    })()}
-
-                    {/* Task: All-Conference Entry */}
-                    {(() => {
-                      const hasAllConference = currentDynasty?.allAmericansByYear?.[currentDynasty.currentYear]?.allConference?.length > 0
-                      const taskNumber = !userInCFPChampionship ? 9 : 8
-
-                      return (
-                        <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                          style={hasAllConference ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                            border: '1px solid rgba(34, 197, 94, 0.3)'
-                          } : {
-                            backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--surface-4)'
-                          }}
-                        >
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <div
-                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                                hasAllConference ? 'bg-green-500 text-white' : ''
-                              }`}
-                              style={!hasAllConference ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                            >
-                              {hasAllConference ? (
-                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasAllConference ? '#22c55e' : '#fafafa' }}>
-                                All-Conference
-                              </div>
-                              {hasAllConference && (
-                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
-                                  ✓ All-Conference selections entered
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => setShowAllConferenceModal(true)}
-                            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                          >
-                            {hasAllConference ? 'Edit' : 'Enter'}
-                          </button>
-                        </div>
-                      )
-                    })()}
-
-                  </div>
+                  <h3 className="font-display font-bold leading-none text-txt-primary px-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
+                    End of Season Recap
+                  </h3>
+                  {renderTodoList({ todos: w5Todos, isViewOnly })}
                 </>
               )
             }

@@ -18,7 +18,7 @@ import TeamEditModal from '../../components/TeamEditModal'
 import { TEAMS, resolveTid, getTeam, getTeamByAbbr, getCurrentTeamAbbr, getCurrentTeamTid, getGameTeamInfo, getAbbrFromTeamName, getTidFromTeamName } from '../../data/teamRegistry'
 import { uploadImage } from '../../utils/imageUpload'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
-import { isSameYear } from '../../utils/compareUtils'
+import { isSameYear, weekSortKey } from '../../utils/compareUtils'
 import { calculateRecruitingClassScore, formatRecruitingClassScore, flattenClassCommitments } from '../../utils/recruitingScore'
 import { useToast } from '../../components/ui/Toast'
 import SortableStatsTable, { PlayerCell } from '../../components/SortableStatsTable'
@@ -773,7 +773,7 @@ export default function TeamYear() {
       const resolvedTid = g.opponent ? resolveTid(g.opponent, teams) : null
       return resolvedTid === tid
     })
-    .sort((a, b) => a.week - b.week)
+    .sort((a, b) => weekSortKey(a.week) - weekSortKey(b.week))
 
   // Get user's team record for this year (if viewing user's team page)
   // Sort by game phase order: regular season (1-14), CC (15), CFP R1 (16), CFP QF (17), CFP SF (18), CFP Champ (19), other bowls (20)

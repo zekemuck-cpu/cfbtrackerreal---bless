@@ -2304,7 +2304,17 @@ function getOpponentSeasonResults(allGames, opponentAbbr, year, currentGameOrder
     })
   }
 
-  return results.sort((a, b) => (a.week || 0) - (b.week || 0))
+  // Numeric weeks sort first (0..14), CCG just after (14.5), other
+  // non-numeric weeks at the end. Plain (a.week || 0) - (b.week || 0)
+  // produces NaN for CCG games and leaves them at arbitrary positions.
+  const _wkOrd = (w) => {
+    if (w == null || w === '') return Number.POSITIVE_INFINITY
+    const n = Number(w)
+    if (Number.isFinite(n)) return n
+    const s = String(w).toUpperCase()
+    return (s === 'CCG' || s === 'CC') ? 14.5 : Number.POSITIVE_INFINITY
+  }
+  return results.sort((a, b) => _wkOrd(a.week) - _wkOrd(b.week))
 }
 
 /**
