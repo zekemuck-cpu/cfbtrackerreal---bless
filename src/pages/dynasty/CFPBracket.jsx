@@ -706,14 +706,24 @@ export default function CFPBracket() {
     // we render here — so we have to detect a swap and pivot every
     // gameData-derived field together (score + tid) so they stay
     // attached to the same physical team.
+    //
+    // Matching on team1 prop alone breaks when team1 is null (first-round
+    // winner TBD): null === null triggers a false swap. Match on whichever
+    // prop is non-null (team2 = bye team is always known for QF slots).
     let score1, score2, tid1, tid2
     if (gameData) {
-      if (gameData.team1 === team1) {
+      const t1IsGame1 = team1 != null && gameData.team1 === team1
+      const t1IsGame2 = team1 != null && gameData.team2 === team1
+      const t2IsGame1 = team2 != null && gameData.team1 === team2
+      const t2IsGame2 = team2 != null && gameData.team2 === team2
+
+      if (t1IsGame1 || t2IsGame2) {
+        // Visual order matches storage order
         score1 = gameData.team1Score
         score2 = gameData.team2Score
         tid1 = gameData.team1Tid
         tid2 = gameData.team2Tid
-      } else if (gameData.team2 === team1) {
+      } else if (t1IsGame2 || t2IsGame1) {
         // Visual order is the opposite of storage order — swap tids
         // alongside scores so TeamSlot's tid-driven registry lookup
         // (logo, colors, abbr) lands on the right team.
@@ -722,7 +732,7 @@ export default function CFPBracket() {
         tid1 = gameData.team2Tid
         tid2 = gameData.team1Tid
       } else {
-        // Couldn't match either side by abbr — fall back to default order.
+        // Couldn't match either side — fall back to storage order.
         score1 = gameData.team1Score
         score2 = gameData.team2Score
         tid1 = gameData.team1Tid

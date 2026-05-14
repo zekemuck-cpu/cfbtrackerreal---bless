@@ -106,7 +106,7 @@ function GameCard({ game, teams, pathPrefix, recordsByTid, domId }) {
     if (type === GAME_TYPES.CFP_QUARTERFINAL) return game.bowlName || 'CFP Quarterfinal'
     if (type === GAME_TYPES.CFP_FIRST_ROUND) return 'CFP First Round'
     if (type === GAME_TYPES.BOWL) return game.bowlName || 'Bowl Game'
-    if (type === GAME_TYPES.CONFERENCE_CHAMPIONSHIP) return 'Conf Championship'
+    if (type === GAME_TYPES.CONFERENCE_CHAMPIONSHIP) return game.conference ? `${game.conference} Championship` : 'Conf Championship'
     return 'Neutral'
   })()
 
