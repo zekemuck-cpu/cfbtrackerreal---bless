@@ -4704,12 +4704,27 @@ export default function Dashboard() {
                             ? 'Choose your bowl game'
                             : 'Did you make a bowl game?'
 
+              // Show inline Yes/No on the row itself when the user
+              // hasn't answered "Did you make a bowl game?" yet. The
+              // initial Yes/No used to render as a separate panel below
+              // the to-do list, which read as a duplicate to-do; folding
+              // it onto the row keeps the prompt in one place.
+              const askingBowlEligibility = hasCFPSeedsData && !userCFPSeed && bowlEligible === null
               bw1Todos.push({
                 key: 'bowl-status',
                 done: bowlTaskComplete,
                 title: userCFPSeed ? 'Your CFP Game' : 'Your Bowl Game',
                 subtitle: bowlStatusSubtitle,
-                onAction: showBowlEditButton ? async () => {
+                onAction: askingBowlEligibility ? async () => {
+                  setBowlEligible(true)
+                  const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
+                  await updateDynasty(currentDynasty.id, {
+                    bowlEligibilityDataByYear: {
+                      ...existingByYear,
+                      [currentYear]: { eligible: true, bowlGame: '', opponent: '' },
+                    },
+                  })
+                } : showBowlEditButton ? async () => {
                   setBowlEligible(null)
                   setSelectedBowl('')
                   setBowlOpponent('')
@@ -4724,7 +4739,24 @@ export default function Dashboard() {
                     games: updatedGames,
                   })
                 } : undefined,
-                actionLabel: showBowlEditButton ? 'Edit' : undefined,
+                actionLabel: askingBowlEligibility ? 'Yes' : showBowlEditButton ? 'Edit' : undefined,
+                extraTools: askingBowlEligibility ? (
+                  <button
+                    onClick={async () => {
+                      setBowlEligible(false)
+                      const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
+                      await updateDynasty(currentDynasty.id, {
+                        bowlEligibilityDataByYear: {
+                          ...existingByYear,
+                          [currentYear]: { eligible: false, bowlGame: null, opponent: null },
+                        },
+                      })
+                    }}
+                    className="btn-refined text-center"
+                  >
+                    No
+                  </button>
+                ) : null,
               })
 
               if (userHasCFPFirstRoundGame) {
@@ -4784,6 +4816,7 @@ export default function Dashboard() {
               }
 
               const newJobDone = takingNewJob !== null && (takingNewJob === false || (newJobTeam && newJobPosition))
+              const askingNewJobBW1 = takingNewJob === null
               bw1Todos.push({
                 key: 'new-job-bw1',
                 done: newJobDone,
@@ -4793,7 +4826,12 @@ export default function Dashboard() {
                     ? `${newJobPosition} at ${getTeamNameFromAbbr(newJobTeam)}`
                     : 'Staying with current team'
                   : 'Yes or no?',
-                onAction: newJobDone ? async () => {
+                onAction: askingNewJobBW1 ? async () => {
+                  setTakingNewJob(true)
+                  await updateDynasty(currentDynasty.id, {
+                    newJobData: { takingNewJob: true, team: '', position: '' },
+                  })
+                } : newJobDone ? async () => {
                   setTakingNewJob(null)
                   setNewJobTeam('')
                   setNewJobPosition('')
@@ -4803,7 +4841,20 @@ export default function Dashboard() {
                     teams: updatedTeams,
                   })
                 } : undefined,
-                actionLabel: newJobDone ? 'Edit' : undefined,
+                actionLabel: askingNewJobBW1 ? 'Yes' : newJobDone ? 'Edit' : undefined,
+                extraTools: askingNewJobBW1 ? (
+                  <button
+                    onClick={async () => {
+                      setTakingNewJob(false)
+                      await updateDynasty(currentDynasty.id, {
+                        newJobData: { takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek },
+                      })
+                    }}
+                    className="btn-refined text-center"
+                  >
+                    No
+                  </button>
+                ) : null,
               })
 
               const bw1CommitmentKey = getCommitmentKey()
@@ -4849,44 +4900,10 @@ export default function Dashboard() {
                   </h3>
                   {renderTodoList({ todos: bw1Todos, isViewOnly })}
 
-                  {/* Bowl-status wizard panels (only when mid-flow) */}
-                  {hasCFPSeedsData && !userCFPSeed && bowlEligible === null && (
-                    <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
-                      <p className="mb-3 text-xs sm:text-sm font-medium text-txt-secondary">Did you make a bowl game?</p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={async () => {
-                            setBowlEligible(true)
-                            const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
-                            await updateDynasty(currentDynasty.id, {
-                              bowlEligibilityDataByYear: {
-                                ...existingByYear,
-                                [currentYear]: { eligible: true, bowlGame: '', opponent: '' },
-                              },
-                            })
-                          }}
-                          className="btn-refined btn-refined--solid"
-                        >
-                          Yes
-                        </button>
-                        <button
-                          onClick={async () => {
-                            setBowlEligible(false)
-                            const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
-                            await updateDynasty(currentDynasty.id, {
-                              bowlEligibilityDataByYear: {
-                                ...existingByYear,
-                                [currentYear]: { eligible: false, bowlGame: null, opponent: null },
-                              },
-                            })
-                          }}
-                          className="btn-refined btn-refined--solid"
-                        >
-                          No
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  {/* Bowl-status wizard panels — initial Yes/No now lives
+                      inline on the bowl-status row, but the follow-up
+                      dropdowns (which bowl? which opponent?) still need
+                      their own panel space below. */}
                   {hasCFPSeedsData && !userCFPSeed && bowlEligible === true && !selectedBowl && (
                     <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
                       <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Which bowl game?</p>
@@ -4951,36 +4968,9 @@ export default function Dashboard() {
                     </div>
                   )}
 
-                  {/* Taking a New Job wizard panels (only when mid-flow) */}
-                  {takingNewJob === null && (
-                    <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
-                      <p className="mb-3 text-xs sm:text-sm font-medium text-txt-secondary">Taking a new job this offseason?</p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={async () => {
-                            setTakingNewJob(true)
-                            await updateDynasty(currentDynasty.id, {
-                              newJobData: { takingNewJob: true, team: '', position: '' },
-                            })
-                          }}
-                          className="btn-refined btn-refined--solid"
-                        >
-                          Yes
-                        </button>
-                        <button
-                          onClick={async () => {
-                            setTakingNewJob(false)
-                            await updateDynasty(currentDynasty.id, {
-                              newJobData: { takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek },
-                            })
-                          }}
-                          className="btn-refined btn-refined--solid"
-                        >
-                          No
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  {/* Taking a New Job wizard panels — initial Yes/No now
+                      lives inline on the new-job-bw1 row; follow-up team /
+                      position pickers still render below. */}
                   {takingNewJob === true && !newJobTeam && (
                     <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
                       <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Which team?</p>
@@ -5137,8 +5127,11 @@ export default function Dashboard() {
                 })
               }
 
-              // Taking a New Job — todo row. Wizard panel below the list when mid-flow.
+              // Taking a New Job — initial Yes/No on the row itself; the
+              // team / position pickers render as panels below when the
+              // wizard is mid-flow.
               const newJobDone = takingNewJob !== null && (takingNewJob === false || (newJobTeam && newJobPosition))
+              const askingNewJobBW2 = takingNewJob === null
               bw2Todos.push({
                 key: 'new-job-bw2',
                 done: newJobDone,
@@ -5148,7 +5141,12 @@ export default function Dashboard() {
                     ? `${newJobPosition} at ${getTeamNameFromAbbr(newJobTeam)}`
                     : 'Staying with current team'
                   : 'Yes or no?',
-                onAction: newJobDone ? async () => {
+                onAction: askingNewJobBW2 ? async () => {
+                  setTakingNewJob(true)
+                  await updateDynasty(currentDynasty.id, {
+                    newJobData: { takingNewJob: true, team: '', position: '' },
+                  })
+                } : newJobDone ? async () => {
                   setTakingNewJob(null)
                   setNewJobTeam('')
                   setNewJobPosition('')
@@ -5158,10 +5156,27 @@ export default function Dashboard() {
                     teams: updatedTeams,
                   })
                 } : undefined,
-                actionLabel: newJobDone ? 'Edit' : undefined,
+                actionLabel: askingNewJobBW2 ? 'Yes' : newJobDone ? 'Edit' : undefined,
+                extraTools: askingNewJobBW2 ? (
+                  <button
+                    onClick={async () => {
+                      setTakingNewJob(false)
+                      await updateDynasty(currentDynasty.id, {
+                        newJobData: { takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek },
+                      })
+                    }}
+                    className="btn-refined text-center"
+                  >
+                    No
+                  </button>
+                ) : null,
               })
 
-              // Coordinator Vacancy — only render when applicable. Wizard panels below.
+              // Coordinator Vacancy — only render when applicable. The
+              // initial Yes/Not Yet for each pending position lives
+              // inline on this row (one position at a time — OC first,
+              // then DC). The "Enter new OC/DC name" text inputs still
+              // render as panels below when the wizard is mid-flow.
               const ccDataForYear = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear] || {}
               const firedOC = ccDataForYear.firedOCName
               const firedDC = ccDataForYear.firedDCName
@@ -5175,21 +5190,63 @@ export default function Dashboard() {
                 coordDcAnswered = !firedDC || filledDCVacancy !== null
                 coordAllAnswered = coordOcAnswered && coordDcAnswered
                 if (!coordAllFilled) {
+                  // Which position is currently waiting on the Yes/Not Yet
+                  // answer? OC first if fired and unanswered; then DC.
+                  const askingOC = !!firedOC && filledOCVacancy === null
+                  const askingDC = !!firedDC && coordOcAnswered && filledDCVacancy === null
+                  const askingPos = askingOC ? 'OC' : askingDC ? 'DC' : null
+                  const askingFiredName = askingOC ? firedOC : askingDC ? firedDC : null
                   bw2Todos.push({
                     key: 'coord-vacancy',
                     done: false,
                     title: `Fill Coordinator ${firedOC && firedDC ? 'Vacancies' : 'Vacancy'}`,
-                    subtitle: coordAllAnswered
-                      ? `${firedOC ? (coordOcFilled ? `OC: ${newOCName}` : 'OC: Not filled yet') : ''}${firedOC && firedDC ? ' • ' : ''}${firedDC ? (coordDcFilled ? `DC: ${newDCName}` : 'DC: Not filled yet') : ''}`
-                      : 'Has the vacancy been filled?',
-                    onAction: coordAllAnswered ? async () => {
-                      setFilledOCVacancy(null)
-                      setFilledDCVacancy(null)
-                      setNewOCName('')
-                      setNewDCName('')
-                      await updateDynasty(currentDynasty.id, { pendingCoordinatorHires: null })
-                    } : undefined,
-                    actionLabel: coordAllAnswered ? 'Edit' : undefined,
+                    subtitle: askingPos
+                      ? `Has the ${askingPos} vacancy been filled? (Fired ${askingFiredName})`
+                      : coordAllAnswered
+                        ? `${firedOC ? (coordOcFilled ? `OC: ${newOCName}` : 'OC: Not filled yet') : ''}${firedOC && firedDC ? ' • ' : ''}${firedDC ? (coordDcFilled ? `DC: ${newDCName}` : 'DC: Not filled yet') : ''}`
+                        : 'Has the vacancy been filled?',
+                    onAction: askingOC
+                      ? () => setFilledOCVacancy(true)
+                      : askingDC
+                        ? () => setFilledDCVacancy(true)
+                        : coordAllAnswered
+                          ? async () => {
+                              setFilledOCVacancy(null)
+                              setFilledDCVacancy(null)
+                              setNewOCName('')
+                              setNewDCName('')
+                              await updateDynasty(currentDynasty.id, { pendingCoordinatorHires: null })
+                            }
+                          : undefined,
+                    actionLabel: askingPos ? 'Yes' : coordAllAnswered ? 'Edit' : undefined,
+                    extraTools: askingPos ? (
+                      <button
+                        onClick={async () => {
+                          if (askingOC) {
+                            setFilledOCVacancy(false)
+                            await updateDynasty(currentDynasty.id, {
+                              pendingCoordinatorHires: {
+                                ...currentDynasty.pendingCoordinatorHires,
+                                filledOC: false,
+                                newOCName: null,
+                              },
+                            })
+                          } else {
+                            setFilledDCVacancy(false)
+                            await updateDynasty(currentDynasty.id, {
+                              pendingCoordinatorHires: {
+                                ...currentDynasty.pendingCoordinatorHires,
+                                filledDC: false,
+                                newDCName: null,
+                              },
+                            })
+                          }
+                        }}
+                        className="btn-refined text-center"
+                      >
+                        Not Yet
+                      </button>
+                    ) : null,
                   })
                 }
               }
@@ -5238,38 +5295,10 @@ export default function Dashboard() {
                   </h3>
                   {renderTodoList({ todos: bw2Todos, isViewOnly })}
 
-                  {/* Inline wizard panels (rendered below the unified todos list
-                      when the wizard is mid-flow). Same interactive behavior as
-                      before — just visually decoupled from the to-do row chrome. */}
-                  {takingNewJob === null && (
-                    <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
-                      <p className="mb-3 text-xs sm:text-sm font-medium text-txt-secondary">Taking a new job this offseason?</p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={async () => {
-                            setTakingNewJob(true)
-                            await updateDynasty(currentDynasty.id, {
-                              newJobData: { takingNewJob: true, team: '', position: '' },
-                            })
-                          }}
-                          className="btn-refined btn-refined--solid"
-                        >
-                          Yes
-                        </button>
-                        <button
-                          onClick={async () => {
-                            setTakingNewJob(false)
-                            await updateDynasty(currentDynasty.id, {
-                              newJobData: { takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek },
-                            })
-                          }}
-                          className="btn-refined btn-refined--solid"
-                        >
-                          No
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  {/* Mid-flow wizard panels — initial Yes/No prompts now
+                      live inline on their to-do rows, but follow-up
+                      selectors (team / position / coordinator name) still
+                      need real UI space and render here. */}
                   {takingNewJob === true && !newJobTeam && (
                     <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
                       <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Which team?</p>
@@ -5320,32 +5349,10 @@ export default function Dashboard() {
                     </div>
                   )}
 
-                  {/* Coordinator vacancy wizard */}
-                  {showCoordinator && firedOC && filledOCVacancy === null && (
-                    <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
-                      <p className="mb-3 text-xs sm:text-sm font-medium text-txt-secondary">
-                        You fired {firedOC} (OC). Has the position been filled?
-                      </p>
-                      <div className="flex gap-2">
-                        <button onClick={() => setFilledOCVacancy(true)} className="btn-refined btn-refined--solid">Yes</button>
-                        <button
-                          onClick={async () => {
-                            setFilledOCVacancy(false)
-                            await updateDynasty(currentDynasty.id, {
-                              pendingCoordinatorHires: {
-                                ...currentDynasty.pendingCoordinatorHires,
-                                filledOC: false,
-                                newOCName: null,
-                              },
-                            })
-                          }}
-                          className="btn-refined btn-refined--solid"
-                        >
-                          Not Yet
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  {/* Coordinator vacancy mid-flow panels — initial
+                      Yes/Not Yet for each pending position lives inline
+                      on the coord-vacancy row; only the new-name input
+                      step renders here. */}
                   {showCoordinator && firedOC && filledOCVacancy === true && !newOCName && (
                     <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
                       <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Enter new OC name:</p>
@@ -5388,31 +5395,6 @@ export default function Dashboard() {
                           className="btn-refined btn-refined--solid"
                         >
                           Save
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  {showCoordinator && firedDC && coordOcAnswered && filledDCVacancy === null && (
-                    <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
-                      <p className="mb-3 text-xs sm:text-sm font-medium text-txt-secondary">
-                        You fired {firedDC} (DC). Has the position been filled?
-                      </p>
-                      <div className="flex gap-2">
-                        <button onClick={() => setFilledDCVacancy(true)} className="btn-refined btn-refined--solid">Yes</button>
-                        <button
-                          onClick={async () => {
-                            setFilledDCVacancy(false)
-                            await updateDynasty(currentDynasty.id, {
-                              pendingCoordinatorHires: {
-                                ...currentDynasty.pendingCoordinatorHires,
-                                filledDC: false,
-                                newDCName: null,
-                              },
-                            })
-                          }}
-                          className="btn-refined btn-refined--solid"
-                        >
-                          Not Yet
                         </button>
                       </div>
                     </div>
@@ -5713,6 +5695,7 @@ export default function Dashboard() {
             }
 
             const w34NewJobDone = takingNewJob !== null && (takingNewJob === false || (newJobTeam && newJobPosition))
+            const askingNewJobBW34 = week !== 4 && takingNewJob === null
             if (week !== 4) {
               w34Todos.push({
                 key: 'new-job-bw34',
@@ -5723,7 +5706,12 @@ export default function Dashboard() {
                     ? `${newJobPosition} at ${getTeamNameFromAbbr(newJobTeam)}`
                     : 'Staying with current team'
                   : 'Yes or no?',
-                onAction: w34NewJobDone ? async () => {
+                onAction: askingNewJobBW34 ? async () => {
+                  setTakingNewJob(true)
+                  await updateDynasty(currentDynasty.id, {
+                    newJobData: { takingNewJob: true, team: '', position: '' },
+                  })
+                } : w34NewJobDone ? async () => {
                   setTakingNewJob(null)
                   setNewJobTeam('')
                   setNewJobPosition('')
@@ -5733,7 +5721,20 @@ export default function Dashboard() {
                     teams: updatedTeams,
                   })
                 } : undefined,
-                actionLabel: w34NewJobDone ? 'Edit' : undefined,
+                actionLabel: askingNewJobBW34 ? 'Yes' : w34NewJobDone ? 'Edit' : undefined,
+                extraTools: askingNewJobBW34 ? (
+                  <button
+                    onClick={async () => {
+                      setTakingNewJob(false)
+                      await updateDynasty(currentDynasty.id, {
+                        newJobData: { takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek },
+                      })
+                    }}
+                    className="btn-refined text-center"
+                  >
+                    No
+                  </button>
+                ) : null,
               })
             }
 
@@ -5753,21 +5754,63 @@ export default function Dashboard() {
               const w34DcAnswered = !w34FiredDC || filledDCVacancy !== null
               w34CoordAllAnswered = w34OcAnswered && w34DcAnswered
               if (!w34CoordAllFilled) {
+                // Inline Yes/Not Yet for whichever position is pending —
+                // OC first, then DC (mirrors BW2's coord-vacancy row).
+                const w34AskingOC = !!w34FiredOC && filledOCVacancy === null
+                const w34AskingDC = !!w34FiredDC && w34OcAnswered && filledDCVacancy === null
+                const w34AskingPos = w34AskingOC ? 'OC' : w34AskingDC ? 'DC' : null
+                const w34AskingFiredName = w34AskingOC ? w34FiredOC : w34AskingDC ? w34FiredDC : null
                 w34Todos.push({
                   key: 'coord-vacancy-bw34',
                   done: false,
                   title: `Fill Coordinator ${w34FiredOC && w34FiredDC ? 'Vacancies' : 'Vacancy'}`,
-                  subtitle: w34CoordAllAnswered
-                    ? `${w34FiredOC ? (w34CoordOcFilled ? `OC: ${newOCName}` : 'OC: Not filled yet') : ''}${w34FiredOC && w34FiredDC ? ' • ' : ''}${w34FiredDC ? (w34CoordDcFilled ? `DC: ${newDCName}` : 'DC: Not filled yet') : ''}`
-                    : 'Has the vacancy been filled?',
-                  onAction: w34CoordAllAnswered ? async () => {
-                    setFilledOCVacancy(null)
-                    setFilledDCVacancy(null)
-                    setNewOCName('')
-                    setNewDCName('')
-                    await updateDynasty(currentDynasty.id, { pendingCoordinatorHires: null })
-                  } : undefined,
-                  actionLabel: w34CoordAllAnswered ? 'Edit' : undefined,
+                  subtitle: w34AskingPos
+                    ? `Has the ${w34AskingPos} vacancy been filled? (Fired ${w34AskingFiredName})`
+                    : w34CoordAllAnswered
+                      ? `${w34FiredOC ? (w34CoordOcFilled ? `OC: ${newOCName}` : 'OC: Not filled yet') : ''}${w34FiredOC && w34FiredDC ? ' • ' : ''}${w34FiredDC ? (w34CoordDcFilled ? `DC: ${newDCName}` : 'DC: Not filled yet') : ''}`
+                      : 'Has the vacancy been filled?',
+                  onAction: w34AskingOC
+                    ? () => setFilledOCVacancy(true)
+                    : w34AskingDC
+                      ? () => setFilledDCVacancy(true)
+                      : w34CoordAllAnswered
+                        ? async () => {
+                            setFilledOCVacancy(null)
+                            setFilledDCVacancy(null)
+                            setNewOCName('')
+                            setNewDCName('')
+                            await updateDynasty(currentDynasty.id, { pendingCoordinatorHires: null })
+                          }
+                        : undefined,
+                  actionLabel: w34AskingPos ? 'Yes' : w34CoordAllAnswered ? 'Edit' : undefined,
+                  extraTools: w34AskingPos ? (
+                    <button
+                      onClick={async () => {
+                        if (w34AskingOC) {
+                          setFilledOCVacancy(false)
+                          await updateDynasty(currentDynasty.id, {
+                            pendingCoordinatorHires: {
+                              ...currentDynasty.pendingCoordinatorHires,
+                              filledOC: false,
+                              newOCName: null,
+                            },
+                          })
+                        } else {
+                          setFilledDCVacancy(false)
+                          await updateDynasty(currentDynasty.id, {
+                            pendingCoordinatorHires: {
+                              ...currentDynasty.pendingCoordinatorHires,
+                              filledDC: false,
+                              newDCName: null,
+                            },
+                          })
+                        }
+                      }}
+                      className="btn-refined text-center"
+                    >
+                      Not Yet
+                    </button>
+                  ) : null,
                 })
               }
             }
@@ -5815,36 +5858,10 @@ export default function Dashboard() {
                 </h3>
                 {renderTodoList({ todos: w34Todos, isViewOnly })}
 
-                {/* New Job wizard panels (weeks 3 only — week 4 hides this task) */}
-                {week !== 4 && takingNewJob === null && (
-                  <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
-                    <p className="mb-3 text-xs sm:text-sm font-medium text-txt-secondary">Taking a new job this offseason?</p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={async () => {
-                          setTakingNewJob(true)
-                          await updateDynasty(currentDynasty.id, {
-                            newJobData: { takingNewJob: true, team: '', position: '' },
-                          })
-                        }}
-                        className="btn-refined btn-refined--solid"
-                      >
-                        Yes
-                      </button>
-                      <button
-                        onClick={async () => {
-                          setTakingNewJob(false)
-                          await updateDynasty(currentDynasty.id, {
-                            newJobData: { takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek },
-                          })
-                        }}
-                        className="btn-refined btn-refined--solid"
-                      >
-                        No
-                      </button>
-                    </div>
-                  </div>
-                )}
+                {/* New Job wizard panels — initial Yes/No now lives
+                    inline on the new-job-bw34 row; only the team /
+                    position pickers render below. (week 4 hides this
+                    task entirely.) */}
                 {week !== 4 && takingNewJob === true && !newJobTeam && (
                   <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
                     <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Which team?</p>
@@ -5895,32 +5912,10 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* Coordinator vacancy wizards */}
-                {w34ShowCoordinator && w34FiredOC && filledOCVacancy === null && (
-                  <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
-                    <p className="mb-3 text-xs sm:text-sm font-medium text-txt-secondary">
-                      You fired {w34FiredOC} (OC). Has the position been filled?
-                    </p>
-                    <div className="flex gap-2">
-                      <button onClick={() => setFilledOCVacancy(true)} className="btn-refined btn-refined--solid">Yes</button>
-                      <button
-                        onClick={async () => {
-                          setFilledOCVacancy(false)
-                          await updateDynasty(currentDynasty.id, {
-                            pendingCoordinatorHires: {
-                              ...currentDynasty.pendingCoordinatorHires,
-                              filledOC: false,
-                              newOCName: null,
-                            },
-                          })
-                        }}
-                        className="btn-refined btn-refined--solid"
-                      >
-                        Not Yet
-                      </button>
-                    </div>
-                  </div>
-                )}
+                {/* Coordinator vacancy mid-flow panels — initial
+                    Yes/Not Yet for each pending position lives inline on
+                    the coord-vacancy-bw34 row; only the new-name input
+                    step renders here. */}
                 {w34ShowCoordinator && w34FiredOC && filledOCVacancy === true && !newOCName && (
                   <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
                     <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Enter new OC name:</p>
@@ -5963,31 +5958,6 @@ export default function Dashboard() {
                         className="btn-refined btn-refined--solid"
                       >
                         Save
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {w34ShowCoordinator && w34FiredDC && (!w34FiredOC || filledOCVacancy !== null) && filledDCVacancy === null && (
-                  <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
-                    <p className="mb-3 text-xs sm:text-sm font-medium text-txt-secondary">
-                      You fired {w34FiredDC} (DC). Has the position been filled?
-                    </p>
-                    <div className="flex gap-2">
-                      <button onClick={() => setFilledDCVacancy(true)} className="btn-refined btn-refined--solid">Yes</button>
-                      <button
-                        onClick={async () => {
-                          setFilledDCVacancy(false)
-                          await updateDynasty(currentDynasty.id, {
-                            pendingCoordinatorHires: {
-                              ...currentDynasty.pendingCoordinatorHires,
-                              filledDC: false,
-                              newDCName: null,
-                            },
-                          })
-                        }}
-                        className="btn-refined btn-refined--solid"
-                      >
-                        Not Yet
                       </button>
                     </div>
                   </div>
