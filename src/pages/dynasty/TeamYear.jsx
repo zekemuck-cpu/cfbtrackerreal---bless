@@ -4309,6 +4309,27 @@ export default function TeamYear() {
                 />
               )}
 
+              {/* Blocking */}
+              {playerStats.blocking.length > 0 && (
+                <SortableStatsTable
+                  title="Blocking"
+                  rows={playerStats.blocking}
+                  defaultSortKey="pancakes"
+                  accentColor={accentColor}
+                  accentColorMuted={accentColorMuted}
+                  teamBgColor={teamInfo.backgroundColor}
+                  teamBgText={teamBgText}
+                  columns={[
+                    { key: 'name', label: 'Player', align: 'left',
+                      render: p => <PlayerCell player={p} accentColor={accentColor} pathPrefix={pathPrefix} /> },
+                    { key: 'pancakes', label: 'Pancakes', tabular: true, bold: true,
+                      sortValue: p => p.pancakes || 0, render: p => p.pancakes || 0 },
+                    { key: 'sacksAllowed', label: 'Sacks Allowed', tabular: true, defaultDir: 'asc',
+                      sortValue: p => p.sacksAllowed || 0, render: p => p.sacksAllowed || 0 },
+                  ]}
+                />
+              )}
+
               {/* Defense */}
               {playerStats.defense.length > 0 && (
                 <SortableStatsTable
