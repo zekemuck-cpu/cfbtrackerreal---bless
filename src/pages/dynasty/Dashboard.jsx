@@ -84,58 +84,64 @@ function renderTodoList({ todos, isViewOnly }) {
       {todos.map((todo, idx) => (
         <div
           key={todo.key}
-          className="px-3 py-2.5 sm:px-5 sm:py-4 flex items-center gap-2 sm:gap-4"
           style={idx > 0 ? { borderTop: '1px solid var(--surface-4)' } : undefined}
         >
-          <div className="flex-1 min-w-0 flex items-center gap-2 sm:gap-3">
-            <span
-              aria-hidden="true"
-              className="w-2 h-2 rounded-full flex-shrink-0"
-              style={{
-                backgroundColor: todo.done
-                  ? 'var(--accent-success)'
-                  : 'var(--accent-error)',
-              }}
-            />
-            {todo.extraLeading}
-            <div className="min-w-0">
-              <div
-                className="font-display font-bold leading-tight text-txt-primary break-words"
-                style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
-              >
-                {todo.title}
-              </div>
-              {todo.subtitle && (
-                <div className="hidden sm:block text-xs sm:text-[13px] mt-0.5 text-txt-tertiary">
-                  {todo.subtitle}
-                </div>
-              )}
-              {todo.inlineAction && (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); todo.inlineAction.onClick() }}
-                  className="mt-1 text-[11px] uppercase font-bold text-txt-tertiary hover:text-txt-secondary underline underline-offset-2 transition-colors"
-                  style={{ letterSpacing: '1.2px' }}
+          <div className="px-3 py-2.5 sm:px-5 sm:py-4 flex items-center gap-2 sm:gap-4">
+            <div className="flex-1 min-w-0 flex items-center gap-2 sm:gap-3">
+              <span
+                aria-hidden="true"
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{
+                  backgroundColor: todo.done
+                    ? 'var(--accent-success)'
+                    : 'var(--accent-error)',
+                }}
+              />
+              {todo.extraLeading}
+              <div className="min-w-0">
+                <div
+                  className="font-display font-bold leading-tight text-txt-primary break-words"
+                  style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
                 >
-                  {todo.inlineAction.label}
-                </button>
-              )}
+                  {todo.title}
+                </div>
+                {todo.subtitle && (
+                  <div className="hidden sm:block text-xs sm:text-[13px] mt-0.5 text-txt-tertiary">
+                    {todo.subtitle}
+                  </div>
+                )}
+                {todo.inlineAction && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); todo.inlineAction.onClick() }}
+                    className="mt-1 text-[11px] uppercase font-bold text-txt-tertiary hover:text-txt-secondary underline underline-offset-2 transition-colors"
+                    style={{ letterSpacing: '1.2px' }}
+                  >
+                    {todo.inlineAction.label}
+                  </button>
+                )}
+              </div>
             </div>
+            {!isViewOnly && todo.actionLabel && (
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 [&_.btn-refined]:min-w-[4.5rem]">
+                {todo.extraTools}
+                {todo.viewTo && (
+                  <Link to={todo.viewTo} className="btn-refined text-center">
+                    View
+                  </Link>
+                )}
+                <button
+                  onClick={todo.onAction}
+                  className="btn-refined btn-refined--solid text-center"
+                >
+                  {todo.actionLabel}
+                </button>
+              </div>
+            )}
           </div>
-          {!isViewOnly && todo.actionLabel && (
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 [&_.btn-refined]:min-w-[4.5rem]">
-              {todo.extraTools}
-              {todo.viewTo && (
-                <Link to={todo.viewTo} className="btn-refined text-center">
-                  View
-                </Link>
-              )}
-              <button
-                onClick={todo.onAction}
-                className="btn-refined btn-refined--solid text-center"
-              >
-                {todo.actionLabel}
-              </button>
+          {todo.belowContent && (
+            <div className="px-3 pb-3 sm:px-5 sm:pb-4">
+              {todo.belowContent}
             </div>
           )}
         </div>
@@ -4682,19 +4688,38 @@ export default function Dashboard() {
                     },
                   })
                 } : showBowlEditButton ? async () => {
-                  setBowlEligible(null)
-                  setSelectedBowl('')
-                  setBowlOpponent('')
-                  const existingBowlGame = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear))
-                  const updatedGames = existingBowlGame
-                    ? currentDynasty.games.filter(g => !(g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear) && getUserGamePerspective(g, currentDynasty)))
-                    : currentDynasty.games
-                  const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
-                  const { [currentYear]: _, ...restByYear } = existingByYear
-                  await updateDynasty(currentDynasty.id, {
-                    bowlEligibilityDataByYear: restByYear,
-                    games: updatedGames,
-                  })
+                  // Complete state (bowl + opponent set): keep the bowl, just re-open opponent picker
+                  if (bowlEligible === true && selectedBowl && bowlOpponent) {
+                    setBowlOpponent('')
+                    const existingBowlGame = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear))
+                    const updatedGames = existingBowlGame
+                      ? currentDynasty.games.filter(g => !(g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear) && getUserGamePerspective(g, currentDynasty)))
+                      : currentDynasty.games
+                    const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
+                    const currentBowlData = existingByYear[currentYear] || {}
+                    await updateDynasty(currentDynasty.id, {
+                      bowlEligibilityDataByYear: {
+                        ...existingByYear,
+                        [currentYear]: { ...currentBowlData, opponent: '' },
+                      },
+                      games: updatedGames,
+                    })
+                  } else {
+                    // Bowl-picker or "No" state: full reset back to Yes/No
+                    setBowlEligible(null)
+                    setSelectedBowl('')
+                    setBowlOpponent('')
+                    const existingBowlGame = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear))
+                    const updatedGames = existingBowlGame
+                      ? currentDynasty.games.filter(g => !(g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear) && getUserGamePerspective(g, currentDynasty)))
+                      : currentDynasty.games
+                    const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
+                    const { [currentYear]: _, ...restByYear } = existingByYear
+                    await updateDynasty(currentDynasty.id, {
+                      bowlEligibilityDataByYear: restByYear,
+                      games: updatedGames,
+                    })
+                  }
                 } : undefined,
                 actionLabel: askingBowlEligibility ? 'Yes' : showBowlEditButton ? 'Edit' : undefined,
                 extraTools: askingBowlEligibility ? (
@@ -4713,6 +4738,82 @@ export default function Dashboard() {
                   >
                     No
                   </button>
+                ) : null,
+                belowContent: !userCFPSeed && bowlEligible === true && !selectedBowl ? (
+                  <div className="max-w-xs">
+                    <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Which bowl game?</p>
+                    <DropdownSelect
+                      options={allBowlGames}
+                      value={selectedBowl}
+                      onChange={async (bowl) => {
+                        setSelectedBowl(bowl)
+                        const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
+                        const currentBowlData = existingByYear[currentYear] || {}
+                        await updateDynasty(currentDynasty.id, {
+                          bowlEligibilityDataByYear: {
+                            ...existingByYear,
+                            [currentYear]: { ...currentBowlData, eligible: true, bowlGame: bowl },
+                          },
+                        })
+                      }}
+                      placeholder="Search bowls..."
+                      teamColors={teamColors}
+                    />
+                  </div>
+                ) : !userCFPSeed && bowlEligible === true && selectedBowl && !bowlOpponent ? (
+                  <div className="max-w-xs">
+                    <div className="flex items-center gap-2 mb-2">
+                      <p className="text-xs sm:text-sm text-txt-secondary">Playing in: <strong className="text-txt-primary">{selectedBowl}</strong></p>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setSelectedBowl('')
+                          const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
+                          const currentBowlData = existingByYear[currentYear] || {}
+                          await updateDynasty(currentDynasty.id, {
+                            bowlEligibilityDataByYear: {
+                              ...existingByYear,
+                              [currentYear]: { ...currentBowlData, bowlGame: '' },
+                            },
+                          })
+                        }}
+                        className="text-[11px] uppercase font-bold text-txt-tertiary hover:text-txt-secondary underline underline-offset-2 transition-colors flex-shrink-0"
+                        style={{ letterSpacing: '1.2px' }}
+                      >
+                        Change
+                      </button>
+                    </div>
+                    <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Who is your opponent?</p>
+                    <SearchableSelect
+                      options={teams}
+                      value={bowlOpponent}
+                      onChange={async (value) => {
+                        setBowlOpponent(value)
+                        const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
+                        const currentBowlData = existingByYear[currentYear] || {}
+                        const opponentTid = getTidFromTeamName(value, currentDynasty?.teams)
+                        const updatedGames = opponentTid
+                          ? createOrUpdateBowlGameShell(currentDynasty.games || [], {
+                              bowlName: selectedBowl,
+                              year: currentYear,
+                              userTid: userTeamTid,
+                              opponentTid,
+                              isWeek1: isBowlInWeek1(selectedBowl),
+                            })
+                          : (currentDynasty.games || [])
+                        await updateDynasty(currentDynasty.id, {
+                          bowlEligibilityDataByYear: {
+                            ...existingByYear,
+                            [currentYear]: { ...currentBowlData, opponent: value },
+                          },
+                          games: updatedGames,
+                        })
+                      }}
+                      placeholder="Search for opponent..."
+                      teamColors={teamColors}
+                      dynastyTeams={currentDynasty?.teams}
+                    />
+                  </div>
                 ) : null,
               })
 
@@ -4856,74 +4957,6 @@ export default function Dashboard() {
                     Bowl Week 1
                   </h3>
                   {renderTodoList({ todos: bw1Todos, isViewOnly })}
-
-                  {/* Bowl-status wizard panels — initial Yes/No now lives
-                      inline on the bowl-status row, but the follow-up
-                      dropdowns (which bowl? which opponent?) still need
-                      their own panel space below. */}
-                  {hasCFPSeedsData && !userCFPSeed && bowlEligible === true && !selectedBowl && (
-                    <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
-                      <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Which bowl game?</p>
-                      <div className="max-w-xs">
-                        <DropdownSelect
-                          options={allBowlGames}
-                          value={selectedBowl}
-                          onChange={async (bowl) => {
-                            setSelectedBowl(bowl)
-                            const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
-                            const currentBowlData = existingByYear[currentYear] || {}
-                            await updateDynasty(currentDynasty.id, {
-                              bowlEligibilityDataByYear: {
-                                ...existingByYear,
-                                [currentYear]: { ...currentBowlData, eligible: true, bowlGame: bowl },
-                              },
-                            })
-                          }}
-                          placeholder="Search bowls..."
-                          teamColors={teamColors}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  {hasCFPSeedsData && !userCFPSeed && bowlEligible === true && selectedBowl && !bowlOpponent && (
-                    <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
-                      <p className="mb-2 text-xs sm:text-sm text-txt-secondary">
-                        Playing in: <strong className="text-txt-primary">{selectedBowl}</strong>
-                      </p>
-                      <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Who is your opponent?</p>
-                      <div className="max-w-xs">
-                        <SearchableSelect
-                          options={teams}
-                          value={bowlOpponent}
-                          onChange={async (value) => {
-                            setBowlOpponent(value)
-                            const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
-                            const currentBowlData = existingByYear[currentYear] || {}
-                            const opponentTid = getTidFromTeamName(value, currentDynasty?.teams)
-                            const updatedGames = opponentTid
-                              ? createOrUpdateBowlGameShell(currentDynasty.games || [], {
-                                  bowlName: selectedBowl,
-                                  year: currentYear,
-                                  userTid: userTeamTid,
-                                  opponentTid,
-                                  isWeek1: isBowlInWeek1(selectedBowl),
-                                })
-                              : (currentDynasty.games || [])
-                            await updateDynasty(currentDynasty.id, {
-                              bowlEligibilityDataByYear: {
-                                ...existingByYear,
-                                [currentYear]: { ...currentBowlData, opponent: value },
-                              },
-                              games: updatedGames,
-                            })
-                          }}
-                          placeholder="Search for opponent..."
-                          teamColors={teamColors}
-                          dynastyTeams={currentDynasty?.teams}
-                        />
-                      </div>
-                    </div>
-                  )}
 
                   {/* Taking a New Job wizard panels — initial Yes/No now
                       lives inline on the new-job-bw1 row; follow-up team /
