@@ -4140,6 +4140,54 @@ export default function Dashboard() {
               })
             }
 
+            // Task: Enter Week 14 Scores. CCG week always follows Week 14
+            // (the last regular-season week), so the lookback target is
+            // hard-coded to 14 — same pattern the regular-season block
+            // uses for prev-week scores, just with a fixed week number
+            // since CCG week itself is unnumbered.
+            {
+              const yearNum = Number(currentDynasty.currentYear)
+              const prevWeek = 14
+              const weeklyEntered = currentDynasty.weeklyScoresEntered?.[yearNum]?.[prevWeek]
+              const savedCount = (currentDynasty.games || []).filter(g =>
+                g && Number(g.year) === yearNum && Number(g.week) === prevWeek
+                && g.gameType === 'regular' && g.source === 'weekly-scores'
+              ).length
+              const done = !!weeklyEntered || savedCount > 0
+              todos.push({
+                key: 'cc-week14-scores',
+                done,
+                title: done
+                  ? `${savedCount} Week ${prevWeek} Game${savedCount === 1 ? '' : 's'} Logged`
+                  : `Enter Week ${prevWeek} Scores`,
+                subtitle: done
+                  ? 'Across-the-country Week 14 results saved'
+                  : 'Log results to update records & rankings',
+                viewTo: `${pathPrefix}/weekly-scores/${yearNum}/${prevWeek}`,
+                onAction: () => setWeeklyScoresModalWeek(prevWeek),
+                actionLabel: done ? 'Edit' : 'Enter',
+              })
+            }
+
+            // Task: Generate Week 14 Recap.
+            {
+              const yearNum = Number(currentDynasty.currentYear)
+              const prevWeek = 14
+              const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[prevWeek]
+              const done = !!recap?.text
+              todos.push({
+                key: 'cc-week14-recap',
+                done,
+                title: done ? `Week ${prevWeek} Recap Saved` : `Generate Week ${prevWeek} Recap`,
+                subtitle: done
+                  ? 'Narrative recap stored for this week'
+                  : 'Generate the AI recap of Week 14',
+                viewTo: `${pathPrefix}/weekly-scores/${yearNum}/${prevWeek}?tab=recap`,
+                onAction: () => setRecapModalContext({ year: yearNum, week: prevWeek }),
+                actionLabel: done ? 'Edit' : 'Generate',
+              })
+            }
+
             return (
               <div className="media-card overflow-hidden">
                 {todos.map((todo, idx) => (
