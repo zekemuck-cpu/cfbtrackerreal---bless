@@ -5611,767 +5611,433 @@ export default function Dashboard() {
               )
             }
 
-            // Weeks 3-4: CFP rounds (Semifinals, Championship)
-            // Note: CFP Semifinals CPU games are only entered in Week 4 (Championship week)
-            // User's own SF game is entered in Week 3 via the dedicated task
+            // Weeks 3-4 fallthrough (Bowl Week 3, National Championship).
+            // Unified with the in-season todo design via renderTodoList. Multi-step
+            // wizards (Taking a New Job, Fill Coordinator Vacancy) render as status
+            // rows in the list with their interactive UI in `media-card` panels below.
+            const w34Todos = []
+
+            if (week === 3) {
+              w34Todos.push({
+                key: 'bw2-results',
+                done: hasBowlWeek2Data,
+                title: 'Week 2 Bowl Results',
+                subtitle: totalEnteredWeek2 === 12
+                  ? 'All 12 games entered'
+                  : `${totalEnteredWeek2}/12 games entered (incl. CFP Quarterfinals)`,
+                onAction: () => setShowBowlWeek2Modal(true),
+                actionLabel: hasBowlWeek2Data ? 'Edit' : 'Enter',
+              })
+            }
+
+            if (week === 3 && userHasCFPSemifinalGame && hasBowlWeek2Data) {
+              const sfDone = !!userCFPSemifinalGame && userCFPSemifinalGame.team1Score != null
+              w34Todos.push({
+                key: 'cfp-sf-game',
+                done: sfDone,
+                title: 'Enter Your CFP Semifinal Game',
+                subtitle: sfDone
+                  ? `${userCFPSemifinalGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPSemifinalGame.perspective?.userScore || 0, userCFPSemifinalGame.perspective?.opponentScore || 0)}-${Math.min(userCFPSemifinalGame.perspective?.userScore || 0, userCFPSemifinalGame.perspective?.opponentScore || 0)}`
+                  : `${userSFBowlName || 'CFP Semifinal'} vs ${userSFOpponent ? getMascotName(userSFOpponent) || userSFOpponent : 'TBD'}`,
+                onAction: () => {
+                  const gameToEdit = userCFPSemifinalGame || userCFPSemifinalShell
+                  if (gameToEdit) {
+                    navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
+                  } else {
+                    const opponentTid = typeof userSFOpponent === 'number' ? userSFOpponent : getTidFromAbbr(userSFOpponent, currentDynasty)
+                    const params = new URLSearchParams({
+                      week: 'CFP Semifinal',
+                      year: currentDynasty.currentYear?.toString() || '',
+                      team1Tid: userTeamTid?.toString() || '',
+                      team2Tid: opponentTid?.toString() || '',
+                      gameType: 'cfp_semifinal',
+                      bowlName: userSFBowlName || 'CFP Semifinal',
+                    })
+                    navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                  }
+                },
+                actionLabel: sfDone ? 'Edit' : 'Enter',
+              })
+            }
+
+            let w4AllSFComplete = false
+            if (week === 4) {
+              const unifiedSFData = getGamesByType(currentDynasty, GAME_TYPES.CFP_SEMIFINAL, currentDynasty.currentYear)
+              const legacySFData = currentDynasty.cfpResultsByYear?.[currentDynasty.currentYear]?.semifinals || []
+              const sfData = unifiedSFData.length > 0 ? unifiedSFData : legacySFData
+              const sfGamesWithScores = sfData.filter(g => g && g.team1Score !== undefined && g.team1Score !== null && g.team2Score !== undefined && g.team2Score !== null).length
+              w4AllSFComplete = sfGamesWithScores >= 2
+
+              w34Todos.push({
+                key: 'cfp-sf-results',
+                done: w4AllSFComplete,
+                title: 'CFP Semifinal Results',
+                subtitle: w4AllSFComplete ? 'All 2 games entered' : `${sfGamesWithScores}/2 games entered`,
+                onAction: () => setShowCFPSemifinalsModal(true),
+                actionLabel: w4AllSFComplete ? 'Edit' : 'Enter',
+              })
+            }
+
+            if (week === 4 && userHasCFPChampionshipGame) {
+              const userChampHasScores = userCFPChampionshipGame &&
+                userCFPChampionshipGame.team1Score !== null &&
+                userCFPChampionshipGame.team1Score !== undefined
+              w34Todos.push({
+                key: 'cfp-champ-game',
+                done: !!userChampHasScores,
+                title: 'Enter Your National Championship Game',
+                subtitle: userChampHasScores
+                  ? `${userCFPChampionshipGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPChampionshipGame.perspective?.userScore || 0, userCFPChampionshipGame.perspective?.opponentScore || 0)}-${Math.min(userCFPChampionshipGame.perspective?.userScore || 0, userCFPChampionshipGame.perspective?.opponentScore || 0)}`
+                  : w4AllSFComplete
+                    ? `National Championship vs ${userChampOpponent ? getMascotName(userChampOpponent) || userChampOpponent : 'TBD'}`
+                    : 'Enter SF results first to determine opponent',
+                onAction: () => {
+                  const gameToEdit = userCFPChampionshipGame || userCFPChampionshipShell
+                  if (gameToEdit) {
+                    navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
+                  } else {
+                    const opponentTid = typeof userChampOpponent === 'number' ? userChampOpponent : getTidFromAbbr(userChampOpponent, currentDynasty)
+                    const params = new URLSearchParams({
+                      week: 'CFP Championship',
+                      year: currentDynasty.currentYear?.toString() || '',
+                      team1Tid: userTeamTid?.toString() || '',
+                      team2Tid: opponentTid?.toString() || '',
+                      gameType: 'cfp_championship',
+                      bowlName: 'National Championship',
+                    })
+                    navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                  }
+                },
+                actionLabel: userChampHasScores ? 'Edit' : 'Enter',
+              })
+            }
+
+            const w34NewJobDone = takingNewJob !== null && (takingNewJob === false || (newJobTeam && newJobPosition))
+            if (week !== 4) {
+              w34Todos.push({
+                key: 'new-job-bw34',
+                done: w34NewJobDone,
+                title: `Taking a New Job? (Bowl Week ${week})`,
+                subtitle: w34NewJobDone
+                  ? takingNewJob === true
+                    ? `${newJobPosition} at ${getTeamNameFromAbbr(newJobTeam)}`
+                    : 'Staying with current team'
+                  : 'Yes or no?',
+                onAction: w34NewJobDone ? async () => {
+                  setTakingNewJob(null)
+                  setNewJobTeam('')
+                  setNewJobPosition('')
+                  const updatedTeams = clearPendingUserTeam(currentDynasty.teams)
+                  await updateDynasty(currentDynasty.id, {
+                    newJobData: null,
+                    teams: updatedTeams,
+                  })
+                } : undefined,
+                actionLabel: w34NewJobDone ? 'Edit' : undefined,
+              })
+            }
+
+            const w34CcDataForYear = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear] || {}
+            const w34FiredOC = w34CcDataForYear.firedOCName
+            const w34FiredDC = w34CcDataForYear.firedDCName
+            const w34ShowCoordinator = currentDynasty.coachPosition === 'HC' && (w34FiredOC || w34FiredDC)
+            let w34CoordAllFilled = true
+            let w34CoordAllAnswered = true
+            let w34CoordOcFilled = true
+            let w34CoordDcFilled = true
+            if (w34ShowCoordinator) {
+              w34CoordOcFilled = !w34FiredOC || (filledOCVacancy === true && newOCName)
+              w34CoordDcFilled = !w34FiredDC || (filledDCVacancy === true && newDCName)
+              w34CoordAllFilled = w34CoordOcFilled && w34CoordDcFilled
+              const w34OcAnswered = !w34FiredOC || filledOCVacancy !== null
+              const w34DcAnswered = !w34FiredDC || filledDCVacancy !== null
+              w34CoordAllAnswered = w34OcAnswered && w34DcAnswered
+              if (!w34CoordAllFilled) {
+                w34Todos.push({
+                  key: 'coord-vacancy-bw34',
+                  done: false,
+                  title: `Fill Coordinator ${w34FiredOC && w34FiredDC ? 'Vacancies' : 'Vacancy'}`,
+                  subtitle: w34CoordAllAnswered
+                    ? `${w34FiredOC ? (w34CoordOcFilled ? `OC: ${newOCName}` : 'OC: Not filled yet') : ''}${w34FiredOC && w34FiredDC ? ' • ' : ''}${w34FiredDC ? (w34CoordDcFilled ? `DC: ${newDCName}` : 'DC: Not filled yet') : ''}`
+                    : 'Has the vacancy been filled?',
+                  onAction: w34CoordAllAnswered ? async () => {
+                    setFilledOCVacancy(null)
+                    setFilledDCVacancy(null)
+                    setNewOCName('')
+                    setNewDCName('')
+                    await updateDynasty(currentDynasty.id, { pendingCoordinatorHires: null })
+                  } : undefined,
+                  actionLabel: w34CoordAllAnswered ? 'Edit' : undefined,
+                })
+              }
+            }
+
+            const w34CommitmentKey = getCommitmentKey()
+            const w34UserTidForCommits = getUserTeamTid(currentDynasty)
+            const w34CommitmentsForYear = getRecruitingCommitments(currentDynasty, w34UserTidForCommits, currentDynasty.currentYear)
+            const w34WeekCommitments = w34CommitmentsForYear?.[w34CommitmentKey]
+            const w34HasCommitmentsData = w34WeekCommitments !== undefined
+            const w34CommitmentsCount = w34WeekCommitments?.length || 0
+            const w34ClassScore = calculateRecruitingClassScore(flattenClassCommitments(w34CommitmentsForYear))
+
+            w34Todos.push({
+              key: 'recruiting-bw34',
+              done: w34HasCommitmentsData,
+              title: w34HasCommitmentsData ? 'Recruiting Commitments' : 'Any commitments this week?',
+              subtitle: w34HasCommitmentsData
+                ? w34CommitmentsCount > 0
+                  ? `${w34CommitmentsCount} commitment${w34CommitmentsCount !== 1 ? 's' : ''} recorded`
+                  : 'No commitments this week'
+                : 'Record any recruiting commitments',
+              onAction: () => setShowRecruitingModal(true),
+              actionLabel: w34HasCommitmentsData ? 'Edit' : 'Yes',
+              extraTools: !w34HasCommitmentsData ? (
+                <>
+                  <SellVsSendButton onClick={() => setShowSellCalc(true)} />
+                  <button
+                    onClick={handleNoCommitments}
+                    className="btn-refined text-center"
+                  >
+                    No
+                  </button>
+                </>
+              ) : null,
+              inlineAction: w34HasCommitmentsData && w34ClassScore > 0 ? {
+                label: `Class Score ${formatRecruitingClassScore(w34ClassScore)}`,
+                onClick: () => navigate(`${pathPrefix}/recruiting/${w34UserTidForCommits}/${currentDynasty.currentYear}`),
+              } : null,
+            })
 
             return (
               <>
-                <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                  <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
-                    {week === 5 ? 'End of Season Recap' : week === 4 ? 'National Championship' : `Bowl Week ${week}`}
-                  </h3>
-                </div>
-                <div className="-space-y-px">
-                  {/* Week 2 Bowl Results - only show in Week 3 */}
-                  {week === 3 && (
-                    <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                      style={hasBowlWeek2Data ? {
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        border: '1px solid rgba(34, 197, 94, 0.3)'
-                      } : {
-                        backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--surface-4)'
-                      }}
-                    >
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div
-                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                            hasBowlWeek2Data ? 'bg-green-500 text-white' : ''
-                          }`}
-                          style={!hasBowlWeek2Data ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                        >
-                          {hasBowlWeek2Data ? (
-                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : <span className="font-bold text-sm sm:text-base">1</span>}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasBowlWeek2Data ? '#22c55e' : '#fafafa' }}>
-                            Week 2 Bowl Results
-                          </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasBowlWeek2Data ? '#22c55e' : '#a1a1aa' }}>
-                            {totalEnteredWeek2 === 12 ? '✓ All 12 games entered' : `${totalEnteredWeek2}/12 games entered (incl. CFP Quarterfinals)`}
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setShowBowlWeek2Modal(true)}
-                        className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                        style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                      >
-                        {hasBowlWeek2Data ? 'Edit' : 'Enter'}
-                      </button>
-                    </div>
-                  )}
+                <h3 className="font-display font-bold leading-none text-txt-primary px-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
+                  {week === 4 ? 'National Championship' : `Bowl Week ${week}`}
+                </h3>
+                {renderTodoList({ todos: w34Todos, isViewOnly })}
 
-                  {/* Task: Enter YOUR CFP Semifinal Game (Week 3 only).
-                      Single detection rule: user has an SF game shell in
-                      games[]. Sequencing on hasBowlWeek2Data ensures
-                      prior-week bowls are entered first. */}
-                  {week === 3 && userHasCFPSemifinalGame && hasBowlWeek2Data && (
-                    <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                      style={userCFPSemifinalGame ? {
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        border: '1px solid rgba(34, 197, 94, 0.3)'
-                      } : {
-                        backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--surface-4)'
-                      }}
-                    >
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div
-                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                            userCFPSemifinalGame ? 'bg-green-500 text-white' : ''
-                          }`}
-                          style={!userCFPSemifinalGame ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                        >
-                          {userCFPSemifinalGame ? (
-                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : <span className="font-bold text-sm sm:text-base">1</span>}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: userCFPSemifinalGame ? '#22c55e' : '#fafafa' }}>
-                            Enter Your CFP Semifinal Game
-                          </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userCFPSemifinalGame ? '#22c55e' : '#a1a1aa' }}>
-                            {userCFPSemifinalGame
-                              ? `✓ ${userCFPSemifinalGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPSemifinalGame.perspective?.userScore || 0, userCFPSemifinalGame.perspective?.opponentScore || 0)}-${Math.min(userCFPSemifinalGame.perspective?.userScore || 0, userCFPSemifinalGame.perspective?.opponentScore || 0)}`
-                              : `${userSFBowlName || 'CFP Semifinal'} vs ${userSFOpponent ? getMascotName(userSFOpponent) || userSFOpponent : 'TBD'}`}
-                          </div>
-                        </div>
-                      </div>
+                {/* New Job wizard panels (weeks 3 only — week 4 hides this task) */}
+                {week !== 4 && takingNewJob === null && (
+                  <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
+                    <p className="mb-3 text-xs sm:text-sm font-medium text-txt-secondary">Taking a new job this offseason?</p>
+                    <div className="flex gap-2">
                       <button
-                        onClick={() => {
-                          // Use game with perspective first, then shell, then create new
-                          const gameToEdit = userCFPSemifinalGame || userCFPSemifinalShell
-                          if (gameToEdit) {
-                            navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
-                          } else {
-                            // userSFOpponent can be tid (number) or abbr (string)
-                            const opponentTid = typeof userSFOpponent === 'number' ? userSFOpponent : getTidFromAbbr(userSFOpponent, currentDynasty)
-                            const params = new URLSearchParams({
-                              week: 'CFP Semifinal',
-                              year: currentDynasty.currentYear?.toString() || '',
-                              team1Tid: userTeamTid?.toString() || '',
-                              team2Tid: opponentTid?.toString() || '',
-                              gameType: 'cfp_semifinal',
-                              bowlName: userSFBowlName || 'CFP Semifinal'
-                            })
-                            navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
-                          }
+                        onClick={async () => {
+                          setTakingNewJob(true)
+                          await updateDynasty(currentDynasty.id, {
+                            newJobData: { takingNewJob: true, team: '', position: '' },
+                          })
                         }}
-                        className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                        style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
+                        className="btn-refined btn-refined--solid"
                       >
-                        {(userCFPSemifinalGame || (userCFPSemifinalShell?.team1Score !== null)) ? 'Edit' : 'Enter'}
+                        Yes
                       </button>
-                    </div>
-                  )}
-
-                  {/* Week 4 (National Championship) Task Order:
-                      - If user IS in Championship:
-                        1. Enter the OTHER SF game (CPU vs CPU) to determine opponent
-                        2. Enter user's Championship game
-                      - If user is NOT in Championship:
-                        1. Enter both SF games (both CPU vs CPU)
-                  */}
-
-                  {/* CFP Semifinals - FIRST task in Week 4 to determine Championship matchup */}
-                  {week === 4 && (() => {
-                    // Use unified games[] array (source of truth) with fallback to legacy cfpResultsByYear
-                    const unifiedSFData = getGamesByType(currentDynasty, GAME_TYPES.CFP_SEMIFINAL, currentDynasty.currentYear)
-                    const legacySFData = currentDynasty.cfpResultsByYear?.[currentDynasty.currentYear]?.semifinals || []
-                    const sfData = unifiedSFData.length > 0 ? unifiedSFData : legacySFData
-                    // Need BOTH SF games (2 total) to determine Championship matchup
-                    // Count games that actually have scores entered
-                    const sfGamesWithScores = sfData.filter(g => g && g.team1Score !== undefined && g.team1Score !== null && g.team2Score !== undefined && g.team2Score !== null).length
-                    const allSFComplete = sfGamesWithScores >= 2
-
-                    return (
-                    <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                      style={allSFComplete ? {
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        border: '1px solid rgba(34, 197, 94, 0.3)'
-                      } : {
-                        backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--surface-4)'
-                      }}
-                    >
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div
-                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                            allSFComplete ? 'bg-green-500 text-white' : ''
-                          }`}
-                          style={!allSFComplete ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                        >
-                          {allSFComplete ? (
-                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : <span className="font-bold text-sm sm:text-base">1</span>}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: allSFComplete ? '#22c55e' : '#fafafa' }}>
-                            CFP Semifinal Results
-                          </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: allSFComplete ? '#22c55e' : '#a1a1aa' }}>
-                            {allSFComplete ? '✓ All 2 games entered' : `${sfGamesWithScores}/2 games entered`}
-                          </div>
-                        </div>
-                      </div>
                       <button
-                        onClick={() => setShowCFPSemifinalsModal(true)}
-                        className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                        style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                      >
-                        {allSFComplete ? 'Edit' : 'Enter'}
-                      </button>
-                    </div>
-                    )
-                  })()}
-
-                  {/* Task: Enter YOUR CFP Championship Game (Week 4 only, if user is in Championship) */}
-                  {/* This comes AFTER the SF results so we know the opponent */}
-                  {week === 4 && userHasCFPChampionshipGame && (() => {
-                    // Use unified games[] array (source of truth) with fallback to legacy cfpResultsByYear
-                    const unifiedSFData = getGamesByType(currentDynasty, GAME_TYPES.CFP_SEMIFINAL, currentDynasty.currentYear)
-                    const legacySFData = currentDynasty.cfpResultsByYear?.[currentDynasty.currentYear]?.semifinals || []
-                    const sfData = unifiedSFData.length > 0 ? unifiedSFData : legacySFData
-                    // Need BOTH SF games with scores to determine Championship opponent
-                    const sfGamesWithScores = sfData.filter(g => g && g.team1Score !== undefined && g.team1Score !== null).length
-                    const allSFComplete = sfGamesWithScores >= 2
-
-                    // Check if championship game has actual scores (not just shell)
-                    const userChampHasScores = userCFPChampionshipGame &&
-                      userCFPChampionshipGame.team1Score !== null &&
-                      userCFPChampionshipGame.team1Score !== undefined
-
-                    return (
-                    <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                      style={userChampHasScores ? {
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        border: '1px solid rgba(34, 197, 94, 0.3)'
-                      } : {
-                        backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--surface-4)'
-                      }}
-                    >
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div
-                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                            userChampHasScores ? 'bg-green-500 text-white' : ''
-                          }`}
-                          style={!userChampHasScores ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                        >
-                          {userChampHasScores ? (
-                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : <span className="font-bold text-sm sm:text-base">2</span>}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: userChampHasScores ? '#22c55e' : '#fafafa' }}>
-                            Enter Your National Championship Game
-                          </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userChampHasScores ? '#22c55e' : '#a1a1aa' }}>
-                            {userChampHasScores
-                              ? `✓ ${userCFPChampionshipGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPChampionshipGame.perspective?.userScore || 0, userCFPChampionshipGame.perspective?.opponentScore || 0)}-${Math.min(userCFPChampionshipGame.perspective?.userScore || 0, userCFPChampionshipGame.perspective?.opponentScore || 0)}`
-                              : allSFComplete
-                                ? `National Championship vs ${userChampOpponent ? getMascotName(userChampOpponent) || userChampOpponent : 'TBD'}`
-                                : 'Enter SF results first to determine opponent'}
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          // Use game with perspective first, then shell, then create new
-                          const gameToEdit = userCFPChampionshipGame || userCFPChampionshipShell
-                          if (gameToEdit) {
-                            navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
-                          } else {
-                            // userChampOpponent can be tid (number) or abbr (string)
-                            const opponentTid = typeof userChampOpponent === 'number' ? userChampOpponent : getTidFromAbbr(userChampOpponent, currentDynasty)
-                            const params = new URLSearchParams({
-                              week: 'CFP Championship',
-                              year: currentDynasty.currentYear?.toString() || '',
-                              team1Tid: userTeamTid?.toString() || '',
-                              team2Tid: opponentTid?.toString() || '',
-                              gameType: 'cfp_championship',
-                              bowlName: 'National Championship'
-                            })
-                            navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
-                          }
+                        onClick={async () => {
+                          setTakingNewJob(false)
+                          await updateDynasty(currentDynasty.id, {
+                            newJobData: { takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek },
+                          })
                         }}
-                        className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                        style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
+                        className="btn-refined btn-refined--solid"
                       >
-                        {userChampHasScores ? 'Edit' : 'Enter'}
+                        No
                       </button>
                     </div>
-                    )
-                  })()}
-
-                  {/* CFP Championship - REMOVED FROM WEEK 4 for non-championship users */}
-                  {/* Users who are NOT in the championship will enter this result in Week 5 (End of Season Recap) */}
-
-                  {/* Task: Taking a New Job? (appears in bowl weeks 1-3, not in week 4/championship) */}
-                  {week !== 4 && (
-                  <div
-                    className="p-3 sm:p-4 transition-all"
-                    style={takingNewJob !== null ? {
-                      backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                      border: '1px solid rgba(34, 197, 94, 0.3)'
-                    } : {
-                      backgroundColor: 'var(--surface-3)',
-                      border: '1px solid var(--surface-4)'
-                    }}
-                  >
-                    <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 ${takingNewJob === null || (takingNewJob === true && (!newJobTeam || !newJobPosition)) ? 'mb-3' : ''}`}>
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div
-                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
-                            takingNewJob !== null ? 'bg-green-500 text-white' : ''
-                          }`}
-                          style={takingNewJob === null ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                        >
-                          {takingNewJob !== null ? (
-                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : <span className="font-bold text-sm sm:text-base">2</span>}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: takingNewJob !== null ? '#22c55e' : '#fafafa' }}>
-                            Taking a New Job? (Bowl Week {week})
-                          </div>
-                          {takingNewJob === true && newJobTeam && newJobPosition && (
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
-                              ✓ {newJobPosition} at {getTeamNameFromAbbr(newJobTeam)}
-                            </div>
-                          )}
-                          {takingNewJob === false && (
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
-                              ✓ Staying with current team
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {(takingNewJob === false || (takingNewJob === true && newJobTeam && newJobPosition)) && (
+                  </div>
+                )}
+                {week !== 4 && takingNewJob === true && !newJobTeam && (
+                  <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
+                    <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Which team?</p>
+                    <div className="max-w-xs">
+                      <SearchableSelect
+                        options={teams}
+                        value={newJobTeam}
+                        onChange={async (value) => {
+                          setNewJobTeam(value)
+                          await updateDynasty(currentDynasty.id, {
+                            newJobData: { ...currentDynasty.newJobData, takingNewJob: true, team: value },
+                          })
+                        }}
+                        placeholder="Search for team..."
+                        teamColors={teamColors}
+                        dynastyTeams={currentDynasty?.teams}
+                      />
+                    </div>
+                  </div>
+                )}
+                {week !== 4 && takingNewJob === true && newJobTeam && !newJobPosition && (
+                  <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
+                    <p className="mb-2 text-xs sm:text-sm text-txt-secondary">
+                      New team: <strong className="text-txt-primary">{getTeamNameFromAbbr(newJobTeam)}</strong>
+                    </p>
+                    <p className="mb-2 text-xs sm:text-sm text-txt-secondary">What position?</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {['HC', 'OC', 'DC'].map(pos => (
                         <button
+                          key={pos}
                           onClick={async () => {
-                            setTakingNewJob(null)
-                            setNewJobTeam('')
-                            setNewJobPosition('')
-                            // Clear pendingUserId from any team
-                            const updatedTeams = clearPendingUserTeam(currentDynasty.teams)
+                            setNewJobPosition(pos)
+                            const newTeamTid = getTidFromTeamName(currentDynasty.newJobData?.team, currentDynasty.teams)
+                            const updatedTeams = newTeamTid
+                              ? setPendingUserTeam(currentDynasty.teams, newTeamTid, pos)
+                              : currentDynasty.teams
                             await updateDynasty(currentDynasty.id, {
-                              newJobData: null,
-                              teams: updatedTeams
+                              newJobData: { ...currentDynasty.newJobData, takingNewJob: true, position: pos },
+                              teams: updatedTeams,
                             })
                           }}
-                          className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
+                          className="btn-refined btn-refined--solid"
                         >
-                          Edit
+                          {pos === 'HC' ? 'Head Coach' : pos === 'OC' ? 'Offensive Coordinator' : 'Defensive Coordinator'}
                         </button>
-                      )}
+                      ))}
                     </div>
-
-                    {takingNewJob === null && (
-                      <div className="ml-13 pl-10">
-                        <div className="flex gap-3">
-                          <button
-                            onClick={async () => {
-                              setTakingNewJob(true)
-                              await updateDynasty(currentDynasty.id, {
-                                newJobData: { takingNewJob: true, team: '', position: '' }
-                              })
-                            }}
-                            className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                          >
-                            Yes
-                          </button>
-                          <button
-                            onClick={async () => {
-                              setTakingNewJob(false)
-                              await updateDynasty(currentDynasty.id, {
-                                newJobData: { takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek }
-                              })
-                            }}
-                            className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                          >
-                            No
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    {takingNewJob === true && !newJobTeam && (
-                      <div className="ml-13 pl-10">
-                        <p className="mb-2" style={{ color: '#a1a1aa' }}>Which team?</p>
-                        <div className="max-w-xs">
-                          <SearchableSelect
-                            options={teams}
-                            value={newJobTeam}
-                            onChange={async (value) => {
-                              setNewJobTeam(value)
-                              // IMPORTANT: Always include takingNewJob: true to prevent state loss
-                              await updateDynasty(currentDynasty.id, {
-                                newJobData: { ...currentDynasty.newJobData, takingNewJob: true, team: value }
-                              })
-                            }}
-                            placeholder="Search for team..."
-                            teamColors={teamColors}
-                            dynastyTeams={currentDynasty?.teams}
-                          />
-                        </div>
-                      </div>
-                    )}
-                    {takingNewJob === true && newJobTeam && !newJobPosition && (
-                      <div className="ml-13 pl-10">
-                        <p className="mb-2" style={{ color: '#a1a1aa' }}>
-                          New team: <strong style={{ color: '#fafafa' }}>{getTeamNameFromAbbr(newJobTeam)}</strong>
-                        </p>
-                        <p className="mb-2" style={{ color: '#a1a1aa' }}>What position?</p>
-                        <div className="flex gap-2 flex-wrap">
-                          {['HC', 'OC', 'DC'].map(pos => (
-                            <button
-                              key={pos}
-                              onClick={async () => {
-                                setNewJobPosition(pos)
-                                // Get tid of the new team and set pendingUserId
-                                const newTeamTid = getTidFromTeamName(currentDynasty.newJobData?.team, currentDynasty.teams)
-                                const updatedTeams = newTeamTid
-                                  ? setPendingUserTeam(currentDynasty.teams, newTeamTid, pos)
-                                  : currentDynasty.teams
-                                // IMPORTANT: Always include takingNewJob: true to prevent state loss
-                                await updateDynasty(currentDynasty.id, {
-                                  newJobData: { ...currentDynasty.newJobData, takingNewJob: true, position: pos },
-                                  teams: updatedTeams
-                                })
-                              }}
-                              className="px-4 py-2 rounded-lg font-semibold hover:opacity-90"
-                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                            >
-                              {pos === 'HC' ? 'Head Coach' : pos === 'OC' ? 'Offensive Coordinator' : 'Defensive Coordinator'}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
-                  )}
+                )}
 
-                  {/* Task: Fill Coordinator Vacancy (appears in Bowl Week 3-5 if coordinator was fired) */}
-                  {currentDynasty.coachPosition === 'HC' && (() => {
-                    const ccDataForYear = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear] || {}
-                    return ccDataForYear.firedOCName || ccDataForYear.firedDCName
-                  })() &&
-                  (() => {
-                    const ccDataForYear = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear] || {}
-                    const firedOC = ccDataForYear.firedOCName
-                    const firedDC = ccDataForYear.firedDCName
-                    // Only mark as done if vacancy is actually filled (user said Yes and entered name)
-                    const ocFilled = !firedOC || (filledOCVacancy === true && newOCName)
-                    const dcFilled = !firedDC || (filledDCVacancy === true && newDCName)
-                    const allFilled = ocFilled && dcFilled
-                    // Task is "answered" but not filled - user said "Not Yet"
-                    const ocAnswered = !firedOC || filledOCVacancy !== null
-                    const dcAnswered = !firedDC || filledDCVacancy !== null
-                    const allAnswered = ocAnswered && dcAnswered
-
-                    // If all positions are filled, don't show this task at all
-                    if (allFilled) return null
-
-                    return (
-                      <div
-                        className="p-3 sm:p-4 transition-all"
-                        style={{
-                          backgroundColor: 'var(--surface-3)',
-                          border: '1px solid var(--surface-4)'
+                {/* Coordinator vacancy wizards */}
+                {w34ShowCoordinator && w34FiredOC && filledOCVacancy === null && (
+                  <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
+                    <p className="mb-3 text-xs sm:text-sm font-medium text-txt-secondary">
+                      You fired {w34FiredOC} (OC). Has the position been filled?
+                    </p>
+                    <div className="flex gap-2">
+                      <button onClick={() => setFilledOCVacancy(true)} className="btn-refined btn-refined--solid">Yes</button>
+                      <button
+                        onClick={async () => {
+                          setFilledOCVacancy(false)
+                          await updateDynasty(currentDynasty.id, {
+                            pendingCoordinatorHires: {
+                              ...currentDynasty.pendingCoordinatorHires,
+                              filledOC: false,
+                              newOCName: null,
+                            },
+                          })
                         }}
+                        className="btn-refined btn-refined--solid"
                       >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <div
-                              className="w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0"
-                              style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' }}
-                            >
-                              <span className="font-bold text-sm sm:text-base">3</span>
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: '#fafafa' }}>
-                                Fill Coordinator {firedOC && firedDC ? 'Vacancies' : 'Vacancy'}
-                              </div>
-                              {/* Show status if user answered but vacancy not filled */}
-                              {allAnswered && !allFilled && (
-                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#a1a1aa' }}>
-                                  {firedOC && (ocFilled ? `✓ OC: ${newOCName}` : 'OC: Not filled yet')}
-                                  {firedOC && firedDC && ' • '}
-                                  {firedDC && (dcFilled ? `✓ DC: ${newDCName}` : 'DC: Not filled yet')}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          {allAnswered && !allFilled && (
-                            <button
-                              onClick={async () => {
-                                setFilledOCVacancy(null)
-                                setFilledDCVacancy(null)
-                                setNewOCName('')
-                                setNewDCName('')
-                                await updateDynasty(currentDynasty.id, { pendingCoordinatorHires: null })
-                              }}
-                              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                            >
-                              Edit
-                            </button>
-                          )}
-                        </div>
-
-                        {/* OC Vacancy Questions */}
-                        {firedOC && filledOCVacancy === null && (
-                          <div className="ml-13 pl-10 mt-3">
-                            <p className="mb-2 font-medium" style={{ color: '#a1a1aa' }}>
-                              You fired {firedOC} (OC). Has the position been filled?
-                            </p>
-                            <div className="flex gap-3">
-                              <button
-                                onClick={() => setFilledOCVacancy(true)}
-                                className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                              >
-                                Yes
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  setFilledOCVacancy(false)
-                                  await updateDynasty(currentDynasty.id, {
-                                    pendingCoordinatorHires: {
-                                      ...currentDynasty.pendingCoordinatorHires,
-                                      filledOC: false,
-                                      newOCName: null
-                                    }
-                                  })
-                                }}
-                                className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                              >
-                                Not Yet
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* OC Name Input */}
-                        {firedOC && filledOCVacancy === true && !newOCName && (
-                          <div className="ml-13 pl-10 mt-3">
-                            <p className="mb-2 font-medium" style={{ color: '#a1a1aa' }}>
-                              Enter new OC name:
-                            </p>
-                            <div className="flex gap-2 max-w-sm">
-                              <input
-                                type="text"
-                                id="new-oc-name-week35"
-                                className="flex-1 px-3 py-2 border-2 rounded-lg focus:outline-none"
-                                style={{ borderColor: 'var(--text-primary)' }}
-                                placeholder="New OC name..."
-                                onKeyDown={async (e) => {
-                                  if (e.key === 'Enter' && e.target.value.trim()) {
-                                    const name = e.target.value.trim()
-                                    setNewOCName(name)
-                                    await updateDynasty(currentDynasty.id, {
-                                      pendingCoordinatorHires: {
-                                        ...currentDynasty.pendingCoordinatorHires,
-                                        filledOC: true,
-                                        newOCName: name
-                                      }
-                                    })
-                                  }
-                                }}
-                              />
-                              <button
-                                onClick={async () => {
-                                  const input = document.getElementById('new-oc-name-week35')
-                                  if (input?.value.trim()) {
-                                    const name = input.value.trim()
-                                    setNewOCName(name)
-                                    await updateDynasty(currentDynasty.id, {
-                                      pendingCoordinatorHires: {
-                                        ...currentDynasty.pendingCoordinatorHires,
-                                        filledOC: true,
-                                        newOCName: name
-                                      }
-                                    })
-                                  }
-                                }}
-                                className="px-4 py-2 rounded-lg font-semibold hover:opacity-90"
-                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                              >
-                                Save
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* DC Vacancy Questions */}
-                        {firedDC && ocAnswered && filledDCVacancy === null && (
-                          <div className="ml-13 pl-10 mt-3">
-                            <p className="mb-2 font-medium" style={{ color: '#a1a1aa' }}>
-                              You fired {firedDC} (DC). Has the position been filled?
-                            </p>
-                            <div className="flex gap-3">
-                              <button
-                                onClick={() => setFilledDCVacancy(true)}
-                                className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                              >
-                                Yes
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  setFilledDCVacancy(false)
-                                  await updateDynasty(currentDynasty.id, {
-                                    pendingCoordinatorHires: {
-                                      ...currentDynasty.pendingCoordinatorHires,
-                                      filledDC: false,
-                                      newDCName: null
-                                    }
-                                  })
-                                }}
-                                className="px-6 py-2 rounded-lg font-semibold hover:opacity-90"
-                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                              >
-                                Not Yet
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* DC Name Input */}
-                        {firedDC && ocAnswered && filledDCVacancy === true && !newDCName && (
-                          <div className="ml-13 pl-10 mt-3">
-                            <p className="mb-2 font-medium" style={{ color: '#a1a1aa' }}>
-                              Enter new DC name:
-                            </p>
-                            <div className="flex gap-2 max-w-sm">
-                              <input
-                                type="text"
-                                id="new-dc-name-week35"
-                                className="flex-1 px-3 py-2 border-2 rounded-lg focus:outline-none"
-                                style={{ borderColor: 'var(--text-primary)' }}
-                                placeholder="New DC name..."
-                                onKeyDown={async (e) => {
-                                  if (e.key === 'Enter' && e.target.value.trim()) {
-                                    const name = e.target.value.trim()
-                                    setNewDCName(name)
-                                    await updateDynasty(currentDynasty.id, {
-                                      pendingCoordinatorHires: {
-                                        ...currentDynasty.pendingCoordinatorHires,
-                                        filledDC: true,
-                                        newDCName: name
-                                      }
-                                    })
-                                  }
-                                }}
-                              />
-                              <button
-                                onClick={async () => {
-                                  const input = document.getElementById('new-dc-name-week35')
-                                  if (input?.value.trim()) {
-                                    const name = input.value.trim()
-                                    setNewDCName(name)
-                                    await updateDynasty(currentDynasty.id, {
-                                      pendingCoordinatorHires: {
-                                        ...currentDynasty.pendingCoordinatorHires,
-                                        filledDC: true,
-                                        newDCName: name
-                                      }
-                                    })
-                                  }
-                                }}
-                                className="px-4 py-2 rounded-lg font-semibold hover:opacity-90"
-                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                              >
-                                Save
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })()}
-
-                  {/* Task: Recruiting Commitments (Bowl Weeks 3-4) */}
-                  {(() => {
-                    const commitmentKey = getCommitmentKey()
-                    const userTidForCommits = getUserTeamTid(currentDynasty)
-                    const commitmentsForYear = getRecruitingCommitments(currentDynasty, userTidForCommits, currentDynasty.currentYear)
-                    const weekCommitments = commitmentsForYear?.[commitmentKey]
-                    const hasCommitmentsData = weekCommitments !== undefined
-                    const commitmentsCount = weekCommitments?.length || 0
-                    const classScore = calculateRecruitingClassScore(flattenClassCommitments(commitmentsForYear))
-                    // Task number depends on week and other visible tasks
-                    let taskNum = week === 3 ? 2 : 2
-                    if (week === 3 && userInCFPSemifinal && hasBowlWeek2Data) taskNum++ // After user SF game
-                    if (week === 4) {
-                      // After SF results task
-                      taskNum++
-                      if (userInCFPChampionship) taskNum++ // After user Championship game
-                    }
-                    taskNum++ // After "Taking a New Job" task
-                    const ccDataForTaskNum = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear] || {}
-                    if (currentDynasty.coachPosition === 'HC' && (ccDataForTaskNum.firedOCName || ccDataForTaskNum.firedDCName)) taskNum++ // After coordinator hire task
-
-                    return (
-                      <div
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
-                        style={hasCommitmentsData ? {
-                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                          border: '1px solid rgba(34, 197, 94, 0.3)'
-                        } : {
-                          backgroundColor: 'var(--surface-3)',
-                          border: '1px solid var(--surface-4)'
+                        Not Yet
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {w34ShowCoordinator && w34FiredOC && filledOCVacancy === true && !newOCName && (
+                  <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
+                    <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Enter new OC name:</p>
+                    <div className="flex gap-2 max-w-sm">
+                      <input
+                        type="text"
+                        id="new-oc-name-week34"
+                        className="flex-1 px-3 py-2 border-2 rounded-lg focus:outline-none"
+                        style={{ borderColor: 'var(--text-primary)' }}
+                        placeholder="New OC name..."
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter' && e.target.value.trim()) {
+                            const name = e.target.value.trim()
+                            setNewOCName(name)
+                            await updateDynasty(currentDynasty.id, {
+                              pendingCoordinatorHires: {
+                                ...currentDynasty.pendingCoordinatorHires,
+                                filledOC: true,
+                                newOCName: name,
+                              },
+                            })
+                          }
                         }}
+                      />
+                      <button
+                        onClick={async () => {
+                          const input = document.getElementById('new-oc-name-week34')
+                          if (input?.value.trim()) {
+                            const name = input.value.trim()
+                            setNewOCName(name)
+                            await updateDynasty(currentDynasty.id, {
+                              pendingCoordinatorHires: {
+                                ...currentDynasty.pendingCoordinatorHires,
+                                filledOC: true,
+                                newOCName: name,
+                              },
+                            })
+                          }
+                        }}
+                        className="btn-refined btn-refined--solid"
                       >
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          <div
-                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 font-bold ${
-                              hasCommitmentsData ? 'bg-green-500 text-white' : ''
-                            }`}
-                            style={!hasCommitmentsData ? { backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' } : {}}
-                          >
-                            {hasCommitmentsData ? (
-                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : taskNum}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: hasCommitmentsData ? '#22c55e' : '#fafafa' }}>
-                              {hasCommitmentsData ? 'Recruiting Commitments' : 'Any commitments this week?'}
-                            </div>
-                            <div className="text-xs sm:text-sm mt-0.5" style={{ color: hasCommitmentsData ? '#22c55e' : '#a1a1aa' }}>
-                              {hasCommitmentsData
-                                ? commitmentsCount > 0
-                                  ? `✓ ${commitmentsCount} commitment${commitmentsCount !== 1 ? 's' : ''} recorded`
-                                  : '✓ No commitments this week'
-                                : 'Record any recruiting commitments'}
-                            </div>
-                            {classScore > 0 && (
-                              <Link
-                                to={`${pathPrefix}/recruiting/${userTidForCommits}/${currentDynasty.currentYear}`}
-                                className="block w-fit text-[10px] sm:text-xs mt-1 font-bold uppercase text-txt-tertiary hover:text-team-primary transition-colors"
-                                style={{ letterSpacing: '1.5px' }}
-                                title="View recruiting class"
-                              >
-                                Class Score <span className="tabular text-txt-primary ml-1">{formatRecruitingClassScore(classScore)}</span>
-                              </Link>
-                            )}
-                            <RecruitingInsightLink className="mt-1" />
-                          </div>
-                        </div>
-                        {!hasCommitmentsData ? (
-                          <div className="flex gap-2 self-end sm:self-auto items-center">
-                            <SellVsSendButton onClick={() => setShowSellCalc(true)} />
-                            <button
-                              onClick={handleNoCommitments}
-                              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                            >
-                              No
-                            </button>
-                            <button
-                              onClick={() => setShowRecruitingModal(true)}
-                              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                            >
-                              Yes
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setShowRecruitingModal(true)}
-                            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                          >
-                            Edit
-                          </button>
-                        )}
-                      </div>
-                    )
-                  })()}
-                </div>
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {w34ShowCoordinator && w34FiredDC && (!w34FiredOC || filledOCVacancy !== null) && filledDCVacancy === null && (
+                  <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
+                    <p className="mb-3 text-xs sm:text-sm font-medium text-txt-secondary">
+                      You fired {w34FiredDC} (DC). Has the position been filled?
+                    </p>
+                    <div className="flex gap-2">
+                      <button onClick={() => setFilledDCVacancy(true)} className="btn-refined btn-refined--solid">Yes</button>
+                      <button
+                        onClick={async () => {
+                          setFilledDCVacancy(false)
+                          await updateDynasty(currentDynasty.id, {
+                            pendingCoordinatorHires: {
+                              ...currentDynasty.pendingCoordinatorHires,
+                              filledDC: false,
+                              newDCName: null,
+                            },
+                          })
+                        }}
+                        className="btn-refined btn-refined--solid"
+                      >
+                        Not Yet
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {w34ShowCoordinator && w34FiredDC && (!w34FiredOC || filledOCVacancy !== null) && filledDCVacancy === true && !newDCName && (
+                  <div className="media-card mt-3 px-3 py-3 sm:px-5 sm:py-4">
+                    <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Enter new DC name:</p>
+                    <div className="flex gap-2 max-w-sm">
+                      <input
+                        type="text"
+                        id="new-dc-name-week34"
+                        className="flex-1 px-3 py-2 border-2 rounded-lg focus:outline-none"
+                        style={{ borderColor: 'var(--text-primary)' }}
+                        placeholder="New DC name..."
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter' && e.target.value.trim()) {
+                            const name = e.target.value.trim()
+                            setNewDCName(name)
+                            await updateDynasty(currentDynasty.id, {
+                              pendingCoordinatorHires: {
+                                ...currentDynasty.pendingCoordinatorHires,
+                                filledDC: true,
+                                newDCName: name,
+                              },
+                            })
+                          }
+                        }}
+                      />
+                      <button
+                        onClick={async () => {
+                          const input = document.getElementById('new-dc-name-week34')
+                          if (input?.value.trim()) {
+                            const name = input.value.trim()
+                            setNewDCName(name)
+                            await updateDynasty(currentDynasty.id, {
+                              pendingCoordinatorHires: {
+                                ...currentDynasty.pendingCoordinatorHires,
+                                filledDC: true,
+                                newDCName: name,
+                              },
+                            })
+                          }
+                        }}
+                        className="btn-refined btn-refined--solid"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                )}
               </>
             )
           })()}
@@ -6389,9 +6055,8 @@ export default function Dashboard() {
           {(() => {
             const week = currentDynasty.currentWeek
 
-            // Offseason Week 1: Players Leaving
+            // Offseason Week 1: Players Leaving. Unified via renderTodoList.
             if (week === 1) {
-              // Check if user switched teams - if so, skip Players Leaving
               const previousTeamAbbr = currentDynasty.coachTeamByYear?.[currentDynasty.currentYear]?.team
               const currentTeamAbbr = getCurrentTeamAbbr(currentDynasty)
               const switchedTeams = previousTeamAbbr && currentTeamAbbr && previousTeamAbbr !== currentTeamAbbr
@@ -6399,125 +6064,55 @@ export default function Dashboard() {
               const hasPlayersLeavingData = currentDynasty?.playersLeavingByYear?.[currentDynasty.currentYear]?.length > 0
               const playersLeavingCount = currentDynasty?.playersLeavingByYear?.[currentDynasty.currentYear]?.length || 0
 
-              // If user switched teams, show a different UI
               if (switchedTeams) {
+                const skippedTodos = [{
+                  key: 'players-leaving-skipped',
+                  done: true,
+                  title: 'Skipped - New Team',
+                  subtitle: 'You switched teams, so there are no departing players to track',
+                }]
                 return (
                   <>
-                    <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                      <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
-                        New Team — No Players Leaving
-                      </h3>
-                    </div>
-                    <div className="-space-y-px">
-                      <div
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0"
-                        style={{
-                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                          border: '1px solid rgba(34, 197, 94, 0.3)'
-                        }}
-                      >
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          <div
-                            className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                            style={{ backgroundColor: 'rgba(34, 197, 94, 0.2)', color: '#22c55e' }}
-                          >
-                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                          <div className="min-w-0">
-                            <div className="font-semibold text-sm sm:text-base" style={{ color: '#22c55e' }}>
-                              Skipped - New Team
-                            </div>
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: '#22c55e' }}>
-                              You switched teams, so there are no departing players to track
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <h3 className="font-display font-bold leading-none text-txt-primary px-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
+                      New Team — No Players Leaving
+                    </h3>
+                    {renderTodoList({ todos: skippedTodos, isViewOnly })}
                   </>
                 )
               }
 
+              const ow1Todos = [{
+                key: 'players-leaving',
+                done: hasPlayersLeavingData,
+                title: 'Players Leaving',
+                subtitle: hasPlayersLeavingData
+                  ? `${playersLeavingCount} player${playersLeavingCount !== 1 ? 's' : ''} leaving`
+                  : 'Graduating seniors, transfers, early declarations',
+                onAction: () => setShowPlayersLeavingModal(true),
+                actionLabel: hasPlayersLeavingData ? 'Edit' : 'Enter',
+              }]
+
               return (
                 <>
-                  <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                    <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
-                      Players Leaving
-                    </h3>
-                  </div>
-                  <div className="-space-y-px">
-                    {/* Task: Enter Players Leaving */}
-                    <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
-                      style={hasPlayersLeavingData ? {
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        border: '1px solid rgba(34, 197, 94, 0.3)'
-                      } : {
-                        backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--surface-4)'
-                      }}
-                    >
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div
-                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
-                          style={hasPlayersLeavingData ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                            color: '#22c55e'
-                          } : {
-                            backgroundColor: `${'var(--text-primary)'}25`,
-                            color: 'var(--text-primary)'
-                          }}
-                        >
-                          {hasPlayersLeavingData ? (
-                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : <span className="font-bold text-sm sm:text-lg">1</span>}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-sm sm:text-base" style={{ color: hasPlayersLeavingData ? '#22c55e' : '#fafafa' }}>
-                            Players Leaving
-                          </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: hasPlayersLeavingData ? '#22c55e' : '#a1a1aa' }}>
-                            {hasPlayersLeavingData
-                              ? `✓ ${playersLeavingCount} player${playersLeavingCount !== 1 ? 's' : ''} leaving`
-                              : 'Graduating seniors, transfers, early declarations'}
-                          </div>
-                        </div>
-                      </div>
-                      {!isViewOnly ? (
-                        <button
-                          onClick={() => setShowPlayersLeavingModal(true)}
-                          className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                        >
-                          {hasPlayersLeavingData ? 'Edit' : 'Enter'}
-                        </button>
-                      ) : (
-                        <ViewOnlyBadge />
-                      )}
-                    </div>
-                  </div>
+                  <h3 className="font-display font-bold leading-none text-txt-primary px-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
+                    Players Leaving
+                  </h3>
+                  {renderTodoList({ todos: ow1Todos, isViewOnly })}
                 </>
               )
             }
 
-            // Offseason Weeks 2-6: Recruiting Weeks (Week 6 = National Signing Day)
+            // Offseason Weeks 2-6: Recruiting Weeks (Week 6 = National Signing
+            // Day). Unified via renderTodoList — same row chrome as in-season.
             if (week >= 2 && week <= 6) {
-              const recruitingWeekNum = week - 1 // Week 2 = Recruiting Week 1, Week 6 = Signing Day (5)
+              const recruitingWeekNum = week - 1
 
-              // IMPORTANT: On week 6 (Signing Day), the year has already flipped (e.g., 2026 → 2027).
-              // All data from weeks 1-5 was stored under the old year (2026), so we need to look back.
               const offseasonDataYear = week === 6 ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
 
-              // Check for draft declarees (only relevant in Recruiting Week 1)
               const playersLeavingThisYear = currentDynasty?.playersLeavingByYear?.[offseasonDataYear] || []
               const draftDeclarees = playersLeavingThisYear.filter(p => p.reason === 'Pro Draft')
               const hasDraftDeclarees = draftDeclarees.length > 0
 
-              // Check draft results - tid-based first, then legacy draftResultsByTeamYear
               const userTidForDraft = getUserTeamTid(currentDynasty)
               const userAbbrForDraft = getCurrentTeamAbbr(currentDynasty)
               const draftResultsFromTid = currentDynasty?.teams?.[userTidForDraft]?.byYear?.[offseasonDataYear]?.draftResults
@@ -6526,671 +6121,257 @@ export default function Dashboard() {
               const hasDraftResultsData = draftResultsData.length > 0
               const draftResultsCount = draftResultsData.length
 
-              // Check recruiting commitments for this week - TID-BASED with signing_ key
               const userTidForCommits = getUserTeamTid(currentDynasty)
               const recruitingCommitmentsForTeamYear = getRecruitingCommitments(currentDynasty, userTidForCommits, offseasonDataYear)
               const commitmentsForWeek = recruitingCommitmentsForTeamYear[`signing_${recruitingWeekNum}`]
-              const hasCommitmentsData = commitmentsForWeek !== undefined // undefined = not answered, [] = no commitments, array with items = has commitments
+              const hasCommitmentsData = commitmentsForWeek !== undefined
               const commitmentsCount = commitmentsForWeek?.length || 0
+
+              const o26Todos = []
+
+              // Task 1: Recruiting Commitments (every recruiting week)
+              if (recruitingWeekNum === 5) {
+                // Signing Day variant — single "Open" button, no Yes/No
+                o26Todos.push({
+                  key: 'recruiting-signing-day',
+                  done: hasCommitmentsData,
+                  title: 'Signing Day',
+                  subtitle: hasCommitmentsData
+                    ? commitmentsCount > 0
+                      ? `${commitmentsCount} commitment${commitmentsCount !== 1 ? 's' : ''} recorded`
+                      : 'No commitments this week'
+                    : 'Enter your final recruiting class',
+                  onAction: () => setShowRecruitingModal(true),
+                  actionLabel: hasCommitmentsData ? 'Edit' : 'Open',
+                  extraTools: !hasCommitmentsData ? <SellVsSendButton onClick={() => setShowSellCalc(true)} /> : null,
+                })
+              } else {
+                o26Todos.push({
+                  key: 'recruiting-week',
+                  done: hasCommitmentsData,
+                  title: hasCommitmentsData ? 'Recruiting Commitments' : 'Any commitments this week?',
+                  subtitle: hasCommitmentsData
+                    ? commitmentsCount > 0
+                      ? `${commitmentsCount} commitment${commitmentsCount !== 1 ? 's' : ''} recorded`
+                      : 'No commitments this week'
+                    : 'Record any recruiting commitments for this week',
+                  onAction: () => setShowRecruitingModal(true),
+                  actionLabel: hasCommitmentsData ? 'Edit' : 'Yes',
+                  extraTools: !hasCommitmentsData ? (
+                    <>
+                      <SellVsSendButton onClick={() => setShowSellCalc(true)} />
+                      <button
+                        onClick={handleNoCommitments}
+                        className="btn-refined text-center"
+                      >
+                        No
+                      </button>
+                    </>
+                  ) : null,
+                })
+              }
+
+              // Task 2: Draft Results (Recruiting Week 1 only)
+              if (recruitingWeekNum === 1) {
+                const draftDone = hasDraftResultsData || !hasDraftDeclarees
+                o26Todos.push({
+                  key: 'draft-results',
+                  done: draftDone,
+                  title: 'Draft Results',
+                  subtitle: !hasDraftDeclarees
+                    ? 'No players declared for the draft'
+                    : hasDraftResultsData
+                      ? `${draftResultsCount} player${draftResultsCount !== 1 ? 's' : ''} drafted`
+                      : `${draftDeclarees.length} player${draftDeclarees.length !== 1 ? 's' : ''} declared for the draft`,
+                  onAction: hasDraftDeclarees ? () => setShowDraftResultsModal(true) : undefined,
+                  actionLabel: hasDraftDeclarees ? (hasDraftResultsData ? 'Edit' : 'Enter') : undefined,
+                })
+              }
+
+              // Signing Day–only tasks (3–7)
+              if (recruitingWeekNum === 5) {
+                // Transfer Destinations
+                const nonTransferReasons = ['Graduating', 'Pro Draft']
+                const transfersFromList = playersLeavingThisYear.filter(p =>
+                  p.reason && !nonTransferReasons.includes(p.reason)
+                ).map(p => ({ name: p.playerName }))
+                const transfersFromPlayerRecord = (currentDynasty?.players || [])
+                  .filter(p =>
+                    p.leavingYear === offseasonDataYear &&
+                    p.leavingReason &&
+                    !nonTransferReasons.includes(p.leavingReason)
+                  )
+                  .map(p => ({ name: p.name }))
+                const allTransfers = [...transfersFromList, ...transfersFromPlayerRecord]
+                const seenNames = new Set()
+                const transfers = allTransfers.filter(p => {
+                  if (seenNames.has(p.name)) return false
+                  seenNames.add(p.name)
+                  return true
+                })
+                const hasTransfers = transfers.length > 0
+                const transferDestinationsData = lookupByTeamYear(
+                  currentDynasty?.transferDestinationsByTeamYear,
+                  currentDynasty,
+                  getCurrentTeamTid(currentDynasty),
+                  offseasonDataYear
+                )
+                const hasTransferDestinationsData = Array.isArray(transferDestinationsData) && transferDestinationsData.length > 0
+                const transferDestinationsCount = transferDestinationsData?.length || 0
+                const transferTaskDone = hasTransferDestinationsData || !hasTransfers
+                o26Todos.push({
+                  key: 'transfer-destinations',
+                  done: transferTaskDone,
+                  title: 'Transfer Destinations',
+                  subtitle: !hasTransfers
+                    ? 'No outgoing transfers'
+                    : hasTransferDestinationsData
+                      ? `${transferDestinationsCount} transfer${transferDestinationsCount !== 1 ? 's' : ''} tracked`
+                      : `Track where ${transfers.length} transfer${transfers.length !== 1 ? 's' : ''} committed`,
+                  onAction: hasTransfers ? () => setShowTransferDestinationsModal(true) : undefined,
+                  actionLabel: hasTransfers ? (hasTransferDestinationsData ? 'Edit' : 'Enter') : undefined,
+                })
+
+                // Recruiting Class Rank
+                const classRank = lookupByTeamYear(
+                  currentDynasty.recruitingClassRankByTeamYear,
+                  currentDynasty,
+                  getCurrentTeamTid(currentDynasty),
+                  offseasonDataYear
+                )
+                const hasClassRank = !!classRank
+                o26Todos.push({
+                  key: 'class-rank',
+                  done: hasClassRank,
+                  title: 'Recruiting Class Rank',
+                  subtitle: hasClassRank
+                    ? `Ranked #${classRank} nationally`
+                    : 'Enter national recruiting class ranking',
+                  onAction: () => setShowRecruitingClassRankModal(true),
+                  actionLabel: hasClassRank ? 'Edit' : 'Enter',
+                })
+
+                // Position Changes
+                const positionChangesThisYear = currentDynasty.positionChangesByYear?.[offseasonDataYear] || []
+                const hasPositionChanges = positionChangesThisYear.length > 0
+                o26Todos.push({
+                  key: 'position-changes',
+                  done: hasPositionChanges,
+                  title: 'Position Changes',
+                  subtitle: hasPositionChanges
+                    ? `${positionChangesThisYear.length} position change${positionChangesThisYear.length !== 1 ? 's' : ''} recorded`
+                    : 'Update player positions',
+                  onAction: () => setShowPositionChangesModal(true),
+                  actionLabel: hasPositionChanges ? 'Edit' : 'Open',
+                })
+
+                // Portal Transfer Class Assignment
+                const userTidForPortal = getUserTeamTid(currentDynasty)
+                const recruitingCommitmentsAll = getRecruitingCommitments(currentDynasty, userTidForPortal, offseasonDataYear)
+                const portalTransfersForClass = []
+                Object.values(recruitingCommitmentsAll).forEach(weekCommitments => {
+                  if (Array.isArray(weekCommitments)) {
+                    weekCommitments.forEach(c => {
+                      const playerClass = c.class || c.year
+                      if (c.isPortal && playerClass) {
+                        const baseClass = playerClass.replace('RS ', '')
+                        if (['Fr', 'So', 'Jr'].includes(baseClass)) {
+                          portalTransfersForClass.push({ name: c.name, position: c.position, incomingClass: playerClass })
+                        }
+                      }
+                    })
+                  }
+                })
+                const hasPortalTransfers = portalTransfersForClass.length > 0
+                const hasPortalTransferClassData = currentDynasty?.portalTransferClassByYear?.[offseasonDataYear]?.length > 0
+                const portalBlocked = !hasCommitmentsData
+                const portalComplete = (!hasPortalTransfers && hasCommitmentsData) || hasPortalTransferClassData
+                o26Todos.push({
+                  key: 'portal-transfer-class',
+                  done: portalComplete,
+                  title: 'Portal Transfer Class Assignment',
+                  subtitle: portalBlocked
+                    ? 'Complete Signing Day first'
+                    : !hasPortalTransfers
+                      ? 'No portal transfers to assign'
+                      : hasPortalTransferClassData
+                        ? `${portalTransfersForClass.length} transfer class${portalTransfersForClass.length !== 1 ? 'es' : ''} assigned`
+                        : `Assign classes for ${portalTransfersForClass.length} transfer${portalTransfersForClass.length !== 1 ? 's' : ''}`,
+                  onAction: (portalBlocked || !hasPortalTransfers) ? undefined : () => setShowPortalTransferClassModal(true),
+                  actionLabel: (portalBlocked || !hasPortalTransfers) ? undefined : (portalComplete ? 'Done' : 'Open'),
+                })
+
+                // Fringe Case Class Assignment
+                const teamTidF = getUserTeamTid(currentDynasty)
+                const allPlayersF = currentDynasty?.players || []
+                const fringeCasePlayers = allPlayersF.filter(player => {
+                  if (!isPlayerOnRoster(player, teamTidF, offseasonDataYear, currentDynasty)) return false
+                  const preProgressionClass = player.classByYear?.[offseasonDataYear] || player.year
+                  if (!['Fr', 'So', 'Jr'].includes(preProgressionClass)) return false
+                  const gamesPlayed = player.statsByYear?.[offseasonDataYear]?.gamesPlayed || 0
+                  return gamesPlayed >= 5 && gamesPlayed <= 9
+                })
+                const hasFringeCases = fringeCasePlayers.length > 0
+                const hasFringeCaseClassData = currentDynasty?.fringeCaseClassByYear?.[offseasonDataYear]?.length > 0
+                const fringeBlocked = !hasCommitmentsData
+                const fringeComplete = (!hasFringeCases && hasCommitmentsData) || hasFringeCaseClassData
+                o26Todos.push({
+                  key: 'fringe-case-class',
+                  done: fringeComplete,
+                  title: 'Fringe Case Class Assignment',
+                  subtitle: fringeBlocked
+                    ? 'Complete Signing Day first'
+                    : !hasFringeCases
+                      ? 'No fringe cases to resolve'
+                      : hasFringeCaseClassData
+                        ? `${fringeCasePlayers.length} player${fringeCasePlayers.length !== 1 ? 's' : ''} resolved`
+                        : `${fringeCasePlayers.length} player${fringeCasePlayers.length !== 1 ? 's' : ''} with 5-9 games`,
+                  onAction: (fringeBlocked || !hasFringeCases) ? undefined : () => setShowFringeCaseClassModal(true),
+                  actionLabel: (fringeBlocked || !hasFringeCases) ? undefined : (fringeComplete ? 'Done' : 'Open'),
+                })
+              }
 
               return (
                 <>
-                  <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                    <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
-                      {recruitingWeekNum === 5 ? 'National Signing Day' : `Recruiting Week ${recruitingWeekNum} of 4`}
-                    </h3>
-                  </div>
-                  <div className="-space-y-px">
-                    {/* Task 1: Recruiting Commitments */}
-                    <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
-                      style={hasCommitmentsData ? {
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        border: '1px solid rgba(34, 197, 94, 0.3)'
-                      } : {
-                        backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--surface-4)'
-                      }}
-                    >
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div
-                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
-                          style={hasCommitmentsData ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                            color: '#22c55e'
-                          } : {
-                            backgroundColor: `${'var(--text-primary)'}25`,
-                            color: 'var(--text-primary)'
-                          }}
-                        >
-                          {hasCommitmentsData ? (
-                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : <span className="font-bold text-sm sm:text-lg">1</span>}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-sm sm:text-base" style={{ color: hasCommitmentsData ? '#22c55e' : '#fafafa' }}>
-                            {hasCommitmentsData
-                              ? (recruitingWeekNum === 5 ? 'Signing Day' : 'Recruiting Commitments')
-                              : (recruitingWeekNum === 5 ? 'Signing Day' : 'Any commitments this week?')}
-                          </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: hasCommitmentsData ? '#22c55e' : '#a1a1aa' }}>
-                            {hasCommitmentsData
-                              ? commitmentsCount > 0
-                                ? `✓ ${commitmentsCount} commitment${commitmentsCount !== 1 ? 's' : ''} recorded`
-                                : '✓ No commitments this week'
-                              : (recruitingWeekNum === 5 ? 'Enter your final recruiting class' : 'Record any recruiting commitments for this week')}
-                          </div>
-                          <RecruitingInsightLink className="mt-1" />
-                        </div>
-                      </div>
-                      {!hasCommitmentsData ? (
-                        recruitingWeekNum === 5 ? (
-                          <div className="flex gap-2 self-end sm:self-auto items-center">
-                            <SellVsSendButton onClick={() => setShowSellCalc(true)} />
-                            <button
-                              onClick={() => setShowRecruitingModal(true)}
-                              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                            >
-                              Open
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex gap-2 self-end sm:self-auto items-center">
-                            <SellVsSendButton onClick={() => setShowSellCalc(true)} />
-                            <button
-                              onClick={handleNoCommitments}
-                              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                            >
-                              No
-                            </button>
-                            <button
-                              onClick={() => setShowRecruitingModal(true)}
-                              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                            >
-                              Yes
-                            </button>
-                          </div>
-                        )
-                      ) : (
-                        <button
-                          onClick={() => setShowRecruitingModal(true)}
-                          className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                        >
-                          Edit
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Task 2: Draft Results (only in Recruiting Week 1) */}
-                    {recruitingWeekNum === 1 && (
-                      <div
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
-                        style={(hasDraftResultsData || !hasDraftDeclarees) ? {
-                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                          border: '1px solid rgba(34, 197, 94, 0.3)'
-                        } : {
-                          backgroundColor: 'var(--surface-3)',
-                          border: '1px solid var(--surface-4)'
-                        }}
-                      >
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          <div
-                            className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
-                            style={(hasDraftResultsData || !hasDraftDeclarees) ? {
-                              backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                              color: '#22c55e'
-                            } : {
-                              backgroundColor: `${'var(--text-primary)'}25`,
-                              color: 'var(--text-primary)'
-                            }}
-                          >
-                            {hasDraftResultsData || !hasDraftDeclarees ? (
-                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : <span className="font-bold text-sm sm:text-lg">2</span>}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="font-semibold text-sm sm:text-base" style={{ color: (hasDraftResultsData || !hasDraftDeclarees) ? '#22c55e' : '#fafafa' }}>
-                              Draft Results
-                            </div>
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: (hasDraftResultsData || !hasDraftDeclarees) ? '#22c55e' : '#a1a1aa' }}>
-                              {!hasDraftDeclarees
-                                ? '✓ No players declared for the draft'
-                                : hasDraftResultsData
-                                  ? `✓ ${draftResultsCount} player${draftResultsCount !== 1 ? 's' : ''} drafted`
-                                  : `${draftDeclarees.length} player${draftDeclarees.length !== 1 ? 's' : ''} declared for the draft`}
-                            </div>
-                          </div>
-                        </div>
-                        {hasDraftDeclarees && (
-                          !isViewOnly ? (
-                            <button
-                              onClick={() => setShowDraftResultsModal(true)}
-                              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                            >
-                              {hasDraftResultsData ? 'Edit' : 'Enter'}
-                            </button>
-                          ) : (
-                            <ViewOnlyBadge />
-                          )
-                        )}
-                      </div>
-                    )}
-
-                    {/* Task 3: Transfer Destinations (only on National Signing Day) */}
-                    {recruitingWeekNum === 5 && (() => {
-                      // Get transferring players (NOT graduating or pro draft), deduplicated by name
-                      // Source 1: playersLeavingByYear
-                      const nonTransferReasons = ['Graduating', 'Pro Draft']
-                      const transfersFromList = playersLeavingThisYear.filter(p =>
-                        p.reason && !nonTransferReasons.includes(p.reason)
-                      ).map(p => ({ name: p.playerName }))
-
-                      // Source 2: Players with leavingYear on their record
-                      const transfersFromPlayerRecord = (currentDynasty?.players || [])
-                        .filter(p =>
-                          p.leavingYear === offseasonDataYear &&
-                          p.leavingReason &&
-                          !nonTransferReasons.includes(p.leavingReason)
-                        )
-                        .map(p => ({ name: p.name }))
-
-                      // Combine and deduplicate
-                      const allTransfers = [...transfersFromList, ...transfersFromPlayerRecord]
-                      const seenNames = new Set()
-                      const transfers = allTransfers.filter(p => {
-                        if (seenNames.has(p.name)) return false
-                        seenNames.add(p.name)
-                        return true
-                      })
-                      const hasTransfers = transfers.length > 0
-                      // Check team-centric path (where data is actually saved).
-                      // Uses lookupByTeamYear so teambuilder renames don't
-                      // orphan the previously-saved data under an old abbr key.
-                      const transferDestinationsData = lookupByTeamYear(
-                        currentDynasty?.transferDestinationsByTeamYear,
-                        currentDynasty,
-                        getCurrentTeamTid(currentDynasty),
-                        offseasonDataYear
-                      )
-                      const hasTransferDestinationsData = Array.isArray(transferDestinationsData) && transferDestinationsData.length > 0
-                      const transferDestinationsCount = transferDestinationsData?.length || 0
-
-                      return (
-                        <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
-                          style={(hasTransferDestinationsData || !hasTransfers) ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                            border: '1px solid rgba(34, 197, 94, 0.3)'
-                          } : {
-                            backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--surface-4)'
-                          }}
-                        >
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <div
-                              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
-                              style={(hasTransferDestinationsData || !hasTransfers) ? {
-                                backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                                color: '#22c55e'
-                              } : {
-                                backgroundColor: `${'var(--text-primary)'}25`,
-                                color: 'var(--text-primary)'
-                              }}
-                            >
-                              {hasTransferDestinationsData || !hasTransfers ? (
-                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              ) : <span className="font-bold text-sm sm:text-lg">3</span>}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="font-semibold text-sm sm:text-base" style={{ color: (hasTransferDestinationsData || !hasTransfers) ? '#22c55e' : '#fafafa' }}>
-                                Transfer Destinations
-                              </div>
-                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: (hasTransferDestinationsData || !hasTransfers) ? '#22c55e' : '#a1a1aa' }}>
-                                {!hasTransfers
-                                  ? '✓ No outgoing transfers'
-                                  : hasTransferDestinationsData
-                                    ? `✓ ${transferDestinationsCount} transfer${transferDestinationsCount !== 1 ? 's' : ''} tracked`
-                                    : `Track where ${transfers.length} transfer${transfers.length !== 1 ? 's' : ''} committed`}
-                              </div>
-                            </div>
-                          </div>
-                          {hasTransfers && (
-                            !isViewOnly ? (
-                              <button
-                                onClick={() => setShowTransferDestinationsModal(true)}
-                                className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                              >
-                                {hasTransferDestinationsData ? 'Edit' : 'Enter'}
-                              </button>
-                            ) : (
-                              <ViewOnlyBadge />
-                            )
-                          )}
-                        </div>
-                      )
-                    })()}
-
-                    {/* Task 2: Recruiting Class Rank (only on National Signing Day) */}
-                    {recruitingWeekNum === 5 && (() => {
-                      const classRank = lookupByTeamYear(
-                        currentDynasty.recruitingClassRankByTeamYear,
-                        currentDynasty,
-                        getCurrentTeamTid(currentDynasty),
-                        offseasonDataYear
-                      )
-                      const hasClassRank = !!classRank
-
-                      return (
-                        <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
-                          style={hasClassRank ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                            border: '1px solid rgba(34, 197, 94, 0.3)'
-                          } : {
-                            backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--surface-4)'
-                          }}
-                        >
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <div
-                              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
-                              style={hasClassRank ? {
-                                backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                                color: '#22c55e'
-                              } : {
-                                backgroundColor: `${'var(--text-primary)'}25`,
-                                color: 'var(--text-primary)'
-                              }}
-                            >
-                              {hasClassRank ? (
-                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              ) : <span className="font-bold text-sm sm:text-lg">2</span>}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="font-semibold text-sm sm:text-base" style={{ color: hasClassRank ? '#22c55e' : '#fafafa' }}>
-                                Recruiting Class Rank
-                              </div>
-                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: hasClassRank ? '#22c55e' : '#a1a1aa' }}>
-                                {hasClassRank
-                                  ? `✓ Ranked #${classRank} nationally`
-                                  : 'Enter national recruiting class ranking'}
-                              </div>
-                            </div>
-                          </div>
-                          {!isViewOnly ? (
-                            <button
-                              onClick={() => setShowRecruitingClassRankModal(true)}
-                              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                            >
-                              {hasClassRank ? 'Edit' : 'Enter'}
-                            </button>
-                          ) : (
-                            <ViewOnlyBadge />
-                          )}
-                        </div>
-                      )
-                    })()}
-
-                    {/* Task 4: Position Changes (only on National Signing Day) */}
-                    {recruitingWeekNum === 5 && (() => {
-                      const positionChangesThisYear = currentDynasty.positionChangesByYear?.[offseasonDataYear] || []
-                      const hasPositionChanges = positionChangesThisYear.length > 0
-
-                      return (
-                        <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
-                          style={hasPositionChanges ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                            border: '1px solid rgba(34, 197, 94, 0.3)'
-                          } : {
-                            backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--surface-4)'
-                          }}
-                        >
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <div
-                              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
-                              style={hasPositionChanges ? {
-                                backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                                color: '#22c55e'
-                              } : {
-                                backgroundColor: `${'var(--text-primary)'}25`,
-                                color: 'var(--text-primary)'
-                              }}
-                            >
-                              {hasPositionChanges ? (
-                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              ) : <span className="font-bold text-sm sm:text-lg">4</span>}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="font-semibold text-sm sm:text-base" style={{ color: hasPositionChanges ? '#22c55e' : '#fafafa' }}>
-                                Position Changes
-                              </div>
-                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: hasPositionChanges ? '#22c55e' : '#a1a1aa' }}>
-                                {hasPositionChanges
-                                  ? `✓ ${positionChangesThisYear.length} position change${positionChangesThisYear.length !== 1 ? 's' : ''} recorded`
-                                  : 'Update player positions'}
-                              </div>
-                            </div>
-                          </div>
-                          {!isViewOnly ? (
-                            <button
-                              onClick={() => setShowPositionChangesModal(true)}
-                              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                              style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                            >
-                              {hasPositionChanges ? 'Edit' : 'Open'}
-                            </button>
-                          ) : (
-                            <ViewOnlyBadge />
-                          )}
-                        </div>
-                      )
-                    })()}
-
-                    {/* Task 5: Portal Transfer Class Assignment (only on National Signing Day) */}
-                    {recruitingWeekNum === 5 && (() => {
-                      // Get portal transfers from recruiting commitments for this year
-                      const userTidForPortal = getUserTeamTid(currentDynasty)
-                      const recruitingCommitmentsAll = getRecruitingCommitments(currentDynasty, userTidForPortal, offseasonDataYear)
-                      const portalTransfersForClass = []
-                      Object.values(recruitingCommitmentsAll).forEach(weekCommitments => {
-                        if (Array.isArray(weekCommitments)) {
-                          weekCommitments.forEach(c => {
-                            // Check isPortal flag and class field (commitments use 'class', not 'year')
-                            const playerClass = c.class || c.year
-                            if (c.isPortal && playerClass) {
-                              // Only include Fr, So, Jr (not Sr) as they need class assignment
-                              const baseClass = playerClass.replace('RS ', '')
-                              if (['Fr', 'So', 'Jr'].includes(baseClass)) {
-                                portalTransfersForClass.push({
-                                  name: c.name,
-                                  position: c.position,
-                                  incomingClass: playerClass
-                                })
-                              }
-                            }
-                          })
-                        }
-                      })
-                      const hasPortalTransfers = portalTransfersForClass.length > 0
-                      const hasPortalTransferClassData = currentDynasty?.portalTransferClassByYear?.[offseasonDataYear]?.length > 0
-                      const isBlocked = !hasCommitmentsData // Blocked until Signing Day (Task 1) is complete
-                      // Task is complete if: no portal transfers exist, OR class data has been saved
-                      const isComplete = (!hasPortalTransfers && hasCommitmentsData) || hasPortalTransferClassData
-
-                      return (
-                        <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
-                          style={isComplete ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                            border: '1px solid rgba(34, 197, 94, 0.3)'
-                          } : isBlocked ? {
-                            backgroundColor: 'var(--surface-2)',
-                            border: '1px solid var(--surface-4)',
-                            opacity: 0.5
-                          } : {
-                            backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--surface-4)'
-                          }}
-                        >
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <div
-                              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
-                              style={isComplete ? {
-                                backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                                color: '#22c55e'
-                              } : isBlocked ? {
-                                backgroundColor: 'var(--surface-4)',
-                                color: '#6b7280'
-                              } : {
-                                backgroundColor: `${'var(--text-primary)'}25`,
-                                color: 'var(--text-primary)'
-                              }}
-                            >
-                              {isComplete ? (
-                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              ) : <span className="font-bold text-sm sm:text-lg">5</span>}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="font-semibold text-sm sm:text-base" style={{ color: isComplete ? '#22c55e' : isBlocked ? '#6b7280' : '#fafafa' }}>
-                                Portal Transfer Class Assignment
-                              </div>
-                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: isComplete ? '#22c55e' : isBlocked ? '#6b7280' : '#a1a1aa' }}>
-                                {isBlocked
-                                  ? 'Complete Signing Day first'
-                                  : !hasPortalTransfers
-                                    ? '✓ No portal transfers to assign'
-                                    : hasPortalTransferClassData
-                                      ? `✓ ${portalTransfersForClass.length} transfer class${portalTransfersForClass.length !== 1 ? 'es' : ''} assigned`
-                                      : `Assign classes for ${portalTransfersForClass.length} transfer${portalTransfersForClass.length !== 1 ? 's' : ''}`}
-                              </div>
-                            </div>
-                          </div>
-                          {!isViewOnly ? (
-                            <button
-                              onClick={() => setShowPortalTransferClassModal(true)}
-                              disabled={isBlocked || !hasPortalTransfers}
-                              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto disabled:cursor-not-allowed"
-                              style={{
-                                backgroundColor: (isBlocked || !hasPortalTransfers) ? '#3f3f46' : 'var(--text-primary)',
-                                color: (isBlocked || !hasPortalTransfers) ? '#71717a' : primaryBgText
-                              }}
-                            >
-                              {isComplete ? 'Done' : 'Open'}
-                            </button>
-                          ) : (
-                            <ViewOnlyBadge />
-                          )}
-                        </div>
-                      )
-                    })()}
-
-                    {/* Task 6: Fringe Case Class Assignment (only on National Signing Day) */}
-                    {recruitingWeekNum === 5 && (() => {
-                      // Get players with 5-9 games who might be fringe cases for redshirting
-                      // ONLY non-redshirt classes (Fr, So, Jr) who played 5-9 games
-                      const teamTid = getUserTeamTid(currentDynasty)
-                      const year = offseasonDataYear
-
-                      // Get all players and filter for fringe cases
-                      const allPlayers = currentDynasty?.players || []
-                      const fringeCasePlayers = allPlayers.filter(player => {
-                        // Must have been on the team for this year (use isPlayerOnRoster for stint support)
-                        if (!isPlayerOnRoster(player, teamTid, year, currentDynasty)) return false
-
-                        // Use classByYear to get the PRE-progression class (what they were during the season)
-                        // On Signing Day, player.year is POST-progression, so we need the previous class
-                        const preProgressionClass = player.classByYear?.[year] || player.year
-
-                        // ONLY non-redshirt underclassmen (Fr, So, Jr) - NOT RS classes or seniors
-                        const validClasses = ['Fr', 'So', 'Jr']
-                        if (!validClasses.includes(preProgressionClass)) return false
-
-                        // Get games from player.statsByYear (the correct source)
-                        const gamesPlayed = player.statsByYear?.[year]?.gamesPlayed || 0
-
-                        // Fringe case: 5-9 games (might have used redshirt if ≤4 reg season games)
-                        return gamesPlayed >= 5 && gamesPlayed <= 9
-                      }).map(player => {
-                        const gamesPlayed = player.statsByYear?.[year]?.gamesPlayed || 0
-                        // Use classByYear to get the PRE-progression class
-                        const preProgressionClass = player.classByYear?.[year] || player.year
-                        return {
-                          name: player.name,
-                          position: player.position,
-                          currentClass: preProgressionClass,
-                          gameCount: gamesPlayed
-                        }
-                      })
-
-                      const hasFringeCases = fringeCasePlayers.length > 0
-                      const hasFringeCaseClassData = currentDynasty?.fringeCaseClassByYear?.[offseasonDataYear]?.length > 0
-                      const isBlocked = !hasCommitmentsData // Blocked until Signing Day (Task 1) is complete
-                      // Task is complete if: no fringe cases exist, OR class data has been saved
-                      const isComplete = (!hasFringeCases && hasCommitmentsData) || hasFringeCaseClassData
-
-                      return (
-                        <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
-                          style={isComplete ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                            border: '1px solid rgba(34, 197, 94, 0.3)'
-                          } : isBlocked ? {
-                            backgroundColor: 'var(--surface-2)',
-                            border: '1px solid var(--surface-4)',
-                            opacity: 0.5
-                          } : {
-                            backgroundColor: 'var(--surface-3)',
-                            border: '1px solid var(--surface-4)'
-                          }}
-                        >
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <div
-                              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
-                              style={isComplete ? {
-                                backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                                color: '#22c55e'
-                              } : isBlocked ? {
-                                backgroundColor: 'var(--surface-4)',
-                                color: '#6b7280'
-                              } : {
-                                backgroundColor: `${'var(--text-primary)'}25`,
-                                color: 'var(--text-primary)'
-                              }}
-                            >
-                              {isComplete ? (
-                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              ) : <span className="font-bold text-sm sm:text-lg">6</span>}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="font-semibold text-sm sm:text-base" style={{ color: isComplete ? '#22c55e' : isBlocked ? '#6b7280' : '#fafafa' }}>
-                                Fringe Case Class Assignment
-                              </div>
-                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: isComplete ? '#22c55e' : isBlocked ? '#6b7280' : '#a1a1aa' }}>
-                                {isBlocked
-                                  ? 'Complete Signing Day first'
-                                  : !hasFringeCases
-                                    ? '✓ No fringe cases to resolve'
-                                    : hasFringeCaseClassData
-                                      ? `✓ ${fringeCasePlayers.length} player${fringeCasePlayers.length !== 1 ? 's' : ''} resolved`
-                                      : `${fringeCasePlayers.length} player${fringeCasePlayers.length !== 1 ? 's' : ''} with 5-9 games`}
-                              </div>
-                            </div>
-                          </div>
-                          {!isViewOnly ? (
-                            <button
-                              onClick={() => setShowFringeCaseClassModal(true)}
-                              disabled={isBlocked || !hasFringeCases}
-                              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto disabled:cursor-not-allowed"
-                              style={{
-                                backgroundColor: (isBlocked || !hasFringeCases) ? '#3f3f46' : 'var(--text-primary)',
-                                color: (isBlocked || !hasFringeCases) ? '#71717a' : primaryBgText
-                              }}
-                            >
-                              {isComplete ? 'Done' : 'Open'}
-                            </button>
-                          ) : (
-                            <ViewOnlyBadge />
-                          )}
-                        </div>
-                      )
-                    })()}
-
-                  </div>
+                  <h3 className="font-display font-bold leading-none text-txt-primary px-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
+                    {recruitingWeekNum === 5 ? 'National Signing Day' : `Recruiting Week ${recruitingWeekNum} of 4`}
+                  </h3>
+                  {renderTodoList({ todos: o26Todos, isViewOnly })}
                 </>
               )
             }
 
-            // Offseason Week 7: Training Camp
+            // Offseason Week 7: Training Camp. Unified via renderTodoList.
             if (week === 7) {
-              // IMPORTANT: Year has already flipped (e.g., 2027). Data from weeks 1-5 was stored under old year (2026).
-              // - offseasonDataYear (2026): playersLeaving, recruitingCommitments, recruitYear
-              // - currentYear (2027): trainingResults (for the new season)
               const offseasonDataYear = currentDynasty.currentYear - 1
-
-              // Check if user switched teams this offseason
               const previousTeamAbbr = currentDynasty.coachTeamByYear?.[offseasonDataYear]?.team
               const currentTeamAbbr = getCurrentTeamAbbr(currentDynasty)
               const switchedTeams = previousTeamAbbr && currentTeamAbbr && previousTeamAbbr !== currentTeamAbbr
 
-              // If user switched teams, show skipped state
               if (switchedTeams) {
+                const skippedTodos = [{
+                  key: 'training-skipped',
+                  done: true,
+                  title: 'Training Results - Skipped',
+                  subtitle: 'Will enter new roster during preseason',
+                }]
                 return (
                   <>
-                    <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                      <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
-                        Training Camp
-                      </h3>
-                    </div>
-                    <div className="-space-y-px">
-                      <div
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0"
-                        style={{
-                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                          border: '1px solid rgba(34, 197, 94, 0.3)'
-                        }}
-                      >
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          <div
-                            className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                            style={{ backgroundColor: 'rgba(34, 197, 94, 0.2)', color: '#22c55e' }}
-                          >
-                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                          <div className="min-w-0">
-                            <div className="font-semibold text-sm sm:text-base" style={{ color: '#22c55e' }}>
-                              Training Results - Skipped
-                            </div>
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: '#22c55e' }}>
-                              Will enter new roster during preseason
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <h3 className="font-display font-bold leading-none text-txt-primary px-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
+                      Training Camp
+                    </h3>
+                    {renderTodoList({ todos: skippedTodos, isViewOnly })}
                   </>
                 )
               }
 
-              // Calculate which players should be in training results:
-              // - Returning players who were on the roster LAST year and are continuing
-              // - PLUS portal transfers who joined this offseason (they need training results too)
-              // - NOT HS/JUCO recruits (they go in Recruiting Class Overalls instead)
               const teamAbbr = getCurrentTeamAbbr(currentDynasty)
               const teamTid = getTidFromAbbr(teamAbbr, currentDynasty)
               const playersLeavingThisYear = currentDynasty?.playersLeavingByYear?.[offseasonDataYear] || []
               const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid))
-
               const allPlayers = currentDynasty?.players || []
-              const currentYear = currentDynasty.currentYear
+              const currentYearW7 = currentDynasty.currentYear
 
-              // Helper to check if a teamsByYear value matches our team. Handles
-              // tid (number or numeric string), abbr (case-insensitive), and
-              // teambuilder rename (legacy abbr that resolves to current tid).
               const matchesTeam = (value) => {
                 if (value == null) return false
                 if (typeof value === 'number' || /^\d+$/.test(String(value))) {
@@ -7204,292 +6385,106 @@ export default function Dashboard() {
                 return false
               }
 
-              // Get RETURNING players (was on team last year, still on team this year)
-              // Uses isPlayerOnRoster which handles both stint-based and legacy players
               const returningPlayers = allPlayers.filter(p => {
                 if (leavingPids.has(p.pid)) return false
                 if (p.isRecruit) return false
                 if (p.isHonorOnly) return false
                 const wasOnTeamLastYear = isPlayerOnRoster(p, teamTid || teamAbbr, offseasonDataYear, currentDynasty)
-                const isOnTeamThisYear = isPlayerOnRoster(p, teamTid || teamAbbr, currentYear, currentDynasty)
+                const isOnTeamThisYear = isPlayerOnRoster(p, teamTid || teamAbbr, currentYearW7, currentDynasty)
                 return wasOnTeamLastYear && isOnTeamThisYear
               })
-
-              // Get PORTAL TRANSFERS who joined this offseason (need training results too)
               const portalTransfers = allPlayers.filter(p => {
                 if (leavingPids.has(p.pid)) return false
                 if (p.isHonorOnly) return false
-                // Portal transfer = has previousTeam or isPortal flag, recruited this cycle
                 const isPortalTransfer = (p.isPortal || p.previousTeam) && p.recruitYear === offseasonDataYear
                 if (!isPortalTransfer) return false
-                // Must be on the team this year (uses isPlayerOnRoster for stint-based support)
-                const isOnTeamThisYear = isPlayerOnRoster(p, teamTid || teamAbbr, currentYear, currentDynasty)
-                return isOnTeamThisYear
+                return isPlayerOnRoster(p, teamTid || teamAbbr, currentYearW7, currentDynasty)
               })
-
-              // Combine returning players and portal transfers for training results
               const trainingPlayers = [...returningPlayers, ...portalTransfers]
+              const hasTrainingResultsData = currentDynasty?.trainingResultsByYear?.[currentYearW7]?.length > 0
+              const trainingResultsCount = currentDynasty?.trainingResultsByYear?.[currentYearW7]?.length || 0
 
-              // Training results are stored under the NEW year (the upcoming season)
-              const hasTrainingResultsData = currentDynasty?.trainingResultsByYear?.[currentDynasty.currentYear]?.length > 0
-              const trainingResultsCount = currentDynasty?.trainingResultsByYear?.[currentDynasty.currentYear]?.length || 0
-
-              // Get recruits for Recruiting Class Overalls task
-              // These are HS and JUCO players from the recruiting cycle (stored under old year)
               const recruitingClassPlayers = allPlayers.filter(p =>
                 p.isRecruit &&
                 p.recruitYear === offseasonDataYear &&
                 (!p.team || matchesTeam(p.team)) &&
-                !p.isPortal && !p.previousTeam // Exclude transfer portal players
+                !p.isPortal && !p.previousTeam
               )
-              // Recruit overalls are stored under the old year (same as recruitYear)
               const hasRecruitOverallsData = currentDynasty?.recruitOverallsByYear?.[offseasonDataYear]?.length > 0
               const recruitOverallsCount = currentDynasty?.recruitOverallsByYear?.[offseasonDataYear]?.length || 0
 
+              const w7Todos = [{
+                key: 'training-results',
+                done: hasTrainingResultsData,
+                title: 'Training Results',
+                subtitle: hasTrainingResultsData
+                  ? `${trainingResultsCount} player overall${trainingResultsCount !== 1 ? 's' : ''} updated`
+                  : `Enter new overalls for ${trainingPlayers.length} players`,
+                onAction: () => setShowTrainingResultsModal(true),
+                actionLabel: hasTrainingResultsData ? 'Edit' : 'Enter',
+              }]
+
+              if (recruitingClassPlayers.length > 0) {
+                w7Todos.push({
+                  key: 'recruit-overalls',
+                  done: hasRecruitOverallsData,
+                  title: 'Recruiting Class Overalls',
+                  subtitle: hasRecruitOverallsData
+                    ? `${recruitOverallsCount} recruit overall${recruitOverallsCount !== 1 ? 's' : ''} entered`
+                    : `Enter overalls for ${recruitingClassPlayers.length} recruit${recruitingClassPlayers.length !== 1 ? 's' : ''}`,
+                  onAction: () => setShowRecruitOverallsModal(true),
+                  actionLabel: hasRecruitOverallsData ? 'Edit' : 'Enter',
+                })
+              }
+
               return (
                 <>
-                  <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                    <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
-                      Training Camp
-                    </h3>
-                  </div>
-                  <div className="-space-y-px">
-                    {/* Task 1: Training Results */}
-                    <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
-                      style={hasTrainingResultsData ? {
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        border: '1px solid rgba(34, 197, 94, 0.3)'
-                      } : {
-                        backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--surface-4)'
-                      }}
-                    >
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div
-                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
-                          style={hasTrainingResultsData ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                            color: '#22c55e'
-                          } : {
-                            backgroundColor: `${'var(--text-primary)'}25`,
-                            color: 'var(--text-primary)'
-                          }}
-                        >
-                          {hasTrainingResultsData ? (
-                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : <span className="font-bold text-sm sm:text-lg">1</span>}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-sm sm:text-base" style={{ color: hasTrainingResultsData ? '#22c55e' : '#fafafa' }}>
-                            Training Results
-                          </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: hasTrainingResultsData ? '#22c55e' : '#a1a1aa' }}>
-                            {hasTrainingResultsData
-                              ? `✓ ${trainingResultsCount} player overall${trainingResultsCount !== 1 ? 's' : ''} updated`
-                              : `Enter new overalls for ${trainingPlayers.length} players`}
-                          </div>
-                        </div>
-                      </div>
-                      {!isViewOnly ? (
-                        <button
-                          onClick={() => setShowTrainingResultsModal(true)}
-                          className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                        >
-                          {hasTrainingResultsData ? 'Edit' : 'Enter'}
-                        </button>
-                      ) : (
-                        <ViewOnlyBadge />
-                      )}
-                    </div>
-
-                    {/* Task 2: Recruiting Class Overalls */}
-                    {recruitingClassPlayers.length > 0 && (
-                      <div
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
-                        style={hasRecruitOverallsData ? {
-                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                          border: '1px solid rgba(34, 197, 94, 0.3)'
-                        } : {
-                          backgroundColor: 'var(--surface-3)',
-                          border: '1px solid var(--surface-4)'
-                        }}
-                      >
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          <div
-                            className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
-                            style={hasRecruitOverallsData ? {
-                              backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                              color: '#22c55e'
-                            } : {
-                              backgroundColor: `${'var(--text-primary)'}25`,
-                              color: 'var(--text-primary)'
-                            }}
-                          >
-                            {hasRecruitOverallsData ? (
-                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : <span className="font-bold text-sm sm:text-lg">2</span>}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="font-semibold text-sm sm:text-base" style={{ color: hasRecruitOverallsData ? '#22c55e' : '#fafafa' }}>
-                              Recruiting Class Overalls
-                            </div>
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: hasRecruitOverallsData ? '#22c55e' : '#a1a1aa' }}>
-                              {hasRecruitOverallsData
-                                ? `✓ ${recruitOverallsCount} recruit overall${recruitOverallsCount !== 1 ? 's' : ''} entered`
-                                : `Enter overalls for ${recruitingClassPlayers.length} recruit${recruitingClassPlayers.length !== 1 ? 's' : ''}`}
-                            </div>
-                          </div>
-                        </div>
-                        {!isViewOnly ? (
-                          <button
-                            onClick={() => setShowRecruitOverallsModal(true)}
-                            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                          >
-                            {hasRecruitOverallsData ? 'Edit' : 'Enter'}
-                          </button>
-                        ) : (
-                          <ViewOnlyBadge />
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  <h3 className="font-display font-bold leading-none text-txt-primary px-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
+                    Training Camp
+                  </h3>
+                  {renderTodoList({ todos: w7Todos, isViewOnly })}
                 </>
               )
             }
 
-            // Offseason Week 8: Offseason (Custom Conferences & Encourage Transfers)
+            // Offseason Week 8: Custom Conferences & Encourage Transfers. Unified via renderTodoList.
             if (week === 8) {
               const userTid = getUserTeamTid(currentDynasty)
-              // Year already flipped at Signing Day (Week 6), so currentYear IS the upcoming season
               const upcomingSeasonYear = currentDynasty.currentYear
-
-              // Check if conferences have been set for the upcoming season
               const hasConferencesSet = currentDynasty?.customConferencesByYear?.[upcomingSeasonYear] != null
-
-              // Check if encourage transfers has been completed (use tid-based getter)
               const encourageTransfersList = getEncourageTransfers(currentDynasty, userTid, currentDynasty.currentYear)
               const hasEncourageTransfers = encourageTransfersList.length > 0 || currentDynasty?.teams?.[userTid]?.byYear?.[currentDynasty.currentYear]?.encourageTransfers != null
               const encourageTransfersCount = encourageTransfersList.length
 
+              const w8Todos = [
+                {
+                  key: 'custom-conferences',
+                  done: hasConferencesSet,
+                  title: 'Custom Conferences',
+                  subtitle: hasConferencesSet
+                    ? `Conference alignment set for ${upcomingSeasonYear}`
+                    : `Set conference alignment for ${upcomingSeasonYear} season`,
+                  onAction: () => setShowOffseasonConferencesModal(true),
+                  actionLabel: hasConferencesSet ? 'Edit' : 'Set',
+                },
+                {
+                  key: 'encourage-transfers',
+                  done: hasEncourageTransfers,
+                  title: 'Encourage Transfers',
+                  subtitle: hasEncourageTransfers
+                    ? `${encourageTransfersCount} player${encourageTransfersCount !== 1 ? 's' : ''} encouraged to transfer`
+                    : 'Mark players to encourage to transfer',
+                  onAction: () => setShowEncourageTransfersModal(true),
+                  actionLabel: hasEncourageTransfers ? 'Edit' : 'Enter',
+                },
+              ]
+
               return (
                 <>
-                  <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                    <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
-                      Offseason
-                    </h3>
-                  </div>
-                  <div className="-space-y-px">
-                    {/* Task 1: Custom Conferences */}
-                    <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
-                      style={hasConferencesSet ? {
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        border: '1px solid rgba(34, 197, 94, 0.3)'
-                      } : {
-                        backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--surface-4)'
-                      }}
-                    >
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div
-                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
-                          style={hasConferencesSet ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                            color: '#22c55e'
-                          } : {
-                            backgroundColor: `${'var(--text-primary)'}25`,
-                            color: 'var(--text-primary)'
-                          }}
-                        >
-                          {hasConferencesSet ? (
-                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : <span className="font-bold text-sm sm:text-lg">1</span>}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-sm sm:text-base" style={{ color: hasConferencesSet ? '#22c55e' : '#fafafa' }}>
-                            Custom Conferences
-                          </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: hasConferencesSet ? '#22c55e' : '#a1a1aa' }}>
-                            {hasConferencesSet
-                              ? `✓ Conference alignment set for ${upcomingSeasonYear}`
-                              : `Set conference alignment for ${upcomingSeasonYear} season`}
-                          </div>
-                        </div>
-                      </div>
-                      {!isViewOnly ? (
-                        <button
-                          onClick={() => setShowOffseasonConferencesModal(true)}
-                          className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                        >
-                          {hasConferencesSet ? 'Edit' : 'Set'}
-                        </button>
-                      ) : (
-                        <ViewOnlyBadge />
-                      )}
-                    </div>
-
-                    {/* Task 2: Encourage Transfers */}
-                    <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
-                      style={hasEncourageTransfers ? {
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        border: '1px solid rgba(34, 197, 94, 0.3)'
-                      } : {
-                        backgroundColor: 'var(--surface-3)',
-                        border: '1px solid var(--surface-4)'
-                      }}
-                    >
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div
-                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
-                          style={hasEncourageTransfers ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                            color: '#22c55e'
-                          } : {
-                            backgroundColor: `${'var(--text-primary)'}25`,
-                            color: 'var(--text-primary)'
-                          }}
-                        >
-                          {hasEncourageTransfers ? (
-                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : <span className="font-bold text-sm sm:text-lg">2</span>}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-sm sm:text-base" style={{ color: hasEncourageTransfers ? '#22c55e' : '#fafafa' }}>
-                            Encourage Transfers
-                          </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium text-txt-tertiary" style={{ color: hasEncourageTransfers ? '#22c55e' : '#a1a1aa' }}>
-                            {hasEncourageTransfers
-                              ? `✓ ${encourageTransfersCount} player${encourageTransfersCount !== 1 ? 's' : ''} encouraged to transfer`
-                              : 'Mark players to encourage to transfer'}
-                          </div>
-                        </div>
-                      </div>
-                      {!isViewOnly ? (
-                        <button
-                          onClick={() => setShowEncourageTransfersModal(true)}
-                          className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                          style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-                        >
-                          {hasEncourageTransfers ? 'Edit' : 'Enter'}
-                        </button>
-                      ) : (
-                        <ViewOnlyBadge />
-                      )}
-                    </div>
-                  </div>
+                  <h3 className="font-display font-bold leading-none text-txt-primary px-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
+                    Offseason
+                  </h3>
+                  {renderTodoList({ todos: w8Todos, isViewOnly })}
                 </>
               )
             }
