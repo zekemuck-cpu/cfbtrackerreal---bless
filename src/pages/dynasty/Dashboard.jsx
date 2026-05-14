@@ -4929,6 +4929,25 @@ export default function Dashboard() {
                 })
               }
 
+              if (!userHasBowlWeek2Game && !userHasCFPQuarterfinalGame) {
+                bw2Todos.push({
+                  key: 'bw2-bye',
+                  done: false,
+                  title: 'Bye — No Game This Week',
+                  subtitle: 'Your team has no game in Bowl Week 2',
+                  onAction: () => {
+                    const params = new URLSearchParams({
+                      week: 'Bowl',
+                      year: currentDynasty.currentYear?.toString() || '',
+                      team1Tid: userTeamTid?.toString() || '',
+                      gameType: 'bowl',
+                    })
+                    navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                  },
+                  actionLabel: 'Add',
+                })
+              }
+
               if (userHasCFPQuarterfinalGame) {
                 const qfDone = userCFPQuarterfinalScoresEntered
                 bw2Todos.push({
@@ -5444,7 +5463,16 @@ export default function Dashboard() {
               })
             }
 
-            if (week === 3 && userHasCFPSemifinalGame && hasBowlWeek2Data) {
+            if (week === 3 && !userHasCFPSemifinalGame) {
+              w34Todos.push({
+                key: 'cfp-sf-bye',
+                done: true,
+                title: 'No CFP Semifinal',
+                subtitle: 'Your team did not advance to the semifinals',
+              })
+            }
+
+            if (week === 3 && userHasCFPSemifinalGame) {
               const sfDone = !!userCFPSemifinalGame && userCFPSemifinalGame.team1Score != null
               w34Todos.push({
                 key: 'cfp-sf-game',
@@ -5489,6 +5517,15 @@ export default function Dashboard() {
                 subtitle: w4AllSFComplete ? 'All 2 games entered' : `${sfGamesWithScores}/2 games entered`,
                 onAction: () => setShowCFPSemifinalsModal(true),
                 actionLabel: w4AllSFComplete ? 'Edit' : 'Enter',
+              })
+            }
+
+            if (week === 4 && !userHasCFPChampionshipGame) {
+              w34Todos.push({
+                key: 'cfp-nc-bye',
+                done: true,
+                title: 'No National Championship Game',
+                subtitle: 'Your team did not advance to the championship',
               })
             }
 
