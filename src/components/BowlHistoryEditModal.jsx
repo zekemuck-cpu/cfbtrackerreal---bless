@@ -163,16 +163,22 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
 
           const gameId = existingGame?.id || gameData.id || `bowl-${year}-${bowlName.toLowerCase().replace(/\s+/g, '-')}`
 
-          // Determine game type
+          // Determine game type — prefer existing game's type, then check
+          // the dynasty's cfpBowlConfigByYear for SF/QF classification, then
+          // fall back to the known National Championship name.
           let gameType = GAME_TYPES.BOWL
-          if (bowlName === 'National Championship') {
-            gameType = GAME_TYPES.CFP_CHAMPIONSHIP
-          } else if (['Peach Bowl', 'Fiesta Bowl'].includes(bowlName) && existingGame?.gameType === GAME_TYPES.CFP_SEMIFINAL) {
-            gameType = GAME_TYPES.CFP_SEMIFINAL
-          } else if (['Rose Bowl', 'Sugar Bowl', 'Orange Bowl', 'Cotton Bowl'].includes(bowlName) && existingGame?.gameType === GAME_TYPES.CFP_QUARTERFINAL) {
-            gameType = GAME_TYPES.CFP_QUARTERFINAL
-          } else if (existingGame?.gameType) {
+          if (existingGame?.gameType) {
             gameType = existingGame.gameType
+          } else if (bowlName === 'National Championship') {
+            gameType = GAME_TYPES.CFP_CHAMPIONSHIP
+          } else {
+            const cfpCfg = currentDynasty?.cfpBowlConfigByYear?.[year] || currentDynasty?.cfpBowlConfigByYear?.[String(year)]
+            if (cfpCfg) {
+              const sfBowls = [cfpCfg.semifinal1, cfpCfg.semifinal2].filter(Boolean)
+              const qfBowls = [cfpCfg.quarterfinal1, cfpCfg.quarterfinal2, cfpCfg.quarterfinal3, cfpCfg.quarterfinal4].filter(Boolean)
+              if (sfBowls.includes(bowlName)) gameType = GAME_TYPES.CFP_SEMIFINAL
+              else if (qfBowls.includes(bowlName)) gameType = GAME_TYPES.CFP_QUARTERFINAL
+            }
           }
 
           // UNIFIED FORMAT: Use tids, not abbreviations. Pass dynasty so

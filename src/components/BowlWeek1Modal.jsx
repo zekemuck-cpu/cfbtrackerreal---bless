@@ -19,7 +19,7 @@ import {
   getCFPFirstRoundGameName,
   isBowlInWeek1
 } from '../services/sheetsService'
-import { getCurrentTeamTid } from '../data/teamRegistry'
+import { getCurrentTeamTid, getCurrentTeamAbbr } from '../data/teamRegistry'
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
@@ -195,6 +195,7 @@ FINAL CHECK before you send the answer
 
           // Check if user is in CFP First Round (seeds 5-12)
           const userTeamTid = getCurrentTeamTid(currentDynasty)
+          const userTeamAbbr = getCurrentTeamAbbr(currentDynasty) || ''
           const userCFPSeed = cfpSeeds.find(s => s.tid === userTeamTid)?.seed || null
           if (userCFPSeed >= 5 && userCFPSeed <= 12) {
             const cfpGameName = getCFPFirstRoundGameName(userCFPSeed)

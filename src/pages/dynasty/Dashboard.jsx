@@ -23,7 +23,6 @@ import CoachingStaffModal from '../../components/CoachingStaffModal'
 import BowlWeek1Modal from '../../components/BowlWeek1Modal'
 import BowlWeek2Modal from '../../components/BowlWeek2Modal'
 import WeeklyScoresModal from '../../components/WeeklyScoresModal'
-import BowlScoreModal from '../../components/BowlScoreModal'
 import CFPSeedsModal from '../../components/CFPSeedsModal'
 import CFPFirstRoundModal from '../../components/CFPFirstRoundModal'
 import CFPQuarterfinalsModal from '../../components/CFPQuarterfinalsModal'
@@ -453,7 +452,6 @@ export default function Dashboard() {
   const [showBowlWeek1Modal, setShowBowlWeek1Modal] = useState(false)
   const [showBowlWeek2Modal, setShowBowlWeek2Modal] = useState(false)
   const [weeklyScoresModalWeek, setWeeklyScoresModalWeek] = useState(null)
-  const [showBowlScoreModal, setShowBowlScoreModal] = useState(false)
   // showBowlGameModal removed - now using game pages instead
   const [showCFPSeedsModal, setShowCFPSeedsModal] = useState(false)
   const [showCFPFirstRoundModal, setShowCFPFirstRoundModal] = useState(false)
@@ -2790,7 +2788,7 @@ export default function Dashboard() {
 
   // Handle marking no commitments for the week - TEAM-CENTRIC
   const handleNoCommitments = async () => {
-    const year = currentDynasty.currentYear
+    const year = offseasonDataYear
     const commitmentKey = getCommitmentKey()
     if (!commitmentKey) return
 
@@ -4291,7 +4289,8 @@ export default function Dashboard() {
             const userBowlGameTemp = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear))
             const userBowlHasScores = userBowlGameTemp && userBowlGameTemp.team1Score !== undefined && userBowlGameTemp.team1Score !== null
             const userBowlIsInWeek1List = userBowlGameTemp && bowlWeek1Games.some(g => g.id === userBowlGameTemp.id)
-            const userBowlIsWeek1Temp = selectedBowl && isBowlInWeek1(selectedBowl)
+            const userBowlBowlName = userBowlGameTemp?.bowlName || selectedBowl
+            const userBowlIsWeek1Temp = !!userBowlBowlName && (userBowlGameTemp?.bowlWeek === 'week1' || isBowlInWeek1(userBowlBowlName))
             const userBowlWeek1NotCounted = userBowlHasScores && userBowlIsWeek1Temp && !userBowlIsInWeek1List
 
             // Similarly check for CFP First Round
@@ -4313,7 +4312,7 @@ export default function Dashboard() {
             const enteredCFPQuarterfinals = cfpQuarterfinalGames.filter(g => g && g.team1Score !== undefined && g.team1Score !== null && g.team2Score !== undefined && g.team2Score !== null).length
 
             // Check if user's Week 2 bowl/CFP QF is entered but not counted
-            const userBowlIsWeek2Temp = selectedBowl && isBowlInWeek2(selectedBowl)
+            const userBowlIsWeek2Temp = !!userBowlBowlName && (userBowlGameTemp?.bowlWeek === 'week2' || isBowlInWeek2(userBowlBowlName))
             const userBowlWeek2NotCounted = userBowlHasScores && userBowlIsWeek2Temp && !bowlWeek2Games.some(g => g.id === userBowlGameTemp?.id)
             const userCFPQFGameTemp = findCurrentTeamGame(currentDynasty, g => (g.isCFPQuarterfinal || g.gameType === GAME_TYPES.CFP_QUARTERFINAL) && isSameYear(g.year, currentDynasty.currentYear))
             const userCFPQFHasScores = userCFPQFGameTemp && userCFPQFGameTemp.team1Score !== undefined && userCFPQFGameTemp.team1Score !== null
@@ -4885,6 +4884,22 @@ export default function Dashboard() {
                 actionLabel: hasBowlWeek1Data ? 'Edit' : 'Enter',
               })
 
+              if (userHasBowlWeek1Game && !userBowlGameScoresEntered) {
+                const bw1CarryoverOpponentTid = Number(userBowlGame.team1Tid) === Number(userTeamTid)
+                  ? userBowlGame.team2Tid
+                  : userBowlGame.team1Tid
+                bw2Todos.push({
+                  key: 'bowl-week1-carryover',
+                  done: false,
+                  title: `Enter Your ${userBowlGame.bowlName || 'Bowl Game'} Game`,
+                  subtitle: `Missed from Week 1 — vs ${getMascotName(bw1CarryoverOpponentTid, currentDynasty.teams)}`,
+                  onAction: () => {
+                    navigate(`${pathPrefix}/game/${userBowlGame.id}/edit`, { state: { from: location.pathname } })
+                  },
+                  actionLabel: 'Enter',
+                })
+              }
+
               if (userHasCFPFirstRoundGame && !userCFPFirstRoundScoresEntered) {
                 bw2Todos.push({
                   key: 'cfp-fr-carryover',
@@ -5306,7 +5321,7 @@ export default function Dashboard() {
             if (week === 5) {
               const yearForW5 = currentDynasty.currentYear
               const unifiedChampGames = getGamesByType(currentDynasty, GAME_TYPES.CFP_CHAMPIONSHIP, yearForW5)
-              const legacyChampData = currentDynasty.cfpResultsByYear?.[yearForW5]?.championship || []
+              const legacyChampData = currentDynasty.cfpResultsByYear?.[yearForW5]?.championship || currentDynasty.cfpResultsByYear?.[String(yearForW5)]?.championship || []
               const champData = unifiedChampGames.length > 0 ? unifiedChampGames : legacyChampData
               const hasChampData = champData.length > 0 && champData[0]?.team1Score !== null && champData[0]?.team1Score !== undefined
 
@@ -5321,27 +5336,43 @@ export default function Dashboard() {
               const detailedStatsCompleted = currentDynasty?.detailedStatsCompletedByYear?.[yearForW5] || currentDynasty?.detailedStatsCompletedByYear?.[String(yearForW5)]
               const detailedStatsLocked = !gpSnapsCompleted && !hasBoxScoreData
 
-              const hasStandingsData = currentDynasty?.conferenceStandingsByYear?.[yearForW5] &&
-                Object.keys(currentDynasty.conferenceStandingsByYear[yearForW5]).length > 0
-              const standingsCount = hasStandingsData
-                ? Object.keys(currentDynasty.conferenceStandingsByYear[yearForW5]).length
-                : 0
+              const standingsForYear = currentDynasty?.conferenceStandingsByYear?.[yearForW5] || currentDynasty?.conferenceStandingsByYear?.[String(yearForW5)]
+              const hasStandingsData = !!standingsForYear && Object.keys(standingsForYear).length > 0
+              const standingsCount = hasStandingsData ? Object.keys(standingsForYear).length : 0
 
-              const hasPollsData = currentDynasty?.finalPollsByYear?.[yearForW5]?.media?.length > 0
+              const hasPollsData = (currentDynasty?.finalPollsByYear?.[yearForW5]?.media?.length > 0) || (currentDynasty?.finalPollsByYear?.[String(yearForW5)]?.media?.length > 0)
 
-              const hasTeamStats = currentDynasty?.teamStatsByYear?.[yearForW5] &&
-                Object.keys(currentDynasty.teamStatsByYear[yearForW5]).length > 0
+              const teamStatsForYear = currentDynasty?.teamStatsByYear?.[yearForW5] || currentDynasty?.teamStatsByYear?.[String(yearForW5)]
+              const hasTeamStats = !!teamStatsForYear && Object.keys(teamStatsForYear).length > 0
 
-              const hasAwards = currentDynasty?.awardsByYear?.[yearForW5] &&
-                Object.keys(currentDynasty.awardsByYear[yearForW5]).length > 0
-              const awardsCount = hasAwards ? Object.keys(currentDynasty.awardsByYear[yearForW5]).length : 0
+              const awardsForYear = currentDynasty?.awardsByYear?.[yearForW5] || currentDynasty?.awardsByYear?.[String(yearForW5)]
+              const hasAwards = !!awardsForYear && Object.keys(awardsForYear).length > 0
+              const awardsCount = hasAwards ? Object.keys(awardsForYear).length : 0
 
-              const hasAllAmericans = currentDynasty?.allAmericansByYear?.[yearForW5]?.allAmericans?.length > 0
-              const hasAllConference = currentDynasty?.allAmericansByYear?.[yearForW5]?.allConference?.length > 0
+              const allAmericansForYear = currentDynasty?.allAmericansByYear?.[yearForW5] || currentDynasty?.allAmericansByYear?.[String(yearForW5)]
+              const hasAllAmericans = allAmericansForYear?.allAmericans?.length > 0
+              const hasAllConference = allAmericansForYear?.allConference?.length > 0
 
               const w5Todos = []
 
-              if (!userInCFPChampionship) {
+              if (userInCFPChampionship) {
+                // User played in the NC — link to their game record
+                const userChampHasScoresW5 = userCFPChampionshipGame &&
+                  userCFPChampionshipGame.team1Score !== null &&
+                  userCFPChampionshipGame.team1Score !== undefined
+                w5Todos.push({
+                  key: 'champ-result',
+                  done: !!userChampHasScoresW5,
+                  title: 'National Championship Result',
+                  subtitle: userChampHasScoresW5
+                    ? `${userCFPChampionshipGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPChampionshipGame.perspective?.userScore || 0, userCFPChampionshipGame.perspective?.opponentScore || 0)}-${Math.min(userCFPChampionshipGame.perspective?.userScore || 0, userCFPChampionshipGame.perspective?.opponentScore || 0)}`
+                    : 'Enter your national championship game result',
+                  onAction: userCFPChampionshipGame
+                    ? () => navigate(`${pathPrefix}/game/${userCFPChampionshipGame.id}/edit`, { state: { from: location.pathname } })
+                    : () => setShowCFPChampionshipModal(true),
+                  actionLabel: userChampHasScoresW5 ? 'Edit' : 'Enter',
+                })
+              } else {
                 w5Todos.push({
                   key: 'champ-result',
                   done: hasChampData,
@@ -7837,49 +7868,6 @@ export default function Dashboard() {
           await saveCFPGames(currentDynasty.id, transformedGames, year, GAME_TYPES.CFP_FIRST_ROUND)
         }}
         currentYear={currentDynasty.currentYear}
-        teamColors={teamColors}
-      />
-
-      {/* Bowl Score Modal (CFP Weeks 4-5) */}
-      <BowlScoreModal
-        isOpen={showBowlScoreModal}
-        onClose={() => setShowBowlScoreModal(false)}
-        onSave={async (cfpGames, week) => {
-          const year = currentDynasty.currentYear
-          const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
-          const existingByYear = currentDynasty.cfpResultsByYear || {}
-          const existingYearData = existingByYear[year] || {}
-
-          // CRITICAL FIX: Preserve user's game that was entered separately
-          const weekKey = `week${week}`
-          const existingWeekGames = existingYearData[weekKey] || []
-          // Tid match for "is this the user's CFP game" before falling back
-          // to abbr — abbr drift would make the merge create duplicate games
-          // (or lose the user's game on subsequent saves) for renamed
-          // teambuilder teams.
-          const isUsersCFPGame = (g) => {
-            if (!g) return false
-            if (userTeamTid != null && (Number(g.team1Tid) === Number(userTeamTid) || Number(g.team2Tid) === Number(userTeamTid))) return true
-            return g.team1 === userTeamAbbr || g.team2 === userTeamAbbr
-          }
-          const userExistingGame = existingWeekGames.find(isUsersCFPGame)
-          const userGameInSheet = cfpGames.some(isUsersCFPGame)
-          const mergedCFPGames = userExistingGame && !userGameInSheet
-            ? [...cfpGames, userExistingGame]
-            : cfpGames
-
-          await updateDynasty(currentDynasty.id, {
-            cfpResultsByYear: {
-              ...existingByYear,
-              [year]: {
-                ...existingYearData,
-                [weekKey]: mergedCFPGames
-              }
-            }
-          })
-        }}
-        currentYear={currentDynasty.currentYear}
-        currentWeek={currentDynasty.currentWeek}
         teamColors={teamColors}
       />
 

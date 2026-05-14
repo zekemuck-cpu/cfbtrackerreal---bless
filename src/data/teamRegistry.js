@@ -1695,7 +1695,9 @@ export function getAbbrFromTid(teams, tid) {
 // record"; it's just an opaque bucket. Skipping record accumulation /
 // display for these four avoids the "FCS East showing as 1-0 here,
 // 0-1 there, 3-12 somewhere else" inconsistency.
-const FCS_PLACEHOLDER_ABBRS = new Set(['FCSE', 'FCSM', 'FCSN', 'FCSW'])
+// Includes both current 5-letter codes (FCSE, FCSMW, FCSNW, FCSW, FCSSE)
+// and legacy 4-letter codes (FCSM, FCSN) for backwards compatibility.
+const FCS_PLACEHOLDER_ABBRS = new Set(['FCSE', 'FCSMW', 'FCSNW', 'FCSW', 'FCSSE', 'FCSM', 'FCSN'])
 
 export function isFCSPlaceholderAbbr(abbr) {
   if (!abbr) return false

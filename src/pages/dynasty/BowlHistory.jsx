@@ -138,7 +138,7 @@ export default function BowlHistory() {
                          gameType === GAME_TYPES.CFP_QUARTERFINAL ||
                          gameType === GAME_TYPES.CFP_SEMIFINAL ||
                          gameType === GAME_TYPES.CFP_CHAMPIONSHIP
-      const isPlayed = g.isPlayed || g.team1Score > 0 || g.team2Score > 0
+      const isPlayed = g.isPlayed || (g.team1Score != null && g.team2Score != null)
       return isBowlType && g.bowlName === bowlName && isPlayed
     })
 
@@ -230,7 +230,8 @@ export default function BowlHistory() {
         })
       }
 
-      const championship = yearData?.championship
+      const champRaw = yearData?.championship
+      const championship = Array.isArray(champRaw) ? champRaw[0] : champRaw
       if (championship && championship.team1 && championship.team2 && championship.team1Score != null) {
         if (bowlName === 'National Championship') {
           results.push({

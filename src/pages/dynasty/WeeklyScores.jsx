@@ -550,7 +550,7 @@ export default function WeeklyScores() {
             </select>
             {!isViewOnly && (
               <>
-                {displayWeek <= 15 && (
+                {displayWeek <= 14 && (
                 <button
                   type="button"
                   onClick={() => setEditing(true)}
