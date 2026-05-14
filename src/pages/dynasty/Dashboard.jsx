@@ -735,9 +735,11 @@ export default function Dashboard() {
   useEffect(() => {
     if (!currentDynasty?.id) return
     if (isViewOnly) return
-    if (bowlMigrationDoneRef.current.has(currentDynasty.id)) return
     const byYear = currentDynasty.bowlEligibilityDataByYear
-    if (!byYear || typeof byYear !== 'object') return
+    // Don't mark done until data is actually present — lazy-loaded dynasties
+    // would otherwise get blocked on the first (empty) run and never retry.
+    if (!byYear || typeof byYear !== 'object' || Object.keys(byYear).length === 0) return
+    if (bowlMigrationDoneRef.current.has(currentDynasty.id)) return
     const games = currentDynasty.games || []
     const userTid = getUserTeamTid(currentDynasty)
     if (!userTid) return
@@ -748,11 +750,14 @@ export default function Dashboard() {
       if (!data || !data.eligible || !data.bowlGame || !data.opponent) continue
       const year = Number(yearStr)
       if (!Number.isFinite(year)) continue
-      const alreadyHasShell = mutated.some(g =>
+      // Only skip if a shell already exists AND has bowlWeek set correctly.
+      // Shells missing bowlWeek (created before the field was added) still
+      // need to be updated so the "Enter your bowl game" tile can appear.
+      const existingShell = mutated.find(g =>
         g && g.isBowlGame && Number(g.year) === year &&
         (g.team1Tid === userTid || g.team2Tid === userTid)
       )
-      if (alreadyHasShell) continue
+      if (existingShell?.bowlWeek) continue
       const opponentTid = getTidFromTeamName(data.opponent, currentDynasty?.teams)
       if (!opponentTid) continue
       mutated = createOrUpdateBowlGameShell(mutated, {
@@ -4357,8 +4362,17 @@ export default function Dashboard() {
             // the scores check is the completion styling.
             const userHasCFPFirstRoundGame = !!userCFPFirstRoundGame
             const userHasCFPQuarterfinalGame = !!userCFPQuarterfinalGame
-            const userHasBowlWeek1Game = !!userBowlGame && userBowlGame.bowlWeek === 'week1'
-            const userHasBowlWeek2Game = !!userBowlGame && userBowlGame.bowlWeek === 'week2'
+            // Derive bowl week from the shell's bowlWeek field, falling back
+            // to the bowl name lookup (handles shells missing bowlWeek), and
+            // further falling back to the wizard's selectedBowl state for the
+            // case where the shell hasn't been created yet (e.g. opponentTid
+            // lookup failed or migration hasn't run yet this session).
+            const userHasBowlWeek1Game = userBowlGame
+              ? (userBowlGame.bowlWeek === 'week1' || isBowlInWeek1(userBowlGame.bowlName || ''))
+              : (bowlEligible === true && !!selectedBowl && !!bowlOpponent && !!userBowlIsWeek1)
+            const userHasBowlWeek2Game = userBowlGame
+              ? (userBowlGame.bowlWeek === 'week2' || isBowlInWeek2(userBowlGame.bowlName || ''))
+              : (bowlEligible === true && !!selectedBowl && !!bowlOpponent && !!userBowlIsWeek2)
             // SF + NC equivalents defined later in this IIFE, after the
             // SF/NC game variables are introduced (~line 4326, ~4413).
 
