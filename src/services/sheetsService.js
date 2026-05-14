@@ -3559,18 +3559,20 @@ async function initializeWeeklyScoresSheet(spreadsheetId, accessToken, sheetId, 
         }
       }
     },
-    // Team dropdown for AWAY column (col D, index 3). Was strict —
-    // relaxed so that a blank cell in this column (= a bye-rank row)
-    // doesn't show a red validation warning. The parser still
-    // ignores rows where col A has an unrecognized abbr, so loosening
-    // the dropdown doesn't open a data path.
+    // Team dropdown for AWAY column (col D, index 3). Strict: only
+    // dropdown values allowed — bad team typos can't sneak through and
+    // the user's typing is autocompleted. Empty string IS in the value
+    // list so blank cells (bye-rank rows in column A's range) still
+    // pass validation without a red warning. (Was previously strict:
+    // false to handle the bye-row blanks; including empty in the value
+    // list lets us tighten back to strict and still allow blanks.)
     {
       setDataValidation: {
         range: { sheetId, startRowIndex: 1, endRowIndex: rowCount + 1, startColumnIndex: 3, endColumnIndex: 4 },
         rule: {
-          condition: { type: 'ONE_OF_LIST', values: teamAbbrs.map(abbr => ({ userEnteredValue: abbr })) },
+          condition: { type: 'ONE_OF_LIST', values: [{ userEnteredValue: '' }, ...teamAbbrs.map(abbr => ({ userEnteredValue: abbr }))] },
           showCustomUi: true,
-          strict: false
+          strict: true
         }
       }
     },
@@ -13570,7 +13572,10 @@ export async function createRosterHistorySheet(dynastyName, years = [2025, 2026]
       })
     })
 
-    // Add dropdowns for each year column (rows 2-500)
+    // Add dropdowns for each year column (rows 2-500). Strict: only
+    // dropdown values allowed — empty string is in the value list so
+    // blank cells (year-not-on-team) still pass validation. The strict
+    // flag prevents typos sneaking through as free text.
     years.forEach((_, i) => {
       requests.push({
         setDataValidation: {
@@ -13578,7 +13583,7 @@ export async function createRosterHistorySheet(dynastyName, years = [2025, 2026]
           rule: {
             condition: { type: 'ONE_OF_LIST', values: [{ userEnteredValue: '' }, ...allTeamAbbrs.map(abbr => ({ userEnteredValue: abbr }))] },
             showCustomUi: true,
-            strict: false
+            strict: true
           }
         }
       })
