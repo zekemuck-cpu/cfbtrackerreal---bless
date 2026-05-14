@@ -18,7 +18,6 @@ import {
   getSheetEmbedUrl
 } from '../services/sheetsService'
 import { DEFAULT_BOWL_CONFIG, CFP_NY6_BOWLS, SEED_DESCRIPTIONS } from '../data/cfpConstants'
-import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
 
@@ -32,7 +31,6 @@ const isMobileDevice = () => {
 const QF_KEYS = ['seed4', 'seed1', 'seed3', 'seed2']
 
 export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, teamColors }) {
-  const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
   const { currentDynasty, updateDynasty } = useDynasty()
   const { user, signOut } = useAuth()
   const { toast } = useToast()
@@ -348,34 +346,33 @@ FINAL CHECK before you send the answer
           </div>
         ) : sheetId ? (
           <div className="flex-1 flex flex-col overflow-hidden min-h-0 gap-3">
-            {/* Bowl Configuration Section — pinned at top */}
-            <div className="p-3 rounded-lg border flex-shrink-0" style={{ borderColor: modalColors.border, backgroundColor: modalColors.headerBg }}>
+            {/* Bowl Configuration Section — pinned at top. Neutral
+                surface colors only — keep the chrome consistent with the
+                rest of the sheet-modal family instead of letting the
+                user's team primary/secondary leak into this admin
+                control. */}
+            <div className="p-3 rounded-lg border flex-shrink-0 bg-surface-2 border-surface-4">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="text-xs font-bold uppercase" style={{ color: 'var(--text-primary)', letterSpacing: '1.5px' }}>
+                <h4 className="text-xs font-bold uppercase text-txt-primary" style={{ letterSpacing: '1.5px' }}>
                   Bowl Game Assignments
                 </h4>
-                <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                <span className="text-[10px] uppercase tracking-wider text-txt-tertiary">
                   NY6 rotates yearly
                 </span>
               </div>
 
               {/* Quarterfinals */}
-              <p className="text-[10px] font-bold uppercase mb-1.5" style={{ color: 'var(--text-secondary)', letterSpacing: '1px' }}>Quarterfinals</p>
+              <p className="text-[10px] font-bold uppercase mb-1.5 text-txt-tertiary" style={{ letterSpacing: '1px' }}>Quarterfinals</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-2.5">
                 {QF_KEYS.map(key => (
                   <div key={key}>
-                    <label className="text-[10px] block mb-0.5" style={{ color: 'var(--text-secondary)' }}>
+                    <label className="text-[10px] block mb-0.5 text-txt-tertiary">
                       {SEED_DESCRIPTIONS[key]}
                     </label>
                     <select
                       value={bowlConfig[key] || DEFAULT_BOWL_CONFIG[key]}
                       onChange={(e) => setBowlConfig(prev => ({ ...prev, [key]: e.target.value }))}
-                      className="w-full px-1.5 py-1 rounded text-xs border"
-                      style={{
-                        borderColor: modalColors.inputBorder,
-                        backgroundColor: modalColors.inputBg,
-                        color: 'var(--text-primary)'
-                      }}
+                      className="w-full px-1.5 py-1 rounded text-xs border bg-surface-3 border-surface-4 text-txt-primary"
                     >
                       {CFP_NY6_BOWLS.map(bowl => (
                         <option key={bowl} value={bowl}>{bowl}</option>
