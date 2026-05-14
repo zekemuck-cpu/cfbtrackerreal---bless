@@ -4644,8 +4644,7 @@ export default function Dashboard() {
                 userHasCFPBye || userInCFPFirstRound ||
                 (bowlEligible !== null && (bowlEligible === false || (bowlEligible && selectedBowl && bowlOpponent)))
               )
-              const showBowlEditButton = hasCFPSeedsData && !userCFPSeed && bowlEligible !== null &&
-                (bowlEligible === false || (bowlEligible && selectedBowl && bowlOpponent))
+              const showBowlEditButton = hasCFPSeedsData && !userCFPSeed && bowlEligible !== null
               const bowlStatusSubtitle = !hasCFPSeedsData
                 ? 'Enter CFP Seeds first'
                 : userHasCFPBye
