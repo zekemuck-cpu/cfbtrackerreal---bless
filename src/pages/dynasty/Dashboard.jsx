@@ -4260,7 +4260,9 @@ export default function Dashboard() {
             const hasCFPFirstRoundData = cfpFirstRoundFromGames.length > 0 || cfpFirstRoundLegacy.length > 0
 
             // Bowl Week 1 - check games[] then fallback to legacy bowlGamesByYear
-            const bowlWeek1FromGames = allGames.filter(g => g && g.isBowlGame && g.bowlWeek === 'week1' && Number(g.year) === Number(year))
+            // Include bowl games missing bowlWeek if their name is classified as week1
+            const bowlWeek1FromGames = allGames.filter(g => g && g.isBowlGame && Number(g.year) === Number(year) &&
+              (g.bowlWeek === 'week1' || (!g.bowlWeek && isBowlInWeek1(g.bowlName || ''))))
             const bowlWeek1Legacy = currentDynasty.bowlGamesByYear?.[year]?.week1 || []
             const hasBowlWeek1Data = bowlWeek1FromGames.length > 0 || bowlWeek1Legacy.length > 0
 
@@ -4921,12 +4923,16 @@ export default function Dashboard() {
               }
 
               if (!userHasBowlWeek2Game && !userHasCFPQuarterfinalGame) {
+                // Season ended in Week 1 if they played a BW1 bowl (not CFP) and it's scored
+                const bw2IsBye = userHasBowlWeek1Game && userBowlGameScoresEntered
                 bw2Todos.push({
                   key: 'bw2-bye',
-                  done: false,
-                  title: 'Bye — No Game This Week',
-                  subtitle: 'Your team has no game in Bowl Week 2',
-                  onAction: () => {
+                  done: bw2IsBye,
+                  title: bw2IsBye ? 'Bye — Season Complete' : 'Bye — No Game This Week',
+                  subtitle: bw2IsBye
+                    ? `Season finished in Bowl Week 1`
+                    : 'Your team has no game in Bowl Week 2',
+                  onAction: !bw2IsBye ? () => {
                     const params = new URLSearchParams({
                       week: 'Bowl',
                       year: currentDynasty.currentYear?.toString() || '',
@@ -4934,8 +4940,8 @@ export default function Dashboard() {
                       gameType: 'bowl',
                     })
                     navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
-                  },
-                  actionLabel: 'Add',
+                  } : undefined,
+                  actionLabel: !bw2IsBye ? 'Add' : undefined,
                 })
               }
 
