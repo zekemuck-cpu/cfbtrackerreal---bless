@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { useDynasty, GAME_TYPES, getCustomConferencesForYear } from '../../context/DynastyContext'
+import { useDynasty, GAME_TYPES, detectGameType, getCustomConferencesForYear } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { TEAMS, getCurrentTeamTid, isFCSPlaceholderAbbr } from '../../data/teamRegistry'
 import { getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
@@ -13,7 +13,22 @@ import FormattedRecap from '../../components/FormattedRecap'
 import buildRecapLinks from '../../utils/buildRecapLinks'
 import { useTeamColors } from '../../hooks/useTeamColors'
 
-const REGULAR_SEASON_WEEKS = Array.from({ length: 15 }, (_, i) => i)  // 0-14 (Week 14 is the last regular-season week; CCG / bowls are separate phases)
+const REGULAR_SEASON_WEEKS = Array.from({ length: 15 }, (_, i) => i)  // 0-14
+
+// Post-season weeks append after the regular season. 15 = Conference
+// Championship, 16-19 = Bowl Weeks 1-4 (incl. CFP bracket).
+const ALL_WEEKS = [...REGULAR_SEASON_WEEKS, 15, 16, 17, 18, 19]
+
+const WEEK_LABELS = {
+  15: 'Conf Champ',
+  16: 'Bowl Week 1',
+  17: 'Bowl Week 2',
+  18: 'Bowl Week 3',
+  19: 'Natl Champ',
+}
+
+// Returns a human-readable label; regular weeks stay as "Week N".
+const weekLabelFor = (wk) => WEEK_LABELS[wk] ?? `Week ${wk}`
 
 // Delegate to the shared mascot-strip helper so this page stays in
 // sync with the canonical list (FCS placeholders + 2/3-word mascots).
@@ -307,24 +322,35 @@ export default function WeeklyScores() {
   const handleYearChange = (y) => navigate(`${pathPrefix}/weekly-scores/${y}/${displayWeek}`)
   const handleWeekChange = (w) => navigate(`${pathPrefix}/weekly-scores/${displayYear}/${w}`)
 
-  // CCG games carry game.week = 'CCG' (a string sentinel). Bucket them
-  // under numeric week 15 — the same slot the Rankings page uses for
-  // the "Conf Champ Week" rank-entry. The plain Number(g.week) check
-  // would silently drop CCG games entirely (Number('CCG') = NaN).
+  // Maps each game to the numeric week slot used as the key in gamesByWeek.
+  // Regular weeks 0-14 come from game.week. Post-season slots:
+  //   15 = Conference Championship
+  //   16 = Bowl Week 1 + CFP First Round
+  //   17 = Bowl Week 2 + CFP Quarterfinal
+  //   18 = Bowl Week 3 / CFP Semifinal
+  //   19 = National Championship
   const weekBucketFor = (g) => {
-    const isCCG = g.isConferenceChampionship || g.gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP
-    if (isCCG) return 15
+    const type = detectGameType(g)
+    if (type === GAME_TYPES.CONFERENCE_CHAMPIONSHIP) return 15
+    if (type === GAME_TYPES.CFP_FIRST_ROUND) return 16
+    if (type === GAME_TYPES.CFP_QUARTERFINAL) return 17
+    if (type === GAME_TYPES.CFP_SEMIFINAL) return 18
+    if (type === GAME_TYPES.CFP_CHAMPIONSHIP) return 19
+    if (type === GAME_TYPES.BOWL) {
+      return g.bowlWeek === 'week2' ? 17 : 16
+    }
     const wk = Number(g.week)
     return Number.isFinite(wk) ? wk : null
   }
 
-  // All regular-season + conf-championship games for the selected year, grouped by week
+  // All games for the selected year, grouped by week slot (regular season
+  // through post-season). Records computation below still limits to
+  // REGULAR + CCG so season records stay accurate.
   const gamesByWeek = useMemo(() => {
     const map = new Map()
     for (const g of allGames) {
       if (!g) continue
       if (Number(g.year) !== displayYear) continue
-      if (g.gameType !== GAME_TYPES.REGULAR && g.gameType !== GAME_TYPES.CONFERENCE_CHAMPIONSHIP) continue
       if (!g.team1Tid || !g.team2Tid) continue
       const wk = weekBucketFor(g)
       if (wk == null) continue
@@ -482,10 +508,11 @@ export default function WeeklyScores() {
               onChange={handleYearChange}
               ariaLabel="Select year"
             />
-            <span>Week</span>
+            {displayWeek < 15 && <span>Week</span>}
             <InlineYearSelect
               value={displayWeek}
-              years={REGULAR_SEASON_WEEKS}
+              years={ALL_WEEKS}
+              labels={WEEK_LABELS}
               onChange={handleWeekChange}
               ariaLabel="Select week"
             />
@@ -511,6 +538,7 @@ export default function WeeklyScores() {
             </select>
             {!isViewOnly && (
               <>
+                {displayWeek <= 15 && (
                 <button
                   type="button"
                   onClick={() => setEditing(true)}
@@ -521,10 +549,11 @@ export default function WeeklyScores() {
                     color: 'var(--text-secondary)',
                     letterSpacing: '1.4px',
                   }}
-                  title={`Edit Week ${displayWeek} scores`}
+                  title={`Edit ${weekLabelFor(displayWeek)} scores`}
                 >
                   Edit Scores
                 </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setRecapModalOpen(true)}
@@ -535,7 +564,7 @@ export default function WeeklyScores() {
                     color: 'var(--text-secondary)',
                     letterSpacing: '1.4px',
                   }}
-                  title={`Edit Week ${displayWeek} recap`}
+                  title={`Edit ${weekLabelFor(displayWeek)} recap`}
                 >
                   Edit Recap
                 </button>
@@ -591,22 +620,22 @@ export default function WeeklyScores() {
         ) : playedThisWeek.length > 0 ? (
           <Card>
             <EmptyState
-              title={`No ${filterLabel} games in Week ${displayWeek}`}
+              title={`No ${filterLabel} games in ${weekLabelFor(displayWeek)}`}
               message={
                 filter === 'top25'
-                  ? `No ranked teams played in Week ${displayWeek}, ${displayYear}.`
-                  : `No games involving ${filterLabel} were played in Week ${displayWeek}, ${displayYear}.`
+                  ? `No ranked teams played in ${weekLabelFor(displayWeek)}, ${displayYear}.`
+                  : `No games involving ${filterLabel} were played in ${weekLabelFor(displayWeek)}, ${displayYear}.`
               }
             />
           </Card>
         ) : (
           <Card>
             <EmptyState
-              title={`No scores entered for Week ${displayWeek}`}
+              title={`No scores entered for ${weekLabelFor(displayWeek)}`}
               message={
                 isViewOnly
-                  ? `The dynasty owner hasn't entered Week ${displayWeek} scores for ${displayYear} yet.`
-                  : `Click "Edit Week ${displayWeek}" to enter results from across the country.`
+                  ? `The dynasty owner hasn't entered ${weekLabelFor(displayWeek)} scores for ${displayYear} yet.`
+                  : `Click "Edit Scores" to enter results from across the country.`
               }
             />
           </Card>
