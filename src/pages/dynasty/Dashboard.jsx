@@ -57,7 +57,7 @@ import EncourageTransfersModal from '../../components/EncourageTransfersModal'
 import RecruitOverallsModal from '../../components/RecruitOverallsModal'
 import PortalTransferClassModal from '../../components/PortalTransferClassModal'
 import FringeCaseClassModal from '../../components/FringeCaseClassModal'
-import { getAllBowlGamesList, isBowlInWeek1, isBowlInWeek2 } from '../../services/sheetsService'
+import { isBowlInWeek1, isBowlInWeek2 } from '../../services/sheetsService'
 import { isSameYear } from '../../utils/compareUtils'
 import { calculateRecruitingClassScore, formatRecruitingClassScore, flattenClassCommitments } from '../../utils/recruitingScore'
 
@@ -629,10 +629,7 @@ export default function Dashboard() {
   const [pendingRecruitingData, setPendingRecruitingData] = useState(null) // { recruits, week, potentialReturning, confirmedReturning, confirmedNew, currentIndex }
 
   // Bowl eligibility states
-  const [bowlEligible, setBowlEligible] = useState(null) // null = not answered, true/false = answered
   const [selectedBowl, setSelectedBowl] = useState('')
-  const [bowlOpponent, setBowlOpponent] = useState('')
-  const [bowlOpponentSearch, setBowlOpponentSearch] = useState('')
   const [showBowlOpponentDropdown, setShowBowlOpponentDropdown] = useState(false)
   // editingWeek/Year/Opponent/Game/BowlName and selectedGame removed - now using game pages instead
 
@@ -705,14 +702,9 @@ export default function Dashboard() {
     const year = currentDynasty?.currentYear
     const bowlData = currentDynasty?.bowlEligibilityDataByYear?.[year]
     if (bowlData) {
-      setBowlEligible(bowlData.eligible ?? null)
       setSelectedBowl(bowlData.bowlGame || '')
-      setBowlOpponent(bowlData.opponent || '')
     } else {
-      // Reset when no data for this year
-      setBowlEligible(null)
       setSelectedBowl('')
-      setBowlOpponent('')
     }
   }, [currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.bowlEligibilityDataByYear])
 
@@ -4328,9 +4320,6 @@ export default function Dashboard() {
             // reference them without hitting a temporal-dead-zone error.
             const userCFPQuarterfinalGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPQuarterfinal || g.gameType === GAME_TYPES.CFP_QUARTERFINAL) && isSameYear(g.year, currentDynasty.currentYear))
             const userCFPQuarterfinalShell = findUserCFPGameShell(currentDynasty, 'quarterfinal', currentDynasty.currentYear)
-            const userBowlIsWeek1 = selectedBowl && isBowlInWeek1(selectedBowl)
-            const userBowlIsWeek2 = selectedBowl && isBowlInWeek2(selectedBowl)
-
             // CFP seed entry creates a SHELL for each CFP game with both
             // scores set to null. So `userCFPFirstRoundGame` is truthy as
             // soon as the user enters their seed, before they've actually
@@ -4370,19 +4359,6 @@ export default function Dashboard() {
             const userHasBowlWeek2Game = !!userBowlGame && (userBowlGame.bowlWeek === 'week2' || isBowlInWeek2(userBowlGame.bowlName || ''))
             // SF + NC equivalents defined later in this IIFE, after the
             // SF/NC game variables are introduced (~line 4326, ~4413).
-
-            // Filter team dropdown for bowl opponent
-            const filteredBowlTeams = bowlOpponentSearch
-              ? Object.entries(teamAbbreviations)
-                  .filter(([abbr, data]) =>
-                    abbr.toLowerCase().includes(bowlOpponentSearch.toLowerCase()) ||
-                    data.name.toLowerCase().includes(bowlOpponentSearch.toLowerCase())
-                  )
-                  .slice(0, 8)
-              : Object.entries(teamAbbreviations).slice(0, 8)
-
-            // All bowl games for dropdown (CFP options removed - handled automatically)
-            const allBowlGames = getAllBowlGamesList()
 
             // Check if user's team is in the CFP - prefer tid lookup
             const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
