@@ -3342,7 +3342,7 @@ export async function createBowlWeek1Sheet(dynastyName, year, cfpSeeds = [], exc
             properties: {
               title: 'Bowl Games',
               gridProperties: {
-                rowCount: rowCount + 1,
+                rowCount: rowCount + 28,
                 columnCount: 5,
                 frozenRowCount: 1
               }
@@ -3692,7 +3692,7 @@ export async function readBowlGamesFromSheet(spreadsheetId, dynastyTeams = null)
     const rowCount = BOWL_GAMES_WEEK_1.length
     console.log('[readBowlGamesFromSheet] Reading', rowCount, 'rows from sheet:', spreadsheetId)
     const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/Bowl Games!A2:E${rowCount + 1}`,
+      `${SHEETS_API_BASE}/${spreadsheetId}/values/Bowl Games!A2:E${rowCount + 28}`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -3709,9 +3709,29 @@ export async function readBowlGamesFromSheet(spreadsheetId, dynastyTeams = null)
     const rows = data.values || []
     console.log('[readBowlGamesFromSheet] Got', rows.length, 'rows from API')
 
-    // Parse into structured data with tid fields for teambuilder support
-    const bowlGames = rows.map((row, idx) => {
+    // Parse into structured data with tid fields for teambuilder support.
+    // Rows with a non-empty Col A (bowl name) are game rows.
+    // Rows with an empty Col A but non-empty Col B (team abbr) and Col C
+    // (rank 1-25) are post-bowl poll entries pasted below the game block.
+    const bowlGames = []
+    const pollEntries = []
+
+    for (let idx = 0; idx < rows.length; idx++) {
+      const row = rows[idx]
       const bowlName = row[0] || ''
+
+      if (!bowlName.trim()) {
+        // Poll row — col B = team abbr, col C = rank
+        const pollAbbr = (row[1] || '').toUpperCase().trim()
+        const pollRankRaw = row[2]
+        const pollRank = pollRankRaw !== undefined && pollRankRaw !== '' ? parseInt(pollRankRaw, 10) : null
+        if (pollAbbr && pollRank !== null && !isNaN(pollRank) && pollRank >= 1 && pollRank <= 25) {
+          const pollTid = getTidFromAbbr(pollAbbr, dynastyTeams)
+          pollEntries.push({ abbr: pollAbbr, rank: pollRank, tid: pollTid })
+        }
+        continue
+      }
+
       const team1Abbr = (row[1] || '').toUpperCase()
       const team2Abbr = (row[2] || '').toUpperCase()
       // Parse scores - handle empty strings, "0", and NaN correctly
@@ -3741,8 +3761,8 @@ export async function readBowlGamesFromSheet(spreadsheetId, dynastyTeams = null)
         }
       }
 
-      return {
-        bowlName: row[0] || '',
+      bowlGames.push({
+        bowlName,
         team1: team1Abbr,
         team2: team2Abbr,
         team1Tid,
@@ -3751,9 +3771,13 @@ export async function readBowlGamesFromSheet(spreadsheetId, dynastyTeams = null)
         team2Score,
         winner,
         winnerTid
-      }
-    })
+      })
+    }
 
+    // Attach poll entries as a non-enumerable property so callers that
+    // iterate bowlGames as a plain array are unaffected, but modals can
+    // read bowlGames.pollEntries to save post-bowl rankings.
+    Object.defineProperty(bowlGames, 'pollEntries', { value: pollEntries, enumerable: false })
     return bowlGames
   } catch (error) {
     console.error('Error reading bowl data:', error)
@@ -4369,7 +4393,7 @@ export async function createBowlWeek2Sheet(dynastyName, year, cfpSeeds = [], fir
             properties: {
               title: 'Bowl Games',
               gridProperties: {
-                rowCount: rowCount + 1,
+                rowCount: rowCount + 28,
                 columnCount: 5,
                 frozenRowCount: 1
               }
@@ -4698,7 +4722,7 @@ export async function readBowlWeek2GamesFromSheet(spreadsheetId, dynastyTeams = 
 
     const rowCount = BOWL_GAMES_WEEK_2.length
     const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/Bowl Games!A2:E${rowCount + 1}`,
+      `${SHEETS_API_BASE}/${spreadsheetId}/values/Bowl Games!A2:E${rowCount + 28}`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -4714,8 +4738,25 @@ export async function readBowlWeek2GamesFromSheet(spreadsheetId, dynastyTeams = 
     const data = await response.json()
     const rows = data.values || []
 
-    // Parse into structured data with tid fields for teambuilder support
-    const bowlGames = rows.map(row => {
+    // Parse into structured data with tid fields for teambuilder support.
+    // Rows with empty Col A are post-bowl poll entries (abbr in col B, rank in col C).
+    const bowlGames = []
+    const pollEntries = []
+
+    for (const row of rows) {
+      const bowlName = row[0] || ''
+
+      if (!bowlName.trim()) {
+        const pollAbbr = (row[1] || '').toUpperCase().trim()
+        const pollRankRaw = row[2]
+        const pollRank = pollRankRaw !== undefined && pollRankRaw !== '' ? parseInt(pollRankRaw, 10) : null
+        if (pollAbbr && pollRank !== null && !isNaN(pollRank) && pollRank >= 1 && pollRank <= 25) {
+          const pollTid = getTidFromAbbr(pollAbbr, dynastyTeams)
+          pollEntries.push({ abbr: pollAbbr, rank: pollRank, tid: pollTid })
+        }
+        continue
+      }
+
       const team1Abbr = (row[1] || '').toUpperCase()
       const team2Abbr = (row[2] || '').toUpperCase()
       const team1Score = row[3] ? parseInt(row[3]) : null
@@ -4736,8 +4777,8 @@ export async function readBowlWeek2GamesFromSheet(spreadsheetId, dynastyTeams = 
         }
       }
 
-      return {
-        bowlName: row[0] || '',
+      bowlGames.push({
+        bowlName,
         team1: team1Abbr,
         team2: team2Abbr,
         team1Tid,
@@ -4746,9 +4787,10 @@ export async function readBowlWeek2GamesFromSheet(spreadsheetId, dynastyTeams = 
         team2Score,
         winner,
         winnerTid
-      }
-    })
+      })
+    }
 
+    Object.defineProperty(bowlGames, 'pollEntries', { value: pollEntries, enumerable: false })
     return bowlGames
   } catch (error) {
     console.error('Error reading bowl week 2 data:', error)

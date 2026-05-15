@@ -9199,6 +9199,38 @@ export function DynastyProvider({ children }) {
     return newGamesArr
   }
 
+  // Write an AP Poll snapshot to rankByWeek for a specific week slot.
+  // Used by bowl-week modals after saving game scores — identical to the
+  // rank pass inside saveWeeklyScores but without the game-creation logic.
+  // rankings: [{ tid, rank }]  — tid may be null if abbr lookup failed
+  // rankWeek: integer week slot (16=BowlWk1, 17=BowlWk2, 18=NatChamp)
+  const saveRankings = async (dynastyId, rankings, year, rankWeek) => {
+    if (blockIfReadOnly(dynastyId, 'save rankings')) return
+    if (!Array.isArray(rankings) || rankings.length === 0) return
+    const rankWeekNum = Number(rankWeek)
+    if (!Number.isFinite(rankWeekNum) || rankWeekNum <= 0) return
+    const dynasty = await findDynastyById(dynastyId)
+    if (!dynasty) return
+    const yearNum = Number(year)
+    const teamsCopy = { ...(dynasty.teams || {}) }
+
+    for (const { tid, rank } of rankings) {
+      if (tid == null || typeof rank !== 'number' || rank < 1 || rank > 25) continue
+      const tidKey = String(tid)
+      const team = teamsCopy[tidKey] || teamsCopy[tid] || {}
+      const byYear = { ...(team.byYear || {}) }
+      const yearKey = String(yearNum)
+      const yearEntry = { ...(byYear[yearKey] || byYear[yearNum] || {}) }
+      const rankByWeek = { ...(yearEntry.rankByWeek || {}) }
+      rankByWeek[rankWeekNum] = rank
+      yearEntry.rankByWeek = rankByWeek
+      byYear[yearKey] = yearEntry
+      teamsCopy[tidKey] = { ...team, byYear }
+    }
+
+    await updateDynasty(dynastyId, { teams: teamsCopy })
+  }
+
   // Save CFP games in unified format to games[] array
   // Handles all rounds: First Round, Quarterfinals, Semifinals, Championship
   // This is the single source of truth for CFP games - does NOT write to cfpResultsByYear
@@ -15484,6 +15516,7 @@ export function DynastyProvider({ children }) {
     saveGameSetChanges,
     saveCPUBowlGames,
     saveWeeklyScores,
+    saveRankings,
     saveCFPGames,
     saveCPUConferenceChampionships,
     saveConferenceChampionshipsHistoryFromSheet,

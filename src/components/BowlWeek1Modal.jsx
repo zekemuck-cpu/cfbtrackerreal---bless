@@ -4,20 +4,19 @@ import { useDynasty } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
-import SheetModalHeader from './ui/SheetModalHeader'
+import SheetToolbar from './SheetToolbar'
 import SheetModalAIHero from './ui/SheetModalAIHero'
-import SheetModalFooter from './ui/SheetModalFooter'
 import SheetManualEntry from './ui/SheetManualEntry'
+import SheetModalFooter from './ui/SheetModalFooter'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
-import SheetToolbar from './SheetToolbar'
 import {
   createBowlWeek1Sheet,
   readBowlGamesFromSheet,
   deleteGoogleSheet,
   getSheetEmbedUrl,
   getCFPFirstRoundGameName,
-  isBowlInWeek1
+  isBowlInWeek1,
 } from '../services/sheetsService'
 import { getCurrentTeamTid, getCurrentTeamAbbr } from '../data/teamRegistry'
 import { getModalColors } from '../utils/colorUtils'
@@ -29,9 +28,17 @@ const isMobileDevice = () => {
   return window.innerWidth < 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 }
 
+// Rankings week slots: 15=CCG, 16=BowlWk1, 17=BowlWk2, 18=NatChamp
+const RANK_WEEK_OPTIONS = [
+  { value: 15, label: 'Conf Champ Week' },
+  { value: 16, label: 'Bowl Week 1' },
+  { value: 17, label: 'Bowl Week 2' },
+  { value: 18, label: 'National Championship' },
+]
+
 export default function BowlWeek1Modal({ isOpen, onClose, onSave, currentYear, teamColors }) {
-  const { currentDynasty } = useDynasty()
-  const { user, signOut } = useAuth()
+  const { currentDynasty, saveRankings } = useDynasty()
+  const { user } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
@@ -42,13 +49,17 @@ export default function BowlWeek1Modal({ isOpen, onClose, onSave, currentYear, t
   const [showDeletedNote, setShowDeletedNote] = useState(false)
   const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
-
-  const [useEmbedded, setUseEmbedded] = useState(() => {
-    // Load preference from localStorage
-    return localStorage.getItem('sheetEmbedPreference') === 'true'
-  })
+  const [useEmbedded, setUseEmbedded] = useState(() => localStorage.getItem('sheetEmbedPreference') === 'true')
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+  const creatingSheetRef = useRef(false)
+
+  // Rankings week — which poll slot this bowl-week screenshot targets.
+  // Default: Bowl Week 1 (slot 16). User can override if backfilling.
+  const [rankWeek, setRankWeek] = useState(16)
+  useEffect(() => {
+    if (isOpen) setRankWeek(16)
+  }, [isOpen])
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Bowl Week 1 Results`,
@@ -120,12 +131,39 @@ Column D, Column E: integer score (0 or higher), no commas, no decimal point.
 CFP First Round rows: For the rows whose Bowl Game name starts with "CFP First Round", Team 1 is the HIGHER seed (the lower seed number: e.g. #5 in "5 vs 12") and Team 2 is the LOWER seed (#12). Do NOT swap them.
 
 ═══════════════════════════════════════════════════════════
+POST-BOWL POLL — paste BELOW the game rows (same tab, same paste)
+═══════════════════════════════════════════════════════════
+After ALL bowl game rows, leave ONE blank row, then list every team in
+the NEW post-Bowl-Week-1 AP Poll (Top 25). This is the poll released
+AFTER these games were played.
+
+For each ranked team, output ONE row:
+  • Leave Col A BLANK (no bowl name)
+  • Col B = team abbreviation (from the TEAM ABBREVIATIONS mapping)
+  • Col C = their rank (1–25)
+  • Cols D, E = leave blank
+
+Format: \\t<TeamAbbr>\\t<Rank>\\t\\t
+(tab, team, tab, rank, tab, tab — Col A blank = no bowl name)
+
+List all 25 ranked teams in rank order (#1 first). If you cannot determine the post-bowl poll from the screenshots (no poll visible), skip this section entirely — do NOT invent rankings.
+
+Example (3 ranked teams, after one blank separator row):
+\\tALA\\t1\\t\\t
+\\tOHIO\\t2\\t\\t
+\\tGA\\t3\\t\\t
+
+═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
 === BOWL GAMES — paste at cell B2 of "Bowl Games" tab ===
 <row1 Team1>\\t<row1 Team2>\\t<row1 T1Score>\\t<row1 T2Score>
 <row2 Team1>\\t<row2 Team2>\\t<row2 T1Score>\\t<row2 T2Score>
 ... (one row per bowl in the screenshot, in the screenshot's order)
+\\t\\t\\t\\t           ← blank separator row
+\\t<rank1Team>\\t<rank1>\\t\\t
+\\t<rank2Team>\\t<rank2>\\t\\t
+... (up to 25 poll rows)
 
 (Each \\t above represents a LITERAL TAB character — use actual tab characters in your output, not the text "\\t".)
 
@@ -134,18 +172,17 @@ FINAL CHECK before you send the answer
 ═══════════════════════════════════════════════════════════
 [ ] Row count matches the number of bowl rows shown in the screenshot exactly (up to 30)
 [ ] Row order matches the screenshot's pre-filled Bowl Game column top-to-bottom
-[ ] Exactly 4 tab-separated values per row (3 tab characters per line)
+[ ] Exactly 4 tab-separated values per game row (3 tab characters per line)
 [ ] Columns B and C are team ABBREVIATIONS only, from the TEAM ABBREVIATIONS mapping
 [ ] Scores are INTEGERS only — no commas, no decimals, no "pts"
 [ ] For CFP First Round rows: Team 1 is the higher seed, Team 2 is the lower seed
 [ ] Blank cells for any unknown scores or unplayed bowls — invented nothing
+[ ] Post-bowl poll block present after a blank separator (or omitted if not visible in screenshots)
+[ ] Poll rows have blank Col A, team abbr in Col B, rank in Col C
 [ ] No header row, no bowl name text, no winner column INSIDE the data. The paste-target label above the fence is required (see Method A/B rules above).`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
   }), [currentYear, currentDynasty?.teams])
-
-  // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
-  const creatingSheetRef = useRef(false)
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
@@ -154,126 +191,74 @@ FINAL CHECK before you send the answer
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Highlight save button when user returns to the window
   useEffect(() => {
     if (!isOpen || !sheetId || useEmbedded) return
-
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         setHighlightSave(true)
         setTimeout(() => setHighlightSave(false), 5000)
       }
     }
-
     const handleFocus = () => {
       setHighlightSave(true)
       setTimeout(() => setHighlightSave(false), 5000)
     }
-
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('focus', handleFocus)
-
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleFocus)
     }
   }, [isOpen, sheetId, useEmbedded])
 
-  // Create bowl sheet when modal opens
   useEffect(() => {
     const createSheet = async () => {
       if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
-        // Set ref immediately to prevent concurrent calls (state updates are async)
         creatingSheetRef.current = true
         setCreatingSheet(true)
         try {
-          // Get CFP seeds to pre-fill First Round teams
           const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[currentYear] || []
-
-          // Calculate which games to exclude (user's CFP First Round game + user's bowl game)
           const excludeGames = []
 
-          // Check if user is in CFP First Round (seeds 5-12)
           const userTeamTid = getCurrentTeamTid(currentDynasty)
           const userTeamAbbr = getCurrentTeamAbbr(currentDynasty) || ''
           const userCFPSeed = cfpSeeds.find(s => s.tid === userTeamTid)?.seed || null
           if (userCFPSeed >= 5 && userCFPSeed <= 12) {
             const cfpGameName = getCFPFirstRoundGameName(userCFPSeed)
-            if (cfpGameName) {
-              excludeGames.push(cfpGameName)
-            }
+            if (cfpGameName) excludeGames.push(cfpGameName)
           }
 
-          // Check if user has a Week 1 bowl game
           const userBowlGame = currentDynasty?.bowlEligibilityDataByYear?.[currentYear]?.bowlGame
           if (userBowlGame && isBowlInWeek1(userBowlGame)) {
             excludeGames.push(userBowlGame)
           }
 
-          // Get existing bowl week 1 data for pre-filling
-          // First get legacy bowlGamesByYear data
           const legacyBowlWeek1 = currentDynasty?.bowlGamesByYear?.[currentYear]?.week1 || []
-
-          // Also check unified games[] array for bowl games
           const unifiedBowlGames = (currentDynasty?.games || [])
             .filter(g => {
-              // Check if it's a bowl game from this year
               if (Number(g.year) !== currentYear) return false
-              // Check game type - could be 'bowl' or detected by bowlName
               const isBowl = g.gameType === 'bowl' || (g.bowlName && !g.bowlName.includes('CFP'))
               if (!isBowl) return false
-              // Only include week 1 bowls
               return isBowlInWeek1(g.bowlName)
             })
             .map(g => {
-              // Convert to the format expected by the sheet (team1/team2 style)
               if (g.opponent) {
-                // User game - convert from opponent format
-                return {
-                  bowlName: g.bowlName,
-                  team1: g.userTeam || userTeamAbbr,
-                  team2: g.opponent,
-                  team1Score: g.teamScore,
-                  team2Score: g.opponentScore
-                }
-              } else {
-                // CPU game format
-                return {
-                  bowlName: g.bowlName,
-                  team1: g.team1,
-                  team2: g.team2,
-                  team1Score: g.team1Score,
-                  team2Score: g.team2Score
-                }
+                return { bowlName: g.bowlName, team1: g.userTeam || userTeamAbbr, team2: g.opponent, team1Score: g.teamScore, team2Score: g.opponentScore }
               }
+              return { bowlName: g.bowlName, team1: g.team1, team2: g.team2, team1Score: g.team1Score, team2Score: g.team2Score }
             })
 
-          // Merge legacy and unified, preferring unified (newer) data
           const existingBowlWeek1 = [...legacyBowlWeek1]
           unifiedBowlGames.forEach(ug => {
-            const existingIndex = existingBowlWeek1.findIndex(eb => eb.bowlName === ug.bowlName)
-            if (existingIndex >= 0) {
-              existingBowlWeek1[existingIndex] = ug // Replace with unified data
-            } else {
-              existingBowlWeek1.push(ug)
-            }
+            const idx = existingBowlWeek1.findIndex(eb => eb.bowlName === ug.bowlName)
+            if (idx >= 0) existingBowlWeek1[idx] = ug
+            else existingBowlWeek1.push(ug)
           })
 
-          // Read existing CFP First Round results from unified games[] array
           const allGames = currentDynasty?.games || []
           const existingCFPFirstRound = allGames
-            .filter(g => g &&
-              (g.gameType === 'cfp_first_round' || g.isCFPFirstRound) &&
-              Number(g.year) === Number(currentYear))
-            .map(g => ({
-              seed1: g.seed1,
-              seed2: g.seed2,
-              team1: g.team1,
-              team2: g.team2,
-              team1Score: g.team1Score,
-              team2Score: g.team2Score,
-              winner: g.winner
-            }))
+            .filter(g => g && (g.gameType === 'cfp_first_round' || g.isCFPFirstRound) && Number(g.year) === Number(currentYear))
+            .map(g => ({ seed1: g.seed1, seed2: g.seed2, team1: g.team1, team2: g.team2, team1Score: g.team1Score, team2Score: g.team2Score, winner: g.winner }))
 
           const sheetInfo = await createBowlWeek1Sheet(
             currentDynasty?.teamName || 'Dynasty',
@@ -282,17 +267,11 @@ FINAL CHECK before you send the answer
             excludeGames,
             existingBowlWeek1,
             existingCFPFirstRound,
-            currentDynasty?.teams || currentDynasty?.customTeams
+            currentDynasty?.teams || currentDynasty?.customTeams,
           )
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {
           console.error('Failed to create bowl sheet:', error)
-          // Route OAuth/auth errors through the auth-error modal so the
-          // user sees an actionable prompt instead of a silent failure.
-          // Other catches in this modal already use this pattern; the
-          // sheet-creation catch was missed and just console.error-d
-          // ("Try refreshing your session or sign out and sign back in"
-          //  was never surfaced to the user).
           auth.handleError(error)
         } finally {
           setCreatingSheet(false)
@@ -300,11 +279,9 @@ FINAL CHECK before you send the answer
         }
       }
     }
-
     createSheet()
   }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote])
 
-  // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
@@ -313,61 +290,52 @@ FINAL CHECK before you send the answer
     }
   }, [isOpen])
 
-  const handleSyncFromSheet = async () => {
+  const handleSave = async (alsoDelete) => {
     if (!sheetId) return
-
-    setSyncing(true)
+    if (alsoDelete) setDeletingSheet(true); else setSyncing(true)
     try {
-      const bowlGames = await readBowlGamesFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
-      await onSave(bowlGames)
-      onClose()
-    } catch (error) {
-      console.error(error)
-      if (!auth.handleError(error)) {
-        toast.error('Failed to sync from Google Sheets. Make sure data is properly formatted.')
+      const bowlGames = await readBowlGamesFromSheet(sheetId, currentDynasty?.teams || currentDynasty?.customTeams)
+
+      // Save post-bowl poll rankings if the AI included them
+      const pollEntries = bowlGames.pollEntries || []
+      if (pollEntries.length > 0 && currentDynasty?.id) {
+        try {
+          await saveRankings(currentDynasty.id, pollEntries, currentYear, rankWeek)
+        } catch (e) {
+          console.error('Failed to save bowl week 1 rankings:', e)
+        }
       }
-    } finally {
-      setSyncing(false)
-    }
-  }
 
-  const handleSyncAndDelete = async () => {
-    if (!sheetId) return
-
-    setDeletingSheet(true)
-    try {
-      const bowlGames = await readBowlGamesFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(bowlGames)
 
-      // Move sheet to trash (keep sheet ID stored so user can restore if needed)
-      await deleteGoogleSheet(sheetId)
-
-      setSheetId(null)
-      setShowDeletedNote(true)
-      setTimeout(() => {
+      if (alsoDelete) {
+        try { await deleteGoogleSheet(sheetId) } catch (e) { console.error('Failed to delete sheet:', e) }
+        setSheetId(null)
+        setShowDeletedNote(true)
+        setTimeout(() => onClose(), 2500)
+      } else {
         onClose()
-      }, 2500)
+      }
     } catch (error) {
-      console.error('Error in handleSyncAndDelete:', error)
+      console.error('Error saving bowl week 1:', error)
       if (!auth.handleError(error)) {
-        toast.error(`Failed to sync/delete: ${error.message || 'Unknown error'}`)
+        toast.error(`Failed to sync: ${error.message || 'Unknown error'}`)
       }
     } finally {
       setDeletingSheet(false)
+      setSyncing(false)
     }
   }
 
   const handleRegenerateSheet = async () => {
     if (!sheetId) return
-
     const confirmed = await confirm({
       title: 'Regenerate sheet?',
-      message: "This will delete your current sheet and create a fresh one. Any unsaved data will be lost.",
+      message: 'This will delete your current sheet and create a fresh one. Any unsaved data will be lost.',
       confirmLabel: 'Regenerate',
       variant: 'danger',
     })
     if (!confirmed) return
-
     setRegenerating(true)
     try {
       await deleteGoogleSheet(sheetId)
@@ -408,88 +376,188 @@ FINAL CHECK before you send the answer
     }
   }
 
-  const handleClose = () => {
-    onClose()
-  }
-
   if (!isOpen) return null
 
   const embedUrl = sheetId ? getSheetEmbedUrl(sheetId, 'Bowl Games') : null
   const isLoading = creatingSheet
 
+  const rankWeekSelect = (
+    <select
+      id="bw1-rank-week"
+      value={rankWeek}
+      onChange={(e) => setRankWeek(Number(e.target.value))}
+      disabled={syncing || deletingSheet}
+      className="px-3 py-2 rounded-md bg-surface-2 border border-surface-4 hover:border-surface-5 text-txt-primary text-sm font-medium tabular-nums focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-3 disabled:opacity-60 transition-colors"
+    >
+      {RANK_WEEK_OPTIONS.map(({ value, label }) => (
+        <option key={value} value={value}>{label}</option>
+      ))}
+    </select>
+  )
+
   return createPortal(
     <div
       className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
       style={{ margin: 0 }}
-      onMouseDown={handleClose}
+      onMouseDown={onClose}
     >
       <div
-        className={`card-elevated w-full max-h-[calc(100dvh-4rem)] flex flex-col overflow-hidden ${
-          useEmbedded
-            ? 'sm:w-[95vw] sm:h-[95dvh]'
-            : 'sm:max-w-[680px] sm:h-auto'
+        className={`card-elevated relative w-full max-h-[calc(100dvh-4rem)] flex flex-col overflow-hidden ${
+          useEmbedded ? 'sm:w-[95vw] sm:h-[95dvh]' : 'sm:max-w-[680px] sm:h-auto'
         }`}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <SheetModalHeader eyebrow="Postseason" title={`${currentYear} Bowl Week 1`} onClose={handleClose} />
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 sm:px-7 py-4 border-b border-surface-4">
+          <div className="flex flex-col">
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-txt-tertiary mb-0.5">Postseason</span>
+            <h2 className="text-xl sm:text-2xl font-bold text-txt-primary tracking-tight tabular-nums">
+              {currentYear} Bowl Week 1
+            </h2>
+          </div>
+          <button
+            aria-label="Close"
+            onClick={onClose}
+            className="text-txt-tertiary hover:text-txt-primary transition-colors -mr-1 p-1.5 rounded-md hover:bg-surface-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
-        <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
-        {isLoading ? (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div
-                className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4"
-                style={{
-                  borderColor: 'var(--text-primary)',
-                  borderTopColor: 'transparent'
-                }}
-              />
-              <SheetLoadingHint active={isLoading} />
-            </div>
-          </div>
-        ) : showDeletedNote ? (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-xl font-bold text-txt-primary">Saved</p>
-          </div>
-        ) : sheetId ? (
-          <div className="flex-1 flex flex-col overflow-hidden gap-3">
-            <SheetModalAIHero
-              tagline="Skip the typing. Let AI fill the bowl results."
-              buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
-            />
-            {isMobile || !useEmbedded ? (
-              <SheetManualEntry sheetId={sheetId} />
-            ) : (
-              <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
-                <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="Bowl Week 1" />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {isLoading ? (
+            <div className="flex-1 flex items-center justify-center p-6">
+              <div className="text-center">
+                <div
+                  className="animate-spin w-10 h-10 border-2 rounded-full mx-auto mb-4"
+                  style={{ borderColor: 'var(--text-primary)', borderTopColor: 'transparent' }}
+                />
+                <SheetLoadingHint active={isLoading} />
               </div>
-            )}
-            <SheetModalFooter
-              syncing={syncing}
-              deletingSheet={deletingSheet}
-              regenerating={regenerating}
-              highlightSave={highlightSave}
-              onSaveAndDelete={handleSyncAndDelete}
-              onSaveAndKeep={handleSyncFromSheet}
-              onDeleteSheetOnly={handleDeleteSheetOnly}
-              onRegenerate={handleRegenerateSheet}
-              showEmbeddedToggle={!isMobile}
-              useEmbedded={useEmbedded}
-              onToggleEmbedded={() => { const newValue = !useEmbedded; setUseEmbedded(newValue); localStorage.setItem('sheetEmbedPreference', newValue.toString()); }}
-            />
-          </div>
-        ) : null}
+            </div>
+          ) : showDeletedNote ? (
+            <div className="flex-1 flex items-center justify-center p-6">
+              <p className="text-xl font-bold text-txt-primary">Saved</p>
+            </div>
+          ) : sheetId ? (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="px-5 sm:px-7 pt-4 pb-3">
+                <SheetModalAIHero
+                  tagline="Skip the typing. Let AI fill the bowl results."
+                  buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
+                />
+              </div>
+
+              {!isMobile && useEmbedded ? (
+                <>
+                  <div className="px-5 sm:px-7 py-3 border-b border-surface-4 flex flex-wrap gap-2 items-center">
+                    <button
+                      onClick={() => handleSave(true)}
+                      disabled={syncing || deletingSheet}
+                      className={`btn-refined btn-refined--solid ${highlightSave ? 'animate-pulse-subtle' : ''}`}
+                    >
+                      {deletingSheet ? 'Saving…' : 'Save & move to trash'}
+                    </button>
+                    <button
+                      onClick={() => handleSave(false)}
+                      disabled={syncing || deletingSheet}
+                      className="btn-refined"
+                    >
+                      {syncing ? 'Saving…' : 'Save & keep sheet'}
+                    </button>
+
+                    <span className="mx-1 h-6 w-px bg-surface-4" aria-hidden="true" />
+
+                    <label htmlFor="bw1-rank-week" className="label-xs text-txt-tertiary">
+                      Rankings week
+                    </label>
+                    {rankWeekSelect}
+
+                    <div className="ml-auto flex items-center gap-2">
+                      <button
+                        onClick={handleDeleteSheetOnly}
+                        disabled={syncing || deletingSheet || regenerating}
+                        className="btn-refined"
+                      >
+                        {deletingSheet ? 'Deleting…' : 'Delete sheet'}
+                      </button>
+                      <button
+                        onClick={handleRegenerateSheet}
+                        disabled={syncing || deletingSheet || regenerating}
+                        className="btn-refined btn-refined--danger"
+                      >
+                        {regenerating ? 'Regenerating…' : 'Regenerate'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg mx-5 sm:mx-7 my-3">
+                    <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="Bowl Week 1" />
+                  </div>
+
+                  <div className="px-5 sm:px-7 py-2 flex items-center justify-end">
+                    <button
+                      onClick={() => {
+                        const v = !useEmbedded
+                        setUseEmbedded(v)
+                        localStorage.setItem('sheetEmbedPreference', v.toString())
+                      }}
+                      className="text-xs text-txt-tertiary hover:text-txt-primary transition-colors underline decoration-dotted underline-offset-4"
+                    >
+                      ← Back to default view
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 overflow-y-auto">
+                  <div className="max-w-md mx-auto px-5 sm:px-7 py-6 flex flex-col gap-5">
+                    <SheetManualEntry sheetId={sheetId} />
+
+                    <section className="text-center">
+                      <label htmlFor="bw1-rank-week" className="label-xs text-txt-tertiary block mb-2">
+                        Rankings week
+                      </label>
+                      <div className="flex justify-center">
+                        {rankWeekSelect}
+                      </div>
+                      <p className="text-xs text-txt-tertiary mt-2 leading-relaxed">
+                        The Top 25 the AI extracts from your screenshot lands in this week's poll slot.
+                      </p>
+                    </section>
+
+                    <SheetModalFooter
+                      syncing={syncing}
+                      deletingSheet={deletingSheet}
+                      regenerating={regenerating}
+                      highlightSave={highlightSave}
+                      onSaveAndDelete={() => handleSave(true)}
+                      onSaveAndKeep={() => handleSave(false)}
+                      onDeleteSheetOnly={handleDeleteSheetOnly}
+                      onRegenerate={handleRegenerateSheet}
+                      showEmbeddedToggle={!isMobile}
+                      useEmbedded={useEmbedded}
+                      onToggleEmbedded={() => {
+                        const v = !useEmbedded
+                        setUseEmbedded(v)
+                        localStorage.setItem('sheetEmbedPreference', v.toString())
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
       </div>
 
-      {/* Auth Error Modal */}
       <AuthErrorModal
         isOpen={auth.showAuthError}
         onClose={auth.closeAuthError}
         onRefresh={auth.retry}
         teamColors={teamColors}
       />
-
     </div>,
     document.body,
   )
