@@ -3343,7 +3343,7 @@ export async function createBowlWeek1Sheet(dynastyName, year, cfpSeeds = [], exc
               title: 'Bowl Games',
               gridProperties: {
                 rowCount: rowCount + 28,
-                columnCount: 5,
+                columnCount: 7,
                 frozenRowCount: 1
               }
             }
@@ -3478,7 +3478,9 @@ async function initializeBowlWeek1Sheet(spreadsheetId, accessToken, sheetId, bow
     const values = [
       { userEnteredValue: { stringValue: bowl } },
       { userEnteredValue: { stringValue: team1 } },
-      { userEnteredValue: { stringValue: team2 } }
+      { userEnteredValue: { stringValue: '' } },  // Team 1 Rank (blank, user fills from screenshot)
+      { userEnteredValue: { stringValue: team2 } },
+      { userEnteredValue: { stringValue: '' } },  // Team 2 Rank (blank)
     ]
 
     // Add scores if we have them
@@ -3505,13 +3507,15 @@ async function initializeBowlWeek1Sheet(spreadsheetId, accessToken, sheetId, bow
           startRowIndex: 0,
           endRowIndex: 1,
           startColumnIndex: 0,
-          endColumnIndex: 5
+          endColumnIndex: 7
         },
         rows: [{
           values: [
             { userEnteredValue: { stringValue: 'Bowl Game' } },
             { userEnteredValue: { stringValue: 'Team 1' } },
+            { userEnteredValue: { stringValue: 'T1 Rank' } },
             { userEnteredValue: { stringValue: 'Team 2' } },
+            { userEnteredValue: { stringValue: 'T2 Rank' } },
             { userEnteredValue: { stringValue: 'Team 1 Score' } },
             { userEnteredValue: { stringValue: 'Team 2 Score' } }
           ]
@@ -3527,7 +3531,7 @@ async function initializeBowlWeek1Sheet(spreadsheetId, accessToken, sheetId, bow
           startRowIndex: 1,
           endRowIndex: rowCount + 1,
           startColumnIndex: 0,
-          endColumnIndex: 5
+          endColumnIndex: 7
         },
         rows: bowlRows,
         fields: 'userEnteredValue'
@@ -3581,8 +3585,8 @@ async function initializeBowlWeek1Sheet(spreadsheetId, accessToken, sheetId, bow
           sheetId: sheetId,
           startRowIndex: 1,
           endRowIndex: rowCount + 1,
-          startColumnIndex: 2,
-          endColumnIndex: 3
+          startColumnIndex: 3,
+          endColumnIndex: 4
         },
         rule: {
           condition: {
@@ -3643,9 +3647,21 @@ async function initializeBowlWeek1Sheet(spreadsheetId, accessToken, sheetId, bow
           sheetId: sheetId,
           dimension: 'COLUMNS',
           startIndex: 1,
+          endIndex: 2
+        },
+        properties: { pixelSize: 90 },
+        fields: 'pixelSize'
+      }
+    },
+    {
+      updateDimensionProperties: {
+        range: {
+          sheetId: sheetId,
+          dimension: 'COLUMNS',
+          startIndex: 2,
           endIndex: 3
         },
-        properties: { pixelSize: 100 },
+        properties: { pixelSize: 55 },
         fields: 'pixelSize'
       }
     },
@@ -3655,16 +3671,40 @@ async function initializeBowlWeek1Sheet(spreadsheetId, accessToken, sheetId, bow
           sheetId: sheetId,
           dimension: 'COLUMNS',
           startIndex: 3,
+          endIndex: 4
+        },
+        properties: { pixelSize: 90 },
+        fields: 'pixelSize'
+      }
+    },
+    {
+      updateDimensionProperties: {
+        range: {
+          sheetId: sheetId,
+          dimension: 'COLUMNS',
+          startIndex: 4,
           endIndex: 5
         },
-        properties: { pixelSize: 100 },
+        properties: { pixelSize: 55 },
+        fields: 'pixelSize'
+      }
+    },
+    {
+      updateDimensionProperties: {
+        range: {
+          sheetId: sheetId,
+          dimension: 'COLUMNS',
+          startIndex: 5,
+          endIndex: 7
+        },
+        properties: { pixelSize: 80 },
         fields: 'pixelSize'
       }
     },
     // Add conditional formatting for team colors (Team 1 column)
     ...generateBowlTeamFormattingRules(sheetId, 1, rowCount, dynastyTeams),
     // Add conditional formatting for team colors (Team 2 column)
-    ...generateBowlTeamFormattingRules(sheetId, 2, rowCount, dynastyTeams)
+    ...generateBowlTeamFormattingRules(sheetId, 3, rowCount, dynastyTeams)
   ]
 
   // Execute batch update
@@ -3692,7 +3732,7 @@ export async function readBowlGamesFromSheet(spreadsheetId, dynastyTeams = null)
     const rowCount = BOWL_GAMES_WEEK_1.length
     console.log('[readBowlGamesFromSheet] Reading', rowCount, 'rows from sheet:', spreadsheetId)
     const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/Bowl Games!A2:E${rowCount + 28}`,
+      `${SHEETS_API_BASE}/${spreadsheetId}/values/Bowl Games!A2:G${rowCount + 28}`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -3733,10 +3773,12 @@ export async function readBowlGamesFromSheet(spreadsheetId, dynastyTeams = null)
       }
 
       const team1Abbr = (row[1] || '').toUpperCase()
-      const team2Abbr = (row[2] || '').toUpperCase()
+      const team1Rank = row[2] ? parseInt(row[2], 10) : null
+      const team2Abbr = (row[3] || '').toUpperCase()
+      const team2Rank = row[4] ? parseInt(row[4], 10) : null
       // Parse scores - handle empty strings, "0", and NaN correctly
-      const score1Raw = row[3]
-      const score2Raw = row[4]
+      const score1Raw = row[5]
+      const score2Raw = row[6]
       const parsedScore1 = score1Raw !== undefined && score1Raw !== '' ? parseInt(score1Raw, 10) : null
       const parsedScore2 = score2Raw !== undefined && score2Raw !== '' ? parseInt(score2Raw, 10) : null
       // Handle NaN from parseInt
@@ -3764,7 +3806,9 @@ export async function readBowlGamesFromSheet(spreadsheetId, dynastyTeams = null)
       bowlGames.push({
         bowlName,
         team1: team1Abbr,
+        team1Rank: team1Rank !== null && !isNaN(team1Rank) && team1Rank >= 1 && team1Rank <= 25 ? team1Rank : null,
         team2: team2Abbr,
+        team2Rank: team2Rank !== null && !isNaN(team2Rank) && team2Rank >= 1 && team2Rank <= 25 ? team2Rank : null,
         team1Tid,
         team2Tid,
         team1Score,
@@ -4394,7 +4438,7 @@ export async function createBowlWeek2Sheet(dynastyName, year, cfpSeeds = [], fir
               title: 'Bowl Games',
               gridProperties: {
                 rowCount: rowCount + 28,
-                columnCount: 5,
+                columnCount: 7,
                 frozenRowCount: 1
               }
             }
@@ -4524,13 +4568,15 @@ async function initializeBowlWeek2Sheet(spreadsheetId, accessToken, sheetId, bow
           startRowIndex: 0,
           endRowIndex: 1,
           startColumnIndex: 0,
-          endColumnIndex: 5
+          endColumnIndex: 7
         },
         rows: [{
           values: [
             { userEnteredValue: { stringValue: 'Bowl Game' } },
             { userEnteredValue: { stringValue: 'Team 1' } },
+            { userEnteredValue: { stringValue: 'T1 Rank' } },
             { userEnteredValue: { stringValue: 'Team 2' } },
+            { userEnteredValue: { stringValue: 'T2 Rank' } },
             { userEnteredValue: { stringValue: 'Team 1 Score' } },
             { userEnteredValue: { stringValue: 'Team 2 Score' } }
           ]
@@ -4546,13 +4592,15 @@ async function initializeBowlWeek2Sheet(spreadsheetId, accessToken, sheetId, bow
           startRowIndex: 1,
           endRowIndex: rowCount + 1,
           startColumnIndex: 0,
-          endColumnIndex: 5
+          endColumnIndex: 7
         },
         rows: rowData.map(row => ({
           values: [
             { userEnteredValue: { stringValue: row.bowl } },
             { userEnteredValue: { stringValue: row.team1 } },
+            { userEnteredValue: { stringValue: '' } },  // Team 1 Rank (blank, user fills from screenshot)
             { userEnteredValue: { stringValue: row.team2 } },
+            { userEnteredValue: { stringValue: '' } },  // Team 2 Rank (blank)
             row.team1Score !== undefined && row.team1Score !== null
               ? { userEnteredValue: { numberValue: row.team1Score } }
               : { userEnteredValue: { stringValue: '' } },
@@ -4612,8 +4660,8 @@ async function initializeBowlWeek2Sheet(spreadsheetId, accessToken, sheetId, bow
           sheetId: sheetId,
           startRowIndex: 1,
           endRowIndex: rowCount + 1,
-          startColumnIndex: 2,
-          endColumnIndex: 3
+          startColumnIndex: 3,
+          endColumnIndex: 4
         },
         rule: {
           condition: {
@@ -4674,9 +4722,21 @@ async function initializeBowlWeek2Sheet(spreadsheetId, accessToken, sheetId, bow
           sheetId: sheetId,
           dimension: 'COLUMNS',
           startIndex: 1,
+          endIndex: 2
+        },
+        properties: { pixelSize: 90 },
+        fields: 'pixelSize'
+      }
+    },
+    {
+      updateDimensionProperties: {
+        range: {
+          sheetId: sheetId,
+          dimension: 'COLUMNS',
+          startIndex: 2,
           endIndex: 3
         },
-        properties: { pixelSize: 100 },
+        properties: { pixelSize: 55 },
         fields: 'pixelSize'
       }
     },
@@ -4686,16 +4746,40 @@ async function initializeBowlWeek2Sheet(spreadsheetId, accessToken, sheetId, bow
           sheetId: sheetId,
           dimension: 'COLUMNS',
           startIndex: 3,
+          endIndex: 4
+        },
+        properties: { pixelSize: 90 },
+        fields: 'pixelSize'
+      }
+    },
+    {
+      updateDimensionProperties: {
+        range: {
+          sheetId: sheetId,
+          dimension: 'COLUMNS',
+          startIndex: 4,
           endIndex: 5
         },
-        properties: { pixelSize: 100 },
+        properties: { pixelSize: 55 },
+        fields: 'pixelSize'
+      }
+    },
+    {
+      updateDimensionProperties: {
+        range: {
+          sheetId: sheetId,
+          dimension: 'COLUMNS',
+          startIndex: 5,
+          endIndex: 7
+        },
+        properties: { pixelSize: 80 },
         fields: 'pixelSize'
       }
     },
     // Add conditional formatting for team colors (Team 1 column)
     ...generateBowlTeamFormattingRules(sheetId, 1, rowCount, dynastyTeams),
     // Add conditional formatting for team colors (Team 2 column)
-    ...generateBowlTeamFormattingRules(sheetId, 2, rowCount, dynastyTeams)
+    ...generateBowlTeamFormattingRules(sheetId, 3, rowCount, dynastyTeams)
   ]
 
   // Execute batch update
@@ -4722,7 +4806,7 @@ export async function readBowlWeek2GamesFromSheet(spreadsheetId, dynastyTeams = 
 
     const rowCount = BOWL_GAMES_WEEK_2.length
     const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/Bowl Games!A2:E${rowCount + 28}`,
+      `${SHEETS_API_BASE}/${spreadsheetId}/values/Bowl Games!A2:G${rowCount + 28}`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -4758,9 +4842,15 @@ export async function readBowlWeek2GamesFromSheet(spreadsheetId, dynastyTeams = 
       }
 
       const team1Abbr = (row[1] || '').toUpperCase()
-      const team2Abbr = (row[2] || '').toUpperCase()
-      const team1Score = row[3] ? parseInt(row[3]) : null
-      const team2Score = row[4] ? parseInt(row[4]) : null
+      const team1Rank = row[2] ? parseInt(row[2], 10) : null
+      const team2Abbr = (row[3] || '').toUpperCase()
+      const team2Rank = row[4] ? parseInt(row[4], 10) : null
+      const score1Raw = row[5]
+      const score2Raw = row[6]
+      const parsedScore1 = score1Raw !== undefined && score1Raw !== '' ? parseInt(score1Raw, 10) : null
+      const parsedScore2 = score2Raw !== undefined && score2Raw !== '' ? parseInt(score2Raw, 10) : null
+      const team1Score = parsedScore1 !== null && !isNaN(parsedScore1) ? parsedScore1 : null
+      const team2Score = parsedScore2 !== null && !isNaN(parsedScore2) ? parsedScore2 : null
       const team1Tid = team1Abbr ? getTidFromAbbr(team1Abbr, dynastyTeams) : null
       const team2Tid = team2Abbr ? getTidFromAbbr(team2Abbr, dynastyTeams) : null
 
@@ -4780,7 +4870,9 @@ export async function readBowlWeek2GamesFromSheet(spreadsheetId, dynastyTeams = 
       bowlGames.push({
         bowlName,
         team1: team1Abbr,
+        team1Rank: team1Rank !== null && !isNaN(team1Rank) && team1Rank >= 1 && team1Rank <= 25 ? team1Rank : null,
         team2: team2Abbr,
+        team2Rank: team2Rank !== null && !isNaN(team2Rank) && team2Rank >= 1 && team2Rank <= 25 ? team2Rank : null,
         team1Tid,
         team2Tid,
         team1Score,
