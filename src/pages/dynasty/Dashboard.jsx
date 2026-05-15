@@ -4853,7 +4853,7 @@ export default function Dashboard() {
 
               bw2Todos.push({
                 key: 'bw1-results',
-                done: hasBowlWeek1Data,
+                done: totalEnteredWeek1 >= 30,
                 title: 'Week 1 Bowl Results',
                 subtitle: totalEnteredWeek1 === 30
                   ? 'All 30 games entered'
@@ -5466,7 +5466,7 @@ export default function Dashboard() {
             if (week === 3) {
               w34Todos.push({
                 key: 'bw2-results',
-                done: hasBowlWeek2Data,
+                done: totalEnteredWeek2 >= 12,
                 title: 'Week 2 Bowl Results',
                 subtitle: totalEnteredWeek2 === 12
                   ? 'All 12 games entered'
