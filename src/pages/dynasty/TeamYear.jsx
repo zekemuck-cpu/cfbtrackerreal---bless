@@ -810,9 +810,12 @@ export default function TeamYear() {
       if (Number(g.year) !== Number(selectedYear)) return
 
       // UNIFIED FORMAT: Check team1Tid/team2Tid
-      const hasUnifiedFormat = g.team1Tid && g.team2Tid
-      const isTeam1ByTid = g.team1Tid === tid
-      const isTeam2ByTid = g.team2Tid === tid
+      // Coerce to Number to handle Firestore string round-trips (e.g. "42" vs 42)
+      const t1 = g.team1Tid != null ? Number(g.team1Tid) : null
+      const t2 = g.team2Tid != null ? Number(g.team2Tid) : null
+      const hasUnifiedFormat = t1 != null && t2 != null
+      const isTeam1ByTid = t1 === tid
+      const isTeam2ByTid = t2 === tid
       const isInGameByTid = isTeam1ByTid || isTeam2ByTid
 
       // LEGACY FORMAT: Resolve team1/team2 abbreviations to tids for comparison
@@ -858,7 +861,7 @@ export default function TeamYear() {
         userTidForYear = resolveTid(currentDynasty.teamName, currentDynasty.teams)
       }
       const isCPUGame = hasUnifiedFormat
-        ? (g.team1Tid !== userTidForYear && g.team2Tid !== userTidForYear)
+        ? (t1 !== userTidForYear && t2 !== userTidForYear)
         : (!g.userTeam && g.team1 && g.team2)
 
       // Calculate scores from unified or legacy format
@@ -874,12 +877,12 @@ export default function TeamYear() {
       // Determine winner (unified or legacy format) - only if game was played (tid-based)
       const winnerResolvedTid = g.winner ? resolveTid(g.winner, teamsSource) : null
       const teamWon = isGamePlayed && (hasUnifiedFormat
-        ? (g.winnerTid === tid || thisTeamScore > otherTeamScore)
+        ? (Number(g.winnerTid) === tid || thisTeamScore > otherTeamScore)
         : (winnerResolvedTid === tid || (g.result === 'win' && userTeamResolvedTid === tid) ||
            (g.result === 'loss' && opponentResolvedTid === tid)))
 
       // Get opponent tid/abbr (tid-based)
-      const opponentTid = isTeam1 ? g.team2Tid : (isTeam2 ? g.team1Tid : null)
+      const opponentTid = isTeam1 ? t2 : (isTeam2 ? t1 : null)
       const opponentTidResolved = opponentTid || (isTeam1 ? team2ResolvedTid : team1ResolvedTid)
       // Get opponent abbreviation for display
       let opponentAbbrResolved
@@ -924,7 +927,7 @@ export default function TeamYear() {
 
       // User game - check if this team was the user's team or opponent (tid-based)
       const wasUserTeam = hasUnifiedFormat
-        ? (isInGameByTid && (g.team1Tid === userTidForYear || g.team2Tid === userTidForYear) && (isTeam1ByTid === (g.team1Tid === userTidForYear)))
+        ? (isInGameByTid && (t1 === userTidForYear || t2 === userTidForYear) && (isTeam1ByTid === (t1 === userTidForYear)))
         : (userTeamResolvedTid === tid || (!g.userTeam && isUserTeam))
 
       if (wasUserTeam) {
@@ -983,7 +986,7 @@ export default function TeamYear() {
         : (g.location === 'home' ? 'away' : (g.location === 'away' ? 'home' : g.location))
 
       // Get the other team's info for display
-      const otherTeamTid = isTeam1 ? g.team2Tid : g.team1Tid
+      const otherTeamTid = isTeam1 ? t2 : t1
       let otherTeamAbbr
       if (hasUnifiedFormat && otherTeamTid) {
         const otherTeam = teamsSource[otherTeamTid] || TEAMS[otherTeamTid]

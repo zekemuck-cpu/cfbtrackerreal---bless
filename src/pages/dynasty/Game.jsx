@@ -231,26 +231,27 @@ function buildHighlightSentence(play) {
   const yardsStr = rawYards !== undefined && rawYards !== null && rawYards !== '' ? String(rawYards) : ''
   const yardsNum = Number(yardsStr)
   const yardsAbs = Number.isFinite(yardsNum) ? Math.abs(yardsNum) : null
+  const yardWord = (n) => Math.abs(Number(n)) === 1 ? 'yard' : 'yards'
 
   switch (playType) {
     case 'Rush': {
       if (!primary) return ''
-      if (isTD) return yardsStr ? `${primary} rush for ${yardsStr} yards for a TD` : `${primary} rush for a TD`
+      if (isTD) return yardsStr ? `${primary} rush for ${yardsStr} ${yardWord(yardsNum)} for a TD` : `${primary} rush for a TD`
       if (yardsNum < 0) return `${primary} rush for a ${Math.abs(yardsNum)}-yard loss`
-      return yardsStr ? `${primary} rush for ${yardsStr} yards` : `${primary} rush`
+      return yardsStr ? `${primary} rush for ${yardsStr} ${yardWord(yardsNum)}` : `${primary} rush`
     }
     case 'Pass':
     case 'Pass Complete': {
       if (!passer && !primary) return ''
       if (!passer) {
-        const base = yardsStr ? `Pass to ${primary} for ${yardsStr} yards` : `Pass to ${primary}`
+        const base = yardsStr ? `Pass to ${primary} for ${yardsStr} ${yardWord(yardsNum)}` : `Pass to ${primary}`
         return isTD ? `${base} for a TD` : base
       }
       if (!primary) {
-        const base = yardsStr ? `${passer} pass for ${yardsStr} yards` : `${passer} pass complete`
+        const base = yardsStr ? `${passer} pass for ${yardsStr} ${yardWord(yardsNum)}` : `${passer} pass complete`
         return isTD ? `${base} for a TD` : base
       }
-      const base = yardsStr ? `${passer} pass to ${primary} for ${yardsStr} yards` : `${passer} pass to ${primary}`
+      const base = yardsStr ? `${passer} pass to ${primary} for ${yardsStr} ${yardWord(yardsNum)}` : `${passer} pass to ${primary}`
       return isTD ? `${base} for a TD` : base
     }
     case 'Pass Incomplete':
@@ -262,14 +263,14 @@ function buildHighlightSentence(play) {
       if (!passer) return `Pass knocked away by ${primary}`
       return primary ? `${passer} pass knocked away by ${primary}` : `${passer} pass knocked away`
     case 'Pass Intercepted': {
-      const intYards = yardsNum > 0 ? ` for ${yardsStr} yards` : ''
+      const intYards = yardsNum > 0 ? ` for ${yardsStr} ${yardWord(yardsNum)}` : ''
       const intTail = isTD ? ' for a TD' : intYards
       if (!passer) return primary ? `Pass intercepted by ${primary}${intTail}` : `Pass intercepted${intTail}`
       return primary ? `${passer} pass intercepted by ${primary}${intTail}` : `${passer} pass intercepted${intTail}`
     }
     case 'Interception': {
       if (!primary) return ''
-      const intYards = yardsNum > 0 ? ` for ${yardsStr} yards` : ''
+      const intYards = yardsNum > 0 ? ` for ${yardsStr} ${yardWord(yardsNum)}` : ''
       const intTail = isTD ? ' for a TD' : intYards
       return `Interception by ${primary}${intTail}`
     }
@@ -279,12 +280,12 @@ function buildHighlightSentence(play) {
       return yardsAbs != null ? `${passer} sacked for a ${yardsAbs}-yard loss` : `${passer} sacked`
     case 'Kickoff Return': {
       if (!primary) return ''
-      const krBase = yardsStr ? `${primary} returns kick for ${yardsStr} yards` : `${primary} returns kick`
+      const krBase = yardsStr ? `${primary} returns kick for ${yardsStr} ${yardWord(yardsNum)}` : `${primary} returns kick`
       return isTD ? `${krBase} for a TD` : krBase
     }
     case 'Punt Return': {
       if (!primary) return ''
-      const prBase = yardsStr ? `${primary} punt return for ${yardsStr} yards` : `${primary} punt return`
+      const prBase = yardsStr ? `${primary} punt return for ${yardsStr} ${yardWord(yardsNum)}` : `${primary} punt return`
       return isTD ? `${prBase} for a TD` : prBase
     }
     case 'Field Goal Made':
@@ -306,10 +307,10 @@ function buildHighlightSentence(play) {
       return primary ? `Extra point ${result} by ${primary}` : `Extra point ${result}`
     }
     case 'Penalty':
-      return yardsStr ? `Penalty for ${yardsStr} yards` : 'Penalty'
+      return yardsStr ? `Penalty for ${yardsStr} ${yardWord(yardsNum)}` : 'Penalty'
     case 'Fumble Recovery': {
       if (!primary) return ''
-      const fumBase = yardsStr ? `Fumble recovered by ${primary} for ${yardsStr} yards` : `Fumble recovered by ${primary}`
+      const fumBase = yardsStr ? `Fumble recovered by ${primary} for ${yardsStr} ${yardWord(yardsNum)}` : `Fumble recovered by ${primary}`
       return isTD ? `${fumBase} for a TD` : fumBase
     }
     case 'Safety':
