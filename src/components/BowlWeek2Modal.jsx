@@ -166,7 +166,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Bowl Week 2 Results`,
-    structure: `This sheet has ONE tab: "Bowl Games". It contains up to 12 Week 2 bowl games: 8 regular Week 2 bowls plus 4 CFP Quarterfinal bowls. All bowl names are PRE-FILLED in column A and sorted ALPHABETICALLY. The CFP Quarterfinal rows have the suffix "(CFP QF)" in their bowl name.${excludedBowlGames.length > 0 ? `
+    structure: `This sheet has ONE tab: "Bowl Games". It contains up to 13 Week 2 bowl games: 9 regular Week 2 bowls plus 4 CFP Quarterfinal bowls. All bowl names are PRE-FILLED in column A and sorted ALPHABETICALLY. The CFP Quarterfinal rows have the suffix "(CFP QF)" in their bowl name.${excludedBowlGames.length > 0 ? `
 
 ⚠️ EXCLUDED BOWL(S) — the user played in these games themselves and they are NOT in the sheet. DO NOT output a row for them even if they appear in your screenshots:
 ${excludedBowlGames.map(g => `  • ${g}`).join('\n')}` : ''}
@@ -188,7 +188,7 @@ CRITICAL RULES — read before anything else
 10. ONE TSV block — preceded by the paste-target label line as required by the Method A/B rules above.
 
 ═══════════════════════════════════════════════════════════
-TAB: "Bowl Games" — up to 12 rows × 6 editable columns
+TAB: "Bowl Games" — up to 13 rows × 6 editable columns
 Paste your block at cell B2 of the "Bowl Games" tab
 ═══════════════════════════════════════════════════════════
 

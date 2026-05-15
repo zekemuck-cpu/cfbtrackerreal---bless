@@ -109,7 +109,7 @@ export default function BowlWeek1Modal({ isOpen, onClose, onSave, currentYear, t
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Bowl Week 1 Results`,
-    structure: `This sheet has ONE tab: "Bowl Games". It contains up to 30 Week 1 bowl games (26 regular bowls + 4 CFP First Round games).${excludedBowlGames.length > 0 ? `
+    structure: `This sheet has ONE tab: "Bowl Games". It contains up to 29 Week 1 bowl games (25 regular bowls + 4 CFP First Round games).${excludedBowlGames.length > 0 ? `
 
 ⚠️ EXCLUDED BOWL(S) — the user played in these games themselves and they are NOT in the sheet. DO NOT output a row for them even if they appear in your screenshots:
 ${excludedBowlGames.map(g => `  • ${g}`).join('\n')}` : ''}
@@ -133,7 +133,7 @@ CRITICAL RULES — read before anything else
 10. ONE TSV block — preceded by the paste-target label line as required by the Method A/B rules above.
 
 ═══════════════════════════════════════════════════════════
-TAB: "Bowl Games" — up to 30 rows × 6 editable columns
+TAB: "Bowl Games" — up to 29 rows × 6 editable columns
 Paste your block at cell B2 of the "Bowl Games" tab
 ═══════════════════════════════════════════════════════════
 
@@ -236,7 +236,7 @@ REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send the answer
 ═══════════════════════════════════════════════════════════
-[ ] Row count matches the number of bowl rows shown in the screenshot exactly (up to 30)
+[ ] Row count matches the number of bowl rows shown in the screenshot exactly (up to 29)
 [ ] Row order matches the screenshot's pre-filled Bowl Game column top-to-bottom
 [ ] Exactly 6 tab-separated values per game row (5 tab characters per line)
 [ ] Columns B and D are team ABBREVIATIONS only, from the TEAM ABBREVIATIONS mapping
