@@ -70,9 +70,30 @@ export default function BowlWeek1Modal({ isOpen, onClose, onSave, currentYear, t
     if (isOpen) setRankWeek(effectiveRankWeek)
   }, [isOpen, effectiveRankWeek])
 
+  // Compute excluded games (same logic as sheet creation) so the AI prompt
+  // can tell the AI exactly which bowl(s) to skip.
+  const excludedBowlGames = useMemo(() => {
+    const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[currentYear] || []
+    const userTeamTid = getCurrentTeamTid(currentDynasty)
+    const userCFPSeed = cfpSeeds.find(s => s.tid === userTeamTid)?.seed || null
+    const excluded = []
+    if (userCFPSeed >= 5 && userCFPSeed <= 12) {
+      const cfpGameName = getCFPFirstRoundGameName(userCFPSeed)
+      if (cfpGameName) excluded.push(cfpGameName)
+    }
+    const userBowlGame = currentDynasty?.bowlEligibilityDataByYear?.[currentYear]?.bowlGame
+    if (userBowlGame && isBowlInWeek1(userBowlGame)) excluded.push(userBowlGame)
+    return excluded
+  }, [currentDynasty, currentYear])
+
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Bowl Week 1 Results`,
-    structure: `This sheet has ONE tab: "Bowl Games". It contains up to 30 Week 1 bowl games (26 regular bowls + 4 CFP First Round games). If the user plays in a bowl themselves, that row may be omitted — so the screenshot's actual pre-filled rows are the SOURCE OF TRUTH for how many rows you output.
+    structure: `This sheet has ONE tab: "Bowl Games". It contains up to 30 Week 1 bowl games (26 regular bowls + 4 CFP First Round games).${excludedBowlGames.length > 0 ? `
+
+⚠️ EXCLUDED BOWL(S) — the user played in these games themselves and they are NOT in the sheet. DO NOT output a row for them even if they appear in your screenshots:
+${excludedBowlGames.map(g => `  • ${g}`).join('\n')}` : ''}
+
+The sheet's pre-filled column A rows are the ONLY rows you output — match them exactly.
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
@@ -194,7 +215,7 @@ FINAL CHECK before you send the answer
 [ ] No header row, no bowl name text, no winner column INSIDE the data. The paste-target label above the fence is required (see Method A/B rules above).`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
-  }), [currentYear, currentDynasty?.teams])
+  }), [currentYear, currentDynasty?.teams, excludedBowlGames])
 
   useEffect(() => {
     setIsMobile(isMobileDevice())

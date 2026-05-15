@@ -82,6 +82,46 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, currentYear, currentDynasty?.cfpBowlConfigByYear])
 
+  // Compute excluded games so the AI prompt can explicitly name which bowl(s) to skip.
+  const excludedBowlGames = useMemo(() => {
+    const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[currentYear] || []
+    const userTeamTid = getCurrentTeamTid(currentDynasty)
+    const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
+    const userCFPSeed = cfpSeeds.find(s => s.tid === userTeamTid)?.seed || null
+    const cfpBowlConfigForExclude = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || null
+    const allGames = currentDynasty?.games || []
+    const teams = currentDynasty?.teams || TEAMS
+    const firstRoundResults = allGames
+      .filter(g => g && (g.gameType === 'cfp_first_round' || g.isCFPFirstRound) && Number(g.year) === Number(currentYear))
+      .map(g => {
+        const t1 = g.team1Tid ? getGameTeamInfo(teams, g.team1Tid)?.abbr || g.team1 : g.team1
+        const t2 = g.team2Tid ? getGameTeamInfo(teams, g.team2Tid)?.abbr || g.team2 : g.team2
+        const winnerTid = g.winnerTid != null ? Number(g.winnerTid) : null
+        const winner = g.winner || (winnerTid ? getGameTeamInfo(teams, winnerTid)?.abbr : null)
+        return { seed1: g.seed1, seed2: g.seed2, team1: t1, team2: t2, winner, winnerTid }
+      })
+    const excluded = []
+    if (userCFPSeed) {
+      if (userCFPSeed >= 1 && userCFPSeed <= 4) {
+        const qf = getCFPQuarterfinalGameName(userCFPSeed, [], cfpBowlConfigForExclude)
+        if (qf) excluded.push(qf)
+      } else if (userCFPSeed >= 5 && userCFPSeed <= 12) {
+        const userWon = firstRoundResults.find(g => {
+          if (!g) return false
+          if (userTeamTid != null && g.winnerTid != null) return Number(g.winnerTid) === Number(userTeamTid)
+          return g.winner === userTeamAbbr
+        })
+        if (userWon) {
+          const qf = getCFPQuarterfinalGameName(userCFPSeed, firstRoundResults, cfpBowlConfigForExclude)
+          if (qf) excluded.push(qf)
+        }
+      }
+    }
+    const userBowlGame = currentDynasty?.bowlEligibilityDataByYear?.[currentYear]?.bowlGame
+    if (userBowlGame && isBowlInWeek2(userBowlGame)) excluded.push(userBowlGame)
+    return excluded
+  }, [currentDynasty, currentYear])
+
   const persistSfBowlConfig = async () => {
     if (!currentDynasty?.id) return
     if (sfBowlConfig.sf1 === sfBowlConfig.sf2) {
@@ -106,7 +146,12 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Bowl Week 2 Results`,
-    structure: `This sheet has ONE tab: "Bowl Games". It contains up to 12 Week 2 bowl games: 8 regular Week 2 bowls plus 4 CFP Quarterfinal bowls. All bowl names are PRE-FILLED in column A and sorted ALPHABETICALLY. The CFP Quarterfinal rows have the suffix "(CFP QF)" in their bowl name. If the user plays in a bowl themselves, that row may be omitted — so the screenshot's actual pre-filled rows are the SOURCE OF TRUTH for how many rows you output.
+    structure: `This sheet has ONE tab: "Bowl Games". It contains up to 12 Week 2 bowl games: 8 regular Week 2 bowls plus 4 CFP Quarterfinal bowls. All bowl names are PRE-FILLED in column A and sorted ALPHABETICALLY. The CFP Quarterfinal rows have the suffix "(CFP QF)" in their bowl name.${excludedBowlGames.length > 0 ? `
+
+⚠️ EXCLUDED BOWL(S) — the user played in these games themselves and they are NOT in the sheet. DO NOT output a row for them even if they appear in your screenshots:
+${excludedBowlGames.map(g => `  • ${g}`).join('\n')}` : ''}
+
+The sheet's pre-filled column A rows are the ONLY rows you output — match them exactly.
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
@@ -204,7 +249,7 @@ FINAL CHECK before you send the answer
 [ ] No header row, no bowl name text, no winner column INSIDE the data. The paste-target label above the fence is required (see Method A/B rules above).`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
-  }), [currentYear, currentDynasty?.teams])
+  }), [currentYear, currentDynasty?.teams, excludedBowlGames])
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
