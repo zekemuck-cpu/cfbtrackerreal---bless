@@ -82,6 +82,68 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, currentYear, currentDynasty?.cfpBowlConfigByYear])
 
+  // Compute excluded games so the AI prompt can explicitly name which bowl(s) to skip.
+  const excludedBowlGames = useMemo(() => {
+    const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[currentYear] || []
+    const userTeamTid = getCurrentTeamTid(currentDynasty)
+    const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
+    const userCFPSeed = cfpSeeds.find(s => s.tid === userTeamTid)?.seed || null
+    const cfpBowlConfigForExclude = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || null
+    const allGames = currentDynasty?.games || []
+    const teams = currentDynasty?.teams || TEAMS
+    const firstRoundResults = allGames
+      .filter(g => g && (g.gameType === 'cfp_first_round' || g.isCFPFirstRound) && Number(g.year) === Number(currentYear))
+      .map(g => {
+        const t1 = g.team1Tid ? getGameTeamInfo(teams, g.team1Tid)?.abbr || g.team1 : g.team1
+        const t2 = g.team2Tid ? getGameTeamInfo(teams, g.team2Tid)?.abbr || g.team2 : g.team2
+        const winnerTid = g.winnerTid != null ? Number(g.winnerTid) : null
+        const winner = g.winner || (winnerTid ? getGameTeamInfo(teams, winnerTid)?.abbr : null)
+        return { seed1: g.seed1, seed2: g.seed2, team1: t1, team2: t2, winner, winnerTid }
+      })
+    const excluded = []
+    if (userCFPSeed) {
+      if (userCFPSeed >= 1 && userCFPSeed <= 4) {
+        const qf = getCFPQuarterfinalGameName(userCFPSeed, [], cfpBowlConfigForExclude)
+        if (qf) excluded.push(qf)
+      } else if (userCFPSeed >= 5 && userCFPSeed <= 12) {
+        const userWon = firstRoundResults.find(g => {
+          if (!g) return false
+          if (userTeamTid != null && g.winnerTid != null) return Number(g.winnerTid) === Number(userTeamTid)
+          return g.winner === userTeamAbbr
+        })
+        if (userWon) {
+          const qf = getCFPQuarterfinalGameName(userCFPSeed, firstRoundResults, cfpBowlConfigForExclude)
+          if (qf) excluded.push(qf)
+        }
+      }
+    }
+    const userBowlGame = currentDynasty?.bowlEligibilityDataByYear?.[currentYear]?.bowlGame
+    if (userBowlGame && isBowlInWeek2(userBowlGame)) excluded.push(userBowlGame)
+    return excluded
+  }, [currentDynasty, currentYear])
+
+  // Prior-week Top 25 (post-BW1 poll = rankByWeek slot 16).
+  const prevWeekTop25Block = useMemo(() => {
+    if (!currentDynasty) return ''
+    const yearNum = Number(currentYear)
+    const teamsData = currentDynasty.teams || {}
+    const slotMap = new Map()
+    for (const team of Object.values(teamsData)) {
+      const rbw = team?.byYear?.[yearNum]?.rankByWeek ?? team?.byYear?.[String(yearNum)]?.rankByWeek
+      if (!rbw) continue
+      const v = rbw[16] ?? rbw['16']
+      if (typeof v !== 'number' || v < 1 || v > 25) continue
+      if (!slotMap.has(v)) slotMap.set(v, team.abbr)
+    }
+    if (slotMap.size === 0) return ''
+    const lines = []
+    for (let r = 1; r <= 25; r++) {
+      const abbr = slotMap.get(r)
+      if (abbr) lines.push(`  #${r} ${abbr}`)
+    }
+    return lines.join('\n')
+  }, [currentDynasty, currentYear])
+
   const persistSfBowlConfig = async () => {
     if (!currentDynasty?.id) return
     if (sfBowlConfig.sf1 === sfBowlConfig.sf2) {
@@ -106,7 +168,12 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Bowl Week 2 Results`,
-    structure: `This sheet has ONE tab: "Bowl Games". It contains up to 12 Week 2 bowl games: 8 regular Week 2 bowls plus 4 CFP Quarterfinal bowls. All bowl names are PRE-FILLED in column A and sorted ALPHABETICALLY. The CFP Quarterfinal rows have the suffix "(CFP QF)" in their bowl name. If the user plays in a bowl themselves, that row may be omitted — so the screenshot's actual pre-filled rows are the SOURCE OF TRUTH for how many rows you output.
+    structure: `This sheet has ONE tab: "Bowl Games". It contains up to 12 Week 2 bowl games: 8 regular Week 2 bowls plus 4 CFP Quarterfinal bowls. All bowl names are PRE-FILLED in column A and sorted ALPHABETICALLY. The CFP Quarterfinal rows have the suffix "(CFP QF)" in their bowl name.${excludedBowlGames.length > 0 ? `
+
+⚠️ EXCLUDED BOWL(S) — the user played in these games themselves and they are NOT in the sheet. DO NOT output a row for them even if they appear in your screenshots:
+${excludedBowlGames.map(g => `  • ${g}`).join('\n')}` : ''}
+
+The sheet's pre-filled column A rows are the ONLY rows you output — match them exactly.
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
@@ -158,11 +225,28 @@ Column F, Column G: integer score (0 or higher), no commas, no decimal point.
 CFP QF rows (those with "(CFP QF)" in the name): Team 1 (column B) is the First Round winner (the lower-seeded team that advanced from the First Round, seeds 5-12). Team 2 (column D) is the higher seed that had the bye (seed 1, 2, 3, or 4). Do NOT swap this ordering.
 
 ═══════════════════════════════════════════════════════════
+PRIOR-WEEK TOP 25 — entering Bowl Week 2 (post-Bowl-Week-1 poll)
+═══════════════════════════════════════════════════════════
+These teams were ranked BEFORE Bowl Week 2 started. Use this as your
+baseline to determine the new ranks for teams NOT playing in Bowl Week 2.
+
+${prevWeekTop25Block || '  (no prior-week Top 25 stored — infer non-playing ranks from any poll visible in screenshots)'}
+
+═══════════════════════════════════════════════════════════
 POST-BOWL POLL — paste BELOW the game rows (same tab, same paste)
 ═══════════════════════════════════════════════════════════
-After ALL bowl game rows, leave ONE blank row, then list every team in
-the NEW post-Bowl-Week-2 AP Poll (Top 25). This is the poll released
-AFTER these games were played.
+After ALL bowl game rows, leave ONE blank row, then output EVERY team in
+the new post-Bowl-Week-2 AP Poll (Top 25). This MUST include both:
+
+  (a) Teams that PLAYED in Bowl Week 2 — use their new rank from the
+      post-game poll visible in your screenshots, or infer from results.
+  (b) Teams that did NOT play in Bowl Week 2 — they are still ranked.
+      Use the PRIOR-WEEK TOP 25 above as your baseline:
+        • By default, non-playing teams hold their prior rank.
+        • Drop them a slot if a team below them won impressively and
+          leapfrogged; move them up if teams above them lost.
+        • Every rank 1–25 must be filled exactly once across the full
+          set of poll rows. No collisions, no gaps, no duplicates.
 
 For each ranked team, output ONE row:
   • Leave Col A BLANK (no bowl name)
@@ -173,7 +257,9 @@ For each ranked team, output ONE row:
 Format: \\t<TeamAbbr>\\t<Rank>\\t\\t\\t\\t
 (tab, team, tab, rank, then 4 blank tabs — Col A blank = no bowl name)
 
-List all 25 ranked teams in rank order (#1 first). If you cannot determine the post-bowl poll from the screenshots, skip this section entirely — do NOT invent rankings.
+Output all 25 ranked teams in rank order (#1 first). If no post-bowl poll
+is visible in screenshots AND no prior-week poll was provided above,
+skip this section entirely — do NOT invent rankings.
 
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
@@ -199,12 +285,14 @@ FINAL CHECK before you send the answer
 [ ] Scores are INTEGERS only — no commas, no decimals, no "pts"
 [ ] For "(CFP QF)" rows: Team 1 is the First Round winner (lower seed), Team 2 is the bye seed (1-4)
 [ ] Blank cells for any unknown scores or unplayed bowls — invented nothing
-[ ] Post-bowl poll block present after a blank separator (or omitted if not visible)
+[ ] Post-bowl poll block present and includes ALL 25 ranked teams — both playing AND non-playing
+[ ] Non-playing ranked teams (from Prior-Week Top 25) are included with their new ranks (held or adjusted)
 [ ] Poll rows have blank Col A, team abbr in Col B, rank in Col C
+[ ] No rank collision or gap across all 25 poll rows
 [ ] No header row, no bowl name text, no winner column INSIDE the data. The paste-target label above the fence is required (see Method A/B rules above).`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
-  }), [currentYear, currentDynasty?.teams])
+  }), [currentYear, currentDynasty?.teams, excludedBowlGames, prevWeekTop25Block])
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
