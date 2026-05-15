@@ -911,7 +911,7 @@ function getGameOrderForRecord(game) {
   if (type === GAME_TYPES.CFP_QUARTERFINAL) return 21
   if (type === GAME_TYPES.CFP_FIRST_ROUND) return 20
   if (type === GAME_TYPES.CONFERENCE_CHAMPIONSHIP) return 15
-  if (type === GAME_TYPES.BOWL) return game.week ? 14 + game.week : 14
+  if (type === GAME_TYPES.BOWL) return game.bowlWeek === 'week2' ? 17 : 16
   return game.week || 0
 }
 
@@ -2210,6 +2210,53 @@ export function getCurrentTeamRanking(dynasty) {
 }
 
 /**
+ * Look up a team's stored record from non-games sources:
+ * conferenceStandingsByYear (regular season), teamRecordsByTeamYear (legacy),
+ * and teams[tid].byYear[year].record (tid-based). Returns the entry covering
+ * the most games, or null if nothing is found.
+ * Used as a fallback for CPU teams whose regular-season games are not in
+ * dynasty.games but whose records are available from standings uploads.
+ */
+export function getStoredTeamRecord(dynasty, tid, year) {
+  if (!dynasty || !tid || !year) return null
+  const yearNum = Number(year)
+
+  let best = null
+  let bestGames = 0
+  const consider = (rec) => {
+    if (!rec) return
+    const games = (rec.wins || 0) + (rec.losses || 0)
+    if (games > bestGames) {
+      best = { wins: rec.wins || 0, losses: rec.losses || 0, confWins: rec.confWins || 0, confLosses: rec.confLosses || 0 }
+      bestGames = games
+    }
+  }
+
+  // Conference standings (regular season — most reliable for CPU teams)
+  const yearStandings = dynasty.conferenceStandingsByYear?.[yearNum] ||
+                        dynasty.conferenceStandingsByYear?.[String(yearNum)] || {}
+  for (const confTeams of Object.values(yearStandings)) {
+    if (Array.isArray(confTeams)) {
+      const teamData = confTeams.find(t => {
+        if (!t || !t.team) return false
+        const resolvedTid = t.tid || getTidFromAbbr(t.team, dynasty)
+        return Number(resolvedTid) === Number(tid)
+      })
+      if (teamData) consider(teamData)
+    }
+  }
+
+  // Legacy teamRecordsByTeamYear
+  consider(lookupByTeamYear(dynasty.teamRecordsByTeamYear || {}, dynasty, tid, year))
+
+  // Tid-based teams.byYear.record
+  consider(dynasty.teams?.[tid]?.byYear?.[yearNum]?.record)
+  consider(dynasty.teams?.[tid]?.byYear?.[String(yearNum)]?.record)
+
+  return best
+}
+
+/**
  * Get team record as of the end of a specific game
  * For Game.jsx display showing "record after this game"
  * @param {Object} dynasty - Dynasty object
@@ -2220,29 +2267,46 @@ export function getCurrentTeamRanking(dynasty) {
 export function getRecordAsOfGame(dynasty, game, tid) {
   if (!dynasty || !game || !tid) return { overall: '0-0', conference: '0-0', wins: 0, losses: 0 }
 
-  // Calculate including this game by using upToWeek with the game's order
+  // Calculate including this game using the game's sort order as the cutoff.
+  // getGameOrderForRecord returns numeric values: reg season 1-14, CC=15, BW1=16, BW2=17, CFP 20-23.
   const gameOrder = getGameOrderForRecord(game)
   const calc = calculateTeamRecordFromGames(dynasty, tid, game.year, {
     upToWeek: gameOrder,
     includeUpToWeek: true
   })
+  const calcGames = calc.wins + calc.losses
 
-  // No helper fallback. The previous implementation preferred the
-  // stored full-season record whenever it covered more games than
-  // calc — which meant a Wk 1 game would display the team's season-
-  // end "5-6" instead of the correct as-of-Wk-1 "0-1". For the user
-  // team where dynasty.games has full history, calc is exact; for
-  // CPU teams calc is sparse but at least temporally accurate (it
-  // reflects the games we actually know about). Manual override on
-  // game.team1Record / team2Record (set in GameEdit) is consulted at
-  // the call site if calc returns zeros.
+  // For CPU teams, dynasty.games only has games explicitly entered (user games
+  // + any weekly-scores CPU entries). Their regular-season record lives in
+  // conferenceStandingsByYear or teamRecordsByTeamYear instead.
+  // Strategy: if stored records cover MORE games than calc, combine them —
+  // stored = regular season baseline, calc = postseason contribution.
+  const stored = getStoredTeamRecord(dynasty, tid, game.year)
+  const storedGames = stored ? (stored.wins + stored.losses) : 0
+
+  if (calcGames >= storedGames || storedGames === 0) {
+    // User's team or CPU with logged games — calc is authoritative
+    return {
+      overall: `${calc.wins}-${calc.losses}`,
+      conference: `${calc.confWins}-${calc.confLosses}`,
+      wins: calc.wins,
+      losses: calc.losses,
+      confWins: calc.confWins,
+      confLosses: calc.confLosses
+    }
+  }
+
+  // CPU team: stored covers the regular season, calc covers bowl/CFP games
+  // that aren't in standings. Combine both for the full as-of-game record.
+  const totalWins = stored.wins + calc.wins
+  const totalLosses = stored.losses + calc.losses
   return {
-    overall: `${calc.wins}-${calc.losses}`,
-    conference: `${calc.confWins}-${calc.confLosses}`,
-    wins: calc.wins,
-    losses: calc.losses,
-    confWins: calc.confWins,
-    confLosses: calc.confLosses
+    overall: `${totalWins}-${totalLosses}`,
+    conference: `${stored.confWins}-${stored.confLosses}`,
+    wins: totalWins,
+    losses: totalLosses,
+    confWins: stored.confWins,
+    confLosses: stored.confLosses
   }
 }
 
