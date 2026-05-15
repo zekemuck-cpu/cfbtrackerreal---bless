@@ -423,6 +423,22 @@ function PlayerInner() {
   // Determine if player has transferred out (to another team)
   const hasTransferredOut = departureMovement?.type === 'transfer' && departureMovement?.to
 
+  // Has the transfer portal signing window closed without a destination being entered?
+  // True if we're past offseason week 1 (Transfer Destinations phase) for the portal year.
+  const isPostSigningDay = (() => {
+    if (!departureMovement || departureMovement.type !== 'transfer' || departureMovement.to) return false
+    const portalYear = Number(departureMovement.year)
+    const dynYear = Number(dynasty?.currentYear)
+    const phase = dynasty?.currentPhase
+    const week = Number(dynasty?.currentWeek || 0)
+    if (!portalYear || !dynYear) return false
+    if (portalYear < dynYear) return true
+    if (portalYear === dynYear) {
+      return phase === 'preseason' || (phase === 'offseason' && week >= 2)
+    }
+    return false
+  })()
+
   // Determine the player's team - use the most recent year in teamsByYear
   // as source of truth. Value can be a tid (number, modern) or an abbr
   // (string, legacy) depending on when the entry was written.
@@ -1713,26 +1729,39 @@ function PlayerInner() {
                 Commitment
               </span>
             )}
-            {/* In-Portal badge — entered portal via Players Leaving, no
-                destination yet (Transfer Destinations not filled). Appears
-                between offseason Week 1 and National Signing Day. */}
+            {/* In-Portal / Transferred Away badge — no destination entered */}
             {departureMovement && departureMovement.type === 'transfer' && !departureMovement.to && (
-              <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase"
-                style={{
-                  backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                  color: '#fbbf24',
-                  border: '1px solid rgba(245, 158, 11, 0.5)',
-                  letterSpacing: '1px',
-                }}
-                title={`In transfer portal${departureMovement.year ? ` since ${departureMovement.year}` : ''}${departureMovement.reason ? ` — ${departureMovement.reason}` : ''}`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#fbbf24' }} aria-hidden="true" />
-                In Portal
-                {departureMovement.reason && (
-                  <span className="font-semibold normal-case opacity-90 tracking-normal">· {departureMovement.reason}</span>
-                )}
-              </span>
+              isPostSigningDay ? (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase"
+                  style={{
+                    backgroundColor: 'rgba(107, 114, 128, 0.15)',
+                    color: '#9ca3af',
+                    border: '1px solid rgba(107, 114, 128, 0.4)',
+                    letterSpacing: '1px',
+                  }}
+                  title={`Transferred away${departureMovement.year ? ` (${departureMovement.year})` : ''} — no destination recorded`}
+                >
+                  Transferred Away · No destination
+                </span>
+              ) : (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase"
+                  style={{
+                    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                    color: '#fbbf24',
+                    border: '1px solid rgba(245, 158, 11, 0.5)',
+                    letterSpacing: '1px',
+                  }}
+                  title={`In transfer portal${departureMovement.year ? ` since ${departureMovement.year}` : ''}${departureMovement.reason ? ` — ${departureMovement.reason}` : ''}`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#fbbf24' }} aria-hidden="true" />
+                  In Portal
+                  {departureMovement.reason && (
+                    <span className="font-semibold normal-case opacity-90 tracking-normal">· {departureMovement.reason}</span>
+                  )}
+                </span>
+              )
             )}
             {/* Departure badge - show based on movements[] */}
             {departureMovement && departureMovement.type === 'departure' && (() => {
@@ -1888,25 +1917,39 @@ function PlayerInner() {
                     Commitment
                   </span>
                 )}
-                {/* In-Portal badge — entered portal via Players Leaving, no
-                    destination yet. Appears between offseason Week 1 and NSD. */}
+                {/* In-Portal / Transferred Away badge — no destination entered */}
                 {departureMovement && departureMovement.type === 'transfer' && !departureMovement.to && (
-                  <span
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase"
-                    style={{
-                      backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                      color: '#fbbf24',
-                      border: '1px solid rgba(245, 158, 11, 0.5)',
-                      letterSpacing: '1px',
-                    }}
-                    title={`In transfer portal${departureMovement.year ? ` since ${departureMovement.year}` : ''}${departureMovement.reason ? ` — ${departureMovement.reason}` : ''}`}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#fbbf24' }} aria-hidden="true" />
-                    In Portal
-                    {departureMovement.reason && (
-                      <span className="font-semibold normal-case opacity-90 tracking-normal">· {departureMovement.reason}</span>
-                    )}
-                  </span>
+                  isPostSigningDay ? (
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase"
+                      style={{
+                        backgroundColor: 'rgba(107, 114, 128, 0.15)',
+                        color: '#9ca3af',
+                        border: '1px solid rgba(107, 114, 128, 0.4)',
+                        letterSpacing: '1px',
+                      }}
+                      title={`Transferred away${departureMovement.year ? ` (${departureMovement.year})` : ''} — no destination recorded`}
+                    >
+                      Transferred Away · No destination
+                    </span>
+                  ) : (
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase"
+                      style={{
+                        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                        color: '#fbbf24',
+                        border: '1px solid rgba(245, 158, 11, 0.5)',
+                        letterSpacing: '1px',
+                      }}
+                      title={`In transfer portal${departureMovement.year ? ` since ${departureMovement.year}` : ''}${departureMovement.reason ? ` — ${departureMovement.reason}` : ''}`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#fbbf24' }} aria-hidden="true" />
+                      In Portal
+                      {departureMovement.reason && (
+                        <span className="font-semibold normal-case opacity-90 tracking-normal">· {departureMovement.reason}</span>
+                      )}
+                    </span>
+                  )
                 )}
                 {/* Departure badge - show based on movements[] */}
                 {departureMovement && departureMovement.type === 'departure' && (() => {
