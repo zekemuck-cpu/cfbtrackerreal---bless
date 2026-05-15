@@ -81,8 +81,6 @@ export default function BowlWeek1Modal({ isOpen, onClose, onSave, currentYear, t
       const cfpGameName = getCFPFirstRoundGameName(userCFPSeed)
       if (cfpGameName) excluded.push(cfpGameName)
     }
-    const userBowlGame = currentDynasty?.bowlEligibilityDataByYear?.[currentYear]?.bowlGame
-    if (userBowlGame && isBowlInWeek1(userBowlGame)) excluded.push(userBowlGame)
     return excluded
   }, [currentDynasty, currentYear])
 
@@ -297,11 +295,6 @@ FINAL CHECK before you send the answer
           if (userCFPSeed >= 5 && userCFPSeed <= 12) {
             const cfpGameName = getCFPFirstRoundGameName(userCFPSeed)
             if (cfpGameName) excludeGames.push(cfpGameName)
-          }
-
-          const userBowlGame = currentDynasty?.bowlEligibilityDataByYear?.[currentYear]?.bowlGame
-          if (userBowlGame && isBowlInWeek1(userBowlGame)) {
-            excludeGames.push(userBowlGame)
           }
 
           const legacyBowlWeek1 = currentDynasty?.bowlGamesByYear?.[currentYear]?.week1 || []

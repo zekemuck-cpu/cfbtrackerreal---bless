@@ -117,8 +117,6 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
         }
       }
     }
-    const userBowlGame = currentDynasty?.bowlEligibilityDataByYear?.[currentYear]?.bowlGame
-    if (userBowlGame && isBowlInWeek2(userBowlGame)) excluded.push(userBowlGame)
     return excluded
   }, [currentDynasty, currentYear])
 
@@ -385,9 +383,6 @@ FINAL CHECK before you send the answer
               }
             }
           }
-
-          const userBowlGame = currentDynasty?.bowlEligibilityDataByYear?.[currentYear]?.bowlGame
-          if (userBowlGame && isBowlInWeek2(userBowlGame)) excludeGames.push(userBowlGame)
 
           const legacyBowlWeek2 = currentDynasty?.bowlGamesByYear?.[currentYear]?.week2 || []
           const unifiedBowlGames = (currentDynasty?.games || [])
