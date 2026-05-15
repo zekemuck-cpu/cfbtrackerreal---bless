@@ -565,16 +565,19 @@ export default function TeamYear() {
       return np
     }, { replace: true })
   }
-  const rosterSort = searchParams.get('sort') || 'position'
+  const defaultRosterSort = positionFilter === 'all' ? 'overall' : 'position'
+  const rosterSort = searchParams.get('sort') || defaultRosterSort
   const setRosterSort = (sort) => {
     setSearchParams(prev => {
       const np = new URLSearchParams(prev)
-      if (!sort || sort === 'position') np.delete('sort')
+      if (!sort || sort === defaultRosterSort) np.delete('sort')
       else np.set('sort', sort)
       return np
     }, { replace: true })
   }
-  const rosterSortDir = searchParams.get('dir') === 'desc' ? 'desc' : 'asc'
+  // Default direction: desc for overall (best players first), asc otherwise
+  const defaultRosterSortDir = rosterSort === 'overall' && !searchParams.has('sort') ? 'desc' : 'asc'
+  const rosterSortDir = searchParams.get('dir') === 'desc' ? 'desc' : (searchParams.get('dir') === 'asc' ? 'asc' : defaultRosterSortDir)
   const setRosterSortDir = (dir) => {
     setSearchParams(prev => {
       const np = new URLSearchParams(prev)
