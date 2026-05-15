@@ -4763,18 +4763,11 @@ export default function Dashboard() {
                   : 'Record any recruiting commitments',
                 onAction: () => setShowRecruitingModal(true),
                 actionLabel: bw1HasCommitmentsData ? 'Edit' : 'Yes',
-                extraTools: !bw1HasCommitmentsData ? (
-                  <>
-                    <SellVsSendButton onClick={() => setShowSellCalc(true)} />
-                    <button
-                      onClick={handleNoCommitments}
-                      className="btn-refined text-center"
-                    >
-                      No
-                    </button>
-                  </>
-                ) : null,
-                inlineAction: bw1HasCommitmentsData && bw1ClassScore > 0 ? {
+                extraTools: recruitingExtraTools,
+                inlineAction: !bw1HasCommitmentsData && !isViewOnly ? {
+                  label: 'No commits',
+                  onClick: handleNoCommitments,
+                } : bw1HasCommitmentsData && bw1ClassScore > 0 ? {
                   label: `Class Score ${formatRecruitingClassScore(bw1ClassScore)}`,
                   onClick: () => navigate(`${pathPrefix}/recruiting/${bw1UserTidForCommits}/${currentDynasty.currentYear}`),
                 } : null,
@@ -5120,18 +5113,11 @@ export default function Dashboard() {
                   : 'Record any recruiting commitments',
                 onAction: () => setShowRecruitingModal(true),
                 actionLabel: bw2HasCommitmentsData ? 'Edit' : 'Yes',
-                extraTools: !bw2HasCommitmentsData ? (
-                  <>
-                    <SellVsSendButton onClick={() => setShowSellCalc(true)} />
-                    <button
-                      onClick={handleNoCommitments}
-                      className="btn-refined text-center"
-                    >
-                      No
-                    </button>
-                  </>
-                ) : null,
-                inlineAction: bw2HasCommitmentsData && bw2ClassScore > 0 ? {
+                extraTools: recruitingExtraTools,
+                inlineAction: !bw2HasCommitmentsData && !isViewOnly ? {
+                  label: 'No commits',
+                  onClick: handleNoCommitments,
+                } : bw2HasCommitmentsData && bw2ClassScore > 0 ? {
                   label: `Class Score ${formatRecruitingClassScore(bw2ClassScore)}`,
                   onClick: () => navigate(`${pathPrefix}/recruiting/${bw2UserTidForCommits}/${currentDynasty.currentYear}`),
                 } : null,
@@ -5718,18 +5704,11 @@ export default function Dashboard() {
                 : 'Record any recruiting commitments',
               onAction: () => setShowRecruitingModal(true),
               actionLabel: w34HasCommitmentsData ? 'Edit' : 'Yes',
-              extraTools: !w34HasCommitmentsData ? (
-                <>
-                  <SellVsSendButton onClick={() => setShowSellCalc(true)} />
-                  <button
-                    onClick={handleNoCommitments}
-                    className="btn-refined text-center"
-                  >
-                    No
-                  </button>
-                </>
-              ) : null,
-              inlineAction: w34HasCommitmentsData && w34ClassScore > 0 ? {
+              extraTools: recruitingExtraTools,
+              inlineAction: !w34HasCommitmentsData && !isViewOnly ? {
+                label: 'No commits',
+                onClick: handleNoCommitments,
+              } : w34HasCommitmentsData && w34ClassScore > 0 ? {
                 label: `Class Score ${formatRecruitingClassScore(w34ClassScore)}`,
                 onClick: () => navigate(`${pathPrefix}/recruiting/${w34UserTidForCommits}/${currentDynasty.currentYear}`),
               } : null,
@@ -6011,17 +5990,11 @@ export default function Dashboard() {
                     : 'Record any recruiting commitments for this week',
                   onAction: () => setShowRecruitingModal(true),
                   actionLabel: hasCommitmentsData ? 'Edit' : 'Yes',
-                  extraTools: !hasCommitmentsData ? (
-                    <>
-                      <SellVsSendButton onClick={() => setShowSellCalc(true)} />
-                      <button
-                        onClick={handleNoCommitments}
-                        className="btn-refined text-center"
-                      >
-                        No
-                      </button>
-                    </>
-                  ) : null,
+                  extraTools: recruitingExtraTools,
+                  inlineAction: !hasCommitmentsData && !isViewOnly ? {
+                    label: 'No commits',
+                    onClick: handleNoCommitments,
+                  } : null,
                 })
               }
 
