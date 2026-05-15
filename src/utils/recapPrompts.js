@@ -364,8 +364,31 @@ These markers contaminate the saved recap and must never appear. The output is p
 export function buildWeekRecapPrompt(dynasty, year, week) {
   const yearNum = Number(year)
   const weekNum = Number(week)
+
+  // Human-readable label for postseason weeks (weeks 15-19 map to bowl/CFP rounds)
+  const weekLabel = weekNum === 15 ? 'Conference Championship Week'
+    : weekNum === 16 ? 'Bowl Week 1'
+    : weekNum === 17 ? 'Bowl Week 2'
+    : weekNum === 18 ? 'Bowl Week 3 / CFP Semifinals'
+    : weekNum === 19 ? 'National Championship'
+    : `Week ${weekNum}`
+  const isBowlWeek = weekNum >= 15
+  const cfpRoundLabel = weekNum === 16 ? 'CFP First Round'
+    : weekNum === 17 ? 'CFP Quarterfinals'
+    : weekNum === 18 ? 'CFP Semifinals'
+    : weekNum === 19 ? 'National Championship' : null
+
   const games = (dynasty?.games || []).filter(g => g && Number(g.year) === yearNum)
-  const weekGames = games.filter(g => Number(g.week) === weekNum)
+  const weekGames = games.filter(g => {
+    if (Number(g.week) === weekNum) return true
+    if (!isBowlWeek) return false
+    // Bowl/CFP games store week as 'Bowl' — include them based on bowlWeek/gameType
+    if (weekNum === 16 && (g.isCFPFirstRound || g.gameType === 'cfp_first_round' || (g.isBowlGame && g.bowlWeek === 'week1'))) return true
+    if (weekNum === 17 && (g.isCFPQuarterfinal || g.gameType === 'cfp_quarterfinal' || (g.isBowlGame && g.bowlWeek === 'week2'))) return true
+    if (weekNum === 18 && (g.isCFPSemifinal || g.gameType === 'cfp_semifinal' || (g.isBowlGame && g.bowlWeek === 'week3'))) return true
+    if (weekNum === 19 && (g.isCFPChampionship || g.gameType === 'cfp_championship')) return true
+    return false
+  })
 
   // ----- Buckets: Top 25 head-to-head, ranked-vs-unranked, all games -----
   // Same week-game list partitioned for readability so the AI can scan
@@ -381,6 +404,16 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     else if (isRanked(r1) || isRanked(r2)) top25vUnranked.push(g)
     else everyGameLine.push(g) // unranked-vs-unranked only — no duplication with the buckets above
   }
+
+  // For bowl weeks: separate CFP playoff games from regular bowl games
+  const cfpWeekGames = isBowlWeek ? weekGames.filter(g =>
+    g.isCFPFirstRound || g.isCFPQuarterfinal || g.isCFPSemifinal || g.isCFPChampionship ||
+    g.gameType === 'cfp_first_round' || g.gameType === 'cfp_quarterfinal' ||
+    g.gameType === 'cfp_semifinal' || g.gameType === 'cfp_championship'
+  ) : []
+  const regularBowlGames = isBowlWeek ? weekGames.filter(g =>
+    g.isBowlGame && !cfpWeekGames.some(c => c.id === g.id)
+  ) : []
 
 
   // ----- Section: Stat leaders THIS WEEK from box-score -----
@@ -484,9 +517,15 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   const peekSnapshot = buildPeekSnapshot(weekNum + 1)
   const hasFreshPostWeekPoll = peekSnapshot.latestWeek === weekNum + 1
   const rankSnapshot = peekSnapshot.rows
+  const nextWeekLabel = weekNum + 1 === 15 ? 'Conference Championship Week'
+    : weekNum + 1 === 16 ? 'Bowl Week 1'
+    : weekNum + 1 === 17 ? 'Bowl Week 2'
+    : weekNum + 1 === 18 ? 'Bowl Week 3 / CFP Semifinals'
+    : weekNum + 1 === 19 ? 'National Championship'
+    : `Week ${weekNum + 1}`
   const rankSnapshotLabel = hasFreshPostWeekPoll
-    ? `POST-WEEK ${weekNum} TOP 25 (= the rankings teams ENTERED Week ${weekNum + 1} with — read from each team's rankByWeek[${weekNum + 1}])`
-    : `MOST RECENT TOP 25 SNAPSHOT (entering Week ${peekSnapshot.latestWeek ?? Math.max(0, weekNum)} — the post-Week ${weekNum} poll isn't populated yet for this dynasty. Use this as a baseline and infer movement from this week's results.)`
+    ? `POST-${weekLabel.toUpperCase()} TOP 25 (= the rankings teams ENTERED ${nextWeekLabel} with)`
+    : `MOST RECENT TOP 25 SNAPSHOT (the post-${weekLabel} poll isn't populated yet — use as baseline and infer movement from this week's results.)`
 
   // ----- Section: Cumulative stat leaders (season-to-date) -----
   // Aggregates every box score we have through this week into a per-player
@@ -756,43 +795,60 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
 
   sections.push(`SEASON CONTEXT`)
   sections.push(`Year: ${yearNum}`)
-  sections.push(`Week being recapped: ${weekNum}`)
+  sections.push(`Week being recapped: ${weekLabel}`)
   sections.push('')
 
   // Conference lookup for inline annotation in every game line.
   // Built once per recap so we don't rescan the alignment per game.
   const confLookup = makeConferenceLookup(dynasty, yearNum)
 
-  // Headline games — top 25 vs top 25. Stored game.team1Rank / team2Rank
-  // is each team's ENTERING rank for that game (the rank during the
-  // matchup) — the EA shift is handled at write time, so by read
-  // time the value on the game record is what we want to show.
-  if (top25vTop25.length > 0) {
-    sections.push(`HEADLINE GAMES — RANKED vs RANKED (Week ${weekNum})`)
-    sections.push(`(Ranks shown are each team's entering rank — the rank they were ranked DURING the game. Conferences in parens are the dynasty's CURRENT alignment, not real life.)`)
-    for (const g of top25vTop25) sections.push(fmtGameLine(g, dynasty, confLookup))
+  // For bowl weeks: show CFP playoff games first, prominently labeled
+  if (isBowlWeek && cfpWeekGames.length > 0) {
+    sections.push(`CFP — ${cfpRoundLabel} RESULTS  ← LEAD THE RECAP WITH THESE`)
+    sections.push(`(These are the College Football Playoff games this week. They are the PRIORITY story — lead the recap with them. Who advanced? Who was upset? Frame what comes next in the bracket.)`)
+    sections.push(`(Ranks shown are each team's entering rank. Conferences in parens are the dynasty's CURRENT alignment, not real life.)`)
+    for (const g of cfpWeekGames) sections.push(fmtGameLine(g, dynasty, confLookup))
     sections.push('')
   }
 
-  // Top-25 results vs unranked teams
-  if (top25vUnranked.length > 0) {
-    sections.push(`TOP-25 vs UNRANKED RESULTS (Week ${weekNum})`)
-    for (const g of top25vUnranked) sections.push(fmtGameLine(g, dynasty, confLookup))
-    sections.push('')
-  }
-
-  // Other FBS games — unranked-vs-unranked. The two ranked sections
-  // above already cover every game involving a top-25 team, so this
-  // bucket has no overlap with them.
-  if (everyGameLine.length > 0) {
-    sections.push(`OTHER FBS GAMES — UNRANKED MATCHUPS (Week ${weekNum})`)
-    for (const g of everyGameLine) sections.push(fmtGameLine(g, dynasty, confLookup))
-    sections.push('')
+  // For bowl weeks: show regular (non-CFP) bowl games as secondary stories
+  if (isBowlWeek) {
+    const rankedBowls = [...top25vTop25, ...top25vUnranked].filter(g => regularBowlGames.some(b => b.id === g.id))
+    const unrankedBowls = everyGameLine.filter(g => regularBowlGames.some(b => b.id === g.id))
+    if (rankedBowls.length > 0) {
+      sections.push(`RANKED BOWL MATCHUPS (non-CFP) — ${weekLabel}`)
+      sections.push(`(Secondary stories after the CFP. Cover notable ranked matchups and upsets.)`)
+      for (const g of rankedBowls) sections.push(fmtGameLine(g, dynasty, confLookup))
+      sections.push('')
+    }
+    if (unrankedBowls.length > 0) {
+      sections.push(`OTHER BOWL GAMES — ${weekLabel}`)
+      for (const g of unrankedBowls) sections.push(fmtGameLine(g, dynasty, confLookup))
+      sections.push('')
+    }
+  } else {
+    // Regular season: standard three-bucket structure
+    if (top25vTop25.length > 0) {
+      sections.push(`HEADLINE GAMES — RANKED vs RANKED (${weekLabel})`)
+      sections.push(`(Ranks shown are each team's entering rank — the rank they were ranked DURING the game. Conferences in parens are the dynasty's CURRENT alignment, not real life.)`)
+      for (const g of top25vTop25) sections.push(fmtGameLine(g, dynasty, confLookup))
+      sections.push('')
+    }
+    if (top25vUnranked.length > 0) {
+      sections.push(`TOP-25 vs UNRANKED RESULTS (${weekLabel})`)
+      for (const g of top25vUnranked) sections.push(fmtGameLine(g, dynasty, confLookup))
+      sections.push('')
+    }
+    if (everyGameLine.length > 0) {
+      sections.push(`OTHER FBS GAMES — UNRANKED MATCHUPS (${weekLabel})`)
+      for (const g of everyGameLine) sections.push(fmtGameLine(g, dynasty, confLookup))
+      sections.push('')
+    }
   }
 
   // Stat lines from this week's box scores (top 2 per category per side)
   if (weekBoxLeaders.length > 0) {
-    sections.push(`STAT LINES FROM WEEK ${weekNum} BOX SCORES`)
+    sections.push(`STAT LINES FROM ${weekLabel.toUpperCase()} BOX SCORES`)
     for (const line of weekBoxLeaders) sections.push(line)
     sections.push('')
   }
@@ -844,7 +900,7 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   }
 
   if (seasonStatBlocks.length > 0) {
-    sections.push(`CUMULATIVE SEASON STAT LEADERS (through Week ${weekNum}, derived from box scores we have)`)
+    sections.push(`CUMULATIVE SEASON STAT LEADERS (through ${weekLabel}, derived from box scores we have)`)
     sections.push(seasonStatBlocks.join('\n'))
     sections.push('')
   }
@@ -1043,9 +1099,13 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   }
 
   return [
-    `You are an ESPN.com college football writer filing the Week ${weekNum} national recap for the ${yearNum} season. Voice: straight, news-forward, fact-driven. NOT a columnist. NOT The Athletic. NOT opinion-driven. Think the kind of weekly wrap a fan reads on the ESPN.com front page Sunday morning to find out what happened across the country.`,
+    isBowlWeek
+      ? `You are an ESPN.com college football writer filing the ${yearNum} ${weekLabel} recap. Voice: straight, news-forward, fact-driven. NOT a columnist. NOT The Athletic. NOT opinion-driven.`
+      : `You are an ESPN.com college football writer filing the ${weekLabel} national recap for the ${yearNum} season. Voice: straight, news-forward, fact-driven. NOT a columnist. NOT The Athletic. NOT opinion-driven. Think the kind of weekly wrap a fan reads on the ESPN.com front page Sunday morning to find out what happened across the country.`,
     ``,
-    `This is a NATIONAL recap covering the entire FBS landscape — every notable game, every storyline, every standout performance the data shows. Treat all teams equally. Do NOT center the narrative on any single program. The reader is a college football fan who wants the week's whole picture.`,
+    isBowlWeek && cfpRoundLabel
+      ? `This is a BOWL SEASON recap. The College Football Playoff (${cfpRoundLabel}) is the DOMINANT story — lead with every CFP game, frame who advanced and what it sets up. Regular bowl games are secondary coverage. Cover the most notable bowl results after the CFP section.`
+      : `This is a NATIONAL recap covering the entire FBS landscape — every notable game, every storyline, every standout performance the data shows. Treat all teams equally. Do NOT center the narrative on any single program. The reader is a college football fan who wants the week's whole picture.`,
     ``,
     `═══════════════════════════════════════════════════════════`,
     `VOICE — ESPN WEEKEND WRAP, NOT COLUMNIST`,
@@ -1129,8 +1189,8 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     `GOOD HEADLINE PATTERNS:`,
     `   ✅ "Washington beats Oregon 43-36 to reshuffle the CFP picture"`,
     `   ✅ "Week 13: Washington upsets Oregon; Clemson, Notre Dame stay perfect"`,
-    `   ✅ "Week ${weekNum} college football recap: top-five Oregon falls, Washington jumps to No. 2"`,
-    `   ✅ "Five takeaways from Week ${weekNum} in college football"`,
+    `   ✅ "${weekLabel} college football recap: top-five Oregon falls, Washington jumps to No. 2"`,
+    `   ✅ "Five takeaways from ${weekLabel} in college football"`,
     ``,
     `FORBIDDEN HEADLINE PATTERNS:`,
     `   ✗ "The X did not Y in Week N so much as Z" (column thesis)`,
@@ -1197,9 +1257,9 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     ``,
     `WRITING RULES:`,
     `- Describe matchups using the entering rank shown in the game line ("#6 Tennessee fell to South Carolina"). That number IS the entering rank already — no derivation needed.`,
-    `- Describe rank movement by comparing consecutive Evolution rows ("Tennessee entered Week 11 ranked #2; the post-Week-11 poll has them at #6" — pull the post-Week-11 snapshot from the LATEST-AVAILABLE TOP 25 section labeled "POST-WEEK ${weekNum} TOP 25").`,
-    `- When the latest snapshot is labeled "POST-WEEK ${weekNum} TOP 25", you may say "Team X is now #N" for the current poll.`,
-    `- When the latest snapshot is labeled "MOST RECENT" (Week ${weekNum + 1} data isn't available), describe the result and infer movement ("after the loss, Tennessee should fall in next week's poll") rather than asserting definitive post-Week ${weekNum} rankings.`,
+    `- Describe rank movement by comparing consecutive Evolution rows ("Tennessee entered Week 11 ranked #2; the post-Week-11 poll has them at #6" — pull the post-Week-11 snapshot from the LATEST-AVAILABLE TOP 25 section labeled "POST-${weekLabel.toUpperCase()} TOP 25").`,
+    `- When the latest snapshot is labeled "POST-${weekLabel.toUpperCase()} TOP 25", you may say "Team X is now #N" for the current poll.`,
+    `- When the latest snapshot is labeled "MOST RECENT" (${weekLabel} data isn't available), describe the result and infer movement ("after the loss, Tennessee should fall in next week's poll") rather than asserting definitive post-${weekLabel} rankings.`,
     `- DO NOT invent a "post-game rank" for a team in a particular game from the game-line number. The game-line number is ENTERING rank only. The team's post-game rank for week W is the team's entering rank for week W+1, which lives in the next Evolution row (or the LATEST-AVAILABLE snapshot if W is the recap week).`,
     ``,
     `═══════════════════════════════════════════════════════════`,
@@ -1220,17 +1280,29 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     `═══════════════════════════════════════════════════════════`,
     `WHAT TO COVER`,
     `═══════════════════════════════════════════════════════════`,
-    `Use these section labels as your H2 subheads (or near-variants — "Top games" / "Top games of the week" are both fine for #1; "Around the country" / "Across the country" both fine for #4). DO NOT rewrite them into clever-with-comma theses (see RULE E above). The labels ARE the section names. Skip any section whose data is empty per ADAPT TO THE WEEK above.`,
-    ``,
-    `  1. TOP GAMES — the biggest games of the week, including ranked-vs-ranked, top-10 losses, and any upset (ranked team falling to unranked). Lead with the loudest result. Group every consequential ranked game here so they're not split across multiple sections. When a featured team has notable prior-year context (top-10 finish, CFP appearance, defending champs) — visible in the PRIOR-YEAR CONTEXT section — weave it in ONCE per team if it lands naturally. When a featured game appears in LAST MEETINGS, name it as a rematch and use revenge / repeat-domination framing.`,
-    `  2. AROUND THE TOP 25 — the rest of the ranked teams' results. Mostly a single paragraph that name-checks what each ranked team did. Where prior-year context tightens the story (a top-5 finisher now scuffling, an unranked finisher now ranked), USE IT — but sparingly per RULE C.`,
-    `  3. POLL MOVEMENT — if (and only if) the EVOLUTION section shows a clear trajectory across recent weeks. Plain-language characterization per RULE D — no "saga", no "collapse", no "freefall". Each slot 1-25 has exactly one team; never describe ties.`,
-    `  4. AROUND THE COUNTRY — selected unranked-vs-unranked storylines. Be selective: lopsided blowouts (≥30 pts), upsets, conference rivalries, one-score thrillers. Skip middle-of-the-road games. Rivalry rematches with revenge/streak data attached (LAST MEETINGS) are good candidates even if otherwise unremarkable. CRITICAL: any conference label you write in this section MUST be the conference shown in parens next to the team in that game's data line — NEVER pull a conference label from real-world memory. If a game says "Hawaii (Pac-12) 35, Boise State (Pac-12) 14", you write "Pac-12", NOT "Mountain West".`,
-    ``,
-    `Optional extras (only when warranted by the data, and using the literal label as a subhead):`,
-    `  - HEISMAN WATCH — only if a player is leading a major stat category (passing/rushing/receiving yds, sacks) by a noticeable margin. If nobody clears that bar, SKIP.`,
-    `  - CONFERENCE RACES — only if conference standings data is present.`,
-    `  - WHAT'S NEXT — only if the snapshot is labeled "POST-WEEK ${weekNum}" (not "MOST RECENT"). Skip otherwise.`,
+    ...(isBowlWeek ? [
+      `This is a BOWL SEASON recap. Use the section structure below. Section labels are your H2 subheads — DO NOT rewrite them into clever theses. Skip any section whose data is empty.`,
+      ``,
+      `  1. ${cfpRoundLabel ? cfpRoundLabel.toUpperCase() : 'CFP GAMES'} — MANDATORY LEAD SECTION. Cover every CFP playoff game with full detail: result, both teams' records, key performers, what the win means (who advances, seeding implications, what round is next). This is the most important section of the recap. Do NOT bury CFP results inside a catch-all bowl section.`,
+      `  2. BOWL RESULTS — the regular (non-CFP) bowl games. Group by notability: lead with ranked teams, upsets, or blowouts (≥21 pts). A single paragraph per notable cluster is fine. Do NOT spend equal words on every game — prioritize ranked matchups and surprises. CRITICAL: any conference label MUST come from the data line, not real-world memory.`,
+      `  3. POLL MOVEMENT — if (and only if) the EVOLUTION section shows a clear trajectory across recent weeks. Plain-language characterization per RULE D — no "saga", no "collapse", no "freefall". Each slot 1-25 has exactly one team; never describe ties.`,
+      ``,
+      `Optional extras (only when warranted by the data):`,
+      `  - HEISMAN WATCH — only if a player leads a major stat category by a noticeable margin. If nobody clears that bar, SKIP.`,
+      `  - WHAT'S NEXT — only if the snapshot is labeled "POST-${weekLabel.toUpperCase()}" (not "MOST RECENT"). Skip otherwise. For bowl weeks, "what's next" means the next CFP round or bowl week, not a regular-season schedule.`,
+    ] : [
+      `Use these section labels as your H2 subheads (or near-variants — "Top games" / "Top games of the week" are both fine for #1; "Around the country" / "Across the country" both fine for #4). DO NOT rewrite them into clever-with-comma theses (see RULE E above). The labels ARE the section names. Skip any section whose data is empty per ADAPT TO THE WEEK above.`,
+      ``,
+      `  1. TOP GAMES — the biggest games of the week, including ranked-vs-ranked, top-10 losses, and any upset (ranked team falling to unranked). Lead with the loudest result. Group every consequential ranked game here so they're not split across multiple sections. When a featured team has notable prior-year context (top-10 finish, CFP appearance, defending champs) — visible in the PRIOR-YEAR CONTEXT section — weave it in ONCE per team if it lands naturally. When a featured game appears in LAST MEETINGS, name it as a rematch and use revenge / repeat-domination framing.`,
+      `  2. AROUND THE TOP 25 — the rest of the ranked teams' results. Mostly a single paragraph that name-checks what each ranked team did. Where prior-year context tightens the story (a top-5 finisher now scuffling, an unranked finisher now ranked), USE IT — but sparingly per RULE C.`,
+      `  3. POLL MOVEMENT — if (and only if) the EVOLUTION section shows a clear trajectory across recent weeks. Plain-language characterization per RULE D — no "saga", no "collapse", no "freefall". Each slot 1-25 has exactly one team; never describe ties.`,
+      `  4. AROUND THE COUNTRY — selected unranked-vs-unranked storylines. Be selective: lopsided blowouts (≥30 pts), upsets, conference rivalries, one-score thrillers. Skip middle-of-the-road games. Rivalry rematches with revenge/streak data attached (LAST MEETINGS) are good candidates even if otherwise unremarkable. CRITICAL: any conference label you write in this section MUST be the conference shown in parens next to the team in that game's data line — NEVER pull a conference label from real-world memory. If a game says "Hawaii (Pac-12) 35, Boise State (Pac-12) 14", you write "Pac-12", NOT "Mountain West".`,
+      ``,
+      `Optional extras (only when warranted by the data, and using the literal label as a subhead):`,
+      `  - HEISMAN WATCH — only if a player is leading a major stat category (passing/rushing/receiving yds, sacks) by a noticeable margin. If nobody clears that bar, SKIP.`,
+      `  - CONFERENCE RACES — only if conference standings data is present.`,
+      `  - WHAT'S NEXT — only if the snapshot is labeled "POST-${weekLabel.toUpperCase()}" (not "MOST RECENT"). Skip otherwise.`,
+    ]),
     ``,
     `STRUCTURAL RULES:`,
     `- Each game appears in EXACTLY ONE section. If you mention Washington-Oregon in TOP GAMES, do not mention it again in AROUND THE TOP 25.`,
