@@ -111,18 +111,19 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
-1. OUTPUT COLUMNS B, C, D, E ONLY (4 values per row). Column A (Bowl Game) is PROTECTED and pre-filled.
+1. OUTPUT COLUMNS B, C, D, E, F, G ONLY (6 values per row). Column A (Bowl Game) is PROTECTED and pre-filled.
 2. ROW ORDER IS FIXED — match the screenshot EXACTLY (alphabetical order by bowl name). Each row is keyed to the pre-filled Bowl Game name in column A. Never reorder, never rename, never add rows, never remove rows.
-3. Output ONE row per bowl shown in the screenshot, with EXACTLY 4 tab-separated values per row.
+3. Output ONE row per bowl shown in the screenshot, with EXACTLY 6 tab-separated values per row.
 4. NO COMMAS in numbers. "24" never "1,234".
 5. INTEGERS ONLY for scores — no decimals, no "pts".
-6. TEAM ABBREVIATIONS ONLY (columns B and C) — use the abbreviation mapping below. Columns B and C are strict dropdowns.
-7. BLANK CELLS if unknown. Never guess, never use "N/A", "TBD", dash. Zero is only valid if the team truly scored zero.
-8. No header row, no Bowl Game text, no winner column, no commentary INSIDE the data. The paste-target label above the fence is required (see Method A/B rules above).
-9. ONE TSV block — preceded by the paste-target label line as required by the Method A/B rules above.
+6. TEAM ABBREVIATIONS ONLY (columns B and D) — use the abbreviation mapping below. Columns B and D are strict dropdowns.
+7. RANKS (columns C and E): integer 1–25 if the team is ranked at the time of the bowl, BLANK if unranked. Rankings appear as a number prefix on the team name in the scores list (e.g. "4 Alabama" = Alabama is #4). No prefix = unranked = leave blank. Never write "NR" or "—".
+8. BLANK CELLS if unknown. Never guess, never use "N/A", "TBD", dash. Zero is only valid if the team truly scored zero.
+9. No header row, no Bowl Game text, no winner column, no commentary INSIDE the data. The paste-target label above the fence is required (see Method A/B rules above).
+10. ONE TSV block — preceded by the paste-target label line as required by the Method A/B rules above.
 
 ═══════════════════════════════════════════════════════════
-TAB: "Bowl Games" — up to 12 rows × 4 editable columns
+TAB: "Bowl Games" — up to 12 rows × 6 editable columns
 Paste your block at cell B2 of the "Bowl Games" tab
 ═══════════════════════════════════════════════════════════
 
@@ -144,16 +145,17 @@ Possible pre-filled Bowl Game names (sheet is sorted alphabetically — the exac
     - <Seed-3 QF bowl> (CFP QF)     default: Rose Bowl (CFP QF)
     - <Seed-4 QF bowl> (CFP QF)     default: Orange Bowl (CFP QF)
 
-For each row, in the same top-to-bottom order shown in the screenshot, output these 4 columns:
+For each row, in the same top-to-bottom order shown in the screenshot, output these 6 columns:
 
-Col A (PROTECTED)           | Col B (Team 1)   | Col C (Team 2)   | Col D (Team 1 Score) | Col E (Team 2 Score)
-----------------------------+------------------+------------------+----------------------+---------------------
-pre-filled bowl name        | team abbr        | team abbr        | integer              | integer
+Col A (PROTECTED)    | Col B (Team 1) | Col C (T1 Rank) | Col D (Team 2) | Col E (T2 Rank) | Col F (T1 Score) | Col G (T2 Score)
+---------------------+----------------+-----------------+----------------+-----------------+------------------+------------------
+pre-filled bowl name | team abbr      | rank or blank   | team abbr      | rank or blank   | integer          | integer
 
-Column B, Column C: STRICT dropdown of team abbreviations — use ONLY values from the TEAM ABBREVIATIONS mapping at the bottom of this prompt.
-Column D, Column E: integer score (0 or higher), no commas, no decimal point.
+Column B, Column D: STRICT dropdown of team abbreviations — use ONLY values from the TEAM ABBREVIATIONS mapping at the bottom of this prompt.
+Column C, Column E: integer rank 1–25 if ranked, BLANK if unranked. Read directly from the number prefix shown on the team name in the screenshot.
+Column F, Column G: integer score (0 or higher), no commas, no decimal point.
 
-CFP QF rows (those with "(CFP QF)" in the name): Team 1 (column B) is the First Round winner (the lower-seeded team that advanced from the First Round, seeds 5-12). Team 2 (column C) is the higher seed that had the bye (seed 1, 2, 3, or 4). Do NOT swap this ordering.
+CFP QF rows (those with "(CFP QF)" in the name): Team 1 (column B) is the First Round winner (the lower-seeded team that advanced from the First Round, seeds 5-12). Team 2 (column D) is the higher seed that had the bye (seed 1, 2, 3, or 4). Do NOT swap this ordering.
 
 ═══════════════════════════════════════════════════════════
 POST-BOWL POLL — paste BELOW the game rows (same tab, same paste)
@@ -166,10 +168,10 @@ For each ranked team, output ONE row:
   • Leave Col A BLANK (no bowl name)
   • Col B = team abbreviation (from the TEAM ABBREVIATIONS mapping)
   • Col C = their rank (1–25)
-  • Cols D, E = leave blank
+  • Cols D–G = leave blank
 
-Format: \\t<TeamAbbr>\\t<Rank>\\t\\t
-(tab, team, tab, rank, tab, tab — Col A blank = no bowl name)
+Format: \\t<TeamAbbr>\\t<Rank>\\t\\t\\t\\t
+(tab, team, tab, rank, then 4 blank tabs — Col A blank = no bowl name)
 
 List all 25 ranked teams in rank order (#1 first). If you cannot determine the post-bowl poll from the screenshots, skip this section entirely — do NOT invent rankings.
 
@@ -177,11 +179,11 @@ List all 25 ranked teams in rank order (#1 first). If you cannot determine the p
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
 === BOWL GAMES — paste at cell B2 of "Bowl Games" tab ===
-<row1 Team1>\\t<row1 Team2>\\t<row1 T1Score>\\t<row1 T2Score>
-<row2 Team1>\\t<row2 Team2>\\t<row2 T1Score>\\t<row2 T2Score>
+<row1 Team1>\\t<row1 T1Rank>\\t<row1 Team2>\\t<row1 T2Rank>\\t<row1 T1Score>\\t<row1 T2Score>
+<row2 Team1>\\t<row2 T1Rank>\\t<row2 Team2>\\t<row2 T2Rank>\\t<row2 T1Score>\\t<row2 T2Score>
 ... (one row per bowl in the screenshot, in the screenshot's alphabetical order)
-\\t\\t\\t\\t           ← blank separator row
-\\t<rank1Team>\\t<rank1>\\t\\t
+\\t\\t\\t\\t\\t\\t           ← blank separator row (6 tabs)
+\\t<rank1Team>\\t<rank1>\\t\\t\\t\\t
 ... (up to 25 poll rows)
 
 (Each \\t above represents a LITERAL TAB character — use actual tab characters in your output, not the text "\\t".)
@@ -191,8 +193,9 @@ FINAL CHECK before you send the answer
 ═══════════════════════════════════════════════════════════
 [ ] Row count matches the number of bowl rows shown in the screenshot exactly (up to 12)
 [ ] Row order matches the screenshot's pre-filled Bowl Game column top-to-bottom (alphabetical)
-[ ] Exactly 4 tab-separated values per game row (3 tab characters per line)
-[ ] Columns B and C are team ABBREVIATIONS only, from the TEAM ABBREVIATIONS mapping
+[ ] Exactly 6 tab-separated values per game row (5 tab characters per line)
+[ ] Columns B and D are team ABBREVIATIONS only, from the TEAM ABBREVIATIONS mapping
+[ ] Columns C and E are ranks (1–25) or BLANK — never "NR", never guessed
 [ ] Scores are INTEGERS only — no commas, no decimals, no "pts"
 [ ] For "(CFP QF)" rows: Team 1 is the First Round winner (lower seed), Team 2 is the bye seed (1-4)
 [ ] Blank cells for any unknown scores or unplayed bowls — invented nothing
