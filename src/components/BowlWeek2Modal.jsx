@@ -122,6 +122,28 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
     return excluded
   }, [currentDynasty, currentYear])
 
+  // Prior-week Top 25 (post-BW1 poll = rankByWeek slot 16).
+  const prevWeekTop25Block = useMemo(() => {
+    if (!currentDynasty) return ''
+    const yearNum = Number(currentYear)
+    const teamsData = currentDynasty.teams || {}
+    const slotMap = new Map()
+    for (const team of Object.values(teamsData)) {
+      const rbw = team?.byYear?.[yearNum]?.rankByWeek ?? team?.byYear?.[String(yearNum)]?.rankByWeek
+      if (!rbw) continue
+      const v = rbw[16] ?? rbw['16']
+      if (typeof v !== 'number' || v < 1 || v > 25) continue
+      if (!slotMap.has(v)) slotMap.set(v, team.abbr)
+    }
+    if (slotMap.size === 0) return ''
+    const lines = []
+    for (let r = 1; r <= 25; r++) {
+      const abbr = slotMap.get(r)
+      if (abbr) lines.push(`  #${r} ${abbr}`)
+    }
+    return lines.join('\n')
+  }, [currentDynasty, currentYear])
+
   const persistSfBowlConfig = async () => {
     if (!currentDynasty?.id) return
     if (sfBowlConfig.sf1 === sfBowlConfig.sf2) {
@@ -203,11 +225,28 @@ Column F, Column G: integer score (0 or higher), no commas, no decimal point.
 CFP QF rows (those with "(CFP QF)" in the name): Team 1 (column B) is the First Round winner (the lower-seeded team that advanced from the First Round, seeds 5-12). Team 2 (column D) is the higher seed that had the bye (seed 1, 2, 3, or 4). Do NOT swap this ordering.
 
 ═══════════════════════════════════════════════════════════
+PRIOR-WEEK TOP 25 — entering Bowl Week 2 (post-Bowl-Week-1 poll)
+═══════════════════════════════════════════════════════════
+These teams were ranked BEFORE Bowl Week 2 started. Use this as your
+baseline to determine the new ranks for teams NOT playing in Bowl Week 2.
+
+${prevWeekTop25Block || '  (no prior-week Top 25 stored — infer non-playing ranks from any poll visible in screenshots)'}
+
+═══════════════════════════════════════════════════════════
 POST-BOWL POLL — paste BELOW the game rows (same tab, same paste)
 ═══════════════════════════════════════════════════════════
-After ALL bowl game rows, leave ONE blank row, then list every team in
-the NEW post-Bowl-Week-2 AP Poll (Top 25). This is the poll released
-AFTER these games were played.
+After ALL bowl game rows, leave ONE blank row, then output EVERY team in
+the new post-Bowl-Week-2 AP Poll (Top 25). This MUST include both:
+
+  (a) Teams that PLAYED in Bowl Week 2 — use their new rank from the
+      post-game poll visible in your screenshots, or infer from results.
+  (b) Teams that did NOT play in Bowl Week 2 — they are still ranked.
+      Use the PRIOR-WEEK TOP 25 above as your baseline:
+        • By default, non-playing teams hold their prior rank.
+        • Drop them a slot if a team below them won impressively and
+          leapfrogged; move them up if teams above them lost.
+        • Every rank 1–25 must be filled exactly once across the full
+          set of poll rows. No collisions, no gaps, no duplicates.
 
 For each ranked team, output ONE row:
   • Leave Col A BLANK (no bowl name)
@@ -218,7 +257,9 @@ For each ranked team, output ONE row:
 Format: \\t<TeamAbbr>\\t<Rank>\\t\\t\\t\\t
 (tab, team, tab, rank, then 4 blank tabs — Col A blank = no bowl name)
 
-List all 25 ranked teams in rank order (#1 first). If you cannot determine the post-bowl poll from the screenshots, skip this section entirely — do NOT invent rankings.
+Output all 25 ranked teams in rank order (#1 first). If no post-bowl poll
+is visible in screenshots AND no prior-week poll was provided above,
+skip this section entirely — do NOT invent rankings.
 
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
@@ -244,12 +285,14 @@ FINAL CHECK before you send the answer
 [ ] Scores are INTEGERS only — no commas, no decimals, no "pts"
 [ ] For "(CFP QF)" rows: Team 1 is the First Round winner (lower seed), Team 2 is the bye seed (1-4)
 [ ] Blank cells for any unknown scores or unplayed bowls — invented nothing
-[ ] Post-bowl poll block present after a blank separator (or omitted if not visible)
+[ ] Post-bowl poll block present and includes ALL 25 ranked teams — both playing AND non-playing
+[ ] Non-playing ranked teams (from Prior-Week Top 25) are included with their new ranks (held or adjusted)
 [ ] Poll rows have blank Col A, team abbr in Col B, rank in Col C
+[ ] No rank collision or gap across all 25 poll rows
 [ ] No header row, no bowl name text, no winner column INSIDE the data. The paste-target label above the fence is required (see Method A/B rules above).`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
-  }), [currentYear, currentDynasty?.teams, excludedBowlGames])
+  }), [currentYear, currentDynasty?.teams, excludedBowlGames, prevWeekTop25Block])
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
