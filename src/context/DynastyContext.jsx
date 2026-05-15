@@ -8448,17 +8448,17 @@ export function DynastyProvider({ children }) {
 
     const userTeamAbbr = getCurrentTeamAbbr(dynasty)
 
-    // Filter out existing bowl games for this year and week to avoid duplicates
-    // (Both CPU and user bowl games entered via the modal will be replaced)
+    // Only replace bowl games whose bowlName appears in the incoming list.
+    // Games excluded from the sheet (e.g. already entered with full detail)
+    // are not in the incoming list and must be preserved untouched.
+    const incomingBowlNames = new Set(bowlGames.map(b => b.bowlName).filter(Boolean))
+
     const filteredGames = existingGames.filter(g => {
-      // Keep games from different years
       if (Number(g.year) !== Number(year)) return true
-      // Keep non-bowl games
       if (!g.isBowlGame) return true
-      // Keep games from different bowl weeks
       if (g.bowlWeek !== week) return true
-      // Remove bowl games from same year/week (will be replaced with fresh data)
-      return false
+      // Preserve any bowl game not being replaced (not in the incoming sheet data)
+      return !incomingBowlNames.has(g.bowlName)
     })
 
     // Create game entries for each bowl game in UNIFIED FORMAT
