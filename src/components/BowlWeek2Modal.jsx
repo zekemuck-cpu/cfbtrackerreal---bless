@@ -33,7 +33,8 @@ const isMobileDevice = () => {
 const RANK_WEEK_OPTIONS = [
   { value: 16, label: 'Bowl Week 1' },
   { value: 17, label: 'Bowl Week 2' },
-  { value: 18, label: 'National Championship' },
+  { value: 18, label: 'Bowl Week 3 (CFP Semis)' },
+  { value: 19, label: 'National Championship' },
 ]
 
 export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, teamColors }) {
@@ -54,11 +55,17 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
   const [regenerating, setRegenerating] = useState(false)
   const creatingSheetRef = useRef(false)
 
-  // Rankings week — default Bowl Week 2 (slot 17).
-  const [rankWeek, setRankWeek] = useState(17)
+  // Rankings week — default to current dynasty postseason week slot.
+  const effectiveRankWeek = (() => {
+    const phase = currentDynasty?.currentPhase
+    const week = Number(currentDynasty?.currentWeek)
+    if (phase === 'postseason' && Number.isFinite(week)) return 15 + week
+    return 17
+  })()
+  const [rankWeek, setRankWeek] = useState(effectiveRankWeek)
   useEffect(() => {
-    if (isOpen) setRankWeek(17)
-  }, [isOpen])
+    if (isOpen) setRankWeek(effectiveRankWeek)
+  }, [isOpen, effectiveRankWeek])
 
   // Semifinal host-bowl picks
   const computeSfDefaults = () => {

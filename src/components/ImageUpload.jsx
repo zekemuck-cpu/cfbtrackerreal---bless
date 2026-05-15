@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, forwardRef, useImperativeHandle } from 'react'
 import { useToast } from './ui/Toast'
 import { uploadImage } from '../utils/imageUpload'
 
@@ -14,16 +14,18 @@ import { uploadImage } from '../utils/imageUpload'
  * - showPreview: whether to show image preview (default: true)
  * - compact: use compact layout (default: false)
  * - disabled: disable the component (default: false)
+ * - hideDropzone: hide the dashed drop zone UI (default: false)
  */
-export default function ImageUpload({
+const ImageUpload = forwardRef(function ImageUpload({
   value,
   onChange,
   teamColors = { primary: '#1f2937', secondary: '#f3f4f6' },
   placeholder = 'Paste image (Ctrl+V) or enter URL...',
   showPreview = true,
   compact = false,
-  disabled = false
-}) {
+  disabled = false,
+  hideDropzone = false,
+}, ref) {
   const { toast } = useToast()
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
@@ -250,6 +252,13 @@ export default function ImageUpload({
     }
   }
 
+  useImperativeHandle(ref, () => ({
+    triggerFileSelect: () => fileInputRef.current?.click(),
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+  }))
+
   // Handle clipboard button click (the explicit "Paste from
   // Clipboard" button — also the only path that works on most
   // mobile keyboards). Mirrors handlePaste's three-tier fallback:
@@ -420,7 +429,7 @@ export default function ImageUpload({
       )}
 
       {/* Drop zone / Paste area */}
-      <div
+      {!hideDropzone && <div
         className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
           dragOver ? 'border-surface-5 bg-surface-2' : ''
         } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
@@ -456,7 +465,7 @@ export default function ImageUpload({
             </span>
           </div>
         )}
-      </div>
+      </div>}
 
       <input
         type="file"
@@ -513,4 +522,6 @@ export default function ImageUpload({
       </div>
     </div>
   )
-}
+})
+
+export default ImageUpload

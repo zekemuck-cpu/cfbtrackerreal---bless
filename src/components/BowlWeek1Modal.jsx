@@ -33,7 +33,8 @@ const RANK_WEEK_OPTIONS = [
   { value: 15, label: 'Conf Champ Week' },
   { value: 16, label: 'Bowl Week 1' },
   { value: 17, label: 'Bowl Week 2' },
-  { value: 18, label: 'National Championship' },
+  { value: 18, label: 'Bowl Week 3 (CFP Semis)' },
+  { value: 19, label: 'National Championship' },
 ]
 
 export default function BowlWeek1Modal({ isOpen, onClose, onSave, currentYear, teamColors }) {
@@ -54,12 +55,20 @@ export default function BowlWeek1Modal({ isOpen, onClose, onSave, currentYear, t
   const [regenerating, setRegenerating] = useState(false)
   const creatingSheetRef = useRef(false)
 
-  // Rankings week — which poll slot this bowl-week screenshot targets.
-  // Default: Bowl Week 1 (slot 16). User can override if backfilling.
-  const [rankWeek, setRankWeek] = useState(16)
+  // Rankings week — default to the current dynasty postseason week slot
+  // (same pattern as WeeklyScoresModal). In postseason week N the poll
+  // that comes out corresponds to slot 15+N, so when in BW2 the rankings
+  // should land in slot 17 by default, not slot 16.
+  const effectiveRankWeek = (() => {
+    const phase = currentDynasty?.currentPhase
+    const week = Number(currentDynasty?.currentWeek)
+    if (phase === 'postseason' && Number.isFinite(week)) return 15 + week
+    return 16
+  })()
+  const [rankWeek, setRankWeek] = useState(effectiveRankWeek)
   useEffect(() => {
-    if (isOpen) setRankWeek(16)
-  }, [isOpen])
+    if (isOpen) setRankWeek(effectiveRankWeek)
+  }, [isOpen, effectiveRankWeek])
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Bowl Week 1 Results`,

@@ -349,9 +349,16 @@ export default function WeeklyScores() {
 
   const handleBowlWeek1Save = async (bowlGames) => {
     try {
-      const year = currentDynasty.currentYear
+      const year = displayYear
       const pollEntries = bowlGames.pollEntries || []
-      if (pollEntries.length > 0) await saveRankings(currentDynasty.id, pollEntries, year, 16)
+      if (pollEntries.length > 0) {
+        const rankSlot = (() => {
+          const phase = currentDynasty?.currentPhase
+          const wk = Number(currentDynasty?.currentWeek)
+          return phase === 'postseason' && Number.isFinite(wk) ? 15 + wk : 16
+        })()
+        await saveRankings(currentDynasty.id, pollEntries, year, rankSlot)
+      }
       const gamesWithScores = bowlGames.filter(g =>
         g.team1Score !== null && g.team1Score !== undefined &&
         g.team2Score !== null && g.team2Score !== undefined
@@ -377,9 +384,16 @@ export default function WeeklyScores() {
 
   const handleBowlWeek2Save = async (bowlGames) => {
     try {
-      const year = currentDynasty.currentYear
+      const year = displayYear
       const pollEntries = bowlGames.pollEntries || []
-      if (pollEntries.length > 0) await saveRankings(currentDynasty.id, pollEntries, year, 17)
+      if (pollEntries.length > 0) {
+        const rankSlot = (() => {
+          const phase = currentDynasty?.currentPhase
+          const wk = Number(currentDynasty?.currentWeek)
+          return phase === 'postseason' && Number.isFinite(wk) ? 15 + wk : 17
+        })()
+        await saveRankings(currentDynasty.id, pollEntries, year, rankSlot)
+      }
       const gamesWithScores = bowlGames.filter(g =>
         g.team1Score !== null && g.team1Score !== undefined &&
         g.team2Score !== null && g.team2Score !== undefined
@@ -804,7 +818,7 @@ export default function WeeklyScores() {
           isOpen={bowlWeek1Open}
           onClose={() => setBowlWeek1Open(false)}
           onSave={handleBowlWeek1Save}
-          currentYear={currentDynasty?.currentYear}
+          currentYear={displayYear}
           teamColors={teamColors}
         />
       )}
@@ -814,7 +828,7 @@ export default function WeeklyScores() {
           isOpen={bowlWeek2Open}
           onClose={() => setBowlWeek2Open(false)}
           onSave={handleBowlWeek2Save}
-          currentYear={currentDynasty?.currentYear}
+          currentYear={displayYear}
           teamColors={teamColors}
         />
       )}
