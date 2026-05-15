@@ -2727,9 +2727,9 @@ function applyBoxScoreDelta(players, newContribution, oldContribution, year) {
           // For "long" fields, take max of current and new
           existingYearStats[category][field] = Math.max(currentVal, newVal)
         } else {
-          // For sum fields, apply delta
+          // For sum fields, apply delta (allow negatives for yards)
           const delta = newVal - oldVal
-          existingYearStats[category][field] = Math.max(0, currentVal + delta)
+          existingYearStats[category][field] = currentVal + delta
         }
       })
     })

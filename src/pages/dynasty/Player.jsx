@@ -1069,7 +1069,7 @@ function PlayerInner() {
   // Helper to check if a stat object has any meaningful (non-zero) values
   const hasNonZeroStats = (statObj, keys) => {
     if (!statObj) return false
-    return keys.some(key => (statObj[key] || 0) > 0)
+    return keys.some(key => statObj[key] != null && statObj[key] !== 0)
   }
 
   // Check which stat categories this player has actual recorded stats for
