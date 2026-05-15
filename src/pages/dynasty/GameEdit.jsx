@@ -13,7 +13,7 @@ import { getTeamConference } from '../../data/conferenceTeams'
 import BoxScoreSheetModal from '../../components/BoxScoreSheetModal'
 import { setPlayerStatsForTid, setTeamStatsForTid, setScoringSummary, getPlayerStatsSheetIdForTid, canonicalBoxScore, swapBoxScoreTeams, hasAnyPlayerStats, hasAnyTeamStats } from '../../utils/boxScoreHelpers'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName } from '../../data/cfpConstants'
-import { isBowlInWeek1, isBowlInWeek2 } from '../../services/sheetsService'
+import { isBowlInWeek1, isBowlInWeek2, getWeek1BowlGamesList, getWeek2BowlGamesList } from '../../services/sheetsService'
 import { PageHero, Card, Button, EmptyState, Input, Select, Textarea } from '../../components/ui'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../components/ui/Toast'
@@ -140,6 +140,26 @@ function QuarterInput({ value, onChange, onBlur }) {
       placeholder="0"
     />
   )
+}
+
+// Maps a game record to a display week slot string used in the week picker.
+function deriveDisplayWeek(game, fallbackWeek, fallbackGameType, fallbackBowlName) {
+  if (!game) {
+    if (fallbackGameType === 'cfp_championship') return 'NatChamp'
+    if (fallbackGameType === 'cfp_semifinal') return 'BW3'
+    if (fallbackGameType === 'cfp_quarterfinal') return 'BW2'
+    if (fallbackGameType === 'bowl' || fallbackGameType === 'cfp_first_round') return 'BW1'
+    if (fallbackGameType === 'conference_championship' || fallbackWeek === 'CCG') return 'CCG'
+    return fallbackWeek || ''
+  }
+  if (game.isCFPChampionship) return 'NatChamp'
+  if (game.isCFPSemifinal) return 'BW3'
+  if (game.isCFPQuarterfinal) return 'BW2'
+  if (game.isBowlGame && game.bowlWeek === 'week2') return 'BW2'
+  if (game.isCFPFirstRound || game.isBowlGame) return 'BW1'
+  if (game.isConferenceChampionship || game.week === 'CCG') return 'CCG'
+  const w = game.week
+  return (w !== null && w !== undefined && w !== '') ? String(w) : (fallbackWeek || '')
 }
 
 export default function GameEdit() {
@@ -410,6 +430,64 @@ export default function GameEdit() {
   )
   const bowlName = existingGame?.bowlName || queryBowlName || ''
 
+  // Editable year/week/bowl fields — the source of truth for saves
+  const [editYear, setEditYear] = useState(() =>
+    existingGame?.year || (queryYear ? parseInt(queryYear) : currentDynasty?.currentYear)
+  )
+  const [editWeek, setEditWeek] = useState(() =>
+    deriveDisplayWeek(existingGame, queryWeek, queryGameType, queryBowlName)
+  )
+  const [editBowlName, setEditBowlName] = useState(existingGame?.bowlName || queryBowlName || '')
+
+  // Derived classification flags from the current editWeek + editBowlName selection
+  const computedWeekFlags = (() => {
+    const bn = (editBowlName || '').trim()
+    if (editWeek === 'NatChamp') return {
+      week: 'NatChamp', gameType: 'cfp_championship',
+      isConferenceChampionship: false, isBowlGame: false,
+      isCFPFirstRound: false, isCFPQuarterfinal: false, isCFPSemifinal: false, isCFPChampionship: true,
+      bowlName: null, bowlWeek: null, conference: null,
+    }
+    if (editWeek === 'BW3') return {
+      week: 'Bowl', gameType: 'cfp_semifinal',
+      isConferenceChampionship: false, isBowlGame: false,
+      isCFPFirstRound: false, isCFPQuarterfinal: false, isCFPSemifinal: true, isCFPChampionship: false,
+      bowlName: bn || null, bowlWeek: null, conference: null,
+    }
+    if (editWeek === 'BW2') {
+      const isCFPQF = bn.includes('(CFP QF)')
+      return {
+        week: 'Bowl', gameType: isCFPQF ? 'cfp_quarterfinal' : 'bowl',
+        isConferenceChampionship: false, isBowlGame: !isCFPQF,
+        isCFPFirstRound: false, isCFPQuarterfinal: isCFPQF, isCFPSemifinal: false, isCFPChampionship: false,
+        bowlName: bn || null, bowlWeek: 'week2', conference: null,
+      }
+    }
+    if (editWeek === 'BW1') {
+      const isCFPFR = bn.startsWith('CFP First Round')
+      return {
+        week: 'Bowl', gameType: isCFPFR ? 'cfp_first_round' : 'bowl',
+        isConferenceChampionship: false, isBowlGame: !isCFPFR,
+        isCFPFirstRound: isCFPFR, isCFPQuarterfinal: false, isCFPSemifinal: false, isCFPChampionship: false,
+        bowlName: bn || null, bowlWeek: 'week1', conference: null,
+      }
+    }
+    if (editWeek === 'CCG') return {
+      week: 'CCG', gameType: 'conference_championship',
+      isConferenceChampionship: true, isBowlGame: false,
+      isCFPFirstRound: false, isCFPQuarterfinal: false, isCFPSemifinal: false, isCFPChampionship: false,
+      bowlName: null, bowlWeek: null, conference: selectedConference || null,
+    }
+    const wNum = parseInt(editWeek)
+    return {
+      week: Number.isFinite(wNum) ? wNum : (editWeek || null),
+      gameType: 'regular',
+      isConferenceChampionship: false, isBowlGame: false,
+      isCFPFirstRound: false, isCFPQuarterfinal: false, isCFPSemifinal: false, isCFPChampionship: false,
+      bowlName: null, bowlWeek: null, conference: null,
+    }
+  })()
+
   // Determine game title
   const getGameTitle = () => {
     if (existingGame?.isCFPChampionship) return 'National Championship'
@@ -478,9 +556,10 @@ export default function GameEdit() {
   const isTeam2Home = formData.location === 'away'
 
   // Check if this is a CFP game and get seeds
-  const isCFPGame = existingGame?.isCFPFirstRound || existingGame?.isCFPQuarterfinal ||
-                    existingGame?.isCFPSemifinal || existingGame?.isCFPChampionship ||
-                    gameType?.startsWith('cfp_')
+  const isCFPGame = computedWeekFlags.isCFPFirstRound || computedWeekFlags.isCFPQuarterfinal ||
+                    computedWeekFlags.isCFPSemifinal || computedWeekFlags.isCFPChampionship ||
+                    existingGame?.isCFPFirstRound || existingGame?.isCFPQuarterfinal ||
+                    existingGame?.isCFPSemifinal || existingGame?.isCFPChampionship
 
   // Get CFP seeds for each team by tid
   const getCFPSeedForTid = (tid) => {
@@ -982,11 +1061,7 @@ export default function GameEdit() {
     }
   }, [existingGame, isNewGame, team1Tid, team2Tid, gameYear, queryLocation])
 
-  // Re-hydrate the classification dropdown when existingGame resolves
-  // late (cloud dynasties load games async — the initial useState reads
-  // run before the game record is in hand, so without this the picker
-  // would stick on 'regular' for any non-regular game opened directly
-  // by URL).
+  // Re-hydrate state when existingGame resolves (cloud dynasties load async).
   useEffect(() => {
     if (!existingGame) return
     const derivedType =
@@ -1000,6 +1075,9 @@ export default function GameEdit() {
       'regular'
     setGameType(derivedType)
     if (existingGame.conference) setSelectedConference(existingGame.conference)
+    if (existingGame.year) setEditYear(existingGame.year)
+    setEditWeek(deriveDisplayWeek(existingGame, queryWeek, null, null))
+    setEditBowlName(existingGame.bowlName || '')
   }, [existingGame?.id])
 
   // Quarter score helpers
@@ -1100,7 +1178,7 @@ export default function GameEdit() {
     try {
       // Determine homeTeamTid
       let homeTeamTid = null
-      const isNeutralGame = gameType !== 'regular'
+      const isNeutralGame = computedWeekFlags.gameType !== 'regular'
       if (!isNeutralGame) {
         if (formData.location === 'home') homeTeamTid = team1Tid
         else if (formData.location === 'away') homeTeamTid = team2Tid
@@ -1116,22 +1194,13 @@ export default function GameEdit() {
       const team1ConfRecordToSave = autoFillRecords ? (live1.confRecord || '') : formData.team1ConfRecord
       const team2ConfRecordToSave = autoFillRecords ? (live2.confRecord || '') : formData.team2ConfRecord
 
-      // Resolve the classification flags from the picker state. We do
-      // this once (here, before assembling gameData) so handleSave +
-      // saveGameDataSilently stay in lockstep — both call into the same
-      // shape. The picker only governs CCG ↔ Regular; bowl/CFP flags
-      // ride along from existingGame because the picker locks itself
-      // when current is one of those.
-      const isCCGType = gameType === 'conference_championship'
-      const conferenceForCCG = isCCGType
-        ? (selectedConference || existingGame?.conference || currentDynasty?.conference || '')
-        : null
+      const wf = computedWeekFlags
 
       const gameData = {
         id: currentGameId || existingGame?.id || `game-${Date.now()}`,
-        week: gameWeek,
-        year: gameYear,
-        gameType,
+        week: wf.week,
+        year: editYear,
+        gameType: wf.gameType,
         team1Tid,
         team2Tid,
         team1Score: parseInt(formData.team1Score) || 0,
@@ -1159,37 +1228,20 @@ export default function GameEdit() {
         nationalPOW: formData.nationalPOW || '',
         natlDefensePOW: formData.natlDefensePOW || '',
         // NOTE: No userTid - games are team-centric (team1Tid/team2Tid), not user-centric
-        //
-        // CCG flags written unconditionally so type transitions overwrite
-        // stale flags during the {...existingGame, ...gameData} merge.
-        // (Without explicit `false` / `null`, switching a game from CCG
-        // back to Regular would leave the old isConferenceChampionship:
-        // true on the game, breaking every page that filters CC games.)
-        isConferenceChampionship: isCCGType,
-        conference: conferenceForCCG,
-        // Bowl + CFP flags ride along from existingGame — the picker
-        // doesn't allow conversion in or out of those types, so the
-        // existing classification is the truth.
-        ...(existingGame?.isBowlGame && { isBowlGame: true, bowlName: existingGame.bowlName, bowlWeek: existingGame.bowlWeek || (isBowlInWeek2(existingGame.bowlName) ? 'week2' : 'week1') }),
-        ...(!existingGame && gameType === 'bowl' && { isBowlGame: true, bowlName, bowlWeek: isBowlInWeek2(bowlName) ? 'week2' : 'week1' }),
-        ...(existingGame?.isCFPFirstRound && { isCFPFirstRound: true }),
-        ...(!existingGame && gameType === 'cfp_first_round' && { isCFPFirstRound: true }),
-        ...(existingGame?.isCFPQuarterfinal && { isCFPQuarterfinal: true }),
-        ...(!existingGame && gameType === 'cfp_quarterfinal' && { isCFPQuarterfinal: true, bowlName }),
-        ...(existingGame?.isCFPSemifinal && { isCFPSemifinal: true }),
-        ...(!existingGame && gameType === 'cfp_semifinal' && { isCFPSemifinal: true, bowlName }),
-        ...(existingGame?.isCFPChampionship && { isCFPChampionship: true }),
-        ...(!existingGame && gameType === 'cfp_championship' && { isCFPChampionship: true }),
+        // Classification flags — all derived from the week/bowl pickers (fully editable).
+        isConferenceChampionship: wf.isConferenceChampionship,
+        conference: wf.conference,
+        isBowlGame: wf.isBowlGame || false,
+        isCFPFirstRound: wf.isCFPFirstRound || false,
+        isCFPQuarterfinal: wf.isCFPQuarterfinal || false,
+        isCFPSemifinal: wf.isCFPSemifinal || false,
+        isCFPChampionship: wf.isCFPChampionship || false,
+        ...(wf.bowlName && { bowlName: wf.bowlName }),
+        ...(wf.bowlWeek && { bowlWeek: wf.bowlWeek }),
         ...(existingGame?.boxScore && { boxScore: existingGame.boxScore }),
         // Preserve cfpSlot for CFP games (critical for winner propagation)
         ...(existingGame?.cfpSlot && { cfpSlot: existingGame.cfpSlot }),
         ...(existingGame?.cfpRound && { cfpRound: existingGame.cfpRound }),
-        ...(existingGame?.bowlName && { bowlName: existingGame.bowlName }),
-        // CCG-week normalization: when flipping a game TO conference
-        // championship, set week='CCG' so it sorts/filters with the
-        // other CCGs. Flipping back to Regular leaves the week as-is
-        // (user can edit it separately if needed).
-        ...(isCCGType ? { week: 'CCG' } : {}),
         // Save links as array (filter out empty entries)
         ...(() => {
           const validLinks = formData.links.filter(l => l.trim())
@@ -1304,7 +1356,7 @@ export default function GameEdit() {
     try {
       // Determine homeTeamTid
       let homeTeamTid = null
-      const isNeutralGame = gameType !== 'regular'
+      const isNeutralGame = computedWeekFlags.gameType !== 'regular'
       if (!isNeutralGame) {
         if (formData.location === 'home') homeTeamTid = team1Tid
         else if (formData.location === 'away') homeTeamTid = team2Tid
@@ -1319,18 +1371,13 @@ export default function GameEdit() {
       const team1ConfRecordToSave = autoFillRecords ? (live1.confRecord || '') : formData.team1ConfRecord
       const team2ConfRecordToSave = autoFillRecords ? (live2.confRecord || '') : formData.team2ConfRecord
 
-      // Mirror handleSave: classification picker is the source of truth
-      // for CCG vs. Regular. Bowl/CFP flags ride along from existingGame.
-      const isCCGType = gameType === 'conference_championship'
-      const conferenceForCCG = isCCGType
-        ? (selectedConference || existingGame?.conference || currentDynasty?.conference || '')
-        : null
+      const wf = computedWeekFlags
 
       const gameData = {
         id: currentGameId || existingGame?.id || `game-${Date.now()}`,
-        week: gameWeek,
-        year: gameYear,
-        gameType,
+        week: wf.week,
+        year: editYear,
+        gameType: wf.gameType,
         team1Tid,
         team2Tid,
         team1Score: parseInt(formData.team1Score) || 0,
@@ -1358,26 +1405,20 @@ export default function GameEdit() {
         nationalPOW: formData.nationalPOW || '',
         natlDefensePOW: formData.natlDefensePOW || '',
         // NOTE: No userTid - games are team-centric (team1Tid/team2Tid), not user-centric
-        // CCG flags written unconditionally (see handleSave for why).
-        isConferenceChampionship: isCCGType,
-        conference: conferenceForCCG,
-        // Bowl/CFP flags ride along from existingGame.
-        ...(existingGame?.isBowlGame && { isBowlGame: true, bowlName: existingGame.bowlName, bowlWeek: existingGame.bowlWeek || (isBowlInWeek2(existingGame.bowlName) ? 'week2' : 'week1') }),
-        ...(!existingGame && gameType === 'bowl' && { isBowlGame: true, bowlName, bowlWeek: isBowlInWeek2(bowlName) ? 'week2' : 'week1' }),
-        ...(existingGame?.isCFPFirstRound && { isCFPFirstRound: true }),
-        ...(!existingGame && gameType === 'cfp_first_round' && { isCFPFirstRound: true }),
-        ...(existingGame?.isCFPQuarterfinal && { isCFPQuarterfinal: true }),
-        ...(!existingGame && gameType === 'cfp_quarterfinal' && { isCFPQuarterfinal: true, bowlName }),
-        ...(existingGame?.isCFPSemifinal && { isCFPSemifinal: true }),
-        ...(!existingGame && gameType === 'cfp_semifinal' && { isCFPSemifinal: true, bowlName }),
-        ...(existingGame?.isCFPChampionship && { isCFPChampionship: true }),
-        ...(!existingGame && gameType === 'cfp_championship' && { isCFPChampionship: true }),
+        // Classification flags — all derived from the week/bowl pickers (fully editable).
+        isConferenceChampionship: wf.isConferenceChampionship,
+        conference: wf.conference,
+        isBowlGame: wf.isBowlGame || false,
+        isCFPFirstRound: wf.isCFPFirstRound || false,
+        isCFPQuarterfinal: wf.isCFPQuarterfinal || false,
+        isCFPSemifinal: wf.isCFPSemifinal || false,
+        isCFPChampionship: wf.isCFPChampionship || false,
+        ...(wf.bowlName && { bowlName: wf.bowlName }),
+        ...(wf.bowlWeek && { bowlWeek: wf.bowlWeek }),
         ...(existingGame?.boxScore && { boxScore: existingGame.boxScore }),
         // Preserve cfpSlot for CFP games (critical for winner propagation)
         ...(existingGame?.cfpSlot && { cfpSlot: existingGame.cfpSlot }),
         ...(existingGame?.cfpRound && { cfpRound: existingGame.cfpRound }),
-        ...(existingGame?.bowlName && { bowlName: existingGame.bowlName }),
-        ...(isCCGType ? { week: 'CCG' } : {}),
         // Save links as array (filter out empty entries)
         ...(() => {
           const validLinks = formData.links.filter(l => l.trim())
@@ -1897,67 +1938,64 @@ export default function GameEdit() {
         )
       })()}
 
-      {/* Game classification — lets the user pick what kind of game this is.
-          Currently supports flipping between Regular Season and Conference
-          Championship (the most common correction: a game that was saved with
-          the wrong type, e.g. a CCG accidentally tagged to the wrong
-          conference, or a regular-season matchup that should be marked as a
-          conference championship). Bowl / CFP types stay visible but
-          read-only — those carry matchup / seed state that lives elsewhere
-          (postseason flow), so we don't let users casually convert away from
-          them. */}
+      {/* Game Type — fully editable year, week slot, and sub-classification. */}
       {(() => {
-        const isManagedType = gameType === 'bowl' || gameType?.startsWith('cfp_')
-        const managedLabelMap = {
-          bowl: 'Bowl Game',
-          cfp_first_round: 'CFP First Round',
-          cfp_quarterfinal: 'CFP Quarterfinal',
-          cfp_semifinal: 'CFP Semifinal',
-          cfp_championship: 'CFP National Championship',
-        }
-        const CONFERENCE_OPTIONS = [
-          'ACC',
-          'American',
-          'Big 12',
-          'Big Ten',
-          'Conference USA',
-          'MAC',
-          'Mountain West',
-          'Pac-12',
-          'SEC',
-          'Sun Belt',
+        const WEEK_OPTIONS = [
+          { value: '', label: '— Select week —' },
+          ...Array.from({ length: 15 }, (_, i) => ({ value: String(i), label: `Week ${i}` })),
+          { value: 'CCG', label: 'Conference Championship' },
+          { value: 'BW1', label: 'Bowl Week 1' },
+          { value: 'BW2', label: 'Bowl Week 2' },
+          { value: 'BW3', label: 'Bowl Week 3 (CFP Semis)' },
+          { value: 'NatChamp', label: 'National Championship' },
         ]
+        const CONFERENCE_OPTIONS = [
+          'ACC', 'American', 'Big 12', 'Big Ten', 'Conference USA',
+          'MAC', 'Mountain West', 'Pac-12', 'SEC', 'Sun Belt',
+        ]
+        const showConferencePicker = editWeek === 'CCG'
+        const showBowlPicker = editWeek === 'BW1' || editWeek === 'BW2' || editWeek === 'BW3'
+        const bw1Bowls = getWeek1BowlGamesList()
+        const bw2Bowls = getWeek2BowlGamesList()
+        const cfpBowlConfig = currentDynasty?.cfpBowlConfigByYear?.[editYear] || {}
+        const sfBowls = [cfpBowlConfig.sf1 || 'Peach Bowl', cfpBowlConfig.sf2 || 'Fiesta Bowl']
+        const bowlOptions = editWeek === 'BW1' ? bw1Bowls : editWeek === 'BW2' ? bw2Bowls : sfBowls
         return (
           <Card>
             <h3 className="label-sm text-txt-primary mb-1">Game Type</h3>
-            <p className="text-[11px] text-txt-tertiary mb-3">
-              {isManagedType
-                ? 'Bowl and CFP games are managed via the postseason flow — convert there if you need to change the type.'
-                : 'Switch between a regular-season game and a conference championship. Conference championships pick a conference below.'}
-            </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-txt-tertiary mb-1">Classification</label>
+                <label className="block text-xs text-txt-tertiary mb-1">Year</label>
+                <Input
+                  size="sm"
+                  type="number"
+                  value={editYear}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value)
+                    if (Number.isFinite(v)) setEditYear(v)
+                  }}
+                  min={1990}
+                  max={2200}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-txt-tertiary mb-1">Week</label>
                 <Select
                   size="sm"
-                  value={gameType}
-                  disabled={isManagedType}
+                  value={editWeek}
                   onChange={(e) => {
                     const next = e.target.value
-                    setGameType(next)
-                    if (next === 'conference_championship' && !selectedConference) {
-                      setSelectedConference(currentDynasty?.conference || 'SEC')
-                    }
+                    setEditWeek(next)
+                    if (next !== 'BW1' && next !== 'BW2' && next !== 'BW3') setEditBowlName('')
+                    if (next === 'CCG' && !selectedConference) setSelectedConference(currentDynasty?.conference || 'SEC')
                   }}
                 >
-                  <option value="regular">Regular Season</option>
-                  <option value="conference_championship">Conference Championship</option>
-                  {isManagedType && (
-                    <option value={gameType}>{managedLabelMap[gameType] || gameType}</option>
-                  )}
+                  {WEEK_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
                 </Select>
               </div>
-              {gameType === 'conference_championship' && (
+              {showConferencePicker && (
                 <div>
                   <label className="block text-xs text-txt-tertiary mb-1">Conference</label>
                   <Select
@@ -1968,6 +2006,21 @@ export default function GameEdit() {
                     <option value="">Select a conference…</option>
                     {CONFERENCE_OPTIONS.map(conf => (
                       <option key={conf} value={conf}>{conf}</option>
+                    ))}
+                  </Select>
+                </div>
+              )}
+              {showBowlPicker && (
+                <div>
+                  <label className="block text-xs text-txt-tertiary mb-1">Bowl Game</label>
+                  <Select
+                    size="sm"
+                    value={editBowlName}
+                    onChange={(e) => setEditBowlName(e.target.value)}
+                  >
+                    <option value="">— Select bowl —</option>
+                    {bowlOptions.map(bowl => (
+                      <option key={bowl} value={bowl}>{bowl}</option>
                     ))}
                   </Select>
                 </div>

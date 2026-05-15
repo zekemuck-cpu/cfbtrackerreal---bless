@@ -4860,6 +4860,7 @@ export default function Dashboard() {
                   : `${totalEnteredWeek1}/30 games entered (incl. CFP First Round)`,
                 onAction: () => setShowBowlWeek1Modal(true),
                 actionLabel: hasBowlWeek1Data ? 'Edit' : 'Enter',
+                viewTo: hasBowlWeek1Data ? `${pathPrefix}/weekly-scores/${year}/16` : null,
               })
 
               if (userHasBowlWeek1Game && !userBowlGameScoresEntered) {
@@ -5473,6 +5474,7 @@ export default function Dashboard() {
                   : `${totalEnteredWeek2}/12 games entered (incl. CFP Quarterfinals)`,
                 onAction: () => setShowBowlWeek2Modal(true),
                 actionLabel: hasBowlWeek2Data ? 'Edit' : 'Enter',
+                viewTo: hasBowlWeek2Data ? `${pathPrefix}/weekly-scores/${year}/17` : null,
               })
             }
 
