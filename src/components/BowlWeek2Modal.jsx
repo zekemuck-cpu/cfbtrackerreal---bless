@@ -82,6 +82,19 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, currentYear, currentDynasty?.cfpBowlConfigByYear])
 
+  // Bowl week 2 regular bowl games already recorded in the app — exclude from sheet to avoid overwriting
+  const alreadyEnteredBW2Names = useMemo(() => {
+    if (!currentDynasty?.games) return []
+    return currentDynasty.games
+      .filter(g =>
+        Number(g.year) === Number(currentYear) &&
+        (g.gameType === 'bowl' || (g.bowlName && !g.bowlName.includes('CFP'))) &&
+        g.bowlName &&
+        isBowlInWeek2(g.bowlName)
+      )
+      .map(g => g.bowlName)
+  }, [currentDynasty?.games, currentYear])
+
   // Compute excluded games so the AI prompt can explicitly name which bowl(s) to skip.
   const excludedBowlGames = useMemo(() => {
     const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[currentYear] || []
@@ -100,11 +113,11 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
         const winner = g.winner || (winnerTid ? getGameTeamInfo(teams, winnerTid)?.abbr : null)
         return { seed1: g.seed1, seed2: g.seed2, team1: t1, team2: t2, winner, winnerTid }
       })
-    const excluded = []
+    const excluded = [...alreadyEnteredBW2Names]
     if (userCFPSeed) {
       if (userCFPSeed >= 1 && userCFPSeed <= 4) {
         const qf = getCFPQuarterfinalGameName(userCFPSeed, [], cfpBowlConfigForExclude)
-        if (qf) excluded.push(qf)
+        if (qf && !excluded.includes(qf)) excluded.push(qf)
       } else if (userCFPSeed >= 5 && userCFPSeed <= 12) {
         const userWon = firstRoundResults.find(g => {
           if (!g) return false
@@ -113,12 +126,12 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
         })
         if (userWon) {
           const qf = getCFPQuarterfinalGameName(userCFPSeed, firstRoundResults, cfpBowlConfigForExclude)
-          if (qf) excluded.push(qf)
+          if (qf && !excluded.includes(qf)) excluded.push(qf)
         }
       }
     }
     return excluded
-  }, [currentDynasty, currentYear])
+  }, [currentDynasty, currentYear, alreadyEnteredBW2Names])
 
   // Prior-week Top 25 (post-BW1 poll = rankByWeek slot 16).
   const prevWeekTop25Block = useMemo(() => {
@@ -166,9 +179,9 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Bowl Week 2 Results`,
-    structure: `This sheet has ONE tab: "Bowl Games". It contains up to 13 Week 2 bowl games: 9 regular Week 2 bowls plus 4 CFP Quarterfinal bowls. All bowl names are PRE-FILLED in column A and sorted ALPHABETICALLY. The CFP Quarterfinal rows have the suffix "(CFP QF)" in their bowl name.${excludedBowlGames.length > 0 ? `
+    structure: `This sheet has ONE tab: "Bowl Games". It contains ${13 - excludedBowlGames.length} rows (13 total Bowl Week 2 slots minus ${excludedBowlGames.length} excluded). All bowl names are PRE-FILLED in column A and sorted ALPHABETICALLY. The CFP Quarterfinal rows have the suffix "(CFP QF)" in their bowl name.${excludedBowlGames.length > 0 ? `
 
-⚠️ EXCLUDED BOWL(S) — the user played in these games themselves and they are NOT in the sheet. DO NOT output a row for them even if they appear in your screenshots:
+⚠️ GAMES NOT IN THIS SHEET — you may see the following in your screenshots, but there is NO row for them. Ignore them completely. Do NOT output a row for them:
 ${excludedBowlGames.map(g => `  • ${g}`).join('\n')}` : ''}
 
 The sheet's pre-filled column A rows are the ONLY rows you output — match them exactly.
@@ -188,7 +201,7 @@ CRITICAL RULES — read before anything else
 10. ONE TSV block — preceded by the paste-target label line as required by the Method A/B rules above.
 
 ═══════════════════════════════════════════════════════════
-TAB: "Bowl Games" — up to 13 rows × 6 editable columns
+TAB: "Bowl Games" — ${13 - excludedBowlGames.length} rows × 6 editable columns
 Paste your block at cell B2 of the "Bowl Games" tab
 ═══════════════════════════════════════════════════════════
 
@@ -276,7 +289,7 @@ REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send the answer
 ═══════════════════════════════════════════════════════════
-[ ] Row count matches the number of bowl rows shown in the screenshot exactly (up to 12)
+[ ] Row count matches the number of bowl rows shown in the screenshot exactly (${13 - excludedBowlGames.length} rows)
 [ ] Row order matches the screenshot's pre-filled Bowl Game column top-to-bottom (alphabetical)
 [ ] Exactly 6 tab-separated values per game row (5 tab characters per line)
 [ ] Columns B and D are team ABBREVIATIONS only, from the TEAM ABBREVIATIONS mapping
@@ -383,6 +396,10 @@ FINAL CHECK before you send the answer
               }
             }
           }
+
+          alreadyEnteredBW2Names.forEach(name => {
+            if (!excludeGames.includes(name)) excludeGames.push(name)
+          })
 
           const legacyBowlWeek2 = currentDynasty?.bowlGamesByYear?.[currentYear]?.week2 || []
           const unifiedBowlGames = (currentDynasty?.games || [])
