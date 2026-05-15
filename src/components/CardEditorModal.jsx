@@ -20,7 +20,7 @@
  * grading slabs that haven't received their hit yet.
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import CardStylePicker from './CardStylePicker'
 import ImageUpload from './ImageUpload'
@@ -703,6 +703,7 @@ function PromptCard({
   accent, accentSoft, accentRing,
 }) {
   const [copied, setCopied] = useState(false)
+  const imageUploadRef = useRef(null)
   const onCopy = async () => {
     try {
       await navigator.clipboard?.writeText(prompt)
@@ -884,14 +885,20 @@ function PromptCard({
             sideLabel={sideLabel}
             accent={accent}
             accentSoft={accentSoft}
+            onClick={() => imageUploadRef.current?.triggerFileSelect()}
+            onDragOver={(e) => imageUploadRef.current?.handleDragOver(e)}
+            onDragLeave={(e) => imageUploadRef.current?.handleDragLeave(e)}
+            onDrop={(e) => imageUploadRef.current?.handleDrop(e)}
           />
           <div className="mt-3">
             <ImageUpload
+              ref={imageUploadRef}
               value={imageUrl || ''}
               onChange={onChangeImage}
               teamColors={teamColors}
               placeholder="Click, drag-drop, paste, or paste a URL"
               showPreview={false}
+              hideDropzone={true}
             />
           </div>
         </div>
@@ -900,7 +907,7 @@ function PromptCard({
   )
 }
 
-function CardSlot({ imageUrl, sideLabel, accent, accentSoft }) {
+function CardSlot({ imageUrl, sideLabel, accent, accentSoft, onClick, onDragOver, onDragLeave, onDrop }) {
   return (
     <div
       className="relative overflow-hidden mx-auto"
@@ -915,7 +922,12 @@ function CardSlot({ imageUrl, sideLabel, accent, accentSoft }) {
           ? `0 12px 32px rgba(0,0,0,0.5), 0 0 0 4px ${accentSoft}`
           : 'inset 0 1px 0 rgba(255,255,255,0.02), 0 4px 16px rgba(0,0,0,0.25)',
         transition: 'all 0.2s ease',
+        cursor: onClick ? 'pointer' : undefined,
       }}
+      onClick={onClick}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
     >
       {imageUrl ? (
         <img
@@ -946,7 +958,7 @@ function CardSlot({ imageUrl, sideLabel, accent, accentSoft }) {
               fontFamily: "'Outfit', system-ui, sans-serif",
             }}
           >
-            Awaiting {sideLabel.toLowerCase()}
+            Upload {sideLabel === 'FRONT' ? 'Front' : 'Back'} Here
           </span>
         </div>
       )}
