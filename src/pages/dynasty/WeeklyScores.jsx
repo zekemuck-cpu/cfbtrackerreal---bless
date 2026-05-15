@@ -2,13 +2,15 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, GAME_TYPES, detectGameType, getCustomConferencesForYear } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { TEAMS, getCurrentTeamTid, isFCSPlaceholderAbbr } from '../../data/teamRegistry'
+import { TEAMS, getCurrentTeamTid, getCurrentTeamAbbr, isFCSPlaceholderAbbr } from '../../data/teamRegistry'
 import { getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { conferenceTeams as DEFAULT_CONFERENCES, getTeamConference } from '../../data/conferenceTeams'
 import { PageHero, Card, EmptyState, TeamLogo } from '../../components/ui'
 import InlineYearSelect from '../../components/ui/InlineYearSelect'
 import WeeklyScoresModal from '../../components/WeeklyScoresModal'
 import WeekRecapModal from '../../components/WeekRecapModal'
+import BowlWeek1Modal from '../../components/BowlWeek1Modal'
+import BowlWeek2Modal from '../../components/BowlWeek2Modal'
 import FormattedRecap from '../../components/FormattedRecap'
 import buildRecapLinks from '../../utils/buildRecapLinks'
 import { useTeamColors } from '../../hooks/useTeamColors'
@@ -248,9 +250,11 @@ export default function WeeklyScores() {
   const { year: urlYear, week: urlWeek } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { currentDynasty, isViewOnly } = useDynasty()
+  const { currentDynasty, isViewOnly, saveCPUBowlGames, saveCFPGames, saveRankings } = useDynasty()
   const pathPrefix = usePathPrefix()
   const [editing, setEditing] = useState(false)
+  const [bowlWeek1Open, setBowlWeek1Open] = useState(false)
+  const [bowlWeek2Open, setBowlWeek2Open] = useState(false)
   // Recap modal opens locally on this page too — no need to round-trip to
   // the dashboard. Same component handles preseason + in-season.
   const [recapModalOpen, setRecapModalOpen] = useState(false)
@@ -308,7 +312,16 @@ export default function WeeklyScores() {
   const availableYears = Array.from(allYearsSet).sort((a, b) => b - a)
 
   const displayYear = urlYear ? parseInt(urlYear, 10) : currentYear
-  const displayWeek = urlWeek != null ? parseInt(urlWeek, 10) : Math.max(0, (currentDynasty.currentPhase === 'regular_season' ? Number(currentDynasty.currentWeek) - 1 : 15))
+  const displayWeek = urlWeek != null ? parseInt(urlWeek, 10) : (() => {
+    const phase = currentDynasty.currentPhase
+    const week = Number(currentDynasty.currentWeek)
+    if (phase === 'regular_season') return Math.max(0, week - 1)
+    if (phase === 'conference_championship') return 15
+    // postseason week 1 → show CCG (15), week 2 → BW1 (16), week 3 → BW2 (17), etc.
+    // mirrors regular season "show the last completed week" pattern
+    if (phase === 'postseason') return Math.max(15, 14 + week)
+    return 15
+  })()
   // Memoize the recap link patterns — buildRecapLinks builds hundreds of
   // patterns from dynasty.games + .teams. Gated on tab + recap presence:
   // skip the build entirely when the user is on the Scores tab or the
@@ -333,6 +346,62 @@ export default function WeeklyScores() {
 
   const handleYearChange = (y) => navigate(`${pathPrefix}/weekly-scores/${y}/${displayWeek}`)
   const handleWeekChange = (w) => navigate(`${pathPrefix}/weekly-scores/${displayYear}/${w}`)
+
+  const handleBowlWeek1Save = async (bowlGames) => {
+    try {
+      const year = currentDynasty.currentYear
+      const pollEntries = bowlGames.pollEntries || []
+      if (pollEntries.length > 0) await saveRankings(currentDynasty.id, pollEntries, year, 16)
+      const gamesWithScores = bowlGames.filter(g =>
+        g.team1Score !== null && g.team1Score !== undefined &&
+        g.team2Score !== null && g.team2Score !== undefined
+      )
+      const sanitize = (g) => ({
+        bowlName: g.bowlName || '', team1: g.team1 || '', team2: g.team2 || '',
+        team1Score: typeof g.team1Score === 'number' ? g.team1Score : null,
+        team2Score: typeof g.team2Score === 'number' ? g.team2Score : null,
+        winner: g.winner || null,
+      })
+      const cfpFR = gamesWithScores.filter(g => g.bowlName?.startsWith('CFP First Round')).map(g => {
+        const m = g.bowlName?.match(/#(\d+) vs #(\d+)/)
+        return { seed1: m ? parseInt(m[1]) : null, seed2: m ? parseInt(m[2]) : null, ...sanitize(g) }
+      })
+      const regularBowls = gamesWithScores.filter(g => !g.bowlName?.startsWith('CFP First Round')).map(sanitize)
+      await saveCPUBowlGames(currentDynasty.id, regularBowls, year, 'week1')
+      if (cfpFR.length > 0) await saveCFPGames(currentDynasty.id, cfpFR, year, GAME_TYPES.CFP_FIRST_ROUND)
+      setBowlWeek1Open(false)
+    } catch (err) {
+      console.error('[WeeklyScores] Bowl Week 1 save error:', err)
+    }
+  }
+
+  const handleBowlWeek2Save = async (bowlGames) => {
+    try {
+      const year = currentDynasty.currentYear
+      const pollEntries = bowlGames.pollEntries || []
+      if (pollEntries.length > 0) await saveRankings(currentDynasty.id, pollEntries, year, 17)
+      const gamesWithScores = bowlGames.filter(g =>
+        g.team1Score !== null && g.team1Score !== undefined &&
+        g.team2Score !== null && g.team2Score !== undefined
+      )
+      const sanitize = (g) => ({
+        bowlName: g.bowlName || '', team1: g.team1 || '', team2: g.team2 || '',
+        team1Score: typeof g.team1Score === 'number' ? g.team1Score : null,
+        team2Score: typeof g.team2Score === 'number' ? g.team2Score : null,
+        winner: g.winner || null,
+      })
+      const cfpQF = gamesWithScores.filter(g => g.bowlName?.includes('(CFP QF)')).map(g => {
+        const m = g.bowlName?.match(/#(\d+) vs #(\d+)/)
+        return { seed1: m ? parseInt(m[1]) : null, seed2: m ? parseInt(m[2]) : null, ...sanitize(g) }
+      })
+      const regularBowls = gamesWithScores.filter(g => !g.bowlName?.includes('(CFP QF)')).map(sanitize)
+      await saveCPUBowlGames(currentDynasty.id, regularBowls, year, 'week2')
+      if (cfpQF.length > 0) await saveCFPGames(currentDynasty.id, cfpQF, year, GAME_TYPES.CFP_QUARTERFINAL)
+      setBowlWeek2Open(false)
+    } catch (err) {
+      console.error('[WeeklyScores] Bowl Week 2 save error:', err)
+    }
+  }
 
   // Maps each game to the numeric week slot used as the key in gamesByWeek.
   // Regular weeks 0-14 come from game.week. Post-season slots:
@@ -566,6 +635,38 @@ export default function WeeklyScores() {
                   Edit Scores
                 </button>
                 )}
+                {displayWeek === 16 && (
+                <button
+                  type="button"
+                  onClick={() => setBowlWeek1Open(true)}
+                  className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0"
+                  style={{
+                    backgroundColor: 'var(--surface-3)',
+                    borderColor: 'var(--surface-4)',
+                    color: 'var(--text-secondary)',
+                    letterSpacing: '1.4px',
+                  }}
+                  title="Enter Bowl Week 1 scores"
+                >
+                  Enter Scores
+                </button>
+                )}
+                {displayWeek === 17 && (
+                <button
+                  type="button"
+                  onClick={() => setBowlWeek2Open(true)}
+                  className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0"
+                  style={{
+                    backgroundColor: 'var(--surface-3)',
+                    borderColor: 'var(--surface-4)',
+                    color: 'var(--text-secondary)',
+                    letterSpacing: '1.4px',
+                  }}
+                  title="Enter Bowl Week 2 scores"
+                >
+                  Enter Scores
+                </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setRecapModalOpen(true)}
@@ -694,6 +795,26 @@ export default function WeeklyScores() {
           onClose={() => setEditing(false)}
           year={displayYear}
           week={displayWeek}
+          teamColors={teamColors}
+        />
+      )}
+
+      {bowlWeek1Open && (
+        <BowlWeek1Modal
+          isOpen={bowlWeek1Open}
+          onClose={() => setBowlWeek1Open(false)}
+          onSave={handleBowlWeek1Save}
+          currentYear={currentDynasty?.currentYear}
+          teamColors={teamColors}
+        />
+      )}
+
+      {bowlWeek2Open && (
+        <BowlWeek2Modal
+          isOpen={bowlWeek2Open}
+          onClose={() => setBowlWeek2Open(false)}
+          onSave={handleBowlWeek2Save}
+          currentYear={currentDynasty?.currentYear}
           teamColors={teamColors}
         />
       )}
