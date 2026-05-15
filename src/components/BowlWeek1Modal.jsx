@@ -70,19 +70,32 @@ export default function BowlWeek1Modal({ isOpen, onClose, onSave, currentYear, t
     if (isOpen) setRankWeek(effectiveRankWeek)
   }, [isOpen, effectiveRankWeek])
 
+  // Bowl week 1 games already recorded in the app — exclude from sheet to avoid overwriting detailed data
+  const alreadyEnteredBW1Names = useMemo(() => {
+    if (!currentDynasty?.games) return []
+    return currentDynasty.games
+      .filter(g =>
+        Number(g.year) === Number(currentYear) &&
+        (g.gameType === 'bowl' || (g.bowlName && !g.bowlName.includes('CFP'))) &&
+        g.bowlName &&
+        isBowlInWeek1(g.bowlName)
+      )
+      .map(g => g.bowlName)
+  }, [currentDynasty?.games, currentYear])
+
   // Compute excluded games (same logic as sheet creation) so the AI prompt
   // can tell the AI exactly which bowl(s) to skip.
   const excludedBowlGames = useMemo(() => {
     const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[currentYear] || []
     const userTeamTid = getCurrentTeamTid(currentDynasty)
     const userCFPSeed = cfpSeeds.find(s => s.tid === userTeamTid)?.seed || null
-    const excluded = []
+    const excluded = [...alreadyEnteredBW1Names]
     if (userCFPSeed >= 5 && userCFPSeed <= 12) {
       const cfpGameName = getCFPFirstRoundGameName(userCFPSeed)
-      if (cfpGameName) excluded.push(cfpGameName)
+      if (cfpGameName && !excluded.includes(cfpGameName)) excluded.push(cfpGameName)
     }
     return excluded
-  }, [currentDynasty, currentYear])
+  }, [currentDynasty, currentYear, alreadyEnteredBW1Names])
 
   // Prior-week Top 25 (post-CCG poll = rankByWeek slot 15) so the AI can
   // reason about which ranked teams aren't playing in Bowl Week 1.
@@ -109,9 +122,9 @@ export default function BowlWeek1Modal({ isOpen, onClose, onSave, currentYear, t
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Bowl Week 1 Results`,
-    structure: `This sheet has ONE tab: "Bowl Games". It contains up to 29 Week 1 bowl games (25 regular bowls + 4 CFP First Round games).${excludedBowlGames.length > 0 ? `
+    structure: `This sheet has ONE tab: "Bowl Games". It contains ${29 - excludedBowlGames.length} rows (29 total Bowl Week 1 slots minus ${excludedBowlGames.length} excluded).${excludedBowlGames.length > 0 ? `
 
-⚠️ EXCLUDED BOWL(S) — the user played in these games themselves and they are NOT in the sheet. DO NOT output a row for them even if they appear in your screenshots:
+⚠️ GAMES NOT IN THIS SHEET — you may see the following in your screenshots, but there is NO row for them. Ignore them completely. Do NOT output a row for them:
 ${excludedBowlGames.map(g => `  • ${g}`).join('\n')}` : ''}
 
 The sheet's pre-filled column A rows are the ONLY rows you output — match them exactly.
@@ -133,11 +146,11 @@ CRITICAL RULES — read before anything else
 10. ONE TSV block — preceded by the paste-target label line as required by the Method A/B rules above.
 
 ═══════════════════════════════════════════════════════════
-TAB: "Bowl Games" — up to 29 rows × 6 editable columns
+TAB: "Bowl Games" — ${29 - excludedBowlGames.length} rows × 6 editable columns
 Paste your block at cell B2 of the "Bowl Games" tab
 ═══════════════════════════════════════════════════════════
 
-Column A (Bowl Game) is pre-filled with the bowl game name — match the screenshot. The full pool of possible pre-filled bowl names is listed below so you can recognize each row; the actual sheet contains ONLY those that appear in the screenshot (the user's own bowl may be excluded).
+Column A (Bowl Game) is pre-filled with the bowl game name — match the screenshot. The full pool of possible pre-filled bowl names is listed below so you can recognize each row; the actual sheet contains ONLY those that appear in the screenshot.
 
 Pre-filled Bowl Game names (possible values in column A, in sheet order):
   1. 68 Ventures Bowl
@@ -236,7 +249,7 @@ REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send the answer
 ═══════════════════════════════════════════════════════════
-[ ] Row count matches the number of bowl rows shown in the screenshot exactly (up to 29)
+[ ] Row count matches the number of bowl rows shown in the screenshot exactly (${29 - excludedBowlGames.length} rows)
 [ ] Row order matches the screenshot's pre-filled Bowl Game column top-to-bottom
 [ ] Exactly 6 tab-separated values per game row (5 tab characters per line)
 [ ] Columns B and D are team ABBREVIATIONS only, from the TEAM ABBREVIATIONS mapping
@@ -296,6 +309,9 @@ FINAL CHECK before you send the answer
             const cfpGameName = getCFPFirstRoundGameName(userCFPSeed)
             if (cfpGameName) excludeGames.push(cfpGameName)
           }
+          alreadyEnteredBW1Names.forEach(name => {
+            if (!excludeGames.includes(name)) excludeGames.push(name)
+          })
 
           const legacyBowlWeek1 = currentDynasty?.bowlGamesByYear?.[currentYear]?.week1 || []
           const unifiedBowlGames = (currentDynasty?.games || [])
