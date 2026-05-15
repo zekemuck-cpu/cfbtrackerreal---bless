@@ -409,10 +409,12 @@ function buildStatsLine(player, year) {
 /**
  * Build a multi-line year-by-year career stats table for the player.
  * One row per year that has stats, formatted like:
- *   `2028 (Sophomore): 290/410, 3800 yds, 32 TD`
+ *   `2028 (Sophomore): 13 GP, 290/410, 3800 yds, 32 TD`
  * Returns '' if the player has no stat data at all.
+ * @param {object} player
+ * @param {Record<number,number>} gpByYear - games played per year (optional)
  */
-function buildCareerStatsTable(player) {
+function buildCareerStatsTable(player, gpByYear = {}) {
   if (!player?.statsByYear) return ''
   const years = Object.keys(player.statsByYear)
     .map(Number)
@@ -425,7 +427,8 @@ function buildCareerStatsTable(player) {
     const line = buildStatsLine(player, yr)
     if (!line) continue
     const cls = player.classByYear?.[yr] || player.classByYear?.[String(yr)] || ''
-    rows.push(cls ? `${yr} (${cls}): ${line}` : `${yr}: ${line}`)
+    const gp = gpByYear[yr] != null ? `${gpByYear[yr]} GP, ` : ''
+    rows.push(cls ? `${yr} (${cls}): ${gp}${line}` : `${yr}: ${gp}${line}`)
   }
   return rows.join('\n')
 }
@@ -773,20 +776,46 @@ export function buildCardPromptVariables({ player, dynasty, card }) {
     : ''
 
   // Detect "season in progress" — if the card's year is the dynasty's
-  // current active year and we're still inside the regular-season phase
-  // (or postseason hasn't completed). Stops cards from talking about a
-  // currently-being-played season as if it had already finished.
+  // current active year and the season hasn't yet concluded for the
+  // player's team. Stops cards from talking about an ongoing season as
+  // if it had already finished.
   const dynastyYearNum = Number(dynasty?.currentYear)
   const dynastyPhase = dynasty?.currentPhase || ''
   const dynastyWeek = Number(dynasty?.currentWeek)
+
+  // During postseason, mark complete as soon as the player's team has a
+  // played bowl/CFP game — they're done regardless of other games still
+  // being played around the league.
+  const teamPostseasonDone = (() => {
+    if (dynastyPhase !== 'postseason') return false
+    if (teamTid == null || !dynasty?.games) return false
+    return dynasty.games.some(g => {
+      if (!g || Number(g.year) !== dynastyYearNum) return false
+      if (Number(g.team1Tid) !== teamTid && Number(g.team2Tid) !== teamTid) return false
+      const isPostseason = g.isBowlGame || g.isCFPFirstRound || g.isCFPQuarterfinal || g.isCFPSemifinal || g.isCFPChampionship
+      return isPostseason && (g.isPlayed || (g.team1Score != null && g.team2Score != null))
+    })
+  })()
+
   const seasonInProgress =
     Number.isFinite(dynastyYearNum) &&
     Number(year) === dynastyYearNum &&
-    dynastyPhase !== 'offseason'
+    dynastyPhase !== 'offseason' &&
+    !teamPostseasonDone
+
   const seasonProgressNote = seasonInProgress
-    ? (Number.isFinite(dynastyWeek) && dynastyWeek > 0
-        ? `IN PROGRESS — through Week ${dynastyWeek} of ${year}`
-        : `IN PROGRESS — ${year} season is still being played`)
+    ? (() => {
+        if (dynastyPhase === 'conference_championship') {
+          return `IN PROGRESS — through the Conference Championship of ${year}`
+        }
+        if (dynastyPhase === 'postseason') {
+          const bowlWk = Number.isFinite(dynastyWeek) && dynastyWeek > 0 ? dynastyWeek : 1
+          return `IN PROGRESS — Bowl Week ${bowlWk} of ${year}`
+        }
+        return Number.isFinite(dynastyWeek) && dynastyWeek > 0
+          ? `IN PROGRESS — through Week ${dynastyWeek} of ${year}`
+          : `IN PROGRESS — ${year} season is still being played`
+      })()
     : ''
 
   const bioText = buildBioText({
@@ -794,8 +823,26 @@ export function buildCardPromptVariables({ player, dynasty, card }) {
     seasonInProgress,
   })
 
+  // Games-played count per year for the career table. For each year in
+  // the player's career, count played games where their team was involved.
+  const gpByYear = (() => {
+    const result = {}
+    if (!player?.statsByYear || !dynasty?.games) return result
+    const years = Object.keys(player.statsByYear).map(Number).filter(n => Number.isFinite(n) && n > 0)
+    for (const yr of years) {
+      const tidForYear = resolveTeamForYear(player, yr)
+      if (tidForYear == null) continue
+      result[yr] = dynasty.games.filter(g => {
+        if (!g || Number(g.year) !== yr) return false
+        if (Number(g.team1Tid) !== tidForYear && Number(g.team2Tid) !== tidForYear) return false
+        return g.isPlayed || (g.team1Score != null && g.team2Score != null)
+      }).length
+    }
+    return result
+  })()
+
   // Career-wide stats (used by season-context cards on the back).
-  const careerStatsTable = buildCareerStatsTable(player)
+  const careerStatsTable = buildCareerStatsTable(player, gpByYear)
   const careerYearsLine = buildCareerYearsLine(player)
 
   // For game-context cards, pull the player's per-game stat line from
