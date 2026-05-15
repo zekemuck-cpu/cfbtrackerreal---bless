@@ -7293,6 +7293,82 @@ export default function Dashboard() {
                       }
                       return <div key={weekNum}>{renderMobileGameRow(false)}</div>
                     })}
+
+                    {/* Conference Championship row */}
+                    {(() => {
+                      const ccGame = getCCGame()
+                      if (!ccGame) return null
+                      const ccPerspective = getUserGamePerspective(ccGame, currentDynasty)
+                      const ccOppTid = ccPerspective?.opponentTid ?? (Number(ccGame.team1Tid) === userTeamTid ? ccGame.team2Tid : ccGame.team1Tid)
+                      const ccOppName = getMascotName(ccOppTid) || getTeamNameFromAbbr(ccOppTid) || 'TBD'
+                      const ccOppLogo = ccOppName ? getTeamLogo(ccOppName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+                      const ccUserScore = ccPerspective?.userScore
+                      const ccOppScore = ccPerspective?.opponentScore
+                      const ccIsPlayed = ccGame.isPlayed || (ccGame.team1Score != null && ccGame.team2Score != null)
+                      const ccIsWin = ccPerspective?.userWon
+                      const ccRow = (isLink) => (
+                        <div className={`relative flex items-center py-2.5 px-4 gap-3 transition-colors ${isLink ? 'hover:bg-surface-3' : ''}`}>
+                          <span className="w-7 text-xs font-semibold text-txt-tertiary">CC</span>
+                          <div className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 bg-white" style={{ padding: '5px' }}>
+                            {ccOppLogo ? <img src={ccOppLogo} alt={ccOppName} className="w-full h-full object-contain" /> : <span className="text-xs font-bold text-txt-primary">{String(ccOppTid)?.slice(0, 3)}</span>}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-semibold text-txt-primary truncate block">{ccOppName}</span>
+                            <span className="text-[10px] text-txt-tertiary">Conf Championship</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {ccIsPlayed && <span className="text-xs font-bold tabular-nums" style={{ color: ccIsWin ? 'var(--accent-success)' : 'var(--accent-error)' }}>{ccIsWin ? 'W' : 'L'}</span>}
+                            <div className="w-14 text-right">
+                              {ccIsPlayed && ccUserScore != null ? (
+                                <span className="text-base font-bold tabular-nums text-txt-primary">{Math.max(ccUserScore, ccOppScore || 0)}-{Math.min(ccUserScore, ccOppScore || 0)}</span>
+                              ) : <span className="text-sm text-txt-muted">—</span>}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                      return ccGame.id
+                        ? <Link key="ccg" to={`${pathPrefix}/game/${ccGame.id}`} className="block">{ccRow(true)}</Link>
+                        : <div key="ccg">{ccRow(false)}</div>
+                    })()}
+
+                    {/* Bowl Game row */}
+                    {(() => {
+                      const cfpR1Game = findCurrentTeamGame(currentDynasty, g => (g.isCFPFirstRound || g.gameType === GAME_TYPES.CFP_FIRST_ROUND) && isSameYear(g.year, currentDynasty.currentYear))
+                      if (cfpR1Game) return null
+                      const bowlGame = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear))
+                      if (!bowlGame) return null
+                      const bowlPerspective = getUserGamePerspective(bowlGame, currentDynasty)
+                      const bowlOppTid = bowlPerspective?.opponentTid ?? (Number(bowlGame.team1Tid) === userTeamTid ? bowlGame.team2Tid : bowlGame.team1Tid)
+                      const bowlOppName = getMascotName(bowlOppTid) || getTeamNameFromAbbr(bowlOppTid) || 'TBD'
+                      const bowlOppLogo = bowlOppName ? getTeamLogo(bowlOppName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+                      const bowlUserScore = bowlPerspective?.userScore
+                      const bowlOppScore = bowlPerspective?.opponentScore
+                      const bowlIsPlayed = bowlGame.isPlayed || (bowlGame.team1Score != null && bowlGame.team2Score != null)
+                      const bowlIsWin = bowlPerspective?.userWon
+                      const bowlRow = (isLink) => (
+                        <div className={`relative flex items-center py-2.5 px-4 gap-3 transition-colors ${isLink ? 'hover:bg-surface-3' : ''}`}>
+                          <span className="w-7 text-xs font-semibold text-txt-tertiary">Bowl</span>
+                          <div className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 bg-white" style={{ padding: '5px' }}>
+                            {bowlOppLogo ? <img src={bowlOppLogo} alt={bowlOppName} className="w-full h-full object-contain" /> : <span className="text-xs font-bold text-txt-primary">{String(bowlOppTid)?.slice(0, 3)}</span>}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-semibold text-txt-primary truncate block">{bowlOppName}</span>
+                            <span className="text-[10px] text-txt-tertiary">{bowlGame.bowlName || 'Bowl Game'}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {bowlIsPlayed && <span className="text-xs font-bold tabular-nums" style={{ color: bowlIsWin ? 'var(--accent-success)' : 'var(--accent-error)' }}>{bowlIsWin ? 'W' : 'L'}</span>}
+                            <div className="w-14 text-right">
+                              {bowlIsPlayed && bowlUserScore != null ? (
+                                <span className="text-base font-bold tabular-nums text-txt-primary">{Math.max(bowlUserScore, bowlOppScore || 0)}-{Math.min(bowlUserScore, bowlOppScore || 0)}</span>
+                              ) : <span className="text-sm text-txt-muted">—</span>}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                      return bowlGame.id
+                        ? <Link key="bowl" to={`${pathPrefix}/game/${bowlGame.id}`} className="block">{bowlRow(true)}</Link>
+                        : <div key="bowl">{bowlRow(false)}</div>
+                    })()}
                   </>
                 ) : isLoadingDynastyData ? (
                   <div className="text-center py-12">
