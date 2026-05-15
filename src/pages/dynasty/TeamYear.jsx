@@ -1916,6 +1916,8 @@ export default function TeamYear() {
         .sort((a, b) => (b.yds || 0) - (a.yds || 0)),
       receiving: processCategory('receiving', s => (s.rec || 0) > 0)
         .sort((a, b) => (b.yds || 0) - (a.yds || 0)),
+      blocking: processCategory('blocking', s => (s.pancakes || 0) > 0 || (s.sacksAllowed || 0) > 0)
+        .sort((a, b) => (b.pancakes || 0) - (a.pancakes || 0)),
       defense: processCategory('defense', s => (s.soloTkl || s.astTkl || s.sacks || s.int) > 0)
         .sort((a, b) => ((b.soloTkl || 0) + (b.astTkl || 0)) - ((a.soloTkl || 0) + (a.astTkl || 0))),
       kicking: processCategory('kicking', s => (s.fga || s.xpa) > 0),

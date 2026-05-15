@@ -13,6 +13,7 @@ import { getTeamConference } from '../../data/conferenceTeams'
 import BoxScoreSheetModal from '../../components/BoxScoreSheetModal'
 import { setPlayerStatsForTid, setTeamStatsForTid, setScoringSummary, getPlayerStatsSheetIdForTid, canonicalBoxScore, swapBoxScoreTeams, hasAnyPlayerStats, hasAnyTeamStats } from '../../utils/boxScoreHelpers'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName } from '../../data/cfpConstants'
+import { isBowlInWeek1, isBowlInWeek2 } from '../../services/sheetsService'
 import { PageHero, Card, Button, EmptyState, Input, Select, Textarea } from '../../components/ui'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../components/ui/Toast'
@@ -1159,8 +1160,8 @@ export default function GameEdit() {
         // Bowl + CFP flags ride along from existingGame — the picker
         // doesn't allow conversion in or out of those types, so the
         // existing classification is the truth.
-        ...(existingGame?.isBowlGame && { isBowlGame: true, bowlName: existingGame.bowlName }),
-        ...(!existingGame && gameType === 'bowl' && { isBowlGame: true, bowlName }),
+        ...(existingGame?.isBowlGame && { isBowlGame: true, bowlName: existingGame.bowlName, bowlWeek: existingGame.bowlWeek || (isBowlInWeek2(existingGame.bowlName) ? 'week2' : 'week1') }),
+        ...(!existingGame && gameType === 'bowl' && { isBowlGame: true, bowlName, bowlWeek: isBowlInWeek2(bowlName) ? 'week2' : 'week1' }),
         ...(existingGame?.isCFPFirstRound && { isCFPFirstRound: true }),
         ...(!existingGame && gameType === 'cfp_first_round' && { isCFPFirstRound: true }),
         ...(existingGame?.isCFPQuarterfinal && { isCFPQuarterfinal: true }),
@@ -1351,8 +1352,8 @@ export default function GameEdit() {
         isConferenceChampionship: isCCGType,
         conference: conferenceForCCG,
         // Bowl/CFP flags ride along from existingGame.
-        ...(existingGame?.isBowlGame && { isBowlGame: true, bowlName: existingGame.bowlName }),
-        ...(!existingGame && gameType === 'bowl' && { isBowlGame: true, bowlName }),
+        ...(existingGame?.isBowlGame && { isBowlGame: true, bowlName: existingGame.bowlName, bowlWeek: existingGame.bowlWeek || (isBowlInWeek2(existingGame.bowlName) ? 'week2' : 'week1') }),
+        ...(!existingGame && gameType === 'bowl' && { isBowlGame: true, bowlName, bowlWeek: isBowlInWeek2(bowlName) ? 'week2' : 'week1' }),
         ...(existingGame?.isCFPFirstRound && { isCFPFirstRound: true }),
         ...(!existingGame && gameType === 'cfp_first_round' && { isCFPFirstRound: true }),
         ...(existingGame?.isCFPQuarterfinal && { isCFPQuarterfinal: true }),
