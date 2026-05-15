@@ -3216,7 +3216,7 @@ export async function readConferenceChampionshipsHistoryFromSheet(spreadsheetId,
   return { years, byYear }
 }
 
-// Bowl games list for Bowl Week 1 (26 regular bowls + 4 CFP First Round = 30 games)
+// Bowl games list for Bowl Week 1 (25 regular bowls + 4 CFP First Round = 29 games)
 const BOWL_GAMES_WEEK_1 = [
   '68 Ventures Bowl',
   'Alamo Bowl',
@@ -3241,7 +3241,6 @@ const BOWL_GAMES_WEEK_1 = [
   'Las Vegas Bowl',
   'Liberty Bowl',
   'Military Bowl',
-  'Music City Bowl',
   'Myrtle Beach Bowl',
   'New Mexico Bowl',
   'New Orleans Bowl',
@@ -3258,12 +3257,13 @@ const CFP_FIRST_ROUND_MATCHUPS = [
   { game: 'CFP First Round (#5 vs #12)', seed1: 5, seed2: 12 }
 ]
 
-// Regular bowl games for Bowl Week 2 (8 games - excludes CFP Quarterfinals)
+// Regular bowl games for Bowl Week 2 (9 games - excludes CFP Quarterfinals)
 const BOWL_GAMES_WEEK_2_REGULAR = [
   'Citrus Bowl',
   "Duke's Mayo Bowl",
   'First Responder Bowl',
   'Gator Bowl',
+  'Music City Bowl',
   'Reliaquest Bowl',
   'Sun Bowl',
   'Texas Bowl',

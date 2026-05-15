@@ -165,13 +165,12 @@ Pre-filled Bowl Game names (possible values in column A, in sheet order):
  21. Las Vegas Bowl
  22. Liberty Bowl
  23. Military Bowl
- 24. Music City Bowl
- 25. Myrtle Beach Bowl
- 26. New Mexico Bowl
- 27. New Orleans Bowl
- 28. Pop-Tarts Bowl
- 29. Rate Bowl
- 30. Salute to Veterans Bowl
+ 24. Myrtle Beach Bowl
+ 25. New Mexico Bowl
+ 26. New Orleans Bowl
+ 27. Pop-Tarts Bowl
+ 28. Rate Bowl
+ 29. Salute to Veterans Bowl
 
 For each row, in the same top-to-bottom order shown in the screenshot, output these 6 columns:
 
