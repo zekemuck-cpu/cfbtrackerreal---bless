@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate, useSearchParams, useLocation } from 'reac
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName, getTidFromAbbr, getOriginalTeamAbbr } from '../../data/teamRegistry'
-import { useDynasty, GAME_TYPES, getCurrentCustomConferences, buildRecordUpdatePayload, calculateTeamRecordFromGames, getTeamRecord, getTeamRankForWeek, propagateCFPWinner, isPlayerOnRoster } from '../../context/DynastyContext'
+import { useDynasty, GAME_TYPES, getCurrentCustomConferences, buildRecordUpdatePayload, calculateTeamRecordFromGames, getStoredTeamRecord, getTeamRecord, getTeamRankForWeek, propagateCFPWinner, isPlayerOnRoster } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getFullRecapPrompt } from '../../services/geminiService'
@@ -568,6 +568,16 @@ export default function GameEdit() {
       upToGameId: existingGame?.id,
     })
     let { wins = 0, losses = 0, confWins = 0, confLosses = 0 } = baseline
+
+    // For CPU teams whose regular-season games aren't in dynasty.games,
+    // fall back to standings / stored records as the pre-game baseline.
+    if (wins + losses === 0) {
+      const stored = getStoredTeamRecord(currentDynasty, tid, gameYear)
+      if (stored && (stored.wins > 0 || stored.losses > 0)) {
+        wins = stored.wins; losses = stored.losses
+        confWins = stored.confWins; confLosses = stored.confLosses
+      }
+    }
 
     // Apply the in-progress current game from formData.
     const t1Score = parseInt(formData.team1Score, 10)
