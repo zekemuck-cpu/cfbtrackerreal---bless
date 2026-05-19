@@ -498,7 +498,19 @@ FINAL CHECK before you send the answer
               const teams = currentDynasty?.teams || TEAMS
               const t1Info = g.team1Tid ? getGameTeamInfo(teams, g.team1Tid) : null
               const t2Info = g.team2Tid ? getGameTeamInfo(teams, g.team2Tid) : null
-              return { bowl: g.bowlName, team1: g.team1 || t1Info?.abbr, team2: g.team2 || t2Info?.abbr, score1: g.team1Score, score2: g.team2Score, winner: g.winner || (g.winnerTid ? getGameTeamInfo(teams, g.winnerTid)?.abbr : null) }
+              // The sheet's column-A row name for a CFP QF is always
+              // "<Bowl> (CFP QF)". Stored bowlName varies by entry path
+              // (shells write "Sugar Bowl", GameEdit + sheet saves can
+              // write either format), so normalize here to match — that's
+              // how getExistingBowlData in initializeBowlWeek2Sheet keys
+              // pre-fill lookups, and without this normalization an
+              // already-entered QF score wouldn't show up when the user
+              // re-opens the sheet.
+              const stored = g.bowlName || ''
+              const normalizedBowl = /\(CFP\s*QF\)\s*$/i.test(stored)
+                ? stored
+                : (stored ? `${stored} (CFP QF)` : '')
+              return { bowl: normalizedBowl, team1: g.team1 || t1Info?.abbr, team2: g.team2 || t2Info?.abbr, score1: g.team1Score, score2: g.team2Score, winner: g.winner || (g.winnerTid ? getGameTeamInfo(teams, g.winnerTid)?.abbr : null) }
             })
 
           const cfpBowlConfig = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || null
