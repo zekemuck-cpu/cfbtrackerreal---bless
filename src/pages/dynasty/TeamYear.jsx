@@ -3233,20 +3233,26 @@ export default function TeamYear() {
             )
           })()}
 
-          {/* Three-column home layout: leaders | prev+next | schedule */}
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)_minmax(0,340px)] gap-y-8 lg:gap-x-8 xl:gap-x-10">
+          {/* Three-column home layout: leaders | prev+next | schedule.
+              Three-column activates at xl only — at lg the middle
+              column gets squeezed below ~250px (left 300 + right 340
+              + gaps consume ~700px of content width), which collapses
+              the Previous Game scorebug + per-stat rows into a four-
+              line-per-cell wrapping mess. Below xl the layout stacks
+              to a single column and each card breathes properly. */}
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,300px)_minmax(0,1fr)_minmax(0,340px)] gap-y-8 xl:gap-x-8 2xl:gap-x-10">
           {/* LEFT: Stat Leaders (or Top Rated fallback when no box scores
               have been entered yet). On mobile (single column), real
               Stat Leaders read as a hero and sit at the top; the Top
               Rated fallback is reference content and gets pushed to
               the bottom of the stack (after prev/next game + schedule)
-              so the user lands on the most-recent game first. lg:order-1
+              so the user lands on the most-recent game first. xl:order-1
               keeps the rail in the left column at desktop breakpoints
-              regardless. */}
+              (the outer 3-col grid activates at xl+ — see note above). */}
           {(() => {
             const hasStatLeaders = !!(teamLeaders.passing || teamLeaders.rushing || teamLeaders.receiving || teamLeaders.tackles || teamLeaders.interceptions)
             return (
-          <aside className={`min-w-0 ${hasStatLeaders ? 'lg:order-1' : 'order-last lg:order-1'}`}>
+          <aside className={`min-w-0 ${hasStatLeaders ? 'xl:order-1' : 'order-last xl:order-1'}`}>
           {(teamLeaders.passing || teamLeaders.rushing || teamLeaders.receiving || teamLeaders.tackles || teamLeaders.interceptions) && (() => {
             const leaders = [
               teamLeaders.passing && { key: 'passing', label: 'Passing', valueText: teamLeaders.passing.stats.yards.toLocaleString(), unit: 'YDS', sub: `${teamLeaders.passing.stats.comp}/${teamLeaders.passing.stats.attempts} · ${teamLeaders.passing.stats.tD} TD · ${teamLeaders.passing.stats.int} INT`, data: teamLeaders.passing, fallback: 'P' },
@@ -3291,9 +3297,12 @@ export default function TeamYear() {
                   ))}
                 </div>
 
-                {/* Desktop: 5-col grid at md+; collapses to vertical stack at lg+
-                    because the Home layout wraps this in a narrow left rail */}
-                <div className="hidden md:grid md:grid-cols-5 lg:grid-cols-1 stagger-reveal" style={{ borderTop: `1px solid ${accentColor}20`, borderBottom: `1px solid ${accentColor}20` }}>
+                {/* Desktop: 5-col grid at md+; collapses to vertical stack at xl+
+                    where the Home layout drops into its narrow left rail.
+                    (Was lg+ before — but the outer 3-col grid also moved
+                    to xl, so between lg and xl the leaders should keep
+                    the wide horizontal row instead of stacking early.) */}
+                <div className="hidden md:grid md:grid-cols-5 xl:grid-cols-1 stagger-reveal" style={{ borderTop: `1px solid ${accentColor}20`, borderBottom: `1px solid ${accentColor}20` }}>
                   {leaders.map((l, idx) => (
                     <Link
                       key={l.key}
@@ -3406,13 +3415,18 @@ export default function TeamYear() {
           })()}
 
           {/* MIDDLE: Previous + Next Game (editorial scorebug) */}
-          <section className="lg:order-2 min-w-0">
-          {/* Previous Game + Next Game Row — editorial scorebug */}
+          <section className="xl:order-2 min-w-0">
+          {/* Previous Game + Next Game Row — editorial scorebug.
+              At xl+ the outer Home grid is 3 columns and this section
+              has the narrow middle rail, so the two cards stack
+              vertically (grid-cols-1). Between md and xl the outer is
+              single-column, so the inner row spreads to 2 columns
+              side-by-side to use the full available width. */}
           {(lastGame || nextGame) && (
           <div className={
             (!lastGame || !nextGame)
               ? 'grid grid-cols-1 gap-y-8 max-w-2xl mx-auto'
-              : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-x-8 gap-y-8'
+              : 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 gap-x-8 gap-y-8'
           }>
             {/* Previous Game with Stats */}
             {lastGame && lastGameInfo && (
@@ -3671,7 +3685,7 @@ export default function TeamYear() {
           </section>
 
           {/* RIGHT: Season Schedule (single-column list inside the rail) */}
-          <aside className="lg:order-3 min-w-0">
+          <aside className="xl:order-3 min-w-0">
           {/* Compact Season Schedule - Column-first order */}
           {teamYearGames.length > 0 && (() => {
             // Calculate rows needed for column-first layout
