@@ -3743,17 +3743,12 @@ export default function Dashboard() {
                   onAction: handleEnterGame,
                   actionLabel: gameDone ? 'Edit' : 'Enter',
                 })
-              } else if (isByeWeek && hasCurWeek) {
-                // No matchup card to fall back on for bye weeks now —
-                // surface a single informational row so the user still
-                // sees something acknowledging the bye.
-                todos.push({
-                  key: 'bye-week',
-                  done: true,
-                  title: `Week ${curWeek} Bye`,
-                  subtitle: 'No game scheduled',
-                })
               }
+              // Bye weeks for the user's team are no longer surfaced as a
+              // to-do row — if there's no game to enter, the list just
+              // doesn't show one. (Removing the informational "Week N Bye"
+              // row was a deliberate de-clutter; non-game weeks already
+              // show plenty of context elsewhere on the dashboard.)
 
               // Row 2: Recruiting — owns the "this week's commits"
               // decision the user makes most often.
@@ -4680,27 +4675,10 @@ export default function Dashboard() {
                 })
               }
 
-              if (!userHasCFPFirstRoundGame && !userHasBowlWeek1Game) {
-                const isCFPByeWeek1 = hasCFPSeedsData && userHasCFPBye
-                bw1Todos.push({
-                  key: 'bowl-week1-bye',
-                  done: isCFPByeWeek1,
-                  title: isCFPByeWeek1 ? 'CFP Bye Week' : 'Bye — No Bowl Game',
-                  subtitle: isCFPByeWeek1
-                    ? `#${userCFPSeed} seed — you advance to the Quarterfinals in Week 2`
-                    : 'Your team has no bowl game this week',
-                  onAction: !isCFPByeWeek1 ? () => {
-                    const params = new URLSearchParams({
-                      week: 'Bowl',
-                      year: currentDynasty.currentYear?.toString() || '',
-                      team1Tid: userTeamTid?.toString() || '',
-                      gameType: 'bowl',
-                    })
-                    navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
-                  } : undefined,
-                  actionLabel: !isCFPByeWeek1 ? 'Add' : undefined,
-                })
-              }
+              // Bye weeks (no CFP First Round game AND no Bowl Week 1
+              // game for the user's team) are no longer surfaced as a
+              // to-do row — see the regular-season note above for the
+              // same de-cluttering rationale.
 
               const newJobDone = takingNewJob !== null && (takingNewJob === false || (newJobTeam && newJobPosition))
               const askingNewJobBW1 = takingNewJob === null
@@ -4916,28 +4894,10 @@ export default function Dashboard() {
                 })
               }
 
-              if (!userHasBowlWeek2Game && !userHasCFPQuarterfinalGame) {
-                // Season ended in Week 1 if they played a BW1 bowl (not CFP) and it's scored
-                const bw2IsBye = userHasBowlWeek1Game && userBowlGameScoresEntered
-                bw2Todos.push({
-                  key: 'bw2-bye',
-                  done: bw2IsBye,
-                  title: bw2IsBye ? 'Bye — Season Complete' : 'Bye — No Game This Week',
-                  subtitle: bw2IsBye
-                    ? `Season finished in Bowl Week 1`
-                    : 'Your team has no game in Bowl Week 2',
-                  onAction: !bw2IsBye ? () => {
-                    const params = new URLSearchParams({
-                      week: 'Bowl',
-                      year: currentDynasty.currentYear?.toString() || '',
-                      team1Tid: userTeamTid?.toString() || '',
-                      gameType: 'bowl',
-                    })
-                    navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
-                  } : undefined,
-                  actionLabel: !bw2IsBye ? 'Add' : undefined,
-                })
-              }
+              // Bye weeks (no Bowl Week 2 game AND no CFP Quarterfinal
+              // for the user's team) are no longer surfaced as a to-do
+              // row — see the regular-season note above for the same
+              // de-cluttering rationale.
 
               if (userHasCFPQuarterfinalGame) {
                 const qfDone = userCFPQuarterfinalScoresEntered
@@ -5464,14 +5424,8 @@ export default function Dashboard() {
               })
             }
 
-            if (week === 3 && !userHasCFPSemifinalGame) {
-              w34Todos.push({
-                key: 'cfp-sf-bye',
-                done: true,
-                title: 'No CFP Semifinal',
-                subtitle: 'Your team did not advance to the semifinals',
-              })
-            }
+            // CFP Semifinal bye (user's team didn't advance) — no to-do row,
+            // matching the general "no game = no row" convention.
 
             if (week === 3 && userHasCFPSemifinalGame) {
               const sfDone = !!userCFPSemifinalGame && userCFPSemifinalGame.team1Score != null
@@ -5521,14 +5475,8 @@ export default function Dashboard() {
               })
             }
 
-            if (week === 4 && !userHasCFPChampionshipGame) {
-              w34Todos.push({
-                key: 'cfp-nc-bye',
-                done: true,
-                title: 'No National Championship Game',
-                subtitle: 'Your team did not advance to the championship',
-              })
-            }
+            // National Championship bye (user's team didn't advance) — no
+            // to-do row, matching the general "no game = no row" convention.
 
             if (week === 4 && userHasCFPChampionshipGame) {
               const userChampHasScores = userCFPChampionshipGame &&
