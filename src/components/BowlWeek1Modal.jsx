@@ -18,7 +18,7 @@ import {
   getCFPFirstRoundGameName,
   isBowlInWeek1,
 } from '../services/sheetsService'
-import { getCurrentTeamTid, getCurrentTeamAbbr } from '../data/teamRegistry'
+import { getCurrentTeamTid, getCurrentTeamAbbr, getGameTeamInfo, TEAMS } from '../data/teamRegistry'
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
@@ -70,32 +70,24 @@ export default function BowlWeek1Modal({ isOpen, onClose, onSave, currentYear, t
     if (isOpen) setRankWeek(effectiveRankWeek)
   }, [isOpen, effectiveRankWeek])
 
-  // Bowl week 1 games already recorded in the app — exclude from sheet to avoid overwriting detailed data
-  const alreadyEnteredBW1Names = useMemo(() => {
-    if (!currentDynasty?.games) return []
-    return currentDynasty.games
-      .filter(g =>
-        Number(g.year) === Number(currentYear) &&
-        (g.gameType === 'bowl' || (g.bowlName && !g.bowlName.includes('CFP'))) &&
-        g.bowlName &&
-        isBowlInWeek1(g.bowlName)
-      )
-      .map(g => g.bowlName)
-  }, [currentDynasty?.games, currentYear])
-
-  // Compute excluded games (same logic as sheet creation) so the AI prompt
-  // can tell the AI exactly which bowl(s) to skip.
+  // Excluded games — only the user's own CFP First Round game gets pulled
+  // out of the sheet, because the user enters that game with full detail
+  // (quarters, ranks, box score) through the regular game editor. Every
+  // OTHER bowl game stays in the sheet on every open so users can see /
+  // edit any matchup; rows that already have data are pre-filled from
+  // existingBowlWeek1 below and round-trip safely thanks to
+  // saveCPUBowlGames' blank-row-preserves-existing logic.
   const excludedBowlGames = useMemo(() => {
     const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[currentYear] || []
     const userTeamTid = getCurrentTeamTid(currentDynasty)
     const userCFPSeed = cfpSeeds.find(s => s.tid === userTeamTid)?.seed || null
-    const excluded = [...alreadyEnteredBW1Names]
+    const excluded = []
     if (userCFPSeed >= 5 && userCFPSeed <= 12) {
       const cfpGameName = getCFPFirstRoundGameName(userCFPSeed)
-      if (cfpGameName && !excluded.includes(cfpGameName)) excluded.push(cfpGameName)
+      if (cfpGameName) excluded.push(cfpGameName)
     }
     return excluded
-  }, [currentDynasty, currentYear, alreadyEnteredBW1Names])
+  }, [currentDynasty, currentYear])
 
   // Prior-week Top 25 (post-CCG poll = rankByWeek slot 15) so the AI can
   // reason about which ranked teams aren't playing in Bowl Week 1.
@@ -309,9 +301,24 @@ FINAL CHECK before you send the answer
             const cfpGameName = getCFPFirstRoundGameName(userCFPSeed)
             if (cfpGameName) excludeGames.push(cfpGameName)
           }
-          alreadyEnteredBW1Names.forEach(name => {
-            if (!excludeGames.includes(name)) excludeGames.push(name)
-          })
+          // Already-entered Week 1 bowls stay IN the sheet (pre-filled
+          // with their existing data via existingBowlWeek1 below). The
+          // earlier "exclude every already-entered bowl" behavior left
+          // re-opened sheets showing only the 4 CFP First Round rows —
+          // user couldn't see/edit any of the bowls they'd previously
+          // saved. Round-trip safety lives in saveCPUBowlGames now (blank
+          // rows preserve existing entries; replacements keep rich fields).
+
+          // Pre-fill uses team ABBR strings (the sheet's dropdowns are
+          // abbr-keyed), so resolve every game's tid → current abbr from
+          // dynasty.teams. Falls through to legacy g.team1/g.team2 only
+          // when no tid is set, which covers ancient pre-tid games.
+          const teamsForResolve = currentDynasty?.teams || currentDynasty?.customTeams || TEAMS
+          const abbrFromTid = (tid) => {
+            if (tid == null) return null
+            const info = getGameTeamInfo(teamsForResolve, tid)
+            return info?.abbr || null
+          }
 
           const legacyBowlWeek1 = currentDynasty?.bowlGamesByYear?.[currentYear]?.week1 || []
           const unifiedBowlGames = (currentDynasty?.games || [])
@@ -325,7 +332,13 @@ FINAL CHECK before you send the answer
               if (g.opponent) {
                 return { bowlName: g.bowlName, team1: g.userTeam || userTeamAbbr, team2: g.opponent, team1Score: g.teamScore, team2Score: g.opponentScore }
               }
-              return { bowlName: g.bowlName, team1: g.team1, team2: g.team2, team1Score: g.team1Score, team2Score: g.team2Score }
+              return {
+                bowlName: g.bowlName,
+                team1: abbrFromTid(g.team1Tid) || g.team1,
+                team2: abbrFromTid(g.team2Tid) || g.team2,
+                team1Score: g.team1Score,
+                team2Score: g.team2Score,
+              }
             })
 
           const existingBowlWeek1 = [...legacyBowlWeek1]
@@ -338,7 +351,15 @@ FINAL CHECK before you send the answer
           const allGames = currentDynasty?.games || []
           const existingCFPFirstRound = allGames
             .filter(g => g && (g.gameType === 'cfp_first_round' || g.isCFPFirstRound) && Number(g.year) === Number(currentYear))
-            .map(g => ({ seed1: g.seed1, seed2: g.seed2, team1: g.team1, team2: g.team2, team1Score: g.team1Score, team2Score: g.team2Score, winner: g.winner }))
+            .map(g => ({
+              seed1: g.seed1,
+              seed2: g.seed2,
+              team1: abbrFromTid(g.team1Tid) || g.team1,
+              team2: abbrFromTid(g.team2Tid) || g.team2,
+              team1Score: g.team1Score,
+              team2Score: g.team2Score,
+              winner: g.winner,
+            }))
 
           const sheetInfo = await createBowlWeek1Sheet(
             currentDynasty?.teamName || 'Dynasty',

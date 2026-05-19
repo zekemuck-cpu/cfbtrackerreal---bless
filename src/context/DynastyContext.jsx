@@ -8448,69 +8448,92 @@ export function DynastyProvider({ children }) {
 
     const userTeamAbbr = getCurrentTeamAbbr(dynasty)
 
-    // Only replace bowl games whose bowlName appears in the incoming list.
-    // Games excluded from the sheet (e.g. already entered with full detail)
-    // are not in the incoming list and must be preserved untouched.
-    const incomingBowlNames = new Set(bowlGames.map(b => b.bowlName).filter(Boolean))
+    // Only treat an incoming row as "I have data for this bowl" if it
+    // carries both teams AND both scores. Blank rows in the sheet still
+    // come back from the reader (column A is protected so bowlName is
+    // always set), but they should NOT wipe the existing game — they
+    // mean "user didn't fill this one in." This guard is what makes
+    // it safe to show all bowls in the sheet every time without
+    // pre-excluding already-entered ones.
+    const validIncoming = bowlGames.filter(b => {
+      if (!b?.bowlName) return false
+      const hasTeam1 = b.team1Tid || b.team1
+      const hasTeam2 = b.team2Tid || b.team2
+      if (!hasTeam1 || !hasTeam2) return false
+      if (b.team1Score === null || b.team1Score === undefined) return false
+      if (b.team2Score === null || b.team2Score === undefined) return false
+      return true
+    })
+    const incomingValidNames = new Set(validIncoming.map(b => b.bowlName))
+
+    // Index existing bowl games for this year + week so we can preserve
+    // rich fields (quarters, box score, etc.) on a round-trip save.
+    const existingByBowlName = new Map()
+    for (const g of existingGames) {
+      if (!g?.isBowlGame) continue
+      if (Number(g.year) !== Number(year)) continue
+      if (g.bowlWeek !== week) continue
+      if (g.bowlName) existingByBowlName.set(g.bowlName, g)
+    }
 
     const filteredGames = existingGames.filter(g => {
       if (Number(g.year) !== Number(year)) return true
       if (!g.isBowlGame) return true
       if (g.bowlWeek !== week) return true
-      // Preserve any bowl game not being replaced (not in the incoming sheet data)
-      return !incomingBowlNames.has(g.bowlName)
+      // Only drop an existing bowl game if the sheet has fresh, valid
+      // data for it. Bowl rows the user left blank fall through here
+      // and stay intact.
+      return !incomingValidNames.has(g.bowlName)
     })
 
-    // Create game entries for each bowl game in UNIFIED FORMAT
+    // Create / refresh game entries for each valid incoming bowl.
     const userTid = getCurrentTeamTid(dynasty)
-    const newGames = bowlGames
-      .filter(bowl => {
-        // Only process games with valid data
-        // Support both tid-based and abbr-based input
-        const hasTeam1 = bowl.team1Tid || bowl.team1
-        const hasTeam2 = bowl.team2Tid || bowl.team2
-        if (!hasTeam1 || !hasTeam2) return false
-        if (bowl.team1Score === null || bowl.team1Score === undefined) return false
-        if (bowl.team2Score === null || bowl.team2Score === undefined) return false
-        return true
-      })
-      .map(bowl => {
-        // Get tids (support both input formats)
-        const team1Tid = bowl.team1Tid || getTidFromAbbr(bowl.team1, dynasty)
-        const team2Tid = bowl.team2Tid || getTidFromAbbr(bowl.team2, dynasty)
+    const newGames = validIncoming.map(bowl => {
+      const existing = existingByBowlName.get(bowl.bowlName)
 
-        // Determine scores and winner
-        const team1Score = parseInt(bowl.team1Score)
-        const team2Score = parseInt(bowl.team2Score)
-        const winnerTid = team1Score > team2Score ? team1Tid : team2Tid
+      // Get tids (support both input formats)
+      const team1Tid = bowl.team1Tid || getTidFromAbbr(bowl.team1, dynasty)
+      const team2Tid = bowl.team2Tid || getTidFromAbbr(bowl.team2, dynasty)
 
-        return {
-          id: `bowl-${year}-${bowl.bowlName?.replace(/\s+/g, '-').toLowerCase() || Date.now()}`,
-          isBowlGame: true,
-          bowlName: bowl.bowlName,
-          bowlWeek: week,
-          year: Number(year),
-          week: 'Bowl',
-          gameType: GAME_TYPES.BOWL,
+      // Determine scores and winner
+      const team1Score = parseInt(bowl.team1Score)
+      const team2Score = parseInt(bowl.team2Score)
+      const winnerTid = team1Score > team2Score ? team1Tid : team2Tid
 
-          // UNIFIED FORMAT: tid-based team identification
-          team1Tid,
-          team2Tid,
-          team1Score,
-          team2Score,
-          homeTeamTid: null,  // Bowl games are neutral site
-          winnerTid,
+      // Spread the existing game first so rich fields (quarters,
+      // boxScore, gameNote, links, team ranks already on file, etc.)
+      // survive a round-trip save through the sheet. The values below
+      // intentionally override only the fields the sheet is authoritative
+      // for: tids, scores, winner, plus the bowl-game classification.
+      return {
+        ...(existing || {}),
+        id: existing?.id || `bowl-${year}-${bowl.bowlName?.replace(/\s+/g, '-').toLowerCase() || Date.now()}`,
+        isBowlGame: true,
+        bowlName: bowl.bowlName,
+        bowlWeek: week,
+        year: Number(year),
+        week: existing?.week || 'Bowl',
+        gameType: GAME_TYPES.BOWL,
 
-          // Preserve team ranks if provided
-          ...(bowl.team1Rank && { team1Rank: parseInt(bowl.team1Rank) }),
-          ...(bowl.team2Rank && { team2Rank: parseInt(bowl.team2Rank) }),
+        // UNIFIED FORMAT: tid-based team identification
+        team1Tid,
+        team2Tid,
+        team1Score,
+        team2Score,
+        homeTeamTid: existing?.homeTeamTid !== undefined ? existing.homeTeamTid : null,
+        winnerTid,
 
-          // Preserve any notes/links if they exist
-          gameNote: bowl.gameNote || '',
-          links: bowl.links || '',
-          createdAt: new Date().toISOString()
-        }
-      })
+        // Sheet-supplied ranks win when present; otherwise keep whatever
+        // the existing game had.
+        ...(bowl.team1Rank ? { team1Rank: parseInt(bowl.team1Rank) } : {}),
+        ...(bowl.team2Rank ? { team2Rank: parseInt(bowl.team2Rank) } : {}),
+
+        // Sheet-supplied notes/links win when present; otherwise inherit.
+        gameNote: bowl.gameNote || existing?.gameNote || '',
+        links: bowl.links || existing?.links || '',
+        createdAt: existing?.createdAt || new Date().toISOString(),
+      }
+    })
 
     const updatedGames = [...filteredGames, ...newGames]
 

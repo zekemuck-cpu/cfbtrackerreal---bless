@@ -82,20 +82,13 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, currentYear, currentDynasty?.cfpBowlConfigByYear])
 
-  // Bowl week 2 regular bowl games already recorded in the app — exclude from sheet to avoid overwriting
-  const alreadyEnteredBW2Names = useMemo(() => {
-    if (!currentDynasty?.games) return []
-    return currentDynasty.games
-      .filter(g =>
-        Number(g.year) === Number(currentYear) &&
-        (g.gameType === 'bowl' || (g.bowlName && !g.bowlName.includes('CFP'))) &&
-        g.bowlName &&
-        isBowlInWeek2(g.bowlName)
-      )
-      .map(g => g.bowlName)
-  }, [currentDynasty?.games, currentYear])
-
-  // Compute excluded games so the AI prompt can explicitly name which bowl(s) to skip.
+  // Excluded games — only the user's own CFP Quarterfinal game gets
+  // pulled out of the sheet (they enter it through the regular game
+  // editor with full detail). Every other Bowl Week 2 game stays in the
+  // sheet every time so users can see / edit any matchup; already-
+  // entered rows are pre-filled from existingBowlWeek2 and round-trip
+  // safely thanks to saveCPUBowlGames' blank-row-preserves-existing
+  // logic.
   const excludedBowlGames = useMemo(() => {
     const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[currentYear] || []
     const userTeamTid = getCurrentTeamTid(currentDynasty)
@@ -113,7 +106,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
         const winner = g.winner || (winnerTid ? getGameTeamInfo(teams, winnerTid)?.abbr : null)
         return { seed1: g.seed1, seed2: g.seed2, team1: t1, team2: t2, winner, winnerTid }
       })
-    const excluded = [...alreadyEnteredBW2Names]
+    const excluded = []
     if (userCFPSeed) {
       if (userCFPSeed >= 1 && userCFPSeed <= 4) {
         const qf = getCFPQuarterfinalGameName(userCFPSeed, [], cfpBowlConfigForExclude)
@@ -131,7 +124,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
       }
     }
     return excluded
-  }, [currentDynasty, currentYear, alreadyEnteredBW2Names])
+  }, [currentDynasty, currentYear])
 
   // Prior-week Top 25 (post-BW1 poll = rankByWeek slot 16).
   const prevWeekTop25Block = useMemo(() => {
@@ -397,9 +390,11 @@ FINAL CHECK before you send the answer
             }
           }
 
-          alreadyEnteredBW2Names.forEach(name => {
-            if (!excludeGames.includes(name)) excludeGames.push(name)
-          })
+          // Already-entered Week 2 bowls stay IN the sheet (pre-filled
+          // with their existing data via existingBowlWeek2 below). See
+          // matching note in BowlWeek1Modal — round-trip safety lives in
+          // saveCPUBowlGames now (blank rows preserve existing entries;
+          // replacements keep rich fields like quarters / box score).
 
           const legacyBowlWeek2 = currentDynasty?.bowlGamesByYear?.[currentYear]?.week2 || []
           const unifiedBowlGames = (currentDynasty?.games || [])
