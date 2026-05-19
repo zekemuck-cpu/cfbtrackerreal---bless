@@ -1768,7 +1768,14 @@ function PlayerInner() {
               const reason = departureMovement.reason
               const portalReason = departureMovement.portalReason
               const year = departureMovement.year
-              const draftRound = departureMovement.extra?.draftRound || player.draftRound
+              const draftRoundRaw = departureMovement.extra?.draftRound || player.draftRound
+              // Strip any trailing "Round"/"Rd" the value already carries
+              // so we don't render "Round 5th Round". Some legacy data
+              // stores "5th Round"; new data stores just "5". Either form
+              // collapses to a clean ordinal for "Round X" output.
+              const draftRound = draftRoundRaw != null
+                ? String(draftRoundRaw).replace(/\s*(rounds?|rd)\.?\s*$/i, '').trim()
+                : null
               const label = reason === 'Pro Draft' && draftRound
                 ? `${year} NFL Draft - Round ${draftRound}`
                 : reason === 'Pro Draft'
@@ -1956,7 +1963,12 @@ function PlayerInner() {
                   const reason = departureMovement.reason
                   const portalReason = departureMovement.portalReason
                   const year = departureMovement.year
-                  const draftRound = departureMovement.extra?.draftRound || player.draftRound
+                  const draftRoundRaw = departureMovement.extra?.draftRound || player.draftRound
+                  // See matching strip above — keeps "Round 5" instead of
+                  // "Round 5th Round" regardless of which form was stored.
+                  const draftRound = draftRoundRaw != null
+                    ? String(draftRoundRaw).replace(/\s*(rounds?|rd)\.?\s*$/i, '').trim()
+                    : null
                   const label = reason === 'Pro Draft' && draftRound
                     ? `${year} NFL Draft - Round ${draftRound}`
                     : reason === 'Pro Draft'
