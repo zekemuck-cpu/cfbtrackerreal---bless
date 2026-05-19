@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
-import { getCurrentTeamTid } from '../data/teamRegistry'
+import { useDynasty } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
@@ -46,87 +45,80 @@ export default function PortalTransferClassModal({ isOpen, onClose, onSave, curr
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
 
-  const userRoster = useMemo(() => {
-    // Teambuilder-safe: filter by TID + pass dynasty for abbr fallback
-    const teamTid = getCurrentTeamTid(currentDynasty)
-    const teamAbbrForRoster =
-      currentDynasty?.teams?.[currentDynasty?.currentTid]?.abbr ||
-      currentDynasty?.teamName
-    const all = currentDynasty?.players || []
-    return all
-      .filter(p => isPlayerOnRoster(p, teamTid ?? teamAbbrForRoster, currentYear, currentDynasty))
-      .map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }))
-  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, currentYear, currentDynasty])
+  const aiPrompt = useMemo(() => {
+    const CLASS_ALLOWED = {
+      'Fr':    'RS Fr | So | RS So',
+      'So':    'RS So | Jr | RS Jr',
+      'Jr':    'RS Jr | Sr | RS Sr',
+      'Sr':    'RS Sr',
+      'RS Fr': 'So | RS So',
+      'RS So': 'Jr | RS Jr',
+      'RS Jr': 'Sr | RS Sr',
+      'RS Sr': '(no eligibility left — leave blank)',
+    }
 
-  const aiPrompt = useMemo(() => buildAIPrompt({
-    title: `${currentYear} Portal Transfer Class Assignment`,
-    roster: userRoster,
-    structure: `This sheet has ONE tab: "Portal Transfers". It has 4 columns total: A = Player, B = Position, C = "${currentYear} Recruitment Class", D = "Updated ${currentYear + 1} Class". Row 1 is the protected header row. Columns A, B, C are PRE-FILLED from dynasty data and PROTECTED — do NOT output them. Column D is the only editable column and uses PER-ROW dropdowns whose allowed values depend on each player's current (column C) class.
+    const transfers = portalTransfers || []
+    const playerRows = transfers.length === 0
+      ? '  (no portal transfers)'
+      : transfers.map((t, i) =>
+          `  Row ${i + 2}: ${t.name} · ${t.position} · Col C = "${t.incomingClass}" → Col D allowed: ${CLASS_ALLOWED[t.incomingClass] || 'RS Fr | So | RS So'}`
+        ).join('\n')
+
+    return buildAIPrompt({
+      title: `${currentYear} Portal Transfer Class Assignment`,
+      structure: `This sheet has ONE tab: "Portal Transfers". It has 4 columns: A = Player, B = Position, C = "${currentYear} Recruitment Class", D = "Updated ${currentYear + 1} Class". Row 1 is the protected header row. Columns A, B, C are PRE-FILLED and PROTECTED — do NOT output them. Column D is the only editable column.
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
-1. Output ONLY column D. NEVER output columns A, B, C, or the header row.
+1. Output ONLY column D values. NEVER output columns A, B, C, or the header row.
 2. Output format is a SINGLE column of values — one value per line — NO tabs, NO extra columns.
-3. Row order must match the pre-filled player rows EXACTLY from top to bottom as shown in the screenshot. If the sheet shows N pre-filled players, output EXACTLY N lines (blank lines allowed only when unsure).
-4. Each row's allowed dropdown values are STRICTLY determined by that row's Column C value (the player's incoming ${currentYear} class). You MUST pick one of the allowed values for that row — values from another row's allowed set will be rejected.
-5. Use the EXACT literal strings shown below (case + single space between "RS" and letters). No "RSFr", no "Rs Fr", no "RS-Fr".
-6. BLANK LINE if truly unsure for a given player — do NOT guess. A blank line is better than a wrong value that the dropdown rejects.
-7. No header row, no commentary or explanation INSIDE the data, no totals. The paste-target label above the fence is required (see Method A/B rules above).
+3. The sheet contains EXACTLY ${transfers.length} pre-filled player row${transfers.length !== 1 ? 's' : ''}. Output EXACTLY ${transfers.length} line${transfers.length !== 1 ? 's' : ''} — one per row in the order listed below. Do not add or remove lines.
+4. Each row's allowed values are FIXED — listed per-player below. Pick one allowed value for that row, or leave it blank if truly unsure.
+5. Use EXACT literal strings (case + single space between "RS" and letters). No "RSFr", no "Rs Fr", no "RS-Fr".
+6. BLANK LINE if truly unsure for a given player — do NOT guess. A blank line is better than a wrong value.
+7. No header row, no commentary INSIDE the data.
+
+═══════════════════════════════════════════════════════════
+THE EXACT PLAYERS IN THE SHEET — in sheet row order
+═══════════════════════════════════════════════════════════
+${playerRows}
+
+For each player, use the screenshots to determine redshirt status at their previous school:
+- RS (redshirt) variant → player likely redshirted (played 4 or fewer games, or RS indicator visible)
+- Non-RS variant → player burned their redshirt / played a full season
+- "RS So" for an "Fr" → player progressed AND used a redshirt — rare, needs clear evidence
 
 ═══════════════════════════════════════════════════════════
 TAB: "Portal Transfers" — paste at cell D2 of the "Portal Transfers" tab
 ═══════════════════════════════════════════════════════════
 
-Column layout:
-
-Col | Header (row 1, protected)              | Pre-filled / protected?           | Your value
-----+----------------------------------------+-----------------------------------+-----------------------------------
- A  | Player                                 | Pre-filled — PROTECTED            | DO NOT OUTPUT
- B  | Position                               | Pre-filled — PROTECTED            | DO NOT OUTPUT
- C  | ${currentYear} Recruitment Class                   | Pre-filled — PROTECTED            | DO NOT OUTPUT
- D  | Updated ${currentYear + 1} Class                       | Empty — EDITABLE dropdown (per-row) | Exactly one allowed value, or BLANK
-
-───────────────────────────────────────────────────────────
-COLUMN D — Per-row allowed values (depends on the row's Column C "${currentYear} Recruitment Class"):
-
-If Column C = "Fr"    → allowed values: "RS Fr" | "So" | "RS So"
-If Column C = "So"    → allowed values: "RS So" | "Jr" | "RS Jr"
-If Column C = "Jr"    → allowed values: "RS Jr" | "Sr" | "RS Sr"
-If Column C = "Sr"    → allowed values: "RS Sr"  (only one option — last year of eligibility under redshirt)
-If Column C = "RS Fr" → allowed values: "So" | "RS So"
-If Column C = "RS So" → allowed values: "Jr" | "RS Jr"
-If Column C = "RS Jr" → allowed values: "Sr" | "RS Sr"
-If Column C = "RS Sr" → BLANK only (no eligibility left)
-(If Column C is anything outside the list above, fall back to the Fr set: "RS Fr" | "So" | "RS So".)
-
-Selection guidance:
-- Use the RS (redshirt) variant when the player likely used a redshirt at their previous school (e.g. played 4 or fewer regular-season games, or other redshirt indicators on the screenshot). Example: Fr who redshirted → "RS Fr".
-- Use the progressed non-RS class when the player burned their redshirt already. Example: Fr who played a full season → "So".
-- Use the progressed RS variant (e.g. "RS So" for an Fr) when the player progressed a year AND used a redshirt — this is rare; only pick it with clear evidence.
-- LITERAL case matters: "RS Fr" with one space. NOT "Rs Fr", NOT "RSFr", NOT "Rs. Fr", NOT "RS-Fr".
+Col | Header (row 1)                         | Pre-filled / protected?              | Your value
+----+----------------------------------------+--------------------------------------+-----------------------------------
+ A  | Player                                 | Pre-filled — PROTECTED               | DO NOT OUTPUT
+ B  | Position                               | Pre-filled — PROTECTED               | DO NOT OUTPUT
+ C  | ${currentYear} Recruitment Class       | Pre-filled — PROTECTED               | DO NOT OUTPUT
+ D  | Updated ${currentYear + 1} Class       | Empty — EDITABLE dropdown (per-row)  | Exactly one allowed value, or BLANK
 
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
 === PORTAL TRANSFERS — paste at cell D2 of "Portal Transfers" tab ===
-<allowed value or blank>
-<allowed value or blank>
-<allowed value or blank>
-…one line per pre-filled player, in the EXACT order shown in the screenshots
+<allowed value or blank for Row 2>
+<allowed value or blank for Row 3>
+…exactly ${transfers.length} line${transfers.length !== 1 ? 's' : ''}, one per player, in the order listed above
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send
 ═══════════════════════════════════════════════════════════
-[ ] Exactly N lines, where N = number of pre-filled player rows visible in the screenshots
-[ ] Every non-blank line is one of that row's allowed values based on Column C
+[ ] Exactly ${transfers.length} line${transfers.length !== 1 ? 's' : ''} — matches the player count above
+[ ] Every non-blank line is one of THAT row's allowed values (from the per-player list above)
 [ ] Exact casing: "Fr", "So", "Jr", "Sr", "RS Fr", "RS So", "RS Jr", "RS Sr" (single space, "RS" uppercase)
-[ ] No tabs, no extra columns, no commentary INSIDE the data (the paste-target label above the fence is required, see Method A/B rules above)
+[ ] No tabs, no extra columns, no commentary INSIDE the data
 [ ] Blank lines used for uncertain rows — nothing guessed
 [ ] No header row, no totals`,
-    includeTeamMap: true,
-    dynastyTeams: currentDynasty?.teams,
-  }), [currentYear, userRoster, currentDynasty?.teams])
+    })
+  }, [currentYear, portalTransfers])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
