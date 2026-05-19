@@ -105,7 +105,7 @@ function renderTodoList({ todos, isViewOnly }) {
                   {todo.title}
                 </div>
                 {todo.subtitle && (
-                  <div className="hidden sm:block text-xs sm:text-[13px] mt-0.5 text-txt-tertiary">
+                  <div className="text-xs sm:text-[13px] mt-0.5 text-txt-tertiary">
                     {todo.subtitle}
                   </div>
                 )}
@@ -6105,8 +6105,8 @@ export default function Dashboard() {
                       : hasPortalTransferClassData
                         ? `${portalTransfersForClass.length} transfer class${portalTransfersForClass.length !== 1 ? 'es' : ''} assigned`
                         : `Assign classes for ${portalTransfersForClass.length} transfer${portalTransfersForClass.length !== 1 ? 's' : ''}`,
-                  onAction: (portalBlocked || !hasPortalTransfers) ? undefined : () => setShowPortalTransferClassModal(true),
-                  actionLabel: (portalBlocked || !hasPortalTransfers) ? undefined : (portalComplete ? 'Done' : 'Open'),
+                  onAction: !hasPortalTransfers ? undefined : () => setShowPortalTransferClassModal(true),
+                  actionLabel: !hasPortalTransfers ? undefined : (portalComplete ? 'Done' : 'Open'),
                 })
 
                 // Fringe Case Class Assignment
@@ -6134,8 +6134,8 @@ export default function Dashboard() {
                       : hasFringeCaseClassData
                         ? `${fringeCasePlayers.length} player${fringeCasePlayers.length !== 1 ? 's' : ''} resolved`
                         : `${fringeCasePlayers.length} player${fringeCasePlayers.length !== 1 ? 's' : ''} with 5-9 games`,
-                  onAction: (fringeBlocked || !hasFringeCases) ? undefined : () => setShowFringeCaseClassModal(true),
-                  actionLabel: (fringeBlocked || !hasFringeCases) ? undefined : (fringeComplete ? 'Done' : 'Open'),
+                  onAction: !hasFringeCases ? undefined : () => setShowFringeCaseClassModal(true),
+                  actionLabel: !hasFringeCases ? undefined : (fringeComplete ? 'Done' : 'Open'),
                 })
               }
 
