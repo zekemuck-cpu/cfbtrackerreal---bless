@@ -1769,15 +1769,18 @@ function PlayerInner() {
               const portalReason = departureMovement.portalReason
               const year = departureMovement.year
               const draftRoundRaw = departureMovement.extra?.draftRound || player.draftRound
-              // Strip any trailing "Round"/"Rd" the value already carries
-              // so we don't render "Round 5th Round". Some legacy data
-              // stores "5th Round"; new data stores just "5". Either form
-              // collapses to a clean ordinal for "Round X" output.
-              const draftRound = draftRoundRaw != null
-                ? String(draftRoundRaw).replace(/\s*(rounds?|rd)\.?\s*$/i, '').trim()
-                : null
+              // Normalize to "<ordinal> Round" — e.g. "5th Round". Strip
+              // any trailing "Round"/"Rd" the stored value already
+              // carries, then append " Round" once. Covers both legacy
+              // "5th Round" data and newer "5" / "5th" data, with no
+              // duplicate suffix either way.
+              const draftRound = (() => {
+                if (draftRoundRaw == null) return null
+                const ordinal = String(draftRoundRaw).replace(/\s*(rounds?|rd)\.?\s*$/i, '').trim()
+                return ordinal ? `${ordinal} Round` : null
+              })()
               const label = reason === 'Pro Draft' && draftRound
-                ? `${year} NFL Draft - Round ${draftRound}`
+                ? `${year} NFL Draft - ${draftRound}`
                 : reason === 'Pro Draft'
                 ? `${year} NFL Draft`
                 : reason === 'Graduating'
@@ -1964,13 +1967,18 @@ function PlayerInner() {
                   const portalReason = departureMovement.portalReason
                   const year = departureMovement.year
                   const draftRoundRaw = departureMovement.extra?.draftRound || player.draftRound
-                  // See matching strip above — keeps "Round 5" instead of
-                  // "Round 5th Round" regardless of which form was stored.
-                  const draftRound = draftRoundRaw != null
-                    ? String(draftRoundRaw).replace(/\s*(rounds?|rd)\.?\s*$/i, '').trim()
-                    : null
+                  // See matching normalizer above — strips any trailing
+                  // "Round"/"Rd" suffix the stored value already carries,
+                  // then re-appends " Round" once, so output always reads
+                  // "<ordinal> Round" (e.g. "5th Round") regardless of
+                  // how the value was stored.
+                  const draftRound = (() => {
+                    if (draftRoundRaw == null) return null
+                    const ordinal = String(draftRoundRaw).replace(/\s*(rounds?|rd)\.?\s*$/i, '').trim()
+                    return ordinal ? `${ordinal} Round` : null
+                  })()
                   const label = reason === 'Pro Draft' && draftRound
-                    ? `${year} NFL Draft - Round ${draftRound}`
+                    ? `${year} NFL Draft - ${draftRound}`
                     : reason === 'Pro Draft'
                     ? `${year} NFL Draft`
                     : reason === 'Graduating'
