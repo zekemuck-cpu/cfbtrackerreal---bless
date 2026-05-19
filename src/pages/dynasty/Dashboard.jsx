@@ -4271,7 +4271,7 @@ export default function Dashboard() {
             const bowlWeek2Legacy = currentDynasty.bowlGamesByYear?.[year]?.week2 || []
             const hasBowlWeek2Data = bowlWeek2FromGames.length > 0 || bowlWeek2Legacy.length > 0
 
-            // Count entered games for Week 1 (26 regular bowls + 4 CFP First Round = 30 total)
+            // Count entered games for Week 1 (25 regular bowls + 4 CFP First Round = 29 total)
             // Use games[] as primary source, fallback to legacy for older data
             const bowlWeek1Games = bowlWeek1FromGames.length > 0 ? bowlWeek1FromGames : bowlWeek1Legacy
             const cfpFirstRoundGames = cfpFirstRoundFromGames.length > 0 ? cfpFirstRoundFromGames : cfpFirstRoundLegacy
@@ -4846,11 +4846,11 @@ export default function Dashboard() {
 
               bw2Todos.push({
                 key: 'bw1-results',
-                done: totalEnteredWeek1 >= 30,
+                done: totalEnteredWeek1 >= 29,
                 title: 'Week 1 Bowl Results',
-                subtitle: totalEnteredWeek1 === 30
-                  ? 'All 30 games entered'
-                  : `${totalEnteredWeek1}/30 games entered (incl. CFP First Round)`,
+                subtitle: totalEnteredWeek1 === 29
+                  ? 'All 29 games entered'
+                  : `${totalEnteredWeek1}/29 games entered (incl. CFP First Round)`,
                 onAction: () => setShowBowlWeek1Modal(true),
                 actionLabel: hasBowlWeek1Data ? 'Edit' : 'Enter',
                 viewTo: hasBowlWeek1Data ? `${pathPrefix}/weekly-scores/${year}/16` : null,
@@ -5453,11 +5453,11 @@ export default function Dashboard() {
             if (week === 3) {
               w34Todos.push({
                 key: 'bw2-results',
-                done: totalEnteredWeek2 >= 12,
+                done: totalEnteredWeek2 >= 13,
                 title: 'Week 2 Bowl Results',
-                subtitle: totalEnteredWeek2 === 12
-                  ? 'All 12 games entered'
-                  : `${totalEnteredWeek2}/12 games entered (incl. CFP Quarterfinals)`,
+                subtitle: totalEnteredWeek2 === 13
+                  ? 'All 13 games entered'
+                  : `${totalEnteredWeek2}/13 games entered (incl. CFP Quarterfinals)`,
                 onAction: () => setShowBowlWeek2Modal(true),
                 actionLabel: hasBowlWeek2Data ? 'Edit' : 'Enter',
                 viewTo: hasBowlWeek2Data ? `${pathPrefix}/weekly-scores/${year}/17` : null,
