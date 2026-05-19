@@ -89,17 +89,109 @@ export default function StatsEntryModal({
 Row 1 (header: Player | Games Played | Snaps Played) is pre-filled and PROTECTED. Data rows start at row 2. Column A uses a STRICT DROPDOWN containing every roster player's name — any value that doesn't exactly match a roster name will be rejected by the sheet.
 
 ═══════════════════════════════════════════════════════════
-CRITICAL RULES — read before anything else
+ABOUT THE SCREENSHOTS — CFB 26 stats UI, this is what you're reading
+═══════════════════════════════════════════════════════════
+The screenshots come from EA Sports College Football 26's team stats
+screen. The user navigates between CATEGORY tabs (Passing, Rushing,
+Receiving, Defense, Blocking, Kicking, Punting, Returns) and can
+press a button to toggle between the default stats view and a
+"Snap Count" view that adds a SNAPS column to whichever category is
+active. So a single category produces TWO possible views:
+
+  • Default view  — category-specific stats, ALWAYS includes GP (games played).
+  • Snap Count view — same player list, header reads "Snap Count" at top,
+                      and the rightmost column is SNAPS (per-category snap
+                      counts). GP may or may not be visible depending on
+                      column layout.
+
+The user will upload SOME subset of these views — sometimes one
+category, sometimes many, sometimes only the Snap Count flavor. Your
+job: combine every screenshot into ONE row per player and emit
+Games Played + Snaps Played for each.
+
+Column-to-category map you should recognize from CFB 26:
+
+  DEFENSE      — POS column shows MIKE, WILL, SAM, CB, SS, FS, LEDG, REDG, DT, etc.
+                 Default columns include SOLO, ASSISTS, TAK, TFL, SACK, INT…
+                 Snap Count flavor adds DEFL, CTHA, FFUMB, FMBREC, FMBYDS, BLOCK, SFTY, SNAPS.
+                 SNAPS here = total defensive snaps for that player.
+  BLOCKING     — POS column shows LT, LG, C, RG, RT (offensive linemen).
+                 Default columns are sparse (NAME, POS, GP, SACK).
+                 Snap Count flavor adds SNAPS.
+                 SNAPS here = total offensive blocking snaps (LT/LG/C/RG/RT play every offensive snap).
+  RUSHING      — POS column shows HB, QB, WR, TE (anyone with a carry).
+                 Default columns include CAR, YARDS, AVG, TD, AVG G, 20+, BTK, YAC, LONG.
+                 Snap Count flavor adds FUMB, FUM %, SNAPS.
+                 SNAPS here is RUSHING snaps, which for HBs typically equals their offensive snaps.
+  PASSING      — QB-only screen. Snap Count adds total pass snaps.
+  RECEIVING    — POS column shows WR, TE, HB. SNAPS here = receiving snaps.
+  KICKING / PUNTING / RETURNS — special-teams views, smaller rosters.
+
+═══════════════════════════════════════════════════════════
+HOW TO PICK SNAPS PLAYED PER PLAYER (this is the #1 source of mistakes)
+═══════════════════════════════════════════════════════════
+Take Snaps Played from the category that matches the player's POSITION:
+
+  Offensive linemen (LT, LG, C, RG, RT)        →  BLOCKING — Snap Count → SNAPS
+  Defensive players (DT, LEDG, REDG, MIKE,
+    WILL, SAM, CB, SS, FS)                     →  DEFENSE  — Snap Count → SNAPS
+  Quarterbacks (QB)                            →  PASSING  — Snap Count → SNAPS
+                                                  (or RUSHING SNAPS for scrambling QBs if no PASSING view provided)
+  Running backs (HB, RB, FB)                   →  RUSHING  — Snap Count → SNAPS
+  Wide receivers (WR)                          →  RECEIVING — Snap Count → SNAPS
+                                                  (fall back to RUSHING SNAPS if no RECEIVING view provided)
+  Tight ends (TE)                              →  RECEIVING SNAPS if shown, else BLOCKING SNAPS
+  Kickers / Punters (K, P)                     →  KICKING or PUNTING SNAPS
+  Defensive backs / LBs on special teams       →  use DEFENSE SNAPS — special-teams snaps overcounting is
+                                                  worse than undercounting; stick to primary position.
+
+NEVER add snap counts across categories for the same player. The
+categories overlap conceptually (e.g. a WR is on the field for both
+PASSING and RECEIVING screens) — summing would double-count their
+offensive snaps. Pick ONE category per player.
+
+If a player appears in screenshots from MULTIPLE views and you can
+see SNAPS in both, use the LARGER value when both views describe the
+same role (e.g. a HB shown in both Rushing Snap Count and Receiving
+Snap Count — pick whichever is larger; that's their true offensive
+volume).
+
+═══════════════════════════════════════════════════════════
+HOW TO PICK GAMES PLAYED PER PLAYER
+═══════════════════════════════════════════════════════════
+The GP column is the SAME for a given player across every category
+view (it's per-player, not per-category). Read it from any view that
+shows GP. If the player appears in multiple screenshots, the GP
+values should agree — if they don't, use the LARGER value.
+
+GP range: 0–17. Typical values during the season are 0 to ~14
+(regular season), and 15+ for postseason teams. Read the literal
+number shown in the GP column; do not guess or round.
+
+═══════════════════════════════════════════════════════════
+CRITICAL OUTPUT RULES
 ═══════════════════════════════════════════════════════════
 1. Output data rows ONLY (starting at row 2). NEVER output the header row.
-2. One line per player, 3 tab-separated values: <Player>\\t<Games Played>\\t<Snaps Played>.
-3. Column A (Player) is a STRICT DROPDOWN of roster names. You MUST use the EXACT player name as it appears on the box-score / stats screenshots — case-sensitive, including spaces, hyphens, apostrophes, "Jr.", "III", etc.
-4. Only include players who actually appear in the screenshots. Do NOT invent rows for other roster players.
-5. Games Played: integer 0–15 (regular season + postseason). NO commas, NO decimals.
-6. Snaps Played: integer. NO commas, NO decimals, NO "snaps" suffix.
-7. BLANK cell for unknown values (leave the cell empty between tabs). Never guess. Never use 0 as "unknown".
-8. NO COMMAS in numbers: "1234" not "1,234".
-9. No header row, no totals, no commentary INSIDE the data. ONE TSV block, preceded by the required paste-target label line above the fence (see Method A/B rules above).
+2. One line per UNIQUE player who appears in any screenshot. Even if a
+   player is shown in five different category views, emit ONE row.
+3. EXACTLY 3 tab-separated values per row: <Player>\\t<Games Played>\\t<Snaps Played>.
+4. Column A (Player) is a STRICT DROPDOWN of roster names. Use the
+   EXACT player name as shown in the screenshot — case-sensitive,
+   including spaces, hyphens, apostrophes, "Jr.", "III", etc. EA
+   sometimes abbreviates first names ("R. Gideon" instead of
+   "Raekwon Gideon") — the user-team roster section below maps
+   abbreviated forms to full names so you can resolve them.
+5. Only include players who actually appear in the screenshots. Do
+   NOT invent rows for other roster players.
+6. Games Played: integer 0–17. NO commas, NO decimals.
+7. Snaps Played: integer. NO commas, NO decimals, NO "snaps" suffix.
+8. BLANK cell for unknown values (just leave the cell empty between
+   tabs). Never guess. Never use 0 as "unknown" — 0 means "the player
+   genuinely had zero snaps / zero games played".
+9. NO COMMAS in numbers: "1234" not "1,234".
+10. No header row, no totals, no commentary INSIDE the data. ONE TSV
+    block, preceded by the required paste-target label line above the
+    fence (see Method A/B rules above).
 
 ═══════════════════════════════════════════════════════════
 TAB: "GP/Snaps"
@@ -109,8 +201,8 @@ Paste at cell A2 of the "GP/Snaps" tab
 Col | Header (protected)  | Your output                                                                 | Format
 ----+---------------------+-----------------------------------------------------------------------------+------------------------
  A  | Player              | Player name — MUST exactly match a roster dropdown entry (see screenshots) | strict dropdown, text
- B  | Games Played        | Integer 0–15                                                                | integer, no commas
- C  | Snaps Played        | Integer (total snaps played for the season)                                 | integer, no commas
+ B  | Games Played        | Integer 0–17                                                                | integer, no commas
+ C  | Snaps Played        | Integer (total snaps for the player's primary category — see rules above)  | integer, no commas
 
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
@@ -123,12 +215,17 @@ REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send
 ═══════════════════════════════════════════════════════════
-[ ] One line per player that appears in the screenshots — no invented players
+[ ] One line per UNIQUE player from the screenshots — players who appear
+    in multiple category views still get ONE row, not several.
 [ ] Every line has EXACTLY 2 tab characters (3 values)
-[ ] Player name is copied character-for-character from the screenshot (case, punctuation, suffix)
-[ ] Games Played is an integer 0–15 (or blank)
-[ ] Snaps Played is an integer (or blank)
-[ ] No commas in any number
+[ ] Player name is copied character-for-character from the screenshot
+    (case, punctuation, suffix), and matches a roster dropdown entry
+[ ] Snaps Played is taken from the ONE correct category for that
+    player's position (OL → Blocking, defenders → Defense, HB → Rushing,
+    WR → Receiving, QB → Passing, K/P → Kicking/Punting)
+[ ] Games Played is the literal value from the GP column (any view)
+[ ] No snap counts SUMMED across categories — would double-count
+[ ] No commas in any number; no decimals; no "snaps"/"games" suffix
 [ ] No header row, no totals, no commentary INSIDE the data (the paste-target label above the fence is required, see Method A/B rules above)`,
     includeTeamMap: false,
   }), [currentYear, userRoster])

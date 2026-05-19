@@ -7986,10 +7986,20 @@ export default function Dashboard() {
             const existingStatsByYear = { ...(player.statsByYear || {}) }
             // Check both string and number keys for existing stats
             const existingYearStats = existingStatsByYear[year] || existingStatsByYear[Number(year)] || {}
+            // Per readStatsFromSheet: gamesPlayed / snapsPlayed are
+            // `null` when the sheet row was BLANK (user didn't fill
+            // that cell). Treat blank as "preserve existing" instead
+            // of "wipe to 0" — round-trips that don't touch a row
+            // shouldn't destroy the saved value, and not every category
+            // screenshot the AI receives has both columns visible.
             existingStatsByYear[year] = {
               ...existingYearStats,
-              gamesPlayed: playerStats.gamesPlayed,
-              snapsPlayed: playerStats.snapsPlayed
+              gamesPlayed: playerStats.gamesPlayed != null
+                ? playerStats.gamesPlayed
+                : existingYearStats.gamesPlayed,
+              snapsPlayed: playerStats.snapsPlayed != null
+                ? playerStats.snapsPlayed
+                : existingYearStats.snapsPlayed,
             }
 
             return { ...player, statsByYear: existingStatsByYear }

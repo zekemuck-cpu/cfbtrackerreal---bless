@@ -6614,10 +6614,25 @@ export async function readStatsFromSheet(spreadsheetId, dynastyTeams = null) {
     const data = await response.json()
     const rows = data.values || []
 
+    // BLANK cell semantics: a cell the user left empty means "I don't
+    // know — don't touch what's already saved." A cell with "0" in it
+    // means "this player legitimately had zero." parseInt('') is NaN,
+    // parseInt('0') is 0, so the legacy `parseInt(x) || 0` collapsed
+    // both to 0 and silently wiped pre-existing GP/Snaps for any row
+    // the user didn't touch. Returning null for blanks lets the
+    // caller preserve existing values.
+    const parseIntOrNull = (raw) => {
+      if (raw === undefined || raw === null) return null
+      const s = String(raw).trim()
+      if (s === '') return null
+      const n = parseInt(s, 10)
+      return Number.isFinite(n) ? n : null
+    }
+
     return rows.map(row => ({
       name: row[0] || '',
-      gamesPlayed: parseInt(row[1]) || 0,
-      snapsPlayed: parseInt(row[2]) || 0
+      gamesPlayed: parseIntOrNull(row[1]),
+      snapsPlayed: parseIntOrNull(row[2]),
     })).filter(player => player.name && player.name.trim()) // Filter by player name (must have selected from dropdown)
   } catch (error) {
     console.error('Error reading stats from sheet:', error)
