@@ -19,6 +19,7 @@ import {
   isBowlInWeek1,
 } from '../services/sheetsService'
 import { getCurrentTeamTid, getCurrentTeamAbbr, getGameTeamInfo, TEAMS } from '../data/teamRegistry'
+import { CFP_BRACKET_SLOTS } from '../data/cfpConstants'
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
@@ -351,15 +352,29 @@ FINAL CHECK before you send the answer
           const allGames = currentDynasty?.games || []
           const existingCFPFirstRound = allGames
             .filter(g => g && (g.gameType === 'cfp_first_round' || g.isCFPFirstRound) && Number(g.year) === Number(currentYear))
-            .map(g => ({
-              seed1: g.seed1,
-              seed2: g.seed2,
-              team1: abbrFromTid(g.team1Tid) || g.team1,
-              team2: abbrFromTid(g.team2Tid) || g.team2,
-              team1Score: g.team1Score,
-              team2Score: g.team2Score,
-              winner: g.winner,
-            }))
+            .map(g => {
+              // CFP First Round shells from createOrUpdateCFPGameShells
+              // don't carry seed1/seed2 directly — those live on cfpSlot
+              // via CFP_BRACKET_SLOTS[slot].higherSeed/lowerSeed. The
+              // sheet's getExistingBowlData matches the row's expected
+              // seed pair (e.g. 8 vs 9) to the stored game by seed1/2,
+              // so without this fallback the lookup fails and the
+              // scores never pre-fill — exactly the symptom the user
+              // hit (teams resolved via seeds, but the score columns
+              // stayed blank because the matcher never found the game).
+              const slotCfg = g.cfpSlot ? CFP_BRACKET_SLOTS[g.cfpSlot] : null
+              const seed1 = g.seed1 ?? slotCfg?.higherSeed ?? null
+              const seed2 = g.seed2 ?? slotCfg?.lowerSeed ?? null
+              return {
+                seed1,
+                seed2,
+                team1: abbrFromTid(g.team1Tid) || g.team1,
+                team2: abbrFromTid(g.team2Tid) || g.team2,
+                team1Score: g.team1Score,
+                team2Score: g.team2Score,
+                winner: g.winner,
+              }
+            })
 
           const sheetInfo = await createBowlWeek1Sheet(
             currentDynasty?.teamName || 'Dynasty',
