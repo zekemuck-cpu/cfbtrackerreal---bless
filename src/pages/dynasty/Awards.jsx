@@ -145,12 +145,23 @@ export default function Awards() {
     availableYears.push(year)
   }
 
-  // First-season dynasties have no prior year — default to current
-  // year so a 2025-start dynasty doesn't open showing "2024".
+  // Default year picker — prefer the most recent year that actually has
+  // awards entered. The old rule was "current year - 1 unless first
+  // season," but that landed on 2033 even when the user had already
+  // saved 2034 awards (mid- or end-of-season). The new rule walks the
+  // year list newest-to-oldest, picks the first year with any awards,
+  // and falls back to the current year if none are saved yet. URL year
+  // (when explicitly navigated to) always wins.
+  const yearHasAwards = (y) => {
+    const yearAwardsObj = awardsByYear[y] || awardsByYear[String(y)] || null
+    return !!yearAwardsObj && Object.keys(yearAwardsObj).length > 0
+  }
+  const mostRecentYearWithAwards = availableYears.find(yearHasAwards) || null
   const isFirstSeason = Number(currentDynasty.currentYear) <= Number(currentDynasty.startYear)
   const displayYear = urlYear
     ? parseInt(urlYear)
-    : (isFirstSeason ? currentDynasty.currentYear : currentDynasty.currentYear - 1)
+    : (mostRecentYearWithAwards
+        ?? (isFirstSeason ? currentDynasty.currentYear : currentDynasty.currentYear - 1))
   const yearAwards = awardsByYear[displayYear] || {}
 
   const handleYearChange = (year) => {
@@ -477,7 +488,6 @@ export default function Awards() {
   return (
     <div className="space-y-6">
       <PageHero
-        eyebrow={`${displayYear} Season`}
         title={
           <TitleWithYear
             year={displayYear}
@@ -486,7 +496,6 @@ export default function Awards() {
             label="Awards"
           />
         }
-        meta={<span>National individual honors</span>}
         actions={heroActions}
       />
 
