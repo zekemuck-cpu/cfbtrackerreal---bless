@@ -10,7 +10,7 @@
 import { getTeamName } from '../data/teamAbbreviations'
 import { getCurrentTeamAbbr, TEAMS, getGameTeamInfo, getNameByAbbr, getTidFromAbbr } from '../data/teamRegistry'
 import { getTeamConference } from '../data/conferenceTeams'
-import { getUserGamePerspective, getLockedCoachingStaff, getCustomConferencesForYear } from '../context/DynastyContext'
+import { getUserGamePerspective, getLockedCoachingStaff, getCustomConferencesForYear, getTeamRankForWeek } from '../context/DynastyContext'
 import { buildCFPProjection } from '../utils/cfpProjection'
 import { canonicalBoxScore, getPlayerStatsForTid, getTeamStatsForTid } from '../utils/boxScoreHelpers'
 import { collapsePatRowsIntoTDs } from '../utils/scoringPlayOrder'
@@ -2673,8 +2673,38 @@ export function buildGameRecapContext(dynasty, game) {
   // rank (rank during the game) post-migration. Saves keep this in
   // sync via the EA-shift logic in saveWeeklyScores; direct edits
   // (addGame / updateGame) treat the field straight-through.
-  const team1Ranking = typeof game.team1Rank === 'number' ? game.team1Rank : null
-  const team2Ranking = typeof game.team2Rank === 'number' ? game.team2Rank : null
+  //
+  // Fall back to rankByWeek for the slot matching THIS game when the
+  // game record itself doesn't carry team1Rank/team2Rank — typical for
+  // CFP shells created by propagation (no rank fields filled at create
+  // time) and bowl/CFP games imported via the sheet flow (the BW1/BW2
+  // sheets don't have rank columns wired in yet). Without this fallback
+  // the recap prompt said "UNRANKED" for both CFP teams in a National
+  // Championship recap even though their post-SF poll ranks were in
+  // rankByWeek.
+  const postseasonSlot = (() => {
+    if (game.isCFPChampionship || game.gameType === 'cfp_championship') return 19
+    if (game.isCFPSemifinal || game.gameType === 'cfp_semifinal') return 18
+    if (game.isCFPQuarterfinal || game.gameType === 'cfp_quarterfinal') return 17
+    if (game.isCFPFirstRound || game.gameType === 'cfp_first_round') return 16
+    if (game.isBowlGame || game.gameType === 'bowl') {
+      return game.bowlWeek === 'week2' ? 17 : 16
+    }
+    if (game.isConferenceChampionship || game.gameType === 'conference_championship') return 15
+    return null
+  })()
+  const rankSlotForGame = postseasonSlot != null
+    ? postseasonSlot
+    : (() => {
+        const wk = Number(game.week)
+        return Number.isFinite(wk) && wk >= 0 && wk <= 14 ? wk : null
+      })()
+  const fallbackRankFor = (tid) => {
+    if (tid == null || rankSlotForGame == null) return null
+    return getTeamRankForWeek(dynasty, tid, year, rankSlotForGame)
+  }
+  const team1Ranking = (typeof game.team1Rank === 'number' ? game.team1Rank : null) ?? fallbackRankFor(team1Tid)
+  const team2Ranking = (typeof game.team2Rank === 'number' ? game.team2Rank : null) ?? fallbackRankFor(team2Tid)
   const isRankedMatchup = !!(team1Ranking && team2Ranking)
   const isUpset = (team2Ranking && team2Ranking <= 10 && team1Won) ||
                   (team1Ranking && team1Ranking <= 10 && !team1Won)
