@@ -3281,7 +3281,10 @@ const CFP_QF_MATCHUPS_BY_SEED = {
 
 // Build Bowl Week 2 games list with dynamic CFP QF bowls based on config
 // cfpBowlConfig: { seed1: 'Sugar Bowl', seed2: 'Cotton Bowl', seed3: 'Rose Bowl', seed4: 'Orange Bowl', sf1: 'Peach Bowl', sf2: 'Fiesta Bowl' }
-const getBowlGamesWeek2 = (cfpBowlConfig = null) => {
+// Exported so the Bowl Week 2 modal can show the AI prompt the EXACT
+// sorted row order the sheet uses (which depends on the user's QF bowl
+// assignments — Cotton vs. Sugar vs. Rose vs. Orange swap positions).
+export const getBowlGamesWeek2 = (cfpBowlConfig = null) => {
   // Default bowl config if not provided
   const config = cfpBowlConfig || {
     seed1: 'Sugar Bowl',

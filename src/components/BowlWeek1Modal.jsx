@@ -17,6 +17,7 @@ import {
   getSheetEmbedUrl,
   getCFPFirstRoundGameName,
   isBowlInWeek1,
+  getBowlGamesList,
 } from '../services/sheetsService'
 import { getCurrentTeamTid, getCurrentTeamAbbr, getGameTeamInfo, TEAMS } from '../data/teamRegistry'
 import { CFP_BRACKET_SLOTS } from '../data/cfpConstants'
@@ -113,14 +114,15 @@ export default function BowlWeek1Modal({ isOpen, onClose, onSave, currentYear, t
     return lines.join('\n')
   }, [currentDynasty, currentYear])
 
-  // Exact CFP First Round matchups for this dynasty/year. Without this
-  // block the AI tends to hallucinate real-world matchups (e.g. MICH/KU
-  // for the "Cotton Bowl" name even though Cotton isn't a First Round
-  // host) and overwrite the sheet's pre-filled CFP teams. Telling it the
-  // specific abbreviations per "#N vs #M" row eliminates the guessing.
-  const cfpFirstRoundHints = useMemo(() => {
+  // The EXACT row-by-row table the sheet uses for column A. Built per
+  // open so excludes (user's own CFP First Round game) and dynasty-
+  // specific CFP team abbreviations are baked in. The AI needs to see
+  // this ONCE, not infer from "alphabetical order" — that's where the
+  // misalignment was coming from: it would interleave 25 regular bowls
+  // and 4 CFP rows in its own order, hallucinate teams for CFP rows,
+  // and shift everything else down a row.
+  const bw1RowTable = useMemo(() => {
     const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[currentYear] || []
-    if (!cfpSeeds.length) return ''
     const teams = currentDynasty?.teams || TEAMS
     const abbrFromTid = (tid) => {
       if (tid == null) return null
@@ -131,20 +133,31 @@ export default function BowlWeek1Modal({ isOpen, onClose, onSave, currentYear, t
       const entry = cfpSeeds.find(s => s.seed === seed)
       return entry ? (abbrFromTid(entry.tid) || entry.team || null) : null
     }
-    const matchups = [
-      { row: 'CFP First Round (#8 vs #9)',  high: 8, low: 9 },
-      { row: 'CFP First Round (#7 vs #10)', high: 7, low: 10 },
-      { row: 'CFP First Round (#6 vs #11)', high: 6, low: 11 },
-      { row: 'CFP First Round (#5 vs #12)', high: 5, low: 12 },
-    ]
-    const lines = matchups.map(m => {
-      const t1 = seedToAbbr(m.high)
-      const t2 = seedToAbbr(m.low)
-      if (!t1 || !t2) return null
-      return `  • ${m.row}: Team 1 = ${t1} (#${m.high} seed, host) · Team 2 = ${t2} (#${m.low} seed)`
-    }).filter(Boolean)
-    return lines.join('\n')
-  }, [currentDynasty, currentYear])
+    const cfpHintFor = (bowl) => {
+      const m = bowl.match(/^CFP First Round \(#(\d+) vs #(\d+)\)$/)
+      if (!m) return ''
+      const high = Number(m[1])
+      const low = Number(m[2])
+      const t1 = seedToAbbr(high)
+      const t2 = seedToAbbr(low)
+      if (t1 && t2) {
+        return `Team 1 = ${t1} (#${high} seed, host) · Team 2 = ${t2} (#${low} seed)`
+      }
+      return `Team 1 = #${high} seed (host) · Team 2 = #${low} seed  — read teams off your screenshot`
+    }
+    const allBowls = getBowlGamesList()
+    const filtered = allBowls.filter(b => !excludedBowlGames.includes(b))
+    const maxNameLen = Math.max(...filtered.map(b => b.length))
+    return filtered.map((bowl, i) => {
+      const rowNum = String(i + 1).padStart(2, ' ')
+      const sheetRow = String(i + 2).padStart(2, ' ')
+      const hint = cfpHintFor(bowl)
+      const namePadded = bowl.padEnd(maxNameLen, ' ')
+      return hint
+        ? `  ${rowNum} (sheet row ${sheetRow}) | ${namePadded} | ${hint}`
+        : `  ${rowNum} (sheet row ${sheetRow}) | ${namePadded} |`
+    }).join('\n')
+  }, [currentDynasty, currentYear, excludedBowlGames])
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Bowl Week 1 Results`,
@@ -176,40 +189,22 @@ TAB: "Bowl Games" — ${29 - excludedBowlGames.length} rows × 6 editable column
 Paste your block at cell B2 of the "Bowl Games" tab
 ═══════════════════════════════════════════════════════════
 
-Column A (Bowl Game) is pre-filled with the bowl game name — match the screenshot. The full pool of possible pre-filled bowl names is listed below so you can recognize each row; the actual sheet contains ONLY those that appear in the screenshot.
+═══════════════════════════════════════════════════════════
+EXACT ROW ORDER — this is the ground truth, NOT alphabetical inference
+═══════════════════════════════════════════════════════════
+Output ${29 - excludedBowlGames.length} TSV lines, ONE per row below, in this EXACT order. Line N
+of your output lands in sheet row N+1 (paste starts at B2). Do NOT
+reorder, do NOT alphabetize, do NOT skip rows, do NOT add rows. The
+"CFP First Round" rows in the middle of this table are PLAYOFF GAMES,
+not bowl games — their column-A names are literally "CFP First Round
+(#8 vs #9)" etc., and the right-hand column below names the exact
+teams that play in each one.
 
-Pre-filled Bowl Game names (possible values in column A, in sheet order):
-  1. 68 Ventures Bowl
-  2. Alamo Bowl
-  3. Arizona Bowl
-  4. Armed Forces Bowl
-  5. Birmingham Bowl
-  6. Boca Raton Bowl
-  7. CFP First Round (#8 vs #9)
-  8. CFP First Round (#7 vs #10)
-  9. CFP First Round (#6 vs #11)
- 10. CFP First Round (#5 vs #12)
- 11. Cure Bowl
- 12. Famous Idaho Potato Bowl
- 13. Fenway Bowl
- 14. Frisco Bowl
- 15. GameAbove Sports Bowl
- 16. Gasparilla Bowl
- 17. Hawaii Bowl
- 18. Holiday Bowl
- 19. Independence Bowl
- 20. LA Bowl
- 21. Las Vegas Bowl
- 22. Liberty Bowl
- 23. Military Bowl
- 24. Myrtle Beach Bowl
- 25. New Mexico Bowl
- 26. New Orleans Bowl
- 27. Pop-Tarts Bowl
- 28. Rate Bowl
- 29. Salute to Veterans Bowl
+  # (sheet row) | Column A (PROTECTED pre-fill)         | Required Team 1 / Team 2 for CFP rows
+  ------------- + ------------------------------------- + ----------------------------------------
+${bw1RowTable}
 
-For each row, in the same top-to-bottom order shown in the screenshot, output these 6 columns:
+For each row, output 6 tab-separated values in this exact column order:
 
 Col A (PROTECTED)    | Col B (Team 1) | Col C (T1 Rank) | Col D (Team 2) | Col E (T2 Rank) | Col F (T1 Score) | Col G (T2 Score)
 ---------------------+----------------+-----------------+----------------+-----------------+------------------+------------------
@@ -219,27 +214,11 @@ Column B, Column D: STRICT dropdown of team abbreviations — use ONLY values fr
 Column C, Column E: integer rank 1–25 if ranked, BLANK if unranked. Read directly from the number prefix shown on the team name in the screenshot.
 Column F, Column G: integer score (0 or higher), no commas, no decimal point.
 
-═══════════════════════════════════════════════════════════
-CFP FIRST ROUND MATCHUPS — dynasty-specific, NOT real-world
-═══════════════════════════════════════════════════════════
-THIS IS THE #1 SOURCE OF MISTAKES — read carefully.
-
-The four "CFP First Round (#N vs #M)" rows have SPECIFIC teams for THIS
-dynasty (based on this season's playoff seeding). Do NOT use real-world
-playoff matchups, do NOT alphabetize teams into these rows, and do NOT
-infer from bowl-name history (these rows are on-campus playoff games,
-they are NOT regular bowl games).${cfpFirstRoundHints ? `
-
-${cfpFirstRoundHints}` : `
-
-  (CFP seeds not yet entered in this dynasty — the seed → team mapping
-  isn't available. If a "CFP First Round" row appears in the screenshot,
-  read the teams directly off the screenshot and use those abbreviations.)`}
-
-Column ordering on every CFP First Round row: Team 1 (column B) = the
-HIGHER seed (smaller seed number, e.g. #5 in "5 vs 12") and is the host.
-Team 2 (column D) = the LOWER seed (larger seed number, e.g. #12). Do
-NOT swap. Use the exact abbreviations listed above when present.
+For CFP First Round rows, the team abbreviations are PRE-DETERMINED by
+this dynasty's playoff seeds — use the EXACT abbreviations shown in the
+right-hand column of the row table above. Team 1 (column B) is always
+the higher seed (smaller number, the host); Team 2 (column D) is the
+lower seed. Do NOT swap, do NOT substitute real-world matchups.
 
 ═══════════════════════════════════════════════════════════
 PRIOR-WEEK TOP 25 — entering Bowl Week 1 (post-CCG poll)
@@ -301,7 +280,8 @@ FINAL CHECK before you send the answer
 [ ] Columns B and D are team ABBREVIATIONS only, from the TEAM ABBREVIATIONS mapping
 [ ] Columns C and E are ranks (1–25) or BLANK — never "NR", never guessed
 [ ] Scores are INTEGERS only — no commas, no decimals, no "pts"
-[ ] For CFP First Round rows: used the exact team abbreviations from the CFP FIRST ROUND MATCHUPS block above (not real-world matchups); Team 1 = higher seed (host), Team 2 = lower seed
+[ ] For CFP First Round rows: used the exact team abbreviations from the right-hand column of the EXACT ROW ORDER table above (not real-world matchups, not guessed); Team 1 = higher seed (host), Team 2 = lower seed
+[ ] Line N of my output corresponds to row N+1 of the sheet exactly per the row table — I did NOT re-alphabetize or reorder
 [ ] Blank cells for any unknown scores or unplayed bowls — invented nothing
 [ ] Post-bowl poll block present and includes ALL 25 ranked teams — both playing AND non-playing
 [ ] Non-playing ranked teams (from Prior-Week Top 25) are included with their new ranks (held or adjusted)
@@ -310,7 +290,7 @@ FINAL CHECK before you send the answer
 [ ] No header row, no bowl name text, no winner column INSIDE the data. The paste-target label above the fence is required (see Method A/B rules above).`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
-  }), [currentYear, currentDynasty?.teams, excludedBowlGames, prevWeekTop25Block, cfpFirstRoundHints])
+  }), [currentYear, currentDynasty?.teams, excludedBowlGames, prevWeekTop25Block, bw1RowTable])
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
