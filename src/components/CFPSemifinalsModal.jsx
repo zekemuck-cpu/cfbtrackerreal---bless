@@ -584,7 +584,47 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
 
         {/* Games */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-5 stagger-reveal">
-          {games.map((game, index) => {
+          {/* When the user's SF game has already been entered (via GameEdit
+              during Bowl Week 3), it stays in the games[] state — so the
+              save round-trip preserves it — but it's hidden from the entry
+              list below. The point of opening this modal in Champ Week is
+              to fill in the OTHER semifinal; showing the entered one as
+              a locked card just makes the modal feel cluttered. The note
+              right above the list keeps the context visible. */}
+          {(() => {
+            const lockedUserSF = games.find(g => g.userGame && !g.userGamePending && g.team1Score !== '' && g.team2Score !== '')
+            if (!lockedUserSF) return null
+            const t1Abbr = getTeamInfoByTid(lockedUserSF.team1Tid)?.abbr || lockedUserSF.team1
+            const t2Abbr = getTeamInfoByTid(lockedUserSF.team2Tid)?.abbr || lockedUserSF.team2
+            return (
+              <div
+                className="rounded-lg border border-surface-4 bg-surface-2 px-4 py-3 flex items-center gap-3"
+                role="status"
+              >
+                <span
+                  aria-hidden="true"
+                  className="w-2 h-2 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: 'var(--accent-success)' }}
+                />
+                <div className="flex-1 min-w-0">
+                  <div
+                    className="text-txt-tertiary"
+                    style={{ fontSize: '9px', letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 700 }}
+                  >
+                    Your Semifinal — Already Entered
+                  </div>
+                  <div className="text-sm text-txt-primary truncate">
+                    {lockedUserSF.bowlName}: {t1Abbr} {lockedUserSF.team1Score}–{lockedUserSF.team2Score} {t2Abbr}
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+          {games.filter(g => !(g.userGame && !g.userGamePending && g.team1Score !== '' && g.team2Score !== '')).map((game) => {
+            // `index` for handleScoreChange needs to point into the unfiltered
+            // `games` array — re-resolve from id rather than using map's index,
+            // which would be wrong once any games are filtered out above.
+            const index = games.findIndex(g => g.id === game.id)
             const team1Info = getTeamInfoByTid(game.team1Tid)
             const team2Info = getTeamInfoByTid(game.team2Tid)
             const sfStruct = SEMIFINAL_STRUCTURE.find(s => s.id === game.id || s.slotId === game.cfpSlot)
