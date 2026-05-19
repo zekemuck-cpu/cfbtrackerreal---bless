@@ -113,6 +113,39 @@ export default function BowlWeek1Modal({ isOpen, onClose, onSave, currentYear, t
     return lines.join('\n')
   }, [currentDynasty, currentYear])
 
+  // Exact CFP First Round matchups for this dynasty/year. Without this
+  // block the AI tends to hallucinate real-world matchups (e.g. MICH/KU
+  // for the "Cotton Bowl" name even though Cotton isn't a First Round
+  // host) and overwrite the sheet's pre-filled CFP teams. Telling it the
+  // specific abbreviations per "#N vs #M" row eliminates the guessing.
+  const cfpFirstRoundHints = useMemo(() => {
+    const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[currentYear] || []
+    if (!cfpSeeds.length) return ''
+    const teams = currentDynasty?.teams || TEAMS
+    const abbrFromTid = (tid) => {
+      if (tid == null) return null
+      const info = getGameTeamInfo(teams, tid)
+      return info?.abbr || null
+    }
+    const seedToAbbr = (seed) => {
+      const entry = cfpSeeds.find(s => s.seed === seed)
+      return entry ? (abbrFromTid(entry.tid) || entry.team || null) : null
+    }
+    const matchups = [
+      { row: 'CFP First Round (#8 vs #9)',  high: 8, low: 9 },
+      { row: 'CFP First Round (#7 vs #10)', high: 7, low: 10 },
+      { row: 'CFP First Round (#6 vs #11)', high: 6, low: 11 },
+      { row: 'CFP First Round (#5 vs #12)', high: 5, low: 12 },
+    ]
+    const lines = matchups.map(m => {
+      const t1 = seedToAbbr(m.high)
+      const t2 = seedToAbbr(m.low)
+      if (!t1 || !t2) return null
+      return `  • ${m.row}: Team 1 = ${t1} (#${m.high} seed, host) · Team 2 = ${t2} (#${m.low} seed)`
+    }).filter(Boolean)
+    return lines.join('\n')
+  }, [currentDynasty, currentYear])
+
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Bowl Week 1 Results`,
     structure: `This sheet has ONE tab: "Bowl Games". It contains ${29 - excludedBowlGames.length} rows (29 total Bowl Week 1 slots minus ${excludedBowlGames.length} excluded).${excludedBowlGames.length > 0 ? `
@@ -186,7 +219,27 @@ Column B, Column D: STRICT dropdown of team abbreviations — use ONLY values fr
 Column C, Column E: integer rank 1–25 if ranked, BLANK if unranked. Read directly from the number prefix shown on the team name in the screenshot.
 Column F, Column G: integer score (0 or higher), no commas, no decimal point.
 
-CFP First Round rows: For the rows whose Bowl Game name starts with "CFP First Round", Team 1 is the HIGHER seed (the lower seed number: e.g. #5 in "5 vs 12") and Team 2 is the LOWER seed (#12). Do NOT swap them.
+═══════════════════════════════════════════════════════════
+CFP FIRST ROUND MATCHUPS — dynasty-specific, NOT real-world
+═══════════════════════════════════════════════════════════
+THIS IS THE #1 SOURCE OF MISTAKES — read carefully.
+
+The four "CFP First Round (#N vs #M)" rows have SPECIFIC teams for THIS
+dynasty (based on this season's playoff seeding). Do NOT use real-world
+playoff matchups, do NOT alphabetize teams into these rows, and do NOT
+infer from bowl-name history (these rows are on-campus playoff games,
+they are NOT regular bowl games).${cfpFirstRoundHints ? `
+
+${cfpFirstRoundHints}` : `
+
+  (CFP seeds not yet entered in this dynasty — the seed → team mapping
+  isn't available. If a "CFP First Round" row appears in the screenshot,
+  read the teams directly off the screenshot and use those abbreviations.)`}
+
+Column ordering on every CFP First Round row: Team 1 (column B) = the
+HIGHER seed (smaller seed number, e.g. #5 in "5 vs 12") and is the host.
+Team 2 (column D) = the LOWER seed (larger seed number, e.g. #12). Do
+NOT swap. Use the exact abbreviations listed above when present.
 
 ═══════════════════════════════════════════════════════════
 PRIOR-WEEK TOP 25 — entering Bowl Week 1 (post-CCG poll)
@@ -248,7 +301,7 @@ FINAL CHECK before you send the answer
 [ ] Columns B and D are team ABBREVIATIONS only, from the TEAM ABBREVIATIONS mapping
 [ ] Columns C and E are ranks (1–25) or BLANK — never "NR", never guessed
 [ ] Scores are INTEGERS only — no commas, no decimals, no "pts"
-[ ] For CFP First Round rows: Team 1 is the higher seed, Team 2 is the lower seed
+[ ] For CFP First Round rows: used the exact team abbreviations from the CFP FIRST ROUND MATCHUPS block above (not real-world matchups); Team 1 = higher seed (host), Team 2 = lower seed
 [ ] Blank cells for any unknown scores or unplayed bowls — invented nothing
 [ ] Post-bowl poll block present and includes ALL 25 ranked teams — both playing AND non-playing
 [ ] Non-playing ranked teams (from Prior-Week Top 25) are included with their new ranks (held or adjusted)
@@ -257,7 +310,7 @@ FINAL CHECK before you send the answer
 [ ] No header row, no bowl name text, no winner column INSIDE the data. The paste-target label above the fence is required (see Method A/B rules above).`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
-  }), [currentYear, currentDynasty?.teams, excludedBowlGames, prevWeekTop25Block])
+  }), [currentYear, currentDynasty?.teams, excludedBowlGames, prevWeekTop25Block, cfpFirstRoundHints])
 
   useEffect(() => {
     setIsMobile(isMobileDevice())

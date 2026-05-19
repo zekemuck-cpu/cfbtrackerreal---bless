@@ -21,7 +21,7 @@ import {
 import { getCurrentTeamAbbr, getCurrentTeamTid, TEAMS, getGameTeamInfo } from '../data/teamRegistry'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
-import { DEFAULT_BOWL_CONFIG, CFP_NY6_BOWLS } from '../data/cfpConstants'
+import { DEFAULT_BOWL_CONFIG, CFP_NY6_BOWLS, CFP_BRACKET_SLOTS } from '../data/cfpConstants'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -146,6 +146,77 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
     return lines.join('\n')
   }, [currentDynasty, currentYear])
 
+  // Exact CFP Quarterfinal matchups for this dynasty/year. Without an
+  // explicit hint block the AI fills the "(CFP QF)" rows with whatever
+  // real-world Cotton/Sugar/Rose/Orange matchups it knows — and shifts
+  // every alphabetical row that follows in the process. Telling it the
+  // bye-seed team and the first-round winner for each QF bowl, by exact
+  // abbreviation, eliminates the guessing.
+  const cfpQuarterfinalHints = useMemo(() => {
+    const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[currentYear] || []
+    if (!cfpSeeds.length) return ''
+    const teams = currentDynasty?.teams || TEAMS
+    const abbrFromTid = (tid) => {
+      if (tid == null) return null
+      const info = getGameTeamInfo(teams, tid)
+      return info?.abbr || null
+    }
+    const seedToAbbr = (seed) => {
+      const entry = cfpSeeds.find(s => s.seed === seed)
+      return entry ? (abbrFromTid(entry.tid) || entry.team || null) : null
+    }
+
+    // First-round winners by seed-pair (high seed always listed first
+    // in CFP_BRACKET_SLOTS for cfpfr*).
+    const frResults = (currentDynasty?.games || [])
+      .filter(g => g && (g.gameType === 'cfp_first_round' || g.isCFPFirstRound) && Number(g.year) === Number(currentYear))
+      .map(g => {
+        const slotCfg = g.cfpSlot ? CFP_BRACKET_SLOTS[g.cfpSlot] : null
+        const seed1 = g.seed1 ?? slotCfg?.higherSeed ?? null
+        const seed2 = g.seed2 ?? slotCfg?.lowerSeed ?? null
+        const winnerTid = g.winnerTid != null ? Number(g.winnerTid) : null
+        let winnerAbbr = g.winner || (winnerTid ? abbrFromTid(winnerTid) : null)
+        // If the game record carries scores but no winner abbr, derive
+        // from scores so the prompt stays useful pre-save.
+        if (!winnerAbbr && typeof g.team1Score === 'number' && typeof g.team2Score === 'number') {
+          const winningTid = g.team1Score > g.team2Score ? g.team1Tid : g.team2Tid
+          winnerAbbr = abbrFromTid(winningTid) || null
+        }
+        return { seed1, seed2, winner: winnerAbbr }
+      })
+    const winnerForSeedPair = (high, low) => {
+      const r = frResults.find(x =>
+        (x.seed1 === high && x.seed2 === low) || (x.seed1 === low && x.seed2 === high)
+      )
+      return r?.winner || null
+    }
+
+    // QF bracket: each bye seed plays the winner of one first-round slot.
+    //   #1 bye → Winner of #8 vs #9
+    //   #4 bye → Winner of #5 vs #12
+    //   #3 bye → Winner of #6 vs #11
+    //   #2 bye → Winner of #7 vs #10
+    // Bowl-name lookup comes from cfpBowlConfigByYear (config.seedN = the
+    // bowl hosting that bye seed's QF) with the DEFAULT_BOWL_CONFIG fallback.
+    const cfg = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || DEFAULT_BOWL_CONFIG
+    const byeRows = [
+      { bowl: cfg.seed1 || DEFAULT_BOWL_CONFIG.seed1, byeSeed: 1, frHigh: 8, frLow: 9 },
+      { bowl: cfg.seed2 || DEFAULT_BOWL_CONFIG.seed2, byeSeed: 2, frHigh: 7, frLow: 10 },
+      { bowl: cfg.seed3 || DEFAULT_BOWL_CONFIG.seed3, byeSeed: 3, frHigh: 6, frLow: 11 },
+      { bowl: cfg.seed4 || DEFAULT_BOWL_CONFIG.seed4, byeSeed: 4, frHigh: 5, frLow: 12 },
+    ]
+    const lines = byeRows.map(b => {
+      const byeAbbr = seedToAbbr(b.byeSeed)
+      if (!byeAbbr) return null
+      const winner = winnerForSeedPair(b.frHigh, b.frLow)
+      const team1Hint = winner
+        ? `${winner} (won First Round #${b.frHigh} vs #${b.frLow})`
+        : `<winner of First Round #${b.frHigh} vs #${b.frLow}> — read off your screenshot`
+      return `  • ${b.bowl} (CFP QF): Team 1 = ${team1Hint} · Team 2 = ${byeAbbr} (#${b.byeSeed} seed, bye)`
+    }).filter(Boolean)
+    return lines.join('\n')
+  }, [currentDynasty, currentYear])
+
   const persistSfBowlConfig = async () => {
     if (!currentDynasty?.id) return
     if (sfBowlConfig.sf1 === sfBowlConfig.sf2) {
@@ -225,7 +296,27 @@ Column B, Column D: STRICT dropdown of team abbreviations — use ONLY values fr
 Column C, Column E: integer rank 1–25 if ranked, BLANK if unranked. Read directly from the number prefix shown on the team name in the screenshot.
 Column F, Column G: integer score (0 or higher), no commas, no decimal point.
 
-CFP QF rows (those with "(CFP QF)" in the name): Team 1 (column B) is the First Round winner (the lower-seeded team that advanced from the First Round, seeds 5-12). Team 2 (column D) is the higher seed that had the bye (seed 1, 2, 3, or 4). Do NOT swap this ordering.
+═══════════════════════════════════════════════════════════
+CFP QUARTERFINAL MATCHUPS — dynasty-specific, NOT real-world
+═══════════════════════════════════════════════════════════
+THIS IS THE #1 SOURCE OF MISTAKES — read carefully.
+
+The four "(CFP QF)" rows have SPECIFIC teams for THIS dynasty (a bye
+seed paired with a First Round winner). Do NOT use real-world Cotton /
+Sugar / Rose / Orange Bowl matchups, and do NOT alphabetize teams into
+these rows. The bowl NAME is just the host of that QF — the matchup
+is determined by playoff seeding, not by bowl tradition.${cfpQuarterfinalHints ? `
+
+${cfpQuarterfinalHints}` : `
+
+  (CFP seeds not yet entered in this dynasty — the seed → team mapping
+  isn't available. If a "(CFP QF)" row appears in the screenshot, read
+  the teams directly off the screenshot.)`}
+
+Column ordering on every "(CFP QF)" row: Team 1 (column B) = the First
+Round WINNER (the lower-seeded team that advanced, seeds 5-12). Team 2
+(column D) = the BYE SEED that had a week off (seed 1, 2, 3, or 4). Do
+NOT swap. Use the exact abbreviations listed above when present.
 
 ═══════════════════════════════════════════════════════════
 PRIOR-WEEK TOP 25 — entering Bowl Week 2 (post-Bowl-Week-1 poll)
@@ -286,7 +377,7 @@ FINAL CHECK before you send the answer
 [ ] Columns B and D are team ABBREVIATIONS only, from the TEAM ABBREVIATIONS mapping
 [ ] Columns C and E are ranks (1–25) or BLANK — never "NR", never guessed
 [ ] Scores are INTEGERS only — no commas, no decimals, no "pts"
-[ ] For "(CFP QF)" rows: Team 1 is the First Round winner (lower seed), Team 2 is the bye seed (1-4)
+[ ] For "(CFP QF)" rows: used the exact team abbreviations from the CFP QUARTERFINAL MATCHUPS block above (not real-world bowl matchups); Team 1 = First Round winner (lower seed), Team 2 = bye seed (1-4)
 [ ] Blank cells for any unknown scores or unplayed bowls — invented nothing
 [ ] Post-bowl poll block present and includes ALL 25 ranked teams — both playing AND non-playing
 [ ] Non-playing ranked teams (from Prior-Week Top 25) are included with their new ranks (held or adjusted)
@@ -295,7 +386,7 @@ FINAL CHECK before you send the answer
 [ ] No header row, no bowl name text, no winner column INSIDE the data. The paste-target label above the fence is required (see Method A/B rules above).`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
-  }), [currentYear, currentDynasty?.teams, excludedBowlGames, prevWeekTop25Block])
+  }), [currentYear, currentDynasty?.teams, excludedBowlGames, prevWeekTop25Block, cfpQuarterfinalHints])
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
