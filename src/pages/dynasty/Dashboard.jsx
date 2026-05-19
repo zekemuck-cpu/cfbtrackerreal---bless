@@ -2637,10 +2637,20 @@ export default function Dashboard() {
       if (recruitData.hometown && !p.hometown) updated.hometown = recruitData.hometown
       if (recruitData.state && !p.state) updated.state = recruitData.state
 
-      // Portal status (existing logic — kept).
-      if (isPortalPlayer && !p.previousTeam) {
+      // Portal status — always mark as portal, always apply a real team name
+      // from the sheet so re-submitting with a correction actually takes effect.
+      // Only fall back to 'Transfer Portal' when the sheet has no team and the
+      // player record has no existing value.
+      if (isPortalPlayer) {
         updated.isPortal = true
-        updated.previousTeam = recruitData.previousTeam || 'Transfer Portal'
+        const sheetPrevTeam = (recruitData.previousTeam || '').trim()
+        if (sheetPrevTeam && sheetPrevTeam !== 'Transfer Portal') {
+          // Real team provided — always overwrite (this is the correction path)
+          updated.previousTeam = sheetPrevTeam
+        } else if (!p.previousTeam) {
+          updated.previousTeam = sheetPrevTeam || 'Transfer Portal'
+        }
+        // If sheet has no real team but player already has one, keep existing value
       }
 
       return updated
