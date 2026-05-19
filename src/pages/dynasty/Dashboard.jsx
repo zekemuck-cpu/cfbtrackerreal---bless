@@ -5,7 +5,7 @@ import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRost
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
-import { getPlayerStatsForTid, getTeamStatsForTid, hasAnyPlayerStats } from '../../utils/boxScoreHelpers'
+import { getPlayerStatsForTid, getTeamStatsForTid, hasAnyPlayerStats, hasAnyTeamStats } from '../../utils/boxScoreHelpers'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getTeamByAbbr, getTidFromAbbr, getTidFromTeamName, setTeamYearField, getCurrentTeamTid, getCurrentTeamAbbr, getOriginalTeamAbbr, getGameTeamInfo, getGameOpponentInfo, getAbbrFromTeamName, getNameByAbbr, setPendingUserTeam, clearPendingUserTeam, getPendingUserTeamTid, getUserTeamTid } from '../../data/teamRegistry'
 import { getTeamLogo, teams } from '../../data/teams'
@@ -5274,6 +5274,31 @@ export default function Dashboard() {
               const teamStatsForYear = currentDynasty?.teamStatsByYear?.[yearForW5] || currentDynasty?.teamStatsByYear?.[String(yearForW5)]
               const hasTeamStats = !!teamStatsForYear && Object.keys(teamStatsForYear).length > 0
 
+              // Auto-detect "done" from game-by-game entry. Each end-of-season
+              // catch-up sheet has an alternative data path that fills the same
+              // store via normal in-season activity:
+              //   • Detailed Stats     ← box scores aggregate into player.statsByYear
+              //   • Team Stats         ← box scores aggregate into teamStatsByYear
+              //   • Conference Standings ← scored games derive standings
+              // If every game this year is scored AND carries box-score data,
+              // surface the corresponding tile as done even if the user never
+              // opened the catch-up sheet — they did the work the long way.
+              const playedGamesW5 = yearGamesW5.filter(g =>
+                typeof g.team1Score === 'number' && typeof g.team2Score === 'number'
+              )
+              const allYearGamesAreScored = yearGamesW5.length > 0 && playedGamesW5.length === yearGamesW5.length
+              const allGamesHavePlayerBoxScores = playedGamesW5.length > 0 && playedGamesW5.every(g =>
+                g.boxScore && hasAnyPlayerStats(g, currentDynasty?.teams)
+              )
+              const allGamesHaveTeamBoxScores = playedGamesW5.length > 0 && playedGamesW5.every(g =>
+                g.boxScore && hasAnyTeamStats(g, currentDynasty?.teams)
+              )
+              // Effective "done" for each tile = explicit catch-up sheet save
+              // OR the in-season game-by-game equivalent was filled in.
+              const detailedStatsEffectivelyDone = !!detailedStatsCompleted || allGamesHavePlayerBoxScores
+              const teamStatsEffectivelyDone = hasTeamStats || allGamesHaveTeamBoxScores
+              const standingsEffectivelyDone = hasStandingsData || allYearGamesAreScored
+
               const awardsForYear = currentDynasty?.awardsByYear?.[yearForW5] || currentDynasty?.awardsByYear?.[String(yearForW5)]
               const hasAwards = !!awardsForYear && Object.keys(awardsForYear).length > 0
               const awardsCount = hasAwards ? Object.keys(awardsForYear).length : 0
@@ -5327,26 +5352,30 @@ export default function Dashboard() {
 
               w5Todos.push({
                 key: 'detailed-stats',
-                done: !!detailedStatsCompleted,
+                done: detailedStatsEffectivelyDone,
                 title: 'Detailed Stats Entry',
                 subtitle: detailedStatsCompleted
                   ? 'Detailed stats entered across all categories'
-                  : detailedStatsLocked
-                    ? 'Complete GP/Snaps Entry first'
-                    : 'Enter detailed stats by category',
+                  : (allGamesHavePlayerBoxScores && !detailedStatsCompleted)
+                    ? 'Captured from game-by-game box scores'
+                    : detailedStatsLocked
+                      ? 'Complete GP/Snaps Entry first'
+                      : 'Enter detailed stats by category',
                 onAction: detailedStatsLocked ? undefined : () => setShowDetailedStatsModal(true),
-                actionLabel: detailedStatsLocked ? undefined : (detailedStatsCompleted ? 'Edit' : 'Enter'),
+                actionLabel: detailedStatsLocked ? undefined : (detailedStatsEffectivelyDone ? 'Edit' : 'Enter'),
               })
 
               w5Todos.push({
                 key: 'conference-standings',
-                done: !!hasStandingsData,
+                done: standingsEffectivelyDone,
                 title: 'Conference Standings',
                 subtitle: hasStandingsData
                   ? `Standings entered for ${standingsCount} conferences`
-                  : 'Enter final conference standings',
+                  : (allYearGamesAreScored && !hasStandingsData)
+                    ? 'Derived from your weekly game results'
+                    : 'Enter final conference standings',
                 onAction: () => setShowConferenceStandingsModal(true),
-                actionLabel: hasStandingsData ? 'Edit' : 'Enter',
+                actionLabel: standingsEffectivelyDone ? 'Edit' : 'Enter',
               })
 
               w5Todos.push({
@@ -5360,11 +5389,15 @@ export default function Dashboard() {
 
               w5Todos.push({
                 key: 'team-stats',
-                done: !!hasTeamStats,
+                done: teamStatsEffectivelyDone,
                 title: 'Team Statistics',
-                subtitle: hasTeamStats ? 'Team statistics entered' : 'Enter team statistical leaders',
+                subtitle: hasTeamStats
+                  ? 'Team statistics entered'
+                  : (allGamesHaveTeamBoxScores && !hasTeamStats)
+                    ? 'Captured from game-by-game box scores'
+                    : 'Enter team statistical leaders',
                 onAction: () => setShowTeamStatsModal(true),
-                actionLabel: hasTeamStats ? 'Edit' : 'Enter',
+                actionLabel: teamStatsEffectivelyDone ? 'Edit' : 'Enter',
               })
 
               w5Todos.push({

@@ -327,6 +327,13 @@ FINAL CHECK before you send the answer
           </div>
         ) : sheetId ? (
           <div className="flex-1 flex flex-col overflow-hidden gap-3">
+            <div
+              className="rounded-lg border border-surface-4 bg-surface-2 px-4 py-3 text-xs sm:text-sm text-txt-secondary"
+              role="note"
+            >
+              <span className="text-txt-primary font-semibold">Skip this if you've been entering box scores game-by-game.</span>
+              {' '}Team stats are aggregated from box scores — this sheet is only for end-of-season catch-up if you skipped per-game entry.
+            </div>
             <SheetModalAIHero
               tagline="Skip the typing. Let AI fill the team stats."
               buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}

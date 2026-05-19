@@ -647,6 +647,13 @@ FINAL CHECK before you send
           </div>
         ) : sheetId ? (
           <div className="flex-1 flex flex-col overflow-hidden gap-3">
+            <div
+              className="rounded-lg border border-surface-4 bg-surface-2 px-4 py-3 text-xs sm:text-sm text-txt-secondary"
+              role="note"
+            >
+              <span className="text-txt-primary font-semibold">Skip this if you've been entering box scores game-by-game.</span>
+              {' '}This sheet is only for end-of-season catch-up — if every game already has a box score, your detailed stats are already in the app.
+            </div>
             <SheetModalAIHero
               tagline="Skip the typing. Let AI fill the season stat totals."
               buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
