@@ -36,6 +36,9 @@ export default function PortalTransferClassModal({ isOpen, onClose, onSave, curr
   const [creatingSheet, setCreatingSheet] = useState(false)
   const [sheetId, setSheetId] = useState(null)
   const [showDeletedNote, setShowDeletedNote] = useState(false)
+  const [createAttempts, setCreateAttempts] = useState(0)
+  const [authErrorOccurred, setAuthErrorOccurred] = useState(false)
+  const MAX_CREATE_ATTEMPTS = 2
   const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
 
@@ -57,12 +60,31 @@ export default function PortalTransferClassModal({ isOpen, onClose, onSave, curr
       'RS Sr': '(no eligibility left — leave blank)',
     }
 
-    const transfers = portalTransfers || []
-    const playerRows = transfers.length === 0
+    // Must match the sort order used in createPortalTransferClassSheet so the
+    // row numbers in this prompt align with the actual sheet rows.
+    const POSITION_ORDER = [
+      'QB','HB','FB','WR','TE',
+      'LT','LG','C','RG','RT','OT','OG',
+      'LE','RE','LEDG','REDG','EDGE','DT',
+      'LOLB','MLB','ROLB','SAM','MIKE','WILL','OLB','LB',
+      'CB','FS','SS','S','K','P',
+    ]
+    const sortedTransfers = [...(portalTransfers || [])].sort((a, b) => {
+      const ai = POSITION_ORDER.indexOf(a.position)
+      const bi = POSITION_ORDER.indexOf(b.position)
+      const posA = ai !== -1 ? ai : 999
+      const posB = bi !== -1 ? bi : 999
+      if (posA !== posB) return posA - posB
+      return (a.name || '').localeCompare(b.name || '')
+    })
+
+    const playerRows = sortedTransfers.length === 0
       ? '  (no portal transfers)'
-      : transfers.map((t, i) =>
+      : sortedTransfers.map((t, i) =>
           `  Row ${i + 2}: ${t.name} · ${t.position} · Col C = "${t.incomingClass}" → Col D allowed: ${CLASS_ALLOWED[t.incomingClass] || 'RS Fr | So | RS So'}`
         ).join('\n')
+
+    const n = sortedTransfers.length
 
     return buildAIPrompt({
       title: `${currentYear} Portal Transfer Class Assignment`,
@@ -73,7 +95,7 @@ CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
 1. Output ONLY column D values. NEVER output columns A, B, C, or the header row.
 2. Output format is a SINGLE column of values — one value per line — NO tabs, NO extra columns.
-3. The sheet contains EXACTLY ${transfers.length} pre-filled player row${transfers.length !== 1 ? 's' : ''}. Output EXACTLY ${transfers.length} line${transfers.length !== 1 ? 's' : ''} — one per row in the order listed below. Do not add or remove lines.
+3. The sheet contains EXACTLY ${n} pre-filled player row${n !== 1 ? 's' : ''}. Output EXACTLY ${n} line${n !== 1 ? 's' : ''} — one per row in the order listed below. Do not add or remove lines.
 4. Each row's allowed values are FIXED — listed per-player below. Pick one allowed value for that row, or leave it blank if truly unsure.
 5. Use EXACT literal strings (case + single space between "RS" and letters). No "RSFr", no "Rs Fr", no "RS-Fr".
 6. BLANK LINE if truly unsure for a given player — do NOT guess. A blank line is better than a wrong value.
@@ -106,12 +128,12 @@ REQUIRED OUTPUT FORMAT
 === PORTAL TRANSFERS — paste at cell D2 of "Portal Transfers" tab ===
 <allowed value or blank for Row 2>
 <allowed value or blank for Row 3>
-…exactly ${transfers.length} line${transfers.length !== 1 ? 's' : ''}, one per player, in the order listed above
+…exactly ${n} line${n !== 1 ? 's' : ''}, one per player, in the order listed above
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send
 ═══════════════════════════════════════════════════════════
-[ ] Exactly ${transfers.length} line${transfers.length !== 1 ? 's' : ''} — matches the player count above
+[ ] Exactly ${n} line${n !== 1 ? 's' : ''} — matches the player count above
 [ ] Every non-blank line is one of THAT row's allowed values (from the per-player list above)
 [ ] Exact casing: "Fr", "So", "Jr", "Sr", "RS Fr", "RS So", "RS Jr", "RS Sr" (single space, "RS" uppercase)
 [ ] No tabs, no extra columns, no commentary INSIDE the data
@@ -161,6 +183,7 @@ FINAL CHECK before you send
   // Create portal transfer class sheet when modal opens
   useEffect(() => {
     const createSheet = async () => {
+      if (authErrorOccurred || createAttempts >= MAX_CREATE_ATTEMPTS) return
       if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
         // Check if we have an existing sheet for this year
         const existingSheetId = currentDynasty?.[sheetKey]
@@ -191,7 +214,10 @@ FINAL CHECK before you send
           })
         } catch (error) {
           console.error('Failed to create portal transfer class sheet:', error)
-          auth.handleError(error)
+          setCreateAttempts(prev => prev + 1)
+          if (auth.handleError(error)) {
+            setAuthErrorOccurred(true)
+          }
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false
@@ -200,12 +226,14 @@ FINAL CHECK before you send
     }
 
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote, portalTransfers, currentYear, sheetKey])
+  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote, portalTransfers, currentYear, sheetKey, authErrorOccurred, createAttempts])
 
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
+      setCreateAttempts(0)
+      setAuthErrorOccurred(false)
       creatingSheetRef.current = false
     }
   }, [isOpen])
