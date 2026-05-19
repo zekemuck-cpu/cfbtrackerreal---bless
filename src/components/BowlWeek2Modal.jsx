@@ -19,7 +19,6 @@ import {
   isBowlInWeek2,
 } from '../services/sheetsService'
 import { getCurrentTeamAbbr, getCurrentTeamTid, TEAMS, getGameTeamInfo } from '../data/teamRegistry'
-import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
 import { DEFAULT_BOWL_CONFIG, CFP_NY6_BOWLS } from '../data/cfpConstants'
@@ -39,7 +38,6 @@ const RANK_WEEK_OPTIONS = [
 
 export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, teamColors }) {
   const { currentDynasty, updateDynasty, saveRankings } = useDynasty()
-  const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
   const { user } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
@@ -602,8 +600,8 @@ FINAL CHECK before you send the answer
 
                   {/* Semifinal bowl assignment (also accessible in embedded mode) */}
                   <div className="px-5 sm:px-7 pt-3 pb-2">
-                    <div className="p-3 rounded-lg border flex-shrink-0" style={{ borderColor: modalColors.border, backgroundColor: modalColors.headerBg }}>
-                      <h4 className="text-xs font-bold uppercase mb-1.5" style={{ color: 'var(--text-primary)', letterSpacing: '1.5px' }}>Semifinal Host Bowls</h4>
+                    <div className="p-3 rounded-lg border flex-shrink-0 bg-surface-2 border-surface-4">
+                      <h4 className="text-xs font-bold uppercase mb-1.5 text-txt-primary" style={{ letterSpacing: '1.5px' }}>Semifinal Host Bowls</h4>
                       {(() => {
                         const savedConfig = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || {}
                         const qfBowls = new Set(['seed1', 'seed2', 'seed3', 'seed4'].map(k => savedConfig[k]).filter(Boolean))
@@ -616,8 +614,8 @@ FINAL CHECK before you send the answer
                               const opts = bowlChoices.includes(current) ? bowlChoices : [current, ...bowlChoices]
                               return (
                                 <div key={key}>
-                                  <label className="text-[10px] block mb-0.5" style={{ color: 'var(--text-secondary)' }}>{label}</label>
-                                  <select value={current} onChange={(e) => setSfBowlConfig(prev => ({ ...prev, [key]: e.target.value }))} className="w-full px-2 py-1 rounded text-xs border" style={{ borderColor: modalColors.inputBorder, backgroundColor: modalColors.inputBg, color: 'var(--text-primary)' }}>
+                                  <label className="text-[10px] block mb-0.5 text-txt-tertiary">{label}</label>
+                                  <select value={current} onChange={(e) => setSfBowlConfig(prev => ({ ...prev, [key]: e.target.value }))} className="w-full px-2 py-1 rounded text-xs border bg-surface-3 border-surface-4 text-txt-primary">
                                     {opts.map(bowl => <option key={bowl} value={bowl}>{bowl}</option>)}
                                   </select>
                                 </div>
@@ -645,9 +643,10 @@ FINAL CHECK before you send the answer
                   <div className="max-w-md mx-auto px-5 sm:px-7 py-6 flex flex-col gap-5">
                     <SheetManualEntry sheetId={sheetId} />
 
-                    {/* Semifinal Host Bowls */}
-                    <div className="p-3 rounded-lg border" style={{ borderColor: modalColors.border, backgroundColor: modalColors.headerBg }}>
-                      <h4 className="text-xs font-bold uppercase mb-1.5" style={{ color: 'var(--text-primary)', letterSpacing: '1.5px' }}>Semifinal Host Bowls</h4>
+                    {/* Semifinal Host Bowls — neutral surface colors to
+                        match the rest of the sheet-modal family. */}
+                    <div className="p-3 rounded-lg border bg-surface-2 border-surface-4">
+                      <h4 className="text-xs font-bold uppercase mb-1.5 text-txt-primary" style={{ letterSpacing: '1.5px' }}>Semifinal Host Bowls</h4>
                       {(() => {
                         const savedConfig = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || {}
                         const qfBowls = new Set(['seed1', 'seed2', 'seed3', 'seed4'].map(k => savedConfig[k]).filter(Boolean))
@@ -660,8 +659,8 @@ FINAL CHECK before you send the answer
                               const opts = bowlChoices.includes(current) ? bowlChoices : [current, ...bowlChoices]
                               return (
                                 <div key={key}>
-                                  <label className="text-[10px] block mb-0.5" style={{ color: 'var(--text-secondary)' }}>{label}</label>
-                                  <select value={current} onChange={(e) => setSfBowlConfig(prev => ({ ...prev, [key]: e.target.value }))} className="w-full px-2 py-1 rounded text-xs border" style={{ borderColor: modalColors.inputBorder, backgroundColor: modalColors.inputBg, color: 'var(--text-primary)' }}>
+                                  <label className="text-[10px] block mb-0.5 text-txt-tertiary">{label}</label>
+                                  <select value={current} onChange={(e) => setSfBowlConfig(prev => ({ ...prev, [key]: e.target.value }))} className="w-full px-2 py-1 rounded text-xs border bg-surface-3 border-surface-4 text-txt-primary">
                                     {opts.map(bowl => <option key={bowl} value={bowl}>{bowl}</option>)}
                                   </select>
                                 </div>
