@@ -2682,13 +2682,19 @@ export function buildGameRecapContext(dynasty, game) {
   // the recap prompt said "UNRANKED" for both CFP teams in a National
   // Championship recap even though their post-SF poll ranks were in
   // rankByWeek.
+  // Canonical postseason rank slots (matches TOP25_WEEK_KEYS in
+  // sheetsService.js): 15 = post-Week-14 / Conf Champ Week poll,
+  // 101 = post-FR / entering Bowl Week 1, 102 = entering Bowl Week 2 / QF,
+  // 103 = entering Bowl Week 3 / SF, 104 = entering NC, 105 = Final Poll.
+  // These are the slots WeeklyScoresModal + Top25SheetModal + final-poll
+  // save flow actually write to.
   const postseasonSlot = (() => {
-    if (game.isCFPChampionship || game.gameType === 'cfp_championship') return 19
-    if (game.isCFPSemifinal || game.gameType === 'cfp_semifinal') return 18
-    if (game.isCFPQuarterfinal || game.gameType === 'cfp_quarterfinal') return 17
-    if (game.isCFPFirstRound || game.gameType === 'cfp_first_round') return 16
+    if (game.isCFPChampionship || game.gameType === 'cfp_championship') return 104
+    if (game.isCFPSemifinal || game.gameType === 'cfp_semifinal') return 103
+    if (game.isCFPQuarterfinal || game.gameType === 'cfp_quarterfinal') return 102
+    if (game.isCFPFirstRound || game.gameType === 'cfp_first_round') return 101
     if (game.isBowlGame || game.gameType === 'bowl') {
-      return game.bowlWeek === 'week2' ? 17 : 16
+      return game.bowlWeek === 'week2' ? 102 : 101
     }
     if (game.isConferenceChampionship || game.gameType === 'conference_championship') return 15
     return null

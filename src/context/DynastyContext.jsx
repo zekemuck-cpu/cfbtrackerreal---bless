@@ -1956,71 +1956,101 @@ export function getTeamRanking(dynasty, tidOrAbbr, year) {
     const byYear = dynasty.teams?.[tid]?.byYear || dynasty.teams?.[String(tid)]?.byYear
     const rankByWeek = byYear?.[year]?.rankByWeek ?? byYear?.[String(year)]?.rankByWeek
     if (rankByWeek && typeof rankByWeek === 'object') {
-      // Find the dynasty's "current snapshot week" — the week the user
-      // is in right now (dynasty.currentWeek), not whatever week the
-      // user most recently wrote ranks to. We anchor every team's
-      // reported rank to that week so a team that fell out of the poll
-      // shows as unranked (null), not as their last-known rank from a
-      // past week.
-      //
-      // Anchoring to currentWeek (not max-populated) matters when the
-      // user backfills a future week's poll via the rankings-week
-      // override in WeeklyScoresModal. Otherwise the team page would
-      // jump to the future-week snapshot instead of staying on the
-      // dynasty's actual current week.
-      //
-      // Fallback: if dynasty.currentWeek isn't set or has no data, use
-      // the latest populated week across all teams — keeps legacy
-      // dynasties from regressing.
       const isYearMatch = Number(dynasty.currentYear) === Number(year)
-      // During conference_championship phase the dynasty's currentWeek
-      // is 1 (CCG week is its own phase, indexed week 1 within the
-      // phase) but the SEMANTIC current rank-entry slot is Week 15 —
-      // the post-Week-14 / pre-CCG poll. Anchoring to currentWeek=1
-      // would surface every team's preseason rank (rankByWeek[1] is
-      // seeded with preseason) all over the team pages during CCG
-      // week. Override to slot 15 in that phase.
-      const isCCGPhase = dynasty.currentPhase === 'conference_championship'
-      const cw = isYearMatch ? (isCCGPhase ? 15 : Number(dynasty.currentWeek)) : NaN
-      let snapshotWeek = -Infinity
-      if (Number.isFinite(cw) && cw >= 0) {
-        // Confirm at least one team has data for currentWeek; if not,
-        // fall through to the legacy "max populated" path.
-        for (const team of Object.values(dynasty.teams || {})) {
-          const tRbw = team?.byYear?.[year]?.rankByWeek ?? team?.byYear?.[String(year)]?.rankByWeek
-          if (!tRbw || typeof tRbw !== 'object') continue
-          const v = tRbw[cw] ?? tRbw[String(cw)]
-          if (typeof v === 'number' && v >= 1 && v <= 25) { snapshotWeek = cw; break }
-        }
-      }
-      if (snapshotWeek === -Infinity) {
-        for (const team of Object.values(dynasty.teams || {})) {
-          const tRbw = team?.byYear?.[year]?.rankByWeek ?? team?.byYear?.[String(year)]?.rankByWeek
-          if (!tRbw || typeof tRbw !== 'object') continue
-          for (const k of Object.keys(tRbw)) {
-            const wk = Number(k)
-            if (!Number.isFinite(wk)) continue
-            const v = tRbw[k]
-            if (typeof v !== 'number' || v < 1 || v > 25) continue
-            if (wk > snapshotWeek) snapshotWeek = wk
+      const phase = dynasty.currentPhase
+      // Postseason slot priority — newest in time first. Final Poll
+      // (105) is the canonical "end-of-season" rank; CFP rounds
+      // 101-104 are the per-round polls (post-FR through post-NC);
+      // slot 15 is the post-Week-14 Conf-Champ-Week poll.
+      const POSTSEASON_SLOTS = [105, 104, 103, 102, 101, 15]
+      const pickPostseasonRank = () => {
+        for (const slot of POSTSEASON_SLOTS) {
+          const v = rankByWeek[slot] ?? rankByWeek[String(slot)]
+          if (typeof v === 'number' && v >= 1 && v <= 25) {
+            return { rank: v, week: slot }
           }
         }
-      }
-      if (snapshotWeek > -Infinity) {
-        const v = rankByWeek[snapshotWeek] ?? rankByWeek[String(snapshotWeek)]
-        if (typeof v === 'number' && v >= 1 && v <= 25) {
-          return { rank: v, source: 'rank_by_week', week: snapshotWeek }
-        }
-        // This team has rankByWeek data for some weeks but NOT the
-        // snapshot week — they're currently unranked. Return null
-        // here (don't fall through to legacy "highest populated week"
-        // behavior, which would return their last-known rank).
         return null
       }
-      // Fallback: dynasty-wide snapshotWeek not findable (no team has
-      // any rankByWeek data this year). Use this team's highest
-      // populated week — preserves the legacy behavior for legacy
-      // dynasties where rankByWeek was sparse before the V5 migration.
+
+      // Looking at a PAST year (year < currentYear, or current year
+      // but the dynasty has advanced past it). Always prefer the
+      // team's latest postseason rank — that's "their final ranking
+      // for that season." The mid-season weekly polls would surface
+      // a stale snapshot from that season's regular-season run.
+      if (!isYearMatch) {
+        const latest = pickPostseasonRank()
+        if (latest) {
+          return { rank: latest.rank, source: 'rank_by_week', week: latest.week }
+        }
+        // Fall through to Priority 2 (final poll) for legacy dynasties
+        // that have a saved final poll but no rankByWeek seeding.
+      } else if (phase === 'offseason' || phase === 'postseason') {
+        // Same year, season is over (postseason past NC, or already
+        // rolled into offseason). The "current rank" semantically IS
+        // the team's final ranking — use the latest postseason slot.
+        // This fixes the bug where a 14-3 national-champion team
+        // showed unranked on its team page because the snapshot
+        // anchored to dynasty.currentWeek=4/5 (an offseason week
+        // index that doubled as a regular-season Week N rank slot).
+        const latest = pickPostseasonRank()
+        if (latest) {
+          return { rank: latest.rank, source: 'rank_by_week', week: latest.week }
+        }
+        // Team genuinely unranked at season end — fall through to
+        // Priority 2 (final poll) as a final safety net.
+      } else {
+        // In-season (preseason / regular_season / conference_championship).
+        // Anchor every team's reported rank to dynasty.currentWeek so a
+        // team that fell out of the poll shows unranked instead of
+        // their last-known rank from a past week.
+        //
+        // During CCG phase, dynasty.currentWeek = 1 (CCG is its own
+        // phase, indexed week 1 within the phase) but the semantic
+        // rank slot is 15 (post-Week-14 / pre-CCG poll). Anchoring to
+        // currentWeek=1 would surface every team's preseason rank on
+        // every team page during CCG week — override to slot 15.
+        const isCCGPhase = phase === 'conference_championship'
+        const cw = isCCGPhase ? 15 : Number(dynasty.currentWeek)
+        let snapshotWeek = -Infinity
+        if (Number.isFinite(cw) && cw >= 0) {
+          // Confirm at least one team has data for currentWeek; if not,
+          // fall through to the legacy "max populated" path.
+          for (const team of Object.values(dynasty.teams || {})) {
+            const tRbw = team?.byYear?.[year]?.rankByWeek ?? team?.byYear?.[String(year)]?.rankByWeek
+            if (!tRbw || typeof tRbw !== 'object') continue
+            const v = tRbw[cw] ?? tRbw[String(cw)]
+            if (typeof v === 'number' && v >= 1 && v <= 25) { snapshotWeek = cw; break }
+          }
+        }
+        if (snapshotWeek === -Infinity) {
+          for (const team of Object.values(dynasty.teams || {})) {
+            const tRbw = team?.byYear?.[year]?.rankByWeek ?? team?.byYear?.[String(year)]?.rankByWeek
+            if (!tRbw || typeof tRbw !== 'object') continue
+            for (const k of Object.keys(tRbw)) {
+              const wk = Number(k)
+              if (!Number.isFinite(wk)) continue
+              const v = tRbw[k]
+              if (typeof v !== 'number' || v < 1 || v > 25) continue
+              if (wk > snapshotWeek) snapshotWeek = wk
+            }
+          }
+        }
+        if (snapshotWeek > -Infinity) {
+          const v = rankByWeek[snapshotWeek] ?? rankByWeek[String(snapshotWeek)]
+          if (typeof v === 'number' && v >= 1 && v <= 25) {
+            return { rank: v, source: 'rank_by_week', week: snapshotWeek }
+          }
+          // Team has rankByWeek data elsewhere but not at the snapshot
+          // week — currently unranked. Return null (don't fall through
+          // to "highest populated week" which would surface a stale
+          // earlier rank).
+          return null
+        }
+      }
+      // Fallback: no usable snapshot found above (e.g. mid-season with
+      // no team ranked yet, or pre-V5 legacy dynasty). Use this team's
+      // highest populated week — preserves legacy behavior.
       let latestWeek = -Infinity
       let latestRank = null
       for (const [k, v] of Object.entries(rankByWeek)) {
