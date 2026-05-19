@@ -77,7 +77,7 @@ CRITICAL RULES — read before anything else
 6. BLANK cell for unknown values — never guess, never use 0, "-", or "N/A". Blank ≠ zero.
 7. Dropdown columns (B, C, D, E, I, L, M, N, O) MUST use EXACTLY one of the literal values listed. Wrong spelling or casing will be rejected.
 8. Column E (Stars) uses ☆ symbols, NOT digits. One symbol = 1 star, five symbols = 5 stars.
-9. Column O (Prev Team) MUST be a team abbreviation from the mapping below, or BLANK. Blank for HS/JUCO recruits; only filled for transfer-portal recruits.
+9. Column O (Prev Team) MUST be a team abbreviation from the mapping below, or BLANK. Blank for HS/JUCO recruits AND for transfers whose previous school is not visible. NEVER write "Transfer Portal" or any placeholder — if the school is unknown, leave it BLANK.
 10. No header row, no totals, no commentary INSIDE the data. ONE TSV block, preceded by the required paste-target label line above the fence (see Method A/B rules above).
 
 ═══════════════════════════════════════════════════════════
@@ -101,7 +101,7 @@ Row | Col | Header (protected)  | Your value                                    
  2+ |  L  | State               | Dropdown — exactly one of the 51 two-letter codes below                               | dropdown
  2+ |  M  | Gem/Bust            | Dropdown — exactly "Gem" or "Bust", or blank                                          | dropdown
  2+ |  N  | Dev Trait           | Dropdown — exactly one of: Elite, Star, Impact, Normal                                | dropdown
- 2+ |  O  | Prev Team           | Team abbreviation from mapping (transfers only); BLANK for HS/JUCO                    | dropdown
+ 2+ |  O  | Prev Team           | Team abbreviation from mapping (transfers only); BLANK for HS/JUCO or unknown school   | dropdown
 
 ═══════════════════════════════════════════════════════════
 ENUMERATED DROPDOWN VALUES (use EXACTLY — case-sensitive)
@@ -149,7 +149,7 @@ Column M — Gem/Bust:
 Column N — Dev Trait (4 values):
   Elite, Star, Impact, Normal
 
-Column O — Prev Team: use ONLY abbreviations from the team mapping appended below. Leave BLANK for any non-transfer (HS, JUCO) recruit. Never write a full team name.
+Column O — Prev Team: use ONLY abbreviations from the team mapping appended below. Leave BLANK for HS/JUCO recruits AND for any transfer whose previous school is not clearly visible in the screenshots. NEVER write "Transfer Portal", "Unknown", or any other placeholder text — unknown = blank.
 
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
@@ -168,11 +168,11 @@ FINAL CHECK before you send
 [ ] Stars column uses ☆ symbols (never digits)
 [ ] Every value in columns B, C, D, E, I, L, M, N, O is a LITERAL MATCH of an enumerated dropdown value
 [ ] Heights use straight ASCII quote " not curly quote
-[ ] Prev Team is blank for HS/JUCO recruits, an abbreviation (from mapping) for transfers
+[ ] Prev Team is blank for HS/JUCO recruits AND for transfers with unknown/invisible previous school — never "Transfer Portal" or any placeholder
 [ ] Blank cells for unknowns — invented nothing`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
-    notes: 'Column O (Prev Team) applies ONLY to transfer-portal recruits (Class = Fr, RS Fr, So, RS So, Jr, or RS Jr). For HS and JUCO recruits, leave column O blank. Use ONLY the team abbreviations in the mapping below — never a full team name.',
+    notes: 'Column O (Prev Team) applies ONLY to transfer-portal recruits (Class = Fr, RS Fr, So, RS So, Jr, or RS Jr) when the previous school is clearly visible. For HS/JUCO recruits OR when the previous school is unknown, leave column O BLANK. Use ONLY the team abbreviations in the mapping — never a full team name, never "Transfer Portal" or any placeholder.',
   }), [currentYear, recruitingLabel, currentDynasty?.teams])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
