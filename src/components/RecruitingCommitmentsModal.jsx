@@ -49,6 +49,9 @@ export default function RecruitingCommitmentsModal({
   const [creatingSheet, setCreatingSheet] = useState(false)
   const [sheetId, setSheetId] = useState(null)
   const [showDeletedNote, setShowDeletedNote] = useState(false)
+  const [createAttempts, setCreateAttempts] = useState(0)
+  const [authErrorOccurred, setAuthErrorOccurred] = useState(false)
+  const MAX_CREATE_ATTEMPTS = 2
   const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
 
@@ -210,6 +213,7 @@ FINAL CHECK before you send
   // Create recruiting sheet when modal opens
   useEffect(() => {
     const createSheet = async () => {
+      if (authErrorOccurred || createAttempts >= MAX_CREATE_ATTEMPTS) return
       if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && commitmentKey) {
         // Check for existing sheet for this phase/week
         const sheetKey = `recruitingSheet_${currentYear}_${commitmentKey}`
@@ -242,7 +246,10 @@ FINAL CHECK before you send
           })
         } catch (error) {
           console.error('Failed to create recruiting sheet:', error)
-          auth.handleError(error)
+          setCreateAttempts(prev => prev + 1)
+          if (auth.handleError(error)) {
+            setAuthErrorOccurred(true)
+          }
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false
@@ -251,12 +258,14 @@ FINAL CHECK before you send
     }
 
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote, currentYear, commitmentKey, existingCommitments])
+  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote, currentYear, commitmentKey, existingCommitments, authErrorOccurred, createAttempts])
 
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
+      setCreateAttempts(0)
+      setAuthErrorOccurred(false)
       creatingSheetRef.current = false
     }
   }, [isOpen])

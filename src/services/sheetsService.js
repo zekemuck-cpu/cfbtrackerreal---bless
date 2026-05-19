@@ -11186,7 +11186,10 @@ export async function createRecruitingSheet(dynastyName, year, dynastyTeams = nu
       }
     })
 
-    // Add conditional formatting for Previous Team column (team colors)
+    // Build conditional format rules separately — they're applied in a second
+    // batchUpdate after the essential requests so a slow/failed color pass
+    // never blocks sheet creation.
+    const colorRequests = []
     for (const abbr of teamAbbrs) {
       const teamData = teams[abbr]
       if (!teamData?.backgroundColor || !teamData?.textColor) continue
@@ -11194,7 +11197,7 @@ export async function createRecruitingSheet(dynastyName, year, dynastyTeams = nu
       const bgColor = hexToRgb(teamData.backgroundColor)
       const textColor = hexToRgb(teamData.textColor)
 
-      requests.push({
+      colorRequests.push({
         addConditionalFormatRule: {
           rule: {
             ranges: [{ sheetId, startRowIndex: 1, endRowIndex: totalRows + 1, startColumnIndex: 14, endColumnIndex: 15 }],
@@ -11253,8 +11256,8 @@ export async function createRecruitingSheet(dynastyName, year, dynastyTeams = nu
       }
     })
 
-    // Execute all requests
-    await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+    // Execute essential requests (headers, widths, dropdowns, data)
+    const batchRes = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -11262,6 +11265,25 @@ export async function createRecruitingSheet(dynastyName, year, dynastyTeams = nu
       },
       body: JSON.stringify({ requests })
     })
+    if (!batchRes.ok) {
+      const errBody = await batchRes.json().catch(() => ({}))
+      throw new Error(`Failed to format recruiting sheet: ${errBody.error?.message || batchRes.status}`)
+    }
+
+    // Apply team color rules in a separate non-blocking call. If this fails
+    // (slow API, quota) the sheet is still fully functional — colors are cosmetic.
+    if (colorRequests.length > 0) {
+      fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ requests: colorRequests })
+      }, { timeoutMs: 45000, label: 'team color rules' }).catch(err => {
+        console.warn('Team color rules failed (non-blocking):', err.message)
+      })
+    }
 
     return {
       spreadsheetId,
