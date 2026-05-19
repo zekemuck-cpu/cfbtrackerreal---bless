@@ -33,6 +33,14 @@ export default function Layout({ children }) {
   const [showClassAdvancementModal, setShowClassAdvancementModal] = useState(false)
   const [playersNeedingConfirmation, setPlayersNeedingConfirmation] = useState([])
   const [showUserMenu, setShowUserMenu] = useState(false)
+  // isAdvancing — gates the Advance Week button while advanceWeek /
+  // advanceToNewSeason is in flight. The end-of-season → next-season
+  // transition processes the entire player roster (class progression,
+  // year flip, etc.), which is fast on desktop but can take 5-15s on
+  // a phone. Without feedback the button looks frozen and users tap
+  // it repeatedly; the gate prevents duplicate calls and the spinner
+  // makes it obvious work is happening.
+  const [isAdvancing, setIsAdvancing] = useState(false)
   const userMenuRef = useRef(null)
 
   const handleSignOut = async () => {
@@ -249,6 +257,14 @@ export default function Layout({ children }) {
       console.log('[Layout:handleAdvanceWeek] No currentDynasty, returning')
       return
     }
+    // Guard against double-taps while a prior advance is still in flight.
+    // Cheap and easy: the gate is the same state that drives the button
+    // spinner, so users can't (a) see a frozen UI and (b) re-fire the
+    // (slow) advance pipeline by tapping repeatedly.
+    if (isAdvancing) {
+      console.log('[Layout:handleAdvanceWeek] Already advancing, ignoring duplicate tap')
+      return
+    }
 
     console.log('[Layout:handleAdvanceWeek] Current state:', {
       phase: currentDynasty.currentPhase,
@@ -450,18 +466,28 @@ export default function Layout({ children }) {
       console.log('[Layout:handleAdvanceWeek] At offseason week 7 - advancing to new season')
       // No more class confirmation needed here - it happens at Signing Day (week 5→6)
       // CRITICAL: Must await both to ensure players are processed before week advances
-      await advanceToNewSeason(currentDynasty.id)
-      await advanceWeek(currentDynasty.id)
+      setIsAdvancing(true)
+      try {
+        await advanceToNewSeason(currentDynasty.id)
+        await advanceWeek(currentDynasty.id)
+      } catch (err) {
+        console.error('[Layout:handleAdvanceWeek] season advance threw error:', err)
+      } finally {
+        setIsAdvancing(false)
+      }
       setShowWeekDropdown(false)
       return
     }
 
     console.log('[Layout:handleAdvanceWeek] Calling advanceWeek for dynasty:', currentDynasty.id)
+    setIsAdvancing(true)
     try {
       await advanceWeek(currentDynasty.id)
       console.log('[Layout:handleAdvanceWeek] advanceWeek completed successfully')
     } catch (err) {
       console.error('[Layout:handleAdvanceWeek] advanceWeek threw error:', err)
+    } finally {
+      setIsAdvancing(false)
     }
     setShowWeekDropdown(false)
   }
@@ -471,7 +497,14 @@ export default function Layout({ children }) {
     if (!currentDynasty) return
 
     // Advance week with class confirmations (class progression happens at week 5→6)
-    await advanceWeek(currentDynasty.id, confirmations)
+    setIsAdvancing(true)
+    try {
+      await advanceWeek(currentDynasty.id, confirmations)
+    } catch (err) {
+      console.error('[Layout:handleClassAdvancementConfirm] advanceWeek threw error:', err)
+    } finally {
+      setIsAdvancing(false)
+    }
   }
 
   const handleRevertWeek = async () => {
@@ -663,18 +696,31 @@ export default function Layout({ children }) {
                   <div className="flex items-center">
                     <button
                       onClick={handleAdvanceWeek}
-                      className="p-2 rounded-lg hover:opacity-70 transition-opacity"
+                      disabled={isAdvancing}
+                      className="p-2 rounded-lg hover:opacity-70 transition-opacity disabled:opacity-60 disabled:cursor-wait"
                       style={{ color: headerText }}
-                      title="Advance Week"
-                      aria-label="Advance week"
+                      title={isAdvancing ? 'Advancing…' : 'Advance Week'}
+                      aria-label={isAdvancing ? 'Advancing week' : 'Advance week'}
+                      aria-busy={isAdvancing}
                     >
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                      </svg>
+                      {isAdvancing ? (
+                        // Spinner — gives mobile users feedback during the
+                        // slow end-of-season → next-season transition that
+                        // used to look frozen.
+                        <svg className="w-6 h-6 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2.5" />
+                          <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                        </svg>
+                      ) : (
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                        </svg>
+                      )}
                     </button>
                     <button
                       onClick={() => setShowWeekDropdown(!showWeekDropdown)}
-                      className="p-1 rounded-lg hover:opacity-70 transition-opacity -ml-1"
+                      disabled={isAdvancing}
+                      className="p-1 rounded-lg hover:opacity-70 transition-opacity -ml-1 disabled:opacity-60 disabled:cursor-wait"
                       style={{ color: headerText }}
                       aria-label="Week menu"
                       aria-expanded={showWeekDropdown}
