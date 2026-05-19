@@ -9351,7 +9351,23 @@ export function DynastyProvider({ children }) {
           )
         }
 
-        // TERTIARY: Find by bye seed team tid (in case shell doesn't have correct ID)
+        // TERTIARY: Find by bowlName on the existing shell. The QF shells
+        // get a bowlName at creation time (set from cfpBowlConfigByYear), so
+        // a row coming back from the BW2 sheet with bowlName="Cotton Bowl"
+        // can find the right shell directly — useful when seed1 didn't
+        // make it through the call chain (older callers, or AI output that
+        // mangled the team-2 lookup). The PRIMARY/SECONDARY paths still
+        // win when they hit; this is the safety net.
+        if (existingIndex === -1 && gameData.bowlName) {
+          existingIndex = updatedGames.findIndex(g =>
+            g.isCFPQuarterfinal &&
+            Number(g.year) === Number(year) &&
+            g.bowlName &&
+            g.bowlName.toLowerCase() === gameData.bowlName.toLowerCase()
+          )
+        }
+
+        // QUATERNARY: Find by bye seed team tid (in case shell doesn't have correct ID)
         if (existingIndex === -1 && team1Tid) {
           existingIndex = updatedGames.findIndex(g =>
             g.isCFPQuarterfinal &&

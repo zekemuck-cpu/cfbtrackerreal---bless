@@ -7642,9 +7642,26 @@ export default function Dashboard() {
               !game.bowlName?.includes('CFP QF') && !game.bowlName?.includes('CFP Quarterfinal')
             )
 
-            // Map CFP Quarterfinal games to structured format with bowl info
-            // Get CFP seeds to determine bye seed from team2 (higher seed is in team2 position)
+            // Map CFP Quarterfinal games to structured format with bowl info.
+            //
+            // Slot identification used to derive the bye seed by looking up
+            // whatever team the AI put in column D against cfpSeedsByYear —
+            // which silently broke whenever the AI hallucinated a wrong team
+            // (the saved score then created a stray QF game with a fake slot
+            // ID instead of updating the right shell). The bowl name in
+            // column A is PROTECTED and is the only field we can trust to
+            // identify the QF slot, so we use the dynasty's cfpBowlConfig
+            // (which maps each bye seed 1..4 to a bowl) as the authoritative
+            // bowl→bye-seed map. team1/team2 are still passed through, but
+            // the bye-seed-derived slot is what saveCFPGames uses to find
+            // the existing shell.
             const cfpSeeds = currentDynasty.cfpSeedsByYear?.[year] || []
+            const cfpBowlCfg = currentDynasty.cfpBowlConfigByYear?.[year] || {}
+            const bowlNameToByeSeed = {}
+            for (const seed of [1, 2, 3, 4]) {
+              const bowlForSeed = cfpBowlCfg[`seed${seed}`]
+              if (bowlForSeed) bowlNameToByeSeed[bowlForSeed.toLowerCase()] = seed
+            }
 
             const cfpQuarterfinals = cfpQuarterfinalGames.map(game => {
               const sanitized = sanitizeGame(game)
@@ -7652,13 +7669,20 @@ export default function Dashboard() {
               const bowlMatch = game.bowlName?.match(/^(.+?)\s*\(CFP/)
               const bowlName = bowlMatch ? bowlMatch[1].trim() : sanitized.bowlName
 
-              // Determine bye seed (1-4) from team2 (which is the higher seed in QF games)
-              // Look up team2's seed in CFP seeds
-              const team2Tid = getTidFromAbbr(sanitized.team2, currentDynasty)
-              const team2SeedEntry = cfpSeeds.find(s =>
-                s.tid === team2Tid || s.team === sanitized.team2
-              )
-              const byeSeed = team2SeedEntry?.seed
+              // PRIMARY: bowl name → bye seed via dynasty's cfpBowlConfig.
+              // Works regardless of what teams the AI wrote into B/D.
+              let byeSeed = bowlName ? bowlNameToByeSeed[bowlName.toLowerCase()] : undefined
+
+              // FALLBACK: if bowl config doesn't have this bowl, fall back to
+              // the old team2 lookup. Handles dynasties where cfpBowlConfig
+              // wasn't set before the QF round.
+              if (!byeSeed) {
+                const team2Tid = getTidFromAbbr(sanitized.team2, currentDynasty)
+                const team2SeedEntry = cfpSeeds.find(s =>
+                  s.tid === team2Tid || s.team === sanitized.team2
+                )
+                byeSeed = team2SeedEntry?.seed
+              }
 
               return {
                 bowlName,
