@@ -1958,10 +1958,27 @@ export function getTeamRanking(dynasty, tidOrAbbr, year) {
     if (rankByWeek && typeof rankByWeek === 'object') {
       const isYearMatch = Number(dynasty.currentYear) === Number(year)
       const phase = dynasty.currentPhase
-      // Postseason slot priority — newest in time first. Final Poll
-      // (105) is the canonical "end-of-season" rank; CFP rounds
-      // 101-104 are the per-round polls (post-FR through post-NC);
-      // slot 15 is the post-Week-14 Conf-Champ-Week poll.
+      // Once the user has saved a Final Poll for this season,
+      // rankByWeek[105] IS the answer — either a number for ranked
+      // teams or absent for unranked teams. Don't fall through to
+      // earlier postseason slots when the user has explicitly
+      // declared the season's final picture (otherwise a team that
+      // was ranked #24 entering CCG week but dropped out of the
+      // Final Poll would still surface as #24 on its team page).
+      const hasSavedFinalPoll = (() => {
+        const fp = dynasty.finalPollsByYear?.[year] ?? dynasty.finalPollsByYear?.[String(year)]
+        return !!(fp?.media && Array.isArray(fp.media) && fp.media.length > 0)
+      })()
+      const finalSlotRank = (() => {
+        const v = rankByWeek[105] ?? rankByWeek['105']
+        return typeof v === 'number' && v >= 1 && v <= 25 ? v : null
+      })()
+
+      // Postseason slot priority — newest in time first. Used only
+      // when no Final Poll is saved yet (still mid-postseason).
+      // Final Poll (105) is the canonical "end-of-season" rank; CFP
+      // rounds 101-104 are the per-round polls (post-FR through
+      // post-NC); slot 15 is the post-Week-14 Conf-Champ-Week poll.
       const POSTSEASON_SLOTS = [105, 104, 103, 102, 101, 15]
       const pickPostseasonRank = () => {
         for (const slot of POSTSEASON_SLOTS) {
@@ -1979,6 +1996,14 @@ export function getTeamRanking(dynasty, tidOrAbbr, year) {
       // for that season." The mid-season weekly polls would surface
       // a stale snapshot from that season's regular-season run.
       if (!isYearMatch) {
+        if (hasSavedFinalPoll) {
+          // Final Poll exists — slot 105 is authoritative. Unranked
+          // teams get null here (skipping Priority 2/3 below which
+          // would surface stale data).
+          return finalSlotRank
+            ? { rank: finalSlotRank, source: 'rank_by_week', week: 105 }
+            : null
+        }
         const latest = pickPostseasonRank()
         if (latest) {
           return { rank: latest.rank, source: 'rank_by_week', week: latest.week }
@@ -1993,6 +2018,11 @@ export function getTeamRanking(dynasty, tidOrAbbr, year) {
         // showed unranked on its team page because the snapshot
         // anchored to dynasty.currentWeek=4/5 (an offseason week
         // index that doubled as a regular-season Week N rank slot).
+        if (hasSavedFinalPoll) {
+          return finalSlotRank
+            ? { rank: finalSlotRank, source: 'rank_by_week', week: 105 }
+            : null
+        }
         const latest = pickPostseasonRank()
         if (latest) {
           return { rank: latest.rank, source: 'rank_by_week', week: latest.week }
