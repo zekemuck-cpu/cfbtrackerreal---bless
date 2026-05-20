@@ -47,18 +47,44 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Recruiting Class Overalls`,
-    structure: `This sheet has ONE tab: "Recruit Overalls".
-Row 1 (header) and Columns A–D (Name, Position, Class, Stars) are PRE-FILLED and PROTECTED. Recruits are already listed in alphabetical order by last name in column A. You output ONLY two values per recruit: Overall (col E) and Jersey # (col F).
+    roster: (recruits || []).map(p => ({
+      name: p.name,
+      jerseyNumber: p.jerseyNumber,
+      position: p.position,
+    })),
+    rosterLabel: 'YOUR INCOMING RECRUITING CLASS (match abbreviated names like "A. Guess" to full names)',
+    structure: `WHERE TO FIND THE DATA IN EA CFB
+═══════════════════════════════════════════════════════════
+Recruit overalls appear during the POSITION CHANGES phase (after Signing Day,
+before Training Camp). Browse each position group depth chart — incoming
+freshmen are shown with Year = "Fr". Their OVR column is their initial overall.
+
+TWO ways to find recruits in the screenshots:
+1. Look for any player with Year = "Fr" in the position group screens — those
+   are the incoming freshmen (your new recruits). Their abbreviated name (e.g.
+   "D.Ware") resolves to a full name using the YOUR INCOMING RECRUITING CLASS
+   roster block below.
+2. Cross-reference the YOUR INCOMING RECRUITING CLASS roster block directly —
+   every player listed there should appear somewhere in the position group
+   screens as a "Fr" player.
+
+The OVR column shows each recruit's starting overall — a plain integer.
+The jersey number may be visible on the depth chart row.
+
+═══════════════════════════════════════════════════════════
+
+This sheet has ONE tab: "Recruit Overalls".
+Row 1 (header) and Columns A–D (Name, Position, Class, Stars) are PRE-FILLED and PROTECTED. Recruits are listed in alphabetical order by last name in column A. You output ONLY two values per recruit: Overall (col E) and Jersey # (col F).
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
 1. Output ONLY columns E and F. NEVER output columns A, B, C, or D. NEVER output the header row.
-2. ROW ORDER IS FIXED. Produce exactly one output line per pre-filled recruit, in the SAME ORDER as column A in the screenshots. Do NOT reorder, skip, or add rows.
+2. ROW ORDER IS FIXED. Produce exactly one output line per pre-filled recruit, in the SAME ORDER as column A (alphabetical by last name). Do NOT reorder, skip, or add rows.
 3. Exactly TWO tab-separated values per line: <Overall>\\t<Jersey #>.
 4. NO COMMAS in numbers. Output "85" — never "85.0", "85pts", or "85,".
 5. INTEGERS only. No decimals, no quotes, no units.
-6. BLANK for unknown values — never guess, never use 0, "-", or "N/A". An empty cell = blank. For a line where Overall is known but Jersey # is not, output:  85\\t  (tab then nothing).
+6. BLANK for unknown values — never guess, never use 0, "-", or "N/A". For a line where Overall is known but Jersey # is not, output: 85\\t (tab then nothing).
 7. Overall range: 40–99. Jersey # range: 0–99.
 8. No header row, no commentary INSIDE the data. ONE TSV block, preceded by the required paste-target label line above the fence (see Method A/B rules above).
 
@@ -83,12 +109,12 @@ REQUIRED OUTPUT FORMAT
 <Overall>\\t<Jersey #>
 <Overall>\\t<Jersey #>
 ...
-(one line per recruit, same order as column A in the screenshots)
+(one line per recruit, same order as column A — alphabetical by last name)
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send
 ═══════════════════════════════════════════════════════════
-[ ] Line count exactly equals the number of pre-filled recruit rows visible in the screenshots
+[ ] Line count exactly equals the number of recruits in the YOUR INCOMING RECRUITING CLASS block
 [ ] Every line has EXACTLY one tab character (two values: Overall then Jersey #)
 [ ] Every Overall is an integer 40–99, or blank
 [ ] Every Jersey # is an integer 0–99, or blank
@@ -96,7 +122,7 @@ FINAL CHECK before you send
 [ ] Row order matches column A alphabetical-by-last-name order exactly
 [ ] Blank cells for unknowns — invented nothing`,
     includeTeamMap: false,
-  }), [currentYear])
+  }), [currentYear, recruits])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

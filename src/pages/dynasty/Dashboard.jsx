@@ -6087,6 +6087,32 @@ export default function Dashboard() {
                   actionLabel: hasPositionChanges ? 'Edit' : 'Open',
                 })
 
+                // Recruiting Class Overalls
+                const recruitTeamTid = userTidForPortal
+                const recruitingClassPlayers = (currentDynasty?.players || []).filter(p => {
+                  if (!p.isRecruit || p.isPortal || p.previousTeam) return false
+                  if (p.recruitYear !== offseasonDataYear) return false
+                  if (!p.team) return true
+                  const v = p.team
+                  if (typeof v === 'number' || /^\d+$/.test(String(v))) return Number(v) === Number(recruitTeamTid)
+                  const tid = getTidFromAbbr(v, currentDynasty)
+                  return tid != null && Number(tid) === Number(recruitTeamTid)
+                })
+                const hasRecruitOverallsData = currentDynasty?.recruitOverallsByYear?.[offseasonDataYear]?.length > 0
+                const recruitOverallsCount = currentDynasty?.recruitOverallsByYear?.[offseasonDataYear]?.length || 0
+                if (recruitingClassPlayers.length > 0) {
+                  o26Todos.push({
+                    key: 'recruit-overalls',
+                    done: hasRecruitOverallsData,
+                    title: 'Recruiting Class Overalls',
+                    subtitle: hasRecruitOverallsData
+                      ? `${recruitOverallsCount} recruit overall${recruitOverallsCount !== 1 ? 's' : ''} entered`
+                      : `Enter overalls for ${recruitingClassPlayers.length} recruit${recruitingClassPlayers.length !== 1 ? 's' : ''}`,
+                    onAction: () => setShowRecruitOverallsModal(true),
+                    actionLabel: hasRecruitOverallsData ? 'Edit' : 'Enter',
+                  })
+                }
+
                 // Portal Transfer Class Assignment
                 const userTidForPortal = getUserTeamTid(currentDynasty)
                 const recruitingCommitmentsAll = getRecruitingCommitments(currentDynasty, userTidForPortal, offseasonDataYear)
@@ -6226,14 +6252,17 @@ export default function Dashboard() {
               const hasTrainingResultsData = currentDynasty?.trainingResultsByYear?.[currentYearW7]?.length > 0
               const trainingResultsCount = currentDynasty?.trainingResultsByYear?.[currentYearW7]?.length || 0
 
-              const recruitingClassPlayers = allPlayers.filter(p =>
-                p.isRecruit &&
-                p.recruitYear === offseasonDataYear &&
-                (!p.team || matchesTeam(p.team)) &&
-                !p.isPortal && !p.previousTeam
-              )
-              const hasRecruitOverallsData = currentDynasty?.recruitOverallsByYear?.[offseasonDataYear]?.length > 0
-              const recruitOverallsCount = currentDynasty?.recruitOverallsByYear?.[offseasonDataYear]?.length || 0
+              const recruitingClassPlayersW7 = allPlayers.filter(p => {
+                if (!p.isRecruit || p.isPortal || p.previousTeam) return false
+                if (p.recruitYear !== offseasonDataYear) return false
+                if (!p.team) return true
+                const v = p.team
+                if (typeof v === 'number' || /^\d+$/.test(String(v))) return Number(v) === Number(teamTid)
+                const tid = getTidFromAbbr(v, currentDynasty)
+                return tid != null && Number(tid) === Number(teamTid)
+              })
+              const hasRecruitOverallsDataW7 = currentDynasty?.recruitOverallsByYear?.[offseasonDataYear]?.length > 0
+              const recruitOverallsCountW7 = currentDynasty?.recruitOverallsByYear?.[offseasonDataYear]?.length || 0
 
               const w7Todos = [{
                 key: 'training-results',
@@ -6246,16 +6275,16 @@ export default function Dashboard() {
                 actionLabel: hasTrainingResultsData ? 'Edit' : 'Enter',
               }]
 
-              if (recruitingClassPlayers.length > 0) {
+              if (recruitingClassPlayersW7.length > 0) {
                 w7Todos.push({
                   key: 'recruit-overalls',
-                  done: hasRecruitOverallsData,
+                  done: hasRecruitOverallsDataW7,
                   title: 'Recruiting Class Overalls',
-                  subtitle: hasRecruitOverallsData
-                    ? `${recruitOverallsCount} recruit overall${recruitOverallsCount !== 1 ? 's' : ''} entered`
-                    : `Enter overalls for ${recruitingClassPlayers.length} recruit${recruitingClassPlayers.length !== 1 ? 's' : ''}`,
+                  subtitle: hasRecruitOverallsDataW7
+                    ? `${recruitOverallsCountW7} recruit overall${recruitOverallsCountW7 !== 1 ? 's' : ''} entered`
+                    : `Enter overalls for ${recruitingClassPlayersW7.length} recruit${recruitingClassPlayersW7.length !== 1 ? 's' : ''}`,
                   onAction: () => setShowRecruitOverallsModal(true),
-                  actionLabel: hasRecruitOverallsData ? 'Edit' : 'Enter',
+                  actionLabel: hasRecruitOverallsDataW7 ? 'Edit' : 'Enter',
                 })
               }
 
@@ -8576,7 +8605,7 @@ export default function Dashboard() {
         })()}
       />
 
-      {/* Recruit Overalls Modal (Training Camp - Offseason Week 7) */}
+      {/* Recruit Overalls Modal (National Signing Day - Offseason Week 6) */}
       <RecruitOverallsModal
         isOpen={showRecruitOverallsModal}
         onClose={() => setShowRecruitOverallsModal(false)}
