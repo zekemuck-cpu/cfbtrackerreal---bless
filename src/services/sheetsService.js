@@ -14417,7 +14417,7 @@ export async function createPortalTransferClassSheet(dynastyName, year, portalTr
               title: 'Portal Transfers',
               gridProperties: {
                 rowCount: totalRows + 1,
-                columnCount: 4,
+                columnCount: 5, // A-E: Name, Position, Current Class, New Class, Jersey #
                 frozenRowCount: 1
               }
             }
@@ -14478,28 +14478,39 @@ function getPortalTransferClassOptions(incomingClass) {
 
 // Initialize the Portal Transfer Class sheet with headers, validation, and pre-filled data
 async function initializePortalTransferClassSheet(spreadsheetId, accessToken, sheetId, transfers, totalRows, year) {
-  // Build pre-filled rows for transfers
-  // Support both 'year' and 'incomingClass' field names for flexibility
-  const dataRows = transfers.map(transfer => ({
-    values: [
-      { userEnteredValue: { stringValue: transfer.name || '' } },
-      { userEnteredValue: { stringValue: transfer.position || '' } },
-      { userEnteredValue: { stringValue: transfer.incomingClass || transfer.year || 'Fr' } }, // Current class they came in as
-      { userEnteredValue: { stringValue: '' } } // New Class - user selects from dropdown
-    ]
-  }))
+  // Build pre-filled rows for transfers.
+  // Support both 'year' and 'incomingClass' field names for flexibility.
+  // Col E "Jersey #" — pre-fill with whatever jersey the player already
+  // has on the roster (typically blank for new transfers); user can
+  // overwrite if needed.
+  const dataRows = transfers.map(transfer => {
+    const j = transfer.jerseyNumber
+    const jerseyCell = (j != null && j !== '')
+      ? { userEnteredValue: { numberValue: Number(j) } }
+      : { userEnteredValue: { stringValue: '' } }
+    return {
+      values: [
+        { userEnteredValue: { stringValue: transfer.name || '' } },
+        { userEnteredValue: { stringValue: transfer.position || '' } },
+        { userEnteredValue: { stringValue: transfer.incomingClass || transfer.year || 'Fr' } }, // Current class they came in as
+        { userEnteredValue: { stringValue: '' } }, // New Class - user selects from dropdown
+        jerseyCell // Jersey # - user fills in
+      ]
+    }
+  })
 
   const requests = [
     // Set headers
     {
       updateCells: {
-        range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 4 },
+        range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 5 },
         rows: [{
           values: [
             { userEnteredValue: { stringValue: 'Player' } },
             { userEnteredValue: { stringValue: 'Position' } },
             { userEnteredValue: { stringValue: `${year} Recruitment Class` } },
-            { userEnteredValue: { stringValue: `Updated ${year + 1} Class` } }
+            { userEnteredValue: { stringValue: `Updated ${year + 1} Class` } },
+            { userEnteredValue: { stringValue: 'Jersey #' } }
           ]
         }],
         fields: 'userEnteredValue'
@@ -14508,7 +14519,7 @@ async function initializePortalTransferClassSheet(spreadsheetId, accessToken, sh
     // Pre-fill transfer data
     {
       updateCells: {
-        range: { sheetId, startRowIndex: 1, endRowIndex: transfers.length + 1, startColumnIndex: 0, endColumnIndex: 4 },
+        range: { sheetId, startRowIndex: 1, endRowIndex: transfers.length + 1, startColumnIndex: 0, endColumnIndex: 5 },
         rows: dataRows,
         fields: 'userEnteredValue'
       }
@@ -14556,7 +14567,7 @@ async function initializePortalTransferClassSheet(spreadsheetId, accessToken, sh
     // Format header row - bold, background color
     {
       repeatCell: {
-        range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 4 },
+        range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 5 },
         cell: {
           userEnteredFormat: {
             backgroundColor: { red: 0.2, green: 0.2, blue: 0.2 },
@@ -14570,7 +14581,7 @@ async function initializePortalTransferClassSheet(spreadsheetId, accessToken, sh
     // Format all data cells - center aligned
     {
       repeatCell: {
-        range: { sheetId, startRowIndex: 1, endRowIndex: totalRows + 1, startColumnIndex: 0, endColumnIndex: 4 },
+        range: { sheetId, startRowIndex: 1, endRowIndex: totalRows + 1, startColumnIndex: 0, endColumnIndex: 5 },
         cell: {
           userEnteredFormat: {
             horizontalAlignment: 'CENTER',
@@ -14609,6 +14620,13 @@ async function initializePortalTransferClassSheet(spreadsheetId, accessToken, sh
         fields: 'pixelSize'
       }
     },
+    {
+      updateDimensionProperties: {
+        range: { sheetId, dimension: 'COLUMNS', startIndex: 4, endIndex: 5 },
+        properties: { pixelSize: 90 },
+        fields: 'pixelSize'
+      }
+    },
     // Highlight Updated Class column with light background
     {
       repeatCell: {
@@ -14623,6 +14641,39 @@ async function initializePortalTransferClassSheet(spreadsheetId, accessToken, sh
         fields: 'userEnteredFormat(backgroundColor,horizontalAlignment,textFormat)'
       }
     },
+    // Highlight Jersey # column with the same light background — both
+    // are user-editable columns and should share the visual cue.
+    {
+      repeatCell: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: totalRows + 1, startColumnIndex: 4, endColumnIndex: 5 },
+        cell: {
+          userEnteredFormat: {
+            backgroundColor: { red: 1, green: 1, blue: 0.8 },
+            horizontalAlignment: 'CENTER',
+            textFormat: { bold: true }
+          }
+        },
+        fields: 'userEnteredFormat(backgroundColor,horizontalAlignment,textFormat)'
+      }
+    },
+    // Jersey # validation — integer 0..99, strict but allow blank
+    // (the empty-string sentinel value sneaks through strict-mode).
+    {
+      setDataValidation: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: totalRows + 1, startColumnIndex: 4, endColumnIndex: 5 },
+        rule: {
+          condition: {
+            type: 'NUMBER_BETWEEN',
+            values: [
+              { userEnteredValue: '0' },
+              { userEnteredValue: '99' }
+            ]
+          },
+          showCustomUi: true,
+          strict: false // allow blank cells for unknown jerseys
+        }
+      }
+    },
     // Add auto-filter to header row for sorting/filtering
     {
       setBasicFilter: {
@@ -14632,7 +14683,7 @@ async function initializePortalTransferClassSheet(spreadsheetId, accessToken, sh
             startRowIndex: 0,
             endRowIndex: totalRows + 1,
             startColumnIndex: 0,
-            endColumnIndex: 4
+            endColumnIndex: 5
           }
         }
       }
@@ -14679,7 +14730,10 @@ export async function readPortalTransferClassFromSheet(spreadsheetId, dynastyTea
   try {
     const accessToken = await getAccessToken()
 
-    const range = encodeURIComponent("'Portal Transfers'!A2:D100")
+    // Read columns A through E (col E = Jersey #). Older sheets that
+    // were created before the Jersey # column was added are 4 cols wide;
+    // the extra range just returns shorter rows and row[4] is undefined.
+    const range = encodeURIComponent("'Portal Transfers'!A2:E100")
     const response = await fetchWithTimeout(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
       {
@@ -14699,12 +14753,21 @@ export async function readPortalTransferClassFromSheet(spreadsheetId, dynastyTea
 
     const results = rows
       .filter(row => row[0] && row[3]) // Must have player name and new class
-      .map(row => ({
-        playerName: row[0]?.trim() || '',
-        position: row[1]?.trim() || '',
-        currentClass: row[2]?.trim() || '',
-        selectedClass: row[3]?.trim() || ''  // Use selectedClass to match handler expectations
-      }))
+      .map(row => {
+        // Jersey is optional — parse to a number if present, else null.
+        const jerseyRaw = (row[4] ?? '').toString().trim()
+        const jerseyParsed = jerseyRaw === '' ? null : Number(jerseyRaw)
+        const jerseyNumber = (Number.isFinite(jerseyParsed) && jerseyParsed >= 0 && jerseyParsed <= 99)
+          ? jerseyParsed
+          : null
+        return {
+          playerName: row[0]?.trim() || '',
+          position: row[1]?.trim() || '',
+          currentClass: row[2]?.trim() || '',
+          selectedClass: row[3]?.trim() || '', // Use selectedClass to match handler expectations
+          jerseyNumber
+        }
+      })
       .filter(r => r.selectedClass) // Must have a class selected
 
     return results

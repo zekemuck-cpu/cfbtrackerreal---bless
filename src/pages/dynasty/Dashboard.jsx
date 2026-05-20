@@ -2023,7 +2023,7 @@ export default function Dashboard() {
       )
       if (playerIndex !== -1 && selection.selectedClass) {
         const existingClassByYear = updatedPlayers[playerIndex].classByYear || {}
-        updatedPlayers[playerIndex] = {
+        const next = {
           ...updatedPlayers[playerIndex],
           year: selection.selectedClass,
           // Also update classByYear for the new system
@@ -2032,6 +2032,14 @@ export default function Dashboard() {
             [joiningYear]: selection.selectedClass
           }
         }
+        // Jersey # from the sheet — only overwrite when the AI extracted
+        // one. A blank cell means "unknown, leave the existing value
+        // alone." A valid integer 0-99 replaces whatever was there.
+        const j = selection.jerseyNumber
+        if (j != null && j !== '' && Number.isFinite(Number(j))) {
+          next.jerseyNumber = String(Number(j))
+        }
+        updatedPlayers[playerIndex] = next
         updatedCount++
       }
     })
@@ -8662,7 +8670,12 @@ export default function Dashboard() {
                     transfers.push({
                       name: c.name,
                       position: rosterPlayer?.position || c.position, // Use roster position if found
-                      incomingClass: playerClass
+                      incomingClass: playerClass,
+                      // Pre-fill the jersey from the roster record so the
+                      // user only has to type it for transfers who don't
+                      // have one yet. Blank when the player is new to the
+                      // roster (typical for true incoming transfers).
+                      jerseyNumber: rosterPlayer?.jerseyNumber ?? null
                     })
                   }
                 }

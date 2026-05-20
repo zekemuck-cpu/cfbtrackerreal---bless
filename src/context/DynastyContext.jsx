@@ -2334,30 +2334,31 @@ export function getRecordAsOfGame(dynasty, game, tid) {
     upToWeek: gameOrder,
     includeUpToWeek: true
   })
-  const calcGames = calc.wins + calc.losses
 
-  // For CPU teams, dynasty.games only has games explicitly entered (user games
-  // + any weekly-scores CPU entries). Their regular-season record lives in
-  // conferenceStandingsByYear or teamRecordsByTeamYear instead.
-  // Strategy: if stored records cover MORE games than calc, combine them —
-  // stored = regular season baseline, calc = postseason contribution.
+  const calcRecord = {
+    overall: `${calc.wins}-${calc.losses}`,
+    conference: `${calc.confWins}-${calc.confLosses}`,
+    wins: calc.wins,
+    losses: calc.losses,
+    confWins: calc.confWins,
+    confLosses: calc.confLosses
+  }
+
+  // Regular-season game view (order 1-14): calc with upToWeek is the only
+  // source that respects the as-of-week cutoff. Stored records hold
+  // end-of-season totals and would over-report when shown on an earlier
+  // week's game page.
+  if (gameOrder < 15) return calcRecord
+
+  // Postseason games (CC + bowls + CFP): CPU teams may not have their full
+  // regular season in dynasty.games. If stored covers more games than calc,
+  // combine stored (reg-season baseline) with calc (postseason contribution).
+  const calcGames = calc.wins + calc.losses
   const stored = getStoredTeamRecord(dynasty, tid, game.year)
   const storedGames = stored ? (stored.wins + stored.losses) : 0
 
-  if (calcGames >= storedGames || storedGames === 0) {
-    // User's team or CPU with logged games — calc is authoritative
-    return {
-      overall: `${calc.wins}-${calc.losses}`,
-      conference: `${calc.confWins}-${calc.confLosses}`,
-      wins: calc.wins,
-      losses: calc.losses,
-      confWins: calc.confWins,
-      confLosses: calc.confLosses
-    }
-  }
+  if (calcGames >= storedGames || storedGames === 0) return calcRecord
 
-  // CPU team: stored covers the regular season, calc covers bowl/CFP games
-  // that aren't in standings. Combine both for the full as-of-game record.
   const totalWins = stored.wins + calc.wins
   const totalLosses = stored.losses + calc.losses
   return {

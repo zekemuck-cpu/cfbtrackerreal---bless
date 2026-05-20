@@ -77,26 +77,33 @@ export default function PortalTransferClassModal({ isOpen, onClose, onSave, curr
 
     return buildAIPrompt({
       title: `${currentYear} Portal Transfer Class Assignment`,
-      structure: `This sheet has ONE tab: "Portal Transfers". It has 4 columns: A = Player, B = Position, C = "${currentYear} Recruitment Class", D = "Updated ${currentYear + 1} Class". Row 1 is the protected header row. Columns A, B, C are PRE-FILLED and PROTECTED — do NOT output them. Column D is the only editable column.
+      structure: `This sheet has ONE tab: "Portal Transfers". It has 5 columns: A = Player, B = Position, C = "${currentYear} Recruitment Class", D = "Updated ${currentYear + 1} Class", E = "Jersey #". Row 1 is the protected header row. Columns A, B, C are PRE-FILLED and PROTECTED — do NOT output them. Columns D and E are user-editable.
 
 ═══════════════════════════════════════════════════════════
-YOUR ONLY JOB: READ THE YEAR COLUMN FROM THE SCREENSHOTS
+YOUR JOB: TWO VALUES PER PLAYER — YEAR + JERSEY
 ═══════════════════════════════════════════════════════════
-For each player listed below, find their name in the roster screenshots and read their YEAR column value exactly as shown in the game. Translate it using this mapping and output it for column D:
+For each player listed below, find their name in the roster screenshots and read TWO things:
 
-  Game shows → Output
-  FR         → Fr
-  FR(RS)     → RS Fr
-  SO         → So
-  SO(RS)     → RS So
-  JR         → Jr
-  JR(RS)     → RS Jr
-  SR         → Sr
-  SR(RS)     → RS Sr
+  1) The YEAR column value — translate using this mapping for column D:
 
-BLANK LINE if a player is not visible in the screenshots — do NOT guess.
+       Game shows → Output
+       FR         → Fr
+       FR(RS)     → RS Fr
+       SO         → So
+       SO(RS)     → RS So
+       JR         → Jr
+       JR(RS)     → RS Jr
+       SR         → Sr
+       SR(RS)     → RS Sr
 
-No other logic. No redshirt calculations. Just read and translate.
+  2) The JERSEY # (the number on their jersey / next to their name in
+     the roster screenshot) — output as an integer 0-99 for column E.
+
+BLANK if you can't see it for that player — do NOT guess. Either field
+can be blank independently (e.g. you see the year but not the number, or
+vice versa). The line still has the tab separator either way.
+
+No other logic. No redshirt calculations. Just read what's on screen.
 
 ═══════════════════════════════════════════════════════════
 THE EXACT PLAYERS IN THE SHEET — in sheet row order
@@ -106,26 +113,32 @@ ${playerRows}
 ═══════════════════════════════════════════════════════════
 CRITICAL OUTPUT RULES
 ═══════════════════════════════════════════════════════════
-1. Output ONLY column D values — one value per line, NO tabs, NO extra columns.
+1. Output ONLY columns D and E — one player per line, TWO values per line separated by a SINGLE TAB.
 2. Output EXACTLY ${n} line${n !== 1 ? 's' : ''} in the order above. Do not add or remove lines.
-3. Exact casing: "Fr", "So", "Jr", "Sr", "RS Fr", "RS So", "RS Jr", "RS Sr" — one space between "RS" and the class. NOT "RSFr", NOT "Rs Fr".
-4. No header row, no commentary INSIDE the data.
+3. Exact casing for D: "Fr", "So", "Jr", "Sr", "RS Fr", "RS So", "RS Jr", "RS Sr" — one space between "RS" and the class. NOT "RSFr", NOT "Rs Fr".
+4. Jersey # in E is an INTEGER 0-99 — no decimals, no "#", no commas.
+5. Blank values are fine — if you don't see one (or both) for a player, leave it/them blank. A line with both blank is still output as a lone tab character.
+6. No header row, no commentary INSIDE the data.
 
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
 === PORTAL TRANSFERS — paste at cell D2 of "Portal Transfers" tab ===
-<translated class for Row 2 player>
-<translated class for Row 3 player>
+<class for Row 2 player>\\t<jersey # for Row 2 player>
+<class for Row 3 player>\\t<jersey # for Row 3 player>
 …exactly ${n} line${n !== 1 ? 's' : ''}
+
+(Each \\t above represents a LITERAL TAB character — use actual tab characters in your output, not the text "\\t".)
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send
 ═══════════════════════════════════════════════════════════
 [ ] Exactly ${n} line${n !== 1 ? 's' : ''} — one per player listed above
-[ ] Every value is a direct translation of what the YEAR column shows in the screenshots
+[ ] Each line has EXACTLY ONE tab character (separating class and jersey)
+[ ] Every non-blank class is a direct translation of the YEAR column from the screenshots
+[ ] Jersey #s are integers 0-99 or blank — no decimals, no "#", no commas
 [ ] Exact casing: "RS Fr" not "RSFr" or "Rs Fr"
-[ ] No tabs, no extra columns, no commentary INSIDE the data`,
+[ ] No extra columns beyond D and E, no commentary INSIDE the data`,
     })
   }, [currentYear, portalTransfers])
 
