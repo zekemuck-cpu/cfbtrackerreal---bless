@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useDynasty } from '../context/DynastyContext'
 import { useToast } from './ui/Toast'
@@ -6,11 +6,12 @@ import { useConfirm } from './ui/ConfirmDialog'
 import SheetModalHeader from './ui/SheetModalHeader'
 import SheetModalAIHero from './ui/SheetModalAIHero'
 import SheetManualEntry from './ui/SheetManualEntry'
+import SheetModalFooter from './ui/SheetModalFooter'
+import SheetToolbar from './SheetToolbar'
 import { useAuth } from '../context/AuthContext'
-import { teams as TEAM_NAMES, getMascotName } from '../data/teams'
-import { getTidFromTeamName, TEAMS } from '../data/teamRegistry'
-import SearchableSelect from './SearchableSelect'
-import AIPromptModal from './AIPromptModal'
+import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
+import AuthErrorModal from './AuthErrorModal'
+import { TEAMS } from '../data/teamRegistry'
 import { buildPreseasonTop25Prompt } from '../utils/recapPrompts'
 import {
   createPreseasonRankingsSheet,
@@ -20,113 +21,98 @@ import {
 } from '../services/sheetsService'
 import SheetLoadingHint from './SheetLoadingHint'
 
-/**
- * Preseason Top 25 entry modal.
- *
- * Saves to dynasty.preseasonRankingsByYear[year] as an array of
- * { rank, team (abbr), tid } objects — same shape used by the recap prompt
- * builders so the saved poll automatically flows into the preseason recap.
- *
- * The "Suggest with AI" button opens AIPromptModal with a prompt that
- * grounds the AI in the dynasty's prior-season final-poll data; the user
- * pastes the AI's TSV output back into the form rows manually.
- */
+const isMobileDevice = () => {
+  if (typeof window === 'undefined') return false
+  return window.innerWidth < 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+}
+
 export default function PreseasonTop25Modal({ isOpen, onClose, year, teamColors }) {
   const { currentDynasty, updateDynasty, isViewOnly } = useDynasty()
   const { toast } = useToast()
   const { confirm } = useConfirm()
   const { user } = useAuth()
+  const auth = useAuthErrorHandler()
   const yearNum = Number(year)
 
-  // Google Sheet flow state — separate from the manual entry form.
-  const [showSheet, setShowSheet] = useState(false)
   const [sheetId, setSheetId] = useState(null)
   const [creatingSheet, setCreatingSheet] = useState(false)
-  const [syncingSheet, setSyncingSheet] = useState(false)
+  const [syncing, setSyncing] = useState(false)
   const [deletingSheet, setDeletingSheet] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+  const [useEmbedded, setUseEmbedded] = useState(() =>
+    localStorage.getItem('sheetEmbedPreference') === 'true'
+  )
+  const [highlightSave, setHighlightSave] = useState(false)
   const creatingSheetRef = useRef(false)
 
-  // Load existing saved rankings (so re-opening lets the user edit).
-  const existing = currentDynasty?.preseasonRankingsByYear?.[yearNum] || []
-  const initialRows = useMemo(() => {
-    const byRank = {}
-    for (const e of existing) {
-      if (e?.rank >= 1 && e.rank <= 25) byRank[e.rank] = e
-    }
-    return Array.from({ length: 25 }, (_, i) => {
-      const rank = i + 1
-      const e = byRank[rank]
-      const teamName = e?.tid != null
-        ? (currentDynasty?.teams?.[e.tid]?.name || TEAMS[e.tid]?.name || '')
-        : (e?.team ? getMascotName(e.team, currentDynasty?.teams) || '' : '')
-      return { rank, teamName }
-    })
-  }, [existing, currentDynasty?.teams, isOpen])
-
-  const [rows, setRows] = useState(initialRows)
-  const [showAIPrompt, setShowAIPrompt] = useState(false)
-  const [saving, setSaving] = useState(false)
-
-  // Reset rows ONLY when the modal opens — not on every render. The
-  // previous version listed `initialRows` in the dep array, but
-  // initialRows is recomputed every render (because `existing` is a
-  // fresh `?.[year] || []` array reference each time). That made the
-  // effect fire after every keystroke and reset the user's picks
-  // immediately — which presented as "the modal won't let me enter
-  // anything." isOpen-only ensures we only seed state on the open
-  // transition.
   useEffect(() => {
-    if (isOpen) setRows(initialRows)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setIsMobile(isMobileDevice())
+    const handleResize = () => setIsMobile(isMobileDevice())
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Resume stored sheet or create fresh one on open
+  useEffect(() => {
+    if (!isOpen) {
+      setSheetId(null)
+      creatingSheetRef.current = false
+      return
+    }
+    const stored = currentDynasty?.preseasonRankingsSheetIdByYear?.[yearNum]
+    if (stored) { setSheetId(stored); return }
   }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen || !user || sheetId || creatingSheet || creatingSheetRef.current || isViewOnly) return
+    const create = async () => {
+      creatingSheetRef.current = true
+      setCreatingSheet(true)
+      try {
+        const dynastyName = currentDynasty?.dynastyName || currentDynasty?.teamName || 'Dynasty'
+        const info = await createPreseasonRankingsSheet(dynastyName, yearNum, currentDynasty)
+        setSheetId(info.spreadsheetId)
+        const cur = currentDynasty?.preseasonRankingsSheetIdByYear || {}
+        await updateDynasty(currentDynasty.id, {
+          preseasonRankingsSheetIdByYear: { ...cur, [yearNum]: info.spreadsheetId },
+        })
+      } catch (error) {
+        console.error('[PreseasonTop25Modal] sheet create failed:', error)
+        if (!auth.handleError(error)) {
+          toast.error('Failed to create the rankings sheet — try again.')
+        }
+      } finally {
+        setCreatingSheet(false)
+        creatingSheetRef.current = false
+      }
+    }
+    create()
+  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, isViewOnly, auth.retryCount])
+
+  useEffect(() => {
+    if (!isOpen || !sheetId || useEmbedded) return
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') { setHighlightSave(true); setTimeout(() => setHighlightSave(false), 5000) }
+    }
+    const handleFocus = () => { setHighlightSave(true); setTimeout(() => setHighlightSave(false), 5000) }
+    document.addEventListener('visibilitychange', handleVisibility)
+    window.addEventListener('focus', handleFocus)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [isOpen, sheetId, useEmbedded])
 
   const aiPrompt = useMemo(() => {
     if (!currentDynasty) return ''
     return buildPreseasonTop25Prompt(currentDynasty, yearNum)
   }, [currentDynasty, yearNum])
 
-  // Build the team option list. Prefer dynasty teams (carries teambuilder
-  // names) and fall back to the static mascot list.
-  const teamOptions = useMemo(() => {
-    const dynastyTeamNames = currentDynasty?.teams
-      ? Object.values(currentDynasty.teams).map(t => t.name).filter(Boolean)
-      : []
-    if (dynastyTeamNames.length > 0) return [...new Set(dynastyTeamNames)].sort()
-    return [...TEAM_NAMES].sort()
-  }, [currentDynasty?.teams])
-
-  const updateRow = (index, teamName) => {
-    setRows(prev => {
-      const next = [...prev]
-      next[index] = { ...next[index], teamName }
-      return next
-    })
-  }
-
-  const handleClear = () => {
-    if (!window.confirm('Clear all 25 ranks?')) return
-    setRows(Array.from({ length: 25 }, (_, i) => ({ rank: i + 1, teamName: '' })))
-  }
-
-  // Shared persist logic — used by both the manual-entry form and the
-  // Google Sheet sync flow. Writes both:
-  //   1. dynasty.preseasonRankingsByYear[year] (existing store; powers
-  //      the preseason recap prompt)
-  //   2. each ranked team's dynasty.teams[tid].byYear[year].rankByWeek[0]
-  //      (the Top 25 page reads this — labels week 0 as "Preseason
-  //      Rankings")
-  // Both are updated atomically so the Top 25 page and the recap
-  // prompt stay in sync.
   const persistEntries = async (entries) => {
     if (!currentDynasty) return
     const cur = currentDynasty.preseasonRankingsByYear || {}
     const nextPolls = { ...cur, [yearNum]: entries }
 
-    // Build the teams update — for every team in the new poll, set
-    // rankByWeek[0] to that team's rank. Also clear rankByWeek[0]
-    // for any team whose tid USED to be in the prior preseason poll
-    // but isn't anymore (so removing a team from the poll also
-    // removes their preseason rank from the Top 25 page).
     const teamsCopy = { ...(currentDynasty.teams || {}) }
     const yearKey = String(yearNum)
     const writeRank = (tid, rank) => {
@@ -136,24 +122,16 @@ export default function PreseasonTop25Modal({ isOpen, onClose, year, teamColors 
       const byYear = { ...(team.byYear || {}) }
       const yearEntry = { ...(byYear[yearKey] || byYear[yearNum] || {}) }
       const rankByWeek = { ...(yearEntry.rankByWeek || {}) }
-      if (rank == null) {
-        delete rankByWeek[0]
-        delete rankByWeek['0']
-      } else {
-        rankByWeek[0] = rank
-      }
+      if (rank == null) { delete rankByWeek[0]; delete rankByWeek['0'] } else { rankByWeek[0] = rank }
       yearEntry.rankByWeek = rankByWeek
       byYear[yearKey] = yearEntry
       teamsCopy[tidKey] = { ...team, byYear }
     }
-    // Clear week-0 rank for tids that were in the OLD poll but aren't
-    // in the new one.
     const oldEntries = cur[yearNum] || cur[String(yearNum)] || []
     const newTids = new Set(entries.map(e => e.tid).filter(t => t != null))
     for (const oe of oldEntries) {
       if (oe?.tid != null && !newTids.has(Number(oe.tid))) writeRank(Number(oe.tid), null)
     }
-    // Set week-0 rank for every team in the new poll.
     for (const e of entries) {
       if (e.tid != null) writeRank(Number(e.tid), e.rank)
     }
@@ -164,90 +142,18 @@ export default function PreseasonTop25Modal({ isOpen, onClose, year, teamColors 
     })
   }
 
-  const handleSave = async () => {
-    if (isViewOnly) {
-      toast.error('Read-only mode — cannot save.')
-      return
-    }
-    if (!currentDynasty) return
-    // Persist only filled rows; rank order preserved.
-    const entries = rows
-      .filter(r => r.teamName)
-      .map(r => {
-        const tid = getTidFromTeamName(r.teamName, currentDynasty?.teams)
-        // Resolve to an abbreviation when we have one — abbr is what
-        // legacy paths expect; tid is the canonical id going forward.
-        const team = tid != null
-          ? (currentDynasty?.teams?.[tid]?.abbr || TEAMS[tid]?.abbr || r.teamName)
-          : r.teamName
-        return { rank: r.rank, team, tid: tid != null ? Number(tid) : null }
-      })
-    if (entries.length === 0) {
-      toast.error('Add at least one ranked team.')
-      return
-    }
-    setSaving(true)
-    try {
-      await persistEntries(entries)
-      toast.success(`Preseason Top ${entries.length} saved.`)
-      onClose?.()
-    } catch (err) {
-      console.error('[PreseasonTop25Modal] save failed:', err)
-      toast.error('Could not save preseason rankings.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  // ─── Google Sheet flow ───────────────────────────────────────────
-  // Resume a previously-created sheet, or build one on first open of
-  // the sheet view. Stored on dynasty.preseasonRankingsSheetIdByYear.
-  useEffect(() => {
-    if (!showSheet) return
-    const stored = currentDynasty?.preseasonRankingsSheetIdByYear?.[yearNum]
-    if (stored && !sheetId) setSheetId(stored)
-  }, [showSheet, currentDynasty?.preseasonRankingsSheetIdByYear, yearNum, sheetId])
-
-  useEffect(() => {
-    if (!showSheet || !user || sheetId || creatingSheet || creatingSheetRef.current) return
-    if (!currentDynasty?.id || isViewOnly) return
-    const create = async () => {
-      creatingSheetRef.current = true
-      setCreatingSheet(true)
-      try {
-        const dynastyName = currentDynasty.dynastyName || currentDynasty.teamName || 'Dynasty'
-        const info = await createPreseasonRankingsSheet(dynastyName, yearNum, currentDynasty)
-        setSheetId(info.spreadsheetId)
-        const cur = currentDynasty.preseasonRankingsSheetIdByYear || {}
-        await updateDynasty(currentDynasty.id, {
-          preseasonRankingsSheetIdByYear: { ...cur, [yearNum]: info.spreadsheetId },
-        })
-      } catch (error) {
-        console.error('[PreseasonTop25Modal] sheet create failed:', error)
-        toast.error('Failed to create the rankings sheet — try again.')
-      } finally {
-        setCreatingSheet(false)
-        creatingSheetRef.current = false
-      }
-    }
-    create()
-  }, [showSheet, user, sheetId, creatingSheet, currentDynasty?.id, isViewOnly, yearNum])
-
   const handleSheetSync = async (alsoDelete) => {
     if (!sheetId || !currentDynasty) return
-    setSyncingSheet(true)
+    setSyncing(true)
     try {
       const result = await readPreseasonRankingsFromSheet(sheetId, currentDynasty, yearNum)
 
-      // Empty-sheet guardrail — refuse if zero entries AND prior
-      // poll had data. Almost always indicates an accidental delete.
       const oldCount = (currentDynasty.preseasonRankingsByYear?.[yearNum] || []).length
       if (result.entries.length === 0 && oldCount >= 5) {
         toast.error(`Sheet appears empty. Refusing to clear ${oldCount} ranked teams — re-enter at least one and try again.`, { duration: 8000 })
-        setSyncingSheet(false)
+        setSyncing(false)
         return
       }
-      // Confirm bulk-delete if removing >30% of prior entries.
       const removed = oldCount - result.entries.length
       if (oldCount > 0 && removed / Math.max(1, oldCount) > 0.3) {
         const ok = await confirm({
@@ -256,10 +162,8 @@ export default function PreseasonTop25Modal({ isOpen, onClose, year, teamColors 
           confirmLabel: 'Save',
           variant: 'danger',
         })
-        if (!ok) { setSyncingSheet(false); return }
+        if (!ok) { setSyncing(false); return }
       }
-      // Surface unknown abbrs (typos / non-dynasty teams). They get
-      // skipped — the strict-dropdown should prevent this normally.
       if (result.unknownAbbrs?.length > 0) {
         toast.error(
           `Skipped ${result.unknownAbbrs.length} unknown abbreviation${result.unknownAbbrs.length === 1 ? '' : 's'}: ${result.unknownAbbrs.slice(0, 3).map(u => u.raw).join(', ')}${result.unknownAbbrs.length > 3 ? '…' : ''}`,
@@ -270,7 +174,7 @@ export default function PreseasonTop25Modal({ isOpen, onClose, year, teamColors 
       const entries = result.entries.map(e => ({ rank: e.rank, team: e.abbr, tid: e.tid }))
       if (entries.length === 0) {
         toast.error('No ranked teams found in the sheet.')
-        setSyncingSheet(false)
+        setSyncing(false)
         return
       }
       await persistEntries(entries)
@@ -287,9 +191,9 @@ export default function PreseasonTop25Modal({ isOpen, onClose, year, teamColors 
       onClose?.()
     } catch (error) {
       console.error('[PreseasonTop25Modal] sheet sync failed:', error)
-      toast.error('Failed to read the sheet — try again.')
+      if (!auth.handleError(error)) toast.error('Failed to read the sheet — try again.')
     } finally {
-      setSyncingSheet(false)
+      setSyncing(false)
     }
   }
 
@@ -310,16 +214,41 @@ export default function PreseasonTop25Modal({ isOpen, onClose, year, teamColors 
       delete next[yearNum]
       await updateDynasty(currentDynasty.id, { preseasonRankingsSheetIdByYear: next })
       setSheetId(null)
-      setShowSheet(false)
+      onClose?.()
     } catch (error) {
       console.error('[PreseasonTop25Modal] sheet delete failed:', error)
-      toast.error('Failed to delete the sheet — try again.')
+      if (!auth.handleError(error)) toast.error('Failed to delete the sheet — try again.')
     } finally {
       setDeletingSheet(false)
     }
   }
 
+  const handleRegenerate = async () => {
+    if (!sheetId) return
+    const confirmed = await confirm({
+      title: 'Regenerate sheet?',
+      message: 'This will delete your current sheet and create a fresh one. Any unsaved data will be lost.',
+      confirmLabel: 'Regenerate',
+      variant: 'danger',
+    })
+    if (!confirmed) return
+    try {
+      await deleteGoogleSheet(sheetId)
+      const cur = currentDynasty?.preseasonRankingsSheetIdByYear || {}
+      const next = { ...cur }
+      delete next[yearNum]
+      await updateDynasty(currentDynasty.id, { preseasonRankingsSheetIdByYear: next })
+      setSheetId(null)
+      auth.retry()
+    } catch (error) {
+      console.error('[PreseasonTop25Modal] regenerate failed:', error)
+      if (!auth.handleError(error)) toast.error('Failed to regenerate sheet. Please try again.')
+    }
+  }
+
   if (!isOpen) return null
+
+  const embedUrl = sheetId ? getSingleSheetEmbedUrl(sheetId) : null
 
   return createPortal(
     <div
@@ -328,153 +257,56 @@ export default function PreseasonTop25Modal({ isOpen, onClose, year, teamColors 
       onMouseDown={onClose}
     >
       <div
-        className="card-elevated w-full sm:w-[min(880px,95vw)] max-h-[calc(100dvh-4rem)] sm:max-h-[88vh] flex flex-col overflow-hidden"
+        className={`card-elevated w-full max-h-[calc(100dvh-4rem)] flex flex-col overflow-hidden ${
+          useEmbedded && !isMobile ? 'sm:w-[95vw] sm:h-[95dvh]' : 'sm:max-w-[680px] sm:h-auto'
+        }`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <SheetModalHeader eyebrow="Preseason" title={`${yearNum} Top 25`} onClose={onClose} />
 
-        <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5">
-          {showSheet ? (
-            // Google Sheet entry mode — the user pastes / types directly
-            // into the sheet, then clicks Save & Sync to pull it back.
-            creatingSheet ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-center">
-                  <div className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4" style={{ borderColor: 'var(--text-primary)', borderTopColor: 'transparent' }} />
-                  <SheetLoadingHint active={creatingSheet} />
-                </div>
+        <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
+          {creatingSheet ? (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4" style={{ borderColor: 'var(--text-primary)', borderTopColor: 'transparent' }} />
+                <p className="text-lg font-semibold text-txt-primary">Creating Rankings Sheet…</p>
+                <SheetLoadingHint active={creatingSheet} />
               </div>
-            ) : sheetId ? (
-              <div className="flex flex-col gap-3">
-                <SheetModalAIHero
-                  tagline="Skip the typing. Let AI fill the preseason Top 25."
-                  buttons={[{ label: 'Copy AI Prompt', onClick: () => setShowAIPrompt(true) }]}
-                />
-                <div className="flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
-                  <iframe
-                    title="Preseason Rankings Sheet"
-                    src={getSingleSheetEmbedUrl(sheetId)}
-                    className="w-full"
-                    style={{ minHeight: 460, height: '52vh' }}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-txt-tertiary text-sm">Sheet not loaded.</div>
-            )
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2">
-              {rows.map((row, index) => (
-                <div key={row.rank} className="flex items-center gap-3">
-                  <div className="w-9 text-right tabular-nums font-display font-bold text-txt-secondary text-sm flex-shrink-0">
-                    #{row.rank}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <SearchableSelect
-                      options={teamOptions}
-                      value={row.teamName}
-                      onChange={(v) => updateRow(index, v)}
-                      placeholder="Pick team…"
-                      teamColors={teamColors}
-                      dynastyTeams={currentDynasty?.teams}
-                    />
-                  </div>
-                </div>
-              ))}
             </div>
-          )}
-        </div>
-
-        <div className="border-t border-surface-4 px-5 sm:px-6 py-4 flex flex-col-reverse sm:flex-row gap-2 sm:items-center sm:justify-between">
-          <div className="flex gap-2">
-            {showSheet ? (
-              <button
-                onClick={() => setShowSheet(false)}
-                disabled={syncingSheet || deletingSheet}
-                className="text-xs text-txt-tertiary hover:text-txt-primary transition-colors disabled:opacity-50"
-              >
-                ← Back to Form
-              </button>
-            ) : (
-              <button
-                onClick={handleClear}
-                disabled={saving || isViewOnly}
-                className="text-xs text-txt-tertiary hover:text-red-400 transition-colors disabled:opacity-50"
-              >
-                Clear all
-              </button>
-            )}
-          </div>
-          <div className="flex gap-2 items-stretch sm:items-center sm:justify-end flex-wrap">
-            <button
-              onClick={() => setShowAIPrompt(true)}
-              className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
-            >
-              AI Prompt
-            </button>
-            {showSheet ? (
-              <>
-                <button
-                  onClick={handleDeleteSheetOnly}
-                  disabled={syncingSheet || deletingSheet || !sheetId}
-                  className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent disabled:opacity-50"
-                >
-                  {deletingSheet ? 'Deleting…' : 'Delete Sheet (No Save)'}
-                </button>
-                <button
-                  onClick={() => handleSheetSync(false)}
-                  disabled={syncingSheet || deletingSheet || !sheetId || isViewOnly}
-                  className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-primary hover:bg-surface-2 transition-colors disabled:opacity-50"
-                >
-                  {syncingSheet ? 'Syncing…' : 'Save (Keep Sheet)'}
-                </button>
-                <button
-                  onClick={() => handleSheetSync(true)}
-                  disabled={syncingSheet || deletingSheet || !sheetId || isViewOnly}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
-                  style={{ backgroundColor: teamColors?.primary || 'var(--text-primary)', color: '#fff' }}
-                >
-                  {syncingSheet ? 'Syncing…' : 'Save & Sync'}
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => setShowSheet(true)}
-                  disabled={isViewOnly}
-                  className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent disabled:opacity-50"
-                >
-                  Google Sheet
-                </button>
-                <button
-                  onClick={onClose}
-                  className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving || isViewOnly}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
-                  style={{ backgroundColor: teamColors?.primary || 'var(--text-primary)', color: '#fff' }}
-                >
-                  {saving ? 'Saving…' : 'Save Top 25'}
-                </button>
-              </>
-            )}
-          </div>
+          ) : sheetId ? (
+            <div className="flex-1 flex flex-col overflow-hidden gap-3">
+              <SheetModalAIHero
+                tagline="Skip the typing. Let AI fill the preseason Top 25."
+                buttons={[{ label: 'Copy AI Prompt', prompt: aiPrompt }]}
+              />
+              {isMobile || !useEmbedded ? (
+                <SheetManualEntry sheetId={sheetId} />
+              ) : (
+                <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
+                  <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="Preseason Rankings" />
+                </div>
+              )}
+              <SheetModalFooter
+                syncing={syncing}
+                deletingSheet={deletingSheet}
+                highlightSave={highlightSave}
+                onSaveAndDelete={() => handleSheetSync(true)}
+                onSaveAndKeep={() => handleSheetSync(false)}
+                onDeleteSheetOnly={handleDeleteSheetOnly}
+                onRegenerate={handleRegenerate}
+                showEmbeddedToggle={!isMobile}
+                useEmbedded={useEmbedded}
+                onToggleEmbedded={() => {
+                  const newValue = !useEmbedded
+                  setUseEmbedded(newValue)
+                  localStorage.setItem('sheetEmbedPreference', newValue.toString())
+                }}
+              />
+            </div>
+          ) : null}
         </div>
       </div>
-
-      <AIPromptModal
-        isOpen={showAIPrompt}
-        onClose={() => setShowAIPrompt(false)}
-        title={`${yearNum} Preseason Top 25`}
-        prompt={aiPrompt}
-        pasteTarget={showSheet
-          ? 'Paste at cell B2 of the sheet (one team abbr per row)'
-          : 'Paste each abbreviation into the matching #N row above'}
-      />
+      <AuthErrorModal isOpen={auth.showAuthError} onClose={auth.closeAuthError} onRefresh={auth.retry} teamColors={teamColors} />
     </div>,
     document.body,
   )

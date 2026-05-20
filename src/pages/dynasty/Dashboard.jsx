@@ -3623,13 +3623,6 @@ export default function Dashboard() {
             )
           })()}
 
-          {canAdvanceFromPreseason() && (
-            <div className="p-4 rounded-xl" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)' }}>
-              <p className="text-sm font-medium text-emerald-400">
-                ✓ Pre-season setup complete! Click "Advance Week" in the header to start the season.
-              </p>
-            </div>
-          )}
         </div>
       ) : currentDynasty.currentPhase === 'regular_season' ? (
         <div>
