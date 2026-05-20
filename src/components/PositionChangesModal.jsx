@@ -409,6 +409,7 @@ export default function PositionChangesModal({
   const { toast } = useToast()
   const [positionChanges, setPositionChanges] = useState([{ playerId: '', oldPosition: '', newPosition: '' }])
   const [saving, setSaving] = useState(false)
+  const savingRef = useRef(false)
 
   const primaryColor = teamColors?.primary || 'var(--text-primary)'
   const primaryBgText = getContrastTextColor(primaryColor)
@@ -418,7 +419,7 @@ export default function PositionChangesModal({
   )
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !savingRef.current) {
       const mappedChanges = existingChanges.map(change => ({
         playerId: change.pid,
         playerName: change.playerName,
@@ -496,6 +497,7 @@ export default function PositionChangesModal({
       return
     }
 
+    savingRef.current = true
     setSaving(true)
     try {
       await onSave(validChanges)
@@ -504,6 +506,7 @@ export default function PositionChangesModal({
       console.error('Failed to save position changes:', error)
       toast.error('Failed to save position changes. Please try again.')
     } finally {
+      savingRef.current = false
       setSaving(false)
     }
   }
