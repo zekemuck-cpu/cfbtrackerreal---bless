@@ -17,11 +17,12 @@ import { useTeamColors } from '../../hooks/useTeamColors'
 
 const REGULAR_SEASON_WEEKS = Array.from({ length: 15 }, (_, i) => i)  // 0-14
 
-// Post-season weeks append after the regular season. 15 = Conference
+// -1 = preseason preview (before week 0 games). Post-season: 15 = Conference
 // Championship, 16-19 = Bowl Weeks 1-4 (incl. CFP bracket).
-const ALL_WEEKS = [...REGULAR_SEASON_WEEKS, 15, 16, 17, 18, 19]
+const ALL_WEEKS = [-1, ...REGULAR_SEASON_WEEKS, 15, 16, 17, 18, 19]
 
 const WEEK_LABELS = {
+  [-1]: 'Preseason',
   15: 'Conf Champ',
   16: 'Bowl Week 1',
   17: 'Bowl Week 2',
@@ -315,6 +316,7 @@ export default function WeeklyScores() {
   const displayWeek = urlWeek != null ? parseInt(urlWeek, 10) : (() => {
     const phase = currentDynasty.currentPhase
     const week = Number(currentDynasty.currentWeek)
+    if (phase === 'preseason') return -1
     if (phase === 'regular_season') return Math.max(0, week - 1)
     if (phase === 'conference_championship') return 15
     // postseason week 1 → show CCG (15), week 2 → BW1 (16), week 3 → BW2 (17), etc.
@@ -603,7 +605,7 @@ export default function WeeklyScores() {
               onChange={handleYearChange}
               ariaLabel="Select year"
             />
-            {displayWeek < 15 && <span>Week</span>}
+            {displayWeek >= 0 && displayWeek < 15 && <span>Week</span>}
             <InlineYearSelect
               value={displayWeek}
               years={ALL_WEEKS}
@@ -725,7 +727,7 @@ export default function WeeklyScores() {
         return (
           <div className="flex gap-1 border-b border-surface-4 -mt-2">
             <Tab value="scores" label="Scores" />
-            <Tab value="recap" label={displayWeek === 0 ? 'Preseason Recap' : 'Recap'} />
+            <Tab value="recap" label={displayWeek === -1 ? 'Preseason Recap' : 'Recap'} />
           </div>
         )
       })()}
@@ -782,7 +784,7 @@ export default function WeeklyScores() {
         return (
           <Card>
             <EmptyState
-              title={displayWeek === 0 ? `No preseason recap for ${displayYear} yet` : `No recap for Week ${displayWeek} yet`}
+              title={displayWeek === -1 ? `No preseason recap for ${displayYear} yet` : `No recap for Week ${displayWeek} yet`}
               message={
                 isViewOnly
                   ? 'Read-only — the dynasty owner can generate one.'
