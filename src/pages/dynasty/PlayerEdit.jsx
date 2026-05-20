@@ -2186,6 +2186,20 @@ export default function PlayerEdit() {
                           </div>
                         )
                       })}
+
+                      {/* Bottom "+ Add Season" row — duplicates the header
+                          button so it's reachable from the end of the list
+                          without scrolling back to the top of the card. */}
+                      <div className="px-4 py-3 border-t border-surface-4 bg-surface-3/30">
+                        <button
+                          type="button"
+                          onClick={addYear}
+                          className="w-full text-sm font-semibold px-4 py-2 rounded-lg border-2 border-dashed transition-colors"
+                          style={{ borderColor: teamColors.primary + '66', color: teamColors.primary }}
+                        >
+                          + Add {activeYears.length > 0 ? Math.max(...activeYears) + 1 : dynCurrentYear} Season
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
