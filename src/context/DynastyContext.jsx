@@ -7184,7 +7184,7 @@ export function DynastyProvider({ children }) {
   }
 
   const updateDynasty = async (dynastyId, updates, options = {}) => {
-    const { skipLastModified = false, forceOverwrite = false, skipGamesSubcollection = false } = options
+    const { skipLastModified = false, forceOverwrite = false, skipGamesSubcollection = false, skipPlayersSubcollection = false } = options
 
     // Read-only chokepoint: most mutations route through updateDynasty,
     // so guarding here catches every modal whose parent forgot to gate
@@ -7304,8 +7304,11 @@ export function DynastyProvider({ children }) {
       let mainDocUpdates = { ...updatesWithTimestamp }
       const subcollectionPromises = []
 
-      // Route players to subcollection
-      if (mainDocUpdates.players && Array.isArray(mainDocUpdates.players)) {
+      // Route players to subcollection (unless skipPlayersSubcollection is
+      // true — used by callers that already wrote the changed-only subset
+      // via saveChangedPlayers and just want updateDynasty to sync local
+      // React state without re-rewriting every player doc).
+      if (mainDocUpdates.players && Array.isArray(mainDocUpdates.players) && !skipPlayersSubcollection) {
         console.log(`Saving ${mainDocUpdates.players.length} players to subcollection (with orphan cleanup${forceOverwrite ? ', forced' : ''})`)
         // CRITICAL: Track this player update to prevent listener from overwriting with stale data
         lastPlayersUpdateTimestampRef.current = Date.now()
@@ -7328,6 +7331,13 @@ export function DynastyProvider({ children }) {
         // Don't save players to main doc - they're in subcollection now
         delete mainDocUpdates.players
         // Ensure subcollection flag is set
+        mainDocUpdates._subcollectionsMigrated = true
+      } else if (mainDocUpdates.players && skipPlayersSubcollection) {
+        // Players already saved individually via saveChangedPlayers — keep
+        // the full array on updatesWithTimestamp so local React state still
+        // sees the post-write shape, but skip the Firestore re-write.
+        console.log('[updateDynasty] Skipping players subcollection (already saved individually)')
+        delete mainDocUpdates.players
         mainDocUpdates._subcollectionsMigrated = true
       }
 
@@ -11375,7 +11385,57 @@ export function DynastyProvider({ children }) {
     }
 
     try {
-      await updateDynasty(dynastyId, updates)
+      // Fast path for cloud dynasties: only a fraction of players actually
+      // change during advance-to-new-season (recruits being converted,
+      // class bumps, dev trait progression from training results). Sending
+      // the full updatedPlayers array through updateDynasty routes
+      // through savePlayersToSubcollection with deleteOrphans=true —
+      // that's a full read of the players subcollection plus a re-write
+      // of EVERY player doc. On long-running dynasties with 500+
+      // accumulated players, this is the 5-10s lag the user reported
+      // when advancing past Training Camp.
+      //
+      // Diff against the original players array (reference compare —
+      // player.map returns same ref for unmodified players) and write
+      // only the changed subset via saveChangedPlayers (single batched
+      // setDoc, no orphan scan). Then call updateDynasty with the full
+      // updatedPlayers array but skipPlayersSubcollection so local React
+      // state still syncs without re-rewriting Firestore.
+      //
+      // Falls back to the legacy full-rewrite path on local-storage
+      // dynasties OR if too many players changed (>500, the
+      // saveChangedPlayers batch cap).
+      const isCloud = dynasty.storageType === 'cloud'
+      const changedPlayers = isCloud
+        ? updatedPlayers.filter((p, i) => p !== players[i])
+        : null
+
+      if (isCloud && changedPlayers && changedPlayers.length <= 500) {
+        try {
+          // Listener-skip guards so the snapshot doesn't undo our
+          // local players array with a stale subcollection read.
+          bumpSkipCount(3)
+          skipListenerTimestampRef.current = Date.now()
+          lastPlayersUpdateTimestampRef.current = Date.now()
+          lastPlayersUpdateDynastyIdRef.current = dynastyId
+
+          if (changedPlayers.length > 0) {
+            const currentYearForSync = dynasty?.currentYear
+            const normalizedChanged = changedPlayers.map(p => syncDerivedFieldsFromV2(p, currentYearForSync))
+            await saveChangedPlayers(dynastyId, normalizedChanged)
+          }
+
+          // Metadata write — full updatedPlayers passed for local state
+          // sync; skipPlayersSubcollection prevents the slow re-write.
+          await updateDynasty(dynastyId, updates, { skipPlayersSubcollection: true })
+          console.log(`[advanceToNewSeason] Fast path: wrote ${changedPlayers.length} changed player(s) (of ${updatedPlayers.length}) in one batch`)
+        } catch (err) {
+          console.error('[advanceToNewSeason] Fast path failed, falling back to full updateDynasty:', err)
+          await updateDynasty(dynastyId, updates)
+        }
+      } else {
+        await updateDynasty(dynastyId, updates)
+      }
     } finally {
       // CRITICAL: Clear phase transition flag after completion
       // Small delay to ensure Firestore updates have propagated
