@@ -150,7 +150,7 @@ function renderTodoList({ todos, isViewOnly }) {
 }
 
 export default function Dashboard() {
-  const { currentDynasty, loadingDynastyId, saveSchedule, saveRoster, saveTeamRatings, saveCoachingStaff, saveConferences, saveConferenceAlignment, addGame, saveCPUBowlGames, saveCFPGames, saveCPUConferenceChampionships, updateDynasty, processHonorPlayers, isViewOnly, exportDynasty } = useDynasty()
+  const { currentDynasty, loadingDynastyId, saveSchedule, saveRoster, saveTeamRatings, saveCoachingStaff, saveConferences, saveConferenceAlignment, addGame, saveCPUBowlGames, saveCFPGames, saveCPUConferenceChampionships, updateDynasty, updatePlayer, processHonorPlayers, isViewOnly, exportDynasty } = useDynasty()
 
   // Check if dynasty data is being lazily loaded
   const isLoadingDynastyData = loadingDynastyId === currentDynasty?.id
@@ -1831,41 +1831,45 @@ export default function Dashboard() {
     const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
     const existingChangesAll = currentDynasty.positionChangesByYear || {}
-    // CRITICAL: Get tid directly - tid is the ONLY source of truth
     const teamTid = getCurrentTeamTid(currentDynasty)
 
-    // Update player positions in the players array for any NEW changes
-    const updatedPlayers = [...(currentDynasty.players || [])]
-    changes.forEach(change => {
-      const playerIndex = updatedPlayers.findIndex(p => p.pid === change.playerId)
-      if (playerIndex !== -1) {
-        // Only update if the position is different from current
-        if (updatedPlayers[playerIndex].position !== change.newPosition) {
-          updatedPlayers[playerIndex] = {
-            ...updatedPlayers[playerIndex],
-            position: change.newPosition,
-            archetype: '' // Clear archetype since it's position-specific
-          }
-        }
-      }
-    })
-
-    // Store the changes for history (replace entire year's changes)
     const changesRecord = changes.map(c => ({
       pid: c.playerId,
       playerName: c.playerName,
       oldPosition: c.oldPosition,
       newPosition: c.newPosition,
-      team: teamTid // ALWAYS use tid
+      team: teamTid
     }))
 
-    await updateDynasty(currentDynasty.id, {
-      players: updatedPlayers,
-      positionChangesByYear: {
-        ...existingChangesAll,
-        [year]: changesRecord // Replace, don't append
-      }
-    })
+    const updatedPositionChanges = { ...existingChangesAll, [year]: changesRecord }
+
+    // Cloud: write each changed player individually (1 Firestore doc per player)
+    // instead of rewriting every player in the subcollection. For local storage
+    // (IndexedDB) the full write is fast enough — keep it simple there.
+    const isCloud = typeof currentDynasty.id === 'string' && currentDynasty.id.length >= 20
+
+    if (isCloud) {
+      const playerUpdates = changes
+        .map(c => {
+          const p = (currentDynasty.players || []).find(pl => pl.pid === c.playerId)
+          if (!p || p.position === c.newPosition) return null
+          return { ...p, position: c.newPosition, archetype: '' }
+        })
+        .filter(Boolean)
+
+      await Promise.all(playerUpdates.map(p => updatePlayer(currentDynasty.id, p)))
+      await updateDynasty(currentDynasty.id, { positionChangesByYear: updatedPositionChanges })
+    } else {
+      const updatedPlayers = (currentDynasty.players || []).map(p => {
+        const change = changes.find(c => c.playerId === p.pid)
+        if (!change || p.position === change.newPosition) return p
+        return { ...p, position: change.newPosition, archetype: '' }
+      })
+      await updateDynasty(currentDynasty.id, {
+        players: updatedPlayers,
+        positionChangesByYear: updatedPositionChanges
+      })
+    }
   }
 
   // Handle training results save (Offseason Week 6)
