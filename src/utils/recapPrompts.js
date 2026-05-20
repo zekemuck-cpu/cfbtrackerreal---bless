@@ -214,13 +214,32 @@ function getConferenceAlignmentForYear(dynasty, year) {
   // Collect per-team overrides (single-team modal edits, e.g. moving
   // Notre Dame to the Big Ten). These MUST win over the bulk snapshot,
   // otherwise the prompt would still show ND as Independent.
+  //
+  // Priority: current year > previous year (carry-forward) > legacy map.
+  // Carry-forward prevents a team from reverting to real-world defaults
+  // just because the user hasn't explicitly re-saved the new year's
+  // conference data yet (e.g. ND moved to Big Ten in 2034; 2035 hasn't
+  // been saved yet so byYear[2035].conference is absent).
   const overrides = new Map() // abbr UPPERCASE → conferenceName
+
+  // Pass 1 — prior year (lower priority, gets overwritten by current year below)
+  const prevYearNum = yearNum - 1
+  for (const team of Object.values(dynasty.teams || {})) {
+    const ydPrev = team?.byYear?.[prevYearNum] || team?.byYear?.[String(prevYearNum)]
+    const conf = ydPrev?.conference
+    const abbr = team?.abbr
+    if (conf && abbr) overrides.set(abbr.toUpperCase(), conf)
+  }
+
+  // Pass 2 — current year (wins over prior year)
   for (const team of Object.values(dynasty.teams || {})) {
     const yd = team?.byYear?.[yearNum] || team?.byYear?.[String(yearNum)]
     const conf = yd?.conference
     const abbr = team?.abbr
     if (conf && abbr) overrides.set(abbr.toUpperCase(), conf)
   }
+
+  // Pass 3 — legacy conferenceByTeamYear map
   const legacy = dynasty.conferenceByTeamYear || {}
   for (const [abbr, byYearMap] of Object.entries(legacy)) {
     if (!abbr || !byYearMap || typeof byYearMap !== 'object') continue
@@ -273,14 +292,17 @@ const CONFERENCE_GUARDRAIL = `
 ═══════════════════════════════════════════════════════════
 CONFERENCE ALIGNMENT — DYNASTY-SPECIFIC, NOT REAL LIFE
 ═══════════════════════════════════════════════════════════
-THIS IS THE MOST COMMON MISTAKE. READ TWICE.
+THIS IS THE MOST COMMON MISTAKE. READ THIS SECTION BEFORE WRITING A SINGLE WORD.
 
-Conferences in this dynasty ARE NOT the same as real life. The user can move any team into any conference at any time. Examples of valid dynasty alignments:
-- Florida State, Miami, and Clemson in the SEC (not the ACC)
-- Texas in the Big 12 (not the SEC)
+Every conference assignment in your training data is WRONG for this dynasty. The user controls conference membership completely. Any team can be in any conference. Examples of alignments that are 100% valid in dynasty mode:
+- Alabama in the Mountain West
+- Notre Dame in the Big Ten (not Independent)
+- Ohio State in the SEC
 - USC in the Pac-12 (not the Big Ten)
-- Alabama in the Pac-12
-- A custom conference with no real-world counterpart
+- Clemson in the Big 12
+- A completely custom conference with no real-world equivalent
+
+Do NOT treat any team as a "traditional" member of any conference. Do NOT assume Notre Dame is Independent. Do NOT assume Alabama is in the SEC. Do NOT assume anyone is anywhere. The CONFERENCE ALIGNMENT block below is the only truth.
 
 The CONFERENCE ALIGNMENT block in the data below is the ONLY source of truth for which team is in which conference. Before you write the conference name next to ANY team, look it up in that block. Do not skip this step.
 
@@ -291,7 +313,7 @@ Hard rules:
 - Do not reference real-world conference history ("the former Big 12 program", "the Pac-12's last stand", "joined the SEC last year"). The dynasty has its own history.
 - "Conference races" sections must be built from the alignment block, not from memory of real-world divisional structure.
 
-Self-check before you submit: pick three teams you mentioned in the recap and verify each one's conference matches what the CONFERENCE ALIGNMENT block says. If any don't match, fix them.
+Self-check before you submit: pick five teams you mentioned in the recap and verify each one's conference matches what the CONFERENCE ALIGNMENT block says. If any don't match, fix them before sending.
 `
 
 // ---------------------------------------------------------------------------
