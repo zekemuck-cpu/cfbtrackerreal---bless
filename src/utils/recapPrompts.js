@@ -214,13 +214,32 @@ function getConferenceAlignmentForYear(dynasty, year) {
   // Collect per-team overrides (single-team modal edits, e.g. moving
   // Notre Dame to the Big Ten). These MUST win over the bulk snapshot,
   // otherwise the prompt would still show ND as Independent.
+  //
+  // Priority: current year > previous year (carry-forward) > legacy map.
+  // Carry-forward prevents a team from reverting to real-world defaults
+  // just because the user hasn't explicitly re-saved the new year's
+  // conference data yet (e.g. ND moved to Big Ten in 2034; 2035 hasn't
+  // been saved yet so byYear[2035].conference is absent).
   const overrides = new Map() // abbr UPPERCASE → conferenceName
+
+  // Pass 1 — prior year (lower priority, gets overwritten by current year below)
+  const prevYearNum = yearNum - 1
+  for (const team of Object.values(dynasty.teams || {})) {
+    const ydPrev = team?.byYear?.[prevYearNum] || team?.byYear?.[String(prevYearNum)]
+    const conf = ydPrev?.conference
+    const abbr = team?.abbr
+    if (conf && abbr) overrides.set(abbr.toUpperCase(), conf)
+  }
+
+  // Pass 2 — current year (wins over prior year)
   for (const team of Object.values(dynasty.teams || {})) {
     const yd = team?.byYear?.[yearNum] || team?.byYear?.[String(yearNum)]
     const conf = yd?.conference
     const abbr = team?.abbr
     if (conf && abbr) overrides.set(abbr.toUpperCase(), conf)
   }
+
+  // Pass 3 — legacy conferenceByTeamYear map
   const legacy = dynasty.conferenceByTeamYear || {}
   for (const [abbr, byYearMap] of Object.entries(legacy)) {
     if (!abbr || !byYearMap || typeof byYearMap !== 'object') continue
@@ -273,14 +292,17 @@ const CONFERENCE_GUARDRAIL = `
 ═══════════════════════════════════════════════════════════
 CONFERENCE ALIGNMENT — DYNASTY-SPECIFIC, NOT REAL LIFE
 ═══════════════════════════════════════════════════════════
-THIS IS THE MOST COMMON MISTAKE. READ TWICE.
+THIS IS THE MOST COMMON MISTAKE. READ THIS SECTION BEFORE WRITING A SINGLE WORD.
 
-Conferences in this dynasty ARE NOT the same as real life. The user can move any team into any conference at any time. Examples of valid dynasty alignments:
-- Florida State, Miami, and Clemson in the SEC (not the ACC)
-- Texas in the Big 12 (not the SEC)
+Every conference assignment in your training data is WRONG for this dynasty. The user controls conference membership completely. Any team can be in any conference. Examples of alignments that are 100% valid in dynasty mode:
+- Alabama in the Mountain West
+- Notre Dame in the Big Ten (not Independent)
+- Ohio State in the SEC
 - USC in the Pac-12 (not the Big Ten)
-- Alabama in the Pac-12
-- A custom conference with no real-world counterpart
+- Clemson in the Big 12
+- A completely custom conference with no real-world equivalent
+
+Do NOT treat any team as a "traditional" member of any conference. Do NOT assume Notre Dame is Independent. Do NOT assume Alabama is in the SEC. Do NOT assume anyone is anywhere. The CONFERENCE ALIGNMENT block below is the only truth.
 
 The CONFERENCE ALIGNMENT block in the data below is the ONLY source of truth for which team is in which conference. Before you write the conference name next to ANY team, look it up in that block. Do not skip this step.
 
@@ -291,7 +313,7 @@ Hard rules:
 - Do not reference real-world conference history ("the former Big 12 program", "the Pac-12's last stand", "joined the SEC last year"). The dynasty has its own history.
 - "Conference races" sections must be built from the alignment block, not from memory of real-world divisional structure.
 
-Self-check before you submit: pick three teams you mentioned in the recap and verify each one's conference matches what the CONFERENCE ALIGNMENT block says. If any don't match, fix them.
+Self-check before you submit: pick five teams you mentioned in the recap and verify each one's conference matches what the CONFERENCE ALIGNMENT block says. If any don't match, fix them before sending.
 `
 
 // ---------------------------------------------------------------------------
@@ -1350,15 +1372,29 @@ export function buildPreseasonRecapPrompt(dynasty, year) {
   }
 
   // ----- Awards from past seasons (if saved) -----
+  // Include team + position so the AI can ground awards in program
+  // context. Without team, the name is decorative and the AI fills
+  // the gap with fourth-wall commentary ("not enough data to know…").
   const recentAwardLines = []
   for (const y of pastYears) {
     const aw = dynasty?.awardsByYear?.[y] || {}
-    const heisman = aw.heisman?.player || aw.heisman?.name
-    if (heisman) recentAwardLines.push(`${y} Heisman: ${heisman}`)
-    const maxwell = aw.maxwell?.player || aw.maxwell?.name
-    if (maxwell) recentAwardLines.push(`${y} Maxwell: ${maxwell}`)
-    const obrien = aw.daveyObrien?.player || aw.daveyObrien?.name
-    if (obrien) recentAwardLines.push(`${y} Davey O'Brien: ${obrien}`)
+    const fmtAward = (entry, label) => {
+      if (!entry) return null
+      const name = entry.player || entry.name
+      if (!name) return null
+      const team = entry.tid != null
+        ? teamDisplay(entry.tid, entry.team, dynasty)
+        : entry.team || null
+      const pos = entry.position || null
+      const parts = [name, pos, team].filter(Boolean)
+      return `${y} ${label}: ${parts.join(', ')}`
+    }
+    const h = fmtAward(aw.heisman, 'Heisman')
+    if (h) recentAwardLines.push(h)
+    const m = fmtAward(aw.maxwell, 'Maxwell')
+    if (m) recentAwardLines.push(m)
+    const o = fmtAward(aw.daveyObrien, "Davey O'Brien")
+    if (o) recentAwardLines.push(o)
   }
 
   // ----- National-trend lines: which programs were consistently top-tier? -----
@@ -1473,6 +1509,7 @@ export function buildPreseasonRecapPrompt(dynasty, year) {
     `    ✗ "make some noise" / "turn heads"`,
     `    ✗ "X is for real" / "X is back"`,
     `    ✗ "the team to beat" (unless data explicitly supports that framing)`,
+    `• NO FOURTH-WALL COMMENTARY. You are a sports journalist writing a published column — not an AI summarizing a data file. Never acknowledge what data you do or don't have. Banned constructions: "there is not enough here to know…", "this snapshot shows…", "the data doesn't tell us…", "we can't know yet…", "it remains to be seen…", "that question is unanswered entering the season". If you don't have enough information to write a section with real facts, skip the section entirely and silently. A missing section is invisible to the reader. A fourth-wall comment ruins the piece.`,
     `• Stats do work: every number you cite must connect to a take in the same sentence or the next. Decorative numbers ("Team X had three top-10 finishes") need a "why it matters" clause or get cut.`,
     `• Voiced uncertainty: pick one place in the preview where the data leaves a question contested and let the writing acknowledge it. AI's wall-to-wall confidence is what makes a column read as generated; hedging once makes the confident takes feel earned.`,
     `• Lede: argue something. Not "the season is here" / "kickoff is around the corner". Pick the season's central tension and lead with that.`,
@@ -1483,7 +1520,7 @@ export function buildPreseasonRecapPrompt(dynasty, year) {
     `1. The preseason Top 25 — who's at the top, who's notable for being there.`,
     `2. Prior-season storylines — what happened last year that matters going into this one (champions, near-misses, late surges, drop-offs).`,
     `3. Programs with recurring top finishes — which teams have built sustained excellence over the last 2-3 dynasty years.`,
-    `4. Award winners returning to school (only if the data hints at it — most often you can't tell, so skip).`,
+    `4. Recent award winners — only if the RECENT INDIVIDUAL AWARDS block includes team and position for the winners. If those fields are missing, skip this section entirely. Do not write a vague paragraph about award winners without knowing their team.`,
     `5. Conferences to watch — only if the standings/poll data clearly suggests a competitive race.`,
     ``,
     `If the data block is sparse (early dynasty, no prior history), keep the preview SHORT. Three or four paragraphs is plenty.`,
