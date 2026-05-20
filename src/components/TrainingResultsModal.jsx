@@ -79,12 +79,14 @@ Each screen's columns (left to right):
 • Year — class label (JR, SR RS, FR RS, SO RS, etc.). IGNORE.
 • Pos  — position abbreviation.
 • OVR  — the player's CURRENT overall AFTER training. This is the NEW OVR.
-         It appears as a plain integer (e.g. 83). → goes in Column 4 (New OVR).
+         It appears alongside a green OVR gain delta, e.g. "83 (+2)".
+         New OVR = 83 → Column 4. Past OVR = 83 − 2 = 81 → Column 3.
+         If NO delta is visible (plain "83" only), Column 3 = blank.
 • Attribute columns — show format "[value] (+[gain])" e.g. "84 (+1)".
-         These are individual training gains, NOT the overall. IGNORE them.
+         These are individual attribute gains. IGNORE them for OVR purposes.
 
-CRITICAL: The OVR column = NEW (post-training) overall = Column 4.
-          Do NOT put it in Column 3.
+CRITICAL: OVR column = NEW (post-training) overall = Column 4.
+          OVR delta (the green +N) used to derive Past OVR = Column 3.
 
 ═══════════════════════════════════════════════════════════
 
@@ -94,13 +96,11 @@ This sheet has ONE tab: "Training Results". The user will paste your output at c
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
 1. OUTPUT 4 TAB-SEPARATED COLUMNS per row: Player<TAB>Position<TAB>Past OVR<TAB>New OVR.
-2. ONE ROW PER PLAYER in the YOUR TEAM ROSTER block. Include every roster player, even if their New OVR is unknown. The roster block has ALREADY been filtered to exclude incoming HS recruits — they do NOT receive training results. If a name appears in EA's training screenshots but is NOT in the YOUR TEAM ROSTER block, DO NOT output a row for them.
+2. ONE ROW PER PLAYER in the YOUR TEAM ROSTER block. Include every roster player, even if their OVR is unknown. The roster block has ALREADY been filtered to exclude incoming HS recruits — they do NOT receive training results. If a name appears in EA's training screenshots but is NOT in the YOUR TEAM ROSTER block, DO NOT output a row for them.
 3. Column 1 (Player) MUST use the FULL name from the YOUR TEAM ROSTER block — never abbreviated ("A. Guess"). EA CFB screenshots show abbreviated names; match them to full names using the roster.
 4. Column 2 (Position) MUST match the roster's position string exactly (QB, HB, WR, TE, LT, LG, C, RG, RT, LEDG, REDG, DT, SAM, MIKE, WILL, CB, FS, SS, K, P).
-5. Column 3 (Past OVR) = the player's overall BEFORE training began. Leave BLANK for the vast majority of players — the training results screen shows the NEW overall, not the old one, so the old value usually cannot be read from these screenshots.
-   • Exception: if the OVR column shows a delta format like "83 (+3)", then the screen is showing pre-training OVR + gain. In that case: Past OVR = 83, New OVR = 83 + 3 = 86. (This format is rare.)
-   • TRANSFER PORTAL PLAYERS (newly arrived this offseason) have no prior OVR stored in the app. If the delta format above is visible, use it to back-fill Past OVR. Otherwise leave Column 3 blank.
-6. Column 4 (New OVR) = the OVR number shown in the training results screenshot for this player. Integer 40–99. This is the value the app needs to update the player's overall. Leave BLANK only if the player does not appear on any screenshot — do NOT leave this blank when the player is visible.
+5. Column 3 (Past OVR) = New OVR − OVR delta. The OVR column in the screenshot shows the post-training overall alongside a green gain. Example: OVR reads "83 (+2)" → New OVR = 83, Past OVR = 83 − 2 = 81. Leave BLANK only when no OVR delta is visible for this player (e.g. delta is 0 or unreadable).
+6. Column 4 (New OVR) = the OVR number shown in the training results screenshot for this player. Integer 40–99. Leave BLANK only if the player does not appear on any screenshot.
 7. NO header row INSIDE the data. NO commentary INSIDE the data. NO blank lines between rows. Each row has exactly 3 tab characters. The paste-target label above the fence is required (see Method A/B rules above).
 8. INTEGERS only in columns C and D. No decimals, no commas, no quotes, no units, no "+/-" signs, no color coding.
 9. NEVER GUESS. If a player does not appear in any of the screenshots provided, leave both Column 3 and Column 4 blank for that player.
@@ -109,14 +109,14 @@ CRITICAL RULES — read before anything else
 REQUIRED OUTPUT FORMAT — fenced TSV block, preceded by the required paste-target label line above the fence (see Method A/B rules above); no other prose
 ═══════════════════════════════════════════════════════════
 \`\`\`tsv
-Alex Guess	QB		90
-Jaylen Miller	HB		82
-Devin Hollis	WR		76
+Alex Guess	QB	87	90
+Jaylen Miller	HB	80	82
+Devin Hollis	WR	74	76
 Marcus Porter	WR
 ...
 \`\`\`
 
-(Column 3 is blank for most players — the training results screen shows post-training OVR only.
+(Column 3 = New OVR − OVR delta from the screenshot; blank only when delta is 0 or invisible.
  Column 4 blank only if the player does not appear in any screenshot.
  Paste the whole block at A2.)
 
@@ -127,7 +127,7 @@ FINAL CHECK before you send
 [ ] Every row has exactly 3 tab characters (4 columns)
 [ ] Column 1 names match the FULL names in the roster block (no initials)
 [ ] Column 2 positions use canonical abbreviations
-[ ] Column 3 (Past OVR): blank for nearly all players; integer 40–99 only when a delta format "83 (+3)" was visible next to the OVR
+[ ] Column 3 (Past OVR): integer 40–99, computed as New OVR − OVR delta; blank only when no delta is visible
 [ ] Column 4 (New OVR): integer 40–99 for every player visible in any screenshot; blank only for players absent from all screenshots
 [ ] No header row, no prose INSIDE the data, no commas, no +/- signs (the paste-target label above the fence is required, see Method A/B rules above)
 [ ] Output wrapped in a single \`\`\`tsv ... \`\`\` fence`,
