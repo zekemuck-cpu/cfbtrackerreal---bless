@@ -7,7 +7,7 @@
  * Props:
  *   eyebrow — small uppercase tracked label above the title
  *             (e.g. "WEEKLY SCORES", "SEASON AWARDS"). Optional.
- *   title   — the bold title text (e.g. "2034 · Week 12").
+ *   title   — the bold title text (e.g. "2034 Week 12").
  *   onClose — close handler.
  */
 export default function SheetModalHeader({ eyebrow, title, onClose }) {

@@ -453,7 +453,7 @@ export default function Awards() {
             )}
           </div>
           <div className="text-xs text-txt-tertiary truncate">
-            {display.name} · {schoolName}
+            {display.name} {schoolName}
           </div>
         </div>
       </Link>
@@ -503,7 +503,6 @@ export default function Awards() {
         <Card>
           <EmptyState
             title="No Awards Yet"
-            message={`Award winners for the ${displayYear} season haven't been recorded yet.`}
             action={!isViewOnly && (
               <Button variant="secondary" onClick={() => setShowAwardsModal(true)}>
                 Add Awards

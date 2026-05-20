@@ -953,7 +953,7 @@ export default function Recruiting() {
             const showBottomChips = showFromChip || showHsMarker
 
             const starCount = Number(recruit.stars) || 0
-            const archAndSize = [recruit.archetype, sizeText].filter(Boolean).join(' · ')
+            const archAndSize = [recruit.archetype, sizeText].filter(Boolean).join(' ')
             // Scouting-report card. Three vertical bands separated by hairline
             // rules so the eye can scan: identity → scouting → context.
             const sizeOnly = (recruit.height || recruit.weight)
@@ -1005,17 +1005,17 @@ export default function Recruiting() {
                       style={{ letterSpacing: '1.2px', fontSize: '9px' }}
                     >
                       <span className="font-bold">{recruit.position || 'ATH'}</span>
-                      <span className="text-txt-muted">·</span>
+                      
                       <span>{recruit.class || 'HS'}</span>
                       {recruit.devTrait && (
                         <>
-                          <span className="text-txt-muted">·</span>
+                          
                           <span>{recruit.devTrait}</span>
                         </>
                       )}
                       {isAllSeasons && recruit.recruitYear && (
                         <>
-                          <span className="text-txt-muted">·</span>
+                          
                           <span className="tabular-nums">{recruit.recruitYear}</span>
                         </>
                       )}
@@ -1205,13 +1205,6 @@ export default function Recruiting() {
         <Card>
           <EmptyState
             title={viewMode === 'portal' ? 'No Transfer Portal Commits' : viewMode === 'hs' ? 'No HS Commitments Yet' : 'No Commitments Yet'}
-            message={
-              isAllSeasons
-                ? 'No recruiting data has been recorded for this team yet.'
-                : selectedYear === currentDynasty.currentYear
-                  ? 'Record recruiting commitments during preseason, regular season, or signing day.'
-                  : `No recruiting data recorded for the ${selectedYear} class.`
-            }
           />
         </Card>
       )}

@@ -224,9 +224,9 @@ export default function TeamHistory() {
               >
                 <h3 className="text-display-md text-txt-primary m-0">{season.year}</h3>
                 <span className="label-sm text-txt-secondary">{season.role}</span>
-                <span className="text-txt-tertiary">·</span>
+                
                 <span className="label-sm text-txt-secondary">{season.conference}</span>
-                <span className="text-txt-tertiary">·</span>
+                
                 <span className="tabular font-semibold text-txt-primary">
                   {season.wins}-{season.losses}
                 </span>
@@ -379,7 +379,7 @@ export default function TeamHistory() {
                               vs {oppMascot || oppAbbr || 'Unknown'}
                             </div>
                             <div className="label-xs text-txt-tertiary">
-                              {weekLabel} · {location}
+                              {weekLabel} {location}
                             </div>
                           </div>
                         </div>

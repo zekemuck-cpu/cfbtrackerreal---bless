@@ -141,9 +141,9 @@ export default function BowlWeek1Modal({ isOpen, onClose, onSave, currentYear, t
       const t1 = seedToAbbr(high)
       const t2 = seedToAbbr(low)
       if (t1 && t2) {
-        return `Team 1 = ${t1} (#${high} seed, host) · Team 2 = ${t2} (#${low} seed)`
+        return `Team 1 = ${t1} (#${high} seed, host) Team 2 = ${t2} (#${low} seed)`
       }
-      return `Team 1 = #${high} seed (host) · Team 2 = #${low} seed  — read teams off your screenshot`
+      return `Team 1 = #${high} seed (host) Team 2 = #${low} seed  — read teams off your screenshot`
     }
     const allBowls = getBowlGamesList()
     const filtered = allBowls.filter(b => !excludedBowlGames.includes(b))

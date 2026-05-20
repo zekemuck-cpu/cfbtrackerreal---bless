@@ -77,11 +77,11 @@ function FeaturesAndSignin({ onSignIn }) {
         <Link to="/privacy" className="hover:text-txt-secondary transition-colors">
           Privacy Policy
         </Link>
-        <span>·</span>
+        
         <Link to="/terms" className="hover:text-txt-secondary transition-colors">
           Terms of Service
         </Link>
-        <span>·</span>
+        
         <Link to="/contact" className="hover:text-txt-secondary transition-colors">
           Contact
         </Link>

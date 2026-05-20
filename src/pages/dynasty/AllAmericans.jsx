@@ -367,7 +367,7 @@ export default function AllAmericans() {
             </span>
           )}
           <div className="text-xs text-txt-tertiary truncate">
-            {player.class && <>{player.class} · </>}{schoolName}
+            {player.class && <>{player.class} </>}{schoolName}
           </div>
         </div>
       </div>
@@ -497,9 +497,9 @@ export default function AllAmericans() {
                       style={{ fontSize: '10px', letterSpacing: '0.5px' }}
                     >
                       {entry.first > 0 && <span>{entry.first}×1st</span>}
-                      {entry.first > 0 && (entry.second > 0 || entry.freshman > 0) && <span className="text-txt-muted"> · </span>}
+                      {entry.first > 0 && (entry.second > 0 || entry.freshman > 0) && <span className="text-txt-muted"> </span>}
                       {entry.second > 0 && <span>{entry.second}×2nd</span>}
-                      {entry.second > 0 && entry.freshman > 0 && <span className="text-txt-muted"> · </span>}
+                      {entry.second > 0 && entry.freshman > 0 && <span className="text-txt-muted"> </span>}
                       {entry.freshman > 0 && <span>{entry.freshman}×Fr</span>}
                     </div>
                   </div>
@@ -534,7 +534,6 @@ export default function AllAmericans() {
         <Card>
           <EmptyState
             title="No All-Americans Yet"
-            message={`All-American selections for the ${displayYear} season haven't been recorded yet.`}
             action={!isViewOnly && (
               <Button variant="secondary" onClick={() => setShowEditModal(true)}>
                 Add All-Americans

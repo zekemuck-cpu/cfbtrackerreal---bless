@@ -63,13 +63,6 @@ export default function CardCollection() {
       {allCards.length === 0 ? (
         <EmptyState
           title="No cards yet"
-          message={
-            <>
-              {isViewOnly
-                ? 'Cards will show up here once any are added to this dynasty.'
-                : 'Click "Add new card" above to walk through the card creator. You\'ll search for a player, pick a card style, choose what the card commemorates, and upload the AI-generated images.'}
-            </>
-          }
         />
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 sm:gap-6">
@@ -108,7 +101,6 @@ export default function CardCollection() {
                   </div>
                   <div className="text-[10px] text-txt-tertiary truncate tabular-nums">
                     {card.year ? <span>{card.year}</span> : null}
-                    {card.year && card.label ? <span className="mx-1">·</span> : null}
                     {card.label}
                     {!card.year && !card.label && (player.position || '—')}
                   </div>
@@ -202,7 +194,7 @@ function PlayerPickerModal({ dynasty, onPick, onClose }) {
         >
           <div>
             <div className="label-xs text-txt-tertiary" style={{ letterSpacing: '2px', fontSize: '10px' }}>
-              ADD NEW CARD · 1 OF 4
+              ADD NEW CARD 1 OF 4
             </div>
             <h2 className="text-base font-bold text-txt-primary leading-tight">
               Pick the player
@@ -249,9 +241,8 @@ function PlayerPickerModal({ dynasty, onPick, onClose }) {
                       <div className="text-sm font-bold text-txt-primary truncate">{p.name}</div>
                       <div className="text-[11px] text-txt-tertiary truncate">
                         {p.position ? <span>{p.position}</span> : null}
-                        {p.position && (p.jerseyNumber || p.jersey) ? <span className="mx-1">·</span> : null}
                         {(p.jerseyNumber || p.jersey) ? <span>#{p.jerseyNumber || p.jersey}</span> : null}
-                        {teamName ? <span className="ml-1">· {teamName}</span> : null}
+                        {teamName ? <span className="ml-1">{teamName}</span> : null}
                       </div>
                     </div>
                     <span className="text-[11px] font-semibold text-txt-primary flex-shrink-0">

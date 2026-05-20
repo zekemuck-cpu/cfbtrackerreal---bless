@@ -664,15 +664,6 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
     }
 
     console.log(`[savePlayersToSubcollection] Successfully saved ${playersToSave.length} players to SERVER`)
-
-    // Wait a bit for Firestore to fully propagate the writes
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    // Verify the data was actually written by reading back FROM SERVER (not cache)
-    const verifyRef = collection(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION)
-    const verifySnapshot = await getDocsFromServer(verifyRef)
-    const verifyPlayers = verifySnapshot.docs.map(doc => doc.data())
-    console.log(`[savePlayersToSubcollection] VERIFY (SERVER): Read back ${verifyPlayers.length} players`)
   } catch (error) {
     console.error('Error saving players to subcollection:', error)
     throw error

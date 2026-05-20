@@ -136,7 +136,7 @@ export default function Coaches() {
             const careerLink = `${pathPrefix}/coach-career?uid=${encodeURIComponent(s.uid)}`
 
             // Stint summary — abbreviated team list with year ranges.
-            // "Wisconsin (2025-2027) · Kentucky (2028-NOW)" — gives the
+            // "Wisconsin (2025-2027) Kentucky (2028-NOW)" — gives the
             // career arc at a glance without opening Coach Career.
             const stints = getCoachStints(currentDynasty, s.uid)
             const stintLabel = (() => {
@@ -151,8 +151,8 @@ export default function Coaches() {
                     : `${st.startYear}-${st.endYear}`
                 return `${abbr} (${range})`
               })
-              const prefix = stints.length > 3 ? `+${stints.length - 3} earlier · ` : ''
-              return prefix + parts.join(' · ')
+              const prefix = stints.length > 3 ? `+${stints.length - 3} earlier ` : ''
+              return prefix + parts.join(' ')
             })()
 
             return (
@@ -195,7 +195,7 @@ export default function Coaches() {
                       {isYou && <span className="text-[10px] text-txt-tertiary">(you)</span>}
                     </div>
                     <div className="text-[11px] text-txt-tertiary truncate mt-0.5">
-                      {teamName} · {formatRange(s.startYear, s.endYear)}{s.yearsActive > 1 ? ` (${s.yearsActive} yrs)` : ''}
+                      {teamName} {formatRange(s.startYear, s.endYear)}{s.yearsActive > 1 ? ` (${s.yearsActive} yrs)` : ''}
                     </div>
                     {stintLabel && (
                       <div className="text-[10px] text-txt-muted truncate mt-0.5 tabular-nums">
@@ -227,7 +227,7 @@ export default function Coaches() {
                   className="sm:hidden mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-txt-tertiary tabular"
                   style={{ paddingLeft: '76px' }}
                 >
-                  <span>{s.wins}–{s.losses} · {formatPct(s.winPct)}</span>
+                  <span>{s.wins}–{s.losses} {formatPct(s.winPct)}</span>
                   {s.nationalTitles > 0 && <span>{s.nationalTitles} NC</span>}
                   {s.confTitles > 0 && <span>{s.confTitles} Conf</span>}
                   <span>{s.bowlWins}–{s.bowlLosses} bowls</span>

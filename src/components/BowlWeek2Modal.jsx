@@ -203,12 +203,12 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
       const byeAbbr = seedToAbbr(m.byeSeed)
       const winner = winnerForSeedPair(m.frHigh, m.frLow)
       if (byeAbbr && winner) {
-        return `Team 1 = ${winner} (won #${m.frHigh} vs #${m.frLow}) · Team 2 = ${byeAbbr} (#${m.byeSeed} seed, bye)`
+        return `Team 1 = ${winner} (won #${m.frHigh} vs #${m.frLow}) Team 2 = ${byeAbbr} (#${m.byeSeed} seed, bye)`
       }
       if (byeAbbr) {
-        return `Team 1 = winner of First Round #${m.frHigh} vs #${m.frLow} (read off screenshot) · Team 2 = ${byeAbbr} (#${m.byeSeed} seed, bye)`
+        return `Team 1 = winner of First Round #${m.frHigh} vs #${m.frLow} (read off screenshot) Team 2 = ${byeAbbr} (#${m.byeSeed} seed, bye)`
       }
-      return `Team 1 = winner of First Round #${m.frHigh} vs #${m.frLow} · Team 2 = #${m.byeSeed} seed (bye) — read teams off your screenshot`
+      return `Team 1 = winner of First Round #${m.frHigh} vs #${m.frLow} Team 2 = #${m.byeSeed} seed (bye) — read teams off your screenshot`
     }
 
     const allBowls = getBowlGamesWeek2(cfg)

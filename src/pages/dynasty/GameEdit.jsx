@@ -2405,7 +2405,7 @@ export default function GameEdit() {
           <h3 className="label-sm text-txt-primary">Photos</h3>
           <span className="label-xs text-txt-tertiary tabular-nums">
             {photoUploadCount > 0
-              ? `${photoUploadDone} of ${photoUploadCount}${photoUploadFailed > 0 ? ` · ${photoUploadFailed} failed` : ''}`
+              ? `${photoUploadDone} of ${photoUploadCount}${photoUploadFailed > 0 ? ` ${photoUploadFailed} failed` : ''}`
               : `${formData.photos.length} ${formData.photos.length === 1 ? 'photo' : 'photos'}`}
           </span>
         </div>
@@ -2444,7 +2444,7 @@ export default function GameEdit() {
                 </svg>
                 <span className="tabular-nums">
                   Uploading {photoUploadDone} of {photoUploadCount}
-                  {photoUploadFailed > 0 && ` · ${photoUploadFailed} failed`}
+                  {photoUploadFailed > 0 && ` ${photoUploadFailed} failed`}
                   …
                 </span>
               </>

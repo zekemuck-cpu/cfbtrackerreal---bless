@@ -3255,10 +3255,10 @@ export default function TeamYear() {
           <aside className={`min-w-0 ${hasStatLeaders ? 'xl:order-1' : 'order-last xl:order-1'}`}>
           {(teamLeaders.passing || teamLeaders.rushing || teamLeaders.receiving || teamLeaders.tackles || teamLeaders.interceptions) && (() => {
             const leaders = [
-              teamLeaders.passing && { key: 'passing', label: 'Passing', valueText: teamLeaders.passing.stats.yards.toLocaleString(), unit: 'YDS', sub: `${teamLeaders.passing.stats.comp}/${teamLeaders.passing.stats.attempts} · ${teamLeaders.passing.stats.tD} TD · ${teamLeaders.passing.stats.int} INT`, data: teamLeaders.passing, fallback: 'P' },
-              teamLeaders.rushing && { key: 'rushing', label: 'Rushing', valueText: teamLeaders.rushing.stats.yards.toLocaleString(), unit: 'YDS', sub: `${teamLeaders.rushing.stats.carries} CAR · ${teamLeaders.rushing.stats.tD} TD`, data: teamLeaders.rushing, fallback: 'R' },
-              teamLeaders.receiving && { key: 'receiving', label: 'Receiving', valueText: teamLeaders.receiving.stats.yards.toLocaleString(), unit: 'YDS', sub: `${teamLeaders.receiving.stats.receptions} REC · ${teamLeaders.receiving.stats.tD} TD`, data: teamLeaders.receiving, fallback: 'W' },
-              teamLeaders.tackles && { key: 'tackles', label: 'Tackles', valueText: String(teamLeaders.tackles.stats.tackles), unit: 'TKL', sub: `${teamLeaders.tackles.stats.solo} Solo · ${teamLeaders.tackles.stats.assists} Ast`, data: teamLeaders.tackles, fallback: 'D' },
+              teamLeaders.passing && { key: 'passing', label: 'Passing', valueText: teamLeaders.passing.stats.yards.toLocaleString(), unit: 'YDS', sub: `${teamLeaders.passing.stats.comp}/${teamLeaders.passing.stats.attempts} ${teamLeaders.passing.stats.tD} TD ${teamLeaders.passing.stats.int} INT`, data: teamLeaders.passing, fallback: 'P' },
+              teamLeaders.rushing && { key: 'rushing', label: 'Rushing', valueText: teamLeaders.rushing.stats.yards.toLocaleString(), unit: 'YDS', sub: `${teamLeaders.rushing.stats.carries} CAR ${teamLeaders.rushing.stats.tD} TD`, data: teamLeaders.rushing, fallback: 'R' },
+              teamLeaders.receiving && { key: 'receiving', label: 'Receiving', valueText: teamLeaders.receiving.stats.yards.toLocaleString(), unit: 'YDS', sub: `${teamLeaders.receiving.stats.receptions} REC ${teamLeaders.receiving.stats.tD} TD`, data: teamLeaders.receiving, fallback: 'W' },
+              teamLeaders.tackles && { key: 'tackles', label: 'Tackles', valueText: String(teamLeaders.tackles.stats.tackles), unit: 'TKL', sub: `${teamLeaders.tackles.stats.solo} Solo ${teamLeaders.tackles.stats.assists} Ast`, data: teamLeaders.tackles, fallback: 'D' },
               teamLeaders.interceptions && { key: 'ints', label: 'INTs', valueText: String(teamLeaders.interceptions.stats.interceptions), unit: 'INT', sub: `${teamLeaders.interceptions.stats.tackles} TKL`, data: teamLeaders.interceptions, fallback: 'D' },
             ].filter(Boolean)
 
@@ -3389,9 +3389,9 @@ export default function TeamYear() {
                             </div>
                             <div className="text-[10px] tabular-nums mt-0.5 truncate flex items-center gap-1.5" style={{ color: accentColorMuted }}>
                               <span>{pos || '—'}</span>
-                              {cls && (<><span className="opacity-60">·</span><span>{cls}</span></>)}
+                              {cls && (<><span>{cls}</span></>)}
                               {p.devTrait && (
-                                <><span className="opacity-60">·</span><span>{p.devTrait}</span></>
+                                <><span>{p.devTrait}</span></>
                               )}
                             </div>
                           </div>
@@ -3513,9 +3513,9 @@ export default function TeamYear() {
               {lastGameStats && (
                 <div className="pt-3 space-y-2 text-xs" style={{ borderTop: `1px solid var(--surface-4)` }}>
                   {[
-                    { key: 'pass', label: 'Pass', fmt: (p) => `${p.comp}/${p.att} · ${p.yards} yds` },
-                    { key: 'rush', label: 'Rush', fmt: (p) => `${p.carries} car · ${p.yards} yds` },
-                    { key: 'rec',  label: 'Rec',  fmt: (p) => `${p.rec} rec · ${p.yards} yds` },
+                    { key: 'pass', label: 'Pass', fmt: (p) => `${p.comp}/${p.att} ${p.yards} yds` },
+                    { key: 'rush', label: 'Rush', fmt: (p) => `${p.carries} car ${p.yards} yds` },
+                    { key: 'rec',  label: 'Rec',  fmt: (p) => `${p.rec} rec ${p.yards} yds` },
                   ].map(({ key, label, fmt }) => {
                     const our = lastGameStats[key]?.our
                     const opp = lastGameStats[key]?.opp
@@ -3957,11 +3957,11 @@ export default function TeamYear() {
                       <div className="font-bold text-txt-primary truncate">{player.name}</div>
                       <div className="label-xs flex items-center gap-1.5 mt-0.5">
                         <span className="text-txt-secondary">{getPlayerPositionForYear(player, selectedYear) || '—'}</span>
-                        <span className="text-txt-muted">·</span>
+                        
                         <span className="text-txt-tertiary">{player.classByYear?.[year] || player.year || '—'}</span>
                         {player.devTrait && (
                           <>
-                            <span className="text-txt-muted">·</span>
+                            
                             <span className="text-txt-tertiary">{player.devTrait}</span>
                           </>
                         )}
@@ -4757,8 +4757,7 @@ export default function TeamYear() {
               the upper-right of the games card below. */}
           {teamYearGames.length === 0 && !isViewOnly && (
             <div className="card p-8 text-center">
-              <div className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '2px' }}>NO SCHEDULE</div>
-              <p className="text-sm text-txt-secondary mb-4">No games have been recorded for {teamAbbr} · {selectedYear}.</p>
+              <div className="label-xs text-txt-tertiary mb-4" style={{ letterSpacing: '2px' }}>NO SCHEDULE</div>
               <button
                 type="button"
                 onClick={() => setShowScheduleModal(true)}
@@ -5561,7 +5560,6 @@ export default function TeamYear() {
             {sorted.length === 0 ? (
               <div className="card p-8 text-center">
                 <div className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '2px' }}>No Commits</div>
-                <p className="text-sm text-txt-secondary mb-4">No recruiting class has been recorded for {teamAbbr} · {selectedYear}.</p>
                 <Link
                   to={`${pathPrefix}/recruiting/${tid}/${selectedYear}`}
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-sm label-sm transition-colors hover:opacity-90"
@@ -5732,7 +5730,7 @@ export default function TeamYear() {
           } else if (offGroup) {
             // OL or other offense w/ no passing/rushing/receiving — skip
           }
-          return parts.length > 0 ? parts.join(' · ') : null
+          return parts.length > 0 ? parts.join(' ') : null
         }
 
         if (departures.length === 0) {
@@ -5939,7 +5937,7 @@ export default function TeamYear() {
                             <span className="text-[11px] font-bold text-txt-secondary uppercase tracking-wider">{player.position || '—'}</span>
                             {ovr != null && (
                               <>
-                                <span className="text-txt-muted">·</span>
+                                
                                 <span className="text-[11px] font-black tabular-nums text-txt-secondary" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>{ovr}</span>
                               </>
                             )}

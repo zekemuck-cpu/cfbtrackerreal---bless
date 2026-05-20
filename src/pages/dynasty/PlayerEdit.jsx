@@ -1109,7 +1109,7 @@ export default function PlayerEdit() {
                   </div>
                 )}
                 <span className="text-sm font-medium text-txt-secondary tabular-nums">
-                  #{formData.jerseyNumber || '?'} · {formData.position || 'N/A'} · {formData.year || 'N/A'}
+                  #{formData.jerseyNumber || '?'} {formData.position || 'N/A'} {formData.year || 'N/A'}
                 </span>
                 {currentOverall && (
                   <span
@@ -1834,7 +1834,7 @@ export default function PlayerEdit() {
                     )}
                     {showsPortalReason && (
                       <>
-                        <span className="text-[10px] text-txt-muted">·</span>
+                        
                         <select
                           value={reason}
                           onChange={(e) => updateMovement(year, { reason: e.target.value })}
@@ -1888,7 +1888,6 @@ export default function PlayerEdit() {
 
                   {activeYears.length === 0 ? (
                     <div className="p-8 text-center">
-                      <p className="text-txt-muted text-sm mb-3">No seasons recorded yet</p>
                       <button
                         type="button"
                         onClick={addYear}
@@ -1963,9 +1962,9 @@ export default function PlayerEdit() {
                         const exitChip = (() => {
                           if (curType === 'entered_portal') {
                             if (!nextYear) return { text: 'Entered Portal', color: '#f59e0b', reason: curMovement.reason }
-                            if (sameTeamAsNext) return { text: 'Entered Portal · Returned', color: '#8b5cf6', reason: curMovement.reason }
+                            if (sameTeamAsNext) return { text: 'Entered Portal Returned', color: '#8b5cf6', reason: curMovement.reason }
                             const toName = nextTeamTid ? getMascotName(nextTeamTid, teams) : null
-                            return { text: toName ? `Entered Portal → ${toName}` : 'Entered Portal · Transferred', color: '#f59e0b', reason: curMovement.reason }
+                            return { text: toName ? `Entered Portal → ${toName}` : 'Entered Portal Transferred', color: '#f59e0b', reason: curMovement.reason }
                           }
                           if (curType === 'encouraged_to_transfer') {
                             const toRef = curMovement.toTeamTid ?? curMovement.toTid
@@ -1973,7 +1972,7 @@ export default function PlayerEdit() {
                             return { text: toName ? `Encouraged Out → ${toName}` : 'Encouraged Out', color: '#f59e0b', reason: curMovement.reason }
                           }
                           if (curType === 'declared_for_draft') {
-                            return { text: curMovement.draftRound ? `Draft · Rd ${curMovement.draftRound}` : 'Declared for Draft', color: '#ef4444' }
+                            return { text: curMovement.draftRound ? `Draft Rd ${curMovement.draftRound}` : 'Declared for Draft', color: '#ef4444' }
                           }
                           if (curType === 'graduated') {
                             return { text: 'Graduated', color: '#ef4444' }
@@ -2068,7 +2067,7 @@ export default function PlayerEdit() {
                                       style={{ backgroundColor: `${exitChip.color}22`, color: exitChip.color, border: `1px solid ${exitChip.color}44` }}
                                     >
                                       {exitChip.text}
-                                      {exitChip.reason && <span className="italic font-normal opacity-80">· {exitChip.reason}</span>}
+                                      {exitChip.reason && <span className="italic font-normal opacity-80">{exitChip.reason}</span>}
                                     </span>
                                   </>
                                 )}
@@ -2175,7 +2174,7 @@ export default function PlayerEdit() {
                                       style={{ backgroundColor: `${exitChip.color}22`, color: exitChip.color, border: `1px solid ${exitChip.color}44` }}
                                     >
                                       {exitChip.text}
-                                      {exitChip.reason && <span className="italic font-normal opacity-80">· {exitChip.reason}</span>}
+                                      {exitChip.reason && <span className="italic font-normal opacity-80">{exitChip.reason}</span>}
                                     </span>
                                   )}
                                 </div>

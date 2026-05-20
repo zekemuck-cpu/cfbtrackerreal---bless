@@ -375,7 +375,7 @@ export default function AllConference() {
             </span>
           )}
           <div className="text-xs text-txt-tertiary truncate">
-            {player.class && <>{player.class} · </>}{schoolName}
+            {player.class && <>{player.class} </>}{schoolName}
           </div>
         </div>
       </div>
@@ -502,7 +502,6 @@ export default function AllConference() {
         <Card>
           <EmptyState
             title={`No All-${displayConference} Yet`}
-            message={`All-Conference selections for the ${displayYear} ${displayConference} season haven't been recorded yet.`}
             action={!isViewOnly && (
               <Button variant="secondary" onClick={() => setShowEditModal(true)}>
                 Add All-Conference

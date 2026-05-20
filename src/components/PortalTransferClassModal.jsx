@@ -70,7 +70,7 @@ export default function PortalTransferClassModal({ isOpen, onClose, onSave, curr
     const playerRows = sortedTransfers.length === 0
       ? '  (no portal transfers)'
       : sortedTransfers.map((t, i) =>
-          `  Row ${i + 2}: ${t.name} · ${t.position}`
+          `  Row ${i + 2}: ${t.name} ${t.position}`
         ).join('\n')
 
     const n = sortedTransfers.length

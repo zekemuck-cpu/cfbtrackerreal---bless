@@ -193,8 +193,6 @@ export default function PositionChangesModal({
 }) {
   const { toast } = useToast()
   const [positionChanges, setPositionChanges] = useState([{ playerId: '', oldPosition: '', newPosition: '' }])
-  const [saving, setSaving] = useState(false)
-  const savingRef = useRef(false)
 
   const primaryColor = teamColors?.primary || 'var(--text-primary)'
   const primaryBgText = getContrastTextColor(primaryColor)
@@ -204,7 +202,7 @@ export default function PositionChangesModal({
   )
 
   useEffect(() => {
-    if (isOpen && !savingRef.current) {
+    if (isOpen) {
       const mappedChanges = existingChanges.map(change => ({
         playerId: change.pid,
         playerName: change.playerName,
@@ -272,28 +270,16 @@ export default function PositionChangesModal({
     setPositionChanges([...positionChanges, { playerId: '', oldPosition: '', newPosition: '' }])
   }
 
-  const handleSave = async () => {
+  const handleSave = () => {
     const validChanges = positionChanges.filter(
       change => change.playerId && change.newPosition && change.newPosition !== change.oldPosition
     )
-
-    if (validChanges.length === 0) {
-      onClose()
-      return
-    }
-
-    savingRef.current = true
-    setSaving(true)
-    try {
-      await onSave(validChanges)
-      onClose()
-    } catch (error) {
-      console.error('Failed to save position changes:', error)
+    if (validChanges.length === 0) { onClose(); return }
+    onClose()
+    onSave(validChanges).catch(err => {
+      console.error('Failed to save position changes:', err)
       toast.error('Failed to save position changes. Please try again.')
-    } finally {
-      savingRef.current = false
-      setSaving(false)
-    }
+    })
   }
 
   const validChangesCount = positionChanges.filter(
@@ -467,14 +453,13 @@ export default function PositionChangesModal({
               </button>
               <button
                 onClick={handleSave}
-                disabled={saving}
-                className="px-4 py-2 rounded-lg font-semibold transition-all disabled:opacity-50"
+                className="px-4 py-2 rounded-lg font-semibold transition-all"
                 style={{
                   backgroundColor: primaryColor,
                   color: primaryBgText
                 }}
               >
-                {saving ? 'Saving…' : (validChangesCount > 0 ? 'Save Changes' : 'Done')}
+                {validChangesCount > 0 ? 'Save Changes' : 'Done'}
               </button>
             </div>
           </div>

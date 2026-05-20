@@ -342,7 +342,7 @@ export default function ConferenceStandings() {
         <span
           className="text-sm font-display tabular flex-shrink-0 text-right whitespace-nowrap"
           style={{ width: '120px' }}
-          title={`${liveWins}-${liveLosses} overall · ${liveConfWins}-${liveConfLosses} conference`}
+          title={`${liveWins}-${liveLosses} overall ${liveConfWins}-${liveConfLosses} conference`}
         >
           <span className="font-black text-txt-primary tabular-nums">
             {liveWins}<span className="text-txt-tertiary font-normal">–</span>{liveLosses}

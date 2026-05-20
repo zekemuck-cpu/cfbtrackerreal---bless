@@ -83,7 +83,7 @@ export default function Teams() {
             <span>FBS teams</span>
             {searchQuery && (
               <>
-                <span className="text-txt-tertiary">·</span>
+                
                 <span className="tabular">{filteredTeams.length}</span>
                 <span>matching</span>
               </>

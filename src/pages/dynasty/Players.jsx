@@ -201,7 +201,7 @@ export default function Players() {
             <span>{filteredPlayers.length === 1 ? 'player' : 'players'}</span>
             {(searchQuery || positionFilter !== 'All') && (
               <>
-                <span className="text-txt-tertiary">·</span>
+                
                 <span className="tabular">{allPlayers.length}</span>
                 <span>total</span>
               </>

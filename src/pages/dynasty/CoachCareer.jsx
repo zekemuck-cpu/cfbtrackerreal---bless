@@ -590,7 +590,7 @@ export default function CoachCareer() {
             <span>CAREER</span>
             {userOptions.length > 1 && (
               <>
-                <span className="text-txt-muted">·</span>
+                
                 <span className="text-txt-tertiary normal-case" style={{ letterSpacing: '0' }}>Viewing</span>
                 <select
                   value={effectiveSelectedUid || ''}
@@ -602,7 +602,7 @@ export default function CoachCareer() {
                   {userOptions.map(opt => (
                     <option key={opt.uid} value={opt.uid}>
                       {opt.label}{opt.isYou ? ' (you)' : ''}
-                      {opt.role === ROLE_COMMISH ? ' · Commish' : opt.role === ROLE_COCOMMISH ? ' · Co-Commish' : ''}
+                      {opt.role === ROLE_COMMISH ? ' Commish' : opt.role === ROLE_COCOMMISH ? ' Co-Commish' : ''}
                     </option>
                   ))}
                 </select>
@@ -665,7 +665,7 @@ export default function CoachCareer() {
                     className="opacity-0 group-hover:opacity-100 transition-opacity"
                     style={{ fontSize: '9px', letterSpacing: '1.5px' }}
                   >
-                    · VIEW ALL
+                    VIEW ALL
                   </span>
                 </div>
               </button>
@@ -972,11 +972,11 @@ export default function CoachCareer() {
                     <span className="font-semibold text-txt-secondary uppercase" style={{ letterSpacing: '1px', fontSize: '11px' }}>
                       {getPositionLabel(stint.position)}
                     </span>
-                    <span>·</span>
+                    
                     <span className="tabular">{yearRange}</span>
                     {stint.conference && (
                       <>
-                        <span>·</span>
+                        
                         <span>{stint.conference}</span>
                       </>
                     )}
@@ -994,7 +994,7 @@ export default function CoachCareer() {
                 cells.push({
                   key: 'record',
                   value: stint.overallRecord,
-                  label: `RECORD · ${winPct}%`,
+                  label: `RECORD ${winPct}%`,
                   onClick: () => openGamesModal('all', stint.teamName),
                 })
                 if (stint.nationalChampionships > 0) {
@@ -1064,13 +1064,13 @@ export default function CoachCareer() {
                     <span className="font-display font-bold tabular-nums text-txt-primary" style={{ letterSpacing: '-0.01em' }}>
                       {bestSeason.year}
                     </span>
-                    <span className="text-txt-muted">·</span>
+                    
                     <span className="tabular-nums font-semibold text-txt-primary">
                       {bestSeason.wins}–{bestSeason.losses}
                     </span>
                     {bestSeason.finalRank && (
                       <>
-                        <span className="text-txt-muted">·</span>
+                        
                         <span
                           className="font-bold tabular-nums"
                           style={{ color: bestSeason.finalRank <= 4 ? 'var(--accent-warning)' : 'var(--text-secondary)' }}
@@ -1081,7 +1081,7 @@ export default function CoachCareer() {
                     )}
                     {bestSeason.postseason && (
                       <>
-                        <span className="text-txt-muted">·</span>
+                        
                         <span className="text-txt-secondary">{bestSeason.postseason}</span>
                       </>
                     )}
@@ -1103,7 +1103,7 @@ export default function CoachCareer() {
                     {stint.coachAwards.map((award, idx) => (
                       <Badge key={idx} variant="warning" size="md">
                         {award.year} {award.shortName}
-                        {award.shortName === 'Broyles' && award.recipient && ` · ${award.recipient}`}
+                        {award.shortName === 'Broyles' && award.recipient && ` ${award.recipient}`}
                       </Badge>
                     ))}
                   </div>

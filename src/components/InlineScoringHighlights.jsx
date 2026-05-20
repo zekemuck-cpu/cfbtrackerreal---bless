@@ -72,7 +72,7 @@ export default function InlineScoringHighlights({
     }
     if (currentPlay.scoreType) {
       let s = currentPlay.scoreType
-      if (currentPlay.yards) s += ` · ${currentPlay.yards} yd`
+      if (currentPlay.yards) s += ` ${currentPlay.yards} yd`
       bits.push(s)
     }
     const scorer = currentPlay.scorer
@@ -80,7 +80,7 @@ export default function InlineScoringHighlights({
     if (scorer) {
       bits.push(passer && currentPlay.scoreType?.includes('Passing') ? `${passer} → ${scorer}` : scorer)
     }
-    return bits.join(' · ')
+    return bits.join(' ')
   })()
 
   // Elapsed time estimate inside the current clip — we don't have true

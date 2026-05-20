@@ -1742,7 +1742,7 @@ function PlayerInner() {
                   }}
                   title={`Transferred away${departureMovement.year ? ` (${departureMovement.year})` : ''} — no destination recorded`}
                 >
-                  Transferred Away · No destination
+                  Transferred Away No destination
                 </span>
               ) : (
                 <span
@@ -1758,7 +1758,7 @@ function PlayerInner() {
                   <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#fbbf24' }} aria-hidden="true" />
                   In Portal
                   {departureMovement.reason && (
-                    <span className="font-semibold normal-case opacity-90 tracking-normal">· {departureMovement.reason}</span>
+                    <span className="font-semibold normal-case opacity-90 tracking-normal">{departureMovement.reason}</span>
                   )}
                 </span>
               )
@@ -1803,7 +1803,7 @@ function PlayerInner() {
                 >
                   {label}
                   {portalReason && reason === 'Encouraged Transfer' && (
-                    <span className="font-semibold opacity-90"> · {portalReason}</span>
+                    <span className="font-semibold opacity-90"> {portalReason}</span>
                   )}
                 </span>
               )
@@ -1940,7 +1940,7 @@ function PlayerInner() {
                       }}
                       title={`Transferred away${departureMovement.year ? ` (${departureMovement.year})` : ''} — no destination recorded`}
                     >
-                      Transferred Away · No destination
+                      Transferred Away No destination
                     </span>
                   ) : (
                     <span
@@ -1956,7 +1956,7 @@ function PlayerInner() {
                       <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#fbbf24' }} aria-hidden="true" />
                       In Portal
                       {departureMovement.reason && (
-                        <span className="font-semibold normal-case opacity-90 tracking-normal">· {departureMovement.reason}</span>
+                        <span className="font-semibold normal-case opacity-90 tracking-normal">{departureMovement.reason}</span>
                       )}
                     </span>
                   )
@@ -2001,7 +2001,7 @@ function PlayerInner() {
                     >
                       {label}
                       {portalReason && reason === 'Encouraged Transfer' && (
-                        <span className="font-semibold opacity-90"> · {portalReason}</span>
+                        <span className="font-semibold opacity-90"> {portalReason}</span>
                       )}
                     </span>
                   )
@@ -2364,7 +2364,7 @@ function PlayerInner() {
                                 )}
                               </div>
                               <div className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: secondaryText }}>
-                                {[cls, pos].filter(Boolean).join(' · ') || '—'}
+                                {[cls, pos].filter(Boolean).join(' ') || '—'}
                               </div>
                               {inYear && (
                                 <div className="mt-1 inline-block text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded" style={{ color: secondaryText, backgroundColor: 'var(--bg-surface-3, #1c1c22)' }}>
@@ -2517,7 +2517,6 @@ function PlayerInner() {
                     return (
                       <>
                         {sectionHeader('Career Stats')}
-                        <div className="px-4 py-6 text-sm text-center" style={{ color: secondaryText }}>No recorded stats</div>
                       </>
                     )
                   }
@@ -3231,7 +3230,7 @@ function PlayerInner() {
           const hideTo = sameTid(m.to, rowTeam)
           const hideFrom = sameTid(m.from, rowTeam)
 
-          // Deduplicate the italic reason when it already matches the big label (e.g. "GRADUATING · Graduating")
+          // Deduplicate the italic reason when it already matches the big label (e.g. "GRADUATING Graduating")
           const normalize = (s) => (s || '').toLowerCase().replace(/[^a-z]/g, '')
           const labelNorm = normalize(label)
           const reasonNorm = normalize(m.reason)
@@ -3269,9 +3268,9 @@ function PlayerInner() {
                   (and stale m.from data can make it outright wrong — e.g., "GRADUATING from Wisconsin"
                   when the player actually graduated from Kentucky). */}
               {showReason && (
-                <span className="italic text-txt-tertiary">· {m.reason}</span>
+                <span className="italic text-txt-tertiary">{m.reason}</span>
               )}
-              {m.draftRound && <span className="text-txt-tertiary">· Rd {m.draftRound}</span>}
+              {m.draftRound && <span className="text-txt-tertiary">Rd {m.draftRound}</span>}
             </span>
           )
         }
@@ -3443,19 +3442,14 @@ function PlayerInner() {
                 return (
                   <>
                     {starsNode}
-                    {starsNode && (rankBits.length > 0 || classLabel) && <span className="text-txt-muted">·</span>}
                     {rankBits.map((rb, i) => (
                       <span key={i} className="flex items-baseline gap-1">
                         <span className="font-bold tabular text-txt-primary">{rb.value}</span>
                         <span className="text-[10px] uppercase tracking-widest text-txt-tertiary">{rb.label}</span>
-                        {i < rankBits.length - 1 && <span className="text-txt-muted ml-1">·</span>}
                       </span>
                     ))}
                     {classLabel && (
-                      <>
-                        {(starsNode || rankBits.length > 0) && <span className="text-txt-muted">·</span>}
-                        <span className="uppercase tracking-wider text-[11px] font-semibold text-txt-secondary" style={{ letterSpacing: '1px' }}>{classLabel}</span>
-                      </>
+                      <span className="uppercase tracking-wider text-[11px] font-semibold text-txt-secondary" style={{ letterSpacing: '1px' }}>{classLabel}</span>
                     )}
                   </>
                 )
@@ -3566,12 +3560,7 @@ function PlayerInner() {
                   const transferMeta = (
                     <>
                       {recruitmentNode && buildRecruitMeta(recruitmentNode)}
-                      {transferMovement.reason && (
-                        <>
-                          {recruitmentNode && <span className="text-txt-muted">·</span>}
-                          <span className="italic text-txt-tertiary">{transferMovement.reason}</span>
-                        </>
-                      )}
+                      {transferMovement.reason && <span className="italic text-txt-tertiary">{transferMovement.reason}</span>}
                     </>
                   )
 
@@ -3595,14 +3584,14 @@ function PlayerInner() {
                 const eyebrowParts = []
                 if (schoolName) eyebrowParts.push(schoolName)
                 if (isCurrentYear) eyebrowParts.push('Current Season')
-                const eyebrow = eyebrowParts.join(' · ')
+                const eyebrow = eyebrowParts.join(' ')
                 const headline = classHeadline || 'Season'
 
                 // If we're merging the recruit node into this first season, prepend
                 // the stars/ranks/hometown and the entry tag to the meta row.
                 const isMergedFirstSeason = idx === 0 && mergeRecruitIntoFirstSeason
                 const mergedEyebrow = isMergedFirstSeason
-                  ? [recruitmentNode.isPortal ? 'Portal Entry' : 'Committed', ...eyebrowParts].join(' · ')
+                  ? [recruitmentNode.isPortal ? 'Portal Entry' : 'Committed', ...eyebrowParts].join(' ')
                   : eyebrow
 
                 const devChip = yd.devTrait ? (
@@ -3619,7 +3608,7 @@ function PlayerInner() {
                     {buildRecruitMeta(recruitmentNode)}
                     {devChip && (
                       <>
-                        <span className="text-txt-muted">·</span>
+                        
                         {devChip}
                       </>
                     )}
@@ -3697,7 +3686,7 @@ function PlayerInner() {
                     <span>from</span>
                     {fromLogo && <img src={fromLogo} alt="" className="w-3.5 h-3.5 object-contain" />}
                     <span>{fromSchool}</span>
-                    {entry.reason && <span className="italic text-txt-tertiary">· {entry.reason}</span>}
+                    {entry.reason && <span className="italic text-txt-tertiary">{entry.reason}</span>}
                   </span>
                 ) : (entry.reason ? <span className="italic text-txt-tertiary">{entry.reason}</span> : null)
 
@@ -5161,8 +5150,7 @@ function PlayerInner() {
         if (highlights.length === 0) {
           return (
             <div className="text-center py-8" style={{ color: 'var(--text-tertiary)' }}>
-              <p>No highlights yet</p>
-              <p className="text-xs mt-1">Add YouTube clips, Imgur albums, or image URLs from the Player Editor.</p>
+              <p className="text-sm">No highlights yet</p>
             </div>
           )
         }
@@ -5667,7 +5655,7 @@ function PlayerInner() {
                           to={`${pathPrefix}/game/${linkedGame.id}`}
                           className="mt-3 px-3 py-1.5 rounded-md text-xs font-semibold border border-surface-4 text-txt-secondary hover:bg-surface-3 transition-colors"
                         >
-                          View game · {gameLinkLabel} →
+                          View game {gameLinkLabel} →
                         </Link>
                       )}
                     </div>
