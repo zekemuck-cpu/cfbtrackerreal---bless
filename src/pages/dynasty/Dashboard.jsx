@@ -8740,32 +8740,111 @@ export default function Dashboard() {
           const userTid = getUserTeamTid(currentDynasty)
           const year = currentDynasty?.currentYear
           const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+          const allPlayers = currentDynasty?.players || []
 
-          // Get previously encouraged transfers using tid-based getter
+          // ──────────────────────────────────────────────────────────
+          // RESOLVE TRANSFERS TO PIDs — the robust fix
+          // ──────────────────────────────────────────────────────────
+          // The sheet only carries { name, position, overall } per row —
+          // no pid — so an earlier version of this handler matched by
+          // lowercased name alone. That match failed silently whenever
+          // the player's stored name had any normalization drift the
+          // sheet didn't (extra whitespace, accents, "Jr." vs "Jr",
+          // duplicate names from non-roster records, etc.), and the
+          // "save said it registered them but they're still on roster"
+          // bug the user reported was the result.
+          //
+          // New approach: walk dynasty.players that are CURRENTLY on
+          // the user's roster for `year` and build a lookup keyed on
+          // multiple shapes (pid is also captured for use during the
+          // map below). Only roster-members are eligible, so honor-
+          // only / off-team duplicates with the same name don't get
+          // pulled in. Match by (name+position) primarily, name alone
+          // as fallback — both case-insensitive and trimmed.
+          const norm = (s) => (s ?? '').toString().toLowerCase().trim()
+          const rosterByNamePosition = new Map() // "name|pos" → pid
+          const rosterByName = new Map()         // "name" → pid (fallback when position not on the sheet row)
+          for (const p of allPlayers) {
+            if (!p?.pid) continue
+            if (!isPlayerOnRoster(p, userTid, year, currentDynasty)) continue
+            const nameKey = norm(p.name)
+            if (!nameKey) continue
+            const posKey = `${nameKey}|${norm(p.position)}`
+            if (!rosterByNamePosition.has(posKey)) rosterByNamePosition.set(posKey, p.pid)
+            // Only set name-only map when unique. If two roster players
+            // share a name, fall back to name+position matching only
+            // (don't let an ambiguous fallback hit one arbitrarily).
+            if (rosterByName.has(nameKey)) rosterByName.set(nameKey, null)
+            else rosterByName.set(nameKey, p.pid)
+          }
+
+          const encouragedPids = new Set()
+          const unresolvedTransfers = []
+          for (const t of transferPlayers) {
+            const nameKey = norm(t.name)
+            if (!nameKey) continue
+            const posKey = `${nameKey}|${norm(t.position)}`
+            const pid = rosterByNamePosition.get(posKey) || rosterByName.get(nameKey) || null
+            if (pid) encouragedPids.add(pid)
+            else unresolvedTransfers.push(t.name)
+          }
+          if (unresolvedTransfers.length > 0) {
+            console.warn('[encourageTransfers] Could not resolve these names to roster pids — they will not be removed:', unresolvedTransfers)
+          }
+          console.log(`[encourageTransfers] Resolved ${encouragedPids.size} of ${transferPlayers.length} transfers to pids`)
+
+          // Previously-encouraged pids — same resolution for restoration.
           const previouslyEncouraged = getEncourageTransfers(currentDynasty, userTid, year)
-          const previousNames = new Set(previouslyEncouraged.map(p => p.name?.toLowerCase().trim()).filter(Boolean))
+          const previousPids = new Set()
+          for (const p of previouslyEncouraged) {
+            const nameKey = norm(p.name)
+            if (!nameKey) continue
+            const posKey = `${nameKey}|${norm(p.position)}`
+            const pid = rosterByNamePosition.get(posKey) || rosterByName.get(nameKey) || null
+            // Also look at players whose movementByYear[year] is the
+            // encouraged-transfer marker we wrote — they're not on the
+            // roster anymore so the rosterByName map won't have them.
+            // Find them directly.
+            if (pid) previousPids.add(pid)
+          }
+          // Pick up off-roster previously-encouraged players (their
+          // teamsByYear[year] was deleted earlier, so they're not in
+          // rosterByName). Match against the saved encourageTransfers
+          // list, not the roster.
+          const previousNamesLower = new Set(previouslyEncouraged.map(p => norm(p.name)).filter(Boolean))
+          const offRosterPreviouslyEncouraged = new Set()
+          for (const p of allPlayers) {
+            if (!p?.pid) continue
+            if (previousPids.has(p.pid)) continue // already accounted for via roster
+            if (!previousNamesLower.has(norm(p.name))) continue
+            // Confirm via movementByYear breadcrumb so we don't restore
+            // someone with a coincidentally-matching name.
+            const mv = p.movementByYear?.[year] || p.movementByYear?.[String(year)]
+            const wasEncouraged = mv?.departure === 'transfer_out' && mv?.reason === 'Encouraged Transfer'
+            if (wasEncouraged) offRosterPreviouslyEncouraged.add(p.pid)
+          }
+          for (const pid of offRosterPreviouslyEncouraged) previousPids.add(pid)
 
-          // New encouraged transfers
-          const newEncouragedNames = new Set(transferPlayers.map(p => p.name?.toLowerCase().trim()).filter(Boolean))
+          // ──────────────────────────────────────────────────────────
+          // BUILD updatedPlayers — match by pid, not by name
+          // ──────────────────────────────────────────────────────────
+          let removedCount = 0
+          let restoredCount = 0
+          const updatedPlayers = allPlayers.map(player => {
+            if (!player?.pid) return player
+            const wasPreviouslyEncouraged = previousPids.has(player.pid)
+            const isNowEncouraged = encouragedPids.has(player.pid)
 
-          // Update players:
-          // 1. RESTORE players who were previously encouraged but are NOT in the new list (add back teamsByYear)
-          // 2. REMOVE players who are in the new encouraged list (remove teamsByYear)
-          const updatedPlayers = (currentDynasty?.players || []).map(player => {
-            const nameLower = player.name?.toLowerCase().trim()
-            const wasPreviouslyEncouraged = previousNames.has(nameLower)
-            const isNowEncouraged = newEncouragedNames.has(nameLower)
-
-            // Case 1: Was encouraged before, but NOT anymore - RESTORE them
+            // Case 1: was encouraged, now not — RESTORE to roster for year
             if (wasPreviouslyEncouraged && !isNowEncouraged) {
               const restoredTeamsByYear = {
                 ...(player.teamsByYear || {}),
-                [year]: userTid  // Always use tid
+                [year]: userTid
               }
-              // Remove movementByYear entry for this year (no longer encouraged)
               const updatedMovementByYear = { ...(player.movementByYear || {}) }
               delete updatedMovementByYear[year]
               delete updatedMovementByYear[String(year)]
+              restoredCount++
               return {
                 ...player,
                 teamsByYear: restoredTeamsByYear,
@@ -8773,28 +8852,40 @@ export default function Dashboard() {
               }
             }
 
-            // Case 2: Is NOW encouraged - REMOVE from roster (delete teamsByYear entry)
+            // Case 2: encouraged now — REMOVE from roster + write canonical
+            // v2 departure movement (matches advanceToNewSeason's shape so
+            // the heal layer won't rewrite it).
             if (isNowEncouraged) {
               const updatedTeamsByYear = { ...(player.teamsByYear || {}) }
               delete updatedTeamsByYear[year]
               delete updatedTeamsByYear[String(year)]
+              removedCount++
               return {
                 ...player,
                 teamsByYear: updatedTeamsByYear,
                 movementByYear: {
                   ...(player.movementByYear || {}),
-                  [year]: { type: 'encouraged_to_transfer' }
+                  [year]: {
+                    type: 'departure',
+                    departure: 'transfer_out',
+                    toTid: null,
+                    reason: 'Encouraged Transfer',
+                  }
                 }
               }
             }
 
-            // Case 3: Not involved - return unchanged
             return player
           })
 
-          // Store using tid-based structure: teams[tid].byYear[year].encourageTransfers
+          console.log(`[encourageTransfers] removed ${removedCount} from roster, restored ${restoredCount}`)
+
+          // updateDynasty handles listener-skip protection internally
+          // when it sees `players` in the updates payload — see the
+          // skipListenerUpdatesCountRef + lastPlayersUpdateTimestampRef
+          // branch inside updateDynasty in DynastyContext.
+
           if (isDev || !user) {
-            // Dev mode - ensure teams structure exists
             const existingTeams = currentDynasty?.teams || {}
             const existingTeamData = existingTeams[userTid] || {}
             const existingByYear = existingTeamData.byYear || {}
@@ -8816,7 +8907,6 @@ export default function Dashboard() {
               players: updatedPlayers
             })
           } else {
-            // Production mode - use dot notation for Firestore
             await updateDynasty(currentDynasty.id, {
               [`teams.${userTid}.byYear.${year}.encourageTransfers`]: transferPlayers,
               players: updatedPlayers
