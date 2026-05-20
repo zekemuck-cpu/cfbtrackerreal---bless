@@ -15,7 +15,7 @@ import { buildWeekRecapPrompt, buildPreseasonRecapPrompt } from '../utils/recapP
  * Props:
  *   isOpen, onClose
  *   year   — number; the season being recapped
- *   week   — number; the week being recapped (use 0 for preseason)
+ *   week   — number; the week being recapped (use -1 for preseason preview)
  *   onSaved — optional callback fired with the saved text after a successful save
  */
 export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved }) {
@@ -23,7 +23,7 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
   const { toast } = useToast()
   const yearNum = Number(year)
   const weekNum = Number(week)
-  const isPreseason = weekNum === 0
+  const isPreseason = weekNum === -1
   const promptTextareaRef = useRef(null)
 
   const existingRecap = currentDynasty?.weekRecapsByYear?.[yearNum]?.[weekNum]

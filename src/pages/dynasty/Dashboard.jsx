@@ -3545,7 +3545,7 @@ export default function Dashboard() {
             // Preseason CFB Recap
             {
               const yearNum = Number(currentDynasty.currentYear)
-              const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[0]
+              const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[-1]
               const recapDone = !!recap?.text
               todos.push({
                 key: 'preseason-recap',
@@ -3554,7 +3554,7 @@ export default function Dashboard() {
                 subtitle: recapDone
                   ? 'Saved — view it on the Weekly Recap page'
                   : 'AI-written season preview based on past dynasty data',
-                onAction: () => setRecapModalContext({ year: yearNum, week: 0 }),
+                onAction: () => setRecapModalContext({ year: yearNum, week: -1 }),
                 actionLabel: recapDone ? 'Edit' : 'Generate',
               })
             }
