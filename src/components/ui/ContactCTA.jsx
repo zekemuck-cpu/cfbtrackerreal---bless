@@ -15,7 +15,7 @@ export default function ContactCTA({ className = '' }) {
             Got feedback, bugs, or ideas?
           </span>
           <span className="text-xs text-txt-tertiary">
-            Discord · Reddit · DM
+            Discord Reddit DM
           </span>
         </div>
         <span className="btn-refined flex-shrink-0">

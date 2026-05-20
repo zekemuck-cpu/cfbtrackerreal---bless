@@ -469,7 +469,7 @@ export default function Home() {
                       }}
                       className="btn-refined btn-refined--solid"
                     >
-                      {upgrading ? 'Loading…' : 'Upgrade · $4.99 / mo'}
+                      {upgrading ? 'Loading…' : 'Upgrade $4.99 / mo'}
                     </button>
                   ) : null}
                 </div>
@@ -609,13 +609,13 @@ export default function Home() {
                           {conference && (
                             <>
                               <span className="truncate">{conference}</span>
-                              <span className="text-txt-tertiary">·</span>
+                              
                             </>
                           )}
                           <span>{dynasty.currentYear}</span>
                           {weekShort && (
                             <>
-                              <span className="text-txt-tertiary">·</span>
+                              
                               <span className="truncate">{weekShort}</span>
                             </>
                           )}
@@ -986,7 +986,7 @@ export default function Home() {
                 >
                   {stageLabels[stage]}
                   {isCurrent && importProgress?.detail && (
-                    <span className="text-txt-tertiary ml-2 font-normal">· {importProgress.detail}</span>
+                    <span className="text-txt-tertiary ml-2 font-normal">{importProgress.detail}</span>
                   )}
                 </span>
                 <span

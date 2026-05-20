@@ -126,11 +126,11 @@ export default function Roster() {
                     </div>
                     <div className="text-xs text-txt-tertiary flex items-center gap-2">
                       <span>{player.position}</span>
-                      <span>·</span>
+                      
                       <span>{player.classByYear?.[currentDynasty.currentYear] || player.year}</span>
                       {player.devTrait && (
                         <>
-                          <span>·</span>
+                          
                           <span>{player.devTrait}</span>
                         </>
                       )}

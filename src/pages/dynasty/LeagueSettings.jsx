@@ -518,7 +518,7 @@ export default function LeagueSettings() {
     const lastStint = stints.length > 0 ? stints[stints.length - 1] : null
     const stintLine = lastStint ? (
       lastStint.endYear >= currentDynasty.currentYear
-        ? `${lastStint.startYear}–NOW · ${lastStint.years} ${lastStint.years === 1 ? 'season' : 'seasons'}`
+        ? `${lastStint.startYear}–NOW ${lastStint.years} ${lastStint.years === 1 ? 'season' : 'seasons'}`
         : `${lastStint.startYear}–${lastStint.endYear}`
     ) : null
 

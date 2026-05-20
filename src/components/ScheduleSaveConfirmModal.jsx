@@ -71,7 +71,7 @@ export default function ScheduleSaveConfirmModal({
             <h2 className="text-xl font-bold text-txt-primary">Update schedule?</h2>
             <p className="text-sm mt-1 text-txt-tertiary">
               {totalAffected} game record{totalAffected === 1 ? '' : 's'} will be affected
-              {toKeep.length > 0 ? ` · ${toKeep.length} unchanged` : ''}
+              {toKeep.length > 0 ? ` ${toKeep.length} unchanged` : ''}
             </p>
           </div>
         </div>
@@ -114,7 +114,7 @@ export default function ScheduleSaveConfirmModal({
               items={addSorted.map(a => ({
                 key: `add-${a.week}`,
                 left: `Week ${a.week}`,
-                right: `${a.opponent} · ${fmtLocation(a.location)}`,
+                right: `${a.opponent} ${fmtLocation(a.location)}`,
               }))}
             />
           )}

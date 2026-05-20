@@ -61,7 +61,7 @@ export default function SheetModalAIHero({
       className="rounded-lg p-4 sm:p-5 bg-surface-2 border border-surface-4"
     >
       <div className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '1.5px' }}>
-        AI WORKFLOW · RECOMMENDED
+        AI WORKFLOW RECOMMENDED
       </div>
       <p className="text-base sm:text-lg text-txt-primary font-bold leading-snug">
         {tagline}

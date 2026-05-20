@@ -453,7 +453,7 @@ export default function Awards() {
             )}
           </div>
           <div className="text-xs text-txt-tertiary truncate">
-            {display.name} · {schoolName}
+            {display.name} {schoolName}
           </div>
         </div>
       </Link>

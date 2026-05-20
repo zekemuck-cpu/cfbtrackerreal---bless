@@ -197,7 +197,7 @@ export default function CardEditorModal({
                   fontWeight: 700,
                 }}
               >
-                {isNew ? 'New Card' : 'Edit Card'} · {phase.label}
+                {isNew ? 'New Card' : 'Edit Card'} {phase.label}
               </div>
               <h2
                 className="font-bold text-txt-primary leading-tight truncate"
@@ -540,7 +540,7 @@ function PhaseContext({
               <option value="">Select a game…</option>
               {availableGames.map(g => (
                 <option key={g.gameId} value={g.gameId}>
-                  {g.year} W{g.week} · {g.won ? 'W' : 'L'} {formatScoreHighLow(g.playerScore, g.oppScore) || '—'} {g.location === 'home' ? 'vs' : g.location === 'away' ? '@' : 'vs (N)'} {g.opponentName}
+                  {g.year} W{g.week} {g.won ? 'W' : 'L'} {formatScoreHighLow(g.playerScore, g.oppScore) || '—'} {g.location === 'home' ? 'vs' : g.location === 'away' ? '@' : 'vs (N)'} {g.opponentName}
                 </option>
               ))}
             </StyledSelect>

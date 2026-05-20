@@ -3081,7 +3081,7 @@ export default function Dashboard() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
               <span className="font-semibold text-txt-primary">Read-only</span>
-              <span className="text-txt-tertiary truncate hidden sm:inline">· Premium required to edit</span>
+              <span className="text-txt-tertiary truncate hidden sm:inline">Premium required to edit</span>
             </div>
             <svg
               className={`w-4 h-4 flex-shrink-0 text-txt-tertiary group-hover:text-txt-secondary transition-transform ${readOnlyBannerExpanded ? 'rotate-180' : ''}`}
@@ -3468,7 +3468,7 @@ export default function Dashboard() {
               done: !!teamPreseasonSetup?.teamRatingsEntered,
               title: 'Enter Team Ratings',
               subtitle: teamRatings?.overall
-                ? `${teamRatings.overall} OVR · ${teamRatings.offense} OFF · ${teamRatings.defense} DEF`
+                ? `${teamRatings.overall} OVR ${teamRatings.offense} OFF ${teamRatings.defense} DEF`
                 : 'Not entered',
               onAction: () => setShowTeamRatingsModal(true),
               actionLabel: teamPreseasonSetup?.teamRatingsEntered ? 'Edit' : 'Add',
@@ -3481,7 +3481,7 @@ export default function Dashboard() {
                 done: !!teamPreseasonSetup?.coachingStaffEntered,
                 title: 'Enter Coordinators',
                 subtitle: teamCoachingStaff?.ocName && teamCoachingStaff?.dcName
-                  ? `OC: ${teamCoachingStaff.ocName} · DC: ${teamCoachingStaff.dcName}`
+                  ? `OC: ${teamCoachingStaff.ocName} DC: ${teamCoachingStaff.dcName}`
                   : 'Not entered',
                 onAction: () => setShowCoachingStaffModal(true),
                 actionLabel: teamPreseasonSetup?.coachingStaffEntered ? 'Edit' : 'Add',
@@ -3503,7 +3503,7 @@ export default function Dashboard() {
                 title: 'Any commitments this week?',
                 subtitle: recruitingDone
                   ? (cnt > 0
-                      ? `${cnt} commit${cnt === 1 ? '' : 's'} recorded${cs > 0 ? ` · ${currentDynasty.currentYear} class score: ${formatRecruitingClassScore(cs)}` : ''}`
+                      ? `${cnt} commit${cnt === 1 ? '' : 's'} recorded${cs > 0 ? ` ${currentDynasty.currentYear} class score: ${formatRecruitingClassScore(cs)}` : ''}`
                       : 'No commitments this week')
                   : 'Record any early recruiting commitments',
                 viewTo: cs > 0 ? `${pathPrefix}/recruiting/${userTid}/${currentDynasty.currentYear}` : null,
@@ -3777,7 +3777,7 @@ export default function Dashboard() {
                     : `${currentDynasty.currentYear} class`
                 } else if (classScore > 0) {
                   title = `${currentDynasty.currentYear} Class Score: ${formatRecruitingClassScore(classScore)}`
-                  subtitle = hasCurWeek ? `Recruiting · Week ${currentDynasty.currentWeek}` : `${currentDynasty.currentYear} class`
+                  subtitle = hasCurWeek ? `Recruiting Week ${currentDynasty.currentWeek}` : `${currentDynasty.currentYear} class`
                 } else {
                   title = hasCurWeek ? `Week ${currentDynasty.currentWeek} Commits` : 'Commits'
                   subtitle = null
@@ -4101,7 +4101,7 @@ export default function Dashboard() {
                 title: 'Any commitments this week?',
                 subtitle: recruitingDone
                   ? (cnt > 0
-                      ? `${cnt} commit${cnt === 1 ? '' : 's'} recorded${cs > 0 ? ` · ${currentDynasty.currentYear} class score: ${formatRecruitingClassScore(cs)}` : ''}`
+                      ? `${cnt} commit${cnt === 1 ? '' : 's'} recorded${cs > 0 ? ` ${currentDynasty.currentYear} class score: ${formatRecruitingClassScore(cs)}` : ''}`
                       : 'No commitments this week')
                   : 'Record any recruiting commitments',
                 viewTo: cs > 0 ? `${pathPrefix}/recruiting/${userTidForCommits}/${currentDynasty.currentYear}` : null,
@@ -6432,7 +6432,7 @@ export default function Dashboard() {
                           </div>
                           <div className="text-xs text-txt-tertiary mt-0.5">
                             <span className="font-medium text-txt-secondary">{player.position}</span>
-                            <span className="mx-1.5">·</span>
+                            
                             <span>{player.year || '-'}</span>
                           </div>
                         </div>
@@ -6996,7 +6996,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-3 min-w-0">
               <div className="min-w-0">
                 <div className="label-xs text-txt-tertiary uppercase tracking-wider">
-                  Wk {scoreboardData.week} · Around the {scoreboardData.conference || 'Country'}
+                  Wk {scoreboardData.week} Around the {scoreboardData.conference || 'Country'}
                 </div>
                 <div
                   className="font-display font-black leading-none mt-1"
@@ -7431,7 +7431,7 @@ export default function Dashboard() {
                         <div className="text-sm font-medium text-txt-primary truncate">{player.name}</div>
                         <div className="text-[10px] text-txt-tertiary mt-0.5">
                           <span className="font-medium text-txt-secondary">{player.position}</span>
-                          <span className="mx-1">·</span>
+                          
                           <span>{player.year || '-'}</span>
                         </div>
                       </div>

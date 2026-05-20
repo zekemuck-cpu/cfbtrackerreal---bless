@@ -75,26 +75,26 @@ const ERA_ACCENT = {
 // Ordered newest → oldest so the section render order matches the user's
 // scan expectation when a multi-era chip (e.g. 90s) is selected.
 const ERA_GROUP_LABEL = {
-  [FICTIONAL_ERA]: 'Fictional · Concept Sets',
-  modern_panini: 'Modern · Panini Era',
+  [FICTIONAL_ERA]: 'Fictional Concept Sets',
+  modern_panini: 'Modern Panini Era',
   early_2010s: 'Early 2010s',
-  late_2000s_premium: 'Late 2000s · Premium',
-  mid_2000s_premium: 'Mid 2000s · Premium',
+  late_2000s_premium: 'Late 2000s Premium',
+  mid_2000s_premium: 'Mid 2000s Premium',
   mid_2000s: 'Mid 2000s',
-  early_2000s_premium: 'Early 2000s · Premium',
+  early_2000s_premium: 'Early 2000s Premium',
   early_2000s: 'Early 2000s',
-  late_90s_premium: 'Late 90s · Premium',
-  mid_90s_premium: 'Mid 90s · Premium',
+  late_90s_premium: 'Late 90s Premium',
+  mid_90s_premium: 'Mid 90s Premium',
   mid_90s: 'Mid 90s',
-  early_90s_premium: 'Early 90s · Premium',
+  early_90s_premium: 'Early 90s Premium',
   early_90s: 'Early 90s',
   early_modern: 'Early Modern',
   late_80s: 'Late 80s',
   mid_80s: 'Mid 80s',
   early_80s: 'Early 80s',
-  vintage_1970s: 'Vintage · 1970s',
-  vintage_1960s: 'Vintage · 1960s',
-  vintage_1950s: 'Vintage · 1950s',
+  vintage_1970s: 'Vintage 1970s',
+  vintage_1960s: 'Vintage 1960s',
+  vintage_1950s: 'Vintage 1950s',
   college: 'College-Specific',
   misc: 'Misc',
 }
@@ -322,7 +322,7 @@ function StyleCell({ style, selected, onClick }) {
             }}
           >
             {(style.brand || '').toUpperCase()}
-            <span className="text-txt-tertiary mx-1">·</span>
+            
             <span className="text-txt-primary">{yearTag}</span>
           </span>
         </div>

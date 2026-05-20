@@ -884,7 +884,7 @@ export default function DynastyRecords() {
                               {entry.name}
                             </Link>
                             <p className="text-[11px] text-txt-tertiary truncate">
-                              {entry.position && `${entry.position} · `}
+                              {entry.position && `${entry.position} `}
                               {mode === 'career' ? formatYears(entry.years) : entry.year}
                             </p>
                           </div>
@@ -1208,7 +1208,7 @@ export default function DynastyRecords() {
                                 {entry.name}
                               </Link>
                               <p className="text-[11px] text-txt-tertiary truncate">
-                                {entry.position && `${entry.position} · `}
+                                {entry.position && `${entry.position} `}
                                 {mode === 'career' ? formatYears(entry.years) : entry.year}
                               </p>
                             </div>

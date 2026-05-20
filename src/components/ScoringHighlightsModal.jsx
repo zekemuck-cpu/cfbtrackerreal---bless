@@ -688,7 +688,7 @@ export default function ScoringHighlightsModal({
                   <div className="flex items-center gap-2 text-sm leading-tight">
                     <span className="text-white font-semibold truncate">
                       {currentPlay?.scoreType}
-                      {currentPlay?.yards && ` · ${currentPlay.yards} yd`}
+                      {currentPlay?.yards && ` ${currentPlay.yards} yd`}
                     </span>
                     {currentPlay?.patResult && (
                       <span className="text-txt-muted text-xs hidden sm:inline whitespace-nowrap">
@@ -698,7 +698,7 @@ export default function ScoringHighlightsModal({
                   </div>
                   <div className="text-xs text-txt-muted truncate mt-0.5">
                     <span className="tabular-nums">Q{currentPlay?.quarter} {currentPlay?.timeLeft}</span>
-                    <span className="mx-1.5 opacity-50">·</span>
+                    
                     {isPassingTD && currentPlay?.passer ? (
                       <>
                         <NameLink player={passerPlayer} label={currentPlay.passer} />

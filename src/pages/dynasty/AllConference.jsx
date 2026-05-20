@@ -375,7 +375,7 @@ export default function AllConference() {
             </span>
           )}
           <div className="text-xs text-txt-tertiary truncate">
-            {player.class && <>{player.class} · </>}{schoolName}
+            {player.class && <>{player.class} </>}{schoolName}
           </div>
         </div>
       </div>

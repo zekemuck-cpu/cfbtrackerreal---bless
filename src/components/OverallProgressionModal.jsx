@@ -161,7 +161,7 @@ export default function OverallProgressionModal({
               {player.name} Overall Progression
             </h2>
             <div className="text-xs text-txt-tertiary mt-1 truncate">
-              {[player.position, player.year].filter(Boolean).join(' · ')}
+              {[player.position, player.year].filter(Boolean).join(' ')}
             </div>
           </div>
           <button

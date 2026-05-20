@@ -568,7 +568,7 @@ export default function Account() {
                       <option value="">— pick a dynasty —</option>
                       {(dynasties || []).map(d => (
                         <option key={d.id} value={d.id}>
-                          {(d.dynastyName || d.teamName || d.id)} · {d.storageType} · {d.id.slice(0, 8)}…
+                          {(d.dynastyName || d.teamName || d.id)} {d.storageType} {d.id.slice(0, 8)}…
                         </option>
                       ))}
                     </select>

@@ -327,7 +327,7 @@ export default function PlayersByState() {
                           )}
                           <span className="font-medium">
                             {player.position}
-                            {player.jerseyNumber ? ` · #${player.jerseyNumber}` : ''}
+                            {player.jerseyNumber ? ` #${player.jerseyNumber}` : ''}
                           </span>
                         </div>
                       </div>

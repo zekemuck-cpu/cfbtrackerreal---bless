@@ -2,9 +2,9 @@
  * SheetModalFooter — the unified bottom action row for every sheet
  * modal. Two visual groups:
  *
- *   Left:  tertiary actions  — Delete sheet · Reset · Embedded view
+ *   Left:  tertiary actions  — Delete sheet Reset Embedded view
  *          (small dotted-underline text links, visually subordinate)
- *   Right: primary saves     — Save & keep sheet · Save
+ *   Right: primary saves     — Save & keep sheet Save
  *          (medium buttons, primary filled, secondary bordered)
  *
  * Desktop: single row, tertiary anchored left, primary anchored right.

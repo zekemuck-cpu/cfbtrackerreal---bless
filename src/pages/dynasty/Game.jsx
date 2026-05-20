@@ -323,7 +323,7 @@ function buildHighlightSentence(play) {
       if (primary && passer) parts.push(`${passer} → ${primary}`)
       else if (primary) parts.push(primary)
       if (yardsStr) parts.push(`${yardsStr} yds`)
-      return parts.join(' · ')
+      return parts.join(' ')
     }
   }
 }
@@ -1972,7 +1972,7 @@ export default function Game() {
             )
           })()}
 
-          {/* Gamecast Tab — leaders · recap · ratings+awards, ESPN-style */}
+          {/* Gamecast Tab — leaders recap ratings+awards, ESPN-style */}
           {activeTab === 'gamecast' && (() => {
             // ---- Game leaders: top producer per category on each side ----
             const n = (v) => Number(v) || 0
@@ -2195,7 +2195,7 @@ export default function Game() {
                   </div>
                 </section>
 
-                {/* RIGHT: Scoring · Ratings · Awards — sibling sections with shared rhythm */}
+                {/* RIGHT: Scoring Ratings Awards — sibling sections with shared rhythm */}
                 <aside className="order-3 min-w-0 space-y-7">
                   {(() => {
                     const playsWithVideo = sortPlaysChronologically(collapsePatRowsIntoTDs(game.boxScore?.scoringSummary))
@@ -2269,7 +2269,7 @@ export default function Game() {
                           const label = (
                             <>
                               <div className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${a.national ? 'text-amber-400' : 'text-txt-muted'}`}>
-                                {a.scope} · {a.side}
+                                {a.scope} {a.side}
                               </div>
                               <div className="text-[13px] font-semibold text-txt-primary truncate mt-0.5">
                                 {a.name}
@@ -3536,12 +3536,11 @@ export default function Game() {
                         className="text-sm font-semibold text-txt-primary hover:underline mb-1"
                       >
                         {p.name}
-                        {p.position ? <span className="text-txt-tertiary"> · {p.position}</span> : null}
+                        {p.position ? <span className="text-txt-tertiary"> {p.position}</span> : null}
                       </Link>
                       {(card.year || card.label) && (
                         <div className="text-[11px] text-txt-tertiary mb-2">
                           {card.year ? <span className="tabular">{card.year}</span> : null}
-                          {card.year && card.label ? <span className="mx-1">·</span> : null}
                           {card.label}
                         </div>
                       )}
