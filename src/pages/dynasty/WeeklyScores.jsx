@@ -263,7 +263,7 @@ export default function WeeklyScores() {
   // Tab state lives in the URL (?tab=scores|recap) so deep-links from the
   // dashboard's recap to-do land directly on the recap view, and so the
   // user's choice survives navigating into a game and back.
-  const tabParam = searchParams.get('tab') === 'recap' ? 'recap' : 'scores'
+  const tabParam = (searchParams.get('tab') === 'recap' || displayWeek === -1) ? 'recap' : 'scores'
   const setTab = (next) => {
     setSearchParams(prev => {
       const params = new URLSearchParams(prev)
@@ -726,7 +726,7 @@ export default function WeeklyScores() {
         }
         return (
           <div className="flex gap-1 border-b border-surface-4 -mt-2">
-            <Tab value="scores" label="Scores" />
+            {displayWeek !== -1 && <Tab value="scores" label="Scores" />}
             <Tab value="recap" label={displayWeek === -1 ? 'Preseason Recap' : 'Recap'} />
           </div>
         )
