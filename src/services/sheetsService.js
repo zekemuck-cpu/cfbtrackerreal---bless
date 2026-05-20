@@ -188,6 +188,7 @@ function getTeamsWithCustom(dynastyTeams = null) {
     if (!team?.abbr) continue
     teams[team.abbr] = {
       name: team.name,
+      tid: team.tid,
       backgroundColor: team.primaryColor || '#333333',
       textColor: team.secondaryColor || '#FFFFFF',
     }
@@ -11216,23 +11217,42 @@ export async function createRecruitingSheet(dynastyName, year, dynastyTeams = nu
 
     // Pre-fill existing commitments if any
     if (existingCommitments && existingCommitments.length > 0) {
+      // Coerce every stringValue to an actual string. Some legacy
+      // commitments stored previousTeam (and occasionally other fields)
+      // as a numeric tid; Sheets' batchUpdate rejects non-strings on
+      // string_value with "Invalid value… (TYPE_STRING), 53".
+      const str = (v) => (v === null || v === undefined) ? '' : String(v)
+      // For previousTeam specifically: if it's numeric, try to map the
+      // tid back to its abbr (the column is a strict dropdown of abbrs).
+      const previousTeamAsAbbr = (v) => {
+        if (v === null || v === undefined || v === '') return ''
+        const s = String(v)
+        // Already an abbr (non-numeric string)
+        if (Number.isNaN(Number(s))) return s
+        const tid = Number(s)
+        // Reverse-lookup in the teams object built earlier in this fn
+        for (const [abbr, t] of Object.entries(teams)) {
+          if (Number(t?.tid) === tid) return abbr
+        }
+        return '' // unknown tid → blank (column is strict)
+      }
       const dataRows = existingCommitments.map(recruit => ({
         values: [
-          { userEnteredValue: { stringValue: recruit.name || '' } },
-          { userEnteredValue: { stringValue: recruit.class || 'HS' } },
-          { userEnteredValue: { stringValue: recruit.position || '' } },
-          { userEnteredValue: { stringValue: recruit.archetype || '' } },
-          { userEnteredValue: { stringValue: starsNumberToSymbol(recruit.stars) } },
-          { userEnteredValue: recruit.nationalRank ? { numberValue: recruit.nationalRank } : { stringValue: '' } },
-          { userEnteredValue: recruit.stateRank ? { numberValue: recruit.stateRank } : { stringValue: '' } },
-          { userEnteredValue: recruit.positionRank ? { numberValue: recruit.positionRank } : { stringValue: '' } },
-          { userEnteredValue: { stringValue: recruit.height || '' } },
-          { userEnteredValue: recruit.weight ? { numberValue: recruit.weight } : { stringValue: '' } },
-          { userEnteredValue: { stringValue: recruit.hometown || '' } },
-          { userEnteredValue: { stringValue: recruit.state || '' } },
-          { userEnteredValue: { stringValue: recruit.gemBust || '' } },
-          { userEnteredValue: { stringValue: recruit.devTrait || 'Normal' } },
-          { userEnteredValue: { stringValue: recruit.previousTeam || '' } }
+          { userEnteredValue: { stringValue: str(recruit.name) } },
+          { userEnteredValue: { stringValue: str(recruit.class || 'HS') } },
+          { userEnteredValue: { stringValue: str(recruit.position) } },
+          { userEnteredValue: { stringValue: str(recruit.archetype) } },
+          { userEnteredValue: { stringValue: str(starsNumberToSymbol(recruit.stars)) } },
+          { userEnteredValue: recruit.nationalRank ? { numberValue: Number(recruit.nationalRank) } : { stringValue: '' } },
+          { userEnteredValue: recruit.stateRank ? { numberValue: Number(recruit.stateRank) } : { stringValue: '' } },
+          { userEnteredValue: recruit.positionRank ? { numberValue: Number(recruit.positionRank) } : { stringValue: '' } },
+          { userEnteredValue: { stringValue: str(recruit.height) } },
+          { userEnteredValue: recruit.weight ? { numberValue: Number(recruit.weight) } : { stringValue: '' } },
+          { userEnteredValue: { stringValue: str(recruit.hometown) } },
+          { userEnteredValue: { stringValue: str(recruit.state) } },
+          { userEnteredValue: { stringValue: str(recruit.gemBust) } },
+          { userEnteredValue: { stringValue: str(recruit.devTrait || 'Normal') } },
+          { userEnteredValue: { stringValue: previousTeamAsAbbr(recruit.previousTeam) } }
         ]
       }))
 
