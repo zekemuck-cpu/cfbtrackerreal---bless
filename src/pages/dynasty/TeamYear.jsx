@@ -4757,8 +4757,7 @@ export default function TeamYear() {
               the upper-right of the games card below. */}
           {teamYearGames.length === 0 && !isViewOnly && (
             <div className="card p-8 text-center">
-              <div className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '2px' }}>NO SCHEDULE</div>
-              <p className="text-sm text-txt-secondary mb-4">No games have been recorded for {teamAbbr} · {selectedYear}.</p>
+              <div className="label-xs text-txt-tertiary mb-4" style={{ letterSpacing: '2px' }}>NO SCHEDULE</div>
               <button
                 type="button"
                 onClick={() => setShowScheduleModal(true)}
