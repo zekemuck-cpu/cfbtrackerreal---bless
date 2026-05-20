@@ -17,6 +17,7 @@ import DetailedStatsEntryModal from '../../components/DetailedStatsEntryModal'
 import TeamEditModal from '../../components/TeamEditModal'
 import { TEAMS, resolveTid, getTeam, getTeamByAbbr, getCurrentTeamAbbr, getCurrentTeamTid, getGameTeamInfo, getAbbrFromTeamName, getTidFromTeamName } from '../../data/teamRegistry'
 import { uploadImage } from '../../utils/imageUpload'
+import { readClipboardImageAsFile } from '../../utils/clipboardImage'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { isSameYear, weekSortKey } from '../../utils/compareUtils'
 import { calculateRecruitingClassScore, formatRecruitingClassScore, flattenClassCommitments } from '../../utils/recruitingScore'
@@ -7237,21 +7238,24 @@ export default function TeamYear() {
               <button
                 type="button"
                 onClick={async () => {
-                  try {
-                    const clipboardItems = await navigator.clipboard.read()
-                    for (const item of clipboardItems) {
-                      const imageType = item.types.find(type => type.startsWith('image/'))
-                      if (imageType) {
-                        const blob = await item.getType(imageType)
-                        const file = new File([blob], 'pasted-image.png', { type: imageType })
-                        await handleQuickImageUpload(file)
-                        return
-                      }
-                    }
-                    toast.error('No image found in clipboard')
-                  } catch (err) {
-                    console.error('Clipboard read failed:', err)
-                    toast.error('Could not read clipboard. Try using the file picker instead.')
+                  // Use the shared clipboard reader so this modal handles
+                  // every shape the clipboard can hold: real image blob,
+                  // text/html with <img src> (ChatGPT/Notion/Docs case),
+                  // and plain-text URLs ("Copy image address").
+                  const result = await readClipboardImageAsFile()
+                  if (result.ok) {
+                    await handleQuickImageUpload(result.file)
+                    return
+                  }
+                  if (result.reason === 'denied') {
+                    toast.error('Browser blocked clipboard access. Try Choose from Device instead.')
+                  } else if (result.reason === 'auth_url') {
+                    toast.error('That ChatGPT link needs login to load. Right-click the image and choose "Copy image" (not "Copy link"), or save it and upload the file.')
+                  } else if (result.reason === 'fetch_failed') {
+                    console.error('Clipboard URL fetch failed:', result.error)
+                    toast.error("Couldn't fetch that image URL. Save the image and use Choose from Device.")
+                  } else {
+                    toast.error("Couldn't find an image in the clipboard. Copy an image (not just text), or use Choose from Device.")
                   }
                 }}
                 disabled={imageUploading}
