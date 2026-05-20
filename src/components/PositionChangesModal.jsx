@@ -12,221 +12,6 @@ const POSITIONS = [
   'K', 'P'
 ]
 
-// Searchable player input component
-function PlayerSearchInput({ value, players, onSelect, primaryColor, placeholder = "Search player..." }) {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [isOpen, setIsOpen] = useState(false)
-  const [highlightedIndex, setHighlightedIndex] = useState(0)
-  const [dropdownPos, setDropdownPos] = useState(null)
-  const containerRef = useRef(null)
-  const inputRef = useRef(null)
-
-  const selectedPlayer = players.find(p => String(p.pid) === String(value))
-
-  const filteredPlayers = searchTerm
-    ? players.filter(p =>
-        p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.position?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : players
-
-  // Update dropdown position - viewport aware
-  const updatePosition = () => {
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect()
-      const viewportHeight = window.innerHeight
-      const dropdownHeight = 256 // max-h-64
-      const spaceBelow = viewportHeight - rect.bottom - 8
-      const spaceAbove = rect.top - 8
-      const openUpward = spaceBelow < dropdownHeight && spaceAbove > spaceBelow
-
-      setDropdownPos({
-        left: rect.left,
-        width: rect.width,
-        ...(openUpward
-          ? { bottom: viewportHeight - rect.top + 4, maxHeight: Math.min(dropdownHeight, spaceAbove) }
-          : { top: rect.bottom + 4, maxHeight: Math.min(dropdownHeight, spaceBelow) }
-        )
-      })
-    }
-  }
-
-  useEffect(() => {
-    setHighlightedIndex(0)
-  }, [filteredPlayers.length])
-
-  // Scroll highlighted item into view
-  useEffect(() => {
-    if (isOpen && highlightedIndex >= 0) {
-      const dropdown = document.getElementById('player-search-dropdown')
-      const highlighted = dropdown?.querySelector(`[data-index="${highlightedIndex}"]`)
-      if (highlighted) {
-        highlighted.scrollIntoView({ block: 'nearest' })
-      }
-    }
-  }, [highlightedIndex, isOpen])
-
-  useEffect(() => {
-    if (isOpen) {
-      updatePosition()
-    }
-  }, [isOpen])
-
-  useEffect(() => {
-    if (!isOpen) return
-
-    const handleClickOutside = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        const dropdown = document.getElementById('player-search-dropdown')
-        if (dropdown && dropdown.contains(e.target)) return
-        setIsOpen(false)
-      }
-    }
-
-    const handleScroll = () => updatePosition()
-
-    document.addEventListener('mousedown', handleClickOutside)
-    window.addEventListener('scroll', handleScroll, true)
-    window.addEventListener('resize', handleScroll)
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-      window.removeEventListener('scroll', handleScroll, true)
-      window.removeEventListener('resize', handleScroll)
-    }
-  }, [isOpen])
-
-  const handleInputChange = (e) => {
-    setSearchTerm(e.target.value)
-    setIsOpen(true)
-  }
-
-  const handleSelectPlayer = (player) => {
-    onSelect(player.pid)
-    setSearchTerm('')
-    setIsOpen(false)
-  }
-
-  const handleClear = () => {
-    onSelect('')
-    setSearchTerm('')
-    setIsOpen(false)
-  }
-
-  const handleKeyDown = (e) => {
-    if (!isOpen) {
-      if (e.key === 'ArrowDown' || e.key === 'Enter') {
-        setIsOpen(true)
-      }
-      return
-    }
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault()
-        setHighlightedIndex(prev => Math.min(prev + 1, filteredPlayers.length - 1))
-        break
-      case 'ArrowUp':
-        e.preventDefault()
-        setHighlightedIndex(prev => Math.max(prev - 1, 0))
-        break
-      case 'Enter':
-        e.preventDefault()
-        if (filteredPlayers[highlightedIndex]) {
-          handleSelectPlayer(filteredPlayers[highlightedIndex])
-        }
-        break
-      case 'Tab':
-        if (filteredPlayers.length > 0) {
-          const playerToSelect = filteredPlayers[highlightedIndex] || filteredPlayers[0]
-          handleSelectPlayer(playerToSelect)
-        }
-        break
-      case 'Escape':
-        setIsOpen(false)
-        setSearchTerm('')
-        break
-    }
-  }
-
-  const renderDropdown = () => {
-    if (!isOpen || selectedPlayer || !dropdownPos) return null
-
-    return createPortal(
-      <div
-        id="player-search-dropdown"
-        className="fixed z-[10000] bg-surface-2 border border-surface-5 rounded-lg shadow-2xl overflow-y-auto"
-        style={dropdownPos}
-      >
-        {filteredPlayers.length > 0 ? (
-          filteredPlayers.map((player, idx) => (
-            <div
-              key={player.pid}
-              data-index={idx}
-              onClick={() => handleSelectPlayer(player)}
-              className={`px-3 py-2.5 cursor-pointer flex justify-between items-center transition-colors text-txt-primary ${
-                idx === highlightedIndex ? 'bg-surface-4' : 'hover:bg-surface-3'
-              }`}
-            >
-              <span className="font-medium">{player.name}</span>
-              <span
-                className="text-xs px-2 py-0.5 rounded font-bold"
-                style={{ backgroundColor: primaryColor, color: getContrastTextColor(primaryColor) }}
-              >
-                {player.position}
-              </span>
-            </div>
-          ))
-        ) : (
-          <div className="px-3 py-4 text-txt-tertiary text-sm text-center">No players found</div>
-        )}
-      </div>,
-      document.body
-    )
-  }
-
-  return (
-    <div className="relative" ref={containerRef}>
-      {selectedPlayer ? (
-        <div className="flex items-center gap-2 px-3 py-2 bg-surface-2 rounded-lg border border-surface-5">
-          <div className="flex-1 min-w-0">
-            <span className="font-semibold text-txt-primary truncate">{selectedPlayer.name}</span>
-          </div>
-          <button
-            aria-label="Clear"
-            onClick={handleClear}
-            className="p-1 hover:bg-surface-4 rounded transition-colors"
-            type="button"
-          >
-            <svg className="w-4 h-4 text-txt-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      ) : (
-        <div className="relative">
-          <input
-            ref={inputRef}
-            type="text"
-            value={searchTerm}
-            onChange={handleInputChange}
-            onFocus={() => setIsOpen(true)}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            className="w-full px-3 py-2 bg-surface-2 rounded-lg border border-surface-5 focus:border-team-primary focus:outline-none text-txt-primary placeholder:text-txt-tertiary"
-            style={{ '--tw-ring-color': primaryColor }}
-          />
-          <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-txt-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </div>
-      )}
-
-      {renderDropdown()}
-    </div>
-  )
-}
-
 // Position selector — custom dropdown with viewport-aware positioning
 function PositionSelector({ value, onChange, disabled, excludePosition, primaryColor }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -566,16 +351,21 @@ export default function PositionChangesModal({
               }`}
             >
               <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
-                {/* Player Search */}
+                {/* Player Select */}
                 <div className="flex-1 min-w-0">
                   <label className="block text-[11px] font-semibold text-txt-tertiary mb-1.5 uppercase tracking-wider">Player</label>
-                  <PlayerSearchInput
-                    value={change.playerId}
-                    players={getAvailablePlayers(index)}
-                    onSelect={(playerId) => handlePlayerSelect(index, playerId)}
-                    primaryColor={primaryColor}
-                    placeholder="Search by name or position…"
-                  />
+                  <select
+                    value={change.playerId || ''}
+                    onChange={(e) => handlePlayerSelect(index, e.target.value)}
+                    className="w-full px-3 py-2 bg-surface-2 rounded-lg border border-surface-5 text-txt-primary focus:outline-none appearance-none"
+                  >
+                    <option value="">Select player…</option>
+                    {getAvailablePlayers(index).map(p => (
+                      <option key={p.pid} value={p.pid}>
+                        {p.name} ({p.position})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Position Change Display */}

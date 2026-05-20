@@ -8507,7 +8507,9 @@ export default function Dashboard() {
         isOpen={showPositionChangesModal}
         onClose={() => setShowPositionChangesModal(false)}
         onSave={handlePositionChangesSave}
-        players={currentDynasty?.players || []}
+        players={(currentDynasty?.players || []).filter(p =>
+          isPlayerOnRoster(p, getCurrentTeamTid(currentDynasty), offseasonDataYear, currentDynasty)
+        )}
         existingChanges={currentDynasty?.positionChangesByYear?.[offseasonDataYear] || []}
         teamColors={teamColors}
       />
