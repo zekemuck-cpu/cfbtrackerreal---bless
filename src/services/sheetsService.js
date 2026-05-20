@@ -1174,10 +1174,10 @@ async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleS
           },
           rows: scheduleRows.map(row => ({
             values: [
-              { userEnteredValue: { numberValue: row.week } },
-              { userEnteredValue: { stringValue: row.userTeam } },
-              { userEnteredValue: { stringValue: row.opponent } },
-              { userEnteredValue: { stringValue: row.site } }
+              { userEnteredValue: { numberValue: Number(row.week) || 0 } },
+              { userEnteredValue: { stringValue: String(row.userTeam ?? '') } },
+              { userEnteredValue: { stringValue: String(row.opponent ?? '') } },
+              { userEnteredValue: { stringValue: String(row.site ?? '') } }
             ]
           })),
           fields: 'userEnteredValue'
@@ -2537,11 +2537,11 @@ async function initializeConferenceChampionshipSheet(spreadsheetId, accessToken,
           const existing = getExistingCC(conf)
           return {
             values: [
-              { userEnteredValue: { stringValue: conf } },
-              { userEnteredValue: { stringValue: existing.team1 || '' } },
-              { userEnteredValue: { stringValue: existing.team2 || '' } },
-              { userEnteredValue: existing.team1Score != null ? { numberValue: existing.team1Score } : { stringValue: '' } },
-              { userEnteredValue: existing.team2Score != null ? { numberValue: existing.team2Score } : { stringValue: '' } }
+              { userEnteredValue: { stringValue: String(conf ?? '') } },
+              { userEnteredValue: { stringValue: String(existing.team1 ?? '') } },
+              { userEnteredValue: { stringValue: String(existing.team2 ?? '') } },
+              { userEnteredValue: (existing.team1Score != null && !Number.isNaN(Number(existing.team1Score))) ? { numberValue: Number(existing.team1Score) } : { stringValue: '' } },
+              { userEnteredValue: (existing.team2Score != null && !Number.isNaN(Number(existing.team2Score))) ? { numberValue: Number(existing.team2Score) } : { stringValue: '' } }
             ]
           }
         }),
@@ -3480,21 +3480,21 @@ async function initializeBowlWeek1Sheet(spreadsheetId, accessToken, sheetId, bow
     }
 
     const values = [
-      { userEnteredValue: { stringValue: bowl } },
-      { userEnteredValue: { stringValue: team1 } },
+      { userEnteredValue: { stringValue: String(bowl ?? '') } },
+      { userEnteredValue: { stringValue: String(team1 ?? '') } },
       { userEnteredValue: { stringValue: '' } },  // Team 1 Rank (blank, user fills from screenshot)
-      { userEnteredValue: { stringValue: team2 } },
+      { userEnteredValue: { stringValue: String(team2 ?? '') } },
       { userEnteredValue: { stringValue: '' } },  // Team 2 Rank (blank)
     ]
 
     // Add scores if we have them
-    if (team1Score !== undefined && team1Score !== null) {
-      values.push({ userEnteredValue: { numberValue: team1Score } })
+    if (team1Score !== undefined && team1Score !== null && !Number.isNaN(Number(team1Score))) {
+      values.push({ userEnteredValue: { numberValue: Number(team1Score) } })
     } else {
       values.push({ userEnteredValue: { stringValue: '' } })
     }
-    if (team2Score !== undefined && team2Score !== null) {
-      values.push({ userEnteredValue: { numberValue: team2Score } })
+    if (team2Score !== undefined && team2Score !== null && !Number.isNaN(Number(team2Score))) {
+      values.push({ userEnteredValue: { numberValue: Number(team2Score) } })
     } else {
       values.push({ userEnteredValue: { stringValue: '' } })
     }
@@ -3972,8 +3972,8 @@ async function initializeWeeklyScoresSheet(spreadsheetId, accessToken, sheetId, 
       ] })
       continue
     }
-    const homeAbbr = g.homeTeam || ''
-    const awayAbbr = g.awayTeam || ''
+    const homeAbbr = String(g.homeTeam ?? '')
+    const awayAbbr = String(g.awayTeam ?? '')
     const homeScore = g.homeScore
     const awayScore = g.awayScore
     const homeRank = g.homeRank
@@ -4600,16 +4600,16 @@ async function initializeBowlWeek2Sheet(spreadsheetId, accessToken, sheetId, bow
         },
         rows: rowData.map(row => ({
           values: [
-            { userEnteredValue: { stringValue: row.bowl } },
-            { userEnteredValue: { stringValue: row.team1 } },
+            { userEnteredValue: { stringValue: String(row.bowl ?? '') } },
+            { userEnteredValue: { stringValue: String(row.team1 ?? '') } },
             { userEnteredValue: { stringValue: '' } },  // Team 1 Rank (blank, user fills from screenshot)
-            { userEnteredValue: { stringValue: row.team2 } },
+            { userEnteredValue: { stringValue: String(row.team2 ?? '') } },
             { userEnteredValue: { stringValue: '' } },  // Team 2 Rank (blank)
-            row.team1Score !== undefined && row.team1Score !== null
-              ? { userEnteredValue: { numberValue: row.team1Score } }
+            (row.team1Score !== undefined && row.team1Score !== null && !Number.isNaN(Number(row.team1Score)))
+              ? { userEnteredValue: { numberValue: Number(row.team1Score) } }
               : { userEnteredValue: { stringValue: '' } },
-            row.team2Score !== undefined && row.team2Score !== null
-              ? { userEnteredValue: { numberValue: row.team2Score } }
+            (row.team2Score !== undefined && row.team2Score !== null && !Number.isNaN(Number(row.team2Score)))
+              ? { userEnteredValue: { numberValue: Number(row.team2Score) } }
               : { userEnteredValue: { stringValue: '' } }
           ]
         })),
@@ -5316,11 +5316,11 @@ async function initializeCFPFirstRoundSheet(spreadsheetId, accessToken, sheetId,
           const existing = getExistingGame(gameName)
           return {
             values: [
-              { userEnteredValue: { stringValue: gameName } },
-              { userEnteredValue: { stringValue: existing.higherSeed || '' } },
-              { userEnteredValue: { stringValue: existing.lowerSeed || '' } },
-              { userEnteredValue: existing.higherSeedScore != null ? { numberValue: existing.higherSeedScore } : { stringValue: '' } },
-              { userEnteredValue: existing.lowerSeedScore != null ? { numberValue: existing.lowerSeedScore } : { stringValue: '' } }
+              { userEnteredValue: { stringValue: String(gameName ?? '') } },
+              { userEnteredValue: { stringValue: String(existing.higherSeed ?? '') } },
+              { userEnteredValue: { stringValue: String(existing.lowerSeed ?? '') } },
+              { userEnteredValue: (existing.higherSeedScore != null && !Number.isNaN(Number(existing.higherSeedScore))) ? { numberValue: Number(existing.higherSeedScore) } : { stringValue: '' } },
+              { userEnteredValue: (existing.lowerSeedScore != null && !Number.isNaN(Number(existing.lowerSeedScore))) ? { numberValue: Number(existing.lowerSeedScore) } : { stringValue: '' } }
             ]
           }
         }),
@@ -7054,8 +7054,8 @@ async function initializeDetailedStatsTab(spreadsheetId, accessToken, sheetId, t
         rows: sortedPlayers.map(player => {
           // Name and Snaps columns
           const baseValues = [
-            { userEnteredValue: { stringValue: player.name || '' } },
-            { userEnteredValue: { numberValue: player.snapsPlayed || 0 } }
+            { userEnteredValue: { stringValue: String(player.name ?? '') } },
+            { userEnteredValue: { numberValue: Number(player.snapsPlayed) || 0 } }
           ]
 
           // Stat columns - pre-fill from aggregated box scores if available
@@ -7504,11 +7504,11 @@ async function prefillConferenceStandingsData(spreadsheetId, accessToken, existi
       },
       rows: [{
         values: [
-          { userEnteredValue: { stringValue: v.team } },
-          { userEnteredValue: { numberValue: v.wins } },
-          { userEnteredValue: { numberValue: v.losses } },
-          { userEnteredValue: { numberValue: v.pointsFor } },
-          { userEnteredValue: { numberValue: v.pointsAgainst } }
+          { userEnteredValue: { stringValue: String(v.team ?? '') } },
+          { userEnteredValue: { numberValue: Number(v.wins) || 0 } },
+          { userEnteredValue: { numberValue: Number(v.losses) || 0 } },
+          { userEnteredValue: { numberValue: Number(v.pointsFor) || 0 } },
+          { userEnteredValue: { numberValue: Number(v.pointsAgainst) || 0 } }
         ]
       }],
       fields: 'userEnteredValue'
@@ -7863,7 +7863,7 @@ async function prefillFinalPollsData(spreadsheetId, accessToken, sheetId, existi
       },
       rows: [{
         values: [
-          { userEnteredValue: { stringValue: v.media } },
+          { userEnteredValue: { stringValue: String(v.media ?? '') } },
         ]
       }],
       fields: 'userEnteredValue'
@@ -10485,7 +10485,7 @@ async function initializePlayersLeavingSheet(spreadsheetId, accessToken, sheetId
   // Build pre-filled rows for graduating seniors
   const prefilledRows = seniorsGraduating.map(player => ({
     values: [
-      { userEnteredValue: { stringValue: player.name } },
+      { userEnteredValue: { stringValue: String(player.name ?? '') } },
       { userEnteredValue: { stringValue: 'Graduating' } }
     ]
   }))
@@ -10839,9 +10839,9 @@ export async function createDraftResultsSheet(dynastyName, year, playersLeavingT
     if (draftDeclarees.length > 0) {
       const prefilledRows = draftDeclarees.map(player => ({
         values: [
-          { userEnteredValue: { stringValue: player.name } },
-          { userEnteredValue: { stringValue: player.position } },
-          { userEnteredValue: { numberValue: player.overall || 0 } },
+          { userEnteredValue: { stringValue: String(player.name ?? '') } },
+          { userEnteredValue: { stringValue: String(player.position ?? '') } },
+          { userEnteredValue: { numberValue: Number(player.overall) || 0 } },
           { userEnteredValue: { stringValue: '' } } // Draft round to be filled in
         ]
       }))
@@ -11465,10 +11465,12 @@ async function initializeTrainingResultsSheet(spreadsheetId, accessToken, sheetI
   // Build pre-filled rows for players
   const dataRows = players.map(player => ({
     values: [
-      { userEnteredValue: { stringValue: player.name || '' } },
-      { userEnteredValue: { stringValue: player.position || '' } },
-      // Show blank if overall is 0 or undefined, otherwise show the number
-      player.overall ? { userEnteredValue: { numberValue: player.overall } } : { userEnteredValue: { stringValue: '' } },
+      { userEnteredValue: { stringValue: String(player.name ?? '') } },
+      { userEnteredValue: { stringValue: String(player.position ?? '') } },
+      // Show blank if overall is 0/undefined/non-numeric, otherwise show the number
+      (player.overall != null && player.overall !== '' && !Number.isNaN(Number(player.overall)) && Number(player.overall) !== 0)
+        ? { userEnteredValue: { numberValue: Number(player.overall) } }
+        : { userEnteredValue: { stringValue: '' } },
       { userEnteredValue: { stringValue: '' } } // New Overall - user enters this
     ]
   }))
@@ -11777,9 +11779,9 @@ async function initializeEncourageTransfersSheet(spreadsheetId, accessToken, she
         },
         rows: sortedPlayers.map(player => ({
           values: [
-            { userEnteredValue: { stringValue: player.name || '' }, userEnteredFormat: { horizontalAlignment: 'LEFT' } },
-            { userEnteredValue: { stringValue: player.position || '' }, userEnteredFormat: { horizontalAlignment: 'CENTER' } },
-            { userEnteredValue: { numberValue: player.overall || 0 }, userEnteredFormat: { horizontalAlignment: 'CENTER' } },
+            { userEnteredValue: { stringValue: String(player.name ?? '') }, userEnteredFormat: { horizontalAlignment: 'LEFT' } },
+            { userEnteredValue: { stringValue: String(player.position ?? '') }, userEnteredFormat: { horizontalAlignment: 'CENTER' } },
+            { userEnteredValue: { numberValue: Number(player.overall) || 0 }, userEnteredFormat: { horizontalAlignment: 'CENTER' } },
             { userEnteredValue: { boolValue: false }, dataValidation: { condition: { type: 'BOOLEAN' }, strict: true } }
           ]
         })),
@@ -12052,11 +12054,11 @@ async function initializeRecruitOverallsSheet(spreadsheetId, accessToken, sheetI
         },
         rows: sortedRecruits.map(recruit => ({
           values: [
-            { userEnteredValue: { stringValue: recruit.name || '' }, userEnteredFormat: { horizontalAlignment: 'LEFT' } },
-            { userEnteredValue: { stringValue: recruit.position || '' }, userEnteredFormat: { horizontalAlignment: 'CENTER' } },
-            { userEnteredValue: { stringValue: recruit.year || recruit.class || '' }, userEnteredFormat: { horizontalAlignment: 'CENTER' } },
-            { userEnteredValue: { numberValue: recruit.stars || 0 }, userEnteredFormat: { horizontalAlignment: 'CENTER' } },
-            { userEnteredValue: recruit.overall ? { numberValue: recruit.overall } : { stringValue: '' }, userEnteredFormat: { horizontalAlignment: 'CENTER' } },
+            { userEnteredValue: { stringValue: String(recruit.name ?? '') }, userEnteredFormat: { horizontalAlignment: 'LEFT' } },
+            { userEnteredValue: { stringValue: String(recruit.position ?? '') }, userEnteredFormat: { horizontalAlignment: 'CENTER' } },
+            { userEnteredValue: { stringValue: String(recruit.year ?? recruit.class ?? '') }, userEnteredFormat: { horizontalAlignment: 'CENTER' } },
+            { userEnteredValue: { numberValue: Number(recruit.stars) || 0 }, userEnteredFormat: { horizontalAlignment: 'CENTER' } },
+            { userEnteredValue: (recruit.overall != null && recruit.overall !== '' && !Number.isNaN(Number(recruit.overall))) ? { numberValue: Number(recruit.overall) } : { stringValue: '' }, userEnteredFormat: { horizontalAlignment: 'CENTER' } },
             { userEnteredValue: recruit.jerseyNumber != null && recruit.jerseyNumber !== '' ? { stringValue: String(recruit.jerseyNumber) } : { stringValue: '' }, userEnteredFormat: { horizontalAlignment: 'CENTER' } }
           ]
         })),
@@ -13447,6 +13449,11 @@ const TEAM_STATS_ROWS = [
 // never need to think about the sheet's home/away column layout.
 export async function createGameTeamStatsSheet(homeTeamAbbr, awayTeamAbbr, year, week, existingData = null, dynastyTeams = null) {
   try {
+    // Defensive coerce: stringValue writes (and the sheet title) below
+    // assume these are strings. If a caller ever passes a tid, the
+    // Sheets API rejects with TYPE_STRING — keep that from happening.
+    homeTeamAbbr = String(homeTeamAbbr ?? '')
+    awayTeamAbbr = String(awayTeamAbbr ?? '')
     const accessToken = await getAccessToken()
 
     // Create the spreadsheet with 1 tab (3 columns: Stat, Away, Home)
@@ -13948,7 +13955,7 @@ export async function createTransferDestinationsSheet(dynastyName, year, transfe
         updateCells: {
           range: { sheetId, startRowIndex: 1, endRowIndex: sortedPlayers.length + 1, startColumnIndex: 0, endColumnIndex: 1 },
           rows: sortedPlayers.map(p => ({
-            values: [{ userEnteredValue: { stringValue: p.name || '' } }]
+            values: [{ userEnteredValue: { stringValue: String(p.name ?? '') } }]
           })),
           fields: 'userEnteredValue'
         }
@@ -14505,14 +14512,14 @@ async function initializePortalTransferClassSheet(spreadsheetId, accessToken, sh
   // overwrite if needed.
   const dataRows = transfers.map(transfer => {
     const j = transfer.jerseyNumber
-    const jerseyCell = (j != null && j !== '')
+    const jerseyCell = (j != null && j !== '' && !Number.isNaN(Number(j)))
       ? { userEnteredValue: { numberValue: Number(j) } }
       : { userEnteredValue: { stringValue: '' } }
     return {
       values: [
-        { userEnteredValue: { stringValue: transfer.name || '' } },
-        { userEnteredValue: { stringValue: transfer.position || '' } },
-        { userEnteredValue: { stringValue: transfer.incomingClass || transfer.year || 'Fr' } }, // Current class they came in as
+        { userEnteredValue: { stringValue: String(transfer.name ?? '') } },
+        { userEnteredValue: { stringValue: String(transfer.position ?? '') } },
+        { userEnteredValue: { stringValue: String(transfer.incomingClass ?? transfer.year ?? 'Fr') } }, // Current class they came in as
         { userEnteredValue: { stringValue: '' } }, // New Class - user selects from dropdown
         jerseyCell // Jersey # - user fills in
       ]
@@ -14911,11 +14918,11 @@ async function initializeFringeCaseClassSheet(spreadsheetId, accessToken, sheetI
 
     return {
       values: [
-        { userEnteredValue: { stringValue: player.name || '' } },
-        { userEnteredValue: { stringValue: player.position || '' } },
-        { userEnteredValue: { stringValue: playerClass } }, // Current class
-        { userEnteredValue: { numberValue: games } }, // Games played
-        { userEnteredValue: { stringValue: defaultClass } } // New Class - pre-filled with progressed class
+        { userEnteredValue: { stringValue: String(player.name ?? '') } },
+        { userEnteredValue: { stringValue: String(player.position ?? '') } },
+        { userEnteredValue: { stringValue: String(playerClass ?? '') } }, // Current class
+        { userEnteredValue: { numberValue: Number(games) || 0 } }, // Games played
+        { userEnteredValue: { stringValue: String(defaultClass ?? '') } } // New Class - pre-filled with progressed class
       ]
     }
   })
