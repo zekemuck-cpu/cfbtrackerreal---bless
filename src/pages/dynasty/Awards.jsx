@@ -503,7 +503,6 @@ export default function Awards() {
         <Card>
           <EmptyState
             title="No Awards Yet"
-            message={`Award winners for the ${displayYear} season haven't been recorded yet.`}
             action={!isViewOnly && (
               <Button variant="secondary" onClick={() => setShowAwardsModal(true)}>
                 Add Awards

@@ -63,13 +63,6 @@ export default function CardCollection() {
       {allCards.length === 0 ? (
         <EmptyState
           title="No cards yet"
-          message={
-            <>
-              {isViewOnly
-                ? 'Cards will show up here once any are added to this dynasty.'
-                : 'Click "Add new card" above to walk through the card creator. You\'ll search for a player, pick a card style, choose what the card commemorates, and upload the AI-generated images.'}
-            </>
-          }
         />
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 sm:gap-6">

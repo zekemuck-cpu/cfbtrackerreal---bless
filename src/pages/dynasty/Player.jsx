@@ -5161,8 +5161,7 @@ function PlayerInner() {
         if (highlights.length === 0) {
           return (
             <div className="text-center py-8" style={{ color: 'var(--text-tertiary)' }}>
-              <p>No highlights yet</p>
-              <p className="text-xs mt-1">Add YouTube clips, Imgur albums, or image URLs from the Player Editor.</p>
+              <p className="text-sm">No highlights yet</p>
             </div>
           )
         }

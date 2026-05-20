@@ -534,7 +534,6 @@ export default function AllAmericans() {
         <Card>
           <EmptyState
             title="No All-Americans Yet"
-            message={`All-American selections for the ${displayYear} season haven't been recorded yet.`}
             action={!isViewOnly && (
               <Button variant="secondary" onClick={() => setShowEditModal(true)}>
                 Add All-Americans
