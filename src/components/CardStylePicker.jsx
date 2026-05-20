@@ -322,7 +322,7 @@ function StyleCell({ style, selected, onClick }) {
             }}
           >
             {(style.brand || '').toUpperCase()}
-            
+            {' '}
             <span className="text-txt-primary">{yearTag}</span>
           </span>
         </div>

@@ -6432,7 +6432,7 @@ export default function Dashboard() {
                           </div>
                           <div className="text-xs text-txt-tertiary mt-0.5">
                             <span className="font-medium text-txt-secondary">{player.position}</span>
-                            
+                            {' '}
                             <span>{player.year || '-'}</span>
                           </div>
                         </div>
@@ -7431,7 +7431,7 @@ export default function Dashboard() {
                         <div className="text-sm font-medium text-txt-primary truncate">{player.name}</div>
                         <div className="text-[10px] text-txt-tertiary mt-0.5">
                           <span className="font-medium text-txt-secondary">{player.position}</span>
-                          
+                          {' '}
                           <span>{player.year || '-'}</span>
                         </div>
                       </div>

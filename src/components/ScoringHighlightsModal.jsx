@@ -698,7 +698,7 @@ export default function ScoringHighlightsModal({
                   </div>
                   <div className="text-xs text-txt-muted truncate mt-0.5">
                     <span className="tabular-nums">Q{currentPlay?.quarter} {currentPlay?.timeLeft}</span>
-                    
+                    {' '}
                     {isPassingTD && currentPlay?.passer ? (
                       <>
                         <NameLink player={passerPlayer} label={currentPlay.passer} />
