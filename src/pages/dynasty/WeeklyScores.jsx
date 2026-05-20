@@ -22,6 +22,7 @@ const REGULAR_SEASON_WEEKS = Array.from({ length: 15 }, (_, i) => i)  // 0-14
 const ALL_WEEKS = [...REGULAR_SEASON_WEEKS, 15, 16, 17, 18, 19]
 
 const WEEK_LABELS = {
+  0: 'Preseason',
   15: 'Conf Champ',
   16: 'Bowl Week 1',
   17: 'Bowl Week 2',
@@ -315,6 +316,7 @@ export default function WeeklyScores() {
   const displayWeek = urlWeek != null ? parseInt(urlWeek, 10) : (() => {
     const phase = currentDynasty.currentPhase
     const week = Number(currentDynasty.currentWeek)
+    if (phase === 'preseason') return 0
     if (phase === 'regular_season') return Math.max(0, week - 1)
     if (phase === 'conference_championship') return 15
     // postseason week 1 → show CCG (15), week 2 → BW1 (16), week 3 → BW2 (17), etc.
@@ -603,7 +605,7 @@ export default function WeeklyScores() {
               onChange={handleYearChange}
               ariaLabel="Select year"
             />
-            {displayWeek < 15 && <span>Week</span>}
+            {displayWeek > 0 && displayWeek < 15 && <span>Week</span>}
             <InlineYearSelect
               value={displayWeek}
               years={ALL_WEEKS}
