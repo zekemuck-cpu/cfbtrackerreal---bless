@@ -520,7 +520,7 @@ export default function TeamYear() {
   const { id, tid: tidParam, year } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { currentDynasty: _dyn, loadingDynastyId, updateDynasty, addGame, saveRoster, isViewOnly, saveTeamYearInfo, saveSchedule } = useDynasty()
+  const { currentDynasty: _dyn, loadingDynastyId, updateDynasty, updatePlayer, addGame, saveRoster, isViewOnly, saveTeamYearInfo, saveSchedule } = useDynasty()
   // Shadow with a non-null alias so intermediate useMemos and non-hook
   // computations below don't have to constantly null-check. The real
   // null gate sits at the end of the component, AFTER all hooks have
@@ -643,18 +643,37 @@ export default function TeamYear() {
     }
   }
 
-  // Handle quick image upload for a player
+  // Handle quick image upload for a player.
+  //
+  // Fast path: imgbb upload → updatePlayer (single-doc Firestore write
+  // for cloud, in-memory update for local). The old version called
+  // updateDynasty({ players: updatedPlayers }) which routed through the
+  // full subcollection rewrite + orphan scan — for dynasties with 100+
+  // players that's the source of the upload lag the user saw. A single
+  // pictureUrl change only needs ONE player document touched, and that
+  // is exactly what updatePlayer does.
+  //
+  // Close the modal as soon as the upload finishes; the local state
+  // update happens synchronously inside updatePlayer, so the new image
+  // will be visible immediately without waiting on the Firestore write
+  // to round-trip.
   const handleQuickImageUpload = async (file) => {
     if (!file || !quickImagePlayer) return
 
     const url = await uploadToCloud(file)
-    if (url) {
-      // Update the player's pictureUrl
-      const updatedPlayers = currentDynasty.players.map(p =>
-        p.pid === quickImagePlayer.pid ? { ...p, pictureUrl: url } : p
-      )
-      await updateDynasty(currentDynasty.id, { players: updatedPlayers })
+    if (!url) return
+
+    const player = (currentDynasty.players || []).find(p => p.pid === quickImagePlayer.pid)
+    if (!player) {
       setQuickImagePlayer(null)
+      return
+    }
+
+    setQuickImagePlayer(null) // close modal immediately — upload succeeded
+    try {
+      await updatePlayer(currentDynasty.id, { ...player, pictureUrl: url })
+    } catch (e) {
+      console.error('Failed to save pictureUrl:', e)
     }
   }
 
@@ -7196,105 +7215,44 @@ export default function TeamYear() {
           onClick={() => setQuickImagePlayer(null)}
         >
           <div
-            className="rounded-xl max-w-sm w-full overflow-hidden shadow-2xl"
-            style={{ backgroundColor: viewedTeamColors.secondary }}
+            className="rounded-xl max-w-sm w-full overflow-hidden shadow-2xl bg-surface-2"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4" style={{ backgroundColor: 'var(--surface-3)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)' }}>
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold" style={{ color: teamPrimaryText }}>
-                  {quickImagePlayer.pictureUrl ? 'Change Photo' : 'Add Photo'}
-                </h3>
-                <button aria-label="Close"
-                  type="button"
-                  onClick={() => setQuickImagePlayer(null)}
-                  className="p-1 rounded-lg hover:bg-white/10"
-                  style={{ color: teamPrimaryText }}
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+            {/* Header — player name + close. No giant "Add Photo" title since
+                the button below tells you exactly what it does. */}
+            <div className="flex items-center justify-between px-5 pt-4 pb-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-txt-primary truncate">{quickImagePlayer.name}</p>
+                {quickImagePlayer.pictureUrl && (
+                  <p className="text-xs text-txt-muted">Replace photo</p>
+                )}
               </div>
-              <p className="text-sm mt-1 opacity-80" style={{ color: teamPrimaryText }}>
-                {quickImagePlayer.name}
-              </p>
+              <button
+                aria-label="Close"
+                type="button"
+                onClick={() => setQuickImagePlayer(null)}
+                className="p-1 rounded-lg text-txt-muted hover:text-txt-primary hover:bg-surface-3 -mr-1"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
 
-            <div className="p-4 space-y-4">
-              {/* Current image preview */}
+            <div className="px-5 pb-5 space-y-3">
+              {/* Current photo preview — only when one exists */}
               {quickImagePlayer.pictureUrl && (
-                <div className="flex justify-center">
+                <div className="flex justify-center pb-1">
                   <img
                     src={quickImagePlayer.pictureUrl}
                     alt=""
-                    className="w-24 h-24 rounded-full object-cover border-4"
-                    style={{ borderColor: teamInfo.textColor }}
+                    className="w-20 h-20 rounded-full object-cover border-2 border-surface-4"
                   />
                 </div>
               )}
 
-              {/* Paste button for mobile */}
-              <button
-                type="button"
-                onClick={async () => {
-                  // Use the shared clipboard reader so this modal handles
-                  // every shape the clipboard can hold: real image blob,
-                  // text/html with <img src> (ChatGPT/Notion/Docs case),
-                  // and plain-text URLs ("Copy image address").
-                  const result = await readClipboardImageAsFile()
-                  if (result.ok) {
-                    await handleQuickImageUpload(result.file)
-                    return
-                  }
-                  if (result.reason === 'denied') {
-                    toast.error('Browser blocked clipboard access. Try Choose from Device instead.')
-                  } else if (result.reason === 'auth_url') {
-                    toast.error('That ChatGPT link needs login to load. Right-click the image and choose "Copy image" (not "Copy link"), or save it and upload the file.')
-                  } else if (result.reason === 'fetch_failed') {
-                    console.error('Clipboard URL fetch failed:', result.error)
-                    toast.error("Couldn't fetch that image URL. Save the image and use Choose from Device.")
-                  } else {
-                    toast.error("Couldn't find an image in the clipboard. Copy an image (not just text), or use Choose from Device.")
-                  }
-                }}
-                disabled={imageUploading}
-                className="w-full py-3 px-4 rounded-lg font-medium flex items-center justify-center gap-2 transition-opacity"
-                style={{
-                  backgroundColor: teamInfo.backgroundColor,
-                  color: teamBgText,
-                  opacity: imageUploading ? 0.5 : 1
-                }}
-              >
-                {imageUploading ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 8.25H7.5a2.25 2.25 0 00-2.25 2.25v9a2.25 2.25 0 002.25 2.25h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25H15m0-3l-3-3m0 0l-3 3m3-3V15" />
-                    </svg>
-                    Paste from Clipboard
-                  </>
-                )}
-              </button>
-              <p className="text-xs text-center" style={{ color: teamBgText, opacity: 0.7 }}>
-                Copy an image first, then tap to paste
-              </p>
-
-              {/* Or divider */}
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px" style={{ backgroundColor: `${teamInfo.textColor}30` }} />
-                <span className="text-xs font-medium" style={{ color: teamBgText, opacity: 0.7 }}>or</span>
-                <div className="flex-1 h-px" style={{ backgroundColor: `${teamInfo.textColor}30` }} />
-              </div>
-
-              {/* File upload button */}
+              {/* Hidden file input — opened by the primary button below.
+                  On mobile, this offers Camera / Photo Library / Files. */}
               <input
                 type="file"
                 ref={quickImageInputRef}
@@ -7315,24 +7273,60 @@ export default function TeamYear() {
                 accept="image/*"
                 className="hidden"
               />
+
+              {/* PRIMARY — Choose Image. One obvious action that always works,
+                  regardless of clipboard state, browser permissions, or
+                  copy-from-where weirdness. */}
               <button
                 type="button"
                 onClick={() => quickImageInputRef.current?.click()}
                 disabled={imageUploading}
-                className="w-full py-3 rounded-lg font-medium text-sm flex items-center justify-center gap-2"
+                className="w-full py-3.5 rounded-lg font-semibold text-base flex items-center justify-center gap-2 transition-opacity disabled:opacity-60"
                 style={{
                   backgroundColor: teamInfo.backgroundColor,
-                  color: teamBgText,
-                  opacity: imageUploading ? 0.7 : 1
+                  color: teamBgText
                 }}
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                Choose from Device
+                {imageUploading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Uploading…
+                  </>
+                ) : (
+                  'Choose Image'
+                )}
               </button>
 
-              {/* Remove photo button if exists */}
+              {/* SECONDARY — paste, demoted to a small text link. */}
+              <button
+                type="button"
+                onClick={async () => {
+                  const result = await readClipboardImageAsFile()
+                  if (result.ok) {
+                    await handleQuickImageUpload(result.file)
+                    return
+                  }
+                  if (result.reason === 'denied') {
+                    toast.error('Browser blocked clipboard access. Use Choose Image instead.')
+                  } else if (result.reason === 'auth_url') {
+                    toast.error('That link needs login to load. Save the image and use Choose Image.')
+                  } else if (result.reason === 'fetch_failed') {
+                    console.error('Clipboard URL fetch failed:', result.error)
+                    toast.error("Couldn't fetch that image. Save it and use Choose Image.")
+                  } else {
+                    toast.error('Nothing image-like in the clipboard.')
+                  }
+                }}
+                disabled={imageUploading}
+                className="w-full text-center text-xs font-medium text-txt-muted hover:text-txt-primary disabled:opacity-50 transition-colors py-1"
+              >
+                or paste from clipboard
+              </button>
+
+              {/* Destructive — only shown when there's a photo to remove. */}
               {quickImagePlayer.pictureUrl && (
                 <button
                   type="button"
@@ -7343,9 +7337,9 @@ export default function TeamYear() {
                     await updateDynasty(currentDynasty.id, { players: updatedPlayers })
                     setQuickImagePlayer(null)
                   }}
-                  className="w-full py-2 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 transition-colors"
+                  className="w-full text-center text-xs font-medium text-red-500 hover:text-red-400 transition-colors py-1 mt-1"
                 >
-                  Remove Photo
+                  Remove current photo
                 </button>
               )}
             </div>
