@@ -36,26 +36,39 @@ export function buildRecapTeamNames(dynasty, year) {
   // rule of buildRecapLinks (skip FCS placeholders, require a full name).
   const seenTids = new Set()
   const entries = []
+  const addEntry = (tid, abbr, fullName) => {
+    const tNum = Number(tid)
+    if (seenTids.has(tNum)) return
+    if (abbr && isFCSPlaceholderAbbr(abbr)) return
+    if (!fullName) return
+    seenTids.add(tNum)
+    const school = stripMascotFromName(fullName)
+    entries.push({
+      tid: tNum,
+      abbr,
+      fullName,
+      school: school && school !== fullName ? school : null,
+    })
+  }
   for (const g of (dynasty.games || [])) {
     if (Number(g?.year) !== yearNum) continue
     for (const tid of [g.team1Tid, g.team2Tid]) {
       if (tid == null) continue
-      const tNum = Number(tid)
-      if (seenTids.has(tNum)) continue
-      seenTids.add(tNum)
-      const t = teams[tNum]
+      const t = teams[Number(tid)]
       const fallbackAbbr = (g.team1Tid === tid ? g.team1 : g.team2) || null
-      const abbr = t?.abbr || fallbackAbbr
-      if (abbr && isFCSPlaceholderAbbr(abbr)) continue
-      const fullName = t?.name || t?.fullName
-      if (!fullName) continue
-      const school = stripMascotFromName(fullName)
-      entries.push({
-        tid: tNum,
-        abbr,
-        fullName,
-        school: school && school !== fullName ? school : null,
-      })
+      addEntry(tid, t?.abbr || fallbackAbbr, t?.name || t?.fullName)
+    }
+  }
+
+  // Preseason / off-cycle fallback: no games yet for this year means the
+  // game-driven inventory above produced nothing, so a preseason recap
+  // would have zero team-link rules and zero linked team names in prose.
+  // Fall back to every team in the registry so the same auto-link rules
+  // that power weekly recaps work for the preseason preview too.
+  if (entries.length === 0) {
+    for (const [tidKey, t] of Object.entries(teams)) {
+      if (!t) continue
+      addEntry(tidKey, t.abbr, t.name || t.fullName)
     }
   }
 
