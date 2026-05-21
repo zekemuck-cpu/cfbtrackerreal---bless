@@ -3448,6 +3448,9 @@ export default function Dashboard() {
             // different app.
             const todos = []
 
+            const preseasonUserTid = getUserTeamTid(currentDynasty)
+            const preseasonYear = Number(currentDynasty.currentYear)
+
             // Schedule
             const scheduledGameCount = (teamSchedule || []).filter(g =>
               !g.isBye && g.opponent?.toUpperCase() !== 'BYE'
@@ -3457,6 +3460,9 @@ export default function Dashboard() {
               done: !!teamPreseasonSetup?.scheduleEntered,
               title: 'Enter Schedule',
               subtitle: `${scheduledGameCount}/12 games`,
+              viewTo: teamPreseasonSetup?.scheduleEntered
+                ? `${pathPrefix}/team/${preseasonUserTid}/${preseasonYear}?tab=schedule`
+                : null,
               onAction: () => setShowScheduleModal(true),
               actionLabel: teamPreseasonSetup?.scheduleEntered ? 'Edit' : 'Enter',
             })
@@ -3468,6 +3474,9 @@ export default function Dashboard() {
                 done: !!teamPreseasonSetup?.rosterEntered,
                 title: 'Enter Roster',
                 subtitle: `${teamRoster.length}/85 players`,
+                viewTo: teamPreseasonSetup?.rosterEntered
+                  ? `${pathPrefix}/team/${preseasonUserTid}/${preseasonYear}?tab=roster`
+                  : null,
                 onAction: () => setShowRosterModal(true),
                 actionLabel: teamPreseasonSetup?.rosterEntered ? 'Edit' : 'Enter',
               })
@@ -3481,6 +3490,9 @@ export default function Dashboard() {
               subtitle: teamRatings?.overall
                 ? `${teamRatings.overall} OVR ${teamRatings.offense} OFF ${teamRatings.defense} DEF`
                 : 'Not entered',
+              viewTo: teamPreseasonSetup?.teamRatingsEntered
+                ? `${pathPrefix}/team/${preseasonUserTid}/${preseasonYear}`
+                : null,
               onAction: () => setShowTeamRatingsModal(true),
               actionLabel: teamPreseasonSetup?.teamRatingsEntered ? 'Edit' : 'Add',
             })
@@ -3540,6 +3552,7 @@ export default function Dashboard() {
                 subtitle: t25Done
                   ? `${saved.length} team${saved.length === 1 ? '' : 's'} ranked`
                   : 'Saved per-year; powers the preseason recap',
+                viewTo: t25Done ? `${pathPrefix}/rankings/${yearNum}?week=0` : null,
                 onAction: () => setPreseasonTop25Year(yearNum),
                 actionLabel: t25Done ? 'Edit' : 'Enter',
               })
@@ -3557,6 +3570,7 @@ export default function Dashboard() {
                 subtitle: recapDone
                   ? 'Saved — view it on the Weekly Recap page'
                   : 'AI-written season preview based on past dynasty data',
+                viewTo: recapDone ? `${pathPrefix}/weekly-scores/${yearNum}/-1?tab=recap` : null,
                 onAction: () => setRecapModalContext({ year: yearNum, week: -1 }),
                 actionLabel: recapDone ? 'Edit' : 'Generate',
               })
