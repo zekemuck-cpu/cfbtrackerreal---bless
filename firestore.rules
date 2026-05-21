@@ -302,11 +302,16 @@ service cloud.firestore {
       match /invites/{token} {
         allow get: if isSignedIn();
 
+        // Owner always counts as an editor even if the legacy doc never
+        // populated editors[] — protects dynasty deletion + invite mgmt
+        // for accounts that pre-date the editors-array migration.
         allow list: if isSignedIn()
-                    && request.auth.uid in parentDynasty().get('editors', []);
+                    && (request.auth.uid == parentDynasty().userId
+                        || request.auth.uid in parentDynasty().get('editors', []));
 
         allow create, delete: if isSignedIn()
-                              && request.auth.uid in parentDynasty().get('editors', []);
+                              && (request.auth.uid == parentDynasty().userId
+                                  || request.auth.uid in parentDynasty().get('editors', []));
 
         allow update: if isSignedIn()
                       && resource.data.redeemedBy == null
