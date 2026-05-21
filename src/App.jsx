@@ -196,7 +196,14 @@ function App() {
           <AppRoutes />
         </ConfirmProvider>
       </ToastProvider>
-      <Analytics />
+      {/* Pass mode explicitly. @vercel/analytics' auto-detect reads
+          process.env.NODE_ENV at bundle time; on Vercel's build that
+          string gets substituted with "development" for reasons we
+          can't control from the repo, which loads script.debug.js and
+          suppresses every event (visitor count went to 0 in the
+          dashboard). Vite's import.meta.env.PROD is true for vite
+          build regardless of NODE_ENV, so this is the stable signal. */}
+      <Analytics mode={import.meta.env.PROD ? 'production' : 'development'} />
     </AuthProvider>
   )
 }
