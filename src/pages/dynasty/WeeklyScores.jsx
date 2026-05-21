@@ -49,7 +49,12 @@ function GameCard({ game, teams, pathPrefix, recordsByTid, domId }) {
   const t2 = Number(game.team2Tid)
   const team1Score = typeof game.team1Score === 'number' ? game.team1Score : null
   const team2Score = typeof game.team2Score === 'number' ? game.team2Score : null
-  const isPlayed = team1Score !== null && team2Score !== null
+  // Schedule entries pre-create games with both scores set to 0 before
+  // kickoff. CFB games can't end 0-0, so a 0-0 row is a placeholder, not
+  // a played tie — gate isPlayed on isPlayed flag or at least one team
+  // having scored. Same heuristic as the dashboard's isGameActuallyPlayed.
+  const hasScores = team1Score !== null && team2Score !== null
+  const isPlayed = hasScores && (game.isPlayed || team1Score > 0 || team2Score > 0)
   const isTie = isPlayed && team1Score === team2Score
   const isNeutral = game.homeTeamTid == null
 
@@ -462,11 +467,18 @@ export default function WeeklyScores() {
 
   // Cumulative team records keyed by tid → week → { w, l, t } (record after that week's game)
   const recordsByTidByWeek = useMemo(() => {
+    // Schedule entries pre-create games with team1Score=team2Score=0 well
+    // before kickoff, so `typeof === 'number'` alone would treat every
+    // unplayed placeholder as a real 0-0 tie. CFB games can't end 0-0,
+    // so require at least one team to have scored OR the explicit
+    // isPlayed flag — mirrors the isGameActuallyPlayed heuristic used
+    // on the dashboard.
     const yearGames = allGames.filter(g => (
       g && Number(g.year) === displayYear &&
       (g.gameType === GAME_TYPES.REGULAR || g.gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP) &&
       g.team1Tid && g.team2Tid &&
-      typeof g.team1Score === 'number' && typeof g.team2Score === 'number'
+      typeof g.team1Score === 'number' && typeof g.team2Score === 'number' &&
+      (g.isPlayed || g.team1Score > 0 || g.team2Score > 0)
     )).sort((a, b) => {
       // CCG games sort after Week 14. Plain Number(a.week) - Number(b.week)
       // returns NaN for any CCG and ruins the running-record cumulative
