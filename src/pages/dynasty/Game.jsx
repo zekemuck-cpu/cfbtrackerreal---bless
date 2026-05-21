@@ -886,10 +886,13 @@ export default function Game() {
     const team1Abbr = team1Info?.abbr || game.team1
     const team2Abbr = team2Info?.abbr || game.team2
 
+    // Coerce — legacy rows may store scores as strings, which break lex-compares ("20" > "5" is false).
+    const _s1 = Number(game.team1Score)
+    const _s2 = Number(game.team2Score)
     const viewingTid = game.viewingTeamTid != null ? Number(game.viewingTeamTid) :
-      (game.team1Score > game.team2Score
+      (_s1 > _s2
         ? (game.team1Tid != null ? Number(game.team1Tid) : null)
-        : game.team2Score > game.team1Score
+        : _s2 > _s1
           ? (game.team2Tid != null ? Number(game.team2Tid) : null)
           : (game.team1Tid != null ? Number(game.team1Tid) : null))
 
@@ -898,8 +901,8 @@ export default function Game() {
       isDisplayTeam1 = Number(game.team1Tid) === viewingTid
     } else {
       const viewingAbbr = game.viewingTeamAbbr ||
-        (game.team1Score > game.team2Score ? team1Abbr :
-         game.team2Score > game.team1Score ? team2Abbr : team1Abbr)
+        (_s1 > _s2 ? team1Abbr :
+         _s2 > _s1 ? team2Abbr : team1Abbr)
       isDisplayTeam1 = viewingAbbr === team1Abbr
     }
 

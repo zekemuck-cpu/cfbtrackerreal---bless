@@ -513,14 +513,18 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
 
     setSaving(true)
     try {
-      const processedGames = games.map(game => ({
-        ...game,
-        team1Score: parseInt(game.team1Score),
-        team2Score: parseInt(game.team2Score),
-        winner: parseInt(game.team1Score) > parseInt(game.team2Score) ? game.team1 : game.team2,
-        seed1: getSeedByTid(game.team1Tid),
-        seed2: getSeedByTid(game.team2Tid),
-      }))
+      const processedGames = games.map(game => {
+        const s1 = parseInt(game.team1Score, 10)
+        const s2 = parseInt(game.team2Score, 10)
+        return {
+          ...game,
+          team1Score: s1,
+          team2Score: s2,
+          winner: s1 > s2 ? game.team1 : game.team2,
+          seed1: getSeedByTid(game.team1Tid),
+          seed2: getSeedByTid(game.team2Tid),
+        }
+      })
 
       await onSave(processedGames)
       onClose()

@@ -322,12 +322,14 @@ export default function CFPBracket() {
 
     let team1Score, team2Score, winner
 
-    // Prefer unified format scores - ALWAYS compute winner from scores (most reliable)
+    // Prefer unified format scores - ALWAYS compute winner from scores (most reliable).
+    // Coerce — legacy rows may store scores as strings, which break lex compares.
     if (game.team1Score !== undefined && game.team1Score !== null) {
       team1Score = game.team1Score
       team2Score = game.team2Score
+      const _n1 = Number(team1Score), _n2 = Number(team2Score)
       // Always compute winner from scores - this is the source of truth
-      winner = team1Score > team2Score ? team1 : team2Score > team1Score ? team2 : null
+      winner = _n1 > _n2 ? team1 : _n2 > _n1 ? team2 : null
     } else if (perspective) {
       // Use perspective for user games with unified format
       const userTeamInfo = getGameTeamInfo(teams, perspective.userTid)
@@ -341,7 +343,8 @@ export default function CFPBracket() {
       }
       // Compute winner from scores if available
       if (team1Score !== undefined && team2Score !== undefined) {
-        winner = team1Score > team2Score ? team1 : team2Score > team1Score ? team2 : null
+        const _n1 = Number(team1Score), _n2 = Number(team2Score)
+        winner = _n1 > _n2 ? team1 : _n2 > _n1 ? team2 : null
       } else {
         winner = perspective.userWon ? userAbbr : (team1 === userAbbr ? team2 : team1)
       }
@@ -397,10 +400,14 @@ export default function CFPBracket() {
       }
     }
 
-    // Compute winnerTid from scores (most reliable) or use stored value
+    // Compute winnerTid from scores (most reliable) or use stored value.
+    // Numeric coerce — legacy rows may carry score-strings.
     let winnerTid = game.winnerTid
-    if (!winnerTid && team1Score !== null && team2Score !== null && team1Score !== team2Score) {
-      winnerTid = team1Score > team2Score ? game.team1Tid : game.team2Tid
+    if (!winnerTid && team1Score !== null && team2Score !== null && team1Score !== undefined && team2Score !== undefined) {
+      const _n1 = Number(team1Score), _n2 = Number(team2Score)
+      if (Number.isFinite(_n1) && Number.isFinite(_n2) && _n1 !== _n2) {
+        winnerTid = _n1 > _n2 ? game.team1Tid : game.team2Tid
+      }
     }
 
     return {
@@ -975,8 +982,8 @@ export default function CFPBracket() {
         : (round === 'Semifinal' || round === 'Semifinals') ? 'isCFPSemifinal'
         : 'isCFPChampionship'
 
-      const team1Score = parseInt(gameData.team1Score)
-      const team2Score = parseInt(gameData.team2Score)
+      const team1Score = parseInt(gameData.team1Score, 10)
+      const team2Score = parseInt(gameData.team2Score, 10)
       const winner = team1Score > team2Score ? gameData.team1 : gameData.team2
 
       // Find existing game in games[] array

@@ -107,9 +107,16 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
 
   const isActive = (path) => {
     if (path === pathPrefix) {
-      return location.pathname === path
+      return location.pathname === path || location.pathname === `${path}/`
     }
-    return location.pathname.startsWith(path)
+    // Match on the route's first segment after pathPrefix, ignoring params baked
+    // into the link href (e.g. Recruiting and All-Conference embed teamTid /
+    // currentYear / conference). A pure exact-or-startsWith check would either
+    // miss those pages when the user is on a different team/year, or wrongly
+    // light up multiple links sharing a prefix (e.g. "/teams" vs "/team-year").
+    const baseSegments = pathPrefix.split('/').length
+    const segmentRoot = path.split('/').slice(0, baseSegments + 1).join('/')
+    return location.pathname === segmentRoot || location.pathname.startsWith(`${segmentRoot}/`)
   }
 
   // Media query matching Tailwind's `lg` breakpoint. matchMedia is more

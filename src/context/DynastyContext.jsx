@@ -677,7 +677,9 @@ export function propagateCFPWinner(games, savedGame) {
  */
 export function isCFPGameWinner(game, tid) {
   if (game.team1Score === null || game.team2Score === null) return false
-  const winnerTid = game.team1Score > game.team2Score ? game.team1Tid : game.team2Tid
+  const s1 = Number(game.team1Score), s2 = Number(game.team2Score)
+  if (!Number.isFinite(s1) || !Number.isFinite(s2) || s1 === s2) return false
+  const winnerTid = s1 > s2 ? game.team1Tid : game.team2Tid
   return winnerTid === tid
 }
 
@@ -686,7 +688,9 @@ export function isCFPGameWinner(game, tid) {
  */
 export function isCFPGameLoser(game, tid) {
   if (game.team1Score === null || game.team2Score === null) return false
-  const loserTid = game.team1Score > game.team2Score ? game.team2Tid : game.team1Tid
+  const s1 = Number(game.team1Score), s2 = Number(game.team2Score)
+  if (!Number.isFinite(s1) || !Number.isFinite(s2) || s1 === s2) return false
+  const loserTid = s1 > s2 ? game.team2Tid : game.team1Tid
   return loserTid === tid
 }
 

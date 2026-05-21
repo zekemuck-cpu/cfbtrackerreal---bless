@@ -5447,8 +5447,10 @@ export default function TeamYear() {
               const cfpTeam2Tid = game.team2Tid || resolveTid(game.team2, teamsSource)
               const isTeam1 = cfpTeam1Tid === tid
               const isTeam2 = cfpTeam2Tid === tid
-              const teamWon = (isTeam1 && game.team1Score > game.team2Score) ||
-                             (isTeam2 && game.team2Score > game.team1Score)
+              // Coerce — legacy rows may store scores as strings (lex compare bug)
+              const _s1 = Number(game.team1Score)
+              const _s2 = Number(game.team2Score)
+              const teamWon = (isTeam1 && _s1 > _s2) || (isTeam2 && _s2 > _s1)
               const roundNames = { 1: 'First Round', 2: 'Quarterfinal', 3: 'Semifinal', 4: 'National Championship' }
               const roundNamesShort = { 1: 'R1', 2: 'QF', 3: 'SF', 4: 'Natty' }
 

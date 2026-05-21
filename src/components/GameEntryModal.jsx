@@ -2992,10 +2992,10 @@ export default function GameEntryModal({
                           const gameForRecap = {
                             ...existingGame,
                             ...gameData,
-                            teamScore: parseInt(gameData.teamScore) || existingGame?.teamScore,
-                            opponentScore: parseInt(gameData.opponentScore) || existingGame?.opponentScore,
-                            team1Score: parseInt(gameData.team1Score) || existingGame?.team1Score,
-                            team2Score: parseInt(gameData.team2Score) || existingGame?.team2Score,
+                            teamScore: (() => { const n = parseInt(gameData.teamScore, 10); return Number.isFinite(n) ? n : existingGame?.teamScore })(),
+                            opponentScore: (() => { const n = parseInt(gameData.opponentScore, 10); return Number.isFinite(n) ? n : existingGame?.opponentScore })(),
+                            team1Score: (() => { const n = parseInt(gameData.team1Score, 10); return Number.isFinite(n) ? n : existingGame?.team1Score })(),
+                            team2Score: (() => { const n = parseInt(gameData.team2Score, 10); return Number.isFinite(n) ? n : existingGame?.team2Score })(),
                           }
                           const fullPrompt = getFullRecapPrompt(currentDynasty, gameForRecap, { perspective: recapPerspective })
                           if (navigator.clipboard && window.isSecureContext) {
@@ -3058,10 +3058,10 @@ export default function GameEntryModal({
                             type="button"
                             aria-label="Close"
                             onClick={() => setShowPerspectivePicker(false)}
-                            className="text-xs"
+                            className="text-xs uppercase tracking-wide"
                             style={{ color: 'var(--text-tertiary)' }}
                           >
-                            ✕
+                            Close
                           </button>
                         </div>
                         <div className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>

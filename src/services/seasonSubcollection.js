@@ -144,7 +144,12 @@ export async function getSeasonsSubcollection(dynastyId, options = {}) {
       getDocsFromServer(ref).then(snap => {
         if (!onFresh) return
         try { onFresh(rehydrateSeasonalShapes(snap.docs)) } catch (e) { console.error('onFresh callback threw:', e) }
-      }).catch(() => {})
+      }).catch(err => {
+        // Stale-while-revalidate background refresh failed. Cached data is
+        // still served, so we don't surface to the user, but log for
+        // debugging persistent sync issues.
+        console.warn('Background season subcollection refresh failed:', err?.code || err?.message || err)
+      })
       docs = cached.docs
     }
   } catch (_) { /* fall through */ }

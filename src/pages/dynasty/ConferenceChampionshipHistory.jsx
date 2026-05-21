@@ -182,8 +182,12 @@ export default function ConferenceChampionshipHistory() {
         else if (g.team2Tid != null && Number(g.team2Tid) === Number(g.winnerTid)) winner = t2
       }
       if (!winner && (g.team1Score != null || g.team2Score != null)) {
-        if (g.team1Score > g.team2Score) winner = t1
-        else if (g.team2Score > g.team1Score) winner = t2
+        const s1 = Number(g.team1Score)
+        const s2 = Number(g.team2Score)
+        if (Number.isFinite(s1) && Number.isFinite(s2)) {
+          if (s1 > s2) winner = t1
+          else if (s2 > s1) winner = t2
+        }
       }
       return {
         year: g.year,
@@ -225,7 +229,10 @@ export default function ConferenceChampionshipHistory() {
     if (game.winner) return game.winner
     if (!game.team1Score && game.team1Score !== 0) return null
     if (!game.team2Score && game.team2Score !== 0) return null
-    return game.team1Score > game.team2Score ? game.team1 : game.team2
+    const s1 = Number(game.team1Score)
+    const s2 = Number(game.team2Score)
+    if (!Number.isFinite(s1) || !Number.isFinite(s2) || s1 === s2) return null
+    return s1 > s2 ? game.team1 : game.team2
   }
 
   const totalCCGames = getTotalCCGames()

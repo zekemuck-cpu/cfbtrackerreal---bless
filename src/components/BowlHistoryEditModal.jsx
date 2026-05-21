@@ -145,9 +145,10 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
           const team1Score = gameData.team1Score === '' ? null : Number(gameData.team1Score)
           const team2Score = gameData.team2Score === '' ? null : Number(gameData.team2Score)
 
-          // Determine winner
+          // Determine winner — bowls don't tie (OT until decided), but guard
+          // against equal scores to avoid silently crowning team2.
           let winner = null
-          if (team1Score !== null && team2Score !== null) {
+          if (team1Score !== null && team2Score !== null && team1Score !== team2Score) {
             winner = team1Score > team2Score ? gameData.team1 : gameData.team2
           }
 
@@ -327,7 +328,7 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
                     {logo ? (
                       <img src={logo} alt="" className="w-full h-full object-contain" />
                     ) : (
-                      <span className="text-lg">🏈</span>
+                      <span className="text-[10px] font-semibold text-txt-tertiary">Bowl</span>
                     )}
                   </div>
 

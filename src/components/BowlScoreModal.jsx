@@ -77,15 +77,25 @@ export default function BowlScoreModal({ isOpen, onClose, onSave, currentYear, c
   const handleSave = async () => {
     setSaving(true)
     try {
-      // Process games to add winner
-      const processedGames = games.map(game => ({
-        ...game,
-        team1Score: game.team1Score ? parseInt(game.team1Score) : null,
-        team2Score: game.team2Score ? parseInt(game.team2Score) : null,
-        winner: game.team1Score && game.team2Score
-          ? (parseInt(game.team1Score) > parseInt(game.team2Score) ? game.team1 : game.team2)
-          : null
-      }))
+      // Process games to add winner. Treat "" / null as "not entered" but
+      // accept 0 as a legitimate score (truthy check breaks 24-0 shutouts).
+      const toScore = (v) => {
+        if (v === '' || v == null) return null
+        const n = parseInt(v, 10)
+        return Number.isFinite(n) ? n : null
+      }
+      const processedGames = games.map(game => {
+        const s1 = toScore(game.team1Score)
+        const s2 = toScore(game.team2Score)
+        return {
+          ...game,
+          team1Score: s1,
+          team2Score: s2,
+          winner: (s1 != null && s2 != null && s1 !== s2)
+            ? (s1 > s2 ? game.team1 : game.team2)
+            : null
+        }
+      })
 
       await onSave(processedGames, currentWeek)
       onClose()

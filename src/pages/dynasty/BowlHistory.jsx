@@ -254,7 +254,11 @@ export default function BowlHistory() {
   const getWinner = (game) => {
     if (!game.team1Score && game.team1Score !== 0) return null
     if (!game.team2Score && game.team2Score !== 0) return null
-    return game.team1Score > game.team2Score ? game.team1 : game.team2
+    // Numeric coerce — old rows may store scores as strings ("20" > "5" is false lex-compared)
+    const s1 = Number(game.team1Score)
+    const s2 = Number(game.team2Score)
+    if (!Number.isFinite(s1) || !Number.isFinite(s2) || s1 === s2) return null
+    return s1 > s2 ? game.team1 : game.team2
   }
 
   // User team identity for highlighting bowl wins. tid is the stable id;

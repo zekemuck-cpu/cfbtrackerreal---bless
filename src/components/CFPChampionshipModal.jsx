@@ -130,11 +130,11 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
           const winnerInfo = getGameTeamInfo(teams, game.winnerTid)
           return winnerInfo?.abbr || ''
         }
-        // Fallback: compute from scores
+        // Fallback: compute from scores (coerce — scores may be stored as strings)
         if (game.team1Score !== undefined && game.team2Score !== undefined) {
           const t1 = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid)?.abbr : game.team1
           const t2 = game.team2Tid ? getGameTeamInfo(teams, game.team2Tid)?.abbr : game.team2
-          return game.team1Score > game.team2Score ? t1 : t2
+          return Number(game.team1Score) > Number(game.team2Score) ? t1 : t2
         }
         return ''
       }

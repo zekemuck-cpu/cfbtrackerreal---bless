@@ -248,8 +248,12 @@ function teamForYear(player, year) {
   if (Array.isArray(player.teamHistory) && player.teamHistory.length > 0) {
     for (const stint of player.teamHistory) {
       const from = Number(stint.fromYear)
-      const to = stint.toYear == null ? Infinity : Number(stint.toYear)
-      if (year >= from && year <= to) return Number(stint.teamTid)
+      // Treat both null and unparseable toYear (e.g. corrupt "null" string) as
+      // "open-ended" — otherwise NaN comparisons silently exclude the player.
+      const rawTo = stint.toYear
+      const parsedTo = Number(rawTo)
+      const to = rawTo == null || !Number.isFinite(parsedTo) ? Infinity : parsedTo
+      if (Number.isFinite(from) && year >= from && year <= to) return Number(stint.teamTid)
     }
   }
   if (player.teamsByYear) {

@@ -234,8 +234,8 @@ export default function MemberOnboardingModal() {
                     <span className="text-[10px] text-txt-tertiary">currently assigned</span>
                   )}
                   {selected && (
-                    <span className="text-xs font-semibold" style={{ color: 'var(--accent-success)' }}>
-                      ✓
+                    <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--accent-success)' }}>
+                      Selected
                     </span>
                   )}
                 </button>

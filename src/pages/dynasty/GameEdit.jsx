@@ -2296,9 +2296,9 @@ export default function GameEdit() {
                         type="button"
                         aria-label="Close"
                         onClick={() => setShowPerspectivePicker(false)}
-                        className="text-xs text-txt-tertiary"
+                        className="text-xs uppercase tracking-wide text-txt-tertiary"
                       >
-                        ✕
+                        Close
                       </button>
                     </div>
                     <div className="text-sm font-semibold mb-1 text-txt-primary">
