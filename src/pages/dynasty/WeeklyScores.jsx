@@ -260,6 +260,22 @@ export default function WeeklyScores() {
   // the dashboard. Same component handles preseason + in-season.
   const [recapModalOpen, setRecapModalOpen] = useState(false)
 
+  // Resolve display year/week BEFORE consumers like `tabParam` reference
+  // them — both feed off URL params plus dynasty phase fallbacks.
+  const fallbackCurrentYear = Number(currentDynasty?.currentYear) || Number(currentDynasty?.startYear) || new Date().getFullYear()
+  const displayYear = urlYear ? parseInt(urlYear, 10) : fallbackCurrentYear
+  const displayWeek = urlWeek != null ? parseInt(urlWeek, 10) : (() => {
+    const phase = currentDynasty?.currentPhase
+    const week = Number(currentDynasty?.currentWeek)
+    if (phase === 'preseason') return -1
+    if (phase === 'regular_season') return Math.max(0, week - 1)
+    if (phase === 'conference_championship') return 15
+    // postseason week 1 → show CCG (15), week 2 → BW1 (16), week 3 → BW2 (17), etc.
+    // mirrors regular season "show the last completed week" pattern
+    if (phase === 'postseason') return Math.max(15, 14 + week)
+    return 15
+  })()
+
   // Tab state lives in the URL (?tab=scores|recap) so deep-links from the
   // dashboard's recap to-do land directly on the recap view, and so the
   // user's choice survives navigating into a game and back.
@@ -311,19 +327,6 @@ export default function WeeklyScores() {
     if (g?.year) allYearsSet.add(Number(g.year))
   }
   const availableYears = Array.from(allYearsSet).sort((a, b) => b - a)
-
-  const displayYear = urlYear ? parseInt(urlYear, 10) : currentYear
-  const displayWeek = urlWeek != null ? parseInt(urlWeek, 10) : (() => {
-    const phase = currentDynasty.currentPhase
-    const week = Number(currentDynasty.currentWeek)
-    if (phase === 'preseason') return -1
-    if (phase === 'regular_season') return Math.max(0, week - 1)
-    if (phase === 'conference_championship') return 15
-    // postseason week 1 → show CCG (15), week 2 → BW1 (16), week 3 → BW2 (17), etc.
-    // mirrors regular season "show the last completed week" pattern
-    if (phase === 'postseason') return Math.max(15, 14 + week)
-    return 15
-  })()
   // Memoize the recap link patterns — buildRecapLinks builds hundreds of
   // patterns from dynasty.games + .teams. Gated on tab + recap presence:
   // skip the build entirely when the user is on the Scores tab or the
