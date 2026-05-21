@@ -32,12 +32,13 @@ export function buildRecapTeamNames(dynasty, year) {
   const yearNum = Number(year)
   const teams = dynasty.teams || TEAMS
 
-  // Collect every team that played in the year. We mirror the inclusion
-  // rule of buildRecapLinks (skip FCS placeholders, require a full name).
+  // Collect every team eligible to be named in a recap for this year.
+  // Skip FCS placeholders and entries without a full name.
   const seenTids = new Set()
   const entries = []
   const addEntry = (tid, abbr, fullName) => {
     const tNum = Number(tid)
+    if (!Number.isFinite(tNum)) return
     if (seenTids.has(tNum)) return
     if (abbr && isFCSPlaceholderAbbr(abbr)) return
     if (!fullName) return
@@ -50,6 +51,23 @@ export function buildRecapTeamNames(dynasty, year) {
       school: school && school !== fullName ? school : null,
     })
   }
+
+  // Iterate every team in the dynasty registry first. This is the
+  // authoritative team list and covers cases that the games-only path
+  // misses — most importantly the preseason recap (no games yet for the
+  // upcoming year) and any team that's mentioned in a recap but didn't
+  // actually play in the recap's year (e.g., the AI mentioning a rival
+  // who isn't on the schedule). buildRecapLinks downstream filters
+  // patterns to those that actually appear in the recap text, so the
+  // extra teams cost nothing at render time.
+  for (const [tidKey, t] of Object.entries(teams)) {
+    if (!t) continue
+    addEntry(tidKey, t.abbr, t.name || t.fullName)
+  }
+
+  // Legacy CPU-vs-CPU games can record team1/team2 as abbreviations
+  // without a corresponding dynasty.teams entry. Pull those in too so
+  // mentions of legacy-only programs still link to their team-year page.
   for (const g of (dynasty.games || [])) {
     if (Number(g?.year) !== yearNum) continue
     for (const tid of [g.team1Tid, g.team2Tid]) {
@@ -57,18 +75,6 @@ export function buildRecapTeamNames(dynasty, year) {
       const t = teams[Number(tid)]
       const fallbackAbbr = (g.team1Tid === tid ? g.team1 : g.team2) || null
       addEntry(tid, t?.abbr || fallbackAbbr, t?.name || t?.fullName)
-    }
-  }
-
-  // Preseason / off-cycle fallback: no games yet for this year means the
-  // game-driven inventory above produced nothing, so a preseason recap
-  // would have zero team-link rules and zero linked team names in prose.
-  // Fall back to every team in the registry so the same auto-link rules
-  // that power weekly recaps work for the preseason preview too.
-  if (entries.length === 0) {
-    for (const [tidKey, t] of Object.entries(teams)) {
-      if (!t) continue
-      addEntry(tidKey, t.abbr, t.name || t.fullName)
     }
   }
 
