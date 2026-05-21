@@ -6089,7 +6089,7 @@ export default function Dashboard() {
                 })
 
                 // Recruiting Class Overalls
-                const recruitTeamTid = userTidForPortal
+                const recruitTeamTid = getUserTeamTid(currentDynasty)
                 const recruitingClassPlayers = (currentDynasty?.players || []).filter(p => {
                   if (!p.isRecruit || p.isPortal || p.previousTeam) return false
                   if (p.recruitYear !== offseasonDataYear) return false
