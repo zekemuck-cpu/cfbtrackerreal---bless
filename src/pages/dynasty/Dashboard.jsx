@@ -3449,11 +3449,14 @@ export default function Dashboard() {
             const todos = []
 
             // Schedule
+            const scheduledGameCount = (teamSchedule || []).filter(g =>
+              !g.isBye && g.opponent?.toUpperCase() !== 'BYE'
+            ).length
             todos.push({
               key: 'schedule',
               done: !!teamPreseasonSetup?.scheduleEntered,
               title: 'Enter Schedule',
-              subtitle: `${teamSchedule?.length || 0}/12 games`,
+              subtitle: `${scheduledGameCount}/12 games`,
               onAction: () => setShowScheduleModal(true),
               actionLabel: teamPreseasonSetup?.scheduleEntered ? 'Edit' : 'Enter',
             })
