@@ -3964,12 +3964,11 @@ ${ctx.team2FullName}:
   }
 
   // Add user team focus section (when this is the user's game, not a CPU vs CPU game).
-  // When a non-neutral perspective is selected, the slider controls framing — DON'T also
-  // tell the AI to frame from the user's team, since the perspective may want the OTHER
-  // team to be the protagonist (e.g. the user picked "Louisville reporter" in a Kentucky
-  // user game). The neutral perspective and the no-perspective default both keep the
-  // user-team-as-protagonist framing.
-  const perspectiveOverridesUserFraming = perspective && perspective !== 'neutral'
+  // When any explicit perspective is selected (including neutral), the slider controls
+  // framing — DON'T also inject the user-team-as-protagonist block. Neutral means
+  // neutral; a specific team perspective has its own framing block. Only the default
+  // (no perspective set) falls back to auto-focusing the user's team.
+  const perspectiveOverridesUserFraming = !!perspective
   if (!perspectiveOverridesUserFraming && ctx.isUserGame && ctx.userTeamName) {
     prompt += `\n
 ===========================================
