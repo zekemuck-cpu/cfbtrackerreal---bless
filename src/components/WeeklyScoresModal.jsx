@@ -146,7 +146,7 @@ export default function WeeklyScoresModal({ isOpen, onClose, year, week, teamCol
     if (!currentDynasty) return ''
     const yearNum = Number(year)
     const weekNum = Number(week)
-    if (!Number.isFinite(yearNum) || !Number.isFinite(weekNum) || weekNum <= 0) return ''
+    if (!Number.isFinite(yearNum) || !Number.isFinite(weekNum) || weekNum < 0) return ''
     const teams = currentDynasty.teams || {}
 
     // Try the exact week first; if no team has a value there, walk
