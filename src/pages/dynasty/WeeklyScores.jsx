@@ -43,7 +43,7 @@ function formatRecord(rec) {
   return t > 0 ? `${w}-${l}-${t}` : `${w}-${l}`
 }
 
-function GameCard({ game, teams, pathPrefix, recordsByTid, domId }) {
+function GameCard({ game, teams, pathPrefix, recordsByTid, domId, compact = false }) {
   const navigate = useNavigate()
   const t1 = Number(game.team1Tid)
   const t2 = Number(game.team2Tid)
@@ -122,7 +122,7 @@ function GameCard({ game, teams, pathPrefix, recordsByTid, domId }) {
     const mascot = getMascotNameFromTeams(tid, teams) || team?.name || ''
     const school = getSchoolName(mascot) || team?.abbr || `TID ${tid}`
     return (
-      <div className="flex items-center gap-2.5 pl-2 pr-4 py-2.5">
+      <div className={`flex items-center ${compact ? 'gap-1.5 pl-1.5 pr-2 py-2' : 'gap-2.5 pl-2 pr-4 py-2.5'}`}>
         {/* ESPN-style winner indicator: small filled triangle pointing at the row */}
         <span
           aria-hidden="true"
@@ -136,12 +136,12 @@ function GameCard({ game, teams, pathPrefix, recordsByTid, domId }) {
             opacity: won ? 1 : 0,
           }}
         />
-        <TeamLogo tid={tid} teams={teams} size="sm" className="flex-shrink-0" />
-        <div className="flex-1 min-w-0 flex items-baseline gap-2">
+        <TeamLogo tid={tid} teams={teams} size={compact ? 'xs' : 'sm'} className="flex-shrink-0" />
+        <div className="flex-1 min-w-0 flex items-baseline gap-1">
           {rank != null && (
             <span
               className="tabular-nums flex-shrink-0"
-              style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 700 }}
+              style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: 700 }}
             >
               {rank}
             </span>
@@ -149,7 +149,7 @@ function GameCard({ game, teams, pathPrefix, recordsByTid, domId }) {
           <Link
             to={`${pathPrefix}/team/${tid}/${game.year}`}
             onClick={(e) => e.stopPropagation()}
-            className="text-[15px] truncate hover:underline transition-colors"
+            className={`${compact ? 'text-[12px]' : 'text-[15px]'} truncate hover:underline transition-colors`}
             style={{
               fontWeight: won ? 700 : 600,
               color: lost ? 'var(--text-tertiary)' : 'var(--text-primary)',
@@ -157,7 +157,7 @@ function GameCard({ game, teams, pathPrefix, recordsByTid, domId }) {
           >
             {school}
           </Link>
-          {record && (
+          {record && !compact && (
             <span
               className="tabular-nums flex-shrink-0"
               style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}
@@ -169,10 +169,10 @@ function GameCard({ game, teams, pathPrefix, recordsByTid, domId }) {
         <span
           className="font-display tabular-nums leading-none flex-shrink-0"
           style={{
-            fontSize: '22px',
+            fontSize: compact ? '18px' : '22px',
             fontWeight: won ? 800 : 600,
             color: lost ? 'var(--text-tertiary)' : 'var(--text-primary)',
-            minWidth: '2.25rem',
+            minWidth: compact ? '1.75rem' : '2.25rem',
             textAlign: 'right',
             letterSpacing: '-0.02em',
           }}
@@ -749,7 +749,7 @@ export default function WeeklyScores() {
 
       {tabParam === 'scores' && (
         sortedGames.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 stagger-reveal">
+          <div className="grid grid-cols-2 xl:grid-cols-3 gap-2 stagger-reveal">
             {sortedGames.map(game => (
               <GameCard
                 key={game.id}
@@ -758,6 +758,7 @@ export default function WeeklyScores() {
                 teams={teams}
                 pathPrefix={pathPrefix}
                 recordsByTid={recordsByTidByWeek}
+                compact
               />
             ))}
           </div>
