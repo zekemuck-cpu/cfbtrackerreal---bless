@@ -2577,7 +2577,7 @@ export default function TeamYear() {
                 Season
               </span>
             </div>
-            <div className="flex items-center gap-2 flex-wrap mt-0.5">
+            <div className="flex items-center gap-2 flex-wrap mt-0.5 min-w-0 overflow-hidden">
               {/* Ranking Badge — desktop position, beside the team
                   selector. Hidden on mobile to keep the team-name line
                   uncluttered; mobile shows the same ranking inline
@@ -2601,7 +2601,7 @@ export default function TeamYear() {
                 </Link>
               ) : null}
               {/* Team Selector - embedded in team name */}
-              <div className="dropdown-chrome inline-flex items-center gap-1 rounded-lg cursor-pointer hover:bg-surface-3 transition-colors bg-surface-2 border border-surface-4">
+              <div className="dropdown-chrome inline-flex items-center gap-1 rounded-lg cursor-pointer hover:bg-surface-3 transition-colors bg-surface-2 border border-surface-4 max-w-full min-w-0">
                 <select
                   value={tid}
                   onChange={(e) => {
@@ -2612,7 +2612,8 @@ export default function TeamYear() {
                   className="dropdown-chrome__control bg-transparent display-md text-txt-primary cursor-pointer focus:outline-none appearance-none px-2 py-0.5"
                   style={{
                     width: `${Math.max((mascotName || teamInfo.name || '').length * 0.72 + 3.5, 12)}ch`,
-                    maxWidth: '100%'
+                    maxWidth: '100%',
+                    minWidth: 0,
                   }}
                 >
                   {allTeams.map((t) => (
