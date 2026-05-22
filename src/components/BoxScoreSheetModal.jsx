@@ -340,6 +340,14 @@ PLAY TYPE (col M) — match by phrasing
 "Safety"                            → Safety
 Anything else                       → Other
 
+PUNT DETECTION — EA CFB26 does NOT write "punts" in the play text. A punt
+looks identical to a rush: "Y N yds" with no verb. Classify as Punt when:
+  • The down is 4th AND
+  • The play is just "[player name] [N] yds" (no pass/sack/rush keyword) AND
+  • The player is a P (punter) in the roster, OR no matching skill player
+    (QB/RB/WR/TE) exists with that name in the roster.
+Set B = punter name, D = distance. Do NOT classify punts as Rush.
+
 ═══════════════════════════════════════════════════════════
 COL A — derive from the PLAYER, never from Field Pos
 ═══════════════════════════════════════════════════════════

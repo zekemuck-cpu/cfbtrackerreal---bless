@@ -202,6 +202,7 @@ export const PLAY_TYPES = [
   'Pass Knocked Away',
   'Pass Intercepted',
   'Sack',
+  'Punt',
   'Kickoff Return',
   'Punt Return',
   'Field Goal Made',

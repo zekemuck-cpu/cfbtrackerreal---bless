@@ -283,6 +283,11 @@ function buildHighlightSentence(play) {
       const krBase = yardsStr ? `${primary} returns kick for ${yardsStr} ${yardWord(yardsNum)}` : `${primary} returns kick`
       return isTD ? `${krBase} for a TD` : krBase
     }
+    case 'Punt': {
+      if (yardsStr && primary) return `${primary} punts ${yardsStr} ${yardWord(yardsNum)}`
+      if (yardsStr) return `Punt for ${yardsStr} ${yardWord(yardsNum)}`
+      return primary ? `${primary} punt` : 'Punt'
+    }
     case 'Punt Return': {
       if (!primary) return ''
       const prBase = yardsStr ? `${primary} punt return for ${yardsStr} ${yardWord(yardsNum)}` : `${primary} punt return`
