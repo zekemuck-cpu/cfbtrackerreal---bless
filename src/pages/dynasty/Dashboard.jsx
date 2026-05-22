@@ -3847,19 +3847,20 @@ export default function Dashboard() {
                 })
               }
 
-              // Row 3: Week Recap — available every regular season week
+              // Row 3: Week Recap — for the previous week (the one just completed).
+              // Available from Week 1 onwards (prevWeek >= 0).
               if (hasCurWeek) {
-                const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[curWeek]
+                const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[prevWeek]
                 const done = !!recap?.text
                 todos.push({
                   key: 'week-recap',
                   done,
-                  title: done ? `Week ${curWeek} Recap Saved` : `Generate Week ${curWeek} Recap`,
+                  title: done ? `Week ${prevWeek} Recap Saved` : `Generate Week ${prevWeek} Recap`,
                   subtitle: done
                     ? 'Narrative recap stored for this week'
-                    : "Summarize the week’s biggest results",
-                  viewTo: `${pathPrefix}/weekly-scores/${yearNum}/${curWeek}?tab=recap`,
-                  onAction: () => setRecapModalContext({ year: yearNum, week: curWeek }),
+                    : "Summarize the week's biggest results",
+                  viewTo: `${pathPrefix}/weekly-scores/${yearNum}/${prevWeek}?tab=recap`,
+                  onAction: () => setRecapModalContext({ year: yearNum, week: prevWeek }),
                   actionLabel: done ? 'Edit' : 'Generate',
                 })
               }
