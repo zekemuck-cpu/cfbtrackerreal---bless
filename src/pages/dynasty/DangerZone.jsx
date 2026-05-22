@@ -31,7 +31,7 @@ import { db } from '../../config/firebase'
 import { saveWeeklyGamesChanges } from '../../services/dynastyService'
 
 export default function DangerZone() {
-  const { currentDynasty, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly, syncAllPlayersStats } = useDynasty()
+  const { currentDynasty, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly, syncAllPlayersStats, saveWeekRecap, deleteWeekRecap } = useDynasty()
   const { user } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
@@ -85,6 +85,9 @@ export default function DangerZone() {
   const [duplicateMergeStatus, setDuplicateMergeStatus] = useState(null)
   const [duplicateGroups, setDuplicateGroups] = useState(null) // Groups pending confirmation
   const [selectedMergeGroups, setSelectedMergeGroups] = useState(new Set()) // Which groups to merge
+
+  // Preseason recap location fix state
+  const [preseasonRecapFixStatus, setPreseasonRecapFixStatus] = useState(null)
 
   // Class data fix state
   const [classDataFixStatus, setClassDataFixStatus] = useState(null)
@@ -2274,6 +2277,42 @@ export default function DangerZone() {
   //
   // Safe to re-run. No-op on a dynasty that's already v2-clean.
   //
+  const handleFixPreseasonRecap = async () => {
+    const recaps = currentDynasty?.weekRecapsByYear || {}
+    const yearsWithWeek0 = Object.keys(recaps).filter(y => recaps[y]?.[0]?.text)
+    if (yearsWithWeek0.length === 0) {
+      setPreseasonRecapFixStatus('done — no week-0 preseason recaps found')
+      return
+    }
+    const ok = await confirm({
+      title: 'Fix preseason recap location?',
+      message: `Found preseason recap data stored at week 0 in ${yearsWithWeek0.length} season(s). This will move each to week -1 (if empty there) or delete it (if week -1 already has a recap). This frees week 0 for actual Week 0 game recaps.`,
+      confirmLabel: 'Fix',
+      variant: 'primary',
+    })
+    if (!ok) return
+
+    setPreseasonRecapFixStatus('running')
+    try {
+      let moved = 0, deleted = 0
+      for (const y of yearsWithWeek0) {
+        const year = Number(y)
+        const week0recap = recaps[y][0]
+        const week_1recap = recaps[y]?.[-1] || recaps[y]?.[-1]
+        if (!week_1recap?.text) {
+          await saveWeekRecap(currentDynasty.id, year, -1, week0recap)
+          moved++
+        } else {
+          deleted++
+        }
+        await deleteWeekRecap(currentDynasty.id, year, 0)
+      }
+      setPreseasonRecapFixStatus(`done — ${moved} moved, ${deleted} cleared`)
+    } catch (e) {
+      setPreseasonRecapFixStatus(`error: ${e.message}`)
+    }
+  }
+
   const handleV2Consolidate = async () => {
     const ok = await confirm({
       title: 'Consolidate all players to v2?',
@@ -2419,6 +2458,7 @@ export default function DangerZone() {
             <div><strong className="text-txt-primary">Merge Players:</strong> Transfer created duplicate player instead of updating</div>
             <div><strong className="text-txt-primary">Clear Cache:</strong> Google Sheets errors or stale data</div>
             <div><strong className="text-txt-primary">Migrate Career:</strong> Gaps in player year-by-year data</div>
+            <div><strong className="text-txt-primary">Fix Preseason Recap:</strong> Week 0 showing old preseason recap instead of game recap</div>
           </div>
         </Card>
       )}
@@ -2510,6 +2550,13 @@ export default function DangerZone() {
             buttonText="Sync Honors"
             onClick={handleSyncHonorsToPlayers}
             status={honorsSyncStatus}
+          />
+          <ActionCard
+            title="Fix Preseason Recap Location"
+            description="Moves preseason recaps stored at week 0 (old format) to week -1, freeing week 0 for actual Week 0 game recaps."
+            buttonText="Fix"
+            onClick={handleFixPreseasonRecap}
+            status={preseasonRecapFixStatus}
           />
           {/* Storage size diagnostic — surfaces which dynasty fields are
               taking up the most space in the main Firestore doc, since
