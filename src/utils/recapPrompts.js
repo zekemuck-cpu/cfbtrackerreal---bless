@@ -914,9 +914,9 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   if (closeChase(recLeaders[0], recLeaders[1], 'recYds')) heismanCandidates.push({ ...recLeaders[1], lane: 'receiving (chasing)' })
   for (const h of heismanCandidates) {
     let line
-    if (h.lane.startsWith('passing')) line = `${h.name} (${h.team}) — passing leader: ${h.passYds} yds, ${h.passTD || 0} TD, ${h.passInt || 0} INT`
-    else if (h.lane.startsWith('rushing')) line = `${h.name} (${h.team}) — rushing leader: ${h.rushYds} yds, ${h.rushTD || 0} TD`
-    else line = `${h.name} (${h.team}) — receiving leader: ${h.recYds} yds, ${h.recTD || 0} TD`
+    if (h.lane.startsWith('passing')) line = `${h.name} (${h.team}) — passing leader: ${h.passYds || 0} yds, ${h.passTD || 0} TD, ${h.passInt || 0} INT`
+    else if (h.lane.startsWith('rushing')) line = `${h.name} (${h.team}) — rushing leader: ${h.rushYds || 0} yds, ${h.rushTD || 0} TD`
+    else line = `${h.name} (${h.team}) — receiving leader: ${h.recYds || 0} yds, ${h.recTD || 0} TD`
     if (h.lane.includes('chasing')) line += ' [chasing the leader]'
     heismanWatchLines.push(line)
   }

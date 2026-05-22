@@ -3848,8 +3848,8 @@ export default function Dashboard() {
               }
 
               // Row 3: Week Recap — for the previous week (the one just completed).
-              // Available from Week 1 onwards (prevWeek >= 0).
-              if (hasCurWeek) {
+              // Only show when prevWeek is a valid number (not null, which happens at Week 0).
+              if (hasPrevWeek) {
                 const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[prevWeek]
                 const done = !!recap?.text
                 todos.push({

@@ -1777,15 +1777,19 @@ export default function GameEntryModal({
                     : teamColors
                   const team2Colors = { primary: team2Info?.primaryColor || teamAbbreviations[team2Abbr]?.backgroundColor || '#666' }
 
-                  // For CPU games at neutral site, team1 on top, team2 on bottom
+                  // For CPU games: team1 on top, team2 on bottom (conventional)
                   // For user games: Away team on top, home team on bottom
                   const isUserAway = gameData.location === 'away'
-                  const topTeam = (isCPUGame || !isUserAway)
-                    ? { name: team2DisplayName, key: 'opponent', colors: team2Colors, logo: team2Logo }
-                    : { name: team1DisplayName, key: 'team', colors: team1Colors, logo: team1Logo }
-                  const bottomTeam = (isCPUGame || !isUserAway)
+                  const topTeam = isCPUGame
                     ? { name: team1DisplayName, key: 'team', colors: team1Colors, logo: team1Logo }
-                    : { name: team2DisplayName, key: 'opponent', colors: team2Colors, logo: team2Logo }
+                    : (!isUserAway
+                      ? { name: team2DisplayName, key: 'opponent', colors: team2Colors, logo: team2Logo }
+                      : { name: team1DisplayName, key: 'team', colors: team1Colors, logo: team1Logo })
+                  const bottomTeam = isCPUGame
+                    ? { name: team2DisplayName, key: 'opponent', colors: team2Colors, logo: team2Logo }
+                    : (!isUserAway
+                      ? { name: team1DisplayName, key: 'team', colors: team1Colors, logo: team1Logo }
+                      : { name: team2DisplayName, key: 'opponent', colors: team2Colors, logo: team2Logo })
 
                   return (
                     <>

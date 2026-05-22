@@ -260,15 +260,23 @@ FINAL CHECK before you send
     createSheet()
   }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote, currentYear, commitmentKey, existingCommitments, authErrorOccurred, createAttempts])
 
-  // Reset state when modal closes
+  // Reset state when modal closes or commitmentKey changes
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
       setCreateAttempts(0)
       setAuthErrorOccurred(false)
+      setSheetId(null)
       creatingSheetRef.current = false
     }
   }, [isOpen])
+
+  // Clear stale sheet ID when switching between weeks/commitment slots
+  useEffect(() => {
+    if (isOpen && commitmentKey) {
+      setSheetId(null)
+    }
+  }, [commitmentKey])
 
   const handleSyncFromSheet = async () => {
     if (!sheetId) return

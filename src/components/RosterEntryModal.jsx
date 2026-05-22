@@ -220,6 +220,7 @@ FINAL CHECK before you send
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
+      setSheetId(null)
       creatingSheetRef.current = false
     }
   }, [isOpen])
