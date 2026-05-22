@@ -87,7 +87,8 @@ export default function WeeklyScoresModal({ isOpen, onClose, year, week, teamCol
   useEffect(() => {
     if (!isOpen) return
     const eff = effectiveCurrentRankWeek
-    setRankWeek(Number.isFinite(eff) && eff >= 0 ? eff : (Number(week) || 1))
+    const weekNum = Number(week)
+    setRankWeek(Number.isFinite(eff) && eff >= 0 ? eff : (Number.isFinite(weekNum) ? weekNum : 1))
   }, [isOpen, effectiveCurrentRankWeek, week])
 
   const userTid = currentDynasty ? getCurrentTeamTid(currentDynasty) : null
@@ -702,12 +703,8 @@ Don't just glance at this list. Physically execute each check on your draft.
       const homeTid = g.homeTeamTid ?? Number(g.team1Tid)
       const isNeutral = g.homeTeamTid == null
       const homeIsTeam1 = !isNeutral && homeTid === Number(g.team1Tid)
-      const homeAbbr = teams[homeIsTeam1 ? g.team1Tid : g.team2Tid]?.abbr
-        || teams[g.team1Tid]?.abbr
-        || ''
-      const awayAbbr = teams[homeIsTeam1 ? g.team2Tid : g.team1Tid]?.abbr
-        || teams[g.team2Tid]?.abbr
-        || ''
+      const homeAbbr = teams[homeIsTeam1 ? g.team1Tid : g.team2Tid]?.abbr || ''
+      const awayAbbr = teams[homeIsTeam1 ? g.team2Tid : g.team1Tid]?.abbr || ''
       const homeScore = homeIsTeam1 ? g.team1Score : g.team2Score
       const awayScore = homeIsTeam1 ? g.team2Score : g.team1Score
       const homeRankRaw = homeIsTeam1 ? g.team1Rank : g.team2Rank

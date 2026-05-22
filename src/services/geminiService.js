@@ -1458,8 +1458,9 @@ export function getQualityWinsAndBadLosses(allGames, teamAbbr, year, dynasty) {
       || (oppAbbr && recordByAbbr.get(oppAbbr))
       || null
     const oppRecLabel = oppRec ? `${oppRec.w}-${oppRec.l}` : null
+    const oppAbbrFromTid = !oppAbbr && oppTid != null ? dynasty?.teams?.[oppTid]?.abbr : null
     const oppPriorRank = (oppAbbr && getTeamFinalRank(dynasty, oppAbbr, yearNum - 1))
-      || (oppTid != null && getTeamFinalRank(dynasty, oppAbbr || null, yearNum - 1))
+      || (oppAbbrFromTid && getTeamFinalRank(dynasty, oppAbbrFromTid, yearNum - 1))
       || null
 
     if (teamWon) {

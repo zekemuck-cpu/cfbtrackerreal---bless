@@ -8431,7 +8431,8 @@ export function DynastyProvider({ children }) {
         lastGamesUpdateDynastyIdRef.current = dynastyId
 
         // Save main game to subcollection
-        await saveGameToSubcollection(dynastyId, updatedGames.find(g => g.id === gameData.id))
+        const gameToSave = updatedGames.find(g => g.id === gameData.id)
+        if (gameToSave) await saveGameToSubcollection(dynastyId, gameToSave)
 
         // Save any CFP propagated games
         for (const propagatedGame of cfpGamesToPropagate) {
@@ -9174,19 +9175,21 @@ export function DynastyProvider({ children }) {
     // which we already wrote to rankByWeek[currentWeek] in step (1).
     // For the Wk N game record we want the historical entering-Wk N rank
     // — that was set on the prior save when the user was in dynasty Wk N.
-    for (const g of newGamesArr) {
-      g.team1Rank = readRankByWeek(g.team1Tid, weekNum)
-      g.team2Rank = readRankByWeek(g.team2Tid, weekNum)
-      delete g._team1CurrentWeekRank
-      delete g._team2CurrentWeekRank
-    }
+    const rankedGamesArr = newGamesArr.map(g => {
+      const { _team1CurrentWeekRank: _t1, _team2CurrentWeekRank: _t2, ...rest } = g
+      return {
+        ...rest,
+        team1Rank: readRankByWeek(g.team1Tid, weekNum),
+        team2Rank: readRankByWeek(g.team2Tid, weekNum),
+      }
+    })
 
     // Build the final games array — preserved games (filtered) plus
-    // the freshly built newGamesArr. Each game in newGamesArr already
+    // the freshly built rankedGamesArr. Each game in rankedGamesArr already
     // has team1Rank/team2Rank set directly from the AI's row in step
     // (2) above; existing games (like the user's schedule-flow game)
     // keep whatever ranks they already had.
-    const updatedGames = [...filtered, ...newGamesArr]
+    const updatedGames = [...filtered, ...rankedGamesArr]
 
     // Track that this week's scores were entered (used by dashboard to-do)
     const existingTracker = dynasty.weeklyScoresEntered || {}
