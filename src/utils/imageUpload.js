@@ -54,7 +54,7 @@ function coerceToBlob(input) {
  * Upload a single image to imgbb. Returns the hosted image URL.
  * Throws on failure — caller decides how to surface (toast, etc.).
  */
-export async function uploadImage(input) {
+export async function uploadImage(input, { signal } = {}) {
   const blob = coerceToBlob(input)
   if (blob.size > MAX_BYTES) {
     throw new Error(`Image must be ≤ ${Math.round(MAX_BYTES / 1024 / 1024)}MB (imgbb limit)`)
@@ -69,16 +69,33 @@ export async function uploadImage(input) {
   formData.append('image', blob)
   formData.append('key', apiKey)
 
-  const response = await fetch(IMGBB_ENDPOINT, {
-    method: 'POST',
-    body: formData,
-  })
-  const data = await response.json().catch(() => ({}))
+  // Abort after 30 seconds to prevent indefinite hangs on mobile or slow networks.
+  const timer = AbortController ? new AbortController() : null
+  const timeoutId = timer ? setTimeout(() => timer.abort(), 30_000) : null
+  const combinedSignal = (timer && signal)
+    ? AbortSignal.any
+      ? AbortSignal.any([timer.signal, signal])
+      : timer.signal
+    : (timer?.signal || signal || undefined)
 
-  if (!response.ok || !data?.success) {
-    throw new Error(data?.error?.message || `Upload failed (${response.status})`)
+  try {
+    const response = await fetch(IMGBB_ENDPOINT, {
+      method: 'POST',
+      body: formData,
+      signal: combinedSignal,
+    })
+    const data = await response.json().catch(() => ({}))
+
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.error?.message || `Upload failed (${response.status})`)
+    }
+    return data.data?.url || data.data?.display_url || ''
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('Upload timed out — check your connection and try again')
+    throw err
+  } finally {
+    if (timeoutId != null) clearTimeout(timeoutId)
   }
-  return data.data?.url || data.data?.display_url || ''
 }
 
 /**
@@ -86,14 +103,11 @@ export async function uploadImage(input) {
  * Returns: { urls: string[], errors: { file, error }[] }
  * Partial successes are kept.
  *
- * Optional `onProgress({ done, total, ok, url, error, file })` fires as
- * each individual upload settles — used by GameEdit's photo card to
- * surface a live "X of N uploaded" counter and progressively render
- * thumbnails so the user can confirm the bulk upload is making
- * forward progress instead of staring at a static spinner for a
- * 20-photo batch.
+ * Options:
+ *   onProgress({ done, total, ok, url, error, file }) — fires as each upload settles
+ *   signal — AbortSignal to cancel the whole batch (e.g. user clicks Cancel)
  */
-export async function uploadImages(files, { onProgress } = {}) {
+export async function uploadImages(files, { onProgress, signal } = {}) {
   const list = Array.from(files || [])
   const total = list.length
   if (total === 0) return { urls: [], errors: [] }
@@ -102,7 +116,7 @@ export async function uploadImages(files, { onProgress } = {}) {
   const results = await Promise.allSettled(
     list.map(async (file) => {
       try {
-        const url = await uploadImage(file)
+        const url = await uploadImage(file, { signal })
         done++
         try { onProgress?.({ done, total, ok: true, url, file }) } catch (_) { /* ignore listener errors */ }
         return url
