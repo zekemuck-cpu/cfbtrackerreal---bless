@@ -264,6 +264,7 @@ export default function GameEdit() {
   // batch. Bumps as each upload settles (success or failure).
   const [photoUploadDone, setPhotoUploadDone] = useState(0)
   const [photoUploadFailed, setPhotoUploadFailed] = useState(0)
+  const photoUploadAbortRef = useRef(null)
 
   // When ON, opponent Record and Conf inputs are read-only and show the
   // live "after this game finished" computation from `liveRecordFor`.
@@ -2403,11 +2404,22 @@ export default function GameEdit() {
       <Card>
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
           <h3 className="label-sm text-txt-primary">Photos</h3>
-          <span className="label-xs text-txt-tertiary tabular-nums">
-            {photoUploadCount > 0
-              ? `${photoUploadDone} of ${photoUploadCount}${photoUploadFailed > 0 ? ` ${photoUploadFailed} failed` : ''}`
-              : `${formData.photos.length} ${formData.photos.length === 1 ? 'photo' : 'photos'}`}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="label-xs text-txt-tertiary tabular-nums">
+              {photoUploadCount > 0
+                ? `${photoUploadDone} of ${photoUploadCount}${photoUploadFailed > 0 ? ` ${photoUploadFailed} failed` : ''}`
+                : `${formData.photos.length} ${formData.photos.length === 1 ? 'photo' : 'photos'}`}
+            </span>
+            {photoUploadCount > 0 && (
+              <button
+                type="button"
+                onClick={() => photoUploadAbortRef.current?.abort()}
+                className="label-xs text-txt-tertiary hover:text-txt-primary underline"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
         </div>
         <p className="text-xs text-txt-tertiary mb-3">
           Upload one or many photos at once — each one is hosted on imgbb and shows up under the Photos tab on the game page.
@@ -2467,6 +2479,8 @@ export default function GameEdit() {
               const files = Array.from(e.target.files || [])
               e.target.value = '' // allow re-picking the same files later
               if (files.length === 0) return
+              const controller = new AbortController()
+              photoUploadAbortRef.current = controller
               setPhotoUploadCount(files.length)
               setPhotoUploadDone(0)
               setPhotoUploadFailed(0)
@@ -2478,6 +2492,7 @@ export default function GameEdit() {
                 // succeeding," and a stalled counter is the actual
                 // failure mode worth surfacing.
                 const { urls, errors } = await uploadImagesToImgBB(files, {
+                  signal: controller.signal,
                   onProgress: ({ done, ok, url }) => {
                     setPhotoUploadDone(done)
                     if (ok && url) {
@@ -2487,6 +2502,7 @@ export default function GameEdit() {
                     }
                   }
                 })
+                if (controller.signal.aborted) return
                 if (errors.length > 0) {
                   setToastMessage(
                     urls.length > 0
@@ -2501,6 +2517,7 @@ export default function GameEdit() {
                   setTimeout(() => setShowToast(false), 2000)
                 }
               } finally {
+                photoUploadAbortRef.current = null
                 setPhotoUploadCount(0)
                 setPhotoUploadDone(0)
                 setPhotoUploadFailed(0)
