@@ -8473,11 +8473,36 @@ export function DynastyProvider({ children }) {
       }
     }
 
-    // FALLBACK PATH: Local storage or cloud error - use batch update
-    console.log(`[updateGame] BATCH: Saving via updateDynasty (local storage or fallback)`)
-    const batchUpdates = { games: updatedGames, ...recordUpdates }
-    if (teamsUpdate) batchUpdates.teams = teamsUpdate
-    await updateDynasty(dynastyId, batchUpdates)
+    // FALLBACK PATH: Local storage or cloud error - use targeted save approach
+    if (isCloudStorage) {
+      // Cloud fallback: save each changed game individually + update main doc
+      // fields only. NEVER do a full-array rewrite here — it writes a
+      // potentially-stale games array back to Firestore with deleteOrphans=true,
+      // which deletes any game that was committed after we last read React state.
+      console.log(`[updateGame] Cloud fallback: saving individual game(s) without full-array rewrite`)
+      try {
+        const gameToSave = updatedGames.find(g => g.id === gameData.id)
+        if (gameToSave) await saveGameToSubcollection(dynastyId, gameToSave)
+        for (const propagatedGame of cfpGamesToPropagate) {
+          const fullPropGame = updatedGames.find(g => g.id === propagatedGame.id)
+          if (fullPropGame) await saveGameToSubcollection(dynastyId, fullPropGame)
+        }
+        const cloudUpdates = { ...recordUpdates }
+        if (teamsUpdate) cloudUpdates.teams = teamsUpdate
+        if (Object.keys(cloudUpdates).length > 0) {
+          await updateDynasty(dynastyId, cloudUpdates, { skipGamesSubcollection: true })
+        }
+      } catch (retryError) {
+        console.error('[updateGame] Cloud fallback also failed:', retryError)
+        throw retryError
+      }
+    } else {
+      // Local storage: full-array batch update (safe for IndexedDB, no orphan risk)
+      console.log(`[updateGame] Local storage: batch update via updateDynasty`)
+      const batchUpdates = { games: updatedGames, ...recordUpdates }
+      if (teamsUpdate) batchUpdates.teams = teamsUpdate
+      await updateDynasty(dynastyId, batchUpdates)
+    }
 
     return gameData
   }
@@ -9283,14 +9308,46 @@ export function DynastyProvider({ children }) {
         lastGamesUpdateTimestampRef.current = Date.now()
         return newGamesArr
       } catch (error) {
-        console.error('[saveWeeklyScores] Targeted batch write failed, falling back to full updateDynasty:', error)
-        // Fall through to the legacy path below.
+        console.error('[saveWeeklyScores] Targeted batch write failed, falling back to safe cloud path:', error)
+        // Cloud fallback: retry the targeted batch write (same approach, avoids
+        // the dangerous full-array rewrite that can orphan-delete games that
+        // were committed to Firestore between the time we read existingGames
+        // (cache-first) and when the fallback write runs).
+        try {
+          bumpSkipCount(3)
+          skipListenerTimestampRef.current = Date.now()
+          await saveWeeklyGamesChanges(dynastyId, rankedGamesArr, droppedWeeklyIds)
+          await updateDynasty(dynastyId, {
+            teams: teamsCopy,
+            weeklyScoresEntered: updatedTracker,
+          }, { skipGamesSubcollection: true })
+          const updatedDynasty = {
+            ...dynasty,
+            games: updatedGames,
+            teams: teamsCopy,
+            weeklyScoresEntered: updatedTracker,
+            lastModified: Date.now(),
+          }
+          setDynasties(prev => prev.map(d =>
+            String(d.id) === String(dynastyId) ? updatedDynasty : d
+          ))
+          if (String(currentDynasty?.id) === String(dynastyId)) {
+            setCurrentDynasty(updatedDynasty)
+          }
+          return newGamesArr
+        } catch (retryError) {
+          console.error('[saveWeeklyScores] Cloud retry also failed:', retryError)
+          // Fall through to the local-storage path below only for non-cloud dynasties.
+          if (isCloudStorage) throw retryError
+        }
       }
     }
 
     // Legacy / local-storage path: full-array updateDynasty (writes to
-    // IndexedDB on local; for cloud only reached if the targeted
-    // batch above threw).
+    // IndexedDB only — safe because IndexedDB is local and has no orphan
+    // deletion concept). For cloud dynasties this is never reached (the
+    // cloud fast-path or its retry both throw on failure rather than
+    // risking a stale-array overwrite of Firestore subcollection games).
     await updateDynasty(dynastyId, {
       games: updatedGames,
       teams: teamsCopy,
