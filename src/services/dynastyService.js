@@ -944,16 +944,19 @@ export async function saveGamesToSubcollection(dynastyId, games, options = {}) {
       // Find orphaned IDs (exist in subcollection but not in our save list)
       const orphanedIds = [...existingIds].filter(id => !newIds.has(id))
 
-      // CRITICAL SAFETY CHECK: Prevent accidental mass deletion
-      // If we're about to delete more than 50% of existing games, refuse unless forced
-      if (orphanedIds.length > 0 && existingCount > 20) {
-        const deletionPercentage = (orphanedIds.length / existingCount) * 100
-        if (deletionPercentage > 50 && !forceDeleteOrphans) {
-          console.error(`[saveGamesToSubcollection] SAFETY CHECK BLOCKED: Would delete ${orphanedIds.length} of ${existingCount} games (${deletionPercentage.toFixed(1)}%). This looks like a bug. Saving ${gamesToSave.length} games WITHOUT orphan cleanup.`)
+      // CRITICAL SAFETY CHECK: Prevent accidental mass deletion.
+      // Block if deleting > 30% of existing games (lowered from 50% — the
+      // original threshold let a stale-state save silently delete a large
+      // fraction of real games before the guard fired). Always require
+      // forceDeleteOrphans for deletions that large.
+      if (orphanedIds.length > 0) {
+        const deletionPercentage = existingCount > 0 ? (orphanedIds.length / existingCount) * 100 : 0
+        if (deletionPercentage > 30 && !forceDeleteOrphans) {
+          console.error(`[saveGamesToSubcollection] SAFETY CHECK BLOCKED: Would delete ${orphanedIds.length} of ${existingCount} games (${deletionPercentage.toFixed(1)}%). This looks like a stale-state write. Saving ${gamesToSave.length} games WITHOUT orphan cleanup.`)
           console.error(`[saveGamesToSubcollection] To force deletion, use forceDeleteOrphans: true`)
           // Continue WITHOUT deleting orphans - just save the new games
         } else {
-          // Safe to delete - either low percentage or explicitly forced
+          // Safe to delete - small percentage or explicitly forced
           console.log(`[saveGamesToSubcollection] Deleting ${orphanedIds.length} orphaned game documents (deleteOrphans=true, ${deletionPercentage.toFixed(1)}% of ${existingCount})`)
           for (let i = 0; i < orphanedIds.length; i += BATCH_SIZE) {
             const batch = writeBatch(db)
@@ -966,20 +969,6 @@ export async function saveGamesToSubcollection(dynastyId, games, options = {}) {
 
             await batch.commit()
           }
-        }
-      } else if (orphanedIds.length > 0) {
-        // Small number of existing games or small deletion - safe to proceed
-        console.log(`[saveGamesToSubcollection] Deleting ${orphanedIds.length} orphaned game documents (deleteOrphans=true)`)
-        for (let i = 0; i < orphanedIds.length; i += BATCH_SIZE) {
-          const batch = writeBatch(db)
-          const batchIds = orphanedIds.slice(i, i + BATCH_SIZE)
-
-          for (const id of batchIds) {
-            const gameRef = doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, id)
-            batch.delete(gameRef)
-          }
-
-          await batch.commit()
         }
       }
     }
