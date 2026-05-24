@@ -323,11 +323,21 @@ function buildHighlightSentence(play) {
     case 'Other':
     case '':
     default: {
+      // Build a sentence for unrecognized / "Other" play types.
+      // Before commit ba31441 this was parts.join(' · '), but the
+      // middot was removed sitewide (UI guideline: no decorative
+      // symbols). Instead fold the yards directly into the player
+      // string so it reads like a sentence ("Garrett → Queen for
+      // 12 yards") rather than leaving "12 yds" dangling after
+      // a plain space where it looks like part of the player name.
+      const playersStr = (primary && passer)
+        ? `${passer} → ${primary}`
+        : (primary || '')
+      const yardsTail = yardsStr ? ` for ${yardsStr} ${yardWord(yardsNum)}` : ''
       const parts = []
       if (playType && playType !== 'Other') parts.push(playType)
-      if (primary && passer) parts.push(`${passer} → ${primary}`)
-      else if (primary) parts.push(primary)
-      if (yardsStr) parts.push(`${yardsStr} yds`)
+      if (playersStr) parts.push(`${playersStr}${yardsTail}`)
+      else if (yardsStr) parts.push(`${yardsStr} ${yardWord(yardsNum)}`)
       return parts.join(' ')
     }
   }
