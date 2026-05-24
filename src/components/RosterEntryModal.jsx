@@ -176,6 +176,12 @@ FINAL CHECK before you send
   // Create roster sheet when modal opens - always create fresh with current data
   useEffect(() => {
     const createSheet = async () => {
+      // Not signed in → show the auth modal immediately rather than
+      // silently stalling on "Setting up sheet…" indefinitely.
+      if (isOpen && !user && !sheetId && !creatingSheet && !showDeletedNote) {
+        auth.setShowAuthError(true)
+        return
+      }
       if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
         // Set ref immediately to prevent concurrent calls (state updates are async)
         creatingSheetRef.current = true
@@ -443,6 +449,7 @@ FINAL CHECK before you send
         onClose={auth.closeAuthError}
         onRefresh={auth.retry}
         teamColors={teamColors}
+        firstTime={!user}
       />
     </div>,
     document.body,

@@ -173,6 +173,15 @@ FINAL CHECK before you send the answer
   // Create schedule sheet when modal opens - always create fresh
   useEffect(() => {
     const createSheet = async () => {
+      // Not signed in → show the auth modal immediately rather than
+      // silently stalling on "Setting up sheet…" indefinitely. The
+      // "Refresh Session" button in AuthErrorModal handles both
+      // first-time Google sign-in and expired-token re-auth, so the
+      // same recovery flow works for both cases.
+      if (isOpen && !user && !sheetId && !creatingSheet && !showDeletedNote) {
+        auth.setShowAuthError(true)
+        return
+      }
       // Don't create a new sheet if we just deleted one (showing success message)
       if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
         // Set ref immediately to prevent concurrent calls (state updates are async)
@@ -563,6 +572,7 @@ FINAL CHECK before you send the answer
         onClose={auth.closeAuthError}
         onRefresh={auth.retry}
         teamColors={teamColors}
+        firstTime={!user}
       />
     </div>,
     document.body,
