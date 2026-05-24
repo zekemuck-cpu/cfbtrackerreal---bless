@@ -11,7 +11,11 @@ import { useAuth } from '../context/AuthContext'
 // minutes on iOS).
 const REFRESH_TIMEOUT_MS = 30000
 
-export default function AuthErrorModal({ isOpen, onClose, onRefresh }) {
+// firstTime=true → shows "Connect Google" copy instead of "Session Expired".
+// Pass it when the user has never authenticated with Google at all (e.g. they
+// opened a sheet modal without being signed in), so the message doesn't
+// confusingly say their session "expired" when nothing ever existed.
+export default function AuthErrorModal({ isOpen, onClose, onRefresh, firstTime = false }) {
   const { refreshSession, signOut } = useAuth()
   const [refreshing, setRefreshing] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
@@ -108,12 +112,14 @@ export default function AuthErrorModal({ isOpen, onClose, onRefresh }) {
               letterSpacing: '1.5px'
             }}
           >
-            Session Expired
+            {firstTime ? 'Google Sign-In Required' : 'Session Expired'}
           </h2>
 
           {/* Message */}
           <p className="text-sm text-txt-secondary mt-3 leading-relaxed">
-            Your Google sign-in has expired. Refresh your session to continue editing.
+            {firstTime
+              ? 'Schedule and roster entry use Google Sheets. Connect your Google account to get started — it only takes a moment.'
+              : 'Your Google sign-in has expired. Refresh your session to continue editing.'}
           </p>
 
           {/* Inline error — surfaces popup-blocked, timeout, etc. so the
@@ -153,7 +159,7 @@ export default function AuthErrorModal({ isOpen, onClose, onRefresh }) {
                   Refreshing
                 </>
               ) : (
-                'Refresh Session'
+                firstTime ? 'Connect with Google' : 'Refresh Session'
               )}
             </button>
 
