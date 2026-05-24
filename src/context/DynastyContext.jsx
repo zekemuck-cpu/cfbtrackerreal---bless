@@ -8420,7 +8420,7 @@ export function DynastyProvider({ children }) {
       teamsUpdate = applyGameRanksToTeams(dynasty, gameData)
     }
 
-    // OPTIMIZED PATH: Cloud storage - save individual games + record updates only
+    // OPTIMIZED PATH: Cloud storage - save all games in ONE batch + record updates
     if (isCloudStorage) {
       try {
         // Set listener-skip guards so the real-time listener doesn't
@@ -8430,17 +8430,21 @@ export function DynastyProvider({ children }) {
         lastGamesUpdateTimestampRef.current = Date.now()
         lastGamesUpdateDynastyIdRef.current = dynastyId
 
-        // Save main game to subcollection
+        // Collect ALL games to write: main game + any CFP propagated games.
+        // Previously we called saveGameToSubcollection once per game, which
+        // fires waitForPendingWrites on each call — N+1 sequential server
+        // round-trips. For a CFP Quarterfinal (bowl week 2) that was 3
+        // round-trips and is why those saves took so long. Batching into one
+        // saveWeeklyGamesChanges call cuts it to a single round-trip.
+        const gamesToSave = []
         const gameToSave = updatedGames.find(g => g.id === gameData.id)
-        if (gameToSave) await saveGameToSubcollection(dynastyId, gameToSave)
-
-        // Save any CFP propagated games
+        if (gameToSave) gamesToSave.push(gameToSave)
         for (const propagatedGame of cfpGamesToPropagate) {
           const fullPropGame = updatedGames.find(g => g.id === propagatedGame.id)
-          if (fullPropGame) {
-            await saveGameToSubcollection(dynastyId, fullPropGame)
-          }
+          if (fullPropGame) gamesToSave.push(fullPropGame)
         }
+        // Single batch commit + one waitForPendingWrites for all games.
+        await saveWeeklyGamesChanges(dynastyId, gamesToSave, [])
 
         // Update dynasty document with ONLY record updates (not games array)
         // This is the key optimization - we don't rewrite all 261 games
@@ -8465,7 +8469,7 @@ export function DynastyProvider({ children }) {
           setCurrentDynasty(updatedDynasty)
         }
 
-        console.log(`[updateGame] SUCCESS: Saved ${1 + cfpGamesToPropagate.length} game(s) with ${Object.keys(recordUpdates).length} record fields`)
+        console.log(`[updateGame] SUCCESS: Saved ${gamesToSave.length} game(s) in 1 batch with ${Object.keys(recordUpdates).length} record fields`)
         return gameData
       } catch (error) {
         console.error('[updateGame] Optimized save failed, falling back to batch:', error)
@@ -8475,18 +8479,20 @@ export function DynastyProvider({ children }) {
 
     // FALLBACK PATH: Local storage or cloud error - use targeted save approach
     if (isCloudStorage) {
-      // Cloud fallback: save each changed game individually + update main doc
+      // Cloud fallback: batch all changed games in one write + update main doc
       // fields only. NEVER do a full-array rewrite here — it writes a
       // potentially-stale games array back to Firestore with deleteOrphans=true,
       // which deletes any game that was committed after we last read React state.
-      console.log(`[updateGame] Cloud fallback: saving individual game(s) without full-array rewrite`)
+      console.log(`[updateGame] Cloud fallback: saving game(s) as single batch without full-array rewrite`)
       try {
+        const fallbackGames = []
         const gameToSave = updatedGames.find(g => g.id === gameData.id)
-        if (gameToSave) await saveGameToSubcollection(dynastyId, gameToSave)
+        if (gameToSave) fallbackGames.push(gameToSave)
         for (const propagatedGame of cfpGamesToPropagate) {
           const fullPropGame = updatedGames.find(g => g.id === propagatedGame.id)
-          if (fullPropGame) await saveGameToSubcollection(dynastyId, fullPropGame)
+          if (fullPropGame) fallbackGames.push(fullPropGame)
         }
+        await saveWeeklyGamesChanges(dynastyId, fallbackGames, [])
         const cloudUpdates = { ...recordUpdates }
         if (teamsUpdate) cloudUpdates.teams = teamsUpdate
         if (Object.keys(cloudUpdates).length > 0) {
@@ -8637,6 +8643,42 @@ export function DynastyProvider({ children }) {
     })
 
     const updatedGames = [...filteredGames, ...newGames]
+
+    // OPTIMIZED: For cloud storage, write only the changed bowl games
+    // instead of rewriting the entire games subcollection. The full-array
+    // updateDynasty path fires saveGamesToSubcollection with deleteOrphans=true,
+    // which reads the whole subcollection, computes orphans, and batch-rewrites
+    // every game — O(all games) instead of O(changed bowl games).
+    //
+    // newGames reuse existing IDs (id: existing?.id || ...) so the upserts in
+    // saveWeeklyGamesChanges naturally replace any old doc. No explicit
+    // deletions needed — the old doc with the same ID is simply overwritten.
+    if (isCloudDynasty && newGames.length > 0) {
+      try {
+        bumpSkipCount(3)
+        skipListenerTimestampRef.current = Date.now()
+        lastGamesUpdateTimestampRef.current = Date.now()
+        lastGamesUpdateDynastyIdRef.current = dynastyId
+
+        await saveWeeklyGamesChanges(dynastyId, newGames, [])
+        lastGamesUpdateTimestampRef.current = Date.now()
+
+        // Update local React state with the full updated games list
+        const updatedDynasty = { ...dynasty, games: updatedGames, lastModified: Date.now() }
+        setDynasties(prev => prev.map(d =>
+          String(d.id) === String(dynastyId) ? updatedDynasty : d
+        ))
+        if (String(currentDynasty?.id) === String(dynastyId)) {
+          setCurrentDynasty(updatedDynasty)
+        }
+
+        console.log(`[saveCPUBowlGames] Saved ${newGames.length} bowl game(s) for ${year} ${week} in 1 batch`)
+        return newGames
+      } catch (error) {
+        console.error('[saveCPUBowlGames] Targeted batch failed, falling back to full-array rewrite:', error)
+        // Fall through to full-array rewrite below
+      }
+    }
 
     await updateDynasty(dynastyId, { games: updatedGames })
 
