@@ -78,9 +78,11 @@ export function buildScoreGraphicPrompt({
     ``,
     photoLine,
     ``,
-    `The score numbers should be the largest typographic element. Both team logos should appear near their respective scores. Everything else — layout, texture, composition, hierarchy — is your creative call.`,
+    `The score numbers should be the largest typographic element. Both team logos should appear near their respective scores. The two scores must read as a clear comparison at a glance — side by side, or in an obvious visual relationship. Everything else — layout, texture, composition, hierarchy — is your creative call.`,
     ``,
     `Do not use large standalone WIN / VICTORY / FINAL text as the dominant visual element — the score and design should carry the result, not a word plastered across the canvas.`,
+    ``,
+    `Do not place the opponent's logo in a plain white or gray box — both teams should feel integrated into the design, not pasted in.`,
   ]
 
   return lines.filter(l => l !== null && l !== undefined).join('\n')
