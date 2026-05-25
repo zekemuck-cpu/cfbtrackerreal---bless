@@ -76,10 +76,9 @@ export function buildScoreGraphicPrompt({
 
   // Photo layer direction — always conditional so the prompt works whether
   // or not the user actually attaches screenshots when they paste it.
-  const photoSection = `BACKGROUND PHOTO LAYER:
-If images are attached to this prompt: use one of them (pick the most dramatic game action frame — mid-play, a celebration, a key moment) as the full-bleed background. Apply a heavy ${primary} color grade overlay at 60–70% opacity so the image reads as a cinematic ${primary} photograph rather than a raw snapshot.
-If no images are attached: generate a photorealistic game action scene — ${featuredName} players in ${profile?.homeJerseyColor || 'team-colored'} uniforms, stadium atmosphere, dramatic broadcast-style lighting — and apply the same ${primary} color grade overlay at 60–70% opacity.
-Either way the result is a full-bleed photographic background in team colors. Do NOT use a flat solid-color rectangle.`
+  const photoSection = `BACKGROUND:
+If images are attached to this prompt: pick the most dramatic game action frame — mid-play, a celebration, a key moment — and use it as the full-bleed background. Apply a heavy ${primary} color grade overlay at 60–70% opacity so it reads as a cinematic ${primary} photograph rather than a raw snapshot.
+If no images are attached: use a clean solid or subtly textured ${primary} background (${texture}). No generated photography. Pure graphic and typographic design only.`
 
   const lines = [
     `Create a post-game social media graphic for ${featuredName}'s official Instagram/Twitter.`,
@@ -118,7 +117,7 @@ Either way the result is a full-bleed photographic background in team colors. Do
     `Typography: All caps. Heaviest weights. Locked to ${featuredName}'s brand face — ${profile?.wordmarkStyle ? profile.wordmarkStyle.split('.')[0] : 'bold collegiate block'}. No script, no decorative fonts.`,
     ``,
     `DO NOT:`,
-    `  • Do NOT use a flat color background with no photography`,
+    `  • Do NOT generate photorealistic imagery if no images are attached — clean graphic design only`,
     `  • Do NOT draw literal helmet illustrations`,
     `  • Do NOT make a split-team matchup card where both teams get equal visual real estate`,
     `  • Do NOT use generic athlete silhouette clip art`,
