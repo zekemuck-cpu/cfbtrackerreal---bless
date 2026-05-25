@@ -74,12 +74,12 @@ export function buildScoreGraphicPrompt({
     featuredRecord || null,
   ].filter(Boolean).join(' · ')
 
-  // Photo layer direction
-  const photoSection = screenshotCount > 0
-    ? `GAME PHOTOS (${screenshotCount} screenshot${screenshotCount > 1 ? 's' : ''} attached):
-The attached screenshots ARE the photographic foundation of this graphic. Select the most dramatic frame — a player mid-action, a key moment, a celebration. Use it as the full-bleed background layer. Apply a heavy ${primary} color grade overlay at roughly 60–70% opacity so the image reads as a deep ${primary} photograph, not a collage. The photo gives the graphic its authenticity and energy.`
-    : `BACKGROUND PHOTO:
-Generate a photorealistic game action scene: ${featuredName} players in ${profile?.homeJerseyColor || 'team-colored'} uniforms, stadium atmosphere, dramatic broadcast-style lighting. Apply a heavy ${primary} color grade overlay at 60–70% opacity. The result should feel like a cinematic game photograph in team colors — not a flat colored rectangle.`
+  // Photo layer direction — always conditional so the prompt works whether
+  // or not the user actually attaches screenshots when they paste it.
+  const photoSection = `BACKGROUND PHOTO LAYER:
+If images are attached to this prompt: use one of them (pick the most dramatic game action frame — mid-play, a celebration, a key moment) as the full-bleed background. Apply a heavy ${primary} color grade overlay at 60–70% opacity so the image reads as a cinematic ${primary} photograph rather than a raw snapshot.
+If no images are attached: generate a photorealistic game action scene — ${featuredName} players in ${profile?.homeJerseyColor || 'team-colored'} uniforms, stadium atmosphere, dramatic broadcast-style lighting — and apply the same ${primary} color grade overlay at 60–70% opacity.
+Either way the result is a full-bleed photographic background in team colors. Do NOT use a flat solid-color rectangle.`
 
   const lines = [
     `Create a post-game social media graphic for ${featuredName}'s official Instagram/Twitter.`,
