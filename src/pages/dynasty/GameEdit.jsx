@@ -271,6 +271,8 @@ export default function GameEdit() {
   // Score graphic team selector — null means "auto" (follow user's team).
   // Stored as 'team1' | 'team2' | null. Resolved at render time.
   const [graphicFeaturedSide, setGraphicFeaturedSide] = useState(null)
+  // Brief "Copied!" flash on the score graphic prompt copy button.
+  const [graphicPromptCopied, setGraphicPromptCopied] = useState(false)
 
   // Tracks in-flight ImgBB uploads from the Photos section so the UI
   // can show a "Uploading X photo(s)…" indicator and disable the file
@@ -2666,14 +2668,17 @@ export default function GameEdit() {
                     type="button"
                     onClick={() => {
                       navigator.clipboard.writeText(prompt).catch(() => {})
+                      setGraphicPromptCopied(true)
+                      setTimeout(() => setGraphicPromptCopied(false), 1500)
                     }}
-                    className="absolute top-2 right-2 px-2 py-1 rounded text-xs font-medium transition-colors"
+                    className="absolute top-2 right-2 px-2 py-1 rounded text-xs font-medium transition-all duration-150"
                     style={{
-                      backgroundColor: 'var(--surface-4)',
-                      color: 'var(--text-primary)',
+                      backgroundColor: graphicPromptCopied ? '#16a34a' : 'var(--surface-4)',
+                      color: graphicPromptCopied ? '#fff' : 'var(--text-primary)',
+                      transform: graphicPromptCopied ? 'scale(0.95)' : 'scale(1)',
                     }}
                   >
-                    Copy
+                    {graphicPromptCopied ? 'Copied!' : 'Copy'}
                   </button>
                 </div>
 
