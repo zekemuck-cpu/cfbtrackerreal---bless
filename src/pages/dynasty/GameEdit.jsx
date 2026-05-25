@@ -17,6 +17,7 @@ import { isBowlInWeek1, isBowlInWeek2, getWeek1BowlGamesList, getWeek2BowlGamesL
 import { PageHero, Card, Button, EmptyState, Input, Select, Textarea } from '../../components/ui'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../components/ui/Toast'
+import RecapSettingsModal from '../../components/RecapSettingsModal'
 import { getTeamLogoRobust } from '../../utils/teamLogo'
 import { getTeamColors } from '../../data/teamColors'
 import { uploadImagesToImgBB } from '../../utils/imgbb'
@@ -217,10 +218,16 @@ export default function GameEdit() {
   const [recapPerspective, setRecapPerspective] = useState(() => {
     try { return localStorage.getItem('gameRecapPerspective') || 'neutral' } catch { return 'neutral' }
   })
-  const [showPerspectivePicker, setShowPerspectivePicker] = useState(false)
+  const [recapDepth, setRecapDepth] = useState(() => {
+    try { return localStorage.getItem('gameRecapDepth') || 'standard' } catch { return 'standard' }
+  })
+  const [showRecapSettings, setShowRecapSettings] = useState(false)
   useEffect(() => {
     try { localStorage.setItem('gameRecapPerspective', recapPerspective) } catch { /* ignored */ }
   }, [recapPerspective])
+  useEffect(() => {
+    try { localStorage.setItem('gameRecapDepth', recapDepth) } catch { /* ignored */ }
+  }, [recapDepth])
 
   // Form state
   const [formData, setFormData] = useState({
@@ -1598,7 +1605,7 @@ export default function GameEdit() {
         year: gameYear,
       }
 
-      const fullPrompt = getFullRecapPrompt(currentDynasty, gameForRecap, { perspective: recapPerspective })
+      const fullPrompt = getFullRecapPrompt(currentDynasty, gameForRecap, { perspective: recapPerspective, depth: recapDepth })
 
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(fullPrompt)
@@ -2250,22 +2257,18 @@ export default function GameEdit() {
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
           <h3 className="label-sm text-txt-primary">Game Recap</h3>
           {(() => {
-            // Perspective slider stops — labeled with the matchup's two team
-            // names so the user can pick "team1 fan" / "team1 reporter" /
-            // "neutral" / "team2 reporter" / "team2 fan" for THIS game.
+            // Resolve display names for the perspective slider labels.
             const t1Name = team1Name || team1Abbr || 'Team 1'
             const t2Name = team2Name || team2Abbr || 'Team 2'
             const perspectiveOptions = [
-              { key: 'team1Fan',      label: `${t1Name} fan`,      blurb: `Blog-style, first-person plural ("we" / "our ${t1Name}"). Emotional. Pro-${t1Name}.` },
-              { key: 'team1Reporter', label: `${t1Name} reporter`, blurb: `Hometown beat writer for ${t1Name}. News-forward, third-person, but ${t1Name}-led framing.` },
+              { key: 'team1Fan',      label: `${t1Name} fan`,         blurb: `Blog-style, first-person plural ("we" / "our ${t1Name}"). Emotional. Pro-${t1Name}.` },
+              { key: 'team1Reporter', label: `${t1Name} reporter`,     blurb: `Hometown beat writer for ${t1Name}. News-forward, third-person, but ${t1Name}-led framing.` },
               { key: 'neutral',       label: 'Neutral national media', blurb: 'ESPN.com beat writer. Inverted-pyramid news, balanced coverage of both teams.' },
-              { key: 'team2Reporter', label: `${t2Name} reporter`, blurb: `Hometown beat writer for ${t2Name}. News-forward, third-person, but ${t2Name}-led framing.` },
-              { key: 'team2Fan',      label: `${t2Name} fan`,      blurb: `Blog-style, first-person plural ("we" / "our ${t2Name}"). Emotional. Pro-${t2Name}.` },
+              { key: 'team2Reporter', label: `${t2Name} reporter`,     blurb: `Hometown beat writer for ${t2Name}. News-forward, third-person, but ${t2Name}-led framing.` },
+              { key: 'team2Fan',      label: `${t2Name} fan`,          blurb: `Blog-style, first-person plural ("we" / "our ${t2Name}"). Emotional. Pro-${t2Name}.` },
             ]
-            const sliderIdx = Math.max(0, perspectiveOptions.findIndex(p => p.key === recapPerspective))
-            const currentOption = perspectiveOptions[sliderIdx] || perspectiveOptions[2]
             return (
-              <div className="flex items-center gap-2 relative">
+              <div className="flex items-center gap-2">
                 <Button
                   variant="primary"
                   size="sm"
@@ -2277,9 +2280,8 @@ export default function GameEdit() {
                 </Button>
                 <button
                   type="button"
-                  aria-label="Recap perspective settings"
-                  aria-expanded={showPerspectivePicker}
-                  onClick={() => setShowPerspectivePicker(v => !v)}
+                  aria-label="Recap settings"
+                  onClick={() => setShowRecapSettings(true)}
                   className="inline-flex items-center justify-center w-8 h-8 rounded-lg transition-all border border-surface-5 bg-surface-3 text-txt-primary"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2287,48 +2289,15 @@ export default function GameEdit() {
                     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
                   </svg>
                 </button>
-                {showPerspectivePicker && (
-                  <div
-                    className="absolute right-0 top-full mt-2 rounded-xl shadow-2xl p-4 z-50 w-[320px] sm:w-[360px] bg-surface-2 border border-surface-5"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-txt-secondary">Recap perspective</span>
-                      <button
-                        type="button"
-                        aria-label="Close"
-                        onClick={() => setShowPerspectivePicker(false)}
-                        className="text-xs uppercase tracking-wide text-txt-tertiary"
-                      >
-                        Close
-                      </button>
-                    </div>
-                    <div className="text-sm font-semibold mb-1 text-txt-primary">
-                      {currentOption.label}
-                    </div>
-                    <p className="text-xs mb-3 leading-snug text-txt-secondary">
-                      {currentOption.blurb}
-                    </p>
-                    <input
-                      type="range"
-                      min={0}
-                      max={4}
-                      step={1}
-                      value={sliderIdx}
-                      onChange={(e) => setRecapPerspective(perspectiveOptions[Number(e.target.value)].key)}
-                      className="w-full"
-                    />
-                    <div className="flex justify-between mt-2 text-[10px] font-medium text-txt-tertiary">
-                      <span className="text-left max-w-[60px] leading-tight">{t1Name} fan</span>
-                      <span className="text-center max-w-[60px] leading-tight">{t1Name} beat</span>
-                      <span className="text-center max-w-[60px] leading-tight">Neutral</span>
-                      <span className="text-center max-w-[60px] leading-tight">{t2Name} beat</span>
-                      <span className="text-right max-w-[60px] leading-tight">{t2Name} fan</span>
-                    </div>
-                    <p className="text-[11px] mt-3 italic text-txt-tertiary">
-                      Slide live-updates what "Copy AI Prompt" produces. Saved across games.
-                    </p>
-                  </div>
-                )}
+                <RecapSettingsModal
+                  isOpen={showRecapSettings}
+                  onClose={() => setShowRecapSettings(false)}
+                  perspectiveOptions={perspectiveOptions}
+                  perspective={recapPerspective}
+                  onPerspectiveChange={setRecapPerspective}
+                  depth={recapDepth}
+                  onDepthChange={setRecapDepth}
+                />
               </div>
             )
           })()}
