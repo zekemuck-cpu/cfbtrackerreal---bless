@@ -4,7 +4,7 @@ import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../data/te
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamColors } from '../data/teamColors'
 import { getModalColors } from '../utils/colorUtils'
-import { useDynasty, getUserGamePerspective, getRecordAsOfGame } from '../context/DynastyContext'
+import { useDynasty, getUserGamePerspective, getRecordAsOfGame, getTeamConferenceForDynasty } from '../context/DynastyContext'
 import { TEAMS, resolveTid, getGameTeamInfo, getAbbrFromTeamName } from '../data/teamRegistry'
 import { getBowlLogo } from '../data/bowlLogos'
 import { getConferenceLogo } from '../data/conferenceLogos'
@@ -51,7 +51,9 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
 
   // Get the user's team conference - fallback computation if not stored in game
   const userTeamAbbr = getAbbrFromTeamName(userTeam)
-  const computedConference = userTeamAbbr ? getTeamConference(userTeamAbbr) : null
+  const computedConference = userTeamAbbr
+    ? getTeamConferenceForDynasty(currentDynasty, userTeamAbbr, game?.year)
+    : null
 
   // Helper to find player PID by name
   const getPlayerPID = (playerName) => {
@@ -374,7 +376,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
               })()}
               {/* Conference Logo for Championship Games */}
               {game.isConferenceChampionship && (() => {
-                const confName = game.conference || currentDynasty?.conference || computedConference
+                const confName = game.conference || computedConference
                 const confLogo = confName ? getConferenceLogo(confName) : null
                 return confLogo ? (
                   <div className="w-10 h-10 sm:w-16 sm:h-16 flex-shrink-0 bg-white rounded-lg p-1 flex items-center justify-center">
@@ -390,7 +392,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                 {game.isConferenceChampionship || game.isBowlGame || game.isPlayoff ? (
                   <div className="text-base sm:text-2xl font-bold truncate">
                     {game.year} {game.isConferenceChampionship
-                      ? `${game.conference || currentDynasty?.conference || computedConference || ''} Championship Game`
+                      ? `${game.conference || computedConference || ''} Championship Game`
                       : (game.bowlName || game.gameTitle || '')}
                   </div>
                 ) : (

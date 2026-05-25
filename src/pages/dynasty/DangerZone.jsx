@@ -31,7 +31,7 @@ import { db } from '../../config/firebase'
 import { saveWeeklyGamesChanges } from '../../services/dynastyService'
 
 export default function DangerZone() {
-  const { currentDynasty, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly, syncAllPlayersStats, saveWeekRecap, deleteWeekRecap } = useDynasty()
+  const { currentDynasty, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, migrateConferencesToPerTeam, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly, syncAllPlayersStats, saveWeekRecap, deleteWeekRecap } = useDynasty()
   const { user } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
@@ -58,6 +58,9 @@ export default function DangerZone() {
 
   // CFP repair state
   const [cfpRepairStatus, setCfpRepairStatus] = useState(null)
+
+  // Conference migration state
+  const [confMigrationStatus, setConfMigrationStatus] = useState(null)
 
   // CCG repair state
   const [ccgRepairStatus, setCcgRepairStatus] = useState(null)
@@ -1675,6 +1678,25 @@ export default function DangerZone() {
     }
   }
 
+  // Migrate legacy conference data to the canonical per-team byYear store
+  const handleMigrateConferences = async () => {
+    if (!currentDynasty) {
+      toast.error('No dynasty loaded.')
+      return
+    }
+    setConfMigrationStatus('running')
+    try {
+      const result = await migrateConferencesToPerTeam(currentDynasty.id)
+      setConfMigrationStatus({
+        success: true,
+        message: result?.message || `Migration complete.`,
+      })
+    } catch (err) {
+      console.error('[Conf Migration] Error:', err)
+      setConfMigrationStatus({ success: false, message: 'Migration failed: ' + err.message })
+    }
+  }
+
   // Repair Conference Championship games - add missing conference field
   const handleRepairCCGames = async () => {
     setCcgRepairStatus('running')
@@ -2515,6 +2537,13 @@ export default function DangerZone() {
             buttonText="Fix Links"
             onClick={handleFixScheduleLinks}
             status={scheduleLinkFixStatus}
+          />
+          <ActionCard
+            title="Migrate Conferences"
+            description="One-time migration: copies legacy conference data into each team's per-season record (teams[tid].byYear[year].conference). Safe to run multiple times — skips teams already migrated."
+            buttonText="Migrate"
+            onClick={handleMigrateConferences}
+            status={confMigrationStatus}
           />
           <ActionCard
             title="Repair CCG Games"

@@ -15648,9 +15648,15 @@ export async function readTop25FromSheet(spreadsheetId, dynasty) {
 
   // Build per-year, per-team map of new rank entries: { year: { tid: { weekKey: rank } } }.
   // Also count old vs new entries per year for the bulk-delete guardrail.
+  // Track which (year → Set<weekKey>) had ANY entry in the sheet so the
+  // removal-detection pass below knows which weeks the user actually touched.
+  // Weeks with zero sheet entries are treated as "untouched" — existing
+  // rankings for those weeks are preserved, not deleted.
   const yearTotals = {}
   const newEntriesByYear = {}
   const unknownAbbrs = []
+  // year (number) → Set of weekKeys that had ≥1 entry in the sheet
+  const weeksWithDataByYear = new Map()
 
   for (const r of (valuesData.valueRanges || [])) {
     const year = yearByRange.get(r.range) ?? yearByRange.get(decodeURIComponent(r.range))
@@ -15667,6 +15673,8 @@ export async function readTop25FromSheet(spreadsheetId, dynasty) {
     }
 
     const yearMap = newEntriesByYear[year] || (newEntriesByYear[year] = {})
+    if (!weeksWithDataByYear.has(year)) weeksWithDataByYear.set(year, new Set())
+    const touchedWeeks = weeksWithDataByYear.get(year)
     let newCount = 0
     // Skip header row 0; data rows 1..25 = ranks 1..25.
     for (let rIdx = 1; rIdx <= TOP25_NUM_RANKS; rIdx++) {
@@ -15685,6 +15693,7 @@ export async function readTop25FromSheet(spreadsheetId, dynasty) {
         const tidKey = String(tid)
         const teamMap = yearMap[tidKey] || (yearMap[tidKey] = {})
         teamMap[weekKey] = rank
+        touchedWeeks.add(weekKey)   // mark this week as having been used
         newCount += 1
       }
     }
@@ -15692,10 +15701,13 @@ export async function readTop25FromSheet(spreadsheetId, dynasty) {
   }
 
   // Convert to teamUpdates shape: { [tid]: { [year]: { [weekKey]: rank | null } } }.
-  // For each team-year, also include explicit `null` entries for every
-  // weekKey that USED to have a rank but isn't in the new state — that
-  // tells the caller to clear those slots. (Comparison happens at apply
-  // time using the old dynasty, so callers don't need to recompute.)
+  // For weeks that WERE touched in the sheet, include explicit `null` entries
+  // for every old slot not carried forward — tells the caller to clear those.
+  // Weeks that had NO entries in the sheet are left completely alone; a blank
+  // column means "user didn't touch this week," not "user wants it deleted."
+  //
+  // Example: user adds Bama Wk 4 #13. Only Week 4 is touched. UNC Wk 3 #18
+  // and WASH Wk 3 #9 are untouched (Week 3 had no sheet entries) → preserved.
   const teamUpdates = {}
   // Seed teamUpdates with new entries.
   for (const [year, byTid] of Object.entries(newEntriesByYear)) {
@@ -15705,20 +15717,12 @@ export async function readTop25FromSheet(spreadsheetId, dynasty) {
     }
   }
   // For each year present in the read, walk all teams that had an old
-  // rankByWeek entry and add nulls for any weekKey not in the new set.
+  // rankByWeek entry and add nulls for any weekKey that:
+  //   (a) was touched in the sheet (had ≥1 entry for that week), AND
+  //   (b) no longer has an entry for this specific team.
   //
   // PAST-YEAR PROTECTION: for years strictly before the dynasty's
-  // current year, blank cells in the sheet are treated as "keep
-  // existing data" rather than "remove." This protects historical
-  // rank data from accidental wipes when:
-  //   - the migration couldn't resolve some legacy tids and left
-  //     rankByWeek partial for those years (sheet creator pre-fills
-  //     only the resolved entries; the rest read as blank)
-  //   - the user wasn't expecting the sheet to be touching past-
-  //     year data at all and didn't realize blank past-year tabs
-  //     would be interpreted as deletions
-  // For the current year and future years, blanks still mean
-  // "remove" (the typical workflow for editing live ranks).
+  // current year, skip removal-entry generation entirely.
   const dynastyCurrentYear = Number(dynasty.currentYear)
   for (const yearStr of Object.keys(yearTotals)) {
     const yearNum = Number(yearStr)
@@ -15726,6 +15730,10 @@ export async function readTop25FromSheet(spreadsheetId, dynasty) {
       // Past year — skip removal-entry generation entirely.
       continue
     }
+    // Weeks that had ≥1 entry in the sheet for this year.
+    const touchedWeeks = weeksWithDataByYear.get(yearNum) || new Set()
+    if (touchedWeeks.size === 0) continue  // sheet was completely empty for this year
+
     for (const [tidKey, team] of Object.entries(dynasty.teams || {})) {
       const oldRbw = team?.byYear?.[yearNum]?.rankByWeek
         ?? team?.byYear?.[yearStr]?.rankByWeek
@@ -15734,7 +15742,10 @@ export async function readTop25FromSheet(spreadsheetId, dynasty) {
       for (const k of Object.keys(oldRbw)) {
         const wk = Number(k)
         if (!Number.isFinite(wk)) continue
-        // If old had this slot AND new doesn't, mark it null (= clear).
+        // ONLY generate a removal if this week was touched in the sheet.
+        // An entirely-blank week column means the user didn't engage with
+        // that week at all — don't treat it as "user cleared all rankings."
+        if (!touchedWeeks.has(wk)) continue
         if (oldRbw[k] != null && !(wk in newWeekMap) && !(String(wk) in newWeekMap)) {
           if (!teamUpdates[tidKey]) teamUpdates[tidKey] = {}
           if (!teamUpdates[tidKey][yearStr]) teamUpdates[tidKey][yearStr] = {}
