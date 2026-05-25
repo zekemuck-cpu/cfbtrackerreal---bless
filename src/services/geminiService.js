@@ -3374,6 +3374,91 @@ function formatEnhancedPlayerLine(p, category) {
 }
 
 // ============================================
+// RECAP DEPTH / LENGTH OPTIONS
+// ============================================
+
+/**
+ * Ten-stop length/depth spectrum for game recap prompts.
+ * Used by the depth slider in RecapSettingsModal and by buildGameRecapPrompt
+ * to inject a LENGTH / DEPTH DIRECTIVE section into the prompt.
+ *
+ * Exported so RecapSettingsModal can build the slider UI without
+ * duplicating this array.
+ */
+export const RECAP_DEPTH_OPTIONS = [
+  {
+    key: 'scoreline',
+    label: 'Scoreline',
+    wordTarget: null,
+    blurb: 'One sentence: final score and winner only.',
+    directive: 'Write EXACTLY ONE sentence stating who won and what the final score was (e.g. "The Tigers defeated the Bulldogs 28–14 in a Week 6 SEC showdown."). Nothing else — no player names, no analysis, no additional sentences.',
+  },
+  {
+    key: 'flash',
+    label: 'Flash',
+    wordTarget: '40–70',
+    blurb: '2–3 sentences. Result, margin, and one decisive moment.',
+    directive: 'Write 2–3 sentences only. Sentence 1: who won and the score. Sentence 2: the decisive moment or standout player. Sentence 3 (optional): one line of context or stakes. Target 40–70 words. Stop there — no fourth sentence.',
+  },
+  {
+    key: 'brief',
+    label: 'Brief',
+    wordTarget: '80–120',
+    blurb: 'One tight paragraph in wire-service style.',
+    directive: 'Write a single paragraph of 80–120 words in AP wire-service style. Lead with the result, include the key play or player that decided it, close with one line of stakes or context. No subheadings. One paragraph only — do not break into two.',
+  },
+  {
+    key: 'short',
+    label: 'Short',
+    wordTarget: '150–220',
+    blurb: 'Two paragraphs. Result lead and one player spotlight.',
+    directive: 'Write exactly two paragraphs totaling 150–220 words. Paragraph 1: result and the game\'s biggest moment. Paragraph 2: top performer with stats and what the outcome means. No subheadings. Stop after the second paragraph.',
+  },
+  {
+    key: 'compact',
+    label: 'Compact',
+    wordTarget: '250–320',
+    blurb: 'Three paragraphs with inverted-pyramid structure.',
+    directive: 'Write exactly three paragraphs totaling 250–320 words using inverted-pyramid structure (most important first). Para 1: result and biggest play. Para 2: scoring flow summary. Para 3: closing stakes or "what\'s next". No subheadings.',
+  },
+  {
+    key: 'standard',
+    label: 'Standard',
+    wordTarget: '350–450',
+    blurb: 'Three to four paragraphs — the default depth.',
+    directive: 'Write three to four paragraphs totaling 350–450 words. Full news recap: strong inverted-pyramid lede, the key plays or drives that swung the game, one or two player spotlights with stats, and a closing context paragraph. This is the standard depth.',
+  },
+  {
+    key: 'developed',
+    label: 'Developed',
+    wordTarget: '500–650',
+    blurb: 'Four to five paragraphs with player spotlights.',
+    directive: 'Write four to five paragraphs totaling 500–650 words. Cover the scoring flow in more detail, spotlight two or three players by name with specific stats, and include a dedicated paragraph on what the result means for standings or rankings going forward.',
+  },
+  {
+    key: 'full',
+    label: 'Full story',
+    wordTarget: '700–900',
+    blurb: 'Six to seven paragraphs. Full scoring narrative.',
+    directive: 'Write six to seven paragraphs totaling 700–900 words. Full news article: strong lede, quarter-by-quarter flow, key player performances, a momentum / turning-point section, and a "what\'s next" closing paragraph. Use subheadings if they help organize the piece.',
+  },
+  {
+    key: 'longform',
+    label: 'Long form',
+    wordTarget: '1000–1300',
+    blurb: 'Eight-plus paragraphs, magazine-quality detail.',
+    directive: 'Write at least eight paragraphs totaling 1000–1300 words. Magazine-quality depth: compelling lede, full scoring narrative with quarter context, individual performance spotlights backed by every available stat, a momentum / turning-point section, and a closing "stakes and what\'s next" section. Use subheadings.',
+  },
+  {
+    key: 'epic',
+    label: 'Epic',
+    wordTarget: '1500+',
+    blurb: 'No word limit. Complete narrative using every data point.',
+    directive: 'Write a comprehensive narrative of at least 1500 words with no upper limit. Use every stat, player performance, quarter score, scoring play, and contextual data point available. Cover the entire arc of the game from opening drive to final whistle. Every section should feel fully developed. Use subheadings to organize the piece.',
+  },
+]
+
+// ============================================
 // DEFAULT WRITING INSTRUCTIONS TEMPLATE
 // ============================================
 
@@ -3913,7 +3998,7 @@ export function getRecapInstructionsForPerspective(perspective, ctx) {
  * @param {string} customInstructions - Optional custom writing instructions (uses default if not provided)
  * @param {string} perspective - Optional perspective key (RECAP_PERSPECTIVES). When set and non-neutral, the USER'S TEAM PERSPECTIVE data block is suppressed — the perspective controls framing instead.
  */
-function buildGameRecapPrompt(ctx, customInstructions = null, perspective = null) {
+function buildGameRecapPrompt(ctx, customInstructions = null, perspective = null, depth = null) {
   // Build the game result line
   const resultLine = `${ctx.winner} defeated ${ctx.loser} ${ctx.winnerScore}-${ctx.loserScore}`
 
@@ -5162,6 +5247,22 @@ WRITING INSTRUCTIONS
 
 ${instructions}`
 
+  // Inject length/depth directive when the user has set a non-default depth.
+  // Appended AFTER writing instructions so it overrides any conflicting length
+  // guidance in the default instructions block.
+  const depthOpt = depth ? RECAP_DEPTH_OPTIONS.find(d => d.key === depth) : null
+  if (depthOpt) {
+    prompt += `\n
+===========================================
+LENGTH / DEPTH DIRECTIVE — follow precisely
+===========================================
+${depthOpt.directive}
+${depthOpt.wordTarget
+  ? `Target word count: ${depthOpt.wordTarget} words. Treat this as a hard constraint — do not write significantly more or fewer words than the range.`
+  : 'Treat the single-sentence constraint as absolute — there is no word count range because the output is exactly one sentence.'
+}`
+  }
+
   return prompt
 }
 
@@ -5187,11 +5288,13 @@ export function getFullRecapPrompt(dynasty, game, optionsOrCustomInstructions = 
   // Normalize the third arg. String = legacy customInstructions. Object = new options.
   let customInstructions = null
   let perspective = null
+  let depth = null
   if (typeof optionsOrCustomInstructions === 'string') {
     customInstructions = optionsOrCustomInstructions
   } else if (optionsOrCustomInstructions && typeof optionsOrCustomInstructions === 'object') {
     customInstructions = optionsOrCustomInstructions.customInstructions || null
     perspective = optionsOrCustomInstructions.perspective || null
+    depth = optionsOrCustomInstructions.depth || null
   }
 
   // Perspective wins over customInstructions when both are provided —
@@ -5201,5 +5304,5 @@ export function getFullRecapPrompt(dynasty, game, optionsOrCustomInstructions = 
     customInstructions = getRecapInstructionsForPerspective(perspective, context) || customInstructions
   }
 
-  return buildGameRecapPrompt(context, customInstructions, perspective)
+  return buildGameRecapPrompt(context, customInstructions, perspective, depth)
 }
