@@ -2596,6 +2596,9 @@ export default function GameEdit() {
         const rec1 = formData.team1Record || ''
         const rec2 = formData.team2Record || ''
 
+        // Pass screenshot count so the prompt can tell the AI to expect attachments
+        const uploadedScreenshots = Array.isArray(formData.photos) ? formData.photos.filter(Boolean).length : 0
+
         const prompt = hasScores ? buildScoreGraphicPrompt({
           team1Name,
           team1Score: formData.team1Score,
@@ -2610,13 +2613,14 @@ export default function GameEdit() {
           gameLabel: gameTitle,
           year: gameYear,
           featuredTeam: featuredTeamNum,
+          screenshotCount: uploadedScreenshots,
         }) : ''
 
         return (
           <Card>
             <h3 className="label-sm text-txt-primary mb-1">Score Graphic</h3>
             <p className="text-xs text-txt-tertiary mb-3">
-              Copy this prompt into ChatGPT, Midjourney, or another image AI — then upload the result below.
+              Copy this prompt into ChatGPT or another image AI{uploadedScreenshots > 0 ? `, then attach your ${uploadedScreenshots} game screenshot${uploadedScreenshots > 1 ? 's' : ''} as reference images` : ''} — then upload the result below.
             </p>
 
             {!hasScores ? (
