@@ -268,6 +268,10 @@ export default function GameEdit() {
     scoreGraphic: '',       // URL of AI-generated final score graphic
   })
 
+  // Score graphic team selector — null means "auto" (follow user's team).
+  // Stored as 'team1' | 'team2' | null. Resolved at render time.
+  const [graphicFeaturedSide, setGraphicFeaturedSide] = useState(null)
+
   // Tracks in-flight ImgBB uploads from the Photos section so the UI
   // can show a "Uploading X photo(s)…" indicator and disable the file
   // picker while a batch is in progress.
@@ -2575,38 +2579,82 @@ export default function GameEdit() {
       {/* Score Graphic — AI-generated final score image */}
       {(() => {
         const hasScores = formData.team1Score !== '' && formData.team2Score !== ''
+
+        // Resolve which team leads the graphic. Auto-pick user's team;
+        // fall back to team1 for CPU games.
+        const autoSide = isTeam1UserTeam ? 'team1' : isTeam2UserTeam ? 'team2' : 'team1'
+        const activeSide = graphicFeaturedSide ?? autoSide
+        const featuredTeamNum = activeSide === 'team2' ? 2 : 1
+
         const t1Colors = getTeamColors(team1Name)
         const t2Colors = getTeamColors(team2Name)
+
+        // Pull records — auto-filled records come from live calculation;
+        // if autoFill is off the user's manually entered value is used.
+        const rec1 = formData.team1Record || ''
+        const rec2 = formData.team2Record || ''
+
         const prompt = hasScores ? buildScoreGraphicPrompt({
           team1Name,
           team1Score: formData.team1Score,
           team1Rank: formData.team1Rank || null,
+          team1Record: rec1 || null,
           team1Colors: t1Colors || undefined,
           team2Name,
           team2Score: formData.team2Score,
           team2Rank: formData.team2Rank || null,
+          team2Record: rec2 || null,
           team2Colors: t2Colors || undefined,
           gameLabel: gameTitle,
           year: gameYear,
+          featuredTeam: featuredTeamNum,
         }) : ''
 
         return (
           <Card>
             <h3 className="label-sm text-txt-primary mb-1">Score Graphic</h3>
             <p className="text-xs text-txt-tertiary mb-3">
-              Copy this prompt into ChatGPT, Midjourney, or another image AI to create a final score graphic — then upload the result below.
+              Copy this prompt into ChatGPT, Midjourney, or another image AI — then upload the result below.
             </p>
 
             {!hasScores ? (
               <p className="text-xs text-txt-muted italic">Enter scores above to generate a prompt.</p>
             ) : (
               <div className="space-y-3">
+                {/* Team selector */}
+                <div>
+                  <p className="label-xs text-txt-tertiary mb-1.5">Featured team</p>
+                  <div className="flex gap-2">
+                    {[
+                      { side: 'team1', name: team1Name },
+                      { side: 'team2', name: team2Name },
+                    ].map(({ side, name }) => {
+                      const isActive = activeSide === side
+                      return (
+                        <button
+                          key={side}
+                          type="button"
+                          onClick={() => setGraphicFeaturedSide(side)}
+                          className="flex-1 px-3 py-1.5 rounded text-xs font-semibold truncate transition-colors"
+                          style={{
+                            backgroundColor: isActive ? 'var(--text-primary)' : 'var(--surface-3)',
+                            color: isActive ? 'var(--surface-1)' : 'var(--text-secondary)',
+                            border: '1px solid var(--surface-4)',
+                          }}
+                        >
+                          {name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
                 {/* Generated prompt */}
                 <div className="relative">
                   <textarea
                     readOnly
                     value={prompt}
-                    rows={6}
+                    rows={7}
                     className="w-full text-xs p-3 pr-20 rounded-lg resize-none font-mono leading-relaxed"
                     style={{
                       backgroundColor: 'var(--surface-2)',
