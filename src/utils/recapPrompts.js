@@ -167,14 +167,22 @@ function fmtGameLine(game, dynasty, confLookup) {
 // falling back on real-world knowledge — otherwise the recap will say
 // "ACC's Florida State" when the user has FSU in the SEC.
 //
-// SINGLE SOURCE OF TRUTH: dynasty.teams[tid].byYear[year].conference
+// Algorithm: base map + per-team overrides — mirrors getCustomConferencesForYear
+// in DynastyContext.jsx exactly. Inlined here because the prompt utility
+// deliberately has no React/context dependency.
 //
-// Builds the conference map from each team's canonical per-season field.
-// Teams missing current-year data carry forward from the nearest prior year.
-// Falls back to legacy bulk stores only for old unmigrated dynasties.
+//   Step 1 — Base map (covers all teams; handles bulk saves):
+//     customConferencesByYear[year] → walk-back → customConferences → null
+//   Step 2 — Per-team overrides (handle individual team edits):
+//     conferenceByTeamYear[abbr][year]  (lower priority)
+//     teams[tid].byYear[year].conference  (canonical, wins)
+//   Step 3 — Apply overrides to clone of base; return.
 //
-// Mirrors DynastyContext.getCustomConferencesForYear — inlined here because
-// the prompt utility deliberately has no React/context dependency.
+// WHY NOT BUILD FROM PER-TEAM DATA ALONE:
+//   Many dynasties have conference data ONLY in the bulk stores. If a
+//   single team was individually edited (byYear.conference set for 1 team),
+//   building from per-team alone would silently drop all other teams.
+//   The overlay approach is always safe.
 // ---------------------------------------------------------------------------
 
 function getConferenceAlignmentForYear(dynasty, year) {
@@ -182,46 +190,9 @@ function getConferenceAlignmentForYear(dynasty, year) {
   const yearNum = Number(year)
   if (!Number.isFinite(yearNum)) return DEFAULT_CONFERENCES
 
-  const teams = dynasty.teams || {}
   const startYear = Number(dynasty.startYear) || 2024
 
-  // ── PRIMARY PATH ────────────────────────────────────────────────────────────
-  // Build from teams[tid].byYear[year].conference (canonical source of truth).
-  const result = {}
-  let hasPrimaryData = false
-
-  for (const team of Object.values(teams)) {
-    const abbr = team?.abbr
-    if (!abbr) continue
-
-    // Try current year first.
-    let conf = team?.byYear?.[yearNum]?.conference
-      ?? team?.byYear?.[String(yearNum)]?.conference
-
-    // Carry forward from nearest prior year (up to 10 years back).
-    if (!conf) {
-      const minYear = Math.max(startYear, yearNum - 10)
-      for (let y = yearNum - 1; y >= minYear; y--) {
-        const c = team?.byYear?.[y]?.conference ?? team?.byYear?.[String(y)]?.conference
-        if (c) { conf = c; break }
-      }
-    }
-
-    if (!conf) continue
-
-    hasPrimaryData = true
-    if (!Array.isArray(result[conf])) result[conf] = []
-    const upperAbbr = abbr.toUpperCase()
-    if (!result[conf].some(t => (t || '').toUpperCase() === upperAbbr)) {
-      result[conf].push(abbr)
-    }
-  }
-
-  if (hasPrimaryData) return result
-
-  // ── LEGACY FALLBACK ─────────────────────────────────────────────────────────
-  // Reached only for old unmigrated dynasties. Run admin "Migrate Conferences"
-  // to backfill per-team data and retire this path.
+  // Step 1: Base map from legacy bulk stores.
   let baseMap = null
   const byYear = dynasty.customConferencesByYear?.[yearNum]
     || dynasty.customConferencesByYear?.[String(yearNum)]
@@ -244,30 +215,43 @@ function getConferenceAlignmentForYear(dynasty, year) {
 
   const sourceMap = baseMap || DEFAULT_CONFERENCES
 
-  // Deep clone so we don't mutate stored data.
-  const legacyResult = {}
-  for (const [conf, confTeams] of Object.entries(sourceMap)) {
-    legacyResult[conf] = Array.isArray(confTeams) ? [...confTeams] : []
-  }
+  // Step 2: Collect per-team overrides. Canonical (byYear.conference) wins by being applied last.
+  const overrides = new Map() // abbr UPPERCASE → conferenceName
 
-  // Overlay conferenceByTeamYear legacy overrides.
+  // Legacy conferenceByTeamYear (lower priority — applied first)
   const legacy = dynasty.conferenceByTeamYear || {}
   for (const [abbr, byYearMap] of Object.entries(legacy)) {
     if (!abbr || !byYearMap || typeof byYearMap !== 'object') continue
     const conf = byYearMap[yearNum] ?? byYearMap[String(yearNum)]
-    if (!conf) continue
-    const upperAbbr = abbr.toUpperCase()
-    for (const list of Object.values(legacyResult)) {
-      const idx = list.findIndex(t => (t || '').toUpperCase() === upperAbbr)
-      if (idx !== -1) list.splice(idx, 1)
-    }
-    if (!Array.isArray(legacyResult[conf])) legacyResult[conf] = []
-    if (!legacyResult[conf].some(t => (t || '').toUpperCase() === upperAbbr)) {
-      legacyResult[conf].push(abbr)
-    }
+    if (conf) overrides.set(abbr.toUpperCase(), conf)
   }
 
-  return legacyResult
+  // Canonical teams[tid].byYear[year].conference (higher priority — applied last)
+  for (const team of Object.values(dynasty.teams || {})) {
+    const yd = team?.byYear?.[yearNum] || team?.byYear?.[String(yearNum)]
+    const conf = yd?.conference
+    const abbr = team?.abbr
+    if (conf && abbr) overrides.set(abbr.toUpperCase(), conf)
+  }
+
+  // Step 3: Clone base map, apply overrides.
+  const result = {}
+  for (const [conf, confTeams] of Object.entries(sourceMap)) {
+    result[conf] = Array.isArray(confTeams) ? [...confTeams] : []
+  }
+  if (overrides.size > 0) {
+    for (const [abbr, newConf] of overrides) {
+      for (const list of Object.values(result)) {
+        const idx = list.findIndex(t => (t || '').toUpperCase() === abbr)
+        if (idx !== -1) list.splice(idx, 1)
+      }
+      if (!Array.isArray(result[newConf])) result[newConf] = []
+      if (!result[newConf].some(t => (t || '').toUpperCase() === abbr)) {
+        result[newConf].push(abbr)
+      }
+    }
+  }
+  return result
 }
 
 // Renders the alignment as a plain-text data block. Each line is
