@@ -201,6 +201,9 @@ export default function GameEdit() {
   // Toast state
   const [showToast, setShowToast] = useState(false)
   const [toastMessage, setToastMessage] = useState('')
+  // Tracks whether a save is in-flight — disables the Save button to
+  // prevent double-submits and gives visual feedback on slow networks.
+  const [isSaving, setIsSaving] = useState(false)
 
   // Box score sheet modal state
   const [showBoxScoreModal, setShowBoxScoreModal] = useState(false)
@@ -1067,7 +1070,14 @@ export default function GameEdit() {
         isConferenceGame
       }))
     }
-  }, [existingGame, isNewGame, team1Tid, team2Tid, gameYear, queryLocation])
+  // IMPORTANT: Use existingGame?.id (primitive) instead of existingGame
+  // (object) so this effect only fires when the game itself changes
+  // (initial load / navigation to a different game). Using the full
+  // existingGame object caused the form — including formData.photos —
+  // to be reset on EVERY Firestore listener update, wiping any unsaved
+  // edits (uploaded photos, scores entered mid-session, etc.).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existingGame?.id, isNewGame, team1Tid, team2Tid, gameYear, queryLocation])
 
   // Re-hydrate state when existingGame resolves (cloud dynasties load async).
   useEffect(() => {
@@ -1183,6 +1193,8 @@ export default function GameEdit() {
 
   // Handle save
   const handleSave = async () => {
+    if (isSaving || photoUploadCount > 0) return
+    setIsSaving(true)
     try {
       // Determine homeTeamTid
       let homeTeamTid = null
@@ -1311,9 +1323,14 @@ export default function GameEdit() {
       navigate(`${pathPrefix}/game/${gameData.id}`)
     } catch (error) {
       console.error('Error saving game:', error)
-      setToastMessage('Error saving game')
+      // Use both the local toast AND the global toast so errors are
+      // visible even if the component unmounts before re-rendering.
+      setToastMessage('Error saving game: ' + (error?.message || 'unknown error'))
       setShowToast(true)
-      setTimeout(() => setShowToast(false), 3000)
+      setTimeout(() => setShowToast(false), 5000)
+      toast?.error?.('Error saving game: ' + (error?.message || 'unknown error'))
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -1691,6 +1708,7 @@ export default function GameEdit() {
               style={{ background: headerGradient }}
             >
               <button
+                type="button"
                 onClick={handleCancel}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium text-xs sm:text-sm bg-white/15 text-white hover:bg-white/25 transition-colors backdrop-blur-sm"
               >
@@ -1703,10 +1721,12 @@ export default function GameEdit() {
               </div>
 
               <button
+                type="button"
                 onClick={handleSave}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold text-xs sm:text-sm bg-white text-surface-1 hover:bg-white/90 transition-colors"
+                disabled={isSaving || photoUploadCount > 0}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold text-xs sm:text-sm bg-white text-surface-1 hover:bg-white/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Save
+                {isSaving ? 'Saving…' : photoUploadCount > 0 ? 'Uploading…' : 'Save'}
               </button>
             </div>
 
@@ -2447,6 +2467,11 @@ export default function GameEdit() {
             onChange={async (e) => {
               const files = Array.from(e.target.files || [])
               e.target.value = '' // allow re-picking the same files later
+              // Blur the input so iOS Safari properly restores touch/click
+              // handling to the rest of the page after the native file
+              // picker dismisses. Without this, subsequent button taps
+              // (including Save) can be silently swallowed on iOS.
+              e.target.blur()
               if (files.length === 0) return
               const controller = new AbortController()
               photoUploadAbortRef.current = controller
