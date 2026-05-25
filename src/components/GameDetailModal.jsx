@@ -374,7 +374,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
               })()}
               {/* Conference Logo for Championship Games */}
               {game.isConferenceChampionship && (() => {
-                const confName = game.conference || currentDynasty?.conference || computedConference
+                const confName = game.conference || computedConference
                 const confLogo = confName ? getConferenceLogo(confName) : null
                 return confLogo ? (
                   <div className="w-10 h-10 sm:w-16 sm:h-16 flex-shrink-0 bg-white rounded-lg p-1 flex items-center justify-center">
@@ -390,7 +390,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                 {game.isConferenceChampionship || game.isBowlGame || game.isPlayoff ? (
                   <div className="text-base sm:text-2xl font-bold truncate">
                     {game.year} {game.isConferenceChampionship
-                      ? `${game.conference || currentDynasty?.conference || computedConference || ''} Championship Game`
+                      ? `${game.conference || computedConference || ''} Championship Game`
                       : (game.bowlName || game.gameTitle || '')}
                   </div>
                 ) : (
