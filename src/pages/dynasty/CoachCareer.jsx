@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { useDynasty, detectGameType, GAME_TYPES, getTeamGamePerspective, getTeamRanking } from '../../context/DynastyContext'
+import { useDynasty, detectGameType, GAME_TYPES, getTeamGamePerspective, getTeamRanking, getTeamConferenceForDynasty } from '../../context/DynastyContext'
 import { weekSortKey } from '../../utils/compareUtils'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -385,7 +385,12 @@ export default function CoachCareer() {
       stint.isCurrent = isCurrentTeam
       stint.isPast = !isCurrentTeam
       stint.position = currentDynasty.coachPosition || 'HC'
-      stint.conference = isCurrentTeam ? currentDynasty.conference : ''
+      // Use the canonical per-season getter rather than the stale
+      // root-level dynasty.conference field (which only reflects the
+      // conference at dynasty creation time and is never updated).
+      stint.conference = isCurrentTeam
+        ? (getTeamConferenceForDynasty(currentDynasty, stint.teamAbbr, currentDynasty.currentYear) || '')
+        : ''
       // National-championship count: use winnerTid (tid-based, drift-safe)
       // when available; fall back to perspective.userWon (which can fail
       // if coachTeamByYear is missing for the year) only if tid isn't on
@@ -428,7 +433,9 @@ export default function CoachCareer() {
         teamAbbr: placeholderAbbr,
         teamTid: placeholderTid,
         teamName: placeholderName,
-        conference: uid === currentDynasty.userId ? currentDynasty.conference : '',
+        conference: uid === currentDynasty.userId
+          ? (getTeamConferenceForDynasty(currentDynasty, placeholderAbbr, currentDynasty.currentYear) || '')
+          : '',
         position: currentDynasty.coachPosition || 'HC',
         startYear: currentStartYear,
         endYear: currentEndYear,
