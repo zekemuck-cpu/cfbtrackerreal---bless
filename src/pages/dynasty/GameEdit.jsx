@@ -437,7 +437,12 @@ export default function GameEdit() {
   // param and the dynasty's own conference so the dropdown opens on a
   // sensible default.
   const [selectedConference, setSelectedConference] = useState(() =>
-    existingGame?.conference || queryConference || currentDynasty?.conference || ''
+    // existingGame?.conference is authoritative for already-saved CCGs.
+    // queryConference comes from the schedule/CFP bracket link.
+    // Never fall back to currentDynasty?.conference — it's a stale
+    // root-level field that reflects the dynasty's original conference
+    // only, not the current per-season alignment.
+    existingGame?.conference || queryConference || ''
   )
   const bowlName = existingGame?.bowlName || queryBowlName || ''
 
@@ -864,7 +869,7 @@ export default function GameEdit() {
         homeTeamTid: initialHomeTeamTid,
         location: queryLocation || 'home', // Store location for fallback
         ...(queryBowlName && { bowlName: queryBowlName, isBowlGame: true }),
-        ...(queryGameType === 'conference_championship' && { isConferenceChampionship: true, conference: queryConference || currentDynasty?.conference }),
+        ...(queryGameType === 'conference_championship' && { isConferenceChampionship: true, conference: queryConference || null }),
         ...(queryGameType === 'cfp_first_round' && { isCFPFirstRound: true }),
         ...(queryGameType === 'cfp_quarterfinal' && { isCFPQuarterfinal: true }),
         ...(queryGameType === 'cfp_semifinal' && { isCFPSemifinal: true }),
@@ -2015,7 +2020,9 @@ export default function GameEdit() {
                     const next = e.target.value
                     setEditWeek(next)
                     if (next !== 'BW1' && next !== 'BW2' && next !== 'BW3') setEditBowlName('')
-                    if (next === 'CCG' && !selectedConference) setSelectedConference(currentDynasty?.conference || 'SEC')
+                    // Don't auto-populate with the stale dynasty.conference
+                    // root field — leave empty so the user picks explicitly.
+                    if (next === 'CCG' && !selectedConference) setSelectedConference(queryConference || '')
                   }}
                 >
                   {WEEK_OPTIONS.map(opt => (

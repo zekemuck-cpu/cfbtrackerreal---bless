@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useDynasty, propagateCFPWinner, GAME_TYPES, isPlayerOnRoster, rebuildRankByWeekFromCurrentState, syncGameRanksFromRankByWeek } from '../../context/DynastyContext'
+import { useDynasty, propagateCFPWinner, GAME_TYPES, isPlayerOnRoster, rebuildRankByWeekFromCurrentState, syncGameRanksFromRankByWeek, getCustomConferencesForYear } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/ui/Toast'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
@@ -1702,7 +1702,13 @@ export default function DangerZone() {
     setCcgRepairStatus('running')
     try {
       const games = currentDynasty.games || []
-      const customConferences = currentDynasty?.conferencesByYear?.[currentDynasty?.currentYear]
+      // Use the canonical getter so all legacy and canonical conference
+      // data stores (customConferencesByYear, conferenceByTeamYear,
+      // teams[tid].byYear[year].conference) are consulted in the correct
+      // priority order.  The old direct read used the wrong field name
+      // "conferencesByYear" (should be "customConferencesByYear") and
+      // would always return undefined, making the repair function a no-op.
+      const customConferences = getCustomConferencesForYear(currentDynasty, currentDynasty?.currentYear)
       let fixedCount = 0
       let checkedCount = 0
 
