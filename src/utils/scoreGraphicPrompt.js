@@ -45,63 +45,40 @@ export function buildScoreGraphicPrompt({
   const primaryPMS = profile?.primaryPMS   || null
   const shortName  = profile?.shortNickname || featuredName.split(' ').pop()
 
-  const resultLabel = won  ? `${shortName.toUpperCase()} WIN!`
-                    : tied ? 'FINAL — TIE'
-                    :        'FINAL'
+  const resultMood = won  ? 'This is a WIN — the graphic should feel confident, energized, and celebratory without being over the top.'
+                  : tied ? 'This ended in a TIE — factual and composed.'
+                  :        'This is a LOSS — clean and factual, not dramatic.'
 
   const motifLine = profile?.motifs?.length
-    ? `Signature design motifs (geometric/abstract use only): ${profile.motifs.join(', ')}.`
+    ? `The program is known for these design motifs (use abstractly if you incorporate texture or geometry): ${profile.motifs.join(', ')}.`
     : ''
 
-  // ─── LAYOUT OPTIONS ──────────────────────────────────────────────────────
-
-  const photoLayouts = `IF IMAGES ARE ATTACHED — use one of these layouts (your choice, pick what looks best):
-
-  A) Full-bleed photo + solid rounded card at bottom (~40% canvas) — card holds the score info
-  B) Full-bleed photo + narrow strip at very bottom — compressed score, minimal
-  C) Photo top half + solid ${primary} panel bottom half, hard horizon cut
-  D) Full-bleed photo that dissolves via gradient into ${primary} at the bottom — score lives in that zone
-  E) Full-bleed photo + diagonal ${primary} band cutting across the lower canvas
-  F) Full-bleed photo with a large ghost/watermark logo faded into it, minimal score strip at bottom
-
-  Keep the photo NATURAL — no heavy color grade over the whole image. The photo is the hero.`
-
-  const graphicLayouts = `IF NO IMAGES ARE ATTACHED — use one of these pure-graphic layouts (your choice):
-
-  G) Bold team-color field — score numbers set huge in the center, typography IS the design
-  H) Two-tone split field — ${primary} and ${secondary} divided diagonally or horizontally
-  I) Large centered team logo as the hero, score panel below it
-  J) Team-color field with a subtle repeating geometric texture${motifLine ? ` (${profile.motifs.join(', ')})` : ''}
-  K) Deep dark-to-${primary} gradient, cinematic and atmospheric${tertiary ? `, with a ${tertiary} accent glow` : ''}
-  L) Near-black background, bold ${secondary} accent bar cutting across canvas, score below
-
-  No generated photos, no athletes. Pure color, geometry, and type — but premium and intentional.`
+  const photoLine = screenshotCount > 0
+    ? `Images are attached — use them as the hero visual. Keep the photo natural; do not color-grade the entire image. The design elements should frame the photo, not fight it.`
+    : `No images attached — build a pure graphic using color, typography, and shape. No generated photos, no illustrated athletes or helmets.`
 
   const lines = [
-    `Create a post-game social media graphic for ${featuredName}'s official Instagram/Twitter account.`,
+    `Design a post-game social media graphic (1080×1080) for ${featuredName}'s official account.`,
     ``,
-    `TARGET: Clean, professional post-game social graphic. Score info in a dedicated zone. Team logos flank their scores. Score numbers are the biggest elements. Feels like it was designed by the real athletic communications staff.`,
+    `You are the creative director for a top college football program's athletic communications team. This graphic will go live on the program's Instagram and Twitter within minutes of the final whistle. Make it feel like it came from a real D1 creative staff — not a template, not a generic sports graphic generator. Every layout and type choice should feel intentional and ownable by this program.`,
     ``,
     `RESULT`,
     `${rankLabel}${featuredName}${featuredRecord ? ` (${featuredRecord})` : ''}:  ${sf}`,
     `${oppRankLabel}${oppName}${oppRecord ? ` (${oppRecord})` : ''}:  ${so}`,
     `${gameLabel}${year ? ` · ${year} Season` : ''}`,
-    `"${resultLabel}"`,
     ``,
-    `BRAND — ${featuredName.toUpperCase()}`,
-    `Primary: ${primaryPMS ? `${primaryPMS} / ` : ''}${primary}`,
-    `Secondary: ${secondary}${tertiary ? ` · Accent: ${tertiary}` : ''}`,
-    profile?.wordmarkStyle ? `Wordmark: ${profile.wordmarkStyle}` : null,
+    resultMood,
+    ``,
+    `BRAND`,
+    `Primary color: ${primaryPMS ? `${primaryPMS} / ` : ''}${primary}`,
+    `Secondary color: ${secondary}${tertiary ? ` · Accent: ${tertiary}` : ''}`,
+    profile?.wordmarkStyle ? `Wordmark style: ${profile.wordmarkStyle}` : null,
     profile?.graphicNotes  ? `Art direction: ${profile.graphicNotes}` : null,
     motifLine || null,
     ``,
-    photoLayouts,
+    photoLine,
     ``,
-    graphicLayouts,
-    ``,
-    `DO NOT: split-card matchup layout, helmet illustrations, athlete clip art, heavy color tint over the whole photo, giant "WIN" text dominating the middle of the canvas, generic templates.`,
-    ``,
-    `Output: 1080×1080 square.`,
+    `The score numbers should be the largest typographic element. Both team logos should appear near their respective scores. Everything else — layout, texture, composition, hierarchy — is your creative call.`,
   ]
 
   return lines.filter(l => l !== null && l !== undefined).join('\n')
