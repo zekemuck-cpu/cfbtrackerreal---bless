@@ -4,7 +4,7 @@ import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../data/te
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamColors } from '../data/teamColors'
 import { getModalColors } from '../utils/colorUtils'
-import { useDynasty, getUserGamePerspective, getRecordAsOfGame } from '../context/DynastyContext'
+import { useDynasty, getUserGamePerspective, getRecordAsOfGame, getTeamConferenceForDynasty } from '../context/DynastyContext'
 import { TEAMS, resolveTid, getGameTeamInfo, getAbbrFromTeamName } from '../data/teamRegistry'
 import { getBowlLogo } from '../data/bowlLogos'
 import { getConferenceLogo } from '../data/conferenceLogos'
@@ -51,7 +51,9 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
 
   // Get the user's team conference - fallback computation if not stored in game
   const userTeamAbbr = getAbbrFromTeamName(userTeam)
-  const computedConference = userTeamAbbr ? getTeamConference(userTeamAbbr) : null
+  const computedConference = userTeamAbbr
+    ? getTeamConferenceForDynasty(currentDynasty, userTeamAbbr, game?.year)
+    : null
 
   // Helper to find player PID by name
   const getPlayerPID = (playerName) => {

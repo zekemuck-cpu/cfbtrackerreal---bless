@@ -1680,6 +1680,10 @@ export default function DangerZone() {
 
   // Migrate legacy conference data to the canonical per-team byYear store
   const handleMigrateConferences = async () => {
+    if (!currentDynasty) {
+      toast.error('No dynasty loaded.')
+      return
+    }
     setConfMigrationStatus('running')
     try {
       const result = await migrateConferencesToPerTeam(currentDynasty.id)
