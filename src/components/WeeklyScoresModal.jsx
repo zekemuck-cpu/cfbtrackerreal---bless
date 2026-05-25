@@ -537,12 +537,18 @@ copy/paste from your reply.
 
 HOW TO REASON ABOUT BYE-WEEK RANKS:
   1. From the PRIOR-WEEK TOP 25 above, list every team that was ranked.
-  2. For each ranked team, check whether they appear as Col A or Col D
+     Call this set P (should be 25 teams when a full prior-week poll is
+     stored).
+  2. For each team in P, check whether they appear as Col A or Col D
      of any row in your GAMES block. If yes → they played this week,
      their new rank already lives in the games row's rank column.
-     IGNORE them in the bye block.
-  3. The remaining ranked teams DID NOT play this week — they're on
-     bye. Each of those teams gets ONE row in the BYE block.
+     IGNORE them in the bye block. Call the count of played ranked
+     teams G.
+  3. The remaining P − G ranked teams DID NOT play this week — they're
+     on bye. Each of those teams gets ONE row in the BYE block. Your
+     bye block must contain EXACTLY P − G rows — no more, no fewer.
+     If P = 25 and G = 18, you need exactly 7 bye rows. Missing even
+     one is an error.
   4. Decide each bye team's new rank by THINKING ABOUT THE WEEK:
        • By default, bye teams hold their slot.
        • If a team BELOW them won big and leapfrogged, the bye team
@@ -561,7 +567,10 @@ HOW TO REASON ABOUT BYE-WEEK RANKS:
   5. Sanity check: every rank in your BYE block must be UNIQUE, must
      be 1-25, and must NOT collide with a rank already claimed by a
      team in the GAMES block. The full union of (games block ranks)
-     ∪ (bye block ranks) should be exactly {1, 2, ..., up to 25}.
+     ∪ (bye block ranks) MUST be exactly {1, 2, …, 25} — all 25
+     slots filled, no gaps, no extras. If you count fewer than
+     25 total ranked teams across both blocks, you dropped a bye team.
+     Go back to step 1 and find the missing team(s).
   6. Only output bye rows for teams that WERE ranked in the prior-week
      Top 25 above. A team that was unranked entering this week can
      enter the new poll only via a game (= their rank shows up in the
@@ -652,7 +661,7 @@ Don't just glance at this list. Physically execute each check on your draft.
 [ ] WORKSHEET vs TSV (winner consistency). For every TSV row, find the matching WS line. The team with the higher score in the worksheet's middle block (the screen-order summary) MUST equal WINNER on that worksheet line, AND must equal whichever team has the higher score in the TSV row (whether that's Col C or Col F). If any row's TSV winner disagrees with the worksheet's WINNER, you introduced a score-swap during the worksheet→TSV derivation. Fix the TSV row.
 [ ] TEAM COVERAGE (rule F in PRE-EXTRACTION COUNT). Every team you saw in the screenshots is now either (a) in a row of your output, or (b) confirmed on bye. No team silently disappeared. If you can name a team you remember seeing that doesn't appear in EITHER place, you have a missing game — go find it.
 [ ] No header row, no commentary INSIDE the data, no follow-up text (except the optional "X games dropped" note ONLY if N > ${WEEKLY_SCORES_MAX_ROWS}). The paste-target label line above the fence is required (see Method A/B rules above) and the upstream worksheet fence is permitted as described above.
-[ ] BYE BLOCK PRESENT: IF the PRIOR-WEEK TOP 25 block above has data, every team in it is accounted for — either (a) they appear in a game row, or (b) they appear in the bye block with a derived new rank. NO ranked team silently drops out. IF the PRIOR-WEEK TOP 25 block above is EMPTY ("(no prior-week Top 25 stored)"), emit an EMPTY bye block — do NOT invent bye entries from real-world poll knowledge or memory. The dynasty's stored picture is the only source of truth here.
+[ ] BYE BLOCK PRESENT + COMPLETE: IF the PRIOR-WEEK TOP 25 block above has data — count the teams listed there (P). Count how many of them appear in your games block with a rank (G). Your bye block must have EXACTLY P − G rows. Every team in the prior-week top 25 must be accounted for in EXACTLY ONE place: either (a) in a game row with their new rank, or (b) in the bye block with a derived new rank. NO ranked team silently drops out. The total ranked teams across both blocks must equal P (typically 25). If your count is off, go back and find the missing team before sending. IF the PRIOR-WEEK TOP 25 block above is EMPTY ("(no prior-week Top 25 stored)"), emit an EMPTY bye block — do NOT invent bye entries from real-world poll knowledge or memory. The dynasty's stored picture is the only source of truth here.
 [ ] BYE BLOCK COL D EMPTY: every bye row's column D (4th tab-separated cell) is BLANK. If you accidentally put a team abbr in col D of a bye row, the importer treats it as a game with that abbr.
 [ ] BYE RANKS UNIQUE + IN RANGE: every rank in the bye block is 1-25, no rank repeats, and no rank in the bye block matches a rank already shown for a played team in the games block. The new poll has 25 unique ranks total.`,
     includeTeamMap: true,
