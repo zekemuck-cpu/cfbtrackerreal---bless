@@ -65,74 +65,107 @@ export function buildScoreGraphicPrompt({
     ? `Abstract design motifs for the score panel or background texture (geometric shapes/line work only — not literal illustrations): ${profile.motifs.join(', ')}.`
     : ''
 
-  // ─── PHOTO / BACKGROUND LAYER ──────────────────────────────────────────────
-  const photoSection = `BACKGROUND / PHOTO LAYER:
-If game action images are attached to this prompt:
-  - Use the most dramatic single frame as the full-bleed background photo (mid-play, a celebration, or a key moment).
-  - Keep the photo NATURAL — do NOT apply a heavy color grade or tinted overlay across the whole image.
-  - The photo should feel like a real sports photograph, rich and cinematic on its own.
-  - The score bar at the bottom sits on top of the photo; the photo bleeds to all four edges.
+  // ─── LAYOUT OPTIONS ────────────────────────────────────────────────────────
+  // Split into two tracks: WITH photo attached, and WITHOUT photo.
+  // Each track has multiple production-grade options.
 
-If no images are attached:
-  - Do NOT generate any photorealistic imagery or athlete illustrations.
-  - Use a clean solid ${primary} background with subtle texture (slight grain or linen feel).
-  - The composition is pure graphic and typographic design — the ${primary} field IS the background.`
-
-  // ─── SCORE BAR / LAYOUT OPTIONS ───────────────────────────────────────────
-  // Multiple professional layout patterns — AI picks the one that best fits
-  // the photo composition and team brand. All use the same score element:
-  //   [featured logo]  SF  ·  FINAL  ·  SO  [opp logo]
-
-  const scoreBarSection = `LAYOUT — choose ONE of the following six production-proven options. Pick the one that best flatters the photo and feels authentic to ${featuredName}'s brand. All six look incredible when executed cleanly.
+  const layoutSection = `═══════════════════════════════════════════════
+IF IMAGES ARE ATTACHED TO THIS PROMPT — use one of these photo-based layouts:
+═══════════════════════════════════════════════
+Use the most dramatic single frame as the background. Keep the photo NATURAL — do NOT apply a heavy color tint across the whole image. The photo is the hero. Choose ONE layout:
 
 ────────────────────────────────────────
-OPTION A — Narrow bottom strip  (Alabama / Oregon style)
+PHOTO OPTION A — Narrow bottom strip
 ────────────────────────────────────────
-Full-bleed photo edge-to-edge. A single horizontal bar pinned to the very bottom of the canvas, roughly 130–160 px tall. Bar background: ${primary} or a very dark near-black.
-Centered inside the bar:
+Full-bleed photo edge-to-edge. A single horizontal bar pinned to the very bottom, roughly 140–170 px tall. Bar fill: ${primary} or near-black.
+Centered inside:  [${featuredName} logo]  ${sf}  ·  FINAL  ·  ${so}  [${oppName} logo]
+Team names in tiny all-caps below each logo. Thin ${secondary} hairline rules above and below the score row. "${finalLabel}" centered and restrained. Featured team logo 1.2× the opponent's.
+
+────────────────────────────────────────
+PHOTO OPTION B — Solid color panel
+────────────────────────────────────────
+Photo fills the top 58–65%. A flat solid ${primary} panel anchors the bottom 35–42% — crisp horizon line, no fade.
+In the panel:  [${featuredName} logo]  ${sf}  ·  FINAL  ·  ${so}  [${oppName} logo]
+Team names + optional record in small all-caps below logos. ${secondary} rule lines. Wordmark or slogan at the very bottom edge.
+
+────────────────────────────────────────
+PHOTO OPTION C — Gradient fade into team color
+────────────────────────────────────────
+Full-bleed photo. From ~55% down, the photo dissolves into solid ${primary} at the bottom. Score lives in the ${primary} zone (~220 px tall).
   [${featuredName} logo]  ${sf}  ·  FINAL  ·  ${so}  [${oppName} logo]
-Team names in tiny all-caps directly below each logo. Thin ${secondary} hairline rules above and below the score row. "FINAL" or "${finalLabel}" is small, centered, restrained. Featured team's logo is 1.2× the opponent's.
+No hard edge — the gradient IS the design. Thin ${secondary} rule lines.
 
 ────────────────────────────────────────
-OPTION B — Solid color panel  (Arizona / split-field style)
+PHOTO OPTION D — Frosted glass score card
 ────────────────────────────────────────
-Photo occupies the top 58–65% of the canvas. A flat solid ${primary} panel anchors the bottom 35–42%. No fade — a crisp horizon line between photo and panel.
-Centered in the panel:
+Full-bleed photo. A frosted-glass panel (${primary} at ~78% opacity, backdrop blur so the photo behind is hazy) anchored to the bottom third. Slightly rounded top corners — premium, editorial.
+Inside the frosted panel:  [${featuredName} logo]  ${sf}  ·  FINAL  ·  ${so}  [${oppName} logo]
+Thin ${secondary} inner border. "${finalLabel}" above the score in small all-caps.
+
+────────────────────────────────────────
+PHOTO OPTION E — Diagonal color sweep
+────────────────────────────────────────
+Full-bleed photo. A bold ${primary} diagonal band covers the lower ~30% of the canvas, with a sharp 8–12° angled top edge (not a horizontal cut). Score lives in the band.
   [${featuredName} logo]  ${sf}  ·  FINAL  ·  ${so}  [${oppName} logo]
-Team names and optional record in small all-caps below each logo. ${secondary} rule lines and wordmark or slogan at very bottom edge of panel.
+Crisp diagonal edge — not feathered. ${secondary} rule lines follow the angle. Feels like motion.
 
 ────────────────────────────────────────
-OPTION C — Gradient fade into team color  (modern Nike-era style)
+PHOTO OPTION F — Ghost watermark + minimal score
 ────────────────────────────────────────
-Full-bleed photo. Starting about 55% down the canvas, the photo smoothly fades into a deep solid ${primary} field at the bottom — like the image is dissolving into the brand color. The score bar lives in this ${primary} zone, roughly 200–240 px tall.
+Full-bleed photo. A very large ${featuredName} logo/wordmark centered at 25–30% opacity — a ghost watermark between photo and text layers.
+Score in a narrow bottom strip:  ${sf}  ·  FINAL  ·  ${so}  with small logos flanking. Sparse, editorial. "${finalLabel}" in tiny tracking-heavy caps above the pill.
+
+═══════════════════════════════════════════════
+IF NO IMAGES ARE ATTACHED — use one of these graphic-design-only layouts:
+═══════════════════════════════════════════════
+Do NOT generate photorealistic imagery or athlete illustrations. The design is pure typography, color, and geometry — and should look intentional and premium, not like a fallback. Choose ONE layout:
+
+────────────────────────────────────────
+GRAPHIC OPTION G — Bold type on team color
+────────────────────────────────────────
+Full canvas: flat ${primary} background with subtle grain texture.
+The score numbers ARE the hero — ${sf} and ${so} set massive (400–500 px), bold, stacked vertically or side-by-side in the center of the canvas in ${secondary}. Between them, a thin ${secondary} rule and small "FINAL" or "${finalLabel}" text.
+Below the scores: [${featuredName} logo] and [${oppName} logo] flanking their respective numbers, small and precise.
+Top of canvas: "${rankLabel.trim() ? rankLabel.trim() + ' ' : ''}${featuredName}" in small all-caps tracking-heavy caps.
+Bottom of canvas: "${gameLabel}" and "${featuredStatLine}" in tiny caption text. ${secondary} hairline rules top and bottom.
+This is pure type-and-color design — bold, confident, no photography needed.
+
+────────────────────────────────────────
+GRAPHIC OPTION H — Dual color field split
+────────────────────────────────────────
+Canvas split diagonally or horizontally: ${primary} on the dominant portion (about 65%), ${secondary} on the smaller portion (35%). Crisp edge between the two fields.
+The ${featuredName} primary logo sits large (300–350 px) at the center-top of the ${primary} zone.
+Score bar horizontally centered near the bottom, crossing the color boundary:
   [${featuredName} logo]  ${sf}  ·  FINAL  ·  ${so}  [${oppName} logo]
-No hard edge between photo and score zone — the fade IS the design. Thin ${secondary} rule lines. Featured team logo is dominant.
+The split color field creates natural contrast for the score. "${finalLabel}" in small all-caps above the score. Feels like a premium printed poster.
 
 ────────────────────────────────────────
-OPTION D — Frosted glass score card  (Louisville / premium overlay style)
+GRAPHIC OPTION I — Centered logo hero
 ────────────────────────────────────────
-Full-bleed photo. A frosted-glass or semi-transparent panel (${primary} at ~75–80% opacity, with a soft gaussian blur effect so the photo behind it is hazy but visible) is anchored to the bottom third. The panel has slightly rounded top corners — feels premium, editorial, modern.
-Inside the frosted panel, centered:
+Full canvas: flat ${primary}. The ${featuredName} primary logo or wordmark is placed large and centered (500–600 px), positioned in the upper 55% of the canvas. Below it, a thin ${secondary} rule, then the score block:
+  [${featuredName} logo — small]  ${sf}  ·  FINAL  ·  ${so}  [${oppName} logo — small]
+The big centered logo IS the visual, the scores sit subordinate below it. Bottom strip: "${gameLabel}" and "${featuredStatLine}" in caption text. This layout is confident and brand-forward.
+
+────────────────────────────────────────
+GRAPHIC OPTION J — Geometric pattern field
+────────────────────────────────────────
+Full canvas: ${primary} background with a bold geometric repeating pattern in ${secondary} at 8–15% opacity — think angular stripes, chevrons, or subtle grid lines (nothing literal or illustrative). The pattern fills the entire background as texture.
+The ${featuredName} wordmark sits large at top center in ${secondary}.
+Score centered in a clean ${primary} band (no pattern, slightly darker than background) across the lower third:
   [${featuredName} logo]  ${sf}  ·  FINAL  ·  ${so}  [${oppName} logo]
-Thin white or ${secondary} inner border on the panel. Team names below logos. "${finalLabel}" above the score row in small all-caps.
+${secondary} hairline rules border the score band. Feels modern and designed with intention.
 
 ────────────────────────────────────────
-OPTION E — Diagonal color sweep  (dynamic / action style)
+GRAPHIC OPTION K — Dark atmosphere gradient
 ────────────────────────────────────────
-Full-bleed photo. A bold diagonal band of ${primary} sweeps across the lower-left to lower-right, covering roughly the bottom 30% of the canvas but with a sharp 8–12° angled top edge rather than a horizontal cut. The score lives in this diagonal band.
+Full canvas: deep rich gradient from near-black at the top to ${primary} in the middle to slightly lighter ${primary} at the bottom — like stadium lights in the dark.${tertiary ? ` A subtle ${tertiary} accent glow radiates from center.` : ''}
+The ${featuredName} logo sits centered, upper half, large and luminous in ${secondary}.
+Score block centered in the lower third:
   [${featuredName} logo]  ${sf}  ·  FINAL  ·  ${so}  [${oppName} logo]
-The diagonal edge is crisp and decisive — not feathered. ${secondary} thin rule lines follow the angle. Featured team's logo sits above and slightly outside the band on the left. Feels like motion and energy.
+Thin ${secondary} rules. "${finalLabel}" above the score in small glowing all-caps. Dramatic and cinematic without any photography.
 
 ────────────────────────────────────────
-OPTION F — Oversized watermark logo + minimal score corner  (clean minimalist style)
-────────────────────────────────────────
-Full-bleed photo. A very large ${featuredName} primary logo or wordmark is placed center or center-left, at 25–35% opacity — a ghost/watermark layer that sits between the photo and any overlaid text. It reads as texture, not a solid logo.
-Score lives in a narrow bottom strip (Option A style) or a small floating pill/badge centered in the lower third:
-  ${sf}  ·  FINAL  ·  ${so}
-with small team abbreviations or logos flanking the numbers. Sparse, editorial, high-fashion-sports aesthetic. Thin ${secondary} rules. "${finalLabel}" in very small tracking-heavy caps above the pill.
-
-────────────────────────────────────────
-Whichever option you choose: execute it with precision. Align everything to a grid. Keep the score zone uncluttered. The photo does the emotional work — the score bar/panel does the information work. They should not compete.`
+Whichever option you choose: execute it with precision. Align everything to a grid. Keep the score zone uncluttered. This should look hand-crafted by a professional sports design team, not auto-generated.`
 
   // ─── TYPOGRAPHY ────────────────────────────────────────────────────────────
   const typographySection = `TYPOGRAPHY:
@@ -163,18 +196,14 @@ Whichever option you choose: execute it with precision. Align everything to a gr
   const lines = [
     `Create a post-game social media graphic for ${featuredName}'s official Instagram/Twitter account.`,
     ``,
-    `TARGET AESTHETIC: Study how Alabama, Oregon, Arizona, and Louisville post their post-game score graphics — a real game action photograph with the score info in a clean panel or strip at the bottom. The photo is the hero. The score bar is precise and restrained. Both team logos appear small and functional next to their score. "FINAL" sits centered between the two scores. This is not a template. This is not a split-card. This is professional sports design.`,
+    `TARGET AESTHETIC: Real FBS athletic department post-game graphics — not a template, not a matchup card. Clean, precise, on-brand. The score info lives in a dedicated zone (strip, panel, or band). Both team logos appear small and functional next to their score numbers. "FINAL" is restrained and centered. This is professional sports design.`,
     ``,
     `═══ RESULT ═══`,
     `${rankLabel}${featuredName}${featuredRecord ? ` (${featuredRecord})` : ''}:  ${sf}`,
     `${oppRankLabel}${oppName}${oppRecord ? ` (${oppRecord})` : ''}:  ${so}`,
     `${gameLabel}${year ? ` · ${year} season` : ''}`,
     ``,
-    `═══ PHOTO / BACKGROUND ═══`,
-    photoSection,
-    ``,
-    `═══ SCORE BAR ═══`,
-    scoreBarSection,
+    layoutSection,
     ``,
     `═══ TYPOGRAPHY ═══`,
     typographySection,
