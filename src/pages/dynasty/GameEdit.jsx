@@ -2591,10 +2591,12 @@ export default function GameEdit() {
         const t1Colors = getTeamColors(team1Name)
         const t2Colors = getTeamColors(team2Name)
 
-        // Pull records — auto-filled records come from live calculation;
-        // if autoFill is off the user's manually entered value is used.
-        const rec1 = formData.team1Record || ''
-        const rec2 = formData.team2Record || ''
+        // Pull records — when autoFill is on, use the live memoized values
+        // (same source as the record fields in the UI). formData.teamNRecord
+        // can be stale when editing an existing game that already had a record
+        // saved, causing the graphic prompt to show the wrong post-game record.
+        const rec1 = autoFillRecords ? (live1?.record || '') : (formData.team1Record || '')
+        const rec2 = autoFillRecords ? (live2?.record || '') : (formData.team2Record || '')
 
         // Pass screenshot count so the prompt can tell the AI to expect attachments
         const uploadedScreenshots = Array.isArray(formData.photos) ? formData.photos.filter(Boolean).length : 0
