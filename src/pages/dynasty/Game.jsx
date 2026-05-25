@@ -5,7 +5,7 @@ import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
-import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear, getCustomConferencesForYear } from '../../context/DynastyContext'
+import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear, getCustomConferencesForYear, getTeamRankForWeek } from '../../context/DynastyContext'
 import CardComposer from '../../components/CardComposer'
 import { getCardsForGame } from '../../utils/playerCards'
 import { getTeamLogoRobust } from '../../utils/teamLogo'
@@ -1221,10 +1221,21 @@ export default function Game() {
       : displayTeamAbbr === team1Abbr
     // Stored ranks first; legacy aliases (perspective.userRank /
     // game.userRank / game.opponentRank) only when stored is null.
+    // Final fallback: rankByWeek poll data — the same source that
+    // GameEdit auto-fills from. This covers games where team1Rank /
+    // team2Rank were never written to the record (e.g. entered before
+    // the rank-sync feature, or CPU games saved without explicit ranks)
+    // so the game detail page and the edit form show consistent data.
     const displayRank = isDisplayTeam1 ? game.team1Rank : game.team2Rank
     const oppRank = isDisplayTeam1 ? game.team2Rank : game.team1Rank
-    const userRankFinal = displayRank ?? perspective?.userRank ?? game.userRank ?? null
-    const oppRankFinal = oppRank ?? perspective?.opponentRank ?? game.opponentRank ?? null
+    const displayTid = isDisplayTeam1 ? game.team1Tid : game.team2Tid
+    const opponentTid = isDisplayTeam1 ? game.team2Tid : game.team1Tid
+    const rankFromPoll = (tid) =>
+      tid != null && game.week != null && game.year != null
+        ? (getTeamRankForWeek(currentDynasty, tid, game.year, game.week) || null)
+        : null
+    const userRankFinal = displayRank ?? perspective?.userRank ?? game.userRank ?? rankFromPoll(displayTid) ?? null
+    const oppRankFinal = oppRank ?? perspective?.opponentRank ?? game.opponentRank ?? rankFromPoll(opponentTid) ?? null
     leftRank = leftTeam === 'user' ? userRankFinal : oppRankFinal
     rightRank = rightTeam === 'user' ? userRankFinal : oppRankFinal
   }
