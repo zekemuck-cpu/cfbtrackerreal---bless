@@ -1958,6 +1958,7 @@ export default function Game() {
                 { key: 'awards', label: 'Awards', shortLabel: 'Awards', show: !isCPUGame && (game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW) },
                 { key: 'cards', label: 'Cards', shortLabel: 'Cards', show: cardsForGame.length > 0 },
                 { key: 'photos', label: 'Photos', shortLabel: 'Photos', show: Array.isArray(game.photos) && game.photos.length > 0 },
+                { key: 'graphic', label: 'Score Graphic', shortLabel: 'Graphic', show: !!game.scoreGraphic },
               ].filter(tab => tab.show).map(tab => (
                 <button
                   key={tab.key}
@@ -3623,6 +3624,22 @@ export default function Game() {
                     />
                   </button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'graphic' && game.scoreGraphic && (
+            <div className="px-3 sm:px-5 py-5 sm:py-6">
+              <h3 className="text-base font-bold text-txt-primary mb-1">Score Graphic</h3>
+              <p className="text-xs text-txt-tertiary mb-5">AI-generated final score graphic.</p>
+              <div className="flex justify-center">
+                <img
+                  src={game.scoreGraphic}
+                  alt={`${displayTeam} vs ${opponent} score graphic`}
+                  className="rounded-xl max-w-full"
+                  style={{ maxHeight: '600px', border: '1px solid var(--surface-4)' }}
+                  onError={(e) => { e.target.style.display = 'none' }}
+                />
               </div>
             </div>
           )}
