@@ -2586,7 +2586,7 @@ export default function GameEdit() {
         // fall back to team1 for CPU games.
         const autoSide = isTeam1UserTeam ? 'team1' : isTeam2UserTeam ? 'team2' : 'team1'
         const activeSide = graphicFeaturedSide ?? autoSide
-        const featuredTeamNum = activeSide === 'team2' ? 2 : 1
+        const featuredTeamNum = activeSide === 'neutral' ? 0 : activeSide === 'team2' ? 2 : 1
 
         const t1Colors = getTeamColors(team1Name)
         const t2Colors = getTeamColors(team2Name)
@@ -2638,6 +2638,7 @@ export default function GameEdit() {
                   <div className="flex gap-2">
                     {[
                       { side: 'team1', name: team1Name },
+                      { side: 'neutral', name: 'Neutral' },
                       { side: 'team2', name: team2Name },
                     ].map(({ side, name }) => {
                       const isActive = activeSide === side

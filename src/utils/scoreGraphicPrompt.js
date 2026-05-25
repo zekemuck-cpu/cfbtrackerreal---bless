@@ -2,6 +2,9 @@ import { getTeamBrandProfile } from '../data/teamBrandProfiles'
 
 /**
  * Build a professional-grade AI image prompt for a post-game social media graphic.
+ * featuredTeam = 0 → neutral media-company style (both teams equal)
+ * featuredTeam = 1 → team1's branded graphic
+ * featuredTeam = 2 → team2's branded graphic
  */
 export function buildScoreGraphicPrompt({
   team1Name,
@@ -19,6 +22,48 @@ export function buildScoreGraphicPrompt({
   featuredTeam = 1,
   screenshotCount = 0,
 }) {
+  // ─── NEUTRAL / MEDIA-COMPANY GRAPHIC ────────────────────────────────────────
+  if (featuredTeam === 0) {
+    const rank1Label = team1Rank ? `#${team1Rank} ` : ''
+    const rank2Label = team2Rank ? `#${team2Rank} ` : ''
+    const s1 = team1Score ?? ''
+    const s2 = team2Score ?? ''
+
+    const p1 = getTeamBrandProfile(team1Name)
+    const p2 = getTeamBrandProfile(team2Name)
+    const color1 = p1?.primaryHex || team1Colors?.primary || '#1a1a1a'
+    const color2 = p2?.primaryHex || team2Colors?.primary || '#1a1a1a'
+
+    const photoLine = screenshotCount > 0
+      ? `Images are attached — use them as the hero visual. Keep the photo natural; do not color-grade the entire image.`
+      : `No images attached — build a pure graphic using color, typography, and shape. No generated photos, no illustrated athletes or helmets.`
+
+    const lines = [
+      `Design a post-game score graphic (1080×1080) in the style of a neutral sports media outlet — think ESPN, Fox Sports, or The Athletic — not either team's own branded post.`,
+      ``,
+      `You are a senior graphic designer at a major sports network. This graphic covers the final score for a national audience, so neither team gets visual priority. Both programs are represented equally in color, logo placement, and type weight. The design should feel authoritative, clean, and broadcast-quality.`,
+      ``,
+      `RESULT`,
+      `${rank1Label}${team1Name}${team1Record ? ` (${team1Record})` : ''}:  ${s1}`,
+      `${rank2Label}${team2Name}${team2Record ? ` (${team2Record})` : ''}:  ${s2}`,
+      `${gameLabel}${year ? ` · ${year} Season` : ''}`,
+      ``,
+      `TEAM COLORS (use both, balanced — neither team dominates)`,
+      `${team1Name}: ${color1}`,
+      `${team2Name}: ${color2}`,
+      ``,
+      photoLine,
+      ``,
+      `The score numbers should be the largest typographic element. Both team logos should appear near their respective scores, equal in size and visual weight. The two scores must read as a clear comparison — side by side or in an obvious visual relationship.`,
+      ``,
+      `Do not use large standalone WIN / VICTORY / FINAL text as the dominant visual element.`,
+      `Do not place either logo in a plain white or gray box — both teams should feel integrated into the design.`,
+    ]
+
+    return lines.filter(l => l !== null && l !== undefined).join('\n')
+  }
+
+  // ─── TEAM-BRANDED GRAPHIC ────────────────────────────────────────────────────
   const featuredName   = featuredTeam === 2 ? team2Name   : team1Name
   const featuredScore  = featuredTeam === 2 ? team2Score  : team1Score
   const featuredRank   = featuredTeam === 2 ? team2Rank   : team1Rank
@@ -43,7 +88,6 @@ export function buildScoreGraphicPrompt({
   const secondary  = profile?.secondaryHex || featuredColors?.secondary || '#ffffff'
   const tertiary   = profile?.tertiaryHex  || null
   const primaryPMS = profile?.primaryPMS   || null
-  const shortName  = profile?.shortNickname || featuredName.split(' ').pop()
 
   const resultMood = won  ? 'This is a WIN — the graphic should feel confident, energized, and celebratory without being over the top.'
                   : tied ? 'This ended in a TIE — factual and composed.'
