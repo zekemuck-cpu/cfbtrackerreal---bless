@@ -7569,10 +7569,10 @@ export function DynastyProvider({ children }) {
     }
 
     if (isCloud) {
-      // Write the new recap to its own subcollection doc. Server-
-      // confirmed via waitForPendingWrites + read-back verify inside
-      // saveWeekRecapToSubcollection so we don't return success on a
-      // local-cache-only write that the server silently rejected.
+      // Write the new recap to its own subcollection doc. The write
+      // resolves after the local SDK cache is updated (fast — no
+      // extra network round-trips); Firestore handles server delivery
+      // and retry internally.
       //
       // We do NOT run the legacy → subcollection migration from this
       // save path. The previous version did, and that was the bug

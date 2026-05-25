@@ -1068,39 +1068,18 @@ export async function saveWeekRecapToSubcollection(dynastyId, year, week, recap)
   // so subscribeToDynasties on Device B fires (subcollection-only
   // writes don't reach a main-doc listener). See
   // bumpDynastyLastModifiedInBatch.
+  //
+  // Performance note: we intentionally do NOT await waitForPendingWrites
+  // or a read-back verify here. Those patterns add 2 extra network round
+  // trips that made recap saves feel sluggish (800 ms – 2 s on a normal
+  // connection). For recap text — which is regenerable — the batch commit
+  // is sufficient; the Firestore SDK queues and retries server delivery
+  // automatically. The local cache is updated synchronously, so the UI
+  // reflects the save immediately.
   const batch = writeBatch(db)
   batch.set(ref, payload)
   bumpDynastyLastModifiedInBatch(batch, dynastyId)
   await batch.commit()
-
-  // Step 2 — block until the SDK confirms every pending write was
-  // acked by the server. Without this, setDoc resolves on cache write
-  // and a flaky network can silently drop the server-side write.
-  try {
-    await waitForPendingWrites(db)
-  } catch (err) {
-    // waitForPendingWrites failure means we don't know the server
-    // status. Throw so the caller can surface the failure rather
-    // than show a misleading success toast.
-    throw new Error(`Recap save couldn't be confirmed: ${err?.code || err?.message || 'sync timeout'}`)
-  }
-
-  // Step 3 — read-back verify the persisted text from the server. The
-  // text we just wrote should round-trip exactly. If the server doc
-  // is missing or the text differs, throw.
-  try {
-    const verifySnap = await getDocFromServer(ref)
-    if (!verifySnap.exists()) {
-      throw new Error('Recap save verification failed: server doc not found after write')
-    }
-    const verifyData = verifySnap.data() || {}
-    if (verifyData.text !== payload.text) {
-      throw new Error('Recap save verification failed: server text does not match the written value')
-    }
-  } catch (err) {
-    if (err?.message?.startsWith('Recap save verification failed')) throw err
-    throw new Error(`Recap save verification failed: ${err?.code || err?.message || 'unknown'}`)
-  }
 }
 
 export async function deleteWeekRecapFromSubcollection(dynastyId, year, week) {
