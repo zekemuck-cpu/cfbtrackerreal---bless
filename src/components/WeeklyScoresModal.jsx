@@ -409,7 +409,16 @@ CRITICAL RULES — output format
 2. ONE ROW PER GAME. The sheet allows up to ${WEEKLY_SCORES_MAX_ROWS} rows. The screenshots are the SOURCE OF TRUTH for how many games to output (see EXHAUSTIVENESS above).
 3. TEAM ABBREVIATIONS ONLY (columns A and D). Use ONLY values from the TEAM ABBREVIATIONS mapping at the bottom of this prompt. Columns A and D are STRICT dropdowns — wrong text is rejected by the sheet.
 4. INTEGERS ONLY for scores — no decimals, no "pts", no commas. "24" never "1,234" never "24.0".
-5. RANKS — read directly from the screenshot. If a team's name is preceded by "#11" or shown as a ranked team in the matchup line (e.g. "#7 Texas vs Oklahoma"), put 11 / 7 in the rank column. If the team is unranked (no number shown), LEAVE THE RANK COLUMN BLANK. Do not guess. Do not write "NR" or "—" — blank means unranked.
+5. RANKS FOR PLAYED TEAMS — transcribe, do not reason.
+   For every team that appears in a game row (Col A or Col D), the rank is EXACTLY what the screenshot shows — the integer prefix next to the team name, or blank if there is no prefix. That's it. You are a transcription machine for these ranks.
+
+   DO NOT adjust a game-row rank because you think a team "should" be higher or lower.
+   DO NOT infer or estimate a rank that isn't explicitly shown.
+   DO NOT cross-reference the prior-week poll for game-row ranks — only the screenshot matters.
+
+   If a team's name in the screenshot is preceded by "#11" or "11" or shown as ranked in the matchup line (e.g. "#7 Texas vs Oklahoma"), copy 11 / 7 exactly into the rank column. If the team is unranked (no number shown next to the name), LEAVE THE RANK COLUMN BLANK. Do not write "NR" or "—" — blank means unranked.
+
+   Rank reasoning is reserved EXCLUSIVELY for bye teams — see the BYE WEEK RANKINGS section below.
 6. HOME / AWAY ORIENTATION — single most common failure point, read SLOWLY.
 
    COLUMN A IS THE HOME TEAM. Always. The HOME team is whichever team
@@ -536,46 +545,43 @@ week. The user reviews and pastes — both blocks are part of the same
 copy/paste from your reply.
 
 HOW TO REASON ABOUT BYE-WEEK RANKS:
-  1. From the PRIOR-WEEK TOP 25 above, list every team that was ranked.
-     Call this set P (should be 25 teams when a full prior-week poll is
-     stored).
-  2. For each team in P, check whether they appear as Col A or Col D
-     of any row in your GAMES block. If yes → they played this week,
-     their new rank already lives in the games row's rank column.
-     IGNORE them in the bye block. Call the count of played ranked
-     teams G.
-  3. The remaining P − G ranked teams DID NOT play this week — they're
-     on bye. Each of those teams gets ONE row in the BYE block. Your
-     bye block must contain EXACTLY P − G rows — no more, no fewer.
-     If P = 25 and G = 18, you need exactly 7 bye rows. Missing even
-     one is an error.
-  4. Decide each bye team's new rank by THINKING ABOUT THE WEEK:
-       • By default, bye teams hold their slot.
-       • If a team BELOW them won big and leapfrogged, the bye team
-         drops one (or more) slots.
-       • If a team ABOVE them lost (especially a bad loss), the bye
-         team can move UP.
-       • Multiple ranked teams can be on bye in the same week — they
-         each independently shift based on what happened around them.
-       • Movement of more than one slot IS allowed when the data
-         supports it (e.g. multiple leapfrogs, blowout losses above).
-       • The 25 slots in the new poll are all filled. For each empty
-         slot in the GAMES-derived ranks, decide which bye team most
-         naturally fills it. Walk slot-by-slot from #1 down — for
-         each missing rank, identify the bye team whose prior rank +
-         the week's events line up.
-  5. Sanity check: every rank in your BYE block must be UNIQUE, must
-     be 1-25, and must NOT collide with a rank already claimed by a
-     team in the GAMES block. The full union of (games block ranks)
-     ∪ (bye block ranks) MUST be exactly {1, 2, …, 25} — all 25
-     slots filled, no gaps, no extras. If you count fewer than
-     25 total ranked teams across both blocks, you dropped a bye team.
-     Go back to step 1 and find the missing team(s).
-  6. Only output bye rows for teams that WERE ranked in the prior-week
-     Top 25 above. A team that was unranked entering this week can
-     enter the new poll only via a game (= their rank shows up in the
-     games block). Don't invent unranked-to-ranked entries here.
-  7. If no ranked team had a bye, emit an empty BYE block (no rows).
+
+  STEP 1 — Identify the bye teams.
+    From the PRIOR-WEEK TOP 25 above, list every team that was ranked last week.
+    Call this set P (should be up to 25 teams).
+    Cross off every team in P that appears as Col A or Col D in any of your game rows
+    — those teams played, their rank is already transcribed from the screenshot.
+    The leftover teams in P are on BYE. Call them B. Your bye block must have
+    EXACTLY |B| rows — one per bye team, no more, no fewer.
+
+  STEP 2 — Identify the unfilled rank slots.
+    Look at all the rank values (Col B and Col E) across your completed game rows.
+    Those are the slots already claimed by played teams.
+    The unfilled slots are every integer 1–25 NOT claimed by a played team.
+    List them out: e.g. "Unfilled: 2, 5, 9, 14, 22" — one slot per bye team.
+    There must be EXACTLY |B| unfilled slots (bye team count = unfilled slot count).
+    If the numbers don't match, something went wrong in step 1 — fix it before continuing.
+
+  STEP 3 — Assign each bye team to an unfilled slot.
+    THIS is where reasoning happens — and ONLY here.
+    Consider each bye team's prior-week rank, then ask:
+      • Which unfilled slot fits them best given what happened this week?
+      • Did teams ranked below them win convincingly enough to leapfrog? → move the bye team down.
+      • Did teams ranked above them lose badly? → the bye team may move up.
+      • By default (nothing dramatic happened), a bye team holds as close to their prior slot as possible.
+    Assign each bye team to exactly one unfilled slot. No two bye teams share a slot.
+
+  STEP 4 — Sanity check.
+    The complete set of ranks from (game rows) ∪ (bye rows) must equal {1, 2, …, 25}.
+    All 25 slots filled. No gaps. No duplicates. No rank above 25 or below 1.
+    If anything is off, revisit steps 1–3.
+
+  STEP 5 — Special cases.
+    • Only output bye rows for teams that WERE ranked in the prior-week poll.
+      An unranked team cannot enter the new poll via the bye block — only via
+      a game row where their rank is shown on the screenshot.
+    • If no ranked team had a bye, emit an empty BYE block (no rows).
+    • If the prior-week poll is unavailable (shown as empty above), skip the bye block entirely.
 
 ═══════════════════════════════════════════════════════════
 TAB: "Week ${week} Scores" — up to ${WEEKLY_SCORES_MAX_ROWS} game rows + up to 25 bye-rank rows × 7 columns
