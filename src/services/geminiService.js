@@ -389,7 +389,10 @@ function buildEnhancedPlayerHighlights(teamStats, players, allGames, year, curre
     rushing: [],
     receiving: [],
     defense: [],
-    kicking: []
+    kicking: [],
+    punting: [],
+    kickReturn: [],
+    puntReturn: [],
   }
   if (!teamStats) return highlights
 
@@ -572,6 +575,74 @@ function buildEnhancedPlayerHighlights(teamStats, players, allGames, year, curre
         })
       }
     })
+  }
+
+  // Punting
+  if (teamStats?.punting?.length > 0) {
+    teamStats.punting
+      .filter(p => (p.punts ?? 0) > 0)
+      .forEach(p => {
+        const punts = p.punts ?? 0
+        const yards = p.yards ?? p.yds ?? 0
+        const net = p.netYards ?? null
+        const long = p.long ?? null
+        const in20 = p.in20 ?? null
+        let statStr = `${punts} punt${punts !== 1 ? 's' : ''}, ${yards} gross yds`
+        if (net != null) statStr += `, ${net} net`
+        if (long) statStr += `, long ${long}`
+        if (in20) statStr += `, ${in20} inside 20`
+        const player = getPlayerByName(players, p.playerName)
+        highlights.punting.push({
+          player: p.playerName,
+          stats: statStr,
+          position: player?.position || 'P',
+          class: player?.classByYear?.[year] || player?.year || null,
+        })
+      })
+  }
+
+  // Kick returns
+  if (teamStats?.kickReturn?.length > 0) {
+    teamStats.kickReturn
+      .filter(p => (p.kR ?? 0) > 0)
+      .forEach(p => {
+        const ret = p.kR ?? 0
+        const yards = p.yards ?? p.yds ?? 0
+        const long = p.long ?? null
+        const td = p.tD ?? p.td ?? 0
+        let statStr = `${ret} KR, ${yards} yds`
+        if (long) statStr += `, long ${long}`
+        if (td) statStr += `, ${td} TD`
+        const player = getPlayerByName(players, p.playerName)
+        highlights.kickReturn.push({
+          player: p.playerName,
+          stats: statStr,
+          position: player?.position || null,
+          class: player?.classByYear?.[year] || player?.year || null,
+        })
+      })
+  }
+
+  // Punt returns
+  if (teamStats?.puntReturn?.length > 0) {
+    teamStats.puntReturn
+      .filter(p => (p.pR ?? 0) > 0)
+      .forEach(p => {
+        const ret = p.pR ?? 0
+        const yards = p.yards ?? p.yds ?? 0
+        const long = p.long ?? null
+        const td = p.tD ?? p.td ?? 0
+        let statStr = `${ret} PR, ${yards} yds`
+        if (long) statStr += `, long ${long}`
+        if (td) statStr += `, ${td} TD`
+        const player = getPlayerByName(players, p.playerName)
+        highlights.puntReturn.push({
+          player: p.playerName,
+          stats: statStr,
+          position: player?.position || null,
+          class: player?.classByYear?.[year] || player?.year || null,
+        })
+      })
   }
 
   return highlights
@@ -3234,7 +3305,10 @@ function extractHighlightsForSide(teamStats) {
     rushing: [],
     receiving: [],
     defense: [],
-    kicking: []
+    kicking: [],
+    punting: [],
+    kickReturn: [],
+    puntReturn: [],
   }
   if (!teamStats) return highlights
 
@@ -3306,6 +3380,43 @@ function extractHighlightsForSide(teamStats) {
           stats: `${p.fgm}/${p.fga} FG${p.lng ? `, long ${p.lng}` : ''}`
         })
       }
+    })
+  }
+
+  // Punting
+  if (teamStats?.punting?.length > 0) {
+    teamStats.punting.filter(p => (p.punts ?? 0) > 0).forEach(p => {
+      const punts = p.punts ?? 0
+      const yards = p.yards ?? p.yds ?? 0
+      let statStr = `${punts} punt${punts !== 1 ? 's' : ''}, ${yards} gross yds`
+      if (p.netYards != null) statStr += `, ${p.netYards} net`
+      if (p.long) statStr += `, long ${p.long}`
+      if (p.in20) statStr += `, ${p.in20} inside 20`
+      highlights.punting.push({ player: p.playerName, stats: statStr })
+    })
+  }
+
+  // Kick returns
+  if (teamStats?.kickReturn?.length > 0) {
+    teamStats.kickReturn.filter(p => (p.kR ?? 0) > 0).forEach(p => {
+      const ret = p.kR ?? 0
+      const yards = p.yards ?? p.yds ?? 0
+      let statStr = `${ret} KR, ${yards} yds`
+      if (p.long) statStr += `, long ${p.long}`
+      if (p.tD || p.td) statStr += `, ${p.tD ?? p.td} TD`
+      highlights.kickReturn.push({ player: p.playerName, stats: statStr })
+    })
+  }
+
+  // Punt returns
+  if (teamStats?.puntReturn?.length > 0) {
+    teamStats.puntReturn.filter(p => (p.pR ?? 0) > 0).forEach(p => {
+      const ret = p.pR ?? 0
+      const yards = p.yards ?? p.yds ?? 0
+      let statStr = `${ret} PR, ${yards} yds`
+      if (p.long) statStr += `, long ${p.long}`
+      if (p.tD || p.td) statStr += `, ${p.tD ?? p.td} TD`
+      highlights.puntReturn.push({ player: p.playerName, stats: statStr })
     })
   }
 
@@ -4500,17 +4611,31 @@ DO NOT:
     const t2 = ctx.teamStats.team2 || {}
     const team1ColName = ctx.isCPUGame ? (getTeamName(t1.teamAbbr) || t1.teamAbbr || ctx.team1FullName) : ctx.team1FullName
     const team2ColName = ctx.isCPUGame ? (getTeamName(t2.teamAbbr) || t2.teamAbbr || ctx.team2FullName) : ctx.team2FullName
+
+    // Helper: only emit a stat row when at least one team has a real value
+    const hasStat = (...keys) => keys.some(k => t1[k] != null || t2[k] != null)
+    const v = (obj, ...keys) => { for (const k of keys) if (obj[k] != null) return obj[k]; return '-' }
+
     prompt += `\n
 ===========================================
 TEAM STATISTICS
 ===========================================
                         ${team1ColName}    ${team2ColName}
-First Downs:            ${t1.firstDowns ?? '-'}         ${t2.firstDowns ?? '-'}
-Total Yards:            ${t1.totalYards ?? t1.totalOffense ?? '-'}       ${t2.totalYards ?? t2.totalOffense ?? '-'}
-Rushing (ATT-YDS):      ${t1.rushAttempts ?? '-'}-${t1.rushYards ?? '-'}     ${t2.rushAttempts ?? '-'}-${t2.rushYards ?? '-'}
-Passing (CMP-ATT-YDS):  ${t1.completions ?? '-'}-${t1.passAttempts ?? '-'}-${t1.passingYards ?? t1.passYards ?? '-'}   ${t2.completions ?? '-'}-${t2.passAttempts ?? '-'}-${t2.passingYards ?? t2.passYards ?? '-'}
-Turnovers:              ${t1.turnovers ?? '-'}         ${t2.turnovers ?? '-'}
-3rd Down:               ${t1['3rdDownConv'] ?? '-'}/${t1['3rdDownAtt'] ?? '-'}       ${t2['3rdDownConv'] ?? '-'}/${t2['3rdDownAtt'] ?? '-'}
+First Downs:            ${v(t1,'firstDowns')}         ${v(t2,'firstDowns')}
+Total Yards:            ${v(t1,'totalYards','totalOffense')}       ${v(t2,'totalYards','totalOffense')}
+Total Plays:            ${v(t1,'totalPlays')}         ${v(t2,'totalPlays')}
+Rushing (ATT-YDS-TD):   ${v(t1,'rushAttempts')}-${v(t1,'rushYards')}-${v(t1,'rushTds')}     ${v(t2,'rushAttempts')}-${v(t2,'rushYards')}-${v(t2,'rushTds')}
+Passing (CMP-ATT-YDS-TD): ${v(t1,'completions')}-${v(t1,'passAttempts')}-${v(t1,'passingYards','passYards')}-${v(t1,'passTds')}   ${v(t2,'completions')}-${v(t2,'passAttempts')}-${v(t2,'passingYards','passYards')}-${v(t2,'passTds')}
+Turnovers:              ${v(t1,'turnovers')}         ${v(t2,'turnovers')}${
+  hasStat('fumblesLost') ? `\nFumbles Lost:           ${v(t1,'fumblesLost')}         ${v(t2,'fumblesLost')}` : ''}${
+  hasStat('interceptions') ? `\nInterceptions Thrown:   ${v(t1,'interceptions')}         ${v(t2,'interceptions')}` : ''}
+3rd Down:               ${v(t1,'3rdDownConv')}/${v(t1,'3rdDownAtt')}       ${v(t2,'3rdDownConv')}/${v(t2,'3rdDownAtt')}${
+  hasStat('4thDownConv','4thDownAtt') ? `\n4th Down:               ${v(t1,'4thDownConv')}/${v(t1,'4thDownAtt')}       ${v(t2,'4thDownConv')}/${v(t2,'4thDownAtt')}` : ''}${
+  hasStat('redZoneTd','redZoneFg','redZonePct') ? `\nRed Zone (TD-FG-Pct):   ${v(t1,'redZoneTd')}-${v(t1,'redZoneFg')}-${v(t1,'redZonePct')}%   ${v(t2,'redZoneTd')}-${v(t2,'redZoneFg')}-${v(t2,'redZonePct')}%` : ''}${
+  hasStat('penalties','penaltyYards') ? `\nPenalties (No.-Yds):    ${v(t1,'penalties')}-${v(t1,'penaltyYards')}     ${v(t2,'penalties')}-${v(t2,'penaltyYards')}` : ''}${
+  hasStat('kickRetYards') ? `\nKick Return Yards:      ${v(t1,'kickRetYards')}         ${v(t2,'kickRetYards')}` : ''}${
+  hasStat('puntRetYards') ? `\nPunt Return Yards:      ${v(t1,'puntRetYards')}         ${v(t2,'puntRetYards')}` : ''}${
+  hasStat('puntAvg') ? `\nPunt Average:           ${v(t1,'puntAvg')}         ${v(t2,'puntAvg')}` : ''}
 Possession:             ${t1.possMinutes ?? ''}:${String(t1.possSeconds ?? '').padStart(2, '0')}      ${t2.possMinutes ?? ''}:${String(t2.possSeconds ?? '').padStart(2, '0')}`
   }
 
@@ -4661,6 +4786,27 @@ ${team1Name.toUpperCase()} INDIVIDUAL STATS
       }
     }
 
+    // Helper: render all categories for one team
+    const renderTeamStats = (stats, teamName) => {
+      if (!stats) return
+      const cats = [
+        { key: 'passing',    label: 'PASSING' },
+        { key: 'rushing',    label: 'RUSHING' },
+        { key: 'receiving',  label: 'RECEIVING' },
+        { key: 'defense',    label: 'DEFENSE' },
+        { key: 'kicking',    label: 'KICKING' },
+        { key: 'punting',    label: 'PUNTING' },
+        { key: 'kickReturn', label: 'KICK RETURNS' },
+        { key: 'puntReturn', label: 'PUNT RETURNS' },
+      ]
+      cats.forEach(({ key, label }) => {
+        if (stats[key]?.length > 0) {
+          prompt += `\n\n${teamName.toUpperCase()} ${label}:`
+          stats[key].forEach(p => { prompt += `\n${formatPlayerLine(p, teamName)}` })
+        }
+      })
+    }
+
     const team2Stats = ctx.boxScore.team2
     if (team2Stats) {
       prompt += `\n
@@ -4668,23 +4814,22 @@ ${team1Name.toUpperCase()} INDIVIDUAL STATS
 ${team2Name.toUpperCase()} INDIVIDUAL STATS
 (All players below play for ${team2Name})
 ===========================================`
+      renderTeamStats(team2Stats, team2Name)
+    }
 
-      if (team2Stats.passing.length > 0) {
-        prompt += `\n\n${team2Name.toUpperCase()} PASSING:`
-        team2Stats.passing.forEach(p => { prompt += `\n${formatPlayerLine(p, team2Name)}` })
-      }
-      if (team2Stats.rushing.length > 0) {
-        prompt += `\n\n${team2Name.toUpperCase()} RUSHING:`
-        team2Stats.rushing.forEach(p => { prompt += `\n${formatPlayerLine(p, team2Name)}` })
-      }
-      if (team2Stats.receiving.length > 0) {
-        prompt += `\n\n${team2Name.toUpperCase()} RECEIVING:`
-        team2Stats.receiving.forEach(p => { prompt += `\n${formatPlayerLine(p, team2Name)}` })
-      }
-      if (team2Stats.defense.length > 0) {
-        prompt += `\n\n${team2Name.toUpperCase()} DEFENSE:`
-        team2Stats.defense.forEach(p => { prompt += `\n${formatPlayerLine(p, team2Name)}` })
-      }
+    // Retrofit team1 to also use the shared renderer for the new categories
+    // (passing/rushing/receiving/defense/kicking were already output above;
+    // punting and returns are new and only added via renderTeamStats)
+    const team1NewCats = ['punting', 'kickReturn', 'puntReturn']
+    const team1Stats2 = ctx.boxScore.team1
+    if (team1Stats2) {
+      team1NewCats.forEach(key => {
+        if (team1Stats2[key]?.length > 0) {
+          const label = key === 'punting' ? 'PUNTING' : key === 'kickReturn' ? 'KICK RETURNS' : 'PUNT RETURNS'
+          prompt += `\n\n${team1Name.toUpperCase()} ${label}:`
+          team1Stats2[key].forEach(p => { prompt += `\n${formatPlayerLine(p, team1Name)}` })
+        }
+      })
     }
   }
 
