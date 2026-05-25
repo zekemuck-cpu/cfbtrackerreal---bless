@@ -3643,8 +3643,6 @@ export default function Game() {
 
           {activeTab === 'graphic' && game.scoreGraphic && (
             <div className="px-3 sm:px-5 py-5 sm:py-6">
-              <h3 className="text-base font-bold text-txt-primary mb-1">Score Graphic</h3>
-              <p className="text-xs text-txt-tertiary mb-5">AI-generated final score graphic.</p>
               <div className="flex justify-center">
                 <img
                   src={game.scoreGraphic}

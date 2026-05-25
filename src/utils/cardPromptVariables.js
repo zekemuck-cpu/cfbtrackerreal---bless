@@ -302,7 +302,8 @@ function buildStatsLine(player, year) {
   const p = yearStats.passing
   if (p && (has(p.yds) || has(p.td) || has(p.cmp) || has(p.att))) {
     const sub = []
-    sub.push(`${num(p.cmp)}/${num(p.att)}`)
+    const pct = num(p.att) > 0 ? `${((num(p.cmp) / num(p.att)) * 100).toFixed(1)}%` : '—'
+    sub.push(`${num(p.cmp)}/${num(p.att)} (${pct})`)
     sub.push(`${num(p.yds)} yds`)
     sub.push(`${num(p.td)} TD`)
     if (p.int != null) sub.push(`${num(p.int)} INT`)
@@ -315,14 +316,16 @@ function buildStatsLine(player, year) {
   const r = yearStats.rushing
   if (r && (has(r.yds) || has(r.td) || has(r.car))) {
     const sub = []
+    const rushAvg = num(r.car) > 0 ? `${(num(r.yds) / num(r.car)).toFixed(1)} avg` : null
     sub.push(`${num(r.car)} car`)
     sub.push(`${num(r.yds)} yds`)
+    if (rushAvg) sub.push(rushAvg)
     sub.push(`${num(r.td)} TD`)
+    if (r.fum != null) sub.push(`${num(r.fum)} fum`)
     if (has(r.lng)) sub.push(`${num(r.lng)} long`)
     if (has(r.twentyPlus)) sub.push(`${num(r.twentyPlus)} 20+`)
     if (has(r.bt)) sub.push(`${num(r.bt)} BT`)
     if (has(r.yac)) sub.push(`${num(r.yac)} YAC`)
-    if (has(r.fum)) sub.push(`${num(r.fum)} fum`)
     parts.push(`Rushing: ${sub.join(', ')}`)
   }
 
@@ -330,8 +333,10 @@ function buildStatsLine(player, year) {
   const c = yearStats.receiving
   if (c && (has(c.yds) || has(c.td) || has(c.rec))) {
     const sub = []
+    const recAvg = num(c.rec) > 0 ? `${(num(c.yds) / num(c.rec)).toFixed(1)} avg` : null
     sub.push(`${num(c.rec)} rec`)
     sub.push(`${num(c.yds)} yds`)
+    if (recAvg) sub.push(recAvg)
     sub.push(`${num(c.td)} TD`)
     if (has(c.lng)) sub.push(`${num(c.lng)} long`)
     if (has(c.rac)) sub.push(`${num(c.rac)} RAC`)
@@ -407,9 +412,135 @@ function buildStatsLine(player, year) {
 }
 
 /**
- * Build a multi-line year-by-year career stats table for the player.
- * One row per year that has stats, formatted like:
- *   `2028 (Sophomore): 13 GP, 290/410, 3800 yds, 32 TD`
+ * Aggregate a player's stats across all years into career totals.
+ * Returns an object with summed fields for passing, rushing, receiving,
+ * defense, kicking, punting, and returns.
+ */
+function buildCareerTotals(player) {
+  if (!player?.statsByYear) return null
+  const years = Object.keys(player.statsByYear).map(Number).filter(n => Number.isFinite(n) && n > 0)
+  if (years.length === 0) return null
+
+  const num = (v) => Number(v) || 0
+  const totals = {}
+
+  for (const yr of years) {
+    const s = player.statsByYear[yr] || player.statsByYear[String(yr)]
+    if (!s) continue
+
+    if (s.passing) {
+      if (!totals.passing) totals.passing = { cmp: 0, att: 0, yds: 0, td: 0, int: 0 }
+      totals.passing.cmp += num(s.passing.cmp)
+      totals.passing.att += num(s.passing.att)
+      totals.passing.yds += num(s.passing.yds)
+      totals.passing.td  += num(s.passing.td)
+      totals.passing.int += num(s.passing.int)
+    }
+    if (s.rushing) {
+      if (!totals.rushing) totals.rushing = { car: 0, yds: 0, td: 0, fum: 0 }
+      totals.rushing.car += num(s.rushing.car)
+      totals.rushing.yds += num(s.rushing.yds)
+      totals.rushing.td  += num(s.rushing.td)
+      totals.rushing.fum += num(s.rushing.fum)
+    }
+    if (s.receiving) {
+      if (!totals.receiving) totals.receiving = { rec: 0, yds: 0, td: 0 }
+      totals.receiving.rec += num(s.receiving.rec)
+      totals.receiving.yds += num(s.receiving.yds)
+      totals.receiving.td  += num(s.receiving.td)
+    }
+    if (s.defense) {
+      if (!totals.defense) totals.defense = { soloTkl: 0, astTkl: 0, tfl: 0, sacks: 0, int: 0, pd: 0, ff: 0, fr: 0, td: 0 }
+      totals.defense.soloTkl += num(s.defense.soloTkl)
+      totals.defense.astTkl  += num(s.defense.astTkl)
+      totals.defense.tfl     += num(s.defense.tfl)
+      totals.defense.sacks   += num(s.defense.sacks)
+      totals.defense.int     += num(s.defense.int)
+      totals.defense.pd      += num(s.defense.pd)
+      totals.defense.ff      += num(s.defense.ff)
+      totals.defense.fr      += num(s.defense.fr)
+      totals.defense.td      += num(s.defense.td)
+    }
+    if (s.kicking) {
+      if (!totals.kicking) totals.kicking = { fgm: 0, fga: 0, xpm: 0, xpa: 0 }
+      totals.kicking.fgm += num(s.kicking.fgm)
+      totals.kicking.fga += num(s.kicking.fga)
+      totals.kicking.xpm += num(s.kicking.xpm)
+      totals.kicking.xpa += num(s.kicking.xpa)
+    }
+    if (s.punting) {
+      if (!totals.punting) totals.punting = { punts: 0, yds: 0 }
+      totals.punting.punts += num(s.punting.punts)
+      totals.punting.yds   += num(s.punting.yds)
+    }
+  }
+  return totals
+}
+
+/**
+ * Format career totals object into a human-readable line (same style
+ * as buildStatsLine so they can be concatenated in the career table).
+ */
+function formatCareerTotalsLine(totals) {
+  if (!totals) return ''
+  const num = (v) => Number(v) || 0
+  const has = (v) => Number(v) > 0
+  const parts = []
+
+  if (totals.passing) {
+    const p = totals.passing
+    const pct = num(p.att) > 0 ? `${((num(p.cmp) / num(p.att)) * 100).toFixed(1)}%` : '—'
+    parts.push(`Passing: ${num(p.cmp)}/${num(p.att)} (${pct}), ${num(p.yds)} yds, ${num(p.td)} TD, ${num(p.int)} INT`)
+  }
+  if (totals.rushing) {
+    const r = totals.rushing
+    const avg = num(r.car) > 0 ? `${(num(r.yds) / num(r.car)).toFixed(1)} avg` : null
+    const parts2 = [`${num(r.car)} car`, `${num(r.yds)} yds`]
+    if (avg) parts2.push(avg)
+    parts2.push(`${num(r.td)} TD`)
+    if (has(r.fum)) parts2.push(`${num(r.fum)} fum`)
+    parts.push(`Rushing: ${parts2.join(', ')}`)
+  }
+  if (totals.receiving) {
+    const c = totals.receiving
+    const avg = num(c.rec) > 0 ? `${(num(c.yds) / num(c.rec)).toFixed(1)} avg` : null
+    const parts2 = [`${num(c.rec)} rec`, `${num(c.yds)} yds`]
+    if (avg) parts2.push(avg)
+    parts2.push(`${num(c.td)} TD`)
+    parts.push(`Receiving: ${parts2.join(', ')}`)
+  }
+  if (totals.defense) {
+    const d = totals.defense
+    const tot = num(d.soloTkl) + num(d.astTkl)
+    const sub = []
+    if (tot > 0) sub.push(`${tot} tkl`)
+    if (has(d.tfl)) sub.push(`${num(d.tfl)} TFL`)
+    if (has(d.sacks)) sub.push(`${num(d.sacks)} sk`)
+    if (has(d.int)) sub.push(`${num(d.int)} INT`)
+    if (has(d.pd)) sub.push(`${num(d.pd)} PD`)
+    if (sub.length) parts.push(`Defense: ${sub.join(', ')}`)
+  }
+  if (totals.kicking) {
+    const k = totals.kicking
+    const sub = []
+    if (has(k.fga)) sub.push(`${num(k.fgm)}/${num(k.fga)} FG`)
+    if (has(k.xpa)) sub.push(`${num(k.xpm)}/${num(k.xpa)} XP`)
+    if (sub.length) parts.push(`Kicking: ${sub.join(', ')}`)
+  }
+  if (totals.punting) {
+    const pu = totals.punting
+    const avg = num(pu.punts) > 0 ? `${(num(pu.yds) / num(pu.punts)).toFixed(1)} avg` : null
+    const sub = [`${num(pu.punts)} punts`, `${num(pu.yds)} yds`]
+    if (avg) sub.push(avg)
+    parts.push(`Punting: ${sub.join(', ')}`)
+  }
+  return parts.join(' • ')
+}
+
+/**
+ * Build a multi-line year-by-year career stats table for the player,
+ * with a CAREER totals row at the bottom.
+ * One row per year: `2028 (Sophomore): 13 GP, 290/410 (70.7%), 3800 yds, 32 TD, 9 INT`
  * Returns '' if the player has no stat data at all.
  * @param {object} player
  * @param {Record<number,number>} gpByYear - games played per year (optional)
@@ -423,13 +554,26 @@ function buildCareerStatsTable(player, gpByYear = {}) {
   if (years.length === 0) return ''
 
   const rows = []
+  let totalGP = 0
   for (const yr of years) {
     const line = buildStatsLine(player, yr)
     if (!line) continue
     const cls = player.classByYear?.[yr] || player.classByYear?.[String(yr)] || ''
-    const gp = gpByYear[yr] != null ? `${gpByYear[yr]} GP, ` : ''
-    rows.push(cls ? `${yr} (${cls}): ${gp}${line}` : `${yr}: ${gp}${line}`)
+    const gp = gpByYear[yr] != null ? gpByYear[yr] : null
+    if (gp != null) totalGP += gp
+    const gpStr = gp != null ? `${gp} GP, ` : ''
+    rows.push(cls ? `${yr} (${cls}): ${gpStr}${line}` : `${yr}: ${gpStr}${line}`)
   }
+
+  // Career totals row — only meaningful when there are multiple years
+  if (rows.length > 1) {
+    const careerLine = formatCareerTotalsLine(buildCareerTotals(player))
+    if (careerLine) {
+      const gpStr = totalGP > 0 ? `${totalGP} GP, ` : ''
+      rows.push(`CAREER: ${gpStr}${careerLine}`)
+    }
+  }
+
   return rows.join('\n')
 }
 
@@ -569,12 +713,17 @@ function buildContextStatBlock({
     if (statsLine) push(`  Stat line: ${statsLine}`)
     if (recordLine) push(`  Team record: ${recordLine}`)
     if (ranking) push(`  Team ranking: ${ranking}`)
+    if (careerStatsTable) {
+      push('')
+      push(`CAREER (${careerYearsLine || ''}) — use these exact numbers for any career totals table${seasonInProgress ? ` (${year} row is partial)` : ''}:`)
+      push(careerStatsTable)
+    }
     push('')
     push('HOW TO RENDER THIS DATA ON THE BACK:')
     push(`  • The "${championshipName || 'championship'}" title is the visual headline of the back — render it large/prominent in era-appropriate styling.`)
     push(`  • Render the ${year} season stats as a small tabular block (column headers + one row of numbers).`)
+    push(`  • If the card style includes a career totals section, use ONLY the career numbers listed above. Do NOT invent or estimate career stats.`)
     push(`  • A 2-3 sentence factual narrative tying the player to the title run is appropriate.`)
-    push('  • Do NOT include other-year stats.')
     if (inProgressGuidance) push(inProgressGuidance)
     return lines.join('\n')
   }
@@ -590,12 +739,18 @@ function buildContextStatBlock({
     if (seasonProgressNote) push(`  ${seasonProgressNote}`)
     if (statsLine) push(`  Stat line: ${statsLine}`)
     if (recordLine) push(`  Team record: ${recordLine}`)
+    if (ranking) push(`  Team ranking: ${ranking}`)
+    if (careerStatsTable) {
+      push('')
+      push(`CAREER (${careerYearsLine || ''}) — use these exact numbers for any career totals table${seasonInProgress ? ` (${year} row is partial)` : ''}:`)
+      push(careerStatsTable)
+    }
     push('')
     push('HOW TO RENDER THIS DATA ON THE BACK:')
     push(`  • The "${awardName || 'award'}" name is the visual headline — render it large/prominent in era-appropriate styling (trophy, seal, ribbon).`)
     push(`  • Render the ${year} season stats as a small tabular block — these are the numbers that earned the honor.`)
+    push(`  • If the card style includes a career totals section, use ONLY the career numbers listed above. Do NOT invent or estimate career stats.`)
     push('  • A 2-3 sentence factual narrative on the case for the award is appropriate.')
-    push('  • Do NOT include other-year stats.')
     if (inProgressGuidance) push(inProgressGuidance)
     return lines.join('\n')
   }
