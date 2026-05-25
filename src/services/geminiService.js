@@ -389,7 +389,10 @@ function buildEnhancedPlayerHighlights(teamStats, players, allGames, year, curre
     rushing: [],
     receiving: [],
     defense: [],
-    kicking: []
+    kicking: [],
+    punting: [],
+    kickReturn: [],
+    puntReturn: [],
   }
   if (!teamStats) return highlights
 
@@ -572,6 +575,74 @@ function buildEnhancedPlayerHighlights(teamStats, players, allGames, year, curre
         })
       }
     })
+  }
+
+  // Punting
+  if (teamStats?.punting?.length > 0) {
+    teamStats.punting
+      .filter(p => (p.punts ?? 0) > 0)
+      .forEach(p => {
+        const punts = p.punts ?? 0
+        const yards = p.yards ?? p.yds ?? 0
+        const net = p.netYards ?? null
+        const long = p.long ?? null
+        const in20 = p.in20 ?? null
+        let statStr = `${punts} punt${punts !== 1 ? 's' : ''}, ${yards} gross yds`
+        if (net != null) statStr += `, ${net} net`
+        if (long) statStr += `, long ${long}`
+        if (in20) statStr += `, ${in20} inside 20`
+        const player = getPlayerByName(players, p.playerName)
+        highlights.punting.push({
+          player: p.playerName,
+          stats: statStr,
+          position: player?.position || 'P',
+          class: player?.classByYear?.[year] || player?.year || null,
+        })
+      })
+  }
+
+  // Kick returns
+  if (teamStats?.kickReturn?.length > 0) {
+    teamStats.kickReturn
+      .filter(p => (p.kR ?? 0) > 0)
+      .forEach(p => {
+        const ret = p.kR ?? 0
+        const yards = p.yards ?? p.yds ?? 0
+        const long = p.long ?? null
+        const td = p.tD ?? p.td ?? 0
+        let statStr = `${ret} KR, ${yards} yds`
+        if (long) statStr += `, long ${long}`
+        if (td) statStr += `, ${td} TD`
+        const player = getPlayerByName(players, p.playerName)
+        highlights.kickReturn.push({
+          player: p.playerName,
+          stats: statStr,
+          position: player?.position || null,
+          class: player?.classByYear?.[year] || player?.year || null,
+        })
+      })
+  }
+
+  // Punt returns
+  if (teamStats?.puntReturn?.length > 0) {
+    teamStats.puntReturn
+      .filter(p => (p.pR ?? 0) > 0)
+      .forEach(p => {
+        const ret = p.pR ?? 0
+        const yards = p.yards ?? p.yds ?? 0
+        const long = p.long ?? null
+        const td = p.tD ?? p.td ?? 0
+        let statStr = `${ret} PR, ${yards} yds`
+        if (long) statStr += `, long ${long}`
+        if (td) statStr += `, ${td} TD`
+        const player = getPlayerByName(players, p.playerName)
+        highlights.puntReturn.push({
+          player: p.playerName,
+          stats: statStr,
+          position: player?.position || null,
+          class: player?.classByYear?.[year] || player?.year || null,
+        })
+      })
   }
 
   return highlights
@@ -2229,6 +2300,203 @@ function getTeamSeasonHistory(allGames, teamAbbr, currentYear, maxSeasons = 3, d
 }
 
 /**
+ * Get per-game logs for a team across their past N seasons.
+ *
+ * Returns every played game (regular season + postseason) for the team
+ * across the last `maxSeasons` years before `currentYear`, sorted
+ * chronologically within each season. Includes box-score highlights
+ * (top passer + rusher + receiver) whenever the data exists.
+ *
+ * Used by buildGameRecapPrompt to give the AI a full picture of each
+ * team's recent form and key performers — not just a W-L record.
+ *
+ * @param {Array}  allGames    - Full dynasty game array
+ * @param {string} teamAbbr   - Team abbreviation (for legacy-format lookups)
+ * @param {number} currentYear - Current season year (excluded from results)
+ * @param {number} maxSeasons  - How many prior seasons to include (default 3)
+ * @param {object} dynasty     - Dynasty object for tid / name resolution
+ * @returns {Array} newest-first: [{ year, games: [GameLogEntry] }]
+ */
+function getTeamSeasonGameLogs(allGames, teamAbbr, currentYear, maxSeasons = 3, dynasty = null) {
+  const num = (x) => (x == null ? null : Number(x))
+  const teamTid = getTidFromAbbr(teamAbbr, dynasty)
+  const teams = dynasty?.teams || TEAMS
+
+  // Which years to include — scan all prior games first
+  const yearSet = new Set()
+  for (const g of allGames) {
+    const gy = Number(g.year)
+    if (gy < Number(currentYear) && !isUnplayedGame(g)) yearSet.add(gy)
+  }
+  const targetYears = [...yearSet].sort((a, b) => b - a).slice(0, maxSeasons)
+
+  const seasonLogs = []
+
+  for (const targetYear of targetYears) {
+    const games = []
+
+    for (const g of allGames) {
+      if (Number(g.year) !== targetYear) continue
+      if (isUnplayedGame(g)) continue
+
+      // ─── Resolve which side the team was on ───────────────────────────
+      let teamScore, oppScore, won, oppAbbr, found = false, isHomeTeam = null
+
+      const isBowlOrCFP = g.isBowlGame || g.isCFPFirstRound || g.isCFPQuarterfinal ||
+                          g.isCFPSemifinal || g.isCFPChampionship || g.isConferenceChampionship
+
+      const asTeam1Tid = teamTid && num(g.team1Tid) === num(teamTid)
+      const asTeam2Tid = teamTid && num(g.team2Tid) === num(teamTid)
+      const asUserTid  = teamTid && num(g.userTid)  === num(teamTid)
+
+      if (asTeam1Tid || (!teamTid && g.team1 === teamAbbr)) {
+        teamScore = g.team1Score; oppScore = g.team2Score
+        won = teamScore > oppScore
+        oppAbbr = getAbbrFromTid(g.team2Tid, dynasty) || g.team2
+        if (!isBowlOrCFP && g.homeTeamTid != null)
+          isHomeTeam = num(g.homeTeamTid) === num(teamTid)
+        found = true
+
+      } else if (asTeam2Tid || (!teamTid && g.team2 === teamAbbr)) {
+        teamScore = g.team2Score; oppScore = g.team1Score
+        won = teamScore > oppScore
+        oppAbbr = getAbbrFromTid(g.team1Tid, dynasty) || g.team1
+        if (!isBowlOrCFP && g.homeTeamTid != null)
+          isHomeTeam = num(g.homeTeamTid) === num(teamTid)
+        found = true
+
+      } else if (asUserTid || (!teamTid && g.userTeam === teamAbbr)) {
+        won = g.result === 'win' || g.result === 'W'
+        teamScore = g.teamScore; oppScore = g.opponentScore
+        oppAbbr = g.opponent
+        if (!isBowlOrCFP) isHomeTeam = (g.location === 'home' || g.location == null)
+        found = true
+
+      } else {
+        // Legacy abbr fallbacks (CPU-vs-CPU, no tid)
+        if (g.team1 === teamAbbr) {
+          teamScore = g.team1Score; oppScore = g.team2Score
+          won = teamScore > oppScore; oppAbbr = g.team2; found = true
+          if (!isBowlOrCFP && g.homeTeamTid != null) isHomeTeam = num(g.homeTeamTid) === num(getTidFromAbbr(g.team1, dynasty))
+        } else if (g.team2 === teamAbbr) {
+          teamScore = g.team2Score; oppScore = g.team1Score
+          won = teamScore > oppScore; oppAbbr = g.team1; found = true
+        }
+      }
+
+      if (!found) continue
+
+      // Location label
+      let location
+      if (isBowlOrCFP) location = 'neutral'
+      else if (isHomeTeam === true) location = 'home'
+      else if (isHomeTeam === false) location = 'away'
+      else location = g.location || 'home'
+
+      // Game-type label for postseason rows
+      let gameTypeLabel = ''
+      if (g.isCFPChampionship)      gameTypeLabel = 'CFP Championship'
+      else if (g.isCFPSemifinal)    gameTypeLabel = 'CFP Semifinal'
+      else if (g.isCFPQuarterfinal) gameTypeLabel = 'CFP Quarterfinal'
+      else if (g.isCFPFirstRound)   gameTypeLabel = 'CFP First Round'
+      else if (g.isConferenceChampionship) gameTypeLabel = 'Conf Championship'
+      else if (g.isBowlGame)        gameTypeLabel = g.bowlName || 'Bowl Game'
+
+      // Opponent entering-game rank (for context like "@ #5 Alabama")
+      const oppRank = (() => {
+        // Try to find from the rankings stored on the game or from the week's rankings
+        // Use whichever tid represents the opponent
+        const oppTid = oppAbbr ? getTidFromAbbr(oppAbbr, dynasty) : null
+        if (!oppTid || !dynasty?.teams?.[oppTid]) return null
+        const team = dynasty.teams[oppTid]
+        const rbw = team?.byYear?.[targetYear]?.rankByWeek ?? team?.byYear?.[String(targetYear)]?.rankByWeek
+        if (!rbw) return null
+        const wk = g.week
+        return rbw[wk] ?? rbw[String(wk)] ?? null
+      })()
+
+      // ─── Box-score highlights for THIS team ───────────────────────────
+      let passer = null, rusher = null, receiver = null
+      if (g.boxScore && teamTid) {
+        const ps = getPlayerStatsForTid(g, teamTid, teams)
+        if (ps) {
+          // Top passer (min 10 pass attempts)
+          if (ps.passing?.length > 0) {
+            const sorted = ps.passing
+              .map(p => ({ ...p, _att: p.attempts ?? p.att ?? 0, _yds: p.yards ?? p.yds ?? 0 }))
+              .filter(p => p._att >= 10)
+              .sort((a, b) => b._yds - a._yds)
+            if (sorted.length > 0) {
+              const p = sorted[0]
+              const cmp = p.comp ?? p.cmp ?? 0
+              const att = p._att
+              const yds = p._yds
+              const td = p.tD ?? p.td ?? 0
+              const int = p.iNT ?? p.int ?? 0
+              passer = `${p.playerName} ${cmp}/${att} ${yds}yds${td ? ` ${td}TD` : ''}${int ? ` ${int}INT` : ''}`
+            }
+          }
+          // Top rusher (min 5 carries)
+          if (ps.rushing?.length > 0) {
+            const sorted = ps.rushing
+              .map(p => ({ ...p, _car: p.carries ?? p.car ?? 0, _yds: p.yards ?? p.yds ?? 0 }))
+              .filter(p => p._car >= 5)
+              .sort((a, b) => b._yds - a._yds)
+            if (sorted.length > 0) {
+              const p = sorted[0]
+              const car = p._car
+              const yds = p._yds
+              const td = p.tD ?? p.td ?? 0
+              rusher = `${p.playerName} ${car}car ${yds}yds${td ? ` ${td}TD` : ''}`
+            }
+          }
+          // Top receiver (min 3 receptions) — only include if adds context
+          if (ps.receiving?.length > 0) {
+            const sorted = ps.receiving
+              .map(p => ({ ...p, _rec: p.receptions ?? p.rec ?? 0, _yds: p.yards ?? p.yds ?? 0 }))
+              .filter(p => p._rec >= 3)
+              .sort((a, b) => b._yds - a._yds)
+            if (sorted.length > 0) {
+              const p = sorted[0]
+              const rec = p._rec
+              const yds = p._yds
+              const td = p.tD ?? p.td ?? 0
+              receiver = `${p.playerName} ${rec}rec ${yds}yds${td ? ` ${td}TD` : ''}`
+            }
+          }
+        }
+      }
+
+      games.push({
+        week: g.week,
+        gameOrder: getGameOrder(g),
+        result: won ? 'W' : 'L',
+        teamScore,
+        oppScore,
+        opponent: oppAbbr,
+        oppRank: (typeof oppRank === 'number' && oppRank >= 1 && oppRank <= 25) ? oppRank : null,
+        location,
+        isConference: !!g.isConferenceGame,
+        gameTypeLabel,
+        passer,
+        rusher,
+        receiver,
+      })
+    }
+
+    // Sort chronologically within the season
+    games.sort((a, b) => a.gameOrder - b.gameOrder)
+
+    // Only include seasons that have enough games to be meaningful
+    if (games.length >= 4) {
+      seasonLogs.push({ year: targetYear, games })
+    }
+  }
+
+  return seasonLogs // already sorted newest-first
+}
+
+/**
  * Get opponent's season results (their games this year)
  * Shows how the opponent has performed leading up to this matchup
  * Supports both legacy and unified game formats
@@ -2798,6 +3066,13 @@ export function buildGameRecapContext(dynasty, game) {
   const team1SeasonHistory = getTeamSeasonHistory(allGames, team1, year, 3, dynasty)
   const team2SeasonHistory = getTeamSeasonHistory(allGames, team2, year, 3, dynasty)
 
+  // Per-game logs for both teams across the past 3 seasons. Provides the
+  // AI with full result-by-result context and box-score highlights so it
+  // can write "first time they've beaten a top-5 team in three years" or
+  // "the same running back who had 167 yards in last year's bowl game."
+  const team1SeasonGameLogs = getTeamSeasonGameLogs(allGames, team1, year, 3, dynasty)
+  const team2SeasonGameLogs = getTeamSeasonGameLogs(allGames, team2, year, 3, dynasty)
+
   // Opponent / second-team's prior-game list this season. Always computed
   // now so the recap prompt always has both teams' running records and
   // recent form, not just the user's.
@@ -3125,6 +3400,11 @@ export function buildGameRecapContext(dynasty, game) {
     team1SeasonHistory,
     team2SeasonHistory,
 
+    // Per-game logs for both teams across the past 3 seasons (score +
+    // result + opponent + box-score highlights per game).
+    team1SeasonGameLogs,
+    team2SeasonGameLogs,
+
     // Both teams' running W-L summary before this game (compact form,
     // complements the more detailed team1SeasonResults / team2SeasonResults
     // detailed lists used elsewhere in the prompt).
@@ -3234,7 +3514,10 @@ function extractHighlightsForSide(teamStats) {
     rushing: [],
     receiving: [],
     defense: [],
-    kicking: []
+    kicking: [],
+    punting: [],
+    kickReturn: [],
+    puntReturn: [],
   }
   if (!teamStats) return highlights
 
@@ -3306,6 +3589,43 @@ function extractHighlightsForSide(teamStats) {
           stats: `${p.fgm}/${p.fga} FG${p.lng ? `, long ${p.lng}` : ''}`
         })
       }
+    })
+  }
+
+  // Punting
+  if (teamStats?.punting?.length > 0) {
+    teamStats.punting.filter(p => (p.punts ?? 0) > 0).forEach(p => {
+      const punts = p.punts ?? 0
+      const yards = p.yards ?? p.yds ?? 0
+      let statStr = `${punts} punt${punts !== 1 ? 's' : ''}, ${yards} gross yds`
+      if (p.netYards != null) statStr += `, ${p.netYards} net`
+      if (p.long) statStr += `, long ${p.long}`
+      if (p.in20) statStr += `, ${p.in20} inside 20`
+      highlights.punting.push({ player: p.playerName, stats: statStr })
+    })
+  }
+
+  // Kick returns
+  if (teamStats?.kickReturn?.length > 0) {
+    teamStats.kickReturn.filter(p => (p.kR ?? 0) > 0).forEach(p => {
+      const ret = p.kR ?? 0
+      const yards = p.yards ?? p.yds ?? 0
+      let statStr = `${ret} KR, ${yards} yds`
+      if (p.long) statStr += `, long ${p.long}`
+      if (p.tD || p.td) statStr += `, ${p.tD ?? p.td} TD`
+      highlights.kickReturn.push({ player: p.playerName, stats: statStr })
+    })
+  }
+
+  // Punt returns
+  if (teamStats?.puntReturn?.length > 0) {
+    teamStats.puntReturn.filter(p => (p.pR ?? 0) > 0).forEach(p => {
+      const ret = p.pR ?? 0
+      const yards = p.yards ?? p.yds ?? 0
+      let statStr = `${ret} PR, ${yards} yds`
+      if (p.long) statStr += `, long ${p.long}`
+      if (p.tD || p.td) statStr += `, ${p.tD ?? p.td} TD`
+      highlights.puntReturn.push({ player: p.playerName, stats: statStr })
     })
   }
 
@@ -4500,17 +4820,31 @@ DO NOT:
     const t2 = ctx.teamStats.team2 || {}
     const team1ColName = ctx.isCPUGame ? (getTeamName(t1.teamAbbr) || t1.teamAbbr || ctx.team1FullName) : ctx.team1FullName
     const team2ColName = ctx.isCPUGame ? (getTeamName(t2.teamAbbr) || t2.teamAbbr || ctx.team2FullName) : ctx.team2FullName
+
+    // Helper: only emit a stat row when at least one team has a real value
+    const hasStat = (...keys) => keys.some(k => t1[k] != null || t2[k] != null)
+    const v = (obj, ...keys) => { for (const k of keys) if (obj[k] != null) return obj[k]; return '-' }
+
     prompt += `\n
 ===========================================
 TEAM STATISTICS
 ===========================================
                         ${team1ColName}    ${team2ColName}
-First Downs:            ${t1.firstDowns ?? '-'}         ${t2.firstDowns ?? '-'}
-Total Yards:            ${t1.totalYards ?? t1.totalOffense ?? '-'}       ${t2.totalYards ?? t2.totalOffense ?? '-'}
-Rushing (ATT-YDS):      ${t1.rushAttempts ?? '-'}-${t1.rushYards ?? '-'}     ${t2.rushAttempts ?? '-'}-${t2.rushYards ?? '-'}
-Passing (CMP-ATT-YDS):  ${t1.completions ?? '-'}-${t1.passAttempts ?? '-'}-${t1.passingYards ?? t1.passYards ?? '-'}   ${t2.completions ?? '-'}-${t2.passAttempts ?? '-'}-${t2.passingYards ?? t2.passYards ?? '-'}
-Turnovers:              ${t1.turnovers ?? '-'}         ${t2.turnovers ?? '-'}
-3rd Down:               ${t1['3rdDownConv'] ?? '-'}/${t1['3rdDownAtt'] ?? '-'}       ${t2['3rdDownConv'] ?? '-'}/${t2['3rdDownAtt'] ?? '-'}
+First Downs:            ${v(t1,'firstDowns')}         ${v(t2,'firstDowns')}
+Total Yards:            ${v(t1,'totalYards','totalOffense')}       ${v(t2,'totalYards','totalOffense')}
+Total Plays:            ${v(t1,'totalPlays')}         ${v(t2,'totalPlays')}
+Rushing (ATT-YDS-TD):   ${v(t1,'rushAttempts')}-${v(t1,'rushYards')}-${v(t1,'rushTds')}     ${v(t2,'rushAttempts')}-${v(t2,'rushYards')}-${v(t2,'rushTds')}
+Passing (CMP-ATT-YDS-TD): ${v(t1,'completions')}-${v(t1,'passAttempts')}-${v(t1,'passingYards','passYards')}-${v(t1,'passTds')}   ${v(t2,'completions')}-${v(t2,'passAttempts')}-${v(t2,'passingYards','passYards')}-${v(t2,'passTds')}
+Turnovers:              ${v(t1,'turnovers')}         ${v(t2,'turnovers')}${
+  hasStat('fumblesLost') ? `\nFumbles Lost:           ${v(t1,'fumblesLost')}         ${v(t2,'fumblesLost')}` : ''}${
+  hasStat('interceptions') ? `\nInterceptions Thrown:   ${v(t1,'interceptions')}         ${v(t2,'interceptions')}` : ''}
+3rd Down:               ${v(t1,'3rdDownConv')}/${v(t1,'3rdDownAtt')}       ${v(t2,'3rdDownConv')}/${v(t2,'3rdDownAtt')}${
+  hasStat('4thDownConv','4thDownAtt') ? `\n4th Down:               ${v(t1,'4thDownConv')}/${v(t1,'4thDownAtt')}       ${v(t2,'4thDownConv')}/${v(t2,'4thDownAtt')}` : ''}${
+  hasStat('redZoneTd','redZoneFg','redZonePct') ? `\nRed Zone (TD-FG-Pct):   ${v(t1,'redZoneTd')}-${v(t1,'redZoneFg')}-${v(t1,'redZonePct')}%   ${v(t2,'redZoneTd')}-${v(t2,'redZoneFg')}-${v(t2,'redZonePct')}%` : ''}${
+  hasStat('penalties','penaltyYards') ? `\nPenalties (No.-Yds):    ${v(t1,'penalties')}-${v(t1,'penaltyYards')}     ${v(t2,'penalties')}-${v(t2,'penaltyYards')}` : ''}${
+  hasStat('kickRetYards') ? `\nKick Return Yards:      ${v(t1,'kickRetYards')}         ${v(t2,'kickRetYards')}` : ''}${
+  hasStat('puntRetYards') ? `\nPunt Return Yards:      ${v(t1,'puntRetYards')}         ${v(t2,'puntRetYards')}` : ''}${
+  hasStat('puntAvg') ? `\nPunt Average:           ${v(t1,'puntAvg')}         ${v(t2,'puntAvg')}` : ''}
 Possession:             ${t1.possMinutes ?? ''}:${String(t1.possSeconds ?? '').padStart(2, '0')}      ${t2.possMinutes ?? ''}:${String(t2.possSeconds ?? '').padStart(2, '0')}`
   }
 
@@ -4661,6 +4995,27 @@ ${team1Name.toUpperCase()} INDIVIDUAL STATS
       }
     }
 
+    // Helper: render all categories for one team
+    const renderTeamStats = (stats, teamName) => {
+      if (!stats) return
+      const cats = [
+        { key: 'passing',    label: 'PASSING' },
+        { key: 'rushing',    label: 'RUSHING' },
+        { key: 'receiving',  label: 'RECEIVING' },
+        { key: 'defense',    label: 'DEFENSE' },
+        { key: 'kicking',    label: 'KICKING' },
+        { key: 'punting',    label: 'PUNTING' },
+        { key: 'kickReturn', label: 'KICK RETURNS' },
+        { key: 'puntReturn', label: 'PUNT RETURNS' },
+      ]
+      cats.forEach(({ key, label }) => {
+        if (stats[key]?.length > 0) {
+          prompt += `\n\n${teamName.toUpperCase()} ${label}:`
+          stats[key].forEach(p => { prompt += `\n${formatPlayerLine(p, teamName)}` })
+        }
+      })
+    }
+
     const team2Stats = ctx.boxScore.team2
     if (team2Stats) {
       prompt += `\n
@@ -4668,23 +5023,22 @@ ${team1Name.toUpperCase()} INDIVIDUAL STATS
 ${team2Name.toUpperCase()} INDIVIDUAL STATS
 (All players below play for ${team2Name})
 ===========================================`
+      renderTeamStats(team2Stats, team2Name)
+    }
 
-      if (team2Stats.passing.length > 0) {
-        prompt += `\n\n${team2Name.toUpperCase()} PASSING:`
-        team2Stats.passing.forEach(p => { prompt += `\n${formatPlayerLine(p, team2Name)}` })
-      }
-      if (team2Stats.rushing.length > 0) {
-        prompt += `\n\n${team2Name.toUpperCase()} RUSHING:`
-        team2Stats.rushing.forEach(p => { prompt += `\n${formatPlayerLine(p, team2Name)}` })
-      }
-      if (team2Stats.receiving.length > 0) {
-        prompt += `\n\n${team2Name.toUpperCase()} RECEIVING:`
-        team2Stats.receiving.forEach(p => { prompt += `\n${formatPlayerLine(p, team2Name)}` })
-      }
-      if (team2Stats.defense.length > 0) {
-        prompt += `\n\n${team2Name.toUpperCase()} DEFENSE:`
-        team2Stats.defense.forEach(p => { prompt += `\n${formatPlayerLine(p, team2Name)}` })
-      }
+    // Retrofit team1 to also use the shared renderer for the new categories
+    // (passing/rushing/receiving/defense/kicking were already output above;
+    // punting and returns are new and only added via renderTeamStats)
+    const team1NewCats = ['punting', 'kickReturn', 'puntReturn']
+    const team1Stats2 = ctx.boxScore.team1
+    if (team1Stats2) {
+      team1NewCats.forEach(key => {
+        if (team1Stats2[key]?.length > 0) {
+          const label = key === 'punting' ? 'PUNTING' : key === 'kickReturn' ? 'KICK RETURNS' : 'PUNT RETURNS'
+          prompt += `\n\n${team1Name.toUpperCase()} ${label}:`
+          team1Stats2[key].forEach(p => { prompt += `\n${formatPlayerLine(p, team1Name)}` })
+        }
+      })
     }
   }
 
@@ -4783,23 +5137,63 @@ POSTSEASON HISTORY
   }
 
   // Add past season records for both teams
-  if ((ctx.team1SeasonHistory && ctx.team1SeasonHistory.length > 0) || (ctx.team2SeasonHistory && ctx.team2SeasonHistory.length > 0)) {
+  // Per-season game logs with box-score highlights. Replaces the old W-L
+  // summary (which is now derivable from the logs themselves). Gives the AI
+  // concrete, game-by-game evidence for claims like "first ranked-team win in
+  // three seasons" or "the same QB who threw for 312 yards in last year's bowl."
+  const renderTeamGameLogs = (logs, teamFullName) => {
+    if (!logs || logs.length === 0) return
+
+    prompt += `\n
+===========================================
+PRIOR SEASON GAME LOGS — ${teamFullName.toUpperCase()}
+(past ${logs.length} season${logs.length !== 1 ? 's' : ''} — each game listed chronologically)
+===========================================
+Use this data to support specific historical comparisons. Do NOT invent results
+that are not listed here. If a game has no stats line, only the score is known.`
+
+    logs.forEach(season => {
+      const wins   = season.games.filter(g => g.result === 'W').length
+      const losses = season.games.filter(g => g.result === 'L').length
+      prompt += `\n\n── ${season.year} (${wins}-${losses}) ──`
+
+      season.games.forEach(g => {
+        const oppName = getTeamName(g.opponent) || g.opponent || '?'
+        const rankStr  = g.oppRank ? `#${g.oppRank} ` : ''
+        const locStr   = g.location === 'away' ? '@ ' : g.location === 'neutral' ? 'vs (N) ' : 'vs '
+        const wkLabel  = g.gameTypeLabel
+          ? g.gameTypeLabel
+          : (g.week != null ? `Wk ${g.week}` : '?')
+
+        // Stat highlights — only shown when box score data exists
+        const statParts = []
+        if (g.passer)   statParts.push(`QB: ${g.passer}`)
+        if (g.rusher)   statParts.push(`RB: ${g.rusher}`)
+        if (g.receiver) statParts.push(`WR: ${g.receiver}`)
+        const statStr = statParts.length > 0 ? `  | ${statParts.join(', ')}` : ''
+
+        prompt += `\n  ${g.result} ${g.teamScore ?? '?'}-${g.oppScore ?? '?'}  ${locStr}${rankStr}${oppName}  [${wkLabel}${g.isConference ? ', conf' : ''}]${statStr}`
+      })
+    })
+  }
+
+  const hasAnyLogs = (ctx.team1SeasonGameLogs?.length > 0) || (ctx.team2SeasonGameLogs?.length > 0)
+  if (hasAnyLogs) {
+    renderTeamGameLogs(ctx.team1SeasonGameLogs, ctx.team1FullName)
+    renderTeamGameLogs(ctx.team2SeasonGameLogs, ctx.team2FullName)
+  } else if ((ctx.team1SeasonHistory?.length > 0) || (ctx.team2SeasonHistory?.length > 0)) {
+    // Fallback to W-L summary when no per-game logs exist (e.g. dynasty has
+    // no tracked games from prior seasons)
     prompt += `\n
 ===========================================
 PAST SEASON RECORDS
 ===========================================`
-    if (ctx.team1SeasonHistory && ctx.team1SeasonHistory.length > 0) {
-      prompt += `\n${ctx.team1FullName} Past Seasons:`
-      ctx.team1SeasonHistory.forEach(s => {
-        prompt += `\n  ${s.year}: ${s.wins}-${s.losses} overall${s.confWins || s.confLosses ? `, ${s.confWins}-${s.confLosses} conference` : ''}`
-      })
-    }
-    if (ctx.team2SeasonHistory && ctx.team2SeasonHistory.length > 0) {
-      prompt += `\n${ctx.team2FullName} Past Seasons:`
-      ctx.team2SeasonHistory.forEach(s => {
-        prompt += `\n  ${s.year}: ${s.wins}-${s.losses} overall${s.confWins || s.confLosses ? `, ${s.confWins}-${s.confLosses} conference` : ''}`
-      })
-    }
+    ctx.team1SeasonHistory?.forEach(s => {
+      prompt += `\n${ctx.team1FullName} ${s.year}: ${s.wins}-${s.losses} overall${s.confWins || s.confLosses ? `, ${s.confWins}-${s.confLosses} conf` : ''}`
+    })
+    ctx.team2SeasonHistory?.forEach(s => {
+      prompt += `\n${ctx.team2FullName} ${s.year}: ${s.wins}-${s.losses} overall${s.confWins || s.confLosses ? `, ${s.confWins}-${s.confLosses} conf` : ''}`
+    })
   }
 
   // Add prior year postseason results — paired with prior-year final ranking
