@@ -298,7 +298,7 @@ TRANSCRIBE, DON'T REASON
 You must NOT apply football reasoning on top:
   ✗ "Does -2 yards make sense?" — yes, write -2.
   ✗ Don't trace possession / drives / kickoff returns across plays.
-  ✗ Don't compute or reconcile field-position math (LOU 14 + 31 = LOU 45 — skip the check).
+  ✗ Don't compute or reconcile field-position math (${awayTeamAbbr} 14 + 31 = ${awayTeamAbbr} 45 — skip the check).
   ✗ Don't cross-check rosters every play. Look up each name ONCE, then trust.
   ✗ Don't "fix" what the screenshot says. Line and football logic disagree → the line wins.
 
@@ -318,7 +318,7 @@ H Time Left   — MM:SS with leading zeros. Required.
 I Video Link  — blank.
 J Down        — "1"/"2"/"3"/"4" if the line has "Nth & X" prefix. Blank for kickoffs/PATs.
 K Distance    — number or "Goal" (when the line says "& Goal"). Blank if J blank.
-L Field Pos   — copy verbatim from the prefix: "UK 45", "LOU 7", "MID 50".
+L Field Pos   — copy verbatim from the prefix: "${homeTeamAbbr} 45", "${awayTeamAbbr} 7", "MID 50".
 M Play Type   — see list below.
 
 ═══════════════════════════════════════════════════════════
@@ -351,13 +351,13 @@ Set B = punter name, D = distance. Do NOT classify punts as Rush.
 ═══════════════════════════════════════════════════════════
 COL A — derive from the PLAYER, never from Field Pos
 ═══════════════════════════════════════════════════════════
-The team abbreviation inside Field Pos ("UK 35", "LOU 7", "MID 50") is a GEOGRAPHIC label — it describes which END of the field the ball is on, NOT who has the ball. Confusing them flips col A on every play and ruins the sheet. This is the #1 failure mode for this task.
+The team abbreviation inside Field Pos ("${homeTeamAbbr} 35", "${awayTeamAbbr} 7", "MID 50") is a GEOGRAPHIC label — it describes which END of the field the ball is on, NOT who has the ball. Confusing them flips col A on every play and ruins the sheet. This is the #1 failure mode for this task.
 
 Rule: col A = team of the PLAYER named on the line.
   • Rush / Pass / Sack / FG / PAT → team of player in B (or C for sacks)
   • Kickoff Return / Punt Return / Pass Intercepted / Fumble Recovery → team of the returner / interceptor / recoverer (B). Possession just flipped — that's fine.
 
-Anchor example: "Kickoff on UK 35. Jason Cummings returns kick for 19 yards." → A = LOU. ("UK 35" means UK is kicking FROM their own 35; Jason Cummings is LOU's returner.) Same pattern for "1st & Goal on UK 6" — that means someone is scoring AGAINST UK, so the offense is the OPPOSING team, not UK.
+Anchor example: "Kickoff on ${homeTeamAbbr} 35. Jason Cummings returns kick for 19 yards." → A = ${awayTeamAbbr}. ("${homeTeamAbbr} 35" means ${homeTeamAbbr} is kicking FROM their own 35; Jason Cummings is ${awayTeamAbbr}'s returner.) Same pattern for "1st & Goal on ${homeTeamAbbr} 6" — that means someone is scoring AGAINST ${homeTeamAbbr}, so the offense is the OPPOSING team, not ${homeTeamAbbr}.
 
 Look each player up in the rosters ONCE per game, then trust the assignment.
 
@@ -435,20 +435,20 @@ SANITY CHECK before emitting: within one quarter, time-left must DECREASE monoto
 ═══════════════════════════════════════════════════════════
 REFERENCE ROWS (templates — note how col A is decided)
 ═══════════════════════════════════════════════════════════
-"2nd & 10 on UK 45. 25 yard rush by Donte Ware."  (UK's QB has the ball in UK territory)
-→ UK	Donte Ware		25				2	09:42		2	10	UK 45	Rush
+"2nd & 10 on ${homeTeamAbbr} 45. 25 yard rush by Donte Ware."  (${homeTeamAbbr} has the ball in ${homeTeamAbbr} territory)
+→ ${homeTeamAbbr}	Donte Ware		25				2	09:42		2	10	${homeTeamAbbr} 45	Rush
 
-"Kickoff on UK 35. Jason Cummings returns kick for 19 yards."  (UK is KICKING; Jason Cummings is LOU's returner)
-→ LOU	Jason Cummings		19				1	14:55			UK 35	Kickoff Return
+"Kickoff on ${homeTeamAbbr} 35. Jason Cummings returns kick for 19 yards."  (${homeTeamAbbr} is KICKING; Jason Cummings is ${awayTeamAbbr}'s returner)
+→ ${awayTeamAbbr}	Jason Cummings		19				1	14:55			${homeTeamAbbr} 35	Kickoff Return
 
-"1st & Goal on UK 6. Edward Reed pass to Duke Lamar for a 6 yard TD."  (LOU driving INTO UK's end zone — Edward Reed is LOU's QB)
-→ LOU	Duke Lamar	Edward Reed	6	Passing TD	Made XP	1	08:55		1	Goal	UK 6	Pass Complete
+"1st & Goal on ${homeTeamAbbr} 6. Edward Reed pass to Duke Lamar for a 6 yard TD."  (${awayTeamAbbr} driving INTO ${homeTeamAbbr}'s end zone — Edward Reed is ${awayTeamAbbr}'s QB)
+→ ${awayTeamAbbr}	Duke Lamar	Edward Reed	6	Passing TD	Made XP	1	08:55		1	Goal	${homeTeamAbbr} 6	Pass Complete
 
-"3rd & 5 on LOU 10. Donte Ware pass knocked away by Larry Long."  (UK has the ball; Larry Long is LOU's defender)
-→ UK	Larry Long	Donte Ware	0				2	12:00		3	5	LOU 10	Pass Knocked Away
+"3rd & 5 on ${awayTeamAbbr} 10. Donte Ware pass knocked away by Larry Long."  (${homeTeamAbbr} has the ball; Larry Long is ${awayTeamAbbr}'s defender)
+→ ${homeTeamAbbr}	Larry Long	Donte Ware	0				2	12:00		3	5	${awayTeamAbbr} 10	Pass Knocked Away
 
-"2nd & 5 on LOU 25. Penalty against LOU, 5 yards. (no named player)"  (penalty with no player named)
-→ LOU						2	11:40		2	5	LOU 25	Penalty
+"2nd & 5 on ${awayTeamAbbr} 25. Penalty against ${awayTeamAbbr}, 5 yards. (no named player)"  (penalty with no player named)
+→ ${awayTeamAbbr}						2	11:40		2	5	${awayTeamAbbr} 25	Penalty
 
 Notice: rows 2, 3, and 4 all have a Field Pos that names a team ≠ col A. That's the normal case, not the exception. Decide col A from the PLAYER, every time.
 
@@ -462,7 +462,7 @@ PAT Result — like a Penalty or a generic "Other" row — you MUST still
 emit the EMPTY cells with their tabs. Do NOT collapse them.
 
 ❌ WRONG (penalty row with collapsed empty cells — only 9 tabs):
-   LOU				2	11:40		2	5	LOU 25	Penalty
+   ${awayTeamAbbr}				2	11:40		2	5	${awayTeamAbbr} 25	Penalty
    What ends up in the sheet:
      Score Type = "2"   ← quarter number leaked into col E
      PAT Result = "11:40"  ← time leaked into col F
@@ -470,7 +470,7 @@ emit the EMPTY cells with their tabs. Do NOT collapse them.
    ghost scoring card. THIS BREAKS THE PLAYS TAB.
 
 ✅ RIGHT (penalty row with EVERY empty cell tabbed — 12 tabs):
-   LOU						2	11:40		2	5	LOU 25	Penalty
+   ${awayTeamAbbr}						2	11:40		2	5	${awayTeamAbbr} 25	Penalty
    Six leading empty cells (Scorer, Passer, Yards, Score Type, PAT,
    then Quarter starts at col G). Count the tabs: 12.
 
@@ -512,7 +512,7 @@ rejects them or the front-end misparses). Use the LITERAL form:
   • Down (col J): "1" / "2" / "3" / "4". NOT "1st", "2nd", "3rd", "4th".
   • Distance (col K): a number ("10", "5") OR the literal word "Goal"
     when the line says "& Goal". NOT "G", "& Goal", "Goal Line", or "&G".
-  • Field Pos (col L): "<ABBR> <number>" e.g. "UK 35", "LOU 7".
+  • Field Pos (col L): "<ABBR> <number>" e.g. "${homeTeamAbbr} 35", "${awayTeamAbbr} 7".
     Special case for the 50-yard line: "MID 50" — NOT "50" alone,
     NOT "midfield", NOT "50-yard line".
   • Yards (col D): plain integer, negatives allowed ("-7"). NEVER
@@ -582,23 +582,23 @@ checks. Do not send output that fails any of them.`,
 ═══════════════════════════════════════════════════════════
 THE MOST COMMON FAILURE on this sheet is the AI filling in only the user's team and leaving the opponent's Scorer/Passer cells blank. DO NOT DO THIS.
 
-The CFB26 Scoring Summary screenshot ALREADY shows every scorer's FULL NAME in plain text — for BOTH teams. Examples directly from the game UI: "(MSST) Kevin Applewhite, 34 Yd FG, 7:48", "(UK) George McManus 63 Yd pass from Donte Ware (Sam Cage kick), 8:30", "(MSST) Paul Cormier, 1 Yd run (Kevin Applewhite kick), 2:45".
+The CFB26 Scoring Summary screenshot ALREADY shows every scorer's FULL NAME in plain text — for BOTH teams. Examples directly from the game UI: "(${awayTeamAbbr}) Kevin Applewhite, 34 Yd FG, 7:48", "(${homeTeamAbbr}) George McManus 63 Yd pass from Donte Ware (Sam Cage kick), 8:30", "(${awayTeamAbbr}) Paul Cormier, 1 Yd run (Kevin Applewhite kick), 2:45".
 
 There is NEVER ambiguity about who scored — the screenshot has already spelled it out. Your job is to TRANSCRIBE that name into column B (and the kicker/passer into column C when present), VERBATIM, for EVERY ROW, regardless of which team scored.
 
 The roster blocks below are provided ONLY as a tiebreaker for cases where CFB26 abbreviates a name (e.g. "K. Applewhite" or "A. Guess"). They are NOT a whitelist. If the screenshot shows a full name like "Kevin Applewhite" or "Paul Cormier" or "Donte Ware", USE THAT NAME EXACTLY — even if that exact spelling is not in the roster block. Real-game rosters can lag the dynasty data (in-season transfers, depth changes, walk-ons), and an opponent scorer not appearing in the roster block IS NOT A REASON TO LEAVE THE CELL BLANK.
 
 Concrete pass/fail examples:
-  ✅ Screenshot: "(MSST) Kevin Applewhite, 34 Yd FG, 7:48"
-     → Row: MSST  Kevin Applewhite          34   Field Goal       1   07:48
-  ✅ Screenshot: "(MSST) Paul Cormier, 1 Yd run (Kevin Applewhite kick), 2:45"
-     → Row: MSST  Paul Cormier              1    Rushing TD  Made XP   4   02:45
+  ✅ Screenshot: "(${awayTeamAbbr}) Kevin Applewhite, 34 Yd FG, 7:48"
+     → Row: ${awayTeamAbbr}  Kevin Applewhite          34   Field Goal       1   07:48
+  ✅ Screenshot: "(${awayTeamAbbr}) Paul Cormier, 1 Yd run (Kevin Applewhite kick), 2:45"
+     → Row: ${awayTeamAbbr}  Paul Cormier              1    Rushing TD  Made XP   4   02:45
         (the "(Kevin Applewhite kick)" parenthetical is the kicker for the PAT — that's already
          encoded by Made XP in column F; do NOT put the kicker in column C here)
-  ✅ Screenshot: "(UK) George McManus 63 Yd pass from Donte Ware (Sam Cage kick), 8:30"
-     → Row: UK    George McManus  Donte Ware  63  Passing TD  Made XP   3   08:30
-  ❌ FAIL: leaving Scorer blank because "Kevin Applewhite" or "Paul Cormier" isn't in the MSST roster block.
-  ❌ FAIL: filling Scorer/Passer for UK rows but leaving MSST rows with empty B and C columns.
+  ✅ Screenshot: "(${homeTeamAbbr}) George McManus 63 Yd pass from Donte Ware (Sam Cage kick), 8:30"
+     → Row: ${homeTeamAbbr}    George McManus  Donte Ware  63  Passing TD  Made XP   3   08:30
+  ❌ FAIL: leaving Scorer blank because "Kevin Applewhite" or "Paul Cormier" isn't in the ${awayTeamAbbr} roster block.
+  ❌ FAIL: filling Scorer/Passer for ${homeTeamAbbr} rows but leaving ${awayTeamAbbr} rows with empty B and C columns.
 
 EVERY SCORING PLAY THAT APPEARS ON THE SCREENSHOT MUST HAVE COLUMN B FILLED. Field goals → kicker's name. Rushing TDs → ball carrier's name. Passing TDs → receiver's name (and column C = QB). Return TDs / defensive TDs → returner/defender's name. The screenshot tells you the name. Write it down.
 
