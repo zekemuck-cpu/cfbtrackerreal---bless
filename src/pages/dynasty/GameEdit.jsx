@@ -2689,7 +2689,7 @@ export default function GameEdit() {
                     hideDropzone={false}
                   />
                   {formData.scoreGraphic && (
-                    <div className="mt-3 flex justify-center">
+                    <div className="mt-3 flex flex-col items-center gap-2">
                       <img
                         src={formData.scoreGraphic}
                         alt="Score graphic preview"
@@ -2697,6 +2697,13 @@ export default function GameEdit() {
                         style={{ border: '1px solid var(--surface-4)' }}
                         onError={(e) => { e.target.style.display = 'none' }}
                       />
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, scoreGraphic: '' }))}
+                        className="text-xs text-red-500 hover:text-red-400 underline-offset-2 underline transition-colors"
+                      >
+                        Remove graphic
+                      </button>
                     </div>
                   )}
                 </div>

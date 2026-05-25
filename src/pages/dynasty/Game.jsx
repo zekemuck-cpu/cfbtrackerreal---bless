@@ -1935,6 +1935,19 @@ export default function Game() {
         </div>
       )}
 
+      {/* Score Graphic — full-width visual between the score header and tabs */}
+      {game.scoreGraphic && gameIsPlayed && (
+        <div className="rounded-xl overflow-hidden shadow-lg">
+          <img
+            src={game.scoreGraphic}
+            alt={`${displayTeam} vs ${opponent} final score graphic`}
+            className="w-full block"
+            style={{ maxHeight: '600px', objectFit: 'contain', backgroundColor: 'var(--surface-1)' }}
+            onError={(e) => { e.target.parentElement.style.display = 'none' }}
+          />
+        </div>
+      )}
+
       {/* ESPN-Style Tab Navigation and Content */}
       {gameIsPlayed && (
         <div className="bg-surface-1 rounded-xl overflow-hidden shadow-lg">
