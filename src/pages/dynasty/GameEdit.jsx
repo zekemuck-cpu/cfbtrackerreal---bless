@@ -22,6 +22,8 @@ import { getTeamLogoRobust } from '../../utils/teamLogo'
 import { getTeamColors } from '../../data/teamColors'
 import { uploadImagesToImgBB } from '../../utils/imgbb'
 import TeamPermissionBanner from '../../components/TeamPermissionBanner'
+import ImageUpload from '../../components/ImageUpload'
+import { buildScoreGraphicPrompt } from '../../utils/scoreGraphicPrompt'
 
 // Map abbreviations to mascot names for logo lookup
 function getMascotName(abbr, teamsData = null) {
@@ -262,7 +264,8 @@ export default function GameEdit() {
     confDefensePOW: '',     // Conference Defensive Player of the Week
     nationalPOW: '',        // National Offensive Player of the Week
     natlDefensePOW: '',     // National Defensive Player of the Week
-    photos: []              // Array of ImgBB-hosted photo URLs for this game
+    photos: [],             // Array of ImgBB-hosted photo URLs for this game
+    scoreGraphic: '',       // URL of AI-generated final score graphic
   })
 
   // Tracks in-flight ImgBB uploads from the Photos section so the UI
@@ -1023,6 +1026,7 @@ export default function GameEdit() {
             ? [...existingGame.links.split(',').map(l => l.trim()).filter(l => l), ''] // Convert string to array
             : [''], // Default empty input
         photos: Array.isArray(existingGame.photos) ? existingGame.photos.filter(Boolean) : [],
+        scoreGraphic: existingGame.scoreGraphic || '',
       })
     } else if (isNewGame && team1Tid && team2Tid) {
       // New game - fetch ratings and calculate records
@@ -1275,6 +1279,8 @@ export default function GameEdit() {
         // Photos — array of ImgBB-hosted URLs uploaded via the Photos
         // section. Always persisted (even if empty) so deletes stick.
         photos: Array.isArray(formData.photos) ? formData.photos.filter(Boolean) : [],
+        // Score graphic — single AI-generated image URL (empty string = none)
+        ...(formData.scoreGraphic ? { scoreGraphic: formData.scoreGraphic } : {}),
       }
 
       // Update or add game - build updated games array for CFP propagation and record calc
@@ -1457,6 +1463,8 @@ export default function GameEdit() {
         // Photos — array of ImgBB-hosted URLs uploaded via the Photos
         // section. Always persisted (even if empty) so deletes stick.
         photos: Array.isArray(formData.photos) ? formData.photos.filter(Boolean) : [],
+        // Score graphic — single AI-generated image URL (empty string = none)
+        ...(formData.scoreGraphic ? { scoreGraphic: formData.scoreGraphic } : {}),
       }
 
       // Update or add game - build updated games array for CFP propagation and record calc
@@ -2563,6 +2571,92 @@ export default function GameEdit() {
           </div>
         )}
       </Card>
+
+      {/* Score Graphic — AI-generated final score image */}
+      {(() => {
+        const hasScores = formData.team1Score !== '' && formData.team2Score !== ''
+        const t1Colors = getTeamColors(team1Name)
+        const t2Colors = getTeamColors(team2Name)
+        const prompt = hasScores ? buildScoreGraphicPrompt({
+          team1Name,
+          team1Score: formData.team1Score,
+          team1Rank: formData.team1Rank || null,
+          team1Colors: t1Colors || undefined,
+          team2Name,
+          team2Score: formData.team2Score,
+          team2Rank: formData.team2Rank || null,
+          team2Colors: t2Colors || undefined,
+          gameLabel: gameTitle,
+          year: gameYear,
+        }) : ''
+
+        return (
+          <Card>
+            <h3 className="label-sm text-txt-primary mb-1">Score Graphic</h3>
+            <p className="text-xs text-txt-tertiary mb-3">
+              Copy this prompt into ChatGPT, Midjourney, or another image AI to create a final score graphic — then upload the result below.
+            </p>
+
+            {!hasScores ? (
+              <p className="text-xs text-txt-muted italic">Enter scores above to generate a prompt.</p>
+            ) : (
+              <div className="space-y-3">
+                {/* Generated prompt */}
+                <div className="relative">
+                  <textarea
+                    readOnly
+                    value={prompt}
+                    rows={6}
+                    className="w-full text-xs p-3 pr-20 rounded-lg resize-none font-mono leading-relaxed"
+                    style={{
+                      backgroundColor: 'var(--surface-2)',
+                      border: '1px solid var(--surface-4)',
+                      color: 'var(--text-secondary)',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(prompt).catch(() => {})
+                    }}
+                    className="absolute top-2 right-2 px-2 py-1 rounded text-xs font-medium transition-colors"
+                    style={{
+                      backgroundColor: 'var(--surface-4)',
+                      color: 'var(--text-primary)',
+                    }}
+                  >
+                    Copy
+                  </button>
+                </div>
+
+                {/* Upload result */}
+                <div>
+                  <p className="label-xs text-txt-tertiary mb-2">Upload generated image</p>
+                  <ImageUpload
+                    value={formData.scoreGraphic}
+                    onChange={(url) => setFormData(prev => ({ ...prev, scoreGraphic: url }))}
+                    teamColors={{ primary: 'var(--text-primary)', secondary: 'var(--surface-1)' }}
+                    placeholder="Paste image or URL..."
+                    showPreview={false}
+                    hideDropzone={false}
+                  />
+                  {formData.scoreGraphic && (
+                    <div className="mt-3 flex justify-center">
+                      <img
+                        src={formData.scoreGraphic}
+                        alt="Score graphic preview"
+                        className="max-h-64 rounded-lg object-contain"
+                        style={{ border: '1px solid var(--surface-4)' }}
+                        onError={(e) => { e.target.style.display = 'none' }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </Card>
+        )
+      })()}
 
       {/* Game Settings */}
       <Card>
