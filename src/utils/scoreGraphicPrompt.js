@@ -165,7 +165,7 @@ export function buildScoreGraphicPrompt({
     `• Official vector team logos (recalled from your memory of the actual mark — see the Logo rendering section above)`,
     `• Geometric shapes (chevrons, stripes, frames, borders, dividers, brush strokes)`,
     ``,
-    `MANDATORY: If ANY photo, image, or screenshot is attached to this request, you MUST use it as the hero visual element of the graphic. NEVER ignore an attached image. NEVER generate the graphic without it. Place the attached image AS-IS — do not modify, color-grade, tint, duotone, crop, extend, or overlay color washes on it; place it inside the design so the design elements frame it. If you find yourself rendering this graphic without including the attached image, STOP and start over with the image as the hero visual. If NO image is attached at all, build a pure design graphic with zero photographic content of any kind.`,
+    `MANDATORY: If ANY photo, image, or screenshot is attached to this request, you MUST use it as the hero visual element of the graphic. NEVER ignore an attached image. NEVER generate the graphic without it. How you integrate it is your creative call — full bleed, framed, layered, cropped, whatever serves the design best. If NO image is attached at all, build a pure design graphic with zero photographic content of any kind.`,
   ].join('\n')
 
   // Wrap home/away/neutral framing in language that makes it unmistakably
