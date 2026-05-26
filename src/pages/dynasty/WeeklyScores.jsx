@@ -45,6 +45,7 @@ function formatRecord(rec) {
 
 function GameCard({ game, teams, pathPrefix, recordsByTid, domId, compact = false }) {
   const navigate = useNavigate()
+  const { currentDynasty } = useDynasty()
   const t1 = Number(game.team1Tid)
   const t2 = Number(game.team2Tid)
   const team1Score = typeof game.team1Score === 'number' ? game.team1Score : null
@@ -71,13 +72,19 @@ function GameCard({ game, teams, pathPrefix, recordsByTid, domId, compact = fals
   }
 
   const scoreFor = (tid) => (tid === t1 ? team1Score : team2Score)
-  // Stored game.team1Rank / team2Rank IS the entering rank (rank
-  // during the game) post-migration. Just read it directly.
+  // Prefer the rank stored directly on the game (set by GameEdit /
+  // WeeklyScores entry post-rank-migration). Fall back to rankByWeek
+  // for games that pre-date the migration or were saved without ranks
+  // — without this fallback, tiles silently lose the rank pip while
+  // the matching detail page still shows it (e.g. Duke #23 visible on
+  // the Wake @ Duke detail page but missing from the tile).
   const rankFor = (tid) => {
     const raw = tid === t1 ? game.team1Rank : game.team2Rank
-    if (raw == null || raw === '') return null
-    const n = parseInt(raw, 10)
-    return Number.isFinite(n) && n >= 1 && n <= 25 ? n : null
+    if (raw != null && raw !== '') {
+      const n = parseInt(raw, 10)
+      if (Number.isFinite(n) && n >= 1 && n <= 25) return n
+    }
+    return getTeamRankForWeek(currentDynasty, tid, game.year, game.week) ?? null
   }
 
   const topScore = scoreFor(topTid)
