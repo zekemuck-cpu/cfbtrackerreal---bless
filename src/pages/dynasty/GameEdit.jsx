@@ -1690,7 +1690,7 @@ export default function GameEdit() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       {showToast && (
         <div
           className="fixed top-4 right-4 z-50 px-4 py-2 rounded-sm label-sm text-white"
@@ -1985,16 +1985,10 @@ export default function GameEdit() {
         )
       })()}
 
-      {/* ═══════════════════════════════════════════════════════════════
-          SETUP — when, where, and what kind of game.
-          ═══════════════════════════════════════════════════════════════ */}
-      <section className="space-y-4">
-        <SectionHeader
-          size="md"
-          eyebrow="Section 1 of 4"
-          title="Setup"
-          subtitle="When and where the game was played, and what kind of game it was."
-        />
+      {/* SETUP — when, where, and what kind of game. */}
+      <section className="space-y-3">
+        <SectionHeader size="sm" title="Setup" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
 
       {/* Game Type — fully editable year, week slot, and sub-classification. */}
       {(() => {
@@ -2130,18 +2124,12 @@ export default function GameEdit() {
           </div>
         </div>
       </Card>
+        </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          RESULT & STATS — team-level numbers and the box score.
-          ═══════════════════════════════════════════════════════════════ */}
-      <section className="space-y-4">
-        <SectionHeader
-          size="md"
-          eyebrow="Section 2 of 4"
-          title="Result & Stats"
-          subtitle="Team rankings, ratings, records, and the full box score."
-        />
+      {/* RESULT & STATS — team-level numbers and the box score. */}
+      <section className="space-y-3">
+        <SectionHeader size="sm" title="Result & Stats" />
 
       {/* Team details — stacked rows, one per team. Each row is the
           team identity (logo + name + 'Your team' chip when applicable)
@@ -2359,16 +2347,9 @@ export default function GameEdit() {
       </Card>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          STORY — the narrative: recap text, supporting links, and photos.
-          ═══════════════════════════════════════════════════════════════ */}
-      <section className="space-y-4">
-        <SectionHeader
-          size="md"
-          eyebrow="Section 3 of 4"
-          title="Story"
-          subtitle="Game recap, media links, and photos that tell what happened."
-        />
+      {/* STORY — recap text, supporting links, and photos. */}
+      <section className="space-y-3">
+        <SectionHeader size="sm" title="Story" />
 
       <Card>
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
@@ -2655,16 +2636,10 @@ export default function GameEdit() {
       </Card>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          POST-GAME — outputs for sharing and recognizing performance.
-          ═══════════════════════════════════════════════════════════════ */}
-      <section className="space-y-4">
-        <SectionHeader
-          size="md"
-          eyebrow="Section 4 of 4"
-          title="Post-game"
-          subtitle="The score graphic for social media and any Player of the Week awards."
-        />
+      {/* POST-GAME — outputs for sharing and POW awards. */}
+      <section className="space-y-3">
+        <SectionHeader size="sm" title="Post-game" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
 
       {/* Score Graphic — AI-generated final score image */}
       {(() => {
@@ -2859,6 +2834,7 @@ export default function GameEdit() {
           </p>
         )}
       </Card>
+        </div>
       </section>
 
       {/* Bottom Save/Cancel Buttons + Delete (only for existing games) */}
