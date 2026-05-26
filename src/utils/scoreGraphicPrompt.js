@@ -294,7 +294,26 @@ export function buildScoreGraphicPrompt({
       `Use both color palettes balanced — neither team dominates the canvas. Each team should appear near their score as either their logo or their wordmark/name in their primary color.`,
       ``,
       `The score numbers should be the largest typographic element. Both score numbers must be identical in size, weight, and visual prominence — neither score is de-emphasized regardless of result. The two scores must read as a clear comparison — side by side or in an obvious visual relationship.`,
-      homeTeam !== null ? `Layout convention: the AWAY team goes on the LEFT (or TOP if stacked vertically); the HOME team goes on the RIGHT (or BOTTOM). This applies to the main score comparison, any box score, and the team-name/logo lockups.` : null,
+      ``,
+      `╔══════════════════════════════════════════════════════════╗`,
+      `║  SCORE → TEAM PAIRING — NON-NEGOTIABLE, VERIFY BEFORE     ║`,
+      `║  YOU DRAW                                                  ║`,
+      `╚══════════════════════════════════════════════════════════╝`,
+      `These pairings come from the actual game result. The score next to a team's logo MUST be that team's score. Common failure: the AI swaps the logos so the wrong team gets the wrong score. Before you commit to a layout, confirm:`,
+      `• ${team1Name} scored ${s1}. The number ${s1} must appear with the ${team1Name} logo / wordmark. Never the other team's logo.`,
+      `• ${team2Name} scored ${s2}. The number ${s2} must appear with the ${team2Name} logo / wordmark. Never the other team's logo.`,
+      homeTeam !== null ? (() => {
+        // Spell out the layout positions in concrete team+score language
+        // so the AI doesn't have to apply the away-left/home-right rule
+        // abstractly. Combined with the score→team pairing above this
+        // gives the AI a fully bound assignment with nothing left to
+        // infer.
+        const awayName  = homeTeam === 1 ? team2Name : team1Name
+        const awayScore = homeTeam === 1 ? s2 : s1
+        const homeName  = homeTeam === 1 ? team1Name : team2Name
+        const homeScore = homeTeam === 1 ? s1 : s2
+        return `Layout for this specific game (away on left/top, home on right/bottom):\n• LEFT (or TOP if stacked vertically): ${awayName} logo + score ${awayScore} — the AWAY team.\n• RIGHT (or BOTTOM if stacked vertically): ${homeName} logo + score ${homeScore} — the HOME team.\nIf your draft has the ${awayName} logo paired with anything other than ${awayScore}, or the ${homeName} logo paired with anything other than ${homeScore}, the score-team pairing is broken — start over.`
+      })() : `Layout for this neutral-site game: either team can sit on the left or top; pick whichever reads better. But the score → team pairing above is fixed regardless of side: ${team1Name} = ${s1}, ${team2Name} = ${s2}. Never swap.`,
       ``,
       `Do not place either logo in a plain white or gray box — both teams should feel integrated into the design.`,
       ``,
@@ -401,7 +420,24 @@ export function buildScoreGraphicPrompt({
     logoRenderingInstruction(...realTeamNames),
     ``,
     `The score numbers should be the largest typographic element. Both score numbers must be identical in size, weight, and visual prominence — do NOT de-emphasize ${featuredName}'s score because this is a loss, and do NOT shrink the opponent's score because this is a win. The two scores must read as a clear comparison at a glance — side by side, or in an obvious visual relationship. Everything else — layout, texture, composition, hierarchy — is your creative call.`,
-    homeTeam !== null ? `Layout convention: the AWAY team goes on the LEFT (or TOP if stacked vertically); the HOME team goes on the RIGHT (or BOTTOM). This applies to the main score comparison, any box score, and the team-name/logo lockups — so for this game, ${featuredIsHome ? `${oppName} (away) is on the left/top and ${featuredName} (home) is on the right/bottom` : `${featuredName} (away) is on the left/top and ${oppName} (home) is on the right/bottom`}.` : null,
+    ``,
+    `╔══════════════════════════════════════════════════════════╗`,
+    `║  SCORE → TEAM PAIRING — NON-NEGOTIABLE, VERIFY BEFORE     ║`,
+    `║  YOU DRAW                                                  ║`,
+    `╚══════════════════════════════════════════════════════════╝`,
+    `These pairings come from the actual game result. The score next to a team's logo MUST be that team's score. Common failure: the AI swaps the logos so the wrong team gets the wrong score. Before you commit to a layout, confirm:`,
+    `• ${featuredName} scored ${sf}. The number ${sf} must appear with the ${featuredName} logo / wordmark. Never the opponent's logo.`,
+    `• ${oppName} scored ${so}. The number ${so} must appear with the ${oppName} logo / wordmark. Never ${featuredName}'s logo.`,
+    homeTeam !== null ? (() => {
+      // Concrete team+score+position binding for this specific game.
+      // Combined with the pairing block above, the AI has a fully
+      // determined assignment — nothing left to infer or look up.
+      const awayName  = featuredIsHome ? oppName    : featuredName
+      const awayScore = featuredIsHome ? so         : sf
+      const homeName  = featuredIsHome ? featuredName : oppName
+      const homeScore = featuredIsHome ? sf         : so
+      return `Layout for this specific game (away on left/top, home on right/bottom):\n• LEFT (or TOP if stacked vertically): ${awayName} logo + score ${awayScore} — the AWAY team.\n• RIGHT (or BOTTOM if stacked vertically): ${homeName} logo + score ${homeScore} — the HOME team.\nIf your draft has the ${awayName} logo paired with anything other than ${awayScore}, or the ${homeName} logo paired with anything other than ${homeScore}, the score-team pairing is broken — start over.`
+    })() : `Layout for this neutral-site game: either team can sit on the left or top; pick whichever reads better. But the score → team pairing above is fixed regardless of side: ${featuredName} = ${sf}, ${oppName} = ${so}. Never swap.`,
     ``,
     `Do not place the opponent's logo in a plain white or gray box — both teams should feel integrated into the design, not pasted in.`,
     ``,
