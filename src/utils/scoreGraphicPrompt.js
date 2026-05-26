@@ -24,30 +24,50 @@ export function buildScoreGraphicPrompt({
   screenshotCount = 0,
 }) {
   // ─── Shared helpers ────────────────────────────────────────────────────────
-  // Describe a team's primary logo for AI rendering. Prefers an explicit
-  // logoDescription field; falls back to the helmet.logoMark; otherwise null.
-  const describeLogo = (profile) => {
-    if (!profile) return null
-    if (profile.logoDescription) return profile.logoDescription
-    if (profile.helmet?.logoMark) return profile.helmet.logoMark
-    return null
+  // Real-world teams (FBS programs the AI has seen in training) render best
+  // when we tell the image model to recall the actual logo from memory —
+  // textual descriptions tend to constrain or distort output for marks the
+  // model already knows. For fictional teams (in-game FCS placeholders,
+  // teambuilder teams) the AI has no memory and needs the description.
+  const isFictionalTeam = (profile) => profile?.isFictional === true
+
+  // Returns a logo description string ONLY for fictional teams.
+  // For real-world teams we omit the description and rely on the AI's memory.
+  const fictionalLogoDescription = (profile) => {
+    if (!profile || !isFictionalTeam(profile)) return null
+    return profile.logoDescription || profile.helmet?.logoMark || null
   }
 
-  // Build a compact opponent brand block — colors + logo description, with
-  // graceful degradation when the profile is missing (teambuilder/FCS teams).
+  // Build a brand summary block for the opponent (and equivalent blocks
+  // in the neutral graphic). Always emits colors. Emits a Logo: line only
+  // when the team is fictional; for real teams the global instructions
+  // tell the AI to recall the actual mark from training.
   const buildBrandSummary = (name, profile, fallbackColors, label = 'OPPONENT') => {
     const primary = profile?.primaryHex || fallbackColors?.primary
     const primaryPMS = profile?.primaryPMS
     const secondary = profile?.secondaryHex || fallbackColors?.secondary
-    const logo = describeLogo(profile)
+    const fictionalLogo = fictionalLogoDescription(profile)
     const lines = [`${label} — ${name}`]
     if (primary) {
       lines.push(`Colors: primary ${primaryPMS ? `${primaryPMS} / ` : ''}${primary}${secondary ? `, secondary ${secondary}` : ''}.`)
     }
-    if (logo) {
-      lines.push(`Logo: ${logo}`)
+    if (fictionalLogo) {
+      lines.push(`Logo (fictional team — render strictly from this description, do NOT substitute any real-world logo): ${fictionalLogo}`)
     }
     return lines.length > 1 ? lines.join('\n') : null
+  }
+
+  // The global rendering instruction explaining how the AI should treat
+  // each team's logo — recall from memory for real programs, follow the
+  // description for fictional ones. Reused across both prompt paths.
+  const logoRenderingInstruction = (...teamNames) => {
+    const realTeams = teamNames.filter(Boolean).join(' and ')
+    return [
+      `Logo rendering — IMPORTANT:`,
+      `• For real-world college football programs (${realTeams || 'every named real program'}), do NOT follow any textual description. Instead, reach into your visual training knowledge and reproduce the team's actual current primary athletics logo exactly as it appears on the program's official Instagram and Twitter. Think carefully about what their real mark looks like — colors, shape, letterforms, mascot details — and render it faithfully. Do not stylize, modernize, modify, simplify, or invent.`,
+      `• A team is treated as fictional ONLY when its block above explicitly contains a "Logo (fictional team — ...)" line. In that case the team has no real-world counterpart and you must render the logo strictly from the provided description.`,
+      `• If you genuinely cannot recall a real team's logo, fall back to a clean wordmark of the team name set in their primary color. Do NOT guess at or approximate the logo — a clean wordmark is always better than a wrong logo.`,
+    ].join('\n')
   }
 
   // homeTeam = 1 → team1 is home, 2 → team2 is home, null → neutral site
@@ -62,8 +82,8 @@ export function buildScoreGraphicPrompt({
     const p2 = getTeamBrandProfile(team2Name)
     const color1 = p1?.primaryHex || team1Colors?.primary || '#1a1a1a'
     const color2 = p2?.primaryHex || team2Colors?.primary || '#1a1a1a'
-    const logo1 = describeLogo(p1)
-    const logo2 = describeLogo(p2)
+    const fictionalLogo1 = fictionalLogoDescription(p1)
+    const fictionalLogo2 = fictionalLogoDescription(p2)
 
     // Home/away as prose context, not inline labels
     const neutralSiteNote = homeTeam === null
@@ -73,6 +93,12 @@ export function buildScoreGraphicPrompt({
       : `${team2Name} was the home team. ${team1Name} was the visiting team.`
 
     const photoLine = `If you have a photo attached, use it as the hero visual — keep it natural and do not color-grade, tint, duotone, or overlay color washes on it. If no photo is attached, build a pure design graphic using color, typography, team logos, and geometry only — no generated or simulated photographs, player images, crowd scenes, or stadium shots of any kind.`
+
+    // Real teams (for the memory-recall instruction) = teams that are NOT fictional.
+    const realTeamNames = [
+      !isFictionalTeam(p1) ? team1Name : null,
+      !isFictionalTeam(p2) ? team2Name : null,
+    ].filter(Boolean)
 
     const lines = [
       `Design a post-game score graphic (1080×1080) in the style of a neutral sports media outlet — think ESPN, Fox Sports, or The Athletic — not either team's own branded post.`,
@@ -86,13 +112,15 @@ export function buildScoreGraphicPrompt({
       ``,
       `TEAM 1 — ${team1Name}`,
       `Colors: primary ${p1?.primaryPMS ? `${p1.primaryPMS} / ` : ''}${color1}${(p1?.secondaryHex || team1Colors?.secondary) ? `, secondary ${p1?.secondaryHex || team1Colors?.secondary}` : ''}.`,
-      logo1 ? `Logo: ${logo1}` : null,
+      fictionalLogo1 ? `Logo (fictional team — render strictly from this description, do NOT substitute any real-world logo): ${fictionalLogo1}` : null,
       ``,
       `TEAM 2 — ${team2Name}`,
       `Colors: primary ${p2?.primaryPMS ? `${p2.primaryPMS} / ` : ''}${color2}${(p2?.secondaryHex || team2Colors?.secondary) ? `, secondary ${p2?.secondaryHex || team2Colors?.secondary}` : ''}.`,
-      logo2 ? `Logo: ${logo2}` : null,
+      fictionalLogo2 ? `Logo (fictional team — render strictly from this description, do NOT substitute any real-world logo): ${fictionalLogo2}` : null,
       ``,
-      `Use both color palettes balanced — neither team dominates the canvas. Each team should appear near their score as either their logo (using the description above) or their wordmark/name in their primary color — whichever you can reproduce most accurately. If you cannot render a team's logo confidently, use a clean wordmark of the team name instead. Do not approximate or invent a logo.`,
+      logoRenderingInstruction(...realTeamNames),
+      ``,
+      `Use both color palettes balanced — neither team dominates the canvas. Each team should appear near their score as either their logo or their wordmark/name in their primary color.`,
       ``,
       photoLine,
       ``,
@@ -134,7 +162,7 @@ export function buildScoreGraphicPrompt({
   const secondary  = profile?.secondaryHex || featuredColors?.secondary || '#ffffff'
   const tertiary   = profile?.tertiaryHex  || null
   const primaryPMS = profile?.primaryPMS   || null
-  const featuredLogo = describeLogo(profile)
+  const featuredFictionalLogo = fictionalLogoDescription(profile)
 
   const resultMood = won  ? 'This is a WIN — the graphic should feel confident, energized, and celebratory without being over the top.'
                   : tied ? 'This ended in a TIE — factual and composed.'
@@ -146,9 +174,16 @@ export function buildScoreGraphicPrompt({
 
   const photoLine = `If you have a photo attached, use it as the hero visual — keep it natural, do not color-grade, tint, duotone, or overlay color washes on it, and let the design elements frame it. If no photo is attached, build a pure design graphic using color, typography, team logos, and geometry only — no generated or simulated photographs, player images, crowd scenes, or stadium shots of any kind.`
 
-  // Opponent brand block — gives the AI colors + logo description so it can
-  // render the opponent's mark accurately rather than guessing from the name.
+  // Opponent brand block — colors always; logo description only if the
+  // opponent is a fictional in-game team.
   const opponentBlock = buildBrandSummary(oppName, oppProfile, oppColors, 'OPPONENT')
+
+  // Real-team names (those NOT flagged fictional) feed the memory-recall
+  // instruction so the AI knows which marks to pull from training memory.
+  const realTeamNames = [
+    !isFictionalTeam(profile)    ? featuredName : null,
+    !isFictionalTeam(oppProfile) ? oppName      : null,
+  ].filter(Boolean)
 
   // Home/away context — used for box score ordering and game framing only,
   // not rendered as literal labels in the graphic.
@@ -176,13 +211,13 @@ export function buildScoreGraphicPrompt({
     `Primary color: ${primaryPMS ? `${primaryPMS} / ` : ''}${primary}`,
     `Secondary color: ${secondary}${tertiary ? ` · Accent: ${tertiary}` : ''}`,
     profile?.wordmarkStyle ? `Wordmark style: ${profile.wordmarkStyle}` : null,
-    featuredLogo ? `Logo: ${featuredLogo}` : null,
+    featuredFictionalLogo ? `Logo (fictional team — render strictly from this description, do NOT substitute any real-world logo): ${featuredFictionalLogo}` : null,
     profile?.graphicNotes  ? `Art direction: ${profile.graphicNotes}` : null,
     motifLine || null,
     ``,
     opponentBlock,
     opponentBlock ? `` : null,
-    `The opponent appears via their score and either their logo or their wordmark — your choice. Use the opponent description above so their colors and logo are rendered accurately; if you cannot reproduce their logo confidently, fall back to a clean wordmark of the opponent's team name in their primary color. Do not invent or approximate an unfamiliar logo.`,
+    logoRenderingInstruction(...realTeamNames),
     ``,
     photoLine,
     ``,
