@@ -66,7 +66,7 @@ export function buildScoreGraphicPrompt({
       `The score numbers should be the largest typographic element. Both team logos should appear near their respective scores, equal in size and visual weight. The two scores must read as a clear comparison — side by side or in an obvious visual relationship.`,
       homeTeam !== null ? `If you include a box score or quarter-by-quarter breakdown, list the AWAY team first and the HOME team second — standard sports convention.` : null,
       ``,
-      `Do not use large standalone WIN / VICTORY / FINAL text as the dominant visual element.`,
+      `A small "FINAL" label is appropriate and expected. What to avoid: a giant WIN / VICTORY / FINAL word that dominates the canvas and overshadows the scores.`,
       `Do not place either logo in a plain white or gray box — both teams should feel integrated into the design.`,
     ]
 
@@ -145,7 +145,7 @@ export function buildScoreGraphicPrompt({
     `The score numbers should be the largest typographic element. Both team logos should appear near their respective scores. The two scores must read as a clear comparison at a glance — side by side, or in an obvious visual relationship. Everything else — layout, texture, composition, hierarchy — is your creative call.`,
     homeTeam !== null ? `If you include a box score or quarter-by-quarter breakdown, list the AWAY team first and the HOME team second — standard sports convention.` : null,
     ``,
-    `Do not use large standalone WIN / VICTORY / FINAL text as the dominant visual element — the score and design should carry the result, not a word plastered across the canvas.`,
+    `A small "FINAL" label is appropriate and expected — real score graphics use it. What to avoid: a giant WIN / VICTORY / FINAL word that visually dominates the canvas and overshadows the scores.`,
     ``,
     `Do not place the opponent's logo in a plain white or gray box — both teams should feel integrated into the design, not pasted in.`,
     ``,
