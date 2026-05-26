@@ -1029,6 +1029,12 @@ The user pastes screenshots from EA College Football 26's post-game stats screen
 
 6. JERSEY NUMBERS IN SCREENSHOTS: CFB26 shows "#12 J. Smith" style entries. Map to the full roster name from the roster block above — NEVER output "#12" or "J. Smith". Always the full name from the roster dropdown.
 
+6a. FIRST NAMES FROM THE SIDEBAR — IMPORTANT for opponent players (and any teammate not in the roster block): CFB26's stat tables only show "F.Last" with the first INITIAL ("J.Elmore", "D.Shelby"). But the right-hand sidebar / player card in those same screenshots shows the FULL FIRST NAME of whichever player is currently highlighted (e.g. "JAMIE ELMORE", "DEMARIO SHELBY"). Use the sidebar across ALL the attached screenshots to build a roster of full first names, then apply those to the abbreviated names in the tables:
+     - If a screenshot has "J.Elmore" in the table AND the sidebar shows "JAMIE ELMORE" → output "Jamie Elmore" (title case), NOT "J. Elmore" or "J.Elmore".
+     - The sidebar typically rotates as the user scrolls; different screenshots may highlight different players. Cross-reference ALL screenshots before falling back to the initial-only form.
+     - If after checking every sidebar across every screenshot you STILL have no full first name for a player, only THEN may you keep the "F. Last" abbreviated form. But always try the sidebar first.
+     - For the user's team (${teamAbbr}), the roster block above is still authoritative — use the dropdown spelling, not the sidebar.
+
 7. BLANKS VS ZEROS: the screenshot lists only players who TOUCHED that category. For those players, 0 means "played but didn't produce" and is valid. A player who didn't appear on the screenshot should not be in your output at all — don't pad with zero rows.
 
 ═══════════════════════════════════════════════════════════
