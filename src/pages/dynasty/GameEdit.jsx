@@ -2278,41 +2278,7 @@ export default function GameEdit() {
               ))}
             </div>
 
-            {/* Repair tool: swap which team owns the saved player/team
-                stats. Shows up only when the game has some stats entered;
-                clicking swaps the two teams' slots (and their sheet IDs)
-                in storage. Used to fix games whose box score was entered
-                with a non-canonical home/away assumption and now displays
-                each team's stats under the wrong header. */}
-            {(hasAnyPlayerStats(existingGame, currentDynasty?.teams) || hasAnyTeamStats(existingGame, currentDynasty?.teams)) && (
-              <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--surface-4)' }}>
-                <p className="text-xs text-txt-tertiary mb-2">
-                  Box score showing each team's stats under the wrong team? Swap them.
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    const ok = window.confirm(
-                      `Swap which team owns the box-score stats in this game?\n\n` +
-                      `${leftTeamAbbr}'s stats will move under ${rightTeamAbbr}, and vice versa. ` +
-                      `Click "Swap" again later to revert.`
-                    )
-                    if (!ok) return
-                    const games = currentDynasty?.games || []
-                    const prev = games.find(g => g.id === currentGameId)
-                    if (!prev) return
-                    const next = swapBoxScoreTeams(prev, currentDynasty?.teams)
-                    // Mark stats-contributed for re-aggregation so player
-                    // season totals recompute from the swapped slots.
-                    next.statsContributed = null
-                    await addGame(currentDynasty.id, next)
-                  }}
-                >
-                  Swap teams in box score
-                </Button>
-              </div>
-            )}
+            {/* Repair tool removed — use Admin → Danger Zone → "Swap Box Score Teams" to fix mismatched stats. */}
           </>
         )}
       </Card>
@@ -2663,7 +2629,7 @@ export default function GameEdit() {
       </section>
 
       {/* Bottom Save/Cancel Buttons + Delete (only for existing games) */}
-      <div className="flex items-center pb-8">
+      <div className="flex items-center pb-4">
         {/* Delete sits on the LEFT, intentionally separated from Save/Cancel
             so it can't be hit by accident. Only shown for existing games — a
             new-game form has nothing to delete. */}
@@ -2681,6 +2647,13 @@ export default function GameEdit() {
           <Button variant="primary" accentColor="#ffffff" onClick={handleSave}>Save</Button>
         </div>
       </div>
+
+      {/* Game ID — shown at very bottom for reference (e.g. Danger Zone tools) */}
+      {(currentGameId || existingGame?.id) && (
+        <p className="text-[10px] text-txt-tertiary text-center pb-6 select-all">
+          Game ID: {currentGameId || existingGame?.id}
+        </p>
+      )}
 
       {/* Box Score Sheet Modal */}
       {showBoxScoreModal && currentGameId && (
