@@ -761,6 +761,10 @@ export default function Game() {
   // game.photos that's currently shown full-screen.
   const [photoLightboxIdx, setPhotoLightboxIdx] = useState(null)
 
+  // Score-graphic lightbox state — boolean since it's a single image.
+  // Triggered by the small thumbnail in the right column / top on mobile.
+  const [scoreGraphicLightboxOpen, setScoreGraphicLightboxOpen] = useState(false)
+
   const cardsForGame = useMemo(() => {
     return getCardsForGame(currentDynasty, game?.id)
   }, [currentDynasty, game?.id])
@@ -1935,18 +1939,11 @@ export default function Game() {
         </div>
       )}
 
-      {/* Score Graphic — full-width visual between the score header and tabs */}
-      {game.scoreGraphic && gameIsPlayed && (
-        <div className="rounded-xl overflow-hidden shadow-lg">
-          <img
-            src={game.scoreGraphic}
-            alt={`${displayTeam} vs ${opponent} final score graphic`}
-            className="w-full block"
-            style={{ maxHeight: '600px', objectFit: 'contain', backgroundColor: 'var(--surface-1)' }}
-            onError={(e) => { e.target.parentElement.style.display = 'none' }}
-          />
-        </div>
-      )}
+      {/* Score Graphic used to live here as a giant full-width visual.
+          It's now a small clickable thumbnail inside the Gamecast tab —
+          on mobile it sits above the grid; on desktop it lives at the
+          top of the right column (above Scoring). Click → full-screen
+          lightbox via the existing PhotoLightbox component. */}
 
       {/* ESPN-Style Tab Navigation and Content */}
       {gameIsPlayed && (
@@ -2185,8 +2182,39 @@ export default function Game() {
             // the middle has a 360px floor and fills any remaining
             // space. Keeps the recap readable on a 1280px screen with
             // devtools open.
+            // Small clickable thumbnail for the score graphic. Used in
+            // two spots: mobile (above the gamecast grid, lg:hidden) and
+            // desktop (top of the right column, hidden lg:block). Click
+            // opens the existing PhotoLightbox with the single image.
+            const ScoreGraphicThumb = () => (
+              <button
+                type="button"
+                onClick={() => setScoreGraphicLightboxOpen(true)}
+                className="block w-full rounded-lg overflow-hidden hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-surface-5 transition-opacity"
+                style={{ border: '1px solid var(--surface-4)', backgroundColor: 'var(--surface-1)' }}
+                aria-label="Open final score graphic"
+              >
+                <img
+                  src={game.scoreGraphic}
+                  alt={`${displayTeam} vs ${opponent} final score graphic`}
+                  className="w-full h-auto block"
+                  onError={(e) => { e.target.parentElement.style.display = 'none' }}
+                />
+              </button>
+            )
+
             return (
               <div className="px-5 py-6 sm:px-6 sm:py-7 grid grid-cols-1 lg:grid-cols-[minmax(180px,280px)_minmax(360px,1fr)_minmax(220px,320px)] gap-y-8 lg:gap-x-8 xl:gap-x-12">
+                {/* Mobile-only score graphic — appears at the top of the
+                    gamecast on phones/tablets below lg. Order -1 ensures
+                    it sits above the Recap (order-1). Hidden on desktop
+                    where the same thumbnail lives in the right column. */}
+                {game.scoreGraphic && gameIsPlayed && (
+                  <div className="order-[-1] lg:hidden min-w-0">
+                    <ScoreGraphicThumb />
+                  </div>
+                )}
+
                 {/* LEFT: Game Leaders — one unified panel, category rows inside */}
                 <aside className="order-2 lg:order-1 min-w-0">
                   <SectionHead>Game Leaders</SectionHead>
@@ -2242,6 +2270,16 @@ export default function Game() {
 
                 {/* RIGHT: Scoring Ratings Awards — sibling sections with shared rhythm */}
                 <aside className="order-3 min-w-0 space-y-7">
+                  {/* Desktop-only score graphic thumbnail at the top of
+                      the right column. Mobile renders the same thumb
+                      above the grid via the order-[-1] block. */}
+                  {game.scoreGraphic && gameIsPlayed && (
+                    <div className="hidden lg:block">
+                      <SectionHead>Score Graphic</SectionHead>
+                      <ScoreGraphicThumb />
+                    </div>
+                  )}
+
                   {(() => {
                     const playsWithVideo = sortPlaysChronologically(collapsePatRowsIntoTDs(game.boxScore?.scoringSummary))
                       .map(p => ({ ...p, gameInfo: { ...(p.gameInfo || {}), gameId } }))
@@ -3812,6 +3850,18 @@ export default function Game() {
           index={photoLightboxIdx}
           onClose={() => setPhotoLightboxIdx(null)}
           onIndexChange={setPhotoLightboxIdx}
+        />
+      )}
+
+      {/* Full-screen score-graphic lightbox — single image. Re-uses
+          PhotoLightbox with a one-element array; the prev/next
+          handlers are no-ops at length 1. */}
+      {scoreGraphicLightboxOpen && game.scoreGraphic && (
+        <PhotoLightbox
+          photos={[game.scoreGraphic]}
+          index={0}
+          onClose={() => setScoreGraphicLightboxOpen(false)}
+          onIndexChange={() => {}}
         />
       )}
     </div>
