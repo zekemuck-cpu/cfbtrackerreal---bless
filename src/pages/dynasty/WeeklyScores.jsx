@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { useDynasty, GAME_TYPES, detectGameType, getCustomConferencesForYear } from '../../context/DynastyContext'
+import { useDynasty, GAME_TYPES, detectGameType, getCustomConferencesForYear, getTeamRankForWeek } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { TEAMS, getCurrentTeamTid, getCurrentTeamAbbr, isFCSPlaceholderAbbr } from '../../data/teamRegistry'
 import { getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
@@ -552,9 +552,21 @@ export default function WeeklyScores() {
     const customConfs = getCustomConferencesForYear(currentDynasty, displayYear)
     if (filter === 'top25') {
       return playedThisWeek.filter(g => {
-        const r1 = parseInt(g.team1Rank, 10)
-        const r2 = parseInt(g.team2Rank, 10)
         const isRanked = (r) => Number.isFinite(r) && r >= 1 && r <= 25
+        // First try the rank stored directly on the game object (set via GameEdit).
+        // Fall back to the rankByWeek store (set via Weekly Scores entry) — this
+        // covers games entered before rank-saving was added to GameEdit, or games
+        // where the user entered ranks via the weekly scores sheet instead.
+        const r1 = (() => {
+          const direct = parseInt(g.team1Rank, 10)
+          if (isRanked(direct)) return direct
+          return getTeamRankForWeek(currentDynasty, g.team1Tid, displayYear, displayWeek)
+        })()
+        const r2 = (() => {
+          const direct = parseInt(g.team2Rank, 10)
+          if (isRanked(direct)) return direct
+          return getTeamRankForWeek(currentDynasty, g.team2Tid, displayYear, displayWeek)
+        })()
         return isRanked(r1) || isRanked(r2)
       })
     }

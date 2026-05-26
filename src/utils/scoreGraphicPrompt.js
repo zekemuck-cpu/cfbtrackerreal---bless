@@ -20,8 +20,13 @@ export function buildScoreGraphicPrompt({
   gameLabel,
   year,
   featuredTeam = 1,
+  homeTeam = null,
   screenshotCount = 0,
 }) {
+  // homeTeam = 1 → team1 is home, 2 → team2 is home, null → neutral site
+  const homeSuffix  = (n) => homeTeam === n ? ' (HOME)' : homeTeam !== null ? ' (AWAY)' : ''
+  const siteNote    = homeTeam === null ? 'Neutral site.' : null
+
   // ─── NEUTRAL / MEDIA-COMPANY GRAPHIC ────────────────────────────────────────
   if (featuredTeam === 0) {
     const rank1Label = team1Rank ? `#${team1Rank} ` : ''
@@ -44,9 +49,10 @@ export function buildScoreGraphicPrompt({
       `You are a senior graphic designer at a major sports network. This graphic covers the final score for a national audience, so neither team gets visual priority. Both programs are represented equally in color, logo placement, and type weight. The design should feel authoritative, clean, and broadcast-quality.`,
       ``,
       `RESULT`,
-      `${rank1Label}${team1Name}${team1Record ? ` (${team1Record})` : ''}:  ${s1}`,
-      `${rank2Label}${team2Name}${team2Record ? ` (${team2Record})` : ''}:  ${s2}`,
+      `${rank1Label}${team1Name}${team1Record ? ` (${team1Record})` : ''}${homeSuffix(1)}:  ${s1}`,
+      `${rank2Label}${team2Name}${team2Record ? ` (${team2Record})` : ''}${homeSuffix(2)}:  ${s2}`,
       `${gameLabel}${year ? ` · ${year} Season` : ''}`,
+      siteNote || null,
       ``,
       `TEAM COLORS (use both, balanced — neither team dominates)`,
       `${team1Name}: ${color1}`,
@@ -55,6 +61,7 @@ export function buildScoreGraphicPrompt({
       photoLine,
       ``,
       `The score numbers should be the largest typographic element. Both team logos should appear near their respective scores, equal in size and visual weight. The two scores must read as a clear comparison — side by side or in an obvious visual relationship.`,
+      homeTeam !== null ? `If you include a box score or quarter-by-quarter breakdown, list the AWAY team first and the HOME team second — standard sports convention.` : null,
       ``,
       `Do not use large standalone WIN / VICTORY / FINAL text as the dominant visual element.`,
       `Do not place either logo in a plain white or gray box — both teams should feel integrated into the design.`,
@@ -101,15 +108,22 @@ export function buildScoreGraphicPrompt({
     ? `Images are attached — use them as the hero visual. Keep the photo natural; do not color-grade the entire image. The design elements should frame the photo, not fight it.`
     : `No images attached — build a pure graphic using color, typography, and shape. No generated photos, no illustrated athletes or helmets.`
 
+  // Home/away labels for the featured team and opponent
+  const featuredIsHome = (featuredTeam === 1 && homeTeam === 1) || (featuredTeam === 2 && homeTeam === 2)
+  const featuredIsAway = (featuredTeam === 1 && homeTeam === 2) || (featuredTeam === 2 && homeTeam === 1)
+  const featuredSiteTag = featuredIsHome ? ' (HOME)' : featuredIsAway ? ' (AWAY)' : ''
+  const oppSiteTag      = featuredIsHome ? ' (AWAY)' : featuredIsAway ? ' (HOME)' : ''
+
   const lines = [
     `Design a post-game social media graphic (1080×1080) for ${featuredName}'s official account.`,
     ``,
-    `You are the creative director for a top college football program's athletic communications team. This graphic will go live on the program's Instagram and Twitter within minutes of the final whistle. Make it feel like it came from a real D1 creative staff — not a template, not a generic sports graphic generator. Every layout and type choice should feel intentional and ownable by this program.`,
+    `You are the creative director employed by ${featuredName} — you work for this program, you know this brand inside and out, and this graphic goes live on the official ${featuredName} Instagram and Twitter within minutes of the final whistle. Make it feel like it came from this program's actual creative staff — not a template, not a generic sports graphic generator. Every layout and type choice should feel intentional and ownable by ${featuredName} specifically.`,
     ``,
     `RESULT`,
-    `${rankLabel}${featuredName}${featuredRecord ? ` (${featuredRecord})` : ''}:  ${sf}`,
-    `${oppRankLabel}${oppName}${oppRecord ? ` (${oppRecord})` : ''}:  ${so}`,
+    `${rankLabel}${featuredName}${featuredRecord ? ` (${featuredRecord})` : ''}${featuredSiteTag}:  ${sf}`,
+    `${oppRankLabel}${oppName}${oppRecord ? ` (${oppRecord})` : ''}${oppSiteTag}:  ${so}`,
     `${gameLabel}${year ? ` · ${year} Season` : ''}`,
+    homeTeam === null ? 'Neutral site.' : null,
     ``,
     resultMood,
     ``,
@@ -123,10 +137,15 @@ export function buildScoreGraphicPrompt({
     photoLine,
     ``,
     `The score numbers should be the largest typographic element. Both team logos should appear near their respective scores. The two scores must read as a clear comparison at a glance — side by side, or in an obvious visual relationship. Everything else — layout, texture, composition, hierarchy — is your creative call.`,
+    homeTeam !== null ? `If you include a box score or quarter-by-quarter breakdown, list the AWAY team first and the HOME team second — standard sports convention.` : null,
     ``,
     `Do not use large standalone WIN / VICTORY / FINAL text as the dominant visual element — the score and design should carry the result, not a word plastered across the canvas.`,
     ``,
     `Do not place the opponent's logo in a plain white or gray box — both teams should feel integrated into the design, not pasted in.`,
+    ``,
+    `Do not add university addresses, city names, or location footers (e.g. "Austin, Texas" or "The University of Texas") — the team name and logo carry the identity.`,
+    ``,
+    `Background textures, patterns, and decorative geometry should reflect ${featuredName}'s visual identity only. The opponent appears through their logo and score — do not incorporate their signature patterns or textures into the background or composition.`,
   ]
 
   return lines.filter(l => l !== null && l !== undefined).join('\n')

@@ -2601,6 +2601,12 @@ export default function GameEdit() {
         // Pass screenshot count so the prompt can tell the AI to expect attachments
         const uploadedScreenshots = Array.isArray(formData.photos) ? formData.photos.filter(Boolean).length : 0
 
+        // Derive home team number (1, 2, or null for neutral) from location field.
+        // location='home' means team1 is home; 'away' means team2 is home.
+        const homeTeamNum = formData.location === 'home' ? 1
+                          : formData.location === 'away' ? 2
+                          : null
+
         const prompt = hasScores ? buildScoreGraphicPrompt({
           team1Name,
           team1Score: formData.team1Score,
@@ -2615,6 +2621,7 @@ export default function GameEdit() {
           gameLabel: gameTitle,
           year: gameYear,
           featuredTeam: featuredTeamNum,
+          homeTeam: homeTeamNum,
           screenshotCount: uploadedScreenshots,
         }) : ''
 
