@@ -2226,14 +2226,14 @@ export default function GameEdit() {
                 },
                 {
                   key: 'left-stats',
-                  label: `${leftTeamAbbr}`,
+                  label: '',
                   onClick: () => openBoxScoreModal('playerStats', leftTeamTid),
                   connected: !!getPlayerStatsSheetIdForTid(existingGame, leftTeamTid, currentDynasty?.teams || currentDynasty?.customTeams),
                   logo: leftTeamLogo
                 },
                 {
                   key: 'right-stats',
-                  label: `${rightTeamAbbr}`,
+                  label: '',
                   onClick: () => openBoxScoreModal('playerStats', rightTeamTid),
                   connected: !!getPlayerStatsSheetIdForTid(existingGame, rightTeamTid, currentDynasty?.teams || currentDynasty?.customTeams),
                   logo: rightTeamLogo
