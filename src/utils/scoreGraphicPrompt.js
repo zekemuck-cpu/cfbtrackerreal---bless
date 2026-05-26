@@ -365,7 +365,7 @@ export function buildScoreGraphicPrompt({
     oppIsFictional      ? oppName      : null,
   ].filter(Boolean)
 
-  const resultMood = `Design a polished, visually striking branded score graphic. The result is in the numbers — the design doesn't need to editorialize about the outcome.`
+  const resultMood = `The graphic should feel confident, energized, and on-brand without being over the top.`
 
   const motifLine = profile?.motifs?.length
     ? `The program is known for these design motifs (use abstractly if you incorporate texture or geometry): ${profile.motifs.join(', ')}.`
