@@ -4,25 +4,31 @@ import { useEffect, useRef, useState, useCallback } from 'react'
  * Clean YouTube embed — no YouTube branding visible.
  *
  * How it stays clean:
- *   • controls=0 hides YouTube's playback chrome (progress bar, play
- *     button, scrub handle, settings, fullscreen, share, CC).
- *   • The IFrame Player API tracks the play state. When the video is
- *     NOT actively playing (loading, paused, ended), we render an
- *     opaque black cover with our own play/replay button. That cover
- *     hides every YouTube overlay that surfaces in those states:
- *     channel name + avatar, the big YT play button, "Watch on
- *     YouTube" badge, end-screen related-video grid.
- *   • During playback the cover is gone, so the video is unobstructed.
- *     Click anywhere on the video while playing → pause.
- *   • Our own thin progress bar sits at the bottom (pointer-events:none
- *     so it doesn't capture clicks). Nothing to hover over → YouTube
- *     never gets a reason to surface chrome.
+ *   • controls=0 hides YouTube's bottom playback chrome.
+ *   • A CSS clip-path on the iframe wrapper physically removes the
+ *     two regions where YT's remaining chrome surfaces: the top strip
+ *     (channel-name + avatar overlay, big play button on first frame)
+ *     and the bottom-right corner ("Watch on YouTube" badge). These
+ *     regions are clipped from initial render — there's no timing
+ *     window where they're visible.
+ *   • pointer-events:none on the iframe means YT never receives a
+ *     mouseover, so it never decides to surface its hover chrome
+ *     during playback either.
+ *   • Our own overlay buttons handle play/pause via the IFrame API.
  *
- * Why this approach over scaling/cropping: scale + overflow:hidden
- * loses 15-25% of the actual video pixels to hide chrome at the
- * edges. Sports plays don't survive that well. State-driven covers
- * preserve every pixel.
+ * Why clip-path over scaling: scaling losses pixels evenly around the
+ * edge, including the bottom-left and middle areas where the play
+ * actually happens in football clips. Clip-path is region-specific —
+ * we lose a strip at the top (mostly sky/scoreboard) and the bottom-
+ * right corner (often empty sideline), and the live action stays at
+ * 1:1 pixel scale.
  */
+
+// Clip-path polygon describing the visible region of the iframe.
+// Removes the top 14% (channel-name overlay band) and the bottom-
+// right corner (25% wide × 14% tall — large enough to swallow the
+// "Watch on YouTube" badge at typical aspect ratios).
+const IFRAME_CLIP_PATH = 'polygon(0% 14%, 100% 14%, 100% 86%, 75% 86%, 75% 100%, 0% 100%)'
 
 let ytApiPromise = null
 function loadYTApi() {
@@ -33,9 +39,6 @@ function loadYTApi() {
       resolve(window.YT)
       return
     }
-    // YouTube fires a single global callback when the IFrame API is
-    // ready. Compose with any previous one in case another consumer
-    // already registered.
     const previous = window.onYouTubeIframeAPIReady
     window.onYouTubeIframeAPIReady = () => {
       try { previous?.() } catch {}
@@ -52,40 +55,16 @@ function loadYTApi() {
   return ytApiPromise
 }
 
-// How long to keep our opaque black cover up AFTER YouTube reports
-// the PLAYING state, before revealing the iframe. YouTube's intro
-// chrome (channel name + avatar overlay, share button, central
-// pause icon, "Watch on YouTube" badge) is shown by the player as
-// it initializes and during the first ~1-2 seconds of playback —
-// controls=0 doesn't hide this initial chrome, only the bottom
-// playback chrome. By holding the cover up past the chrome-fade
-// window, the user only ever sees clean video, never YT branding.
-const COVER_HOLD_MS_AFTER_PLAYING = 1500
-
 export default function YouTubePlayer({
   videoId,
   startSec = 0,
   endSec = null,
   className = '',
-  // Reset key — bump from parent to remount the player (e.g. when
-  // changing plays in a scoring-highlight reel). React's `key` prop
-  // achieves the same and is preferred from outside; this is here so
-  // we can also re-init internally if needed.
   resetKey,
 }) {
   const containerRef = useRef(null)
   const playerRef = useRef(null)
-  // Player state machine:
-  //   loading — API still booting OR player constructed but not yet ready
-  //   playing — actively playing
-  //   paused  — user paused, or buffering pause
-  //   ended   — clip reached endSec or natural end
   const [state, setState] = useState('loading')
-  // Whether the cover has been lifted for the current playing window.
-  // Reset to false whenever state leaves 'playing'; set to true after
-  // the chrome-fade delay so the cover only lifts when the iframe is
-  // safe to reveal.
-  const [coverLifted, setCoverLifted] = useState(false)
   const [progress, setProgress] = useState(0)
 
   useEffect(() => {
@@ -95,15 +74,6 @@ export default function YouTubePlayer({
     loadYTApi().then((YT) => {
       if (cancelled || !containerRef.current) return
 
-      // YT.Player REPLACES the target element with an iframe. The
-      // wrapping div stays, the inner placeholder div is swapped out.
-      //
-      // IMPORTANT: height/width must be '100%' here. Without them, YT
-      // sets the iframe to its default 640x390 pixels, and any tile
-      // narrower than 640px ends up showing a clipped, zoomed-in
-      // portion of the video (the iframe is bigger than the container
-      // and overflow:hidden trims it). 100% lets the iframe fluidly
-      // match whatever size the outer aspect-video wrapper resolves to.
       const player = new YT.Player(containerRef.current, {
         videoId,
         height: '100%',
@@ -120,27 +90,17 @@ export default function YouTubePlayer({
           iv_load_policy: 3,
           playsinline: 1,
           disablekb: 1,
-          // playlist trick: setting playlist=videoId enables seamless
-          // loop if we ever want it; harmless without `loop=1`.
         },
         events: {
           onReady: (e) => {
             if (cancelled) return
             playerRef.current = e.target
-            // CRITICAL: disable pointer events on the iframe itself.
-            // Without this, YouTube's player JS detects mousemove
-            // events inside the iframe and surfaces hover chrome
-            // (channel-name overlay, share button, "Watch on YouTube"
-            // badge, central pause icon) regardless of controls=0.
-            // With pointer-events: none, YT never sees a mouseover
-            // and never decides to surface its chrome. Our overlay
-            // buttons above the iframe handle all play/pause input
-            // via the IFrame API directly.
+            // Disable pointer events on the iframe itself so YT never
+            // sees a mouseover and never surfaces hover chrome.
             try {
               const iframe = e.target.getIframe?.()
               if (iframe) iframe.style.pointerEvents = 'none'
             } catch {}
-            // Autoplay is muted so it works without user gesture.
             try { e.target.playVideo() } catch {}
           },
           onStateChange: (e) => {
@@ -150,14 +110,11 @@ export default function YouTubePlayer({
             if (e.data === PS.PLAYING) setState('playing')
             else if (e.data === PS.PAUSED) setState('paused')
             else if (e.data === PS.ENDED) setState('ended')
-            else if (e.data === PS.BUFFERING) {/* keep prior state */}
             else if (e.data === PS.CUED) setState('paused')
           },
         },
       })
 
-      // Poll player time for the custom progress bar. 250ms is smooth
-      // enough for a slim 4px bar without thrashing rerenders.
       progressTimer = setInterval(() => {
         const p = playerRef.current
         if (!p || !p.getCurrentTime || !p.getDuration) return
@@ -165,10 +122,6 @@ export default function YouTubePlayer({
           const cur = p.getCurrentTime()
           const dur = p.getDuration()
           if (!Number.isFinite(cur) || !Number.isFinite(dur) || dur <= 0) return
-          // Progress relative to our clip window (start..end), not the
-          // full source video, so a 30-second highlight reads as
-          // 0 → 100% across its duration rather than e.g. 5% → 7% of
-          // a 10-minute source.
           const clipStart = startSec || 0
           const clipEnd = endSec || dur
           const span = Math.max(clipEnd - clipStart, 0.25)
@@ -190,10 +143,7 @@ export default function YouTubePlayer({
     const p = playerRef.current
     if (!p) return
     try {
-      if (state === 'ended') {
-        // Reset to clip start when replaying from the end overlay.
-        p.seekTo(startSec || 0, true)
-      }
+      if (state === 'ended') p.seekTo(startSec || 0, true)
       p.playVideo()
     } catch {}
   }, [state, startSec])
@@ -204,54 +154,29 @@ export default function YouTubePlayer({
     try { p.pauseVideo() } catch {}
   }, [])
 
-  // Cover-lift timing. When we enter the 'playing' state, hold the
-  // cover up for the chrome-fade window so YT's intro overlay is
-  // never visible to the user. Any non-playing state immediately
-  // brings the cover back up (no fade — user wants instant feedback
-  // on pause/end).
-  useEffect(() => {
-    if (state === 'playing') {
-      const t = setTimeout(() => setCoverLifted(true), COVER_HOLD_MS_AFTER_PLAYING)
-      return () => clearTimeout(t)
-    }
-    setCoverLifted(false)
-  }, [state])
-
-  // The iframe is only revealed when both: state is 'playing' AND the
-  // chrome-fade delay has elapsed. Every other case shows our opaque
-  // cover.
-  const isPlayingClean = state === 'playing' && coverLifted
-  const showCover = !isPlayingClean
-
-  // Which icon to render inside the cover. While we're waiting for
-  // playback to truly start (loading or post-PLAYING chrome-fade
-  // window), show a spinner so the user knows it's working — not the
-  // play button, which would suggest the video is paused awaiting
-  // input. Paused state gets a play button; ended state gets a
-  // replay icon.
-  const coverMode = state === 'paused'
-    ? 'play'
-    : state === 'ended'
-    ? 'replay'
-    : 'loading' // 'loading' state OR 'playing' but cover not yet lifted
+  const isPlaying = state === 'playing'
+  const showCover = !isPlaying
 
   return (
     <div className={`absolute inset-0 bg-black overflow-hidden ${className}`}>
-      {/* IFrame target. YT.Player replaces this placeholder div with
-          its iframe on mount; the absolutely-positioned wrapper keeps
-          the layout slot reserved either way. */}
-      <div className="absolute inset-0">
+      {/* IFrame wrapper. The clip-path on this div removes the top
+          channel-name strip and the bottom-right WoY-badge corner
+          from the visible area. It's applied from initial render so
+          there's no flash of unclipped YT chrome during player
+          startup. The iframe (created by YT.Player) inherits the
+          clip as a child of this clipped wrapper. */}
+      <div
+        className="absolute inset-0"
+        style={{ clipPath: IFRAME_CLIP_PATH }}
+      >
         <div ref={containerRef} className="w-full h-full" />
       </div>
 
-      {/* Click-to-pause surface during clean playback. Transparent so
-          the video shows through; covers the whole frame so a click
-          anywhere on the video pauses (mirrors what YouTube's own
-          controls=0 click-to-toggle would do, but routed through our
-          state machine so we know about it). Explicit z-10 is belt-
-          and-suspenders alongside the iframe's pointer-events:none —
-          if one fails, the other still keeps YT chrome out. */}
-      {isPlayingClean && (
+      {/* Click-to-pause surface during playback. Transparent so the
+          (already clipped) video shows through; covers the whole
+          frame so a click anywhere on the video pauses. Routed
+          through our state machine so we know about it. */}
+      {isPlaying && (
         <button
           type="button"
           onClick={pause}
@@ -260,27 +185,26 @@ export default function YouTubePlayer({
         />
       )}
 
-      {/* Opaque cover for every non-clean-playing state — load, post-
-          PLAYING chrome-fade window, paused, ended. Fully opaque
-          black surface that hides YouTube's intro chrome (channel
-          name + avatar, share button, central pause icon, "Watch on
-          YouTube" badge) and end-screen completely. */}
+      {/* Opaque cover for every non-playing state. With clip-path
+          handling chrome during playback, the cover only needs to
+          show a single state at a time (loading spinner, play button
+          on pause, replay button at end). */}
       {showCover && (
         <button
           type="button"
-          onClick={coverMode === 'loading' ? undefined : play}
-          aria-label={coverMode === 'replay' ? 'Replay' : coverMode === 'play' ? 'Play' : 'Loading'}
+          onClick={state === 'loading' ? undefined : play}
+          aria-label={state === 'ended' ? 'Replay' : state === 'paused' ? 'Play' : 'Loading'}
           className="absolute inset-0 z-10 bg-black flex items-center justify-center focus:outline-none cursor-pointer"
-          disabled={coverMode === 'loading'}
+          disabled={state === 'loading'}
         >
-          {coverMode === 'loading' ? (
+          {state === 'loading' ? (
             <svg className="w-8 h-8 text-white/60 animate-spin" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
           ) : (
             <div className="bg-white/15 ring-1 ring-white/25 rounded-full w-16 h-16 flex items-center justify-center transition-transform hover:scale-105">
-              {coverMode === 'replay' ? (
+              {state === 'ended' ? (
                 <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
@@ -294,9 +218,10 @@ export default function YouTubePlayer({
         </button>
       )}
 
-      {/* Thin custom progress bar, bottom edge. pointer-events:none so
-          clicks pass through to the play/pause surface above. */}
-      <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10 pointer-events-none">
+      {/* Custom progress bar at the bottom. The clip-path on the
+          iframe wrapper doesn't touch this element — it sits at
+          z-20 above everything. */}
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10 pointer-events-none z-20">
         <div
           className="h-full bg-white/85 transition-all duration-200"
           style={{ width: `${Math.min(progress * 100, 100)}%` }}
