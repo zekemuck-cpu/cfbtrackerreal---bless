@@ -527,17 +527,9 @@ export default function Layout({ children }) {
   }
 
 
-  // Page background - dark theme for all pages
-  const getPageBg = () => {
-    // All pages use the dark surface background
-    return '#111113' // surface-1 - main dark background
-  }
-  const pageBg = getPageBg()
-
   return (
     <div
-      className="min-h-dvh flex flex-col"
-      style={{ backgroundColor: pageBg }}
+      className="min-h-dvh flex flex-col surface-1"
     >
       <a
         href="#main"
