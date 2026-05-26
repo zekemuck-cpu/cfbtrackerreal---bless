@@ -249,6 +249,8 @@ export function buildScoreGraphicPrompt({
     const lines = [
       `Design a post-game score graphic (1080×1080) in the style of a neutral sports media outlet — think ESPN, Fox Sports, or The Athletic — not either team's own branded post.`,
       ``,
+      `BEFORE YOU GO ANY FURTHER — read this once: this is a PURE GRAPHIC DESIGN brief, not a photograph. You are NOT to generate, simulate, or hallucinate any player, crowd, stadium, jersey-on-a-body, helmet-on-a-head, or any other photographic content anywhere on this canvas. The "IMAGERY POLICY" section at the bottom of this prompt enforces this with zero exceptions — read it now before committing to a layout.`,
+      ``,
       `You are a senior graphic designer at a major sports network. This graphic covers the final score for a national audience, so neither team gets visual priority. Both programs are represented equally in color, logo placement, and type weight. The design should feel authoritative, clean, and broadcast-quality.`,
       ``,
       `RESULT`,
@@ -349,6 +351,8 @@ export function buildScoreGraphicPrompt({
 
   const lines = [
     `Design a post-game social media graphic (1080×1080) for ${featuredName}'s official account.`,
+    ``,
+    `BEFORE YOU GO ANY FURTHER — read this once: this is a PURE GRAPHIC DESIGN brief, not a photograph. You are NOT to generate, simulate, or hallucinate any player, crowd, stadium, jersey-on-a-body, helmet-on-a-head, or any other photographic content anywhere on this canvas. The "IMAGERY POLICY" section at the bottom of this prompt enforces this with zero exceptions — read it now before committing to a layout.`,
     ``,
     `You are the creative director employed by ${featuredName} — you work for this program, you know this brand inside and out, and this graphic goes live on the official ${featuredName} Instagram and Twitter within minutes of the final whistle. Make it feel like it came from this program's actual creative staff — not a template, not a generic sports graphic generator. Every layout and type choice should feel intentional and ownable by ${featuredName} specifically.`,
     ``,
