@@ -22,7 +22,71 @@ export function buildScoreGraphicPrompt({
   featuredTeam = 1,
   homeTeam = null,
   screenshotCount = 0,
+  // Game classification — used to add postseason context to the prompt
+  // so the AI knows this is a bowl / CFP round / conference championship
+  // rather than a regular-season game. Defaults match the regular-season
+  // case (no special framing).
+  //   gameType: 'regular' | 'conference_championship' | 'bowl' |
+  //             'cfp_first_round' | 'cfp_quarterfinal' |
+  //             'cfp_semifinal' | 'cfp_championship'
+  //   bowlName: e.g. "Rose Bowl", "Peach Bowl" — bowl/CFP venue name
+  //   conference: e.g. "SEC" — only meaningful for conference_championship
+  gameType = 'regular',
+  bowlName = null,
+  conference = null,
 }) {
+  // ─── Game context phrasing ────────────────────────────────────────────────
+  // Build the human-readable line that names the postseason context.
+  // Returns { line, designNote } — line is dropped into the RESULT block,
+  // designNote is appended to the mood line for postseason games so the
+  // design can reflect the elevated stakes.
+  const buildGameContext = () => {
+    const bn = (bowlName || '').trim()
+    const conf = (conference || '').trim()
+    switch (gameType) {
+      case 'conference_championship':
+        return {
+          line: conf
+            ? `This was the ${conf} Conference Championship Game.`
+            : `This was a conference championship game.`,
+          designNote: `As a conference championship, the graphic should feel weighty and ceremonial — trophy stakes — without becoming formal or sterile.`,
+        }
+      case 'bowl':
+        return {
+          line: bn ? `This was the ${bn} — a postseason bowl game.` : `This was a postseason bowl game.`,
+          designNote: `As a postseason bowl game, the graphic should carry bowl-game gravitas and a sense of season-finale stakes.`,
+        }
+      case 'cfp_first_round':
+        return {
+          line: `This was a College Football Playoff First Round game${bn ? ` (${bn})` : ''}.`,
+          designNote: `As a College Football Playoff game, the graphic should reflect national-stage stakes — a step beyond a regular bowl.`,
+        }
+      case 'cfp_quarterfinal':
+        return {
+          line: bn
+            ? `This was a College Football Playoff Quarterfinal — played at the ${bn}.`
+            : `This was a College Football Playoff Quarterfinal.`,
+          designNote: `As a CFP Quarterfinal, the graphic should reflect national-stage playoff stakes.`,
+        }
+      case 'cfp_semifinal':
+        return {
+          line: bn
+            ? `This was a College Football Playoff Semifinal — played at the ${bn}.`
+            : `This was a College Football Playoff Semifinal.`,
+          designNote: `As a CFP Semifinal, the graphic should reflect maximum playoff stakes — one win from the title game.`,
+        }
+      case 'cfp_championship':
+        return {
+          line: `This was the College Football Playoff National Championship Game.`,
+          designNote: `As the National Championship, the graphic should carry the weight of the title game — the biggest stage in college football.`,
+        }
+      case 'regular':
+      default:
+        return null
+    }
+  }
+  const gameContext = buildGameContext()
+
   // ─── Shared helpers ────────────────────────────────────────────────────────
   // Real-world teams (FBS programs the AI has seen in training) render best
   // when we tell the image model to recall the actual logo from memory —
@@ -109,6 +173,8 @@ export function buildScoreGraphicPrompt({
       `${rank1Label}${team1Name}${team1Record ? ` (${team1Record})` : ''}:  ${s1}`,
       `${rank2Label}${team2Name}${team2Record ? ` (${team2Record})` : ''}:  ${s2}`,
       neutralSiteNote,
+      gameContext ? gameContext.line : null,
+      gameContext ? gameContext.designNote : null,
       ``,
       `TEAM 1 — ${team1Name}`,
       `Colors: primary ${p1?.primaryPMS ? `${p1.primaryPMS} / ` : ''}${color1}${(p1?.secondaryHex || team1Colors?.secondary) ? `, secondary ${p1?.secondaryHex || team1Colors?.secondary}` : ''}.`,
@@ -204,8 +270,10 @@ export function buildScoreGraphicPrompt({
     `${rankLabel}${featuredName}${featuredRecord ? ` (${featuredRecord})` : ''}:  ${sf}`,
     `${oppRankLabel}${oppName}${oppRecord ? ` (${oppRecord})` : ''}:  ${so}`,
     homeTeam === null ? 'Neutral site.' : siteContext,
+    gameContext ? gameContext.line : null,
     ``,
     resultMood,
+    gameContext ? gameContext.designNote : null,
     ``,
     `BRAND — ${featuredName}`,
     `Primary color: ${primaryPMS ? `${primaryPMS} / ` : ''}${primary}`,

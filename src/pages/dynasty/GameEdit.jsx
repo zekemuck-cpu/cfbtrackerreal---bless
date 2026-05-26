@@ -2615,6 +2615,16 @@ export default function GameEdit() {
                           : formData.location === 'away' ? 2
                           : null
 
+        // Derive the game's classification (regular / bowl / CFP / CCG) so
+        // the prompt can frame the postseason context. Prefer the live
+        // edit state (computedWeekFlags) because the user may have just
+        // changed the week dropdown; fall back to the saved gameType /
+        // bowlName / conference on existingGame for previously-saved games
+        // we're only viewing.
+        const promptGameType   = computedWeekFlags?.gameType   || existingGame?.gameType   || 'regular'
+        const promptBowlName   = computedWeekFlags?.bowlName   ?? existingGame?.bowlName   ?? null
+        const promptConference = computedWeekFlags?.conference ?? existingGame?.conference ?? null
+
         const prompt = hasScores ? buildScoreGraphicPrompt({
           team1Name,
           team1Score: formData.team1Score,
@@ -2631,6 +2641,9 @@ export default function GameEdit() {
           featuredTeam: featuredTeamNum,
           homeTeam: homeTeamNum,
           screenshotCount: uploadedScreenshots,
+          gameType: promptGameType,
+          bowlName: promptBowlName,
+          conference: promptConference,
         }) : ''
 
         return (
