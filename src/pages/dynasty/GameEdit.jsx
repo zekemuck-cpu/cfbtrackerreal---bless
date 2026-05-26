@@ -1996,9 +1996,8 @@ export default function GameEdit() {
         )
       })()}
 
-      {/* SETUP — when, where, and what kind of game. */}
-      <section className="space-y-3">
-        <SectionHeader size="sm" title="Setup" />
+      {/* All game editor cards in one continuous flow */}
+      <div className="space-y-3">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
 
       {/* Game Type — fully editable year, week slot, and sub-classification. */}
@@ -2136,11 +2135,6 @@ export default function GameEdit() {
         </div>
       </Card>
         </div>
-      </section>
-
-      {/* RESULT & STATS — team-level numbers and the box score. */}
-      <section className="space-y-3">
-        <SectionHeader size="sm" title="Result & Stats" />
 
       {/* Team details — stacked rows, one per team. Each row is the
           team identity (logo + name + 'Your team' chip when applicable)
@@ -2278,11 +2272,6 @@ export default function GameEdit() {
           </>
         )}
       </Card>
-      </section>
-
-      {/* STORY — recap text, supporting links, and photos. */}
-      <section className="space-y-3">
-        <SectionHeader size="sm" title="Story" />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
 
       <Card>
@@ -2421,11 +2410,6 @@ export default function GameEdit() {
         </div>
       </Card>
         </div>
-      </section>
-
-      {/* POST-GAME — outputs for sharing and POW awards. */}
-      <section className="space-y-3">
-        <SectionHeader size="sm" title="Post-game" />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
 
       {/* Score Graphic — AI-generated final score image */}
@@ -2622,7 +2606,7 @@ export default function GameEdit() {
         )}
       </Card>
         </div>
-      </section>
+      </div>
 
       {/* Bottom Save/Cancel Buttons + Delete (only for existing games) */}
       <div className="flex items-center pb-4">
