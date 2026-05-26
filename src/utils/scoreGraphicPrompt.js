@@ -411,6 +411,14 @@ export function buildScoreGraphicPrompt({
     ``,
     `SCORE ACCURACY (non-negotiable): ${featuredName} scored ${sf} — that number must appear with the ${featuredName} logo. ${oppName} scored ${so} — that number must appear with the ${oppName} logo. Never swap.`,
     ``,
+    homeTeam !== null ? (() => {
+      const awayName  = featuredIsHome ? oppName    : featuredName
+      const awayScore = featuredIsHome ? so         : sf
+      const homeName  = featuredIsHome ? featuredName : oppName
+      const homeScore = featuredIsHome ? sf         : so
+      return `LAYOUT: away team on left/top, home team on right/bottom. Away = ${awayName} (${awayScore}), Home = ${homeName} (${homeScore}).`
+    })() : `Neutral site — layout is your call.`,
+    ``,
     `If a photo is attached, use it as the hero visual — integrate it however looks best. Do not generate any photographic or photo-real content yourself. If no photo is attached, build a pure graphic design.`,
   ]
 
