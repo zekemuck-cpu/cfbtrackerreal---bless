@@ -52,6 +52,16 @@ function loadYTApi() {
   return ytApiPromise
 }
 
+// How long to keep our opaque black cover up AFTER YouTube reports
+// the PLAYING state, before revealing the iframe. YouTube's intro
+// chrome (channel name + avatar overlay, share button, central
+// pause icon, "Watch on YouTube" badge) is shown by the player as
+// it initializes and during the first ~1-2 seconds of playback —
+// controls=0 doesn't hide this initial chrome, only the bottom
+// playback chrome. By holding the cover up past the chrome-fade
+// window, the user only ever sees clean video, never YT branding.
+const COVER_HOLD_MS_AFTER_PLAYING = 1500
+
 export default function YouTubePlayer({
   videoId,
   startSec = 0,
@@ -71,6 +81,11 @@ export default function YouTubePlayer({
   //   paused  — user paused, or buffering pause
   //   ended   — clip reached endSec or natural end
   const [state, setState] = useState('loading')
+  // Whether the cover has been lifted for the current playing window.
+  // Reset to false whenever state leaves 'playing'; set to true after
+  // the chrome-fade delay so the cover only lifts when the iframe is
+  // safe to reveal.
+  const [coverLifted, setCoverLifted] = useState(false)
   const [progress, setProgress] = useState(0)
 
   useEffect(() => {
@@ -189,7 +204,36 @@ export default function YouTubePlayer({
     try { p.pauseVideo() } catch {}
   }, [])
 
-  const isPlaying = state === 'playing'
+  // Cover-lift timing. When we enter the 'playing' state, hold the
+  // cover up for the chrome-fade window so YT's intro overlay is
+  // never visible to the user. Any non-playing state immediately
+  // brings the cover back up (no fade — user wants instant feedback
+  // on pause/end).
+  useEffect(() => {
+    if (state === 'playing') {
+      const t = setTimeout(() => setCoverLifted(true), COVER_HOLD_MS_AFTER_PLAYING)
+      return () => clearTimeout(t)
+    }
+    setCoverLifted(false)
+  }, [state])
+
+  // The iframe is only revealed when both: state is 'playing' AND the
+  // chrome-fade delay has elapsed. Every other case shows our opaque
+  // cover.
+  const isPlayingClean = state === 'playing' && coverLifted
+  const showCover = !isPlayingClean
+
+  // Which icon to render inside the cover. While we're waiting for
+  // playback to truly start (loading or post-PLAYING chrome-fade
+  // window), show a spinner so the user knows it's working — not the
+  // play button, which would suggest the video is paused awaiting
+  // input. Paused state gets a play button; ended state gets a
+  // replay icon.
+  const coverMode = state === 'paused'
+    ? 'play'
+    : state === 'ended'
+    ? 'replay'
+    : 'loading' // 'loading' state OR 'playing' but cover not yet lifted
 
   return (
     <div className={`absolute inset-0 bg-black overflow-hidden ${className}`}>
@@ -200,14 +244,14 @@ export default function YouTubePlayer({
         <div ref={containerRef} className="w-full h-full" />
       </div>
 
-      {/* Click-to-pause surface while playing. Transparent so the video
-          shows through; covers the whole frame so any click anywhere
-          on the video pauses (mirrors what YouTube's own controls=0
-          click-to-toggle would do, but routed through our state
-          machine so we know about it). Explicit z-10 is belt-and-
-          suspenders alongside the iframe's pointer-events:none — if
-          one fails, the other still keeps YT chrome out. */}
-      {isPlaying && (
+      {/* Click-to-pause surface during clean playback. Transparent so
+          the video shows through; covers the whole frame so a click
+          anywhere on the video pauses (mirrors what YouTube's own
+          controls=0 click-to-toggle would do, but routed through our
+          state machine so we know about it). Explicit z-10 is belt-
+          and-suspenders alongside the iframe's pointer-events:none —
+          if one fails, the other still keeps YT chrome out. */}
+      {isPlayingClean && (
         <button
           type="button"
           onClick={pause}
@@ -216,28 +260,37 @@ export default function YouTubePlayer({
         />
       )}
 
-      {/* Opaque cover for every non-playing state. This is what hides
-          YouTube's channel-name overlay, big play button, "Watch on
-          YouTube" badge, and end-screen — none of them are visible
-          because they're behind a fully opaque black surface. */}
-      {!isPlaying && (
+      {/* Opaque cover for every non-clean-playing state — load, post-
+          PLAYING chrome-fade window, paused, ended. Fully opaque
+          black surface that hides YouTube's intro chrome (channel
+          name + avatar, share button, central pause icon, "Watch on
+          YouTube" badge) and end-screen completely. */}
+      {showCover && (
         <button
           type="button"
-          onClick={play}
-          aria-label={state === 'ended' ? 'Replay' : 'Play'}
+          onClick={coverMode === 'loading' ? undefined : play}
+          aria-label={coverMode === 'replay' ? 'Replay' : coverMode === 'play' ? 'Play' : 'Loading'}
           className="absolute inset-0 z-10 bg-black flex items-center justify-center focus:outline-none cursor-pointer"
+          disabled={coverMode === 'loading'}
         >
-          <div className="bg-white/15 ring-1 ring-white/25 rounded-full w-16 h-16 flex items-center justify-center transition-transform hover:scale-105">
-            {state === 'ended' ? (
-              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            ) : (
-              <svg className="w-7 h-7 text-white" style={{ marginLeft: '3px' }} fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            )}
-          </div>
+          {coverMode === 'loading' ? (
+            <svg className="w-8 h-8 text-white/60 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          ) : (
+            <div className="bg-white/15 ring-1 ring-white/25 rounded-full w-16 h-16 flex items-center justify-center transition-transform hover:scale-105">
+              {coverMode === 'replay' ? (
+                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              ) : (
+                <svg className="w-7 h-7 text-white" style={{ marginLeft: '3px' }} fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              )}
+            </div>
+          )}
         </button>
       )}
 
