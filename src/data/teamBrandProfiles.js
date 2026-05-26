@@ -14,6 +14,10 @@
  *   tertiaryHex      — Third color if applicable (null if none)
  *   motifs           — Signature visual elements (checkerboard, houndstooth, etc.)
  *   helmet           — baseColor, logoMark, stripe, finish
+ *   logoDescription  — Detailed description of the primary athletic logo as it
+ *                      appears on social graphics (NOT the helmet sticker).
+ *                      Used by AI prompts so the generator can reproduce the
+ *                      mark accurately. 1-2 sentences.
  *   wordmarkStyle    — Typography character in 1 sentence
  *   visualEra        — "classic/traditional" | "modern/athletic" | "retro" |
  *                      "flashy/Nike-era" | "military/clean"
@@ -46,6 +50,7 @@ const BATCH_1 = {
       stripe: "single white center stripe",
       finish: "glossy"
     },
+    logoDescription: "An interlocking 'AF' monogram in deep navy blue with no outline, where the bold geometric capital 'A' and 'F' share a connecting stroke and read as a single sans-serif mark. Letterforms are slightly extended and squared off, navy as the sole color on a white background.",
     wordmarkStyle: "Stenciled, military block sans-serif inspired by aviation insignia",
     visualEra: "military/clean",
     homeJerseyColor: "blue",
@@ -67,6 +72,7 @@ const BATCH_1 = {
       stripe: "single navy center stripe",
       finish: "glossy"
     },
+    logoDescription: "A bold sans-serif capital 'A' in navy blue with a metallic Vegas gold inline outline. A small Vegas gold kangaroo tail curls out from the lower-right leg of the 'A', integrated into the letterform itself — not a separate mascot beside it. The mark reads as a single monogram, navy as the dominant color with gold as the highlight.",
     wordmarkStyle: "Serif/italic 'Akron' wordmark rotated at a 7-degree angle (per brand guide)",
     visualEra: "modern/athletic",
     homeJerseyColor: "navy blue",
@@ -88,6 +94,7 @@ const BATCH_1 = {
       stripe: "white-crimson-white center stripe",
       finish: "glossy"
     },
+    logoDescription: "A simple crimson script lowercase 'a' tilted slightly to the right, drawn as a single flowing brushstroke with a small open loop in the bowl. No outline, no drop shadow — solid crimson on white, rendered in a classic cursive style that has been essentially unchanged for decades.",
     wordmarkStyle: "Bold script 'Alabama' or condensed all-caps 'ALABAMA' in block sans-serif",
     visualEra: "classic/traditional",
     homeJerseyColor: "crimson",
@@ -109,6 +116,7 @@ const BATCH_1 = {
       stripe: "single gold center stripe",
       finish: "glossy"
     },
+    logoDescription: "A bold black block capital 'A' with a yellow-gold inner outline and a white outer outline, with the word 'Mountaineers' in a yellow-gold cursive script angled diagonally across the crossbar of the 'A'. The block letterform has slightly tapered serifs at the feet.",
     wordmarkStyle: "Modified ITC New Baskerville serif 'A' with cursive 'Mountaineers' wordmark",
     visualEra: "modern/athletic",
     homeJerseyColor: "black",
@@ -130,6 +138,7 @@ const BATCH_1 = {
       stripe: "single navy center stripe",
       finish: "glossy"
     },
+    logoDescription: "A solid block capital 'A' in navy blue with a thick red inner outline and white outer outline. The 'A' has a flat top, slightly slanted right legs, and a chunky horizontal crossbar — a classic varsity block letter rendered in Arizona's navy-and-red palette.",
     wordmarkStyle: "Bold block-serif 'ARIZONA' wordmark and angular block 'A' monogram",
     visualEra: "modern/athletic",
     homeJerseyColor: "cardinal red",
@@ -151,6 +160,7 @@ const BATCH_1 = {
       stripe: "single gold center stripe",
       finish: "glossy (chrome alternates)"
     },
+    logoDescription: "A three-pronged vertical pitchfork/trident in metallic gold with a maroon outline. The center prong rises taller than the two flanking prongs, each prong tapering to a sharp pointed tip, with a short crossbar near the base. Gold dominant, maroon as the defining outline.",
     wordmarkStyle: "Angular slab-serif 'ASU' with sharp pitchfork-inspired terminals",
     visualEra: "flashy/Nike-era",
     homeJerseyColor: "maroon",
@@ -172,6 +182,7 @@ const BATCH_1 = {
       stripe: "single white center stripe",
       finish: "glossy"
     },
+    logoDescription: "A side-profile cartoon razorback hog charging to the right in solid cardinal red, with no outline. The hog has a raised snout with visible upturned tusk, an open mouth, a small backward-pointing ear, and bristled fur along its back rendered as jagged red spikes. Solid red silhouette on white.",
     wordmarkStyle: "Custom block 'ARKANSAS' wordmark with razorback hog silhouette integrated",
     visualEra: "classic/traditional",
     homeJerseyColor: "cardinal red",
@@ -193,6 +204,7 @@ const BATCH_1 = {
       stripe: "single black center stripe",
       finish: "glossy"
     },
+    logoDescription: "A front-facing snarling wolf head in red and black with a white outline that keeps the eyes white. The wolf bares its teeth, with a black snout, black ear interiors, and red fur shaped into sharp angular tufts framing the face. Red is dominant, black provides shadow and detail.",
     wordmarkStyle: "Bold block-serif 'A-State' or 'Red Wolves' wordmark, aggressive sharp terminals",
     visualEra: "modern/athletic",
     homeJerseyColor: "scarlet red",
@@ -214,6 +226,7 @@ const BATCH_1 = {
       stripe: "black center stripe",
       finish: "glossy"
     },
+    logoDescription: "A stylized side-profile knight's helmet (visored medieval helm) in black with gold-yellow accents, facing right. The helm has a pointed visor slit, a plume crest, and gold detailing along the edges. Sometimes paired with crossed sabers behind, but the primary mark is the helmeted knight head in black and gold.",
     wordmarkStyle: "Stencil/military slab-serif 'ARMY' wordmark, often paired with West Point shield",
     visualEra: "military/clean",
     homeJerseyColor: "black",
@@ -235,6 +248,7 @@ const BATCH_1 = {
       stripe: "navy-orange-navy center stripe",
       finish: "glossy"
     },
+    logoDescription: "An interlocking 'AU' monogram in burnt orange with a navy blue outline. The capital 'A' sits to the left and the capital 'U' overlaps to its right, sharing a stroke so they read as a unified mark. Bold sans-serif letterforms, no drop shadow — orange fill, navy outline on white.",
     wordmarkStyle: "Galliard serif 'AUBURN' wordmark with interlocking AU monogram",
     visualEra: "classic/traditional",
     homeJerseyColor: "navy blue",
@@ -256,6 +270,7 @@ const BATCH_1 = {
       stripe: "red center stripe",
       finish: "glossy"
     },
+    logoDescription: "A side-profile cardinal head in cardinal red facing right, with a bold black beak, a small yellow-gold eye, and a prominent red crest of feathers swept back. The head has a black outline and black accent strokes defining the feathers around the face. Red dominant, black as outline, yellow only in the eye.",
     wordmarkStyle: "Bold sans-serif 'Ball State' wordmark; angled forward-leaning cardinal mark",
     visualEra: "modern/athletic",
     homeJerseyColor: "red",
@@ -277,6 +292,7 @@ const BATCH_1 = {
       stripe: "gold-white-gold center stripe",
       finish: "glossy"
     },
+    logoDescription: "An interlocking 'BU' monogram in forest green with a gold drop shadow or gold outline. The capital 'B' sits to the left and the 'U' overlaps to its right with rounded, slightly italicized letterforms. Often the primary athletic mark is a stylized bear head with bared teeth in gold and green — a snarling profile bear in gold with green details and outline.",
     wordmarkStyle: "Custom slab-serif 'BAYLOR' wordmark with intersecting BU monogram",
     visualEra: "modern/athletic",
     homeJerseyColor: "green",
@@ -298,6 +314,7 @@ const BATCH_1 = {
       stripe: "single orange center stripe",
       finish: "glossy"
     },
+    logoDescription: "A side-profile bronco (horse) head in bright orange facing right, with a flowing mane and an angry expression — bared teeth, flared nostril, and a visible blue eye. A blue outline traces the orange silhouette, and a few blue accent strokes define the mane and muzzle. Orange dominant, blue as outline detail.",
     wordmarkStyle: "Bold geometric sans-serif (Gotham-family) 'BOISE STATE' wordmark",
     visualEra: "modern/athletic",
     homeJerseyColor: "blue",
@@ -319,6 +336,7 @@ const BATCH_1 = {
       stripe: "maroon center stripe",
       finish: "glossy"
     },
+    logoDescription: "An interlocking 'BC' monogram in maroon with a gold outline, the capital letters slightly slanted and overlapping. Above the monogram sits a stylized eagle head in profile facing left, rendered in maroon with gold beak and eye details. Maroon dominant, gold as accent outline.",
     wordmarkStyle: "Custom serif 'Boston College' wordmark and eagle-perched interlocking BC mark",
     visualEra: "classic/traditional",
     homeJerseyColor: "maroon",
@@ -340,6 +358,7 @@ const BATCH_1 = {
       stripe: "brown center stripe",
       finish: "glossy"
     },
+    logoDescription: "A stylized 'BG' monogram in burnt orange that doubles as a peregrine falcon's head — the curve of the 'B' forms the falcon's eye and brow, while the 'G' tucks underneath as the lower jaw. A tan/light-gold beak juts to the right, and brown accents define the contours. Orange dominant, brown outline, tan beak.",
     wordmarkStyle: "Bold custom 'BG' or 'Falcons' athletic wordmark with sharp angular cuts",
     visualEra: "modern/athletic",
     homeJerseyColor: "orange",
@@ -361,6 +380,7 @@ const BATCH_1 = {
       stripe: "single white center stripe",
       finish: "glossy"
     },
+    logoDescription: "A stretched, slightly italicized oval 'Y' in royal blue with a white inner outline and a thin secondary navy outline. Some versions stack a small 'BYU' wordmark or a cougar head with the letter, but the primary athletic mark is the stylized 'Y' alone — a bold sans-serif letterform with squared terminals.",
     wordmarkStyle: "Custom serif 'BYU' lockup; bold athletic 'COUGARS' wordmark",
     visualEra: "classic/traditional",
     homeJerseyColor: "navy blue",
@@ -382,6 +402,7 @@ const BATCH_1 = {
       stripe: "single white center stripe",
       finish: "glossy"
     },
+    logoDescription: "A stacked 'UB' monogram in deep royal blue, where the capital 'U' sits at the top-left and a capital 'B' overlaps diagonally below and to the right, the two letters sharing a stroke. Solid blue with no outline, no drop shadow — a clean minimalist mark in a single bold sans-serif color.",
     wordmarkStyle: "Bold collegiate sans-serif 'BUFFALO' wordmark with sharp UB monogram",
     visualEra: "modern/athletic",
     homeJerseyColor: "royal blue",
@@ -403,6 +424,7 @@ const BATCH_1 = {
       stripe: "single navy center stripe",
       finish: "glossy"
     },
+    logoDescription: "A flowing cursive script lowercase 'Cal' in navy blue with no outline, drawn as a single connected brushstroke. The 'C' opens wide with a long initial flourish, the lowercase 'a' has a closed bowl, and the 'l' terminates in a small upward tail. Solid navy on white — no gold in the mark itself.",
     wordmarkStyle: "Iconic flowing italic 'Cal' script in Berkeley blue",
     visualEra: "classic/traditional",
     homeJerseyColor: "Berkeley blue (navy)",
@@ -424,6 +446,7 @@ const BATCH_1 = {
       stripe: "gold center stripe",
       finish: "glossy"
     },
+    logoDescription: "A bold square-edged block capital 'C' in maroon, slightly slanted to the right and underlined by a short maroon bar, with horizontal openings (three stacked tongue-like prongs) emerging from the inside of the C as if rushing forward. Often called the 'Flying C' or 'Action C' — solid maroon, no outline.",
     wordmarkStyle: "Italic underlined 'Flying C'; Antarctican Headline typeface for athletic lockups",
     visualEra: "modern/athletic",
     homeJerseyColor: "maroon",
@@ -445,6 +468,7 @@ const BATCH_1 = {
       stripe: "gold center stripe",
       finish: "glossy"
     },
+    logoDescription: "A forward-slanting block capital 'C' in dark green with a gold inner outline, tilted at roughly 9 degrees. A gold-and-black miner's pickaxe sits inside the negative space of the 'C', angled diagonally with the head pointing toward the upper opening. Green dominant, gold as accent and outline.",
     wordmarkStyle: "Bold athletic custom 'CHARLOTTE' wordmark with pickaxe integration",
     visualEra: "modern/athletic",
     homeJerseyColor: "green",
@@ -466,6 +490,7 @@ const BATCH_1 = {
       stripe: "no stripe — solid orange",
       finish: "glossy"
     },
+    logoDescription: "A side-profile tiger paw print in solid Clemson orange, tilted slightly to the right at about 10 degrees. The mark consists of one large central pad and four smaller toe pads above it, all in flat orange with no outline. Sometimes shown with a thin white separation between pads. Pure orange on white.",
     wordmarkStyle: "Block condensed athletic 'CLEMSON' wordmark; paw print mark",
     visualEra: "classic/traditional",
     homeJerseyColor: "orange",
@@ -487,6 +512,7 @@ const BATCH_1 = {
       stripe: "varies; often matte teal/black",
       finish: "glossy (matte and chrome alternates frequent)"
     },
+    logoDescription: "A side-profile chanticleer rooster head facing right, rendered in teal with bronze/copper accents and a thick black outline. The rooster has a prominent black-outlined comb on top, a sharp pointed bronze beak, a small white eye, and curving teal wattles below the jaw. Teal dominant, bronze and black as outline and detail.",
     wordmarkStyle: "Bold custom 'COASTAL' or 'CCU' wordmark with rooster integration",
     visualEra: "flashy/Nike-era",
     homeJerseyColor: "teal",
@@ -508,6 +534,7 @@ const BATCH_1 = {
       stripe: "black center stripe",
       finish: "chrome/metallic gold (matte black alternates)"
     },
+    logoDescription: "A side-profile galloping buffalo silhouette in solid black, facing right, with a single bold white stripe (often called 'Ralphie') down the body. The buffalo has a hunched shoulder hump, a lowered head with curved horn, and four legs in stride. Solid black with white interior detailing — no outline, no other colors.",
     wordmarkStyle: "Helvetica Neue Condensed all-caps 'COLORADO' and 'BUFFS'; interlocking CU monogram",
     visualEra: "modern/athletic",
     homeJerseyColor: "black",
@@ -529,6 +556,7 @@ const BATCH_1 = {
       stripe: "single gold center stripe",
       finish: "glossy"
     },
+    logoDescription: "A front-facing ram's head in white with a green interior outlined in gold, set against the green fill of the head silhouette. The ram has two large curling horns spiraling outward and down on either side, a narrow muzzle, and pointed ears. The mark reads as a white-and-green ram with gold outline accents.",
     wordmarkStyle: "Vitesse-family slab serif; bold 'CSU' or 'RAMS' lockup",
     visualEra: "modern/athletic",
     homeJerseyColor: "green",
@@ -550,6 +578,7 @@ const BATCH_1 = {
       stripe: "white center stripe",
       finish: "glossy"
     },
+    logoDescription: "A front-facing husky dog head with intense forward-staring blue eyes, rendered in navy blue, white, gray, and red. The face has a distinctive husky 'mask' — white around the muzzle and brows with navy markings above the eyes — and a small red tongue or accent. Navy dominant with white face mask, red as a small detail.",
     wordmarkStyle: "Bold modern sans-serif 'UCONN' wordmark; custom extended 'Connecticut' wordmark",
     visualEra: "modern/athletic",
     homeJerseyColor: "navy blue",
@@ -571,6 +600,7 @@ const BATCH_1 = {
       stripe: "white center stripe",
       finish: "glossy"
     },
+    logoDescription: "A side-profile cartoon blue devil head facing left, in royal Duke blue with white facial details. The devil has a curled goatee, a long pointed nose, swept-back horns, and a mischievous grin showing teeth. Sometimes paired with a 'D' but the primary athletic mark is the devil head — blue fill, white outline and interior details.",
     wordmarkStyle: "Garamond LT 3 academic serif 'Duke'; athletic bold sans-serif with the gem-shaped 'D'",
     visualEra: "classic/traditional",
     homeJerseyColor: "Duke royal blue",
@@ -592,6 +622,7 @@ const BATCH_1 = {
       stripe: "gold center stripe",
       finish: "glossy (chrome and matte alternates seen)"
     },
+    logoDescription: "A stylized Jolly Roger pirate skull facing forward, wearing a purple pirate hat tilted slightly with a small skull-and-crossbones emblem on the hat band. The skull is white/gray with a wide grin showing two rows of teeth, and gold trim accents the hat. Purple and gold dominant, white skull, black outlining.",
     wordmarkStyle: "Matrix Extra Bold custom 'ECU' / 'PIRATES' wordmark with serif accents",
     visualEra: "modern/athletic",
     homeJerseyColor: "purple",
@@ -613,6 +644,7 @@ const BATCH_1 = {
       stripe: "white center stripe",
       finish: "glossy"
     },
+    logoDescription: "A bold geometric block capital 'E' in dark forest green with no outline, drawn in a thick sans-serif style with three squared horizontal arms and sharply cut terminals. Solid green on white — a clean minimalist single-letter monogram with no eagle imagery in the primary mark.",
     wordmarkStyle: "Bold geometric block 'E' monogram; Myriad Pro for body type",
     visualEra: "modern/athletic",
     homeJerseyColor: "green",
@@ -634,6 +666,7 @@ const BATCH_1 = {
       stripe: "red center stripe",
       finish: "glossy"
     },
+    logoDescription: "A front-facing burrowing owl head in deep navy blue with bright red and gray accents. The owl has two large round eyes with red irises and black pupils, prominent dark brow ridges that angle inward aggressively, a small downturned beak between the eyes, and gray feather tufts framing the face. Navy dominant, red eyes as focal point.",
     wordmarkStyle: "Bold athletic custom 'FAU' / 'OWLS' wordmark with serif accents",
     visualEra: "modern/athletic",
     homeJerseyColor: "navy blue",
@@ -655,6 +688,7 @@ const BATCH_1 = {
       stripe: "single blue center stripe",
       finish: "glossy"
     },
+    logoDescription: "An interlocking capital 'F' that doubles as a stylized gator silhouette, rendered in Florida orange with a royal blue outline. The vertical stem and crossbars of the 'F' are shaped to suggest a gator's body and tail, and the upper portion curls into a snout. Orange fill, blue outline — the iconic 'Pouncing Gator F' mark.",
     wordmarkStyle: "Iconic flowing italic 'Gators' script in blue with orange shadow; athletic 'F' with gator-head accent",
     visualEra: "classic/traditional",
     homeJerseyColor: "blue",
@@ -676,6 +710,7 @@ const BATCH_1 = {
       stripe: "gold center stripe",
       finish: "glossy"
     },
+    logoDescription: "A stacked 'FIU' monogram in navy blue with gold outline, with a stylized panther mid-leap in gold and navy positioned beneath or beside the letters, front paw extended forward in a charging pose. Navy dominant for letterforms, gold as outline and accent on the panther.",
     wordmarkStyle: "Bold block 'FIU' wordmark with gold outline; custom 'Panthers' athletic mark",
     visualEra: "modern/athletic",
     homeJerseyColor: "navy blue",
@@ -697,6 +732,7 @@ const BATCH_1 = {
       stripe: "single garnet center stripe",
       finish: "glossy (matte black, chrome alternates exist)"
     },
+    logoDescription: "A side-profile Seminole warrior head facing right, wearing a feathered headdress, rendered in garnet red with gold outline and gold feather accents. The face has stern features with a slightly downturned mouth and a prominent nose, with two long feathers (one gold, one garnet) trailing back from the headband. Garnet and gold are equally prominent.",
     wordmarkStyle: "Custom 'Seminoles' wordmark with swooping garnet/gold underline; FSU stair-step monogram",
     visualEra: "classic/traditional",
     homeJerseyColor: "garnet",
@@ -724,6 +760,7 @@ const BATCH_2 = {
       stripe: "navy center stripe",
       finish: "glossy"
     },
+    logoDescription: "Snarling left-facing bulldog head wearing a red V-neck collar/jersey. The bulldog is rendered in white and cream with a heavy navy blue outline, bared white teeth, and a red protruding tongue. Aggressive cartoon style with sharp angular shadows, no wordmark in the primary mark.",
     wordmarkStyle: "Heavy aggressive collegiate block with italic forward lean; bulldog face often integrated into the F.",
     visualEra: "modern/athletic",
     homeJerseyColor: "red",
@@ -745,6 +782,7 @@ const BATCH_2 = {
       stripe: "black center stripe flanked by thin white stripes",
       finish: "glossy"
     },
+    logoDescription: "Oval-shaped 'G' monogram — a thick block sans-serif capital G with squared terminals, in solid red with a white inner outline and a black outer outline. The interior counter of the G is open (transparent). Clean, geometric, no drop shadow or internal detail. Nearly identical in shape to the Green Bay Packers G.",
     wordmarkStyle: "Classic athletic block serif/sans, often with the iconic oval 'G' standing alone as the primary mark.",
     visualEra: "classic/traditional",
     homeJerseyColor: "red",
@@ -766,6 +804,7 @@ const BATCH_2 = {
       stripe: "single white center stripe",
       finish: "glossy"
     },
+    logoDescription: "Side-profile eagle head facing right with an open hooked yellow-gold beak. The head feathers are rendered in solid navy blue with detailed white feather lines, a piercing yellow eye, and a thin yellow outline separating the head from the background. Aggressive, stylized, no wordmark in the primary mark.",
     wordmarkStyle: "Modern angular collegiate block sans-serif with sharp italicized cuts.",
     visualEra: "modern/athletic",
     homeJerseyColor: "navy blue",
@@ -787,6 +826,7 @@ const BATCH_2 = {
       stripe: "single white center stripe",
       finish: "glossy"
     },
+    logoDescription: "Snarling panther head facing forward and slightly left, rendered in royal blue with sharp white fang teeth, a glowing yellow eye, and a small red tongue tip. The head is outlined and detailed with crisp white internal lines defining the muzzle, brow, and fur edges. No wordmark on the primary mark.",
     wordmarkStyle: "Bold blocky uppercase slab with 3D depth and white outline; collegiate traditional.",
     visualEra: "modern/athletic",
     homeJerseyColor: "royal blue",
@@ -808,6 +848,7 @@ const BATCH_2 = {
       stripe: "navy and white center stripes",
       finish: "glossy"
     },
+    logoDescription: "Interlocking 'GT' monogram — a stylized block G with a tucked-in block T whose horizontal crossbar passes through the open mouth of the G. Rendered in metallic old gold with a navy blue drop shadow on the right and bottom edges, giving it a 3D beveled appearance. No outline beyond the shadow.",
     wordmarkStyle: "Custom angular sans-serif with the 'T' inspired by Tech Tower; Zuume Cut typeface for headers.",
     visualEra: "classic/traditional",
     homeJerseyColor: "white",
@@ -829,6 +870,7 @@ const BATCH_2 = {
       stripe: "none or thin silver",
       finish: "glossy"
     },
+    logoDescription: "Stylized block 'H' shape rendered in solid dark green, with the crossbar replaced by a horizontal wave pattern of small white triangular tapa (kapa) cuts running across the middle. The two vertical legs of the H have additional triangular notches along their inner edges. Compact, squared proportions, no outline.",
     wordmarkStyle: "Custom stylized H with totem-pole/tribal angled silhouette evoking Polynesian carving.",
     visualEra: "modern/athletic",
     homeJerseyColor: "green",
@@ -850,6 +892,7 @@ const BATCH_2 = {
       stripe: "single white center stripe",
       finish: "glossy"
     },
+    logoDescription: "Interlocking 'UH' monogram — a block serif capital U with a block serif capital H tucked inside its right side, the right vertical of the U merging with the left vertical of the H. Rendered in solid scarlet red with a thin white inline outline and a darker red beveled drop shadow giving a subtle 3D effect. Compact square proportions.",
     wordmarkStyle: "Bold collegiate athletic block sans-serif with strong stroke contrast.",
     visualEra: "modern/athletic",
     homeJerseyColor: "red",
@@ -871,6 +914,7 @@ const BATCH_2 = {
       stripe: "navy/orange center stripes",
       finish: "glossy"
     },
+    logoDescription: "Bold geometric block 'I' with flared serif caps on top and bottom and a narrow center waist. Rendered in solid bright orange with a clean dark navy blue outline. No drop shadow, no internal detail, no wordmark. Tall vertical proportions, completely symmetrical.",
     wordmarkStyle: "Illinois Block — a custom collegiate block letterform created in 2013 by Daniel Heikkinen.",
     visualEra: "modern/athletic",
     homeJerseyColor: "orange",
@@ -892,6 +936,7 @@ const BATCH_2 = {
       stripe: "none on helmet typically",
       finish: "glossy"
     },
+    logoDescription: "Interlocking 'IU' monogram — a block sans-serif capital I overlapping a block sans-serif capital U, with the U's left vertical passing behind the I. Rendered in solid crimson red on white (or solid white on crimson). No outline, no shadow, no internal detail. Clean, flat, geometric.",
     wordmarkStyle: "Hoosier Bold — a custom collegiate block sans-serif, paired with the iconic IU trident monogram.",
     visualEra: "classic/traditional",
     homeJerseyColor: "crimson",
@@ -913,6 +958,7 @@ const BATCH_2 = {
       stripe: "none (clean Steelers-inspired)",
       finish: "glossy"
     },
+    logoDescription: "Tigerhawk — a stylized side-profile hawk head facing right, rendered as a single flat silhouette in solid black with bright gold accents inside. The shape resembles a flowing comma or wing curl, with a sharp pointed beak at the front, a hooked eye-and-brow cut, and a swooping feathered tail at the back. No outline, no wordmark.",
     wordmarkStyle: "Block IOWA — clean, heavy slab/sans uppercase paired with the Tigerhawk profile mark.",
     visualEra: "classic/traditional",
     homeJerseyColor: "black",
@@ -934,6 +980,7 @@ const BATCH_2 = {
       stripe: "gold center stripe",
       finish: "glossy"
     },
+    logoDescription: "'I-STATE' lockup — a tall block serif capital I in cardinal red with thick gold outlining, overlapped by an arched 'STATE' wordmark in matching gold-and-cardinal serif capitals that curves across the middle of the I. Three-dimensional layered appearance with the STATE banner appearing to wrap in front of the I.",
     wordmarkStyle: "ITC Berkeley Old Style serif paired with bold athletic block 'I-State' lockup.",
     visualEra: "classic/traditional",
     homeJerseyColor: "cardinal red",
@@ -955,6 +1002,7 @@ const BATCH_2 = {
       stripe: "black center stripe",
       finish: "glossy"
     },
+    logoDescription: "Vintage 'Fightin' Gamecock' mark — a feisty rooster (gamecock) in mid-stride leaning forward with raised wings and clenched fists, wearing boxing gloves or in fighting pose. Rendered in two-color black and white with bold linework, sharp comb and wattle details, and an aggressive expression. Throwback cartoon style with thick outlines.",
     wordmarkStyle: "Bold slanted/italicized condensed uppercase sans-serif 'JAX STATE' with thin inline strokes (2023 refresh for FBS jump).",
     visualEra: "flashy/Nike-era",
     homeJerseyColor: "red",
@@ -976,6 +1024,7 @@ const BATCH_2 = {
       stripe: "gold center stripe",
       finish: "glossy"
     },
+    logoDescription: "'JMU' wordmark — three bold block sans-serif capital letters tightly spaced, rendered in metallic gold with a thick royal purple outline. Slight forward slant or stylized angular cuts on the letterforms. No mascot in the primary mark, no drop shadow, clean flat two-color treatment.",
     wordmarkStyle: "Bold collegiate JMU monogram in gold over purple banner with gold trim; refined uppercase sans 'MADISON' wordmark.",
     visualEra: "modern/athletic",
     homeJerseyColor: "purple",
@@ -997,6 +1046,7 @@ const BATCH_2 = {
       stripe: "crimson center stripe with white pinstripes",
       finish: "glossy"
     },
+    logoDescription: "Side-profile Jayhawk bird facing right, mid-stride with one yellow boot stepping forward. The body is bright crimson red with bold blue wings, a blue head with a yellow hooked beak, and a wide cartoon grin showing teeth. Distinctive yellow shoes/boots. Outlined in solid black with crisp internal color blocking.",
     wordmarkStyle: "Custom Trajan-derived serif KU monogram with extended 'K' leg representing Mount Oread.",
     visualEra: "classic/traditional",
     homeJerseyColor: "blue",
@@ -1018,6 +1068,7 @@ const BATCH_2 = {
       stripe: "single white center stripe",
       finish: "glossy"
     },
+    logoDescription: "'Powercat' — a side-profile snarling wildcat head facing left, rendered as a single flat silhouette in solid royal purple. Distinctive features include a sharp pointed ear, a curved brow, a fang showing through the open mouth, and an angled negative-space cut defining the eye and cheek. No outline on light backgrounds, white version on dark.",
     wordmarkStyle: "Bold collegiate athletic block sans paired with the iconic Powercat profile.",
     visualEra: "classic/traditional",
     homeJerseyColor: "purple",
@@ -1039,6 +1090,7 @@ const BATCH_2 = {
       stripe: "thin gold center stripe",
       finish: "glossy"
     },
+    logoDescription: "Stylized owl head facing forward with angular geometric feathers, rendered in solid black with bright gold accents in the eyes, beak, and feather highlights. Large piercing gold-and-black eyes, sharp pointed ear tufts, and a hooked gold beak. Often paired with or replaced by an interlocking black-and-gold 'KS' monogram.",
     wordmarkStyle: "Sharp geometric sans-serif with triangular terminations; interlocking KS monogram is signature.",
     visualEra: "modern/athletic",
     homeJerseyColor: "black",
@@ -1060,6 +1112,7 @@ const BATCH_2 = {
       stripe: "gold center stripe",
       finish: "glossy"
     },
+    logoDescription: "Bold block 'K' in royal blue with a thick gold outline, integrated with a stylized golden eagle head and lightning bolt that swoops behind the K from the upper right. The eagle's neck and the lightning bolt are the same fluid shape in gold with blue outline trim. Compact, modern, geometric.",
     wordmarkStyle: "Aggressive italic athletic block — modified National Black Italic with rectangular serifs and sharp triangular cuts.",
     visualEra: "modern/athletic",
     homeJerseyColor: "navy blue",
@@ -1081,6 +1134,7 @@ const BATCH_2 = {
       stripe: "single white center stripe",
       finish: "glossy"
     },
+    logoDescription: "Interlocking 'UK' monogram — a bold sans-serif capital U and K with sharp clean angles, overlapping so the right stroke of the U merges with the left vertical of the K. Rendered as a single solid color (royal blue on white backgrounds, white on royal blue backgrounds). No outline, no drop shadow, no internal detail. Compact, square proportions.",
     wordmarkStyle: "Clean bold collegiate block paired with the iconic interlocking UK monogram (Mercury and Avenir typefaces).",
     visualEra: "classic/traditional",
     homeJerseyColor: "royal blue",
@@ -1102,6 +1156,7 @@ const BATCH_2 = {
       stripe: "red and white center stripe",
       finish: "glossy"
     },
+    logoDescription: "Stylized eagle head facing left, rendered in navy blue with red and white accents and subtle gray shading. Sharp angular feathers on the crown, a hooked yellow-gold beak, and a fierce eye. Often accompanied by a smaller 'LU' monogram. Dimensional layered look with crisp navy-and-red color blocking.",
     wordmarkStyle: "Champion Sans/Champion Serif family — strong condensed athletic block typefaces.",
     visualEra: "modern/athletic",
     homeJerseyColor: "navy blue",
@@ -1123,6 +1178,7 @@ const BATCH_2 = {
       stripe: "black or white center stripe",
       finish: "glossy"
     },
+    logoDescription: "Bold 'UL' or 'Louisiana' wordmark in chunky block sans-serif capitals, rendered in solid vermillion red with a thin black outline. The current minimalist primary mark is the 'Louisiana' wordmark in arched red letters; older versions feature a fleur-de-lis inside a circular medallion. Flat two-color treatment.",
     wordmarkStyle: "Bold condensed athletic block sans-serif with aggressive italic 'LOUISIANA' / 'RAGIN CAJUNS' lettering.",
     visualEra: "modern/athletic",
     homeJerseyColor: "vermilion red",
@@ -1144,6 +1200,7 @@ const BATCH_2 = {
       stripe: "maroon and gold center stripes",
       finish: "glossy"
     },
+    logoDescription: "Side-profile hawk head facing right with an aggressive open beak. Rendered primarily in maroon with gold and black accents, sharp angular feathers on the crown, and a piercing gold eye. The beak is hooked and metallic gold. Crisp linework with bold internal feather detail.",
     wordmarkStyle: "Bold collegiate block serif 'ULM' monogram with gold outline and Warhawk integrated into the center letter.",
     visualEra: "modern/athletic",
     homeJerseyColor: "maroon",
@@ -1165,6 +1222,7 @@ const BATCH_2 = {
       stripe: "red and white center stripes",
       finish: "glossy"
     },
+    logoDescription: "Bold block serif 'LA Tech' lockup with a large red capital T centered over the outlined shape of the state of Louisiana, flanked by 'LA' in blue serif letters on the left and 'Tech' in red serif letters on the right. The state outline appears behind in a muted tone. Two-color red and navy blue palette.",
     wordmarkStyle: "Bold collegiate slab/block serif 'LA TECH' with the Louisiana state outline as a backdrop.",
     visualEra: "classic/traditional",
     homeJerseyColor: "blue",
@@ -1186,6 +1244,7 @@ const BATCH_2 = {
       stripe: "black center stripe",
       finish: "glossy"
     },
+    logoDescription: "Side-profile cardinal bird head facing left, rendered in bright cardinal red with a black-outlined yellow beak and a small black eye. Distinctive sharp black crest feathers on top of the head, and a bold black mask-like patch around the beak and eye. Clean two-color treatment with crisp outlines.",
     wordmarkStyle: "Aggressive collegiate block (Gotham/Knockout family) paired with the iconic snarling Cardinal Bird head.",
     visualEra: "modern/athletic",
     homeJerseyColor: "red",
@@ -1207,6 +1266,7 @@ const BATCH_2 = {
       stripe: "purple and gold center stripes",
       finish: "glossy"
     },
+    logoDescription: "Interlocking 'LSU' monogram — a block serif capital L, S, and U overlapping in a tight horizontal lockup. Rendered in royal purple with a thick metallic gold outline, or alternately in solid gold with purple outline. The S weaves through the L and U. No drop shadow, clean geometric serifs.",
     wordmarkStyle: "Forza typeface — squared-off geometric athletic sans that mirrors the iconic LSU interlocking monogram.",
     visualEra: "classic/traditional",
     homeJerseyColor: "white (home tradition — LSU famously wears white at home)",
@@ -1228,6 +1288,7 @@ const BATCH_2 = {
       stripe: "single white center stripe",
       finish: "glossy"
     },
+    logoDescription: "Bold block serif capital 'M' in kelly green with a snarling bison (buffalo) head emerging from the top of the M, the bison rendered in matching green with white tusks/horns and detailed fur linework. The bison head fits within the silhouette of the M's peak. Clean two-color green-and-white treatment.",
     wordmarkStyle: "Bold custom italic collegiate block with strong forward slant — aggressive athletic sans.",
     visualEra: "modern/athletic",
     homeJerseyColor: "kelly green",
@@ -1249,6 +1310,7 @@ const BATCH_2 = {
       stripe: "Maryland flag pattern stripe",
       finish: "glossy or matte"
     },
+    logoDescription: "Block sans-serif capital 'M' with the four-quadrant Maryland state flag pattern filling its interior — red-and-white Crossland cross-bottony quadrants alternating with black-and-gold Calvert checkered quadrants. The M is outlined in black with a thin underscore bar beneath it. Distinctive multi-color heraldic fill.",
     wordmarkStyle: "Terrafont — bold serif with massive triangular serifs, all-caps only; preeminent brand font.",
     visualEra: "flashy/Nike-era",
     homeJerseyColor: "red",
@@ -1270,6 +1332,7 @@ const BATCH_2 = {
       stripe: "gray/white center stripes",
       finish: "glossy"
     },
+    logoDescription: "Bold block serif capital 'M' in deep blue with a snarling tiger head and shoulders leaping forward over the top of the M. The tiger is gray with black stripes, white fang teeth, a piercing eye, and aggressive features. The M has classic serifs and balanced verticals. Clean blue-and-gray treatment with white accents.",
     wordmarkStyle: "Custom serif/angular athletic 'MEMPHIS' / 'TIGERS' with bold cuts; iconic Block M is the primary mark.",
     visualEra: "modern/athletic",
     homeJerseyColor: "blue",
@@ -1291,6 +1354,7 @@ const BATCH_2 = {
       stripe: "orange and green center stripes",
       finish: "glossy"
     },
+    logoDescription: "Split-color 'U' monogram — a bold block sans-serif capital U with the left half rendered in orange and the right half rendered in green, divided by a thin white vertical line down the center. Outlined in white or set against a solid background. Tall proportions, no serifs, completely flat color blocking.",
     wordmarkStyle: "Bold collegiate athletic block paired with the iconic split-U monogram (orange + green halves).",
     visualEra: "classic/traditional",
     homeJerseyColor: "orange",
@@ -1312,6 +1376,7 @@ const BATCH_2 = {
       stripe: "single white center stripe",
       finish: "glossy"
     },
+    logoDescription: "Bold angular block 'M' with sharp serifs and dynamic slanted cuts at the top and bottom strokes, giving it an aggressive forward-leaning look. Rendered in solid scarlet red with a thick black outline. No internal detail, no wordmark, no drop shadow. Geometric and modern.",
     wordmarkStyle: "Iconic chiseled/three-dimensional sculpted Beveled M with shadow-and-highlight depth; custom collegiate serif 'MIAMI' wordmark.",
     visualEra: "classic/traditional",
     homeJerseyColor: "red",
@@ -1333,6 +1398,7 @@ const BATCH_2 = {
       stripe: "maize stripes forming the iconic wing pattern across the front",
       finish: "glossy"
     },
+    logoDescription: "Block 'M' — a wide block sans-serif capital M with squared terminals, slightly slanted inner diagonal strokes, and a deep V-notch in the center that does not touch the baseline. Rendered in metallic maize yellow with no outline (on blue backgrounds) or in navy blue (on light backgrounds). Flat, clean, no drop shadow.",
     wordmarkStyle: "Block M paired with custom Michigan athletic block typography.",
     visualEra: "classic/traditional",
     homeJerseyColor: "navy blue",
@@ -1354,6 +1420,7 @@ const BATCH_2 = {
       stripe: "single white center stripe",
       finish: "glossy"
     },
+    logoDescription: "Side-profile Spartan helmet facing right, rendered in solid kelly green with a tall horizontal Mohawk-style plume crest running across the top. White accents define the eye slit, cheek guard, and helmet contours. Sharp angular geometry, no wordmark, clean two-color green-and-white treatment.",
     wordmarkStyle: "Bold custom Spartan block paired with the iconic Spartan-helmet-profile mark; Metropolis typeface for system use.",
     visualEra: "classic/traditional",
     homeJerseyColor: "Spartan green",
@@ -1375,6 +1442,7 @@ const BATCH_2 = {
       stripe: "white/black center stripe",
       finish: "glossy"
     },
+    logoDescription: "Block sans-serif 'MT' monogram in royal blue with a winged horse (Pegasus) leaping forward over the top, rendered in white with crisp linework. A jagged gold lightning bolt strikes diagonally behind the horse from the upper right. Layered three-element composition with blue, white, and gold.",
     wordmarkStyle: "Bold custom collegiate block sans-serif 'MIDDLE TENNESSEE' / 'BLUE RAIDERS' with sharp athletic block and lightning bolt accents.",
     visualEra: "modern/athletic",
     homeJerseyColor: "royal blue",
@@ -1397,6 +1465,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["block M"],
     helmet: { baseColor: "maroon", logoMark: "block M", stripe: "gold center stripe", finish: "glossy" },
+    logoDescription: "An interlocking block 'M' formed by a maroon 'M' with a gold outline, often shown with a subtle white inner highlight. The serifed letterform sits squared and bold, with the maroon-and-gold contrast giving the mark a clean collegiate monogram look.",
     wordmarkStyle: "Heavy slab-serif Block M with gold-and-maroon trim; very traditional collegiate look.",
     visualEra: "classic/traditional",
     homeJerseyColor: "maroon",
@@ -1413,6 +1482,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["M over STATE banner", "cowbell"],
     helmet: { baseColor: "maroon", logoMark: "block M with STATE banner", stripe: "white center stripe", finish: "glossy" },
+    logoDescription: "A bold maroon block 'M' with a white inner inline and a gray drop shadow, the M's two outer legs angled slightly outward. Often appears with the word 'STATE' set in a thin white banner across the lower third of the letter.",
     wordmarkStyle: "Bold Agency-family condensed block letters; the M with arched STATE banner is iconic.",
     visualEra: "classic/traditional",
     homeJerseyColor: "maroon",
@@ -1429,6 +1499,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["tiger stripes", "athletic Tiger Head"],
     helmet: { baseColor: "black", logoMark: "Athletic Tiger Head", stripe: "gold center stripe", finish: "glossy" },
+    logoDescription: "A bold block 'M' in Mizzou gold (a deep yellow-gold) with a black outline, the letter's interior cut so the inner shapes form a stylized tiger silhouette negative space. The mark reads as a clean two-color monogram, gold dominant with black edging.",
     wordmarkStyle: "Custom Nike-designed athletic block with tiger-ear-inspired sleek serifs; bold, no lowercase version.",
     visualEra: "modern/athletic",
     homeJerseyColor: "black",
@@ -1445,6 +1516,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["anchor", "Bill the Goat", "naval star"],
     helmet: { baseColor: "gold", logoMark: "anchor with N* or USNA wordmark", stripe: "navy center stripe", finish: "glossy" },
+    logoDescription: "A goat-head profile in profile view rendered in Navy blue with gold horns curling back, set above or beside a block 'N'. The primary athletic mark is the fierce Bill the Goat head — bearded, with a determined glare — in navy and gold only.",
     wordmarkStyle: "Traditional collegiate serif block; military-clean, restrained, with anchor or N-star insignia.",
     visualEra: "military/clean",
     homeJerseyColor: "navy",
@@ -1461,6 +1533,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["Block S with vertical NC", "wolf head", "Tuffy paw"],
     helmet: { baseColor: "red", logoMark: "Block S with vertical N-C", stripe: "black-and-white center stripe", finish: "glossy" },
+    logoDescription: "A bold italicized block 'NC STATE' or, more commonly on score graphics, the standalone italic block 'S' in red with a white inline outline and black drop shadow. The Strutting Wolf mark — a side-profile wolf in red and black — also appears as the primary athletic logo.",
     wordmarkStyle: "Custom NC State block — tall, athletic, with the iconic 'Block S' containing vertical N and C letters.",
     visualEra: "classic/traditional",
     homeJerseyColor: "red",
@@ -1477,6 +1550,7 @@ const BATCH_3 = {
     tertiaryHex: "#FDF2D9",
     motifs: ["Block N", "corn", "Blackshirts skull-and-crossbones"],
     helmet: { baseColor: "red", logoMark: "Block N", stripe: "white center stripe", finish: "glossy" },
+    logoDescription: "A bold red block 'N' with squared serifs and a clean white inner cut, set on a white or transparent background. The letterform is broad and flat-topped, instantly recognizable as a single solid scarlet 'N' with no outline or shadow.",
     wordmarkStyle: "Custom ITC Clearface-based serif Block N with white-and-red trim; classic and stable since the '70s.",
     visualEra: "classic/traditional",
     homeJerseyColor: "red",
@@ -1493,6 +1567,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["wolf head profile with lightning accents", "Block N"],
     helmet: { baseColor: "navy", logoMark: "Block N or wolf head profile", stripe: "silver center stripe", finish: "glossy" },
+    logoDescription: "A side-profile wolf head in navy blue with silver and white accents, mouth open and teeth bared, with a stylized swoosh of fur trailing back. Often paired with a block 'N' but the wolf head is the primary athletic mark, navy dominant with silver highlights.",
     wordmarkStyle: "Bold extended geometric serif for 'NEVADA' wordmark; the wolf profile is the dominant athletic mark.",
     visualEra: "modern/athletic",
     homeJerseyColor: "navy",
@@ -1509,6 +1584,7 @@ const BATCH_3 = {
     tertiaryHex: "#000000",
     motifs: ["Hey Reb black hat", "UNLV monogram"],
     helmet: { baseColor: "red", logoMark: "UNLV monogram or black hat icon", stripe: "gray-and-black center stripe", finish: "glossy" },
+    logoDescription: "A bold scarlet-red block 'UNLV' wordmark with a slate gray drop shadow, or the stylized 'Hey Reb' replacement — a fierce wolf-like 'R' monogram. Most commonly the scarlet block 'UNLV' lettering with gray shadow appears on score graphics.",
     wordmarkStyle: "Custom angular block 'UNLV' with delicate serif accents on the spirit marks.",
     visualEra: "modern/athletic",
     homeJerseyColor: "red",
@@ -1525,6 +1601,7 @@ const BATCH_3 = {
     tertiaryHex: "#63666A",
     motifs: ["Lobo wolf head", "interlocking NM", "turquoise accents"],
     helmet: { baseColor: "cherry red", logoMark: "Lobo wolf head (white/gray)", stripe: "silver center stripe", finish: "glossy" },
+    logoDescription: "An interlocking 'NM' monogram in cherry red with a silver outline, the letters tightly overlapped so the N's right leg becomes the M's left leg. A side-profile Lobo wolf head in red and silver also serves as a primary athletic mark.",
     wordmarkStyle: "Custom geometric sans-serif (Hip Flask/Rummy Tall family) with thick bars and straight cuts.",
     visualEra: "modern/athletic",
     homeJerseyColor: "cherry red",
@@ -1541,6 +1618,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["Pistol Pete cowboy", "crossed pistols"],
     helmet: { baseColor: "crimson", logoMark: "Pistol Pete cowboy head", stripe: "white center stripe", finish: "glossy" },
+    logoDescription: "A bold crimson block 'NM STATE' or, more commonly, an interlocking 'NMSU' monogram in crimson with a white inline and black outline. The Pistol Pete cowboy-head silhouette in crimson and white also appears as the primary athletic mark on score graphics.",
     wordmarkStyle: "Bold serif italic 'AGGIES' with Western frontier feel; mascot dominates branding.",
     visualEra: "retro",
     homeJerseyColor: "crimson",
@@ -1557,6 +1635,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["interlocking NC", "argyle pattern", "Rameses ram"],
     helmet: { baseColor: "Carolina blue", logoMark: "interlocking NC", stripe: "navy and white stripes", finish: "glossy" },
+    logoDescription: "An interlocking 'NC' in Carolina blue with a white inner outline, the N and C overlapped so they read as a single fluid monogram. The light Carolina blue is the dominant color, with a thin navy or white edge giving the mark definition.",
     wordmarkStyle: "Custom serif interlocking 'NC' monogram — the iconic, decades-old academic-collegiate mark.",
     visualEra: "classic/traditional",
     homeJerseyColor: "Carolina blue",
@@ -1573,6 +1652,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["abstract flying eagle", "Scrappy the Eagle"],
     helmet: { baseColor: "green", logoMark: "abstract flying eagle (UNT)", stripe: "black center stripe", finish: "glossy" },
+    logoDescription: "A stylized eagle head in profile rendered in kelly green with black and white accents, beak open and feathers swept back aggressively. Often paired with a block 'NORTH TEXAS' wordmark, but the green eagle head is the primary athletic mark.",
     wordmarkStyle: "Custom angular athletic sans for 'MEAN GREEN'; abstract eagle is the master mark.",
     visualEra: "modern/athletic",
     homeJerseyColor: "green",
@@ -1589,6 +1669,7 @@ const BATCH_3 = {
     tertiaryHex: "#000000",
     motifs: ["husky dog head profile"],
     helmet: { baseColor: "black", logoMark: "husky head (gray/red)", stripe: "red center stripe", finish: "glossy" },
+    logoDescription: "A side-profile husky dog head in cardinal red and black with white accents, ears pricked and mouth slightly open. Often paired with a block 'NIU' monogram, but the husky head — red dominant with black detailing — is the primary athletic mark.",
     wordmarkStyle: "Sharp geometric block 'NIU' in red; aggressive husky-head profile dominates athletic marks.",
     visualEra: "modern/athletic",
     homeJerseyColor: "red",
@@ -1605,6 +1686,7 @@ const BATCH_3 = {
     tertiaryHex: "#000000",
     motifs: ["stylized N", "Willie the Wildcat"],
     helmet: { baseColor: "purple", logoMark: "stylized N", stripe: "white center stripe", finish: "glossy or matte (rotates)" },
+    logoDescription: "A bold purple block 'N' with squared serifs, often shown with a thin white or gray outline. The letterform is broad, flat-topped, and solid purple, reading as a clean single-color collegiate monogram.",
     wordmarkStyle: "Akkurat Pro sans + Periodico Display serif per athletics brand; the bold stylized 'N' is the master mark.",
     visualEra: "modern/athletic",
     homeJerseyColor: "purple",
@@ -1621,6 +1703,7 @@ const BATCH_3 = {
     tertiaryHex: "#00843D",
     motifs: ["Golden Dome", "leprechaun", "interlocking ND", "shamrock"],
     helmet: { baseColor: "metallic gold", logoMark: "NONE (the gold helmet IS the mark)", stripe: "none", finish: "metallic gold flake" },
+    logoDescription: "An interlocking 'ND' monogram in metallic gold with a navy blue outline, the N and D tightly overlapped so the D's vertical stroke shares the N's right leg. Gold is dominant with the navy edge giving the mark its collegiate weight; the leprechaun is a secondary mark.",
     wordmarkStyle: "Classic collegiate serif (Trajan-influenced) for academic; bold custom block for athletics; the interlocking ND monogram is iconic.",
     visualEra: "classic/traditional",
     homeJerseyColor: "navy",
@@ -1637,6 +1720,7 @@ const BATCH_3 = {
     tertiaryHex: "#CDA077",
     motifs: ["bobcat paw print (angled 45°)", "arched OHIO"],
     helmet: { baseColor: "green", logoMark: "Attack Cat (bobcat head) or arched OHIO", stripe: "white center stripe", finish: "glossy" },
+    logoDescription: "A bold block 'OHIO' wordmark in forest green with a white inner inline, the letters squared and tightly spaced. A bobcat head silhouette in green and white also serves as a primary athletic mark, but the green 'OHIO' wordmark dominates score graphics.",
     wordmarkStyle: "Custom arched 'OHIO' wordmark — the recognizable signifier; pairs with Termina/Industry/Proxima Nova family.",
     visualEra: "modern/athletic",
     homeJerseyColor: "green",
@@ -1653,6 +1737,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["Block O", "buckeye leaf stickers on helmet"],
     helmet: { baseColor: "silver/gray", logoMark: "Block O (red with white outline)", stripe: "scarlet-black-scarlet center stripe", finish: "glossy metallic silver" },
+    logoDescription: "A bold block 'O' in scarlet red with a white inner outline and a thin gray drop shadow, the letterform broad and slightly squared rather than perfectly round. Often the 'Block O' appears solid scarlet with no shadow on score graphics.",
     wordmarkStyle: "Custom block 'OHIO STATE' — strong collegiate serif-influenced sans; Block O is the master mark.",
     visualEra: "classic/traditional",
     homeJerseyColor: "scarlet",
@@ -1669,6 +1754,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["interlocking OU", "Sooner Schooner Conestoga wagon"],
     helmet: { baseColor: "crimson", logoMark: "interlocking OU (white)", stripe: "white center stripe", finish: "glossy" },
+    logoDescription: "An interlocking 'OU' monogram in crimson red, the O and U overlapped so the U's left vertical merges into the O's right side. The mark is solid crimson with no outline, reading as a single clean two-letter monogram.",
     wordmarkStyle: "Custom 'Sooner' typeface with Adobe Garamond Pro secondary; interlocking OU monogram is iconic.",
     visualEra: "classic/traditional",
     homeJerseyColor: "crimson",
@@ -1685,6 +1771,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["OSU cattle brand", "Pistol Pete cowboy"],
     helmet: { baseColor: "orange", logoMark: "OSU brand (interlocking, branding-iron style)", stripe: "black center stripe with white outline", finish: "glossy" },
+    logoDescription: "A side-profile Pistol Pete cowboy-head silhouette in orange and black — a mustachioed cowboy with a wide-brimmed hat and a determined scowl. Orange is the dominant color with black detailing for the hat brim, mustache, and facial features.",
     wordmarkStyle: "Heavy slab-style block with Western/Cowboy serif accent; reflects frontier ranching heritage.",
     visualEra: "classic/traditional",
     homeJerseyColor: "black",
@@ -1701,6 +1788,7 @@ const BATCH_3 = {
     tertiaryHex: "#92C1E9",
     motifs: ["crowned lion", "ODU lettermark with crown"],
     helmet: { baseColor: "slate blue", logoMark: "crowned lion or ODU monogram", stripe: "silver/white center stripe", finish: "glossy" },
+    logoDescription: "A stylized crown-and-lion crest or, more commonly on score graphics, an interlocking 'ODU' monogram in slate blue with a silver outline. The block 'ODU' lettering is the primary athletic mark, slate blue dominant with silver edging.",
     wordmarkStyle: "Bold modern sans-serif (Microgramma/Vitesse family) with regal heraldic feel.",
     visualEra: "modern/athletic",
     homeJerseyColor: "slate blue",
@@ -1717,6 +1805,7 @@ const BATCH_3 = {
     tertiaryHex: "#006BA6",
     motifs: ["cursive Ole Miss script", "Landshark fin", "Hotty Toddy"],
     helmet: { baseColor: "navy", logoMark: "cursive 'Ole Miss' script", stripe: "red center stripe", finish: "glossy" },
+    logoDescription: "A bold block 'M' in navy blue with a red inner inline and a thin white outline, often shown alongside the Landshark fin secondary mark. The navy-and-red block 'M' is the primary athletic monogram used on score graphics.",
     wordmarkStyle: "Iconic hand-drawn cursive 'Ole Miss' script — Southern, personal, almost a handwritten signature.",
     visualEra: "classic/traditional",
     homeJerseyColor: "navy",
@@ -1733,6 +1822,7 @@ const BATCH_3 = {
     tertiaryHex: "#000000",
     motifs: ["smooth O logo", "feather/wing shoulder yoke", "Donald Duck", "diamond plate"],
     helmet: { baseColor: "varies (green, yellow, white, black, chrome)", logoMark: "smooth O", stripe: "varies", finish: "varies (glossy, matte, chrome, metallic)" },
+    logoDescription: "A stylized 'O' formed by two interlocking C-shapes in Oregon green with a yellow inner inline, the letterform slightly compressed vertically and with a distinctive split at the top and bottom. Green is dominant with yellow as the highlight, the mark reading as a clean two-color athletic 'O'.",
     wordmarkStyle: "Custom Nike-designed 'Oregon' wordmark — elongated, aggressive, condensed athletic sans.",
     visualEra: "flashy/Nike-era",
     homeJerseyColor: "green",
@@ -1749,6 +1839,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["angry beaver head", "OSU interlock", "Benny Beaver"],
     helmet: { baseColor: "orange", logoMark: "Beaver head (black)", stripe: "black center stripe", finish: "glossy" },
+    logoDescription: "A side-profile beaver head in orange and black with white teeth visible, the beaver scowling with ears pricked back. Orange is the dominant color with heavy black detailing for the eye, nose, and fur lines; often paired with a block 'OREGON STATE' wordmark.",
     wordmarkStyle: "Bold geometric collegiate block; sturdy, industrial-leaning sans-serif tied to land-grant identity.",
     visualEra: "modern/athletic",
     homeJerseyColor: "orange",
@@ -1765,6 +1856,7 @@ const BATCH_3 = {
     tertiaryHex: null,
     motifs: ["faceted Nittany Lion shield", "paw print"],
     helmet: { baseColor: "white", logoMark: "NONE", stripe: "single navy center stripe", finish: "glossy" },
+    logoDescription: "A side-profile Nittany Lion silhouette in solid navy blue, the lion's head and front shoulders shown in a crouched, alert pose with no facial detail beyond the silhouette outline. The mark is single-color navy with no shadow or inline, reading as a clean iconic silhouette.",
     wordmarkStyle: "Classic Trajan-style serif (academic); clean block sans (athletic). Minimalism is the brand.",
     visualEra: "classic/traditional",
     homeJerseyColor: "navy",
@@ -1781,6 +1873,7 @@ const BATCH_3 = {
     tertiaryHex: "#000000",
     motifs: ["Script Pitt wordmark", "panther head"],
     helmet: { baseColor: "gold", logoMark: "Script Pitt", stripe: "royal-gold-royal center stripe", finish: "glossy" },
+    logoDescription: "A script 'Pitt' wordmark in royal blue with a gold inner inline and a thin black outline, the letters connected in a flowing italic script. Blue is dominant with the gold highlight giving the mark its retro collegiate feel.",
     wordmarkStyle: "Iconic 'Script Pitt' — flowing custom cursive that connects letters into one signature; returned 2019.",
     visualEra: "retro",
     homeJerseyColor: "royal blue",
@@ -1797,6 +1890,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["Motion P", "Boilermaker Special locomotive", "rail/train"],
     helmet: { baseColor: "gold", logoMark: "Motion P", stripe: "black center stripe", finish: "glossy" },
+    logoDescription: "A bold block 'P' in old gold with a black outline and a thin white inner inline, the letterform squared with a flat-topped bowl. Old gold is the dominant color with black edging, the mark reading as a clean single-letter monogram.",
     wordmarkStyle: "Heavy industrial slab-style block with mechanical/locomotive feel — fits the 'Boilermakers' name.",
     visualEra: "classic/traditional",
     homeJerseyColor: "gold",
@@ -1813,6 +1907,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["Athenian owl", "Rice shield with chevrons", "interlocking R"],
     helmet: { baseColor: "blue", logoMark: "interlocking R or owl shield", stripe: "gray/white center stripe", finish: "glossy" },
+    logoDescription: "A stylized owl head facing forward in blue and gray with large round eyes and a sharp beak, often simplified to a geometric silhouette. The owl is rendered primarily in Rice blue with gray accents; sometimes the interlocking 'R' appears alongside on score graphics.",
     wordmarkStyle: "Trajan classical serif (academic) + Copernicus serif — restrained, scholarly, Athenian-influenced.",
     visualEra: "classic/traditional",
     homeJerseyColor: "blue",
@@ -1829,6 +1924,7 @@ const BATCH_3 = {
     tertiaryHex: "#5F6A72",
     motifs: ["Block R with sword/lance", "knight's helmet"],
     helmet: { baseColor: "scarlet", logoMark: "Block R with sword", stripe: "black center stripe", finish: "glossy (chrome alts)" },
+    logoDescription: "A block 'R' in scarlet red with a white inner inline and a thin black outline, the letterform broad with squared serifs. A knight-head silhouette in scarlet and white also appears, but the scarlet block 'R' is the dominant primary athletic mark.",
     wordmarkStyle: "Custom serif uppercase — collegiate with subtle medieval/knight character.",
     visualEra: "modern/athletic",
     homeJerseyColor: "scarlet",
@@ -1845,6 +1941,7 @@ const BATCH_3 = {
     tertiaryHex: "#000000",
     motifs: ["SH interlock with paw print", "Walking Sammy retro Bearkat"],
     helmet: { baseColor: "orange", logoMark: "SH + paw interlock", stripe: "white center stripe", finish: "glossy (matte black alts)" },
+    logoDescription: "A side-profile bearkat head in orange and white with black detailing, fierce mouth open and teeth bared. Orange is dominant with white and black accents; often paired with a block 'SH' or 'SAM HOUSTON' wordmark on score graphics.",
     wordmarkStyle: "Angular, straight-edged custom block sans (2020 SME-led rebrand); clean modern athletic with strong verticals.",
     visualEra: "modern/athletic",
     homeJerseyColor: "orange",
@@ -1861,6 +1958,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["SD with horizontal spear", "Aztec warrior", "Aztec stonework geometry"],
     helmet: { baseColor: "black", logoMark: "SD bisected by spear", stripe: "scarlet center stripe", finish: "glossy" },
+    logoDescription: "A stylized Aztec warrior head in profile wearing a feathered headdress, rendered in scarlet red and black with white accents. The warrior — known as the Aztec Warrior mark — faces left, with the headdress feathers sweeping back; scarlet dominant with black detailing.",
     wordmarkStyle: "Custom angular slab — sharp edges evoke Aztec stonework and spear tips.",
     visualEra: "modern/athletic",
     homeJerseyColor: "black",
@@ -1877,6 +1975,7 @@ const BATCH_3 = {
     tertiaryHex: "#939597",
     motifs: ["Spartan warrior helmet profile", "Corinthian crest"],
     helmet: { baseColor: "blue", logoMark: "Spartan helmet profile (gold)", stripe: "gold center stripe", finish: "glossy" },
+    logoDescription: "A side-profile Spartan warrior head wearing a crested helmet in blue and gold, the helmet's plume curling back dramatically. Blue is the dominant color with gold accents for the helmet trim and plume highlights; often paired with a block 'SJSU' wordmark.",
     wordmarkStyle: "Custom angular collegiate sans with Spartan/Greek geometric influences; pairs with a serif body face.",
     visualEra: "modern/athletic",
     homeJerseyColor: "blue",
@@ -1893,6 +1992,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["galloping Mustang (Peruna)", "M interlock"],
     helmet: { baseColor: "red", logoMark: "galloping Mustang", stripe: "blue-white-blue center stripe", finish: "glossy" },
+    logoDescription: "A side-profile mustang head in red with blue accents, mane flowing back and nostrils flared. Often appears alongside the interlocking 'SMU' monogram in red and blue, but the galloping mustang silhouette in red is the primary athletic mark on score graphics.",
     wordmarkStyle: "Trade Gothic Bold Condensed (display) + Tiempos (serif body) — clean modern editorial pairing.",
     visualEra: "classic/traditional",
     homeJerseyColor: "red",
@@ -1909,6 +2009,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["roaring jaguar head", "USA monogram"],
     helmet: { baseColor: "navy", logoMark: "jaguar head profile (white with red accent)", stripe: "red center stripe", finish: "glossy" },
+    logoDescription: "A side-profile jaguar head in red and blue with white accents, mouth open and teeth bared with a fierce snarl. Red and blue are co-dominant, the jaguar head often paired with a block 'SOUTH' wordmark; the jaguar head is the primary athletic mark.",
     wordmarkStyle: "Custom angular athletic sans — bold and dynamic with stylized italicization for motion.",
     visualEra: "modern/athletic",
     homeJerseyColor: "navy",
@@ -1925,6 +2026,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["Block C with gamecock", "fighting rooster with leg spurs"],
     helmet: { baseColor: "garnet", logoMark: "Block C", stripe: "black center stripe with white outlines", finish: "glossy" },
+    logoDescription: "A side-profile fighting gamecock head in garnet red with black accents and a flowing comb and wattle, the bird's beak open in a crow. Often paired with a block 'C' or 'GAMECOCKS' wordmark, but the gamecock head — garnet dominant with black detailing — is the primary athletic mark.",
     wordmarkStyle: "Customized Block Gothic — strong traditional collegiate block with subtle serif influence.",
     visualEra: "classic/traditional",
     homeJerseyColor: "garnet",
@@ -1941,6 +2043,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["bull head with horns", "U-shape doubling as horns"],
     helmet: { baseColor: "green", logoMark: "Bull head", stripe: "gold center stripe", finish: "glossy" },
+    logoDescription: "A bold block 'U' with a stylized bull-horn shape integrated into the letterform, rendered in USF green with a gold inner inline. The horns curl outward from the top of the 'U', the mark reading as a single integrated monogram in green and gold.",
     wordmarkStyle: "Modern angular custom sans-serif — bold, dynamic, slightly italicized for forward motion.",
     visualEra: "modern/athletic",
     homeJerseyColor: "green",
@@ -1957,6 +2060,7 @@ const BATCH_3 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["eagle head profile", "SMTTT"],
     helmet: { baseColor: "black", logoMark: "eagle head (gold)", stripe: "gold center stripe", finish: "glossy (gold alt helmet)" },
+    logoDescription: "A stylized eagle head in profile rendered in black with gold and white accents, beak open aggressively and feathers swept back. Black is dominant with gold detailing for the beak and eye; often paired with a block 'SOUTHERN MISS' wordmark on score graphics.",
     wordmarkStyle: "Bold athletic block with slight slab serif; aggressive, dynamic feel.",
     visualEra: "modern/athletic",
     homeJerseyColor: "black",
@@ -1973,6 +2077,7 @@ const BATCH_3 = {
     tertiaryHex: "#53565A",
     motifs: ["Block S with El Palo Alto redwood tree", "redwood silhouette"],
     helmet: { baseColor: "cardinal red", logoMark: "Block S with tree inside", stripe: "white center stripe", finish: "glossy" },
+    logoDescription: "A block 'S' in cardinal red with a white inner inline, set against a stylized green tree silhouette — but on score graphics, the primary mark is most often the bold cardinal block 'S' alone, or the Stanford script wordmark in cardinal red. The cardinal-red 'S' with white inline is the dominant athletic monogram.",
     wordmarkStyle: "Custom Block S with redwood tree mark; 'STANFORD' set in classic Stone/Trajan-influenced serif athletic block.",
     visualEra: "classic/traditional",
     homeJerseyColor: "cardinal red",
@@ -1995,6 +2100,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["block S", "single-color identity"],
     helmet: { baseColor: "orange", logoMark: "block S", stripe: "single navy stripe down center", finish: "glossy" },
+    logoDescription: "Large block 'S' in solid orange with a thin dark blue (navy) outline. The letter has a geometric, custom-drawn shape with chamfered/cut corners that give it more facets than a typical S, creating an angular modern look. Single color fill, no drop shadow, no internal detail.",
     wordmarkStyle: "Bold custom block sans-serif with cropped/cut letterforms; Otto-style block S is signature mark",
     visualEra: "modern/athletic",
     homeJerseyColor: "orange",
@@ -2011,6 +2117,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["horned frog", "frog skin texture"],
     helmet: { baseColor: "purple", logoMark: "horned frog silhouette or interlocking TCU", stripe: "single white or chrome stripe", finish: "chrome or glossy purple" },
+    logoDescription: "Arched 'TCU' wordmark in bold purple with a thin white inline and black outer outline. The letters are a tight, stacked-style bold sans-serif curving upward in an arch across the middle. Solid purple fill with double-line trim, no drop shadow.",
     wordmarkStyle: "Custom interlocking TCU monogram; secondary athletic horned frog illustration mark",
     visualEra: "flashy/Nike-era",
     homeJerseyColor: "purple",
@@ -2027,6 +2134,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["owl", "Temple T"],
     helmet: { baseColor: "cherry red", logoMark: "Temple T in cherry box or stylized owl head", stripe: "single white or black stripe", finish: "glossy" },
+    logoDescription: "Tall, narrow block letter 'T' in cherry red with a thin white inline trim and a black outer outline. The serifs are minimal and squared off; the strokes are heavy and uniform. Single bold red color, no drop shadow, very clean and geometric.",
     wordmarkStyle: "Bold square Temple T inside cherry-red box; sharp angular owl head as athletic mark",
     visualEra: "modern/athletic",
     homeJerseyColor: "cherry",
@@ -2043,6 +2151,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["checkerboard", "Power T"],
     helmet: { baseColor: "white", logoMark: "Power T (block T in Tennessee orange)", stripe: "single orange stripe down center", finish: "glossy" },
+    logoDescription: "The 'Power T' — a wide block letter T in solid Tennessee orange with a thin white inline and a black outer outline. The horizontal bar curves slightly upward at both ends like a goalpost or banner; vertical stem is thick with a flat base. No interior detail, no drop shadow.",
     wordmarkStyle: "Power T block letter is the dominant mark; secondary Goudy Oldstyle serif for VOLS wordmark",
     visualEra: "classic/traditional",
     homeJerseyColor: "orange",
@@ -2059,6 +2168,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["longhorn silhouette", "Bevo"],
     helmet: { baseColor: "white", logoMark: "Longhorn silhouette (steer profile)", stripe: "single burnt orange stripe down center", finish: "glossy" },
+    logoDescription: "A symmetrical front-facing longhorn steer head silhouette in solid burnt orange. Long horizontal horns extend outward and slightly upward to points, drooping ears flare beneath the horns, and a tapered muzzle hangs below. Pure silhouette — no eyes, no internal detail, no outline.",
     wordmarkStyle: "Custom Longhorn slab-serif wordmark; iconic longhorn-steer silhouette is the dominant identifier",
     visualEra: "classic/traditional",
     homeJerseyColor: "white",
@@ -2075,6 +2185,7 @@ const BATCH_4 = {
     tertiaryHex: "#000000",
     motifs: ["ATM block", "12th Man"],
     helmet: { baseColor: "maroon", logoMark: "block ATM interlock", stripe: "single white stripe down center", finish: "glossy" },
+    logoDescription: "Block 'ATM' monogram inside a maroon shape of the state of Texas. The 'T' is centered and oversized with the 'A' and 'M' flanking it at smaller scale, all rendered in white with maroon trim. The Texas state silhouette is solid maroon with a white-and-maroon outline.",
     wordmarkStyle: "Bold block ATM interlocking monogram; Tungsten condensed sans-serif for secondary wordmarks",
     visualEra: "classic/traditional",
     homeJerseyColor: "maroon",
@@ -2091,6 +2202,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["bobcat head"],
     helmet: { baseColor: "maroon", logoMark: "stylized bobcat head silhouette", stripe: "single gold stripe", finish: "glossy" },
+    logoDescription: "A snarling bobcat head in profile facing left ('Supercat'), rendered in maroon with old gold accents and black detailing. Sharp pointed ears, tufted cheeks, exposed fangs, and angled aggressive eye. Multiple colors with bold black line work defining facial features.",
     wordmarkStyle: "Custom 'TXST' or 'Texas State' bold sans-serif; abstract aggressive bobcat head profile",
     visualEra: "modern/athletic",
     homeJerseyColor: "maroon",
@@ -2107,6 +2219,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["Double T", "Masked Rider"],
     helmet: { baseColor: "red or black", logoMark: "Double T (two interlocking Ts)", stripe: "single black or red stripe", finish: "glossy or matte" },
+    logoDescription: "The 'Double T' — a single mark formed by two interlocking block T's sharing one centered vertical stem, with two horizontal crossbars stacked above one another at the top. Rendered in solid scarlet red with a thin black outline. Flat, monochrome, no bevel or drop shadow.",
     wordmarkStyle: "Iconic Double T monogram (smaller T in front of larger T); custom serif Texas Tech wordmark",
     visualEra: "modern/athletic",
     homeJerseyColor: "red",
@@ -2123,6 +2236,7 @@ const BATCH_4 = {
     tertiaryHex: "#005CB9",
     motifs: ["rocket", "interlocking T"],
     helmet: { baseColor: "midnight blue", logoMark: "interlocking T or rocket", stripe: "single gold stripe down center", finish: "matte" },
+    logoDescription: "A 'Toledo' wordmark in italicized bold script with a soaring rocket angled upward to the right emerging from behind the letters. Wordmark is midnight blue with a thin gold trim; the rocket is white with blue trim and a tapered flame trail. Italicized, motion-forward feel.",
     wordmarkStyle: "Bold block 'TOLEDO' with stylized rocket icon; interlocking T as primary athletic mark",
     visualEra: "modern/athletic",
     homeJerseyColor: "midnight blue",
@@ -2139,6 +2253,7 @@ const BATCH_4 = {
     tertiaryHex: "#000000",
     motifs: ["sword T", "Trojan helmet"],
     helmet: { baseColor: "cardinal red", logoMark: "Trojan T with sword", stripe: "single black or silver stripe", finish: "glossy" },
+    logoDescription: "A stylized capital 'T' shaped like an upright iron sword — the horizontal crossbar forms the sword's guard and the vertical stem tapers to a pointed tip at the bottom like a blade. Rendered in cardinal red with a thin white inline and black outer outline. Single-color metallic-feel sword shape.",
     wordmarkStyle: "Bold block 'TROY' wordmark with sword/T element; script Trojans alternate",
     visualEra: "modern/athletic",
     homeJerseyColor: "cardinal",
@@ -2155,6 +2270,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["Angry Wave", "stripe pattern", "fleur-de-lis"],
     helmet: { baseColor: "green", logoMark: "Angry Wave or interlocking TU", stripe: "multi-stripe sky blue/white", finish: "glossy or matte" },
+    logoDescription: "The 'Angry Wave' — an anthropomorphic cresting ocean wave with a snarling face, furrowed brow, and a clenched fist curling at the top of the wave's curl. Rendered in olive/forest green with white and black detail lines defining the face, foam, and fist. Aggressive, cartoonish 1960s-revival style.",
     wordmarkStyle: "Custom 'TULANE' block sans-serif (1998 wordmark); Angry Wave mascot illustration",
     visualEra: "retro",
     homeJerseyColor: "olive green",
@@ -2171,6 +2287,7 @@ const BATCH_4 = {
     tertiaryHex: "#C5B783",
     motifs: ["hurricane flag", "script Tulsa"],
     helmet: { baseColor: "navy blue", logoMark: "stylized hurricane TU or flag", stripe: "red/old gold stripe", finish: "glossy" },
+    logoDescription: "A flowing italicized script wordmark reading 'Tulsa' with a connected underline that ends in a small hurricane warning flag (a square red flag with a black square center) on the right. Script is royal blue on light backgrounds or old gold on dark backgrounds, single color with no outline.",
     wordmarkStyle: "Cursive script 'Tulsa' wordmark with hurricane storm-flag motif",
     visualEra: "retro",
     homeJerseyColor: "navy blue",
@@ -2187,6 +2304,7 @@ const BATCH_4 = {
     tertiaryHex: "#000000",
     motifs: ["dragon", "flame"],
     helmet: { baseColor: "green", logoMark: "dragon-head B mark", stripe: "single gold stripe", finish: "glossy or matte" },
+    logoDescription: "Bold block 'UAB' wordmark in a heavy geometric sans-serif. Letters are filled solid forest green with a thin white inline stripe running through them and a gold outer outline. Flat, clean, modern — no drop shadow, no bevel, no internal detail.",
     wordmarkStyle: "Slanted block 'UAB' wordmark; fierce dragon-head mark with flame accents",
     visualEra: "modern/athletic",
     homeJerseyColor: "green",
@@ -2203,6 +2321,7 @@ const BATCH_4 = {
     tertiaryHex: "#BA9B37",
     motifs: ["Pegasus", "Knight"],
     helmet: { baseColor: "black", logoMark: "Pegasus (winged horse) silhouette", stripe: "single gold stripe down center", finish: "glossy or chrome" },
+    logoDescription: "Stacked 'UCF' monogram with the three letters arranged diagonally — U at upper left, C in middle, F at lower right — overlapping slightly. Letters are gold with angular white inline cuts across each character body and a heavy black outer outline. Sharp diagonal serifs give an aggressive forward-leaning feel.",
     wordmarkStyle: "Angular custom 'UCF' block wordmark; Pegasus silhouette and Knight head as athletic marks",
     visualEra: "modern/athletic",
     homeJerseyColor: "black",
@@ -2219,6 +2338,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["UCLA script", "shoulder loops"],
     helmet: { baseColor: "white", logoMark: "UCLA script wordmark on side", stripe: "single gold and blue stripe combination", finish: "glossy" },
+    logoDescription: "Flowing cursive 'UCLA' script wordmark in royal blue, with the four connected letters slanted forward to the right. The capital U has a tall looping start and the final A ends in a tapered tail. Single solid blue (or white reversed on blue/gold backgrounds), no outline, no drop shadow.",
     wordmarkStyle: "Iconic UCLA cursive/script wordmark across chest of jersey (since 1950s) is THE signature mark",
     visualEra: "classic/traditional",
     homeJerseyColor: "blue",
@@ -2235,6 +2355,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["Minuteman", "musket"],
     helmet: { baseColor: "maroon", logoMark: "UMass wordmark or Minuteman silhouette", stripe: "single white stripe with black trim", finish: "glossy" },
+    logoDescription: "A bold block 'U' (the 'Power U') in maroon with a white inline and outer trim. The U is wide with squared corners, heavy uniform stroke weight, and a thick blocky form. Flat monochrome maroon, no bevels (since 2021 simplification), no drop shadow.",
     wordmarkStyle: "Bold sans-serif 'UMass' wordmark in maroon with black outline; Minuteman colonial-patriot silhouette",
     visualEra: "classic/traditional",
     homeJerseyColor: "maroon",
@@ -2251,6 +2372,7 @@ const BATCH_4 = {
     tertiaryHex: "#000000",
     motifs: ["UNLV mark"],
     helmet: { baseColor: "scarlet or black", logoMark: "angular UNLV wordmark", stripe: "single gray or black stripe", finish: "glossy" },
+    logoDescription: "The 'Hey Reb!' profile mascot — a stern-faced mustachioed gunslinger in left-facing profile, wearing a wide-brimmed scout hat with a small star where a feather used to be. Rendered in scarlet red, gray, white and black with stylized mountain shapes integrated below the chin. Bold line work, multi-color illustration.",
     wordmarkStyle: "Angular custom 'UNLV' wordmark with sharp diagonals; 'Rebels' script as alternate",
     visualEra: "modern/athletic",
     homeJerseyColor: "scarlet",
@@ -2267,6 +2389,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["Trojan helmet", "interlocking SC"],
     helmet: { baseColor: "cardinal", logoMark: "Trojan warrior head profile", stripe: "gold/white/gold tri-stripe down center", finish: "glossy" },
+    logoDescription: "Interlocking 'SC' monogram — a stylized cardinal-red S and C overlapped so the curves of each letter cradle the other, with a thin metallic gold inline trim running inside both letterforms. Old-fashioned varsity-style letterforms with subtle serifs. Cardinal red fill, gold inline, no drop shadow.",
     wordmarkStyle: "Classic interlocking 'SC' monogram and Trojan warrior helmet profile — both are sacred marks",
     visualEra: "classic/traditional",
     homeJerseyColor: "cardinal",
@@ -2283,6 +2406,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["drum and feather", "block U", "feather stripe"],
     helmet: { baseColor: "red, white, or satin black", logoMark: "Circle and Feather (drum-and-feather) or block U", stripe: "feathered stripe pattern down center", finish: "glossy, matte, or chrome" },
+    logoDescription: "The 'Circle and Feather' (Drum and Feather) — a solid red circle with a single stylized feather angling diagonally up and to the right from behind the circle. The feather is red with a white interior shaft and small white notch cuts along its edge. Flat two-color (red/white) silhouette mark.",
     wordmarkStyle: "Block 'UTAH' in custom slab-block; iconic Drum & Feather circle logo (used with permission of the Ute Tribe)",
     visualEra: "modern/athletic",
     homeJerseyColor: "red",
@@ -2299,6 +2423,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["block A"],
     helmet: { baseColor: "navy blue", logoMark: "block A", stripe: "single white or silver stripe", finish: "glossy" },
+    logoDescription: "A bold block letter 'U' in Aggie blue, wide and squared with thick uniform strokes, flat top edges, and a notched flat-bottomed opening (the U is more rectangular than rounded). White inline trim runs inside the letter. Solid navy/Aggie blue fill, no drop shadow.",
     wordmarkStyle: "Bold block 'A' as primary athletic mark; 'Utah State' sans-serif wordmark",
     visualEra: "classic/traditional",
     homeJerseyColor: "navy blue",
@@ -2315,6 +2440,7 @@ const BATCH_4 = {
     tertiaryHex: "#B1B3B3",
     motifs: ["crossed pickaxes", "Paydirt Pete"],
     helmet: { baseColor: "navy blue", logoMark: "interlocking UTEP with pickaxe", stripe: "orange/silver stripe", finish: "glossy" },
+    logoDescription: "Block 'UTEP' wordmark where the 'T' is replaced by a crossed pickaxe — the pick's wooden handle forms the vertical stem and the metal head forms the horizontal crossbar, complete with a pointed pick end and chisel end. Letters are navy blue, the pickaxe head accented in orange and silver. Heavy block sans-serif with no outline.",
     wordmarkStyle: "Italicized angular 'UTEP' interlocking wordmark; Paydirt Pete mascot illustration",
     visualEra: "modern/athletic",
     homeJerseyColor: "navy blue",
@@ -2331,6 +2457,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["roadrunner head", "Birds Up"],
     helmet: { baseColor: "navy blue", logoMark: "roadrunner head in profile with crest", stripe: "single orange center stripe", finish: "glossy" },
+    logoDescription: "A stylized roadrunner head in profile facing right, with a long pointed beak open in mid-call, sharp angular crest feathers swept back from the head, and a fierce eye. Rendered in burnt orange with navy blue detail lines defining the beak, eye, and feather edges. Aggressive, sharp-lined illustration.",
     wordmarkStyle: "Custom italicized 'UTSA' block wordmark; sharp-beaked roadrunner head silhouette with raised crest",
     visualEra: "modern/athletic",
     homeJerseyColor: "navy blue",
@@ -2347,6 +2474,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["anchor", "Star V"],
     helmet: { baseColor: "black, white, or anchor gray", logoMark: "Star V (V with star above)", stripe: "black-gold-black tri-stripe", finish: "glossy or matte" },
+    logoDescription: "A bold block capital 'V' in metallic gold (with subtle gradient shading) and a heavy black outer outline. The V has thick uniform strokes, small sharp serifs at the top tips, and a sharply pointed bottom. Custom letterform that reads as both strong and traditional. Gold fill, black outline, no drop shadow.",
     wordmarkStyle: "Star V monogram is primary athletic mark; anchor is the spirit mark ('Anchor Down')",
     visualEra: "modern/athletic",
     homeJerseyColor: "black",
@@ -2363,6 +2491,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["V-Sabres", "Cavalier"],
     helmet: { baseColor: "navy blue", logoMark: "V with crossed sabres beneath", stripe: "single orange center stripe", finish: "glossy" },
+    logoDescription: "The 'V-Sabres' — a bold block letter V in orange above two crossed sabres (curved cavalry swords) forming an X beneath it. The sabres have straight, simplified hilts (no decorative curves). Rendered in Virginia orange with navy blue trim and inline detailing. Compact stacked composition.",
     wordmarkStyle: "Refined Adobe Caslon serif 'VIRGINIA' wordmark (Jeffersonian classical influence); V-Sabres crossed-sword mark",
     visualEra: "classic/traditional",
     homeJerseyColor: "navy blue",
@@ -2379,6 +2508,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["VT logo", "Hokie Stone", "HokieBird"],
     helmet: { baseColor: "Chicago maroon or white", logoMark: "VT interlocking monogram", stripe: "single orange or maroon stripe", finish: "glossy" },
+    logoDescription: "Interlocking 'VT' monogram — a chicago maroon block V and T overlapped so the right diagonal of the V merges with the left side of the T's vertical stem. Letters have a thin white inline and a burnt orange outer outline. Heavy block serif letterforms with squared terminals.",
     wordmarkStyle: "Distinctive VT interlocking monogram in maroon with orange/white outline; Acherus Grotesque sans-serif wordmark",
     visualEra: "modern/athletic",
     homeJerseyColor: "maroon",
@@ -2395,6 +2525,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["Demon Deacon", "interlocking WF"],
     helmet: { baseColor: "metallic old gold", logoMark: "interlocking WF monogram", stripe: "single black stripe down center", finish: "metallic gold (signature)" },
+    logoDescription: "Interlocking 'WF' monogram in old gold with a heavy black outline. The W and F are intertwined so the leftmost vertical stroke of the W and the vertical stem of the F merge into a single shared line. Bold serif letterforms with classic, traditional collegiate feel. Gold fill, black outline, no drop shadow.",
     wordmarkStyle: "Interlocking 'WF' monogram is primary athletic mark; Demon Deacon mascot illustration (top-hatted dapper deacon)",
     visualEra: "retro",
     homeJerseyColor: "black",
@@ -2411,6 +2542,7 @@ const BATCH_4 = {
     tertiaryHex: "#85754D",
     motifs: ["block W", "Husky head"],
     helmet: { baseColor: "purple or gold", logoMark: "block W with gold outline", stripe: "single gold stripe down center", finish: "matte purple or chrome gold" },
+    logoDescription: "A bold block letter 'W' in solid purple with a thin metallic gold outline. The W has a slightly stylized geometric form with serifs at the top tips of each vertical stroke and a flat-bottomed sharp center point. Strong, simple, monogrammatic. Purple fill, gold trim, no drop shadow.",
     wordmarkStyle: "Bold block 'W' is THE iconic primary mark; secondary 'Washington' sans-serif wordmark",
     visualEra: "modern/athletic",
     homeJerseyColor: "purple",
@@ -2427,6 +2559,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["Cougar head"],
     helmet: { baseColor: "crimson", logoMark: "snarling Cougar head in profile", stripe: "single gray or white stripe", finish: "glossy" },
+    logoDescription: "A snarling cougar head formed entirely from the stylized letters 'WSU' — the W shapes the brow and ears, the S forms the snarling open mouth and teeth, and the U creates the lower jaw. Rendered in solid crimson red on a white background (or white on crimson). Single-color mark, no outline, highly graphic.",
     wordmarkStyle: "Aggressive snarling Cougar head profile (refined 1995) is the iconic mark; 'WSU' block wordmark",
     visualEra: "classic/traditional",
     homeJerseyColor: "crimson",
@@ -2443,6 +2576,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["Flying WV", "Mountaineer"],
     helmet: { baseColor: "navy blue", logoMark: "Flying WV (gold)", stripe: "none (or thin gold)", finish: "matte" },
+    logoDescription: "The 'Flying WV' — a single connected mark where the W flows directly into the V, with peaked angular tips on the W resembling mountain peaks and the V's point extending downward. Rendered in solid old gold with no outline, or in navy blue when reversed. Bold, geometric, no drop shadow, no internal detail.",
     wordmarkStyle: "Iconic Flying WV monogram (W over V, mountain-evoking) — debuted September 6, 1980; pickaxe-inspired jersey numerals",
     visualEra: "modern/athletic",
     homeJerseyColor: "navy blue",
@@ -2459,6 +2593,7 @@ const BATCH_4 = {
     tertiaryHex: "#A2A4A3",
     motifs: ["tower W", "Big Red"],
     helmet: { baseColor: "red", logoMark: "WKU with tower silhouette", stripe: "single white or black stripe", finish: "glossy" },
+    logoDescription: "A white cartoon hand with a black outline gripping and waving a red rectangular towel that has 'WKU' in white block letters across it. The towel ripples with motion lines, and the hand emerges from the bottom right. Multi-element illustration in red, white, and black.",
     wordmarkStyle: "Stacked 'WKU' wordmark with campus tower silhouette element; Big Red mascot illustration",
     visualEra: "modern/athletic",
     homeJerseyColor: "red",
@@ -2475,6 +2610,7 @@ const BATCH_4 = {
     tertiaryHex: "#6C4023",
     motifs: ["Bronco head", "W-mane"],
     helmet: { baseColor: "brown or gold", logoMark: "Bronco head with mane forming W", stripe: "brown/gold stripe", finish: "glossy" },
+    logoDescription: "A bold gold capital letter 'W' centered inside a solid brown circle with a gold outer ring. The W has a custom geometric form with thick uniform strokes and a sharp center peak that reaches up to the top of the circle. Two-color mark (brown and gold) with no drop shadow, very flat and modern.",
     wordmarkStyle: "Angular galloping Bronco head silhouette with mane forming a W; bold 'Western Michigan' wordmark",
     visualEra: "modern/athletic",
     homeJerseyColor: "brown",
@@ -2491,6 +2627,7 @@ const BATCH_4 = {
     tertiaryHex: "#000000",
     motifs: ["Motion W", "Bucky Badger"],
     helmet: { baseColor: "white", logoMark: "Motion W (red with black shadow)", stripe: "single red stripe down center", finish: "glossy" },
+    logoDescription: "The 'Motion W' — a bold italicized block letter W slanted forward to the right, in scarlet red with a solid black drop shadow offset down and to the left. The W has thick, angled strokes that suggest forward motion. Always rendered with the visible black drop shadow as part of the mark.",
     wordmarkStyle: "Iconic Motion W (slanted W with tail/shadow) — conceived in 1990 and debuted for the 1991 season; Friz Quadrata serif for 'Wisconsin' wordmark; Bucky Badger mascot",
     visualEra: "modern/athletic",
     homeJerseyColor: "red",
@@ -2507,6 +2644,7 @@ const BATCH_4 = {
     tertiaryHex: "#FFFFFF",
     motifs: ["Steamboat bucking horse", "Pistol Pete"],
     helmet: { baseColor: "brown", logoMark: "Steamboat (bucking horse and rider silhouette)", stripe: "single gold stripe down center", finish: "glossy or matte" },
+    logoDescription: "The 'Bucking Horse and Rider' (Steamboat) — a side silhouette of a cowboy on a bucking horse, the horse rearing with all four legs off the ground and the rider's arm raised holding a hat above his head. Rendered as a solid brown (or sometimes white) silhouette with no outline and no internal detail. Pure single-color silhouette.",
     wordmarkStyle: "Iconic Steamboat bucking horse and rider silhouette (used since the 1920s, also the Wyoming state symbol); bold 'WYOMING' block wordmark",
     visualEra: "classic/traditional",
     homeJerseyColor: "brown",
@@ -2518,8 +2656,100 @@ const BATCH_4 = {
 }
 
 // ---------------------------------------------------------------------------
-// All batches complete — every FBS program researched.
+// All FBS batches complete — every FBS program researched.
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// FCS — Generic in-game FCS opponents that appear on dynasty schedules.
+// Same profile shape as FBS teams; add as logos/brand info becomes available.
+// ---------------------------------------------------------------------------
+const FCS_TEAMS = {
+  "FCS Southeast": {
+    primaryPMS: null,
+    primaryHex: "#4A7C59",
+    secondaryPMS: null,
+    secondaryHex: "#F0E68C",
+    tertiaryHex: "#FFFFFF",
+    motifs: ["snarling grouper fish head"],
+    helmet: { baseColor: "sea green", logoMark: "snarling grouper head", stripe: "single black center stripe", finish: "glossy" },
+    logoDescription: "An aggressive snarling grouper fish head facing forward and slightly to the right, jaw clamped shut with the grouper's characteristic prominent thick lips and stout broad jaw. A jagged spiky dorsal fin with multiple sharp triangular points fans up from the top of the head, and a small side fin protrudes from the lower-left of the body with the tail fin tip just visible behind the right side. The fish has a large angry eye with a heavy black brow, curved gill lines, and bared aggressive features. Rendered in sage / sea green (#4A7C59) as the dominant fill with bold black outlines and shadow detail and crisp white inline highlights along the gills, mouth, brow, and fin edges. No wordmark.",
+    wordmarkStyle: "Logo-driven brand — the snarling grouper head is the primary identity, with no consistent wordmark treatment.",
+    visualEra: "modern/athletic",
+    homeJerseyColor: "sea green",
+    awayJerseyColor: "white",
+    graphicNotes: "Generic in-game FCS opponent — the Groupers. Sea / sage green (#4A7C59) paired with khaki yellow (#F0E68C, used sparingly), with heavy black outlines and white inline highlights. The snarling grouper head is the only mark — no secondary logo, no wordmark fallback.",
+    shortNickname: "Groupers",
+    confidence: "high"
+  },
+  "FCS Northwest Stallions": {
+    primaryPMS: null,
+    primaryHex: "#BFA544",
+    secondaryPMS: null,
+    secondaryHex: "#477F62",
+    tertiaryHex: "#FFFFFF",
+    motifs: ["stallion head", "flowing mane"],
+    helmet: { baseColor: "forest green", logoMark: "stallion head with green mane", stripe: "single gold center stripe", finish: "glossy" },
+    logoDescription: "A side-profile stallion head facing right with a fierce aggressive expression — heavy black brow, sharp piercing eye, defined nostril, and clamped jaw. The horse's face is rendered in old gold (#BFA544) with bold black internal detail lines defining the muzzle, cheek, jawline, and facial musculature. A flowing wild mane streams back behind the head in layered sections — the upper layers are forest green (#477F62) with jagged spike-like tips, and lower mane sections alternate between gold and green, all separated by sharp black shadow cuts. A small pointed ear tucks at the top, partly hidden by the green mane. The whole mark is wrapped in a thin white outer outline. No wordmark.",
+    wordmarkStyle: "Logo-driven brand — the stallion head with flowing green-and-gold mane is the primary identity, with no consistent wordmark treatment.",
+    visualEra: "modern/athletic",
+    homeJerseyColor: "forest green",
+    awayJerseyColor: "white",
+    graphicNotes: "Generic in-game FCS opponent. Old gold (#BFA544) and forest green (#477F62) co-dominate — gold for the horse's face/body, green for the layered mane — with heavy black internal line work and a white outer outline. The stallion head with streaming green-and-gold mane is the only mark; no secondary logo, no wordmark fallback.",
+    shortNickname: "Stallions",
+    confidence: "high"
+  },
+  "FCS Midwest Rebels": {
+    primaryPMS: null,
+    primaryHex: "#91ABC7",
+    secondaryPMS: null,
+    secondaryHex: "#E1D76E",
+    tertiaryHex: "#FFFFFF",
+    motifs: ["donkey/mule head", "lightning bolt"],
+    helmet: { baseColor: "powder blue", logoMark: "donkey head with lightning bolt", stripe: "single yellow center stripe", finish: "glossy" },
+    logoDescription: "A front-facing donkey/mule head with two tall pointed ears upright, the head and ears centered over a horizontal yellow lightning bolt that zigzags diagonally behind it from lower-left to upper-right. The donkey head is rendered in powder blue (#91ABC7) as the dominant fill with dark navy/black internal detail lines defining the snout, nostrils, mouth, brow, and inner-ear contours; the lightning bolt is solid pale yellow (#E1D76E) with a thin dark outline. The whole mark is wrapped in a thin white outer outline. No wordmark.",
+    wordmarkStyle: "Logo-driven brand — the donkey-and-lightning-bolt mark is the primary identity, with no consistent wordmark treatment.",
+    visualEra: "modern/athletic",
+    homeJerseyColor: "powder blue",
+    awayJerseyColor: "white",
+    graphicNotes: "Generic in-game FCS opponent. Powder blue (#91ABC7) paired with pale yellow (#E1D76E), with dark navy/black used for internal line work and a white outer outline. The donkey/mule head over a diagonal lightning bolt is the only mark — no secondary logos, no wordmark fallback.",
+    shortNickname: "Rebels",
+    confidence: "high"
+  },
+  "FCS East Judicials": {
+    primaryPMS: null,
+    primaryHex: "#2F1936",
+    secondaryPMS: null,
+    secondaryHex: "#8E85A1",
+    tertiaryHex: "#FFFFFF",
+    motifs: ["robed magistrate", "judicial wig"],
+    helmet: { baseColor: "dark purple", logoMark: "robed judge silhouette", stripe: "single lavender center stripe", finish: "matte" },
+    logoDescription: "A side-profile silhouette of a robed judicial magistrate striding to the right. The figure wears a long flowing floor-length robe and a curly British-style judicial wig with tight scrolled curls cascading down the back of the head. The right arm is raised forward and slightly upward holding a small circular handheld object aloft (reads as a hand-held emblem or scales-of-justice medallion); the left arm is bent across the body at the waist. The figure stands on a small horizontal stepped pedestal. The mark is rendered in two-tone deep eggplant purple (#2F1936) as the dominant fill with lighter lavender-gray (#8E85A1) interior detail lines defining the robe folds, wig curls, and facial features, wrapped in a thin white outer outline. No wordmark.",
+    wordmarkStyle: "Logo-driven brand — the robed magistrate figure is the primary identity, with no consistent wordmark treatment.",
+    visualEra: "modern/athletic",
+    homeJerseyColor: "dark purple",
+    awayJerseyColor: "white",
+    graphicNotes: "Generic in-game FCS opponent. Deep eggplant purple (#2F1936) paired with lavender-gray (#8E85A1) and a white outline are the entire palette — distinctly darker and more muted than FCS West's royal purple. The robed-magistrate silhouette is the only mark; no secondary logo, no wordmark fallback.",
+    shortNickname: "Judicials",
+    confidence: "high"
+  },
+  "FCS West Titans": {
+    primaryPMS: null,
+    primaryHex: "#462E6A",
+    secondaryPMS: null,
+    secondaryHex: "#AF9458",
+    tertiaryHex: "#FFFFFF",
+    motifs: ["lightning bolt"],
+    helmet: { baseColor: "purple", logoMark: "purple-and-gold lightning bolt", stripe: "single gold center stripe", finish: "glossy" },
+    logoDescription: "A stylized lightning bolt mark, vertically oriented. The top of the bolt is a wide horizontal rectangular banner-like section (the bolt's 'head'); the body then zigzags downward with sharp angular cuts and tapers to a single sharp point at the bottom. The mark is constructed in three nested layers: a solid royal purple core fill (#462E6A), wrapped by a metallic Vegas-gold inline outline (#AF9458), then a white outer outline. No wordmark, no internal detail beyond the layered outlines. Reads as a single bold lightning-bolt monogram.",
+    wordmarkStyle: "Logo-driven brand — the lightning bolt mark is the primary identity, with no consistent wordmark treatment.",
+    visualEra: "modern/athletic",
+    homeJerseyColor: "purple",
+    awayJerseyColor: "white",
+    graphicNotes: "Generic in-game FCS opponent. Royal purple (#462E6A) paired with metallic Vegas gold (#AF9458) and a white outline are the entire palette. The triple-outlined lightning bolt is the only mark — no secondary logos, no wordmark to fall back on.",
+    shortNickname: "Titans",
+    confidence: "high"
+  }
+}
 
 // Merge all batches into the single export.
 export const TEAM_BRAND_PROFILES = {
@@ -2527,7 +2757,7 @@ export const TEAM_BRAND_PROFILES = {
   ...BATCH_2,
   ...BATCH_3,
   ...BATCH_4,
-  // ...BATCH_3,
+  ...FCS_TEAMS,
 }
 
 /**

@@ -23,6 +23,33 @@ export function buildScoreGraphicPrompt({
   homeTeam = null,
   screenshotCount = 0,
 }) {
+  // ─── Shared helpers ────────────────────────────────────────────────────────
+  // Describe a team's primary logo for AI rendering. Prefers an explicit
+  // logoDescription field; falls back to the helmet.logoMark; otherwise null.
+  const describeLogo = (profile) => {
+    if (!profile) return null
+    if (profile.logoDescription) return profile.logoDescription
+    if (profile.helmet?.logoMark) return profile.helmet.logoMark
+    return null
+  }
+
+  // Build a compact opponent brand block — colors + logo description, with
+  // graceful degradation when the profile is missing (teambuilder/FCS teams).
+  const buildBrandSummary = (name, profile, fallbackColors, label = 'OPPONENT') => {
+    const primary = profile?.primaryHex || fallbackColors?.primary
+    const primaryPMS = profile?.primaryPMS
+    const secondary = profile?.secondaryHex || fallbackColors?.secondary
+    const logo = describeLogo(profile)
+    const lines = [`${label} — ${name}`]
+    if (primary) {
+      lines.push(`Colors: primary ${primaryPMS ? `${primaryPMS} / ` : ''}${primary}${secondary ? `, secondary ${secondary}` : ''}.`)
+    }
+    if (logo) {
+      lines.push(`Logo: ${logo}`)
+    }
+    return lines.length > 1 ? lines.join('\n') : null
+  }
+
   // homeTeam = 1 → team1 is home, 2 → team2 is home, null → neutral site
   // ─── NEUTRAL / MEDIA-COMPANY GRAPHIC ────────────────────────────────────────
   if (featuredTeam === 0) {
@@ -35,6 +62,8 @@ export function buildScoreGraphicPrompt({
     const p2 = getTeamBrandProfile(team2Name)
     const color1 = p1?.primaryHex || team1Colors?.primary || '#1a1a1a'
     const color2 = p2?.primaryHex || team2Colors?.primary || '#1a1a1a'
+    const logo1 = describeLogo(p1)
+    const logo2 = describeLogo(p2)
 
     // Home/away as prose context, not inline labels
     const neutralSiteNote = homeTeam === null
@@ -43,7 +72,7 @@ export function buildScoreGraphicPrompt({
       ? `${team1Name} was the home team. ${team2Name} was the visiting team.`
       : `${team2Name} was the home team. ${team1Name} was the visiting team.`
 
-    const photoLine = `If you have a photo attached, use it as the hero visual — keep it natural and do not color-grade the entire image. If no photo is attached, build a pure design graphic using color, typography, team logos, and geometry only — no generated or simulated photographs, player images, crowd scenes, or stadium shots of any kind.`
+    const photoLine = `If you have a photo attached, use it as the hero visual — keep it natural and do not color-grade, tint, duotone, or overlay color washes on it. If no photo is attached, build a pure design graphic using color, typography, team logos, and geometry only — no generated or simulated photographs, player images, crowd scenes, or stadium shots of any kind.`
 
     const lines = [
       `Design a post-game score graphic (1080×1080) in the style of a neutral sports media outlet — think ESPN, Fox Sports, or The Athletic — not either team's own branded post.`,
@@ -55,17 +84,24 @@ export function buildScoreGraphicPrompt({
       `${rank2Label}${team2Name}${team2Record ? ` (${team2Record})` : ''}:  ${s2}`,
       neutralSiteNote,
       ``,
-      `TEAM COLORS (use both, balanced — neither team dominates)`,
-      `${team1Name}: ${color1}`,
-      `${team2Name}: ${color2}`,
+      `TEAM 1 — ${team1Name}`,
+      `Colors: primary ${p1?.primaryPMS ? `${p1.primaryPMS} / ` : ''}${color1}${(p1?.secondaryHex || team1Colors?.secondary) ? `, secondary ${p1?.secondaryHex || team1Colors?.secondary}` : ''}.`,
+      logo1 ? `Logo: ${logo1}` : null,
+      ``,
+      `TEAM 2 — ${team2Name}`,
+      `Colors: primary ${p2?.primaryPMS ? `${p2.primaryPMS} / ` : ''}${color2}${(p2?.secondaryHex || team2Colors?.secondary) ? `, secondary ${p2?.secondaryHex || team2Colors?.secondary}` : ''}.`,
+      logo2 ? `Logo: ${logo2}` : null,
+      ``,
+      `Use both color palettes balanced — neither team dominates the canvas. Each team should appear near their score as either their logo (using the description above) or their wordmark/name in their primary color — whichever you can reproduce most accurately. If you cannot render a team's logo confidently, use a clean wordmark of the team name instead. Do not approximate or invent a logo.`,
       ``,
       photoLine,
       ``,
-      `The score numbers should be the largest typographic element. Both team logos should appear near their respective scores, equal in size and visual weight. The two scores must read as a clear comparison — side by side or in an obvious visual relationship.`,
-      homeTeam !== null ? `If you include a box score or quarter-by-quarter breakdown, list the AWAY team first and the HOME team second — standard sports convention.` : null,
+      `The score numbers should be the largest typographic element. Both score numbers must be identical in size, weight, and visual prominence — neither score is de-emphasized regardless of result. The two scores must read as a clear comparison — side by side or in an obvious visual relationship.`,
+      homeTeam !== null ? `Layout convention: the AWAY team goes on the LEFT (or TOP if stacked vertically); the HOME team goes on the RIGHT (or BOTTOM). This applies to the main score comparison, any box score, and the team-name/logo lockups.` : null,
       ``,
       `A small "FINAL" label is appropriate and expected. What to avoid: a giant WIN / VICTORY / FINAL word that dominates the canvas and overshadows the scores.`,
       `Do not place either logo in a plain white or gray box — both teams should feel integrated into the design.`,
+      `Do not invent sponsor logos, broadcast/network bugs, hashtags, or social media handles. Only the two teams' marks appear.`,
     ]
 
     return lines.filter(l => l !== null && l !== undefined).join('\n')
@@ -78,10 +114,11 @@ export function buildScoreGraphicPrompt({
   const featuredRecord = featuredTeam === 2 ? team2Record : team1Record
   const featuredColors = featuredTeam === 2 ? team2Colors : team1Colors
 
-  const oppName   = featuredTeam === 2 ? team1Name   : team2Name
-  const oppScore  = featuredTeam === 2 ? team1Score  : team2Score
-  const oppRank   = featuredTeam === 2 ? team1Rank   : team2Rank
-  const oppRecord = featuredTeam === 2 ? team1Record : team2Record
+  const oppName    = featuredTeam === 2 ? team1Name   : team2Name
+  const oppScore   = featuredTeam === 2 ? team1Score  : team2Score
+  const oppRank    = featuredTeam === 2 ? team1Rank   : team2Rank
+  const oppRecord  = featuredTeam === 2 ? team1Record : team2Record
+  const oppColors  = featuredTeam === 2 ? team1Colors : team2Colors
 
   const sf = featuredScore ?? ''
   const so = oppScore ?? ''
@@ -92,10 +129,12 @@ export function buildScoreGraphicPrompt({
   const oppRankLabel = oppRank ? `#${oppRank} ` : ''
 
   const profile    = getTeamBrandProfile(featuredName)
+  const oppProfile = getTeamBrandProfile(oppName)
   const primary    = profile?.primaryHex   || featuredColors?.primary   || '#1a1a1a'
   const secondary  = profile?.secondaryHex || featuredColors?.secondary || '#ffffff'
   const tertiary   = profile?.tertiaryHex  || null
   const primaryPMS = profile?.primaryPMS   || null
+  const featuredLogo = describeLogo(profile)
 
   const resultMood = won  ? 'This is a WIN — the graphic should feel confident, energized, and celebratory without being over the top.'
                   : tied ? 'This ended in a TIE — factual and composed.'
@@ -105,7 +144,11 @@ export function buildScoreGraphicPrompt({
     ? `The program is known for these design motifs (use abstractly if you incorporate texture or geometry): ${profile.motifs.join(', ')}.`
     : ''
 
-  const photoLine = `If you have a photo attached, use it as the hero visual — keep it natural, do not color-grade the entire image, and let the design elements frame it. If no photo is attached, build a pure design graphic using color, typography, team logos, and geometry only — no generated or simulated photographs, player images, crowd scenes, or stadium shots of any kind.`
+  const photoLine = `If you have a photo attached, use it as the hero visual — keep it natural, do not color-grade, tint, duotone, or overlay color washes on it, and let the design elements frame it. If no photo is attached, build a pure design graphic using color, typography, team logos, and geometry only — no generated or simulated photographs, player images, crowd scenes, or stadium shots of any kind.`
+
+  // Opponent brand block — gives the AI colors + logo description so it can
+  // render the opponent's mark accurately rather than guessing from the name.
+  const opponentBlock = buildBrandSummary(oppName, oppProfile, oppColors, 'OPPONENT')
 
   // Home/away context — used for box score ordering and game framing only,
   // not rendered as literal labels in the graphic.
@@ -129,25 +172,32 @@ export function buildScoreGraphicPrompt({
     ``,
     resultMood,
     ``,
-    `BRAND`,
+    `BRAND — ${featuredName}`,
     `Primary color: ${primaryPMS ? `${primaryPMS} / ` : ''}${primary}`,
     `Secondary color: ${secondary}${tertiary ? ` · Accent: ${tertiary}` : ''}`,
     profile?.wordmarkStyle ? `Wordmark style: ${profile.wordmarkStyle}` : null,
+    featuredLogo ? `Logo: ${featuredLogo}` : null,
     profile?.graphicNotes  ? `Art direction: ${profile.graphicNotes}` : null,
     motifLine || null,
     ``,
+    opponentBlock,
+    opponentBlock ? `` : null,
+    `The opponent appears via their score and either their logo or their wordmark — your choice. Use the opponent description above so their colors and logo are rendered accurately; if you cannot reproduce their logo confidently, fall back to a clean wordmark of the opponent's team name in their primary color. Do not invent or approximate an unfamiliar logo.`,
+    ``,
     photoLine,
     ``,
-    `The score numbers should be the largest typographic element. Both team logos should appear near their respective scores. The two scores must read as a clear comparison at a glance — side by side, or in an obvious visual relationship. Everything else — layout, texture, composition, hierarchy — is your creative call.`,
-    homeTeam !== null ? `If you include a box score or quarter-by-quarter breakdown, list the AWAY team first and the HOME team second — standard sports convention.` : null,
+    `The score numbers should be the largest typographic element. Both score numbers must be identical in size, weight, and visual prominence — do NOT de-emphasize ${featuredName}'s score because this is a loss, and do NOT shrink the opponent's score because this is a win. The two scores must read as a clear comparison at a glance — side by side, or in an obvious visual relationship. Everything else — layout, texture, composition, hierarchy — is your creative call.`,
+    homeTeam !== null ? `Layout convention: the AWAY team goes on the LEFT (or TOP if stacked vertically); the HOME team goes on the RIGHT (or BOTTOM). This applies to the main score comparison, any box score, and the team-name/logo lockups — so for this game, ${featuredIsHome ? `${oppName} (away) is on the left/top and ${featuredName} (home) is on the right/bottom` : `${featuredName} (away) is on the left/top and ${oppName} (home) is on the right/bottom`}.` : null,
     ``,
     `A small "FINAL" label is appropriate and expected — real score graphics use it. What to avoid: a giant WIN / VICTORY / FINAL word that visually dominates the canvas and overshadows the scores.`,
     ``,
     `Do not place the opponent's logo in a plain white or gray box — both teams should feel integrated into the design, not pasted in.`,
     ``,
+    `Do not invent sponsor logos, broadcast or network bugs, hashtags, or social media handles. Only the two teams' marks appear on the graphic.`,
+    ``,
     `Do not add university addresses, city names, or location footers (e.g. "Austin, Texas" or "The University of Texas") — the team name and logo carry the identity.`,
     ``,
-    `Background textures, patterns, and decorative geometry should reflect ${featuredName}'s visual identity only. The opponent appears through their logo and score — do not incorporate their signature patterns or textures into the background or composition.`,
+    `Background textures, patterns, and decorative geometry should reflect ${featuredName}'s visual identity only. The opponent appears through their logo/wordmark and score — do not incorporate their signature patterns or textures into the background or composition.`,
   ]
 
   return lines.filter(l => l !== null && l !== undefined).join('\n')
