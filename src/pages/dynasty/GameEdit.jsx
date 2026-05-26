@@ -2321,48 +2321,58 @@ export default function GameEdit() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={handleCopyPrompt}
-                    disabled={!formData.team1Score || !formData.team2Score}
-                    title="Copy the full prompt to paste into ChatGPT, Claude, or another AI"
-                  >
-                    {promptCopied ? 'Copied!' : 'Copy AI Prompt'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handlePasteRecap}
-                    title="Paste recap text from clipboard"
-                  >
-                    Paste
-                  </Button>
-                  <button
-                    type="button"
-                    aria-label="Edit recap in a larger editor"
-                    title="Open the recap in a larger editor"
-                    onClick={() => setShowRecapEditModal(true)}
-                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg transition-all border border-surface-5 bg-surface-3 text-txt-primary"
-                  >
-                    {/* Diagonal expand arrow (top-right) */}
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M7 17L17 7" />
-                      <path d="M8 7h9v9" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Recap settings"
-                    title="Recap perspective and length"
-                    onClick={() => setShowRecapSettings(true)}
-                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg transition-all border border-surface-5 bg-surface-3 text-txt-primary"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="3"/>
-                      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                    </svg>
-                  </button>
+                  {/* ⚙ | Copy AI Prompt — joined pair */}
+                  <div className="flex items-stretch rounded-lg overflow-hidden" style={{ border: '1px solid var(--surface-5)' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowRecapSettings(true)}
+                      title="Recap perspective and length"
+                      className="px-2.5 flex items-center justify-center transition-colors text-txt-secondary hover:text-txt-primary hover:bg-surface-3"
+                      style={{ background: 'var(--surface-2)' }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                      </svg>
+                    </button>
+                    <div style={{ width: '1px', background: 'var(--surface-5)', flexShrink: 0 }} />
+                    <button
+                      type="button"
+                      onClick={handleCopyPrompt}
+                      disabled={!formData.team1Score || !formData.team2Score}
+                      title="Copy the full prompt to paste into ChatGPT, Claude, or another AI"
+                      className="px-3 py-1.5 text-sm font-semibold transition-colors text-txt-primary hover:bg-surface-3 disabled:opacity-40"
+                      style={{ background: 'var(--surface-2)' }}
+                    >
+                      {promptCopied ? 'Copied!' : 'Copy AI Prompt'}
+                    </button>
+                  </div>
+
+                  {/* Paste | ↗ — joined pair */}
+                  <div className="flex items-stretch rounded-lg overflow-hidden" style={{ border: '1px solid var(--surface-5)' }}>
+                    <button
+                      type="button"
+                      onClick={handlePasteRecap}
+                      title="Paste recap text from clipboard"
+                      className="px-3 py-1.5 text-sm font-semibold transition-colors text-txt-primary hover:bg-surface-3"
+                      style={{ background: 'var(--surface-2)' }}
+                    >
+                      Paste
+                    </button>
+                    <div style={{ width: '1px', background: 'var(--surface-5)', flexShrink: 0 }} />
+                    <button
+                      type="button"
+                      onClick={() => setShowRecapEditModal(true)}
+                      title="Open the recap in a larger editor"
+                      className="px-2.5 flex items-center justify-center transition-colors text-txt-secondary hover:text-txt-primary hover:bg-surface-3"
+                      style={{ background: 'var(--surface-2)' }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M7 17L17 7" />
+                        <path d="M8 7h9v9" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
               {recapError && (
