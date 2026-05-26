@@ -112,6 +112,19 @@ export default function YouTubePlayer({
           onReady: (e) => {
             if (cancelled) return
             playerRef.current = e.target
+            // CRITICAL: disable pointer events on the iframe itself.
+            // Without this, YouTube's player JS detects mousemove
+            // events inside the iframe and surfaces hover chrome
+            // (channel-name overlay, share button, "Watch on YouTube"
+            // badge, central pause icon) regardless of controls=0.
+            // With pointer-events: none, YT never sees a mouseover
+            // and never decides to surface its chrome. Our overlay
+            // buttons above the iframe handle all play/pause input
+            // via the IFrame API directly.
+            try {
+              const iframe = e.target.getIframe?.()
+              if (iframe) iframe.style.pointerEvents = 'none'
+            } catch {}
             // Autoplay is muted so it works without user gesture.
             try { e.target.playVideo() } catch {}
           },
@@ -191,13 +204,15 @@ export default function YouTubePlayer({
           shows through; covers the whole frame so any click anywhere
           on the video pauses (mirrors what YouTube's own controls=0
           click-to-toggle would do, but routed through our state
-          machine so we know about it). */}
+          machine so we know about it). Explicit z-10 is belt-and-
+          suspenders alongside the iframe's pointer-events:none — if
+          one fails, the other still keeps YT chrome out. */}
       {isPlaying && (
         <button
           type="button"
           onClick={pause}
           aria-label="Pause"
-          className="absolute inset-0 bg-transparent focus:outline-none cursor-pointer"
+          className="absolute inset-0 z-10 bg-transparent focus:outline-none cursor-pointer"
         />
       )}
 
@@ -210,7 +225,7 @@ export default function YouTubePlayer({
           type="button"
           onClick={play}
           aria-label={state === 'ended' ? 'Replay' : 'Play'}
-          className="absolute inset-0 bg-black flex items-center justify-center focus:outline-none cursor-pointer"
+          className="absolute inset-0 z-10 bg-black flex items-center justify-center focus:outline-none cursor-pointer"
         >
           <div className="bg-white/15 ring-1 ring-white/25 rounded-full w-16 h-16 flex items-center justify-center transition-transform hover:scale-105">
             {state === 'ended' ? (
