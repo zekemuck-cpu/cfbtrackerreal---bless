@@ -2681,7 +2681,7 @@ const FCS_TEAMS = {
     shortNickname: "Groupers",
     confidence: "high"
   },
-  "FCS Northwest Stallions": {
+  "FCS Northwest": {
     primaryPMS: null,
     primaryHex: "#BFA544",
     secondaryPMS: null,
@@ -2698,7 +2698,7 @@ const FCS_TEAMS = {
     shortNickname: "Stallions",
     confidence: "high"
   },
-  "FCS Midwest Rebels": {
+  "FCS Midwest": {
     primaryPMS: null,
     primaryHex: "#91ABC7",
     secondaryPMS: null,
@@ -2715,7 +2715,7 @@ const FCS_TEAMS = {
     shortNickname: "Rebels",
     confidence: "high"
   },
-  "FCS East Judicials": {
+  "FCS East": {
     primaryPMS: null,
     primaryHex: "#2F1936",
     secondaryPMS: null,
@@ -2732,7 +2732,7 @@ const FCS_TEAMS = {
     shortNickname: "Judicials",
     confidence: "high"
   },
-  "FCS West Titans": {
+  "FCS West": {
     primaryPMS: null,
     primaryHex: "#462E6A",
     secondaryPMS: null,
