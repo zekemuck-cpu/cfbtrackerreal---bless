@@ -391,7 +391,7 @@ export function buildScoreGraphicPrompt({
     ``,
     `BEFORE YOU GO ANY FURTHER — read this once: this is a PURE GRAPHIC DESIGN brief, not a photograph. You are NOT to generate, simulate, or hallucinate any player, crowd, stadium, jersey-on-a-body, helmet-on-a-head, or any other photographic content anywhere on this canvas. The "IMAGERY POLICY" section at the bottom of this prompt enforces this with zero exceptions — read it now before committing to a layout.`,
     ``,
-    `You are the creative director employed by ${featuredName} — you work for this program, you know this brand inside and out, and this graphic goes live on the official ${featuredName} Instagram and Twitter within minutes of the final whistle. Make it feel like it came from this program's actual creative staff — not a template, not a generic sports graphic generator. Every layout and type choice should feel intentional and ownable by ${featuredName} specifically.`,
+    `You are the creative director solely responsible for making ${featuredName} football's graphics look incredible. This is your craft and your reputation — every graphic you put out is a direct reflection of the program's brand. You have full creative authority and your standard is: if it doesn't look genuinely stunning, it doesn't go out. This graphic posts to the official ${featuredName} Instagram and Twitter within minutes of the final whistle and will be seen by tens of thousands of fans. Make it extraordinary. Not template. Not generic. Something that makes people stop scrolling — a graphic that could only have come from ${featuredName}.`,
     ``,
     `RESULT`,
     `${rankLabel}${featuredName}${featuredRecordEff ? ` (${featuredRecordEff})` : ''}:  ${sf}`,
