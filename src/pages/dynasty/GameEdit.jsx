@@ -2147,49 +2147,44 @@ export default function GameEdit() {
           followed by a single inline cluster of compact stat inputs.
           Avoids the cramped 4-input grid the previous design forced. */}
       <Card>
-        <h3 className="label-sm text-txt-primary mb-1">Team Details</h3>
-        <p className="text-[11px] text-txt-tertiary mb-3">
-          <span className="font-semibold text-txt-secondary">Note:</span> Record and Conf are each team's record <span className="italic">after</span> this game finished — not the pregame record.
-        </p>
-        <label className="flex items-center gap-2 mb-4 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={autoFillRecords}
-            onChange={(e) => setAutoFillRecords(e.target.checked)}
-            className="w-4 h-4 rounded border-surface-5 cursor-pointer"
-          />
-          <span className="text-[12px] text-txt-secondary">
-            <span className="font-semibold">Auto-fill from team data</span>
-            <span className="text-txt-tertiary"> — Record and Conf update automatically as the score above is entered. Uncheck to enter records by hand.</span>
-          </span>
-        </label>
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <h3 className="label-sm text-txt-primary">TEAM DETAILS</h3>
+          <label className="flex items-center gap-1.5 cursor-pointer select-none shrink-0">
+            <input
+              type="checkbox"
+              checked={autoFillRecords}
+              onChange={(e) => setAutoFillRecords(e.target.checked)}
+              className="w-3.5 h-3.5 rounded border-surface-5 cursor-pointer"
+            />
+            <span className="text-[11px] text-txt-tertiary">Auto-fill records</span>
+          </label>
+        </div>
         <div className="divide-y divide-surface-4">
           {[
             { prefix: displayLeftTeam, name: leftTeamName, abbr: leftTeamAbbr, logo: leftTeamLogo, isUser: isLeftUserTeam },
             { prefix: displayRightTeam, name: rightTeamName, abbr: rightTeamAbbr, logo: rightTeamLogo, isUser: isRightUserTeam }
-          ].map(({ prefix, name, logo, isUser }, idx) => (
-            <div key={prefix} className={`flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 ${idx === 0 ? 'pb-4' : 'pt-4'}`}>
-              {/* Team identity */}
-              <div className="flex items-center gap-3 lg:flex-1 lg:min-w-0">
-                {logo && <img src={logo} alt="" className="w-9 h-9 object-contain shrink-0" />}
+          ].map(({ prefix, name, abbr, logo, isUser }, idx) => (
+            <div key={prefix} className={`flex flex-wrap items-center gap-x-3 gap-y-2 ${idx === 0 ? 'pb-2' : 'pt-2'}`}>
+              {/* Team identity — compact: logo + name/chip on one line */}
+              <div className="flex items-center gap-2 w-28 shrink-0">
+                {logo && <img src={logo} alt="" className="w-7 h-7 object-contain shrink-0" />}
                 <div className="min-w-0">
-                  <div className="text-sm font-bold text-txt-primary truncate">{name}</div>
+                  <div className="text-xs font-bold text-txt-primary leading-tight truncate">{abbr || name}</div>
                   {isUser && (
-                    <div className="text-[10px] uppercase tracking-wider text-txt-tertiary mt-0.5">Your team</div>
+                    <div className="text-[9px] uppercase tracking-wider text-txt-tertiary leading-tight">Your team</div>
                   )}
                 </div>
               </div>
 
-              {/* Stat inputs — single inline cluster, compact labels above
-                  small fixed-width inputs. Wraps on narrow viewports. */}
-              <div className="flex flex-wrap gap-x-3 gap-y-2 lg:gap-x-4">
+              {/* Stat inputs */}
+              <div className="flex flex-wrap gap-x-2 gap-y-1.5">
                 <StatField label="Rank">
                   <Input
                     type="number"
                     value={formData[`${prefix}Rank`]}
                     onChange={(e) => setFormData({ ...formData, [`${prefix}Rank`]: e.target.value })}
                     size="sm"
-                    className="w-14 text-center tabular"
+                    className="w-12 text-center tabular"
                     min="1" max="133" placeholder="—"
                   />
                 </StatField>
@@ -2204,16 +2199,12 @@ export default function GameEdit() {
                       value={formData[`${prefix}${field}`]}
                       onChange={(e) => setFormData({ ...formData, [`${prefix}${field}`]: e.target.value })}
                       size="sm"
-                      className="w-14 text-center tabular"
+                      className="w-12 text-center tabular"
                       min="0" max="99"
                     />
                   </StatField>
                 ))}
                 {(() => {
-                  // Record/Conf shown for BOTH teams now (was opponent-only).
-                  // Read from the precomputed live1/live2 useMemos rather
-                  // than calling liveRecordFor inline — see the memo
-                  // declarations above for the freeze rationale.
                   const live = prefix === 'team1' ? live1 : live2
                   const recordValue = autoFillRecords
                     ? (live?.record || '')
@@ -2229,11 +2220,11 @@ export default function GameEdit() {
                           value={recordValue}
                           onChange={(e) => setFormData({ ...formData, [`${prefix}Record`]: e.target.value })}
                           size="sm"
-                          className="w-16 text-center tabular"
+                          className="w-14 text-center tabular"
                           placeholder="0–0"
                           readOnly={autoFillRecords}
                           disabled={autoFillRecords}
-                          title={autoFillRecords ? 'Auto-filled from team data — uncheck "Auto-fill from team data" to edit.' : ''}
+                          title={autoFillRecords ? 'Post-game record — uncheck Auto-fill to edit.' : 'Record after this game finished.'}
                         />
                       </StatField>
                       <StatField label="Conf">
@@ -2242,11 +2233,11 @@ export default function GameEdit() {
                           value={confValue}
                           onChange={(e) => setFormData({ ...formData, [`${prefix}ConfRecord`]: e.target.value })}
                           size="sm"
-                          className="w-16 text-center tabular"
+                          className="w-14 text-center tabular"
                           placeholder="0–0"
                           readOnly={autoFillRecords}
                           disabled={autoFillRecords}
-                          title={autoFillRecords ? 'Auto-filled from team data — uncheck "Auto-fill from team data" to edit.' : ''}
+                          title={autoFillRecords ? 'Post-game conf record — uncheck Auto-fill to edit.' : 'Conf record after this game finished.'}
                         />
                       </StatField>
                     </>
