@@ -7,14 +7,15 @@ import { Card, ContactCTA } from '../components/ui'
 import { useToast } from '../components/ui/Toast'
 
 const SCREENSHOTS = [
-  { url: 'https://i.imgur.com/JJlshbp.png' },
-  { url: 'https://i.imgur.com/5yw02By.png' },
-  { url: 'https://i.imgur.com/LplBVog.png' },
-  { url: 'https://i.imgur.com/fA9YCIJ.png' },
-  { url: 'https://i.imgur.com/n9jCgKF.png' },
-  { url: 'https://i.imgur.com/dtlRlUk.png' },
-  { url: 'https://i.imgur.com/UpMdJGk.png' },
-  { url: 'https://i.imgur.com/hxgIbCY.png' },
+  { url: 'https://i.imgur.com/I7wIQZL.png' },
+  { url: 'https://i.imgur.com/WbBWBXP.png' },
+  { url: 'https://i.imgur.com/7X9r9qt.png' },
+  { url: 'https://i.imgur.com/0v1xBPd.png' },
+  { url: 'https://i.imgur.com/ChyY3AO.png' },
+  { url: 'https://i.imgur.com/kXZdP0o.png' },
+  { url: 'https://i.imgur.com/G86FXAb.png' },
+  { url: 'https://i.imgur.com/ZQkjDtp.png' },
+  { url: 'https://i.imgur.com/qxZFoYz.png' },
 ]
 
 const FEATURES = [
