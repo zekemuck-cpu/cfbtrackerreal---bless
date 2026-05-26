@@ -43,9 +43,7 @@ export function buildScoreGraphicPrompt({
       ? `${team1Name} was the home team. ${team2Name} was the visiting team.`
       : `${team2Name} was the home team. ${team1Name} was the visiting team.`
 
-    const photoLine = screenshotCount > 0
-      ? `Images are attached — use them as the hero visual. Keep the photo natural; do not color-grade the entire image.`
-      : `NO PHOTOS. No images were attached. Do not generate, render, or simulate any photograph, player image, crowd scene, stadium shot, or photorealistic element of any kind. This graphic is pure design: color fields, typography, team logos, and geometry only.`
+    const photoLine = `If you have a photo attached, use it as the hero visual — keep it natural and do not color-grade the entire image. If no photo is attached, build a pure design graphic using color, typography, team logos, and geometry only — no generated or simulated photographs, player images, crowd scenes, or stadium shots of any kind.`
 
     const lines = [
       `Design a post-game score graphic (1080×1080) in the style of a neutral sports media outlet — think ESPN, Fox Sports, or The Athletic — not either team's own branded post.`,
@@ -107,9 +105,7 @@ export function buildScoreGraphicPrompt({
     ? `The program is known for these design motifs (use abstractly if you incorporate texture or geometry): ${profile.motifs.join(', ')}.`
     : ''
 
-  const photoLine = screenshotCount > 0
-    ? `Images are attached — use them as the hero visual. Keep the photo natural; do not color-grade the entire image. The design elements should frame the photo, not fight it.`
-    : `NO PHOTOS. No images were attached. Do not generate, render, or simulate any photograph, player image, crowd scene, stadium shot, or photorealistic element of any kind. This graphic is pure design: color fields, typography, team logos, and geometry only.`
+  const photoLine = `If you have a photo attached, use it as the hero visual — keep it natural, do not color-grade the entire image, and let the design elements frame it. If no photo is attached, build a pure design graphic using color, typography, team logos, and geometry only — no generated or simulated photographs, player images, crowd scenes, or stadium shots of any kind.`
 
   // Home/away context — used for box score ordering and game framing only,
   // not rendered as literal labels in the graphic.
