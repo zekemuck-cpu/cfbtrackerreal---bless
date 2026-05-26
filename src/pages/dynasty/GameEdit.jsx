@@ -2213,7 +2213,6 @@ export default function GameEdit() {
           <p className="text-sm text-txt-tertiary">Save the game first to connect Google Sheets for detailed stats.</p>
         ) : (
           <>
-            <p className="text-sm text-txt-tertiary mb-4">Connect Google Sheets to track detailed stats for this game.</p>
 
             <div className="grid grid-cols-4 gap-2">
               {[
@@ -2570,7 +2569,6 @@ export default function GameEdit() {
       {/* Player of the Week */}
       <Card>
         <h3 className="label-sm text-txt-primary mb-2">Player of the Week</h3>
-        <p className="text-xs text-txt-tertiary mb-4">Select players who earned conference or national Player of the Week honors for this game.</p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
