@@ -2179,13 +2179,9 @@ export default function GameEdit() {
             const confValue   = autoFillRecords ? (live?.confRecord || '') : formData[`${prefix}ConfRecord`]
             return (
               <React.Fragment key={prefix}>
-                {/* Team identity */}
-                <div className="flex items-center gap-1.5 pr-1 min-w-0">
-                  {logo && <img src={logo} alt="" className="w-6 h-6 object-contain shrink-0" />}
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-bold text-txt-primary leading-tight truncate">{abbr || name}</div>
-                    {isUser && <div className="text-[8px] uppercase text-txt-tertiary leading-tight">Yours</div>}
-                  </div>
+                {/* Team identity — logo only */}
+                <div className="flex items-center justify-center pr-1">
+                  {logo && <img src={logo} alt={abbr || name} className="w-7 h-7 object-contain" />}
                 </div>
 
                 {/* Rank */}
