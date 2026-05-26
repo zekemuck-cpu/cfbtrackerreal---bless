@@ -165,7 +165,7 @@ export function buildScoreGraphicPrompt({
     `• Official vector team logos (recalled from your memory of the actual mark — see the Logo rendering section above)`,
     `• Geometric shapes (chevrons, stripes, frames, borders, dividers, brush strokes)`,
     ``,
-    `If a reference photo is attached to this request, place it AS-IS as the hero visual — do not modify, color-grade, tint, duotone, or overlay color washes on it, and do not extend or generate any imagery beyond what is in the attached file. If NO photo is attached (most common case), the design uses zero photographic content of any kind.`,
+    `MANDATORY: If ANY photo, image, or screenshot is attached to this request, you MUST use it as the hero visual element of the graphic. NEVER ignore an attached image. NEVER generate the graphic without it. Place the attached image AS-IS — do not modify, color-grade, tint, duotone, crop, extend, or overlay color washes on it; place it inside the design so the design elements frame it. If you find yourself rendering this graphic without including the attached image, STOP and start over with the image as the hero visual. If NO image is attached at all, build a pure design graphic with zero photographic content of any kind.`,
   ].join('\n')
 
   // Wrap home/away/neutral framing in language that makes it unmistakably
@@ -199,6 +199,9 @@ export function buildScoreGraphicPrompt({
       `• A small "FINAL" label.`,
       gameContext ? `• Because this is a postseason game, the specific game/round name may appear as a callout (e.g. "${gameContext.callout}"), sized appropriately to the magnitude of the moment — but NOT so large that it overshadows the scores.` : `• (Regular-season game — do not add any game-name / week-name callout.)`,
       `FORBIDDEN (never appears anywhere on the graphic):`,
+      `• Hype headlines or result banners — "CATS WIN!", "ROLL TIDE!", "GO BLUE!", "VICTORY!", "WE WIN!", "BIG WIN!", "TAKEDOWN!", "DOMINANT!", or any equivalent. "FINAL" is the only allowed result label.`,
+      `• Subhead taglines and location subtitles — "BIG BLUE TAKES THE WIN IN FAYETTEVILLE!", "STATEMENT WIN IN ATHENS", "TIGERS ROAR IN BATON ROUGE", or any sentence-style descriptor. The scores + names + FINAL tell the story; no caption needed.`,
+      `• Fan-identity slogans / mottos / chants — "BIG BLUE NATION", "WE ARE", "WE ARE UK", "GEAUX TIGERS", "HAIL STATE", "ROLL TIDE", "ANCHOR DOWN", "BOOMER SOONER", "OH-IO", "GO IRISH", etc. These are program identity slogans and have no place in a score graphic.`,
       `• "Neutral site", "Home", "Away", "Road", "Hosted by", "at <venue>", venue names, stadium names, city names, state names, or any location reference whatsoever.`,
       `• "WIN", "LOSS", "VICTORY", "DEFEAT", "WE WIN", "L", or any result word as a dominant element — "FINAL" is the only allowed result label.`,
       `• The literal labels from this prompt (e.g. "RESULT", "BRAND", "OPPONENT", "SITE CONTEXT", "TEXT POLICY").`,
@@ -212,6 +215,19 @@ export function buildScoreGraphicPrompt({
     }
     return lines.join('\n')
   }
+
+  // Restraint guidance — counters the AI's instinct to pile on hype
+  // banners, subheads, slogans, and multiple textures. Keeps the
+  // graphic clean and scoreboard-first.
+  const visualRestraint = () => [
+    `VISUAL RESTRAINT — keep it clean and sleek:`,
+    `• The composition should feel like a focused scoreboard graphic, not a hype poster. Scores + team names/logos + FINAL are the only required content. Postseason callout (if applicable) is the only optional addition.`,
+    `• ONE primary visual block, not three. Avoid stacking a hero photo PLUS a hype banner PLUS a subhead PLUS a slogan footer. If a photo is attached, the photo is the hero — no headline needed.`,
+    `• ONE texture/pattern at most. Don't stack halftones with paper grain with checkerboard with brush strokes with confetti. Pick one signature texture (or none) and use it sparingly as a background accent — never as a full-canvas overlay.`,
+    `• Generous whitespace. Let the scores breathe. Don't pack content edge-to-edge.`,
+    `• No grunge frames, torn-paper edges, or gritty brush borders around the full canvas. Clean rectangular or simple-shape compositions.`,
+    `• The score numbers must be the unmistakable focal point. Every other element supports them rather than competing for attention.`,
+  ].join('\n')
 
   // homeTeam = 1 → team1 is home, 2 → team2 is home, null → neutral site
   // ─── NEUTRAL / MEDIA-COMPANY GRAPHIC ────────────────────────────────────────
@@ -277,6 +293,8 @@ export function buildScoreGraphicPrompt({
       homeTeam !== null ? `Layout convention: the AWAY team goes on the LEFT (or TOP if stacked vertically); the HOME team goes on the RIGHT (or BOTTOM). This applies to the main score comparison, any box score, and the team-name/logo lockups.` : null,
       ``,
       `Do not place either logo in a plain white or gray box — both teams should feel integrated into the design.`,
+      ``,
+      visualRestraint(),
       ``,
       imageryPolicy(),
       ``,
@@ -384,6 +402,8 @@ export function buildScoreGraphicPrompt({
     `Do not place the opponent's logo in a plain white or gray box — both teams should feel integrated into the design, not pasted in.`,
     ``,
     `Background textures, patterns, and decorative geometry should reflect ${featuredName}'s visual identity only. The opponent appears through their logo/wordmark and score — do not incorporate their signature patterns or textures into the background or composition.`,
+    ``,
+    visualRestraint(),
     ``,
     imageryPolicy(),
     ``,
