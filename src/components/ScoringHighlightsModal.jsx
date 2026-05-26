@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import YouTubePlayer from './YouTubePlayer'
 
 const PLAY_DURATION = 30 // seconds per play before auto-advance
 
@@ -492,23 +491,14 @@ export default function ScoringHighlightsModal({
   const runningScore = getRunningScore(currentIndex)
   const isPassingTD = currentPlay?.scoreType === 'Passing TD'
 
-  // YouTube → custom IFrame-API player (no YT branding). Everything
-  // else → legacy iframe path via getEmbedUrl.
-  const ytDataRaw = getYouTubeData(currentPlay?.videoLink)
-  // If we were handed a resume offset (modal opened from the inline
-  // widget mid-clip), bump the start forward by that number of seconds
-  // so playback picks up where the small video left off.
-  const ytData = ytDataRaw && appliedResumeOffset > 0
-    ? (() => {
-        const nextStart = (ytDataRaw.startSec || 0) + Math.floor(appliedResumeOffset)
-        // If the bumped start would land past the clip end, drop the
-        // end marker so playback at least continues briefly.
-        const nextEnd = ytDataRaw.endSec != null && nextStart >= ytDataRaw.endSec ? null : ytDataRaw.endSec
-        return { ...ytDataRaw, startSec: nextStart, endSec: nextEnd }
-      })()
-    : ytDataRaw
-
-  const embedData = ytData ? null : getEmbedUrl(currentPlay?.videoLink)
+  // Get embed URL via the legacy getEmbedUrl path for ALL sources
+  // (YouTube, Twitch, direct video, etc.). The modal is a dedicated
+  // full-screen video-viewing context, so the brief YouTube intro
+  // chrome is acceptable here — much less visually intrusive at full
+  // size than in a tiny inline tile. The inline tile sidesteps this
+  // by rendering a static thumbnail and deferring playback to this
+  // modal entirely.
+  const embedData = getEmbedUrl(currentPlay?.videoLink)
   const isDirectVideo = embedData && typeof embedData === 'object' && embedData.type === 'video'
   let embedUrl = isDirectVideo ? null : embedData
   if (embedUrl && appliedResumeOffset > 0) {
@@ -653,15 +643,7 @@ export default function ScoringHighlightsModal({
 
         {/* Video — fills all remaining space */}
         <div className="relative bg-black flex-1 min-h-0 overflow-hidden">
-          {ytData ? (
-            <YouTubePlayer
-              key={currentIndex}
-              videoId={ytData.videoId}
-              startSec={ytData.startSec || 0}
-              endSec={ytData.endSec}
-              className="w-full h-full"
-            />
-          ) : isDirectVideo ? (
+          {isDirectVideo ? (
             <video
               key={currentIndex}
               src={embedData.url}
