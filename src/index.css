@@ -463,12 +463,15 @@ button.card-elevated:hover {
   outline-offset: 2px;
 }
 
-/* Form-control accent (selected option, checkbox tick, etc.).
-   Without this, browsers default to system blue — jarring against the
-   dark theme. Falling back to surface-5 keeps the controls on-brand
-   even when a page hasn't scoped its own --team-primary. */
+/* Form-control accent (selected option, checkbox tick, range slider
+   fill, etc.). Pinned to a neutral surface tone — NOT the user's team
+   color. Previously this was `var(--team-primary, var(--surface-5))`
+   which paints every native control in the user's team color, and
+   makes recap-settings sliders / checkboxes look like brand-accented
+   widgets across the editor. Neutral keeps controls calm and lets
+   actual team-color usage be intentional (logos, hero gradients). */
 :root {
-  accent-color: var(--team-primary, var(--surface-5, #42454f));
+  accent-color: var(--surface-5, #42454f);
 }
 
 /* Tailwind's `focus:ring-2` utility (without a ring-color modifier)
