@@ -2636,12 +2636,6 @@ export default function GameEdit() {
         return (
           <Card>
             <h3 className="label-sm text-txt-primary mb-1">Score Graphic</h3>
-            <p className="text-xs text-txt-tertiary mb-3">
-              {uploadedScreenshots > 0
-                ? <>Copy this prompt into ChatGPT (image gen). <span className="text-txt-primary font-medium">Attach your {uploadedScreenshots} game screenshot{uploadedScreenshots > 1 ? 's' : ''} alongside it</span> — the prompt tells the AI to use them as the photo layer. Then upload the result below.</>
-                : <>Copy this prompt into ChatGPT or another image AI. Upload game screenshots first for best results — the AI will use them as the photo background.</>
-              }
-            </p>
 
             {!hasScores ? (
               <p className="text-xs text-txt-muted italic">Enter scores above to generate a prompt.</p>
