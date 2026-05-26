@@ -868,16 +868,46 @@ export default function Game() {
   // on every game-page render after the merged tid-keyed box-score PR.
   const teams = currentDynasty?.teams || TEAMS
 
-  // Resolve the active tab now that we know whether a recap exists. URL param
-  // wins if present so shared links keep working; otherwise use the per-device
-  // preference, and if that's "auto" fall back to a smart pick based on which
-  // sections actually have content. When the recap exists but the box score
-  // hasn't been entered, Gamecast renders a near-empty leaders rail, so we
-  // route straight to the standalone Recap tab.
+  // Per-tab data flags. A tab only appears when its underlying data
+  // exists — a game with only a Score Graphic should show ONLY the
+  // Score Graphic tab. These flags are also re-used in the tab bar
+  // render below; computing them once at the component scope keeps
+  // the autoDefaultTab logic and the tab bar in sync.
   const hasBoxForLeaders = hasAnyPlayerStats(game, teams)
-  const autoDefaultTab = game.aiRecap
-    ? (hasBoxForLeaders ? 'gamecast' : 'recap')
-    : 'boxscore'
+  const hasScoringSummary = game.boxScore?.scoringSummary?.length > 0
+  const hasRecap = !!game.aiRecap
+  const hasTeamStatsData = hasAnyTeamStats(game, teams)
+  const hasRatingsData = !!(game.team1Overall || game.team1Offense || game.team1Defense || game.team2Overall || game.opponentOverall)
+  const hasAwardsData = !!(game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW)
+  const hasCardsData = cardsForGame.length > 0
+  const hasPhotosData = Array.isArray(game.photos) && game.photos.length > 0
+  const hasScoreGraphicData = !!game.scoreGraphic
+
+  // Resolve the active tab now that we know which tabs are visible.
+  // URL param wins if present (shared-link compatibility); otherwise
+  // pick by per-device preference; if that's "auto" pick the first
+  // visible tab in priority order. Falling through to a tab whose
+  // data flag is false would render a blank page on games that only
+  // have e.g. a Score Graphic.
+  const autoDefaultTab = (() => {
+    // Priority order — Gamecast first (richest summary), then Box,
+    // Recap, etc. Score Graphic / Photos / Cards last because they
+    // aren't really "the game" — they're media.
+    const hasGamecastContent = hasBoxForLeaders || hasRecap || hasRatingsData || hasAwardsData || hasScoringSummary
+    if (hasGamecastContent && hasRecap && hasBoxForLeaders) return 'gamecast'
+    if (hasRecap && !hasBoxForLeaders) return 'recap'
+    if (hasGamecastContent) return 'gamecast'
+    if (hasBoxForLeaders) return 'boxscore'
+    if (hasScoringSummary) return 'scoring'
+    if (hasRecap) return 'recap'
+    if (hasTeamStatsData) return 'stats'
+    if (hasRatingsData) return 'ratings'
+    if (hasAwardsData) return 'awards'
+    if (hasCardsData) return 'cards'
+    if (hasPhotosData) return 'photos'
+    if (hasScoreGraphicData) return 'graphic'
+    return 'gamecast' // empty state — gamecast will render its own placeholder
+  })()
   const effectiveDefaultTab = defaultTabPref === 'auto' ? autoDefaultTab : defaultTabPref
   const activeTab = searchParams.get('tab') || effectiveDefaultTab
 
@@ -1950,25 +1980,27 @@ export default function Game() {
         <div className="bg-surface-1 rounded-xl overflow-hidden shadow-lg">
           {/* Tab Bar - always fits screen width */}
           {(() => {
-            // Check if box score has any actual player data (in either team's slot)
-            const hasBoxScoreData = hasAnyPlayerStats(game, teams)
-            // Check if recap exists or can be generated
-            const hasRecapOrCanGenerate = game.aiRecap || !isViewOnly
+            // Tab visibility derives from the data flags hoisted to the
+            // component scope above (used both here and by autoDefaultTab
+            // so the two stay in sync). A tab only shows when its
+            // underlying data exists — a game with only a Score Graphic
+            // shows only the Score Graphic tab.
+            const hasGamecastContent = hasBoxForLeaders || hasRecap || (!isCPUGame && (hasRatingsData || hasAwardsData)) || hasScoringSummary
 
             return (
           <div className="flex items-stretch border-b border-surface-4">
             <div className="flex flex-1 min-w-0 overflow-x-auto">
               {[
-                { key: 'gamecast', label: 'Gamecast', shortLabel: 'Cast', show: true },
-                { key: 'boxscore', label: 'Box Score', shortLabel: 'Box', show: hasBoxScoreData },
-                { key: 'scoring', label: 'Plays', shortLabel: 'Plays', show: game.boxScore?.scoringSummary?.length > 0 },
-                { key: 'recap', label: 'Recap', shortLabel: 'Recap', show: hasRecapOrCanGenerate },
-                { key: 'stats', label: 'Team Stats', shortLabel: 'Stats', show: hasAnyTeamStats(game, teams) },
-                { key: 'ratings', label: 'Ratings', shortLabel: 'Rtg', show: !isCPUGame && (game.team1Overall || game.team1Offense || game.team1Defense || game.team2Overall || game.opponentOverall) },
-                { key: 'awards', label: 'Awards', shortLabel: 'Awards', show: !isCPUGame && (game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW) },
-                { key: 'cards', label: 'Cards', shortLabel: 'Cards', show: cardsForGame.length > 0 },
-                { key: 'photos', label: 'Photos', shortLabel: 'Photos', show: Array.isArray(game.photos) && game.photos.length > 0 },
-                { key: 'graphic', label: 'Score Graphic', shortLabel: 'Graphic', show: !!game.scoreGraphic },
+                { key: 'gamecast', label: 'Gamecast', shortLabel: 'Cast', show: hasGamecastContent },
+                { key: 'boxscore', label: 'Box Score', shortLabel: 'Box', show: hasBoxForLeaders },
+                { key: 'scoring', label: 'Plays', shortLabel: 'Plays', show: hasScoringSummary },
+                { key: 'recap', label: 'Recap', shortLabel: 'Recap', show: hasRecap },
+                { key: 'stats', label: 'Team Stats', shortLabel: 'Stats', show: hasTeamStatsData },
+                { key: 'ratings', label: 'Ratings', shortLabel: 'Rtg', show: !isCPUGame && hasRatingsData },
+                { key: 'awards', label: 'Awards', shortLabel: 'Awards', show: !isCPUGame && hasAwardsData },
+                { key: 'cards', label: 'Cards', shortLabel: 'Cards', show: hasCardsData },
+                { key: 'photos', label: 'Photos', shortLabel: 'Photos', show: hasPhotosData },
+                { key: 'graphic', label: 'Score Graphic', shortLabel: 'Graphic', show: hasScoreGraphicData },
               ].filter(tab => tab.show).map(tab => (
                 <button
                   key={tab.key}
