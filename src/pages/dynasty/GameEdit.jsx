@@ -2271,6 +2271,35 @@ export default function GameEdit() {
           </>
         )}
       </Card>
+
+      {/* Player of the Week — compact 2×2 grid */}
+      <Card>
+        <h3 className="label-sm text-txt-primary mb-2">Player of the Week</h3>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { label: 'Conf Off', key: 'conferencePOW' },
+            { label: 'Conf Def', key: 'confDefensePOW' },
+            { label: 'Natl Off', key: 'nationalPOW' },
+            { label: 'Natl Def', key: 'natlDefensePOW' },
+          ].map(field => (
+            <div key={field.key}>
+              <label className="block text-[10px] uppercase tracking-wide text-txt-tertiary mb-1">{field.label}</label>
+              <Select
+                size="sm"
+                value={formData[field.key]}
+                onChange={(e) => setFormData({ ...formData, [field.key]: e.target.value })}
+              >
+                <option value="">None</option>
+                {availablePlayers.map(player => (
+                  <option key={player.pid} value={player.name}>
+                    {player.name} ({player.position || 'N/A'})
+                  </option>
+                ))}
+              </Select>
+            </div>
+          ))}
+        </div>
+      </Card>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
 
       <Card>
@@ -2566,53 +2595,6 @@ export default function GameEdit() {
         )
       })()}
 
-      {/* Player of the Week */}
-      <Card>
-        <h3 className="label-sm text-txt-primary mb-2">Player of the Week</h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[
-            { heading: 'Conference', fields: [
-              { label: 'Offensive POW', key: 'conferencePOW' },
-              { label: 'Defensive POW', key: 'confDefensePOW' },
-            ]},
-            { heading: 'National', fields: [
-              { label: 'Offensive POW', key: 'nationalPOW' },
-              { label: 'Defensive POW', key: 'natlDefensePOW' },
-            ]},
-          ].map(group => (
-            <div key={group.heading} className="space-y-3">
-              <h4 className="label-xs text-txt-tertiary">{group.heading}</h4>
-              {group.fields.map(field => (
-                <div key={field.key}>
-                  <label className="block text-xs text-txt-tertiary mb-1">{field.label}</label>
-                  <Select
-                    size="sm"
-                    value={formData[field.key]}
-                    onChange={(e) => setFormData({ ...formData, [field.key]: e.target.value })}
-                  >
-                    <option value="">None</option>
-                    {availablePlayers.map(player => (
-                      <option key={player.pid} value={player.name}>
-                        {player.name} ({player.position || 'N/A'}) - {
-                          team1Tid && isPlayerOnRoster(player, team1Tid, gameYear) ? team1Abbr :
-                          team2Tid && isPlayerOnRoster(player, team2Tid, gameYear) ? team2Abbr : '?'
-                        }
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-
-        {availablePlayers.length === 0 && (
-          <p className="label-xs mt-3" style={{ color: 'var(--accent-warning)' }}>
-            No players found on either team's roster for this year. Add players to see them here.
-          </p>
-        )}
-      </Card>
         </div>
       </div>
 
