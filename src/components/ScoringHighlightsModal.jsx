@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
+import YouTubePlayer from './YouTubePlayer'
 
 const PLAY_DURATION = 30 // seconds per play before auto-advance
 
@@ -11,20 +12,69 @@ const PLAY_DURATION = 30 // seconds per play before auto-advance
 // coincide. Bump them together if you ever change the clip length.
 const YOUTUBE_AUTO_CLIP_SECONDS = PLAY_DURATION
 
-// Build a YouTube embed with our standard params. Passing an end time makes
-// the player actually stop at that second — no more next-play overlap.
-//
-// `controls=0` hides YouTube's playback chrome (progress bar, scrub,
-// fullscreen button, settings). The user clicks the video itself to
-// play/pause. YouTube deprecated `modestbranding` and `showinfo` in 2023,
-// so `controls=0` is the most aggressive legitimate suppression of YT
-// branding still available — combined with a small CSS overlay strip
-// over the top of the iframe to cover the channel-name overlay.
+// Build a YouTube embed URL. Used only for non-React consumers / legacy
+// callers; the in-app surfaces (InlineScoringHighlights, this modal)
+// render via the YouTubePlayer component which talks to the IFrame
+// Player API directly and provides custom chrome.
 function buildYouTubeEmbed(videoId, startSec, endSec) {
   const params = ['autoplay=1', 'mute=1', 'rel=0', 'modestbranding=1', 'controls=0']
   if (startSec != null) params.push(`start=${startSec}`)
   if (endSec != null) params.push(`end=${endSec}`)
   return `https://www.youtube-nocookie.com/embed/${videoId}?${params.join('&')}`
+}
+
+// Parse a URL and return YouTube embed data when it's a YouTube link:
+// { kind: 'youtube', videoId, startSec, endSec }. Returns null for any
+// non-YouTube URL so callers can fall through to the generic
+// getEmbedUrl path (Twitch, direct video, etc).
+export function getYouTubeData(url) {
+  if (!url) return null
+
+  const finalize = (videoId, startSec, endSec) => {
+    if (!videoId || !/^[a-zA-Z0-9_-]+$/.test(videoId)) return null
+    const s = Number.isFinite(startSec) ? startSec : null
+    const e = Number.isFinite(endSec) ? endSec : (s != null ? s + YOUTUBE_AUTO_CLIP_SECONDS : null)
+    return { kind: 'youtube', videoId, startSec: s, endSec: e }
+  }
+
+  // youtubetrimmer.com share links carry explicit start+end.
+  const trimmerMatch = url.match(/youtubetrimmer\.com\/view\/?\?([^#]+)/)
+  if (trimmerMatch) {
+    const qs = new URLSearchParams(trimmerMatch[1])
+    const v = qs.get('v')
+    const s = parseInt(qs.get('start'), 10)
+    const e = parseInt(qs.get('end'), 10)
+    const data = finalize(v, Number.isFinite(s) ? s : null, Number.isFinite(e) ? e : null)
+    if (data) return data
+  }
+
+  const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)(?:\?t=(\d+))?/)
+  if (shortMatch) {
+    const s = shortMatch[2] ? parseInt(shortMatch[2], 10) : null
+    return finalize(shortMatch[1], s, null)
+  }
+
+  const longMatch = url.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)(?:.*[&?]t=(\d+))?/)
+  if (longMatch) {
+    const s = longMatch[2] ? parseInt(longMatch[2], 10) : null
+    return finalize(longMatch[1], s, null)
+  }
+
+  const embedMatch = url.match(/youtube(?:-nocookie)?\.com\/embed\/([a-zA-Z0-9_-]+)/)
+  if (embedMatch) {
+    try {
+      const u = new URL(url)
+      const startParam = u.searchParams.get('start') || u.searchParams.get('t')
+      const endParam = u.searchParams.get('end')
+      const s = startParam ? parseInt(startParam, 10) : null
+      const e = endParam ? parseInt(endParam, 10) : null
+      return finalize(embedMatch[1], s, e)
+    } catch {
+      return finalize(embedMatch[1], null, null)
+    }
+  }
+
+  return null
 }
 
 // Extract video embed URL from various platforms.
@@ -442,10 +492,23 @@ export default function ScoringHighlightsModal({
   const runningScore = getRunningScore(currentIndex)
   const isPassingTD = currentPlay?.scoreType === 'Passing TD'
 
-  // Get embed URL. If we were handed a resume offset (modal opened from the
-  // inline widget mid-clip), bump the YouTube `start` param forward by that
-  // number of seconds so playback picks up where the small video left off.
-  const embedData = getEmbedUrl(currentPlay?.videoLink)
+  // YouTube → custom IFrame-API player (no YT branding). Everything
+  // else → legacy iframe path via getEmbedUrl.
+  const ytDataRaw = getYouTubeData(currentPlay?.videoLink)
+  // If we were handed a resume offset (modal opened from the inline
+  // widget mid-clip), bump the start forward by that number of seconds
+  // so playback picks up where the small video left off.
+  const ytData = ytDataRaw && appliedResumeOffset > 0
+    ? (() => {
+        const nextStart = (ytDataRaw.startSec || 0) + Math.floor(appliedResumeOffset)
+        // If the bumped start would land past the clip end, drop the
+        // end marker so playback at least continues briefly.
+        const nextEnd = ytDataRaw.endSec != null && nextStart >= ytDataRaw.endSec ? null : ytDataRaw.endSec
+        return { ...ytDataRaw, startSec: nextStart, endSec: nextEnd }
+      })()
+    : ytDataRaw
+
+  const embedData = ytData ? null : getEmbedUrl(currentPlay?.videoLink)
   const isDirectVideo = embedData && typeof embedData === 'object' && embedData.type === 'video'
   let embedUrl = isDirectVideo ? null : embedData
   if (embedUrl && appliedResumeOffset > 0) {
@@ -454,9 +517,6 @@ export default function ScoringHighlightsModal({
       const currentStart = parseInt(u.searchParams.get('start') || '0', 10) || 0
       const currentEnd = u.searchParams.get('end')
       const nextStart = currentStart + Math.floor(appliedResumeOffset)
-      // Don't seek past the end marker — clamp to end - 1 so playback still
-      // gets a beat before stopping, or drop the end param if the math would
-      // invalidate it.
       if (currentEnd != null) {
         const endNum = parseInt(currentEnd, 10)
         if (Number.isFinite(endNum) && nextStart >= endNum) {
@@ -466,7 +526,7 @@ export default function ScoringHighlightsModal({
       u.searchParams.set('start', String(nextStart))
       embedUrl = u.toString()
     } catch {
-      // Non-URL (e.g., Streamable/Vimeo embeds); fall through without a
+      // Non-URL (Streamable/Vimeo embeds); fall through without a
       // timestamp — video will just restart, same as before.
     }
   }
@@ -593,7 +653,15 @@ export default function ScoringHighlightsModal({
 
         {/* Video — fills all remaining space */}
         <div className="relative bg-black flex-1 min-h-0 overflow-hidden">
-          {isDirectVideo ? (
+          {ytData ? (
+            <YouTubePlayer
+              key={currentIndex}
+              videoId={ytData.videoId}
+              startSec={ytData.startSec || 0}
+              endSec={ytData.endSec}
+              className="w-full h-full"
+            />
+          ) : isDirectVideo ? (
             <video
               key={currentIndex}
               src={embedData.url}
@@ -602,25 +670,15 @@ export default function ScoringHighlightsModal({
               controls
             />
           ) : embedUrl ? (
-            <>
-              <iframe
-                key={currentIndex}
-                src={embedUrl}
-                className="w-full h-full"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                title={`Scoring play ${currentIndex + 1}`}
-              />
-              {/* Cover the YouTube channel-name overlay shown at top of the
-                  player on hover/pause. pointer-events-none keeps clicks
-                  passing through to play/pause. */}
-              <div
-                aria-hidden="true"
-                className="absolute top-0 left-0 right-0 pointer-events-none"
-                style={{ height: '64px', background: 'linear-gradient(to bottom, rgba(0,0,0,0.96) 60%, rgba(0,0,0,0) 100%)' }}
-              />
-            </>
+            <iframe
+              key={currentIndex}
+              src={embedUrl}
+              className="w-full h-full"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              title={`Scoring play ${currentIndex + 1}`}
+            />
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-txt-muted">
               <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

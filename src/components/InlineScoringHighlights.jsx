@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { getEmbedUrl } from './ScoringHighlightsModal'
+import { getEmbedUrl, getYouTubeData } from './ScoringHighlightsModal'
+import YouTubePlayer from './YouTubePlayer'
 
 const PLAY_DURATION = 30
 
@@ -53,7 +54,11 @@ export default function InlineScoringHighlights({
   if (total === 0) return null
 
   const currentPlay = playsWithVideo[currentIndex]
-  const embedData = getEmbedUrl(currentPlay?.videoLink)
+  // YouTube links get the custom branding-free player (IFrame API).
+  // Everything else (Twitch, direct video, etc.) falls through to the
+  // legacy iframe path via getEmbedUrl.
+  const ytData = getYouTubeData(currentPlay?.videoLink)
+  const embedData = ytData ? null : getEmbedUrl(currentPlay?.videoLink)
   const isDirect = embedData && typeof embedData === 'object' && embedData.type === 'video'
   const embedUrl = isDirect ? null : embedData
 
@@ -97,28 +102,25 @@ export default function InlineScoringHighlights({
     <div className="rounded-lg overflow-hidden bg-surface-2 ring-1 ring-surface-3/60">
       {/* Video — 16:9 */}
       <div className="relative w-full aspect-video bg-black">
-        {isDirect ? (
+        {ytData ? (
+          <YouTubePlayer
+            key={currentIndex}
+            videoId={ytData.videoId}
+            startSec={ytData.startSec || 0}
+            endSec={ytData.endSec}
+          />
+        ) : isDirect ? (
           <video key={currentIndex} src={embedData.url} className="absolute inset-0 w-full h-full" autoPlay muted controls />
         ) : embedUrl ? (
-          <>
-            <iframe
-              key={currentIndex}
-              src={embedUrl}
-              className="absolute inset-0 w-full h-full"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              title={`Scoring play ${currentIndex + 1}`}
-            />
-            {/* Cover the YouTube channel-name overlay that appears on hover/pause
-                at the top of the player. pointer-events-none so clicks pass
-                through to the iframe (play/pause toggle still works). */}
-            <div
-              aria-hidden="true"
-              className="absolute top-0 left-0 right-0 pointer-events-none"
-              style={{ height: '56px', background: 'linear-gradient(to bottom, rgba(0,0,0,0.96) 60%, rgba(0,0,0,0) 100%)' }}
-            />
-          </>
+          <iframe
+            key={currentIndex}
+            src={embedUrl}
+            className="absolute inset-0 w-full h-full"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            title={`Scoring play ${currentIndex + 1}`}
+          />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-txt-muted">
             Unsupported video format
