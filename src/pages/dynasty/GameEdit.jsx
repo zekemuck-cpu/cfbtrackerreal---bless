@@ -2220,8 +2220,8 @@ export default function GameEdit() {
                           value={recordValue}
                           onChange={(e) => setFormData({ ...formData, [`${prefix}Record`]: e.target.value })}
                           size="sm"
-                          className="w-14 text-center tabular"
-                          placeholder="0–0"
+                          className="w-[52px] text-center tabular"
+                          placeholder="0-0"
                           readOnly={autoFillRecords}
                           disabled={autoFillRecords}
                           title={autoFillRecords ? 'Post-game record — uncheck Auto-fill to edit.' : 'Record after this game finished.'}
@@ -2233,8 +2233,8 @@ export default function GameEdit() {
                           value={confValue}
                           onChange={(e) => setFormData({ ...formData, [`${prefix}ConfRecord`]: e.target.value })}
                           size="sm"
-                          className="w-14 text-center tabular"
-                          placeholder="0–0"
+                          className="w-[52px] text-center tabular"
+                          placeholder="0-0"
                           readOnly={autoFillRecords}
                           disabled={autoFillRecords}
                           title={autoFillRecords ? 'Post-game conf record — uncheck Auto-fill to edit.' : 'Conf record after this game finished.'}
