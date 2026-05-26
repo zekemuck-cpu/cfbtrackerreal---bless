@@ -2142,7 +2142,7 @@ export default function GameEdit() {
       <Card>
         <h3 className="label-sm text-txt-primary mb-1">Team Details</h3>
         <p className="text-[11px] text-txt-tertiary mb-3">
-          <span className="font-semibold text-txt-secondary">Note:</span> Record and Conf are the opponent's record <span className="italic">after</span> this game finished — not the pregame record.
+          <span className="font-semibold text-txt-secondary">Note:</span> Record and Conf are each team's record <span className="italic">after</span> this game finished — not the pregame record.
         </p>
         <label className="flex items-center gap-2 mb-4 cursor-pointer select-none">
           <input
@@ -2202,7 +2202,8 @@ export default function GameEdit() {
                     />
                   </StatField>
                 ))}
-                {!isUser && (() => {
+                {(() => {
+                  // Record/Conf shown for BOTH teams now (was opponent-only).
                   // Read from the precomputed live1/live2 useMemos rather
                   // than calling liveRecordFor inline — see the memo
                   // declarations above for the freeze rationale.
