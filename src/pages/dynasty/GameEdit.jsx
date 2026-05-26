@@ -1998,9 +1998,8 @@ export default function GameEdit() {
 
       {/* All game editor cards in one continuous flow */}
       <div className="space-y-3">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
 
-      {/* Game Type — fully editable year, week slot, and sub-classification. */}
+      {/* Setup — year, week, location, conference game all in one card */}
       {(() => {
         const WEEK_OPTIONS = [
           { value: '', label: '— Select week —' },
@@ -2024,8 +2023,7 @@ export default function GameEdit() {
         const bowlOptions = editWeek === 'BW1' ? bw1Bowls : editWeek === 'BW2' ? bw2Bowls : sfBowls
         return (
           <Card>
-            <h3 className="label-sm text-txt-primary mb-1">Game Type</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-txt-tertiary mb-1">Year</label>
                 <Input
@@ -2049,8 +2047,6 @@ export default function GameEdit() {
                     const next = e.target.value
                     setEditWeek(next)
                     if (next !== 'BW1' && next !== 'BW2' && next !== 'BW3') setEditBowlName('')
-                    // Don't auto-populate with the stale dynasty.conference
-                    // root field — leave empty so the user picks explicitly.
                     if (next === 'CCG' && !selectedConference) setSelectedConference(queryConference || '')
                   }}
                 >
@@ -2059,8 +2055,40 @@ export default function GameEdit() {
                   ))}
                 </Select>
               </div>
+              <div>
+                <label className="block text-xs text-txt-tertiary mb-1">Location</label>
+                <Select
+                  size="sm"
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                >
+                  <option value="home">{team1Name} Home</option>
+                  <option value="away">{team2Name} Home</option>
+                  <option value="neutral">Neutral Site</option>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-xs text-txt-tertiary mb-1">Conference Game</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.isConferenceGame}
+                      onChange={(e) => setFormData({ ...formData, isConferenceGame: e.target.checked })}
+                      className="w-4 h-4 rounded"
+                      style={{ accentColor: 'var(--text-primary)' }}
+                    />
+                    <span className="text-sm text-txt-secondary">Yes</span>
+                  </label>
+                  {isConferenceGame && (
+                    <span className="label-xs" style={{ color: 'var(--accent-success)' }}>
+                      {team1Conference}
+                    </span>
+                  )}
+                </div>
+              </div>
               {showConferencePicker && (
-                <div>
+                <div className="col-span-2">
                   <label className="block text-xs text-txt-tertiary mb-1">Conference</label>
                   <Select
                     size="sm"
@@ -2075,7 +2103,7 @@ export default function GameEdit() {
                 </div>
               )}
               {showBowlPicker && (
-                <div>
+                <div className="col-span-2">
                   <label className="block text-xs text-txt-tertiary mb-1">Bowl Game</label>
                   <Select
                     size="sm"
@@ -2093,48 +2121,6 @@ export default function GameEdit() {
           </Card>
         )
       })()}
-
-      {/* Game Settings — grouped with Game Type as "Setup". Location +
-          conference-game classification go logically next to when/what. */}
-      <Card>
-        <h3 className="label-sm text-txt-primary mb-4">Game Settings</h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="label-xs text-txt-tertiary block mb-2">Game Location</label>
-            <Select
-              value={formData.location}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-            >
-              <option value="home">{team1Name} Home</option>
-              <option value="away">{team2Name} Home</option>
-              <option value="neutral">Neutral Site</option>
-            </Select>
-          </div>
-
-          <div>
-            <label className="label-xs text-txt-tertiary block mb-2">Conference Game</label>
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.isConferenceGame}
-                  onChange={(e) => setFormData({ ...formData, isConferenceGame: e.target.checked })}
-                  className="w-4 h-4 rounded"
-                  style={{ accentColor: 'var(--text-primary)' }}
-                />
-                <span className="text-sm text-txt-secondary">Yes</span>
-              </label>
-              {isConferenceGame && (
-                <span className="label-xs" style={{ color: 'var(--accent-success)' }}>
-                  Auto-detected: {team1Conference}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      </Card>
-        </div>
 
       {/* Team details — stacked rows, one per team. Each row is the
           team identity (logo + name + 'Your team' chip when applicable)
