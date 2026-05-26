@@ -2580,7 +2580,13 @@ export default function GameEdit() {
 
       {/* Score Graphic — AI-generated final score image */}
       {(() => {
-        const hasScores = formData.team1Score !== '' && formData.team2Score !== ''
+        // For existing games, wait until the game is loaded before generating
+        // the prompt — live1/live2 use existingGame?.id to filter records by
+        // week order; if it's undefined on first render, findIndex returns -1
+        // and all season games count, producing the wrong record (e.g. 5-1
+        // instead of 1-0 for a Week 1 game viewed in Week 6).
+        const gameLoaded = !gameId || !!existingGame
+        const hasScores = gameLoaded && formData.team1Score !== '' && formData.team2Score !== ''
 
         // Resolve which team leads the graphic. Auto-pick user's team;
         // fall back to team1 for CPU games.
@@ -2591,13 +2597,14 @@ export default function GameEdit() {
         const t1Colors = getTeamColors(team1Name)
         const t2Colors = getTeamColors(team2Name)
 
-        // Pull records for the graphic prompt — use the record saved ON the game
-        // object (the post-game record as of that week), not the live season total.
-        // The live calculation counts all games in the season, so viewing a Week 1
-        // game in Week 6 would show the full 5-1 record instead of 1-0.
-        // Fall back to live/manual only when no saved record exists (new games).
-        const rec1 = existingGame?.team1Record || (autoFillRecords ? (live1?.record || '') : (formData.team1Record || ''))
-        const rec2 = existingGame?.team2Record || (autoFillRecords ? (live2?.record || '') : (formData.team2Record || ''))
+        // Pull records for the graphic prompt — use the same live memoized values
+        // the record fields in the UI display. live1/live2 use calculateTeamRecordFromGames
+        // with upToGameId so they count only games before this one in week order,
+        // then add this game's result → the correct post-game record for this week.
+        // DO NOT use existingGame.team1Record/team2Record: those were saved at entry
+        // time and may be wrong if games were entered out of chronological order.
+        const rec1 = autoFillRecords ? (live1?.record || '') : (formData.team1Record || '')
+        const rec2 = autoFillRecords ? (live2?.record || '') : (formData.team2Record || '')
 
         // Pass screenshot count so the prompt can tell the AI to expect attachments
         const uploadedScreenshots = Array.isArray(formData.photos) ? formData.photos.filter(Boolean).length : 0
