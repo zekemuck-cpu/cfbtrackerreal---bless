@@ -1008,10 +1008,97 @@ SELF-CHECK BEFORE YOU SEND — run every line
       return out.join('\n')
     })()
 
+    // Per-section row map — used in the strict-procedure block at the
+    // top of the prompt. Pre-computed once so the table can show both
+    // banner line and header line and the exact data-row span for every
+    // section.
+    const rowContract = layout.sections.map(s => (
+      `  • ${s.title.padEnd(11)} → banner=line ${String(s.bannerRow).padStart(2)}, header=line ${String(s.bannerRow + 1).padStart(2)}, data=lines ${s.dataStart}-${s.dataEnd} (${s.rowCount} slots)`
+    )).join('\n')
+
     return buildAIPrompt({
       title: `${baseTitle} — ${teamAbbr} Player Stats`,
       roster: playerStatsRoster,
-      structure: `This Google Sheet contains a tab named "${AI_UNIFIED_TAB.title}" that holds EVERY stat category for the ${teamAbbr} team in one place. Your job: produce ONE giant tab-separated block that the user can paste at cell A1 of that tab to fill the entire layout in a single paste. Stats are for the ${teamAbbr} team only (opponent: ${opponentAbbrLabel}).
+      structure: `╔══════════════════════════════════════════════════════════╗
+║  STOP. READ THIS FIRST. ROW ALIGNMENT IS THE WHOLE TASK.  ║
+╚══════════════════════════════════════════════════════════╝
+
+⚠ #1 FAILURE MODE for this prompt: a non-thinking model emits
+${layout.totalRows - 1} lines or ${layout.totalRows + 1} lines instead of EXACTLY ${layout.totalRows}. When the user
+pastes the result into Google Sheets, every banner / header /
+data row from that point on lands in the wrong cell. The user's
+sheet gets silently corrupted across multiple sections. This
+mistake is invisible until they save and realize their tackles
+are recorded as kicking stats.
+
+YOUR OUTPUT MUST BE EXACTLY ${layout.totalRows} LINES. NOT ${layout.totalRows - 1}. NOT ${layout.totalRows + 1}. ${layout.totalRows}.
+
+The row count is non-negotiable because each line maps to a
+specific cell row in the user's sheet, and the section banners
+("═══ PASSING ═══", "═══ DEFENSE ═══", etc.) are PRE-PRINTED at
+fixed line numbers. If your output is short or long by even one
+line, every banner shifts and lands on the wrong row.
+
+╔══════════════════════════════════════════════════════════╗
+║  SECTION → LINE MAP — these line numbers are LAW          ║
+╚══════════════════════════════════════════════════════════╝
+
+Each section's banner, header, and data slots ALWAYS sit on
+these exact 1-indexed line numbers. This is the contract. Your
+output is correct if and only if these lines hold these contents:
+
+${rowContract}
+
+Total lines: ${layout.totalRows}.
+Blank separator lines between sections: ${layout.sections.length - 1}.
+
+If you can't immediately answer "what goes on line N?" for any
+line in your draft, STOP. You're constructing instead of
+copying. Go to the FILL-IN-THE-BLANK TEMPLATE section below
+and copy it as your starting point.
+
+╔══════════════════════════════════════════════════════════╗
+║  STRICT PROCEDURE — no thinking required, just follow     ║
+╚══════════════════════════════════════════════════════════╝
+
+Step 1 — Copy the entire FILL-IN-THE-BLANK TEMPLATE (further
+         down this prompt) into your output buffer EXACTLY as
+         shown. Do not paraphrase any banner or header line.
+         After this step your output has the right number of
+         lines, in the right order, with banners and headers
+         already locked to the correct rows.
+
+Step 2 — Walk through your buffer line by line. For each
+         "<<X-DATA-N or empty line>>" placeholder:
+         (a) If you have a ${teamAbbr} player to put on that
+             line, replace the placeholder with their
+             tab-separated stat row.
+         (b) If you have NO player for that slot, replace the
+             placeholder with a TRULY EMPTY LINE (just \\n).
+         Either way, the line stays. You never delete a line.
+
+Step 3 — For each "<<BLANK SEPARATOR …>>" placeholder, replace
+         it with a TRULY EMPTY LINE.
+
+Step 4 — Replace every <TAB> in your buffer with a real tab
+         character (U+0009).
+
+Step 5 — Count the lines in your buffer. The count MUST equal
+         ${layout.totalRows}. If it doesn't, you accidentally added or
+         removed a line. Restart from Step 1.
+
+Step 6 — For each section in the SECTION → LINE MAP above, verify:
+           your line N starts with "═══ {Section} ═══" where N is
+           the bannerRow for that section. If even one banner is
+           on the wrong line, restart from Step 1.
+
+This procedure does not require you to plan, reason, or count
+ahead. It is purely substitution + verification. Follow it
+literally even if it feels redundant.
+
+═══════════════════════════════════════════════════════════
+
+This Google Sheet contains a tab named "${AI_UNIFIED_TAB.title}" that holds EVERY stat category for the ${teamAbbr} team in one place. Your job: produce ONE giant tab-separated block that the user can paste at cell A1 of that tab to fill the entire layout in a single paste. Stats are for the ${teamAbbr} team only (opponent: ${opponentAbbrLabel}).
 
 ═══════════════════════════════════════════════════════════
 HOW TO READ THE GAME SCREENSHOTS — do this first
