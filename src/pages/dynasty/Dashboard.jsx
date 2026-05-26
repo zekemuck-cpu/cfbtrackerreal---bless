@@ -4248,7 +4248,7 @@ export default function Dashboard() {
         </div>
       ) : currentDynasty.currentPhase === 'postseason' ? (
         // Postseason / Bowl Weeks
-        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
+        <div className="media-card overflow-hidden">
           <div className="px-4 pt-3 pb-4 sm:px-6 sm:pt-3 sm:pb-6">
           {(() => {
             const week = currentDynasty.currentWeek
@@ -5891,13 +5891,7 @@ export default function Dashboard() {
           </div>
         </div>
       ) : currentDynasty.currentPhase === 'offseason' ? (
-        <div
-          className="rounded-2xl overflow-hidden"
-          style={{
-            backgroundColor: 'var(--surface-2)',
-            border: '1px solid var(--surface-4)'
-          }}
-        >
+        <div className="media-card overflow-hidden">
           <div className="px-4 pt-3 pb-4 sm:px-6 sm:pt-3 sm:pb-6">
           {(() => {
             const week = currentDynasty.currentWeek
@@ -6514,11 +6508,7 @@ export default function Dashboard() {
         {lastWeekRecapExists && (
           <div className="lg:block lg:row-span-2">
             <div
-              className="rounded-2xl overflow-hidden"
-              style={{
-                backgroundColor: 'var(--surface-1)',
-                border: '1px solid var(--surface-4)',
-              }}
+              className="media-card overflow-hidden"
             >
               {/* No title bar — the recap text starts with its own H1
                   ("# 2034 Week 10 Recap") so a header here would just
