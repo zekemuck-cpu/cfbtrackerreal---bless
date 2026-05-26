@@ -213,6 +213,13 @@ export default function GameEdit() {
   // (Photos in particular). Keep state at this level so the modal body
   // can read/write the same form fields as the rest of the editor.
   const [showPhotosModal, setShowPhotosModal] = useState(false)
+  // Recap-edit modal — the big textarea was eating most of the Story
+  // section's screen real estate. Now it lives in a modal opened via
+  // the expand button alongside Copy / Paste / Settings.
+  const [showRecapEditModal, setShowRecapEditModal] = useState(false)
+  // Toast/feedback for the inline "Paste" button so the user knows
+  // the clipboard read succeeded (or didn't — e.g. browser blocked it).
+  const [recapPasteFeedback, setRecapPasteFeedback] = useState(null)
   const [boxScoreModalType, setBoxScoreModalType] = useState(null) // 'playerStats' | 'scoring' | 'teamStats'
   // For 'playerStats' only — the tid of the team this sheet covers.
   // Routes the modal, the saved data, and the saved sheet ID by tid, so
@@ -2357,115 +2364,111 @@ export default function GameEdit() {
         <SectionHeader size="sm" title="Story" />
 
       <Card>
-        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <h3 className="label-sm text-txt-primary">Game Recap</h3>
-          {(() => {
-            // Resolve display names for the perspective slider labels.
-            const t1Name = team1Name || team1Abbr || 'Team 1'
-            const t2Name = team2Name || team2Abbr || 'Team 2'
-            const perspectiveOptions = [
-              { key: 'team1Fan',      label: `${t1Name} fan`,         blurb: `Blog-style, first-person plural ("we" / "our ${t1Name}"). Emotional. Pro-${t1Name}.` },
-              { key: 'team1Reporter', label: `${t1Name} reporter`,     blurb: `Hometown beat writer for ${t1Name}. News-forward, third-person, but ${t1Name}-led framing.` },
-              { key: 'neutral',       label: 'Neutral national media', blurb: 'ESPN.com beat writer. Inverted-pyramid news, balanced coverage of both teams.' },
-              { key: 'team2Reporter', label: `${t2Name} reporter`,     blurb: `Hometown beat writer for ${t2Name}. News-forward, third-person, but ${t2Name}-led framing.` },
-              { key: 'team2Fan',      label: `${t2Name} fan`,          blurb: `Blog-style, first-person plural ("we" / "our ${t2Name}"). Emotional. Pro-${t2Name}.` },
-            ]
-            return (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleCopyPrompt}
-                  disabled={!formData.team1Score || !formData.team2Score}
-                  title="Copy the full prompt to paste into ChatGPT, Claude, or another AI"
-                >
-                  {promptCopied ? 'Copied!' : 'Copy AI Prompt'}
-                </Button>
-                <button
-                  type="button"
-                  aria-label="Recap settings"
-                  onClick={() => setShowRecapSettings(true)}
-                  className="inline-flex items-center justify-center w-8 h-8 rounded-lg transition-all border border-surface-5 bg-surface-3 text-txt-primary"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="3"/>
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                  </svg>
-                </button>
-                <RecapSettingsModal
-                  isOpen={showRecapSettings}
-                  onClose={() => setShowRecapSettings(false)}
-                  perspectiveOptions={perspectiveOptions}
-                  perspective={recapPerspective}
-                  onPerspectiveChange={setRecapPerspective}
-                  depth={recapDepth}
-                  onDepthChange={setRecapDepth}
-                />
+        {(() => {
+          // Resolve display names for the perspective slider labels.
+          const t1Name = team1Name || team1Abbr || 'Team 1'
+          const t2Name = team2Name || team2Abbr || 'Team 2'
+          const perspectiveOptions = [
+            { key: 'team1Fan',      label: `${t1Name} fan`,         blurb: `Blog-style, first-person plural ("we" / "our ${t1Name}"). Emotional. Pro-${t1Name}.` },
+            { key: 'team1Reporter', label: `${t1Name} reporter`,     blurb: `Hometown beat writer for ${t1Name}. News-forward, third-person, but ${t1Name}-led framing.` },
+            { key: 'neutral',       label: 'Neutral national media', blurb: 'ESPN.com beat writer. Inverted-pyramid news, balanced coverage of both teams.' },
+            { key: 'team2Reporter', label: `${t2Name} reporter`,     blurb: `Hometown beat writer for ${t2Name}. News-forward, third-person, but ${t2Name}-led framing.` },
+            { key: 'team2Fan',      label: `${t2Name} fan`,          blurb: `Blog-style, first-person plural ("we" / "our ${t2Name}"). Emotional. Pro-${t2Name}.` },
+          ]
+          const wordCount = (formData.aiRecap || '').trim().split(/\s+/).filter(Boolean).length
+          // Pull recap text from the clipboard and set it on the form.
+          // The big visible textarea is gone; this button is the primary
+          // way users land text in the field (along with the expand-modal
+          // editor for hand-edits).
+          const handlePasteRecap = async () => {
+            try {
+              const text = await navigator.clipboard.readText()
+              if (!text) {
+                setRecapPasteFeedback('Clipboard is empty.')
+                setTimeout(() => setRecapPasteFeedback(null), 2500)
+                return
+              }
+              setFormData(prev => ({ ...prev, aiRecap: text }))
+              setRecapPasteFeedback('Pasted.')
+              setTimeout(() => setRecapPasteFeedback(null), 1800)
+            } catch {
+              setRecapPasteFeedback('Browser blocked clipboard. Open the editor and paste there.')
+              setTimeout(() => setRecapPasteFeedback(null), 3500)
+            }
+          }
+          return (
+            <>
+              <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                <div className="min-w-0">
+                  <h3 className="label-sm text-txt-primary">Game Recap</h3>
+                  <p className="text-xs text-txt-tertiary mt-0.5 tabular-nums">
+                    {recapPasteFeedback
+                      ? recapPasteFeedback
+                      : wordCount > 0
+                      ? `${wordCount} ${wordCount === 1 ? 'word' : 'words'} saved`
+                      : 'No recap yet — Copy AI Prompt, run it, then Paste the result.'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleCopyPrompt}
+                    disabled={!formData.team1Score || !formData.team2Score}
+                    title="Copy the full prompt to paste into ChatGPT, Claude, or another AI"
+                  >
+                    {promptCopied ? 'Copied!' : 'Copy AI Prompt'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePasteRecap}
+                    title="Paste recap text from clipboard"
+                  >
+                    Paste
+                  </Button>
+                  <button
+                    type="button"
+                    aria-label="Edit recap in a larger editor"
+                    title="Open the recap in a larger editor"
+                    onClick={() => setShowRecapEditModal(true)}
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg transition-all border border-surface-5 bg-surface-3 text-txt-primary"
+                  >
+                    {/* Diagonal expand arrow (top-right) */}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M7 17L17 7" />
+                      <path d="M8 7h9v9" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Recap settings"
+                    title="Recap perspective and length"
+                    onClick={() => setShowRecapSettings(true)}
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg transition-all border border-surface-5 bg-surface-3 text-txt-primary"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="3"/>
+                      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
-            )
-          })()}
-        </div>
-        <p className="text-xs text-txt-tertiary mb-3">
-          Enter all game info first, then copy the prompt into ChatGPT / Claude / your AI of choice and paste the generated article into the box below.
-        </p>
-        {recapError && (
-          <p className="text-sm mb-2" style={{ color: 'var(--accent-error)' }}>{recapError}</p>
-        )}
-        <Textarea
-          value={formData.aiRecap}
-          onChange={(e) => setFormData({ ...formData, aiRecap: e.target.value })}
-          rows={8}
-          placeholder="Paste the AI-generated recap here (or write your own)..."
-        />
-      </Card>
-
-      {/* Media Links */}
-      <Card>
-        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <h3 className="label-sm text-txt-primary">Media Links</h3>
-          <span className="label-xs text-txt-tertiary">YouTube videos will embed automatically</span>
-        </div>
-        <p className="text-xs text-txt-tertiary mb-3">Add links to highlight videos, images, or related content.</p>
-        <div className="space-y-2">
-          {formData.links.map((link, index) => (
-            <div key={index} className="flex gap-2">
-              <Input
-                type="url"
-                value={link}
-                onChange={(e) => {
-                  const newLinks = [...formData.links]
-                  newLinks[index] = e.target.value
-                  if (index === formData.links.length - 1 && e.target.value.trim()) {
-                    newLinks.push('')
-                  }
-                  setFormData({ ...formData, links: newLinks })
-                }}
-                className="flex-1 font-mono"
-                placeholder="https://youtube.com/watch?v=..."
-              />
-              {link.trim() && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const newLinks = formData.links.filter((_, i) => i !== index)
-                    if (newLinks.length === 0 || newLinks.every(l => l.trim())) {
-                      newLinks.push('')
-                    }
-                    setFormData({ ...formData, links: newLinks })
-                  }}
-                >
-                  Remove
-                </Button>
+              {recapError && (
+                <p className="text-sm mt-1" style={{ color: 'var(--accent-error)' }}>{recapError}</p>
               )}
-            </div>
-          ))}
-        </div>
-        {formData.links.filter(l => l.trim()).length > 0 && (
-          <div className="mt-3 label-xs text-txt-tertiary">
-            <span className="tabular">{formData.links.filter(l => l.trim()).length}</span> link(s) added
-          </div>
-        )}
+              <RecapSettingsModal
+                isOpen={showRecapSettings}
+                onClose={() => setShowRecapSettings(false)}
+                perspectiveOptions={perspectiveOptions}
+                perspective={recapPerspective}
+                onPerspectiveChange={setRecapPerspective}
+                depth={recapDepth}
+                onDepthChange={setRecapDepth}
+              />
+            </>
+          )
+        })()}
       </Card>
 
       {/* Photos — bulk upload to imgbb. Each picked file is uploaded
@@ -2748,6 +2751,37 @@ export default function GameEdit() {
           teamColors={{ primary: 'var(--text-primary)', secondary: 'var(--text-secondary)' }}
         />
       )}
+
+      {/* Recap Edit Modal — the big editing textarea lives here instead
+          of inline on the page. The compact recap card has Copy / Paste
+          / Settings buttons; this modal is for hand-editing the saved
+          text. Writes to the same formData.aiRecap as everything else,
+          so close → reopen → save flows preserve content. */}
+      <Modal
+        isOpen={showRecapEditModal}
+        onClose={() => setShowRecapEditModal(false)}
+        title="Edit Game Recap"
+        size="xl"
+      >
+        <p className="text-xs text-txt-tertiary mb-3">
+          Paste, edit, or write the game recap by hand. Changes are kept in memory until you save the game.
+        </p>
+        <Textarea
+          value={formData.aiRecap}
+          onChange={(e) => setFormData({ ...formData, aiRecap: e.target.value })}
+          rows={18}
+          placeholder="Paste the AI-generated recap here (or write your own)..."
+          autoFocus
+        />
+        <div className="flex items-center justify-between mt-3 text-xs text-txt-tertiary">
+          <span className="tabular-nums">
+            {(formData.aiRecap || '').trim().split(/\s+/).filter(Boolean).length} words
+          </span>
+          <Button variant="primary" size="sm" onClick={() => setShowRecapEditModal(false)}>
+            Done
+          </Button>
+        </div>
+      </Modal>
 
       {/* Photos Modal — full upload + thumbnail UI lives here. Reads/
           writes the same formData.photos and photoUpload* state as the
