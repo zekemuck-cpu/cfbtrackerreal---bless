@@ -100,15 +100,25 @@ export default function InlineScoringHighlights({
         {isDirect ? (
           <video key={currentIndex} src={embedData.url} className="absolute inset-0 w-full h-full" autoPlay muted controls />
         ) : embedUrl ? (
-          <iframe
-            key={currentIndex}
-            src={embedUrl}
-            className="absolute inset-0 w-full h-full"
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            title={`Scoring play ${currentIndex + 1}`}
-          />
+          <>
+            <iframe
+              key={currentIndex}
+              src={embedUrl}
+              className="absolute inset-0 w-full h-full"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              title={`Scoring play ${currentIndex + 1}`}
+            />
+            {/* Cover the YouTube channel-name overlay that appears on hover/pause
+                at the top of the player. pointer-events-none so clicks pass
+                through to the iframe (play/pause toggle still works). */}
+            <div
+              aria-hidden="true"
+              className="absolute top-0 left-0 right-0 pointer-events-none"
+              style={{ height: '56px', background: 'linear-gradient(to bottom, rgba(0,0,0,0.96) 60%, rgba(0,0,0,0) 100%)' }}
+            />
+          </>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-txt-muted">
             Unsupported video format

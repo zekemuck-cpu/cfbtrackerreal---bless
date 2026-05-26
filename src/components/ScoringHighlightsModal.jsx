@@ -13,8 +13,15 @@ const YOUTUBE_AUTO_CLIP_SECONDS = PLAY_DURATION
 
 // Build a YouTube embed with our standard params. Passing an end time makes
 // the player actually stop at that second — no more next-play overlap.
+//
+// `controls=0` hides YouTube's playback chrome (progress bar, scrub,
+// fullscreen button, settings). The user clicks the video itself to
+// play/pause. YouTube deprecated `modestbranding` and `showinfo` in 2023,
+// so `controls=0` is the most aggressive legitimate suppression of YT
+// branding still available — combined with a small CSS overlay strip
+// over the top of the iframe to cover the channel-name overlay.
 function buildYouTubeEmbed(videoId, startSec, endSec) {
-  const params = ['autoplay=1', 'mute=1', 'rel=0', 'modestbranding=1']
+  const params = ['autoplay=1', 'mute=1', 'rel=0', 'modestbranding=1', 'controls=0']
   if (startSec != null) params.push(`start=${startSec}`)
   if (endSec != null) params.push(`end=${endSec}`)
   return `https://www.youtube-nocookie.com/embed/${videoId}?${params.join('&')}`
@@ -70,6 +77,8 @@ export function getEmbedUrl(url) {
       if (!u.searchParams.has('autoplay')) u.searchParams.set('autoplay', '1')
       if (!u.searchParams.has('mute')) u.searchParams.set('mute', '1')
       if (!u.searchParams.has('rel')) u.searchParams.set('rel', '0')
+      if (!u.searchParams.has('controls')) u.searchParams.set('controls', '0')
+      if (!u.searchParams.has('modestbranding')) u.searchParams.set('modestbranding', '1')
       if (!hasEnd && startParam != null) {
         const startSec = parseInt(startParam, 10)
         if (Number.isFinite(startSec)) {
@@ -593,15 +602,25 @@ export default function ScoringHighlightsModal({
               controls
             />
           ) : embedUrl ? (
-            <iframe
-              key={currentIndex}
-              src={embedUrl}
-              className="w-full h-full"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              title={`Scoring play ${currentIndex + 1}`}
-            />
+            <>
+              <iframe
+                key={currentIndex}
+                src={embedUrl}
+                className="w-full h-full"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                title={`Scoring play ${currentIndex + 1}`}
+              />
+              {/* Cover the YouTube channel-name overlay shown at top of the
+                  player on hover/pause. pointer-events-none keeps clicks
+                  passing through to play/pause. */}
+              <div
+                aria-hidden="true"
+                className="absolute top-0 left-0 right-0 pointer-events-none"
+                style={{ height: '64px', background: 'linear-gradient(to bottom, rgba(0,0,0,0.96) 60%, rgba(0,0,0,0) 100%)' }}
+              />
+            </>
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-txt-muted">
               <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
