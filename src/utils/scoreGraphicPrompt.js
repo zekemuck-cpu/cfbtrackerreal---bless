@@ -140,6 +140,34 @@ export function buildScoreGraphicPrompt({
     ].join('\n')
   }
 
+  // Strict no-generated-imagery rule. Without this front-and-center,
+  // image models infer that "this is a sports graphic, sports graphics
+  // have player photos" and hallucinate a player/crowd/stadium shot —
+  // e.g. inventing a Kentucky #1 celebrating with the home crowd when
+  // the user didn't attach any photo. The rule needs to be unconditional
+  // and prominently placed near the end of the prompt (LLMs and image
+  // models weight final instructions strongly).
+  const imageryPolicy = () => [
+    `IMAGERY POLICY — STRICTLY ENFORCED:`,
+    `This is a PURE GRAPHIC DESIGN. Do NOT generate, simulate, hallucinate, or invent ANY photographic or photo-realistic imagery anywhere on the canvas. The entire graphic is built from graphic-design elements only.`,
+    ``,
+    `Specifically forbidden — no exceptions, regardless of how natural it would feel for a "sports graphic":`,
+    `• Player faces, bodies, hands, arms, or any depiction of athletes (real or invented)`,
+    `• Photo-real jerseys, helmets, pads, gloves, cleats, or equipment shown on a body`,
+    `• Crowd shots, fans, sideline scenes, coaches, staff, referees, cheerleaders`,
+    `• Stadium photos, field/turf photos, sky, weather, scoreboard photography, stadium lighting`,
+    `• Mascots in physical/costumed form (the official team LOGO only — never a person in a mascot suit)`,
+    `• Any "photo-real" rendering of any element, including decorative photo-like washes behind text`,
+    ``,
+    `What the canvas IS made of:`,
+    `• Solid color fields, gradients, and graphic textures (halftones, paper grain, geometric noise — never photographic)`,
+    `• Typography (team names in each team's wordmark style, score numbers, "FINAL" label, postseason callout if applicable)`,
+    `• Official vector team logos (recalled from your memory of the actual mark — see the Logo rendering section above)`,
+    `• Geometric shapes (chevrons, stripes, frames, borders, dividers, brush strokes)`,
+    ``,
+    `If a reference photo is attached to this request, place it AS-IS as the hero visual — do not modify, color-grade, tint, duotone, or overlay color washes on it, and do not extend or generate any imagery beyond what is in the attached file. If NO photo is attached (most common case), the design uses zero photographic content of any kind.`,
+  ].join('\n')
+
   // Wrap home/away/neutral framing in language that makes it unmistakably
   // an internal designer note, not text to render. AIs have been observed
   // printing "NEUTRAL SITE" verbatim on the canvas when the line sits
@@ -212,8 +240,6 @@ export function buildScoreGraphicPrompt({
       p2Fictional ? team2Name : null,
     ].filter(Boolean)
 
-    const photoLine = `If you have a photo attached, use it as the hero visual — keep it natural and do not color-grade, tint, duotone, or overlay color washes on it. If no photo is attached, build a pure design graphic using color, typography, team logos, and geometry only — no generated or simulated photographs, player images, crowd scenes, or stadium shots of any kind.`
-
     // Real teams (for the memory-recall instruction) = teams that are NOT fictional.
     const realTeamNames = [
       !isFictionalTeam(p1) ? team1Name : null,
@@ -245,12 +271,12 @@ export function buildScoreGraphicPrompt({
       ``,
       `Use both color palettes balanced — neither team dominates the canvas. Each team should appear near their score as either their logo or their wordmark/name in their primary color.`,
       ``,
-      photoLine,
-      ``,
       `The score numbers should be the largest typographic element. Both score numbers must be identical in size, weight, and visual prominence — neither score is de-emphasized regardless of result. The two scores must read as a clear comparison — side by side or in an obvious visual relationship.`,
       homeTeam !== null ? `Layout convention: the AWAY team goes on the LEFT (or TOP if stacked vertically); the HOME team goes on the RIGHT (or BOTTOM). This applies to the main score comparison, any box score, and the team-name/logo lockups.` : null,
       ``,
       `Do not place either logo in a plain white or gray box — both teams should feel integrated into the design.`,
+      ``,
+      imageryPolicy(),
       ``,
       textPolicy(fictionalParticipantNames),
     ]
@@ -306,8 +332,6 @@ export function buildScoreGraphicPrompt({
     ? `The program is known for these design motifs (use abstractly if you incorporate texture or geometry): ${profile.motifs.join(', ')}.`
     : ''
 
-  const photoLine = `If you have a photo attached, use it as the hero visual — keep it natural, do not color-grade, tint, duotone, or overlay color washes on it, and let the design elements frame it. If no photo is attached, build a pure design graphic using color, typography, team logos, and geometry only — no generated or simulated photographs, player images, crowd scenes, or stadium shots of any kind.`
-
   // Opponent brand block — colors always; logo description only if the
   // opponent is a fictional in-game team.
   const opponentBlock = buildBrandSummary(oppName, oppProfile, oppColors, 'OPPONENT')
@@ -350,14 +374,14 @@ export function buildScoreGraphicPrompt({
     opponentBlock ? `` : null,
     logoRenderingInstruction(...realTeamNames),
     ``,
-    photoLine,
-    ``,
     `The score numbers should be the largest typographic element. Both score numbers must be identical in size, weight, and visual prominence — do NOT de-emphasize ${featuredName}'s score because this is a loss, and do NOT shrink the opponent's score because this is a win. The two scores must read as a clear comparison at a glance — side by side, or in an obvious visual relationship. Everything else — layout, texture, composition, hierarchy — is your creative call.`,
     homeTeam !== null ? `Layout convention: the AWAY team goes on the LEFT (or TOP if stacked vertically); the HOME team goes on the RIGHT (or BOTTOM). This applies to the main score comparison, any box score, and the team-name/logo lockups — so for this game, ${featuredIsHome ? `${oppName} (away) is on the left/top and ${featuredName} (home) is on the right/bottom` : `${featuredName} (away) is on the left/top and ${oppName} (home) is on the right/bottom`}.` : null,
     ``,
     `Do not place the opponent's logo in a plain white or gray box — both teams should feel integrated into the design, not pasted in.`,
     ``,
     `Background textures, patterns, and decorative geometry should reflect ${featuredName}'s visual identity only. The opponent appears through their logo/wordmark and score — do not incorporate their signature patterns or textures into the background or composition.`,
+    ``,
+    imageryPolicy(),
     ``,
     textPolicy(fictionalParticipantNames),
   ]
