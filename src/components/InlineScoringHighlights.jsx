@@ -97,41 +97,49 @@ export default function InlineScoringHighlights({
     onExpand(currentIndex, elapsed)
   }
 
+  // Build the YouTube embed URL inline (no IFrame API, no custom
+  // overlays). controls=0 strips the bottom playback chrome. Other
+  // params: autoplay+mute for inline autoplay (mute is required by
+  // browser policies for muted autoplay to work), rel=0 to suppress
+  // related-videos at end, fs=1 to allow fullscreen, playsinline=1
+  // so iOS doesn't open the native player, iv_load_policy=3 to hide
+  // annotations, modestbranding=1 (deprecated but harmless), vq=hd1080
+  // as a quality hint (YT may ignore but it doesn't hurt to ask).
+  const buildInlineYTUrl = (yt) => {
+    const params = [
+      'autoplay=1',
+      'mute=1',
+      'controls=0',
+      'rel=0',
+      'modestbranding=1',
+      'fs=1',
+      'playsinline=1',
+      'iv_load_policy=3',
+      'vq=hd1080',
+    ]
+    if (yt.startSec != null) params.push(`start=${yt.startSec}`)
+    if (yt.endSec != null) params.push(`end=${yt.endSec}`)
+    return `https://www.youtube-nocookie.com/embed/${yt.videoId}?${params.join('&')}`
+  }
+
   return (
     <div className="rounded-lg overflow-hidden bg-surface-2 ring-1 ring-surface-3/60">
-      {/* Thumbnail surface — 16:9. The inline tile NEVER loads a
-          YouTube iframe; loading one is the only way YT branding
-          (channel name, "Watch on YouTube" badge, etc.) can leak
-          into the tile, regardless of controls=0 or custom UI. For
-          YouTube videos we render the high-quality poster image; for
-          direct-video / Twitch / other embeds we keep the legacy
-          iframe path (those don't have the same chrome problem).
-          Click the thumbnail → onExpand opens the full-screen modal
-          where the actual IFrame API player lives. */}
+      {/* Video — 16:9. Inline iframe playback, no covers, no overlays.
+          Whatever YT chrome surfaces on hover is accepted. controls=0
+          strips the bottom playback chrome, which is the most visually
+          intrusive layer; the rest of YT's hover chrome is the cost
+          of inline playback. */}
       <div className="relative w-full aspect-video bg-black">
         {ytData ? (
-          <button
-            type="button"
-            onClick={handleExpand}
-            className="absolute inset-0 w-full h-full focus:outline-none cursor-pointer group"
-            aria-label={`Play scoring highlight ${currentIndex + 1}`}
-          >
-            <img
-              key={currentIndex}
-              src={`https://img.youtube.com/vi/${ytData.videoId}/hqdefault.jpg`}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover"
-              onError={(e) => { e.target.style.display = 'none' }}
-            />
-            {/* Center play affordance */}
-            <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
-              <div className="bg-white/15 ring-1 ring-white/30 backdrop-blur-sm rounded-full w-14 h-14 flex items-center justify-center transition-transform group-hover:scale-105">
-                <svg className="w-6 h-6 text-white" style={{ marginLeft: '3px' }} fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              </div>
-            </div>
-          </button>
+          <iframe
+            key={currentIndex}
+            src={buildInlineYTUrl(ytData)}
+            className="absolute inset-0 w-full h-full"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            title={`Scoring play ${currentIndex + 1}`}
+          />
         ) : isDirect ? (
           <video key={currentIndex} src={embedData.url} className="absolute inset-0 w-full h-full" autoPlay muted controls />
         ) : embedUrl ? (
