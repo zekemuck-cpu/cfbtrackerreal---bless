@@ -117,7 +117,7 @@ export function buildScoreGraphicPrompt({
   const lines = [
     `Design a post-game social media graphic (1080×1080) for ${featuredName}'s official account.`,
     ``,
-    `You are the creative director for a top college football program's athletic communications team. This graphic will go live on the program's Instagram and Twitter within minutes of the final whistle. Make it feel like it came from a real D1 creative staff — not a template, not a generic sports graphic generator. Every layout and type choice should feel intentional and ownable by this program.`,
+    `You are the creative director employed by ${featuredName} — you work for this program, you know this brand inside and out, and this graphic goes live on the official ${featuredName} Instagram and Twitter within minutes of the final whistle. Make it feel like it came from this program's actual creative staff — not a template, not a generic sports graphic generator. Every layout and type choice should feel intentional and ownable by ${featuredName} specifically.`,
     ``,
     `RESULT`,
     `${rankLabel}${featuredName}${featuredRecord ? ` (${featuredRecord})` : ''}${featuredSiteTag}:  ${sf}`,
@@ -142,6 +142,10 @@ export function buildScoreGraphicPrompt({
     `Do not use large standalone WIN / VICTORY / FINAL text as the dominant visual element — the score and design should carry the result, not a word plastered across the canvas.`,
     ``,
     `Do not place the opponent's logo in a plain white or gray box — both teams should feel integrated into the design, not pasted in.`,
+    ``,
+    `Do not add university addresses, city names, or location footers (e.g. "Austin, Texas" or "The University of Texas") — the team name and logo carry the identity.`,
+    ``,
+    `Background textures, patterns, and decorative geometry should reflect ${featuredName}'s visual identity only. The opponent appears through their logo and score — do not incorporate their signature patterns or textures into the background or composition.`,
   ]
 
   return lines.filter(l => l !== null && l !== undefined).join('\n')
