@@ -14,7 +14,7 @@ import BoxScoreSheetModal from '../../components/BoxScoreSheetModal'
 import { setPlayerStatsForTid, setTeamStatsForTid, setScoringSummary, getPlayerStatsSheetIdForTid, canonicalBoxScore, swapBoxScoreTeams, hasAnyPlayerStats, hasAnyTeamStats } from '../../utils/boxScoreHelpers'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName } from '../../data/cfpConstants'
 import { isBowlInWeek1, isBowlInWeek2, getWeek1BowlGamesList, getWeek2BowlGamesList } from '../../services/sheetsService'
-import { PageHero, Card, Button, EmptyState, Input, Select, Textarea } from '../../components/ui'
+import { PageHero, Card, Button, EmptyState, Input, Select, Textarea, SectionHeader } from '../../components/ui'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../components/ui/Toast'
 import RecapSettingsModal from '../../components/RecapSettingsModal'
@@ -1690,7 +1690,7 @@ export default function GameEdit() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
       {showToast && (
         <div
           className="fixed top-4 right-4 z-50 px-4 py-2 rounded-sm label-sm text-white"
@@ -1985,6 +1985,17 @@ export default function GameEdit() {
         )
       })()}
 
+      {/* ═══════════════════════════════════════════════════════════════
+          SETUP — when, where, and what kind of game.
+          ═══════════════════════════════════════════════════════════════ */}
+      <section className="space-y-4">
+        <SectionHeader
+          size="md"
+          eyebrow="Section 1 of 4"
+          title="Setup"
+          subtitle="When and where the game was played, and what kind of game it was."
+        />
+
       {/* Game Type — fully editable year, week slot, and sub-classification. */}
       {(() => {
         const WEEK_OPTIONS = [
@@ -2078,6 +2089,59 @@ export default function GameEdit() {
           </Card>
         )
       })()}
+
+      {/* Game Settings — grouped with Game Type as "Setup". Location +
+          conference-game classification go logically next to when/what. */}
+      <Card>
+        <h3 className="label-sm text-txt-primary mb-4">Game Settings</h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="label-xs text-txt-tertiary block mb-2">Game Location</label>
+            <Select
+              value={formData.location}
+              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+            >
+              <option value="home">{team1Name} Home</option>
+              <option value="away">{team2Name} Home</option>
+              <option value="neutral">Neutral Site</option>
+            </Select>
+          </div>
+
+          <div>
+            <label className="label-xs text-txt-tertiary block mb-2">Conference Game</label>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.isConferenceGame}
+                  onChange={(e) => setFormData({ ...formData, isConferenceGame: e.target.checked })}
+                  className="w-4 h-4 rounded"
+                  style={{ accentColor: 'var(--text-primary)' }}
+                />
+                <span className="text-sm text-txt-secondary">Yes</span>
+              </label>
+              {isConferenceGame && (
+                <span className="label-xs" style={{ color: 'var(--accent-success)' }}>
+                  Auto-detected: {team1Conference}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </Card>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          RESULT & STATS — team-level numbers and the box score.
+          ═══════════════════════════════════════════════════════════════ */}
+      <section className="space-y-4">
+        <SectionHeader
+          size="md"
+          eyebrow="Section 2 of 4"
+          title="Result & Stats"
+          subtitle="Team rankings, ratings, records, and the full box score."
+        />
 
       {/* Team details — stacked rows, one per team. Each row is the
           team identity (logo + name + 'Your team' chip when applicable)
@@ -2293,6 +2357,18 @@ export default function GameEdit() {
           </>
         )}
       </Card>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          STORY — the narrative: recap text, supporting links, and photos.
+          ═══════════════════════════════════════════════════════════════ */}
+      <section className="space-y-4">
+        <SectionHeader
+          size="md"
+          eyebrow="Section 3 of 4"
+          title="Story"
+          subtitle="Game recap, media links, and photos that tell what happened."
+        />
 
       <Card>
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
@@ -2577,6 +2653,18 @@ export default function GameEdit() {
           </div>
         )}
       </Card>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          POST-GAME — outputs for sharing and recognizing performance.
+          ═══════════════════════════════════════════════════════════════ */}
+      <section className="space-y-4">
+        <SectionHeader
+          size="md"
+          eyebrow="Section 4 of 4"
+          title="Post-game"
+          subtitle="The score graphic for social media and any Player of the Week awards."
+        />
 
       {/* Score Graphic — AI-generated final score image */}
       {(() => {
@@ -2723,46 +2811,6 @@ export default function GameEdit() {
         )
       })()}
 
-      {/* Game Settings */}
-      <Card>
-        <h3 className="label-sm text-txt-primary mb-4">Game Settings</h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="label-xs text-txt-tertiary block mb-2">Game Location</label>
-            <Select
-              value={formData.location}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-            >
-              <option value="home">{team1Name} Home</option>
-              <option value="away">{team2Name} Home</option>
-              <option value="neutral">Neutral Site</option>
-            </Select>
-          </div>
-
-          <div>
-            <label className="label-xs text-txt-tertiary block mb-2">Conference Game</label>
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.isConferenceGame}
-                  onChange={(e) => setFormData({ ...formData, isConferenceGame: e.target.checked })}
-                  className="w-4 h-4 rounded"
-                  style={{ accentColor: 'var(--text-primary)' }}
-                />
-                <span className="text-sm text-txt-secondary">Yes</span>
-              </label>
-              {isConferenceGame && (
-                <span className="label-xs" style={{ color: 'var(--accent-success)' }}>
-                  Auto-detected: {team1Conference}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      </Card>
-
       {/* Player of the Week */}
       <Card>
         <h3 className="label-sm text-txt-primary mb-2">Player of the Week</h3>
@@ -2811,6 +2859,7 @@ export default function GameEdit() {
           </p>
         )}
       </Card>
+      </section>
 
       {/* Bottom Save/Cancel Buttons + Delete (only for existing games) */}
       <div className="flex items-center pb-8">
