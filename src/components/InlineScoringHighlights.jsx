@@ -125,16 +125,20 @@ export default function InlineScoringHighlights({
   return (
     <div className="rounded-lg overflow-hidden bg-surface-2 ring-1 ring-surface-3/60">
       {/* Video — 16:9. Inline iframe playback, no covers, no overlays.
-          Whatever YT chrome surfaces on hover is accepted. controls=0
-          strips the bottom playback chrome, which is the most visually
-          intrusive layer; the rest of YT's hover chrome is the cost
-          of inline playback. */}
+          pointer-events:none on the iframe means YouTube never sees a
+          hover event and therefore never surfaces its hover chrome
+          (channel name overlay, share button, central pause icon,
+          "Watch on YouTube" badge) — not "fade quickly", but "never
+          appear". The auto-advancing tile + the prev/play/next/expand
+          controls below the player are how the user interacts with
+          the reel; clicking the video itself does nothing here. */}
       <div className="relative w-full aspect-video bg-black">
         {ytData ? (
           <iframe
             key={currentIndex}
             src={buildInlineYTUrl(ytData)}
             className="absolute inset-0 w-full h-full"
+            style={{ pointerEvents: 'none' }}
             frameBorder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
