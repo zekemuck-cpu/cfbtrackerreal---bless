@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
@@ -2147,7 +2147,7 @@ export default function GameEdit() {
           followed by a single inline cluster of compact stat inputs.
           Avoids the cramped 4-input grid the previous design forced. */}
       <Card>
-        <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="flex items-center justify-between gap-3 mb-3">
           <h3 className="label-sm text-txt-primary">TEAM DETAILS</h3>
           <label className="flex items-center gap-1.5 cursor-pointer select-none shrink-0">
             <input
@@ -2159,93 +2159,61 @@ export default function GameEdit() {
             <span className="text-[11px] text-txt-tertiary">Auto-fill records</span>
           </label>
         </div>
-        <div className="divide-y divide-surface-4">
+
+        {/* Grid: team identity col + 6 stat cols, headers once at top */}
+        <div className="grid gap-x-1.5 gap-y-1.5" style={{ gridTemplateColumns: 'auto repeat(6, minmax(0, 1fr))' }}>
+
+          {/* Header row */}
+          <div />
+          {['Rank', 'OVR', 'OFF', 'DEF', 'Rec', 'Conf'].map(lbl => (
+            <div key={lbl} className="text-[9px] uppercase tracking-wide text-txt-tertiary text-center">{lbl}</div>
+          ))}
+
+          {/* Team rows */}
           {[
             { prefix: displayLeftTeam, name: leftTeamName, abbr: leftTeamAbbr, logo: leftTeamLogo, isUser: isLeftUserTeam },
             { prefix: displayRightTeam, name: rightTeamName, abbr: rightTeamAbbr, logo: rightTeamLogo, isUser: isRightUserTeam }
-          ].map(({ prefix, name, abbr, logo, isUser }, idx) => (
-            <div key={prefix} className={`flex flex-wrap items-center gap-x-3 gap-y-2 ${idx === 0 ? 'pb-2' : 'pt-2'}`}>
-              {/* Team identity — compact: logo + name/chip on one line */}
-              <div className="flex items-center gap-2 w-28 shrink-0">
-                {logo && <img src={logo} alt="" className="w-7 h-7 object-contain shrink-0" />}
-                <div className="min-w-0">
-                  <div className="text-xs font-bold text-txt-primary leading-tight truncate">{abbr || name}</div>
-                  {isUser && (
-                    <div className="text-[9px] uppercase tracking-wider text-txt-tertiary leading-tight">Your team</div>
-                  )}
+          ].map(({ prefix, name, abbr, logo, isUser }) => {
+            const live = prefix === 'team1' ? live1 : live2
+            const recordValue = autoFillRecords ? (live?.record || '') : formData[`${prefix}Record`]
+            const confValue   = autoFillRecords ? (live?.confRecord || '') : formData[`${prefix}ConfRecord`]
+            return (
+              <React.Fragment key={prefix}>
+                {/* Team identity */}
+                <div className="flex items-center gap-1.5 pr-1 min-w-0">
+                  {logo && <img src={logo} alt="" className="w-6 h-6 object-contain shrink-0" />}
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-bold text-txt-primary leading-tight truncate">{abbr || name}</div>
+                    {isUser && <div className="text-[8px] uppercase text-txt-tertiary leading-tight">Yours</div>}
+                  </div>
                 </div>
-              </div>
 
-              {/* Stat inputs */}
-              <div className="flex flex-wrap gap-x-2 gap-y-1.5">
-                <StatField label="Rank">
-                  <Input
-                    type="number"
-                    value={formData[`${prefix}Rank`]}
-                    onChange={(e) => setFormData({ ...formData, [`${prefix}Rank`]: e.target.value })}
-                    size="sm"
-                    className="w-12 text-center tabular"
-                    min="1" max="133" placeholder="—"
-                  />
-                </StatField>
-                {[
-                  ['Overall', 'OVR'],
-                  ['Offense', 'OFF'],
-                  ['Defense', 'DEF'],
-                ].map(([field, label]) => (
-                  <StatField key={field} label={label}>
-                    <Input
-                      type="number"
-                      value={formData[`${prefix}${field}`]}
-                      onChange={(e) => setFormData({ ...formData, [`${prefix}${field}`]: e.target.value })}
-                      size="sm"
-                      className="w-12 text-center tabular"
-                      min="0" max="99"
-                    />
-                  </StatField>
+                {/* Rank */}
+                <Input type="number" value={formData[`${prefix}Rank`]}
+                  onChange={(e) => setFormData({ ...formData, [`${prefix}Rank`]: e.target.value })}
+                  size="sm" className="w-full text-center tabular" min="1" max="133" placeholder="—" />
+
+                {/* OVR / OFF / DEF */}
+                {['Overall', 'Offense', 'Defense'].map(field => (
+                  <Input key={field} type="number" value={formData[`${prefix}${field}`]}
+                    onChange={(e) => setFormData({ ...formData, [`${prefix}${field}`]: e.target.value })}
+                    size="sm" className="w-full text-center tabular" min="0" max="99" />
                 ))}
-                {(() => {
-                  const live = prefix === 'team1' ? live1 : live2
-                  const recordValue = autoFillRecords
-                    ? (live?.record || '')
-                    : formData[`${prefix}Record`]
-                  const confValue = autoFillRecords
-                    ? (live?.confRecord || '')
-                    : formData[`${prefix}ConfRecord`]
-                  return (
-                    <>
-                      <StatField label="Record">
-                        <Input
-                          type="text"
-                          value={recordValue}
-                          onChange={(e) => setFormData({ ...formData, [`${prefix}Record`]: e.target.value })}
-                          size="sm"
-                          className="w-[52px] text-center tabular"
-                          placeholder="0-0"
-                          readOnly={autoFillRecords}
-                          disabled={autoFillRecords}
-                          title={autoFillRecords ? 'Post-game record — uncheck Auto-fill to edit.' : 'Record after this game finished.'}
-                        />
-                      </StatField>
-                      <StatField label="Conf">
-                        <Input
-                          type="text"
-                          value={confValue}
-                          onChange={(e) => setFormData({ ...formData, [`${prefix}ConfRecord`]: e.target.value })}
-                          size="sm"
-                          className="w-[52px] text-center tabular"
-                          placeholder="0-0"
-                          readOnly={autoFillRecords}
-                          disabled={autoFillRecords}
-                          title={autoFillRecords ? 'Post-game conf record — uncheck Auto-fill to edit.' : 'Conf record after this game finished.'}
-                        />
-                      </StatField>
-                    </>
-                  )
-                })()}
-              </div>
-            </div>
-          ))}
+
+                {/* Record */}
+                <Input type="text" value={recordValue}
+                  onChange={(e) => setFormData({ ...formData, [`${prefix}Record`]: e.target.value })}
+                  size="sm" className="w-full text-center tabular" placeholder="0-0"
+                  readOnly={autoFillRecords} disabled={autoFillRecords} />
+
+                {/* Conf */}
+                <Input type="text" value={confValue}
+                  onChange={(e) => setFormData({ ...formData, [`${prefix}ConfRecord`]: e.target.value })}
+                  size="sm" className="w-full text-center tabular" placeholder="0-0"
+                  readOnly={autoFillRecords} disabled={autoFillRecords} />
+              </React.Fragment>
+            )
+          })}
         </div>
       </Card>
 
