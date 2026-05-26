@@ -428,11 +428,15 @@ const ImageUpload = forwardRef(function ImageUpload({
         </div>
       )}
 
-      {/* Drop zone / Paste area */}
+      {/* Drop zone / Paste area. When a value is set, the uploaded image
+          renders INSIDE this container in place of the upload prompt —
+          clicking it triggers the same file picker, so re-uploading
+          replaces the current image. Drag, drop, and paste all keep
+          working over the image. */}
       {!hideDropzone && <div
-        className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
-          dragOver ? 'border-surface-5 bg-surface-2' : ''
-        } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+        className={`border-2 border-dashed rounded-lg text-center transition-colors ${
+          value ? 'p-2' : 'p-4'
+        } ${dragOver ? 'border-surface-5 bg-surface-2' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
         style={{
           borderColor: dragOver ? 'var(--text-primary)' : 'var(--surface-5)',
           backgroundColor: dragOver ? 'var(--surface-2)' : 'transparent'
@@ -445,12 +449,32 @@ const ImageUpload = forwardRef(function ImageUpload({
         tabIndex={0}
       >
         {uploading ? (
-          <div className="flex flex-col items-center gap-2">
+          <div className="flex flex-col items-center gap-2 py-2">
             <svg className="w-8 h-8 animate-spin" style={{ color: 'var(--text-primary)' }} fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
             <span className="text-sm font-medium" style={{ color: secondaryBgText }}>Uploading...</span>
+          </div>
+        ) : value ? (
+          <div className="relative inline-block max-w-full">
+            <img
+              src={value}
+              alt="Uploaded"
+              className="max-h-80 max-w-full rounded object-contain mx-auto"
+              onError={(e) => { e.target.style.display = 'none' }}
+            />
+            {!disabled && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onChange('') }}
+                className="absolute top-1 right-1 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 shadow-md"
+                title="Remove image"
+                aria-label="Remove image"
+              >
+                ×
+              </button>
+            )}
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2">

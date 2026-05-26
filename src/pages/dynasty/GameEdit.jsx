@@ -2670,38 +2670,29 @@ export default function GameEdit() {
                   </div>
                 </div>
 
-                {/* Generated prompt */}
-                <div className="relative">
-                  <textarea
-                    readOnly
-                    value={prompt}
-                    rows={7}
-                    className="w-full text-xs p-3 pr-20 rounded-lg resize-none font-mono leading-relaxed"
-                    style={{
-                      backgroundColor: 'var(--surface-2)',
-                      border: '1px solid var(--surface-4)',
-                      color: 'var(--text-secondary)',
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(prompt).catch(() => {})
-                      setGraphicPromptCopied(true)
-                      setTimeout(() => setGraphicPromptCopied(false), 1500)
-                    }}
-                    className="absolute top-2 right-2 px-2 py-1 rounded text-xs font-medium transition-all duration-150"
-                    style={{
-                      backgroundColor: graphicPromptCopied ? '#16a34a' : 'var(--surface-4)',
-                      color: graphicPromptCopied ? '#fff' : 'var(--text-primary)',
-                      transform: graphicPromptCopied ? 'scale(0.95)' : 'scale(1)',
-                    }}
-                  >
-                    {graphicPromptCopied ? 'Copied!' : 'Copy'}
-                  </button>
-                </div>
+                {/* Copy prompt button — prompt text is hidden from the user;
+                    they don't need to read it, just copy it into their image
+                    generator. Hold the actual text in the closure above. */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(prompt).catch(() => {})
+                    setGraphicPromptCopied(true)
+                    setTimeout(() => setGraphicPromptCopied(false), 1500)
+                  }}
+                  className="w-full px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-150"
+                  style={{
+                    backgroundColor: graphicPromptCopied ? '#16a34a' : 'var(--text-primary)',
+                    color: graphicPromptCopied ? '#fff' : 'var(--surface-1)',
+                    transform: graphicPromptCopied ? 'scale(0.98)' : 'scale(1)',
+                  }}
+                >
+                  {graphicPromptCopied ? 'Copied!' : 'Copy prompt'}
+                </button>
 
-                {/* Upload result */}
+                {/* Upload result. When a graphic is set, the ImageUpload
+                    component renders the image INSIDE the dropzone — click
+                    it to re-open the file picker. No separate preview. */}
                 <div>
                   <p className="label-xs text-txt-tertiary mb-2">Upload generated image</p>
                   <ImageUpload
@@ -2712,24 +2703,6 @@ export default function GameEdit() {
                     showPreview={false}
                     hideDropzone={false}
                   />
-                  {formData.scoreGraphic && (
-                    <div className="mt-3 flex flex-col items-center gap-2">
-                      <img
-                        src={formData.scoreGraphic}
-                        alt="Score graphic preview"
-                        className="max-h-64 rounded-lg object-contain"
-                        style={{ border: '1px solid var(--surface-4)' }}
-                        onError={(e) => { e.target.style.display = 'none' }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, scoreGraphic: '' }))}
-                        className="text-xs text-red-500 hover:text-red-400 underline-offset-2 underline transition-colors"
-                      >
-                        Remove graphic
-                      </button>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
