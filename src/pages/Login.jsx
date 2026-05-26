@@ -16,6 +16,7 @@ const SCREENSHOTS = [
   { url: 'https://i.imgur.com/G86FXAb.png' },
   { url: 'https://i.imgur.com/ZQkjDtp.png' },
   { url: 'https://i.imgur.com/qxZFoYz.png' },
+  { url: 'https://i.imgur.com/pnVdMep.png' },
 ]
 
 const FEATURES = [
