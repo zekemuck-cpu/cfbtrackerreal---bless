@@ -369,7 +369,7 @@ export function buildScoreGraphicPrompt({
 
   const resultMood = won  ? 'This is a WIN — the graphic should feel confident, energized, and celebratory without being over the top.'
                   : tied ? 'This ended in a TIE — factual and composed.'
-                  :        `This is a LOSS — the graphic should feel composed and grounded, but still visually striking. Lean into darkness and gravity: use the team\'s primary and secondary colors but push them toward a deeper, moodier register — think dark gradient backgrounds, rich shadow fields, or a heavy dominant color fill rather than white or light gray. Avoid plain white or near-white backgrounds entirely. The design should feel like it came from this program\'s creative staff on a hard night — still polished and on-brand, but carrying real weight. Think bold typography on dark fields, strong geometric framing, and a restrained use of the brand\'s colors at their deepest and most intense. Somber and powerful, not cheerful, but absolutely NOT plain or flat.`
+                  :        `This is a LOSS — the graphic should be composed and professional, but still visually interesting. Do NOT default to a plain white background with a simple divider — that reads as lazy and template-like. Use the team\'s brand colors actively: a strong color field, a bold gradient, a graphic texture, a striking geometric layout, or a confident typographic treatment. The design should feel like it came from this program\'s real creative team, not a generic score widget. Composed, not celebratory — but never boring or flat.`
 
   const motifLine = profile?.motifs?.length
     ? `The program is known for these design motifs (use abstractly if you incorporate texture or geometry): ${profile.motifs.join(', ')}.`
