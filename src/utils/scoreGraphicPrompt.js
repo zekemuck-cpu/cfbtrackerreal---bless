@@ -165,7 +165,7 @@ export function buildScoreGraphicPrompt({
     `• Official vector team logos (recalled from your memory of the actual mark — see the Logo rendering section above)`,
     `• Geometric shapes (chevrons, stripes, frames, borders, dividers, brush strokes)`,
     ``,
-    `MANDATORY: If ANY photo, image, or screenshot is attached to this request, you MUST use it as the hero visual element of the graphic. NEVER ignore an attached image. NEVER generate the graphic without it. Place the attached image AS-IS — do not modify, color-grade, tint, duotone, crop, extend, or overlay color washes on it; place it inside the design so the design elements frame it. If you find yourself rendering this graphic without including the attached image, STOP and start over with the image as the hero visual. If NO image is attached at all, build a pure design graphic with zero photographic content of any kind.`,
+    `MANDATORY: If ANY photo, image, or screenshot is attached to this request, you MUST use it as the hero visual element of the graphic. NEVER ignore an attached image. NEVER generate the graphic without it. How you integrate it is your creative call — full bleed, framed, layered, cropped, whatever serves the design best. If NO image is attached at all, build a pure design graphic with zero photographic content of any kind.`,
   ].join('\n')
 
   // Wrap home/away/neutral framing in language that makes it unmistakably
@@ -387,63 +387,31 @@ export function buildScoreGraphicPrompt({
   const featuredIsHome = (featuredTeam === 1 && homeTeam === 1) || (featuredTeam === 2 && homeTeam === 2)
 
   const lines = [
-    `Design a post-game social media graphic (1080×1080) for ${featuredName}'s official account.`,
+    `Design a post-game social media score graphic (1080×1080) for ${featuredName}'s official account.`,
     ``,
-    `BEFORE YOU GO ANY FURTHER — read this once: this is a PURE GRAPHIC DESIGN brief, not a photograph. You are NOT to generate, simulate, or hallucinate any player, crowd, stadium, jersey-on-a-body, helmet-on-a-head, or any other photographic content anywhere on this canvas. The "IMAGERY POLICY" section at the bottom of this prompt enforces this with zero exceptions — read it now before committing to a layout.`,
+    `You are the creative director solely responsible for making ${featuredName} football's graphics look incredible. This is your craft and your reputation — every graphic you put out is a direct reflection of the program's brand. You have full creative authority and your standard is: if it doesn't look genuinely stunning, it doesn't go out. This graphic posts to the official ${featuredName} Instagram and Twitter within minutes of the final whistle and will be seen by tens of thousands of fans. Make it extraordinary. Not template. Not generic. Something that makes people stop scrolling — a graphic that could only have come from ${featuredName}.`,
     ``,
-    `You are the creative director employed by ${featuredName} — you work for this program, you know this brand inside and out, and this graphic goes live on the official ${featuredName} Instagram and Twitter within minutes of the final whistle. Make it feel like it came from this program's actual creative staff — not a template, not a generic sports graphic generator. Every layout and type choice should feel intentional and ownable by ${featuredName} specifically.`,
+    resultMood,
+    gameContext ? gameContext.line : null,
     ``,
     `RESULT`,
     `${rankLabel}${featuredName}${featuredRecordEff ? ` (${featuredRecordEff})` : ''}:  ${sf}`,
     `${oppRankLabel}${oppName}${oppRecordEff ? ` (${oppRecordEff})` : ''}:  ${so}`,
-    gameContext ? gameContext.line : null,
-    ``,
-    siteContextLine(),
-    ``,
-    resultMood,
-    gameContext ? gameContext.designNote : null,
     ``,
     `BRAND — ${featuredName}`,
-    `Primary color: ${primaryPMS ? `${primaryPMS} / ` : ''}${primary}`,
-    `Secondary color: ${secondary}${tertiary ? ` · Accent: ${tertiary}` : ''}`,
-    profile?.wordmarkStyle ? `Wordmark style: ${profile.wordmarkStyle}` : null,
-    featuredFictionalLogo ? `Logo (fictional team — render strictly from this description, do NOT substitute any real-world logo): ${featuredFictionalLogo}` : null,
-    profile?.graphicNotes  ? `Art direction: ${profile.graphicNotes}` : null,
+    `Primary: ${primaryPMS ? `${primaryPMS} / ` : ''}${primary}  Secondary: ${secondary}${tertiary ? `  Accent: ${tertiary}` : ''}`,
+    profile?.wordmarkStyle ? `Wordmark: ${profile.wordmarkStyle}` : null,
+    profile?.graphicNotes  ? `${profile.graphicNotes}` : null,
     motifLine || null,
+    featuredFictionalLogo ? `Logo (fictional team — render from this description only, do not substitute a real logo): ${featuredFictionalLogo}` : null,
     ``,
     opponentBlock,
     opponentBlock ? `` : null,
     logoRenderingInstruction(...realTeamNames),
     ``,
-    `The score numbers should be the largest typographic element. Both score numbers must be identical in size, weight, and visual prominence — do NOT de-emphasize ${featuredName}'s score because this is a loss, and do NOT shrink the opponent's score because this is a win. The two scores must read as a clear comparison at a glance — side by side, or in an obvious visual relationship. Everything else — layout, texture, composition, hierarchy — is your creative call.`,
+    `SCORE ACCURACY (non-negotiable): ${featuredName} scored ${sf} — that number must appear with the ${featuredName} logo. ${oppName} scored ${so} — that number must appear with the ${oppName} logo. Never swap.`,
     ``,
-    `╔══════════════════════════════════════════════════════════╗`,
-    `║  SCORE → TEAM PAIRING — NON-NEGOTIABLE, VERIFY BEFORE     ║`,
-    `║  YOU DRAW                                                  ║`,
-    `╚══════════════════════════════════════════════════════════╝`,
-    `These pairings come from the actual game result. The score next to a team's logo MUST be that team's score. Common failure: the AI swaps the logos so the wrong team gets the wrong score. Before you commit to a layout, confirm:`,
-    `• ${featuredName} scored ${sf}. The number ${sf} must appear with the ${featuredName} logo / wordmark. Never the opponent's logo.`,
-    `• ${oppName} scored ${so}. The number ${so} must appear with the ${oppName} logo / wordmark. Never ${featuredName}'s logo.`,
-    homeTeam !== null ? (() => {
-      // Concrete team+score+position binding for this specific game.
-      // Combined with the pairing block above, the AI has a fully
-      // determined assignment — nothing left to infer or look up.
-      const awayName  = featuredIsHome ? oppName    : featuredName
-      const awayScore = featuredIsHome ? so         : sf
-      const homeName  = featuredIsHome ? featuredName : oppName
-      const homeScore = featuredIsHome ? sf         : so
-      return `Layout for this specific game (away on left/top, home on right/bottom):\n• LEFT (or TOP if stacked vertically): ${awayName} logo + score ${awayScore} — the AWAY team.\n• RIGHT (or BOTTOM if stacked vertically): ${homeName} logo + score ${homeScore} — the HOME team.\nIf your draft has the ${awayName} logo paired with anything other than ${awayScore}, or the ${homeName} logo paired with anything other than ${homeScore}, the score-team pairing is broken — start over.`
-    })() : `Layout for this neutral-site game: either team can sit on the left or top; pick whichever reads better. But the score → team pairing above is fixed regardless of side: ${featuredName} = ${sf}, ${oppName} = ${so}. Never swap.`,
-    ``,
-    `Do not place the opponent's logo in a plain white or gray box — both teams should feel integrated into the design, not pasted in.`,
-    ``,
-    `Background textures, patterns, and decorative geometry should reflect ${featuredName}'s visual identity only. The opponent appears through their logo/wordmark and score — do not incorporate their signature patterns or textures into the background or composition.`,
-    ``,
-    visualRestraint(),
-    ``,
-    imageryPolicy(),
-    ``,
-    textPolicy(fictionalParticipantNames),
+    `If a photo is attached, use it as the hero visual — integrate it however looks best. Do not generate any photographic or photo-real content yourself. If no photo is attached, build a pure graphic design.`,
   ]
 
   return lines.filter(l => l !== null && l !== undefined).join('\n')
