@@ -2591,12 +2591,13 @@ export default function GameEdit() {
         const t1Colors = getTeamColors(team1Name)
         const t2Colors = getTeamColors(team2Name)
 
-        // Pull records — when autoFill is on, use the live memoized values
-        // (same source as the record fields in the UI). formData.teamNRecord
-        // can be stale when editing an existing game that already had a record
-        // saved, causing the graphic prompt to show the wrong post-game record.
-        const rec1 = autoFillRecords ? (live1?.record || '') : (formData.team1Record || '')
-        const rec2 = autoFillRecords ? (live2?.record || '') : (formData.team2Record || '')
+        // Pull records for the graphic prompt — use the record saved ON the game
+        // object (the post-game record as of that week), not the live season total.
+        // The live calculation counts all games in the season, so viewing a Week 1
+        // game in Week 6 would show the full 5-1 record instead of 1-0.
+        // Fall back to live/manual only when no saved record exists (new games).
+        const rec1 = existingGame?.team1Record || (autoFillRecords ? (live1?.record || '') : (formData.team1Record || ''))
+        const rec2 = existingGame?.team2Record || (autoFillRecords ? (live2?.record || '') : (formData.team2Record || ''))
 
         // Pass screenshot count so the prompt can tell the AI to expect attachments
         const uploadedScreenshots = Array.isArray(formData.photos) ? formData.photos.filter(Boolean).length : 0
