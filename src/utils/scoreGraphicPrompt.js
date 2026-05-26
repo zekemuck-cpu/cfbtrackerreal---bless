@@ -50,16 +50,19 @@ export function buildScoreGraphicPrompt({
             ? `This was the ${conf} Conference Championship Game.`
             : `This was a conference championship game.`,
           designNote: `As a conference championship, the graphic should feel weighty and ceremonial — trophy stakes — without becoming formal or sterile.`,
+          callout: conf ? `${conf} Championship` : `Conference Championship`,
         }
       case 'bowl':
         return {
           line: bn ? `This was the ${bn} — a postseason bowl game.` : `This was a postseason bowl game.`,
           designNote: `As a postseason bowl game, the graphic should carry bowl-game gravitas and a sense of season-finale stakes.`,
+          callout: bn || `Bowl Game`,
         }
       case 'cfp_first_round':
         return {
           line: `This was a College Football Playoff First Round game${bn ? ` (${bn})` : ''}.`,
           designNote: `As a College Football Playoff game, the graphic should reflect national-stage stakes — a step beyond a regular bowl.`,
+          callout: `CFP First Round`,
         }
       case 'cfp_quarterfinal':
         return {
@@ -67,6 +70,7 @@ export function buildScoreGraphicPrompt({
             ? `This was a College Football Playoff Quarterfinal — played at the ${bn}.`
             : `This was a College Football Playoff Quarterfinal.`,
           designNote: `As a CFP Quarterfinal, the graphic should reflect national-stage playoff stakes.`,
+          callout: `CFP Quarterfinal`,
         }
       case 'cfp_semifinal':
         return {
@@ -74,11 +78,13 @@ export function buildScoreGraphicPrompt({
             ? `This was a College Football Playoff Semifinal — played at the ${bn}.`
             : `This was a College Football Playoff Semifinal.`,
           designNote: `As a CFP Semifinal, the graphic should reflect maximum playoff stakes — one win from the title game.`,
+          callout: `CFP Semifinal`,
         }
       case 'cfp_championship':
         return {
           line: `This was the College Football Playoff National Championship Game.`,
           designNote: `As the National Championship, the graphic should carry the weight of the title game — the biggest stage in college football.`,
+          callout: `National Championship`,
         }
       case 'regular':
       default:
@@ -134,6 +140,41 @@ export function buildScoreGraphicPrompt({
     ].join('\n')
   }
 
+  // Wrap home/away/neutral framing in language that makes it unmistakably
+  // an internal designer note, not text to render. AIs have been observed
+  // printing "NEUTRAL SITE" verbatim on the canvas when the line sits
+  // bare next to the result data.
+  const siteContextLine = () => {
+    if (homeTeam === null) {
+      return `Site context (FOR YOUR INTERNAL FRAMING ONLY — do NOT print this on the graphic): the game was played at a neutral site.`
+    }
+    const homeName    = homeTeam === 1 ? team1Name : team2Name
+    const visitorName = homeTeam === 1 ? team2Name : team1Name
+    return `Site context (FOR YOUR INTERNAL FRAMING ONLY — do NOT print this on the graphic): ${homeName} was the home team; ${visitorName} was the visiting team.`
+  }
+
+  // Enumerate what's allowed to appear as visible text on the canvas and
+  // what must never appear. Reused across both prompt paths. Including a
+  // postseason game's official round name (e.g. "Rose Bowl", "National
+  // Championship") is allowed; including "Neutral site" / "Home" / "Away"
+  // / venue / city / state / win-loss words / color codes is forbidden.
+  const textPolicy = () => [
+    `TEXT POLICY — strict rules for what may appear as visible text on the graphic:`,
+    `ALLOWED (and expected):`,
+    `• The two team names, each rendered in that team's official wordmark style.`,
+    `• The two score numbers — the largest typographic element on the canvas.`,
+    `• Team records (e.g. "(14-2)") and team ranks (e.g. "#4"), only when provided in the RESULT block above.`,
+    `• A small "FINAL" label.`,
+    gameContext ? `• Because this is a postseason game, the specific game/round name may appear as a callout (e.g. "${gameContext.callout}"), sized appropriately to the magnitude of the moment — but NOT so large that it overshadows the scores.` : `• (Regular-season game — do not add any game-name / week-name callout.)`,
+    `FORBIDDEN (never appears anywhere on the graphic):`,
+    `• "Neutral site", "Home", "Away", "Road", "Hosted by", "at <venue>", venue names, stadium names, city names, state names, or any location reference whatsoever.`,
+    `• "WIN", "LOSS", "VICTORY", "DEFEAT", "WE WIN", "L", or any result word as a dominant element — "FINAL" is the only allowed result label.`,
+    `• The literal labels from this prompt (e.g. "RESULT", "BRAND", "OPPONENT", "SITE CONTEXT", "TEXT POLICY").`,
+    `• Quoted design-direction words ("celebratory", "ceremonial", "confident", "energized", etc.).`,
+    `• Hex codes, PMS codes, or written-out color names.`,
+    `• Sponsor logos, broadcast or network bugs, hashtags, social media handles, URLs, university addresses, or any campaign tagline you might invent.`,
+  ].join('\n')
+
   // homeTeam = 1 → team1 is home, 2 → team2 is home, null → neutral site
   // ─── NEUTRAL / MEDIA-COMPANY GRAPHIC ────────────────────────────────────────
   if (featuredTeam === 0) {
@@ -148,13 +189,6 @@ export function buildScoreGraphicPrompt({
     const color2 = p2?.primaryHex || team2Colors?.primary || '#1a1a1a'
     const fictionalLogo1 = fictionalLogoDescription(p1)
     const fictionalLogo2 = fictionalLogoDescription(p2)
-
-    // Home/away as prose context, not inline labels
-    const neutralSiteNote = homeTeam === null
-      ? 'Neutral site.'
-      : homeTeam === 1
-      ? `${team1Name} was the home team. ${team2Name} was the visiting team.`
-      : `${team2Name} was the home team. ${team1Name} was the visiting team.`
 
     const photoLine = `If you have a photo attached, use it as the hero visual — keep it natural and do not color-grade, tint, duotone, or overlay color washes on it. If no photo is attached, build a pure design graphic using color, typography, team logos, and geometry only — no generated or simulated photographs, player images, crowd scenes, or stadium shots of any kind.`
 
@@ -172,9 +206,10 @@ export function buildScoreGraphicPrompt({
       `RESULT`,
       `${rank1Label}${team1Name}${team1Record ? ` (${team1Record})` : ''}:  ${s1}`,
       `${rank2Label}${team2Name}${team2Record ? ` (${team2Record})` : ''}:  ${s2}`,
-      neutralSiteNote,
       gameContext ? gameContext.line : null,
       gameContext ? gameContext.designNote : null,
+      ``,
+      siteContextLine(),
       ``,
       `TEAM 1 — ${team1Name}`,
       `Colors: primary ${p1?.primaryPMS ? `${p1.primaryPMS} / ` : ''}${color1}${(p1?.secondaryHex || team1Colors?.secondary) ? `, secondary ${p1?.secondaryHex || team1Colors?.secondary}` : ''}.`,
@@ -193,9 +228,9 @@ export function buildScoreGraphicPrompt({
       `The score numbers should be the largest typographic element. Both score numbers must be identical in size, weight, and visual prominence — neither score is de-emphasized regardless of result. The two scores must read as a clear comparison — side by side or in an obvious visual relationship.`,
       homeTeam !== null ? `Layout convention: the AWAY team goes on the LEFT (or TOP if stacked vertically); the HOME team goes on the RIGHT (or BOTTOM). This applies to the main score comparison, any box score, and the team-name/logo lockups.` : null,
       ``,
-      `A small "FINAL" label is appropriate and expected. What to avoid: a giant WIN / VICTORY / FINAL word that dominates the canvas and overshadows the scores.`,
       `Do not place either logo in a plain white or gray box — both teams should feel integrated into the design.`,
-      `Do not invent sponsor logos, broadcast/network bugs, hashtags, or social media handles. Only the two teams' marks appear.`,
+      ``,
+      textPolicy(),
     ]
 
     return lines.filter(l => l !== null && l !== undefined).join('\n')
@@ -251,15 +286,9 @@ export function buildScoreGraphicPrompt({
     !isFictionalTeam(oppProfile) ? oppName      : null,
   ].filter(Boolean)
 
-  // Home/away context — used for box score ordering and game framing only,
-  // not rendered as literal labels in the graphic.
+  // Home/away framing — informational only; the explicit AWAY-left /
+  // HOME-right layout convention is rendered separately further down.
   const featuredIsHome = (featuredTeam === 1 && homeTeam === 1) || (featuredTeam === 2 && homeTeam === 2)
-  const featuredIsAway = (featuredTeam === 1 && homeTeam === 2) || (featuredTeam === 2 && homeTeam === 1)
-  const siteContext = featuredIsHome
-    ? `${featuredName} hosted this game. ${oppName} was the visiting team.`
-    : featuredIsAway
-    ? `${featuredName} played this game on the road. ${oppName} was the home team.`
-    : null
 
   const lines = [
     `Design a post-game social media graphic (1080×1080) for ${featuredName}'s official account.`,
@@ -269,8 +298,9 @@ export function buildScoreGraphicPrompt({
     `RESULT`,
     `${rankLabel}${featuredName}${featuredRecord ? ` (${featuredRecord})` : ''}:  ${sf}`,
     `${oppRankLabel}${oppName}${oppRecord ? ` (${oppRecord})` : ''}:  ${so}`,
-    homeTeam === null ? 'Neutral site.' : siteContext,
     gameContext ? gameContext.line : null,
+    ``,
+    siteContextLine(),
     ``,
     resultMood,
     gameContext ? gameContext.designNote : null,
@@ -292,15 +322,11 @@ export function buildScoreGraphicPrompt({
     `The score numbers should be the largest typographic element. Both score numbers must be identical in size, weight, and visual prominence — do NOT de-emphasize ${featuredName}'s score because this is a loss, and do NOT shrink the opponent's score because this is a win. The two scores must read as a clear comparison at a glance — side by side, or in an obvious visual relationship. Everything else — layout, texture, composition, hierarchy — is your creative call.`,
     homeTeam !== null ? `Layout convention: the AWAY team goes on the LEFT (or TOP if stacked vertically); the HOME team goes on the RIGHT (or BOTTOM). This applies to the main score comparison, any box score, and the team-name/logo lockups — so for this game, ${featuredIsHome ? `${oppName} (away) is on the left/top and ${featuredName} (home) is on the right/bottom` : `${featuredName} (away) is on the left/top and ${oppName} (home) is on the right/bottom`}.` : null,
     ``,
-    `A small "FINAL" label is appropriate and expected — real score graphics use it. What to avoid: a giant WIN / VICTORY / FINAL word that visually dominates the canvas and overshadows the scores.`,
-    ``,
     `Do not place the opponent's logo in a plain white or gray box — both teams should feel integrated into the design, not pasted in.`,
     ``,
-    `Do not invent sponsor logos, broadcast or network bugs, hashtags, or social media handles. Only the two teams' marks appear on the graphic.`,
-    ``,
-    `Do not add university addresses, city names, or location footers (e.g. "Austin, Texas" or "The University of Texas") — the team name and logo carry the identity.`,
-    ``,
     `Background textures, patterns, and decorative geometry should reflect ${featuredName}'s visual identity only. The opponent appears through their logo/wordmark and score — do not incorporate their signature patterns or textures into the background or composition.`,
+    ``,
+    textPolicy(),
   ]
 
   return lines.filter(l => l !== null && l !== undefined).join('\n')
