@@ -221,8 +221,9 @@ export function buildScoreGraphicPrompt({
   // graphic clean and scoreboard-first.
   const visualRestraint = () => [
     `VISUAL RESTRAINT — keep it clean and sleek:`,
-    `• The composition should feel like a focused scoreboard graphic, not a hype poster. Scores + team names/logos + FINAL are the only required content. Postseason callout (if applicable) is the only optional addition.`,
-    `• ONE primary visual block, not three. Avoid stacking a hero photo PLUS a hype banner PLUS a subhead PLUS a slogan footer. If a photo is attached, the photo is the hero — no headline needed.`,
+    `• The composition should feel like a focused scoreboard graphic, not a hype poster. Required content: the two scores, the two team names/logos, the FINAL label, and — if a photo is attached to this request — the attached photo as the hero visual. Postseason callout (if applicable) is the only optional addition.`,
+    `• ONE primary visual block of "extra" content beyond the scoreboard, not three. If a photo is attached, the PHOTO is that one block — supporting type and the scoreboard frame it. Do NOT stack a hero photo PLUS a hype banner PLUS a subhead PLUS a slogan footer. If no photo is attached, the scoreboard itself carries the design without extra hype.`,
+    `• IMPORTANT: minimalism does NOT mean dropping the attached photo. If a photo is attached, omitting it does not make the design cleaner — it makes it incomplete. Include the photo and keep everything else restrained.`,
     `• ONE texture/pattern at most. Don't stack halftones with paper grain with checkerboard with brush strokes with confetti. Pick one signature texture (or none) and use it sparingly as a background accent — never as a full-canvas overlay.`,
     `• Generous whitespace. Let the scores breathe. Don't pack content edge-to-edge.`,
     `• No grunge frames, torn-paper edges, or gritty brush borders around the full canvas. Clean rectangular or simple-shape compositions.`,
@@ -265,7 +266,10 @@ export function buildScoreGraphicPrompt({
     const lines = [
       `Design a post-game score graphic (1080×1080) in the style of a neutral sports media outlet — think ESPN, Fox Sports, or The Athletic — not either team's own branded post.`,
       ``,
-      `BEFORE YOU GO ANY FURTHER — read this once: this is a PURE GRAPHIC DESIGN brief, not a photograph. You are NOT to generate, simulate, or hallucinate any player, crowd, stadium, jersey-on-a-body, helmet-on-a-head, or any other photographic content anywhere on this canvas. The "IMAGERY POLICY" section at the bottom of this prompt enforces this with zero exceptions — read it now before committing to a layout.`,
+      `BEFORE YOU GO ANY FURTHER — read both of these once:`,
+      `  (1) DO NOT GENERATE any photographic content yourself — no invented players, crowds, stadiums, jerseys-on-a-body, helmets-on-a-head, or any other AI-fabricated photo-real imagery. The graphic itself is built from typography, color, vector logos, and geometry only.`,
+      `  (2) BUT — if the user has attached an image/photo/screenshot with this request, you MUST use that attached image as the hero visual element of the graphic. Do not omit it. Do not skip it to make the design feel cleaner. The attached image IS the primary visual block of this design, and the scores/names/logos/FINAL frame it. If you find yourself building a layout without the attached image, STOP and start over with the image included.`,
+      `The "IMAGERY POLICY" section at the bottom of this prompt restates this in detail — read it now before committing to a layout.`,
       ``,
       `You are a senior graphic designer at a major sports network. This graphic covers the final score for a national audience, so neither team gets visual priority. Both programs are represented equally in color, logo placement, and type weight. The design should feel authoritative, clean, and broadcast-quality.`,
       ``,
