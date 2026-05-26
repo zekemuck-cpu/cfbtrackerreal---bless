@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { useDynasty, calculateTeamRecordFromGames, getTeamRecord, getCustomConferencesForYear } from '../../context/DynastyContext'
+import { useDynasty, calculateTeamRecordFromGames, getTeamRecord, getCustomConferencesForYear, getTeamRankForWeek } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
@@ -512,6 +512,31 @@ export default function ConferenceStandings() {
               // rank when no team in the conference has any game data
               // for the year (e.g. a future season the user is browsing).
               const teamsSrc = currentDynasty?.teams || currentDynasty?.customTeams
+              // Find a team's MOST RECENT national rank for the displayed
+              // year by walking their rankByWeek and picking the highest
+              // week with a valid value. Used as a tiebreaker when two
+              // teams have identical records.
+              const getLatestNationalRank = (tid) => {
+                if (tid == null) return null
+                const byYear = currentDynasty?.teams?.[tid]?.byYear
+                const entry = byYear?.[displayYear]?.rankByWeek ?? byYear?.[String(displayYear)]?.rankByWeek
+                if (entry) {
+                  let bestWeek = -Infinity
+                  let bestRank = null
+                  for (const [wk, val] of Object.entries(entry)) {
+                    const wkNum = Number(wk)
+                    const rk = Number(val)
+                    if (Number.isFinite(wkNum) && rk >= 1 && rk <= 25 && wkNum > bestWeek) {
+                      bestWeek = wkNum
+                      bestRank = rk
+                    }
+                  }
+                  if (bestRank != null) return bestRank
+                }
+                // Fall back to preseason poll for early weeks via the
+                // shared helper (handles both numeric and string year keys).
+                return getTeamRankForWeek(currentDynasty, tid, displayYear, 0)
+              }
               const enriched = teams.map(t => {
                 const tid = t.tid != null ? Number(t.tid) : resolveTid(t.team, teamsSrc || TEAMS)
                 // Use the same coverage-aware helper as the row render
@@ -542,20 +567,31 @@ export default function ConferenceStandings() {
                   _liveConfWins: helperRec ? (helperRec.confWins || 0) : (t.confWins || 0),
                   _liveConfLosses: helperRec ? (helperRec.confLosses || 0) : (t.confLosses || 0),
                   _liveDiff: liveDiff,
+                  _liveNationalRank: getLatestNationalRank(tid), // null = unranked
                   _isLive: !!helperRec,
                 }
               })
               const anyLive = enriched.some(t => t._isLive)
               // Sort by conference record first (the primary standings
-              // metric in CFB), with overall record as the next tier of
-              // tiebreaker, then point differential. Matches how every
-              // real conference publishes its standings.
+              // metric in CFB), then overall record. When records are
+              // identical we use national ranking as the next tiebreaker
+              // (lower number wins; ranked teams beat unranked teams) —
+              // this matches how SEC/B1G/etc publish standings when two
+              // teams are tied. Point differential is the final fallback.
               const sortFn = anyLive
                 ? (a, b) => {
                     if (b._liveConfWins !== a._liveConfWins) return b._liveConfWins - a._liveConfWins
                     if (a._liveConfLosses !== b._liveConfLosses) return a._liveConfLosses - b._liveConfLosses
                     if (b._liveWins !== a._liveWins) return b._liveWins - a._liveWins
                     if (a._liveLosses !== b._liveLosses) return a._liveLosses - b._liveLosses
+                    // National-ranking tiebreaker. null = unranked. A
+                    // ranked team always beats an unranked team; between
+                    // two ranked teams the lower rank number wins.
+                    const aRank = a._liveNationalRank
+                    const bRank = b._liveNationalRank
+                    if (aRank != null && bRank == null) return -1
+                    if (aRank == null && bRank != null) return 1
+                    if (aRank != null && bRank != null && aRank !== bRank) return aRank - bRank
                     if (b._liveDiff !== a._liveDiff) return b._liveDiff - a._liveDiff
                     return 0
                   }
