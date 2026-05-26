@@ -968,43 +968,67 @@ SELF-CHECK BEFORE YOU SEND — run every line
     // hard for the user to read in the modal. The AI is told to
     // replace each <TAB> with a real tab character. Real tabs are also
     // shown beside the header line for unambiguity.
+    // Build the template line-by-line and embed the EXPECTED output
+    // line number (1-indexed) in every line's placeholder. This is the
+    // strongest defense against the off-by-one shift we keep seeing
+    // with non-thinking models — they drop a single data slot or the
+    // blank separator and every subsequent banner lands on the wrong
+    // row of the user's sheet. With line numbers embedded in the
+    // template itself, the AI's job is "make sure the line emitted at
+    // position N matches the placeholder labeled [LINE N]", not "count
+    // your own output". Each banner line and header line also gets a
+    // [LINE N] suffix (in a comment-like trailing token) so the AI can
+    // self-verify it landed in the right place after substitution.
     const templateBlock = (() => {
       const out = []
+      let lineNo = 0
       layout.sections.forEach((s, idx) => {
         const isLast = idx === layout.sections.length - 1
-        // Banner line — literal, column A only.
-        out.push(`═══ ${s.title.toUpperCase()} ═══`)
-        // Column-header line — tab-separated. Shown with both the <TAB>
-        // notation (readable) and the literal real-tab joined version
-        // would be redundant; keep just <TAB> notation and remind the
-        // AI in the rules to substitute real tabs.
-        out.push(s.headers.join('<TAB>'))
-        // Data slots — placeholders. For each, the AI either fills with
-        // a player row (N tab-separated values matching the header
-        // count) or emits an empty line.
+        // Banner line — literal, column A only. The leading line-number
+        // tag tells the AI which position this should emit at. The AI
+        // does NOT output the tag — it's a comment anchor.
+        lineNo += 1
+        out.push(`═══ ${s.title.toUpperCase()} ═══     ← LINE ${lineNo} — emit this banner verbatim, column A only, no tabs`)
+        // Column-header line — tab-separated.
+        lineNo += 1
+        out.push(`${s.headers.join('<TAB>')}     ← LINE ${lineNo} — emit this header line verbatim (substitute <TAB> with a real tab character)`)
+        // Data slots — every slot gets its own line number so the AI
+        // can't drop one without the gap being obvious.
         for (let i = 1; i <= s.rowCount; i++) {
-          out.push(`<<${s.title.toUpperCase()}-DATA-${i} or empty line>>`)
+          lineNo += 1
+          out.push(`<<LINE ${lineNo} — ${s.title.toUpperCase()} DATA SLOT ${i}/${s.rowCount} — REQUIRED line: replace with a player stat row (matching the header column count) OR leave as a TRULY EMPTY LINE (just \\n). You MUST emit this line either way; never delete it.>>`)
         }
-        // Blank separator (except after the last section).
-        if (!isLast) out.push('<<BLANK SEPARATOR — emit a single empty line here>>')
+        // Blank separator (except after the last section). Annotated
+        // with its line number so the AI can't skip it. This is the
+        // line most commonly dropped — the bug we're fixing.
+        if (!isLast) {
+          lineNo += 1
+          out.push(`<<LINE ${lineNo} — BLANK SEPARATOR — REQUIRED line: emit a TRULY EMPTY LINE here (just \\n). This separates the ${s.title.toUpperCase()} section from the next section. If you skip this line, the next banner lands on the wrong row and every subsequent section shifts up by one. DO NOT OMIT.>>`)
+        }
       })
       return out.join('\n')
     })()
 
-    // Worked example showing the Passing section filled in. Gives the
-    // AI a concrete pattern of "what a filled-in template looks like"
-    // so it doesn't have to derive the format from rules alone.
+    // Worked example showing the Passing section filled in AFTER
+    // template substitution. Mirrors what the AI's first 10 output
+    // lines should look like once it copies the template, drops the
+    // trailing "← LINE N — ..." annotations from the banner/header,
+    // fills the first data slot, and leaves the rest as truly empty
+    // lines. Concrete example > rule explanation.
     const passingSection = layout.sections.find(s => s.key === 'passing') || layout.sections[0]
     const exampleSection = (() => {
       if (!passingSection) return ''
       const out = []
-      out.push(`═══ ${passingSection.title.toUpperCase()} ═══`)
-      out.push(passingSection.headers.join('<TAB>'))
-      // One example data row + then empty data slots
+      out.push(`═══ ${passingSection.title.toUpperCase()} ═══     ← this is line 1 of your output`)
+      out.push(`${passingSection.headers.join('<TAB>')}     ← this is line 2 of your output`)
+      // One example data row + then empty data slots, each with its
+      // expected line number annotated so the AI sees the alignment.
       const headerCount = passingSection.headers.length
       const exampleRow = ['Trent Dilfer', '24', '32', '298', '2', '1', '47', '2', '142.6'].slice(0, headerCount)
-      out.push(exampleRow.join('<TAB>'))
-      for (let i = 1; i < passingSection.rowCount; i++) out.push('') // empty data slots
+      out.push(`${exampleRow.join('<TAB>')}     ← this is line 3 of your output (DATA SLOT 1, filled)`)
+      for (let i = 1; i < passingSection.rowCount; i++) {
+        out.push(`     ← this is line ${3 + i} of your output (DATA SLOT ${i + 1}, empty — leave the line empty before the "← ..." annotation)`)
+      }
       return out.join('\n')
     })()
 
@@ -1068,26 +1092,42 @@ Step 1 — Copy the entire FILL-IN-THE-BLANK TEMPLATE (further
          lines, in the right order, with banners and headers
          already locked to the correct rows.
 
-Step 2 — Walk through your buffer line by line. For each
-         "<<X-DATA-N or empty line>>" placeholder:
+Step 2 — Walk through your buffer line by line. Each placeholder
+         starts with "<<LINE N — …" and that N is the position
+         it MUST land on in your output. For each
+         "<<LINE N — … DATA SLOT … REQUIRED line: …>>" placeholder:
          (a) If you have a ${teamAbbr} player to put on that
-             line, replace the placeholder with their
+             line, replace the entire placeholder with their
              tab-separated stat row.
          (b) If you have NO player for that slot, replace the
-             placeholder with a TRULY EMPTY LINE (just \\n).
+             entire placeholder with a TRULY EMPTY LINE (just \\n).
          Either way, the line stays. You never delete a line.
+         After this step, the line at position N in your buffer
+         is either a data row or empty — but it still exists.
 
-Step 3 — For each "<<BLANK SEPARATOR …>>" placeholder, replace
-         it with a TRULY EMPTY LINE.
+Step 3 — For each "<<LINE N — BLANK SEPARATOR — REQUIRED line: …>>"
+         placeholder, replace the entire placeholder with a
+         TRULY EMPTY LINE (just \\n). This line is the most
+         commonly dropped — non-thinking models see "blank
+         separator" and treat it as optional. It is NOT
+         optional. Without it, the next section's banner
+         lands on line N - 1 instead of line N + 1.
 
-Step 4 — Replace every <TAB> in your buffer with a real tab
+Step 4 — Strip every trailing comment from banner and header
+         lines. The template shows "═══ PASSING ═══     ← LINE 1
+         — emit this banner verbatim, column A only, no tabs" —
+         your output emits ONLY "═══ PASSING ═══" (everything
+         from "     ← LINE …" onward is a guidance comment and
+         must NOT appear in your output). Same for header lines.
+
+Step 5 — Replace every <TAB> in your buffer with a real tab
          character (U+0009).
 
-Step 5 — Count the lines in your buffer. The count MUST equal
+Step 6 — Count the lines in your buffer. The count MUST equal
          ${layout.totalRows}. If it doesn't, you accidentally added or
          removed a line. Restart from Step 1.
 
-Step 6 — For each section in the SECTION → LINE MAP above, verify:
+Step 7 — For each section in the SECTION → LINE MAP above, verify:
            your line N starts with "═══ {Section} ═══" where N is
            the bannerRow for that section. If even one banner is
            on the wrong line, restart from Step 1.
@@ -1147,25 +1187,39 @@ FILL-IN-THE-BLANK TEMPLATE — copy verbatim, replace placeholders
 ═══════════════════════════════════════════════════════════
 DO NOT construct your output line by line from the section ranges
 above. Instead, take the literal template below, paste it as your
-output, and replace ONLY the <<...>> placeholders. Banner lines
-("═══ X ═══") and column-header lines are FIXED — copy them
-character-for-character exactly as shown. Do not retype them. Do
-not paraphrase them. Do not add extra spaces. Do not shift them.
+output buffer, and replace ONLY the <<...>> placeholders. Each
+placeholder is line-anchored — it starts with "<<LINE N — ..." and
+the N is the exact 1-indexed output line it MUST land on. Use
+those line numbers to self-verify your output positions.
+
+Banner lines ("═══ X ═══") and column-header lines are also marked
+with their line number, but as a trailing comment ("     ← LINE N
+— ..."). The banner/header content itself is FIXED — copy it
+character-for-character exactly as shown — but the trailing
+"     ← LINE N — ..." comment is GUIDANCE and must NOT appear in
+your output.
 
 In the template, "<TAB>" represents a single real tab character
 (U+0009). Replace every "<TAB>" with a real tab character when you
 emit your output. The user is pasting into Google Sheets — real
 tabs are what split fields into cells.
 
-For each "<<X-DATA-N or empty line>>" placeholder you have two
-choices:
-  • Replace it with a single line of N tab-separated values
-    matching the section's column count, OR
-  • Replace it with a TRULY EMPTY LINE (just \\n, no spaces, no
-    tabs) if no player has stats for that slot.
+For each "<<LINE N — … DATA SLOT … REQUIRED line: …>>" placeholder
+you have two choices:
+  • Replace the entire placeholder with a single line of
+    tab-separated values matching the section's column count, OR
+  • Replace the entire placeholder with a TRULY EMPTY LINE (just
+    \\n, no spaces, no tabs) if no player has stats for that slot.
+Either way, the OUTPUT LINE STAYS. Never delete a line. The
+"LINE N" tag tells you which output position this line must land
+on — verify by counting after substitution.
 
-For each "<<BLANK SEPARATOR — emit a single empty line here>>"
-placeholder, replace it with a TRULY EMPTY LINE (just \\n).
+For each "<<LINE N — BLANK SEPARATOR — REQUIRED line: …>>"
+placeholder, replace the entire placeholder with a TRULY EMPTY
+LINE (just \\n). This separator line is the most commonly dropped
+— losing it shifts every banner below it up by one row. The
+"LINE N" tag makes the omission self-evident: if your line N
+isn't empty, you skipped the separator.
 
 NEVER:
   • Move a banner line to a different position
