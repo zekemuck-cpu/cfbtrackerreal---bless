@@ -2362,6 +2362,7 @@ export default function GameEdit() {
       {/* STORY — recap text, supporting links, and photos. */}
       <section className="space-y-3">
         <SectionHeader size="sm" title="Story" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
 
       <Card>
         {(() => {
@@ -2498,6 +2499,7 @@ export default function GameEdit() {
           </Button>
         </div>
       </Card>
+        </div>
       </section>
 
       {/* POST-GAME — outputs for sharing and POW awards. */}
