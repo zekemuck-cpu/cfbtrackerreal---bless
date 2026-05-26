@@ -342,8 +342,6 @@ export function buildScoreGraphicPrompt({
 
   const sf = featuredScore ?? ''
   const so = oppScore ?? ''
-  const won  = Number(sf) > Number(so)
-  const tied = Number(sf) === Number(so)
 
   const rankLabel    = featuredRank ? `#${featuredRank} ` : ''
   const oppRankLabel = oppRank ? `#${oppRank} ` : ''
@@ -367,9 +365,7 @@ export function buildScoreGraphicPrompt({
     oppIsFictional      ? oppName      : null,
   ].filter(Boolean)
 
-  const resultMood = won  ? 'This is a WIN — the graphic should feel confident, energized, and celebratory without being over the top.'
-                  : tied ? 'This ended in a TIE — factual and composed.'
-                  :        `This is a LOSS — the graphic should be composed and professional, but still visually interesting. Do NOT default to a plain white background with a simple divider — that reads as lazy and template-like. Use the team\'s brand colors actively: a strong color field, a bold gradient, a graphic texture, a striking geometric layout, or a confident typographic treatment. The design should feel like it came from this program\'s real creative team, not a generic score widget. Composed, not celebratory — but never boring or flat.`
+  const resultMood = `Design a polished, visually striking branded score graphic. The result is in the numbers — the design doesn't need to editorialize about the outcome.`
 
   const motifLine = profile?.motifs?.length
     ? `The program is known for these design motifs (use abstractly if you incorporate texture or geometry): ${profile.motifs.join(', ')}.`
