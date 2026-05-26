@@ -158,22 +158,32 @@ export function buildScoreGraphicPrompt({
   // postseason game's official round name (e.g. "Rose Bowl", "National
   // Championship") is allowed; including "Neutral site" / "Home" / "Away"
   // / venue / city / state / win-loss words / color codes is forbidden.
-  const textPolicy = () => [
-    `TEXT POLICY — strict rules for what may appear as visible text on the graphic:`,
-    `ALLOWED (and expected):`,
-    `• The two team names, each rendered in that team's official wordmark style.`,
-    `• The two score numbers — the largest typographic element on the canvas.`,
-    `• Team records (e.g. "(14-2)") and team ranks (e.g. "#4"), only when provided in the RESULT block above.`,
-    `• A small "FINAL" label.`,
-    gameContext ? `• Because this is a postseason game, the specific game/round name may appear as a callout (e.g. "${gameContext.callout}"), sized appropriately to the magnitude of the moment — but NOT so large that it overshadows the scores.` : `• (Regular-season game — do not add any game-name / week-name callout.)`,
-    `FORBIDDEN (never appears anywhere on the graphic):`,
-    `• "Neutral site", "Home", "Away", "Road", "Hosted by", "at <venue>", venue names, stadium names, city names, state names, or any location reference whatsoever.`,
-    `• "WIN", "LOSS", "VICTORY", "DEFEAT", "WE WIN", "L", or any result word as a dominant element — "FINAL" is the only allowed result label.`,
-    `• The literal labels from this prompt (e.g. "RESULT", "BRAND", "OPPONENT", "SITE CONTEXT", "TEXT POLICY").`,
-    `• Quoted design-direction words ("celebratory", "ceremonial", "confident", "energized", etc.).`,
-    `• Hex codes, PMS codes, or written-out color names.`,
-    `• Sponsor logos, broadcast or network bugs, hashtags, social media handles, URLs, university addresses, or any campaign tagline you might invent.`,
-  ].join('\n')
+  //
+  // `fictionalNamesList` lets the policy emit a team-specific rule about
+  // suppressing records for fictional teams whose records aren't tracked.
+  const textPolicy = (fictionalNamesList = []) => {
+    const lines = [
+      `TEXT POLICY — strict rules for what may appear as visible text on the graphic:`,
+      `ALLOWED (and expected):`,
+      `• The two team names, each rendered in that team's official wordmark style.`,
+      `• The two score numbers — the largest typographic element on the canvas.`,
+      `• Team records (e.g. "(14-2)") and team ranks (e.g. "#4"), only when provided in the RESULT block above.`,
+      `• A small "FINAL" label.`,
+      gameContext ? `• Because this is a postseason game, the specific game/round name may appear as a callout (e.g. "${gameContext.callout}"), sized appropriately to the magnitude of the moment — but NOT so large that it overshadows the scores.` : `• (Regular-season game — do not add any game-name / week-name callout.)`,
+      `FORBIDDEN (never appears anywhere on the graphic):`,
+      `• "Neutral site", "Home", "Away", "Road", "Hosted by", "at <venue>", venue names, stadium names, city names, state names, or any location reference whatsoever.`,
+      `• "WIN", "LOSS", "VICTORY", "DEFEAT", "WE WIN", "L", or any result word as a dominant element — "FINAL" is the only allowed result label.`,
+      `• The literal labels from this prompt (e.g. "RESULT", "BRAND", "OPPONENT", "SITE CONTEXT", "TEXT POLICY").`,
+      `• Quoted design-direction words ("celebratory", "ceremonial", "confident", "energized", etc.).`,
+      `• Hex codes, PMS codes, or written-out color names.`,
+      `• Sponsor logos, broadcast or network bugs, hashtags, social media handles, URLs, university addresses, or any campaign tagline you might invent.`,
+    ]
+    if (fictionalNamesList.length > 0) {
+      const names = fictionalNamesList.join(' / ')
+      lines.push(`• Any win-loss record for ${names} — this team is a generic in-game FCS placeholder whose record is NOT tracked accurately, so any number we could print would be misleading. Render the team's name, score, and logo normally, but do NOT show a "(0-1)" / "(1-0)" / any record under their name. Treat them as if the record fields simply don't exist for that team.`)
+    }
+    return lines.join('\n')
+  }
 
   // homeTeam = 1 → team1 is home, 2 → team2 is home, null → neutral site
   // ─── NEUTRAL / MEDIA-COMPANY GRAPHIC ────────────────────────────────────────
@@ -190,6 +200,18 @@ export function buildScoreGraphicPrompt({
     const fictionalLogo1 = fictionalLogoDescription(p1)
     const fictionalLogo2 = fictionalLogoDescription(p2)
 
+    // FCS placeholders don't have accurate records tracked — suppress
+    // theirs in the RESULT line so the AI doesn't print a misleading
+    // "(0-1)" under the team name.
+    const p1Fictional = isFictionalTeam(p1)
+    const p2Fictional = isFictionalTeam(p2)
+    const t1RecordEff = p1Fictional ? null : team1Record
+    const t2RecordEff = p2Fictional ? null : team2Record
+    const fictionalParticipantNames = [
+      p1Fictional ? team1Name : null,
+      p2Fictional ? team2Name : null,
+    ].filter(Boolean)
+
     const photoLine = `If you have a photo attached, use it as the hero visual — keep it natural and do not color-grade, tint, duotone, or overlay color washes on it. If no photo is attached, build a pure design graphic using color, typography, team logos, and geometry only — no generated or simulated photographs, player images, crowd scenes, or stadium shots of any kind.`
 
     // Real teams (for the memory-recall instruction) = teams that are NOT fictional.
@@ -204,8 +226,8 @@ export function buildScoreGraphicPrompt({
       `You are a senior graphic designer at a major sports network. This graphic covers the final score for a national audience, so neither team gets visual priority. Both programs are represented equally in color, logo placement, and type weight. The design should feel authoritative, clean, and broadcast-quality.`,
       ``,
       `RESULT`,
-      `${rank1Label}${team1Name}${team1Record ? ` (${team1Record})` : ''}:  ${s1}`,
-      `${rank2Label}${team2Name}${team2Record ? ` (${team2Record})` : ''}:  ${s2}`,
+      `${rank1Label}${team1Name}${t1RecordEff ? ` (${t1RecordEff})` : ''}:  ${s1}`,
+      `${rank2Label}${team2Name}${t2RecordEff ? ` (${t2RecordEff})` : ''}:  ${s2}`,
       gameContext ? gameContext.line : null,
       gameContext ? gameContext.designNote : null,
       ``,
@@ -230,7 +252,7 @@ export function buildScoreGraphicPrompt({
       ``,
       `Do not place either logo in a plain white or gray box — both teams should feel integrated into the design.`,
       ``,
-      textPolicy(),
+      textPolicy(fictionalParticipantNames),
     ]
 
     return lines.filter(l => l !== null && l !== undefined).join('\n')
@@ -265,6 +287,17 @@ export function buildScoreGraphicPrompt({
   const primaryPMS = profile?.primaryPMS   || null
   const featuredFictionalLogo = fictionalLogoDescription(profile)
 
+  // FCS placeholders don't have accurate records — suppress theirs in
+  // the RESULT line and let the text policy reinforce the rule.
+  const featuredIsFictional = isFictionalTeam(profile)
+  const oppIsFictional      = isFictionalTeam(oppProfile)
+  const featuredRecordEff = featuredIsFictional ? null : featuredRecord
+  const oppRecordEff      = oppIsFictional      ? null : oppRecord
+  const fictionalParticipantNames = [
+    featuredIsFictional ? featuredName : null,
+    oppIsFictional      ? oppName      : null,
+  ].filter(Boolean)
+
   const resultMood = won  ? 'This is a WIN — the graphic should feel confident, energized, and celebratory without being over the top.'
                   : tied ? 'This ended in a TIE — factual and composed.'
                   :        'This is a LOSS — clean and factual, not dramatic.'
@@ -296,8 +329,8 @@ export function buildScoreGraphicPrompt({
     `You are the creative director employed by ${featuredName} — you work for this program, you know this brand inside and out, and this graphic goes live on the official ${featuredName} Instagram and Twitter within minutes of the final whistle. Make it feel like it came from this program's actual creative staff — not a template, not a generic sports graphic generator. Every layout and type choice should feel intentional and ownable by ${featuredName} specifically.`,
     ``,
     `RESULT`,
-    `${rankLabel}${featuredName}${featuredRecord ? ` (${featuredRecord})` : ''}:  ${sf}`,
-    `${oppRankLabel}${oppName}${oppRecord ? ` (${oppRecord})` : ''}:  ${so}`,
+    `${rankLabel}${featuredName}${featuredRecordEff ? ` (${featuredRecordEff})` : ''}:  ${sf}`,
+    `${oppRankLabel}${oppName}${oppRecordEff ? ` (${oppRecordEff})` : ''}:  ${so}`,
     gameContext ? gameContext.line : null,
     ``,
     siteContextLine(),
@@ -326,7 +359,7 @@ export function buildScoreGraphicPrompt({
     ``,
     `Background textures, patterns, and decorative geometry should reflect ${featuredName}'s visual identity only. The opponent appears through their logo/wordmark and score — do not incorporate their signature patterns or textures into the background or composition.`,
     ``,
-    textPolicy(),
+    textPolicy(fictionalParticipantNames),
   ]
 
   return lines.filter(l => l !== null && l !== undefined).join('\n')
