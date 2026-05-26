@@ -45,7 +45,7 @@ export function buildScoreGraphicPrompt({
 
     const photoLine = screenshotCount > 0
       ? `Images are attached — use them as the hero visual. Keep the photo natural; do not color-grade the entire image.`
-      : `No images attached — build a pure graphic using color, typography, and shape. No generated photos, no illustrated athletes or helmets.`
+      : `NO PHOTOS. No images were attached. Do not generate, render, or simulate any photograph, player image, crowd scene, stadium shot, or photorealistic element of any kind. This graphic is pure design: color fields, typography, team logos, and geometry only.`
 
     const lines = [
       `Design a post-game score graphic (1080×1080) in the style of a neutral sports media outlet — think ESPN, Fox Sports, or The Athletic — not either team's own branded post.`,
@@ -109,7 +109,7 @@ export function buildScoreGraphicPrompt({
 
   const photoLine = screenshotCount > 0
     ? `Images are attached — use them as the hero visual. Keep the photo natural; do not color-grade the entire image. The design elements should frame the photo, not fight it.`
-    : `No images attached — build a pure graphic using color, typography, and shape. No generated photos, no illustrated athletes or helmets.`
+    : `NO PHOTOS. No images were attached. Do not generate, render, or simulate any photograph, player image, crowd scene, stadium shot, or photorealistic element of any kind. This graphic is pure design: color fields, typography, team logos, and geometry only.`
 
   // Home/away context — used for box score ordering and game framing only,
   // not rendered as literal labels in the graphic.
