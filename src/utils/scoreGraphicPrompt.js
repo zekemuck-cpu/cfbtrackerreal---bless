@@ -24,9 +24,6 @@ export function buildScoreGraphicPrompt({
   screenshotCount = 0,
 }) {
   // homeTeam = 1 → team1 is home, 2 → team2 is home, null → neutral site
-  const homeSuffix  = (n) => homeTeam === n ? ' (HOME)' : homeTeam !== null ? ' (AWAY)' : ''
-  const siteNote    = homeTeam === null ? 'Neutral site.' : null
-
   // ─── NEUTRAL / MEDIA-COMPANY GRAPHIC ────────────────────────────────────────
   if (featuredTeam === 0) {
     const rank1Label = team1Rank ? `#${team1Rank} ` : ''
@@ -39,6 +36,13 @@ export function buildScoreGraphicPrompt({
     const color1 = p1?.primaryHex || team1Colors?.primary || '#1a1a1a'
     const color2 = p2?.primaryHex || team2Colors?.primary || '#1a1a1a'
 
+    // Home/away as prose context, not inline labels
+    const neutralSiteNote = homeTeam === null
+      ? 'Neutral site.'
+      : homeTeam === 1
+      ? `${team1Name} was the home team. ${team2Name} was the visiting team.`
+      : `${team2Name} was the home team. ${team1Name} was the visiting team.`
+
     const photoLine = screenshotCount > 0
       ? `Images are attached — use them as the hero visual. Keep the photo natural; do not color-grade the entire image.`
       : `No images attached — build a pure graphic using color, typography, and shape. No generated photos, no illustrated athletes or helmets.`
@@ -49,10 +53,10 @@ export function buildScoreGraphicPrompt({
       `You are a senior graphic designer at a major sports network. This graphic covers the final score for a national audience, so neither team gets visual priority. Both programs are represented equally in color, logo placement, and type weight. The design should feel authoritative, clean, and broadcast-quality.`,
       ``,
       `RESULT`,
-      `${rank1Label}${team1Name}${team1Record ? ` (${team1Record})` : ''}${homeSuffix(1)}:  ${s1}`,
-      `${rank2Label}${team2Name}${team2Record ? ` (${team2Record})` : ''}${homeSuffix(2)}:  ${s2}`,
+      `${rank1Label}${team1Name}${team1Record ? ` (${team1Record})` : ''}:  ${s1}`,
+      `${rank2Label}${team2Name}${team2Record ? ` (${team2Record})` : ''}:  ${s2}`,
       `${gameLabel}${year ? ` · ${year} Season` : ''}`,
-      siteNote || null,
+      neutralSiteNote,
       ``,
       `TEAM COLORS (use both, balanced — neither team dominates)`,
       `${team1Name}: ${color1}`,
@@ -108,11 +112,15 @@ export function buildScoreGraphicPrompt({
     ? `Images are attached — use them as the hero visual. Keep the photo natural; do not color-grade the entire image. The design elements should frame the photo, not fight it.`
     : `No images attached — build a pure graphic using color, typography, and shape. No generated photos, no illustrated athletes or helmets.`
 
-  // Home/away labels for the featured team and opponent
+  // Home/away context — used for box score ordering and game framing only,
+  // not rendered as literal labels in the graphic.
   const featuredIsHome = (featuredTeam === 1 && homeTeam === 1) || (featuredTeam === 2 && homeTeam === 2)
   const featuredIsAway = (featuredTeam === 1 && homeTeam === 2) || (featuredTeam === 2 && homeTeam === 1)
-  const featuredSiteTag = featuredIsHome ? ' (HOME)' : featuredIsAway ? ' (AWAY)' : ''
-  const oppSiteTag      = featuredIsHome ? ' (AWAY)' : featuredIsAway ? ' (HOME)' : ''
+  const siteContext = featuredIsHome
+    ? `${featuredName} hosted this game. ${oppName} was the visiting team.`
+    : featuredIsAway
+    ? `${featuredName} played this game on the road. ${oppName} was the home team.`
+    : null
 
   const lines = [
     `Design a post-game social media graphic (1080×1080) for ${featuredName}'s official account.`,
@@ -120,10 +128,10 @@ export function buildScoreGraphicPrompt({
     `You are the creative director employed by ${featuredName} — you work for this program, you know this brand inside and out, and this graphic goes live on the official ${featuredName} Instagram and Twitter within minutes of the final whistle. Make it feel like it came from this program's actual creative staff — not a template, not a generic sports graphic generator. Every layout and type choice should feel intentional and ownable by ${featuredName} specifically.`,
     ``,
     `RESULT`,
-    `${rankLabel}${featuredName}${featuredRecord ? ` (${featuredRecord})` : ''}${featuredSiteTag}:  ${sf}`,
-    `${oppRankLabel}${oppName}${oppRecord ? ` (${oppRecord})` : ''}${oppSiteTag}:  ${so}`,
+    `${rankLabel}${featuredName}${featuredRecord ? ` (${featuredRecord})` : ''}:  ${sf}`,
+    `${oppRankLabel}${oppName}${oppRecord ? ` (${oppRecord})` : ''}:  ${so}`,
     `${gameLabel}${year ? ` · ${year} Season` : ''}`,
-    homeTeam === null ? 'Neutral site.' : null,
+    homeTeam === null ? 'Neutral site.' : siteContext,
     ``,
     resultMood,
     ``,
