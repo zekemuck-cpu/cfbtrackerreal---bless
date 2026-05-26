@@ -2225,7 +2225,7 @@ export default function GameEdit() {
           <>
             <p className="text-sm text-txt-tertiary mb-4">Connect Google Sheets to track detailed stats for this game.</p>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-4 gap-2">
               {[
                 {
                   key: 'team-stats',
@@ -2236,14 +2236,14 @@ export default function GameEdit() {
                 },
                 {
                   key: 'left-stats',
-                  label: `${leftTeamAbbr} Stats`,
+                  label: `${leftTeamAbbr}`,
                   onClick: () => openBoxScoreModal('playerStats', leftTeamTid),
                   connected: !!getPlayerStatsSheetIdForTid(existingGame, leftTeamTid, currentDynasty?.teams || currentDynasty?.customTeams),
                   logo: leftTeamLogo
                 },
                 {
                   key: 'right-stats',
-                  label: `${rightTeamAbbr} Stats`,
+                  label: `${rightTeamAbbr}`,
                   onClick: () => openBoxScoreModal('playerStats', rightTeamTid),
                   connected: !!getPlayerStatsSheetIdForTid(existingGame, rightTeamTid, currentDynasty?.teams || currentDynasty?.customTeams),
                   logo: rightTeamLogo
@@ -2259,7 +2259,7 @@ export default function GameEdit() {
                 <button
                   key={tile.key}
                   onClick={tile.onClick}
-                  className="p-4 rounded-sm text-center transition-colors hover:bg-surface-3"
+                  className="p-2 rounded-sm text-center transition-colors hover:bg-surface-3"
                   style={{
                     backgroundColor: 'var(--surface-2)',
                     border: tile.connected
@@ -2268,11 +2268,11 @@ export default function GameEdit() {
                   }}
                 >
                   {tile.logo && (
-                    <img src={tile.logo} alt="" className="h-8 w-8 object-contain mx-auto mb-2" />
+                    <img src={tile.logo} alt="" className="h-5 w-5 object-contain mx-auto mb-1" />
                   )}
-                  <div className="text-sm font-semibold text-txt-primary">{tile.label}</div>
+                  <div className="text-xs font-semibold text-txt-primary leading-tight">{tile.label}</div>
                   {tile.connected && (
-                    <div className="label-xs mt-1" style={{ color: 'var(--accent-success)' }}>Connected</div>
+                    <div className="text-[9px] mt-0.5 uppercase tracking-wide" style={{ color: 'var(--accent-success)' }}>Connected</div>
                   )}
                 </button>
               ))}
