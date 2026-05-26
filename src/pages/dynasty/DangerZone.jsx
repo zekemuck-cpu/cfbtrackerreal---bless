@@ -10,6 +10,7 @@ import { getTeamName } from '../../data/teamAbbreviations'
 import { TEAMS, getOriginalTeamAbbr, getTidFromAbbr, resolveTid } from '../../data/teamRegistry'
 import { getTeamConference } from '../../data/conferenceTeams'
 import { storageService, STORAGE_TIER, indexedDBStorage } from '../../services/storage'
+import { swapBoxScoreTeams, hasAnyPlayerStats, hasAnyTeamStats } from '../../utils/boxScoreHelpers'
 import TeambuilderEditModal from '../../components/TeambuilderEditModal'
 import { SEED_TO_SLOT, getCFPGameId, DEFAULT_BOWL_CONFIG, getBowlForSlot } from '../../data/cfpConstants'
 import { findMatchingPlayer, normalizePlayerName } from '../../utils/playerMatching'
@@ -31,7 +32,7 @@ import { db } from '../../config/firebase'
 import { saveWeeklyGamesChanges } from '../../services/dynastyService'
 
 export default function DangerZone() {
-  const { currentDynasty, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, migrateConferencesToPerTeam, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly, syncAllPlayersStats, saveWeekRecap, deleteWeekRecap } = useDynasty()
+  const { currentDynasty, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, migrateConferencesToPerTeam, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly, syncAllPlayersStats, saveWeekRecap, deleteWeekRecap, addGame } = useDynasty()
   const { user } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
@@ -77,6 +78,11 @@ export default function DangerZone() {
   const [showGameDeletion, setShowGameDeletion] = useState(false)
   const [selectedGameToDelete, setSelectedGameToDelete] = useState(null)
   const [gameDeletionStatus, setGameDeletionStatus] = useState(null)
+
+  // Box score swap state
+  const [showBoxScoreSwap, setShowBoxScoreSwap] = useState(false)
+  const [selectedGameToSwap, setSelectedGameToSwap] = useState(null)
+  const [boxScoreSwapStatus, setBoxScoreSwapStatus] = useState(null)
 
   // Honors sync state
   const [honorsSyncStatus, setHonorsSyncStatus] = useState(null)
@@ -982,6 +988,29 @@ export default function DangerZone() {
       setSelectedGameToDelete(null)
     } catch (error) {
       setGameDeletionStatus({ success: false, message: 'Delete failed: ' + error.message })
+    }
+  }
+
+  // Swap which team owns the box-score stats for a specific game
+  const handleSwapBoxScoreTeams = async (gameId) => {
+    if (!gameId) return
+    const game = (currentDynasty.games || []).find(g => g.id === gameId)
+    if (!game) return
+    const ok = await confirm({
+      title: 'Swap box score teams?',
+      message: `Each team's stats will move under the other team's header. Click Swap again later to revert.`,
+      confirmLabel: 'Swap',
+      variant: 'danger',
+    })
+    if (!ok) return
+    setBoxScoreSwapStatus('running')
+    try {
+      const next = swapBoxScoreTeams(game, currentDynasty?.teams)
+      next.statsContributed = null
+      await addGame(currentDynasty.id, next)
+      setBoxScoreSwapStatus({ success: true, message: 'Box score teams swapped.' })
+    } catch (error) {
+      setBoxScoreSwapStatus({ success: false, message: 'Swap failed: ' + error.message })
     }
   }
 
@@ -2952,6 +2981,79 @@ export default function DangerZone() {
                     >
                       {gameDeletionStatus.message}
                     </span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Swap Box Score Teams */}
+      <div>
+        <SectionHeader
+          size="sm"
+          title="Swap Box Score Teams"
+          subtitle="Fix a game where each team's stats are showing under the wrong team"
+        />
+        <Card>
+          {!showBoxScoreSwap ? (
+            <Button variant="outline" onClick={() => setShowBoxScoreSwap(true)}>
+              Show Games
+            </Button>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-txt-secondary m-0">Select a game to swap box score teams. You can paste a Game ID from the bottom of the game editor, or pick from the list.</p>
+                <Button variant="ghost" size="sm" onClick={() => { setShowBoxScoreSwap(false); setSelectedGameToSwap(null); setBoxScoreSwapStatus(null) }}>
+                  Hide
+                </Button>
+              </div>
+
+              <Input
+                placeholder="Paste Game ID (e.g. game-1234567890)"
+                value={selectedGameToSwap || ''}
+                onChange={(e) => { setSelectedGameToSwap(e.target.value); setBoxScoreSwapStatus(null) }}
+              />
+
+              <Select
+                value={selectedGameToSwap || ''}
+                onChange={(e) => { setSelectedGameToSwap(e.target.value); setBoxScoreSwapStatus(null) }}
+              >
+                <option value="">— or pick from list —</option>
+                {(currentDynasty.games || [])
+                  .filter(g => hasAnyPlayerStats(g, currentDynasty?.teams) || hasAnyTeamStats(g, currentDynasty?.teams))
+                  .sort((a, b) => {
+                    if (b.year !== a.year) return (b.year || 0) - (a.year || 0)
+                    const weekA = typeof a.week === 'number' ? a.week : 99
+                    const weekB = typeof b.week === 'number' ? b.week : 99
+                    return weekA - weekB
+                  })
+                  .map(game => {
+                    const info = getGameDisplayInfo(game)
+                    return (
+                      <option key={game.id} value={game.id}>
+                        {info.year} Wk{info.week} - {info.team1Name} vs {info.team2Name} ({info.score}) [{game.id}]
+                      </option>
+                    )
+                  })}
+              </Select>
+
+              {selectedGameToSwap && (
+                <div className="flex items-center gap-3 flex-wrap">
+                  <Button variant="danger" onClick={() => handleSwapBoxScoreTeams(selectedGameToSwap)}>
+                    Swap Teams in Box Score
+                  </Button>
+                  {boxScoreSwapStatus && boxScoreSwapStatus !== 'running' && (
+                    <span
+                      className="text-sm"
+                      style={{ color: boxScoreSwapStatus.success ? 'var(--accent-success)' : 'var(--accent-error)' }}
+                    >
+                      {boxScoreSwapStatus.message}
+                    </span>
+                  )}
+                  {boxScoreSwapStatus === 'running' && (
+                    <span className="text-sm text-txt-tertiary">Swapping…</span>
                   )}
                 </div>
               )}
