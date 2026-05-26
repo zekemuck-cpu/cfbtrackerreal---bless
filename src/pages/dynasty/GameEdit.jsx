@@ -14,7 +14,7 @@ import BoxScoreSheetModal from '../../components/BoxScoreSheetModal'
 import { setPlayerStatsForTid, setTeamStatsForTid, setScoringSummary, getPlayerStatsSheetIdForTid, canonicalBoxScore, swapBoxScoreTeams, hasAnyPlayerStats, hasAnyTeamStats } from '../../utils/boxScoreHelpers'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName } from '../../data/cfpConstants'
 import { isBowlInWeek1, isBowlInWeek2, getWeek1BowlGamesList, getWeek2BowlGamesList } from '../../services/sheetsService'
-import { PageHero, Card, Button, EmptyState, Input, Select, Textarea, SectionHeader } from '../../components/ui'
+import { PageHero, Card, Button, EmptyState, Input, Select, Textarea, SectionHeader, Modal } from '../../components/ui'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../components/ui/Toast'
 import RecapSettingsModal from '../../components/RecapSettingsModal'
@@ -209,6 +209,10 @@ export default function GameEdit() {
 
   // Box score sheet modal state
   const [showBoxScoreModal, setShowBoxScoreModal] = useState(false)
+  // Modal toggles for bulky panels that we've pulled off the page proper
+  // (Photos in particular). Keep state at this level so the modal body
+  // can read/write the same form fields as the rest of the editor.
+  const [showPhotosModal, setShowPhotosModal] = useState(false)
   const [boxScoreModalType, setBoxScoreModalType] = useState(null) // 'playerStats' | 'scoring' | 'teamStats'
   // For 'playerStats' only — the tid of the team this sheet covers.
   // Routes the modal, the saved data, and the saved sheet ID by tid, so
@@ -2468,171 +2472,27 @@ export default function GameEdit() {
           one as each upload settles) so the user sees forward progress
           instead of waiting on a static spinner for a long batch. The
           Game page surfaces these in a "Photos" tab gallery. */}
+      {/* Photos — compact summary card. The actual upload area + thumbnail
+          grid live in a modal so the editor page stays scannable. Click
+          "Manage photos" to open the full UI. */}
       <Card>
-        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <h3 className="label-sm text-txt-primary">Photos</h3>
-          <div className="flex items-center gap-2">
-            <span className="label-xs text-txt-tertiary tabular-nums">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="label-sm text-txt-primary">Photos</h3>
+            <p className="text-xs text-txt-tertiary mt-0.5 tabular-nums">
               {photoUploadCount > 0
-                ? `${photoUploadDone} of ${photoUploadCount}${photoUploadFailed > 0 ? ` ${photoUploadFailed} failed` : ''}`
-                : `${formData.photos.length} ${formData.photos.length === 1 ? 'photo' : 'photos'}`}
-            </span>
-            {photoUploadCount > 0 && (
-              <button
-                type="button"
-                onClick={() => photoUploadAbortRef.current?.abort()}
-                className="label-xs text-txt-tertiary hover:text-txt-primary underline"
-              >
-                Cancel
-              </button>
-            )}
+                ? `Uploading ${photoUploadDone} of ${photoUploadCount}${photoUploadFailed > 0 ? ` · ${photoUploadFailed} failed` : ''}…`
+                : `${formData.photos.length} ${formData.photos.length === 1 ? 'photo' : 'photos'} uploaded`}
+            </p>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPhotosModal(true)}
+          >
+            Manage photos
+          </Button>
         </div>
-        <p className="text-xs text-txt-tertiary mb-3">
-          Upload one or many photos at once — each one is hosted on imgbb and shows up under the Photos tab on the game page.
-        </p>
-
-        <label
-          className="relative flex items-center justify-center gap-2 px-4 py-3 rounded-lg cursor-pointer mb-3 transition-colors text-sm font-semibold overflow-hidden"
-          style={{
-            backgroundColor: 'var(--surface-3)',
-            border: '1.5px dashed var(--surface-5)',
-            color: 'var(--text-secondary)',
-            opacity: photoUploadCount > 0 ? 0.85 : 1,
-            pointerEvents: photoUploadCount > 0 ? 'none' : 'auto',
-          }}
-        >
-          {/* Progress bar — fills left-to-right as photos finish.
-              Sits behind the label text so the count remains readable. */}
-          {photoUploadCount > 0 && (
-            <div
-              className="absolute inset-y-0 left-0 transition-[width] duration-300 ease-out"
-              style={{
-                width: `${Math.round((photoUploadDone / photoUploadCount) * 100)}%`,
-                backgroundColor: 'var(--text-primary)',
-                opacity: 0.12,
-              }}
-              aria-hidden="true"
-            />
-          )}
-          <span className="relative flex items-center gap-2">
-            {photoUploadCount > 0 ? (
-              <>
-                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" d="M12 3a9 9 0 1 1-6.36 2.64" />
-                </svg>
-                <span className="tabular-nums">
-                  Uploading {photoUploadDone} of {photoUploadCount}
-                  {photoUploadFailed > 0 && ` ${photoUploadFailed} failed`}
-                  …
-                </span>
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                Click to select photo(s) — bulk upload supported
-              </>
-            )}
-          </span>
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            disabled={photoUploadCount > 0}
-            onChange={async (e) => {
-              const files = Array.from(e.target.files || [])
-              e.target.value = '' // allow re-picking the same files later
-              // Blur the input so iOS Safari properly restores touch/click
-              // handling to the rest of the page after the native file
-              // picker dismisses. Without this, subsequent button taps
-              // (including Save) can be silently swallowed on iOS.
-              e.target.blur()
-              if (files.length === 0) return
-              const controller = new AbortController()
-              photoUploadAbortRef.current = controller
-              setPhotoUploadCount(files.length)
-              setPhotoUploadDone(0)
-              setPhotoUploadFailed(0)
-              try {
-                // Append each successful URL the moment its upload
-                // settles, so thumbnails materialize one by one. Counter
-                // ticks for both successes and failures — what the user
-                // wants to know is "is it making progress," not "is it
-                // succeeding," and a stalled counter is the actual
-                // failure mode worth surfacing.
-                const { urls, errors } = await uploadImagesToImgBB(files, {
-                  signal: controller.signal,
-                  onProgress: ({ done, ok, url }) => {
-                    setPhotoUploadDone(done)
-                    if (ok && url) {
-                      setFormData(prev => ({ ...prev, photos: [...(prev.photos || []), url] }))
-                    } else if (!ok) {
-                      setPhotoUploadFailed(prev => prev + 1)
-                    }
-                  }
-                })
-                if (controller.signal.aborted) return
-                if (errors.length > 0) {
-                  setToastMessage(
-                    urls.length > 0
-                      ? `Uploaded ${urls.length}; ${errors.length} failed (${errors[0].error.message})`
-                      : `Upload failed: ${errors[0].error.message}`
-                  )
-                  setShowToast(true)
-                  setTimeout(() => setShowToast(false), 4000)
-                } else if (urls.length > 0) {
-                  setToastMessage(`Uploaded ${urls.length} photo${urls.length === 1 ? '' : 's'}`)
-                  setShowToast(true)
-                  setTimeout(() => setShowToast(false), 2000)
-                }
-              } finally {
-                photoUploadAbortRef.current = null
-                setPhotoUploadCount(0)
-                setPhotoUploadDone(0)
-                setPhotoUploadFailed(0)
-              }
-            }}
-          />
-        </label>
-
-        {formData.photos.length > 0 && (
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
-            {formData.photos.map((url, idx) => (
-              <div
-                key={`${url}-${idx}`}
-                className="group relative aspect-square overflow-hidden rounded-md"
-                style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
-              >
-                <img
-                  src={url}
-                  alt={`Game photo ${idx + 1}`}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFormData(prev => ({
-                      ...prev,
-                      photos: prev.photos.filter((_, i) => i !== idx),
-                    }))
-                  }}
-                  className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ backgroundColor: 'rgba(15, 23, 42, 0.85)', color: '#f87171', border: '1px solid var(--surface-5)' }}
-                  title="Remove photo"
-                  aria-label="Remove photo"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
       </Card>
       </section>
 
@@ -2887,6 +2747,174 @@ export default function GameEdit() {
           teamColors={{ primary: 'var(--text-primary)', secondary: 'var(--text-secondary)' }}
         />
       )}
+
+      {/* Photos Modal — full upload + thumbnail UI lives here. Reads/
+          writes the same formData.photos and photoUpload* state as the
+          rest of the page, so closing/reopening preserves everything. */}
+      <Modal
+        isOpen={showPhotosModal}
+        onClose={() => setShowPhotosModal(false)}
+        title="Photos"
+        size="xl"
+        closeOnBackdrop={photoUploadCount === 0}
+        closeOnEscape={photoUploadCount === 0}
+      >
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <p className="text-xs text-txt-tertiary m-0">
+            Upload one or many photos at once — each one is hosted on imgbb and shows up under the Photos tab on the game page.
+          </p>
+          <div className="flex items-center gap-2">
+            <span className="label-xs text-txt-tertiary tabular-nums">
+              {photoUploadCount > 0
+                ? `${photoUploadDone} of ${photoUploadCount}${photoUploadFailed > 0 ? ` ${photoUploadFailed} failed` : ''}`
+                : `${formData.photos.length} ${formData.photos.length === 1 ? 'photo' : 'photos'}`}
+            </span>
+            {photoUploadCount > 0 && (
+              <button
+                type="button"
+                onClick={() => photoUploadAbortRef.current?.abort()}
+                className="label-xs text-txt-tertiary hover:text-txt-primary underline"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </div>
+
+        <label
+          className="relative flex items-center justify-center gap-2 px-4 py-3 rounded-lg cursor-pointer mb-3 transition-colors text-sm font-semibold overflow-hidden"
+          style={{
+            backgroundColor: 'var(--surface-3)',
+            border: '1.5px dashed var(--surface-5)',
+            color: 'var(--text-secondary)',
+            opacity: photoUploadCount > 0 ? 0.85 : 1,
+            pointerEvents: photoUploadCount > 0 ? 'none' : 'auto',
+          }}
+        >
+          {photoUploadCount > 0 && (
+            <div
+              className="absolute inset-y-0 left-0 transition-[width] duration-300 ease-out"
+              style={{
+                width: `${Math.round((photoUploadDone / photoUploadCount) * 100)}%`,
+                backgroundColor: 'var(--text-primary)',
+                opacity: 0.12,
+              }}
+              aria-hidden="true"
+            />
+          )}
+          <span className="relative flex items-center gap-2">
+            {photoUploadCount > 0 ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" d="M12 3a9 9 0 1 1-6.36 2.64" />
+                </svg>
+                <span className="tabular-nums">
+                  Uploading {photoUploadDone} of {photoUploadCount}
+                  {photoUploadFailed > 0 && ` ${photoUploadFailed} failed`}
+                  …
+                </span>
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Click to select photo(s) — bulk upload supported
+              </>
+            )}
+          </span>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            disabled={photoUploadCount > 0}
+            onChange={async (e) => {
+              const files = Array.from(e.target.files || [])
+              e.target.value = ''
+              e.target.blur()
+              if (files.length === 0) return
+              const controller = new AbortController()
+              photoUploadAbortRef.current = controller
+              setPhotoUploadCount(files.length)
+              setPhotoUploadDone(0)
+              setPhotoUploadFailed(0)
+              try {
+                const { urls, errors } = await uploadImagesToImgBB(files, {
+                  signal: controller.signal,
+                  onProgress: ({ done, ok, url }) => {
+                    setPhotoUploadDone(done)
+                    if (ok && url) {
+                      setFormData(prev => ({ ...prev, photos: [...(prev.photos || []), url] }))
+                    } else if (!ok) {
+                      setPhotoUploadFailed(prev => prev + 1)
+                    }
+                  }
+                })
+                if (controller.signal.aborted) return
+                if (errors.length > 0) {
+                  setToastMessage(
+                    urls.length > 0
+                      ? `Uploaded ${urls.length}; ${errors.length} failed (${errors[0].error.message})`
+                      : `Upload failed: ${errors[0].error.message}`
+                  )
+                  setShowToast(true)
+                  setTimeout(() => setShowToast(false), 4000)
+                } else if (urls.length > 0) {
+                  setToastMessage(`Uploaded ${urls.length} photo${urls.length === 1 ? '' : 's'}`)
+                  setShowToast(true)
+                  setTimeout(() => setShowToast(false), 2000)
+                }
+              } finally {
+                photoUploadAbortRef.current = null
+                setPhotoUploadCount(0)
+                setPhotoUploadDone(0)
+                setPhotoUploadFailed(0)
+              }
+            }}
+          />
+        </label>
+
+        {formData.photos.length > 0 ? (
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+            {formData.photos.map((url, idx) => (
+              <div
+                key={`${url}-${idx}`}
+                className="group relative aspect-square overflow-hidden rounded-md"
+                style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
+              >
+                <img
+                  src={url}
+                  alt={`Game photo ${idx + 1}`}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData(prev => ({
+                      ...prev,
+                      photos: prev.photos.filter((_, i) => i !== idx),
+                    }))
+                  }}
+                  className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ backgroundColor: 'rgba(15, 23, 42, 0.85)', color: '#f87171', border: '1px solid var(--surface-5)' }}
+                  title="Remove photo"
+                  aria-label="Remove photo"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-txt-tertiary italic text-center py-6">
+            No photos uploaded yet.
+          </p>
+        )}
+      </Modal>
     </div>
   )
 }
