@@ -391,11 +391,11 @@ export function buildScoreGraphicPrompt({
       ].join('\n')
     : [
         `BRAND IDENTITY — NON-NEGOTIABLE:`,
-        `You know ${featuredName}'s visual identity from your training data — their full color palette, their logo, their design language, their graphic traditions, their visual era. That knowledge is your creative foundation. Use it.`,
+        `Picture what ${featuredName} football's official social media graphics actually look like — the posts their athletics department pushes to Instagram and Twitter right after a game. Not the uniforms. Not the stadium. The graphic design itself: how they use color, how they structure a layout, what typographic choices they make, what visual details make their posts instantly recognizable even before you read the school name.`,
         ``,
-        `The finished graphic must be immediately, unmistakably recognizable as a ${featuredName} post. A fan scrolling their feed should know — before reading a single word — which school this graphic came from. How you achieve that is your creative call: maybe the primary color fills the canvas, maybe it's a dark ground with bold color accents, maybe it's built around a signature shape or pattern. What matters is that the school's visual identity is unmistakable.`,
+        `That is what you are designing right now.`,
         ``,
-        `Design this as ${featuredName}'s own graphics team would. Do not fall back on a generic sports-media template — draw on the specific visual language of this program.`,
+        `The finished graphic must feel like it came from ${featuredName}'s own graphics team — not because a logo is present, but because the design language itself speaks that specific school. Do not fall back on a generic sports-broadcast template.`,
       ].join('\n')
 
   // Opponent brand block — colors always; logo description only if the
