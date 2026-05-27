@@ -429,6 +429,8 @@ export function resolvePlayerSlot(dynasty, pid, options = {}) {
 }
 
 // Format a stats object as bullet lines per category.
+// Handles both internal field names (yds, car, soloTkl…) and raw box-score
+// names (yards, carries, solo…) so it works for statsByYear and one-off blocks.
 function formatStatBlock(stats) {
   const lines = []
   const cats = ['passing', 'rushing', 'receiving', 'defense', 'kicking', 'punting', 'kickReturn', 'puntReturn']
@@ -438,39 +440,39 @@ function formatStatBlock(stats) {
     const bits = []
     if (c === 'passing') {
       if (v.cmp || v.comp) bits.push(`${v.cmp ?? v.comp}/${v.att ?? v.attempts ?? 0}`)
-      if (v.yards) bits.push(`${v.yards} yds`)
+      const yds = v.yds ?? v.yards; if (yds) bits.push(`${yds} yds`)
       if (v.td) bits.push(`${v.td} TD`)
       if (v.int) bits.push(`${v.int} INT`)
       if (v.rating) bits.push(`${v.rating} rtg`)
     } else if (c === 'rushing') {
-      if (v.carries) bits.push(`${v.carries} car`)
-      if (v.yards) bits.push(`${v.yards} yds`)
+      const car = v.car ?? v.carries; if (car) bits.push(`${car} car`)
+      const yds = v.yds ?? v.yards; if (yds) bits.push(`${yds} yds`)
       if (v.td) bits.push(`${v.td} TD`)
     } else if (c === 'receiving') {
       if (v.rec) bits.push(`${v.rec} rec`)
-      if (v.yards) bits.push(`${v.yards} yds`)
+      const yds = v.yds ?? v.yards; if (yds) bits.push(`${yds} yds`)
       if (v.td) bits.push(`${v.td} TD`)
     } else if (c === 'defense') {
-      const tkl = (Number(v.solo) || 0) + (Number(v.assists) || 0)
+      const tkl = (Number(v.soloTkl || v.solo) || 0) + (Number(v.astTkl || v.assists) || 0)
       if (tkl) bits.push(`${tkl} tkl`)
       if (v.tfl) bits.push(`${v.tfl} TFL`)
       if (v.sacks) bits.push(`${v.sacks} sk`)
       if (v.int) bits.push(`${v.int} INT`)
-      if (v.deflections) bits.push(`${v.deflections} PD`)
+      const pd = v.pd ?? v.deflections; if (pd) bits.push(`${pd} PD`)
       if (v.ff) bits.push(`${v.ff} FF`)
       if (v.fr) bits.push(`${v.fr} FR`)
     } else if (c === 'kicking') {
       if (v.fgm != null) bits.push(`${v.fgm}/${v.fga ?? 0} FG`)
     } else if (c === 'punting') {
       if (v.punts) bits.push(`${v.punts} punts`)
-      if (v.yards) bits.push(`${v.yards} yds`)
+      const yds = v.yds ?? v.yards; if (yds) bits.push(`${yds} yds`)
     } else if (c === 'kickReturn') {
       if (v.kr) bits.push(`${v.kr} KR`)
-      if (v.yards) bits.push(`${v.yards} yds`)
+      const yds = v.yds ?? v.yards; if (yds) bits.push(`${yds} yds`)
       if (v.td) bits.push(`${v.td} TD`)
     } else if (c === 'puntReturn') {
       if (v.pr) bits.push(`${v.pr} PR`)
-      if (v.yards) bits.push(`${v.yards} yds`)
+      const yds2 = v.yds ?? v.yards; if (yds2) bits.push(`${yds2} yds`)
       if (v.td) bits.push(`${v.td} TD`)
     }
     if (bits.length) lines.push(`  - ${c[0].toUpperCase()}${c.slice(1)}: ${bits.join(', ')}`)
