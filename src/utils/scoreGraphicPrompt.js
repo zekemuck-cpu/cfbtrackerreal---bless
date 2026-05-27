@@ -376,30 +376,32 @@ export function buildScoreGraphicPrompt({
 
   const resultMood = `The graphic should feel confident, energized, and on-brand without being over the top.`
 
-  const motifLine = profile?.motifs?.length
-    ? `Signature motifs — work at least one of these into the composition as a structural or background element (framing device, panel shape, recurring pattern). They should feel native to the design, not like decoration dropped on top: ${profile.motifs.join(', ')}.`
+  // For fictional in-game teams the AI has no training memory — emit
+  // motifs/notes so it has something to work from. For real programs,
+  // this data would just be a redundant cheat sheet; the AI already
+  // knows what Auburn or Tennessee or Michigan graphics look like.
+  const motifLine = (profile?.motifs?.length && isFictionalTeam(profile))
+    ? `Design motifs for this program: ${profile.motifs.join(', ')}.`
     : ''
 
-  // Brand identity enforcement — tells the AI to build FROM the school's
-  // visual identity, not just reference it as background data.
-  const brandIdentitySection = (() => {
-    const parts = [
-      `BRAND IDENTITY — NON-NEGOTIABLE:`,
-      `The finished graphic must be unmistakably, instantly recognizable as a ${featuredName} graphic. A person scrolling their feed should see the color field alone — before reading any text — and know exactly which school posted this.`,
-      ``,
-      `• ${primary} is the canvas. The featured team's primary color dominates the background. Not as an accent strip or a logo fill — as the visual field the entire graphic lives on. If you are designing a layout where the background reads as white, black, or gray, you are doing it wrong.`,
-    ]
-    if (profile?.graphicNotes) {
-      parts.push(`• The design notes in the BRAND block above are your creative brief — they describe how ${featuredName} graphics actually look and feel. Build from them. They are not background information; they are the assignment.`)
-    }
-    if (profile?.motifs?.length) {
-      parts.push(`• The motifs listed — ${profile.motifs.join(', ')} — are the visual signature of this program. At least one of them must appear as a real structural or background element in the layout (not a decorative afterthought). Ask yourself: would a ${featuredName} fan recognize this design language without reading the team name?`)
-    }
-    if (profile?.visualEra) {
-      parts.push(`• This program's visual era is "${profile.visualEra}". Let that shape your typography and overall aesthetic. Do NOT default to a generic modern sports-media look — this should feel like it came from ${featuredName}'s own graphics team.`)
-    }
-    return parts.join('\n')
-  })()
+  // Brand identity block — different for real vs. fictional teams.
+  // Real programs: the AI's training data already contains this school's
+  //   visual identity. Tell it to USE that knowledge rather than
+  //   re-describing what it already knows.
+  // Fictional programs: no training memory exists, so give concrete guidance.
+  const brandIdentitySection = isFictionalTeam(profile)
+    ? [
+        `BRAND IDENTITY — NON-NEGOTIABLE:`,
+        `The finished graphic must be immediately recognizable as a ${featuredName} graphic. Their primary color (${primary}) dominates the canvas — as the background field the design lives on, not as an accent or trim.`,
+      ].join('\n')
+    : [
+        `BRAND IDENTITY — NON-NEGOTIABLE:`,
+        `You know ${featuredName}'s visual identity from your training data — their colors, their logo, their design language, their graphic traditions, their visual era. That knowledge is your creative foundation. Use it.`,
+        ``,
+        `The finished graphic must be immediately, unmistakably recognizable as a ${featuredName} post. A fan scrolling their feed should see the color field alone — before reading a single word — and know which school this came from.`,
+        ``,
+        `Design this as ${featuredName}'s own graphics team would. Their primary color dominates the canvas — not as an accent strip or logo fill, but as the background field the entire composition lives on. Their motifs, their typographic conventions, their visual era — all of it is in your training. Trust it. Do not fall back on a generic sports-media template.`,
+      ].join('\n')
 
   // Opponent brand block — colors always; logo description only if the
   // opponent is a fictional in-game team.
@@ -429,9 +431,12 @@ export function buildScoreGraphicPrompt({
     `${oppRankLabel}${oppName}${oppRecordEff ? ` (${oppRecordEff})` : ''}:  ${so}`,
     ``,
     `BRAND — ${featuredName}`,
+    // Hex codes are a precision anchor even for real teams (exact shade matters).
+    // graphicNotes and motifLine are only emitted for fictional programs —
+    // for real schools the AI already carries this knowledge from training.
     `Primary: ${primaryPMS ? `${primaryPMS} / ` : ''}${primary}  Secondary: ${secondary}${tertiary ? `  Accent: ${tertiary}` : ''}`,
     profile?.wordmarkStyle ? `Wordmark: ${profile.wordmarkStyle}` : null,
-    profile?.graphicNotes  ? `${profile.graphicNotes}` : null,
+    (isFictionalTeam(profile) && profile?.graphicNotes) ? `${profile.graphicNotes}` : null,
     motifLine || null,
     featuredFictionalLogo ? `Logo (fictional team — render from this description only, do not substitute a real logo): ${featuredFictionalLogo}` : null,
     ``,
