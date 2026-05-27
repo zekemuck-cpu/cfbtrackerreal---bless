@@ -112,7 +112,7 @@ export function buildScoreGraphicPrompt({
   // Only the rules that address real observed AI problems.
   const designRules = (mode = 'branded') => [
     `DESIGN RULES:`,
-    `• If a photo is attached, let it fill or bleed across the canvas — lay the design over it rather than framing it inside a panel.`,
+    `• If a photo is attached, the photo IS the canvas — let it fill the frame edge to edge as the dominant portrait, with the design as a compact overlay strip on top, not a co-equal panel that splits the frame.`,
     `• No distressed, scratchy, or grungy letterforms. Clean, bold typography only.`,
     mode === 'branded'
       ? `• This is ${featuredName}'s post — their palette owns the canvas. The opponent's colors appear only through their logo, not as background fills, panels, or design shapes.`

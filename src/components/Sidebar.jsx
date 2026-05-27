@@ -101,6 +101,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     { name: 'All Players', path: `${pathPrefix}/players` },
     { name: 'Card Collection', path: `${pathPrefix}/cards` },
     ...(showCoachesLink ? [{ name: 'Coaches', path: `${pathPrefix}/coaches` }] : []),
+    ...(!isViewOnly ? [{ name: 'AI Prompts', path: `${pathPrefix}/ai-prompts` }] : []),
     ...(userCanSeeMembers ? [{ name: 'Members', path: `${pathPrefix}/league`, isAdmin: true }] : []),
     { name: 'Danger Zone', path: `${pathPrefix}/admin`, isAdmin: true }
   ]

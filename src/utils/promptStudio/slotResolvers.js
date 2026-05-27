@@ -1,0 +1,495 @@
+/**
+ * Slot resolvers — turn the user's picked slot values into structured
+ * markdown blocks that get embedded in the composed prompt.
+ *
+ * Each resolver reads ONLY from the supplied dynasty object (no API
+ * calls, no Firestore). Resolvers degrade gracefully on missing data —
+ * if a player has no stats for the chosen year, the markdown says so
+ * rather than throwing.
+ *
+ * Resolver signatures are intentionally small: (dynasty, primaryId,
+ * options?) → string of markdown. Templates compose these into the
+ * final prompt's DATA block.
+ */
+
+import {
+  calculateTeamRecordFromGames,
+  getTeamRecord,
+  getTeamRankForWeek,
+  getPlayerBoxScoreTotals,
+  getAllPlayers,
+  getPlayerOverallForYear,
+  getPlayerClassForYear,
+  getPlayerPositionForYear,
+} from '../../context/DynastyContext'
+import { TEAMS } from '../../data/teamRegistry'
+import { getMascotName } from '../../data/teams'
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
+function teamLabel(dynasty, tid) {
+  if (tid == null) return 'Unknown team'
+  const teams = dynasty?.teams || TEAMS
+  return getMascotName(tid, teams) || `Team ${tid}`
+}
+
+function teamAbbr(dynasty, tid) {
+  if (tid == null) return ''
+  const teams = dynasty?.teams || {}
+  return teams[tid]?.abbr || ''
+}
+
+function formatRecord(rec) {
+  if (!rec) return '—'
+  const { wins = 0, losses = 0, ties = 0 } = rec
+  return ties > 0 ? `${wins}-${losses}-${ties}` : `${wins}-${losses}`
+}
+
+function fmtPctOrDash(n, d) {
+  if (!d || !Number.isFinite(n)) return '—'
+  return `${Math.round((n / d) * 1000) / 10}%`
+}
+
+function safeArr(v) {
+  return Array.isArray(v) ? v : []
+}
+
+// ─── Game slot ──────────────────────────────────────────────────────────────
+
+/**
+ * Resolve a single game by id into a markdown block describing:
+ *   - matchup line, scores, ranks, records entering, location
+ *   - top box-score totals per team (passing / rushing / receiving leaders + key defense)
+ *   - scoring summary (compressed)
+ *   - aiRecap if present
+ */
+export function resolveGameSlot(dynasty, gameId, options = {}) {
+  if (!gameId) return '_(no game selected)_'
+  const game = safeArr(dynasty?.games).find(g => g.id === gameId)
+  if (!game) return `_(game ${gameId} not found)_`
+
+  const t1Tid = Number(game.team1Tid)
+  const t2Tid = Number(game.team2Tid)
+  const t1 = teamLabel(dynasty, t1Tid)
+  const t2 = teamLabel(dynasty, t2Tid)
+  const t1Abbr = teamAbbr(dynasty, t1Tid)
+  const t2Abbr = teamAbbr(dynasty, t2Tid)
+  const s1 = game.team1Score ?? '—'
+  const s2 = game.team2Score ?? '—'
+  const r1 = game.team1Rank ? ` (#${game.team1Rank})` : ''
+  const r2 = game.team2Rank ? ` (#${game.team2Rank})` : ''
+  const rec1 = game.team1Record || formatRecord(getTeamRecord(dynasty, t1Tid, game.year))
+  const rec2 = game.team2Record || formatRecord(getTeamRecord(dynasty, t2Tid, game.year))
+
+  const homeTid = game.homeTeamTid
+  let site = 'neutral site'
+  if (homeTid === t1Tid) site = `at ${t1}`
+  else if (homeTid === t2Tid) site = `at ${t2}`
+
+  const gameTypeLabel = ({
+    regular: 'Regular Season',
+    conference_championship: 'Conference Championship',
+    bowl: 'Bowl Game',
+    cfp_first_round: 'CFP First Round',
+    cfp_quarterfinal: 'CFP Quarterfinal',
+    cfp_semifinal: 'CFP Semifinal',
+    cfp_championship: 'CFP National Championship',
+  })[game.gameType] || (game.isBowlGame ? 'Bowl Game' : 'Regular Season')
+
+  const out = []
+  out.push(`### Game: ${t1}${r1} ${s1} — ${s2} ${t2}${r2}`)
+  out.push(`- **Year/Week**: ${game.year || '—'} ${game.week ? `Wk ${game.week}` : ''}${game.bowlName ? ` (${game.bowlName})` : ''}`)
+  out.push(`- **Type**: ${gameTypeLabel}`)
+  out.push(`- **Site**: ${site}`)
+  out.push(`- **Records entering**: ${t1Abbr || t1} ${rec1}, ${t2Abbr || t2} ${rec2}`)
+
+  // Box score leaders — per team per category
+  const bs = game.boxScore
+  if (bs && typeof bs === 'object') {
+    const byTid = bs.byTid || null
+    const renderTeamBox = (tid, name) => {
+      const teamBox = byTid?.[tid] || null
+      if (!teamBox) return
+      const lines = [`\n**${name} box-score leaders**`]
+      const topRow = (rows, fmt) => {
+        const arr = safeArr(rows)
+        if (!arr.length) return null
+        // Sort by `fmt`'s score function descending; take top 1.
+        const scored = arr.map(r => ({ r, s: fmt.score(r) }))
+        scored.sort((a, b) => b.s - a.s)
+        return scored[0]?.r
+      }
+      const fmt = {
+        passing: { score: r => Number(r.yards || r.yds || 0), line: r => `${r.playerName || '?'} — ${r.comp || r.cmp || 0}/${r.attempts || r.att || 0}, ${r.yards || r.yds || 0} yds, ${r.tD || r.td || 0} TD, ${r.iNT || r.int || 0} INT` },
+        rushing: { score: r => Number(r.yards || r.yds || 0), line: r => `${r.playerName || '?'} — ${r.carries || r.car || 0} car, ${r.yards || r.yds || 0} yds, ${r.tD || r.td || 0} TD` },
+        receiving: { score: r => Number(r.yards || r.yds || 0), line: r => `${r.playerName || '?'} — ${r.receptions || r.rec || 0} rec, ${r.yards || r.yds || 0} yds, ${r.tD || r.td || 0} TD` },
+        defense: { score: r => Number(r.solo || 0) + Number(r.assists || 0) + Number(r.tackles || 0) + Number(r.sacks || 0) * 2 + Number(r.iNT || r.int || 0) * 2, line: r => `${r.playerName || '?'} — ${(Number(r.solo) || 0) + (Number(r.assists) || 0) + (Number(r.tackles) || 0)} tkl${r.sacks ? `, ${r.sacks} sk` : ''}${(r.iNT || r.int) ? `, ${r.iNT || r.int} INT` : ''}${r.tfl ? `, ${r.tfl} TFL` : ''}` },
+      }
+      const passTop = topRow(teamBox.passing, fmt.passing)
+      if (passTop) lines.push(`  - Passing: ${fmt.passing.line(passTop)}`)
+      const rushTop = topRow(teamBox.rushing, fmt.rushing)
+      if (rushTop) lines.push(`  - Rushing: ${fmt.rushing.line(rushTop)}`)
+      const recTop = topRow(teamBox.receiving, fmt.receiving)
+      if (recTop) lines.push(`  - Receiving: ${fmt.receiving.line(recTop)}`)
+      const defTop = topRow(teamBox.defense, fmt.defense)
+      if (defTop) lines.push(`  - Defense: ${fmt.defense.line(defTop)}`)
+      if (lines.length > 1) out.push(lines.join('\n'))
+    }
+    renderTeamBox(t1Tid, t1)
+    renderTeamBox(t2Tid, t2)
+  }
+
+  // Team-stat totals
+  if (game.team1Stats || game.team2Stats) {
+    out.push('\n**Team totals**')
+    const teamRow = (label, stats) => {
+      if (!stats) return null
+      const bits = []
+      if (stats.totalYards != null) bits.push(`${stats.totalYards} total yd`)
+      if (stats.rushingYards != null) bits.push(`${stats.rushingYards} rush yd`)
+      if (stats.passingYards != null) bits.push(`${stats.passingYards} pass yd`)
+      if (stats.turnovers != null) bits.push(`${stats.turnovers} TO`)
+      if (stats.firstDowns != null) bits.push(`${stats.firstDowns} 1st downs`)
+      return bits.length ? `  - ${label}: ${bits.join(', ')}` : null
+    }
+    const a = teamRow(t1, game.team1Stats)
+    const b = teamRow(t2, game.team2Stats)
+    if (a) out.push(a)
+    if (b) out.push(b)
+  }
+
+  // Scoring summary — compressed
+  const scoring = safeArr(game.scoringSummary || game.boxScore?.scoringSummary)
+  if (scoring.length) {
+    out.push('\n**Scoring**')
+    scoring.slice(0, 20).forEach(p => {
+      const q = p.quarter ? `Q${p.quarter}` : ''
+      const t = p.timeLeft || ''
+      const team = p.team || ''
+      const what = p.scoreType || p.playType || ''
+      const who = p.scorer || ''
+      const yds = p.yards ? `${p.yards} yd` : ''
+      const passer = p.passer ? ` (from ${p.passer})` : ''
+      out.push(`  - ${q} ${t} — ${team}: ${what} ${yds} ${who}${passer}`.replace(/\s+/g, ' ').trim())
+    })
+    if (scoring.length > 20) out.push(`  - … (${scoring.length - 20} more scoring plays)`)
+  }
+
+  if (game.aiRecap) {
+    out.push('\n**Saved recap**')
+    out.push(game.aiRecap.length > 1200 ? game.aiRecap.slice(0, 1200) + '…' : game.aiRecap)
+  }
+
+  return out.join('\n')
+}
+
+// ─── Team slot ──────────────────────────────────────────────────────────────
+
+/**
+ * Resolve a team by tid into a markdown block describing:
+ *   - identity, conference, current record + rank
+ *   - last N games' results
+ */
+export function resolveTeamSlot(dynasty, tid, options = {}) {
+  if (tid == null) return '_(no team selected)_'
+  const tNum = Number(tid)
+  const year = options.year ?? dynasty?.currentYear
+  const recentN = options.recentGames ?? 3
+
+  const name = teamLabel(dynasty, tNum)
+  const abbr = teamAbbr(dynasty, tNum)
+  const teamData = dynasty?.teams?.[tNum] || {}
+  const conf = teamData.byYear?.[year]?.conference || teamData.conference || '—'
+  const rec = formatRecord(getTeamRecord(dynasty, tNum, year)) || '—'
+  const rank = getTeamRankForWeek(dynasty, tNum, year, dynasty?.currentWeek ?? 15)
+
+  const out = []
+  out.push(`### Team: ${name}${rank ? ` (#${rank})` : ''}`)
+  out.push(`- **Abbr**: ${abbr || '—'}`)
+  out.push(`- **Conference (${year})**: ${conf}`)
+  out.push(`- **Record (${year})**: ${rec}`)
+
+  // Recent games
+  const allGames = safeArr(dynasty?.games)
+    .filter(g => Number(g.team1Tid) === tNum || Number(g.team2Tid) === tNum)
+    .filter(g => Number(g.year) === Number(year))
+    .filter(g => g.team1Score != null && g.team2Score != null && (g.team1Score > 0 || g.team2Score > 0 || g.isPlayed))
+    .sort((a, b) => {
+      // Best-effort sort: try by week number ascending, then by id as tiebreaker.
+      const wa = typeof a.week === 'number' ? a.week : parseInt(a.week, 10) || 99
+      const wb = typeof b.week === 'number' ? b.week : parseInt(b.week, 10) || 99
+      return wa - wb
+    })
+
+  const recent = allGames.slice(-recentN)
+  if (recent.length) {
+    out.push(`\n**Last ${recent.length} game(s)** (year ${year})`)
+    recent.forEach(g => {
+      const isTeam1 = Number(g.team1Tid) === tNum
+      const oppTid = isTeam1 ? Number(g.team2Tid) : Number(g.team1Tid)
+      const oppName = teamLabel(dynasty, oppTid)
+      const us = isTeam1 ? g.team1Score : g.team2Score
+      const them = isTeam1 ? g.team2Score : g.team1Score
+      const result = us > them ? 'W' : us < them ? 'L' : 'T'
+      out.push(`  - Wk ${g.week ?? '?'} ${result} ${us}–${them} ${result === 'W' ? 'vs' : 'to'} ${oppName}`)
+    })
+  } else {
+    out.push(`\n_(no completed games in ${year})_`)
+  }
+
+  return out.join('\n')
+}
+
+// ─── Player slot ────────────────────────────────────────────────────────────
+
+/**
+ * Resolve a player by pid into a markdown block describing identity +
+ * stats. Stats scope is controlled by options.horizon:
+ *   'this-season' (default) — current year statsByYear entry
+ *   'career' — sum of all statsByYear entries
+ *   'last-3-games' — last 3 games this season
+ *   'this-game' — single game (options.gameId required)
+ */
+export function resolvePlayerSlot(dynasty, pid, options = {}) {
+  if (pid == null) return '_(no player selected)_'
+  const player = safeArr(dynasty?.players).find(p => Number(p.pid) === Number(pid))
+  if (!player) return `_(player ${pid} not found)_`
+
+  const year = options.year ?? dynasty?.currentYear
+  const horizon = options.horizon || 'this-season'
+
+  const pos = getPlayerPositionForYear(player, year) || player.position || '—'
+  const cls = getPlayerClassForYear(player, year) || player.year || '—'
+  const ovr = getPlayerOverallForYear(player, year) || player.overall || '—'
+  const dev = player.devTraitByYear?.[year] || player.devTrait || '—'
+  const teamTid = player.teamsByYear?.[year] ?? null
+  const teamName = teamTid != null ? teamLabel(dynasty, teamTid) : '—'
+
+  const out = []
+  out.push(`### Player: ${player.name}`)
+  out.push(`- **Position**: ${pos}`)
+  out.push(`- **Class (${year})**: ${cls}`)
+  out.push(`- **Overall (${year})**: ${ovr}`)
+  out.push(`- **Dev trait (${year})**: ${dev}`)
+  out.push(`- **Team (${year})**: ${teamName}`)
+
+  // Stats per horizon
+  if (horizon === 'career') {
+    const allYears = Object.keys(player.statsByYear || {}).sort()
+    if (!allYears.length) {
+      out.push('\n_(no career stats recorded)_')
+    } else {
+      out.push(`\n**Career stats** (${allYears[0]}–${allYears[allYears.length - 1]})`)
+      const totals = {}
+      allYears.forEach(y => {
+        const s = player.statsByYear[y] || {}
+        for (const cat of Object.keys(s)) {
+          if (typeof s[cat] !== 'object') continue
+          totals[cat] = totals[cat] || {}
+          for (const k of Object.keys(s[cat] || {})) {
+            const v = Number(s[cat][k]) || 0
+            totals[cat][k] = (totals[cat][k] || 0) + v
+          }
+        }
+      })
+      out.push(formatStatBlock(totals))
+    }
+  } else if (horizon === 'this-game' && options.gameId) {
+    const game = safeArr(dynasty?.games).find(g => g.id === options.gameId)
+    if (!game) {
+      out.push(`\n_(game ${options.gameId} not found)_`)
+    } else {
+      out.push(`\n**Stats in this game** (Wk ${game.week ?? '?'}, ${game.year ?? '?'})`)
+      const totals = getPlayerBoxScoreTotals(player.name, [game], year, null)
+      if (totals && Object.keys(totals).length) {
+        out.push(formatStatBlock(totals))
+      } else {
+        out.push('_(no stats recorded for this player in that game)_')
+      }
+    }
+  } else if (horizon === 'last-3-games') {
+    const games = safeArr(dynasty?.games)
+      .filter(g => Number(g.year) === Number(year))
+      .filter(g => g.team1Score != null && g.team2Score != null)
+      .sort((a, b) => {
+        const wa = typeof a.week === 'number' ? a.week : parseInt(a.week, 10) || 99
+        const wb = typeof b.week === 'number' ? b.week : parseInt(b.week, 10) || 99
+        return wa - wb
+      })
+      .slice(-3)
+    const totals = getPlayerBoxScoreTotals(player.name, games, year, null)
+    out.push(`\n**Stats last ${games.length} game(s)** (${year})`)
+    if (totals && Object.keys(totals).length) {
+      out.push(formatStatBlock(totals))
+    } else {
+      out.push('_(no stats recorded across recent games)_')
+    }
+  } else {
+    // this-season (default)
+    const stats = player.statsByYear?.[year] || null
+    out.push(`\n**Stats (${year})**`)
+    if (stats && Object.keys(stats).length) {
+      out.push(formatStatBlock(stats))
+    } else {
+      out.push('_(no stats recorded for this season)_')
+    }
+  }
+
+  // Awards
+  const awards = safeArr(player.accolades)
+  if (awards.length) {
+    out.push('\n**Awards**')
+    awards.slice(0, 10).forEach(a => {
+      out.push(`  - ${a.year}: ${a.award}`)
+    })
+  }
+
+  return out.join('\n')
+}
+
+// Format a stats object as bullet lines per category.
+function formatStatBlock(stats) {
+  const lines = []
+  const cats = ['passing', 'rushing', 'receiving', 'defense', 'kicking', 'punting', 'kickReturn', 'puntReturn']
+  for (const c of cats) {
+    const v = stats[c]
+    if (!v || typeof v !== 'object') continue
+    const bits = []
+    if (c === 'passing') {
+      if (v.cmp || v.comp) bits.push(`${v.cmp ?? v.comp}/${v.att ?? v.attempts ?? 0}`)
+      if (v.yards) bits.push(`${v.yards} yds`)
+      if (v.td) bits.push(`${v.td} TD`)
+      if (v.int) bits.push(`${v.int} INT`)
+      if (v.rating) bits.push(`${v.rating} rtg`)
+    } else if (c === 'rushing') {
+      if (v.carries) bits.push(`${v.carries} car`)
+      if (v.yards) bits.push(`${v.yards} yds`)
+      if (v.td) bits.push(`${v.td} TD`)
+    } else if (c === 'receiving') {
+      if (v.rec) bits.push(`${v.rec} rec`)
+      if (v.yards) bits.push(`${v.yards} yds`)
+      if (v.td) bits.push(`${v.td} TD`)
+    } else if (c === 'defense') {
+      const tkl = (Number(v.solo) || 0) + (Number(v.assists) || 0)
+      if (tkl) bits.push(`${tkl} tkl`)
+      if (v.tfl) bits.push(`${v.tfl} TFL`)
+      if (v.sacks) bits.push(`${v.sacks} sk`)
+      if (v.int) bits.push(`${v.int} INT`)
+      if (v.deflections) bits.push(`${v.deflections} PD`)
+      if (v.ff) bits.push(`${v.ff} FF`)
+      if (v.fr) bits.push(`${v.fr} FR`)
+    } else if (c === 'kicking') {
+      if (v.fgm != null) bits.push(`${v.fgm}/${v.fga ?? 0} FG`)
+    } else if (c === 'punting') {
+      if (v.punts) bits.push(`${v.punts} punts`)
+      if (v.yards) bits.push(`${v.yards} yds`)
+    } else if (c === 'kickReturn') {
+      if (v.kr) bits.push(`${v.kr} KR`)
+      if (v.yards) bits.push(`${v.yards} yds`)
+      if (v.td) bits.push(`${v.td} TD`)
+    } else if (c === 'puntReturn') {
+      if (v.pr) bits.push(`${v.pr} PR`)
+      if (v.yards) bits.push(`${v.yards} yds`)
+      if (v.td) bits.push(`${v.td} TD`)
+    }
+    if (bits.length) lines.push(`  - ${c[0].toUpperCase()}${c.slice(1)}: ${bits.join(', ')}`)
+  }
+  return lines.length ? lines.join('\n') : '  _(no countable categories)_'
+}
+
+// ─── Year slot ──────────────────────────────────────────────────────────────
+
+/**
+ * Resolve a year into a markdown block describing dynasty state in that
+ * year: standings snapshot, the user's team's record and rank.
+ */
+export function resolveYearSlot(dynasty, year, options = {}) {
+  if (year == null) return '_(no year selected)_'
+  const userTid = dynasty?.currentTid
+  const userName = userTid != null ? teamLabel(dynasty, userTid) : '—'
+  const userRec = userTid != null ? formatRecord(getTeamRecord(dynasty, userTid, year)) : '—'
+  const userRank = userTid != null ? getTeamRankForWeek(dynasty, userTid, year, 15) : null
+
+  const out = []
+  out.push(`### Year: ${year}`)
+  out.push(`- **Your team**: ${userName}${userRank ? ` (#${userRank})` : ''} — ${userRec}`)
+
+  // Final poll if present
+  const finalPoll = dynasty?.finalPollsByYear?.[year]
+  if (finalPoll && typeof finalPoll === 'object') {
+    const top10 = Object.entries(finalPoll)
+      .map(([tid, rank]) => ({ tid: Number(tid), rank: Number(rank) }))
+      .filter(e => Number.isFinite(e.rank) && e.rank <= 10)
+      .sort((a, b) => a.rank - b.rank)
+    if (top10.length) {
+      out.push(`\n**Final Top 10 (${year})**`)
+      top10.forEach(e => {
+        out.push(`  - #${e.rank} ${teamLabel(dynasty, e.tid)}`)
+      })
+    }
+  }
+
+  return out.join('\n')
+}
+
+// ─── Position slot ──────────────────────────────────────────────────────────
+
+/**
+ * Resolve a position+team+year combo into a markdown block describing
+ * the top players at that position group for that team in that year.
+ */
+export function resolvePositionSlot(dynasty, position, options = {}) {
+  if (!position) return '_(no position selected)_'
+  const year = options.year ?? dynasty?.currentYear
+  const tid = options.tid ?? dynasty?.currentTid
+  if (tid == null) return '_(no team context)_'
+
+  const teamName = teamLabel(dynasty, tid)
+  const out = []
+  out.push(`### Position group: ${position} — ${teamName} (${year})`)
+
+  const players = getAllPlayers(dynasty) || []
+  const groupPlayers = players
+    .filter(p => Number(p.teamsByYear?.[year]) === Number(tid))
+    .filter(p => (getPlayerPositionForYear(p, year) || p.position) === position)
+    .sort((a, b) => (getPlayerOverallForYear(b, year) || 0) - (getPlayerOverallForYear(a, year) || 0))
+
+  if (!groupPlayers.length) {
+    out.push(`\n_(no ${position}s on the ${teamName} roster for ${year})_`)
+    return out.join('\n')
+  }
+
+  out.push(`\n**Roster (top ${Math.min(groupPlayers.length, 8)})**`)
+  groupPlayers.slice(0, 8).forEach(p => {
+    const ovr = getPlayerOverallForYear(p, year) || '—'
+    const cls = getPlayerClassForYear(p, year) || '—'
+    const dev = p.devTraitByYear?.[year] || p.devTrait || '—'
+    out.push(`  - ${p.name} — ${cls}, OVR ${ovr}, ${dev}`)
+  })
+
+  // Aggregate stats for the group
+  const aggStats = {}
+  groupPlayers.forEach(p => {
+    const s = p.statsByYear?.[year] || {}
+    for (const cat of Object.keys(s)) {
+      if (typeof s[cat] !== 'object') continue
+      aggStats[cat] = aggStats[cat] || {}
+      for (const k of Object.keys(s[cat])) {
+        aggStats[cat][k] = (aggStats[cat][k] || 0) + (Number(s[cat][k]) || 0)
+      }
+    }
+  })
+  if (Object.keys(aggStats).length) {
+    out.push(`\n**Group stat totals (${year})**`)
+    out.push(formatStatBlock(aggStats))
+  }
+
+  return out.join('\n')
+}
+
+// ─── Free text ──────────────────────────────────────────────────────────────
+
+export function resolveFreeText(value) {
+  if (!value || !String(value).trim()) return null
+  return `### Additional context from the dynasty owner\n${String(value).trim()}`
+}

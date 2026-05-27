@@ -13,3 +13,10 @@ migrated-dynasty.json
 # Local Playwright preview artifacts (Claude Code MCP)
 .playwright-mcp/
 *.png
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
