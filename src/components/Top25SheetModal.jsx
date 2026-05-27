@@ -7,6 +7,7 @@ import {
   deleteGoogleSheet,
   getSingleSheetEmbedUrl,
 } from '../services/sheetsService'
+import { saveGamesToSubcollection } from '../services/dynastyService'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -197,25 +198,85 @@ export default function Top25SheetModal({ isOpen, onClose }) {
     if (!pendingSave || !currentDynasty) return
     setSyncing(true)
     try {
+      // In-memory compute (cheap) — needed for local React state.
       const newTeams = applyTop25SheetDiff(currentDynasty, pendingSave.diff)
-      // Also sync games[].team1Rank/team2Rank so the Game page and
-      // team game-log displays match the corrected rankByWeek picture.
-      // Without this, editing a team's Wk N rank via the Top 25 sheet
-      // updated rankByWeek but left every Wk N game record showing the
-      // old rank — Rankings page showed the correction, Game page and
-      // recap text didn't. Beta tester reports of "putting last week's
-      // ranking on the game" trace back to this divergence.
       const affectedWeeks = affectedYearWeeksFromTop25Diff(pendingSave.diff)
+      // syncGameRanksFromRankByWeek also keeps games[].team1Rank /
+      // team2Rank in lockstep with rankByWeek so Game page + recap text
+      // don't drift from the corrected Rankings page picture (root
+      // cause of "putting last week's ranking on the game" reports).
       const newGames = syncGameRanksFromRankByWeek(
         currentDynasty.games || [],
         newTeams,
         affectedWeeks,
       )
-      const updatePayload = { teams: newTeams }
-      if (newGames !== (currentDynasty.games || [])) {
-        updatePayload.games = newGames
+
+      const isCloud = currentDynasty.storageType === 'cloud'
+
+      if (isCloud) {
+        // SURGICAL CLOUD PATH — the full-doc rewrite was the cause of
+        // the multi-second freeze on a 1-cell edit. Late-season dynasties
+        // serialize a teams field that's hundreds of KB (every team × every
+        // year × every week's rankByWeek), and the games subcollection
+        // round-trips a write for every single game. Both are unnecessary
+        // when only a handful of cells changed.
+        //
+        // Instead:
+        //   - teams: send only dot-notation paths for the rankByWeek cells
+        //     the diff actually touched — Firestore updates those fields
+        //     in place without rewriting the whole map
+        //   - games: identify the specific games whose ranks were rewritten
+        //     (most won't be) and send only those via saveGamesToSubcollection
+        //     with deleteOrphans:false so it doesn't enumerate the entire
+        //     subcollection or rewrite untouched games
+        const teamPathUpdates = {}
+        for (const [tidKey, byYear] of Object.entries(pendingSave.diff || {})) {
+          if (!byYear || typeof byYear !== 'object') continue
+          for (const [yearKey, weekUpdates] of Object.entries(byYear)) {
+            if (!weekUpdates || typeof weekUpdates !== 'object') continue
+            for (const [weekKey, value] of Object.entries(weekUpdates)) {
+              const path = `teams.${tidKey}.byYear.${yearKey}.rankByWeek.${weekKey}`
+              // null clears the rank (reader treats null/missing the
+              // same — "no rank that week"). Numbers get coerced.
+              if (value == null) {
+                teamPathUpdates[path] = null
+              } else {
+                const n = Number(value)
+                if (Number.isFinite(n) && n >= 1 && n <= 25) {
+                  teamPathUpdates[path] = n
+                }
+              }
+            }
+          }
+        }
+
+        const oldGameById = new Map((currentDynasty.games || []).map(g => [g.id, g]))
+        const changedGames = newGames.filter(g => oldGameById.get(g.id) !== g)
+
+        // Write changed games surgically (batch, no orphan enumeration).
+        if (changedGames.length > 0) {
+          await saveGamesToSubcollection(currentDynasty.id, changedGames, { deleteOrphans: false })
+        }
+
+        // updateDynasty handles main-doc paths + local React state sync.
+        // skipGamesSubcollection: true tells it we already wrote the games
+        // surgically — it just needs to refresh local state with newGames
+        // so the UI reflects the rank corrections immediately.
+        const stateUpdates = { ...teamPathUpdates }
+        if (changedGames.length > 0) stateUpdates.games = newGames
+        if (Object.keys(stateUpdates).length > 0) {
+          await updateDynasty(currentDynasty.id, stateUpdates, { skipGamesSubcollection: true })
+        }
+      } else {
+        // LOCAL PATH — IndexedDB writes the whole dynasty in one shot
+        // anyway, so the full-object update is already fast. No need
+        // for the dot-notation surgery.
+        const updatePayload = { teams: newTeams }
+        if (newGames !== (currentDynasty.games || [])) {
+          updatePayload.games = newGames
+        }
+        await updateDynasty(currentDynasty.id, updatePayload)
       }
-      await updateDynasty(currentDynasty.id, updatePayload)
 
       const { summary } = pendingSave
       toast.success(
