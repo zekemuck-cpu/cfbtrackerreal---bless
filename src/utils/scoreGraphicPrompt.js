@@ -201,9 +201,9 @@ export function buildScoreGraphicPrompt({
       `FORBIDDEN (never appears anywhere on the graphic):`,
       `• "FINAL SCORE" as a large display headline. The word "FINAL" may appear once as a small supporting label (e.g., above or between the scores). Never make it the dominant typographic element.`,
       `• "AWAY", "HOME", "ROAD", "VISITOR", or "HOST" as visible text anywhere on the canvas. These are layout notes, not design elements.`,
-      `• Hype headlines or result banners — "CATS WIN!", "ROLL TIDE!", "GO BLUE!", "VICTORY!", "WE WIN!", "BIG WIN!", "TAKEDOWN!", "DOMINANT!", "[TEAM] WIN.", or any equivalent outcome declaration.`,
+      `• Hype headlines or result banners — "CATS WIN!", "GO BLUE!", "VICTORY!", "WE WIN!", "BIG WIN!", "TAKEDOWN!", "DOMINANT!", "[TEAM] WIN.", or any equivalent outcome declaration.`,
       `• Subhead taglines and location subtitles — "BIG BLUE TAKES THE WIN IN FAYETTEVILLE!", "STATEMENT WIN IN ATHENS", "TIGERS ROAR IN BATON ROUGE", or any sentence-style descriptor. The scores + names + FINAL tell the story; no caption needed.`,
-      `• Fan-identity slogans / mottos / chants — "BIG BLUE NATION", "WE ARE", "GEAUX TIGERS", "HAIL STATE", "ROLL TIDE", "ANCHOR DOWN", "BOOMER SOONER", "OH-IO", "GO IRISH", "BOILER UP", "ALL ABOARD", "KEEP IT CARDINAL", "REIGN ON", or any equivalent. Never invent a slogan for any team.`,
+      `• Fan-identity slogans or program mottos used as the dominant typographic element. A slogan may appear as a small, subordinate element (corner badge, footer) if you know it is genuinely associated with this program — but the score is the story, not the slogan. Never invent one.`,
       `• "Neutral site", "Home", "Away", "Road", "Hosted by", "at <venue>", venue names, stadium names, city names, state names, or any location reference whatsoever.`,
       `• "WIN", "LOSS", "VICTORY", "DEFEAT", "WE WIN", "L", or any result word as a dominant element — "FINAL" is the only allowed result label.`,
       `• The literal labels from this prompt (e.g. "RESULT", "BRAND", "OPPONENT", "SITE CONTEXT", "TEXT POLICY").`,
@@ -218,22 +218,17 @@ export function buildScoreGraphicPrompt({
     return lines.join('\n')
   }
 
-  // Restraint guidance — counters the AI's instinct to pile on hype
-  // banners, subheads, slogans, and multiple textures. Keeps the
-  // graphic clean and scoreboard-first.
+  // Restraint guidance — targets the specific AI clichés that make
+  // graphics look generated. Kept intentionally narrow: only rules
+  // that address real observed problems, not general design taste.
   const visualRestraint = (mode = 'branded') => [
-    `VISUAL RESTRAINT — keep it clean and sleek:`,
-    `• The composition should feel like a focused scoreboard graphic, not a hype poster. Required content: the two scores, the two team names/logos, the FINAL label, and — if a photo is attached to this request — the attached photo as the hero visual. Postseason callout (if applicable) is the only optional addition.`,
-    `• ONE primary visual block of "extra" content beyond the scoreboard, not three. If a photo is attached, the PHOTO is that one block — supporting type and the scoreboard frame it. Do NOT stack a hero photo PLUS a hype banner PLUS a subhead PLUS a slogan footer. If no photo is attached, the scoreboard itself carries the design without extra hype.`,
-    `• IMPORTANT: minimalism does NOT mean dropping the attached photo. If a photo is attached, omitting it does not make the design cleaner — it makes it incomplete. Include the photo and keep everything else restrained.`,
-    `• ONE texture/pattern at most. Don't stack halftones with paper grain with checkerboard with brush strokes with confetti. Pick one signature texture (or none) and use it sparingly as a background accent — never as a full-canvas overlay.`,
-    `• Restrained does NOT mean plain white backgrounds. A confident solid-color background rooted in the team's palette IS restrained — white is just lifeless. Avoid using plain white or light gray as the background for either team's information panel.`,
+    `VISUAL RESTRAINT:`,
+    `• If a photo is attached to this request, it is the primary visual element — frame the scoreboard around it. Do NOT omit the attached photo to make the design feel cleaner; that makes it incomplete.`,
+    `• Restrained does NOT mean plain white backgrounds. A design rooted in the team's palette is restrained; white is just lifeless.`,
     `• The score numbers are the largest typographic element on the canvas — larger than the team name, larger than the logo, larger than everything. If the logo is bigger than the score in your layout, fix it before sending.`,
-    `• Generous whitespace. Let the scores breathe. Don't pack content edge-to-edge.`,
-    `• No grunge frames, torn-paper edges, or gritty brush borders around the full canvas. Clean rectangular or simple-shape compositions.`,
-    `• NO distressed, grunge, or brush-stroke letterforms — especially not for the "FINAL" label or any headline text. Clean, bold, modern typography only. Distressed/painted/scratchy fonts are a cliché.`,
-    `• Each team's logo appears ONCE at a single consistent scale. Never repeat the same logo at two or three different sizes on the same canvas (e.g., small inside a score box AND a large floating version in the background).`,
-    `• Avoid the diagonal chevron split as your default layout device. It has become the most overused shape in AI-generated sports graphics. If you use a dividing element, make it a deliberate design choice, not a default.`,
+    `• No grunge frames, torn-paper edges, or gritty brush borders.`,
+    `• NO distressed, grunge, or brush-stroke letterforms — especially not for the "FINAL" label or any headline text. Clean, bold typography only.`,
+    `• Each team's logo appears ONCE at a single consistent scale. Never repeat the same logo at multiple sizes (e.g., small in a score box AND large floating in the background).`,
     mode === 'branded'
       ? `• Do NOT split the canvas 50/50 between both teams' colors. Your team's palette dominates (roughly 70–80% visual weight) — the opponent's colors appear as secondary accents only.`
       : `• Do NOT split the canvas 50/50 between both teams' colors. Use both palettes as accent colors against a neutral field — neither team's colors should overpower the other.`,
@@ -392,15 +387,15 @@ export function buildScoreGraphicPrompt({
   const brandIdentitySection = isFictionalTeam(profile)
     ? [
         `BRAND IDENTITY — NON-NEGOTIABLE:`,
-        `The finished graphic must be immediately recognizable as a ${featuredName} graphic. Their primary color (${primary}) dominates the canvas — as the background field the design lives on, not as an accent or trim.`,
+        `The finished graphic must be immediately recognizable as a ${featuredName} graphic. Use the program's colors and visual language as the foundation — the design should feel like it came from this specific team's graphics department.`,
       ].join('\n')
     : [
         `BRAND IDENTITY — NON-NEGOTIABLE:`,
-        `You know ${featuredName}'s visual identity from your training data — their colors, their logo, their design language, their graphic traditions, their visual era. That knowledge is your creative foundation. Use it.`,
+        `You know ${featuredName}'s visual identity from your training data — their full color palette, their logo, their design language, their graphic traditions, their visual era. That knowledge is your creative foundation. Use it.`,
         ``,
-        `The finished graphic must be immediately, unmistakably recognizable as a ${featuredName} post. A fan scrolling their feed should see the color field alone — before reading a single word — and know which school this came from.`,
+        `The finished graphic must be immediately, unmistakably recognizable as a ${featuredName} post. A fan scrolling their feed should know — before reading a single word — which school this graphic came from. How you achieve that is your creative call: maybe the primary color fills the canvas, maybe it's a dark ground with bold color accents, maybe it's built around a signature shape or pattern. What matters is that the school's visual identity is unmistakable.`,
         ``,
-        `Design this as ${featuredName}'s own graphics team would. Their primary color dominates the canvas — not as an accent strip or logo fill, but as the background field the entire composition lives on. Their motifs, their typographic conventions, their visual era — all of it is in your training. Trust it. Do not fall back on a generic sports-media template.`,
+        `Design this as ${featuredName}'s own graphics team would. Do not fall back on a generic sports-media template — draw on the specific visual language of this program.`,
       ].join('\n')
 
   // Opponent brand block — colors always; logo description only if the
