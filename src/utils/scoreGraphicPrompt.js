@@ -194,8 +194,8 @@ export function buildScoreGraphicPrompt({
       logoInstruction(...realTeamNames),
       ``,
       `Score pairing — verify before drawing:`,
-      `• ${team1Name} = ${s1}. Pair the number ${s1} with the ${team1Name} logo.`,
-      `• ${team2Name} = ${s2}. Pair the number ${s2} with the ${team2Name} logo. Never swap.`,
+      `• ${team1Name} = ${s1}. Pair the number ${s1} with the ${team1Name} logo immediately adjacent — a logo elsewhere on the graphic does not count.`,
+      `• ${team2Name} = ${s2}. Pair the number ${s2} with the ${team2Name} logo immediately adjacent. Never swap.`,
       `Both scores equally prominent — neither de-emphasized regardless of result.`,
       homeTeam !== null
         ? `Layout: ${awayName} (${awayScore}) on the left or top; ${homeName} (${homeScore}) on the right or bottom.`
@@ -302,7 +302,7 @@ export function buildScoreGraphicPrompt({
     opponentBlock ? `` : null,
     logoInstruction(...realTeamNames),
     ``,
-    `Score accuracy: ${featuredName} = ${sf}, ${oppName} = ${so}. Pair each score with the correct logo. Never swap. Both teams' scores in the same visual format — equal type size and layout treatment.`,
+    `Score accuracy: ${featuredName} = ${sf}, ${oppName} = ${so}. Each score must have its team's logo immediately adjacent to it — a header or footer logo elsewhere on the graphic does not count as score identification. Never swap. Both teams' scores in the same visual format — equal type size and layout treatment.`,
     ``,
     homeTeam !== null
       ? `Layout: ${awayName} (${awayScore}) on the left or top; ${homeName} (${homeScore}) on the right or bottom.`
