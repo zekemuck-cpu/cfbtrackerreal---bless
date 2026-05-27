@@ -198,7 +198,7 @@ export function buildScoreGraphicPrompt({
       `• ${team2Name} = ${s2}. Pair the number ${s2} with the ${team2Name} logo. Never swap.`,
       `Both scores equally prominent — neither de-emphasized regardless of result.`,
       homeTeam !== null
-        ? `Layout: ${awayName} (${awayScore}) on the left half OR top half; ${homeName} (${homeScore}) on the right half OR bottom half. Full halves — not corners.`
+        ? `Layout: ${awayName} (${awayScore}) on the left or top; ${homeName} (${homeScore}) on the right or bottom.`
         : `Neutral site — layout is your call.`,
       ``,
       `Do not invent or generate photo-realistic content — no fabricated players, crowds, or stadiums. If a photo is attached, use it. If not, the graphic is photo-free.`,
