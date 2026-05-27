@@ -221,7 +221,7 @@ export function buildScoreGraphicPrompt({
   // Restraint guidance — counters the AI's instinct to pile on hype
   // banners, subheads, slogans, and multiple textures. Keeps the
   // graphic clean and scoreboard-first.
-  const visualRestraint = () => [
+  const visualRestraint = (mode = 'branded') => [
     `VISUAL RESTRAINT — keep it clean and sleek:`,
     `• The composition should feel like a focused scoreboard graphic, not a hype poster. Required content: the two scores, the two team names/logos, the FINAL label, and — if a photo is attached to this request — the attached photo as the hero visual. Postseason callout (if applicable) is the only optional addition.`,
     `• ONE primary visual block of "extra" content beyond the scoreboard, not three. If a photo is attached, the PHOTO is that one block — supporting type and the scoreboard frame it. Do NOT stack a hero photo PLUS a hype banner PLUS a subhead PLUS a slogan footer. If no photo is attached, the scoreboard itself carries the design without extra hype.`,
@@ -232,7 +232,9 @@ export function buildScoreGraphicPrompt({
     `• The score numbers must be the unmistakable focal point. Every other element supports them rather than competing for attention.`,
     `• NO distressed, grunge, or brush-stroke letterforms — especially not for the "FINAL" label or any headline text. Clean, bold, modern typography only. Distressed/painted/scratchy fonts are a cliché.`,
     `• Each team's logo appears ONCE at a single consistent scale. Never repeat the same logo at two or three different sizes on the same canvas (e.g., small inside a score box AND a large floating version in the background).`,
-    `• Do NOT split the canvas 50/50 between both teams' colors. In a team-branded graphic, the featured team's palette should clearly dominate (roughly 70–80% visual weight). In a neutral graphic, use both palettes as accent colors against a neutral field rather than fighting each other for half the canvas.`,
+    mode === 'branded'
+      ? `• Do NOT split the canvas 50/50 between both teams' colors. Your team's palette dominates (roughly 70–80% visual weight) — the opponent's colors appear as secondary accents only.`
+      : `• Do NOT split the canvas 50/50 between both teams' colors. Use both palettes as accent colors against a neutral field — neither team's colors should overpower the other.`,
   ].join('\n')
 
   // homeTeam = 1 → team1 is home, 2 → team2 is home, null → neutral site
@@ -322,7 +324,7 @@ export function buildScoreGraphicPrompt({
       ``,
       `Do not place either logo in a plain white or gray box — both teams should feel integrated into the design.`,
       ``,
-      visualRestraint(),
+      visualRestraint('neutral'),
       ``,
       imageryPolicy(),
       ``,
@@ -425,7 +427,7 @@ export function buildScoreGraphicPrompt({
     })() : `Neutral site — layout is your call.`,
     ``,
     ``,
-    visualRestraint(),
+    visualRestraint('branded'),
     ``,
     imageryPolicy(),
     ``,
