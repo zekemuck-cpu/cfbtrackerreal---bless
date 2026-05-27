@@ -2517,24 +2517,28 @@ export default function GameEdit() {
                   <p className="label-xs text-txt-tertiary mb-1.5">Featured team</p>
                   <div className="flex gap-2">
                     {[
-                      { side: 'team1', name: team1Name },
-                      { side: 'neutral', name: 'Neutral' },
-                      { side: 'team2', name: team2Name },
-                    ].map(({ side, name }) => {
+                      { side: 'team1', logo: team1Logo, name: team1Name },
+                      { side: 'neutral', logo: null, name: 'Neutral' },
+                      { side: 'team2', logo: team2Logo, name: team2Name },
+                    ].map(({ side, logo, name }) => {
                       const isActive = activeSide === side
                       return (
                         <button
                           key={side}
                           type="button"
                           onClick={() => setGraphicFeaturedSide(side)}
-                          className="flex-1 px-3 py-1.5 rounded text-xs font-semibold truncate transition-colors"
+                          className="flex-1 flex items-center justify-center py-1.5 rounded transition-colors"
                           style={{
                             backgroundColor: isActive ? 'var(--text-primary)' : 'var(--surface-3)',
                             color: isActive ? 'var(--surface-1)' : 'var(--text-secondary)',
                             border: '1px solid var(--surface-4)',
+                            minHeight: '2rem',
                           }}
                         >
-                          {name}
+                          {logo
+                            ? <img src={logo} alt={name} className="w-6 h-6 object-contain" />
+                            : <span className="text-xs font-semibold">{name}</span>
+                          }
                         </button>
                       )
                     })}
