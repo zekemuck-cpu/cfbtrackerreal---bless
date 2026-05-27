@@ -302,7 +302,7 @@ export function buildScoreGraphicPrompt({
     opponentBlock ? `` : null,
     logoInstruction(...realTeamNames),
     ``,
-    `Score accuracy: ${featuredName} = ${sf}, ${oppName} = ${so}. Pair each score with the correct logo. Never swap. Both teams' scores in the same visual format — equal type size and layout treatment.`,
+    `Score accuracy: ${featuredName} = ${sf}, ${oppName} = ${so}. Pair each score with the correct logo. Never swap. Both teams' scores in the same visual format — equal type size and layout treatment. Each score in its own team's colors, not both in the featured team's palette.`,
     ``,
     homeTeam !== null
       ? `Layout: ${awayName} (${awayScore}) left/top, ${homeName} (${homeScore}) right/bottom.`
