@@ -40,6 +40,86 @@ function teamAbbr(dynasty, tid) {
   return teams[tid]?.abbr || ''
 }
 
+function normName(s) {
+  return (s || '').toLowerCase().trim().replace(/\s+/g, ' ')
+}
+
+// Extract a single player's stats from a raw boxScore object for one game.
+// Returns an object keyed by category (passing/rushing/etc.) with raw field values,
+// or null if the player doesn't appear.
+function extractPlayerFromBoxScore(boxScore, playerName) {
+  if (!boxScore || !playerName) return null
+  const target = normName(playerName)
+  const sides = []
+  if (boxScore.byTid && typeof boxScore.byTid === 'object') {
+    for (const side of Object.values(boxScore.byTid)) { if (side) sides.push(side) }
+  }
+  if (boxScore.home) sides.push(boxScore.home)
+  if (boxScore.away) sides.push(boxScore.away)
+
+  const cats = ['passing', 'rushing', 'receiving', 'defense', 'kicking', 'punting', 'kickReturn', 'puntReturn', 'blocking']
+  const result = {}
+  for (const side of sides) {
+    for (const cat of cats) {
+      if (!Array.isArray(side[cat])) continue
+      const row = side[cat].find(r => normName(r.playerName) === target)
+      if (row) result[cat] = row
+    }
+  }
+  return Object.keys(result).length ? result : null
+}
+
+// Format raw box score stats (box score field names, not internal) for a single game line.
+function formatRawGameStats(stats) {
+  const parts = []
+  if (stats.passing) {
+    const p = stats.passing
+    const att = Number(p.attempts ?? p.att ?? 0)
+    if (att > 0) {
+      const cmp = Number(p.comp ?? p.cmp ?? 0)
+      parts.push(`${cmp}/${att}, ${p.yards ?? 0} yds, ${p.tD ?? p.td ?? 0} TD, ${p.iNT ?? p.int ?? 0} INT`)
+    }
+  }
+  if (stats.rushing) {
+    const r = stats.rushing
+    const car = Number(r.carries ?? 0)
+    if (car > 0) parts.push(`Rush: ${car} car, ${r.yards ?? 0} yds, ${r.tD ?? r.td ?? 0} TD`)
+  }
+  if (stats.receiving) {
+    const r = stats.receiving
+    const rec = Number(r.receptions ?? r.rec ?? 0)
+    if (rec > 0) parts.push(`Rec: ${rec} rec, ${r.yards ?? 0} yds, ${r.tD ?? r.td ?? 0} TD`)
+  }
+  if (stats.defense) {
+    const d = stats.defense
+    const tkl = (Number(d.solo ?? 0)) + (Number(d.assists ?? 0))
+    const dbits = []
+    if (tkl) dbits.push(`${tkl} tkl`)
+    if (d.tFL) dbits.push(`${d.tFL} TFL`)
+    if (d.sack) dbits.push(`${d.sack} sk`)
+    if (d.iNT) dbits.push(`${d.iNT} INT`)
+    if (d.deflections) dbits.push(`${d.deflections} PD`)
+    if (d.fF) dbits.push(`${d.fF} FF`)
+    if (dbits.length) parts.push(`Def: ${dbits.join(', ')}`)
+  }
+  if (stats.kicking) {
+    const k = stats.kicking
+    if (k.fGA) parts.push(`Kicking: ${k.fGM ?? 0}/${k.fGA} FG, ${k.xPM ?? 0}/${k.xPA ?? 0} XP`)
+  }
+  if (stats.punting) {
+    const p = stats.punting
+    if (p.punts) parts.push(`Punting: ${p.punts} punts, ${p.yards ?? 0} yds`)
+  }
+  if (stats.blocking) {
+    const b = stats.blocking
+    const bbits = []
+    if (b.pancakes) bbits.push(`${b.pancakes} pancakes`)
+    if (b.sacksAllowed) bbits.push(`${b.sacksAllowed} sacks allowed`)
+    if (bbits.length) parts.push(`Block: ${bbits.join(', ')}`)
+  }
+  return parts.join(' | ')
+}
+
 function formatRecord(rec) {
   if (!rec) return '—'
   const { wins = 0, losses = 0, ties = 0 } = rec
@@ -445,6 +525,7 @@ export function resolvePositionSlot(dynasty, position, options = {}) {
   const tid = options.tid ?? dynasty?.currentTid
   if (tid == null) return '_(no team context)_'
 
+  const yearNum = Number(year)
   const teamName = teamLabel(dynasty, tid)
   const out = []
   out.push(`### Position group: ${position} — ${teamName} (${year})`)
@@ -460,30 +541,57 @@ export function resolvePositionSlot(dynasty, position, options = {}) {
     return out.join('\n')
   }
 
-  out.push(`\n**Roster (top ${Math.min(groupPlayers.length, 8)})**`)
-  groupPlayers.slice(0, 8).forEach(p => {
+  // All games for this year, sorted by week, used for per-player game logs
+  const yearGames = (dynasty?.games || [])
+    .filter(g => Number(g.year) === yearNum)
+    .sort((a, b) => (Number(a.week) || 0) - (Number(b.week) || 0))
+
+  groupPlayers.forEach(p => {
     const ovr = getPlayerOverallForYear(p, year) || '—'
     const cls = getPlayerClassForYear(p, year) || '—'
     const dev = p.devTraitByYear?.[year] || p.devTraitByYear?.[String(year)] || p.devTrait || '—'
-    out.push(`  - ${p.name} — ${cls}, OVR ${ovr}, ${dev}`)
-  })
+    const jersey = p.jerseyNumber ? `#${p.jerseyNumber} ` : ''
 
-  // Aggregate stats for the group
-  const aggStats = {}
-  groupPlayers.forEach(p => {
-    const s = p.statsByYear?.[year] || p.statsByYear?.[String(year)] || {}
-    for (const cat of Object.keys(s)) {
-      if (typeof s[cat] !== 'object') continue
-      aggStats[cat] = aggStats[cat] || {}
-      for (const k of Object.keys(s[cat])) {
-        aggStats[cat][k] = (aggStats[cat][k] || 0) + (Number(s[cat][k]) || 0)
-      }
+    out.push(`\n---`)
+    out.push(`#### ${jersey}${p.name} — ${cls}, OVR ${ovr}, ${dev}`)
+
+    // Season totals from statsByYear
+    const seasonStats = p.statsByYear?.[year] || p.statsByYear?.[String(year)]
+    if (seasonStats && Object.keys(seasonStats).length) {
+      out.push(`**Season totals:**`)
+      out.push(formatStatBlock(seasonStats))
+    } else {
+      out.push(`_(no season stats recorded)_`)
+    }
+
+    // Game log — one line per game where the player appeared in the box score
+    const gameLogLines = []
+    yearGames.forEach(g => {
+      if (!g.boxScore) return
+      const gameStats = extractPlayerFromBoxScore(g.boxScore, p.name)
+      if (!gameStats) return
+
+      const isT1 = Number(g.team1Tid) === Number(tid)
+      const oppTid = isT1 ? g.team2Tid : g.team1Tid
+      const oppName = teamLabel(dynasty, oppTid)
+      const myScore = isT1 ? g.team1Score : g.team2Score
+      const oppScore = isT1 ? g.team2Score : g.team1Score
+      const isHome = Number(g.homeTeamTid) === Number(tid)
+      const neutral = g.homeTeamTid == null
+      const loc = neutral ? 'vs' : isHome ? 'vs' : '@'
+      const wl = Number(myScore) > Number(oppScore) ? 'W' : Number(myScore) < Number(oppScore) ? 'L' : 'T'
+      const weekStr = g.week ? `Wk ${g.week} ` : ''
+      const statsStr = formatRawGameStats(gameStats)
+      gameLogLines.push(`  - ${weekStr}${loc} ${oppName} (${wl} ${myScore}-${oppScore}): ${statsStr || '_(no countable stats)_'}`)
+    })
+
+    if (gameLogLines.length) {
+      out.push(`**Game log:**`)
+      gameLogLines.forEach(l => out.push(l))
+    } else {
+      out.push(`_(no box score data for any game)_`)
     }
   })
-  if (Object.keys(aggStats).length) {
-    out.push(`\n**Group stat totals (${year})**`)
-    out.push(formatStatBlock(aggStats))
-  }
 
   return out.join('\n')
 }
