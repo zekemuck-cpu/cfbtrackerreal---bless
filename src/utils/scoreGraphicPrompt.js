@@ -305,7 +305,7 @@ export function buildScoreGraphicPrompt({
     `Score accuracy: ${featuredName} = ${sf}, ${oppName} = ${so}. Pair each score with the correct logo. Never swap. Both teams' scores in the same visual format — equal type size and layout treatment.`,
     ``,
     homeTeam !== null
-      ? `Layout: ${awayName} (${awayScore}) on the left half OR top half; ${homeName} (${homeScore}) on the right half OR bottom half. Full halves — not corners.`
+      ? `Layout: ${awayName} (${awayScore}) on the left or top; ${homeName} (${homeScore}) on the right or bottom.`
       : `Neutral site — layout is your call.`,
     ``,
     `Do not invent or generate photo-realistic content — no fabricated players, crowds, or stadiums. If a photo is attached, use it. If not, the graphic is photo-free.`,
