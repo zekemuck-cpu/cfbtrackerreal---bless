@@ -1,9 +1,10 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect, useRef, useLayoutEffect } from 'react'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, GAME_TYPES, detectGameType, getCustomConferencesForYear, getTeamRankForWeek } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { TEAMS, getCurrentTeamTid, getCurrentTeamAbbr, isFCSPlaceholderAbbr } from '../../data/teamRegistry'
 import { getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
+import { getTeamColors } from '../../data/teamColors'
 import { conferenceTeams as DEFAULT_CONFERENCES, getTeamConference } from '../../data/conferenceTeams'
 import { PageHero, Card, EmptyState, TeamLogo } from '../../components/ui'
 import InlineYearSelect from '../../components/ui/InlineYearSelect'
@@ -41,6 +42,57 @@ function formatRecord(rec) {
   if (!rec) return null
   const { w = 0, l = 0, t = 0 } = rec
   return t > 0 ? `${w}-${l}-${t}` : `${w}-${l}`
+}
+
+// Renders a Link with smart text fitting: shows `full` when it fits, swaps
+// to `abbr` when it would overflow the available width. Uses a hidden
+// measurement span so the swap doesn't oscillate after layout shifts.
+function FittedNameLink({ to, onClick, full, abbr, className, style, children }) {
+  const linkRef = useRef(null)
+  const measureRef = useRef(null)
+  const [useAbbr, setUseAbbr] = useState(false)
+
+  useLayoutEffect(() => {
+    if (!abbr || abbr === full) return undefined
+    const link = linkRef.current
+    const m = measureRef.current
+    if (!link || !m) return undefined
+    const recompute = () => {
+      const fits = m.scrollWidth <= link.clientWidth
+      setUseAbbr(prev => (prev === !fits ? prev : !fits))
+    }
+    const ro = new ResizeObserver(recompute)
+    ro.observe(link)
+    recompute()
+    return () => ro.disconnect()
+  }, [full, abbr])
+
+  return (
+    <Link
+      ref={linkRef}
+      to={to}
+      onClick={onClick}
+      className={className}
+      style={{ ...(style || {}), position: 'relative' }}
+    >
+      <span
+        ref={measureRef}
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          visibility: 'hidden',
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none',
+          left: -9999,
+          top: 0,
+        }}
+      >
+        {full}
+      </span>
+      {useAbbr && abbr ? abbr : full}
+      {children}
+    </Link>
+  )
 }
 
 function GameCard({ game, teams, pathPrefix, recordsByTid, domId, compact = false }) {
@@ -128,8 +180,19 @@ function GameCard({ game, teams, pathPrefix, recordsByTid, domId, compact = fals
   const TeamRow = ({ tid, team, score, won, lost, record, rank }) => {
     const mascot = getMascotNameFromTeams(tid, teams) || team?.name || ''
     const school = getSchoolName(mascot) || team?.abbr || `TID ${tid}`
+    // Subtle horizontal gradient in the team's primary color — strongest
+    // on the left (under the logo), fading to transparent before the
+    // score so the score number stays readable on the card background.
+    const teamColors = mascot ? getTeamColors(mascot, teams) : null
+    const teamPrimary = teamColors?.primary || null
+    const rowGradient = teamPrimary
+      ? `linear-gradient(to right, color-mix(in srgb, ${teamPrimary} 30%, transparent) 0%, color-mix(in srgb, ${teamPrimary} 8%, transparent) 60%, transparent 100%)`
+      : 'transparent'
     return (
-      <div className={`flex items-center ${compact ? 'gap-1.5 pl-1.5 pr-2 py-2' : 'gap-2.5 pl-2 pr-4 py-2.5'}`}>
+      <div
+        className={`flex items-center ${compact ? 'gap-1.5 pl-1.5 pr-2 py-2' : 'gap-2.5 pl-2 pr-4 py-2.5'}`}
+        style={{ background: rowGradient }}
+      >
         {/* ESPN-style winner indicator: small filled triangle pointing at the row */}
         <span
           aria-hidden="true"
@@ -153,17 +216,17 @@ function GameCard({ game, teams, pathPrefix, recordsByTid, domId, compact = fals
               {rank}
             </span>
           )}
-          <Link
+          <FittedNameLink
             to={`${pathPrefix}/team/${tid}/${game.year}`}
             onClick={(e) => e.stopPropagation()}
+            full={school}
+            abbr={team?.abbr || ''}
             className={`${compact ? 'text-[12px]' : 'text-[15px]'} truncate hover:underline transition-colors`}
             style={{
               fontWeight: won ? 700 : 600,
               color: lost ? 'var(--text-tertiary)' : 'var(--text-primary)',
             }}
-          >
-            {school}
-          </Link>
+          />
           {record && !compact && (
             <span
               className="tabular-nums flex-shrink-0"
@@ -198,7 +261,7 @@ function GameCard({ game, teams, pathPrefix, recordsByTid, domId, compact = fals
       onClick={handleCardClick}
       onKeyDown={handleCardKey}
       className="game-card relative rounded-md overflow-hidden bg-surface-2 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-surface-5"
-      style={{ border: '1px solid var(--surface-4)' }}
+      style={{ border: '1px solid rgba(255, 255, 255, 0.18)' }}
     >
       {/* Header strip only renders for non-default states (tie, scheduled, neutral) */}
       {showStatusStrip && (
@@ -768,7 +831,7 @@ export default function WeeklyScores() {
 
       {tabParam === 'scores' && (
         sortedGames.length > 0 ? (
-          <div className="grid grid-cols-2 xl:grid-cols-3 gap-2 stagger-reveal">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 stagger-reveal">
             {sortedGames.map(game => (
               <GameCard
                 key={game.id}

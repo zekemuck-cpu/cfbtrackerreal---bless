@@ -25,13 +25,13 @@ export function buildScoreGraphicPrompt({
   gameType = 'regular',
   bowlName = null,
   conference = null,
-  rivalryName = null,
 }) {
   // ─── Game context ─────────────────────────────────────────────────────────
-  // designNote nudges the AI to incorporate the game's official visual assets
-  // (bowl logo, CFP shield, conference championship trophy, rivalry trophy) —
-  // these are well-known marks the AI has training memory for and they're the
-  // single biggest "this feels like the real broadcast" lever for special games.
+  // For bowl + CFP games the designNote nudges the AI to incorporate the
+  // game's official visual assets (bowl logo, CFP shield, championship
+  // trophy). These are well-known marks the AI has training memory for and
+  // they're the single biggest "this feels like the real broadcast" lever
+  // for special games.
   const buildGameContext = () => {
     const bn = (bowlName || '').trim()
     const conf = (conference || '').trim()
@@ -39,7 +39,7 @@ export function buildScoreGraphicPrompt({
       case 'conference_championship':
         return {
           line: conf ? `This was the ${conf} Conference Championship Game.` : `This was a conference championship game.`,
-          designNote: `Conference championship — weighty, ceremonial stakes. The conference logo and championship trophy are part of the day's visual identity; if you can recall them, weave them into the design.`,
+          designNote: `Conference championship — weighty, ceremonial stakes.`,
           callout: conf ? `${conf} Championship` : `Conference Championship`,
         }
       case 'bowl':
@@ -77,13 +77,6 @@ export function buildScoreGraphicPrompt({
     }
   }
   const gameContext = buildGameContext()
-
-  // Rivalry context is independent of gameType (a regular-season game can be
-  // a rivalry; theoretically so can a bowl). Emitted alongside gameContext.
-  const rivalryContext = rivalryName ? {
-    line: `This game is ${rivalryName}.`,
-    designNote: `${rivalryName} has its own trophy / rivalry imagery; if you can recall it, weave it into the design — the rivalry mark belongs in the visual story.`,
-  } : null
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
   const isFictionalTeam = (profile) => profile?.isFictional === true
@@ -192,8 +185,6 @@ export function buildScoreGraphicPrompt({
       `${rank2Label}${team2Name}${t2RecordEff ? ` (${t2RecordEff})` : ''}:  ${s2}`,
       gameContext ? gameContext.line : null,
       gameContext ? gameContext.designNote : null,
-      rivalryContext ? rivalryContext.line : null,
-      rivalryContext ? rivalryContext.designNote : null,
       ``,
       siteContext(),
       ``,
@@ -300,8 +291,6 @@ export function buildScoreGraphicPrompt({
     ``,
     gameContext ? gameContext.line : null,
     gameContext ? gameContext.designNote : null,
-    rivalryContext ? rivalryContext.line : null,
-    rivalryContext ? rivalryContext.designNote : null,
     ``,
     `RESULT`,
     `${rankLabel}${featuredName}${featuredRecordEff ? ` (${featuredRecordEff})` : ''}:  ${sf}`,

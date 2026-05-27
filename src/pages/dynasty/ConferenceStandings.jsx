@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, calculateTeamRecordFromGames, getTeamRecord, getCustomConferencesForYear, getTeamRankForWeek } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -135,6 +135,55 @@ const getConferenceData = (yearStandings, conferenceName) => {
     }
   }
   return []
+}
+
+// Smart name span — renders `full` when it fits in the container width,
+// swaps to `abbr` when it would overflow. Hidden measurement span carries
+// the full text so the comparison is stable regardless of which version
+// is currently displayed (no oscillation).
+function FittedName({ full, abbr, className, style }) {
+  const containerRef = useRef(null)
+  const measureRef = useRef(null)
+  const [useAbbr, setUseAbbr] = useState(false)
+
+  useLayoutEffect(() => {
+    if (!abbr || abbr === full) return undefined
+    const c = containerRef.current
+    const m = measureRef.current
+    if (!c || !m) return undefined
+    const recompute = () => {
+      const fits = m.scrollWidth <= c.clientWidth
+      setUseAbbr(prev => (prev === !fits ? prev : !fits))
+    }
+    const ro = new ResizeObserver(recompute)
+    ro.observe(c)
+    recompute()
+    return () => ro.disconnect()
+  }, [full, abbr])
+
+  return (
+    <span
+      ref={containerRef}
+      className={className}
+      style={{ ...(style || {}), position: 'relative', overflow: 'hidden', whiteSpace: 'nowrap' }}
+    >
+      <span
+        ref={measureRef}
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          visibility: 'hidden',
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none',
+          left: -9999,
+          top: 0,
+        }}
+      >
+        {full}
+      </span>
+      {useAbbr && abbr ? abbr : full}
+    </span>
+  )
 }
 
 export default function ConferenceStandings() {
@@ -290,6 +339,15 @@ export default function ConferenceStandings() {
     const isLeader = rank === 1
     const isUserTeam = userTid != null && linkTid != null && Number(linkTid) === userTid
 
+    // Team-color horizontal gradient — strongest on the left (under the
+    // logo), fading to transparent before the record columns so the
+    // numbers stay readable. Layered ON TOP of the existing base color
+    // (transparent / leader tint / user-team gold) via background-image
+    // so the user-team and #1 highlights still read.
+    const teamPrimary = colors?.primary || null
+    const rowGradient = teamPrimary
+      ? `linear-gradient(to right, color-mix(in srgb, ${teamPrimary} 30%, transparent) 0%, color-mix(in srgb, ${teamPrimary} 8%, transparent) 60%, transparent 100%)`
+      : 'none'
     return (
       <Link
         to={`${pathPrefix}/team/${linkTid}/${displayYear}`}
@@ -303,6 +361,7 @@ export default function ConferenceStandings() {
             : isLeader
               ? 'color-mix(in srgb, var(--surface-3) 60%, transparent)'
               : 'transparent',
+          backgroundImage: rowGradient,
         }}
       >
         <div
@@ -325,15 +384,15 @@ export default function ConferenceStandings() {
           )}
         </div>
 
-        <span
-          className="flex-1 text-sm truncate group-hover:text-txt-primary transition-colors"
+        <FittedName
+          full={getSchoolName(mascotName) || teamAbbr}
+          abbr={teamAbbr}
+          className="flex-1 text-sm group-hover:text-txt-primary transition-colors"
           style={{
             fontWeight: isLeader ? 700 : 500,
             color: 'var(--text-primary)',
           }}
-        >
-          {getSchoolName(mascotName) || teamAbbr}
-        </span>
+        />
 
         {/* Combined record cell — overall first, conference in parens
             ("9-1 (6-1)"). Sort is still by CONF record (handled in the

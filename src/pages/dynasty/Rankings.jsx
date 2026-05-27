@@ -340,9 +340,13 @@ export default function Rankings() {
         className="ranking-row group relative flex items-center gap-3 px-3 transition-all duration-150"
         style={{
           borderBottom: '1px solid var(--surface-4)',
+          borderLeft: `3px solid ${colors.primary || 'var(--surface-4)'}`,
           paddingTop: isLeader ? '12px' : '10px',
           paddingBottom: isLeader ? '12px' : '10px',
-          backgroundColor: isLeader ? 'color-mix(in srgb, var(--surface-3) 50%, transparent)' : 'transparent',
+          // Subtle team-color tint so each row is recognizably "that team"
+          // without overwhelming the page. Leader gets a slightly stronger
+          // tint to maintain the #1-stands-out emphasis the row already had.
+          backgroundColor: `color-mix(in srgb, ${colors.primary || 'var(--surface-3)'} ${isLeader ? 22 : 12}%, transparent)`,
         }}
       >
         <span
@@ -386,7 +390,7 @@ export default function Rankings() {
             className="tabular flex-shrink-0"
             style={{
               fontSize: isLeader ? '14px' : '12px',
-              color: isLeader ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+              color: 'var(--text-primary)',
               fontWeight: isLeader ? 600 : 500,
             }}
           >
@@ -493,7 +497,7 @@ export default function Rankings() {
         ) : null}
       />
 
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-xl mx-auto">
         <PollColumn data={top25} pollType="media" />
       </div>
 
