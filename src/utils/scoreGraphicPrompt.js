@@ -156,7 +156,7 @@ export function buildScoreGraphicPrompt({
     `• Photo-real jerseys, helmets, pads, gloves, cleats, or equipment shown on a body`,
     `• Crowd shots, fans, sideline scenes, coaches, staff, referees, cheerleaders`,
     `• Stadium photos, field/turf photos, sky, weather, scoreboard photography, stadium lighting`,
-    `• Mascots in physical/costumed form (the official team LOGO only — never a person in a mascot suit)`,
+    `• Mascots rendered photo-realistically (a costumed person, a lifelike animal, a rendered 3D figure). A flat vector illustration or stylized graphic of a mascot character — clearly not photo-real — is acceptable as a design element.`,
     `• Any "photo-real" rendering of any element, including decorative photo-like washes behind text`,
     ``,
     `What the canvas IS made of:`,
@@ -227,11 +227,13 @@ export function buildScoreGraphicPrompt({
     `• ONE primary visual block of "extra" content beyond the scoreboard, not three. If a photo is attached, the PHOTO is that one block — supporting type and the scoreboard frame it. Do NOT stack a hero photo PLUS a hype banner PLUS a subhead PLUS a slogan footer. If no photo is attached, the scoreboard itself carries the design without extra hype.`,
     `• IMPORTANT: minimalism does NOT mean dropping the attached photo. If a photo is attached, omitting it does not make the design cleaner — it makes it incomplete. Include the photo and keep everything else restrained.`,
     `• ONE texture/pattern at most. Don't stack halftones with paper grain with checkerboard with brush strokes with confetti. Pick one signature texture (or none) and use it sparingly as a background accent — never as a full-canvas overlay.`,
+    `• Restrained does NOT mean plain white backgrounds. A confident solid-color background rooted in the team's palette IS restrained — white is just lifeless. Avoid using plain white or light gray as the background for either team's information panel.`,
+    `• The score numbers are the largest typographic element on the canvas — larger than the team name, larger than the logo, larger than everything. If the logo is bigger than the score in your layout, fix it before sending.`,
     `• Generous whitespace. Let the scores breathe. Don't pack content edge-to-edge.`,
     `• No grunge frames, torn-paper edges, or gritty brush borders around the full canvas. Clean rectangular or simple-shape compositions.`,
-    `• The score numbers must be the unmistakable focal point. Every other element supports them rather than competing for attention.`,
     `• NO distressed, grunge, or brush-stroke letterforms — especially not for the "FINAL" label or any headline text. Clean, bold, modern typography only. Distressed/painted/scratchy fonts are a cliché.`,
     `• Each team's logo appears ONCE at a single consistent scale. Never repeat the same logo at two or three different sizes on the same canvas (e.g., small inside a score box AND a large floating version in the background).`,
+    `• Avoid the diagonal chevron split as your default layout device. It has become the most overused shape in AI-generated sports graphics. If you use a dividing element, make it a deliberate design choice, not a default.`,
     mode === 'branded'
       ? `• Do NOT split the canvas 50/50 between both teams' colors. Your team's palette dominates (roughly 70–80% visual weight) — the opponent's colors appear as secondary accents only.`
       : `• Do NOT split the canvas 50/50 between both teams' colors. Use both palettes as accent colors against a neutral field — neither team's colors should overpower the other.`,
