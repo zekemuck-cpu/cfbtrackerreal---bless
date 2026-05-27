@@ -309,7 +309,7 @@ export function buildScoreGraphicPrompt({
     opponentBlock ? `` : null,
     logoInstruction(...realTeamNames),
     ``,
-    `Score accuracy: ${featuredName} = ${sf}, ${oppName} = ${so}. Each score must have its team's logo immediately adjacent to it — a header or footer logo elsewhere on the graphic does not count as score identification. Never swap. Both teams' scores in the same visual format — equal type size and layout treatment.`,
+    `Score accuracy: ${featuredName} = ${sf}, ${oppName} = ${so}. ${oppName}'s score must have their logo immediately adjacent — they have no color presence otherwise. ${featuredName}'s score is identified by the color panel; if their primary logo already anchors the header, do not repeat it next to the score. Never swap. Both teams' scores in the same visual format — equal type size and layout treatment.`,
     ``,
     homeTeam !== null
       ? `Layout: ${awayName} (${awayScore}) on the left or top; ${homeName} (${homeScore}) on the right or bottom.`
