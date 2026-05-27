@@ -13,7 +13,7 @@ import { forwardRef } from 'react'
  */
 
 const INPUT_BASE =
-  'w-full bg-surface-2 text-txt-primary placeholder:text-txt-tertiary transition-shadow focus:outline-none focus:ring-1 focus:ring-team-primary disabled:opacity-60 disabled:cursor-not-allowed'
+  'w-full bg-surface-2 text-txt-primary placeholder:text-txt-tertiary transition-shadow focus:outline-none focus:ring-1 focus:ring-white/30 disabled:opacity-60 disabled:cursor-not-allowed'
 
 const SIZE_CLASS = {
   sm: 'px-2 py-1 text-xs rounded-sm',
