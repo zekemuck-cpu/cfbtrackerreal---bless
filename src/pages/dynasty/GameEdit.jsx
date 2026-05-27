@@ -2600,7 +2600,9 @@ export default function GameEdit() {
         )}
         <div className="ml-auto flex gap-3">
           <Button variant="outline" onClick={handleCancel}>Cancel</Button>
-          <Button variant="primary" accentColor="#ffffff" onClick={handleSave}>Save</Button>
+          <Button variant="primary" accentColor="#ffffff" onClick={handleSave} disabled={isSaving || photoUploadCount > 0}>
+            {isSaving ? 'Saving…' : photoUploadCount > 0 ? 'Uploading…' : 'Save'}
+          </Button>
         </div>
       </div>
 
