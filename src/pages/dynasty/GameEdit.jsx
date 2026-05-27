@@ -2455,14 +2455,12 @@ export default function GameEdit() {
         const t1Colors = getTeamColors(team1Name)
         const t2Colors = getTeamColors(team2Name)
 
-        // Pull records for the graphic prompt — use the same live memoized values
-        // the record fields in the UI display. live1/live2 use calculateTeamRecordFromGames
-        // with upToGameId so they count only games before this one in week order,
-        // then add this game's result → the correct post-game record for this week.
-        // DO NOT use existingGame.team1Record/team2Record: those were saved at entry
-        // time and may be wrong if games were entered out of chronological order.
-        const rec1 = autoFillRecords ? (live1?.record || '') : (formData.team1Record || '')
-        const rec2 = autoFillRecords ? (live2?.record || '') : (formData.team2Record || '')
+        // Pull records for the graphic prompt directly from the game's own stored
+        // fields — these reflect the record as of this specific game. Live-calculated
+        // values (live1/live2) reflect the current week's record, which is wrong when
+        // viewing a past game mid-season.
+        const rec1 = formData.team1Record || ''
+        const rec2 = formData.team2Record || ''
 
         // Pass screenshot count so the prompt can tell the AI to expect attachments
         const uploadedScreenshots = Array.isArray(formData.photos) ? formData.photos.filter(Boolean).length : 0
