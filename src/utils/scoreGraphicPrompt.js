@@ -309,7 +309,7 @@ export function buildScoreGraphicPrompt({
     opponentBlock ? `` : null,
     logoInstruction(...realTeamNames),
     ``,
-    `Score accuracy: ${featuredName} = ${sf}, ${oppName} = ${so}. Each score must have its team's logo immediately adjacent. ${featuredName}'s primary logo should appear at most once — if it anchors the header, use their secondary or alternate mark (mascot, wordmark, helmet logo, etc.) adjacent to their score instead of repeating the primary. Never swap. Both teams' scores in the same visual format — equal type size and layout treatment.`,
+    `Score accuracy: ${featuredName} = ${sf}, ${oppName} = ${so}. Each score must have its team's primary logo immediately adjacent. Do not place logos as standalone header or decorative elements — the score zone is the only place logos appear. Never swap. Both teams' scores in the same visual format — equal type size and layout treatment.`,
     ``,
     homeTeam !== null
       ? `Layout: ${awayName} (${awayScore}) on the left or top; ${homeName} (${homeScore}) on the right or bottom.`
