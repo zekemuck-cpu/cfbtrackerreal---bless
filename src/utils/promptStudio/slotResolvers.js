@@ -159,8 +159,10 @@ export function resolveGameSlot(dynasty, gameId, options = {}) {
   const s2 = game.team2Score ?? '—'
   const r1 = game.team1Rank ? ` (#${game.team1Rank})` : ''
   const r2 = game.team2Rank ? ` (#${game.team2Rank})` : ''
-  const rec1 = game.team1Record || formatRecord(getTeamRecord(dynasty, t1Tid, game.year))
-  const rec2 = game.team2Record || formatRecord(getTeamRecord(dynasty, t2Tid, game.year))
+  // Use stored per-game record fields; getTeamRecord() would return the full-season
+  // total (including this game) which overstates the "entering" record.
+  const rec1 = game.team1Record || null
+  const rec2 = game.team2Record || null
 
   const homeTid = game.homeTeamTid
   let site = 'neutral site'
@@ -182,7 +184,7 @@ export function resolveGameSlot(dynasty, gameId, options = {}) {
   out.push(`- **Year/Week**: ${game.year || '—'} ${game.week ? `Wk ${game.week}` : ''}${game.bowlName ? ` (${game.bowlName})` : ''}`)
   out.push(`- **Type**: ${gameTypeLabel}`)
   out.push(`- **Site**: ${site}`)
-  out.push(`- **Records entering**: ${t1Abbr || t1} ${rec1}, ${t2Abbr || t2} ${rec2}`)
+  if (rec1 || rec2) out.push(`- **Records entering**: ${t1Abbr || t1} ${rec1 ?? '—'}, ${t2Abbr || t2} ${rec2 ?? '—'}`)
 
   // Box score leaders — per team per category
   const bs = game.boxScore
@@ -295,12 +297,7 @@ export function resolveTeamSlot(dynasty, tid, options = {}) {
     .filter(g => Number(g.team1Tid) === tNum || Number(g.team2Tid) === tNum)
     .filter(g => Number(g.year) === Number(year))
     .filter(g => g.team1Score != null && g.team2Score != null && (g.team1Score > 0 || g.team2Score > 0 || g.isPlayed))
-    .sort((a, b) => {
-      // Best-effort sort: try by week number ascending, then by id as tiebreaker.
-      const wa = typeof a.week === 'number' ? a.week : parseInt(a.week, 10) || 99
-      const wb = typeof b.week === 'number' ? b.week : parseInt(b.week, 10) || 99
-      return wa - wb
-    })
+    .sort((a, b) => gameOrderKey(a) - gameOrderKey(b))
 
   const recent = allGames.slice(-recentN)
   if (recent.length) {
@@ -428,12 +425,24 @@ export function resolvePlayerSlot(dynasty, pid, options = {}) {
   return out.join('\n')
 }
 
+// Game sort order that places postseason games after regular season weeks.
+function gameOrderKey(g) {
+  const type = g.gameType || 'regular'
+  if (type === 'conference_championship') return 200
+  if (type === 'bowl')                    return 210
+  if (type === 'cfp_first_round')         return 220
+  if (type === 'cfp_quarterfinal')        return 230
+  if (type === 'cfp_semifinal')           return 240
+  if (type === 'cfp_championship')        return 250
+  return Number(g.week) || 0
+}
+
 // Format a stats object as bullet lines per category.
 // Handles both internal field names (yds, car, soloTkl…) and raw box-score
 // names (yards, carries, solo…) so it works for statsByYear and one-off blocks.
 function formatStatBlock(stats) {
   const lines = []
-  const cats = ['passing', 'rushing', 'receiving', 'defense', 'kicking', 'punting', 'kickReturn', 'puntReturn']
+  const cats = ['passing', 'rushing', 'receiving', 'defense', 'kicking', 'punting', 'kickReturn', 'puntReturn', 'blocking']
   for (const c of cats) {
     const v = stats[c]
     if (!v || typeof v !== 'object') continue
@@ -467,13 +476,18 @@ function formatStatBlock(stats) {
       if (v.punts) bits.push(`${v.punts} punts`)
       const yds = v.yds ?? v.yards; if (yds) bits.push(`${yds} yds`)
     } else if (c === 'kickReturn') {
-      if (v.kr) bits.push(`${v.kr} KR`)
+      // internal: ret  raw: kR
+      const ret = v.ret ?? v.kr; if (ret) bits.push(`${ret} KR`)
       const yds = v.yds ?? v.yards; if (yds) bits.push(`${yds} yds`)
       if (v.td) bits.push(`${v.td} TD`)
     } else if (c === 'puntReturn') {
-      if (v.pr) bits.push(`${v.pr} PR`)
+      // internal: ret  raw: pR
+      const ret = v.ret ?? v.pr; if (ret) bits.push(`${ret} PR`)
       const yds2 = v.yds ?? v.yards; if (yds2) bits.push(`${yds2} yds`)
       if (v.td) bits.push(`${v.td} TD`)
+    } else if (c === 'blocking') {
+      if (v.pancakes) bits.push(`${v.pancakes} pancakes`)
+      if (v.sacksAllowed) bits.push(`${v.sacksAllowed} sacks allowed`)
     }
     if (bits.length) lines.push(`  - ${c[0].toUpperCase()}${c.slice(1)}: ${bits.join(', ')}`)
   }
@@ -543,10 +557,10 @@ export function resolvePositionSlot(dynasty, position, options = {}) {
     return out.join('\n')
   }
 
-  // All games for this year, sorted by week, used for per-player game logs
+  // All games for this year in chronological order (postseason after reg-season weeks)
   const yearGames = (dynasty?.games || [])
     .filter(g => Number(g.year) === yearNum)
-    .sort((a, b) => (Number(a.week) || 0) - (Number(b.week) || 0))
+    .sort((a, b) => gameOrderKey(a) - gameOrderKey(b))
 
   // Split into active producers (have current-year stats or game log entries) and
   // depth reserves (no recorded data this year). Reserves get one compact line

@@ -182,10 +182,10 @@ export function PlayerSlotPicker({ value, onChange, dynasty, slot }) {
     return (dynasty?.players || [])
       .filter(p => !p.isHonorOnly)
       .map(p => {
-        const tid = p.teamsByYear?.[year] ?? p.team
+        const tid = p.teamsByYear?.[year] ?? p.teamsByYear?.[String(year)] ?? p.team
         const teamName = tid != null ? (getMascotName(tid, teams) || `Team ${tid}`) : '—'
-        const pos = p.positionByYear?.[year] || p.position || '?'
-        const ovr = p.overallByYear?.[year] || p.overall || ''
+        const pos = p.positionByYear?.[year] ?? p.positionByYear?.[String(year)] ?? p.position ?? '?'
+        const ovr = p.overallByYear?.[year] ?? p.overallByYear?.[String(year)] ?? p.overall ?? ''
         return {
           pid: Number(p.pid),
           label: `${p.name} (${pos}, ${teamName}${ovr ? ` · ${ovr} OVR` : ''})`,
