@@ -156,7 +156,7 @@ export function buildScoreGraphicPrompt({
     `• Photo-real jerseys, helmets, pads, gloves, cleats, or equipment shown on a body`,
     `• Crowd shots, fans, sideline scenes, coaches, staff, referees, cheerleaders`,
     `• Stadium photos, field/turf photos, sky, weather, scoreboard photography, stadium lighting`,
-    `• Mascots in physical/costumed form (the official team LOGO only — never a person in a mascot suit)`,
+    `• Mascots rendered photo-realistically (a costumed person, a lifelike animal, a rendered 3D figure). A flat vector illustration or stylized graphic of a mascot character — clearly not photo-real — is acceptable as a design element.`,
     `• Any "photo-real" rendering of any element, including decorative photo-like washes behind text`,
     ``,
     `What the canvas IS made of:`,
@@ -221,18 +221,22 @@ export function buildScoreGraphicPrompt({
   // Restraint guidance — counters the AI's instinct to pile on hype
   // banners, subheads, slogans, and multiple textures. Keeps the
   // graphic clean and scoreboard-first.
-  const visualRestraint = () => [
+  const visualRestraint = (mode = 'branded') => [
     `VISUAL RESTRAINT — keep it clean and sleek:`,
     `• The composition should feel like a focused scoreboard graphic, not a hype poster. Required content: the two scores, the two team names/logos, the FINAL label, and — if a photo is attached to this request — the attached photo as the hero visual. Postseason callout (if applicable) is the only optional addition.`,
     `• ONE primary visual block of "extra" content beyond the scoreboard, not three. If a photo is attached, the PHOTO is that one block — supporting type and the scoreboard frame it. Do NOT stack a hero photo PLUS a hype banner PLUS a subhead PLUS a slogan footer. If no photo is attached, the scoreboard itself carries the design without extra hype.`,
     `• IMPORTANT: minimalism does NOT mean dropping the attached photo. If a photo is attached, omitting it does not make the design cleaner — it makes it incomplete. Include the photo and keep everything else restrained.`,
     `• ONE texture/pattern at most. Don't stack halftones with paper grain with checkerboard with brush strokes with confetti. Pick one signature texture (or none) and use it sparingly as a background accent — never as a full-canvas overlay.`,
+    `• Restrained does NOT mean plain white backgrounds. A confident solid-color background rooted in the team's palette IS restrained — white is just lifeless. Avoid using plain white or light gray as the background for either team's information panel.`,
+    `• The score numbers are the largest typographic element on the canvas — larger than the team name, larger than the logo, larger than everything. If the logo is bigger than the score in your layout, fix it before sending.`,
     `• Generous whitespace. Let the scores breathe. Don't pack content edge-to-edge.`,
     `• No grunge frames, torn-paper edges, or gritty brush borders around the full canvas. Clean rectangular or simple-shape compositions.`,
-    `• The score numbers must be the unmistakable focal point. Every other element supports them rather than competing for attention.`,
     `• NO distressed, grunge, or brush-stroke letterforms — especially not for the "FINAL" label or any headline text. Clean, bold, modern typography only. Distressed/painted/scratchy fonts are a cliché.`,
     `• Each team's logo appears ONCE at a single consistent scale. Never repeat the same logo at two or three different sizes on the same canvas (e.g., small inside a score box AND a large floating version in the background).`,
-    `• Do NOT split the canvas 50/50 between both teams' colors. In a team-branded graphic, the featured team's palette should clearly dominate (roughly 70–80% visual weight). In a neutral graphic, use both palettes as accent colors against a neutral field rather than fighting each other for half the canvas.`,
+    `• Avoid the diagonal chevron split as your default layout device. It has become the most overused shape in AI-generated sports graphics. If you use a dividing element, make it a deliberate design choice, not a default.`,
+    mode === 'branded'
+      ? `• Do NOT split the canvas 50/50 between both teams' colors. Your team's palette dominates (roughly 70–80% visual weight) — the opponent's colors appear as secondary accents only.`
+      : `• Do NOT split the canvas 50/50 between both teams' colors. Use both palettes as accent colors against a neutral field — neither team's colors should overpower the other.`,
   ].join('\n')
 
   // homeTeam = 1 → team1 is home, 2 → team2 is home, null → neutral site
@@ -322,7 +326,7 @@ export function buildScoreGraphicPrompt({
       ``,
       `Do not place either logo in a plain white or gray box — both teams should feel integrated into the design.`,
       ``,
-      visualRestraint(),
+      visualRestraint('neutral'),
       ``,
       imageryPolicy(),
       ``,
@@ -372,9 +376,32 @@ export function buildScoreGraphicPrompt({
 
   const resultMood = `The graphic should feel confident, energized, and on-brand without being over the top.`
 
-  const motifLine = profile?.motifs?.length
-    ? `The program is known for these design motifs (use abstractly if you incorporate texture or geometry): ${profile.motifs.join(', ')}.`
+  // For fictional in-game teams the AI has no training memory — emit
+  // motifs/notes so it has something to work from. For real programs,
+  // this data would just be a redundant cheat sheet; the AI already
+  // knows what Auburn or Tennessee or Michigan graphics look like.
+  const motifLine = (profile?.motifs?.length && isFictionalTeam(profile))
+    ? `Design motifs for this program: ${profile.motifs.join(', ')}.`
     : ''
+
+  // Brand identity block — different for real vs. fictional teams.
+  // Real programs: the AI's training data already contains this school's
+  //   visual identity. Tell it to USE that knowledge rather than
+  //   re-describing what it already knows.
+  // Fictional programs: no training memory exists, so give concrete guidance.
+  const brandIdentitySection = isFictionalTeam(profile)
+    ? [
+        `BRAND IDENTITY — NON-NEGOTIABLE:`,
+        `The finished graphic must be immediately recognizable as a ${featuredName} graphic. Their primary color (${primary}) dominates the canvas — as the background field the design lives on, not as an accent or trim.`,
+      ].join('\n')
+    : [
+        `BRAND IDENTITY — NON-NEGOTIABLE:`,
+        `You know ${featuredName}'s visual identity from your training data — their colors, their logo, their design language, their graphic traditions, their visual era. That knowledge is your creative foundation. Use it.`,
+        ``,
+        `The finished graphic must be immediately, unmistakably recognizable as a ${featuredName} post. A fan scrolling their feed should see the color field alone — before reading a single word — and know which school this came from.`,
+        ``,
+        `Design this as ${featuredName}'s own graphics team would. Their primary color dominates the canvas — not as an accent strip or logo fill, but as the background field the entire composition lives on. Their motifs, their typographic conventions, their visual era — all of it is in your training. Trust it. Do not fall back on a generic sports-media template.`,
+      ].join('\n')
 
   // Opponent brand block — colors always; logo description only if the
   // opponent is a fictional in-game team.
@@ -404,11 +431,16 @@ export function buildScoreGraphicPrompt({
     `${oppRankLabel}${oppName}${oppRecordEff ? ` (${oppRecordEff})` : ''}:  ${so}`,
     ``,
     `BRAND — ${featuredName}`,
+    // Hex codes are a precision anchor even for real teams (exact shade matters).
+    // graphicNotes and motifLine are only emitted for fictional programs —
+    // for real schools the AI already carries this knowledge from training.
     `Primary: ${primaryPMS ? `${primaryPMS} / ` : ''}${primary}  Secondary: ${secondary}${tertiary ? `  Accent: ${tertiary}` : ''}`,
     profile?.wordmarkStyle ? `Wordmark: ${profile.wordmarkStyle}` : null,
-    profile?.graphicNotes  ? `${profile.graphicNotes}` : null,
+    (isFictionalTeam(profile) && profile?.graphicNotes) ? `${profile.graphicNotes}` : null,
     motifLine || null,
     featuredFictionalLogo ? `Logo (fictional team — render from this description only, do not substitute a real logo): ${featuredFictionalLogo}` : null,
+    ``,
+    brandIdentitySection,
     ``,
     opponentBlock,
     opponentBlock ? `` : null,
@@ -425,7 +457,7 @@ export function buildScoreGraphicPrompt({
     })() : `Neutral site — layout is your call.`,
     ``,
     ``,
-    visualRestraint(),
+    visualRestraint('branded'),
     ``,
     imageryPolicy(),
     ``,
