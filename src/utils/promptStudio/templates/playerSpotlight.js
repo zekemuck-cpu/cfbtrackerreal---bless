@@ -26,7 +26,7 @@ export const playerSpotlight = {
     },
   ],
 
-  knobWhitelist: ['voice', 'audience', 'tone', 'length', 'format', 'timeHorizon', 'stance'],
+  knobWhitelist: ['voice', 'audience', 'tone', 'length', 'format', 'focus', 'timeHorizon', 'stance'],
 
   knobDefaults: {
     voice: 'athletic-feature',
@@ -34,6 +34,7 @@ export const playerSpotlight = {
     tone: 'conversational',
     length: 'standard',
     format: 'prose',
+    focus: 'all-three-phases',
     timeHorizon: 'this-season',
     stance: 'lay-out-facts',
   },

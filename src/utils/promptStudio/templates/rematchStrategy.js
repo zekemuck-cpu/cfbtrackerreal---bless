@@ -11,7 +11,7 @@
  *   - both teams' games since previousGame (recent form)
  */
 
-import { resolveGameSlot, resolveTeamSlot } from '../slotResolvers'
+import { resolveGameSlot, resolveTeamSlot, gameOrderKey } from '../slotResolvers'
 import { TEAMS } from '../../../data/teamRegistry'
 import { getMascotName } from '../../../data/teams'
 
@@ -63,16 +63,14 @@ export const rematchStrategy = {
     const userName = getMascotName(userTid, teams) || 'Your team'
     const oppName  = getMascotName(oppTid,  teams) || 'Opponent'
 
-    // Recent form for both sides since the previous meeting.
+    // Recent form for both sides since the previous meeting, in chronological order.
+    const prevKey = gameOrderKey(game)
     const sinceGames = (dynasty?.games || [])
       .filter(g => g.id !== gameId)
       .filter(g => Number(g.year) === Number(game.year))
-      .filter(g => {
-        const wA = typeof game.week === 'number' ? game.week : parseInt(game.week, 10) || 0
-        const wB = typeof g.week === 'number' ? g.week : parseInt(g.week, 10) || 0
-        return wB > wA
-      })
+      .filter(g => gameOrderKey(g) > prevKey)
       .filter(g => g.team1Score != null && g.team2Score != null && (g.team1Score > 0 || g.team2Score > 0 || g.isPlayed))
+      .sort((a, b) => gameOrderKey(a) - gameOrderKey(b))
 
     const userSince = sinceGames.filter(g => Number(g.team1Tid) === userTid || Number(g.team2Tid) === userTid)
     const oppSince  = sinceGames.filter(g => Number(g.team1Tid) === oppTid  || Number(g.team2Tid) === oppTid)

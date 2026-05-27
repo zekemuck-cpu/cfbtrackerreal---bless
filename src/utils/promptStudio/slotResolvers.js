@@ -50,7 +50,7 @@ function normName(s) {
 }
 
 // Game sort order that places postseason games after regular season weeks.
-function gameOrderKey(g) {
+export function gameOrderKey(g) {
   const type = g.gameType || 'regular'
   if (type === 'conference_championship') return 200
   if (type === 'bowl')                    return 210
@@ -309,7 +309,7 @@ export function resolveGameSlot(dynasty, gameId, options = {}) {
   const rec1 = game.team1Record || null
   const rec2 = game.team2Record || null
 
-  const homeTid = game.homeTeamTid
+  const homeTid = game.homeTeamTid != null ? Number(game.homeTeamTid) : null
   let site = 'neutral site'
   if (homeTid === t1Tid) site = `at ${t1}`
   else if (homeTid === t2Tid) site = `at ${t2}`
@@ -453,7 +453,7 @@ export function resolveTeamSlot(dynasty, tid, options = {}) {
     .sort((a, b) => gameOrderKey(a) - gameOrderKey(b))
 
   const filteredGames = filterGamesByHorizon(yearGames, horizon, tNum)
-  const recent = filteredGames.slice(-recentN)
+  const recent = recentN > 0 ? filteredGames.slice(-recentN) : []
   const horizonSuffix = horizonLabel(horizon) ? ` (${horizonLabel(horizon)})` : ` (year ${year})`
 
   if (recent.length) {
@@ -665,9 +665,10 @@ export function resolvePositionSlot(dynasty, position, options = {}) {
     return out.join('\n')
   }
 
-  // All games for this year in chronological order, then filtered by horizon
+  // All played games for this year in chronological order, then filtered by horizon
   const yearGames = (dynasty?.games || [])
     .filter(g => Number(g.year) === yearNum)
+    .filter(g => g.team1Score != null && g.team2Score != null && (g.team1Score > 0 || g.team2Score > 0 || g.isPlayed))
     .sort((a, b) => gameOrderKey(a) - gameOrderKey(b))
 
   const filteredGames = filterGamesByHorizon(yearGames, horizon, tid)

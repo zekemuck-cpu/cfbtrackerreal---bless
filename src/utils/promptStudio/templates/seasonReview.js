@@ -6,7 +6,7 @@
  *   - year (year)
  */
 
-import { resolveTeamSlot, resolveYearSlot } from '../slotResolvers'
+import { resolveTeamSlot, resolveYearSlot, gameOrderKey } from '../slotResolvers'
 import { calculateTeamRecordFromGames } from '../../../context/DynastyContext'
 import { TEAMS } from '../../../data/teamRegistry'
 import { getMascotName } from '../../../data/teams'
@@ -62,11 +62,7 @@ export const seasonReview = {
       .filter(g => Number(g.team1Tid) === Number(tid) || Number(g.team2Tid) === Number(tid))
       .filter(g => Number(g.year) === Number(year))
       .filter(g => g.team1Score != null && g.team2Score != null && (g.team1Score > 0 || g.team2Score > 0 || g.isPlayed))
-      .sort((a, b) => {
-        const wa = typeof a.week === 'number' ? a.week : parseInt(a.week, 10) || 99
-        const wb = typeof b.week === 'number' ? b.week : parseInt(b.week, 10) || 99
-        return wa - wb
-      })
+      .sort((a, b) => gameOrderKey(a) - gameOrderKey(b))
 
     const gameLog = allGames.map(g => {
       const isTeam1 = Number(g.team1Tid) === Number(tid)

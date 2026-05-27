@@ -48,11 +48,14 @@ export const customSandbox = {
     const { dynasty } = ctx
     const blocks = []
 
-    if (slots.game)     blocks.push(resolveGameSlot(dynasty, slots.game))
-    if (slots.team)     blocks.push(resolveTeamSlot(dynasty, slots.team, { year: slots.year ?? dynasty?.currentYear, recentGames: 3 }))
-    if (slots.player)   blocks.push(resolvePlayerSlot(dynasty, slots.player, { year: slots.year ?? dynasty?.currentYear, horizon: knobs.timeHorizon || 'this-season' }))
+    const yr = slots.year ?? dynasty?.currentYear
+    const focus = knobs.focus
+    const horizon = knobs.timeHorizon || 'this-season'
+    if (slots.game)     blocks.push(resolveGameSlot(dynasty, slots.game, { focus }))
+    if (slots.team)     blocks.push(resolveTeamSlot(dynasty, slots.team, { year: yr, recentGames: 3, focus, horizon }))
+    if (slots.player)   blocks.push(resolvePlayerSlot(dynasty, slots.player, { year: yr, horizon, focus }))
     if (slots.year)     blocks.push(resolveYearSlot(dynasty, slots.year))
-    if (slots.position) blocks.push(resolvePositionSlot(dynasty, slots.position, { tid: slots.team ?? dynasty?.currentTid, year: slots.year ?? dynasty?.currentYear }))
+    if (slots.position) blocks.push(resolvePositionSlot(dynasty, slots.position, { tid: slots.team ?? dynasty?.currentTid, year: yr, horizon, focus }))
 
     const data = blocks.length
       ? blocks.join('\n\n')
