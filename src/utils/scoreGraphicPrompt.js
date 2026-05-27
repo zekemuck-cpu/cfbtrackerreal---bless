@@ -262,6 +262,8 @@ export function buildScoreGraphicPrompt({
         `That is what you are designing right now.`,
         ``,
         `The graphic must feel like it came from ${featuredName}'s own graphics team — not just because a logo is present, but because the design language itself speaks that specific school. That includes the lettering: if ${featuredName} uses a distinctive athletic font or number style, use it.`,
+        ``,
+        `Failure mode to avoid: a generic college-football scorecard with ${featuredName}'s colors swapped in. If a side-by-side fan couldn't tell this graphic from ${featuredName}'s actual account, you missed the brief. Before you draw, name (to yourself) three specific design moves this program's graphics team is known for — a typeface or number treatment, a layout shape or chevron/angle, a recurring graphic element or pattern — and put each of them in the work.`,
       ].join('\n')
 
   const opponentBlock = buildBrandSummary(oppName, oppProfile, oppColors, 'OPPONENT')
