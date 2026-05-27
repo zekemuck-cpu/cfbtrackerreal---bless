@@ -377,8 +377,29 @@ export function buildScoreGraphicPrompt({
   const resultMood = `The graphic should feel confident, energized, and on-brand without being over the top.`
 
   const motifLine = profile?.motifs?.length
-    ? `The program is known for these design motifs (use abstractly if you incorporate texture or geometry): ${profile.motifs.join(', ')}.`
+    ? `Signature motifs — work at least one of these into the composition as a structural or background element (framing device, panel shape, recurring pattern). They should feel native to the design, not like decoration dropped on top: ${profile.motifs.join(', ')}.`
     : ''
+
+  // Brand identity enforcement — tells the AI to build FROM the school's
+  // visual identity, not just reference it as background data.
+  const brandIdentitySection = (() => {
+    const parts = [
+      `BRAND IDENTITY — NON-NEGOTIABLE:`,
+      `The finished graphic must be unmistakably, instantly recognizable as a ${featuredName} graphic. A person scrolling their feed should see the color field alone — before reading any text — and know exactly which school posted this.`,
+      ``,
+      `• ${primary} is the canvas. The featured team's primary color dominates the background. Not as an accent strip or a logo fill — as the visual field the entire graphic lives on. If you are designing a layout where the background reads as white, black, or gray, you are doing it wrong.`,
+    ]
+    if (profile?.graphicNotes) {
+      parts.push(`• The design notes in the BRAND block above are your creative brief — they describe how ${featuredName} graphics actually look and feel. Build from them. They are not background information; they are the assignment.`)
+    }
+    if (profile?.motifs?.length) {
+      parts.push(`• The motifs listed — ${profile.motifs.join(', ')} — are the visual signature of this program. At least one of them must appear as a real structural or background element in the layout (not a decorative afterthought). Ask yourself: would a ${featuredName} fan recognize this design language without reading the team name?`)
+    }
+    if (profile?.visualEra) {
+      parts.push(`• This program's visual era is "${profile.visualEra}". Let that shape your typography and overall aesthetic. Do NOT default to a generic modern sports-media look — this should feel like it came from ${featuredName}'s own graphics team.`)
+    }
+    return parts.join('\n')
+  })()
 
   // Opponent brand block — colors always; logo description only if the
   // opponent is a fictional in-game team.
@@ -413,6 +434,8 @@ export function buildScoreGraphicPrompt({
     profile?.graphicNotes  ? `${profile.graphicNotes}` : null,
     motifLine || null,
     featuredFictionalLogo ? `Logo (fictional team — render from this description only, do not substitute a real logo): ${featuredFictionalLogo}` : null,
+    ``,
+    brandIdentitySection,
     ``,
     opponentBlock,
     opponentBlock ? `` : null,
