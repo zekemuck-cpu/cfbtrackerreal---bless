@@ -114,7 +114,6 @@ export function buildScoreGraphicPrompt({
     `DESIGN RULES:`,
     `• If a photo is attached, let it fill or bleed across the canvas — lay the design over it rather than framing it inside a panel.`,
     `• No distressed, scratchy, or grungy letterforms. Clean, bold typography only.`,
-    `• Each logo appears once at a single consistent scale — not duplicated at multiple sizes.`,
     mode === 'branded'
       ? `• This is ${featuredName}'s post — their palette dominates. Opponent colors are accents only.`
       : `• Both teams represented equally — neither palette dominates.`,
