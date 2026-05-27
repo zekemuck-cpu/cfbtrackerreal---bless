@@ -25,8 +25,13 @@ export function buildScoreGraphicPrompt({
   gameType = 'regular',
   bowlName = null,
   conference = null,
+  rivalryName = null,
 }) {
   // ─── Game context ─────────────────────────────────────────────────────────
+  // designNote nudges the AI to incorporate the game's official visual assets
+  // (bowl logo, CFP shield, conference championship trophy, rivalry trophy) —
+  // these are well-known marks the AI has training memory for and they're the
+  // single biggest "this feels like the real broadcast" lever for special games.
   const buildGameContext = () => {
     const bn = (bowlName || '').trim()
     const conf = (conference || '').trim()
@@ -34,37 +39,37 @@ export function buildScoreGraphicPrompt({
       case 'conference_championship':
         return {
           line: conf ? `This was the ${conf} Conference Championship Game.` : `This was a conference championship game.`,
-          designNote: `Conference championship — weighty, ceremonial stakes.`,
+          designNote: `Conference championship — weighty, ceremonial stakes. The conference logo and championship trophy are part of the day's visual identity; if you can recall them, weave them into the design.`,
           callout: conf ? `${conf} Championship` : `Conference Championship`,
         }
       case 'bowl':
         return {
           line: bn ? `This was the ${bn}.` : `This was a postseason bowl game.`,
-          designNote: `Bowl game — season-finale stakes.`,
+          designNote: `Bowl game — season-finale stakes. ${bn ? `The ${bn}'s` : `The bowl's`} official logo and trophy are recognized assets; if you can recall them, weave them into the design.`,
           callout: bn || `Bowl Game`,
         }
       case 'cfp_first_round':
         return {
           line: `This was a College Football Playoff First Round game${bn ? ` (${bn})` : ''}.`,
-          designNote: `College Football Playoff — national-stage stakes.`,
+          designNote: `College Football Playoff — national-stage stakes. The CFP shield/logo is the recognized national-stage asset; weave it in.`,
           callout: `CFP First Round`,
         }
       case 'cfp_quarterfinal':
         return {
           line: bn ? `This was a College Football Playoff Quarterfinal at the ${bn}.` : `This was a College Football Playoff Quarterfinal.`,
-          designNote: `CFP Quarterfinal — national playoff stakes.`,
+          designNote: `CFP Quarterfinal — national playoff stakes. The CFP shield/logo${bn ? ` and the ${bn}'s branding` : ''} are recognized assets; weave them in.`,
           callout: `CFP Quarterfinal`,
         }
       case 'cfp_semifinal':
         return {
           line: bn ? `This was a College Football Playoff Semifinal at the ${bn}.` : `This was a College Football Playoff Semifinal.`,
-          designNote: `CFP Semifinal — one win from the championship.`,
+          designNote: `CFP Semifinal — one win from the championship. The CFP shield/logo${bn ? ` and the ${bn}'s branding` : ''} are recognized assets; weave them in.`,
           callout: `CFP Semifinal`,
         }
       case 'cfp_championship':
         return {
           line: `This was the College Football Playoff National Championship.`,
-          designNote: `The National Championship — the biggest stage in college football.`,
+          designNote: `The National Championship — the biggest stage in college football. The CFP National Championship trophy and the CFP shield are iconic assets; weave them in.`,
           callout: `National Championship`,
         }
       default:
@@ -72,6 +77,13 @@ export function buildScoreGraphicPrompt({
     }
   }
   const gameContext = buildGameContext()
+
+  // Rivalry context is independent of gameType (a regular-season game can be
+  // a rivalry; theoretically so can a bowl). Emitted alongside gameContext.
+  const rivalryContext = rivalryName ? {
+    line: `This game is ${rivalryName}.`,
+    designNote: `${rivalryName} has its own trophy / rivalry imagery; if you can recall it, weave it into the design — the rivalry mark belongs in the visual story.`,
+  } : null
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
   const isFictionalTeam = (profile) => profile?.isFictional === true
@@ -180,6 +192,8 @@ export function buildScoreGraphicPrompt({
       `${rank2Label}${team2Name}${t2RecordEff ? ` (${t2RecordEff})` : ''}:  ${s2}`,
       gameContext ? gameContext.line : null,
       gameContext ? gameContext.designNote : null,
+      rivalryContext ? rivalryContext.line : null,
+      rivalryContext ? rivalryContext.designNote : null,
       ``,
       siteContext(),
       ``,
@@ -286,6 +300,8 @@ export function buildScoreGraphicPrompt({
     ``,
     gameContext ? gameContext.line : null,
     gameContext ? gameContext.designNote : null,
+    rivalryContext ? rivalryContext.line : null,
+    rivalryContext ? rivalryContext.designNote : null,
     ``,
     `RESULT`,
     `${rankLabel}${featuredName}${featuredRecordEff ? ` (${featuredRecordEff})` : ''}:  ${sf}`,

@@ -6,7 +6,7 @@ import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeam
 import { useDynasty, GAME_TYPES, getCurrentCustomConferences, buildRecordUpdatePayload, calculateTeamRecordFromGames, getStoredTeamRecord, getTeamRecord, getTeamRankForWeek, propagateCFPWinner, isPlayerOnRoster, getRecordAsOfGame } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { getFullRecapPrompt } from '../../services/geminiService'
+import { getFullRecapPrompt, getRivalryName } from '../../services/geminiService'
 import { getBowlLogo } from '../../data/bowlLogos'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { getTeamConference } from '../../data/conferenceTeams'
@@ -2487,6 +2487,9 @@ export default function GameEdit() {
         const promptGameType   = computedWeekFlags?.gameType   || existingGame?.gameType   || 'regular'
         const promptBowlName   = computedWeekFlags?.bowlName   ?? existingGame?.bowlName   ?? null
         const promptConference = computedWeekFlags?.conference ?? existingGame?.conference ?? null
+        // Trophy / rivalry games: look up by abbr pair. Returns null for
+        // non-rivalries and for custom-team-builder pairs not in the registry.
+        const promptRivalryName = getRivalryName(team1Abbr, team2Abbr)
 
         const prompt = hasScores ? buildScoreGraphicPrompt({
           team1Name,
@@ -2507,6 +2510,7 @@ export default function GameEdit() {
           gameType: promptGameType,
           bowlName: promptBowlName,
           conference: promptConference,
+          rivalryName: promptRivalryName,
         }) : ''
 
         return (
