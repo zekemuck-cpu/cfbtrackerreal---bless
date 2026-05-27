@@ -21,6 +21,7 @@ import {
   getPlayerOverallForYear,
   getPlayerClassForYear,
   getPlayerPositionForYear,
+  isPlayerOnRoster,
 } from '../../context/DynastyContext'
 import { TEAMS } from '../../data/teamRegistry'
 import { getMascotName } from '../../data/teams'
@@ -261,8 +262,8 @@ export function resolvePlayerSlot(dynasty, pid, options = {}) {
   const pos = getPlayerPositionForYear(player, year) || player.position || '—'
   const cls = getPlayerClassForYear(player, year) || player.year || '—'
   const ovr = getPlayerOverallForYear(player, year) || player.overall || '—'
-  const dev = player.devTraitByYear?.[year] || player.devTrait || '—'
-  const teamTid = player.teamsByYear?.[year] ?? null
+  const dev = player.devTraitByYear?.[year] || player.devTraitByYear?.[String(year)] || player.devTrait || '—'
+  const teamTid = player.teamsByYear?.[year] ?? player.teamsByYear?.[String(year)] ?? null
   const teamName = teamTid != null ? teamLabel(dynasty, teamTid) : '—'
 
   const out = []
@@ -326,7 +327,7 @@ export function resolvePlayerSlot(dynasty, pid, options = {}) {
     }
   } else {
     // this-season (default)
-    const stats = player.statsByYear?.[year] || null
+    const stats = player.statsByYear?.[year] || player.statsByYear?.[String(year)] || null
     out.push(`\n**Stats (${year})**`)
     if (stats && Object.keys(stats).length) {
       out.push(formatStatBlock(stats))
@@ -450,7 +451,7 @@ export function resolvePositionSlot(dynasty, position, options = {}) {
 
   const players = getAllPlayers(dynasty) || []
   const groupPlayers = players
-    .filter(p => Number(p.teamsByYear?.[year]) === Number(tid))
+    .filter(p => isPlayerOnRoster(p, tid, year))
     .filter(p => (getPlayerPositionForYear(p, year) || p.position) === position)
     .sort((a, b) => (getPlayerOverallForYear(b, year) || 0) - (getPlayerOverallForYear(a, year) || 0))
 
@@ -463,14 +464,14 @@ export function resolvePositionSlot(dynasty, position, options = {}) {
   groupPlayers.slice(0, 8).forEach(p => {
     const ovr = getPlayerOverallForYear(p, year) || '—'
     const cls = getPlayerClassForYear(p, year) || '—'
-    const dev = p.devTraitByYear?.[year] || p.devTrait || '—'
+    const dev = p.devTraitByYear?.[year] || p.devTraitByYear?.[String(year)] || p.devTrait || '—'
     out.push(`  - ${p.name} — ${cls}, OVR ${ovr}, ${dev}`)
   })
 
   // Aggregate stats for the group
   const aggStats = {}
   groupPlayers.forEach(p => {
-    const s = p.statsByYear?.[year] || {}
+    const s = p.statsByYear?.[year] || p.statsByYear?.[String(year)] || {}
     for (const cat of Object.keys(s)) {
       if (typeof s[cat] !== 'object') continue
       aggStats[cat] = aggStats[cat] || {}
