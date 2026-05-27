@@ -121,7 +121,7 @@ export function buildScoreGraphicPrompt({
 
   const textRules = (fictionalNamesList = []) => {
     const lines = [
-      `TEXT RULES — do not include:`,
+      `TEXT RULES: Logos are sufficient to identify each team — written team names are optional and often unnecessary. Do not include:`,
       `• "FINAL SCORE" as a large hero headline. "FINAL" may appear as a label.`,
       `• "AWAY", "HOME", "ROAD", or "VISITOR" as visible canvas text.`,
       `• Outcome declarations — "CATS WIN!", "[TEAM] WIN.", "VICTORY!", or equivalent hype banners.`,
