@@ -3681,29 +3681,43 @@ export default function Game() {
 
           {activeTab === 'photos' && Array.isArray(game.photos) && game.photos.length > 0 && (
             <div className="px-3 sm:px-5 py-5 sm:py-6">
-              <h3 className="text-base font-bold text-txt-primary mb-1">
-                Photo Gallery
-              </h3>
-              <p className="text-xs text-txt-tertiary mb-5">
-                {game.photos.length} {game.photos.length === 1 ? 'photo' : 'photos'} uploaded. Click any to open full size.
-              </p>
               <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-8 xl:grid-cols-10 gap-2">
-                {game.photos.map((url, idx) => (
-                  <button
-                    key={`${url}-${idx}`}
-                    type="button"
-                    onClick={() => setPhotoLightboxIdx(idx)}
-                    className="group relative aspect-square overflow-hidden rounded-md transition-transform duration-150 hover:-translate-y-0.5"
-                    style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
-                  >
-                    <img
-                      src={url}
-                      alt={`Game photo ${idx + 1}`}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  </button>
-                ))}
+                {game.photos.map((url, idx) => {
+                  // Route grid thumbs through wsrv.nl (free image proxy) to
+                  // get ~240px webp instead of the full-res ImgBB original.
+                  // ~10-30x smaller per tile. The lightbox still loads `url`
+                  // directly for full quality. If wsrv ever hiccups on a
+                  // single image, onError swaps the tile back to the
+                  // original URL so the tab keeps working.
+                  const thumbSrc = `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=240&output=webp`
+                  return (
+                    <button
+                      key={`${url}-${idx}`}
+                      type="button"
+                      onClick={() => setPhotoLightboxIdx(idx)}
+                      className="group relative aspect-square overflow-hidden rounded-md transition-transform duration-150 hover:-translate-y-0.5"
+                      style={{
+                        backgroundColor: 'var(--surface-2)',
+                        border: '1px solid var(--surface-4)',
+                        contentVisibility: 'auto',
+                        containIntrinsicSize: 'auto 160px',
+                      }}
+                    >
+                      <img
+                        src={thumbSrc}
+                        alt={`Game photo ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        decoding="async"
+                        fetchpriority="low"
+                        onError={(e) => {
+                          // wsrv failed for this image — fall back to original.
+                          if (e.currentTarget.src !== url) e.currentTarget.src = url
+                        }}
+                      />
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )}
