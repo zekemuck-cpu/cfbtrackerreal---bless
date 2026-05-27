@@ -52,6 +52,7 @@ export const playerSpotlight = {
     const data = resolvePlayerSlot(dynasty, pid, {
       year: dynasty?.currentYear,
       horizon,
+      focus: knobs.focus,
     })
 
     const horizonLabel = {

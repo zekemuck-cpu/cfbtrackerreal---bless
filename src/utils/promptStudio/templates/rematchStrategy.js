@@ -44,7 +44,7 @@ export const rematchStrategy = {
     stance: 'take-a-position',
   },
 
-  render: ({ slots, ctx }) => {
+  render: ({ slots, knobs, ctx }) => {
     const { dynasty } = ctx
     const gameId = slots.previousGame
     const game = (dynasty?.games || []).find(g => g.id === gameId)
@@ -96,12 +96,12 @@ export const rematchStrategy = {
     }
 
     const data = [
-      resolveGameSlot(dynasty, gameId),
+      resolveGameSlot(dynasty, gameId, { focus: knobs.focus }),
       '',
-      resolveTeamSlot(dynasty, userTid, { year: dynasty?.currentYear, recentGames: 0 }),
+      resolveTeamSlot(dynasty, userTid, { year: dynasty?.currentYear, recentGames: 0, focus: knobs.focus }),
       recentLines(userName, userTid, userSince),
       '',
-      resolveTeamSlot(dynasty, oppTid, { year: dynasty?.currentYear, recentGames: 0 }),
+      resolveTeamSlot(dynasty, oppTid, { year: dynasty?.currentYear, recentGames: 0, focus: knobs.focus }),
       recentLines(oppName, oppTid, oppSince),
     ].join('\n')
 

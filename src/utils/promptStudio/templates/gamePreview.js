@@ -41,7 +41,7 @@ export const gamePreview = {
     stance: 'take-a-position',
   },
 
-  render: ({ slots, ctx }) => {
+  render: ({ slots, knobs, ctx }) => {
     const { dynasty } = ctx
     const oppTid = slots.opponent
     if (oppTid == null) {
@@ -55,10 +55,10 @@ export const gamePreview = {
 
     const data = [
       `## Your team`,
-      resolveTeamSlot(dynasty, userTid, { year: dynasty?.currentYear, recentGames: 3 }),
+      resolveTeamSlot(dynasty, userTid, { year: dynasty?.currentYear, recentGames: 3, focus: knobs.focus }),
       '',
       `## Opponent`,
-      resolveTeamSlot(dynasty, oppTid, { year: dynasty?.currentYear, recentGames: 3 }),
+      resolveTeamSlot(dynasty, oppTid, { year: dynasty?.currentYear, recentGames: 3, focus: knobs.focus }),
     ].join('\n')
 
     const task = [

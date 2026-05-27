@@ -41,7 +41,7 @@ export const positionGroup = {
     },
   ],
 
-  knobWhitelist: ['voice', 'audience', 'tone', 'length', 'format', 'stance'],
+  knobWhitelist: ['voice', 'audience', 'tone', 'length', 'format', 'focus', 'timeHorizon', 'stance'],
 
   knobDefaults: {
     voice: 'position-coach',
@@ -49,10 +49,12 @@ export const positionGroup = {
     tone: 'analytical',
     length: 'standard',
     format: 'headers',
+    focus: 'all-three-phases',
+    timeHorizon: 'this-season',
     stance: 'lay-out-facts',
   },
 
-  render: ({ slots, ctx }) => {
+  render: ({ slots, knobs, ctx }) => {
     const { dynasty } = ctx
     const position = slots.position
     const tid = slots.team
@@ -65,7 +67,12 @@ export const positionGroup = {
     const teams = dynasty?.teams || TEAMS
     const teamName = getMascotName(tid, teams) || `Team ${tid}`
 
-    const data = resolvePositionSlot(dynasty, position, { tid, year })
+    const data = resolvePositionSlot(dynasty, position, {
+      tid,
+      year,
+      horizon: knobs.timeHorizon,
+      focus: knobs.focus,
+    })
 
     const task = [
       `Write a check-in on ${teamName}'s ${position} group for the ${year} season. The piece should:`,

@@ -34,7 +34,7 @@ export const seasonReview = {
     },
   ],
 
-  knobWhitelist: ['voice', 'audience', 'tone', 'length', 'format', 'stance'],
+  knobWhitelist: ['voice', 'audience', 'tone', 'length', 'format', 'focus', 'stance'],
 
   knobDefaults: {
     voice: 'athletic-feature',
@@ -42,10 +42,11 @@ export const seasonReview = {
     tone: 'conversational',
     length: 'deep',
     format: 'headers',
+    focus: 'all-three-phases',
     stance: 'take-a-position',
   },
 
-  render: ({ slots, ctx }) => {
+  render: ({ slots, knobs, ctx }) => {
     const { dynasty } = ctx
     const tid = slots.team
     const year = slots.year ?? dynasty?.currentYear
@@ -82,7 +83,7 @@ export const seasonReview = {
     const recStr = rec.ties > 0 ? `${rec.wins}-${rec.losses}-${rec.ties}` : `${rec.wins}-${rec.losses}`
 
     const data = [
-      resolveTeamSlot(dynasty, tid, { year, recentGames: 0 }),
+      resolveTeamSlot(dynasty, tid, { year, recentGames: 0, focus: knobs.focus }),
       '',
       `### Full season game log (${recStr})`,
       gameLog || '  _(no games)_',
