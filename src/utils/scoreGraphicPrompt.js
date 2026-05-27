@@ -115,7 +115,7 @@ export function buildScoreGraphicPrompt({
     `• If a photo is attached, let it fill or bleed across the canvas — lay the design over it rather than framing it inside a panel.`,
     `• No distressed, scratchy, or grungy letterforms. Clean, bold typography only.`,
     mode === 'branded'
-      ? `• This is ${featuredName}'s post — their palette dominates. Opponent colors are accents only.`
+      ? `• This is ${featuredName}'s post — their palette owns the canvas. The opponent's colors appear only through their logo, not as background fills, panels, or design shapes.`
       : `• Both teams represented equally — neither palette dominates.`,
   ].join('\n')
 
