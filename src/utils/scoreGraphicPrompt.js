@@ -121,7 +121,7 @@ export function buildScoreGraphicPrompt({
 
   const textRules = (fictionalNamesList = []) => {
     const lines = [
-      `TEXT RULES: Use logos to identify teams — do not write out team names. If a rank (#N) appears in the RESULT block for either team, it must be shown on the graphic. Do not include:`,
+      `TEXT RULES: Logos identify the teams — do not write team names, mascot names, or school names anywhere on the graphic. If a rank (#N) appears in the RESULT block, it must be shown. Do not include:`,
       `• "FINAL SCORE" as a large hero headline. "FINAL" may appear as a label.`,
       `• "AWAY", "HOME", "ROAD", or "VISITOR" as visible canvas text.`,
       `• Outcome declarations — "CATS WIN!", "[TEAM] WIN.", "VICTORY!", or equivalent hype banners.`,
@@ -198,7 +198,7 @@ export function buildScoreGraphicPrompt({
       `• ${team2Name} = ${s2}. Pair the number ${s2} with the ${team2Name} logo. Never swap.`,
       `Both scores equally prominent — neither de-emphasized regardless of result.`,
       homeTeam !== null
-        ? `Layout: ${awayName} (${awayScore}) left/top, ${homeName} (${homeScore}) right/bottom.`
+        ? `Layout: ${awayName} (${awayScore}) on the left half OR top half; ${homeName} (${homeScore}) on the right half OR bottom half. Full halves — not corners.`
         : `Neutral site — layout is your call.`,
       ``,
       `Do not invent or generate photo-realistic content — no fabricated players, crowds, or stadiums. If a photo is attached, use it. If not, the graphic is photo-free.`,
@@ -305,7 +305,7 @@ export function buildScoreGraphicPrompt({
     `Score accuracy: ${featuredName} = ${sf}, ${oppName} = ${so}. Pair each score with the correct logo. Never swap. Both teams' scores in the same visual format — equal type size and layout treatment.`,
     ``,
     homeTeam !== null
-      ? `Layout: ${awayName} (${awayScore}) left/top, ${homeName} (${homeScore}) right/bottom.`
+      ? `Layout: ${awayName} (${awayScore}) on the left half OR top half; ${homeName} (${homeScore}) on the right half OR bottom half. Full halves — not corners.`
       : `Neutral site — layout is your call.`,
     ``,
     `Do not invent or generate photo-realistic content — no fabricated players, crowds, or stadiums. If a photo is attached, use it. If not, the graphic is photo-free.`,
