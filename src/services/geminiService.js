@@ -5314,6 +5314,28 @@ RIVALRY GAME
 This game is ${ctx.rivalryName}. Refer to it by that name at least once in the recap (lede or first body paragraph). Trophy/rivalry framing carries weight on its own — winning a rivalry game when you're 4-6 is a real story, and losing one when you're 9-1 is a real wound.`
   }
 
+  // Per-game POW awards from THIS game. Only emit if any are set —
+  // these are real in-dynasty awards earned for this specific
+  // performance and should be a top story beat when present.
+  if (ctx.awards) {
+    const a = ctx.awards
+    const powLines = []
+    if (a.conferencePOW)  powLines.push(`Conference Offensive Player of the Week: ${a.conferencePOW}`)
+    if (a.confDefensePOW) powLines.push(`Conference Defensive Player of the Week: ${a.confDefensePOW}`)
+    if (a.nationalPOW)    powLines.push(`National Offensive Player of the Week: ${a.nationalPOW}`)
+    if (a.natlDefensePOW) powLines.push(`National Defensive Player of the Week: ${a.natlDefensePOW}`)
+    if (powLines.length > 0) {
+      prompt += `\n
+===========================================
+PLAYER OF THE WEEK AWARDS FROM THIS GAME
+===========================================
+These are real, in-dynasty awards earned for THIS performance. When present, they belong in the recap — attribute each precisely (conference vs national, offensive vs defensive; never conflate).`
+      for (const ln of powLines) {
+        prompt += `\n  ${ln}`
+      }
+    }
+  }
+
   // Season-long POW trail — flag when a player on either team has won
   // multiple POW awards across the season. Skips the noise (one-off
   // weekly winners) by only emitting players with 2+ total awards.
