@@ -392,15 +392,15 @@ export function buildScoreGraphicPrompt({
   const brandIdentitySection = isFictionalTeam(profile)
     ? [
         `BRAND IDENTITY — NON-NEGOTIABLE:`,
-        `The finished graphic must be immediately recognizable as a ${featuredName} graphic. Their primary color (${primary}) dominates the canvas — as the background field the design lives on, not as an accent or trim.`,
+        `The finished graphic must be immediately recognizable as a ${featuredName} graphic. Use the program's colors and visual language as the foundation — the design should feel like it came from this specific team's graphics department.`,
       ].join('\n')
     : [
         `BRAND IDENTITY — NON-NEGOTIABLE:`,
-        `You know ${featuredName}'s visual identity from your training data — their colors, their logo, their design language, their graphic traditions, their visual era. That knowledge is your creative foundation. Use it.`,
+        `You know ${featuredName}'s visual identity from your training data — their full color palette, their logo, their design language, their graphic traditions, their visual era. That knowledge is your creative foundation. Use it.`,
         ``,
-        `The finished graphic must be immediately, unmistakably recognizable as a ${featuredName} post. A fan scrolling their feed should see the color field alone — before reading a single word — and know which school this came from.`,
+        `The finished graphic must be immediately, unmistakably recognizable as a ${featuredName} post. A fan scrolling their feed should know — before reading a single word — which school this graphic came from. How you achieve that is your creative call: maybe the primary color fills the canvas, maybe it's a dark ground with bold color accents, maybe it's built around a signature shape or pattern. What matters is that the school's visual identity is unmistakable.`,
         ``,
-        `Design this as ${featuredName}'s own graphics team would. Their primary color dominates the canvas — not as an accent strip or logo fill, but as the background field the entire composition lives on. Their motifs, their typographic conventions, their visual era — all of it is in your training. Trust it. Do not fall back on a generic sports-media template.`,
+        `Design this as ${featuredName}'s own graphics team would. Do not fall back on a generic sports-media template — draw on the specific visual language of this program.`,
       ].join('\n')
 
   // Opponent brand block — colors always; logo description only if the
