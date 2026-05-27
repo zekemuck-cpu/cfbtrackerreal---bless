@@ -548,7 +548,18 @@ export function resolvePositionSlot(dynasty, position, options = {}) {
     .filter(g => Number(g.year) === yearNum)
     .sort((a, b) => (Number(a.week) || 0) - (Number(b.week) || 0))
 
-  groupPlayers.forEach(p => {
+  // Split into active producers (have current-year stats or game log entries) and
+  // depth reserves (no recorded data this year). Reserves get one compact line
+  // instead of full entries — they don't need token budget.
+  const hasCurrentData = (p) => {
+    const ss = p.statsByYear?.[year] || p.statsByYear?.[String(year)]
+    if (ss && Object.keys(ss).length) return true
+    return yearGames.some(g => g.boxScore && !!extractPlayerFromBoxScore(g.boxScore, p.name))
+  }
+  const activePlayers  = groupPlayers.filter(p => hasCurrentData(p))
+  const reservePlayers = groupPlayers.filter(p => !hasCurrentData(p))
+
+  activePlayers.forEach(p => {
     const ovr = getPlayerOverallForYear(p, year) || '—'
     const cls = getPlayerClassForYear(p, year) || '—'
     const dev = p.devTraitByYear?.[year] || p.devTraitByYear?.[String(year)] || p.devTrait || '—'
@@ -557,13 +568,33 @@ export function resolvePositionSlot(dynasty, position, options = {}) {
     out.push(`\n---`)
     out.push(`#### ${jersey}${p.name} — ${cls}, OVR ${ovr}, ${dev}`)
 
-    // Season totals from statsByYear
+    // Prior-year season totals (career arc context) — up to 3 previous seasons
+    const allStatYears = Object.keys(p.statsByYear || {})
+      .map(Number).filter(Number.isFinite)
+      .filter(y => y < Number(year))
+      .sort((a, b) => b - a)
+      .slice(0, 3)
+      .reverse()
+
+    if (allStatYears.length) {
+      out.push(`**Prior seasons:**`)
+      allStatYears.forEach(py => {
+        const ps = p.statsByYear?.[py] || p.statsByYear?.[String(py)]
+        const pyOvr = getPlayerOverallForYear(p, py) || '—'
+        if (ps && Object.keys(ps).length) {
+          out.push(`  _${py} (OVR ${pyOvr}):_`)
+          out.push(formatStatBlock(ps))
+        }
+      })
+    }
+
+    // Current-year season totals
     const seasonStats = p.statsByYear?.[year] || p.statsByYear?.[String(year)]
     if (seasonStats && Object.keys(seasonStats).length) {
-      out.push(`**Season totals:**`)
+      out.push(`**${year} season totals:**`)
       out.push(formatStatBlock(seasonStats))
     } else {
-      out.push(`_(no season stats recorded)_`)
+      out.push(`_(no ${year} season stats recorded)_`)
     }
 
     // Game log — one line per game where the player appeared in the box score
@@ -591,9 +622,23 @@ export function resolvePositionSlot(dynasty, position, options = {}) {
       out.push(`**Game log:**`)
       gameLogLines.forEach(l => out.push(l))
     } else {
-      out.push(`_(no box score data for any game)_`)
+      out.push(`_(no box score data recorded)_`)
     }
   })
+
+  // Depth reserves — compact single-line summary, no wasted token budget
+  if (reservePlayers.length) {
+    out.push(`\n---`)
+    out.push(`**Reserve depth (no ${year} stats recorded):** ` +
+      reservePlayers.map(p => {
+        const ovr = getPlayerOverallForYear(p, year) || '—'
+        const cls = getPlayerClassForYear(p, year) || '—'
+        const dev = p.devTraitByYear?.[year] || p.devTraitByYear?.[String(year)] || p.devTrait || '—'
+        const jersey = p.jerseyNumber ? `#${p.jerseyNumber} ` : ''
+        return `${jersey}${p.name} (${cls}, OVR ${ovr}, ${dev})`
+      }).join(' · ')
+    )
+  }
 
   return out.join('\n')
 }

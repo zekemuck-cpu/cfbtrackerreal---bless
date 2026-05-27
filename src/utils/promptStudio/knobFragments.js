@@ -115,7 +115,7 @@ export const KNOB_FRAGMENTS = {
     'plain':
       "Output as PLAIN TEXT. Do NOT use any markup — no Markdown, no HTML, no asterisks for bold, no pound signs for headers, no bullet characters. Just words and line breaks. Use ALL-CAPS for emphasis if absolutely needed.",
     'markdown':
-      "Output as Markdown. Use `#` / `##` headers, `**bold**`, `_italic_`, `-` bullets, `>` blockquotes, and fenced code blocks where appropriate. Render numbered lists with `1.` etc.",
+      "Output as Markdown. Use Markdown syntax for emphasis (`**bold**`, `_italic_`), `>` blockquotes, and fenced code blocks where appropriate. Let the Format knob control whether to use headers and bullet lists — don't add structural elements the Format knob didn't ask for.",
     'html':
       "Output as valid HTML — `<h2>`, `<h3>`, `<p>`, `<ul>`/`<li>`, `<strong>`, `<em>`, `<blockquote>`. Do not include `<html>` / `<head>` / `<body>` wrappers — just the inner content. No inline styles, no class attributes.",
     'richtext':
