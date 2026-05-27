@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate, useSearchParams, useLocation } from 'reac
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName, getTidFromAbbr, getOriginalTeamAbbr } from '../../data/teamRegistry'
-import { useDynasty, GAME_TYPES, getCurrentCustomConferences, buildRecordUpdatePayload, calculateTeamRecordFromGames, getStoredTeamRecord, getTeamRecord, getTeamRankForWeek, propagateCFPWinner, isPlayerOnRoster } from '../../context/DynastyContext'
+import { useDynasty, GAME_TYPES, getCurrentCustomConferences, buildRecordUpdatePayload, calculateTeamRecordFromGames, getStoredTeamRecord, getTeamRecord, getTeamRankForWeek, propagateCFPWinner, isPlayerOnRoster, getRecordAsOfGame } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getFullRecapPrompt } from '../../services/geminiService'
@@ -2455,12 +2455,19 @@ export default function GameEdit() {
         const t1Colors = getTeamColors(team1Name)
         const t2Colors = getTeamColors(team2Name)
 
-        // Pull records for the graphic prompt directly from the game's own stored
-        // fields — these reflect the record as of this specific game. Live-calculated
-        // values (live1/live2) reflect the current week's record, which is wrong when
-        // viewing a past game mid-season.
-        const rec1 = formData.team1Record || ''
-        const rec2 = formData.team2Record || ''
+        // Pull records for the graphic prompt using the same logic as the Cast
+        // view: getRecordAsOfGame counts all saved games up through this game's
+        // week (inclusive), giving the correct post-game record regardless of
+        // which week the user is currently on. For unsaved new games where
+        // existingGame doesn't exist yet, fall back to the live-calculated value.
+        const graphicRec1Obj = (existingGame && team1Tid)
+          ? getRecordAsOfGame(currentDynasty, existingGame, team1Tid)
+          : null
+        const graphicRec2Obj = (existingGame && team2Tid)
+          ? getRecordAsOfGame(currentDynasty, existingGame, team2Tid)
+          : null
+        const rec1 = graphicRec1Obj?.overall || live1?.record || ''
+        const rec2 = graphicRec2Obj?.overall || live2?.record || ''
 
         // Pass screenshot count so the prompt can tell the AI to expect attachments
         const uploadedScreenshots = Array.isArray(formData.photos) ? formData.photos.filter(Boolean).length : 0
