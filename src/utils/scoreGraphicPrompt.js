@@ -199,9 +199,11 @@ export function buildScoreGraphicPrompt({
       `• A small "FINAL" label.`,
       gameContext ? `• Because this is a postseason game, the specific game/round name may appear as a callout (e.g. "${gameContext.callout}"), sized appropriately to the magnitude of the moment — but NOT so large that it overshadows the scores.` : `• (Regular-season game — do not add any game-name / week-name callout.)`,
       `FORBIDDEN (never appears anywhere on the graphic):`,
-      `• Hype headlines or result banners — "CATS WIN!", "ROLL TIDE!", "GO BLUE!", "VICTORY!", "WE WIN!", "BIG WIN!", "TAKEDOWN!", "DOMINANT!", or any equivalent. "FINAL" is the only allowed result label.`,
+      `• "FINAL SCORE" as a large display headline. The word "FINAL" may appear once as a small supporting label (e.g., above or between the scores). Never make it the dominant typographic element.`,
+      `• "AWAY", "HOME", "ROAD", "VISITOR", or "HOST" as visible text anywhere on the canvas. These are layout notes, not design elements.`,
+      `• Hype headlines or result banners — "CATS WIN!", "ROLL TIDE!", "GO BLUE!", "VICTORY!", "WE WIN!", "BIG WIN!", "TAKEDOWN!", "DOMINANT!", "[TEAM] WIN.", or any equivalent outcome declaration.`,
       `• Subhead taglines and location subtitles — "BIG BLUE TAKES THE WIN IN FAYETTEVILLE!", "STATEMENT WIN IN ATHENS", "TIGERS ROAR IN BATON ROUGE", or any sentence-style descriptor. The scores + names + FINAL tell the story; no caption needed.`,
-      `• Fan-identity slogans / mottos / chants — "BIG BLUE NATION", "WE ARE", "WE ARE UK", "GEAUX TIGERS", "HAIL STATE", "ROLL TIDE", "ANCHOR DOWN", "BOOMER SOONER", "OH-IO", "GO IRISH", etc. These are program identity slogans and have no place in a score graphic.`,
+      `• Fan-identity slogans / mottos / chants — "BIG BLUE NATION", "WE ARE", "GEAUX TIGERS", "HAIL STATE", "ROLL TIDE", "ANCHOR DOWN", "BOOMER SOONER", "OH-IO", "GO IRISH", "BOILER UP", "ALL ABOARD", "KEEP IT CARDINAL", "REIGN ON", or any equivalent. Never invent a slogan for any team.`,
       `• "Neutral site", "Home", "Away", "Road", "Hosted by", "at <venue>", venue names, stadium names, city names, state names, or any location reference whatsoever.`,
       `• "WIN", "LOSS", "VICTORY", "DEFEAT", "WE WIN", "L", or any result word as a dominant element — "FINAL" is the only allowed result label.`,
       `• The literal labels from this prompt (e.g. "RESULT", "BRAND", "OPPONENT", "SITE CONTEXT", "TEXT POLICY").`,
@@ -228,6 +230,9 @@ export function buildScoreGraphicPrompt({
     `• Generous whitespace. Let the scores breathe. Don't pack content edge-to-edge.`,
     `• No grunge frames, torn-paper edges, or gritty brush borders around the full canvas. Clean rectangular or simple-shape compositions.`,
     `• The score numbers must be the unmistakable focal point. Every other element supports them rather than competing for attention.`,
+    `• NO distressed, grunge, or brush-stroke letterforms — especially not for the "FINAL" label or any headline text. Clean, bold, modern typography only. Distressed/painted/scratchy fonts are a cliché.`,
+    `• Each team's logo appears ONCE at a single consistent scale. Never repeat the same logo at two or three different sizes on the same canvas (e.g., small inside a score box AND a large floating version in the background).`,
+    `• Do NOT split the canvas 50/50 between both teams' colors. In a team-branded graphic, the featured team's palette should clearly dominate (roughly 70–80% visual weight). In a neutral graphic, use both palettes as accent colors against a neutral field rather than fighting each other for half the canvas.`,
   ].join('\n')
 
   // homeTeam = 1 → team1 is home, 2 → team2 is home, null → neutral site
@@ -389,7 +394,7 @@ export function buildScoreGraphicPrompt({
   const lines = [
     `Design a post-game social media score graphic (1080×1080) for ${featuredName}'s official account.`,
     ``,
-    `You are the creative director solely responsible for making ${featuredName} football's graphics look incredible. This is your craft and your reputation — every graphic you put out is a direct reflection of the program's brand. You have full creative authority and your standard is: if it doesn't look genuinely stunning, it doesn't go out. This graphic posts to the official ${featuredName} Instagram and Twitter within minutes of the final whistle and will be seen by tens of thousands of fans. Make it extraordinary. Not template. Not generic. Something that makes people stop scrolling — a graphic that could only have come from ${featuredName}.`,
+    `You are the creative director solely responsible for ${featuredName} football's social media graphics. This posts to the official ${featuredName} Instagram and Twitter within minutes of the final whistle. Your standard: clean, confident, on-brand. The best score graphics earn attention through clarity — a layout that looks intentional and assured, not one packed with competing elements. Restraint is the craft. The score is the story. Everything else is support.`,
     ``,
     resultMood,
     gameContext ? gameContext.line : null,
@@ -419,7 +424,12 @@ export function buildScoreGraphicPrompt({
       return `LAYOUT: away team on left/top, home team on right/bottom. Away = ${awayName} (${awayScore}), Home = ${homeName} (${homeScore}).`
     })() : `Neutral site — layout is your call.`,
     ``,
-    `If a photo is attached, use it as the hero visual — integrate it however looks best. Do not generate any photographic or photo-real content yourself. If no photo is attached, build a pure graphic design.`,
+    ``,
+    visualRestraint(),
+    ``,
+    imageryPolicy(),
+    ``,
+    textPolicy(fictionalParticipantNames),
   ]
 
   return lines.filter(l => l !== null && l !== undefined).join('\n')
