@@ -121,7 +121,7 @@ export function buildScoreGraphicPrompt({
 
   const textRules = (fictionalNamesList = []) => {
     const lines = [
-      `TEXT RULES: Logos are sufficient to identify each team — written team names are optional. If a rank (#N) appears in the RESULT block for either team, it must be shown on the graphic next to that team's logo or score. Do not include:`,
+      `TEXT RULES: Use logos to identify teams — do not write out team names. If a rank (#N) appears in the RESULT block for either team, it must be shown on the graphic. Do not include:`,
       `• "FINAL SCORE" as a large hero headline. "FINAL" may appear as a label.`,
       `• "AWAY", "HOME", "ROAD", or "VISITOR" as visible canvas text.`,
       `• Outcome declarations — "CATS WIN!", "[TEAM] WIN.", "VICTORY!", or equivalent hype banners.`,
