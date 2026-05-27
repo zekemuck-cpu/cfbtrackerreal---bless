@@ -947,10 +947,12 @@ SELF-CHECK BEFORE YOU SEND — run every line
         const isLast = idx === layout.sections.length - 1
         out.push(`Line ${pad(s.bannerRow)}: ═══ ${s.title.toUpperCase()} ═══     (banner; column A only, no tabs)`)
         out.push(`Line ${pad(s.bannerRow + 1)}: ${s.headers.join('<TAB>')}     (header row; ${s.headers.length} cells, tab-separated)`)
-        if (s.rowCount === 1) {
-          out.push(`Line ${pad(s.dataStart)}: ${s.title.toUpperCase()} DATA — 1 slot. Emit a player row (${s.headers.length} tab-separated values) OR a TRULY EMPTY LINE.`)
-        } else {
-          out.push(`Lines ${pad(s.dataStart)}–${String(s.dataEnd).padStart(3, ' ')}: ${s.title.toUpperCase()} DATA — ${s.rowCount} slots, ${s.rowCount} lines total. Each line is either a player row (${s.headers.length} tab-separated values matching the header) OR a TRULY EMPTY LINE (just \\n). NEVER skip a slot. Emit ${s.rowCount} lines here even if most are empty.`)
+        // One spec line per data slot — gives the AI a 1-to-1 map
+        // between spec lines and output lines so it doesn't have to
+        // mentally expand a range and count slots when thinking is off.
+        for (let i = 0; i < s.rowCount; i++) {
+          const lineNum = s.dataStart + i
+          out.push(`Line ${pad(lineNum)}: ${s.title.toUpperCase()} slot ${i + 1} of ${s.rowCount} — player row (${s.headers.length} fields, tab-separated) OR TRULY EMPTY LINE`)
         }
         if (!isLast) {
           out.push(`Line ${pad(s.dataEnd + 1)}: BLANK — emit one TRULY EMPTY LINE (just \\n). Required separator between sections. NEVER skip — skipping shifts every banner below up by one row.`)
@@ -996,9 +998,9 @@ HOW TO BUILD YOUR OUTPUT — mechanical, no thinking needed
 1. Read THE OUTPUT spec above. Note the total line count: ${layout.totalRows}.
 2. Emit line 1, then line 2, then line 3, … through line ${layout.totalRows}, in
    order. Use the spec to decide what each line contains.
-3. For each "DATA — N slots" range, emit exactly N lines — one
-   per slot. Slots with no player are empty lines, NOT missing
-   lines. The line count for the range is fixed.
+3. For each "slot K of N" line in the spec, emit ONE output line —
+   a player row if you have one for that slot, otherwise a TRULY
+   EMPTY LINE. Never skip a slot; never collapse two slots into one.
 4. For each BLANK line in the spec, emit an empty line. Not a
    space, not a tab — empty.
 5. After writing, count your lines. If the count isn't ${layout.totalRows}, fix
@@ -1051,7 +1053,7 @@ CRITICAL RULES
    • Defense Sacks — half-credits ARE valid (e.g. "2.5" or "0.5"). If the screenshot shows a half-sack, write it as "2.5" — DO NOT round to an integer. If the screenshot shows a whole number, write it whole (e.g. "2", not "2.0").
    • Defense TFL (Tackles For Loss) — half-credits ARE valid for the same reason. Write "1.5" if the screenshot shows it; otherwise whole.
    These half-credit values come from the screenshot directly. Never invent ".5" — only emit it when the source clearly shows it.
-8. Player names: if this is the user's team, names MUST match the roster (strict dropdown). For opponent, any reasonable name. NEVER "#12" or "J. Smith" when a full name exists in the roster.
+8. Player names: if this is the user's team, names MUST match the roster (strict dropdown). For opponent (and any teammate not in the roster block), the table shows "F.Last" — BEFORE outputting that abbreviated form, expand it to the full first name by checking the right-hand sidebar / player card across EVERY attached screenshot (see rule 6a). Only fall back to "F. Last" after every sidebar has been checked. NEVER output "#12" or "J. Smith" when a full name exists in the roster OR the sidebar.
 9. ${teamAbbr} players ONLY. No ${opponentAbbrLabel} players in this output.
 10. No commentary or explanation INSIDE the data. ONE block of ${layout.totalRows} lines — preceded by the required paste-target label line above the fence (see Method A/B rules above).
 
