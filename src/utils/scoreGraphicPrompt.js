@@ -263,7 +263,7 @@ export function buildScoreGraphicPrompt({
         ``,
         `The graphic must feel like it came from ${featuredName}'s own graphics team — not just because a logo is present, but because the design language itself speaks that specific school. That includes the lettering: if ${featuredName} uses a distinctive athletic font or number style, use it.`,
         ``,
-        `Failure mode to avoid: a generic college-football scorecard with ${featuredName}'s colors swapped in. If a side-by-side fan couldn't tell this graphic from ${featuredName}'s actual account, you missed the brief. Before you draw, name (to yourself) three specific design moves this program's graphics team is known for — a typeface or number treatment, a layout shape or chevron/angle, a recurring graphic element or pattern — and put each of them in the work.`,
+        `Failure mode to avoid: a generic college-football scorecard with ${featuredName}'s colors swapped in. If a side-by-side fan couldn't tell this graphic from ${featuredName}'s actual account, you missed the brief. Before you draw, name (to yourself) two or three specific design moves this program's graphics team is known for — a typeface or number treatment, a layout shape, a recurring graphic element — and let those guide the composition. Restraint is often part of the brand too: most college accounts use FEWER elements than fans expect, not more. Don't crowd the canvas trying to prove you know the school — pick the strongest move and commit to it.`,
       ].join('\n')
 
   const opponentBlock = buildBrandSummary(oppName, oppProfile, oppColors, 'OPPONENT')
