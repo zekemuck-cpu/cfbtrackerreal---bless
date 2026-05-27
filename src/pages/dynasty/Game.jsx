@@ -2248,13 +2248,11 @@ export default function Game() {
                 )}
 
                 {/* LEFT: Game Leaders — one unified panel, category rows inside */}
+                {hasBoxForLeaders && (
                 <aside className="order-2 lg:order-1 min-w-0">
                   <SectionHead>Game Leaders</SectionHead>
-                  {!hasBoxForLeaders ? (
-                    <p className="text-xs text-txt-muted">Box score not entered.</p>
-                  ) : (
-                    <div>
-                      {categories.map((cat, catIdx) => {
+                  <div>
+                    {categories.map((cat, catIdx) => {
                         const leftTop  = topBy(leftBs?.[cat.key],  cat.score)
                         const rightTop = topBy(rightBs?.[cat.key], cat.score)
                         const leftLine  = leftTop  && cat.fmt(leftTop)
@@ -2280,8 +2278,8 @@ export default function Game() {
                         )
                       })}
                     </div>
-                  )}
                 </aside>
+                )}
 
                 {/* CENTER: Recap — display only. Edit via the game editor.
                     Long recaps scroll within the panel so they don't blow
@@ -2293,12 +2291,14 @@ export default function Game() {
                     to scroll the page to find the recap, then scroll
                     INSIDE the recap to read the rest. Let the recap flow
                     naturally below lg. */}
+                {game.aiRecap && (
                 <section className="order-1 lg:order-2 min-w-0">
                   <SectionHead>Game Recap</SectionHead>
                   <div className="max-w-prose lg:overflow-y-auto lg:pr-2 lg:-mr-2 lg:max-h-[min(70vh,720px)]">
                     <RecapCenter />
                   </div>
                 </section>
+                )}
 
                 {/* RIGHT: Scoring Ratings Awards — sibling sections with shared rhythm */}
                 <aside className="order-3 min-w-0 space-y-7">
@@ -2410,9 +2410,6 @@ export default function Game() {
                     </div>
                   )}
 
-                  {!hasRatings && awardRows.length === 0 && (
-                    <p className="text-xs text-txt-muted">No ratings or awards data for this game.</p>
-                  )}
                 </aside>
               </div>
             )
