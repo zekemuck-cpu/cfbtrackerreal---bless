@@ -261,7 +261,7 @@ export function buildScoreGraphicPrompt({
         ``,
         `That is what you are designing right now.`,
         ``,
-        `The graphic must feel like it came from ${featuredName}'s own graphics team — not just because a logo is present, but because the design language itself speaks that specific school.`,
+        `The graphic must feel like it came from ${featuredName}'s own graphics team — not just because a logo is present, but because the design language itself speaks that specific school. That includes the lettering: if ${featuredName} uses a distinctive athletic font or number style, use it.`,
       ].join('\n')
 
   const opponentBlock = buildBrandSummary(oppName, oppProfile, oppColors, 'OPPONENT')
