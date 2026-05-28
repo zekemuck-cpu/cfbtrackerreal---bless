@@ -954,9 +954,6 @@ SELF-CHECK BEFORE YOU SEND — run every line
           const lineNum = s.dataStart + i
           out.push(`Line ${pad(lineNum)}: ${s.title.toUpperCase()} slot ${i + 1} of ${s.rowCount} — player row (${s.headers.length} fields, tab-separated) OR TRULY EMPTY LINE`)
         }
-        if (!isLast) {
-          out.push(`Line ${pad(s.dataEnd + 1)}: BLANK — emit one TRULY EMPTY LINE (just \\n). Required separator between sections. NEVER skip — skipping shifts every banner below up by one row.`)
-        }
       })
       return out.join('\n')
     })()
@@ -974,38 +971,14 @@ SELF-CHECK BEFORE YOU SEND — run every line
 Your output is EXACTLY ${layout.totalRows} lines. Each line below tells you what
 must appear at that 1-indexed output position. Banner and header
 lines are FIXED — emit them verbatim. Data lines are placeholders
-you fill (or leave empty). Blank-separator lines are empty (\\n)
-and REQUIRED — skipping one shifts every banner below by a row.
+you fill (or leave empty). Unused slots are TRULY EMPTY LINES (\\n only).
+There are NO separator rows between sections — the last data slot of
+one section is immediately followed by the next section's banner.
 
 ${outputLineMap}
 
-Total: exactly ${layout.totalRows} lines.
-
-KEY RULES that govern this spec:
-  • <TAB> means a real tab character (U+0009). Substitute it.
-  • An EMPTY DATA SLOT is a TRULY EMPTY LINE — just \\n, no
-    spaces, no tabs. The line still exists in the output.
-  • A BLANK SEPARATOR is also a TRULY EMPTY LINE. NEVER skip one.
-  • You NEVER delete a line. If a slot has no player, you still
-    emit a line for it (empty). The line count must equal ${layout.totalRows}.
-  • Banner lines have ZERO tabs (column A only). Header lines
-    have exactly (column count - 1) tabs. Data lines match the
-    header's column count.
-
-══════════════════════════════════════════════════════════
-HOW TO BUILD YOUR OUTPUT — mechanical, no thinking needed
-══════════════════════════════════════════════════════════
-1. Read THE OUTPUT spec above. Note the total line count: ${layout.totalRows}.
-2. Emit line 1, then line 2, then line 3, … through line ${layout.totalRows}, in
-   order. Use the spec to decide what each line contains.
-3. For each "slot K of N" line in the spec, emit ONE output line —
-   a player row if you have one for that slot, otherwise a TRULY
-   EMPTY LINE. Never skip a slot; never collapse two slots into one.
-4. For each BLANK line in the spec, emit an empty line. Not a
-   space, not a tab — empty.
-5. After writing, count your lines. If the count isn't ${layout.totalRows}, fix
-   it before sending. Same goes for any "═══ X ═══" banner that
-   lands on a line number not listed in THE OUTPUT spec above.
+Total: exactly ${layout.totalRows} lines. "<TAB>" in the spec = real tab character (U+0009).
+Empty slots are TRULY EMPTY LINES (\\n only — no spaces, no tabs). Never skip or merge a line. Banner lines: no tabs. Header lines: (column count − 1) tabs. Data lines: same column count as their section header.
 
 ═══════════════════════════════════════════════════════════
 HOW TO READ THE GAME SCREENSHOTS — do this first
@@ -1047,7 +1020,7 @@ CRITICAL RULES
 3. Column header rows: output the EXACT header text for that section, tab-separated, with NO extra columns past the section's stat list. The header row for "Passing" has 8 cells; for "Defense" it has 15.
 4. Data rows: each non-empty data row must have EXACTLY the column count of its section's header row. Empty slots in a data row are tab-separated empty fields, NOT skipped tabs. (e.g. a Passing data row always has 8 fields separated by 7 tabs.)
 5. Empty data slots (rows where no player stat-earner exists): output a TRULY EMPTY LINE (just \\n) — no tabs, no spaces.
-6. Blank separator rows (between sections): output a TRULY EMPTY LINE.
+6. There are NO separator rows between sections. The next banner immediately follows the last data slot of the previous section.
 7. NO COMMAS in numbers ("1234" not "1,234"). INTEGERS only, with these EXCEPTIONS:
    • Passing Rtg — one decimal (e.g. "148.3").
    • Defense Sacks — half-credits ARE valid (e.g. "2.5" or "0.5"). If the screenshot shows a half-sack, write it as "2.5" — DO NOT round to an integer. If the screenshot shows a whole number, write it whole (e.g. "2", not "2.0").
@@ -1115,10 +1088,11 @@ mode of this output and it will silently corrupt the user's sheet.
     banner line was duplicated into a data slot. Delete the
     duplicate.
 
-[ ] EMPTY-LINE COUNT: there should be ${layout.sections.length - 1} blank separator lines
-    between sections, plus however many empty data slots you didn't
-    fill. An empty line is a TRULY EMPTY line — \\n only, no
-    spaces, no tabs.
+[ ] EMPTY-LINE COUNT: there are NO blank separator lines between
+    sections — each section's last data slot runs right up to the
+    next banner. Empty lines appear only within data blocks, for
+    unused player slots. An empty line is a TRULY EMPTY line —
+    \\n only, no spaces, no tabs.
 
 [ ] BANNER ROW SHAPE: for each banner line, confirm there are zero
     tab characters on that line. Banners are column A only.

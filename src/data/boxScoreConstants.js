@@ -6,7 +6,7 @@ export const STAT_TABS = {
     key: 'passing',
     title: 'Passing',
     headers: ['Player Name', 'Rtg', 'Comp', 'Att', 'Yards', 'TD', 'INT', 'Long'],
-    rowCount: 8
+    rowCount: 9
   },
   rushing: {
     key: 'rushing',
@@ -103,7 +103,6 @@ export function computeUnifiedTabLayout() {
       dataEnd,
     })
     row = dataEnd + 1
-    if (idx < STAT_TAB_ORDER.length - 1) row += 1 // separator blank row
   })
   const maxCols = Math.max(...STAT_TAB_ORDER.map(k => STAT_TABS[k].headers.length))
   return { sections, totalRows: row - 1, maxCols }
