@@ -136,7 +136,7 @@ export default function DetailedStatsEntryModal({
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
 1. Output stat columns ONLY (column C onward). NEVER output column A (Name) or column B (Snaps). NEVER output the header row.
-2. ROW ORDER IS FIXED per tab. Produce exactly one output line per pre-filled player row on that tab, in the SAME ORDER as column A. Do NOT reorder, skip, or add rows.
+2. ROW ORDER IS FIXED per tab — match the descending Snaps order that column A uses. Output one line per player you can IDENTIFY in the screenshot with stats for this tab. Do NOT pad rows for players absent from the screenshot (their column A row already exists; unset stat cells will simply be blank).
 3. Tab-separated values within a line. Each tab has a FIXED number of stat columns (see spec per tab below); every line must have EXACTLY that many values (that many commas-are-not-allowed; that many values separated by tabs).
 4. Return NINE separate blocks, one per tab — each preceded by the required paste-target label line above its fence (e.g. "Paste this TSV into cell C2 of the \"Passing\" tab"), as required by the Method A/B rules above.
 5. NO COMMAS in numbers. "1234" never "1,234". No quotes, no units, no "+/-", no percent signs.
@@ -144,7 +144,7 @@ CRITICAL RULES — read before anything else
    • Passing columns H (Net Yards/Attempt) and I (Adj Net Yards/Attempt) use 1 decimal place.
    • Defensive Tackles for Loss (column E) and Sacks (column F) accept ".5" half-credits when the screenshot shows a half-credit (e.g. "1.5", "0.5"). Write the half exactly as shown — never round to an integer; never invent a half the screenshot doesn't show.
    Every other column on every tab is an integer.
-7. BLANK cell for unknown values — never guess, never use 0, "-", or "N/A". To emit a blank cell between two tab characters, just have nothing between the tabs. To emit a blank line for a player with no visible stats, output the correct number of empty tab-separated cells (that is, N-1 tab characters with nothing between them).
+7. BLANK cell for unknown values — never guess, never use 0, "-", or "N/A". To emit a blank cell, just have nothing between two tab characters. ⚠️ BLANK ROWS corrupt the sheet: each extra blank row shifts every player below it down by one row. Only emit a blank row if a player IS visible in the screenshot and their stats are illegible. Never emit a blank row for a player absent from the screenshot.
 8. Only the positions listed per tab appear on that tab. Do NOT include quarterbacks on Receiving, for example.
 9. No commentary, no totals, no header row INSIDE the data. Nine TSV blocks, each preceded by the required paste-target label line above its fence (see Method A/B rules above).
 
@@ -336,13 +336,13 @@ REQUIRED OUTPUT FORMAT
 FINAL CHECK before you send
 ═══════════════════════════════════════════════════════════
 [ ] NINE labeled blocks, one per tab, in the order above
-[ ] Each block's line count equals the number of pre-filled player rows on that tab (column A) — including any all-blank lines for players with no data
+[ ] Each block has exactly one line per player you identified in the screenshot with stats for that tab — no padding rows for players absent from the screenshot
 [ ] Per-tab tab-count per line: Passing 8, Rushing 7, Receiving 5, Blocking 1, Defensive 14, Kicking 16, Punting 6, Kick Return 3, Punt Return 3
 [ ] Net Yards/Attempt and Adjusted Net Yards/Attempt (Passing columns H and I) use 1 decimal place; Defensive TFL (E) and Sacks (F) MAY use ".5" half-credits when the screenshot shows them; every other value on every tab is an integer
 [ ] No commas in any number
 [ ] No player name, no Snaps column, no header row, no commentary INSIDE the data blocks. The paste-target label lines above each fence are required (see Method A/B rules above).
 [ ] Row order within each block matches column A on that tab exactly
-[ ] Blank cells/lines for unknowns — invented nothing`,
+[ ] Blank cells (not blank rows) for illegible individual values — no invented stats, no blank rows except for visible-but-illegible players`,
     includeTeamMap: false,
   }), [currentYear, userRoster])
 
