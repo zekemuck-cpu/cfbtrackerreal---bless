@@ -301,8 +301,8 @@ export function buildAIPrompt({
     `  4. Numbers with no thousands separators: "1234" not "1,234".`,
     `  5. Decimals use a period and match the decimal precision specified per-column (e.g. "5.8" not "5.80" not "5,8").`,
     `  6. Tab character (U+0009) between fields when producing TSV — not multiple spaces, not a pipe, not a semicolon. ASCII only inside data: no smart quotes (" "), no en/em dashes (– —), no non-breaking spaces (U+00A0), no zero-width characters (U+200B/U+FEFF).`,
-    `  7. One line per player you output data for. NEVER add blank lines inside a data block. A stray blank row shifts every player below it down by one row and silently corrupts the entire rest of that tab — there is no easy way to recover without re-entering every affected row.`,
-    `  8. Only output rows for players you can SEE in the screenshot with stats for that tab. Players not visible in the screenshot get NO row — column A is pre-filled and those rows already exist in the sheet with empty stat cells, which is the correct behavior. Exception: if a player IS visible in the screenshot but their stat values are illegible, output one all-blank row (N-1 consecutive tab characters) for that player only.`,
+    `  7. One line per data row. Do NOT introduce extra blank lines inside a data block unless the structure below explicitly calls for placeholder rows (e.g., a fixed-position layout where blank lines hold a row slot so subsequent banners stay on their exact rows).`,
+    `  8. Row count: follow the structure's instructions exactly. If the structure specifies a fixed total line count or a fixed row capacity per section, emit EXACTLY that many lines — using truly empty lines (just \\n, no spaces or tabs) for unused slots so every fixed-position element lands on its correct row. If the structure doesn't specify a fixed count, output only the rows you have data for.`,
     ``,
     `═══════════════════════════════════════════════════════════`,
     `SELF-VERIFICATION PROTOCOL — RUN THIS BEFORE SENDING`,
@@ -314,10 +314,10 @@ export function buildAIPrompt({
       ? `  For each block, look up the required column count for that tab in the structure below. Pick the FIRST line, a MIDDLE line, and the LAST line of the block. Count tab characters in each. Required tab count = (column count − 1). If any sampled line has a wrong count, a value contains a stray tab/comma OR you skipped/added a column. FIX, then re-sample.`
       : `  Look up the required column count in the structure below. Pick the FIRST, MIDDLE, and LAST data line. Count tab characters in each. Required tab count = (column count − 1). If any sampled line has a wrong count, a value contains a stray tab/comma OR you skipped/added a column. FIX, then re-sample.`,
     ``,
-    `CHECK 2 — Row count and blank line audit.`,
+    `CHECK 2 — Row count per block.`,
     multiBlock
-      ? `  For each block, count every blank line in your output. Each blank line must correspond to a specific player who IS visible in the screenshot but whose stats are illegible. If you cannot name the player behind a blank row, DELETE that blank row — a spurious blank row is a corruption error. Then confirm your line count matches the number of players you can identify with stats (or visible-but-illegible) in the screenshot for that tab.`
-      : `  Count your lines, then scan for blank lines. Each blank line must be justified by a specific visible-but-illegible player in the screenshot. Delete any blank line you cannot justify. Then confirm total line count matches identified players.`,
+      ? `  For each block, count the data lines you produced. Confirm it matches what the structure requires for that tab. If the structure specifies a fixed line count (e.g. "exactly 20 lines"), every line must be present — data rows OR truly empty placeholder lines. If short, you skipped a row. If long, you invented one. FIX.`
+      : `  Count the data lines you produced. Confirm it matches what the structure requires. If the structure specifies a fixed total line count, every row must be present — data rows OR truly empty placeholder lines for unused slots. FIX any mismatch.`,
     ``,
     `CHECK 3 — Column-to-value walk.`,
     `  Pick TWO data rows at random. For each, walk left-to-right through the columns named in the structure and confirm the value at that position matches the spec for that column (integer vs decimal vs blank, sensible magnitude, correct stat). Watch for column-order traps: if the structure flags an inverted-order tab (e.g. "TD vs Long order is swapped"), re-read those tab specs character-by-character before signing off. FIX any swap.`,

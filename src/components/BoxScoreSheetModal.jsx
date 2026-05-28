@@ -1037,7 +1037,7 @@ The user pastes screenshots from EA College Football 26's post-game stats screen
      - If after checking every sidebar across every screenshot you STILL have no full first name for a player, only THEN may you keep the "F. Last" abbreviated form. But always try the sidebar first.
      - For the user's team (${teamAbbr}), the roster block above is still authoritative — use the dropdown spelling, not the sidebar.
 
-7. BLANKS VS ZEROS: the screenshot lists only players who TOUCHED that category. For those players, 0 means "played but didn't produce" and is valid. A player who didn't appear on the screenshot should not be in your output at all — don't pad with zero rows.
+7. BLANKS VS ZEROS: the screenshot lists only players who TOUCHED that category. For those players, 0 means "played but didn't produce" and is valid. Do NOT invent a player row full of zeros for someone who doesn't appear in the screenshot. For unused data SLOTS (where no player exists), you still emit a TRULY EMPTY LINE per Critical Rule 5 — this keeps the total line count correct so the banners land on their fixed rows. "Don't pad with fake data" and "emit empty lines for empty slots" are two different things; both apply.
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES
