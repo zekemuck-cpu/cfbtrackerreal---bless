@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { proxyImageUrl } from '../../utils/imageProxy'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -904,7 +905,7 @@ export default function DynastyRecords() {
 
                           {entry.pictureUrl ? (
                             <img
-                              src={entry.pictureUrl}
+                              src={proxyImageUrl(entry.pictureUrl, 300)}
                               alt=""
                               className={`${isFirst ? 'w-11 h-11' : 'w-8 h-8'} rounded-full object-cover flex-shrink-0 transition-all`}
                               style={{ border: '1px solid var(--surface-4)' }}
@@ -1228,7 +1229,7 @@ export default function DynastyRecords() {
 
                             {entry.pictureUrl ? (
                               <img
-                                src={entry.pictureUrl}
+                                src={proxyImageUrl(entry.pictureUrl, 300)}
                                 alt=""
                                 className={`${isFirst ? 'w-10 h-10' : 'w-8 h-8'} rounded-full object-cover flex-shrink-0`}
                                 style={{

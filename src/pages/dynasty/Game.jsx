@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import { proxyImageUrl } from '../../utils/imageProxy'
 import { createPortal } from 'react-dom'
 import { Link, useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
@@ -2288,10 +2289,10 @@ export default function Game() {
                 aria-label="Open final score graphic"
               >
                 <img
-                  src={game.scoreGraphic}
+                  src={proxyImageUrl(game.scoreGraphic, 1200)}
                   alt={`${displayTeam} vs ${opponent} final score graphic`}
                   className="w-full h-auto block"
-                  onError={(e) => { e.target.parentElement.style.display = 'none' }}
+                  onError={(e) => { if (e.target.src !== game.scoreGraphic) { e.target.src = game.scoreGraphic } else { e.target.parentElement.style.display = 'none' } }}
                 />
               </button>
             )
@@ -3578,7 +3579,7 @@ export default function Game() {
                     style={{ boxShadow: `0 0 0 2px ${accent}55` }}
                   >
                     {player?.pictureUrl ? (
-                      <img src={player.pictureUrl} alt={name} className="w-full h-full object-cover" />
+                      <img src={proxyImageUrl(player.pictureUrl, 300)} alt={name} className="w-full h-full object-cover" />
                     ) : (
                       <div
                         className="w-full h-full flex items-center justify-center font-bold text-sm"
@@ -3755,11 +3756,12 @@ export default function Game() {
                   }}
                 >
                   <img
-                    src={photoTabImages[0]}
+                    src={`https://wsrv.nl/?url=${encodeURIComponent(photoTabImages[0])}&w=1600&output=webp&q=92`}
                     alt="Score graphic"
                     className="w-full h-full object-cover"
                     loading="lazy"
                     decoding="async"
+                    onError={(e) => { const u = photoTabImages[0]; if (e.currentTarget.src !== u) e.currentTarget.src = u }}
                   />
                 </button>
               ) : (
@@ -3899,7 +3901,7 @@ export default function Game() {
               } else if (isImageLink(link)) {
                 return (
                   <div key={index} className="rounded-xl overflow-hidden shadow-lg ring-1 ring-surface-4">
-                    <img src={link} alt={`Game media ${index + 1}`} className="w-full h-auto" />
+                    <img src={proxyImageUrl(link, 1600, { animated: true })} alt={`Game media ${index + 1}`} className="w-full h-auto" />
                   </div>
                 )
               } else {
@@ -4136,7 +4138,7 @@ function PhotoLightbox({ photos, index, onClose, onIndexChange, photoTags = null
         onClick={(e) => e.stopPropagation()}
       >
         <img
-          src={currentUrl}
+          src={`https://wsrv.nl/?url=${encodeURIComponent(currentUrl)}&w=1600&output=webp&q=92`}
           alt={`Game photo ${index + 1} of ${total}`}
           className="block select-none"
           style={{
@@ -4145,6 +4147,7 @@ function PhotoLightbox({ photos, index, onClose, onIndexChange, photoTags = null
             objectFit: 'contain',
             boxShadow: '0 24px 60px rgba(0, 0, 0, 0.6)',
           }}
+          onError={(e) => { if (e.currentTarget.src !== currentUrl) e.currentTarget.src = currentUrl }}
           draggable={false}
         />
         {(tagPids.length > 0 || canEditTags) && (

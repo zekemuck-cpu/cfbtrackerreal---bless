@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { proxyImageUrl } from '../utils/imageProxy'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 
@@ -730,7 +731,7 @@ export default function ScoringHighlightsModal({
                       aria-label={`View ${picturePlayer.name}`}
                     >
                       <img
-                        src={picturePlayer.pictureUrl}
+                        src={proxyImageUrl(picturePlayer.pictureUrl, 300)}
                         alt={picturePlayer.name}
                         className="w-full h-full object-cover"
                       />
@@ -738,7 +739,7 @@ export default function ScoringHighlightsModal({
                   ) : (
                     <div className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-surface-3 hidden sm:block">
                       <img
-                        src={picturePlayer.pictureUrl}
+                        src={proxyImageUrl(picturePlayer.pictureUrl, 300)}
                         alt=""
                         className="w-full h-full object-cover"
                       />

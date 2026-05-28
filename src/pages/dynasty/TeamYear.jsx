@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useLayoutEffect, useEffect } from 'react'
+import { proxyImageUrl } from '../../utils/imageProxy'
 import { createPortal } from 'react-dom'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamConferenceForDynasty, calculateTeamRecordFromGames, getTeamRanking, getRecruitingCommitments, getPlayerPositionForYear, getPlayerOverallForYear, lookupByTeamYear, getPlayersLeaving } from '../../context/DynastyContext'
@@ -6,6 +7,7 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 // Team colors are derived from the viewed team, not the user's team
 import { getContrastTextColor, getContrastRatio } from '../../utils/colorUtils'
 import { canonicalBoxScore, getPlayerStatsForTid, getTeamStatsForTid, hasAnyTeamStats } from '../../utils/boxScoreHelpers'
+import { computeSeasonAV } from '../../utils/approximateValue'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { bowlLogos } from '../../data/bowlLogos'
 import { getCFPGameId, getSlotIdFromBowlName, getCFPSlotDisplayName, getFirstRoundSlotId } from '../../data/cfpConstants'
@@ -1923,12 +1925,17 @@ export default function TeamYear() {
         const catStats = yearStats[categoryName]
         if (!catStats) return
         if (!filter(catStats)) return
+        // Whole-season AV (cross-category) from the raw statsByYear shape.
+        const positionForYear = player.positionByYear?.[numKey]
+          ?? player.positionByYear?.[yearKey]
+          ?? player.position
         results.push({
           pid: player.pid,
           name: player.name,
           position: player.position,
           pictureUrl: player.pictureUrl,
           gamesPlayed: yearStats.gamesPlayed || 0,
+          av: computeSeasonAV(yearStats, positionForYear),
           ...catStats
         })
       })
@@ -3333,7 +3340,7 @@ export default function TeamYear() {
                     >
                       <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0" style={{ border: `2px solid ${teamInfo.backgroundColor}40` }}>
                         {l.data.player?.pictureUrl ? (
-                          <img src={l.data.player.pictureUrl} alt="" className="w-full h-full object-cover" />
+                          <img src={proxyImageUrl(l.data.player.pictureUrl, 300)} alt="" className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
                             <span className="text-lg font-bold" style={{ color: accentColor }}>{l.data.name?.charAt(0) || l.fallback}</span>
@@ -3397,7 +3404,7 @@ export default function TeamYear() {
                         >
                           <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0" style={{ border: `2px solid ${teamInfo.backgroundColor}40` }}>
                             {p.pictureUrl ? (
-                              <img src={p.pictureUrl} alt="" className="w-full h-full object-cover" />
+                              <img src={proxyImageUrl(p.pictureUrl, 300)} alt="" className="w-full h-full object-cover" />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
                                 <span className="text-sm font-bold" style={{ color: accentColor }}>{p.name?.charAt(0) || '?'}</span>
@@ -3943,7 +3950,7 @@ export default function TeamYear() {
                       >
                         {player.pictureUrl ? (
                           <div className="w-10 h-10 rounded-full overflow-hidden border border-surface-5">
-                            <img src={player.pictureUrl} alt={player.name} className="w-full h-full object-cover" />
+                            <img src={proxyImageUrl(player.pictureUrl, 300)} alt={player.name} className="w-full h-full object-cover" />
                           </div>
                         ) : (
                           <div className="w-10 h-10 rounded-full flex items-center justify-center bg-surface-3 text-txt-muted border border-surface-5">
@@ -3963,7 +3970,7 @@ export default function TeamYear() {
                       </button>
                     ) : player.pictureUrl ? (
                       <div className="w-10 h-10 rounded-full flex-shrink-0 overflow-hidden border border-surface-5">
-                        <img src={player.pictureUrl} alt={player.name} className="w-full h-full object-cover" />
+                        <img src={proxyImageUrl(player.pictureUrl, 300)} alt={player.name} className="w-full h-full object-cover" />
                       </div>
                     ) : (
                       <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-surface-3 text-txt-muted border border-surface-5">
@@ -4068,7 +4075,7 @@ export default function TeamYear() {
                               >
                                 {player.pictureUrl ? (
                                   <div className="w-9 h-9 rounded-full overflow-hidden border border-surface-5">
-                                    <img src={player.pictureUrl} alt={player.name} className="w-full h-full object-cover" />
+                                    <img src={proxyImageUrl(player.pictureUrl, 300)} alt={player.name} className="w-full h-full object-cover" />
                                   </div>
                                 ) : (
                                   <div className="w-9 h-9 rounded-full flex items-center justify-center bg-surface-3 text-txt-muted border border-surface-5">
@@ -4092,7 +4099,7 @@ export default function TeamYear() {
                                 className="w-9 h-9 rounded-full flex-shrink-0 overflow-hidden block border border-surface-5"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <img src={player.pictureUrl} alt={player.name} className="w-full h-full object-cover" />
+                                <img src={proxyImageUrl(player.pictureUrl, 300)} alt={player.name} className="w-full h-full object-cover" />
                               </Link>
                             ) : (
                               <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-surface-3 text-txt-muted border border-surface-5">
@@ -4276,6 +4283,8 @@ export default function TeamYear() {
                       render: p => p.lng ?? p.long ?? '-' },
                     { key: 'sacks', label: 'SCK', tabular: true, defaultDir: 'asc',
                       sortValue: p => p.sacks ?? 0, render: p => p.sacks ?? 0 },
+                    { key: 'av', label: 'AV', tabular: true, bold: true,
+                      sortValue: p => p.av ?? 0, render: p => (p.av ?? 0).toFixed(1) },
                   ]}
                 />
               )}
@@ -4315,6 +4324,8 @@ export default function TeamYear() {
                     { key: 'fum', label: 'FUM', tabular: true, defaultDir: 'asc',
                       sortValue: p => p.fum || p.fumbles || 0,
                       render: p => p.fum || p.fumbles || 0 },
+                    { key: 'av', label: 'AV', tabular: true, bold: true,
+                      sortValue: p => p.av ?? 0, render: p => (p.av ?? 0).toFixed(1) },
                   ]}
                 />
               )}
@@ -4348,6 +4359,8 @@ export default function TeamYear() {
                       sortValue: p => p.rac || 0, render: p => p.rac || 0 },
                     { key: 'drops', label: 'Drops', tabular: true, defaultDir: 'asc',
                       sortValue: p => p.drops || 0, render: p => p.drops || 0 },
+                    { key: 'av', label: 'AV', tabular: true, bold: true,
+                      sortValue: p => p.av ?? 0, render: p => (p.av ?? 0).toFixed(1) },
                   ]}
                 />
               )}
@@ -4369,6 +4382,8 @@ export default function TeamYear() {
                       sortValue: p => p.pancakes || 0, render: p => p.pancakes || 0 },
                     { key: 'sacksAllowed', label: 'Sacks Allowed', tabular: true, defaultDir: 'asc',
                       sortValue: p => p.sacksAllowed || 0, render: p => p.sacksAllowed || 0 },
+                    { key: 'av', label: 'AV', tabular: true, bold: true,
+                      sortValue: p => p.av ?? 0, render: p => (p.av ?? 0).toFixed(1) },
                   ]}
                 />
               )}
@@ -4410,6 +4425,8 @@ export default function TeamYear() {
                       sortValue: p => p.ff || 0, render: p => p.ff || 0 },
                     { key: 'fr', label: 'FR', tabular: true,
                       sortValue: p => p.fr || 0, render: p => p.fr || 0 },
+                    { key: 'av', label: 'AV', tabular: true, bold: true,
+                      sortValue: p => p.av ?? 0, render: p => (p.av ?? 0).toFixed(1) },
                   ]}
                 />
               )}
@@ -4440,6 +4457,8 @@ export default function TeamYear() {
                       sortValue: p => p.xpm || 0, render: p => p.xpm || 0 },
                     { key: 'xpa', label: 'XPA', tabular: true,
                       sortValue: p => p.xpa || 0, render: p => p.xpa || 0 },
+                    { key: 'av', label: 'AV', tabular: true, bold: true,
+                      sortValue: p => p.av ?? 0, render: p => (p.av ?? 0).toFixed(1) },
                   ]}
                 />
               )}
@@ -4471,6 +4490,8 @@ export default function TeamYear() {
                       sortValue: p => p.in20 || 0, render: p => p.in20 || 0 },
                     { key: 'tb', label: 'TB', tabular: true, defaultDir: 'asc',
                       sortValue: p => p.tb || 0, render: p => p.tb || 0 },
+                    { key: 'av', label: 'AV', tabular: true, bold: true,
+                      sortValue: p => p.av ?? 0, render: p => (p.av ?? 0).toFixed(1) },
                   ]}
                 />
               )}
@@ -4500,6 +4521,8 @@ export default function TeamYear() {
                       sortValue: p => p.td || 0, render: p => p.td || 0 },
                     { key: 'lng', label: 'LNG', tabular: true,
                       sortValue: p => p.lng || 0, render: p => p.lng || 0 },
+                    { key: 'av', label: 'AV', tabular: true, bold: true,
+                      sortValue: p => p.av ?? 0, render: p => (p.av ?? 0).toFixed(1) },
                   ]}
                 />
               )}
@@ -4529,6 +4552,8 @@ export default function TeamYear() {
                       sortValue: p => p.td || 0, render: p => p.td || 0 },
                     { key: 'lng', label: 'LNG', tabular: true,
                       sortValue: p => p.lng || 0, render: p => p.lng || 0 },
+                    { key: 'av', label: 'AV', tabular: true, bold: true,
+                      sortValue: p => p.av ?? 0, render: p => (p.av ?? 0).toFixed(1) },
                   ]}
                 />
               )}
@@ -5064,7 +5089,7 @@ export default function TeamYear() {
                           {statLeaders?.topPasser && statLeaders.topPasser.yards > 0 ? (
                             <>
                               {statLeaders.topPasser.player?.pictureUrl ? (
-                                <img src={statLeaders.topPasser.player.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0 hidden xl:block" style={{ borderColor: `${accentColor}20` }} />
+                                <img src={proxyImageUrl(statLeaders.topPasser.player.pictureUrl, 300)} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0 hidden xl:block" style={{ borderColor: `${accentColor}20` }} />
                               ) : (
                                 <div className="w-7 h-7 rounded-full items-center justify-center flex-shrink-0 hidden xl:flex" style={{ backgroundColor: `${accentColor}20` }}>
                                   <span className="text-xs font-bold" style={{ color: accentColorMuted }}>{statLeaders.topPasser.name.charAt(0)}</span>
@@ -5086,7 +5111,7 @@ export default function TeamYear() {
                           {statLeaders?.topRusher && statLeaders.topRusher.yards > 0 ? (
                             <>
                               {statLeaders.topRusher.player?.pictureUrl ? (
-                                <img src={statLeaders.topRusher.player.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0 hidden xl:block" style={{ borderColor: `${accentColor}20` }} />
+                                <img src={proxyImageUrl(statLeaders.topRusher.player.pictureUrl, 300)} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0 hidden xl:block" style={{ borderColor: `${accentColor}20` }} />
                               ) : (
                                 <div className="w-7 h-7 rounded-full items-center justify-center flex-shrink-0 hidden xl:flex" style={{ backgroundColor: `${accentColor}20` }}>
                                   <span className="text-xs font-bold" style={{ color: accentColorMuted }}>{statLeaders.topRusher.name.charAt(0)}</span>
@@ -5108,7 +5133,7 @@ export default function TeamYear() {
                           {statLeaders?.topReceiver && statLeaders.topReceiver.yards > 0 ? (
                             <>
                               {statLeaders.topReceiver.player?.pictureUrl ? (
-                                <img src={statLeaders.topReceiver.player.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0 hidden xl:block" style={{ borderColor: `${accentColor}20` }} />
+                                <img src={proxyImageUrl(statLeaders.topReceiver.player.pictureUrl, 300)} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0 hidden xl:block" style={{ borderColor: `${accentColor}20` }} />
                               ) : (
                                 <div className="w-7 h-7 rounded-full items-center justify-center flex-shrink-0 hidden xl:flex" style={{ backgroundColor: `${accentColor}20` }}>
                                   <span className="text-xs font-bold" style={{ color: accentColorMuted }}>{statLeaders.topReceiver.name.charAt(0)}</span>
@@ -5130,7 +5155,7 @@ export default function TeamYear() {
                           {statLeaders?.topTackler && statLeaders.topTackler.tackles > 0 ? (
                             <>
                               {statLeaders.topTackler.player?.pictureUrl ? (
-                                <img src={statLeaders.topTackler.player.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0 hidden xl:block" style={{ borderColor: `${accentColor}20` }} />
+                                <img src={proxyImageUrl(statLeaders.topTackler.player.pictureUrl, 300)} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0 hidden xl:block" style={{ borderColor: `${accentColor}20` }} />
                               ) : (
                                 <div className="w-7 h-7 rounded-full items-center justify-center flex-shrink-0 hidden xl:flex" style={{ backgroundColor: `${accentColor}20` }}>
                                   <span className="text-xs font-bold" style={{ color: accentColorMuted }}>{statLeaders.topTackler.name.charAt(0)}</span>
@@ -5933,7 +5958,7 @@ export default function TeamYear() {
                         {/* Photo */}
                         {player.pictureUrl ? (
                           <img
-                            src={player.pictureUrl}
+                            src={proxyImageUrl(player.pictureUrl, 300)}
                             alt={player.name}
                             className="w-9 h-9 sm:w-10 sm:h-10 object-cover rounded-md flex-shrink-0"
                             style={{ border: '1px solid var(--surface-4)' }}
@@ -7247,7 +7272,7 @@ export default function TeamYear() {
               {quickImagePlayer.pictureUrl && (
                 <div className="flex justify-center pb-1">
                   <img
-                    src={quickImagePlayer.pictureUrl}
+                    src={proxyImageUrl(quickImagePlayer.pictureUrl, 300)}
                     alt=""
                     className="w-20 h-20 rounded-full object-cover border-2 border-surface-4"
                   />

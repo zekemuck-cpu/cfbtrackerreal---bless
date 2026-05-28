@@ -36,6 +36,16 @@
  *   td 0.5→0.4, rec 0.05→0.02, RAC 0.0015→0.0006. Bumped QB
  *   yds 0.0035→0.0042, td 0.4→0.45, softened INT −0.5→−0.4.
  *   RB receiving trimmed to match the new WR baseline.
+ *
+ * - 2026-05-28 defense rebalance: across four seasons of real data,
+ *   defenders (LBs especially) topped every season at ~28-30 — well
+ *   above the 15-22 target and ~2-4× the top offensive AV. The drivers
+ *   were TFL (0.4 → 12 AV for a 30-TFL season), tackle volume, and a
+ *   sack/TFL double-count. Trimmed tfl 0.4→0.25, solo 0.10→0.08,
+ *   ast 0.05→0.035, int 1.5→1.3 (sacks kept at 1.0). This lands the
+ *   best defender ~22-23 (on par with an elite QB) instead of ~30.
+ *   Also tightened punting (baseline 38→40, mult 0.05→0.03, in20
+ *   0.15→0.12) — a good-not-great punter was cracking the top 10.
  */
 
 // Position groups — used to dispatch to the right formula.
@@ -131,11 +141,11 @@ function defenseValue(s, posGroup) {
   // are volume; deflections and forced fumbles are difference-makers
   // worth their own line in the formula.
   let av = 0
-  av += (d.solo || d.soloTkl || 0) * 0.10
-  av += (d.assists || d.astTkl || 0) * 0.05
-  av += (d.tfl || 0) * 0.4
+  av += (d.solo || d.soloTkl || 0) * 0.08
+  av += (d.assists || d.astTkl || 0) * 0.035
+  av += (d.tfl || 0) * 0.25
   av += (d.sack || d.sacks || 0) * 1.0
-  av += (d.int || 0) * 1.5
+  av += (d.int || 0) * 1.3
   av += (d.deflections || d.pd || 0) * 0.3
   av += (d.ff || 0) * 1.0
   av += (d.fr || 0) * 0.7
@@ -182,9 +192,9 @@ function pValue(s) {
   // Net punting average above replacement (38 yds is league-average).
   // Reward the count of punts beating that line.
   const netAvg = p.netYds ? (p.netYds / punts) : ((p.yds || 0) / punts)
-  av += Math.max(0, netAvg - 38) * punts * 0.05
+  av += Math.max(0, netAvg - 40) * punts * 0.03
   // Inside-20 punts are field-position gold
-  av += (p.in20 || 0) * 0.15
+  av += (p.in20 || 0) * 0.12
   // Touchbacks (bad for punters) and blocks (terrible)
   av -= (p.tb || 0) * 0.10
   av -= (p.block || 0) * 0.50

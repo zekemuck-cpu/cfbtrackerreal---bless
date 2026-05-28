@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { proxyImageUrl } from '../../utils/imageProxy'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useDynasty, getRecruitingCommitments, lookupByTeamYear } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -1008,7 +1009,7 @@ export default function Recruiting() {
                   <div className="flex flex-col items-center gap-1 sm:gap-1.5 text-center">
                     {player?.pictureUrl ? (
                       <img
-                        src={player.pictureUrl}
+                        src={proxyImageUrl(player.pictureUrl, 300)}
                         alt={recruit.name}
                         className="w-11 h-11 sm:w-14 sm:h-14 object-cover rounded-md flex-shrink-0"
                         style={{ border: '1px solid var(--surface-4)' }}

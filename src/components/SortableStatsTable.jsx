@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { proxyImageUrl } from '../utils/imageProxy'
 import { Link } from 'react-router-dom'
 
 /**
@@ -175,7 +176,7 @@ export function PlayerCell({ player, accentColor, pathPrefix }) {
     >
       {player.pictureUrl ? (
         <img
-          src={player.pictureUrl}
+          src={proxyImageUrl(player.pictureUrl, 300)}
           alt=""
           className="w-6 h-6 rounded-full object-cover flex-shrink-0"
         />

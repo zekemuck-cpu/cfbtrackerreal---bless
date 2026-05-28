@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { proxyImageUrl } from '../../utils/imageProxy'
 import { saveWeeklyGamesChanges } from '../../services/dynastyService'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord, getCurrentTeamRanking, getEncourageTransfers, getRecruitingCommitments, getConferenceChampionshipData, createOrUpdateCFPGameShells, createOrUpdateBowlGameShell, getUserCFPGameStatus, getCFPRoundDisplayName, propagateCFPWinner, findUserCFPGameShell, isPlayerOnRoster, getPlayerClassForYear, lookupByTeamYear, getTeamConferenceForDynasty } from '../../context/DynastyContext'
@@ -6452,7 +6453,7 @@ export default function Dashboard() {
                         {/* Player Image */}
                         <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-surface-4 group-hover:ring-surface-5 transition-all" style={{ backgroundColor: 'var(--surface-4)' }}>
                           {player.pictureUrl ? (
-                            <img src={player.pictureUrl} alt={player.name} className="w-full h-full object-cover" />
+                            <img src={proxyImageUrl(player.pictureUrl, 300)} alt={player.name} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               <svg className="w-5 h-5 text-txt-muted" fill="currentColor" viewBox="0 0 24 24">
@@ -7449,7 +7450,7 @@ export default function Dashboard() {
                       {/* Player Image */}
                       <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-surface-4" style={{ backgroundColor: 'var(--surface-4)' }}>
                         {player.pictureUrl ? (
-                          <img src={player.pictureUrl} alt={player.name} className="w-full h-full object-cover" />
+                          <img src={proxyImageUrl(player.pictureUrl, 300)} alt={player.name} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <svg className="w-4 h-4 text-txt-muted" fill="currentColor" viewBox="0 0 24 24">
