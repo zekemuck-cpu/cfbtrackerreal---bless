@@ -143,11 +143,17 @@ export function buildScoreGraphicPrompt({
     return lines.join('\n')
   }
 
-  // Top-of-prompt directive (both paths) — the "use the attached photo"
-  // rule kept getting ignored when it lived only inside DESIGN RULES, so
-  // the AI would generate a photo-free graphic even with a photo attached.
-  // Stated emphatically up front, it covers both cases in one line.
-  const photoDirective = `IF AN IMAGE IS ATTACHED to this request: that photo is the foundation of the graphic — it MUST fill the canvas edge to edge as the background, and you build the score + branding ON TOP of it. Do NOT ignore an attached photo and do NOT produce a photo-free design when one is provided. (Only if NO image is attached: design a clean photo-free graphic.)`
+  // Top-of-prompt directive (both paths). Branches on whether the user has
+  // photos for this game (screenshotCount): with photos we expect an
+  // attachment and tell the AI to build on top of it; with none we forbid
+  // any generated/fabricated photo-realistic imagery outright. The no-photo
+  // failure mode is the AI hallucinating a fake "player" hero shot, so that
+  // branch is a hard, non-negotiable rule — not a soft "photo-free" hint the
+  // model fills in with an invented action photo.
+  const hasAttachedPhoto = screenshotCount > 0
+  const photoDirective = hasAttachedPhoto
+    ? `IF AN IMAGE IS ATTACHED to this request: that photo is the foundation of the graphic — it MUST fill the canvas edge to edge as the background, and you build the score + branding ON TOP of it. Do NOT ignore an attached photo. If no image actually comes through, fall back to a STRICT graphics-only design (logos, type, and color only) with NO generated or fabricated photo-realistic imagery whatsoever.`
+    : `STRICT GRAPHICS-ONLY — NO PHOTOGRAPHY OF ANY KIND. No photo is attached to this request. Do NOT generate, render, illustrate, paint, or fabricate any photo-realistic imagery — no players, faces, human figures, action shots, crowds, stadiums, fields, or sidelines, not even blurred or faded in the background. Build the ENTIRE graphic from team logos, typography, color, and clean geometric/graphic-design elements ONLY. A fabricated or AI-generated player or photo is an automatic failure of this brief.`
 
   // ─── NEUTRAL PATH ─────────────────────────────────────────────────────────
   if (featuredTeam === 0) {

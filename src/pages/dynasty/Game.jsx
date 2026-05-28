@@ -2061,7 +2061,7 @@ export default function Game() {
                 { key: 'ratings', label: 'Ratings', shortLabel: 'Rtg', show: !isCPUGame && hasRatingsData },
                 { key: 'awards', label: 'Awards', shortLabel: 'Awards', show: !isCPUGame && hasAwardsData },
                 { key: 'cards', label: 'Cards', shortLabel: 'Cards', show: hasCardsData },
-                { key: 'photos', label: 'Photos', shortLabel: 'Photos', show: hasPhotosData || hasScoreGraphicData },
+                { key: 'photos', label: hasPhotosData ? 'Photos' : 'Graphic', shortLabel: hasPhotosData ? 'Photos' : 'Graphic', show: hasPhotosData || hasScoreGraphicData },
               ].filter(tab => tab.show).map(tab => (
                 <button
                   key={tab.key}
