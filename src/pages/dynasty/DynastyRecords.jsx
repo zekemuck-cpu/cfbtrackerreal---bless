@@ -811,25 +811,28 @@ export default function DynastyRecords() {
         </div>
       </div>
 
-      {/* Category Header — editorial banner */}
-      <div className="flex items-end justify-between gap-4 border-b pb-3" style={{ borderColor: 'var(--surface-4)' }}>
-        <div>
-          <div className="text-[10px] font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '2.5px' }}>
-            {mode === 'career' ? 'Career' : 'Single Season'}
+      {/* Category Header — editorial banner. Hidden on the Approximate
+          Value tab, which carries its own title/notes inline. */}
+      {activeCategory !== 'production' && (
+        <div className="flex items-end justify-between gap-4 border-b pb-3" style={{ borderColor: 'var(--surface-4)' }}>
+          <div>
+            <div className="text-[10px] font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '2.5px' }}>
+              {mode === 'career' ? 'Career' : 'Single Season'}
+            </div>
+            <h2
+              className="font-black leading-none mt-1"
+              style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(2rem, 4vw, 2.75rem)', letterSpacing: '1px' }}
+            >
+              {category.name} Leaders
+            </h2>
           </div>
-          <h2
-            className="font-black leading-none mt-1"
-            style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(2rem, 4vw, 2.75rem)', letterSpacing: '1px' }}
-          >
-            {category.name} Leaders
-          </h2>
+          {category.minNote && (
+            <p className="text-[11px] text-txt-tertiary shrink-0 hidden sm:block" style={{ letterSpacing: '0.5px' }}>
+              {category.minNote}
+            </p>
+          )}
         </div>
-        {category.minNote && (
-          <p className="text-[11px] text-txt-tertiary shrink-0 hidden sm:block" style={{ letterSpacing: '0.5px' }}>
-            {category.minNote}
-          </p>
-        )}
-      </div>
+      )}
 
       {/* Stats Grid */}
       {!hasData ? (

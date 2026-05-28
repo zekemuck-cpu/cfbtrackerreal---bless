@@ -16,8 +16,8 @@ const YOUTUBE_AUTO_CLIP_SECONDS = PLAY_DURATION
 // callers; the in-app surfaces (InlineScoringHighlights, this modal)
 // render via the YouTubePlayer component which talks to the IFrame
 // Player API directly and provides custom chrome.
-function buildYouTubeEmbed(videoId, startSec, endSec) {
-  const params = ['autoplay=1', 'mute=1', 'rel=0', 'modestbranding=1', 'controls=0']
+function buildYouTubeEmbed(videoId, startSec, endSec, { controls = 0 } = {}) {
+  const params = ['autoplay=1', 'mute=1', 'rel=0', 'modestbranding=1', `controls=${controls}`]
   if (startSec != null) params.push(`start=${startSec}`)
   if (endSec != null) params.push(`end=${endSec}`)
   return `https://www.youtube-nocookie.com/embed/${videoId}?${params.join('&')}`
@@ -79,7 +79,10 @@ export function getYouTubeData(url) {
 
 // Extract video embed URL from various platforms.
 // Exported so the inline highlights widget can reuse the same parsing.
-export function getEmbedUrl(url) {
+// `controls` (default 0 = suppressed for the inline tile) is passed
+// through to YouTube; the expanded modal requests `controls: 1` so the
+// full-screen viewer gets native scrub/volume/fullscreen chrome.
+export function getEmbedUrl(url, { controls = 0 } = {}) {
   if (!url) return null
 
   // youtubetrimmer.com share links carry both start and end explicitly — use
@@ -95,6 +98,7 @@ export function getEmbedUrl(url) {
         v,
         Number.isFinite(s) ? s : null,
         Number.isFinite(e) ? e : null,
+        { controls },
       )
     }
   }
@@ -105,7 +109,7 @@ export function getEmbedUrl(url) {
     const videoId = youtubeShortMatch[1]
     const startTime = youtubeShortMatch[2] ? parseInt(youtubeShortMatch[2], 10) : null
     const endTime = startTime != null ? startTime + YOUTUBE_AUTO_CLIP_SECONDS : null
-    return buildYouTubeEmbed(videoId, startTime, endTime)
+    return buildYouTubeEmbed(videoId, startTime, endTime, { controls })
   }
 
   const youtubeLongMatch = url.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)(?:.*[&?]t=(\d+))?/)
@@ -113,7 +117,7 @@ export function getEmbedUrl(url) {
     const videoId = youtubeLongMatch[1]
     const startTime = youtubeLongMatch[2] ? parseInt(youtubeLongMatch[2], 10) : null
     const endTime = startTime != null ? startTime + YOUTUBE_AUTO_CLIP_SECONDS : null
-    return buildYouTubeEmbed(videoId, startTime, endTime)
+    return buildYouTubeEmbed(videoId, startTime, endTime, { controls })
   }
 
   const youtubeEmbedMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/)
@@ -127,7 +131,7 @@ export function getEmbedUrl(url) {
       if (!u.searchParams.has('autoplay')) u.searchParams.set('autoplay', '1')
       if (!u.searchParams.has('mute')) u.searchParams.set('mute', '1')
       if (!u.searchParams.has('rel')) u.searchParams.set('rel', '0')
-      if (!u.searchParams.has('controls')) u.searchParams.set('controls', '0')
+      if (!u.searchParams.has('controls')) u.searchParams.set('controls', String(controls))
       if (!u.searchParams.has('modestbranding')) u.searchParams.set('modestbranding', '1')
       if (!hasEnd && startParam != null) {
         const startSec = parseInt(startParam, 10)
@@ -499,7 +503,7 @@ export default function ScoringHighlightsModal({
   // size than in a tiny inline tile. The inline tile sidesteps this
   // by rendering a static thumbnail and deferring playback to this
   // modal entirely.
-  const embedData = getEmbedUrl(currentPlay?.videoLink)
+  const embedData = getEmbedUrl(currentPlay?.videoLink, { controls: 1 })
   const isDirectVideo = embedData && typeof embedData === 'object' && embedData.type === 'video'
   let embedUrl = isDirectVideo ? null : embedData
   if (embedUrl && appliedResumeOffset > 0) {
