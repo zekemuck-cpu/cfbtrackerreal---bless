@@ -104,11 +104,6 @@ function renderTodoList({ todos, isViewOnly }) {
                 >
                   {todo.title}
                 </div>
-                {todo.subtitle && (
-                  <div className="text-xs sm:text-[13px] mt-0.5 text-txt-tertiary">
-                    {todo.subtitle}
-                  </div>
-                )}
                 {todo.inlineAction && (
                   <button
                     type="button"

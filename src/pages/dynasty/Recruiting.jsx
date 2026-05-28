@@ -83,17 +83,15 @@ export default function Recruiting() {
   })
   const [selectedStars, setSelectedStars] = useState([])
   // Recruit sort: 'rank' (national rank, default) | 'position' | 'dev'.
-  const [sortBy, setSortBy] = useState('rank')
+  // Persisted to the device so the chosen sort sticks across visits
+  // (Ezekiel wanted it to stay on Dev Trait).
+  const [sortBy, setSortBy] = useState(() => localStorage.getItem('recruiting-sort') || 'rank')
+  const handleSortChange = (value) => {
+    setSortBy(value)
+    try { localStorage.setItem('recruiting-sort', value) } catch { /* ignore */ }
+  }
   const [showEditModal, setShowEditModal] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
-
-  const toggleStarFilter = (starCount) => {
-    setSelectedStars(prev =>
-      prev.includes(starCount)
-        ? prev.filter(s => s !== starCount)
-        : [...prev, starCount]
-    )
-  }
 
   const currentTeamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty?.teamName
   const currentTeamTid = resolveTid(currentTeamAbbr, TEAMS)
@@ -764,14 +762,6 @@ export default function Recruiting() {
 
   const hasHSandPortal = true
 
-  const starTiles = [
-    { count: 5, label: classStats.fiveStars },
-    { count: 4, label: classStats.fourStars },
-    { count: 3, label: classStats.threeStars },
-    { count: 2, label: classStats.twoStars },
-    { count: 1, label: classStats.oneStars }
-  ]
-
   return (
     <div className="space-y-4">
       {/* Cross-team write warning. Recruiting is per-team; if the user
@@ -916,54 +906,35 @@ export default function Recruiting() {
             </div>
           )}
 
-          {/* Star filter chips — wrap freely. On mobile we show a compact
-              "5★" form (rating number + single star) so all five chips fit
-              alongside the view toggle on small viewports; the full 1–5
-              star pattern only appears from sm: up where there's room. */}
-          <div className="flex items-center gap-1 px-3 sm:px-4 py-3 flex-1 min-w-0 flex-wrap">
-            {starTiles.map(tile => {
-              const selected = selectedStars.includes(tile.count)
-              return (
-                <button
-                  key={tile.count}
-                  onClick={() => toggleStarFilter(tile.count)}
-                  className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider transition-colors flex-shrink-0"
-                  style={{
-                    backgroundColor: selected ? 'var(--surface-3)' : 'transparent',
-                    border: `1px solid ${selected ? 'var(--text-primary)' : 'var(--surface-4)'}`,
-                    color: selected ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  }}
-                  aria-pressed={selected}
-                  aria-label={`Filter ${tile.count}-star recruits (${tile.label} total)`}
-                >
-                  {/* Mobile: compact "5★" */}
-                  <span className="flex items-center gap-0.5 sm:hidden">
-                    <span className="tabular text-txt-primary leading-none">{tile.count}</span>
-                    <svg className="w-2.5 h-2.5" fill="var(--accent-warning)" viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  </span>
-                  {/* Desktop+: full 1–5 star pattern */}
-                  <span className="hidden sm:flex items-center gap-0.5">
-                    {[...Array(tile.count)].map((_, i) => (
-                      <svg key={i} className="w-2.5 h-2.5" fill="var(--accent-warning)" viewBox="0 0 20 20">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                    ))}
-                  </span>
-                  <span className="tabular">{tile.label}</span>
-                </button>
-              )
-            })}
+          {/* Star filter — single dropdown (All / 5 / 4 / …) so the toolbar
+              stays one row tall instead of stacking five star chips. Drives
+              the same selectedStars filter: [] = All, [n] = that tier.
+              flex-shrink-0 (not flex-1 min-w-0) so the select sizes to its
+              content and doesn't get squeezed/clipped. */}
+          <div className="flex items-center gap-1.5 px-3 sm:px-4 py-3 flex-shrink-0">
+            <span className="label-xs text-txt-tertiary hidden sm:inline" style={{ letterSpacing: '1.5px' }}>Stars</span>
+            <Select
+              size="sm"
+              value={selectedStars.length === 1 ? String(selectedStars[0]) : 'all'}
+              onChange={(e) => setSelectedStars(e.target.value === 'all' ? [] : [Number(e.target.value)])}
+              aria-label="Filter by star rating"
+            >
+              <option value="all">All ({classStats.total})</option>
+              <option value="5">5 ★ ({classStats.fiveStars})</option>
+              <option value="4">4 ★ ({classStats.fourStars})</option>
+              <option value="3">3 ★ ({classStats.threeStars})</option>
+              <option value="2">2 ★ ({classStats.twoStars})</option>
+              <option value="1">1 ★ ({classStats.oneStars})</option>
+            </Select>
           </div>
 
-          {/* Sort control */}
-          <div className="flex items-center gap-1.5 px-3 sm:px-4 py-3 flex-shrink-0">
+          {/* Sort control — anchored to the right edge on desktop. */}
+          <div className="flex items-center gap-1.5 px-3 sm:px-4 py-3 flex-shrink-0 md:ml-auto">
             <span className="label-xs text-txt-tertiary hidden sm:inline" style={{ letterSpacing: '1.5px' }}>Sort</span>
             <Select
               size="sm"
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
+              onChange={(e) => handleSortChange(e.target.value)}
               aria-label="Sort recruits"
             >
               <option value="rank">Recruit Rank</option>
@@ -1286,39 +1257,23 @@ export default function Recruiting() {
       <Modal
         isOpen={showHistoryModal}
         onClose={() => setShowHistoryModal(false)}
-        title="Class History"
+        title={(() => {
+          const logo = selectedTid ? getTeamLogoByTid(selectedTid, teamsSource) : null
+          return (
+            <span className="inline-flex items-center gap-3">
+              {logo && <img src={logo} alt="" className="w-8 h-8 object-contain flex-shrink-0" />}
+              Class History
+            </span>
+          )
+        })()}
         size="md"
       >
         {classHistory.length === 0 ? (
           <p className="text-sm text-txt-secondary">No recruiting class data recorded yet.</p>
         ) : (() => {
-          const teamLogo = getTeamLogoByTid(selectedTid, teamsSource)
           const maxScore = Math.max(...classHistory.map(r => Number(r.score) || 0), 1)
           return (
             <div className="flex flex-col gap-5">
-              <div
-                className="flex items-center gap-4 -mx-6 -mt-5 px-6 py-4 border-b border-surface-4"
-                style={{
-                  background: 'linear-gradient(135deg, var(--surface-3) 0%, transparent 100%)'
-                }}
-              >
-                {teamLogo && (
-                  <img
-                    src={teamLogo}
-                    alt=""
-                    className="w-12 h-12 object-contain flex-shrink-0"
-                  />
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="text-display-sm text-txt-primary leading-tight truncate">
-                    {teamFullName}
-                  </div>
-                  <div className="text-xs text-txt-tertiary mt-0.5" style={{ letterSpacing: '1px' }}>
-                    {classHistory.length} {classHistory.length === 1 ? 'SEASON' : 'SEASONS'} ON RECORD
-                  </div>
-                </div>
-              </div>
-
               <div className="grid grid-cols-[3.5rem_3rem_1fr_3rem] gap-3 items-center px-1">
                 <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Year</span>
                 <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Rank</span>
