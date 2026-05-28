@@ -121,7 +121,7 @@ export function buildScoreGraphicPrompt({
     `• If a photo is attached, it must fill the entire canvas — the photo is the visual foundation. Layer school-branded graphics and wording on top: score zone, team or program name in bold type, and any other design elements that make it instantly recognizable as that school's graphic.`,
     `• No distressed, scratchy, or grungy letterforms. Clean, bold typography only.`,
     mode === 'branded'
-      ? `• This is ${featuredName}'s post — their palette owns the canvas. The opponent's colors appear only through their logo, not as background fills, panels, or design shapes.`
+      ? `• This is ${featuredName}'s post — their palette owns the canvas. The opponent's colors are limited to their logo and their side of the score zone — not background fills, panels, or design shapes elsewhere on the canvas.`
       : `• Both teams represented equally — neither palette dominates.`,
   ].join('\n')
 
