@@ -30,6 +30,21 @@ const DEV_TRAIT_VARIANT = {
   'normal': 'default'
 }
 
+// Dev trait ranking (best → worst) for the "Dev Trait" recruit sort.
+const DEV_TRAIT_RANK = { elite: 4, star: 3, impact: 2, normal: 1 }
+
+// Football position ordering for the "Position" recruit sort: offense
+// skill → line, defensive front → back, then specialists. Positions not
+// listed fall to the end (then alpha within).
+const RECRUIT_POSITION_ORDER = [
+  'QB', 'RB', 'HB', 'FB', 'WR', 'TE',
+  'LT', 'LG', 'C', 'RG', 'RT', 'OL', 'OT', 'OG', 'G', 'T',
+  'LE', 'RE', 'DE', 'DT', 'NT', 'DL',
+  'LOLB', 'ROLB', 'OLB', 'MLB', 'ILB', 'LB', 'SAM', 'MIKE', 'WILL',
+  'CB', 'FS', 'SS', 'S', 'DB',
+  'K', 'P', 'LS', 'ATH',
+]
+
 const StarRating = ({ stars, size = 'md' }) => {
   const starCount = Number(stars) || 0
   const sizeClass = { sm: 'w-3 h-3', md: 'w-4 h-4', lg: 'w-5 h-5' }[size] || 'w-4 h-4'
@@ -67,6 +82,8 @@ export default function Recruiting() {
     return 'both'
   })
   const [selectedStars, setSelectedStars] = useState([])
+  // Recruit sort: 'rank' (national rank, default) | 'position' | 'dev'.
+  const [sortBy, setSortBy] = useState('rank')
   const [showEditModal, setShowEditModal] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
 
@@ -650,8 +667,37 @@ export default function Recruiting() {
       filtered = filtered.filter(c => selectedStars.includes(Number(c.stars)))
     }
 
-    return filtered
-  }, [allCommitmentsUnfiltered, viewMode, selectedStars])
+    // Sort by the chosen key. 'rank' mirrors the base order (national
+    // rank, then stars). 'position' groups by football order; 'dev' puts
+    // the best dev traits first. All fall back to rank within ties.
+    const natRank = (c) => Number(c.nationalRank) || 9999
+    const starOf = (c) => Number(c.stars) || 0
+    const yearOf = (c) => Number(c.recruitYear) || 0
+    const byRank = (a, b) =>
+      (natRank(a) - natRank(b)) || (starOf(b) - starOf(a)) || (yearOf(b) - yearOf(a))
+    const posIdx = (c) => {
+      const i = RECRUIT_POSITION_ORDER.indexOf((c.position || '').toUpperCase())
+      return i === -1 ? RECRUIT_POSITION_ORDER.length : i
+    }
+    const devOf = (c) => DEV_TRAIT_RANK[(c.devTrait || '').toLowerCase()] || 0
+
+    const sorted = [...filtered]
+    if (sortBy === 'position') {
+      sorted.sort((a, b) => {
+        const d = posIdx(a) - posIdx(b)
+        if (d !== 0) return d
+        const sa = (a.position || '').toUpperCase()
+        const sb = (b.position || '').toUpperCase()
+        if (sa !== sb) return sa.localeCompare(sb)
+        return byRank(a, b)
+      })
+    } else if (sortBy === 'dev') {
+      sorted.sort((a, b) => (devOf(b) - devOf(a)) || byRank(a, b))
+    } else {
+      sorted.sort(byRank)
+    }
+    return sorted
+  }, [allCommitmentsUnfiltered, viewMode, selectedStars, sortBy])
 
   const classStats = useMemo(() => {
     // Single pass over allCommitmentsUnfiltered. Was five separate
@@ -909,6 +955,21 @@ export default function Recruiting() {
                 </button>
               )
             })}
+          </div>
+
+          {/* Sort control */}
+          <div className="flex items-center gap-1.5 px-3 sm:px-4 py-3 flex-shrink-0">
+            <span className="label-xs text-txt-tertiary hidden sm:inline" style={{ letterSpacing: '1.5px' }}>Sort</span>
+            <Select
+              size="sm"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              aria-label="Sort recruits"
+            >
+              <option value="rank">Recruit Rank</option>
+              <option value="position">Position</option>
+              <option value="dev">Dev Trait</option>
+            </Select>
           </div>
         </div>
       </div>
