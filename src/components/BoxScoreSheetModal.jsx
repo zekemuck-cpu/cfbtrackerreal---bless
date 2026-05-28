@@ -979,33 +979,8 @@ and REQUIRED — skipping one shifts every banner below by a row.
 
 ${outputLineMap}
 
-Total: exactly ${layout.totalRows} lines.
-
-KEY RULES that govern this spec:
-  • <TAB> means a real tab character (U+0009). Substitute it.
-  • An EMPTY DATA SLOT is a TRULY EMPTY LINE — just \\n, no
-    spaces, no tabs. The line still exists in the output.
-  • A BLANK SEPARATOR is also a TRULY EMPTY LINE. NEVER skip one.
-  • You NEVER delete a line. If a slot has no player, you still
-    emit a line for it (empty). The line count must equal ${layout.totalRows}.
-  • Banner lines have ZERO tabs (column A only). Header lines
-    have exactly (column count - 1) tabs. Data lines match the
-    header's column count.
-
-══════════════════════════════════════════════════════════
-HOW TO BUILD YOUR OUTPUT — mechanical, no thinking needed
-══════════════════════════════════════════════════════════
-1. Read THE OUTPUT spec above. Note the total line count: ${layout.totalRows}.
-2. Emit line 1, then line 2, then line 3, … through line ${layout.totalRows}, in
-   order. Use the spec to decide what each line contains.
-3. For each "slot K of N" line in the spec, emit ONE output line —
-   a player row if you have one for that slot, otherwise a TRULY
-   EMPTY LINE. Never skip a slot; never collapse two slots into one.
-4. For each BLANK line in the spec, emit an empty line. Not a
-   space, not a tab — empty.
-5. After writing, count your lines. If the count isn't ${layout.totalRows}, fix
-   it before sending. Same goes for any "═══ X ═══" banner that
-   lands on a line number not listed in THE OUTPUT spec above.
+Total: exactly ${layout.totalRows} lines. "<TAB>" in the spec = real tab character (U+0009).
+Empty slots and blank separators are TRULY EMPTY LINES (\\n only — no spaces, no tabs). Never skip or merge a line. Banner lines: no tabs. Header lines: (column count − 1) tabs. Data lines: same column count as their section header.
 
 ═══════════════════════════════════════════════════════════
 HOW TO READ THE GAME SCREENSHOTS — do this first
@@ -1031,18 +1006,14 @@ The user pastes screenshots from EA College Football 26's post-game stats screen
 
 6. JERSEY NUMBERS IN SCREENSHOTS: CFB26 shows "#12 J. Smith" style entries. Map to the full roster name from the roster block above — NEVER output "#12" or "J. Smith". Always the full name from the roster dropdown.
 
-6a. FIRST NAMES FROM THE SIDEBAR — IMPORTANT for opponent players (and any teammate not in the roster block): CFB26's stat tables only show "F.Last" with the first INITIAL ("J.Elmore", "D.Shelby"). But the right-hand sidebar / player card in those same screenshots shows the FULL FIRST NAME of whichever player is currently highlighted (e.g. "JAMIE ELMORE", "DEMARIO SHELBY"). Use the sidebar across ALL the attached screenshots to build a roster of full first names, then apply those to the abbreviated names in the tables:
-     - If a screenshot has "J.Elmore" in the table AND the sidebar shows "JAMIE ELMORE" → output "Jamie Elmore" (title case), NOT "J. Elmore" or "J.Elmore".
-     - The sidebar typically rotates as the user scrolls; different screenshots may highlight different players. Cross-reference ALL screenshots before falling back to the initial-only form.
-     - If after checking every sidebar across every screenshot you STILL have no full first name for a player, only THEN may you keep the "F. Last" abbreviated form. But always try the sidebar first.
-     - For the user's team (${teamAbbr}), the roster block above is still authoritative — use the dropdown spelling, not the sidebar.
+6a. FIRST NAMES: CFB26 tables show "F.Last" initials. The right-hand sidebar in each screenshot shows the highlighted player's full first name — check every sidebar before falling back to "F. Last". For ${teamAbbr} players, the roster block above is authoritative over the sidebar.
 
-7. BLANKS VS ZEROS: the screenshot lists only players who TOUCHED that category. For those players, 0 means "played but didn't produce" and is valid. Do NOT invent a player row full of zeros for someone who doesn't appear in the screenshot. For unused data SLOTS (where no player exists), you still emit a TRULY EMPTY LINE per Critical Rule 5 — this keeps the total line count correct so the banners land on their fixed rows. "Don't pad with fake data" and "emit empty lines for empty slots" are two different things; both apply.
+7. BLANKS VS ZEROS: players not in the screenshot get no row — do not invent zero-filled rows for them. Unused data slots still require a TRULY EMPTY LINE (Critical Rule 5) to hold the total at ${layout.totalRows}.
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES
 ═══════════════════════════════════════════════════════════
-1. Output EXACTLY ${layout.totalRows} lines. Count them. The user pastes the entire output at cell A1 of the "${AI_UNIFIED_TAB.title}" tab — every line MUST land on the correct row.
+1. Output EXACTLY ${layout.totalRows} lines. Before sending: (a) count your lines — if not ${layout.totalRows}, fix it, do not send; (b) verify every ═══ X ═══ banner lands on its spec-listed line number. A single extra or missing line shifts every banner below it off its row.
 2. Banner rows: output ONLY the banner text in column A (no tabs). Example: \`═══ PASSING ═══\`. Do NOT add any other columns to a banner line.
 3. Column header rows: output the EXACT header text for that section, tab-separated, with NO extra columns past the section's stat list. The header row for "Passing" has 8 cells; for "Defense" it has 15.
 4. Data rows: each non-empty data row must have EXACTLY the column count of its section's header row. Empty slots in a data row are tab-separated empty fields, NOT skipped tabs. (e.g. a Passing data row always has 8 fields separated by 7 tabs.)
@@ -1055,7 +1026,6 @@ CRITICAL RULES
    These half-credit values come from the screenshot directly. Never invent ".5" — only emit it when the source clearly shows it.
 8. Player names: if this is the user's team, names MUST match the roster (strict dropdown). For opponent (and any teammate not in the roster block), the table shows "F.Last" — BEFORE outputting that abbreviated form, expand it to the full first name by checking the right-hand sidebar / player card across EVERY attached screenshot (see rule 6a). Only fall back to "F. Last" after every sidebar has been checked. NEVER output "#12" or "J. Smith" when a full name exists in the roster OR the sidebar.
 9. ${teamAbbr} players ONLY. No ${opponentAbbrLabel} players in this output.
-10. No commentary or explanation INSIDE the data. ONE block of ${layout.totalRows} lines — preceded by the required paste-target label line above the fence (see Method A/B rules above).
 
 ═══════════════════════════════════════════════════════════
 COLUMN SPEC PER SECTION (for reference)
@@ -1125,11 +1095,11 @@ mode of this output and it will silently corrupt the user's sheet.
 
 [ ] HEADER ROW SHAPE: for each header line, confirm the column
     count matches the section's stat list (e.g. Passing header has
-    9 cells, Defense header has 15).
+    8 cells, Defense header has 15).
 
 [ ] DATA ROW SHAPE: for each non-empty data row, confirm the field
     count matches the section's column count. A Passing data row
-    has exactly 9 fields (8 tabs); a Defense row has 15 fields
+    has exactly 8 fields (7 tabs); a Defense row has 15 fields
     (14 tabs); etc.
 
 [ ] PLAYER NAMES: match the roster spelling — NO "#12" or "J. Smith".
