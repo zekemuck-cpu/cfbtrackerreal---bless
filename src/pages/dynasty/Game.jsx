@@ -3742,6 +3742,27 @@ export default function Game() {
 
           {activeTab === 'photos' && photoTabImages.length > 0 && (
             <div className="px-3 sm:px-5 py-5 sm:py-6">
+              {!hasPhotosData && hasScoreGraphicData ? (
+                // Graphic-only: the score graphic is the whole point, so show
+                // it big rather than buried in the thumbnail grid.
+                <button
+                  type="button"
+                  onClick={() => setPhotoLightboxIdx(0)}
+                  className="group relative block w-full max-w-md aspect-square overflow-hidden rounded-xl transition-transform duration-150 hover:-translate-y-0.5"
+                  style={{
+                    backgroundColor: 'var(--surface-2)',
+                    border: '1px solid var(--surface-4)',
+                  }}
+                >
+                  <img
+                    src={photoTabImages[0]}
+                    alt="Score graphic"
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </button>
+              ) : (
               <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-8 xl:grid-cols-10 gap-2">
                 {photoTabImages.map((url, idx) => {
                   // Route grid thumbs through wsrv.nl (free image proxy) to
@@ -3780,6 +3801,7 @@ export default function Game() {
                   )
                 })}
               </div>
+              )}
             </div>
           )}
 
