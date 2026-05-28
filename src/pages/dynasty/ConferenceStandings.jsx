@@ -487,7 +487,7 @@ export default function ConferenceStandings() {
     const hasData = teams.length > 0
     const confLogo = getConferenceLogo(conferenceName)
 
-    if (!hasData && searchQuery) return null
+    if (!hasData) return null
 
     return (
       <Card padding="none" className="standings-card relative overflow-hidden transition-all duration-200">
