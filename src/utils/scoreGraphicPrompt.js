@@ -309,7 +309,8 @@ export function buildScoreGraphicPrompt({
     opponentBlock ? `` : null,
     logoInstruction(...realTeamNames),
     ``,
-    `Score accuracy: ${featuredName} = ${sf}, ${oppName} = ${so}. Each score must have its team's primary logo immediately adjacent. Do not place any logo, monogram, wordmark, or brand mark anywhere on the canvas except immediately adjacent to its score — no header marks, no top-of-canvas brand elements, no background logos. Placing a logo header is a known AI hallucination trap: you will fabricate a mark that doesn't exist. Avoid it entirely. Never swap scores. Both teams' scores in the same visual format — equal type size and layout treatment.`,
+    `Score accuracy: ${featuredName} = ${sf}, ${oppName} = ${so}. Each score must have its team's primary logo immediately adjacent. Never swap. Both teams' scores in the same visual format — equal type size and layout treatment.`,
+    `Secondary brand elements: a program slogan, motto, or short text phrase is welcome as a small supporting element ("Go Big Blue", "Horns Up", etc.) — authentic to this school only, never invented. If you want to use a secondary logomark or monogram, only do so if you can recall it confidently and accurately — a hallucinated or approximate mark is worse than no mark. When in doubt, use bold lettering of the school name or team name instead. The scores and primary logos are the focal point; everything else is supporting.`,
     ``,
     homeTeam !== null
       ? `Layout: ${awayName} (${awayScore}) on the left or top; ${homeName} (${homeScore}) on the right or bottom.`
