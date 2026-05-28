@@ -117,7 +117,7 @@ export function buildScoreGraphicPrompt({
   // Only the rules that address real observed AI problems.
   const designRules = (mode = 'branded') => [
     `DESIGN RULES:`,
-    `• Design era: 2026. This should look like a graphic a top college athletics department posted today — bold, contemporary, confident. Not a 2015 flat-design scorecard. Not generic sports template. Current.`,
+    `• Design era: 2026. Bold, contemporary, confident.`,
     `• If a photo is attached, it must fill the entire canvas — the photo is the visual foundation. Layer school-branded graphics and wording on top: score zone, team or program name in bold type, and any other design elements that make it instantly recognizable as that school's graphic.`,
     `• No distressed, scratchy, or grungy letterforms. Clean, bold typography only.`,
     mode === 'branded'
