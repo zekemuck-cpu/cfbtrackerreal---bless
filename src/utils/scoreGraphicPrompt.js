@@ -127,7 +127,7 @@ export function buildScoreGraphicPrompt({
 
   const textRules = (fictionalNamesList = []) => {
     const lines = [
-      `TEXT RULES: In the score zone, use logos to identify teams — do not write team names next to scores. School or program name as a bold canvas element (not a score label) is welcome. If a rank (#N) appears in the RESULT block for either team, it must be shown on the graphic. Do not include:`,
+      `TEXT RULES: In the score zone, use logos to identify teams — do not write team names next to scores. School or program name as a supporting canvas element (not a score label) is welcome — keep it secondary in scale, not a large hero element. If a rank (#N) appears in the RESULT block for either team, it must be shown on the graphic. Do not include:`,
       `• "FINAL SCORE" as a large hero headline. "FINAL" may appear as a label.`,
       `• "AWAY", "HOME", "ROAD", or "VISITOR" as visible canvas text.`,
       `• Outcome declarations — "CATS WIN!", "[TEAM] WIN.", "VICTORY!", or equivalent hype banners.`,
