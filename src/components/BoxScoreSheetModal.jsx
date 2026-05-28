@@ -954,9 +954,6 @@ SELF-CHECK BEFORE YOU SEND — run every line
           const lineNum = s.dataStart + i
           out.push(`Line ${pad(lineNum)}: ${s.title.toUpperCase()} slot ${i + 1} of ${s.rowCount} — player row (${s.headers.length} fields, tab-separated) OR TRULY EMPTY LINE`)
         }
-        if (!isLast) {
-          out.push(`Line ${pad(s.dataEnd + 1)}: BLANK — emit one TRULY EMPTY LINE (just \\n). Required separator between sections. NEVER skip — skipping shifts every banner below up by one row.`)
-        }
       })
       return out.join('\n')
     })()
@@ -974,13 +971,31 @@ SELF-CHECK BEFORE YOU SEND — run every line
 Your output is EXACTLY ${layout.totalRows} lines. Each line below tells you what
 must appear at that 1-indexed output position. Banner and header
 lines are FIXED — emit them verbatim. Data lines are placeholders
-you fill (or leave empty). Blank-separator lines are empty (\\n)
-and REQUIRED — skipping one shifts every banner below by a row.
+you fill (or leave empty). Unused slots are TRULY EMPTY LINES (\\n only).
+There are NO separator rows between sections — the last data slot of
+one section is immediately followed by the next section's banner.
 
 ${outputLineMap}
 
 Total: exactly ${layout.totalRows} lines. "<TAB>" in the spec = real tab character (U+0009).
-Empty slots and blank separators are TRULY EMPTY LINES (\\n only — no spaces, no tabs). Never skip or merge a line. Banner lines: no tabs. Header lines: (column count − 1) tabs. Data lines: same column count as their section header.
+Empty slots are TRULY EMPTY LINES (\\n only — no spaces, no tabs). Never skip or merge a line. Banner lines: no tabs. Header lines: (column count − 1) tabs. Data lines: same column count as their section header.
+
+═══════════════════════════════════════════════════════════
+ASSEMBLE IN CODE — do not type this block by hand
+═══════════════════════════════════════════════════════════
+Typing ${layout.totalRows} lines directly into chat causes two invisible failures:
+(1) a stray tab in an "empty" slot looks identical to a truly empty line in chat,
+(2) counting blank lines by eye drifts — and either shifts every banner below.
+
+Build the output programmatically instead:
+  • For each section: create a list of exactly <rowCount> empty strings.
+  • Fill player rows in by index (slot 0 = first player row, etc.).
+  • Build the section: banner + "\\n" + header + "\\n" + "\\n".join(slots).
+  • Join sections with "\\n" — no separator rows between them.
+  • Before attaching: split the result on "\\n", assert len == ${layout.totalRows},
+    and print each banner's line number to confirm it matches the spec above.
+Deliver as a .tsv file attachment (Method A). This guarantees truly empty
+lines and exact slot counts — two things hand-typing cannot guarantee.
 
 ═══════════════════════════════════════════════════════════
 HOW TO READ THE GAME SCREENSHOTS — do this first
@@ -1018,7 +1033,7 @@ CRITICAL RULES
 3. Column header rows: output the EXACT header text for that section, tab-separated, with NO extra columns past the section's stat list. The header row for "Passing" has 8 cells; for "Defense" it has 15.
 4. Data rows: each non-empty data row must have EXACTLY the column count of its section's header row. Empty slots in a data row are tab-separated empty fields, NOT skipped tabs. (e.g. a Passing data row always has 8 fields separated by 7 tabs.)
 5. Empty data slots (rows where no player stat-earner exists): output a TRULY EMPTY LINE (just \\n) — no tabs, no spaces.
-6. Blank separator rows (between sections): output a TRULY EMPTY LINE.
+6. There are NO separator rows between sections. The next banner immediately follows the last data slot of the previous section.
 7. NO COMMAS in numbers ("1234" not "1,234"). INTEGERS only, with these EXCEPTIONS:
    • Passing Rtg — one decimal (e.g. "148.3").
    • Defense Sacks — half-credits ARE valid (e.g. "2.5" or "0.5"). If the screenshot shows a half-sack, write it as "2.5" — DO NOT round to an integer. If the screenshot shows a whole number, write it whole (e.g. "2", not "2.0").
@@ -1071,9 +1086,10 @@ mode of this output and it will silently corrupt the user's sheet.
     you generated it from scratch instead of copying — go back and
     re-copy from the template.
 
-[ ] LINE COUNT: split your draft on newlines. The result MUST
-    contain EXACTLY ${layout.totalRows} elements. If it's anything
-    else, you're done — go fix.
+[ ] LINE COUNT: split your assembled string on "\\n" IN CODE and
+    print the length. It MUST equal EXACTLY ${layout.totalRows}.
+    Do not count by eye — invisible stray whitespace won't show.
+    If the count is wrong, fix the code, not the visual text.
 
 [ ] STRAY BANNERS / HEADERS: search your draft for the string "═══".
     Every occurrence MUST be on one of the banner-position lines
@@ -1085,10 +1101,11 @@ mode of this output and it will silently corrupt the user's sheet.
     banner line was duplicated into a data slot. Delete the
     duplicate.
 
-[ ] EMPTY-LINE COUNT: there should be ${layout.sections.length - 1} blank separator lines
-    between sections, plus however many empty data slots you didn't
-    fill. An empty line is a TRULY EMPTY line — \\n only, no
-    spaces, no tabs.
+[ ] EMPTY-LINE COUNT: there are NO blank separator lines between
+    sections — each section's last data slot runs right up to the
+    next banner. Empty lines appear only within data blocks, for
+    unused player slots. An empty line is a TRULY EMPTY line —
+    \\n only, no spaces, no tabs.
 
 [ ] BANNER ROW SHAPE: for each banner line, confirm there are zero
     tab characters on that line. Banners are column A only.
