@@ -784,6 +784,16 @@ export default function Game() {
     return map
   }, [currentDynasty?.players])
 
+  // The Photos tab shows the uploaded photos plus the AI score graphic,
+  // all taggable. Graphic leads (it's the marquee image). Deduped.
+  const photoTabImages = useMemo(() => {
+    const list = [
+      ...(game?.scoreGraphic ? [game.scoreGraphic] : []),
+      ...(Array.isArray(game?.photos) ? game.photos : []),
+    ]
+    return list.filter((u, i, arr) => u && arr.indexOf(u) === i)
+  }, [game?.scoreGraphic, game?.photos])
+
   // pid → name, for rendering photo-tag chips in the Photos lightbox.
   const playerNameByPid = useMemo(() => {
     const map = new Map()
@@ -957,8 +967,7 @@ export default function Game() {
     if (hasRatingsData) return 'ratings'
     if (hasAwardsData) return 'awards'
     if (hasCardsData) return 'cards'
-    if (hasPhotosData) return 'photos'
-    if (hasScoreGraphicData) return 'graphic'
+    if (hasPhotosData || hasScoreGraphicData) return 'photos'
     return 'gamecast' // empty state — gamecast will render its own placeholder
   })()
   const effectiveDefaultTab = defaultTabPref === 'auto' ? autoDefaultTab : defaultTabPref
@@ -2052,8 +2061,7 @@ export default function Game() {
                 { key: 'ratings', label: 'Ratings', shortLabel: 'Rtg', show: !isCPUGame && hasRatingsData },
                 { key: 'awards', label: 'Awards', shortLabel: 'Awards', show: !isCPUGame && hasAwardsData },
                 { key: 'cards', label: 'Cards', shortLabel: 'Cards', show: hasCardsData },
-                { key: 'photos', label: 'Photos', shortLabel: 'Photos', show: hasPhotosData },
-                { key: 'graphic', label: 'Score Graphic', shortLabel: 'Graphic', show: hasScoreGraphicData },
+                { key: 'photos', label: 'Photos', shortLabel: 'Photos', show: hasPhotosData || hasScoreGraphicData },
               ].filter(tab => tab.show).map(tab => (
                 <button
                   key={tab.key}
@@ -3732,10 +3740,10 @@ export default function Game() {
             </div>
           )}
 
-          {activeTab === 'photos' && Array.isArray(game.photos) && game.photos.length > 0 && (
+          {activeTab === 'photos' && photoTabImages.length > 0 && (
             <div className="px-3 sm:px-5 py-5 sm:py-6">
               <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-8 xl:grid-cols-10 gap-2">
-                {game.photos.map((url, idx) => {
+                {photoTabImages.map((url, idx) => {
                   // Route grid thumbs through wsrv.nl (free image proxy) to
                   // get ~240px webp instead of the full-res ImgBB original.
                   // ~10-30x smaller per tile. The lightbox still loads `url`
@@ -3771,20 +3779,6 @@ export default function Game() {
                     </button>
                   )
                 })}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'graphic' && game.scoreGraphic && (
-            <div className="px-3 sm:px-5 py-5 sm:py-6">
-              <div className="flex justify-center">
-                <img
-                  src={game.scoreGraphic}
-                  alt={`${displayTeam} vs ${opponent} score graphic`}
-                  className="rounded-xl max-w-full"
-                  style={{ maxHeight: '600px', border: '1px solid var(--surface-4)' }}
-                  onError={(e) => { e.target.style.display = 'none' }}
-                />
               </div>
             </div>
           )}
@@ -3940,9 +3934,9 @@ export default function Game() {
       {/* Full-screen photo lightbox — opens when a Photos-tab thumb
           is clicked. Esc / clicking the backdrop / × button closes;
           ←/→ arrow keys + on-screen chevrons step through. */}
-      {photoLightboxIdx !== null && Array.isArray(game.photos) && game.photos.length > 0 && (
+      {photoLightboxIdx !== null && photoTabImages.length > 0 && (
         <PhotoLightbox
-          photos={game.photos}
+          photos={photoTabImages}
           index={photoLightboxIdx}
           onClose={() => setPhotoLightboxIdx(null)}
           onIndexChange={setPhotoLightboxIdx}

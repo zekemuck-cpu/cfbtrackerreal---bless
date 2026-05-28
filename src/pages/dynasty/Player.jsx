@@ -933,8 +933,12 @@ function PlayerInner() {
     for (const g of games) {
       const tags = g?.photoTags
       if (!tags || typeof tags !== 'object') continue
-      const photos = Array.isArray(g.photos) ? g.photos : []
-      for (const url of photos) {
+      // Uploaded photos plus the AI score graphic — both are taggable.
+      const urls = [
+        ...(Array.isArray(g.photos) ? g.photos : []),
+        ...(g.scoreGraphic ? [g.scoreGraphic] : []),
+      ]
+      for (const url of urls) {
         const pids = tags[url]
         if (Array.isArray(pids) && pids.some(p => String(p) === String(pid))) {
           out.push({ url, gameId: g.id, year: g.year, week: g.week })

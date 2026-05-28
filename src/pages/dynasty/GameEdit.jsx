@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
-import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName, getTidFromAbbr, getOriginalTeamAbbr } from '../../data/teamRegistry'
 import { useDynasty, GAME_TYPES, getCurrentCustomConferences, buildRecordUpdatePayload, calculateTeamRecordFromGames, getStoredTeamRecord, getTeamRecord, getTeamRankForWeek, propagateCFPWinner, isPlayerOnRoster, getRecordAsOfGame } from '../../context/DynastyContext'
@@ -542,6 +542,14 @@ export default function GameEdit() {
       return { ...prev, photoTags: tags }
     })
   }
+
+  // Images shown in the Photos modal: the AI score graphic (first, flagged
+  // so it's taggable but not removable here — it's managed by the score-
+  // graphic flow) followed by the uploaded photos. Deduped by URL.
+  const editorPhotoImages = [
+    ...(formData.scoreGraphic ? [{ url: formData.scoreGraphic, isGraphic: true }] : []),
+    ...((formData.photos || []).map(u => ({ url: u, isGraphic: false }))),
+  ].filter((x, i, arr) => x.url && arr.findIndex(y => y.url === x.url) === i)
   // gameType is editable — the user picks "Regular Season" or
   // "Conference Championship" via the classification dropdown in the
   // form. Bowl/CFP types stay in the dropdown for display but the picker
@@ -739,6 +747,10 @@ export default function GameEdit() {
   const rightTeamTid = displayRightTeam === 'team1' ? team1Tid : team2Tid
   const leftTeamName = displayLeftTeam === 'team1' ? team1Name : team2Name
   const rightTeamName = displayRightTeam === 'team1' ? team1Name : team2Name
+  // School name (mascot stripped) for the header so long full names like
+  // "Notre Dame Fighting Irish" don't run off the edge of the score banner.
+  const leftTeamSchool = stripMascotFromName(leftTeamName) || leftTeamName
+  const rightTeamSchool = stripMascotFromName(rightTeamName) || rightTeamName
   const leftTeamAbbr = displayLeftTeam === 'team1' ? team1Abbr : team2Abbr
   const rightTeamAbbr = displayRightTeam === 'team1' ? team1Abbr : team2Abbr
   const leftTeamLogo = displayLeftTeam === 'team1' ? team1Logo : team2Logo
@@ -1408,7 +1420,7 @@ export default function GameEdit() {
         photos: Array.isArray(formData.photos) ? formData.photos.filter(Boolean) : [],
         // Player tags per photo, pruned to photos that still exist so a
         // removed photo doesn't leave an orphan tag entry behind.
-        photoTags: prunePhotoTags(formData.photoTags, formData.photos),
+        photoTags: prunePhotoTags(formData.photoTags, [...(formData.photos || []), formData.scoreGraphic].filter(Boolean)),
         // Score graphic — single AI-generated image URL (empty string = none)
         ...(formData.scoreGraphic ? { scoreGraphic: formData.scoreGraphic } : {}),
       }
@@ -1595,7 +1607,7 @@ export default function GameEdit() {
         photos: Array.isArray(formData.photos) ? formData.photos.filter(Boolean) : [],
         // Player tags per photo, pruned to photos that still exist so a
         // removed photo doesn't leave an orphan tag entry behind.
-        photoTags: prunePhotoTags(formData.photoTags, formData.photos),
+        photoTags: prunePhotoTags(formData.photoTags, [...(formData.photos || []), formData.scoreGraphic].filter(Boolean)),
         // Score graphic — single AI-generated image URL (empty string = none)
         ...(formData.scoreGraphic ? { scoreGraphic: formData.scoreGraphic } : {}),
       }
@@ -1887,11 +1899,11 @@ export default function GameEdit() {
                     >
                       {leftTeamLogo && <img src={leftTeamLogo} alt={leftTeamName} className="w-full h-full object-contain" />}
                     </div>
-                    <div className="text-left">
+                    <div className="text-left min-w-0">
                       {formData[`${displayLeftTeam}Rank`] && (
                         <div className="text-amber-400 text-xs font-bold">#{formData[`${displayLeftTeam}Rank`]}</div>
                       )}
-                      <div className="text-white font-bold text-lg">{leftTeamName}</div>
+                      <div className="text-white font-bold text-lg leading-tight max-w-[11rem]">{leftTeamSchool}</div>
                     </div>
                   </div>
                   <input
@@ -1984,11 +1996,11 @@ export default function GameEdit() {
                     min="0"
                   />
                   <div className="flex items-center gap-4">
-                    <div className="text-right">
+                    <div className="text-right min-w-0">
                       {formData[`${displayRightTeam}Rank`] && (
                         <div className="text-amber-400 text-xs font-bold">#{formData[`${displayRightTeam}Rank`]}</div>
                       )}
-                      <div className="text-white font-bold text-lg">{rightTeamName}</div>
+                      <div className="text-white font-bold text-lg leading-tight max-w-[11rem] ml-auto">{rightTeamSchool}</div>
                     </div>
                     <div
                       className="w-16 h-16 rounded-full flex items-center justify-center p-2 shadow-xl bg-white shrink-0"
@@ -3093,9 +3105,9 @@ export default function GameEdit() {
         <p className="text-[11px] text-txt-tertiary mb-2 m-0">
           {massTagPid != null ? 'Click photos to toggle this player. Highlighted = tagged.' : 'Click a photo to tag the players in it.'}
         </p>
-        {formData.photos.length > 0 ? (
+        {editorPhotoImages.length > 0 ? (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
-            {formData.photos.map((url, idx) => {
+            {editorPhotoImages.map(({ url, isGraphic }) => {
               const tagCount = (formData.photoTags?.[url] || []).length
               const massTagged = massTagPid != null && (formData.photoTags?.[url] || []).some(p => String(p) === String(massTagPid))
               // Low-res proxy thumbnail (same wsrv.nl trick as the Game/Player
@@ -3105,7 +3117,7 @@ export default function GameEdit() {
               return (
               <button
                 type="button"
-                key={`${url}-${idx}`}
+                key={url}
                 onClick={() => {
                   if (massTagPid != null) togglePhotoTag(url, massTagPid)
                   else { setPhotoDetailUrl(url); setPhotoTagQuery('') }
@@ -3119,7 +3131,7 @@ export default function GameEdit() {
               >
                 <img
                   src={thumb}
-                  alt={`Game photo ${idx + 1}`}
+                  alt={isGraphic ? 'Score graphic' : 'Game photo'}
                   className="w-full h-full object-cover"
                   loading="lazy"
                   decoding="async"
@@ -3134,6 +3146,14 @@ export default function GameEdit() {
                     ✓
                   </span>
                 )}
+                {isGraphic && !massTagged && (
+                  <span
+                    className="absolute top-1 left-1 px-1.5 py-0.5 rounded-sm text-[9px] font-bold uppercase tracking-wide"
+                    style={{ backgroundColor: 'rgba(15, 23, 42, 0.85)', color: '#fff', border: '1px solid var(--surface-5)' }}
+                  >
+                    Graphic
+                  </span>
+                )}
                 {tagCount > 0 && (
                   <span
                     className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold tabular-nums"
@@ -3143,36 +3163,38 @@ export default function GameEdit() {
                     {tagCount} tagged
                   </span>
                 )}
-                <span
-                  role="button"
-                  tabIndex={-1}
-                  onClick={async (e) => {
-                    e.stopPropagation()
-                    const ok = await confirm({
-                      title: 'Remove this photo?',
-                      message: tagCount > 0
-                        ? `This photo has ${tagCount} player${tagCount === 1 ? '' : 's'} tagged. Removing it deletes the photo and its tags from this game.`
-                        : 'Remove this photo from the game?',
-                      confirmLabel: 'Remove photo',
-                      variant: 'danger',
-                    })
-                    if (!ok) return
-                    setFormData(prev => {
-                      const tags = { ...(prev.photoTags || {}) }
-                      delete tags[url]
-                      return { ...prev, photos: prev.photos.filter((_, i) => i !== idx), photoTags: tags }
-                    })
-                    if (photoDetailUrl === url) { setPhotoDetailUrl(null); setPhotoTagQuery('') }
-                  }}
-                  className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ backgroundColor: 'rgba(15, 23, 42, 0.85)', color: '#f87171', border: '1px solid var(--surface-5)' }}
-                  title="Remove photo"
-                  aria-label="Remove photo"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </span>
+                {!isGraphic && (
+                  <span
+                    role="button"
+                    tabIndex={-1}
+                    onClick={async (e) => {
+                      e.stopPropagation()
+                      const ok = await confirm({
+                        title: 'Remove this photo?',
+                        message: tagCount > 0
+                          ? `This photo has ${tagCount} player${tagCount === 1 ? '' : 's'} tagged. Removing it deletes the photo and its tags from this game.`
+                          : 'Remove this photo from the game?',
+                        confirmLabel: 'Remove photo',
+                        variant: 'danger',
+                      })
+                      if (!ok) return
+                      setFormData(prev => {
+                        const tags = { ...(prev.photoTags || {}) }
+                        delete tags[url]
+                        return { ...prev, photos: (prev.photos || []).filter(u => u !== url), photoTags: tags }
+                      })
+                      if (photoDetailUrl === url) { setPhotoDetailUrl(null); setPhotoTagQuery('') }
+                    }}
+                    className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ backgroundColor: 'rgba(15, 23, 42, 0.85)', color: '#f87171', border: '1px solid var(--surface-5)' }}
+                    title="Remove photo"
+                    aria-label="Remove photo"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </span>
+                )}
               </button>
               )
             })}
