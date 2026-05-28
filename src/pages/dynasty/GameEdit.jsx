@@ -24,6 +24,7 @@ import { uploadImagesToImgBB } from '../../utils/imgbb'
 import TeamPermissionBanner from '../../components/TeamPermissionBanner'
 import ImageUpload from '../../components/ImageUpload'
 import { buildScoreGraphicPrompt } from '../../utils/scoreGraphicPrompt'
+import { matchAndRankPlayers } from '../../utils/playerTagSearch'
 
 // Map abbreviations to mascot names for logo lookup
 // Convert a pasted AI recap to plain text. The recap render
@@ -527,17 +528,6 @@ export default function GameEdit() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, formData.photos])
-
-  // Unified player match for the tag searches — matches on either the
-  // player's name OR their jersey number, so typing "15" surfaces #15 and
-  // typing a name works the same. One search box, both fields.
-  const playerMatchesQuery = (p, q) => {
-    const query = (q || '').trim().toLowerCase()
-    if (!query) return true
-    const name = (p.name || '').toLowerCase()
-    const jersey = (p.jerseyNumber != null && p.jerseyNumber !== '') ? String(p.jerseyNumber).toLowerCase() : ''
-    return name.includes(query) || (jersey !== '' && jersey.includes(query))
-  }
 
   // Toggle a player tag on a photo. Adds the pid if absent, removes it if
   // present. Drops the url key entirely when its last tag is removed.
@@ -2887,8 +2877,7 @@ export default function GameEdit() {
                       No dynasty players on either team to tag.
                     </p>
                   ) : (
-                    taggablePlayers
-                      .filter(p => playerMatchesQuery(p, photoTagQuery))
+                    matchAndRankPlayers(taggablePlayers, photoTagQuery)
                       .map(pl => {
                         const tagged = (formData.photoTags?.[photoDetailUrl] || []).some(p => String(p) === String(pl.pid))
                         return (
@@ -3077,8 +3066,7 @@ export default function GameEdit() {
                   className="absolute z-10 left-0 right-0 mt-1 max-h-[40vh] overflow-y-auto rounded-md"
                   style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
                 >
-                  {taggablePlayers
-                    .filter(p => playerMatchesQuery(p, massTagQuery))
+                  {matchAndRankPlayers(taggablePlayers, massTagQuery)
                     .map(pl => (
                       <button
                         key={pl.pid}
@@ -3158,8 +3146,17 @@ export default function GameEdit() {
                 <span
                   role="button"
                   tabIndex={-1}
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation()
+                    const ok = await confirm({
+                      title: 'Remove this photo?',
+                      message: tagCount > 0
+                        ? `This photo has ${tagCount} player${tagCount === 1 ? '' : 's'} tagged. Removing it deletes the photo and its tags from this game.`
+                        : 'Remove this photo from the game?',
+                      confirmLabel: 'Remove photo',
+                      variant: 'danger',
+                    })
+                    if (!ok) return
                     setFormData(prev => {
                       const tags = { ...(prev.photoTags || {}) }
                       delete tags[url]

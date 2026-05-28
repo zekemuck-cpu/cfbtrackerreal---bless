@@ -941,6 +941,15 @@ function PlayerInner() {
         }
       }
     }
+    // Newest first: year desc, then week desc.
+    out.sort((a, b) => {
+      const yA = Number(a.year) || 0
+      const yB = Number(b.year) || 0
+      if (yB !== yA) return yB - yA
+      const wA = Number(a.week)
+      const wB = Number(b.week)
+      return (Number.isFinite(wB) ? wB : -1) - (Number.isFinite(wA) ? wA : -1)
+    })
     return out
   }, [player?.pid, dynasty?.games])
 
@@ -5700,12 +5709,6 @@ function PlayerInner() {
         <div className="card overflow-hidden">
           <div className="h-[3px] w-full" style={{ backgroundColor: teamInfo.backgroundColor }} aria-hidden="true" />
           <div className="p-5">
-            <div className="label-xs text-txt-tertiary mb-1" style={{ letterSpacing: '1.5px' }}>
-              {taggedPhotos.length} {taggedPhotos.length === 1 ? 'photo' : 'photos'}
-            </div>
-            <h2 className="text-xl font-black text-txt-primary mb-4" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1px' }}>
-              Photos
-            </h2>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
               {taggedPhotos.map((ph, idx) => {
                 const thumb = `https://wsrv.nl/?url=${encodeURIComponent(ph.url)}&w=240&output=webp`

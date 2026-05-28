@@ -688,8 +688,10 @@ export default function ScoringHighlightsModal({
           />
         </div>
 
-        {/* Footer — play info + controls + score in one row */}
-        <div className="flex items-center gap-3 sm:gap-4 px-4 py-2.5 bg-surface-2 flex-shrink-0">
+        {/* Footer — play info + controls + score. Single row on desktop;
+            on mobile the play info takes its own full-width row above the
+            controls/score so it stops getting starved and truncated. */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-4 py-2.5 bg-surface-2 flex-shrink-0">
           {/* Play info (left). Picture + names link to the player page when
               we have a pid AND pathPrefix; without pathPrefix (e.g. embedded
               in a context with no router prefix) we fall back to plain text. */}
@@ -717,7 +719,7 @@ export default function ScoringHighlightsModal({
               return <span>{label}</span>
             }
             return (
-              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <div className="flex items-center gap-2.5 min-w-0 w-full sm:flex-1">
                 {picturePlayer?.pictureUrl && (
                   picturePlayer.pid && pathPrefix ? (
                     <button
@@ -773,6 +775,10 @@ export default function ScoringHighlightsModal({
             )
           })()}
 
+          {/* On mobile, controls + score share a justify-between row; on
+              desktop `sm:contents` dissolves this wrapper so they sit as
+              direct children of the footer flex row (unchanged layout). */}
+          <div className="flex items-center justify-between gap-3 w-full sm:contents">
           {/* Controls (center) */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <button
@@ -876,6 +882,7 @@ export default function ScoringHighlightsModal({
               </button>
             )
           })()}
+          </div>
         </div>
       </div>
     </div>,

@@ -7,6 +7,7 @@ import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeam
 import { getTeamColors } from '../../data/teamColors'
 import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear, getCustomConferencesForYear, getTeamRankForWeek, isPlayerOnRoster } from '../../context/DynastyContext'
 import { saveGamesToSubcollection } from '../../services/dynastyService'
+import { matchAndRankPlayers } from '../../utils/playerTagSearch'
 import CardComposer from '../../components/CardComposer'
 import { getCardsForGame } from '../../utils/playerCards'
 import { getTeamLogoRobust } from '../../utils/teamLogo'
@@ -342,17 +343,6 @@ function buildHighlightSentence(play) {
       return parts.join(' ')
     }
   }
-}
-
-// Match a player by name OR jersey number (unified photo-tag search) —
-// typing "15" surfaces #15, typing a name works the same. Module-level so
-// both the Game component and the PhotoLightbox tag panel share it.
-function playerMatchesPhotoTagQuery(p, q) {
-  const query = (q || '').trim().toLowerCase()
-  if (!query) return true
-  const name = (p.name || '').toLowerCase()
-  const jersey = (p.jerseyNumber != null && p.jerseyNumber !== '') ? String(p.jerseyNumber).toLowerCase() : ''
-  return name.includes(query) || (jersey !== '' && jersey.includes(query))
 }
 
 export default function Game() {
@@ -4218,8 +4208,7 @@ function PhotoLightbox({ photos, index, onClose, onIndexChange, photoTags = null
               {taggablePlayers.length === 0 ? (
                 <p className="text-xs text-txt-tertiary italic p-3 m-0">No dynasty players on either team to tag.</p>
               ) : (
-                taggablePlayers
-                  .filter(p => playerMatchesPhotoTagQuery(p, tagQuery))
+                matchAndRankPlayers(taggablePlayers, tagQuery)
                   .map(pl => {
                     const tagged = tagPids.some(p => String(p) === String(pl.pid))
                     return (

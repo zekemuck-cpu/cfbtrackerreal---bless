@@ -67,24 +67,26 @@ export default function InlineScoringHighlights({
 
   const progressPct = ((currentIndex + 1) / total) * 100
 
-  // Compact caption — Q, time, scoreType, yards
-  const caption = (() => {
+  // Split the play into metadata (small top line: play #, quarter, time)
+  // and the play itself (main line: who scored + what). Cramming it all
+  // onto one truncated line cut off the scorer — the most useful part —
+  // and left junk like "Q2 6:51 Fie".
+  const playMeta = (currentPlay && currentPlay.quarter && currentPlay.timeLeft)
+    ? `Q${currentPlay.quarter} ${currentPlay.timeLeft}`
+    : ''
+
+  const playDesc = (() => {
     if (!currentPlay) return ''
-    const bits = []
-    if (currentPlay.quarter && currentPlay.timeLeft) {
-      bits.push(`Q${currentPlay.quarter} ${currentPlay.timeLeft}`)
-    }
-    if (currentPlay.scoreType) {
-      let s = currentPlay.scoreType
-      if (currentPlay.yards) s += ` ${currentPlay.yards} yd`
-      bits.push(s)
-    }
     const scorer = currentPlay.scorer
     const passer = currentPlay.passer
-    if (scorer) {
-      bits.push(passer && currentPlay.scoreType?.includes('Passing') ? `${passer} → ${scorer}` : scorer)
+    const who = scorer
+      ? ((passer && currentPlay.scoreType?.includes('Passing')) ? `${passer} → ${scorer}` : scorer)
+      : ''
+    let what = ''
+    if (currentPlay.scoreType) {
+      what = currentPlay.yards ? `${currentPlay.yards} yd ${currentPlay.scoreType}` : currentPlay.scoreType
     }
-    return bits.join(' ')
+    return [who, what].filter(Boolean).join(' · ')
   })()
 
   // Elapsed time estimate inside the current clip — we don't have true
@@ -186,10 +188,15 @@ export default function InlineScoringHighlights({
       {/* Caption + controls */}
       <div className="px-3 py-2 flex items-center gap-2">
         <div className="flex-1 min-w-0">
-          <div className="text-[10px] uppercase tracking-[0.14em] text-txt-muted tabular-nums">
-            Play {currentIndex + 1} / {total}
+          <div className="text-[10px] uppercase tracking-[0.14em] text-txt-muted tabular-nums truncate">
+            Play {currentIndex + 1} / {total}{playMeta ? ` · ${playMeta}` : ''}
           </div>
-          <div className="text-[12px] text-txt-primary truncate mt-0.5">{caption}</div>
+          <div
+            className="text-[12px] text-txt-primary mt-0.5 leading-snug overflow-hidden"
+            style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}
+          >
+            {playDesc}
+          </div>
         </div>
         <div className="flex items-center gap-0.5 flex-shrink-0">
           <button
