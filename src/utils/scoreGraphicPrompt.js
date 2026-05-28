@@ -117,7 +117,7 @@ export function buildScoreGraphicPrompt({
   // Only the rules that address real observed AI problems.
   const designRules = (mode = 'branded') => [
     `DESIGN RULES:`,
-    `• If a photo is attached, integrate it into the design — don't let it replace the design. The photo fills the frame as the dominant visual, but the school's brand language (colors, typography, graphic elements, score zone treatment) should be just as deliberate as it would be without a photo. A photo on a plain color background with a thin score bar at the bottom is a failure — the brand identity should be built into how the photo is framed, what surrounds it, and how the score area is designed.`,
+    `• If a photo is attached, it should fill nearly the entire canvas — the photo is the dominant visual. Layer the school's brand on top: the score zone, bold school or team name typography, and color treatment that ties back to the program. Don't let the photo do all the work — the overlaid elements should make it instantly recognizable as that school's graphic, not just a photo with a score bar.`,
     `• No distressed, scratchy, or grungy letterforms. Clean, bold typography only.`,
     mode === 'branded'
       ? `• This is ${featuredName}'s post — their palette owns the canvas. The opponent's colors appear only through their logo, not as background fills, panels, or design shapes.`
