@@ -38,7 +38,7 @@ export const customSandbox = {
     tone: 'analytical',
     length: 'standard',
     format: 'prose',
-    outputStyle: 'plain',
+    outputStyle: 'markdown',
     focus: 'both-sides',
     timeHorizon: 'this-season',
     stance: 'lay-out-facts',

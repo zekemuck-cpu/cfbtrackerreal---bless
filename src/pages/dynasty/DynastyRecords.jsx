@@ -12,6 +12,7 @@ import {
   EmptyState,
   Tabs,
   Modal,
+  Select,
 } from '../../components/ui'
 import { computeSeasonAV } from '../../utils/approximateValue'
 
@@ -178,6 +179,12 @@ export default function DynastyRecords() {
 
   const [mode, setMode] = useState(() => localStorage.getItem('leaderboard-mode') || 'career')
   const [activeCategory, setActiveCategory] = useState(() => resolveCategory(categoryParam))
+  // Season-mode year scope. null = follow the dynasty's current year (the
+  // leaderboard should open on the season you're playing, not all-time);
+  // 'all' = every season; a number = that specific season. Only applies in
+  // Season mode — Career is inherently all-time.
+  const [seasonYearChoice, setSeasonYearChoice] = useState(null)
+  const effectiveSeasonYear = seasonYearChoice ?? (currentDynasty?.currentYear != null ? Number(currentDynasty.currentYear) : 'all')
 
   // Keep state in sync with URL — covers back/forward navigation,
   // direct paste, and any external link to a specific tab.
@@ -284,12 +291,18 @@ export default function DynastyRecords() {
       })
     })
 
-    if (allPlayerStats.length === 0) return {}
+    // Season mode can be scoped to one year (default: the current season).
+    // Career mode and the "All-Time" choice use every season.
+    const scopedStats = (mode === 'season' && effectiveSeasonYear !== 'all')
+      ? allPlayerStats.filter(ps => ps.year === effectiveSeasonYear)
+      : allPlayerStats
+
+    if (scopedStats.length === 0) return {}
 
     const aggregateStats = (category) => {
       const playerTotals = {}
 
-      allPlayerStats.forEach(ps => {
+      scopedStats.forEach(ps => {
         const catStats = ps[category]
         if (!catStats) return
 
@@ -336,7 +349,7 @@ export default function DynastyRecords() {
     const calcAllPurposeStats = () => {
       const playerTotals = {}
 
-      allPlayerStats.forEach(ps => {
+      scopedStats.forEach(ps => {
         const playerKey = mode === 'career' ? ps.pid : `${ps.pid}-${ps.year}`
 
         if (!playerTotals[playerKey]) {
@@ -388,7 +401,7 @@ export default function DynastyRecords() {
         playerById[p.pid] = p
       })
 
-      allPlayerStats.forEach(ps => {
+      scopedStats.forEach(ps => {
         const player = playerById[ps.pid]
         if (!player) return
         const positionForYear = player.positionByYear?.[ps.year]
@@ -660,7 +673,21 @@ export default function DynastyRecords() {
     })
 
     return result
-  }, [currentDynasty, mode])
+  }, [currentDynasty, mode, effectiveSeasonYear])
+
+  // Distinct seasons that have any player stats — drives the Season-mode
+  // year dropdown (newest first, with an "All-Time" option).
+  const availableSeasonYears = useMemo(() => {
+    const years = new Set()
+    for (const p of (currentDynasty?.players || [])) {
+      if (p?.isHonorOnly) continue
+      for (const y of Object.keys(p.statsByYear || {})) {
+        const n = parseInt(y)
+        if (Number.isFinite(n)) years.add(n)
+      }
+    }
+    return Array.from(years).sort((a, b) => b - a)
+  }, [currentDynasty?.players])
 
   const handleCategoryChange = (catKey) => {
     setActiveCategory(catKey)
@@ -701,16 +728,33 @@ export default function DynastyRecords() {
   const hasData = Object.values(catLeaderboards).some(lb => lb && lb.length > 0)
 
   const modeTabs = (
-    <Tabs
-      variant="pill"
-      value={mode}
-      onChange={handleModeChange}
-      options={[
-        { value: 'career', label: 'Career' },
-        { value: 'season', label: 'Season' },
-      ]}
-    />
+    <div className="flex items-center gap-2 flex-wrap">
+      <Tabs
+        variant="pill"
+        value={mode}
+        onChange={handleModeChange}
+        options={[
+          { value: 'career', label: 'Career' },
+          { value: 'season', label: 'Season' },
+        ]}
+      />
+      {mode === 'season' && (
+        <Select
+          size="sm"
+          value={effectiveSeasonYear === 'all' ? 'all' : String(effectiveSeasonYear)}
+          onChange={(e) => setSeasonYearChoice(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+          aria-label="Season"
+        >
+          {availableSeasonYears.map(y => (
+            <option key={y} value={String(y)}>{y}</option>
+          ))}
+          <option value="all">All-Time</option>
+        </Select>
+      )}
+    </div>
   )
+
+  const seasonScopeLabel = effectiveSeasonYear === 'all' ? 'all-time' : effectiveSeasonYear
 
   return (
     <div className="space-y-6">
@@ -718,7 +762,7 @@ export default function DynastyRecords() {
         eyebrow="Records"
         title="Dynasty Records"
         meta={
-          <span>{mode === 'career' ? 'All-time career leaders' : 'Single season records'}</span>
+          <span>{mode === 'career' ? 'All-time career leaders' : `${seasonScopeLabel} single-season leaders`}</span>
         }
         actions={modeTabs}
       />
