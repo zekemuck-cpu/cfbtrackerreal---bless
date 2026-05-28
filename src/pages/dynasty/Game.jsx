@@ -5,7 +5,8 @@ import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
-import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear, getCustomConferencesForYear, getTeamRankForWeek } from '../../context/DynastyContext'
+import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear, getCustomConferencesForYear, getTeamRankForWeek, isPlayerOnRoster } from '../../context/DynastyContext'
+import { saveGamesToSubcollection } from '../../services/dynastyService'
 import CardComposer from '../../components/CardComposer'
 import { getCardsForGame } from '../../utils/playerCards'
 import { getTeamLogoRobust } from '../../utils/teamLogo'
@@ -341,6 +342,17 @@ function buildHighlightSentence(play) {
       return parts.join(' ')
     }
   }
+}
+
+// Match a player by name OR jersey number (unified photo-tag search) —
+// typing "15" surfaces #15, typing a name works the same. Module-level so
+// both the Game component and the PhotoLightbox tag panel share it.
+function playerMatchesPhotoTagQuery(p, q) {
+  const query = (q || '').trim().toLowerCase()
+  if (!query) return true
+  const name = (p.name || '').toLowerCase()
+  const jersey = (p.jerseyNumber != null && p.jerseyNumber !== '') ? String(p.jerseyNumber).toLowerCase() : ''
+  return name.includes(query) || (jersey !== '' && jersey.includes(query))
 }
 
 export default function Game() {
@@ -790,6 +802,48 @@ export default function Game() {
     }
     return map
   }, [currentDynasty?.players])
+
+  // Players taggable in this game's photos — dynasty players (with a pid →
+  // a real player page) rostered on either team this game. { pid, name,
+  // jerseyNumber, teamAbbr }. Drives the in-lightbox tag search.
+  const photoTaggablePlayers = useMemo(() => {
+    const players = currentDynasty?.players
+    if (!Array.isArray(players) || !game) return []
+    const tids = [game.team1Tid, game.team2Tid].filter(t => t != null).map(Number)
+    if (tids.length === 0) return []
+    const teamsObj = currentDynasty?.teams || {}
+    const abbrFor = (tid) => teamsObj[tid]?.abbr || teamsObj[String(tid)]?.abbr || ''
+    const yr = game.year
+    return players
+      .filter(p => p?.pid != null && tids.some(tid => isPlayerOnRoster(p, tid, yr)))
+      .map(p => {
+        const onTid = tids.find(tid => isPlayerOnRoster(p, tid, yr))
+        return { pid: p.pid, name: p.name || `Player ${p.pid}`, jerseyNumber: p.jerseyNumber, teamAbbr: abbrFor(onTid) }
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [currentDynasty?.players, currentDynasty?.teams, game])
+
+  // Persist a photo's player tags. Surgical single-game write on cloud
+  // dynasties (avoids re-uploading every game in the subcollection);
+  // plain full update locally (IndexedDB writes the whole dynasty anyway).
+  const savePhotoTags = useCallback(async (url, pids) => {
+    if (!currentDynasty || !game || isViewOnly) return
+    const tags = { ...(game.photoTags || {}) }
+    if (Array.isArray(pids) && pids.length > 0) tags[url] = pids
+    else delete tags[url]
+    const updatedGame = { ...game, photoTags: tags }
+    const updatedGames = (currentDynasty.games || []).map(g => String(g.id) === String(game.id) ? updatedGame : g)
+    try {
+      if (currentDynasty.storageType === 'cloud') {
+        await saveGamesToSubcollection(currentDynasty.id, [updatedGame], { deleteOrphans: false })
+        await updateDynasty(currentDynasty.id, { games: updatedGames }, { skipGamesSubcollection: true })
+      } else {
+        await updateDynasty(currentDynasty.id, { games: updatedGames })
+      }
+    } catch (e) {
+      console.error('Failed to save photo tags:', e)
+    }
+  }, [currentDynasty, game, isViewOnly, updateDynasty])
 
   // Recap player-link patterns. Also hoisted above the early returns
   // for hook-order stability. Heavy lifting only happens when the
@@ -3907,6 +3961,8 @@ export default function Game() {
           pathPrefix={pathPrefix}
           gameId={game.id}
           isViewOnly={isViewOnly}
+          taggablePlayers={photoTaggablePlayers}
+          onSaveTags={savePhotoTags}
         />
       )}
 
@@ -3934,11 +3990,24 @@ export default function Game() {
  *   • ← / → arrows OR on-screen chevrons → previous / next
  *   • Body scroll is locked while open
  */
-function PhotoLightbox({ photos, index, onClose, onIndexChange, photoTags = null, resolvePlayerName = null, pathPrefix = '', gameId = null, isViewOnly = false }) {
+function PhotoLightbox({ photos, index, onClose, onIndexChange, photoTags = null, resolvePlayerName = null, pathPrefix = '', gameId = null, isViewOnly = false, taggablePlayers = [], onSaveTags = null }) {
   const total = photos.length
   const currentUrl = photos[index]
   const tagPids = (photoTags && currentUrl && Array.isArray(photoTags[currentUrl])) ? photoTags[currentUrl] : []
-  const canEditTags = !isViewOnly && gameId != null
+  const canEditTags = !isViewOnly && gameId != null && typeof onSaveTags === 'function'
+
+  // In-lightbox tag editor: opens a search panel right here so the user
+  // can tag players without leaving for the editor.
+  const [showTagPanel, setShowTagPanel] = useState(false)
+  const [tagQuery, setTagQuery] = useState('')
+
+  // Toggle one player's tag on the current photo and persist immediately.
+  const toggleTag = (pid) => {
+    if (!onSaveTags || !currentUrl) return
+    const has = tagPids.some(p => String(p) === String(pid))
+    const next = has ? tagPids.filter(p => String(p) !== String(pid)) : [...tagPids, pid]
+    onSaveTags(currentUrl, next)
+  }
 
   const goPrev = useCallback(() => {
     if (total <= 1) return
@@ -3950,18 +4019,28 @@ function PhotoLightbox({ photos, index, onClose, onIndexChange, photoTags = null
     onIndexChange((index + 1) % total)
   }, [index, total, onIndexChange])
 
-  // Key handlers (body scroll lock is handled globally by Layout)
+  // Close the tag panel whenever we move to a different photo.
+  useEffect(() => { setShowTagPanel(false); setTagQuery('') }, [index])
+
+  // Key handlers (body scroll lock is handled globally by Layout). While
+  // the tag panel is open, Esc closes the panel (not the lightbox) and
+  // arrow keys are left to the search input instead of stepping photos.
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.()
-      else if (e.key === 'ArrowLeft') goPrev()
+      if (e.key === 'Escape') {
+        if (showTagPanel) setShowTagPanel(false)
+        else onClose?.()
+        return
+      }
+      if (showTagPanel) return
+      if (e.key === 'ArrowLeft') goPrev()
       else if (e.key === 'ArrowRight') goNext()
     }
     document.addEventListener('keydown', onKey)
     return () => {
       document.removeEventListener('keydown', onKey)
     }
-  }, [onClose, goPrev, goNext])
+  }, [onClose, goPrev, goNext, showTagPanel])
 
   if (typeof document === 'undefined') return null
   return createPortal(
@@ -4075,17 +4154,100 @@ function PhotoLightbox({ photos, index, onClose, onIndexChange, photoTags = null
               </Link>
             ))}
             {canEditTags && (
-              <Link
-                to={`${pathPrefix}/game/${gameId}/edit?photo=${encodeURIComponent(currentUrl)}`}
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setShowTagPanel(true); setTagQuery('') }}
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors hover:opacity-90"
                 style={{ backgroundColor: 'rgba(255, 255, 255, 0.06)', color: 'rgba(255,255,255,0.85)', border: '1px dashed rgba(255, 255, 255, 0.3)' }}
               >
                 {tagPids.length > 0 ? 'Edit tags' : 'Tag players'}
-              </Link>
+              </button>
             )}
           </div>
         )}
       </div>
+
+      {/* In-lightbox tag panel — search + toggle players, saved immediately */}
+      {showTagPanel && canEditTags && (
+        <div
+          className="absolute inset-0 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+          onClick={(e) => { e.stopPropagation(); setShowTagPanel(false) }}
+        >
+          <div
+            className="w-full max-w-md rounded-lg overflow-hidden flex flex-col"
+            style={{ backgroundColor: 'var(--surface-1)', border: '1px solid var(--surface-4)', maxHeight: '80vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--surface-4)' }}>
+              <span className="text-sm font-bold text-txt-primary">Tag players in this photo</span>
+              <button
+                type="button"
+                onClick={() => setShowTagPanel(false)}
+                className="text-txt-tertiary hover:text-txt-primary text-sm font-semibold"
+              >
+                Done
+              </button>
+            </div>
+            <div className="px-4 py-3">
+              {tagPids.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {tagPids.map(pid => (
+                    <span
+                      key={pid}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium"
+                      style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-5)', color: 'var(--text-primary)' }}
+                    >
+                      {(resolvePlayerName ? resolvePlayerName(pid) : null) || `Player ${pid}`}
+                      <button type="button" onClick={() => toggleTag(pid)} className="hover:opacity-70" style={{ color: '#f87171' }} aria-label="Remove tag">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <input
+                type="text"
+                value={tagQuery}
+                onChange={(e) => setTagQuery(e.target.value)}
+                placeholder="Search players by name or number…"
+                autoFocus
+                className="w-full px-3 py-2 rounded-md text-sm bg-transparent text-txt-primary focus:outline-none focus:ring-1 focus:ring-white/40"
+                style={{ border: '1px solid var(--surface-4)' }}
+              />
+            </div>
+            <div className="overflow-y-auto" style={{ borderTop: '1px solid var(--surface-4)' }}>
+              {taggablePlayers.length === 0 ? (
+                <p className="text-xs text-txt-tertiary italic p-3 m-0">No dynasty players on either team to tag.</p>
+              ) : (
+                taggablePlayers
+                  .filter(p => playerMatchesPhotoTagQuery(p, tagQuery))
+                  .map(pl => {
+                    const tagged = tagPids.some(p => String(p) === String(pl.pid))
+                    return (
+                      <button
+                        key={pl.pid}
+                        type="button"
+                        onClick={() => toggleTag(pl.pid)}
+                        className="w-full flex items-center justify-between gap-2 px-4 py-2 text-left transition-colors hover:bg-surface-3"
+                        style={{ borderBottom: '1px solid var(--surface-4)', backgroundColor: tagged ? 'var(--surface-3)' : 'transparent' }}
+                      >
+                        <span className="flex items-center gap-2 min-w-0">
+                          {(pl.jerseyNumber != null && pl.jerseyNumber !== '') && (
+                            <span className="text-xs text-txt-tertiary tabular-nums flex-shrink-0">#{pl.jerseyNumber}</span>
+                          )}
+                          <span className="text-sm text-txt-primary truncate">{pl.name}</span>
+                        </span>
+                        <span className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-[10px] text-txt-tertiary uppercase tracking-wide">{pl.teamAbbr}</span>
+                          {tagged && <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>✓</span>}
+                        </span>
+                      </button>
+                    )
+                  })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
     document.body
   )

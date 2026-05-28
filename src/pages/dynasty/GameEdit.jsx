@@ -26,6 +26,27 @@ import ImageUpload from '../../components/ImageUpload'
 import { buildScoreGraphicPrompt } from '../../utils/scoreGraphicPrompt'
 
 // Map abbreviations to mascot names for logo lookup
+// Convert a pasted AI recap to plain text. The recap render
+// (FormattedRecap) interprets markdown, so the ``` fence / # headings /
+// **bold** / *italic* markers a copied AI response carries would show up
+// as formatting (often the whole thing reading as bold). Strip the
+// markers so the Paste button lands clean prose.
+function stripRecapFormatting(raw) {
+  if (!raw) return ''
+  let s = String(raw).replace(/\r\n/g, '\n')
+  // Drop a wrapping ```markdown … ``` (or any) code fence, anywhere.
+  s = s.replace(/^[ \t]*```[a-zA-Z]*[ \t]*$/gm, '')
+  // Headings: remove the leading #'s, keep the text.
+  s = s.replace(/^[ \t]{0,3}#{1,6}[ \t]+/gm, '')
+  // Bold, then italic → inner text.
+  s = s.replace(/\*\*([^*]+?)\*\*/g, '$1').replace(/__([^_]+?)__/g, '$1')
+  s = s.replace(/\*([^*\n]+?)\*/g, '$1')
+  s = s.replace(/(?<![A-Za-z0-9])_([^_\n]+?)_(?![A-Za-z0-9])/g, '$1')
+  // Collapse the blank lines a stripped fence/heading can leave behind.
+  s = s.replace(/\n{3,}/g, '\n\n')
+  return s.trim()
+}
+
 // Keep photoTags ({ [url]: [pid] }) in sync with the photos array: drop
 // any tag entry whose photo no longer exists, and any empty tag list.
 function prunePhotoTags(photoTags, photos) {
@@ -1888,7 +1909,7 @@ export default function GameEdit() {
                     value={formData[`${displayLeftTeam}Score`]}
                     onChange={(e) => !hasQuarterScores() && setFormData({ ...formData, [`${displayLeftTeam}Score`]: e.target.value })}
                     disabled={hasQuarterScores()}
-                    className={`w-20 text-6xl font-black tabular-nums bg-transparent text-center text-white focus:outline-none focus:ring-2 focus:ring-white/30 rounded-md ${hasQuarterScores() ? 'cursor-not-allowed opacity-60' : ''}`}
+                    className={`w-28 text-6xl font-black tabular-nums bg-transparent text-center text-white focus:outline-none focus:ring-2 focus:ring-white/30 rounded-md [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${hasQuarterScores() ? 'cursor-not-allowed opacity-60' : ''}`}
                     min="0"
                   />
                 </div>
@@ -1969,7 +1990,7 @@ export default function GameEdit() {
                     value={formData[`${displayRightTeam}Score`]}
                     onChange={(e) => !hasQuarterScores() && setFormData({ ...formData, [`${displayRightTeam}Score`]: e.target.value })}
                     disabled={hasQuarterScores()}
-                    className={`w-20 text-6xl font-black tabular-nums bg-transparent text-center text-white focus:outline-none focus:ring-2 focus:ring-white/30 rounded-md ${hasQuarterScores() ? 'cursor-not-allowed opacity-60' : ''}`}
+                    className={`w-28 text-6xl font-black tabular-nums bg-transparent text-center text-white focus:outline-none focus:ring-2 focus:ring-white/30 rounded-md [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${hasQuarterScores() ? 'cursor-not-allowed opacity-60' : ''}`}
                     min="0"
                   />
                   <div className="flex items-center gap-4">
@@ -2418,7 +2439,9 @@ export default function GameEdit() {
                 setTimeout(() => setRecapPasteFeedback(null), 2500)
                 return
               }
-              setFormData(prev => ({ ...prev, aiRecap: text }))
+              // Strip markdown markers so the recap renders as plain prose
+              // instead of pulling in bold/headings from the copied AI reply.
+              setFormData(prev => ({ ...prev, aiRecap: stripRecapFormatting(text) }))
               setRecapPasteFeedback('Pasted.')
               setTimeout(() => setRecapPasteFeedback(null), 1800)
             } catch {

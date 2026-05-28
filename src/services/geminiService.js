@@ -4328,6 +4328,8 @@ function buildGameRecapPrompt(ctx, customInstructions = null, perspective = null
 
   let prompt = `You are a college football writer for a major sports publication like ESPN or The Athletic. Write a comprehensive, professional game recap article.
 
+⚠️ OUTPUT FORMAT (NON-NEGOTIABLE): Your ENTIRE response must be a single fenced markdown code block. First line exactly \`\`\`markdown, the whole article between the fences, last line exactly \`\`\`. Nothing before or after the fences. This is how the user copies the raw markdown out of the chat without it rendering — if you don't fence it, the formatting breaks on their end. Full formatting rules are in the OUTPUT WRAPPER section below.
+
 ===========================================
 FINAL SCORE
 ===========================================
