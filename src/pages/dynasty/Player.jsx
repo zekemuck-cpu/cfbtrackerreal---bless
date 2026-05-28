@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, getEncourageTransfers, getRecruitingCommitments, getPlayerClassForYear } from '../../context/DynastyContext'
 import CardComposer from '../../components/CardComposer'
@@ -920,6 +921,30 @@ function PlayerInner() {
     if (!allPlayerScoringPlays?.length) return 0
     return Math.floor(Math.random() * allPlayerScoringPlays.length)
   }, [allPlayerScoringPlays?.length])
+
+  // Photos this player is tagged in — gathered across every game's
+  // photoTags map ({ [url]: [pid] }). Drives the conditional Photos tab.
+  const taggedPhotos = useMemo(() => {
+    const pid = player?.pid
+    if (pid == null) return []
+    const games = dynasty?.games
+    if (!Array.isArray(games)) return []
+    const out = []
+    for (const g of games) {
+      const tags = g?.photoTags
+      if (!tags || typeof tags !== 'object') continue
+      const photos = Array.isArray(g.photos) ? g.photos : []
+      for (const url of photos) {
+        const pids = tags[url]
+        if (Array.isArray(pids) && pids.some(p => String(p) === String(pid))) {
+          out.push({ url, gameId: g.id, year: g.year, week: g.week })
+        }
+      }
+    }
+    return out
+  }, [player?.pid, dynasty?.games])
+
+  const [photoTabLightboxIdx, setPhotoTabLightboxIdx] = useState(null)
 
   // Default tab: overview if any games are entered, otherwise stats if any
   // stats exist, otherwise timeline. Explicit ?tab= in the URL overrides.
@@ -2209,6 +2234,9 @@ function PlayerInner() {
           // for this player. Pulls from player.cards[] with a fallback
           // to the legacy single-card fields.
           ...(getPlayerCards(player).length > 0 ? [{ key: 'card', label: 'Cards' }] : []),
+          // The Photos tab appears once the player is tagged in at least
+          // one game photo (game editor → Photos → tag players).
+          ...(taggedPhotos.length > 0 ? [{ key: 'photos', label: 'Photos' }] : []),
         ].map(tab => {
           const isActive = activeTab === tab.key
           return (
@@ -5666,6 +5694,107 @@ function PlayerInner() {
           </div>
         )
       })()}
+
+      {/* Photos Tab — every game photo this player is tagged in */}
+      {activeTab === 'photos' && taggedPhotos.length > 0 && (
+        <div className="card overflow-hidden">
+          <div className="h-[3px] w-full" style={{ backgroundColor: teamInfo.backgroundColor }} aria-hidden="true" />
+          <div className="p-5">
+            <div className="label-xs text-txt-tertiary mb-1" style={{ letterSpacing: '1.5px' }}>
+              {taggedPhotos.length} {taggedPhotos.length === 1 ? 'photo' : 'photos'}
+            </div>
+            <h2 className="text-xl font-black text-txt-primary mb-4" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1px' }}>
+              Photos
+            </h2>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+              {taggedPhotos.map((ph, idx) => {
+                const thumb = `https://wsrv.nl/?url=${encodeURIComponent(ph.url)}&w=240&output=webp`
+                return (
+                  <button
+                    key={`${ph.url}-${idx}`}
+                    type="button"
+                    onClick={() => setPhotoTabLightboxIdx(idx)}
+                    className="group relative aspect-square overflow-hidden rounded-md"
+                    style={{
+                      backgroundColor: 'var(--surface-2)',
+                      border: '1px solid var(--surface-4)',
+                      contentVisibility: 'auto',
+                      containIntrinsicSize: 'auto 160px',
+                    }}
+                  >
+                    <img
+                      src={thumb}
+                      alt={`Tagged photo ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                      fetchpriority="low"
+                      onError={(e) => { if (e.currentTarget.src !== ph.url) e.currentTarget.src = ph.url }}
+                    />
+                    {(ph.year || ph.week != null) && (
+                      <span
+                        className="absolute bottom-0 inset-x-0 px-1.5 py-1 text-[10px] font-semibold text-white text-left"
+                        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75), transparent)' }}
+                      >
+                        {ph.week != null ? `Wk ${ph.week}` : ''}{ph.year ? ` ${ph.year}` : ''}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Photos-tab lightbox */}
+      {photoTabLightboxIdx !== null && taggedPhotos[photoTabLightboxIdx] && createPortal(
+        (() => {
+          const total = taggedPhotos.length
+          const cur = taggedPhotos[photoTabLightboxIdx]
+          const step = (d) => setPhotoTabLightboxIdx((photoTabLightboxIdx + d + total) % total)
+          return (
+            <div
+              className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[9999] flex items-center justify-center"
+              style={{ margin: 0, backgroundColor: 'rgba(0,0,0,0.92)' }}
+              onClick={() => setPhotoTabLightboxIdx(null)}
+            >
+              <button
+                type="button"
+                onClick={() => setPhotoTabLightboxIdx(null)}
+                aria-label="Close"
+                className="absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center justify-center rounded-md"
+                style={{ width: 40, height: 40, backgroundColor: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.18)' }}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+              {total > 1 && (
+                <>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); step(-1) }} aria-label="Previous" className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full" style={{ width: 48, height: 48, backgroundColor: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.18)' }}>
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); step(1) }} aria-label="Next" className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full" style={{ width: 48, height: 48, backgroundColor: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.18)' }}>
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                </>
+              )}
+              <div className="flex flex-col items-center gap-3" style={{ maxWidth: 'calc(100vw - 32px)', maxHeight: 'calc(100vh - 32px)' }} onClick={(e) => e.stopPropagation()}>
+                <img src={cur.url} alt="Tagged photo" className="block select-none" style={{ maxWidth: '100%', maxHeight: 'calc(100vh - 120px)', objectFit: 'contain', boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }} draggable={false} />
+                {cur.gameId && (
+                  <Link
+                    to={`${pathPrefix}/game/${cur.gameId}`}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)' }}
+                  >
+                    View game{cur.week != null ? ` · Wk ${cur.week}` : ''}{cur.year ? ` ${cur.year}` : ''} →
+                  </Link>
+                )}
+              </div>
+            </div>
+          )
+        })(),
+        document.body
+      )}
 
       {/* Accolade Games Modal */}
       {showAccoladeModal && (

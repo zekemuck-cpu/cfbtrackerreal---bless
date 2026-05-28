@@ -26,6 +26,20 @@ import ImageUpload from '../../components/ImageUpload'
 import { buildScoreGraphicPrompt } from '../../utils/scoreGraphicPrompt'
 
 // Map abbreviations to mascot names for logo lookup
+// Keep photoTags ({ [url]: [pid] }) in sync with the photos array: drop
+// any tag entry whose photo no longer exists, and any empty tag list.
+function prunePhotoTags(photoTags, photos) {
+  if (!photoTags || typeof photoTags !== 'object') return {}
+  const liveUrls = new Set(Array.isArray(photos) ? photos.filter(Boolean) : [])
+  const out = {}
+  for (const [url, pids] of Object.entries(photoTags)) {
+    if (!liveUrls.has(url)) continue
+    const cleaned = Array.isArray(pids) ? pids.filter(p => p != null) : []
+    if (cleaned.length > 0) out[url] = cleaned
+  }
+  return out
+}
+
 function getMascotName(abbr, teamsData = null) {
   if (teamsData) {
     const result = getMascotNameFromTeams(abbr, teamsData)
@@ -167,7 +181,7 @@ function deriveDisplayWeek(game, fallbackWeek, fallbackGameType, fallbackBowlNam
 
 export default function GameEdit() {
   const { id, gameId } = useParams()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const location = useLocation()
   const { currentDynasty, updateDynasty, updateGame, addGame, deleteGame, isViewOnly } = useDynasty()
@@ -276,6 +290,7 @@ export default function GameEdit() {
     nationalPOW: '',        // National Offensive Player of the Week
     natlDefensePOW: '',     // National Defensive Player of the Week
     photos: [],             // Array of ImgBB-hosted photo URLs for this game
+    photoTags: {},          // { [photoUrl]: [pid, ...] } — players tagged in each photo
     scoreGraphic: '',       // URL of AI-generated final score graphic
   })
 
@@ -295,6 +310,18 @@ export default function GameEdit() {
   const [photoUploadDone, setPhotoUploadDone] = useState(0)
   const [photoUploadFailed, setPhotoUploadFailed] = useState(0)
   const photoUploadAbortRef = useRef(null)
+  // URL of the photo whose tag-detail panel is open inside the Photos
+  // modal (null = showing the grid). Lets you click a photo, see it big,
+  // and tag the players in it.
+  const [photoDetailUrl, setPhotoDetailUrl] = useState(null)
+  // Free-text query for the player-tag typeahead inside the detail panel.
+  const [photoTagQuery, setPhotoTagQuery] = useState('')
+  // Bulk-tag mode: when a pid is set, clicking a grid photo toggles that
+  // player's tag (instead of opening the detail panel) so you can rapidly
+  // tag one player across every photo they're in. massTagQuery drives the
+  // picker that selects which player is being bulk-tagged.
+  const [massTagPid, setMassTagPid] = useState(null)
+  const [massTagQuery, setMassTagQuery] = useState('')
 
   // When ON, opponent Record and Conf inputs are read-only and show the
   // live "after this game finished" computation from `liveRecordFor`.
@@ -433,6 +460,77 @@ export default function GameEdit() {
   // Game metadata
   const gameYear = existingGame?.year || (queryYear ? parseInt(queryYear) : currentDynasty?.currentYear)
   const gameWeek = existingGame?.week || queryWeek || ''
+
+  // Players taggable in a photo: the dynasty players rostered on either
+  // team THIS game. Only players with a pid are taggable, since the tag
+  // links to that player's page (a CPU/FCS opponent with no dynasty entry
+  // has no page to link to). Each entry: { pid, name, teamAbbr }.
+  const taggablePlayers = useMemo(() => {
+    const players = currentDynasty?.players
+    if (!Array.isArray(players)) return []
+    const tids = [team1Tid, team2Tid].filter(t => t != null).map(Number)
+    if (tids.length === 0) return []
+    const abbrFor = (tid) => (Number(tid) === Number(team1Tid) ? team1Abbr : team2Abbr)
+    return players
+      .filter(p => p?.pid != null && tids.some(tid => isPlayerOnRoster(p, tid, gameYear)))
+      .map(p => {
+        const onTid = tids.find(tid => isPlayerOnRoster(p, tid, gameYear))
+        return { pid: p.pid, name: p.name || `Player ${p.pid}`, jerseyNumber: p.jerseyNumber, teamAbbr: abbrFor(onTid) }
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [currentDynasty?.players, team1Tid, team2Tid, team1Abbr, team2Abbr, gameYear])
+
+  // pid → name lookup for rendering existing tags as chips.
+  const playerNameByPid = useMemo(() => {
+    const m = new Map()
+    for (const p of (currentDynasty?.players || [])) {
+      if (p?.pid != null) m.set(String(p.pid), p.name || `Player ${p.pid}`)
+    }
+    return m
+  }, [currentDynasty?.players])
+
+  // Deep link from the Game page "Edit tags" button: ?photo=<url> opens
+  // the Photos modal straight to that photo's tag panel. Waits until the
+  // photo is actually loaded into formData, then consumes the param so
+  // it doesn't re-fire when the modal is closed.
+  useEffect(() => {
+    const photoParam = searchParams.get('photo')
+    if (!photoParam) return
+    if (Array.isArray(formData.photos) && formData.photos.includes(photoParam)) {
+      setShowPhotosModal(true)
+      setPhotoDetailUrl(photoParam)
+      setPhotoTagQuery('')
+      const next = new URLSearchParams(searchParams)
+      next.delete('photo')
+      setSearchParams(next, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, formData.photos])
+
+  // Unified player match for the tag searches — matches on either the
+  // player's name OR their jersey number, so typing "15" surfaces #15 and
+  // typing a name works the same. One search box, both fields.
+  const playerMatchesQuery = (p, q) => {
+    const query = (q || '').trim().toLowerCase()
+    if (!query) return true
+    const name = (p.name || '').toLowerCase()
+    const jersey = (p.jerseyNumber != null && p.jerseyNumber !== '') ? String(p.jerseyNumber).toLowerCase() : ''
+    return name.includes(query) || (jersey !== '' && jersey.includes(query))
+  }
+
+  // Toggle a player tag on a photo. Adds the pid if absent, removes it if
+  // present. Drops the url key entirely when its last tag is removed.
+  const togglePhotoTag = (url, pid) => {
+    setFormData(prev => {
+      const tags = { ...(prev.photoTags || {}) }
+      const current = Array.isArray(tags[url]) ? tags[url] : []
+      const has = current.some(p => String(p) === String(pid))
+      const next = has ? current.filter(p => String(p) !== String(pid)) : [...current, pid]
+      if (next.length > 0) tags[url] = next
+      else delete tags[url]
+      return { ...prev, photoTags: tags }
+    })
+  }
   // gameType is editable — the user picks "Regular Season" or
   // "Conference Championship" via the classification dropdown in the
   // form. Bowl/CFP types stay in the dropdown for display but the picker
@@ -1043,6 +1141,7 @@ export default function GameEdit() {
             ? [...existingGame.links.split(',').map(l => l.trim()).filter(l => l), ''] // Convert string to array
             : [''], // Default empty input
         photos: Array.isArray(existingGame.photos) ? existingGame.photos.filter(Boolean) : [],
+        photoTags: (existingGame.photoTags && typeof existingGame.photoTags === 'object') ? existingGame.photoTags : {},
         scoreGraphic: existingGame.scoreGraphic || '',
       })
     } else if (isNewGame && team1Tid && team2Tid) {
@@ -1296,6 +1395,9 @@ export default function GameEdit() {
         // Photos — array of ImgBB-hosted URLs uploaded via the Photos
         // section. Always persisted (even if empty) so deletes stick.
         photos: Array.isArray(formData.photos) ? formData.photos.filter(Boolean) : [],
+        // Player tags per photo, pruned to photos that still exist so a
+        // removed photo doesn't leave an orphan tag entry behind.
+        photoTags: prunePhotoTags(formData.photoTags, formData.photos),
         // Score graphic — single AI-generated image URL (empty string = none)
         ...(formData.scoreGraphic ? { scoreGraphic: formData.scoreGraphic } : {}),
       }
@@ -1480,6 +1582,9 @@ export default function GameEdit() {
         // Photos — array of ImgBB-hosted URLs uploaded via the Photos
         // section. Always persisted (even if empty) so deletes stick.
         photos: Array.isArray(formData.photos) ? formData.photos.filter(Boolean) : [],
+        // Player tags per photo, pruned to photos that still exist so a
+        // removed photo doesn't leave an orphan tag entry behind.
+        photoTags: prunePhotoTags(formData.photoTags, formData.photos),
         // Score graphic — single AI-generated image URL (empty string = none)
         ...(formData.scoreGraphic ? { scoreGraphic: formData.scoreGraphic } : {}),
       }
@@ -2689,12 +2794,113 @@ export default function GameEdit() {
           rest of the page, so closing/reopening preserves everything. */}
       <Modal
         isOpen={showPhotosModal}
-        onClose={() => setShowPhotosModal(false)}
+        onClose={() => { setShowPhotosModal(false); setPhotoDetailUrl(null); setPhotoTagQuery(''); setMassTagPid(null); setMassTagQuery('') }}
         title="Photos"
         size="xl"
         closeOnBackdrop={photoUploadCount === 0}
         closeOnEscape={photoUploadCount === 0}
       >
+        {photoDetailUrl ? (
+          <div>
+            <button
+              type="button"
+              onClick={() => { setPhotoDetailUrl(null); setPhotoTagQuery('') }}
+              className="text-xs text-txt-secondary hover:text-txt-primary mb-3 inline-flex items-center gap-1"
+            >
+              ← Back to all photos
+            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div
+                className="rounded-md overflow-hidden flex items-center justify-center"
+                style={{ border: '1px solid var(--surface-4)', backgroundColor: 'var(--surface-1)' }}
+              >
+                <img
+                  src={`https://wsrv.nl/?url=${encodeURIComponent(photoDetailUrl)}&w=900&output=webp`}
+                  alt="Selected game photo"
+                  className="w-full h-auto object-contain"
+                  style={{ maxHeight: '52vh' }}
+                  decoding="async"
+                  onError={(e) => { if (e.currentTarget.src !== photoDetailUrl) e.currentTarget.src = photoDetailUrl }}
+                />
+              </div>
+              <div>
+                <SectionHeader size="sm" title="Tag players in this photo" />
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {(formData.photoTags?.[photoDetailUrl] || []).length > 0 ? (
+                    (formData.photoTags[photoDetailUrl]).map(pid => (
+                      <span
+                        key={pid}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium"
+                        style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-5)', color: 'var(--text-primary)' }}
+                      >
+                        {playerNameByPid.get(String(pid)) || `Player ${pid}`}
+                        <button
+                          type="button"
+                          onClick={() => togglePhotoTag(photoDetailUrl, pid)}
+                          className="hover:opacity-70"
+                          style={{ color: '#f87171' }}
+                          aria-label="Remove tag"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-txt-tertiary italic">No players tagged yet.</span>
+                  )}
+                </div>
+                <Input
+                  value={photoTagQuery}
+                  onChange={(e) => setPhotoTagQuery(e.target.value)}
+                  placeholder={`Search ${team1Abbr}/${team2Abbr} players…`}
+                  size="sm"
+                />
+                <div
+                  className="mt-2 max-h-[34vh] overflow-y-auto rounded-md"
+                  style={{ border: '1px solid var(--surface-4)' }}
+                >
+                  {taggablePlayers.length === 0 ? (
+                    <p className="text-xs text-txt-tertiary italic p-3 m-0">
+                      No dynasty players on either team to tag.
+                    </p>
+                  ) : (
+                    taggablePlayers
+                      .filter(p => playerMatchesQuery(p, photoTagQuery))
+                      .map(pl => {
+                        const tagged = (formData.photoTags?.[photoDetailUrl] || []).some(p => String(p) === String(pl.pid))
+                        return (
+                          <button
+                            key={pl.pid}
+                            type="button"
+                            onClick={() => togglePhotoTag(photoDetailUrl, pl.pid)}
+                            className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left transition-colors hover:bg-surface-3"
+                            style={{
+                              borderBottom: '1px solid var(--surface-4)',
+                              backgroundColor: tagged ? 'var(--surface-3)' : 'transparent',
+                            }}
+                          >
+                            <span className="flex items-center gap-2 min-w-0">
+                              {(pl.jerseyNumber != null && pl.jerseyNumber !== '') && (
+                                <span className="text-xs text-txt-tertiary tabular-nums flex-shrink-0">#{pl.jerseyNumber}</span>
+                              )}
+                              <span className="text-sm text-txt-primary truncate">{pl.name}</span>
+                            </span>
+                            <span className="flex items-center gap-2 flex-shrink-0">
+                              <span className="text-[10px] text-txt-tertiary uppercase tracking-wide">{pl.teamAbbr}</span>
+                              {tagged && (
+                                <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>✓</span>
+                              )}
+                            </span>
+                          </button>
+                        )
+                      })
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+        <>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <p className="text-xs text-txt-tertiary m-0">
             Upload one or many photos at once — each one is hosted on imgbb and shows up under the Photos tab on the game page.
@@ -2811,27 +3017,132 @@ export default function GameEdit() {
           />
         </label>
 
+        {/* Bulk-tag bar — pick one player, then click every photo they're in */}
+        {formData.photos.length > 0 && (() => {
+          const massPlayer = massTagPid != null
+            ? taggablePlayers.find(p => String(p.pid) === String(massTagPid))
+            : null
+          if (massTagPid != null) {
+            return (
+              <div
+                className="mb-2 flex items-center justify-between gap-3 px-3 py-2 rounded-md"
+                style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--text-primary)' }}
+              >
+                <span className="text-xs text-txt-primary">
+                  Bulk-tagging <strong>{massPlayer?.jerseyNumber != null && massPlayer?.jerseyNumber !== '' ? `#${massPlayer.jerseyNumber} ` : ''}{massPlayer?.name || `Player ${massTagPid}`}</strong> — click each photo they appear in to add/remove.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { setMassTagPid(null); setMassTagQuery('') }}
+                  className="flex-shrink-0 px-2.5 py-1 rounded-md text-xs font-semibold border border-surface-5 text-txt-secondary hover:bg-surface-4 transition-colors"
+                >
+                  Done
+                </button>
+              </div>
+            )
+          }
+          return (
+            <div className="mb-2 relative">
+              <Input
+                value={massTagQuery}
+                onChange={(e) => setMassTagQuery(e.target.value)}
+                placeholder="Bulk-tag a player — search, then click their photos…"
+                size="sm"
+              />
+              {massTagQuery.trim() && (
+                <div
+                  className="absolute z-10 left-0 right-0 mt-1 max-h-[40vh] overflow-y-auto rounded-md"
+                  style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
+                >
+                  {taggablePlayers
+                    .filter(p => playerMatchesQuery(p, massTagQuery))
+                    .map(pl => (
+                      <button
+                        key={pl.pid}
+                        type="button"
+                        onClick={() => { setMassTagPid(pl.pid); setMassTagQuery('') }}
+                        className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left transition-colors hover:bg-surface-3"
+                        style={{ borderBottom: '1px solid var(--surface-4)' }}
+                      >
+                        <span className="flex items-center gap-2 min-w-0">
+                          {(pl.jerseyNumber != null && pl.jerseyNumber !== '') && (
+                            <span className="text-xs text-txt-tertiary tabular-nums flex-shrink-0">#{pl.jerseyNumber}</span>
+                          )}
+                          <span className="text-sm text-txt-primary truncate">{pl.name}</span>
+                        </span>
+                        <span className="text-[10px] text-txt-tertiary uppercase tracking-wide flex-shrink-0">{pl.teamAbbr}</span>
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+          )
+        })()}
+
+        <p className="text-[11px] text-txt-tertiary mb-2 m-0">
+          {massTagPid != null ? 'Click photos to toggle this player. Highlighted = tagged.' : 'Click a photo to tag the players in it.'}
+        </p>
         {formData.photos.length > 0 ? (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
-            {formData.photos.map((url, idx) => (
-              <div
+            {formData.photos.map((url, idx) => {
+              const tagCount = (formData.photoTags?.[url] || []).length
+              const massTagged = massTagPid != null && (formData.photoTags?.[url] || []).some(p => String(p) === String(massTagPid))
+              // Low-res proxy thumbnail (same wsrv.nl trick as the Game/Player
+              // galleries) so the editor grid loads fast. Falls back to the
+              // original URL if the proxy hiccups.
+              const thumb = `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=240&output=webp`
+              return (
+              <button
+                type="button"
                 key={`${url}-${idx}`}
-                className="group relative aspect-square overflow-hidden rounded-md"
-                style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
+                onClick={() => {
+                  if (massTagPid != null) togglePhotoTag(url, massTagPid)
+                  else { setPhotoDetailUrl(url); setPhotoTagQuery('') }
+                }}
+                className="group relative aspect-square overflow-hidden rounded-md cursor-pointer"
+                style={{
+                  backgroundColor: 'var(--surface-3)',
+                  border: massTagged ? '2px solid var(--text-primary)' : '1px solid var(--surface-4)',
+                }}
+                title={massTagPid != null ? 'Click to toggle this player' : 'Click to tag players'}
               >
                 <img
-                  src={url}
+                  src={thumb}
                   alt={`Game photo ${idx + 1}`}
                   className="w-full h-full object-cover"
                   loading="lazy"
+                  decoding="async"
+                  onError={(e) => { if (e.currentTarget.src !== url) e.currentTarget.src = url }}
                 />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFormData(prev => ({
-                      ...prev,
-                      photos: prev.photos.filter((_, i) => i !== idx),
-                    }))
+                {massTagged && (
+                  <span
+                    className="absolute top-1 left-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black"
+                    style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
+                    aria-hidden="true"
+                  >
+                    ✓
+                  </span>
+                )}
+                {tagCount > 0 && (
+                  <span
+                    className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold tabular-nums"
+                    style={{ backgroundColor: 'rgba(15, 23, 42, 0.85)', color: '#fff', border: '1px solid var(--surface-5)' }}
+                    title={`${tagCount} player${tagCount === 1 ? '' : 's'} tagged`}
+                  >
+                    {tagCount} tagged
+                  </span>
+                )}
+                <span
+                  role="button"
+                  tabIndex={-1}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setFormData(prev => {
+                      const tags = { ...(prev.photoTags || {}) }
+                      delete tags[url]
+                      return { ...prev, photos: prev.photos.filter((_, i) => i !== idx), photoTags: tags }
+                    })
+                    if (photoDetailUrl === url) { setPhotoDetailUrl(null); setPhotoTagQuery('') }
                   }}
                   className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                   style={{ backgroundColor: 'rgba(15, 23, 42, 0.85)', color: '#f87171', border: '1px solid var(--surface-5)' }}
@@ -2841,14 +3152,17 @@ export default function GameEdit() {
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
-                </button>
-              </div>
-            ))}
+                </span>
+              </button>
+              )
+            })}
           </div>
         ) : (
           <p className="text-xs text-txt-tertiary italic text-center py-6">
             No photos uploaded yet.
           </p>
+        )}
+        </>
         )}
       </Modal>
     </div>

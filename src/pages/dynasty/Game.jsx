@@ -782,6 +782,15 @@ export default function Game() {
     return map
   }, [currentDynasty?.players])
 
+  // pid → name, for rendering photo-tag chips in the Photos lightbox.
+  const playerNameByPid = useMemo(() => {
+    const map = new Map()
+    for (const p of currentDynasty?.players || []) {
+      if (p?.pid != null) map.set(String(p.pid), p.name || `Player ${p.pid}`)
+    }
+    return map
+  }, [currentDynasty?.players])
+
   // Recap player-link patterns. Also hoisted above the early returns
   // for hook-order stability. Heavy lifting only happens when the
   // dynasty + box score are both populated; null otherwise.
@@ -3893,6 +3902,11 @@ export default function Game() {
           index={photoLightboxIdx}
           onClose={() => setPhotoLightboxIdx(null)}
           onIndexChange={setPhotoLightboxIdx}
+          photoTags={game.photoTags || null}
+          resolvePlayerName={(pid) => playerNameByPid.get(String(pid))}
+          pathPrefix={pathPrefix}
+          gameId={game.id}
+          isViewOnly={isViewOnly}
         />
       )}
 
@@ -3920,9 +3934,11 @@ export default function Game() {
  *   • ← / → arrows OR on-screen chevrons → previous / next
  *   • Body scroll is locked while open
  */
-function PhotoLightbox({ photos, index, onClose, onIndexChange }) {
+function PhotoLightbox({ photos, index, onClose, onIndexChange, photoTags = null, resolvePlayerName = null, pathPrefix = '', gameId = null, isViewOnly = false }) {
   const total = photos.length
   const currentUrl = photos[index]
+  const tagPids = (photoTags && currentUrl && Array.isArray(photoTags[currentUrl])) ? photoTags[currentUrl] : []
+  const canEditTags = !isViewOnly && gameId != null
 
   const goPrev = useCallback(() => {
     if (total <= 1) return
@@ -4027,20 +4043,49 @@ function PhotoLightbox({ photos, index, onClose, onIndexChange }) {
         </button>
       )}
 
-      {/* The image — clicking it does NOT close (only the backdrop does) */}
-      <img
-        src={currentUrl}
-        alt={`Game photo ${index + 1} of ${total}`}
+      {/* Image + Instagram-style tag bar below it. Clicking inside this
+          column does NOT close (only the backdrop does). */}
+      <div
+        className="flex flex-col items-center gap-3"
+        style={{ maxWidth: 'calc(100vw - 32px)', maxHeight: 'calc(100vh - 32px)' }}
         onClick={(e) => e.stopPropagation()}
-        className="block select-none"
-        style={{
-          maxWidth: 'calc(100vw - 32px)',
-          maxHeight: 'calc(100vh - 32px)',
-          objectFit: 'contain',
-          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.6)',
-        }}
-        draggable={false}
-      />
+      >
+        <img
+          src={currentUrl}
+          alt={`Game photo ${index + 1} of ${total}`}
+          className="block select-none"
+          style={{
+            maxWidth: '100%',
+            maxHeight: (tagPids.length > 0 || canEditTags) ? 'calc(100vh - 120px)' : 'calc(100vh - 32px)',
+            objectFit: 'contain',
+            boxShadow: '0 24px 60px rgba(0, 0, 0, 0.6)',
+          }}
+          draggable={false}
+        />
+        {(tagPids.length > 0 || canEditTags) && (
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {tagPids.map(pid => (
+              <Link
+                key={pid}
+                to={`${pathPrefix}/player/${pid}`}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors hover:opacity-90"
+                style={{ backgroundColor: 'rgba(255, 255, 255, 0.12)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.25)' }}
+              >
+                {(resolvePlayerName ? resolvePlayerName(pid) : null) || `Player ${pid}`}
+              </Link>
+            ))}
+            {canEditTags && (
+              <Link
+                to={`${pathPrefix}/game/${gameId}/edit?photo=${encodeURIComponent(currentUrl)}`}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors hover:opacity-90"
+                style={{ backgroundColor: 'rgba(255, 255, 255, 0.06)', color: 'rgba(255,255,255,0.85)', border: '1px dashed rgba(255, 255, 255, 0.3)' }}
+              >
+                {tagPids.length > 0 ? 'Edit tags' : 'Tag players'}
+              </Link>
+            )}
+          </div>
+        )}
+      </div>
     </div>,
     document.body
   )
