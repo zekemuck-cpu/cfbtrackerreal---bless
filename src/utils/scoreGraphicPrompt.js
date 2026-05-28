@@ -118,7 +118,7 @@ export function buildScoreGraphicPrompt({
   const designRules = (mode = 'branded') => [
     `DESIGN RULES:`,
     `• Design era: 2026. This should look like a graphic a top college athletics department posted today — bold, contemporary, confident. Not a 2015 flat-design scorecard. Not generic sports template. Current.`,
-    `• If a photo is attached, it should fill nearly the entire canvas — the photo is the dominant visual. Layer the school's brand on top: the score zone, bold school or team name typography, and color treatment that ties back to the program. Don't let the photo do all the work — the overlaid elements should make it instantly recognizable as that school's graphic, not just a photo with a score bar.`,
+    `• If a photo is attached, it must fill the entire canvas — the photo is the visual foundation. Layer school-branded graphics and wording on top: score zone, team or program name in bold type, and any other design elements that make it instantly recognizable as that school's graphic.`,
     `• No distressed, scratchy, or grungy letterforms. Clean, bold typography only.`,
     mode === 'branded'
       ? `• This is ${featuredName}'s post — their palette owns the canvas. The opponent's colors appear only through their logo, not as background fills, panels, or design shapes.`
@@ -127,7 +127,7 @@ export function buildScoreGraphicPrompt({
 
   const textRules = (fictionalNamesList = []) => {
     const lines = [
-      `TEXT RULES: Use logos to identify teams — do not write out team names. If a rank (#N) appears in the RESULT block for either team, it must be shown on the graphic. Do not include:`,
+      `TEXT RULES: In the score zone, use logos to identify teams — do not write team names next to scores. School or program name as a bold canvas element (not a score label) is welcome. If a rank (#N) appears in the RESULT block for either team, it must be shown on the graphic. Do not include:`,
       `• "FINAL SCORE" as a large hero headline. "FINAL" may appear as a label.`,
       `• "AWAY", "HOME", "ROAD", or "VISITOR" as visible canvas text.`,
       `• Outcome declarations — "CATS WIN!", "[TEAM] WIN.", "VICTORY!", or equivalent hype banners.`,
