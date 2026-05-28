@@ -279,6 +279,132 @@ export function computeSeasonAV(yearStats, position, opts = {}) {
 }
 
 /**
+ * Per-stat breakdown of a season's AV — the individual stat line items
+ * (with their raw counts) that build the score, mirroring the position
+ * formula weights above. This is the "show your work" view.
+ *
+ * `total` is the authoritative computeSeasonAV value (per-position
+ * max(0) clamp applied) so it always matches the leaderboard, even in
+ * the rare case where negative line items would otherwise undershoot.
+ *
+ * @param {object} yearStats — player.statsByYear[year]
+ * @param {string} position — player position for this year
+ * @returns {{ total: number, items: Array<{label:string, detail:string, value:number}> }}
+ */
+export function explainSeasonAV(yearStats, position) {
+  const s = yearStats || {}
+  const pos = (position || '').toUpperCase()
+  const items = []
+  const push = (label, detail, value) => {
+    if (value) items.push({ label, detail, value: Math.round(value * 100) / 100 })
+  }
+
+  if (QB_POS.has(pos)) {
+    const p = s.passing, r = s.rushing
+    if (p) {
+      push('Passing yards', `${p.yds || 0} yds`, (p.yds || 0) * 0.0042)
+      push('Passing TDs', `${p.td || 0} TD`, (p.td || 0) * 0.45)
+      push('Interceptions', `${p.int || 0} INT`, -(p.int || 0) * 0.4)
+      push('Sacks taken', `${p.sacks || 0}`, -(p.sacks || 0) * 0.1)
+    }
+    if (r) {
+      push('Rushing yards', `${r.yds || 0} yds`, (r.yds || 0) * 0.0055)
+      push('Rushing TDs', `${r.td || 0} TD`, (r.td || 0) * 0.5)
+      push('Fumbles', `${r.fum || 0}`, -(r.fum || 0) * 0.5)
+    }
+  } else if (RB_POS.has(pos)) {
+    const r = s.rushing, c = s.receiving
+    if (r) {
+      push('Rushing yards', `${r.yds || 0} yds`, (r.yds || 0) * 0.008)
+      push('Rushing TDs', `${r.td || 0} TD`, (r.td || 0) * 0.5)
+      push('Fumbles', `${r.fum || 0}`, -(r.fum || 0) * 0.5)
+      push('Broken tackles', `${r.bt || 0}`, (r.bt || 0) * 0.05)
+      push('Yards after contact', `${r.yac || 0}`, (r.yac || 0) * 0.0015)
+      push('20+ yard runs', `${r.twentyPlus || 0}`, (r.twentyPlus || 0) * 0.15)
+    }
+    if (c) {
+      push('Receiving yards', `${c.yds || 0} yds`, (c.yds || 0) * 0.006)
+      push('Receiving TDs', `${c.td || 0} TD`, (c.td || 0) * 0.4)
+      push('Drops', `${c.drops || 0}`, -(c.drops || 0) * 0.2)
+    }
+  } else if (WR_TE_POS.has(pos)) {
+    const c = s.receiving, r = s.rushing
+    if (c) {
+      push('Receiving yards', `${c.yds || 0} yds`, (c.yds || 0) * 0.006)
+      push('Receiving TDs', `${c.td || 0} TD`, (c.td || 0) * 0.4)
+      push('Receptions', `${c.rec || 0}`, (c.rec || 0) * 0.02)
+      push('Yards after catch', `${c.rac || 0}`, (c.rac || 0) * 0.0006)
+      push('Drops', `${c.drops || 0}`, -(c.drops || 0) * 0.25)
+    }
+    if (r) {
+      push('Rushing yards', `${r.yds || 0} yds`, (r.yds || 0) * 0.006)
+      push('Rushing TDs', `${r.td || 0} TD`, (r.td || 0) * 0.4)
+    }
+  } else if (OL_POS.has(pos)) {
+    const b = s.blocking
+    if (b) {
+      push('Pancakes', `${b.pancakes || 0}`, (b.pancakes || 0) * 0.05)
+      push('Sacks allowed', `${b.sacksAllowed || 0}`, -(b.sacksAllowed || 0) * 0.5)
+    }
+  } else if (DL_POS.has(pos) || LB_POS.has(pos) || DB_POS.has(pos)) {
+    const d = s.defense
+    if (d) {
+      const m = DL_POS.has(pos) ? 1.15 : 1.0
+      const solo = d.solo || d.soloTkl || 0
+      const ast = d.assists || d.astTkl || 0
+      push('Tackles', `${solo} solo, ${ast} ast`, (solo * 0.08 + ast * 0.035) * m)
+      push('Tackles for loss', `${d.tfl || 0}`, (d.tfl || 0) * 0.25 * m)
+      push('Sacks', `${d.sack || d.sacks || 0}`, (d.sack || d.sacks || 0) * 1.0 * m)
+      push('Interceptions', `${d.int || 0}`, (d.int || 0) * 1.3 * m)
+      push('Pass deflections', `${d.deflections || d.pd || 0}`, (d.deflections || d.pd || 0) * 0.3 * m)
+      push('Forced fumbles', `${d.ff || 0}`, (d.ff || 0) * 1.0 * m)
+      push('Fumble recoveries', `${d.fr || 0}`, (d.fr || 0) * 0.7 * m)
+      push('Defensive TDs', `${d.td || 0}`, (d.td || 0) * 2.0 * m)
+      push('Safeties', `${d.safeties || 0}`, (d.safeties || 0) * 1.0 * m)
+      push('Blocked kicks', `${d.blocks || 0}`, (d.blocks || 0) * 1.0 * m)
+    }
+  } else if (K_POS.has(pos)) {
+    const k = s.kicking
+    if (k) {
+      push('Field goals', `${k.fgm || 0} FGM`, (k.fgm || 0) * 0.3)
+      push('Extra points', `${k.xpm || 0} XPM`, (k.xpm || 0) * 0.04)
+      push('50+ yd FGs', `${k.fgm50 || 0}`, (k.fgm50 || 0) * 0.4)
+      push('40-49 yd FGs', `${k.fgm49 || 0}`, (k.fgm49 || 0) * 0.05)
+      const fgMiss = Math.max(0, (k.fga || 0) - (k.fgm || 0))
+      push('Missed FGs', `${fgMiss}`, -fgMiss * 0.2)
+      const xpMiss = Math.max(0, (k.xpa || 0) - (k.xpm || 0))
+      push('Missed XPs', `${xpMiss}`, -xpMiss * 0.3)
+      push('Blocked FGs', `${k.fgb || 0}`, -(k.fgb || 0) * 0.3)
+      push('Blocked XPs', `${k.xpb || 0}`, -(k.xpb || 0) * 0.3)
+    }
+  } else if (P_POS.has(pos)) {
+    const p = s.punting
+    const punts = p?.punts || 0
+    if (p && punts > 0) {
+      const netAvg = p.netYds ? (p.netYds / punts) : ((p.yds || 0) / punts)
+      push('Net avg over 40', `${netAvg.toFixed(1)} net, ${punts} punts`, Math.max(0, netAvg - 40) * punts * 0.03)
+      push('Inside-20 punts', `${p.in20 || 0}`, (p.in20 || 0) * 0.12)
+      push('Touchbacks', `${p.tb || 0}`, -(p.tb || 0) * 0.10)
+      push('Blocked punts', `${p.block || 0}`, -(p.block || 0) * 0.50)
+    }
+  }
+
+  // Returns add on top of any position.
+  const kr = s.kickReturn, pr = s.puntReturn
+  if (kr) {
+    push('Kick return yards', `${kr.yds || 0} yds`, (kr.yds || 0) * 0.005)
+    push('Kick return TDs', `${kr.td || 0} TD`, (kr.td || 0) * 1.5)
+  }
+  if (pr) {
+    push('Punt return yards', `${pr.yds || 0} yds`, (pr.yds || 0) * 0.008)
+    push('Punt return TDs', `${pr.td || 0} TD`, (pr.td || 0) * 1.5)
+  }
+
+  items.sort((a, b) => b.value - a.value)
+  return { total: computeSeasonAV(yearStats, position), items }
+}
+
+/**
  * Compute career Approximate Value — sum of per-season AVs.
  *
  * @param {object} player — player record with statsByYear

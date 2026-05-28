@@ -27,23 +27,16 @@ import { buildScoreGraphicPrompt } from '../../utils/scoreGraphicPrompt'
 import { matchAndRankPlayers } from '../../utils/playerTagSearch'
 
 // Map abbreviations to mascot names for logo lookup
-// Convert a pasted AI recap to plain text. The recap render
-// (FormattedRecap) interprets markdown, so the ``` fence / # headings /
-// **bold** / *italic* markers a copied AI response carries would show up
-// as formatting (often the whole thing reading as bold). Strip the
-// markers so the Paste button lands clean prose.
-function stripRecapFormatting(raw) {
+// Clean a pasted AI recap. FormattedRecap renders markdown (# headings,
+// **bold**, *italic*) and unwraps a code fence itself, so we KEEP the
+// markdown formatting — only the wrapping ```markdown … ``` fence the AI
+// often adds is dropped so the stored text stays tidy.
+function unwrapRecapFence(raw) {
   if (!raw) return ''
   let s = String(raw).replace(/\r\n/g, '\n')
   // Drop a wrapping ```markdown … ``` (or any) code fence, anywhere.
   s = s.replace(/^[ \t]*```[a-zA-Z]*[ \t]*$/gm, '')
-  // Headings: remove the leading #'s, keep the text.
-  s = s.replace(/^[ \t]{0,3}#{1,6}[ \t]+/gm, '')
-  // Bold, then italic → inner text.
-  s = s.replace(/\*\*([^*]+?)\*\*/g, '$1').replace(/__([^_]+?)__/g, '$1')
-  s = s.replace(/\*([^*\n]+?)\*/g, '$1')
-  s = s.replace(/(?<![A-Za-z0-9])_([^_\n]+?)_(?![A-Za-z0-9])/g, '$1')
-  // Collapse the blank lines a stripped fence/heading can leave behind.
+  // Collapse the blank lines a stripped fence can leave behind.
   s = s.replace(/\n{3,}/g, '\n\n')
   return s.trim()
 }
@@ -2443,7 +2436,7 @@ export default function GameEdit() {
               }
               // Strip markdown markers so the recap renders as plain prose
               // instead of pulling in bold/headings from the copied AI reply.
-              setFormData(prev => ({ ...prev, aiRecap: stripRecapFormatting(text) }))
+              setFormData(prev => ({ ...prev, aiRecap: unwrapRecapFence(text) }))
               setRecapPasteFeedback('Pasted.')
               setTimeout(() => setRecapPasteFeedback(null), 1800)
             } catch {
