@@ -981,6 +981,23 @@ Total: exactly ${layout.totalRows} lines. "<TAB>" in the spec = real tab charact
 Empty slots are TRULY EMPTY LINES (\\n only — no spaces, no tabs). Never skip or merge a line. Banner lines: no tabs. Header lines: (column count − 1) tabs. Data lines: same column count as their section header.
 
 ═══════════════════════════════════════════════════════════
+ASSEMBLE IN CODE — do not type this block by hand
+═══════════════════════════════════════════════════════════
+Typing ${layout.totalRows} lines directly into chat causes two invisible failures:
+(1) a stray tab in an "empty" slot looks identical to a truly empty line in chat,
+(2) counting blank lines by eye drifts — and either shifts every banner below.
+
+Build the output programmatically instead:
+  • For each section: create a list of exactly <rowCount> empty strings.
+  • Fill player rows in by index (slot 0 = first player row, etc.).
+  • Build the section: banner + "\\n" + header + "\\n" + "\\n".join(slots).
+  • Join sections with "\\n" — no separator rows between them.
+  • Before attaching: split the result on "\\n", assert len == ${layout.totalRows},
+    and print each banner's line number to confirm it matches the spec above.
+Deliver as a .tsv file attachment (Method A). This guarantees truly empty
+lines and exact slot counts — two things hand-typing cannot guarantee.
+
+═══════════════════════════════════════════════════════════
 HOW TO READ THE GAME SCREENSHOTS — do this first
 ═══════════════════════════════════════════════════════════
 The user pastes screenshots from EA College Football 26's post-game stats screens. Each screenshot shows ONE stat category for BOTH teams side-by-side. Before you write a single TSV row:
@@ -1074,9 +1091,10 @@ mode of this output and it will silently corrupt the user's sheet.
     you generated it from scratch instead of copying — go back and
     re-copy from the template.
 
-[ ] LINE COUNT: split your draft on newlines. The result MUST
-    contain EXACTLY ${layout.totalRows} elements. If it's anything
-    else, you're done — go fix.
+[ ] LINE COUNT: split your assembled string on "\\n" IN CODE and
+    print the length. It MUST equal EXACTLY ${layout.totalRows}.
+    Do not count by eye — invisible stray whitespace won't show.
+    If the count is wrong, fix the code, not the visual text.
 
 [ ] STRAY BANNERS / HEADERS: search your draft for the string "═══".
     Every occurrence MUST be on one of the banner-position lines
