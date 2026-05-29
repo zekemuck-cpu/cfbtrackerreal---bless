@@ -2365,9 +2365,9 @@ function PlayerInner() {
                 so Stats / Video can be reordered individually relative to
                 the other top-level items; on lg it becomes a proper flex
                 column that keeps the video directly below stats. */}
-            <div className="flex flex-col lg:flex-row lg:items-start gap-6 lg:gap-6 xl:gap-8">
+            <div className="flex flex-col lg:flex-row lg:items-start gap-6 lg:gap-4 xl:gap-6">
               {/* LEFT — Timeline (condensed, with connecting line) */}
-              <div className="card overflow-hidden order-4 lg:order-none w-full lg:w-[280px] lg:flex-shrink-0">
+              <div className="card overflow-hidden order-4 lg:order-none w-full lg:w-[240px] lg:flex-shrink-0">
                 {sectionHeader('Timeline')}
                 {timelineYears.length === 0 ? (
                   <div className="px-4 py-4 text-sm" style={{ color: secondaryText }}>No timeline data</div>
@@ -2693,7 +2693,7 @@ function PlayerInner() {
               </div>
 
               {/* RIGHT — Recent Game Log */}
-              <div className="card overflow-hidden order-2 lg:order-none w-full lg:w-[340px] lg:flex-shrink-0">
+              <div className="card overflow-hidden order-2 lg:order-none w-full lg:w-[300px] lg:flex-shrink-0">
                 {sectionHeader('Recent Games')}
                 {recentGames.length === 0 ? (
                   <div className="px-4 py-4 text-sm" style={{ color: secondaryText }}>No game log data</div>
@@ -5369,39 +5369,32 @@ function PlayerInner() {
 
         return (
           <div className="space-y-6">
-            {allPlayerScoringPlays.length > 0 && (
-              <div className="flex justify-end">
-                <button
-                  onClick={() => {
-                    setSelectedGameScoringPlays({
-                      plays: allPlayerScoringPlays,
-                      opponent: 'All Games'
-                    })
-                    setShowScoringHighlightsModal(true)
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all shadow-lg hover:shadow-xl"
-                  style={{
-                    backgroundColor: teamInfo.backgroundColor,
-                    color: primaryText
-                  }}
-                >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                  <span className="font-bold text-sm uppercase tracking-wider" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-                    Watch All Scores ({allPlayerScoringPlays.length})
-                  </span>
-                </button>
-              </div>
-            )}
-
             {Object.entries(gamesByYear).sort(([a], [b]) => b - a).map(([year, games]) => (
               <div key={year} className="card overflow-hidden">
-                <div className="px-4 py-3 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                  <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>
-                    {year} Season
-                  </h3>
-                </div>
+                {(() => {
+                  const seasonScoringPlays = allPlayerScoringPlays.filter(p => p.gameInfo?.year === Number(year))
+                  return (
+                    <div className="px-4 py-3 bg-surface-2 border-b border-surface-4 border-l-[3px] flex items-center justify-between gap-3" style={{ borderLeftColor: teamInfo.backgroundColor }}>
+                      <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>
+                        {year} Season
+                      </h3>
+                      {seasonScoringPlays.length > 0 && (
+                        <button
+                          onClick={() => {
+                            setSelectedGameScoringPlays({ plays: seasonScoringPlays, opponent: 'All Games', customTitle: `${player.name} — ${year} Scores` })
+                            setShowScoringHighlightsModal(true)
+                          }}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-colors shrink-0"
+                          style={{ backgroundColor: teamInfo.backgroundColor, color: primaryText }}
+                          title={`Watch ${seasonScoringPlays.length} scoring ${seasonScoringPlays.length === 1 ? 'play' : 'plays'} from ${year}`}
+                        >
+                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                          <span className="font-bold text-[11px] uppercase tracking-wider" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>Watch Scores ({seasonScoringPlays.length})</span>
+                        </button>
+                      )}
+                    </div>
+                  )
+                })()}
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -5958,7 +5951,7 @@ function PlayerInner() {
           getTeamLogo={getTeamLogo}
           getMascotName={getMascotName}
           teamsData={dynasty.teams}
-          customTitle={selectedGameScoringPlays.opponent === 'All Games' ? `${player.name} - All Scoring Plays` : `${player.name} Scores vs ${selectedGameScoringPlays.opponent}`}
+          customTitle={selectedGameScoringPlays.customTitle || (selectedGameScoringPlays.opponent === 'All Games' ? `${player.name} - All Scoring Plays` : `${player.name} Scores vs ${selectedGameScoringPlays.opponent}`)}
           pathPrefix={pathPrefix}
           startIndex={selectedGameScoringPlays.startIndex || 0}
           resumeOffsetSec={selectedGameScoringPlays.resumeOffsetSec || 0}
