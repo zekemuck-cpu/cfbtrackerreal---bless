@@ -682,6 +682,7 @@ function buildContextStatBlock({
       push(`  • The "${weeklyAwardName}" honor is the headline of the back — render it large and prominent (era-appropriate badge/seal/banner styling).`)
     }
     push('  • Render the box-score line as a TIGHT STAT PANEL the way real cards do — a small tabular block (column headers across the top, one row of numbers beneath), or a single inline ribbon ("33/37 · 431 YDS · 7 TD"). NOT a vertical list of "Passing: X / Rushing: Y" labeled rows.')
+    push('  • BE SELECTIVE — think like a card editor about WHICH categories belong. The categories below are raw data, not a checklist; show only the ones MATERIAL to this game. Drop incidental noise: a passer\'s rushing line that is just sack/kneel losses (a few carries for negative or near-zero yards with no TD), a single garbage-time return, a lineman\'s stray reception. Lead with the player\'s primary category for their position and omit the trivia — e.g. a QB who threw for 377 and "rushed" 5 times for -11 should show ONLY the passing panel.')
     push('  • The matchup goes in a small game-info ribbon or strip, NOT as a stack of separate "WEEK / GAME / FINAL / RESULT" labeled rows.')
     push(`  • A 1-2 sentence factual recap is fine; longer is not. Do NOT pad with phrases like "carved up", "controlled the game throughout", "dominant performance".`)
     push('  • DO NOT include season totals, career stats, year-by-year tables, or any other game.')
