@@ -24,14 +24,21 @@ const DEV_TRAIT_COLORS = {
 }
 const EMPTY_ARR = []
 
-function posGroupGrade(returners) {
-  const ovrs = returners.map(e => e.projectedOvr).filter(v => v != null && Number.isFinite(v))
+// How many top returners to grade on per group (starter count, not full depth).
+const GRADE_DEPTH = { QB: 1, RB: 2, WR: 3, TE: 1, OT: 2, OG: 2, C: 1, DT: 2, EDGE: 2, OLB: 2, MIKE: 1, CB: 2, Safety: 2, K: 1, P: 1 }
+
+function posGroupGrade(group, returners) {
+  const depth = GRADE_DEPTH[group] ?? 2
+  const topN = [...returners]
+    .sort((a, b) => (b.projectedOvr ?? -1) - (a.projectedOvr ?? -1))
+    .slice(0, depth)
+  const ovrs = topN.map(e => Number(e.projectedOvr)).filter(v => Number.isFinite(v))
   if (ovrs.length === 0) return null
   const avg = ovrs.reduce((a, b) => a + b, 0) / ovrs.length
   if (avg >= 90) return { letter: 'A', color: '#22c55e' }
-  if (avg >= 80) return { letter: 'B', color: '#f97316' }
-  if (avg >= 70) return { letter: 'C', color: '#eab308' }
-  if (avg >= 60) return { letter: 'D', color: '#ef4444' }
+  if (avg >= 83) return { letter: 'B', color: '#f97316' }
+  if (avg >= 75) return { letter: 'C', color: '#eab308' }
+  if (avg >= 67) return { letter: 'D', color: '#ef4444' }
   return { letter: 'F', color: '#b91c1c' }
 }
 
@@ -81,7 +88,7 @@ export default function TeamOutlook({ tid }) {
       else if (ret.length === 0) health = { label: 'Unproven', variant: 'warning' }
       else if (total < min) health = { label: 'Thin', variant: 'warning' }
       else health = null
-      const grade = isFuture ? posGroupGrade(ret) : null
+      const grade = isFuture ? posGroupGrade(g, ret) : null
       return { g, label: GROUP_LABELS[g] || g, ret, inc, lv, nfl, health, grade }
     })
   }, [currentDynasty, tid, year, posTab, leaveFlags, nflDismissFlags, isFuture])
