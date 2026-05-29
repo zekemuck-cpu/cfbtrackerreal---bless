@@ -50,3 +50,30 @@ export const TAB_FORMATIONS = {
   defense: DEFENSE_FORMATION,
   st: ST_FORMATION,
 }
+
+// Generic position codes → the exact slot `pos` values they can fill. Exact
+// codes (LT, MIKE, FS…) map to their own slot and are NOT listed here.
+export const POSITION_ALIASES = {
+  OT: ['LT', 'RT'], OG: ['LG', 'RG'], OL: ['LT', 'LG', 'C', 'RG', 'RT'],
+  DE: ['LEDG', 'REDG'], EDGE: ['LEDG', 'REDG'], LE: ['LEDG'], RE: ['REDG'],
+  NT: ['DT'], DL: ['LEDG', 'REDG', 'DT'],
+  LB: ['SAM', 'MIKE', 'WILL'], OLB: ['SAM', 'WILL'], MLB: ['MIKE'], ILB: ['MIKE'], LOLB: ['WILL'], ROLB: ['SAM'],
+  S: ['FS', 'SS'], DB: ['CB', 'FS', 'SS'],
+  RB: ['HB', 'FB'],
+}
+
+// Slot ids in `formation` a player at `position` can occupy, most-specific
+// first: exact `pos` match wins; otherwise the generic alias expansion; final
+// fallback is any slot in the player's position group (so nobody vanishes).
+export function candidateSlots(formation, position) {
+  const pos = (position || '').toUpperCase()
+  let ids = formation.filter(s => s.pos === pos).map(s => s.id)
+  if (ids.length) return ids
+  const aliasPosSet = POSITION_ALIASES[pos]
+  if (aliasPosSet) {
+    ids = formation.filter(s => aliasPosSet.includes(s.pos)).map(s => s.id)
+    if (ids.length) return ids
+  }
+  const g = groupForPosition(pos)
+  return g ? formation.filter(s => s.group === g).map(s => s.id) : []
+}

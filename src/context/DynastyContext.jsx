@@ -15807,19 +15807,14 @@ export function DynastyProvider({ children }) {
     }
   }
 
-  // Team Future: persist a team's whole depth-chart state (manual depth order
-  // by group + "likely to leave" pids) in ONE write. The page batches edits in
-  // local draft state and calls this once on Save. Writes the whole (small)
-  // teamFuture object so it works for both storage tiers and reads back nested.
-  const saveTeamFuture = (dynastyId, tid, depthOrderForTid, leaveFlagsForTid) => {
+  // Depth Chart: persist a team's whole depth-chart state in ONE write. The
+  // page batches edits in local draft state and calls this once on Save.
+  // dataForTid = { slotOf: { pid: slotId }, order: { slotId: [pid] }, leaveFlags: [pid] }.
+  // Writes the whole (small) teamFuture object so it works for both storage
+  // tiers and reads back nested under teamFuture[tid].
+  const saveTeamFuture = (dynastyId, tid, dataForTid) => {
     const tf = currentDynasty?.teamFuture || {}
-    return updateDynasty(dynastyId, {
-      teamFuture: {
-        ...tf,
-        depthOrder: { ...(tf.depthOrder || {}), [tid]: depthOrderForTid },
-        leaveFlags: { ...(tf.leaveFlags || {}), [tid]: leaveFlagsForTid },
-      },
-    })
+    return updateDynasty(dynastyId, { teamFuture: { ...tf, [tid]: dataForTid } })
   }
 
   // Backward-compat: a few older consumers still destructure `customTeams`

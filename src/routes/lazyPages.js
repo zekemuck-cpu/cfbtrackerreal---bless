@@ -61,7 +61,7 @@ export const preloadByNavName = {
   'All Players': Players.preload,
   'Danger Zone': DangerZone.preload,
   'AI Prompts': PromptStudio.preload,
-  'Team Future': TeamFuture.preload,
+  'Depth Chart': TeamFuture.preload,
 }
 
 // Warm the most commonly-visited pages during browser idle time.
