@@ -553,9 +553,10 @@ export function resolvePlayerSlot(dynasty, pid, options = {}) {
   out.push(`### Player: ${player.name}`)
   out.push(`- **Position**: ${pos}`)
   out.push(`- **Class (${year})**: ${cls}`)
-  out.push(`- **Overall (${year})**: ${ovr}`)
-  out.push(`- **Dev trait (${year})**: ${dev}`)
   out.push(`- **Team (${year})**: ${teamName}`)
+  // Internal signal — gauge the player with it, but never state it in the prose
+  // (overall/dev-trait aren't real-world terms; see universal constraints).
+  out.push(`- _Internal scouting signal (do NOT mention in the writing)_: ${ovr} overall, ${dev} dev trait`)
 
   // Base game list for box-score horizons (all year games with scores)
   const allYearGames = safeArr(dynasty?.games)
@@ -729,7 +730,8 @@ export function resolvePositionSlot(dynasty, position, options = {}) {
     const jersey = p.jerseyNumber ? `#${p.jerseyNumber} ` : ''
 
     out.push(`\n---`)
-    out.push(`#### ${jersey}${p.name} — ${cls}, OVR ${ovr}, ${dev}`)
+    out.push(`#### ${jersey}${p.name} — ${cls}`)
+    out.push(`- _Internal scouting signal (do NOT mention in the writing)_: ${ovr} overall, ${dev} dev trait`)
 
     // Prior-year season totals (career arc) — up to 3 previous seasons
     const allStatYears = Object.keys(p.statsByYear || {})
@@ -797,11 +799,9 @@ export function resolvePositionSlot(dynasty, position, options = {}) {
     out.push(`\n---`)
     out.push(`**Reserve depth (no ${year} stats recorded):** ` +
       reservePlayers.map(p => {
-        const ovr = getPlayerOverallForYear(p, year) || '—'
         const cls = getPlayerClassForYear(p, year) || '—'
-        const dev = p.devTraitByYear?.[year] || p.devTraitByYear?.[String(year)] || p.devTrait || '—'
         const jersey = p.jerseyNumber ? `#${p.jerseyNumber} ` : ''
-        return `${jersey}${p.name} (${cls}, OVR ${ovr}, ${dev})`
+        return `${jersey}${p.name} (${cls})`
       }).join(' · ')
     )
   }

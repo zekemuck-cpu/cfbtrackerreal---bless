@@ -75,6 +75,7 @@ export function composePrompt(template, slotValues, knobValues, customNotes, ctx
     'Refer to teams by the names provided in the data block.',
     "If a stat or detail isn't in the data, say so explicitly rather than guessing.",
     'No real-world college-football knowledge — this is a dynasty simulation. Conferences, rosters, results may differ from reality.',
+    'Game-mechanic data — overall ratings (e.g. "83 overall"), development traits ("Normal/Impact/Star/Elite"), player archetypes, and recruit star counts — is INTERNAL signal only. Never state these numbers or labels in the writing; they are not real-world football terms and break the fourth wall. Use them only to gauge a player and translate into natural scouting language (describe form, trajectory, role, or ceiling instead).',
   ]
 
   // ── CUSTOM NOTES ─────────────────────────────────────────────────────────
