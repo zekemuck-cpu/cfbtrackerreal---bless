@@ -39,6 +39,7 @@ export const GameEdit = lazyWithPreload(() => import('../pages/dynasty/GameEdit'
 export const DangerZone = lazyWithPreload(() => import('../pages/dynasty/DangerZone'))
 export const LeagueSettings = lazyWithPreload(() => import('../pages/dynasty/LeagueSettings'))
 export const PromptStudio = lazyWithPreload(() => import('../pages/dynasty/PromptStudio'))
+export const TeamFuture = lazyWithPreload(() => import('../pages/dynasty/TeamFuture'))
 
 // Preload map: sidebar nav name → chunk preload fn.
 // Called on mouseenter/focus of nav links so chunks warm up before click.
@@ -60,6 +61,7 @@ export const preloadByNavName = {
   'All Players': Players.preload,
   'Danger Zone': DangerZone.preload,
   'AI Prompts': PromptStudio.preload,
+  'Team Future': TeamFuture.preload,
 }
 
 // Warm the most commonly-visited pages during browser idle time.

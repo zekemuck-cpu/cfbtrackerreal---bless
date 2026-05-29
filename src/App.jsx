@@ -26,7 +26,7 @@ import {
   PlayersByState, AllTimeLineup, Recruiting, Leaders, Awards, AllAmericans,
   AllConference, DynastyRecords, Teams, TeamYear, BowlHistory,
   ConferenceChampionshipHistory, ConferenceStandings, CFPBracket, WeeklyScores, Game,
-  GameEdit, DangerZone, LeagueSettings, CardCollection, PromptStudio,
+  GameEdit, DangerZone, LeagueSettings, CardCollection, PromptStudio, TeamFuture,
 } from './routes/lazyPages'
 
 // Protected route wrapper
@@ -151,6 +151,7 @@ function AppRoutes() {
                   <Route path="recruiting" element={<Recruiting />} />
                   <Route path="recruiting/:tid/:year" element={<Recruiting />} />
                   <Route path="recruiting/portal/:tid/:year" element={<Recruiting />} />
+                  <Route path="team-future" element={<TeamFuture />} />
                   <Route path="leaders" element={<Leaders />} />
                   <Route path="awards" element={<Awards />} />
                   <Route path="awards/:year" element={<Awards />} />
