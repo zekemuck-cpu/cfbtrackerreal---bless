@@ -28,15 +28,20 @@ export function isPortalRisk(player, lastYear, projectedClass) {
 
 const byOvrDesc = (a, b) => (b.projectedOvr ?? -1) - (a.projectedOvr ?? -1)
 
-// Order one slot's players: manual within-slot order (pids) first, then OVR.
-function orderWithin(players, manualPids = []) {
-  const sorted = [...players].sort(byOvrDesc)
-  if (!manualPids.length) return sorted
+// Order one slot's players: manual within-slot order (pids) first, then
+// exact-position players ahead of generic back-fills, then OVR. The exact-first
+// tier ensures a generic (e.g. a higher-OVR "OL") never auto-starts over the
+// player actually coded for this slot (e.g. "LT") when the slot is shared.
+function orderWithin(players, manualPids = [], slotPos = null) {
   const rank = new Map(manualPids.map((pid, i) => [pid, i]))
-  return sorted.sort((a, b) => {
+  const exactRank = (p) => (slotPos && (p.position || '').toUpperCase() === slotPos) ? 0 : 1
+  return [...players].sort((a, b) => {
     const ra = rank.has(a.pid) ? rank.get(a.pid) : Infinity
     const rb = rank.has(b.pid) ? rank.get(b.pid) : Infinity
     if (ra !== rb) return ra - rb
+    const ea = exactRank(a)
+    const eb = exactRank(b)
+    if (ea !== eb) return ea - eb
     return byOvrDesc(a, b)
   })
 }
@@ -86,7 +91,7 @@ export function buildDepthChart(projected, { formation, slotOf = {}, order = {},
 
   // 3) Order within each slot and build the slot view.
   return formation.map(s => {
-    const players = orderWithin(bySlot[s.id], order[s.id] || [])
+    const players = orderWithin(bySlot[s.id], order[s.id] || [], s.pos)
     const starter = players[0] || null
     const backups = players.slice(1)
     const topDev = starter?.devTrait || 'Normal'

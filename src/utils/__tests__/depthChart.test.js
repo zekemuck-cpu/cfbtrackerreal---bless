@@ -37,6 +37,19 @@ describe('buildDepthChart — position-respecting assignment', () => {
     expect(slot(chart, 'RT').starter.pid).toBe('ot1')   // generic tackle fills RT
   })
 
+  it('does not let a higher-OVR generic start over an exact-coded player when slots are full', () => {
+    // Both tackle slots are taken by exact LT/RT; the generic OT (higher OVR)
+    // back-fills onto a tackle slot but must NOT take the starter role there.
+    const chart = buildDepthChart([mk('lt1', 'LT', 80), mk('rt1', 'RT', 78), mk('ot1', 'OT', 90)], { formation: OFFENSE_FORMATION })
+    const lt = slot(chart, 'LT')
+    const rt = slot(chart, 'RT')
+    const startsExact = (lt.starter.position === 'LT') && (rt.starter.position === 'RT')
+    expect(startsExact).toBe(true)
+    // the generic is somewhere as a backup, not a starter
+    const allStarters = [lt.starter, rt.starter].map(s => s.pid)
+    expect(allStarters).not.toContain('ot1')
+  })
+
   it('routes a generic RB to a back slot (not a hole)', () => {
     const chart = buildDepthChart([mk('rb1', 'RB', 88)], { formation: OFFENSE_FORMATION })
     expect(slot(chart, 'HB').starter.pid).toBe('rb1')
