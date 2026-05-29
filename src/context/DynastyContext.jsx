@@ -15807,6 +15807,22 @@ export function DynastyProvider({ children }) {
     }
   }
 
+  // Team Future: persist a position's manual depth order for a team. Writes the
+  // whole (small) teamFuture object so it works for both storage tiers and the
+  // page reads it back as a nested structure.
+  const saveDepthOrder = (dynastyId, tid, pos, pidOrder) => {
+    const tf = currentDynasty?.teamFuture || {}
+    const depthOrder = { ...(tf.depthOrder || {}) }
+    depthOrder[tid] = { ...(depthOrder[tid] || {}), [pos]: pidOrder }
+    return updateDynasty(dynastyId, { teamFuture: { ...tf, depthOrder } })
+  }
+
+  // Team Future: persist the set of "likely to leave" pids for a team.
+  const saveLeaveFlags = (dynastyId, tid, pids) => {
+    const tf = currentDynasty?.teamFuture || {}
+    return updateDynasty(dynastyId, { teamFuture: { ...tf, leaveFlags: { ...(tf.leaveFlags || {}), [tid]: pids } } })
+  }
+
   // Backward-compat: a few older consumers still destructure `customTeams`
   // from the context. Keep the export but always null — the migration
   // collapses the field on load and nothing writes it anymore. Consumers
@@ -16000,6 +16016,8 @@ export function DynastyProvider({ children }) {
     updateTeambuilderTeam,
     addCustomTeam,
     migrateDynastyStorage,
+    saveDepthOrder,
+    saveLeaveFlags,
   }
 
   return (
