@@ -14,6 +14,8 @@ const TABS = [
 ]
 const DEV_BORDER = { Elite: '#f5c518', Star: '#ef4444', Impact: '#3b82f6', Normal: '#5b6472' }
 const GRADE_COLOR = (g) => g[0] === 'A' ? '#4ade80' : g[0] === 'B' ? '#86efac' : g[0] === 'C' ? '#fde047' : g[0] === 'D' ? '#fb923c' : '#fca5a5'
+// Label for an incoming player: portal transfers vs star-rated recruits.
+const incomingTag = (p) => p.isPortal ? ' · PORTAL' : (p.stars ? ` ★${p.stars}` : '')
 
 export default function TeamFuture() {
   const { id: dynastyId } = useParams()
@@ -74,24 +76,25 @@ export default function TeamFuture() {
       </div>
 
       <CardGrid chart={chart} year={year} currentYear={currentYear} isViewOnly={isViewOnly}
-        tid={tid} dynastyId={dynastyId} manualOrder={manualOrder} leaveFlagList={leaveFlagList}
+        tid={tid} dynastyId={dynastyId} leaveFlagList={leaveFlagList}
         saveDepthOrder={saveDepthOrder} saveLeaveFlags={saveLeaveFlags} />
     </div>
   )
 }
 
-function CardGrid({ chart, year, currentYear, isViewOnly, tid, dynastyId, manualOrder, leaveFlagList, saveDepthOrder, saveLeaveFlags }) {
+function CardGrid({ chart, year, currentYear, isViewOnly, tid, dynastyId, leaveFlagList, saveDepthOrder, saveLeaveFlags }) {
   const editable = !isViewOnly && year >= currentYear
 
-  const reorder = (pos, slotPlayers, pid, dir) => {
-    const current = (manualOrder[pos] && manualOrder[pos].length)
-      ? manualOrder[pos].filter(p => slotPlayers.some(sp => sp.pid === p))
-      : slotPlayers.map(p => p.pid).filter(Boolean)
-    const i = current.indexOf(pid)
+  // Reorder operates on the FULL group pool (slot.groupPool), so moving a
+  // player works correctly across multi-slot positions (WR1/WR2, CB1/CB2…)
+  // and persists keyed by group.
+  const reorder = (group, groupPool, pid, dir) => {
+    const order = [...groupPool]
+    const i = order.indexOf(pid)
     const j = i + dir
-    if (i < 0 || j < 0 || j >= current.length) return
-    ;[current[i], current[j]] = [current[j], current[i]]
-    saveDepthOrder?.(dynastyId, tid, pos, current)
+    if (i < 0 || j < 0 || j >= order.length) return
+    ;[order[i], order[j]] = [order[j], order[i]]
+    saveDepthOrder?.(dynastyId, tid, group, order)
   }
 
   const toggleLeave = (pid) => {
@@ -103,8 +106,8 @@ function CardGrid({ chart, year, currentYear, isViewOnly, tid, dynastyId, manual
     <div className="flex flex-wrap gap-3 justify-center">
       {chart.map(slot => (
         <PositionCard key={slot.id} slot={slot} editable={editable}
-          onUp={(pid) => reorder(slot.pos, [slot.starter, ...slot.backups].filter(Boolean), pid, -1)}
-          onDown={(pid) => reorder(slot.pos, [slot.starter, ...slot.backups].filter(Boolean), pid, +1)}
+          onUp={(pid) => reorder(slot.group, slot.groupPool, pid, -1)}
+          onDown={(pid) => reorder(slot.group, slot.groupPool, pid, +1)}
           onToggleLeave={toggleLeave} leaveFlagList={leaveFlagList} />
       ))}
     </div>
@@ -130,7 +133,7 @@ function PositionCard({ slot, editable, onUp, onDown, onToggleLeave, leaveFlagLi
         </div>
         <div className="px-2 py-1 text-center">
           <div className="text-[12px] font-bold truncate" style={{ color: isHole ? '#f87171' : 'var(--text-primary)' }}>
-            {isHole ? 'EMPTY' : starter.name}{starter?.isIncoming && starter.stars ? ` ★${starter.stars}` : ''}
+            {isHole ? 'EMPTY' : starter.name}{!isHole && starter.isIncoming ? incomingTag(starter) : ''}
           </div>
           <div className="text-[10px] text-txt-tertiary">{isHole ? 'no projected starter' : starter.projectedClass}{flagged ? ' · LIKELY OUT' : ''}</div>
           {editable && starter && !starter.isIncoming && (
@@ -144,7 +147,7 @@ function PositionCard({ slot, editable, onUp, onDown, onToggleLeave, leaveFlagLi
         {backups.map(b => (
           <div key={b.key} className="flex justify-between items-center px-2 py-1 text-[11px]" style={{ borderTop: '1px solid #242424', background: b.isIncoming ? '#10233d' : 'transparent' }}>
             <span className="truncate mr-2" style={{ color: b.isIncoming ? '#7fb0f5' : (slot.risk?.[b.pid] ? '#f87171' : '#bdbdbd') }}>
-              {b.name}{b.isIncoming && b.stars ? ` ★${b.stars}` : ''}{slot.risk?.[b.pid] ? ' ⚑' : ''}
+              {b.name}{b.isIncoming ? incomingTag(b) : ''}{slot.risk?.[b.pid] ? ' ⚑' : ''}
             </span>
             <span className="tabular-nums font-bold">{b.projectedOvr ?? '—'}</span>
           </div>

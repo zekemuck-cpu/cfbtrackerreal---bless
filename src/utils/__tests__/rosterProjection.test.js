@@ -1,9 +1,13 @@
 import { describe, it, expect, vi } from 'vitest'
 
+// Mock the heavy React/Firebase context module with lightweight fakes that
+// mirror the real helper semantics against the test fixtures below.
 vi.mock('../../context/DynastyContext', () => ({
   isPlayerOnRoster: (p, tid, year) => (p.teamsByYear?.[year] ?? p.teamsByYear?.[String(year)]) === tid,
   getPlayerClassForYear: (p, year) => p.classByYear?.[year] ?? p.classByYear?.[String(year)] ?? p.class ?? null,
-  getPlayersLeaving: () => [],
+  // Pending offseason "leaving" list, keyed by recruiting/season year in the fixture.
+  getPlayersLeaving: (dynasty, tid, year) => dynasty.__leaving?.[year] || [],
+  // Real model keys commitments by RECRUITING year (recruits enroll year+1).
   getRecruitingCommitments: (dynasty, tid, year) => dynasty.recruitingCommitmentsByTeamYear?.[year]?.[String(tid)] || {},
 }))
 
@@ -54,8 +58,7 @@ describe('projectRoster — present year', () => {
   it('returns on-roster, non-honor players with that year class/ovr', () => {
     const d = fakeDynasty()
     const r = projectRoster(d, 10, 2035)
-    const pids = r.map(p => p.pid).sort()
-    expect(pids).toEqual(['a', 'b'])
+    expect(r.map(p => p.pid).sort()).toEqual(['a', 'b'])
     const a = r.find(p => p.pid === 'a')
     expect(a.projectedClass).toBe('Sr')
     expect(a.projectedOvr).toBe(88)
@@ -82,7 +85,8 @@ describe('projectRoster — future year', () => {
         { pid: 'sr', name: 'Senior', position: 'QB', teamsByYear: { 2035: 10 }, classByYear: { 2035: 'Sr' }, overallByYear: { 2035: 90 } },
         { pid: 'risk', name: 'Flighty', position: 'WR', teamsByYear: { 2035: 10 }, classByYear: { 2035: 'So' }, overallByYear: { 2035: 77 } },
       ],
-      recruitingCommitmentsByTeamYear: { 2036: { '10': { regular_1: [ { name: 'Frosh WR', position: 'WR', class: 'HS', stars: 4, devTrait: 'Star', isPortal: false } ] } } },
+      // Class that ENROLLS in 2036 is keyed under recruiting year 2035.
+      recruitingCommitmentsByTeamYear: { 2035: { '10': { regular_1: [ { name: 'Frosh WR', position: 'WR', class: 'HS', stars: 4, devTrait: 'Star', isPortal: false } ] } } },
     }
   }
 
@@ -96,7 +100,7 @@ describe('projectRoster — future year', () => {
     expect(r.find(p => p.pid === 'sr')).toBeUndefined()
   })
 
-  it('adds the incoming class with no OVR', () => {
+  it('adds the incoming class (keyed by recruiting year) with no OVR', () => {
     const d = futureDynasty()
     const r = projectRoster(d, 10, 2036)
     const frosh = r.find(p => p.isIncoming && p.name === 'Frosh WR')
@@ -104,6 +108,14 @@ describe('projectRoster — future year', () => {
     expect(frosh.projectedOvr).toBe(null)
     expect(frosh.stars).toBe(4)
     expect(frosh.projectedClass).toBe('Fr')
+    expect(frosh.position).toBe('WR')
+  })
+
+  it('ages the incoming recruit one more year by +2', () => {
+    const d = futureDynasty()
+    const r = projectRoster(d, 10, 2037)
+    const frosh = r.find(p => p.isIncoming && p.name === 'Frosh WR')
+    expect(frosh.projectedClass).toBe('So')   // joined 2036 as Fr → So in 2037
   })
 
   it('excludes manually flagged "likely to leave" players', () => {
@@ -116,5 +128,63 @@ describe('projectRoster — future year', () => {
     const d = futureDynasty()
     const r = projectRoster(d, 10, 2037)
     expect(r.find(p => p.pid === 'jr')).toBeUndefined()
+  })
+})
+
+describe('projectRoster — departure detection', () => {
+  const base = (extra) => ({
+    currentYear: 2035, currentTid: 10,
+    players: [{ pid: 'p', name: 'P', position: 'CB', teamsByYear: { 2035: 10 }, classByYear: { 2035: 'So' }, overallByYear: { 2035: 80 }, ...extra }],
+  })
+
+  it('drops declared_for_draft and entered_portal (not just type==departure)', () => {
+    expect(projectRoster(base({ movementByYear: { 2035: { type: 'declared_for_draft' } } }), 10, 2036)).toHaveLength(0)
+    expect(projectRoster(base({ movementByYear: { 2036: { type: 'entered_portal' } } }), 10, 2036)).toHaveLength(0)
+  })
+
+  it('drops via the departure sub-field (transfer_out / pro_draft / graduated)', () => {
+    expect(projectRoster(base({ movementByYear: { 2036: { departure: 'transfer_out', toTid: 99 } } }), 10, 2036)).toHaveLength(0)
+    expect(projectRoster(base({ movementByYear: { 2036: { departure: 'pro_draft' } } }), 10, 2036)).toHaveLength(0)
+  })
+
+  it('KEEPS a transfer_out whose destination is THIS team (arrival, not departure)', () => {
+    const r = projectRoster(base({ movementByYear: { 2036: { type: 'departure', departure: 'transfer_out', toTid: 10 } } }), 10, 2036)
+    expect(r.map(p => p.pid)).toEqual(['p'])
+  })
+
+  it('drops a departure stamped in the current year', () => {
+    expect(projectRoster(base({ movementByYear: { 2035: { type: 'departure', departure: 'graduated' } } }), 10, 2036)).toHaveLength(0)
+  })
+})
+
+describe('projectRoster — pending leaving + unknown class + JUCO', () => {
+  it('excludes pending getPlayersLeaving pids (object or id form)', () => {
+    const d = {
+      currentYear: 2035, currentTid: 10,
+      players: [{ pid: 'p', name: 'P', position: 'WR', teamsByYear: { 2035: 10 }, classByYear: { 2035: 'So' }, overallByYear: { 2035: 80 } }],
+      __leaving: { 2035: [{ pid: 'p' }] },
+    }
+    expect(projectRoster(d, 10, 2036)).toHaveLength(0)
+  })
+
+  it('keeps a returner whose class is unknown/missing (does not drop)', () => {
+    const d = {
+      currentYear: 2035, currentTid: 10,
+      players: [{ pid: 'p', name: 'P', position: 'DT', teamsByYear: { 2035: 10 }, overallByYear: { 2035: 75 } }],
+    }
+    const r = projectRoster(d, 10, 2036)
+    expect(r.map(p => p.pid)).toEqual(['p'])
+    expect(r[0].status).toBe('returning')
+  })
+
+  it('enrolls a JUCO Jr transfer as a Jr (not a Fr)', () => {
+    const d = {
+      currentYear: 2035, currentTid: 10, players: [],
+      recruitingCommitmentsByTeamYear: { 2035: { '10': { portal: [ { name: 'Juco Guy', position: 'DT', class: 'JUCO Jr', stars: 3, isPortal: true } ] } } },
+    }
+    const r = projectRoster(d, 10, 2036)
+    const g = r.find(p => p.name === 'Juco Guy')
+    expect(g.projectedClass).toBe('Jr')
+    expect(g.isPortal).toBe(true)
   })
 })

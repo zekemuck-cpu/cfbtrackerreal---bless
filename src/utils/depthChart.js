@@ -15,19 +15,19 @@ export function gradeForOvr(ovr, { depth = 2, topDev = 'Normal' } = {}) {
 }
 
 // A returning, non-senior buried on the depth chart (very low snaps last
-// season) is a portal-flight cue. Threshold tunable.
+// season) is a portal-flight cue. Threshold tunable. `snaps` is a legacy alias.
 const PORTAL_RISK_SNAP_THRESHOLD = 150
 export function isPortalRisk(player, lastYear, projectedClass) {
   if (!player || projectedClass === 'Sr' || projectedClass === 'RS Sr') return false
   const s = player.statsByYear || {}
   const yr = s[lastYear] || s[String(lastYear)]
-  const snaps = yr?.snapsPlayed
+  const snaps = yr?.snapsPlayed ?? yr?.snaps
   if (snaps == null) return false
   return snaps < PORTAL_RISK_SNAP_THRESHOLD
 }
 
 // Order a pool: manual pids first (in that order), then the rest by OVR desc
-// (nulls last). manualPids is an array of pids for this position.
+// (nulls last). manualPids is an array of pids for this group.
 function orderPool(pool, manualPids = []) {
   const byOvr = [...pool].sort((a, b) => (b.projectedOvr ?? -1) - (a.projectedOvr ?? -1))
   if (!manualPids.length) return byOvr
@@ -41,42 +41,54 @@ function orderPool(pool, manualPids = []) {
 }
 
 // Build the per-slot depth chart for one tab's formation.
+// - Players are bucketed by POSITION GROUP (so a player coded with a generic
+//   group code like 'OT'/'EDGE'/'RB'/'LB' still lands in the right pool and
+//   never vanishes or creates a false hole).
+// - Within a group, the ordered pool (manual order then OVR) fills the group's
+//   slots: the top N become starters (one per slot, in order), the remaining
+//   bench is distributed round-robin so every card shows some depth.
 // projected: ProjectedPlayer[] (from projectRoster).
-// manualOrder: { [posKey]: [pid…] } — posKey is the slot's `pos`.
+// manualOrder: { [group]: [pid…] } — manual depth order, keyed by GROUP.
 export function buildDepthChart(projected, { formation, manualOrder = {}, lastYear = null }) {
-  // Bucket players by exact position.
-  const byPos = {}
+  // Bucket players by group.
+  const byGroup = {}
   for (const p of projected) {
-    const pos = (p.position || '').toUpperCase()
-    ;(byPos[pos] ||= []).push(p)
+    const g = groupForPosition(p.position)
+    if (!g) continue
+    ;(byGroup[g] ||= []).push(p)
   }
-  // Group formation slots that share a `pos` so we can round-robin the pool.
-  const slotsByPos = {}
-  for (const s of formation) (slotsByPos[s.pos] ||= []).push(s)
+  // Group the formation's slots by their group.
+  const slotsByGroup = {}
+  for (const s of formation) (slotsByGroup[s.group] ||= []).push(s)
 
-  // Assign each position's ordered pool round-robin across its slots.
-  const assignment = {} // slotId -> ordered players[]
-  for (const [pos, slots] of Object.entries(slotsByPos)) {
-    const ordered = orderPool(byPos[pos] || [], manualOrder[pos] || [])
-    const buckets = slots.map(() => [])
-    ordered.forEach((p, i) => buckets[i % slots.length].push(p))
-    slots.forEach((s, i) => { assignment[s.id] = buckets[i] })
+  // Assign each group's ordered pool to its slots.
+  const assignment = {}  // slotId -> { starter, backups }
+  const groupPoolPids = {} // group -> ordered pid list (reorderable players only)
+  for (const [group, slots] of Object.entries(slotsByGroup)) {
+    const pool = orderPool(byGroup[group] || [], manualOrder[group] || [])
+    groupPoolPids[group] = pool.map(p => p.pid).filter(Boolean)
+    const G = slots.length
+    const starters = pool.slice(0, G)
+    const bench = pool.slice(G)
+    const benchBuckets = slots.map(() => [])
+    bench.forEach((p, i) => benchBuckets[i % G].push(p))
+    slots.forEach((s, i) => { assignment[s.id] = { starter: starters[i] || null, backups: benchBuckets[i] } })
   }
 
   return formation.map(s => {
-    const players = assignment[s.id] || []
-    const starter = players[0] || null
-    const backups = players.slice(1)
+    const { starter = null, backups = [] } = assignment[s.id] || {}
     const topDev = starter?.devTrait || 'Normal'
+    const depthCount = (starter ? 1 : 0) + backups.length
     return {
       id: s.id,
       label: s.label,
       pos: s.pos,
       group: s.group,
+      groupPool: groupPoolPids[s.group] || [], // full ordered pids for reorder
       starter,
       backups,
       isHole: !starter,
-      grade: gradeForOvr(starter?.projectedOvr ?? null, { depth: players.length, topDev }),
+      grade: gradeForOvr(starter?.projectedOvr ?? null, { depth: depthCount, topDev }),
       risk: backups.concat(starter ? [starter] : []).reduce((acc, p) => {
         if (p && !p.isIncoming && p.player && isPortalRisk(p.player, lastYear, p.projectedClass)) acc[p.pid] = true
         return acc
