@@ -15807,20 +15807,19 @@ export function DynastyProvider({ children }) {
     }
   }
 
-  // Team Future: persist a position's manual depth order for a team. Writes the
-  // whole (small) teamFuture object so it works for both storage tiers and the
-  // page reads it back as a nested structure.
-  const saveDepthOrder = (dynastyId, tid, pos, pidOrder) => {
+  // Team Future: persist a team's whole depth-chart state (manual depth order
+  // by group + "likely to leave" pids) in ONE write. The page batches edits in
+  // local draft state and calls this once on Save. Writes the whole (small)
+  // teamFuture object so it works for both storage tiers and reads back nested.
+  const saveTeamFuture = (dynastyId, tid, depthOrderForTid, leaveFlagsForTid) => {
     const tf = currentDynasty?.teamFuture || {}
-    const depthOrder = { ...(tf.depthOrder || {}) }
-    depthOrder[tid] = { ...(depthOrder[tid] || {}), [pos]: pidOrder }
-    return updateDynasty(dynastyId, { teamFuture: { ...tf, depthOrder } })
-  }
-
-  // Team Future: persist the set of "likely to leave" pids for a team.
-  const saveLeaveFlags = (dynastyId, tid, pids) => {
-    const tf = currentDynasty?.teamFuture || {}
-    return updateDynasty(dynastyId, { teamFuture: { ...tf, leaveFlags: { ...(tf.leaveFlags || {}), [tid]: pids } } })
+    return updateDynasty(dynastyId, {
+      teamFuture: {
+        ...tf,
+        depthOrder: { ...(tf.depthOrder || {}), [tid]: depthOrderForTid },
+        leaveFlags: { ...(tf.leaveFlags || {}), [tid]: leaveFlagsForTid },
+      },
+    })
   }
 
   // Backward-compat: a few older consumers still destructure `customTeams`
@@ -16016,8 +16015,7 @@ export function DynastyProvider({ children }) {
     updateTeambuilderTeam,
     addCustomTeam,
     migrateDynastyStorage,
-    saveDepthOrder,
-    saveLeaveFlags,
+    saveTeamFuture,
   }
 
   return (

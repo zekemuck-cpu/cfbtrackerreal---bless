@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useDynasty } from '../../context/DynastyContext'
 import { PageHero, Card, EmptyState, Select } from '../../components/ui'
@@ -23,12 +23,28 @@ const EMPTY_OBJ = {}
 
 export default function TeamFuture() {
   const { id: dynastyId } = useParams()
-  const { currentDynasty, isViewOnly, saveDepthOrder, saveLeaveFlags } = useDynasty()
+  const { currentDynasty, isViewOnly, saveTeamFuture } = useDynasty()
   const tid = currentDynasty?.currentTid
   const currentYear = Number(currentDynasty?.currentYear)
 
   const [tab, setTab] = useState('offense')
   const [year, setYear] = useState(currentYear)
+
+  // Draft (working) depth-chart state — edits mutate the draft instantly so
+  // cards move fluidly; a single Save commits the whole batch to storage.
+  const [draftOrder, setDraftOrder] = useState(() => currentDynasty?.teamFuture?.depthOrder?.[tid] || {})
+  const [draftFlags, setDraftFlags] = useState(() => currentDynasty?.teamFuture?.leaveFlags?.[tid] || [])
+  const [dirty, setDirty] = useState(false)
+
+  // Re-seed the draft from the persisted state when the active team changes.
+  useEffect(() => {
+    setDraftOrder(currentDynasty?.teamFuture?.depthOrder?.[tid] || {})
+    setDraftFlags(currentDynasty?.teamFuture?.leaveFlags?.[tid] || [])
+    setDirty(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tid])
+
+  const leaveFlags = useMemo(() => new Set(draftFlags), [draftFlags])
 
   const years = useMemo(() => {
     const ys = new Set()
@@ -41,22 +57,51 @@ export default function TeamFuture() {
     return out
   }, [currentDynasty, currentYear])
 
-  const leaveFlagList = currentDynasty?.teamFuture?.leaveFlags?.[tid] || EMPTY_ARR
-  const leaveFlags = useMemo(() => new Set(leaveFlagList), [leaveFlagList])
-  const manualOrder = currentDynasty?.teamFuture?.depthOrder?.[tid] || EMPTY_OBJ
-
   const chart = useMemo(() => {
     if (!currentDynasty || tid == null) return []
     const projected = projectRoster(currentDynasty, tid, year, { leaveFlags })
-    return buildDepthChart(projected, { formation: TAB_FORMATIONS[tab], manualOrder, lastYear: currentYear })
-  }, [currentDynasty, tid, year, tab, leaveFlags, manualOrder, currentYear])
+    return buildDepthChart(projected, { formation: TAB_FORMATIONS[tab], manualOrder: draftOrder, lastYear: currentYear })
+  }, [currentDynasty, tid, year, tab, leaveFlags, draftOrder, currentYear])
 
   if (!currentDynasty) return null
   if (tid == null) {
     return <Card><EmptyState title="No team selected" message="Set your current team to use Team Future." /></Card>
   }
 
+  const editable = !isViewOnly && year >= currentYear
   const yearLabel = year < currentYear ? `${year} (history)` : year === currentYear ? `${year} (now)` : `${year} (+${year - currentYear})`
+
+  // ── Draft mutations (no persistence — batched until Save) ───────────────
+  const moveInGroup = (group, groupPool, draggedPid, targetPid) => {
+    if (!draggedPid || !targetPid || draggedPid === targetPid) return
+    const order = [...groupPool]
+    const from = order.indexOf(draggedPid)
+    const to = order.indexOf(targetPid)
+    if (from < 0 || to < 0) return
+    order.splice(from, 1)
+    order.splice(to, 0, draggedPid)
+    setDraftOrder(prev => ({ ...prev, [group]: order }))
+    setDirty(true)
+  }
+  const bump = (group, groupPool, pid, dir) => {
+    const order = [...groupPool]
+    const i = order.indexOf(pid)
+    const j = i + dir
+    if (i < 0 || j < 0 || j >= order.length) return
+    ;[order[i], order[j]] = [order[j], order[i]]
+    setDraftOrder(prev => ({ ...prev, [group]: order }))
+    setDirty(true)
+  }
+  const toggleLeave = (pid) => {
+    setDraftFlags(prev => prev.includes(pid) ? prev.filter(x => x !== pid) : [...prev, pid])
+    setDirty(true)
+  }
+  const onSave = () => { saveTeamFuture?.(dynastyId, tid, draftOrder, draftFlags); setDirty(false) }
+  const onReset = () => {
+    setDraftOrder(currentDynasty?.teamFuture?.depthOrder?.[tid] || {})
+    setDraftFlags(currentDynasty?.teamFuture?.leaveFlags?.[tid] || [])
+    setDirty(false)
+  }
 
   return (
     <div className="space-y-6">
@@ -79,60 +124,95 @@ export default function TeamFuture() {
         </label>
       </div>
 
-      <CardGrid chart={chart} year={year} currentYear={currentYear} isViewOnly={isViewOnly}
-        tid={tid} dynastyId={dynastyId} leaveFlagList={leaveFlagList}
-        saveDepthOrder={saveDepthOrder} saveLeaveFlags={saveLeaveFlags} />
+      {editable && (
+        <p className="text-[11px] text-txt-tertiary">Drag a card onto another within the same position group to reorder depth, or use ▲▼. Mark a player ⚑ if they'll likely leave. Changes are saved together.</p>
+      )}
+
+      {editable && dirty && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg" style={{ background: '#10233d', border: '1px solid #2b5fa8' }}>
+          <span className="text-xs font-semibold" style={{ color: '#9cc2f5' }}>Unsaved depth-chart changes</span>
+          <div className="flex gap-2">
+            <button onClick={onReset} className="px-3 py-1.5 text-xs font-semibold rounded-md" style={{ color: '#cbd5e1', border: '1px solid #475569' }}>Reset</button>
+            <button onClick={onSave} className="px-4 py-1.5 text-xs font-bold rounded-md" style={{ background: '#2563eb', color: '#fff' }}>Save changes</button>
+          </div>
+        </div>
+      )}
+
+      <CardGrid chart={chart} editable={editable} leaveFlagList={draftFlags}
+        onMove={moveInGroup} onBump={bump} onToggleLeave={toggleLeave} />
     </div>
   )
 }
 
-function CardGrid({ chart, year, currentYear, isViewOnly, tid, dynastyId, leaveFlagList, saveDepthOrder, saveLeaveFlags }) {
-  const editable = !isViewOnly && year >= currentYear
-
-  // Reorder operates on the FULL group pool (slot.groupPool), so moving a
-  // player works correctly across multi-slot positions (WR1/WR2, CB1/CB2…)
-  // and persists keyed by group.
-  const reorder = (group, groupPool, pid, dir) => {
-    const order = [...groupPool]
-    const i = order.indexOf(pid)
-    const j = i + dir
-    if (i < 0 || j < 0 || j >= order.length) return
-    ;[order[i], order[j]] = [order[j], order[i]]
-    saveDepthOrder?.(dynastyId, tid, group, order)
-  }
-
-  const toggleLeave = (pid) => {
-    const next = leaveFlagList.includes(pid) ? leaveFlagList.filter(p => p !== pid) : [...leaveFlagList, pid]
-    saveLeaveFlags?.(dynastyId, tid, next)
-  }
-
+function CardGrid({ chart, editable, leaveFlagList, onMove, onBump, onToggleLeave }) {
+  // Shared across cards so a drag started on one card can drop on another.
+  const dragRef = useRef(null) // { group, pid }
   return (
     <div className="flex flex-wrap gap-3 justify-center">
       {chart.map(slot => (
-        <PositionCard key={slot.id} slot={slot} editable={editable}
-          onUp={(pid) => reorder(slot.group, slot.groupPool, pid, -1)}
-          onDown={(pid) => reorder(slot.group, slot.groupPool, pid, +1)}
-          onToggleLeave={toggleLeave} leaveFlagList={leaveFlagList} />
+        <PositionCard key={slot.id} slot={slot} editable={editable} leaveFlagList={leaveFlagList}
+          dragRef={dragRef} onMove={onMove} onBump={onBump} onToggleLeave={onToggleLeave} />
       ))}
     </div>
   )
 }
 
-function PositionCard({ slot, editable, onUp, onDown, onToggleLeave, leaveFlagList }) {
-  const { starter, backups, grade, isHole } = slot
+function PositionCard({ slot, editable, leaveFlagList, dragRef, onMove, onBump, onToggleLeave }) {
+  const { starter, backups, grade, isHole, group, groupPool } = slot
   const border = starter ? (DEV_BORDER[starter.devTrait] || DEV_BORDER.Normal) : '#dc2626'
   const flagged = starter && leaveFlagList.includes(starter.pid)
+  const [dropping, setDropping] = useState(false)
+
+  // Native HTML5 drag-and-drop. Only real (non-incoming) players are draggable
+  // and droppable; drops are constrained to the same position group.
+  const dragProps = (pid) => (editable && pid) ? {
+    draggable: true,
+    onDragStart: (e) => {
+      dragRef.current = { group, pid }
+      e.dataTransfer.effectAllowed = 'move'
+      try { e.dataTransfer.setData('text/plain', String(pid)) } catch { /* ignored */ }
+      e.stopPropagation()
+    },
+    onDragEnd: () => { dragRef.current = null; setDropping(false) },
+    onDragOver: (e) => {
+      if (dragRef.current && dragRef.current.group === group && dragRef.current.pid !== pid) {
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'move'
+      }
+    },
+    onDragEnter: (e) => { if (dragRef.current && dragRef.current.group === group && dragRef.current.pid !== pid) { e.preventDefault(); setDropping(true) } },
+    onDragLeave: () => setDropping(false),
+    onDrop: (e) => {
+      e.preventDefault()
+      setDropping(false)
+      const d = dragRef.current
+      if (d && d.group === group) onMove(group, groupPool, d.pid, pid)
+      dragRef.current = null
+    },
+  } : {}
+
+  const starterPid = starter && !starter.isIncoming ? starter.pid : null
 
   return (
     <div style={{ width: 150 }}>
-      <div className="rounded-lg overflow-hidden" style={{ background: '#1b1b1b', border: `1px solid ${flagged ? '#dc2626' : '#333'}`, borderTopWidth: 4, borderTopColor: flagged ? '#dc2626' : border }}>
+      {/* Starter block — draggable + drop target */}
+      <div
+        className="rounded-lg overflow-hidden"
+        style={{
+          background: '#1b1b1b',
+          border: `1px solid ${dropping ? '#22d3ee' : (flagged ? '#dc2626' : '#333')}`,
+          borderTopWidth: 4, borderTopColor: flagged ? '#dc2626' : border,
+          cursor: starterPid ? 'grab' : 'default',
+        }}
+        {...dragProps(starterPid)}
+      >
         <div className="flex items-center justify-between px-2 py-1" style={{ background: '#0f0f0f' }}>
           <span className="text-[10px] font-bold tracking-wide text-txt-tertiary">{slot.label}</span>
           <span className="text-xs font-black tabular-nums">{starter?.projectedOvr ?? '—'}</span>
         </div>
         <div className="h-[64px] flex items-center justify-center" style={{ background: isHole ? '#1a0f10' : 'radial-gradient(circle at 50% 30%,#33405a,#181d28)' }}>
           {starter && !starter.isIncoming && starter.player?.pictureUrl
-            ? <img src={proxyImageUrl(starter.player.pictureUrl, 300)} alt="" className="w-12 h-12 rounded-full object-cover" style={{ border: '2px solid #61708a' }} />
+            ? <img src={proxyImageUrl(starter.player.pictureUrl, 300)} alt="" className="w-12 h-12 rounded-full object-cover" style={{ border: '2px solid #61708a' }} draggable={false} />
             : <div className="w-12 h-12 rounded-full" style={{ background: isHole ? 'transparent' : '#46566f' }} />}
         </div>
         <div className="px-2 py-1 text-center">
@@ -140,22 +220,29 @@ function PositionCard({ slot, editable, onUp, onDown, onToggleLeave, leaveFlagLi
             {isHole ? 'EMPTY' : starter.name}{!isHole && starter.isIncoming ? incomingTag(starter) : ''}
           </div>
           <div className="text-[10px] text-txt-tertiary">{isHole ? 'no projected starter' : starter.projectedClass}{flagged ? ' · LIKELY OUT' : ''}</div>
-          {editable && starter && !starter.isIncoming && (
-            <div className="flex justify-center gap-2 mt-1 text-[10px]">
-              <button onClick={() => onUp(starter.pid)} title="Move up">▲</button>
-              <button onClick={() => onDown(starter.pid)} title="Move down">▼</button>
-              <button onClick={() => onToggleLeave(starter.pid)} title="Flag likely to leave" style={{ color: flagged ? '#dc2626' : '#888' }}>⚑</button>
+          {editable && starterPid && (
+            <div className="flex justify-center gap-2 mt-1 text-[11px]">
+              <button onClick={() => onBump(group, groupPool, starterPid, -1)} title="Move up" className="px-1">▲</button>
+              <button onClick={() => onBump(group, groupPool, starterPid, +1)} title="Move down" className="px-1">▼</button>
+              <button onClick={() => onToggleLeave(starterPid)} title="Flag likely to leave" className="px-1" style={{ color: flagged ? '#dc2626' : '#888' }}>⚑</button>
             </div>
           )}
         </div>
-        {backups.map(b => (
-          <div key={b.key} className="flex justify-between items-center px-2 py-1 text-[11px]" style={{ borderTop: '1px solid #242424', background: b.isIncoming ? '#10233d' : 'transparent' }}>
-            <span className="truncate mr-2" style={{ color: b.isIncoming ? '#7fb0f5' : (slot.risk?.[b.pid] ? '#f87171' : '#bdbdbd') }}>
-              {b.name}{b.isIncoming ? incomingTag(b) : ''}{slot.risk?.[b.pid] ? ' ⚑' : ''}
-            </span>
-            <span className="tabular-nums font-bold">{b.projectedOvr ?? '—'}</span>
-          </div>
-        ))}
+        {/* Backup rows — each draggable + drop target */}
+        {backups.map(b => {
+          const bPid = !b.isIncoming ? b.pid : null
+          return (
+            <div key={b.key}
+              className="flex justify-between items-center px-2 py-1 text-[11px]"
+              style={{ borderTop: '1px solid #242424', background: b.isIncoming ? '#10233d' : 'transparent', cursor: (editable && bPid) ? 'grab' : 'default' }}
+              {...dragProps(bPid)}>
+              <span className="truncate mr-2" style={{ color: b.isIncoming ? '#7fb0f5' : (slot.risk?.[b.pid] ? '#f87171' : '#bdbdbd') }}>
+                {b.name}{b.isIncoming ? incomingTag(b) : ''}{slot.risk?.[b.pid] ? ' ⚑' : ''}
+              </span>
+              <span className="tabular-nums font-bold">{b.projectedOvr ?? '—'}</span>
+            </div>
+          )
+        })}
       </div>
       <div className="flex items-center justify-center gap-2 mt-1 font-black text-sm">
         {slot.label} <span className="font-mono text-[11px] px-1.5 rounded" style={{ background: '#161616', color: GRADE_COLOR(grade) }}>{grade}</span>
