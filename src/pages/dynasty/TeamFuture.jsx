@@ -84,9 +84,23 @@ export default function TeamFuture() {
   const changeYear = (y) => { setYear(y); setSelected(null) }
 
   // ── Tap-to-move ─────────────────────────────────────────────────────────
-  const selectPlayer = (pid, fromSlot, group, name) => {
+  // Tap a player to pick up / put down. If a player from THIS position is
+  // already picked up, tapping a teammate reorders depth (insert before them);
+  // tapping another position's card (the MOVE HERE target) changes position.
+  const onPlayerTap = (pid, slotId, group, name, slotPids) => {
     if (!editable || !pid) return
-    setSelected(s => (s && s.pid === pid) ? null : { pid, fromSlot, group, name })
+    if (selected && selected.pid !== pid && selected.fromSlot === slotId && selected.group === group) {
+      const arr = (slotPids || []).filter(p => p !== selected.pid)
+      const ti = arr.indexOf(pid)
+      if (ti >= 0) {
+        arr.splice(ti, 0, selected.pid)
+        setDraft(d => ({ ...d, order: { ...d.order, [slotId]: arr } }))
+        setDirty(true)
+      }
+      setSelected(null)
+      return
+    }
+    setSelected(s => (s && s.pid === pid) ? null : { pid, fromSlot: slotId, group, name })
   }
   const placeAt = (slotId) => {
     if (!selected) return
@@ -116,11 +130,11 @@ export default function TeamFuture() {
       </div>
 
       {editable && !selected && (
-        <p className="text-[11px] text-txt-tertiary">Tap a player to pick them up, then tap a glowing position to move them there. Use ▲▼ to set depth within a position; ⚑ marks a likely departure. Changes save together.</p>
+        <p className="text-[11px] text-txt-tertiary">Tap a player to pick them up, then tap a glowing position to move them — or tap a teammate in their own position to drop them at that depth. ⚑ marks a likely departure. Changes save together.</p>
       )}
       {editable && selected && (
         <div className="flex items-center justify-between gap-3 px-4 py-2 rounded-lg" style={{ background: '#0f2a36', border: '1px solid #22d3ee' }}>
-          <span className="text-xs font-semibold" style={{ color: '#67e8f9' }}>Moving <b>{selected.name}</b> — tap a glowing position, or tap them again to cancel.</span>
+          <span className="text-xs font-semibold" style={{ color: '#67e8f9' }}>Moving <b>{selected.name}</b> — tap a glowing position to move them, a teammate to set their depth, or tap them again to cancel.</span>
           <button onClick={() => setSelected(null)} className="px-3 py-1 text-xs font-semibold rounded-md" style={{ color: '#cbd5e1', border: '1px solid #475569' }}>Cancel</button>
         </div>
       )}
@@ -138,7 +152,7 @@ export default function TeamFuture() {
       <div className="flex flex-wrap gap-3 justify-center">
         {chart.map(slot => (
           <DepthCard key={slot.id} slot={slot} editable={editable} leaveFlagList={flags}
-            selected={selected} onSelect={selectPlayer} onPlace={placeAt}
+            selected={selected} onPlayerTap={onPlayerTap} onPlace={placeAt}
             onReorderWithin={reorderWithin} onToggleLeave={toggleLeave} />
         ))}
       </div>
@@ -146,7 +160,7 @@ export default function TeamFuture() {
   )
 }
 
-function DepthCard({ slot, editable, leaveFlagList, selected, onSelect, onPlace, onReorderWithin, onToggleLeave }) {
+function DepthCard({ slot, editable, leaveFlagList, selected, onPlayerTap, onPlace, onReorderWithin, onToggleLeave }) {
   const { starter, backups, grade, isHole, group, slotPids, label } = slot
   const border = starter ? (DEV_BORDER[starter.devTrait] || DEV_BORDER.Normal) : '#dc2626'
   const flagged = starter && leaveFlagList.includes(starter.pid)
@@ -154,6 +168,8 @@ function DepthCard({ slot, editable, leaveFlagList, selected, onSelect, onPlace,
 
   const isTarget = editable && selected && selected.group === group && selected.fromSlot !== slot.id
   const selRing = (pid) => selected && pid && selected.pid === pid
+  // A teammate of the picked-up player in THIS position → tap to set depth.
+  const reorderTarget = (pid) => editable && selected && pid && selected.fromSlot === slot.id && selected.pid !== pid
 
   return (
     <div className="relative" style={{ width: CARD_W }}>
@@ -166,10 +182,14 @@ function DepthCard({ slot, editable, leaveFlagList, selected, onSelect, onPlace,
           boxShadow: selRing(starterPid) ? '0 0 0 2px #22d3ee' : '0 2px 6px rgba(0,0,0,0.4)',
         }}
       >
-        {/* Starter — tap to pick up */}
+        {/* Starter — tap to pick up (or, when a teammate is held, to place at top) */}
         <div
-          onClick={() => onSelect(starterPid, slot.id, group, starter?.name)}
-          style={{ cursor: editable && starterPid ? 'pointer' : 'default' }}
+          onClick={() => onPlayerTap(starterPid, slot.id, group, starter?.name, slotPids)}
+          style={{
+            cursor: editable && starterPid ? 'pointer' : 'default',
+            background: reorderTarget(starterPid) ? 'rgba(34,211,238,0.12)' : 'transparent',
+            boxShadow: reorderTarget(starterPid) ? 'inset 0 0 0 2px #22d3ee' : 'none',
+          }}
         >
           <div className="flex items-center justify-between px-2.5 pt-2">
             <span className="text-[10px] font-extrabold tracking-widest text-txt-tertiary">{label}</span>
@@ -205,9 +225,9 @@ function DepthCard({ slot, editable, leaveFlagList, selected, onSelect, onPlace,
           const bPid = !b.isIncoming ? b.pid : null
           return (
             <div key={b.key}
-              onClick={() => onSelect(bPid, slot.id, group, b.name)}
+              onClick={() => onPlayerTap(bPid, slot.id, group, b.name, slotPids)}
               className="flex justify-between items-center px-2.5 py-1 text-[11px]"
-              style={{ borderTop: '1px solid #242424', background: selRing(bPid) ? '#0f2a36' : (b.isIncoming ? '#10233d' : 'transparent'), cursor: editable && bPid ? 'pointer' : 'default', boxShadow: selRing(bPid) ? 'inset 0 0 0 1px #22d3ee' : 'none' }}>
+              style={{ borderTop: '1px solid #242424', background: selRing(bPid) ? '#0f2a36' : (reorderTarget(bPid) ? 'rgba(34,211,238,0.12)' : (b.isIncoming ? '#10233d' : 'transparent')), cursor: editable && bPid ? 'pointer' : 'default', boxShadow: (selRing(bPid) || reorderTarget(bPid)) ? 'inset 0 0 0 1px #22d3ee' : 'none' }}>
               <span className="truncate mr-2" style={{ color: b.isIncoming ? '#7fb0f5' : (slot.risk?.[b.pid] ? '#f87171' : '#cbd0d8') }}>
                 {b.name}{b.isIncoming ? incomingTag(b) : ''}{slot.risk?.[b.pid] ? ' ⚑' : ''}
               </span>
