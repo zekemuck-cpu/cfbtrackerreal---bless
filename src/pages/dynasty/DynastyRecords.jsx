@@ -766,16 +766,10 @@ export default function DynastyRecords() {
     </div>
   )
 
-  const seasonScopeLabel = effectiveSeasonYear === 'all' ? 'all-time' : effectiveSeasonYear
-
   return (
     <div className="space-y-6">
       <PageHero
-        eyebrow="Records"
         title="Dynasty Records"
-        meta={
-          <span>{mode === 'career' ? 'All-time career leaders' : `${seasonScopeLabel} single-season leaders`}</span>
-        }
         actions={modeTabs}
       />
 
@@ -811,27 +805,13 @@ export default function DynastyRecords() {
         </div>
       </div>
 
-      {/* Category Header — editorial banner. Hidden on the Approximate
-          Value tab, which carries its own title/notes inline. */}
-      {activeCategory !== 'production' && (
-        <div className="flex items-end justify-between gap-4 border-b pb-3" style={{ borderColor: 'var(--surface-4)' }}>
-          <div>
-            <div className="text-[10px] font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '2.5px' }}>
-              {mode === 'career' ? 'Career' : 'Single Season'}
-            </div>
-            <h2
-              className="font-black leading-none mt-1"
-              style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(2rem, 4vw, 2.75rem)', letterSpacing: '1px' }}
-            >
-              {category.name} Leaders
-            </h2>
-          </div>
-          {category.minNote && (
-            <p className="text-[11px] text-txt-tertiary shrink-0 hidden sm:block" style={{ letterSpacing: '0.5px' }}>
-              {category.minNote}
-            </p>
-          )}
-        </div>
+      {/* Active category is already shown by the highlighted nav tab above, so
+          no big "{Category} Leaders" banner — just the qualification note when
+          the category has one. (Hidden on the Approximate Value tab.) */}
+      {activeCategory !== 'production' && category.minNote && (
+        <p className="-mt-3 text-[11px] text-txt-tertiary" style={{ letterSpacing: '0.5px' }}>
+          {category.minNote}
+        </p>
       )}
 
       {/* Stats Grid */}
@@ -988,14 +968,8 @@ export default function DynastyRecords() {
                   onClick={() => statLeaderboard.length > 0 && setModalStat(stat.key)}
                 >
                   <div>
-                    <div
-                      className="text-[10px] font-bold uppercase text-txt-tertiary"
-                      style={{ letterSpacing: '2px' }}
-                    >
-                      {stat.abbr}
-                    </div>
                     <h3
-                      className="font-black mt-0.5 leading-tight text-txt-primary"
+                      className="font-black leading-tight text-txt-primary"
                       style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.35rem', letterSpacing: '1px' }}
                     >
                       {stat.label}
@@ -1224,68 +1198,23 @@ export default function DynastyRecords() {
                     note. Mirrors the records-card header treatment so
                     the modal feels like part of the same page rather
                     than a generic dialog. */}
-                <div
-                  className="px-6 pt-5 pb-4"
-                  style={{
-                    borderBottom: '1px solid var(--surface-4)',
-                    background: 'linear-gradient(180deg, color-mix(in srgb, var(--surface-3) 35%, var(--surface-2)) 0%, var(--surface-2) 100%)',
-                  }}
-                >
-                  <div className="flex items-baseline justify-between gap-4 flex-wrap">
-                    <div>
-                      <div
-                        className="text-[10px] font-bold uppercase text-txt-tertiary"
-                        style={{ letterSpacing: '2.5px' }}
-                      >
-                        {stat.abbr} {mode === 'career' ? 'Career' : 'Single Season'}
-                      </div>
-                      <div
-                        className="text-txt-primary mt-0.5 leading-tight"
-                        style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.5rem', letterSpacing: '1px' }}
-                      >
-                        {stat.label}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div
-                        className="tabular text-txt-primary leading-none"
-                        style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.5rem' }}
-                      >
-                        {fullLeaderboard.length}
-                      </div>
-                      <div
-                        className="text-[10px] font-bold uppercase text-txt-tertiary mt-0.5"
-                        style={{ letterSpacing: '2px' }}
-                      >
-                        {fullLeaderboard.length === 1 ? 'Player' : 'Players'}
-                      </div>
-                    </div>
-                  </div>
-                  {category?.minNote && (
-                    <p
-                      className="text-[12px] text-txt-secondary leading-snug mt-3 italic"
-                      style={{ maxWidth: '60ch' }}
-                    >
-                      {category.minNote}
-                    </p>
-                  )}
-                </div>
-
-                {/* Search bar lives in its own band so it doesn't fight
-                    the editorial header above. */}
+                {/* One compact band: the stat name is already in the modal
+                    header, so just a context line + search — no second heading,
+                    eyebrow, or big player-count block. */}
                 <div
                   className="px-6 py-3"
-                  style={{
-                    backgroundColor: 'var(--surface-1)',
-                    borderBottom: '1px solid var(--surface-4)',
-                  }}
+                  style={{ backgroundColor: 'var(--surface-1)', borderBottom: '1px solid var(--surface-4)' }}
                 >
+                  <div className="text-[11px] text-txt-tertiary mb-2">
+                    {mode === 'career' ? 'Career' : 'Single season'} · {fullLeaderboard.length} {fullLeaderboard.length === 1 ? 'player' : 'players'}
+                    {category?.minNote ? ` · ${category.minNote}` : ''}
+                  </div>
                   <div className="relative">
                     <input
                       type="text"
                       value={modalSearch}
                       onChange={(e) => setModalSearch(e.target.value)}
-                      placeholder={`Search ${fullLeaderboard.length} ${fullLeaderboard.length === 1 ? 'player' : 'players'} by name, position, team…`}
+                      placeholder="Search by name, position, team…"
                       className="w-full pl-9 pr-9 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-surface-5 transition-colors"
                       style={{
                         backgroundColor: 'var(--surface-2)',
