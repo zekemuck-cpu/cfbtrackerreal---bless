@@ -16,6 +16,10 @@ const DEV_BORDER = { Elite: '#f5c518', Star: '#ef4444', Impact: '#3b82f6', Norma
 const GRADE_COLOR = (g) => g[0] === 'A' ? '#4ade80' : g[0] === 'B' ? '#86efac' : g[0] === 'C' ? '#fde047' : g[0] === 'D' ? '#fb923c' : '#fca5a5'
 // Label for an incoming player: portal transfers vs star-rated recruits.
 const incomingTag = (p) => p.isPortal ? ' · PORTAL' : (p.stars ? ` ★${p.stars}` : '')
+// Stable empty refs so the chart memo doesn't rebuild every render for a team
+// with no saved depth order / leave flags.
+const EMPTY_ARR = []
+const EMPTY_OBJ = {}
 
 export default function TeamFuture() {
   const { id: dynastyId } = useParams()
@@ -37,9 +41,9 @@ export default function TeamFuture() {
     return out
   }, [currentDynasty, currentYear])
 
-  const leaveFlagList = currentDynasty?.teamFuture?.leaveFlags?.[tid] || []
+  const leaveFlagList = currentDynasty?.teamFuture?.leaveFlags?.[tid] || EMPTY_ARR
   const leaveFlags = useMemo(() => new Set(leaveFlagList), [leaveFlagList])
-  const manualOrder = currentDynasty?.teamFuture?.depthOrder?.[tid] || {}
+  const manualOrder = currentDynasty?.teamFuture?.depthOrder?.[tid] || EMPTY_OBJ
 
   const chart = useMemo(() => {
     if (!currentDynasty || tid == null) return []
