@@ -32,7 +32,7 @@ const FINE_GROUP_POSITIONS = {
   OLB: ['SAM', 'WILL', 'OLB', 'LOLB', 'ROLB'],
   MIKE: ['MIKE', 'MLB', 'ILB', 'LB'],
   CB: ['CB', 'DB'],
-  Safety: ['FS', 'SS', 'S', 'SAF'],
+  Safety: ['FS', 'SS', 'S', 'SAF', 'Safety'],
   K: ['K'],
   P: ['P'],
 }

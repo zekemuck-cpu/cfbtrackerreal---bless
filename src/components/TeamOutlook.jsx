@@ -1,10 +1,10 @@
-import { useState, useMemo, useEffect, useRef, useLayoutEffect } from 'react'
+import { useState, useMemo, useEffect, useRef, useLayoutEffect, useCallback, Fragment } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useDynasty } from '../context/DynastyContext'
 import { usePathPrefix } from '../hooks/usePathPrefix'
 import { Card, Badge, Tabs, Select, EmptyState } from './ui'
 import { proxyImageUrl } from '../utils/imageProxy'
-import { projectRoster, projectDepartures, projectNflCandidates } from '../utils/rosterProjection'
+import { projectRoster, projectDepartures, projectNflCandidates, resolveAthPosition } from '../utils/rosterProjection'
 import { isPortalRisk } from '../utils/depthChart'
 import { finePositionGroup, TAB_GROUPS, GROUP_LABELS } from '../data/positionGroups'
 
@@ -23,8 +23,13 @@ const DEV_TRAIT_COLORS = {
 }
 const EMPTY_ARR = []
 
-// All fine position groups a player can be manually reassigned to in the Outlook.
-const ALL_FINE_POSITIONS = ['QB', 'HB', 'WR', 'TE', 'OT', 'OG', 'C', 'DT', 'EDGE', 'OLB', 'MIKE', 'CB', 'Safety', 'K', 'P']
+// Maps a fine group name → the canonical position string stored as an override.
+const GROUP_TO_POSITION = {
+  QB: 'QB', HB: 'HB', WR: 'WR', TE: 'TE',
+  OT: 'OT', OG: 'OG', C: 'C',
+  DT: 'DT', EDGE: 'EDGE', OLB: 'OLB', MIKE: 'MIKE',
+  CB: 'CB', Safety: 'Safety', K: 'K', P: 'P',
+}
 
 const GRADE_DEPTH = { QB: 1, RB: 2, WR: 3, TE: 1, OT: 2, OG: 2, C: 1, DT: 2, EDGE: 2, OLB: 2, MIKE: 1, CB: 2, Safety: 2, K: 1, P: 1 }
 
@@ -52,6 +57,19 @@ function posGroupGrade(group, returners) {
   return { letter: letter + mod, bg: GRADE_BG[letter] }
 }
 
+// Sort entries by a stored pid order. Entries in the array come first (in
+// array order); remaining entries fall back to projectedOvr desc.
+function applyGroupOrder(entries, orderArr) {
+  if (!orderArr || orderArr.length === 0) return entries
+  const orderMap = new Map(orderArr.map((pid, i) => [pid, i]))
+  return [...entries].sort((a, b) => {
+    const ai = a.pid && orderMap.has(a.pid) ? orderMap.get(a.pid) : Infinity
+    const bi = b.pid && orderMap.has(b.pid) ? orderMap.get(b.pid) : Infinity
+    if (ai !== bi) return ai - bi
+    return (b.projectedOvr ?? -1) - (a.projectedOvr ?? -1)
+  })
+}
+
 export default function TeamOutlook({ tid }) {
   const { id: dynastyId } = useParams()
   const pathPrefix = usePathPrefix()
@@ -66,6 +84,7 @@ export default function TeamOutlook({ tid }) {
   const flagsArr = tidData.leaveFlags || EMPTY_ARR
   const nflDismissArr = tidData.nflDismissFlags || EMPTY_ARR
   const posOverridesObj = tidData.positionOverrides || {}
+  const groupOrderObj = tidData.groupOrder || {}
   const leaveFlags = useMemo(() => new Set(flagsArr), [flagsArr])
   const nflDismissFlags = useMemo(() => new Set(nflDismissArr), [nflDismissArr])
   const isFuture = year > currentYear
@@ -74,6 +93,23 @@ export default function TeamOutlook({ tid }) {
 
   const teamLogo = currentDynasty?.teams?.[tid]?.logo || null
 
+  // Drag-and-drop state (shared by both HTML5 DnD and touch paths)
+  const [dragPid, setDragPid] = useState(null)
+  const [dropTarget, setDropTarget] = useState(null) // { toGroup, beforePid }
+
+  // Keep a ref to the latest drop target so touch handlers can read it without
+  // stale closures (they're registered on `document`, outside React's closure chain).
+  const dropTargetRef = useRef(null)
+  const setDropTargetSync = useCallback((v) => {
+    const next = typeof v === 'function' ? v(dropTargetRef.current) : v
+    dropTargetRef.current = next
+    setDropTarget(next)
+  }, [])
+
+  // Latest mutable state accessible to touch handlers that run asynchronously.
+  const liveRef = useRef({})
+  liveRef.current = { groups: null /* filled below */, posOverridesObj, groupOrderObj, tidData, currentDynasty, currentYear }
+
   const years = useMemo(() => {
     if (!Number.isFinite(currentYear)) return []
     const out = []
@@ -81,7 +117,6 @@ export default function TeamOutlook({ tid }) {
     return out
   }, [currentYear])
 
-  // Apply per-player position overrides to a list of projected entries.
   const applyOverrides = (entries) => entries.map(e =>
     e.pid && posOverridesObj[e.pid] ? { ...e, position: posOverridesObj[e.pid], positionOverridden: true } : e
   )
@@ -95,7 +130,8 @@ export default function TeamOutlook({ tid }) {
       const inGroup = (pos) => finePositionGroup(pos) === g
       const nfl = nflCandidates.filter(d => inGroup(d.position)).sort(byOvr)
       const nflPids = new Set(nfl.map(d => d.pid))
-      const ret = roster.filter(e => !e.isIncoming && inGroup(e.position) && !nflPids.has(e.pid)).sort(byOvr)
+      const rawRet = roster.filter(e => !e.isIncoming && inGroup(e.position) && !nflPids.has(e.pid))
+      const ret = applyGroupOrder(rawRet, groupOrderObj[g])
       const inc = roster.filter(e => e.isIncoming && inGroup(e.position)).sort(byOvr)
       const lv = departures.filter(d => inGroup(d.position)).sort(byOvr)
       const total = ret.length + inc.length
@@ -109,7 +145,10 @@ export default function TeamOutlook({ tid }) {
       return { g, label: GROUP_LABELS[g] || g, ret, inc, lv, nfl, health, grade }
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDynasty, tid, year, posTab, leaveFlags, nflDismissFlags, isFuture, posOverridesObj])
+  }, [currentDynasty, tid, year, posTab, leaveFlags, nflDismissFlags, isFuture, posOverridesObj, groupOrderObj])
+
+  // Keep liveRef.groups in sync (can't do it above because groups isn't defined yet)
+  liveRef.current.groups = groups
 
   const saveTidData = (patch) => {
     saveTeamFuture(dynastyId, tid, { ...tidData, ...patch })
@@ -129,12 +168,190 @@ export default function TeamOutlook({ tid }) {
     saveTidData({ nflDismissFlags: [...set] })
   }
 
-  const setPositionOverride = (pid, pos) => {
-    if (!canEdit || !pid) return
-    const next = { ...posOverridesObj }
-    if (pos == null) delete next[pid]; else next[pid] = pos
-    saveTidData({ positionOverrides: next })
+  // The fine group a player NATURALLY belongs to (no override applied).
+  const naturalGroupFor = (player) => {
+    if (!player) return null
+    const yr = currentYear
+    const pos = (
+      player.positionByYear?.[yr] ??
+      player.positionByYear?.[String(yr)] ??
+      player.position ?? ''
+    ).toUpperCase()
+    return finePositionGroup(pos === 'ATH' ? resolveAthPosition(player) : pos)
   }
+
+  // ── Core drop executor ────────────────────────────────────────────────────
+  // Reads from liveRef so it's safe to call from touch handlers (no stale closures).
+
+  const executeDrop = useCallback((pid, toGroup, beforePid) => {
+    const { posOverridesObj, groupOrderObj, groups, tidData, currentDynasty } = liveRef.current
+    if (!pid || !toGroup || !groups) return
+
+    const player = (currentDynasty?.players || []).find(p => p.pid === pid)
+    const naturalGroup = (() => {
+      if (!player) return null
+      const yr = liveRef.current.currentYear
+      const pos = (player.positionByYear?.[yr] ?? player.positionByYear?.[String(yr)] ?? player.position ?? '').toUpperCase()
+      return finePositionGroup(pos === 'ATH' ? resolveAthPosition(player) : pos)
+    })()
+
+    const nextOverrides = { ...posOverridesObj }
+    if (toGroup === naturalGroup) {
+      delete nextOverrides[pid]
+    } else {
+      nextOverrides[pid] = GROUP_TO_POSITION[toGroup] || toGroup
+    }
+
+    // Remove pid from all stored orders, then reinsert at the target position.
+    const nextOrder = {}
+    for (const g of Object.keys(groupOrderObj)) {
+      nextOrder[g] = (groupOrderObj[g] || []).filter(p => p !== pid)
+    }
+    const storedOrder = nextOrder[toGroup] || []
+    const currentPids = (groups.find(grp => grp.g === toGroup)?.ret || [])
+      .map(en => en.pid).filter(p => p && p !== pid)
+    const merged = [...storedOrder, ...currentPids.filter(p => !storedOrder.includes(p))]
+    const insertIdx = beforePid ? merged.indexOf(beforePid) : -1
+    if (insertIdx >= 0) merged.splice(insertIdx, 0, pid)
+    else merged.push(pid)
+    nextOrder[toGroup] = merged
+
+    saveTeamFuture(dynastyId, tid, { ...tidData, positionOverrides: nextOverrides, groupOrder: nextOrder })
+  }, [dynastyId, tid, saveTeamFuture])
+
+  // ── HTML5 Drag-and-Drop (desktop / pointer events) ────────────────────────
+
+  const handleDragStart = (e, pid) => {
+    if (!canEdit || !e.target.closest('[data-drag-handle]')) { e.preventDefault(); return }
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', pid)
+    setDragPid(pid)
+  }
+
+  const handleDragEnd = () => {
+    setDragPid(null)
+    setDropTargetSync(null)
+  }
+
+  const handleRowDragOver = (e, rowPid, toGroup) => {
+    if (!dragPid) return
+    e.preventDefault()
+    e.stopPropagation()
+    const rect = e.currentTarget.getBoundingClientRect()
+    const topHalf = e.clientY < rect.top + rect.height / 2
+    const grpRet = groups.find(g => g.g === toGroup)?.ret || []
+    let beforePid
+    if (topHalf) {
+      beforePid = rowPid
+    } else {
+      const idx = grpRet.findIndex(en => en.pid === rowPid)
+      beforePid = idx >= 0 && idx < grpRet.length - 1 ? grpRet[idx + 1].pid : null
+    }
+    setDropTargetSync(prev =>
+      prev?.toGroup === toGroup && prev?.beforePid === beforePid ? prev : { toGroup, beforePid }
+    )
+  }
+
+  const handleGroupDragOver = (e, toGroup) => {
+    if (!dragPid) return
+    e.preventDefault()
+    setDropTargetSync(prev =>
+      prev?.toGroup === toGroup && prev?.beforePid == null ? prev : { toGroup, beforePid: null }
+    )
+  }
+
+  const handleMouseDrop = (e, toGroup) => {
+    e.preventDefault()
+    const pid = dragPid
+    if (!pid || !canEdit) { handleDragEnd(); return }
+    executeDrop(pid, toGroup, dropTargetRef.current?.toGroup === toGroup ? dropTargetRef.current.beforePid : null)
+    handleDragEnd()
+  }
+
+  // ── Touch drag-and-drop (mobile) ──────────────────────────────────────────
+  // Uses document-level touchmove/touchend with { passive: false } so we can
+  // call preventDefault() to suppress scroll during an active drag. Target
+  // detection via elementFromPoint + data-* attributes on the DOM.
+
+  const handleTouchDragStart = useCallback((e, pid, playerName) => {
+    if (!canEdit || !isFuture) return
+    e.preventDefault() // stop long-press context menu / text selection
+
+    const t0 = e.touches[0]
+    const startX = t0.clientX
+    const startY = t0.clientY
+    let started = false
+    let ghostEl = null
+
+    const onMove = (ev) => {
+      const t = ev.touches[0]
+      const dist = Math.hypot(t.clientX - startX, t.clientY - startY)
+
+      if (!started && dist > 8) {
+        started = true
+        setDragPid(pid)
+        ghostEl = document.createElement('div')
+        Object.assign(ghostEl.style, {
+          position: 'fixed', pointerEvents: 'none', zIndex: '9999',
+          background: '#1e293b', border: '1px solid #3b82f6', borderRadius: '6px',
+          padding: '4px 10px', fontSize: '12px', color: '#f1f5f9',
+          opacity: '0.92', whiteSpace: 'nowrap', boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+        })
+        ghostEl.textContent = playerName
+        document.body.appendChild(ghostEl)
+      }
+
+      if (!started) return
+      ev.preventDefault()
+
+      ghostEl.style.left = t.clientX + 16 + 'px'
+      ghostEl.style.top = t.clientY - 36 + 'px'
+
+      // Detect the drop target element (temporarily hide ghost so it's not picked up)
+      ghostEl.style.visibility = 'hidden'
+      const el = document.elementFromPoint(t.clientX, t.clientY)
+      ghostEl.style.visibility = ''
+
+      const groupEl = el?.closest('[data-outlook-group]')
+      if (!groupEl) { setDropTargetSync(null); return }
+
+      const toGroup = groupEl.dataset.outlookGroup
+      const rowEl = el?.closest('[data-outlook-row]')
+      if (rowEl?.dataset.outlookRow) {
+        const rowPid = rowEl.dataset.outlookRow
+        const rect = rowEl.getBoundingClientRect()
+        const topHalf = t.clientY < rect.top + rect.height / 2
+        const curGroups = liveRef.current.groups || []
+        const grpRet = curGroups.find(g => g.g === toGroup)?.ret || []
+        if (topHalf) {
+          setDropTargetSync({ toGroup, beforePid: rowPid })
+        } else {
+          const idx = grpRet.findIndex(en => en.pid === rowPid)
+          const next = idx >= 0 && idx < grpRet.length - 1 ? grpRet[idx + 1].pid : null
+          setDropTargetSync({ toGroup, beforePid: next })
+        }
+      } else {
+        setDropTargetSync({ toGroup, beforePid: null })
+      }
+    }
+
+    const onEnd = (ev) => {
+      document.removeEventListener('touchmove', onMove)
+      document.removeEventListener('touchend', onEnd)
+      if (ghostEl) ghostEl.remove()
+
+      if (started) {
+        const dt = dropTargetRef.current
+        if (dt?.toGroup) executeDrop(pid, dt.toGroup, dt.beforePid ?? null)
+      }
+
+      setDragPid(null)
+      setDropTargetSync(null)
+    }
+
+    document.addEventListener('touchmove', onMove, { passive: false })
+    document.addEventListener('touchend', onEnd)
+  }, [canEdit, isFuture, setDropTargetSync, executeDrop])
 
   if (!currentDynasty || tid == null) {
     return <EmptyState title="No team" message="No team to project." />
@@ -157,7 +374,11 @@ export default function TeamOutlook({ tid }) {
         {groups.map(grp => (
           <GroupBlock key={grp.g} grp={grp} isFuture={isFuture} canFlag={canFlag} canEdit={canEdit}
             onToggleFlag={toggleFlag} onToggleNflDismiss={toggleNflDismiss}
-            onSetPosOverride={setPositionOverride} posOverrides={posOverridesObj}
+            dragPid={dragPid} dropTarget={dropTarget}
+            onDragStart={handleDragStart} onDragEnd={handleDragEnd}
+            onRowDragOver={handleRowDragOver} onGroupDragOver={handleGroupDragOver}
+            onMouseDrop={handleMouseDrop}
+            onTouchDragStart={handleTouchDragStart}
             currentYear={currentYear} pathPrefix={pathPrefix} teamLogo={teamLogo} />
         ))}
       </div>
@@ -165,28 +386,58 @@ export default function TeamOutlook({ tid }) {
   )
 }
 
-function GroupBlock({ grp, isFuture, canFlag, canEdit, onToggleFlag, onToggleNflDismiss, onSetPosOverride, posOverrides, currentYear, pathPrefix, teamLogo }) {
-  const { label, ret, inc, lv, nfl, health, grade } = grp
+function GroupBlock({
+  grp, isFuture, canFlag, canEdit,
+  onToggleFlag, onToggleNflDismiss,
+  dragPid, dropTarget, onDragStart, onDragEnd,
+  onRowDragOver, onGroupDragOver, onMouseDrop,
+  onTouchDragStart,
+  currentYear, pathPrefix, teamLogo,
+}) {
+  const { g, label, ret, inc, lv, nfl, health, grade } = grp
+  const isDropTarget = !!dragPid && dropTarget?.toGroup === g
+  const canDrag = canEdit && isFuture
 
   const returningRows = ret.length === 0
     ? <EmptyLine text={isFuture ? 'No returning players' : 'No players'} />
-    : ret.map(e => {
+    : ret.map((e, idx) => {
+      const isDropBefore = isDropTarget && dropTarget.beforePid === e.pid
+      const isDropAfterLast = idx === ret.length - 1 && isDropTarget && dropTarget.beforePid == null
       const risk = e.player && isPortalRisk(e.player, currentYear, e.projectedClass)
       return (
-        <Row key={e.key}
-          avatar={<Avatar url={e.player?.pictureUrl} fallback={teamLogo} />}
-          left={<>
-            <PlayerName pid={e.pid} name={e.name} pathPrefix={pathPrefix} />
-            <span className="text-txt-tertiary text-xs shrink-0">{e.projectedClass}</span>
-            <DevBadge trait={e.devTrait} />
-            {risk ? <Badge variant="warning">Portal risk</Badge> : null}
-          </>}
-          right={<>
-            <PosChip pid={e.pid} position={e.position} isOverridden={!!e.positionOverridden} canOverride={canEdit} onOverride={onSetPosOverride} />
-            <span className="tabular-nums font-semibold text-txt-primary">{e.projectedOvr ?? '—'}</span>
-          </>}
-          action={canFlag ? <LeaveButton onClick={() => onToggleFlag(e.pid)} /> : null}
-        />
+        <Fragment key={e.key}>
+          {isDropBefore && <DropLine />}
+          <div
+            data-outlook-row={e.pid}
+            draggable={canDrag}
+            onDragStart={(ev) => onDragStart(ev, e.pid)}
+            onDragEnd={onDragEnd}
+            onDragOver={(ev) => onRowDragOver(ev, e.pid, g)}
+            onDrop={(ev) => onMouseDrop(ev, g)}
+            className={`transition-opacity ${dragPid === e.pid ? 'opacity-25' : ''}`}
+          >
+            <Row
+              dragHandle={canDrag
+                ? <DragHandle
+                    onTouchStart={(ev) => onTouchDragStart(ev, e.pid, e.name)}
+                  />
+                : null}
+              avatar={<Avatar url={e.player?.pictureUrl} fallback={teamLogo} />}
+              left={<>
+                <PlayerName pid={e.pid} name={e.name} pathPrefix={pathPrefix} />
+                <span className="text-txt-tertiary text-xs shrink-0">{e.projectedClass}</span>
+                <DevBadge trait={e.devTrait} />
+                {risk ? <Badge variant="warning">Portal risk</Badge> : null}
+              </>}
+              right={<>
+                <PosLabel position={e.position} overridden={!!e.positionOverridden} />
+                <span className="tabular-nums font-semibold text-txt-primary">{e.projectedOvr ?? '—'}</span>
+              </>}
+              action={canFlag ? <LeaveButton onClick={() => onToggleFlag(e.pid)} /> : null}
+            />
+          </div>
+          {isDropAfterLast && <DropLine />}
+        </Fragment>
       )
     })
 
@@ -200,10 +451,19 @@ function GroupBlock({ grp, isFuture, canFlag, canEdit, onToggleFlag, onToggleNfl
         {health ? <Badge variant={health.variant}>{health.label}</Badge> : null}
       </div>
 
-      <div className="p-3 space-y-3">
+      {/* Drop zone: the whole inner area receives drag events */}
+      <div
+        data-outlook-group={g}
+        className={`p-3 space-y-3 transition-colors min-h-[2rem] ${isDropTarget ? 'bg-blue-500/5 ring-1 ring-inset ring-blue-500/25 rounded-b-lg' : ''}`}
+        onDragOver={(ev) => onGroupDragOver(ev, g)}
+        onDrop={(ev) => onMouseDrop(ev, g)}
+      >
         {isFuture
           ? <GroupSection label={`Returning (${ret.length})`}>{returningRows}</GroupSection>
           : <div className="space-y-1">{returningRows}</div>}
+
+        {/* Drop indicator when group has no returning rows */}
+        {isFuture && ret.length === 0 && isDropTarget && <DropLine />}
 
         {isFuture && nfl.length > 0 && (
           <GroupSection label={`Likely NFL (${nfl.length})`}>
@@ -216,7 +476,7 @@ function GroupBlock({ grp, isFuture, canFlag, canEdit, onToggleFlag, onToggleNfl
                   <DevBadge trait={d.devTrait} />
                 </>}
                 right={<>
-                  <PosChip pid={d.pid} position={d.position} isOverridden={!!d.positionOverridden} canOverride={canEdit} onOverride={onSetPosOverride} />
+                  <PosLabel position={d.position} overridden={!!d.positionOverridden} />
                   <span className="tabular-nums text-txt-tertiary">{d.projectedOvr ?? '—'}</span>
                 </>}
                 action={canFlag ? <KeepButton onClick={() => onToggleNflDismiss(d.pid)} /> : null}
@@ -263,62 +523,28 @@ function GroupBlock({ grp, isFuture, canFlag, canEdit, onToggleFlag, onToggleNfl
   )
 }
 
-// Position chip — tappable when canOverride is true. Shows current position;
-// clicking opens an inline picker to reassign without touching actual player data.
-function PosChip({ pid, position, isOverridden, canOverride, onOverride }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
+// ── Presentational components ─────────────────────────────────────────────────
 
-  useEffect(() => {
-    if (!open) return
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', handler)
-    document.addEventListener('touchstart', handler)
-    return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('touchstart', handler) }
-  }, [open])
-
-  if (!canOverride) {
-    return <span className="text-[11px] text-txt-muted shrink-0">{position}</span>
-  }
-
+function DragHandle({ onTouchStart }) {
   return (
-    <div ref={ref} className="relative shrink-0">
-      <button
-        onClick={() => setOpen(v => !v)}
-        className={`text-[11px] px-1.5 py-0.5 rounded border transition-colors ${
-          isOverridden
-            ? 'border-blue-500/60 text-blue-400 bg-blue-500/10'
-            : 'border-surface-5 text-txt-muted hover:border-surface-6 hover:text-txt-tertiary'
-        }`}
-        title={isOverridden ? 'Position overridden for Outlook — click to change' : 'Click to override position for Outlook only'}
-      >
-        {position}
-      </button>
-      {open && (
-        <div className="absolute z-50 bottom-full right-0 mb-1 bg-surface-2 border border-surface-5 rounded-lg shadow-xl p-2 w-44">
-          <div className="text-[10px] text-txt-tertiary mb-1.5 px-0.5">Outlook position only</div>
-          <div className="grid grid-cols-3 gap-1">
-            {ALL_FINE_POSITIONS.map(p => (
-              <button
-                key={p}
-                onClick={() => { onOverride(pid, p); setOpen(false) }}
-                className={`text-[11px] py-1 rounded transition-colors ${
-                  p === position
-                    ? 'bg-surface-4 text-txt-primary font-semibold'
-                    : 'text-txt-secondary hover:bg-surface-3'
-                }`}
-              >{p}</button>
-            ))}
-          </div>
-          {isOverridden && (
-            <button
-              onClick={() => { onOverride(pid, null); setOpen(false) }}
-              className="w-full mt-1.5 text-[11px] text-txt-tertiary hover:text-txt-primary py-0.5"
-            >Reset to default</button>
-          )}
-        </div>
-      )}
-    </div>
+    <span
+      data-drag-handle="1"
+      onTouchStart={onTouchStart}
+      className="cursor-grab active:cursor-grabbing text-txt-muted hover:text-txt-secondary select-none px-0.5 shrink-0 text-base leading-none touch-none"
+      title="Drag to reorder or move to a different position group"
+    >≡</span>
+  )
+}
+
+function DropLine() {
+  return <div className="h-0.5 bg-blue-500 rounded-full mx-1 pointer-events-none" />
+}
+
+function PosLabel({ position, overridden }) {
+  return (
+    <span className={`text-[11px] shrink-0 ${overridden ? 'text-blue-400 font-medium' : 'text-txt-muted'}`}>
+      {position}
+    </span>
   )
 }
 
@@ -403,10 +629,11 @@ function GroupSection({ label, children }) {
   )
 }
 
-function Row({ avatar, left, right, action }) {
+function Row({ dragHandle, avatar, left, right, action }) {
   return (
     <div className="flex items-center justify-between gap-2 text-sm">
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center gap-1.5 min-w-0">
+        {dragHandle}
         {avatar}
         <div className="flex items-center gap-1.5 min-w-0">{left}</div>
       </div>

@@ -50,7 +50,7 @@ const ATH_ARCHETYPE_MAP = [
   [/deep.?threat|slot|physical|route|red.?zone/i, 'WR'],
   [/vertical|possession|blocking|move.?te/i, 'TE'],
 ]
-function resolveAthPosition(player) {
+export function resolveAthPosition(player) {
   if (!player) return 'WR'
   const arch = String(player.archetype || player.devTrait || '').toLowerCase()
   for (const [rx, pos] of ATH_ARCHETYPE_MAP) {
