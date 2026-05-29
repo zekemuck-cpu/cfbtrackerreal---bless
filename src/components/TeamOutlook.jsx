@@ -35,7 +35,8 @@ function posGroupGrade(group, returners) {
   const ovrs = topN.map(e => Number(e.projectedOvr)).filter(v => Number.isFinite(v))
   if (ovrs.length === 0) return null
   const avg = ovrs.reduce((a, b) => a + b, 0) / ovrs.length
-  const GRADE_COLORS = { A: '#22c55e', B: '#f97316', C: '#eab308', D: '#ef4444', F: '#b91c1c' }
+  // bg color per letter; B is blue (neutral/good), not orange (which reads as warning)
+  const GRADE_BG = { A: '#16a34a', B: '#2563eb', C: '#b45309', D: '#dc2626', F: '#7f1d1d' }
   let letter, mod
   if (avg >= 90) {
     letter = 'A'; mod = avg >= 96 ? '+' : avg >= 93 ? '' : '-'
@@ -48,7 +49,7 @@ function posGroupGrade(group, returners) {
   } else {
     letter = 'F'; mod = ''
   }
-  return { letter: letter + mod, color: GRADE_COLORS[letter] }
+  return { letter: letter + mod, bg: GRADE_BG[letter] }
 }
 
 export default function TeamOutlook({ tid }) {
@@ -176,10 +177,7 @@ function GroupBlock({ grp, isFuture, canFlag, flags, onToggleFlag, onToggleNflDi
       <div className="flex items-center gap-2 px-3 py-2 border-b border-surface-4">
         <span className="font-bold text-txt-primary truncate">{label}</span>
         {grade && (
-          <span
-            className="text-xs font-bold px-1.5 py-0.5 rounded"
-            style={{ backgroundColor: grade.color + '22', color: grade.color, border: `1px solid ${grade.color}55` }}
-          >{grade.letter}</span>
+          <Badge variant="solid" color={grade.bg} textColor="#fff" className="shrink-0 font-bold">{grade.letter}</Badge>
         )}
         {health ? <Badge variant={health.variant}>{health.label}</Badge> : null}
       </div>
