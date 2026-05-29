@@ -35,11 +35,20 @@ function posGroupGrade(group, returners) {
   const ovrs = topN.map(e => Number(e.projectedOvr)).filter(v => Number.isFinite(v))
   if (ovrs.length === 0) return null
   const avg = ovrs.reduce((a, b) => a + b, 0) / ovrs.length
-  if (avg >= 90) return { letter: 'A', color: '#22c55e' }
-  if (avg >= 83) return { letter: 'B', color: '#f97316' }
-  if (avg >= 75) return { letter: 'C', color: '#eab308' }
-  if (avg >= 67) return { letter: 'D', color: '#ef4444' }
-  return { letter: 'F', color: '#b91c1c' }
+  const GRADE_COLORS = { A: '#22c55e', B: '#f97316', C: '#eab308', D: '#ef4444', F: '#b91c1c' }
+  let letter, mod
+  if (avg >= 90) {
+    letter = 'A'; mod = avg >= 96 ? '+' : avg >= 93 ? '' : '-'
+  } else if (avg >= 83) {
+    letter = 'B'; mod = avg >= 88 ? '+' : avg >= 85 ? '' : '-'
+  } else if (avg >= 75) {
+    letter = 'C'; mod = avg >= 81 ? '+' : avg >= 78 ? '' : '-'
+  } else if (avg >= 67) {
+    letter = 'D'; mod = avg >= 73 ? '+' : avg >= 70 ? '' : '-'
+  } else {
+    letter = 'F'; mod = ''
+  }
+  return { letter: letter + mod, color: GRADE_COLORS[letter] }
 }
 
 export default function TeamOutlook({ tid }) {
