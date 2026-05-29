@@ -63,9 +63,16 @@ function resolvePosition(player, year) {
   const pos = positionForYear(player, year)
   return pos === 'ATH' ? resolveAthPosition(player) : pos
 }
-function devForYear(player, year) {
+function devForYear(player, year, dynastyCurrentYear) {
   const d = player.devTraitByYear || {}
-  return d[year] ?? d[String(year)] ?? player.devTrait ?? 'Normal'
+  const byYear = d[year] ?? d[String(year)]
+  // player.devTrait is the canonical current-season value kept in sync by the
+  // player editor. When looking at the current year, prefer it so a recent
+  // trait upgrade is reflected immediately even if devTraitByYear is stale.
+  if (dynastyCurrentYear != null && Number(year) === Number(dynastyCurrentYear)) {
+    return player.devTrait || byYear || 'Normal'
+  }
+  return byYear ?? player.devTrait ?? 'Normal'
 }
 
 // ── OVR development model ───────────────────────────────────────────────────
@@ -141,7 +148,7 @@ function rosterForRealYear(dynasty, tid, year) {
       position: resolvePosition(p, year),
       projectedClass: getPlayerClassForYear(p, year),
       projectedOvr: ovrForYear(p, year),
-      devTrait: devForYear(p, year),
+      devTrait: devForYear(p, year, currentYear),
       status: year === currentYear ? 'current' : 'historical',
     }))
 }
@@ -224,8 +231,8 @@ function projectFutureRoster(dynasty, tid, targetYear, opts = {}) {
     out.push(projectedEntry(p, {
       position: resolvePosition(p, currentYear),
       projectedClass: projCls,
-      projectedOvr: projectOvrForward(ovrForYear(p, currentYear), curCls, devForYear(p, currentYear), ty - currentYear),
-      devTrait: devForYear(p, currentYear),
+      projectedOvr: projectOvrForward(ovrForYear(p, currentYear), curCls, devForYear(p, currentYear, currentYear), ty - currentYear),
+      devTrait: devForYear(p, currentYear, currentYear),
       status: 'returning',
     }))
   }
@@ -304,8 +311,8 @@ export function projectDepartures(dynasty, tid, targetYear, opts = {}) {
       pid: p.pid, player: p, name: p.name,
       position: resolvePosition(p, currentYear),
       projectedClass: projCls,
-      projectedOvr: projectOvrForward(ovrForYear(p, currentYear), curCls, devForYear(p, currentYear), step),
-      devTrait: devForYear(p, currentYear),
+      projectedOvr: projectOvrForward(ovrForYear(p, currentYear), curCls, devForYear(p, currentYear, currentYear), step),
+      devTrait: devForYear(p, currentYear, currentYear),
       isFlag: true,
     })
   }
@@ -334,13 +341,13 @@ export function projectNflCandidates(dynasty, tid, targetYear, opts = {}) {
     if (!['Jr', 'Sr'].includes(clsBase)) continue // only draft-eligible classes
     const currentOvr = ovrForYear(p, currentYear)
     if ((currentOvr ?? 0) < NFL_DRAFT_OVR_THRESHOLD) continue
-    const projOvr = projectOvrForward(currentOvr, curCls, devForYear(p, currentYear), step)
+    const projOvr = projectOvrForward(currentOvr, curCls, devForYear(p, currentYear, currentYear), step)
     out.push({
       pid: p.pid, player: p, name: p.name,
       position: resolvePosition(p, currentYear),
       projectedClass: projCls,
       projectedOvr: projOvr,
-      devTrait: devForYear(p, currentYear),
+      devTrait: devForYear(p, currentYear, currentYear),
       isNflCandidate: true,
     })
   }
