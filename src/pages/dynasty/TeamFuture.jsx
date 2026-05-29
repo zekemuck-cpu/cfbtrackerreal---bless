@@ -1,9 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import {
-  DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
-  useDraggable, useDroppable, pointerWithin,
-} from '@dnd-kit/core'
 import { useDynasty } from '../../context/DynastyContext'
 import { PageHero, Card, EmptyState, Select } from '../../components/ui'
 import { proxyImageUrl } from '../../utils/imageProxy'
@@ -31,6 +27,7 @@ export default function TeamFuture() {
 
   const [tab, setTab] = useState('offense')
   const [year, setYear] = useState(currentYear)
+  const [selected, setSelected] = useState(null) // { pid, fromSlot, group, name }
 
   // Draft (working) state — edits mutate it instantly; one Save commits all.
   const seed = () => {
@@ -39,8 +36,7 @@ export default function TeamFuture() {
   }
   const [draft, setDraft] = useState(seed)
   const [dirty, setDirty] = useState(false)
-  const [activeDrag, setActiveDrag] = useState(null) // { pid, fromSlot, group, player, label }
-  useEffect(() => { setDraft(seed()); setDirty(false) /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tid])
+  useEffect(() => { setDraft(seed()); setDirty(false); setSelected(null) /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tid])
 
   const slotOf = draft.slotOf || EMPTY_OBJ
   const order = draft.order || EMPTY_OBJ
@@ -64,8 +60,6 @@ export default function TeamFuture() {
     return buildDepthChart(projected, { formation: TAB_FORMATIONS[tab], slotOf, order, lastYear: currentYear })
   }, [currentDynasty, tid, year, tab, leaveFlags, slotOf, order, currentYear])
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
-
   if (!currentDynasty) return null
   if (tid == null) {
     return <Card><EmptyState title="No team selected" message="Set your current team to use the depth chart." /></Card>
@@ -84,15 +78,20 @@ export default function TeamFuture() {
   }
   const toggleLeave = (pid) => { setDraft(d => ({ ...d, flags: d.flags.includes(pid) ? d.flags.filter(x => x !== pid) : [...d.flags, pid] })); setDirty(true) }
   const onSave = () => { saveTeamFuture?.(dynastyId, tid, { slotOf: draft.slotOf, order: draft.order, leaveFlags: draft.flags }); setDirty(false) }
-  const onReset = () => { setDraft(seed()); setDirty(false) }
+  const onReset = () => { setDraft(seed()); setDirty(false); setSelected(null) }
 
-  const onDragStart = ({ active }) => setActiveDrag(active.data.current || null)
-  const onDragEnd = ({ active, over }) => {
-    setActiveDrag(null)
-    if (!over) return
-    const a = active.data.current
-    const overGroup = over.data.current?.group
-    if (a && overGroup === a.group && over.id !== a.fromSlot) moveToSlot(a.pid, over.id)
+  const changeTab = (t) => { setTab(t); setSelected(null) }
+  const changeYear = (y) => { setYear(y); setSelected(null) }
+
+  // ── Tap-to-move ─────────────────────────────────────────────────────────
+  const selectPlayer = (pid, fromSlot, group, name) => {
+    if (!editable || !pid) return
+    setSelected(s => (s && s.pid === pid) ? null : { pid, fromSlot, group, name })
+  }
+  const placeAt = (slotId) => {
+    if (!selected) return
+    if (slotId !== selected.fromSlot) moveToSlot(selected.pid, slotId)
+    setSelected(null)
   }
 
   return (
@@ -100,7 +99,7 @@ export default function TeamFuture() {
       <div>
         <PageHero title="Depth Chart" />
         <label className="flex items-center gap-2 text-xs text-txt-tertiary mt-1">Season
-          <Select size="sm" value={String(year)} onChange={(e) => setYear(Number(e.target.value))}>
+          <Select size="sm" value={String(year)} onChange={(e) => changeYear(Number(e.target.value))}>
             {years.map(y => <option key={y} value={String(y)}>{y < currentYear ? y : y === currentYear ? `${y} — Now` : `${y} (+${y - currentYear})`}</option>)}
           </Select>
         </label>
@@ -108,7 +107,7 @@ export default function TeamFuture() {
 
       <div className="flex gap-1 border-b" style={{ borderColor: 'var(--surface-4)' }}>
         {TABS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
+          <button key={t.key} onClick={() => changeTab(t.key)}
             className="px-4 py-2 text-xs font-bold uppercase tracking-wider"
             style={{ color: tab === t.key ? 'var(--text-primary)' : 'var(--text-tertiary)', borderBottom: tab === t.key ? '3px solid #22d3ee' : '3px solid transparent' }}>
             {t.label}
@@ -116,12 +115,18 @@ export default function TeamFuture() {
         ))}
       </div>
 
-      {editable && (
-        <p className="text-[11px] text-txt-tertiary">Grab a card and drop it on another position in the same group to move that player; use ▲▼ to set depth within a position; ⚑ marks a likely departure. Changes save together.</p>
+      {editable && !selected && (
+        <p className="text-[11px] text-txt-tertiary">Tap a player to pick them up, then tap a glowing position to move them there. Use ▲▼ to set depth within a position; ⚑ marks a likely departure. Changes save together.</p>
+      )}
+      {editable && selected && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2 rounded-lg" style={{ background: '#0f2a36', border: '1px solid #22d3ee' }}>
+          <span className="text-xs font-semibold" style={{ color: '#67e8f9' }}>Moving <b>{selected.name}</b> — tap a glowing position, or tap them again to cancel.</span>
+          <button onClick={() => setSelected(null)} className="px-3 py-1 text-xs font-semibold rounded-md" style={{ color: '#cbd5e1', border: '1px solid #475569' }}>Cancel</button>
+        </div>
       )}
 
       {editable && dirty && (
-        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg sticky top-2 z-10" style={{ background: '#10233d', border: '1px solid #2b5fa8' }}>
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg sticky top-2 z-20" style={{ background: '#10233d', border: '1px solid #2b5fa8' }}>
           <span className="text-xs font-semibold" style={{ color: '#9cc2f5' }}>Unsaved depth-chart changes</span>
           <div className="flex gap-2">
             <button onClick={onReset} className="px-3 py-1.5 text-xs font-semibold rounded-md" style={{ color: '#cbd5e1', border: '1px solid #475569' }}>Reset</button>
@@ -130,135 +135,103 @@ export default function TeamFuture() {
         </div>
       )}
 
-      <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setActiveDrag(null)}>
-        <div className="flex flex-wrap gap-3 justify-center">
-          {chart.map(slot => (
-            <DepthCard key={slot.id} slot={slot} editable={editable} leaveFlagList={flags}
-              onReorderWithin={reorderWithin} onToggleLeave={toggleLeave} />
-          ))}
-        </div>
-        <DragOverlay dropAnimation={null}>
-          {activeDrag ? <CardFace player={activeDrag.player} label={activeDrag.label} overlay /> : null}
-        </DragOverlay>
-      </DndContext>
-    </div>
-  )
-}
-
-// The grabbable face of a card (header + photo + name). Reused inside the slot
-// card and in the floating DragOverlay so the lifted card matches.
-function CardFace({ player, label, flagged, overlay }) {
-  const border = DEV_BORDER[player?.devTrait] || DEV_BORDER.Normal
-  return (
-    <div
-      className="rounded-t-xl overflow-hidden"
-      style={{
-        width: overlay ? CARD_W : '100%',
-        background: 'linear-gradient(160deg,#262a33,#14161b)',
-        borderTop: `5px solid ${flagged ? '#dc2626' : border}`,
-        boxShadow: overlay ? '0 18px 40px rgba(0,0,0,0.6)' : 'none',
-        transform: overlay ? 'rotate(-2deg)' : 'none',
-        cursor: 'grabbing',
-      }}
-    >
-      <div className="flex items-center justify-between px-2.5 pt-2">
-        <span className="text-[10px] font-extrabold tracking-widest text-txt-tertiary">{label}</span>
-        <span className="flex items-center justify-center rounded-full font-black tabular-nums"
-          style={{ width: 26, height: 26, fontSize: 12, color: '#fff', background: '#0c0e12', border: `2px solid ${border}` }}>
-          {player?.projectedOvr ?? '—'}
-        </span>
-      </div>
-      <div className="flex items-center justify-center mt-1" style={{ height: 60 }}>
-        {player && !player.isIncoming && player.player?.pictureUrl
-          ? <img src={proxyImageUrl(player.player.pictureUrl, 300)} alt="" className="w-14 h-14 rounded-full object-cover" style={{ border: '2px solid #5b6472' }} draggable={false} />
-          : <div className="w-14 h-14 rounded-full" style={{ background: '#3a4150' }} />}
-      </div>
-      <div className="px-2 pb-2 pt-1 text-center">
-        <div className="text-[12px] font-bold truncate" style={{ color: 'var(--text-primary)' }}>
-          {player ? player.name : ''}{player?.isIncoming ? incomingTag(player) : ''}
-        </div>
-        <div className="text-[10px] text-txt-tertiary">{player?.projectedClass || ''}{flagged ? ' · LIKELY OUT' : ''}</div>
+      <div className="flex flex-wrap gap-3 justify-center">
+        {chart.map(slot => (
+          <DepthCard key={slot.id} slot={slot} editable={editable} leaveFlagList={flags}
+            selected={selected} onSelect={selectPlayer} onPlace={placeAt}
+            onReorderWithin={reorderWithin} onToggleLeave={toggleLeave} />
+        ))}
       </div>
     </div>
   )
 }
 
-function DepthCard({ slot, editable, leaveFlagList, onReorderWithin, onToggleLeave }) {
+function DepthCard({ slot, editable, leaveFlagList, selected, onSelect, onPlace, onReorderWithin, onToggleLeave }) {
   const { starter, backups, grade, isHole, group, slotPids, label } = slot
+  const border = starter ? (DEV_BORDER[starter.devTrait] || DEV_BORDER.Normal) : '#dc2626'
   const flagged = starter && leaveFlagList.includes(starter.pid)
-
-  // The whole slot is a drop target (you can drop into an empty position too).
-  const { setNodeRef: setDropRef, isOver, active } = useDroppable({
-    id: slot.id, data: { group }, disabled: !editable,
-  })
-  const validOver = isOver && active?.data?.current?.group === group && active?.data?.current?.fromSlot !== slot.id
-
   const starterPid = starter && !starter.isIncoming ? starter.pid : null
 
+  const isTarget = editable && selected && selected.group === group && selected.fromSlot !== slot.id
+  const selRing = (pid) => selected && pid && selected.pid === pid
+
   return (
-    <div ref={setDropRef} style={{ width: CARD_W }}>
+    <div className="relative" style={{ width: CARD_W }}>
       <div
-        className="rounded-xl overflow-hidden transition-shadow"
+        className="rounded-xl overflow-hidden"
         style={{
           background: 'linear-gradient(160deg,#262a33,#14161b)',
-          border: `1px solid ${validOver ? '#22d3ee' : (flagged ? '#dc2626' : '#2c2f37')}`,
-          boxShadow: validOver ? '0 0 0 2px #22d3ee, 0 8px 24px rgba(34,211,238,0.18)' : '0 2px 6px rgba(0,0,0,0.4)',
+          border: `1px solid ${selRing(starterPid) ? '#22d3ee' : (flagged ? '#dc2626' : '#2c2f37')}`,
+          borderTopWidth: 4, borderTopColor: flagged ? '#dc2626' : border,
+          boxShadow: selRing(starterPid) ? '0 0 0 2px #22d3ee' : '0 2px 6px rgba(0,0,0,0.4)',
         }}
       >
-        {/* Starter — grabbable only when editable */}
-        {starterPid && editable
-          ? <DraggablePlayer player={starter} slot={slot} label={label} flagged={flagged} />
-          : <CardFace player={starter} label={label} flagged={flagged} />}
+        {/* Starter — tap to pick up */}
+        <div
+          onClick={() => onSelect(starterPid, slot.id, group, starter?.name)}
+          style={{ cursor: editable && starterPid ? 'pointer' : 'default' }}
+        >
+          <div className="flex items-center justify-between px-2.5 pt-2">
+            <span className="text-[10px] font-extrabold tracking-widest text-txt-tertiary">{label}</span>
+            <span className="flex items-center justify-center rounded-full font-black tabular-nums"
+              style={{ width: 26, height: 26, fontSize: 12, color: '#fff', background: '#0c0e12', border: `2px solid ${isHole ? '#dc2626' : border}` }}>
+              {starter?.projectedOvr ?? '—'}
+            </span>
+          </div>
+          <div className="flex items-center justify-center mt-1" style={{ height: 60 }}>
+            {starter && !starter.isIncoming && starter.player?.pictureUrl
+              ? <img src={proxyImageUrl(starter.player.pictureUrl, 300)} alt="" className="w-14 h-14 rounded-full object-cover" style={{ border: '2px solid #5b6472' }} />
+              : <div className="w-14 h-14 rounded-full" style={{ background: isHole ? 'transparent' : '#3a4150', border: isHole ? '2px dashed #7f1d1d' : 'none' }} />}
+          </div>
+          <div className="px-2 pb-1 pt-1 text-center">
+            <div className="text-[12px] font-bold truncate" style={{ color: isHole ? '#f87171' : 'var(--text-primary)' }}>
+              {isHole ? 'EMPTY' : starter.name}{!isHole && starter.isIncoming ? incomingTag(starter) : ''}
+            </div>
+            <div className="text-[10px] text-txt-tertiary">{isHole ? 'no projected starter' : starter.projectedClass}{flagged ? ' · LIKELY OUT' : ''}</div>
+          </div>
+        </div>
 
         {/* Controls */}
         {editable && starterPid && (
           <div className="flex justify-center gap-3 pb-1.5 text-[12px]">
-            <button onClick={() => onReorderWithin(slot.id, slotPids, starterPid, -1)} title="Move up in this position" className="px-1 hover:text-white text-txt-tertiary">▲</button>
-            <button onClick={() => onReorderWithin(slot.id, slotPids, starterPid, +1)} title="Move down in this position" className="px-1 hover:text-white text-txt-tertiary">▼</button>
-            <button onClick={() => onToggleLeave(starterPid)} title="Flag likely to leave" className="px-1" style={{ color: flagged ? '#dc2626' : '#888' }}>⚑</button>
+            <button onClick={(e) => { e.stopPropagation(); onReorderWithin(slot.id, slotPids, starterPid, -1) }} title="Move up in this position" className="px-1 text-txt-tertiary hover:text-white">▲</button>
+            <button onClick={(e) => { e.stopPropagation(); onReorderWithin(slot.id, slotPids, starterPid, +1) }} title="Move down in this position" className="px-1 text-txt-tertiary hover:text-white">▼</button>
+            <button onClick={(e) => { e.stopPropagation(); onToggleLeave(starterPid) }} title="Flag likely to leave" className="px-1" style={{ color: flagged ? '#dc2626' : '#888' }}>⚑</button>
           </div>
         )}
 
-        {/* Backups — each grabbable */}
-        {backups.map(b => (
-          <BackupRow key={b.key} player={b} slot={slot} editable={editable} risk={!!slot.risk?.[b.pid]} />
-        ))}
+        {/* Backups — tap to pick up */}
+        {backups.map(b => {
+          const bPid = !b.isIncoming ? b.pid : null
+          return (
+            <div key={b.key}
+              onClick={() => onSelect(bPid, slot.id, group, b.name)}
+              className="flex justify-between items-center px-2.5 py-1 text-[11px]"
+              style={{ borderTop: '1px solid #242424', background: selRing(bPid) ? '#0f2a36' : (b.isIncoming ? '#10233d' : 'transparent'), cursor: editable && bPid ? 'pointer' : 'default', boxShadow: selRing(bPid) ? 'inset 0 0 0 1px #22d3ee' : 'none' }}>
+              <span className="truncate mr-2" style={{ color: b.isIncoming ? '#7fb0f5' : (slot.risk?.[b.pid] ? '#f87171' : '#cbd0d8') }}>
+                {b.name}{b.isIncoming ? incomingTag(b) : ''}{slot.risk?.[b.pid] ? ' ⚑' : ''}
+              </span>
+              <span className="tabular-nums font-bold">{b.projectedOvr ?? '—'}</span>
+            </div>
+          )
+        })}
       </div>
+
       <div className="flex items-center justify-center gap-2 mt-1 font-black text-sm">
         {label} <span className="font-mono text-[11px] px-1.5 rounded" style={{ background: '#161616', color: GRADE_COLOR(grade) }}>{grade}</span>
       </div>
-    </div>
-  )
-}
 
-function DraggablePlayer({ player, slot, label, flagged }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: player.pid,
-    data: { pid: player.pid, fromSlot: slot.id, group: slot.group, player, label },
-  })
-  return (
-    <div ref={setNodeRef} {...listeners} {...attributes}
-      style={{ cursor: 'grab', opacity: isDragging ? 0.4 : 1, touchAction: 'none' }}>
-      <CardFace player={player} label={label} flagged={flagged} />
-    </div>
-  )
-}
-
-function BackupRow({ player, slot, editable, risk }) {
-  const grabbable = editable && !player.isIncoming && player.pid
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: player.pid || `inc-${player.key}`,
-    data: { pid: player.pid, fromSlot: slot.id, group: slot.group, player, label: slot.label },
-    disabled: !grabbable,
-  })
-  return (
-    <div ref={setNodeRef} {...(grabbable ? { ...listeners, ...attributes } : {})}
-      className="flex justify-between items-center px-2.5 py-1 text-[11px]"
-      style={{ borderTop: '1px solid #242424', background: player.isIncoming ? '#10233d' : 'transparent', cursor: grabbable ? 'grab' : 'default', opacity: isDragging ? 0.4 : 1, touchAction: grabbable ? 'none' : 'auto' }}>
-      <span className="truncate mr-2" style={{ color: player.isIncoming ? '#7fb0f5' : (risk ? '#f87171' : '#cbd0d8') }}>
-        {player.name}{player.isIncoming ? incomingTag(player) : ''}{risk ? ' ⚑' : ''}
-      </span>
-      <span className="tabular-nums font-bold">{player.projectedOvr ?? '—'}</span>
+      {/* Tap-to-place target overlay (only valid same-group destinations) */}
+      {isTarget && (
+        <button
+          onClick={() => onPlace(slot.id)}
+          className="absolute inset-0 flex items-center justify-center rounded-xl"
+          style={{ background: 'rgba(34,211,238,0.16)', border: '2px dashed #22d3ee', color: '#a5f3fc', fontWeight: 800, fontSize: 12, letterSpacing: '1px' }}
+          title="Move the selected player here"
+        >
+          ↧ MOVE HERE
+        </button>
+      )}
     </div>
   )
 }
