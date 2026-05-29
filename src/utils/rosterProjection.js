@@ -45,10 +45,10 @@ function positionForYear(player, year) {
 
 // Map an ATH player's archetype to the position group they'd most likely play.
 const ATH_ARCHETYPE_MAP = [
-  [/scrambler|dual.?threat|pocket|strong.?arm|improviser/i, 'QB'],
-  [/speed.?back|power.?back|elusive|receiving.?back|workhorse/i, 'HB'],
-  [/deep.?threat|slot|physical|route/i, 'WR'],
-  [/vertical|possession|blocking.?te/i, 'TE'],
+  [/scrambler|dual.?threat|pocket|strong.?arm|improviser|field.?general/i, 'QB'],
+  [/speed.?back|power.?back|power.?rush|north.?south|east.?west|elusive|receiving.?back|workhorse|rusher/i, 'HB'],
+  [/deep.?threat|slot|physical|route|red.?zone/i, 'WR'],
+  [/vertical|possession|blocking|move.?te/i, 'TE'],
 ]
 function resolveAthPosition(player) {
   if (!player) return 'WR'

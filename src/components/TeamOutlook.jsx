@@ -13,7 +13,6 @@ const TAB_OPTIONS = [
   { value: 'defense', label: 'Defense' },
   { value: 'st', label: 'Special Teams' },
 ]
-// Healthy two-deep-ish body count per group — drives the THIN/EMPTY signal.
 const MIN_DEPTH = { QB: 2, RB: 3, WR: 4, TE: 2, OT: 3, OG: 3, C: 2, DT: 3, EDGE: 3, OLB: 3, MIKE: 2, CB: 4, Safety: 3, K: 1, P: 1 }
 const byOvr = (a, b) => (b.projectedOvr ?? -1) - (a.projectedOvr ?? -1)
 const DEV_TRAIT_COLORS = {
@@ -24,7 +23,9 @@ const DEV_TRAIT_COLORS = {
 }
 const EMPTY_ARR = []
 
-// How many top returners to grade on per group (starter count, not full depth).
+// All fine position groups a player can be manually reassigned to in the Outlook.
+const ALL_FINE_POSITIONS = ['QB', 'HB', 'WR', 'TE', 'OT', 'OG', 'C', 'DT', 'EDGE', 'OLB', 'MIKE', 'CB', 'Safety', 'K', 'P']
+
 const GRADE_DEPTH = { QB: 1, RB: 2, WR: 3, TE: 1, OT: 2, OG: 2, C: 1, DT: 2, EDGE: 2, OLB: 2, MIKE: 1, CB: 2, Safety: 2, K: 1, P: 1 }
 
 function posGroupGrade(group, returners) {
@@ -35,7 +36,6 @@ function posGroupGrade(group, returners) {
   const ovrs = topN.map(e => Number(e.projectedOvr)).filter(v => Number.isFinite(v))
   if (ovrs.length === 0) return null
   const avg = ovrs.reduce((a, b) => a + b, 0) / ovrs.length
-  // bg color per letter; B is blue (neutral/good), not orange (which reads as warning)
   const GRADE_BG = { A: '#16a34a', B: '#2563eb', C: '#b45309', D: '#dc2626', F: '#7f1d1d' }
   let letter, mod
   if (avg >= 90) {
@@ -65,6 +65,7 @@ export default function TeamOutlook({ tid }) {
   const tidData = currentDynasty?.teamFuture?.[tid] || {}
   const flagsArr = tidData.leaveFlags || EMPTY_ARR
   const nflDismissArr = tidData.nflDismissFlags || EMPTY_ARR
+  const posOverridesObj = tidData.positionOverrides || {}
   const leaveFlags = useMemo(() => new Set(flagsArr), [flagsArr])
   const nflDismissFlags = useMemo(() => new Set(nflDismissArr), [nflDismissArr])
   const isFuture = year > currentYear
@@ -80,11 +81,16 @@ export default function TeamOutlook({ tid }) {
     return out
   }, [currentYear])
 
+  // Apply per-player position overrides to a list of projected entries.
+  const applyOverrides = (entries) => entries.map(e =>
+    e.pid && posOverridesObj[e.pid] ? { ...e, position: posOverridesObj[e.pid], positionOverridden: true } : e
+  )
+
   const groups = useMemo(() => {
     if (!currentDynasty || tid == null || !Number.isFinite(year)) return []
-    const roster = projectRoster(currentDynasty, tid, year, { leaveFlags })
-    const departures = isFuture ? projectDepartures(currentDynasty, tid, year, { leaveFlags }) : []
-    const nflCandidates = isFuture ? projectNflCandidates(currentDynasty, tid, year, { leaveFlags, nflDismissFlags }) : []
+    const roster = applyOverrides(projectRoster(currentDynasty, tid, year, { leaveFlags }))
+    const departures = isFuture ? applyOverrides(projectDepartures(currentDynasty, tid, year, { leaveFlags })) : []
+    const nflCandidates = isFuture ? applyOverrides(projectNflCandidates(currentDynasty, tid, year, { leaveFlags, nflDismissFlags })) : []
     return (TAB_GROUPS[posTab] || []).map(g => {
       const inGroup = (pos) => finePositionGroup(pos) === g
       const nfl = nflCandidates.filter(d => inGroup(d.position)).sort(byOvr)
@@ -102,7 +108,8 @@ export default function TeamOutlook({ tid }) {
       const grade = isFuture ? posGroupGrade(g, ret) : null
       return { g, label: GROUP_LABELS[g] || g, ret, inc, lv, nfl, health, grade }
     })
-  }, [currentDynasty, tid, year, posTab, leaveFlags, nflDismissFlags, isFuture])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDynasty, tid, year, posTab, leaveFlags, nflDismissFlags, isFuture, posOverridesObj])
 
   const saveTidData = (patch) => {
     saveTeamFuture(dynastyId, tid, { ...tidData, ...patch })
@@ -120,6 +127,13 @@ export default function TeamOutlook({ tid }) {
     const set = new Set(nflDismissArr)
     if (set.has(pid)) set.delete(pid); else set.add(pid)
     saveTidData({ nflDismissFlags: [...set] })
+  }
+
+  const setPositionOverride = (pid, pos) => {
+    if (!canEdit || !pid) return
+    const next = { ...posOverridesObj }
+    if (pos == null) delete next[pid]; else next[pid] = pos
+    saveTidData({ positionOverrides: next })
   }
 
   if (!currentDynasty || tid == null) {
@@ -141,8 +155,9 @@ export default function TeamOutlook({ tid }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {groups.map(grp => (
-          <GroupBlock key={grp.g} grp={grp} isFuture={isFuture} canFlag={canFlag} flags={leaveFlags}
+          <GroupBlock key={grp.g} grp={grp} isFuture={isFuture} canFlag={canFlag} canEdit={canEdit}
             onToggleFlag={toggleFlag} onToggleNflDismiss={toggleNflDismiss}
+            onSetPosOverride={setPositionOverride} posOverrides={posOverridesObj}
             currentYear={currentYear} pathPrefix={pathPrefix} teamLogo={teamLogo} />
         ))}
       </div>
@@ -150,7 +165,7 @@ export default function TeamOutlook({ tid }) {
   )
 }
 
-function GroupBlock({ grp, isFuture, canFlag, flags, onToggleFlag, onToggleNflDismiss, currentYear, pathPrefix, teamLogo }) {
+function GroupBlock({ grp, isFuture, canFlag, canEdit, onToggleFlag, onToggleNflDismiss, onSetPosOverride, posOverrides, currentYear, pathPrefix, teamLogo }) {
   const { label, ret, inc, lv, nfl, health, grade } = grp
 
   const returningRows = ret.length === 0
@@ -166,7 +181,10 @@ function GroupBlock({ grp, isFuture, canFlag, flags, onToggleFlag, onToggleNflDi
             <DevBadge trait={e.devTrait} />
             {risk ? <Badge variant="warning">Portal risk</Badge> : null}
           </>}
-          right={<span className="tabular-nums font-semibold text-txt-primary">{e.projectedOvr ?? '—'}</span>}
+          right={<>
+            <PosChip pid={e.pid} position={e.position} isOverridden={!!e.positionOverridden} canOverride={canEdit} onOverride={onSetPosOverride} />
+            <span className="tabular-nums font-semibold text-txt-primary">{e.projectedOvr ?? '—'}</span>
+          </>}
           action={canFlag ? <LeaveButton onClick={() => onToggleFlag(e.pid)} /> : null}
         />
       )
@@ -197,7 +215,10 @@ function GroupBlock({ grp, isFuture, canFlag, flags, onToggleFlag, onToggleNflDi
                   <span className="text-txt-tertiary text-xs shrink-0">{d.projectedClass}</span>
                   <DevBadge trait={d.devTrait} />
                 </>}
-                right={<span className="tabular-nums text-txt-tertiary">{d.projectedOvr ?? '—'}</span>}
+                right={<>
+                  <PosChip pid={d.pid} position={d.position} isOverridden={!!d.positionOverridden} canOverride={canEdit} onOverride={onSetPosOverride} />
+                  <span className="tabular-nums text-txt-tertiary">{d.projectedOvr ?? '—'}</span>
+                </>}
                 action={canFlag ? <KeepButton onClick={() => onToggleNflDismiss(d.pid)} /> : null}
               />
             ))}
@@ -239,6 +260,65 @@ function GroupBlock({ grp, isFuture, canFlag, flags, onToggleFlag, onToggleNflDi
         )}
       </div>
     </Card>
+  )
+}
+
+// Position chip — tappable when canOverride is true. Shows current position;
+// clicking opens an inline picker to reassign without touching actual player data.
+function PosChip({ pid, position, isOverridden, canOverride, onOverride }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('touchstart', handler) }
+  }, [open])
+
+  if (!canOverride) {
+    return <span className="text-[11px] text-txt-muted shrink-0">{position}</span>
+  }
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className={`text-[11px] px-1.5 py-0.5 rounded border transition-colors ${
+          isOverridden
+            ? 'border-blue-500/60 text-blue-400 bg-blue-500/10'
+            : 'border-surface-5 text-txt-muted hover:border-surface-6 hover:text-txt-tertiary'
+        }`}
+        title={isOverridden ? 'Position overridden for Outlook — click to change' : 'Click to override position for Outlook only'}
+      >
+        {position}
+      </button>
+      {open && (
+        <div className="absolute z-50 bottom-full right-0 mb-1 bg-surface-2 border border-surface-5 rounded-lg shadow-xl p-2 w-44">
+          <div className="text-[10px] text-txt-tertiary mb-1.5 px-0.5">Outlook position only</div>
+          <div className="grid grid-cols-3 gap-1">
+            {ALL_FINE_POSITIONS.map(p => (
+              <button
+                key={p}
+                onClick={() => { onOverride(pid, p); setOpen(false) }}
+                className={`text-[11px] py-1 rounded transition-colors ${
+                  p === position
+                    ? 'bg-surface-4 text-txt-primary font-semibold'
+                    : 'text-txt-secondary hover:bg-surface-3'
+                }`}
+              >{p}</button>
+            ))}
+          </div>
+          {isOverridden && (
+            <button
+              onClick={() => { onOverride(pid, null); setOpen(false) }}
+              className="w-full mt-1.5 text-[11px] text-txt-tertiary hover:text-txt-primary py-0.5"
+            >Reset to default</button>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
