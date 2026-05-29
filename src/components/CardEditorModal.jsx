@@ -30,7 +30,6 @@ import {
   interpolatePrompt,
 } from '../utils/cardPromptVariables'
 import { listPlayerGames } from '../utils/playerCards'
-import { formatScoreHighLow } from '../utils/scoreFormat'
 
 const PHASES = [
   { id: 'style',    label: 'Style',    short: '01' },
@@ -540,7 +539,7 @@ function PhaseContext({
               <option value="">Select a game…</option>
               {availableGames.map(g => (
                 <option key={g.gameId} value={g.gameId}>
-                  {g.year} W{g.week} {g.won ? 'W' : 'L'} {formatScoreHighLow(g.playerScore, g.oppScore) || '—'} {g.location === 'home' ? 'vs' : g.location === 'away' ? '@' : 'vs (N)'} {g.opponentName}
+                  {g.year} W{g.week} {g.won ? 'W' : 'L'} {(g.playerScore != null && g.oppScore != null) ? `${g.playerScore}-${g.oppScore}` : '—'} {g.location === 'home' ? 'vs' : g.location === 'away' ? '@' : 'vs (N)'} {g.opponentName}
                 </option>
               ))}
             </StyledSelect>
