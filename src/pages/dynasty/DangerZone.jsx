@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useDynasty, propagateCFPWinner, GAME_TYPES, isPlayerOnRoster, rebuildRankByWeekFromCurrentState, syncGameRanksFromRankByWeek, getCustomConferencesForYear } from '../../context/DynastyContext'
+import { useDynasty, propagateCFPWinner, GAME_TYPES, isPlayerOnRoster, rebuildRankByWeekFromCurrentState, syncGameRanksFromRankByWeek, getCustomConferencesForYear, getPlayerClassForYear } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/ui/Toast'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
@@ -100,6 +100,7 @@ export default function DangerZone() {
 
   // Class data fix state
   const [classDataFixStatus, setClassDataFixStatus] = useState(null)
+  const [strandedSeniorStatus, setStrandedSeniorStatus] = useState(null)
   const [advanceClassesStatus, setAdvanceClassesStatus] = useState(null)
   const [showAdvanceModal, setShowAdvanceModal] = useState(false)
   const [advanceSelections, setAdvanceSelections] = useState({}) // { pid: boolean }
@@ -586,6 +587,85 @@ export default function DangerZone() {
       })
     } catch (error) {
       setClassDataFixStatus({ success: false, message: 'Fix failed: ' + error.message })
+    }
+  }
+
+  // One-time cleanup for players (on OTHER teams) who were carried onto this
+  // season's roster despite having already exhausted eligibility — e.g. a
+  // transfer whose senior year wasn't recorded, who then reappears as a senior
+  // again. Graduates them by stripping this season's entries. Skips the user's
+  // own roster and anyone who actually has stats this season (a real, if
+  // unusual, redshirt senior).
+  const handleGraduateStrandedSeniors = async () => {
+    const currentYear = Number(currentDynasty.currentYear)
+    const userTid = currentDynasty.currentTid
+    const players = currentDynasty.players || []
+
+    // Preview who would be graduated.
+    const stranded = players.filter(player => {
+      if (player.isHonorOnly) return false
+      const teamCY = player.teamsByYear?.[currentYear] ?? player.teamsByYear?.[String(currentYear)]
+      if (teamCY == null || Number(teamCY) === Number(userTid)) return false
+      const cyStats = player.statsByYear?.[currentYear] || player.statsByYear?.[String(currentYear)]
+      if (cyStats && ((cyStats.gamesPlayed || 0) > 0 || (cyStats.snapsPlayed || 0) > 0)) return false
+      const priorClass = getPlayerClassForYear(player, currentYear - 1)
+      const hasHistory = !!(player.classByYear && Object.keys(player.classByYear).length)
+      return priorClass === 'Sr' || priorClass === 'RS Sr' || (priorClass == null && hasHistory)
+    })
+
+    if (stranded.length === 0) {
+      setStrandedSeniorStatus({ success: true, message: 'No stranded seniors found — other-team rosters look clean.' })
+      return
+    }
+
+    const ok = await confirm({
+      title: `Graduate ${stranded.length} stranded senior${stranded.length === 1 ? '' : 's'}?`,
+      message: `These players on other teams should already have graduated and will be removed from the ${currentYear} season: ${stranded.slice(0, 12).map(p => p.name).join(', ')}${stranded.length > 12 ? `, +${stranded.length - 12} more` : ''}.`,
+      confirmLabel: 'Graduate them',
+      variant: 'danger',
+    })
+    if (!ok) return
+
+    setStrandedSeniorStatus('running')
+    try {
+      const strandedPids = new Set(stranded.map(p => p.pid))
+      const strip = (obj) => {
+        if (!obj) return obj
+        const n = { ...obj }
+        delete n[currentYear]
+        delete n[String(currentYear)]
+        return n
+      }
+      const updatedPlayers = players.map(player => {
+        if (!strandedPids.has(player.pid)) return player
+        const next = {
+          ...player,
+          teamsByYear: strip(player.teamsByYear),
+          classByYear: strip(player.classByYear),
+          overallByYear: strip(player.overallByYear),
+          devTraitByYear: strip(player.devTraitByYear),
+          positionByYear: strip(player.positionByYear),
+          statsByYear: strip(player.statsByYear),
+        }
+        // Close any team-history stint that runs into the current season.
+        if (Array.isArray(player.teamHistory) && player.teamHistory.length) {
+          next.teamHistory = player.teamHistory
+            .map(st => {
+              const from = Number(st.fromYear)
+              const to = st.toYear == null ? currentYear : Number(st.toYear)
+              return (from <= currentYear && to >= currentYear) ? { ...st, toYear: currentYear - 1 } : st
+            })
+            .filter(st => st.toYear == null || Number(st.toYear) >= Number(st.fromYear))
+        }
+        return next
+      })
+      await updateDynasty(currentDynasty.id, { players: updatedPlayers })
+      setStrandedSeniorStatus({
+        success: true,
+        message: `Graduated ${stranded.length} stranded senior${stranded.length === 1 ? '' : 's'}: ${stranded.slice(0, 8).map(p => p.name).join(', ')}${stranded.length > 8 ? `, +${stranded.length - 8} more` : ''}`,
+      })
+    } catch (error) {
+      setStrandedSeniorStatus({ success: false, message: 'Cleanup failed: ' + error.message })
     }
   }
 
@@ -3098,6 +3178,14 @@ export default function DangerZone() {
             buttonText="Select Players"
             onClick={handleOpenAdvanceModal}
             status={advanceClassesStatus}
+          />
+          <ActionCard
+            danger
+            title="Graduate Stranded Seniors"
+            description="Removes players on OTHER teams who were carried onto this season despite having exhausted eligibility (e.g. a transfer whose senior year wasn't recorded, reappearing as a senior again). Skips your roster and anyone with stats this season."
+            buttonText="Graduate Strays"
+            onClick={handleGraduateStrandedSeniors}
+            status={strandedSeniorStatus}
           />
         </div>
       </div>

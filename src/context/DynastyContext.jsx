@@ -10787,17 +10787,24 @@ export function DynastyProvider({ children }) {
             return player
           }
 
-          const otherTeamClass = player.year ||
-            player.classByYear?.[previousSeasonYear] ||
-            player.classByYear?.[String(previousSeasonYear)]
+          // Determine the prior-season class via the canonical progression
+          // walker. It handles sparse classByYear (e.g. a transfer whose senior
+          // year was never recorded) and returns null once a player walks past
+          // Sr — so we no longer rely on the stale top-level player.year, which
+          // caused transfers to be advanced into an EXTRA senior season instead
+          // of graduating (e.g. a Jr-in-2033 transfer reappearing as a senior in
+          // both 2034 and 2035).
+          const priorClass = getPlayerClassForYear(player, previousSeasonYear)
+          const hasClassHistory = !!(player.classByYear && Object.keys(player.classByYear).length)
 
-          // Check if player is graduating (Sr or RS Sr)
-          if (otherTeamClass === 'Sr' || otherTeamClass === 'RS Sr') {
-            // Graduate this player - don't add next year to teamsByYear
+          // Graduate (don't carry to nextYear) when eligibility is exhausted, or
+          // when the walker already places them past Sr.
+          if (priorClass === 'Sr' || priorClass === 'RS Sr' || (priorClass == null && hasClassHistory)) {
             return player
           }
 
           // Not graduating - advance their class
+          const otherTeamClass = priorClass || player.year
           const newOtherClass = CLASS_PROGRESSION[otherTeamClass] || otherTeamClass
 
           // Get their current team tid from teamsByYear
