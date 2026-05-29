@@ -975,9 +975,11 @@ SELF-CHECK BEFORE YOU SEND — run every line
         // One spec line per data slot — gives the AI a 1-to-1 map
         // between spec lines and output lines so it doesn't have to
         // mentally expand a range and count slots when thinking is off.
+        // NOTE: section name intentionally NOT repeated here — it belongs
+        // only on the banner line and must not appear in data slot output.
         for (let i = 0; i < s.rowCount; i++) {
           const lineNum = s.dataStart + i
-          out.push(`Line ${pad(lineNum)}: ${s.title.toUpperCase()} slot ${i + 1} of ${s.rowCount} — player row (${s.headers.length} fields, tab-separated) OR TRULY EMPTY LINE`)
+          out.push(`Line ${pad(lineNum)}: slot ${i + 1} of ${s.rowCount} — player row (${s.headers.length} fields, tab-separated) OR TRULY EMPTY LINE`)
         }
       })
       return out.join('\n')
@@ -1059,6 +1061,7 @@ CRITICAL RULES
 4. Data rows: each non-empty data row must have EXACTLY the column count of its section's header row. Empty slots in a data row are tab-separated empty fields, NOT skipped tabs. (e.g. a Passing data row always has 8 fields separated by 7 tabs.)
 5. Empty data slots (rows where no player stat-earner exists): output a TRULY EMPTY LINE (just \\n) — no tabs, no spaces.
 6. There are NO separator rows between sections. The next banner immediately follows the last data slot of the previous section.
+6a. Banner and header rows are ALWAYS consecutive — line N is the banner, line N+1 is the header, line N+2 starts the data. There is NO blank line between a banner and its header. There is NO extra label, title, or descriptive text between a banner and its data.
 7. NO COMMAS in numbers ("1234" not "1,234"). INTEGERS only, with these EXCEPTIONS:
    • Passing Rtg — one decimal (e.g. "148.3").
    • Defense Sacks — half-credits ARE valid (e.g. "2.5" or "0.5"). If the screenshot shows a half-sack, write it as "2.5" — DO NOT round to an integer. If the screenshot shows a whole number, write it whole (e.g. "2", not "2.0").
@@ -1115,6 +1118,12 @@ mode of this output and it will silently corrupt the user's sheet.
     print the length. It MUST equal EXACTLY ${layout.totalRows}.
     Do not count by eye — invisible stray whitespace won't show.
     If the count is wrong, fix the code, not the visual text.
+
+[ ] BANNER COUNT: count every line that contains "═══". There are
+    EXACTLY ${layout.sections.length} banners (one per section). If you
+    find more — even one extra — you have a stray section label or
+    duplicate banner in a data slot. Find and remove it before sending.
+    If you find fewer, a banner is missing.
 
 [ ] STRAY BANNERS / HEADERS: search your draft for the string "═══".
     Every occurrence MUST be on one of the banner-position lines
