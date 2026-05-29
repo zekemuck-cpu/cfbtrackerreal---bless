@@ -54,7 +54,17 @@ export default function CardEditorModal({
   const [phaseIdx, setPhaseIdx] = useState(isNew ? 0 : 2)
   const [saving, setSaving] = useState(false)
 
-  const update = (patch) => setWorking(w => ({ ...w, ...patch }))
+  const update = (patch) => setWorking(w => {
+    const next = { ...w, ...patch }
+    // When the context type changes, drop the previous type's contextDetails
+    // so a stale gameId / awardKey / championshipKey can't linger and leak
+    // into the prompt (or silently pass the completion check) under a context
+    // that doesn't use it.
+    if ('contextType' in patch && patch.contextType !== w.contextType) {
+      next.contextDetails = {}
+    }
+    return next
+  })
   const updateContextDetails = (patch) =>
     setWorking(w => ({ ...w, contextDetails: { ...(w.contextDetails || {}), ...patch } }))
 
@@ -96,8 +106,15 @@ export default function CardEditorModal({
     if (idx === 1) {
       if (!working.contextType || !working.year) return false
       const d = working.contextDetails || {}
-      if (working.contextType === 'game'         && !d.gameId) return false
-      if (working.contextType === 'award'        && !d.awardKey) return false
+      // Game / award references must still resolve against current data —
+      // a game deleted (or an award removed) after the card was made would
+      // otherwise produce a blank back with no warning.
+      if (working.contextType === 'game') {
+        if (!d.gameId || !playerGames.some(g => g.gameId === d.gameId)) return false
+      }
+      if (working.contextType === 'award') {
+        if (!d.awardKey || !availableAwards.some(a => a.key === d.awardKey)) return false
+      }
       if (working.contextType === 'championship' && !d.championshipKey) return false
       if (working.contextType === 'custom'       && !d.customLabel) return false
       return true
@@ -543,6 +560,12 @@ function PhaseContext({
                 </option>
               ))}
             </StyledSelect>
+            {working.contextDetails?.gameId &&
+              !availableGames.some(g => g.gameId === working.contextDetails.gameId) && (
+              <div className="text-[11px] mt-2 leading-snug" style={{ color: 'var(--danger, #e5484d)' }}>
+                The game this card pointed to is no longer available (it may have been deleted). Pick a game above — otherwise the back will have no matchup or stats.
+              </div>
+            )}
           </Section>
 
           <Section title="Weekly award (optional)" hint="If the player took home a Player-of-the-Week honor for this game, the card becomes a POTW commemorative.">
@@ -599,6 +622,12 @@ function PhaseContext({
             ))}
             {availableAwards.length === 0 && <option disabled>No awards on this player</option>}
           </StyledSelect>
+          {working.contextDetails?.awardKey &&
+            !availableAwards.some(a => a.key === working.contextDetails.awardKey) && (
+            <div className="text-[11px] mt-2 leading-snug" style={{ color: 'var(--danger, #e5484d)' }}>
+              The award this card pointed to is no longer on the player. Pick an award above — otherwise the back's headline will be blank.
+            </div>
+          )}
         </Section>
       )}
 
