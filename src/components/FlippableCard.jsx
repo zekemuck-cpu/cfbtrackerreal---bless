@@ -1,4 +1,10 @@
 import { useState } from 'react'
+import { proxyImageUrl } from '../utils/imageProxy'
+
+// Render width for card faces — matches the full-size photo treatment so
+// cards stay crisp at any on-screen size while gaining wsrv's resilience
+// (server-side fetch + cache) against imgbb dropping/placeholdering images.
+const CARD_W = 1600
 
 // Treat a face as missing once the browser has reported a load error.
 // Old card art lived on imgbb, which has since started serving a
@@ -58,7 +64,7 @@ export default function FlippableCard({ frontImageUrl, backImageUrl, className =
         style={{ aspectRatio: '5 / 7' }}
       >
         <ImageWithFallback
-          src={url}
+          src={proxyImageUrl(url, CARD_W)}
           alt=""
           className="w-full h-full object-cover"
           onError={() => (showingFront ? setFrontBroken(true) : setBackBroken(true))}
@@ -98,7 +104,7 @@ export default function FlippableCard({ frontImageUrl, backImageUrl, className =
           }}
         >
           <ImageWithFallback
-            src={frontImageUrl}
+            src={proxyImageUrl(frontImageUrl, CARD_W)}
             alt=""
             className="w-full h-full object-cover"
             onError={() => setFrontBroken(true)}
@@ -118,7 +124,7 @@ export default function FlippableCard({ frontImageUrl, backImageUrl, className =
           }}
         >
           <ImageWithFallback
-            src={backImageUrl}
+            src={proxyImageUrl(backImageUrl, CARD_W)}
             alt=""
             className="w-full h-full object-cover"
             onError={() => setBackBroken(true)}

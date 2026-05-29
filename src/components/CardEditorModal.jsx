@@ -21,6 +21,7 @@ import {
 } from '../utils/cardPromptVariables'
 import { listPlayerGames } from '../utils/playerCards'
 import { IMAGE_CAPABILITY_NOTE } from '../utils/imageCapabilityNote'
+import { proxyImageUrl } from '../utils/imageProxy'
 
 const PHASES = [
   { id: 'style',    label: 'Style' },
@@ -543,7 +544,7 @@ function ImageSlot({ imageUrl, label, onClick, onDragOver, onDragLeave, onDrop }
       onDrop={onDrop}
     >
       {imageUrl ? (
-        <img src={imageUrl} alt={label} className="w-full h-full object-cover block" />
+        <img src={proxyImageUrl(imageUrl, 800)} alt={label} className="w-full h-full object-cover block" />
       ) : (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="text-txt-muted">

@@ -22,6 +22,7 @@ import { useState, useMemo } from 'react'
 import CardEditorModal from './CardEditorModal'
 import { newCardId } from '../utils/playerCards'
 import { CARD_STYLES, getCardStyle } from '../data/cardStyles'
+import { proxyImageUrl } from '../utils/imageProxy'
 
 export default function PlayerCards({
   cards,
@@ -184,7 +185,7 @@ function CardThumbnail({ card, idx, onEdit, onDelete }) {
       >
         {previewUrl ? (
           <img
-            src={previewUrl}
+            src={proxyImageUrl(previewUrl, 800)}
             alt={label}
             className="w-full h-full object-cover"
             loading="lazy"
