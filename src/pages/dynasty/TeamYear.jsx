@@ -3954,6 +3954,10 @@ export default function TeamYear() {
                           <div className="w-10 h-10 rounded-full overflow-hidden border border-surface-5">
                             <img src={proxyImageUrl(player.pictureUrl, 300)} alt={player.name} className="w-full h-full object-cover" />
                           </div>
+                        ) : teamLogo ? (
+                          <div className="w-10 h-10 rounded-full overflow-hidden border border-surface-5 bg-surface-3 flex items-center justify-center">
+                            <img src={teamLogo} alt="" className="w-7 h-7 object-contain" />
+                          </div>
                         ) : (
                           <div className="w-10 h-10 rounded-full flex items-center justify-center bg-surface-3 text-txt-muted border border-surface-5">
                             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -3973,6 +3977,10 @@ export default function TeamYear() {
                     ) : player.pictureUrl ? (
                       <div className="w-10 h-10 rounded-full flex-shrink-0 overflow-hidden border border-surface-5">
                         <img src={proxyImageUrl(player.pictureUrl, 300)} alt={player.name} className="w-full h-full object-cover" />
+                      </div>
+                    ) : teamLogo ? (
+                      <div className="w-10 h-10 rounded-full flex-shrink-0 overflow-hidden border border-surface-5 bg-surface-3 flex items-center justify-center">
+                        <img src={teamLogo} alt="" className="w-7 h-7 object-contain" />
                       </div>
                     ) : (
                       <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-surface-3 text-txt-muted border border-surface-5">

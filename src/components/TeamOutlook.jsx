@@ -4,7 +4,7 @@ import { useDynasty } from '../context/DynastyContext'
 import { usePathPrefix } from '../hooks/usePathPrefix'
 import { Card, Badge, Tabs, Select, EmptyState } from './ui'
 import { proxyImageUrl } from '../utils/imageProxy'
-import { projectRoster, projectDepartures } from '../utils/rosterProjection'
+import { projectRoster, projectDepartures, projectNflCandidates } from '../utils/rosterProjection'
 import { isPortalRisk } from '../utils/depthChart'
 import { finePositionGroup, TAB_GROUPS, GROUP_LABELS } from '../data/positionGroups'
 
@@ -16,8 +16,6 @@ const TAB_OPTIONS = [
 // Healthy two-deep-ish body count per group — drives the THIN/EMPTY signal.
 const MIN_DEPTH = { QB: 2, RB: 3, WR: 4, TE: 2, OT: 3, OG: 3, C: 2, DT: 3, EDGE: 3, OLB: 3, MIKE: 2, CB: 4, Safety: 3, K: 1, P: 1 }
 const byOvr = (a, b) => (b.projectedOvr ?? -1) - (a.projectedOvr ?? -1)
-// Matches the player editor's palette so the trait reads consistently and
-// escalates Normal → Impact → Star → Elite (gray → blue → purple → gold).
 const DEV_TRAIT_COLORS = {
   Elite: { bg: '#fbbf24', text: '#000' },
   Star: { bg: '#a855f7', text: '#fff' },
@@ -26,9 +24,17 @@ const DEV_TRAIT_COLORS = {
 }
 const EMPTY_ARR = []
 
-// Forward-looking roster outlook for one team, embedded as the team page's
-// "Outlook" tab. Has its own season selector (current → +4); it ignores the
-// team page's year, which is historical/contextual.
+function posGroupGrade(returners) {
+  const ovrs = returners.map(e => e.projectedOvr).filter(v => v != null && Number.isFinite(v))
+  if (ovrs.length === 0) return null
+  const avg = ovrs.reduce((a, b) => a + b, 0) / ovrs.length
+  if (avg >= 90) return { letter: 'A', color: '#22c55e' }
+  if (avg >= 80) return { letter: 'B', color: '#f97316' }
+  if (avg >= 70) return { letter: 'C', color: '#eab308' }
+  if (avg >= 60) return { letter: 'D', color: '#ef4444' }
+  return { letter: 'F', color: '#b91c1c' }
+}
+
 export default function TeamOutlook({ tid }) {
   const { id: dynastyId } = useParams()
   const pathPrefix = usePathPrefix()
@@ -39,11 +45,16 @@ export default function TeamOutlook({ tid }) {
   const [year, setYear] = useState(currentYear + 1)
   useEffect(() => { setYear(currentYear + 1); setPosTab('offense') /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tid])
 
-  const flagsArr = currentDynasty?.teamFuture?.[tid]?.leaveFlags || EMPTY_ARR
+  const tidData = currentDynasty?.teamFuture?.[tid] || {}
+  const flagsArr = tidData.leaveFlags || EMPTY_ARR
+  const nflDismissArr = tidData.nflDismissFlags || EMPTY_ARR
   const leaveFlags = useMemo(() => new Set(flagsArr), [flagsArr])
+  const nflDismissFlags = useMemo(() => new Set(nflDismissArr), [nflDismissArr])
   const isFuture = year > currentYear
   const canEdit = !isViewOnly && tid != null
   const canFlag = canEdit && isFuture
+
+  const teamLogo = currentDynasty?.teams?.[tid]?.logo || null
 
   const years = useMemo(() => {
     if (!Number.isFinite(currentYear)) return []
@@ -54,32 +65,43 @@ export default function TeamOutlook({ tid }) {
 
   const groups = useMemo(() => {
     if (!currentDynasty || tid == null || !Number.isFinite(year)) return []
-    // projectRoster already drops manually-flagged players for future years, so
-    // the roster here is "who you actually have"; flagged players come back
-    // separately as the Likely-to-depart list.
     const roster = projectRoster(currentDynasty, tid, year, { leaveFlags })
     const departures = isFuture ? projectDepartures(currentDynasty, tid, year, { leaveFlags }) : []
+    const nflCandidates = isFuture ? projectNflCandidates(currentDynasty, tid, year, { leaveFlags, nflDismissFlags }) : []
     return (TAB_GROUPS[posTab] || []).map(g => {
       const inGroup = (pos) => finePositionGroup(pos) === g
       const ret = roster.filter(e => !e.isIncoming && inGroup(e.position)).sort(byOvr)
       const inc = roster.filter(e => e.isIncoming && inGroup(e.position)).sort(byOvr)
       const lv = departures.filter(d => inGroup(d.position)).sort(byOvr)
+      const nfl = nflCandidates.filter(d => inGroup(d.position)).sort(byOvr)
       const total = ret.length + inc.length
       const min = MIN_DEPTH[g] ?? 2
       let health
       if (total === 0) health = { label: 'Empty', variant: 'danger' }
-      else if (ret.length === 0) health = { label: 'Unproven', variant: 'warning' } // only recruits
+      else if (ret.length === 0) health = { label: 'Unproven', variant: 'warning' }
       else if (total < min) health = { label: 'Thin', variant: 'warning' }
       else health = null
-      return { g, label: GROUP_LABELS[g] || g, ret, inc, lv, health }
+      const grade = isFuture ? posGroupGrade(ret) : null
+      return { g, label: GROUP_LABELS[g] || g, ret, inc, lv, nfl, health, grade }
     })
-  }, [currentDynasty, tid, year, posTab, leaveFlags, isFuture])
+  }, [currentDynasty, tid, year, posTab, leaveFlags, nflDismissFlags, isFuture])
+
+  const saveTidData = (patch) => {
+    saveTeamFuture(dynastyId, tid, { ...tidData, ...patch })
+  }
 
   const toggleFlag = (pid) => {
     if (!canFlag || !pid) return
     const set = new Set(flagsArr)
     if (set.has(pid)) set.delete(pid); else set.add(pid)
-    saveTeamFuture(dynastyId, tid, { leaveFlags: [...set] })
+    saveTidData({ leaveFlags: [...set] })
+  }
+
+  const toggleNflDismiss = (pid) => {
+    if (!canFlag || !pid) return
+    const set = new Set(nflDismissArr)
+    if (set.has(pid)) set.delete(pid); else set.add(pid)
+    saveTidData({ nflDismissFlags: [...set] })
   }
 
   if (!currentDynasty || tid == null) {
@@ -102,15 +124,16 @@ export default function TeamOutlook({ tid }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {groups.map(grp => (
           <GroupBlock key={grp.g} grp={grp} isFuture={isFuture} canFlag={canFlag} flags={leaveFlags}
-            onToggleFlag={toggleFlag} currentYear={currentYear} pathPrefix={pathPrefix} />
+            onToggleFlag={toggleFlag} onToggleNflDismiss={toggleNflDismiss}
+            currentYear={currentYear} pathPrefix={pathPrefix} teamLogo={teamLogo} />
         ))}
       </div>
     </div>
   )
 }
 
-function GroupBlock({ grp, isFuture, canFlag, flags, onToggleFlag, currentYear, pathPrefix }) {
-  const { label, ret, inc, lv, health } = grp
+function GroupBlock({ grp, isFuture, canFlag, flags, onToggleFlag, onToggleNflDismiss, currentYear, pathPrefix, teamLogo }) {
+  const { label, ret, inc, lv, nfl, health, grade } = grp
 
   const returningRows = ret.length === 0
     ? <EmptyLine text={isFuture ? 'No returning players' : 'No players'} />
@@ -118,7 +141,7 @@ function GroupBlock({ grp, isFuture, canFlag, flags, onToggleFlag, currentYear, 
       const risk = e.player && isPortalRisk(e.player, currentYear, e.projectedClass)
       return (
         <Row key={e.key}
-          avatar={<Avatar url={e.player?.pictureUrl} />}
+          avatar={<Avatar url={e.player?.pictureUrl} fallback={teamLogo} />}
           left={<>
             <PlayerName pid={e.pid} name={e.name} pathPrefix={pathPrefix} />
             <span className="text-txt-tertiary text-xs shrink-0">{e.projectedClass}</span>
@@ -126,7 +149,7 @@ function GroupBlock({ grp, isFuture, canFlag, flags, onToggleFlag, currentYear, 
             {risk ? <Badge variant="warning">Portal risk</Badge> : null}
           </>}
           right={<span className="tabular-nums font-semibold text-txt-primary">{e.projectedOvr ?? '—'}</span>}
-          action={canFlag ? <FlagButton flagged={false} onClick={() => onToggleFlag(e.pid)} /> : null}
+          action={canFlag ? <LeaveButton onClick={() => onToggleFlag(e.pid)} /> : null}
         />
       )
     })
@@ -135,6 +158,12 @@ function GroupBlock({ grp, isFuture, canFlag, flags, onToggleFlag, currentYear, 
     <Card padding="none">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-surface-4">
         <span className="font-bold text-txt-primary truncate">{label}</span>
+        {grade && (
+          <span
+            className="text-xs font-bold px-1.5 py-0.5 rounded"
+            style={{ backgroundColor: grade.color + '22', color: grade.color, border: `1px solid ${grade.color}55` }}
+          >{grade.letter}</span>
+        )}
         {health ? <Badge variant={health.variant}>{health.label}</Badge> : null}
       </div>
 
@@ -143,18 +172,35 @@ function GroupBlock({ grp, isFuture, canFlag, flags, onToggleFlag, currentYear, 
           ? <GroupSection label={`Returning (${ret.length})`}>{returningRows}</GroupSection>
           : <div className="space-y-1">{returningRows}</div>}
 
-        {isFuture && lv.length > 0 && (
-          <GroupSection label={`Likely to depart (${lv.length})`}>
-            {lv.map(d => (
+        {isFuture && nfl.length > 0 && (
+          <GroupSection label={`Likely NFL (${nfl.length})`}>
+            {nfl.map(d => (
               <Row key={d.pid}
-                avatar={<Avatar url={d.player?.pictureUrl} />}
+                avatar={<Avatar url={d.player?.pictureUrl} fallback={teamLogo} />}
                 left={<>
                   <PlayerName pid={d.pid} name={d.name} pathPrefix={pathPrefix} />
                   <span className="text-txt-tertiary text-xs shrink-0">{d.projectedClass}</span>
                   <DevBadge trait={d.devTrait} />
                 </>}
                 right={<span className="tabular-nums text-txt-tertiary">{d.projectedOvr ?? '—'}</span>}
-                action={canFlag ? <FlagButton flagged onClick={() => onToggleFlag(d.pid)} /> : null}
+                action={canFlag ? <KeepButton onClick={() => onToggleNflDismiss(d.pid)} /> : null}
+              />
+            ))}
+          </GroupSection>
+        )}
+
+        {isFuture && lv.length > 0 && (
+          <GroupSection label={`Likely transfer (${lv.length})`}>
+            {lv.map(d => (
+              <Row key={d.pid}
+                avatar={<Avatar url={d.player?.pictureUrl} fallback={teamLogo} />}
+                left={<>
+                  <PlayerName pid={d.pid} name={d.name} pathPrefix={pathPrefix} />
+                  <span className="text-txt-tertiary text-xs shrink-0">{d.projectedClass}</span>
+                  <DevBadge trait={d.devTrait} />
+                </>}
+                right={<span className="tabular-nums text-txt-tertiary">{d.projectedOvr ?? '—'}</span>}
+                action={canFlag ? <UndoButton onClick={() => onToggleFlag(d.pid)} /> : null}
               />
             ))}
           </GroupSection>
@@ -164,7 +210,7 @@ function GroupBlock({ grp, isFuture, canFlag, flags, onToggleFlag, currentYear, 
           <GroupSection label={`Incoming (${inc.length})`}>
             {inc.map(e => (
               <Row key={e.key}
-                avatar={<Avatar />}
+                avatar={<Avatar fallback={teamLogo} />}
                 left={<>
                   <PlayerName name={e.name} />
                   {e.isPortal ? <Badge variant="info">Transfer</Badge> : null}
@@ -186,15 +232,17 @@ function StarRating({ stars, isPortal }) {
   return <span className="text-txt-tertiary text-xs shrink-0">{isPortal ? '—' : 'HS'}</span>
 }
 
-function Avatar({ url }) {
+function Avatar({ url, fallback }) {
+  const src = url ? proxyImageUrl(url, 80) : fallback || null
   return (
-    <div className="w-7 h-7 rounded-full bg-surface-4 overflow-hidden flex-shrink-0">
-      {url ? <img src={proxyImageUrl(url, 80)} alt="" className="w-full h-full object-cover" /> : null}
+    <div className="w-7 h-7 rounded-full bg-surface-4 overflow-hidden flex-shrink-0 flex items-center justify-center">
+      {src
+        ? <img src={src} alt="" className={`w-full h-full ${url ? 'object-cover' : 'object-contain p-0.5'}`} />
+        : null}
     </div>
   )
 }
 
-// Abbreviate the first name to an initial ("Rich Beavers" → "R. Beavers").
 function shortName(name) {
   if (!name) return name
   const parts = String(name).trim().split(/\s+/)
@@ -204,10 +252,6 @@ function shortName(name) {
   return `${initial} ${parts.slice(1).join(' ')}`
 }
 
-// Show the full name; only fall back to "R. Beavers" when the full name would
-// overflow its slot (measured), so we never abbreviate when there's room. An
-// off-screen mirror holds the full name so we can compare its natural width to
-// the available width on layout + resize.
 function PlayerName({ pid, name, pathPrefix }) {
   const ref = useRef(null)
   const measureRef = useRef(null)
@@ -241,16 +285,19 @@ function DevBadge({ trait }) {
   return <Badge variant="solid" color={c.bg} textColor={c.text} className="shrink-0">{trait}</Badge>
 }
 
-function FlagButton({ flagged, onClick }) {
+function ActionBtn({ children, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="text-[11px] font-semibold px-1.5 py-0.5 rounded transition-colors text-txt-tertiary hover:text-txt-primary hover:bg-surface-3"
+      className="text-[11px] font-semibold px-1.5 py-0.5 rounded transition-colors text-txt-tertiary hover:text-txt-primary hover:bg-surface-3 shrink-0"
     >
-      {flagged ? 'Undo' : 'Likely transfer'}
+      {children}
     </button>
   )
 }
+const LeaveButton = ({ onClick }) => <ActionBtn onClick={onClick}>Mark leaving</ActionBtn>
+const UndoButton = ({ onClick }) => <ActionBtn onClick={onClick}>Keep</ActionBtn>
+const KeepButton = ({ onClick }) => <ActionBtn onClick={onClick}>Keep</ActionBtn>
 
 function GroupSection({ label, children }) {
   return (

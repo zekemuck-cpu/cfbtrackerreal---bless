@@ -2,6 +2,9 @@
 // read the real roster for a past/current season. Pure + unit-tested.
 import { isPlayerOnRoster, getPlayerClassForYear, getPlayersLeaving, getRecruitingCommitments } from '../context/DynastyContext'
 
+// Projected OVR threshold above which a Jr/Sr is considered a likely NFL candidate.
+export const NFL_DRAFT_OVR_THRESHOLD = 93
+
 const STANDARD = ['Fr', 'So', 'Jr', 'Sr']
 const REDSHIRT = ['RS Fr', 'RS So', 'RS Jr', 'RS Sr']
 
@@ -38,6 +41,27 @@ function ovrForYear(player, year) {
 function positionForYear(player, year) {
   const p = player.positionByYear || {}
   return p[year] ?? p[String(year)] ?? player.position ?? ''
+}
+
+// Map an ATH player's archetype to the position group they'd most likely play.
+const ATH_ARCHETYPE_MAP = [
+  [/scrambler|dual.?threat|pocket|strong.?arm|improviser/i, 'QB'],
+  [/speed.?back|power.?back|elusive|receiving.?back|workhorse/i, 'HB'],
+  [/deep.?threat|slot|physical|route/i, 'WR'],
+  [/vertical|possession|blocking.?te/i, 'TE'],
+]
+function resolveAthPosition(player) {
+  if (!player) return 'WR'
+  const arch = String(player.archetype || player.devTrait || '').toLowerCase()
+  for (const [rx, pos] of ATH_ARCHETYPE_MAP) {
+    if (rx.test(arch)) return pos
+  }
+  return 'WR'
+}
+
+function resolvePosition(player, year) {
+  const pos = positionForYear(player, year)
+  return pos === 'ATH' ? resolveAthPosition(player) : pos
 }
 function devForYear(player, year) {
   const d = player.devTraitByYear || {}
@@ -114,7 +138,7 @@ function rosterForRealYear(dynasty, tid, year) {
   return (dynasty.players || [])
     .filter(p => !p.isHonorOnly && isPlayerOnRoster(p, tid, year))
     .map(p => projectedEntry(p, {
-      position: positionForYear(p, year),
+      position: resolvePosition(p, year),
       projectedClass: getPlayerClassForYear(p, year),
       projectedOvr: ovrForYear(p, year),
       devTrait: devForYear(p, year),
@@ -198,7 +222,7 @@ function projectFutureRoster(dynasty, tid, targetYear, opts = {}) {
       projCls = curCls || '?' // unknown class — carry forward as a returner
     }
     out.push(projectedEntry(p, {
-      position: positionForYear(p, currentYear),
+      position: resolvePosition(p, currentYear),
       projectedClass: projCls,
       projectedOvr: projectOvrForward(ovrForYear(p, currentYear), curCls, devForYear(p, currentYear), ty - currentYear),
       devTrait: devForYear(p, currentYear),
@@ -214,14 +238,23 @@ function projectFutureRoster(dynasty, tid, targetYear, opts = {}) {
     const joinYear = ry + 1
     let commits = []
     try { commits = flattenCommits(getRecruitingCommitments(dynasty, tid, ry)) } catch { commits = [] }
+    // Dedup within this recruiting year: same name+position can appear
+    // multiple times when data is stored across multiple commit sub-keys
+    // (preseason, regular_1, regular_2…) and the flatten picks them all up.
+    const seenThisYear = new Set()
     let idx = 0
     for (const rec of commits) {
+      const dedupeKey = `${(rec.name || '').trim().toLowerCase()}:${(rec.position || '').toLowerCase()}`
+      if (seenThisYear.has(dedupeKey)) continue
+      seenThisYear.add(dedupeKey)
       const startCls = recruitStartClass(rec.class)
       const projCls = advanceClass(startCls, ty - joinYear)
       if (projCls === null) continue // graduated before targetYear
+      const rawPos = (rec.position || '').toUpperCase()
+      const position = rawPos === 'ATH' ? resolveAthPosition(rec) : rawPos
       out.push(projectedEntry(null, {
         name: rec.name,
-        position: (rec.position || '').toUpperCase(),
+        position,
         projectedClass: projCls,
         // Star-implied baseline, aged forward — used for slotting/health only;
         // the UI renders stars, not this number.
@@ -269,11 +302,45 @@ export function projectDepartures(dynasty, tid, targetYear, opts = {}) {
     if (projCls === null) continue // would have graduated by the viewed year anyway
     out.push({
       pid: p.pid, player: p, name: p.name,
-      position: positionForYear(p, currentYear),
+      position: resolvePosition(p, currentYear),
       projectedClass: projCls,
       projectedOvr: projectOvrForward(ovrForYear(p, currentYear), curCls, devForYear(p, currentYear), step),
       devTrait: devForYear(p, currentYear),
       isFlag: true,
+    })
+  }
+  return out
+}
+
+// Auto-detected NFL Draft candidates: Jr/Sr players whose projected OVR at the
+// viewed year meets or exceeds NFL_DRAFT_OVR_THRESHOLD. These are shown as
+// "Likely NFL" in the Outlook without any manual flagging. Users can dismiss
+// individual players (stored in opts.nflDismissFlags).
+export function projectNflCandidates(dynasty, tid, targetYear, opts = {}) {
+  const currentYear = Number(dynasty.currentYear)
+  const ty = Number(targetYear)
+  if (!Number.isFinite(ty) || ty <= currentYear) return []
+  const nflDismissFlags = opts.nflDismissFlags instanceof Set ? opts.nflDismissFlags : new Set(opts.nflDismissFlags || [])
+  const leaveFlags = opts.leaveFlags instanceof Set ? opts.leaveFlags : new Set(opts.leaveFlags || [])
+  const current = (dynasty.players || []).filter(p => !p.isHonorOnly && isPlayerOnRoster(p, tid, currentYear))
+  const step = ty - currentYear
+  const out = []
+  for (const p of current) {
+    if (nflDismissFlags.has(p.pid) || leaveFlags.has(p.pid)) continue
+    const curCls = getPlayerClassForYear(p, currentYear)
+    const projCls = trackFor(curCls) ? advanceClass(curCls, step) : null
+    if (projCls === null) continue // graduated before or at target year
+    const clsBase = projCls.replace(/^RS\s+/i, '').trim()
+    if (!['Jr', 'Sr'].includes(clsBase)) continue // only draft-eligible classes
+    const projOvr = projectOvrForward(ovrForYear(p, currentYear), curCls, devForYear(p, currentYear), step)
+    if ((projOvr ?? 0) < NFL_DRAFT_OVR_THRESHOLD) continue
+    out.push({
+      pid: p.pid, player: p, name: p.name,
+      position: resolvePosition(p, currentYear),
+      projectedClass: projCls,
+      projectedOvr: projOvr,
+      devTrait: devForYear(p, currentYear),
+      isNflCandidate: true,
     })
   }
   return out
