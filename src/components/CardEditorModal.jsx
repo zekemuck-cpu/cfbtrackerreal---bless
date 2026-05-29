@@ -20,6 +20,7 @@ import {
   interpolatePrompt,
 } from '../utils/cardPromptVariables'
 import { listPlayerGames } from '../utils/playerCards'
+import { IMAGE_CAPABILITY_NOTE } from '../utils/imageCapabilityNote'
 
 const PHASES = [
   { id: 'style',    label: 'Style' },
@@ -64,11 +65,11 @@ export default function CardEditorModal({
     [player, dynasty, working]
   )
   const filledFrontPrompt = useMemo(
-    () => style?.frontPrompt ? interpolatePrompt(style.frontPrompt, variables) : '',
+    () => style?.frontPrompt ? `${IMAGE_CAPABILITY_NOTE}\n\n${interpolatePrompt(style.frontPrompt, variables)}` : '',
     [style?.frontPrompt, variables]
   )
   const filledBackPrompt = useMemo(
-    () => style?.backPrompt ? interpolatePrompt(style.backPrompt, variables) : '',
+    () => style?.backPrompt ? `${IMAGE_CAPABILITY_NOTE}\n\n${interpolatePrompt(style.backPrompt, variables)}` : '',
     [style?.backPrompt, variables]
   )
 

@@ -1,4 +1,5 @@
 import { getTeamBrandProfile } from '../data/teamBrandProfiles'
+import { IMAGE_CAPABILITY_NOTE } from './imageCapabilityNote'
 
 /**
  * Build a prompt for an AI image model to generate a post-game score graphic.
@@ -228,7 +229,7 @@ export function buildScoreGraphicPrompt({
       textRules(fictionalParticipantNames),
     ]
 
-    return lines.filter(l => l !== null && l !== undefined).join('\n')
+    return IMAGE_CAPABILITY_NOTE + '\n\n' + lines.filter(l => l !== null && l !== undefined).join('\n')
   }
 
   // ─── BRANDED PATH ─────────────────────────────────────────────────────────
@@ -340,5 +341,5 @@ export function buildScoreGraphicPrompt({
     textRules(fictionalParticipantNames),
   ]
 
-  return lines.filter(l => l !== null && l !== undefined).join('\n')
+  return IMAGE_CAPABILITY_NOTE + '\n\n' + lines.filter(l => l !== null && l !== undefined).join('\n')
 }
