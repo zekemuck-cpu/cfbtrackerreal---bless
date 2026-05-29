@@ -90,7 +90,6 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     { name: 'CFP Bracket', path: `${pathPrefix}/cfp-bracket` },
     { name: 'Conf. Standings', path: `${pathPrefix}/conference-standings` },
     { name: 'Recruiting', path: `${pathPrefix}/recruiting/${teamTid}/${currentYear}` },
-    { name: 'Team Future', path: `${pathPrefix}/team-future` },
     { name: 'Coach Career', path: `${pathPrefix}/coach-career` },
     { name: 'Leaderboard', path: `${pathPrefix}/dynasty-records` },
     { name: 'Bowl History', path: `${pathPrefix}/bowl-history` },

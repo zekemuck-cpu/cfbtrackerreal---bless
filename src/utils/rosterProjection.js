@@ -44,6 +44,53 @@ function devForYear(player, year) {
   return d[year] ?? d[String(year)] ?? player.devTrait ?? 'Normal'
 }
 
+// ── OVR development model ───────────────────────────────────────────────────
+// Per-offseason OVR gain ≈ base(dev trait) × class multiplier × overall-band
+// multiplier, rounded, capped at 99. Applied one season at a time so class and
+// OVR band update each year. Tuned to reproduce the canonical four-year arcs
+// (e.g. Elite 82→87→90→92, Star 78→83→86→88). Playing-time, trait upgrades, and
+// early departures are intentionally NOT modeled here — this is the
+// contributing-starter baseline.
+const DEV_BASE_GAIN = { Normal: 2, Impact: 4, Star: 6, Elite: 8 }
+const CLASS_DEV_MULT = { Fr: 1.15, So: 1.05, Jr: 1.0, Sr: 0.9 }
+
+function classDevMult(cls) {
+  const c = (cls || '').replace(/^RS\s+/i, '').trim()
+  return CLASS_DEV_MULT[c] ?? 1.0
+}
+function ovrBandMult(ovr) {
+  if (ovr < 75) return 1.0
+  if (ovr < 80) return 0.75
+  if (ovr < 85) return 0.55
+  if (ovr < 90) return 0.4
+  if (ovr < 94) return 0.25
+  if (ovr < 97) return 0.15
+  return 0.05
+}
+
+// Baseline true-freshman OVR by recruit star rating (generated dynasty recruits,
+// average-prestige program). A commit's real rating is unknown — only stars — so
+// this seeds a starting OVR that the dev model then ages forward and that the
+// chart uses to slot the recruit by quality (the UI still shows stars, not OVR).
+const STAR_BASELINE_OVR = { 5: 79, 4: 75, 3: 70, 2: 65, 1: 60 }
+export function starBaselineOvr(stars) {
+  return STAR_BASELINE_OVR[Number(stars)] ?? null
+}
+
+// Project an OVR forward `seasons` offseasons from a starting class. startClass
+// is the class of the season just played (the first gain is computed from it).
+export function projectOvrForward(startOvr, startClass, devTrait, seasons) {
+  if (startOvr == null || !Number.isFinite(Number(startOvr))) return startOvr ?? null
+  const base = DEV_BASE_GAIN[devTrait] ?? DEV_BASE_GAIN.Normal
+  let ovr = Number(startOvr)
+  let cls = startClass
+  for (let i = 0; i < seasons; i++) {
+    ovr = Math.min(99, ovr + Math.round(base * classDevMult(cls) * ovrBandMult(ovr)))
+    cls = advanceClass(cls, 1) || cls
+  }
+  return ovr
+}
+
 function projectedEntry(player, { position, projectedClass, projectedOvr, devTrait, status, isIncoming = false, stars = null, name = null, isPortal = false, incomingKey = '' }) {
   return {
     key: isIncoming ? `inc:${incomingKey}:${name}:${position}` : `pid:${player.pid}`,
@@ -153,7 +200,7 @@ function projectFutureRoster(dynasty, tid, targetYear, opts = {}) {
     out.push(projectedEntry(p, {
       position: positionForYear(p, currentYear),
       projectedClass: projCls,
-      projectedOvr: ovrForYear(p, currentYear),
+      projectedOvr: projectOvrForward(ovrForYear(p, currentYear), curCls, devForYear(p, currentYear), ty - currentYear),
       devTrait: devForYear(p, currentYear),
       status: 'returning',
     }))
@@ -176,7 +223,9 @@ function projectFutureRoster(dynasty, tid, targetYear, opts = {}) {
         name: rec.name,
         position: (rec.position || '').toUpperCase(),
         projectedClass: projCls,
-        projectedOvr: null,                 // recruits have no OVR until onboarded
+        // Star-implied baseline, aged forward — used for slotting/health only;
+        // the UI renders stars, not this number.
+        projectedOvr: projectOvrForward(starBaselineOvr(rec.stars), startCls, rec.devTrait || 'Normal', ty - joinYear),
         devTrait: rec.devTrait || 'Normal',
         status: 'incoming',
         isIncoming: true,
@@ -198,53 +247,34 @@ export function projectRoster(dynasty, tid, targetYear, opts = {}) {
   return projectFutureRoster(dynasty, tid, ty, opts)
 }
 
-// Human-readable reason a player departs within fromYear..throughYear, or null
-// if they don't (mirrors departedBy, but classifies the movement). A
-// transfer-out whose destination is THIS team is an arrival, not a departure.
-function departureReason(player, fromYear, throughYear, tid) {
-  const mv = player.movementByYear || {}
-  for (let y = fromYear; y <= throughYear; y++) {
-    const m = mv[y] || mv[String(y)]
-    if (!m) continue
-    const isDep = DEPARTURE_TYPES.has(m.type) || DEPARTURE_SUBFIELDS.has(m.departure)
-    if (!isDep) continue
-    const isTransferOut = m.departure === 'transfer_out' || TRANSFER_OUT_MARKERS.has(m.type)
-    if (isTransferOut && m.toTid != null && Number(m.toTid) === Number(tid)) continue
-    if (m.type === 'declared_for_draft' || m.departure === 'pro_draft') return { reason: 'NFL draft', year: y }
-    if (m.type === 'graduated' || m.departure === 'graduated') return { reason: 'Graduating', year: y }
-    if (isTransferOut || m.type === 'entered_portal') return { reason: 'Transfer / portal', year: y }
-    return { reason: 'Departing', year: y }
-  }
-  return null
-}
-
-// Players on the CURRENT roster who are gone by targetYear (the "who you're
-// losing" side of the outlook), each with a reason. Empty for past/current
-// years. opts.leaveFlags = Set<pid> of manual "likely to leave".
+// The outlook's "Likely to depart" list = ONLY players the user has manually
+// flagged "likely transfer". Graduating seniors and other natural departures are
+// NOT auto-listed — they simply appear on the roster for the years they're
+// actually on it, then drop off. Each flagged player is projected to the viewed
+// year so it reads consistently with the roster; one who'd have graduated by
+// then is omitted (the flag is moot). opts.leaveFlags = Set<pid>.
 export function projectDepartures(dynasty, tid, targetYear, opts = {}) {
   const currentYear = Number(dynasty.currentYear)
   const ty = Number(targetYear)
-  if (ty <= currentYear) return []
+  if (!Number.isFinite(ty) || ty < currentYear) return []
   const leaveFlags = opts.leaveFlags instanceof Set ? opts.leaveFlags : new Set(opts.leaveFlags || [])
-  const leaving = pendingLeavingPids(dynasty, tid, currentYear)
+  if (leaveFlags.size === 0) return []
   const current = (dynasty.players || []).filter(p => !p.isHonorOnly && isPlayerOnRoster(p, tid, currentYear))
+  const step = ty - currentYear
   const out = []
   for (const p of current) {
+    if (!leaveFlags.has(p.pid)) continue
     const curCls = getPlayerClassForYear(p, currentYear)
-    const base = {
+    const projCls = step === 0 ? curCls : (trackFor(curCls) ? advanceClass(curCls, step) : (curCls || '?'))
+    if (projCls === null) continue // would have graduated by the viewed year anyway
+    out.push({
       pid: p.pid, player: p, name: p.name,
       position: positionForYear(p, currentYear),
-      classNow: curCls,
-      projectedOvr: ovrForYear(p, currentYear),
+      projectedClass: projCls,
+      projectedOvr: projectOvrForward(ovrForYear(p, currentYear), curCls, devForYear(p, currentYear), step),
       devTrait: devForYear(p, currentYear),
-    }
-    if (leaveFlags.has(p.pid)) { out.push({ ...base, reason: 'Flagged to leave', leaveYear: currentYear, isFlag: true }); continue }
-    if (leaving.has(p.pid)) { out.push({ ...base, reason: 'Leaving (offseason)', leaveYear: currentYear }); continue }
-    const dep = departureReason(p, currentYear, ty, tid)
-    if (dep) { out.push({ ...base, reason: dep.reason, leaveYear: dep.year }); continue }
-    if (trackFor(curCls) && advanceClass(curCls, ty - currentYear) === null) {
-      out.push({ ...base, reason: 'Graduating', leaveYear: currentYear + yearsLeftAfter(curCls) })
-    }
+      isFlag: true,
+    })
   }
   return out
 }

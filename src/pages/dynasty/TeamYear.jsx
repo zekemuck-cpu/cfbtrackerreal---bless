@@ -27,6 +27,7 @@ import { useToast } from '../../components/ui/Toast'
 import SortableStatsTable, { PlayerCell } from '../../components/SortableStatsTable'
 import { formatScoreHighLow } from '../../utils/scoreFormat'
 import { getCoachStints } from '../../data/coachStats'
+import TeamOutlook from '../../components/TeamOutlook'
 
 // Map abbreviation to mascot name for logo lookup
 // Accepts optional teamsData for tid-based teambuilder support
@@ -3058,6 +3059,7 @@ export default function TeamYear() {
           { key: 'schedule', label: 'Schedule' },
           { key: 'stats', label: 'Stats' },
           { key: 'roster', label: 'Roster' },
+          { key: 'outlook', label: 'Outlook' },
           { key: 'recruiting', label: 'Recruiting' },
           ...(departures.length > 0 ? [{ key: 'departures', label: 'Departures' }] : []),
           { key: 'history', label: 'History' }
@@ -4170,6 +4172,11 @@ export default function TeamYear() {
         </div>
       )}
       </div>
+      )}
+
+      {/* OUTLOOK TAB */}
+      {activeTab === 'outlook' && (
+        <TeamOutlook tid={tid} />
       )}
 
       {/* STATS TAB */}

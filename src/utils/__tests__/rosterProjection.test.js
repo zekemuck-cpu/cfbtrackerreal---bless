@@ -11,7 +11,7 @@ vi.mock('../../context/DynastyContext', () => ({
   getRecruitingCommitments: (dynasty, tid, year) => dynasty.recruitingCommitmentsByTeamYear?.[year]?.[String(tid)] || {},
 }))
 
-import { advanceClass, yearsLeftAfter, projectRoster, projectDepartures } from '../rosterProjection'
+import { advanceClass, yearsLeftAfter, projectRoster, projectDepartures, projectOvrForward, starBaselineOvr } from '../rosterProjection'
 
 describe('advanceClass', () => {
   it('walks the standard track and graduates after Sr', () => {
@@ -90,22 +90,23 @@ describe('projectRoster — future year', () => {
     }
   }
 
-  it('ages returners, drops grads, keeps OVR estimate', () => {
+  it('ages returners, drops grads, develops OVR estimate', () => {
     const d = futureDynasty()
     const r = projectRoster(d, 10, 2036)
     const jr = r.find(p => p.pid === 'jr')
     expect(jr.projectedClass).toBe('Sr')
-    expect(jr.projectedOvr).toBe(80)
+    // Jr/Impact/80 → +1 season: round(4 × 1.0 × 0.55) = 2 → 82.
+    expect(jr.projectedOvr).toBe(82)
     expect(jr.status).toBe('returning')
     expect(r.find(p => p.pid === 'sr')).toBeUndefined()
   })
 
-  it('adds the incoming class (keyed by recruiting year) with no OVR', () => {
+  it('adds the incoming class (keyed by recruiting year) with a star-baseline OVR', () => {
     const d = futureDynasty()
     const r = projectRoster(d, 10, 2036)
     const frosh = r.find(p => p.isIncoming && p.name === 'Frosh WR')
     expect(frosh).toBeTruthy()
-    expect(frosh.projectedOvr).toBe(null)
+    expect(frosh.projectedOvr).toBe(75) // 4-star baseline, join year → 0 dev seasons
     expect(frosh.stars).toBe(4)
     expect(frosh.projectedClass).toBe('Fr')
     expect(frosh.position).toBe('WR')
@@ -193,40 +194,62 @@ describe('projectRoster — pending leaving + unknown class + JUCO', () => {
   })
 })
 
-describe('projectDepartures', () => {
+describe('projectOvrForward (dev model)', () => {
+  it('reproduces the published four-year arcs', () => {
+    expect([1, 2, 3].map(n => projectOvrForward(70, 'Fr', 'Normal', n))).toEqual([72, 74, 76])
+    expect([1, 2, 3].map(n => projectOvrForward(74, 'Fr', 'Impact', n))).toEqual([79, 82, 84])
+    expect([1, 2, 3].map(n => projectOvrForward(78, 'Fr', 'Star', n))).toEqual([83, 86, 88])
+    expect([1, 2, 3].map(n => projectOvrForward(82, 'Fr', 'Elite', n))).toEqual([87, 90, 92])
+  })
+  it('caps at 99 and barely moves near the cap', () => {
+    expect(projectOvrForward(98, 'Sr', 'Elite', 1)).toBe(98) // round(8×0.9×0.05)=0
+    expect(projectOvrForward(99, 'Jr', 'Elite', 3)).toBe(99)
+  })
+  it('treats RS Fr like a freshman for the class multiplier', () => {
+    expect(projectOvrForward(70, 'RS Fr', 'Normal', 1)).toBe(72)
+  })
+  it('returns null when the starting OVR is unknown', () => {
+    expect(projectOvrForward(null, 'Fr', 'Star', 2)).toBe(null)
+  })
+  it('0 seasons is a no-op', () => {
+    expect(projectOvrForward(85, 'Jr', 'Star', 0)).toBe(85)
+  })
+})
+
+describe('starBaselineOvr', () => {
+  it('maps stars to a baseline freshman OVR', () => {
+    expect([5, 4, 3, 2, 1].map(starBaselineOvr)).toEqual([79, 75, 70, 65, 60])
+  })
+  it('returns null for unrated commits', () => {
+    expect(starBaselineOvr(0)).toBe(null)
+    expect(starBaselineOvr(null)).toBe(null)
+  })
+})
+
+describe('projectDepartures (manual likely-to-depart flags only)', () => {
   const team = (players, extra = {}) => ({ currentYear: 2035, currentTid: 10, players, ...extra })
   const P = (pid, cls, extra = {}) => ({ pid, name: pid, position: 'CB', teamsByYear: { 2035: 10 }, classByYear: { 2035: cls }, overallByYear: { 2035: 80 }, ...extra })
 
-  it('is empty for the current and past years', () => {
-    const d = team([P('a', 'Sr')])
+  it('does NOT auto-list graduating seniors or other natural departures', () => {
+    const d = team([P('a', 'Sr'), P('b', 'Jr', { movementByYear: { 2036: { type: 'declared_for_draft' } } })])
     expect(projectDepartures(d, 10, 2035)).toEqual([])
-    expect(projectDepartures(d, 10, 2034)).toEqual([])
+    expect(projectDepartures(d, 10, 2036)).toEqual([])
+    expect(projectDepartures(d, 10, 2037)).toEqual([])
   })
 
-  it('lists a graduating senior with reason + last season + current class', () => {
-    const dep = projectDepartures(team([P('a', 'Sr')]), 10, 2036)
+  it('lists a flagged player, projected to the viewed year', () => {
+    const dep = projectDepartures(team([P('a', 'So')]), 10, 2037, { leaveFlags: new Set(['a']) })
     expect(dep.map(x => x.pid)).toEqual(['a'])
-    expect(dep[0].reason).toBe('Graduating')
-    expect(dep[0].leaveYear).toBe(2035)
-    expect(dep[0].classNow).toBe('Sr')
-  })
-
-  it('classifies draft and portal departures', () => {
-    const draft = team([P('a', 'Jr', { movementByYear: { 2035: { type: 'declared_for_draft' } } })])
-    expect(projectDepartures(draft, 10, 2036)[0].reason).toBe('NFL draft')
-    const portal = team([P('a', 'Jr', { movementByYear: { 2036: { type: 'entered_portal' } } })])
-    expect(projectDepartures(portal, 10, 2037)[0].reason).toBe('Transfer / portal')
-  })
-
-  it('omits a transfer INTO this team and a still-eligible returner', () => {
-    const arrival = team([P('a', 'Jr', { movementByYear: { 2036: { departure: 'transfer_out', toTid: 10 } } })])
-    expect(projectDepartures(arrival, 10, 2036)).toEqual([])   // arrival, and Jr→Sr still eligible
-    expect(projectDepartures(team([P('a', 'Fr')]), 10, 2036)).toEqual([])  // Fr→So, around
-  })
-
-  it('lists a manually flagged player with isFlag set', () => {
-    const dep = projectDepartures(team([P('a', 'Fr')]), 10, 2037, { leaveFlags: new Set(['a']) })
-    expect(dep[0].reason).toBe('Flagged to leave')
     expect(dep[0].isFlag).toBe(true)
+    expect(dep[0].projectedClass).toBe('Sr') // So 2035 → Sr 2037
+  })
+
+  it('omits a flagged player who would have graduated by the viewed year', () => {
+    const d = team([P('a', 'Sr')]) // Sr 2035 → gone by 2036, flag is moot
+    expect(projectDepartures(d, 10, 2036, { leaveFlags: new Set(['a']) })).toEqual([])
+  })
+
+  it('returns [] for past years even when flagged', () => {
+    expect(projectDepartures(team([P('a', 'So')]), 10, 2034, { leaveFlags: new Set(['a']) })).toEqual([])
   })
 })

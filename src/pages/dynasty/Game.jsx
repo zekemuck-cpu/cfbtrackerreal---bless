@@ -1637,9 +1637,15 @@ export default function Game() {
           ) : null}
         </div>
 
-        {/* Desktop: ESPN-style integrated layout with quarter table in center */}
+        {/* Desktop: ESPN-style integrated layout with quarter table in center.
+            Gated at xl (not lg): this row is justify-between with non-shrinking
+            clusters (big scores, fixed logos, the quarter table), so it needs
+            real room. At lg with the sidebar open the content area is only
+            ~980px and the row overflowed — the page's overflow-x-hidden then
+            clipped the right team off-screen. Below xl we fall back to the
+            responsive stacked layout, which shrinks cleanly. */}
         {gameIsPlayed && hasQuarterScores && (
-          <div className="hidden lg:block px-8 py-6">
+          <div className="hidden xl:block px-8 py-6">
             <div className="flex items-center justify-between">
               {/* Left Team — collapsed to content width so score sits next
                   to the name. justify-between on the row above distributes
@@ -1823,8 +1829,9 @@ export default function Game() {
           </div>
         )}
 
-        {/* Mobile/Tablet: Stacked layout (also shows for upcoming games on all screens) */}
-        <div className={gameIsPlayed && hasQuarterScores ? 'lg:hidden' : ''}>
+        {/* Mobile/Tablet: Stacked layout (also shows for upcoming games on all screens).
+            Hidden at xl, where the integrated desktop layout above takes over. */}
+        <div className={gameIsPlayed && hasQuarterScores ? 'xl:hidden' : ''}>
         {/* Hero Scoreboard Content */}
         <div className="px-1 py-3 sm:px-8 sm:py-8 md:py-10">
           <div className="flex items-center justify-between gap-1 sm:gap-6 md:gap-10 max-w-full">
@@ -1963,7 +1970,7 @@ export default function Game() {
           Surface matches the hero card above and the tabs card below
           (bg-surface-1) so the table doesn't read as a brighter slab. */}
       {hasQuarterScores && (
-        <div className="lg:hidden bg-surface-1 rounded-xl overflow-hidden shadow-lg">
+        <div className="xl:hidden bg-surface-1 rounded-xl overflow-hidden shadow-lg">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -2052,7 +2059,9 @@ export default function Game() {
 
             return (
           <div className="flex items-stretch border-b border-surface-4">
-            <div className="flex flex-1 min-w-0 overflow-x-auto">
+            {/* Tabs WRAP to a second row rather than scrolling/overflowing, so
+                the bar never runs off the right edge at any width or tab count. */}
+            <div className="flex flex-wrap flex-1 min-w-0">
               {[
                 { key: 'gamecast', label: 'Gamecast', shortLabel: 'Cast', show: hasGamecastContent },
                 { key: 'boxscore', label: 'Box Score', shortLabel: 'Box', show: hasBoxForLeaders },
@@ -2079,13 +2088,14 @@ export default function Game() {
               ))}
             </div>
             {/* Quiet per-device default-tab preference, aligned to the tab bar.
-                Bumped from md: (768px) to lg: (1024px) — between those widths
-                the 8-9 tabs needed the full row to fit without horizontal
-                scroll, and squeezing the Default selector in next to them was
-                producing the "Photos tab cut off + faint scrollbar" cramped
+                Shown only at xl: (1280px+). Below that — especially with the
+                sidebar open, which leaves the content area well under the
+                breakpoint width — the 8-9 tabs need the full row to fit without
+                horizontal scroll, and squeezing the Default selector in next to
+                them produced the "Photos tab cut off + faint scrollbar" cramped
                 look. The selector is a power-user preference; hiding it on
                 narrower screens is the right trade. */}
-            <div className="hidden lg:flex items-center gap-1.5 pr-3 pl-2 text-[11px] text-txt-muted whitespace-nowrap">
+            <div className="hidden xl:flex items-center gap-1.5 pr-3 pl-2 text-[11px] text-txt-muted whitespace-nowrap">
               <label htmlFor="default-game-tab" className="tracking-wide uppercase">Default</label>
               <select
                 id="default-game-tab"

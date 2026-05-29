@@ -15,15 +15,46 @@ export const GROUP_POSITIONS = {
   P: ['P'],
 }
 
+// Finer position groups for the Team Future outlook — OL split into OT/OG/C,
+// the front into DT/EDGE, LBs into OLB/MIKE, DBs into CB/Safety. Kept separate
+// from the broad GROUP_POSITIONS (used by box scores + the depth-chart builder)
+// so those stay untouched. Generic/legacy codes fall back to a sub-group.
+const FINE_GROUP_POSITIONS = {
+  QB: ['QB'],
+  RB: ['HB', 'FB', 'RB'],
+  WR: ['WR'],
+  TE: ['TE'],
+  OT: ['LT', 'RT', 'OT'],
+  OG: ['LG', 'RG', 'OG', 'OL'],
+  C: ['C'],
+  DT: ['DT', 'NT', 'DL'],
+  EDGE: ['LEDG', 'REDG', 'EDGE', 'DE', 'LE', 'RE'],
+  OLB: ['SAM', 'WILL', 'OLB', 'LOLB', 'ROLB'],
+  MIKE: ['MIKE', 'MLB', 'ILB', 'LB'],
+  CB: ['CB', 'DB'],
+  Safety: ['FS', 'SS', 'S', 'SAF'],
+  K: ['K'],
+  P: ['P'],
+}
+const _posToFineGroup = {}
+for (const [group, positions] of Object.entries(FINE_GROUP_POSITIONS)) {
+  for (const p of positions) _posToFineGroup[p] = group
+}
+export function finePositionGroup(pos) {
+  if (!pos) return null
+  return _posToFineGroup[String(pos).toUpperCase()] || null
+}
+
 // Display names + which groups belong to each Team Future tab, in render order.
 export const GROUP_LABELS = {
   QB: 'Quarterbacks', RB: 'Running Backs', WR: 'Wide Receivers', TE: 'Tight Ends',
-  OL: 'Offensive Line', DL: 'Defensive Line', LB: 'Linebackers', DB: 'Defensive Backs',
-  K: 'Kicker', P: 'Punter',
+  OT: 'Offensive Tackle', OG: 'Offensive Guard', C: 'Center',
+  DT: 'Defensive Tackle', EDGE: 'Edge', OLB: 'Outside LB', MIKE: 'Middle LB',
+  CB: 'Cornerback', Safety: 'Safety', K: 'Kicker', P: 'Punter',
 }
 export const TAB_GROUPS = {
-  offense: ['QB', 'RB', 'WR', 'TE', 'OL'],
-  defense: ['DL', 'LB', 'DB'],
+  offense: ['QB', 'RB', 'WR', 'TE', 'OT', 'OG', 'C'],
+  defense: ['DT', 'EDGE', 'OLB', 'MIKE', 'CB', 'Safety'],
   st: ['K', 'P'],
 }
 
