@@ -205,8 +205,8 @@ function DepthCard({ slot, editable, leaveFlagList, onReorderWithin, onToggleLea
           boxShadow: validOver ? '0 0 0 2px #22d3ee, 0 8px 24px rgba(34,211,238,0.18)' : '0 2px 6px rgba(0,0,0,0.4)',
         }}
       >
-        {/* Starter — grabbable */}
-        {starterPid
+        {/* Starter — grabbable only when editable */}
+        {starterPid && editable
           ? <DraggablePlayer player={starter} slot={slot} label={label} flagged={flagged} />
           : <CardFace player={starter} label={label} flagged={flagged} />}
 
