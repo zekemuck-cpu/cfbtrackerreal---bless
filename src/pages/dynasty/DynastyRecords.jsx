@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { proxyImageUrl } from '../../utils/imageProxy'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -12,8 +13,9 @@ import {
   EmptyState,
   Tabs,
   Modal,
+  Select,
 } from '../../components/ui'
-import { computeSeasonAV } from '../../utils/approximateValue'
+import { computeSeasonAV, explainSeasonAV } from '../../utils/approximateValue'
 
 // Stat category definitions
 const STAT_CATEGORIES = {
@@ -23,7 +25,7 @@ const STAT_CATEGORIES = {
   // No talent ratings (player.overall) feed into this — purely from
   // box-score production. See src/utils/approximateValue.js.
   production: {
-    name: 'Production',
+    name: 'Approximate Value',
     minNote: 'Approximate Value — one cross-position production score (PFR-AV inspired). Higher = more total production. Top single-season around 15-22.',
     stats: [
       { key: 'av', label: 'Approximate Value', abbr: 'AV', calculated: true, format: 'av' },
@@ -178,6 +180,19 @@ export default function DynastyRecords() {
 
   const [mode, setMode] = useState(() => localStorage.getItem('leaderboard-mode') || 'career')
   const [activeCategory, setActiveCategory] = useState(() => resolveCategory(categoryParam))
+  // Season-mode year scope. null = follow the dynasty's current year (the
+  // leaderboard should open on the season you're playing, not all-time);
+  // 'all' = every season; a number = that specific season. Only applies in
+  // Season mode — Career is inherently all-time.
+  const [seasonYearChoice, setSeasonYearChoice] = useState(null)
+  // Default season scope depends on the tab: Approximate Value opens on the
+  // season you're playing (most useful for a live race), every other tab
+  // opens all-time. An explicit dropdown pick (seasonYearChoice) overrides.
+  const effectiveSeasonYear = seasonYearChoice ?? (
+    activeCategory === 'production' && currentDynasty?.currentYear != null
+      ? Number(currentDynasty.currentYear)
+      : 'all'
+  )
 
   // Keep state in sync with URL — covers back/forward navigation,
   // direct paste, and any external link to a specific tab.
@@ -195,9 +210,10 @@ export default function DynastyRecords() {
   // player-name substring while preserving each player's true rank in
   // the leaderboard. Reset on close.
   const [modalSearch, setModalSearch] = useState('')
-  // For the Production (AV) modal: which row is expanded to show its
-  // per-season breakdown. Key matches the modal row key (pid for career
-  // mode, `${pid}-${year}` for season mode). Null = nothing expanded.
+  // Approximate Value tab is rendered inline (no modal) as a full ranked
+  // list. `avSearch` filters it; `expandedRowKey` tracks which row is
+  // expanded to show the per-stat "how this AV was built" breakdown.
+  const [avSearch, setAvSearch] = useState('')
   const [expandedRowKey, setExpandedRowKey] = useState(null)
 
   // Get roster players
@@ -284,12 +300,18 @@ export default function DynastyRecords() {
       })
     })
 
-    if (allPlayerStats.length === 0) return {}
+    // Season mode can be scoped to one year (default: the current season).
+    // Career mode and the "All-Time" choice use every season.
+    const scopedStats = (mode === 'season' && effectiveSeasonYear !== 'all')
+      ? allPlayerStats.filter(ps => ps.year === effectiveSeasonYear)
+      : allPlayerStats
+
+    if (scopedStats.length === 0) return {}
 
     const aggregateStats = (category) => {
       const playerTotals = {}
 
-      allPlayerStats.forEach(ps => {
+      scopedStats.forEach(ps => {
         const catStats = ps[category]
         if (!catStats) return
 
@@ -336,7 +358,7 @@ export default function DynastyRecords() {
     const calcAllPurposeStats = () => {
       const playerTotals = {}
 
-      allPlayerStats.forEach(ps => {
+      scopedStats.forEach(ps => {
         const playerKey = mode === 'career' ? ps.pid : `${ps.pid}-${ps.year}`
 
         if (!playerTotals[playerKey]) {
@@ -388,7 +410,7 @@ export default function DynastyRecords() {
         playerById[p.pid] = p
       })
 
-      allPlayerStats.forEach(ps => {
+      scopedStats.forEach(ps => {
         const player = playerById[ps.pid]
         if (!player) return
         const positionForYear = player.positionByYear?.[ps.year]
@@ -660,10 +682,27 @@ export default function DynastyRecords() {
     })
 
     return result
-  }, [currentDynasty, mode])
+  }, [currentDynasty, mode, effectiveSeasonYear])
+
+  // Distinct seasons that have any player stats — drives the Season-mode
+  // year dropdown (newest first, with an "All-Time" option).
+  const availableSeasonYears = useMemo(() => {
+    const years = new Set()
+    for (const p of (currentDynasty?.players || [])) {
+      if (p?.isHonorOnly) continue
+      for (const y of Object.keys(p.statsByYear || {})) {
+        const n = parseInt(y)
+        if (Number.isFinite(n)) years.add(n)
+      }
+    }
+    return Array.from(years).sort((a, b) => b - a)
+  }, [currentDynasty?.players])
 
   const handleCategoryChange = (catKey) => {
     setActiveCategory(catKey)
+    // Reset the season scope so each tab opens on its own default
+    // (Approximate Value → current season, others → all-time).
+    setSeasonYearChoice(null)
     localStorage.setItem('leaderboard-category', catKey)
     // Push the new category into the URL so the tab is bookmarkable
     // / shareable and the back button does the right thing.
@@ -701,16 +740,33 @@ export default function DynastyRecords() {
   const hasData = Object.values(catLeaderboards).some(lb => lb && lb.length > 0)
 
   const modeTabs = (
-    <Tabs
-      variant="pill"
-      value={mode}
-      onChange={handleModeChange}
-      options={[
-        { value: 'career', label: 'Career' },
-        { value: 'season', label: 'Season' },
-      ]}
-    />
+    <div className="flex items-center gap-2 flex-wrap">
+      <Tabs
+        variant="pill"
+        value={mode}
+        onChange={handleModeChange}
+        options={[
+          { value: 'career', label: 'Career' },
+          { value: 'season', label: 'Season' },
+        ]}
+      />
+      {mode === 'season' && (
+        <Select
+          size="sm"
+          value={effectiveSeasonYear === 'all' ? 'all' : String(effectiveSeasonYear)}
+          onChange={(e) => setSeasonYearChoice(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+          aria-label="Season"
+        >
+          {availableSeasonYears.map(y => (
+            <option key={y} value={String(y)}>{y}</option>
+          ))}
+          <option value="all">All-Time</option>
+        </Select>
+      )}
+    </div>
   )
+
+  const seasonScopeLabel = effectiveSeasonYear === 'all' ? 'all-time' : effectiveSeasonYear
 
   return (
     <div className="space-y-6">
@@ -718,7 +774,7 @@ export default function DynastyRecords() {
         eyebrow="Records"
         title="Dynasty Records"
         meta={
-          <span>{mode === 'career' ? 'All-time career leaders' : 'Single season records'}</span>
+          <span>{mode === 'career' ? 'All-time career leaders' : `${seasonScopeLabel} single-season leaders`}</span>
         }
         actions={modeTabs}
       />
@@ -755,25 +811,28 @@ export default function DynastyRecords() {
         </div>
       </div>
 
-      {/* Category Header — editorial banner */}
-      <div className="flex items-end justify-between gap-4 border-b pb-3" style={{ borderColor: 'var(--surface-4)' }}>
-        <div>
-          <div className="text-[10px] font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '2.5px' }}>
-            {mode === 'career' ? 'Career' : 'Single Season'}
+      {/* Category Header — editorial banner. Hidden on the Approximate
+          Value tab, which carries its own title/notes inline. */}
+      {activeCategory !== 'production' && (
+        <div className="flex items-end justify-between gap-4 border-b pb-3" style={{ borderColor: 'var(--surface-4)' }}>
+          <div>
+            <div className="text-[10px] font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '2.5px' }}>
+              {mode === 'career' ? 'Career' : 'Single Season'}
+            </div>
+            <h2
+              className="font-black leading-none mt-1"
+              style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(2rem, 4vw, 2.75rem)', letterSpacing: '1px' }}
+            >
+              {category.name} Leaders
+            </h2>
           </div>
-          <h2
-            className="font-black leading-none mt-1"
-            style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(2rem, 4vw, 2.75rem)', letterSpacing: '1px' }}
-          >
-            {category.name} Leaders
-          </h2>
+          {category.minNote && (
+            <p className="text-[11px] text-txt-tertiary shrink-0 hidden sm:block" style={{ letterSpacing: '0.5px' }}>
+              {category.minNote}
+            </p>
+          )}
         </div>
-        {category.minNote && (
-          <p className="text-[11px] text-txt-tertiary shrink-0 hidden sm:block" style={{ letterSpacing: '0.5px' }}>
-            {category.minNote}
-          </p>
-        )}
-      </div>
+      )}
 
       {/* Stats Grid */}
       {!hasData ? (
@@ -783,6 +842,134 @@ export default function DynastyRecords() {
             message="Play some games to start tracking records."
           />
         </Card>
+      ) : activeCategory === 'production' ? (
+        (() => {
+          // Approximate Value has a single stat, so the whole ranked list
+          // lives inline (no card + modal). Each row expands to the genuine
+          // per-stat breakdown that built the number.
+          const avEntries = catLeaderboards.av || []
+          const q = avSearch.trim().toLowerCase()
+          const ranked = avEntries.map((entry, i) => ({ entry, rank: i + 1 }))
+          const filtered = q
+            ? ranked.filter(({ entry }) =>
+                (entry.name || '').toLowerCase().includes(q)
+                || (entry.position || '').toLowerCase().includes(q)
+                || (entry.teamAbbr || '').toLowerCase().includes(q))
+            : ranked
+          const playerById = Object.fromEntries((currentDynasty?.players || []).map(p => [p.pid, p]))
+          const buildBreakdown = (entry) => {
+            const player = playerById[entry.pid]
+            if (!player) return []
+            const seasons = mode === 'career' ? [...(entry.years || [])].sort((a, b) => a - b) : [entry.year]
+            return seasons.map(yr => {
+              const ys = player.statsByYear?.[yr] || player.statsByYear?.[String(yr)]
+              if (!ys) return null
+              const positionForYear = player.positionByYear?.[yr] || player.positionByYear?.[String(yr)] || player.position
+              const { total, items } = explainSeasonAV(ys, positionForYear)
+              return { year: yr, position: positionForYear, total, items }
+            }).filter(Boolean)
+          }
+          const avRankColor = (rank) =>
+            rank === 1 ? 'var(--accent-warning)'
+            : rank === 2 ? 'rgba(192, 192, 192, 0.95)'
+            : rank === 3 ? 'rgba(205, 127, 50, 0.95)'
+            : rank <= 10 ? 'var(--text-primary)' : 'var(--text-tertiary)'
+          return (
+            <div className="media-card records-card overflow-hidden">
+              <div className="p-3" style={{ borderBottom: '1px solid var(--surface-4)' }}>
+                <input
+                  type="text"
+                  value={avSearch}
+                  onChange={(e) => setAvSearch(e.target.value)}
+                  placeholder={`Search ${avEntries.length} players by name, position, team…`}
+                  className="w-full bg-surface-2 text-txt-primary text-sm rounded-md px-3 py-2 outline-none"
+                  style={{ border: '1px solid var(--surface-4)' }}
+                />
+              </div>
+              {filtered.length === 0 ? (
+                <p className="text-sm text-txt-tertiary text-center py-10">No players match "{avSearch}".</p>
+              ) : (
+                <div>
+                  {filtered.map(({ entry, rank }, displayIdx) => {
+                    const rowKey = mode === 'career' ? entry.pid : `${entry.pid}-${entry.year}`
+                    const isExpanded = expandedRowKey === rowKey
+                    const isFirst = rank === 1
+                    const isTop3 = rank <= 3
+                    const breakdown = isExpanded ? buildBreakdown(entry) : null
+                    return (
+                      <div key={rowKey}>
+                        <div
+                          className="relative flex items-center gap-3 cursor-pointer transition-colors"
+                          style={{
+                            padding: isFirst ? '14px 20px 14px 23px' : (isTop3 ? '10px 20px' : '8px 20px'),
+                            borderTop: displayIdx > 0 ? '1px solid var(--surface-4)' : 'none',
+                            background: isFirst ? 'linear-gradient(90deg, rgba(234,179,8,0.10) 0%, var(--surface-2) 70%)' : 'transparent',
+                          }}
+                          onClick={() => setExpandedRowKey(isExpanded ? null : rowKey)}
+                        >
+                          {isFirst && <span aria-hidden="true" className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ backgroundColor: 'var(--accent-warning)' }} />}
+                          <div className="text-right tabular flex-shrink-0" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isFirst ? '1.5rem' : isTop3 ? '1.2rem' : '0.95rem', fontWeight: isFirst ? 900 : isTop3 ? 800 : 600, letterSpacing: '0.5px', lineHeight: 1, width: '2.25rem', color: avRankColor(rank) }}>{rank}</div>
+                          {entry.pictureUrl ? (
+                            <img src={proxyImageUrl(entry.pictureUrl, 300)} alt="" className={`${isFirst ? 'w-10 h-10' : 'w-8 h-8'} rounded-full object-cover flex-shrink-0`} style={{ border: isFirst ? '1.5px solid var(--accent-warning)' : '1px solid var(--surface-4)' }} />
+                          ) : entry.teamLogo ? (
+                            <img src={entry.teamLogo} alt="" className={`${isFirst ? 'w-9 h-9' : 'w-7 h-7'} object-contain flex-shrink-0`} />
+                          ) : (
+                            <div className={`${isFirst ? 'w-10 h-10' : 'w-8 h-8'} rounded-full bg-surface-4 flex-shrink-0`} />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <Link to={`${pathPrefix}/player/${entry.pid}`} onClick={(e) => e.stopPropagation()} className={`${isFirst ? 'text-[15px]' : 'text-sm'} font-semibold text-txt-primary hover:underline truncate block`}>{entry.name}</Link>
+                            <p className="text-[11px] text-txt-tertiary truncate">{entry.position && `${entry.position} `}{mode === 'career' ? formatYears(entry.years) : entry.year}</p>
+                          </div>
+                          <div className="tabular flex-shrink-0 text-right text-txt-primary" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isFirst ? '1.85rem' : isTop3 ? '1.35rem' : '1.05rem', fontWeight: isFirst ? 900 : isTop3 ? 800 : 700, letterSpacing: '0.5px', lineHeight: 1, opacity: isFirst ? 1 : isTop3 ? 0.92 : 0.82 }}>{entry.value.toFixed(1)}</div>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0" style={{ color: isExpanded ? 'var(--text-primary)' : 'var(--text-tertiary)', transition: 'transform 150ms ease', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}><polyline points="6 9 12 15 18 9" /></svg>
+                        </div>
+                        {isExpanded && breakdown && (
+                          <div className="px-5 py-4" style={{ backgroundColor: 'var(--surface-1)', borderTop: '1px solid var(--surface-4)' }}>
+                            {breakdown.length === 0 ? (
+                              <p className="text-[12px] text-txt-tertiary">No per-season stats found.</p>
+                            ) : (
+                              <div className="space-y-3">
+                                {breakdown.map(row => (
+                                  <div key={row.year} className="rounded px-3 py-2.5" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
+                                    <div className="flex items-baseline justify-between gap-3 mb-2">
+                                      <div className="flex items-baseline gap-2 min-w-0">
+                                        <span className="tabular" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1rem', fontWeight: 800, letterSpacing: '0.5px', color: 'var(--text-primary)' }}>{row.year}</span>
+                                        <span className="text-[11px] text-txt-tertiary tabular">{row.position || '—'}</span>
+                                      </div>
+                                      <span className="tabular" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1rem', fontWeight: 800, letterSpacing: '0.5px', color: 'var(--text-primary)' }}>{row.total.toFixed(1)} AV</span>
+                                    </div>
+                                    {row.items.length > 0 ? (
+                                      <div className="space-y-1">
+                                        {row.items.map((it, ii) => (
+                                          <div key={ii} className="flex items-baseline justify-between gap-3 text-[12px]">
+                                            <span className="text-txt-secondary min-w-0 truncate">{it.label} <span className="text-txt-tertiary">({it.detail})</span></span>
+                                            <span className="tabular flex-shrink-0 font-semibold" style={{ color: it.value < 0 ? 'var(--accent-error)' : 'var(--text-primary)' }}>{it.value >= 0 ? '+' : ''}{it.value.toFixed(1)}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span className="text-[11px] text-txt-tertiary">No qualifying stats this season.</span>
+                                    )}
+                                  </div>
+                                ))}
+                                {mode === 'career' && breakdown.length > 1 && (
+                                  <div className="flex items-baseline justify-between pt-2" style={{ borderTop: '1px dashed var(--surface-4)' }}>
+                                    <span className="text-[10px] uppercase font-bold text-txt-tertiary tabular" style={{ letterSpacing: '2px' }}>Career total</span>
+                                    <span className="tabular" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.1rem', fontWeight: 900, color: 'var(--text-primary)' }}>{entry.value.toFixed(1)} AV</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })()
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 stagger-reveal">
           {category.stats.map(stat => {
@@ -860,7 +1047,7 @@ export default function DynastyRecords() {
 
                           {entry.pictureUrl ? (
                             <img
-                              src={entry.pictureUrl}
+                              src={proxyImageUrl(entry.pictureUrl, 300)}
                               alt=""
                               className={`${isFirst ? 'w-11 h-11' : 'w-8 h-8'} rounded-full object-cover flex-shrink-0 transition-all`}
                               style={{ border: '1px solid var(--surface-4)' }}
@@ -1184,7 +1371,7 @@ export default function DynastyRecords() {
 
                             {entry.pictureUrl ? (
                               <img
-                                src={entry.pictureUrl}
+                                src={proxyImageUrl(entry.pictureUrl, 300)}
                                 alt=""
                                 className={`${isFirst ? 'w-10 h-10' : 'w-8 h-8'} rounded-full object-cover flex-shrink-0`}
                                 style={{

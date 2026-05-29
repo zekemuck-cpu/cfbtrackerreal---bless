@@ -1,4 +1,6 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo, useCallback } from 'react'
+import { proxyImageUrl } from '../../utils/imageProxy'
+import { createPortal } from 'react-dom'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, getEncourageTransfers, getRecruitingCommitments, getPlayerClassForYear } from '../../context/DynastyContext'
 import CardComposer from '../../components/CardComposer'
@@ -22,6 +24,7 @@ import { canonicalBoxScore } from '../../utils/boxScoreHelpers'
 import { sortPlaysChronologically } from '../../utils/scoringPlayOrder'
 import { healPlayer, PLAYER_HEAL_VERSION, normalizeAwardName } from '../../utils/playerHeal'
 import { buildTimelineEvents, eventsForYear, labelForEventKind } from '../../utils/playerTimeline'
+import { computeSeasonAV } from '../../utils/approximateValue'
 
 // Load premium fonts
 const FONT_LINK = document.createElement('link')
@@ -696,10 +699,16 @@ function PlayerInner() {
       const playerClass = getPlayerClassForYear(player, year)
       // Use teamsByYear as source of truth for which team the player was on this year
       const yearTeam = player?.teamsByYear?.[year] || player?.teamsByYear?.[yearStr] || null
+      // Whole-season Approximate Value — cross-category production score
+      // computed from the raw statsByYear shape (computeSeasonAV expects
+      // `defense`/`blocking`/etc. keys, which ownYearStats already has).
+      const positionForYear = player?.positionByYear?.[year] || player?.positionByYear?.[yearStr] || player?.position
+      const seasonAv = computeSeasonAV(ownYearStats, positionForYear)
       years.push({
         year,
         team: yearTeam,
         class: playerClass,
+        av: seasonAv,
         // Coerce to a number even if the stored value is malformed
         // (e.g. an empty object `{}` from a partial migration). `||`
         // alone would let a truthy non-number through and crash the
@@ -921,6 +930,43 @@ function PlayerInner() {
     return Math.floor(Math.random() * allPlayerScoringPlays.length)
   }, [allPlayerScoringPlays?.length])
 
+  // Photos this player is tagged in — gathered across every game's
+  // photoTags map ({ [url]: [pid] }). Drives the conditional Photos tab.
+  const taggedPhotos = useMemo(() => {
+    const pid = player?.pid
+    if (pid == null) return []
+    const games = dynasty?.games
+    if (!Array.isArray(games)) return []
+    const out = []
+    for (const g of games) {
+      const tags = g?.photoTags
+      if (!tags || typeof tags !== 'object') continue
+      // Uploaded photos plus the AI score graphic — both are taggable.
+      const urls = [
+        ...(Array.isArray(g.photos) ? g.photos : []),
+        ...(g.scoreGraphic ? [g.scoreGraphic] : []),
+      ]
+      for (const url of urls) {
+        const pids = tags[url]
+        if (Array.isArray(pids) && pids.some(p => String(p) === String(pid))) {
+          out.push({ url, gameId: g.id, year: g.year, week: g.week })
+        }
+      }
+    }
+    // Newest first: year desc, then week desc.
+    out.sort((a, b) => {
+      const yA = Number(a.year) || 0
+      const yB = Number(b.year) || 0
+      if (yB !== yA) return yB - yA
+      const wA = Number(a.week)
+      const wB = Number(b.week)
+      return (Number.isFinite(wB) ? wB : -1) - (Number.isFinite(wA) ? wA : -1)
+    })
+    return out
+  }, [player?.pid, dynasty?.games])
+
+  const [photoTabLightboxIdx, setPhotoTabLightboxIdx] = useState(null)
+
   // Default tab: overview if any games are entered, otherwise stats if any
   // stats exist, otherwise timeline. Explicit ?tab= in the URL overrides.
   const defaultTab = (() => {
@@ -1119,6 +1165,9 @@ function PlayerInner() {
   // Total games and snaps
   const careerGames = yearByYearStats.reduce((sum, y) => sum + (y.gamesPlayed || 0), 0)
   const careerSnaps = yearByYearStats.reduce((sum, y) => sum + (y.snapsPlayed || 0), 0)
+  // Career AV = sum of every season's whole-season AV (cross-category),
+  // so it reads the same in every category table's footer.
+  const careerAV = Math.round(yearByYearStats.reduce((sum, y) => sum + (y.av || 0), 0) * 10) / 10
 
   // Get game log for the expanded year
   // Helper to toggle game log - now tracks both year AND stat type
@@ -1628,7 +1677,7 @@ function PlayerInner() {
         <div className="p-4 flex items-center gap-3">
           {player.pictureUrl && (
             <img
-              src={player.pictureUrl}
+              src={proxyImageUrl(player.pictureUrl, 300)}
               alt={player.name}
               className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
               style={{ border: `2px solid ${teamInfo.backgroundColor}` }}
@@ -1880,7 +1929,7 @@ function PlayerInner() {
           <div className="flex items-start gap-4 flex-1">
             {player.pictureUrl && (
               <img
-                src={player.pictureUrl}
+                src={proxyImageUrl(player.pictureUrl, 300)}
                 alt={player.name}
                 className="w-28 h-28 object-cover rounded-lg flex-shrink-0"
                 style={{ border: `2px solid ${teamInfo.backgroundColor}` }}
@@ -2209,6 +2258,9 @@ function PlayerInner() {
           // for this player. Pulls from player.cards[] with a fallback
           // to the legacy single-card fields.
           ...(getPlayerCards(player).length > 0 ? [{ key: 'card', label: 'Cards' }] : []),
+          // The Photos tab appears once the player is tagged in at least
+          // one game photo (game editor → Photos → tag players).
+          ...(taggedPhotos.length > 0 ? [{ key: 'photos', label: 'Photos' }] : []),
         ].map(tab => {
           const isActive = activeTab === tab.key
           return (
@@ -2426,7 +2478,7 @@ function PlayerInner() {
                         { k: 'td', label: 'TD', get: y => y.rushing?.td ?? 0 },
                         { k: 'lng', label: 'LNG', get: y => y.rushing?.lng ?? 0 },
                       ],
-                      totalRow: [totals.rushing.car, totals.rushing.yds.toLocaleString(), totals.rushing.car ? (totals.rushing.yds / totals.rushing.car).toFixed(1) : '-', totals.rushing.td, '-']
+                      totalRow: [totals.rushing.car, totals.rushing.yds.toLocaleString(), totals.rushing.car ? (totals.rushing.yds / totals.rushing.car).toFixed(1) : '-', totals.rushing.td, careerRushing?.lng ?? '-']
                     },
                     { key: 'receiving', label: 'Receiving', has: totals.hasReceiving,
                       columns: [
@@ -2436,7 +2488,7 @@ function PlayerInner() {
                         { k: 'td', label: 'TD', get: y => y.receiving?.td ?? 0 },
                         { k: 'lng', label: 'LNG', get: y => y.receiving?.lng ?? 0 },
                       ],
-                      totalRow: [totals.receiving.rec, totals.receiving.yds.toLocaleString(), totals.receiving.rec ? (totals.receiving.yds / totals.receiving.rec).toFixed(1) : '-', totals.receiving.td, '-']
+                      totalRow: [totals.receiving.rec, totals.receiving.yds.toLocaleString(), totals.receiving.rec ? (totals.receiving.yds / totals.receiving.rec).toFixed(1) : '-', totals.receiving.td, careerReceiving?.lng ?? '-']
                     },
                     { key: 'defense', label: 'Defense', has: totals.hasDefense,
                       columns: [
@@ -2458,7 +2510,7 @@ function PlayerInner() {
                         { k: 'xpa', label: 'XPA', get: y => y.kicking?.xpa ?? 0 },
                         { k: 'lng', label: 'LNG', get: y => y.kicking?.lng ?? 0 },
                       ],
-                      totalRow: [totals.kicking.fgm, totals.kicking.fga, totals.kicking.fga ? ((totals.kicking.fgm / totals.kicking.fga) * 100).toFixed(1) : '-', totals.kicking.xpm, totals.kicking.xpa, '-']
+                      totalRow: [totals.kicking.fgm, totals.kicking.fga, totals.kicking.fga ? ((totals.kicking.fgm / totals.kicking.fga) * 100).toFixed(1) : '-', totals.kicking.xpm, totals.kicking.xpa, careerKicking?.lng ?? '-']
                     },
                     { key: 'blocking', label: 'Blocking', has: totals.hasBlocking,
                       columns: [
@@ -2539,8 +2591,13 @@ function PlayerInner() {
                   // matches the displayed rows.
                   const gpTotal = rowsForCategory.reduce((s, y) => s + (y.gamesPlayed || 0), 0)
                   const gpColumn = { k: 'gp', label: 'GP', get: y => y.gamesPlayed || 0 }
-                  const displayColumns = [gpColumn, ...active.columns]
-                  const displayTotalRow = [gpTotal, ...active.totalRow]
+                  // AV (whole-season production) sits right after GP. Like the GP
+                  // total, its Career figure sums only the seasons shown for this
+                  // category so it matches the visible rows.
+                  const avTotal = rowsForCategory.reduce((s, y) => s + (y.av || 0), 0).toFixed(1)
+                  const avColumn = { k: 'av', label: 'AV', get: y => y.av ?? 0, format: v => (v ?? 0).toFixed(1) }
+                  const displayColumns = [gpColumn, avColumn, ...active.columns]
+                  const displayTotalRow = [gpTotal, avTotal, ...active.totalRow]
 
                   return (
                     <>
@@ -3768,7 +3825,7 @@ function PlayerInner() {
 
                 // Sort by selected column
                 const passingYears = sortStatYears(passingYearsUnsorted, 'passing', (y, col) => {
-                  const statMap = { cmp: y.passing?.cmp, att: y.passing?.att, yds: y.passing?.yds, td: y.passing?.td, int: y.passing?.int, lng: y.passing?.lng, sck: y.passing?.sacks }
+                  const statMap = { cmp: y.passing?.cmp, att: y.passing?.att, yds: y.passing?.yds, td: y.passing?.td, int: y.passing?.int, lng: y.passing?.lng, sck: y.passing?.sacks, av: y.av }
                   if (col === 'pct') return y.passing?.att ? (y.passing.cmp / y.passing.att) * 100 : 0
                   if (col === 'ypa') return y.passing?.att ? y.passing.yds / y.passing.att : 0
                   if (col === 'tdPct') return y.passing?.att ? (y.passing.td / y.passing.att) * 100 : 0
@@ -3786,6 +3843,7 @@ function PlayerInner() {
                           {renderSortableHeader('passing', 'class', 'Class', 'left', colWidths.class)}
                           <th className={`px-1.5 py-2.5 text-xs font-semibold uppercase text-center ${colWidths.team}`} style={{ color: secondaryText, opacity: 0.8 }}>Team</th>
                           {primaryStat === 'passing' && renderSortableHeader('passing', 'gamesPlayed', 'G', 'right', colWidths.statNarrow)}
+                          {renderSortableHeader('passing', 'av', 'AV', 'right', colWidths.statNarrow)}
                           {renderSortableHeader('passing', 'att', 'Cmp/Att', 'right', 'w-[88px]')}
                           {renderSortableHeader('passing', 'pct', 'Pct', 'right', colWidths.statPct)}
                           {renderSortableHeader('passing', 'yds', 'Yds', 'right', colWidths.statMedium)}
@@ -3805,7 +3863,7 @@ function PlayerInner() {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
                           const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
-                          const colSpan = 14 + (primaryStat === 'passing' ? 1 : 0) + (showSnapsCol ? 1 : 0)
+                          const colSpan = 15 + (primaryStat === 'passing' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
                               <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: isGameLogExpanded(y.year, 'passing') ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? 'var(--surface-2)' : 'var(--surface-1)', borderBottom: `1px solid ${teamInfo.backgroundColor}25` }}>
@@ -3825,6 +3883,7 @@ function PlayerInner() {
                                   </Link>
                                 </td>
                                 {primaryStat === 'passing' && <td className="px-1.5 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.gamesPlayed}</td>}
+                                <td className="px-1.5 py-2 text-right tabular-nums font-semibold" style={{ color: 'var(--text-primary)' }}>{y.av != null ? y.av.toFixed(1) : '-'}</td>
                                 <td className="px-1.5 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.passing.cmp}/{y.passing.att}</td>
                                 <td className="px-1.5 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{calcPct(y.passing.cmp, y.passing.att)}</td>
                                 <td className="px-1.5 py-2 text-right tabular-nums font-semibold" style={{ color: 'var(--text-primary)' }}>{y.passing.yds.toLocaleString()}</td>
@@ -3849,6 +3908,7 @@ function PlayerInner() {
                           <td className="px-1.5 py-2"></td>
                           <td className="px-1.5 py-2"></td>
                           {primaryStat === 'passing' && <td className="px-1.5 py-2 text-right tabular-nums font-semibold" style={{ color: primaryText }}>{careerGames}</td>}
+                          <td className="px-1.5 py-2 text-right tabular-nums font-bold" style={{ color: primaryText }}>{careerAV.toFixed(1)}</td>
                           <td className="px-1.5 py-2 text-right tabular-nums font-semibold" style={{ color: primaryText }}>{careerPassing.cmp.toLocaleString()}/{careerPassing.att.toLocaleString()}</td>
                           <td className="px-1.5 py-2 text-right tabular-nums" style={{ color: primaryText }}>{calcPct(careerPassing.cmp, careerPassing.att)}</td>
                           <td className="px-1.5 py-2 text-right tabular-nums font-bold" style={{ color: primaryText }}>{careerPassing.yds.toLocaleString()}</td>
@@ -3883,7 +3943,7 @@ function PlayerInner() {
 
                 // Sort by selected column
                 const rushingYears = sortStatYears(rushingYearsUnsorted, 'rushing', (y, col) => {
-                  const statMap = { car: y.rushing?.car, yds: y.rushing?.yds, td: y.rushing?.td, lng: y.rushing?.lng, fum: y.rushing?.fum, bt: y.rushing?.bt, yac: y.rushing?.yac, twentyPlus: y.rushing?.twentyPlus }
+                  const statMap = { car: y.rushing?.car, yds: y.rushing?.yds, td: y.rushing?.td, lng: y.rushing?.lng, fum: y.rushing?.fum, bt: y.rushing?.bt, yac: y.rushing?.yac, twentyPlus: y.rushing?.twentyPlus, av: y.av }
                   if (col === 'ypc') return y.rushing?.car ? y.rushing.yds / y.rushing.car : 0
                   if (col === 'ypg') return y.gamesPlayed ? y.rushing?.yds / y.gamesPlayed : 0
                   return statMap[col] ?? 0
@@ -3898,6 +3958,7 @@ function PlayerInner() {
                           {renderSortableHeader('rushing', 'class', 'Class', 'left', colWidths.class)}
                           <th className={`px-1.5 py-2.5 text-xs font-semibold uppercase text-center ${colWidths.team}`} style={{ color: secondaryText, opacity: 0.8 }}>Team</th>
                           {primaryStat === 'rushing' && renderSortableHeader('rushing', 'gamesPlayed', 'G', 'right', colWidths.statNarrow)}
+                          {renderSortableHeader('rushing', 'av', 'AV', 'right', colWidths.statNarrow)}
                           {renderSortableHeader('rushing', 'car', 'Car', 'right', colWidths.statMedium)}
                           {renderSortableHeader('rushing', 'yds', 'Yds', 'right', colWidths.statMedium)}
                           {renderSortableHeader('rushing', 'ypc', 'AVG', 'right', colWidths.statPct)}
@@ -3916,7 +3977,7 @@ function PlayerInner() {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
                           const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
-                          const colSpan = 13 + (primaryStat === 'rushing' ? 1 : 0) + (showSnapsCol ? 1 : 0)
+                          const colSpan = 14 + (primaryStat === 'rushing' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
                               <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: isGameLogExpanded(y.year, 'rushing') ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? 'var(--surface-2)' : 'var(--surface-1)', borderBottom: `1px solid ${teamInfo.backgroundColor}25` }}>
@@ -3936,6 +3997,7 @@ function PlayerInner() {
                                   </Link>
                                 </td>
                                 {primaryStat === 'rushing' && <td className="px-1.5 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.gamesPlayed}</td>}
+                                <td className="px-1.5 py-2 text-right tabular-nums font-semibold" style={{ color: 'var(--text-primary)' }}>{y.av != null ? y.av.toFixed(1) : '-'}</td>
                                 <td className="px-1.5 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.rushing.car}</td>
                                 <td className="px-1.5 py-2 text-right tabular-nums font-semibold" style={{ color: 'var(--text-primary)' }}>{y.rushing.yds.toLocaleString()}</td>
                                 <td className="px-1.5 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{calcAvg(y.rushing.yds, y.rushing.car)}</td>
@@ -3959,6 +4021,7 @@ function PlayerInner() {
                           <td className="px-1.5 py-2"></td>
                           <td className="px-1.5 py-2"></td>
                           {primaryStat === 'rushing' && <td className="px-1.5 py-2 text-right tabular-nums font-semibold" style={{ color: primaryText }}>{careerGames}</td>}
+                          <td className="px-1.5 py-2 text-right tabular-nums font-bold" style={{ color: primaryText }}>{careerAV.toFixed(1)}</td>
                           <td className="px-1.5 py-2 text-right tabular-nums font-semibold" style={{ color: primaryText }}>{careerRushing.car.toLocaleString()}</td>
                           <td className="px-1.5 py-2 text-right tabular-nums font-bold" style={{ color: primaryText }}>{careerRushing.yds.toLocaleString()}</td>
                           <td className="px-1.5 py-2 text-right tabular-nums" style={{ color: primaryText }}>{calcAvg(careerRushing.yds, careerRushing.car)}</td>
@@ -3993,7 +4056,7 @@ function PlayerInner() {
 
                 // Sort by selected column
                 const receivingYears = sortStatYears(receivingYearsUnsorted, 'receiving', (y, col) => {
-                  const statMap = { rec: y.receiving?.rec, yds: y.receiving?.yds, td: y.receiving?.td, lng: y.receiving?.lng, drops: y.receiving?.drops, rac: y.receiving?.rac }
+                  const statMap = { rec: y.receiving?.rec, yds: y.receiving?.yds, td: y.receiving?.td, lng: y.receiving?.lng, drops: y.receiving?.drops, rac: y.receiving?.rac, av: y.av }
                   if (col === 'ypr') return y.receiving?.rec ? y.receiving.yds / y.receiving.rec : 0
                   if (col === 'ypg') return y.gamesPlayed ? y.receiving?.yds / y.gamesPlayed : 0
                   return statMap[col] ?? 0
@@ -4008,6 +4071,7 @@ function PlayerInner() {
                           {renderSortableHeader('receiving', 'class', 'Class', 'left', colWidths.class)}
                           <th className={`px-1.5 py-2.5 text-xs font-semibold uppercase text-center ${colWidths.team}`} style={{ color: secondaryText, opacity: 0.8 }}>Team</th>
                           {primaryStat === 'receiving' && renderSortableHeader('receiving', 'gamesPlayed', 'G', 'right', colWidths.statNarrow)}
+                          {renderSortableHeader('receiving', 'av', 'AV', 'right', colWidths.statNarrow)}
                           {renderSortableHeader('receiving', 'rec', 'Rec', 'right', colWidths.statMedium)}
                           {renderSortableHeader('receiving', 'yds', 'Yds', 'right', colWidths.statMedium)}
                           {renderSortableHeader('receiving', 'ypr', 'AVG', 'right', colWidths.statPct)}
@@ -4024,7 +4088,7 @@ function PlayerInner() {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
                           const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
-                          const colSpan = 11 + (primaryStat === 'receiving' ? 1 : 0) + (showSnapsCol ? 1 : 0)
+                          const colSpan = 12 + (primaryStat === 'receiving' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
                               <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: isGameLogExpanded(y.year, 'receiving') ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? 'var(--surface-2)' : 'var(--surface-1)', borderBottom: `1px solid ${teamInfo.backgroundColor}25` }}>
@@ -4044,6 +4108,7 @@ function PlayerInner() {
                                   </Link>
                                 </td>
                                 {primaryStat === 'receiving' && <td className="px-1.5 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.gamesPlayed}</td>}
+                                <td className="px-1.5 py-2 text-right tabular-nums font-semibold" style={{ color: 'var(--text-primary)' }}>{y.av != null ? y.av.toFixed(1) : '-'}</td>
                                 <td className="px-1.5 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.receiving.rec}</td>
                                 <td className="px-1.5 py-2 text-right tabular-nums font-semibold" style={{ color: 'var(--text-primary)' }}>{y.receiving.yds.toLocaleString()}</td>
                                 <td className="px-1.5 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{calcAvg(y.receiving.yds, y.receiving.rec)}</td>
@@ -4065,6 +4130,7 @@ function PlayerInner() {
                           <td className="px-1.5 py-2"></td>
                           <td className="px-1.5 py-2"></td>
                           {primaryStat === 'receiving' && <td className="px-1.5 py-2 text-right tabular-nums font-semibold" style={{ color: primaryText }}>{careerGames}</td>}
+                          <td className="px-1.5 py-2 text-right tabular-nums font-bold" style={{ color: primaryText }}>{careerAV.toFixed(1)}</td>
                           <td className="px-1.5 py-2 text-right tabular-nums font-semibold" style={{ color: primaryText }}>{careerReceiving.rec.toLocaleString()}</td>
                           <td className="px-1.5 py-2 text-right tabular-nums font-bold" style={{ color: primaryText }}>{careerReceiving.yds.toLocaleString()}</td>
                           <td className="px-1.5 py-2 text-right tabular-nums" style={{ color: primaryText }}>{calcAvg(careerReceiving.yds, careerReceiving.rec)}</td>
@@ -4096,7 +4162,7 @@ function PlayerInner() {
 
                 // Sort by selected column
                 const blockingYears = sortStatYears(blockingYearsUnsorted, 'blocking', (y, col) => {
-                  const statMap = { sacksAllowed: y.blocking?.sacksAllowed }
+                  const statMap = { sacksAllowed: y.blocking?.sacksAllowed, av: y.av }
                   return statMap[col] ?? 0
                 })
 
@@ -4109,6 +4175,7 @@ function PlayerInner() {
                           {renderSortableHeader('blocking', 'class', 'Class', 'left', 'w-16')}
                           <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: secondaryText, opacity: 0.8 }}>Team</th>
                           {primaryStat === 'blocking' && renderSortableHeader('blocking', 'gamesPlayed', 'G', 'right')}
+                          {renderSortableHeader('blocking', 'av', 'AV', 'right')}
                           {renderSortableHeader('blocking', 'sacksAllowed', 'Sacks Allowed', 'right')}
                           {showSnapsCol && renderSortableHeader('blocking', 'snapsPlayed', 'Snaps', 'right')}
                         </tr>
@@ -4118,7 +4185,7 @@ function PlayerInner() {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
                           const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
-                          const colSpan = 4 + (primaryStat === 'blocking' ? 1 : 0) + (showSnapsCol ? 1 : 0)
+                          const colSpan = 5 + (primaryStat === 'blocking' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
                               <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: isGameLogExpanded(y.year, 'blocking') ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? 'var(--surface-2)' : 'var(--surface-1)', borderBottom: `1px solid ${teamInfo.backgroundColor}25` }}>
@@ -4138,6 +4205,7 @@ function PlayerInner() {
                                   </Link>
                                 </td>
                                 {primaryStat === 'blocking' && <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.gamesPlayed || 0}</td>}
+                                <td className="px-2 py-2 text-right font-semibold tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.av != null ? y.av.toFixed(1) : '-'}</td>
                                 <td className="px-2 py-2 text-right font-semibold tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.blocking.sacksAllowed}</td>
                                 {showSnapsCol && <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{(y.snapsPlayed || 0).toLocaleString()}</td>}
                               </tr>
@@ -4152,6 +4220,7 @@ function PlayerInner() {
                           <td className="px-2 py-2 w-16"></td>
                           <td className="px-2 py-2 w-12"></td>
                           {primaryStat === 'blocking' && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerGames}</td>}
+                          <td className="px-2 py-2 text-right font-bold tabular-nums" style={{ color: primaryText }}>{careerAV.toFixed(1)}</td>
                           <td className="px-2 py-2 text-right font-bold" style={{ color: primaryText }}>{careerBlocking.sacksAllowed}</td>
                           {showSnapsCol && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerSnaps.toLocaleString()}</td>}
                         </tr>
@@ -4177,7 +4246,7 @@ function PlayerInner() {
                 // Sort by selected column
                 const defenseYears = sortStatYears(defenseYearsUnsorted, 'defense', (y, col) => {
                   const d = y.defensive
-                  const statMap = { solo: d?.solo, ast: d?.ast, tfl: d?.tfl, sck: d?.sacks, int: d?.int, intYd: d?.intYds, td: d?.intTd, pd: d?.pdef, ff: d?.ff, fr: d?.fr }
+                  const statMap = { solo: d?.solo, ast: d?.ast, tfl: d?.tfl, sck: d?.sacks, int: d?.int, intYd: d?.intYds, td: d?.intTd, pd: d?.pdef, ff: d?.ff, fr: d?.fr, av: y.av }
                   if (col === 'tot') return (d?.solo || 0) + (d?.ast || 0)
                   return statMap[col] ?? 0
                 })
@@ -4191,6 +4260,7 @@ function PlayerInner() {
                           {renderSortableHeader('defense', 'class', 'Class', 'left', 'w-16')}
                           <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: secondaryText, opacity: 0.8 }}>Team</th>
                           {primaryStat === 'defense' && renderSortableHeader('defense', 'gamesPlayed', 'G', 'right')}
+                          {renderSortableHeader('defense', 'av', 'AV', 'right')}
                           {renderSortableHeader('defense', 'solo', 'Solo', 'right')}
                           {renderSortableHeader('defense', 'ast', 'Ast', 'right')}
                           {renderSortableHeader('defense', 'tot', 'Tot', 'right')}
@@ -4210,7 +4280,7 @@ function PlayerInner() {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
                           const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
-                          const colSpan = 14 + (primaryStat === 'defense' ? 1 : 0) + (showSnapsCol ? 1 : 0)
+                          const colSpan = 15 + (primaryStat === 'defense' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
                               <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: isGameLogExpanded(y.year, 'defense') ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? 'var(--surface-2)' : 'var(--surface-1)', borderBottom: `1px solid ${teamInfo.backgroundColor}25` }}>
@@ -4230,6 +4300,7 @@ function PlayerInner() {
                                   </Link>
                                 </td>
                                 {primaryStat === 'defense' && <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.gamesPlayed}</td>}
+                                <td className="px-2 py-2 text-right font-semibold tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.av != null ? y.av.toFixed(1) : '-'}</td>
                                 <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.defensive.solo}</td>
                                 <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.defensive.ast}</td>
                                 <td className="px-2 py-2 text-right font-semibold tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.defensive.solo + y.defensive.ast}</td>
@@ -4254,6 +4325,7 @@ function PlayerInner() {
                           <td className="px-2 py-2 w-16"></td>
                           <td className="px-2 py-2 w-12"></td>
                           {primaryStat === 'defense' && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerGames}</td>}
+                          <td className="px-2 py-2 text-right font-bold tabular-nums" style={{ color: primaryText }}>{careerAV.toFixed(1)}</td>
                           <td className="px-2 py-2 text-right tabular-nums" style={{ color: primaryText }}>{careerDefensive.solo}</td>
                           <td className="px-2 py-2 text-right tabular-nums" style={{ color: primaryText }}>{careerDefensive.ast}</td>
                           <td className="px-2 py-2 text-right font-bold" style={{ color: primaryText }}>{careerDefensive.solo + careerDefensive.ast}</td>
@@ -4289,7 +4361,7 @@ function PlayerInner() {
                 // Sort by selected column
                 const kickingYears = sortStatYears(kickingYearsUnsorted, 'kicking', (y, col) => {
                   const k = y.kicking
-                  const statMap = { fgm: k?.fgm, fga: k?.fga, lng: k?.lng, xpm: k?.xpm, xpa: k?.xpa }
+                  const statMap = { fgm: k?.fgm, fga: k?.fga, lng: k?.lng, xpm: k?.xpm, xpa: k?.xpa, av: y.av }
                   if (col === 'fgPct') return k?.fga ? (k.fgm / k.fga) * 100 : 0
                   if (col === 'xpPct') return k?.xpa ? (k.xpm / k.xpa) * 100 : 0
                   return statMap[col] ?? 0
@@ -4304,6 +4376,7 @@ function PlayerInner() {
                           {renderSortableHeader('kicking', 'class', 'Class', 'left', 'w-16')}
                           <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: secondaryText, opacity: 0.8 }}>Team</th>
                           {primaryStat === 'kicking' && renderSortableHeader('kicking', 'gamesPlayed', 'G', 'right')}
+                          {renderSortableHeader('kicking', 'av', 'AV', 'right')}
                           {renderSortableHeader('kicking', 'fgm', 'FGM', 'right')}
                           {renderSortableHeader('kicking', 'fga', 'FGA', 'right')}
                           {renderSortableHeader('kicking', 'fgPct', 'FG%', 'right')}
@@ -4319,7 +4392,7 @@ function PlayerInner() {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
                           const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
-                          const colSpan = 10 + (primaryStat === 'kicking' ? 1 : 0) + (showSnapsCol ? 1 : 0)
+                          const colSpan = 11 + (primaryStat === 'kicking' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
                               <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: isGameLogExpanded(y.year, 'kicking') ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? 'var(--surface-2)' : 'var(--surface-1)', borderBottom: `1px solid ${teamInfo.backgroundColor}25` }}>
@@ -4339,6 +4412,7 @@ function PlayerInner() {
                                   </Link>
                                 </td>
                                 {primaryStat === 'kicking' && <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.gamesPlayed}</td>}
+                                <td className="px-2 py-2 text-right font-semibold tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.av != null ? y.av.toFixed(1) : '-'}</td>
                                 <td className="px-2 py-2 text-right font-semibold tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.kicking.fgm}</td>
                                 <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.kicking.fga}</td>
                                 <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{calcPct(y.kicking.fgm, y.kicking.fga)}</td>
@@ -4359,6 +4433,7 @@ function PlayerInner() {
                           <td className="px-2 py-2 w-16"></td>
                           <td className="px-2 py-2 w-12"></td>
                           {primaryStat === 'kicking' && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerGames}</td>}
+                          <td className="px-2 py-2 text-right font-bold tabular-nums" style={{ color: primaryText }}>{careerAV.toFixed(1)}</td>
                           <td className="px-2 py-2 text-right font-bold" style={{ color: primaryText }}>{careerKicking.fgm}</td>
                           <td className="px-2 py-2 text-right tabular-nums" style={{ color: primaryText }}>{careerKicking.fga}</td>
                           <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{calcPct(careerKicking.fgm, careerKicking.fga)}</td>
@@ -4390,7 +4465,7 @@ function PlayerInner() {
                 // Sort by selected column
                 const puntingYears = sortStatYears(puntingYearsUnsorted, 'punting', (y, col) => {
                   const p = y.punting
-                  const statMap = { punts: p?.punts, yds: p?.yds, lng: p?.lng, in20: p?.in20, tb: p?.tb }
+                  const statMap = { punts: p?.punts, yds: p?.yds, lng: p?.lng, in20: p?.in20, tb: p?.tb, av: y.av }
                   if (col === 'avg') return p?.punts ? p.yds / p.punts : 0
                   return statMap[col] ?? 0
                 })
@@ -4404,6 +4479,7 @@ function PlayerInner() {
                           {renderSortableHeader('punting', 'class', 'Class', 'left', 'w-16')}
                           <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: secondaryText, opacity: 0.8 }}>Team</th>
                           {primaryStat === 'punting' && renderSortableHeader('punting', 'gamesPlayed', 'G', 'right')}
+                          {renderSortableHeader('punting', 'av', 'AV', 'right')}
                           {renderSortableHeader('punting', 'punts', 'Punts', 'right')}
                           {renderSortableHeader('punting', 'yds', 'Yds', 'right')}
                           {renderSortableHeader('punting', 'avg', 'Avg', 'right')}
@@ -4418,7 +4494,7 @@ function PlayerInner() {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
                           const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
-                          const colSpan = 9 + (primaryStat === 'punting' ? 1 : 0) + (showSnapsCol ? 1 : 0)
+                          const colSpan = 10 + (primaryStat === 'punting' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
                               <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: isGameLogExpanded(y.year, 'punting') ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? 'var(--surface-2)' : 'var(--surface-1)', borderBottom: `1px solid ${teamInfo.backgroundColor}25` }}>
@@ -4438,6 +4514,7 @@ function PlayerInner() {
                                   </Link>
                                 </td>
                                 {primaryStat === 'punting' && <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.gamesPlayed}</td>}
+                                <td className="px-2 py-2 text-right font-semibold tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.av != null ? y.av.toFixed(1) : '-'}</td>
                                 <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.punting.punts}</td>
                                 <td className="px-2 py-2 text-right font-semibold tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.punting.yds.toLocaleString()}</td>
                                 <td className="px-2 py-2 text-right font-semibold tabular-nums" style={{ color: 'var(--text-primary)' }}>{calcAvg(y.punting.yds, y.punting.punts)}</td>
@@ -4457,6 +4534,7 @@ function PlayerInner() {
                           <td className="px-2 py-2 w-16"></td>
                           <td className="px-2 py-2 w-12"></td>
                           {primaryStat === 'punting' && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerGames}</td>}
+                          <td className="px-2 py-2 text-right font-bold tabular-nums" style={{ color: primaryText }}>{careerAV.toFixed(1)}</td>
                           <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerPunting.punts}</td>
                           <td className="px-2 py-2 text-right font-bold" style={{ color: primaryText }}>{careerPunting.yds.toLocaleString()}</td>
                           <td className="px-2 py-2 text-right font-bold" style={{ color: primaryText }}>{calcAvg(careerPunting.yds, careerPunting.punts)}</td>
@@ -4485,7 +4563,7 @@ function PlayerInner() {
                 // Sort by selected column
                 const kickReturnYears = sortStatYears(kickReturnYearsUnsorted, 'kickReturn', (y, col) => {
                   const kr = y.kickReturn
-                  const statMap = { ret: kr?.ret, yds: kr?.yds, td: kr?.td, lng: kr?.lng }
+                  const statMap = { ret: kr?.ret, yds: kr?.yds, td: kr?.td, lng: kr?.lng, av: y.av }
                   if (col === 'avg') return kr?.ret ? kr.yds / kr.ret : 0
                   return statMap[col] ?? 0
                 })
@@ -4498,6 +4576,7 @@ function PlayerInner() {
                       {renderSortableHeader('kickReturn', 'year', 'Year', 'left', 'w-14')}
                       {renderSortableHeader('kickReturn', 'class', 'Class', 'left', 'w-16')}
                       <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: secondaryText, opacity: 0.8 }}>Team</th>
+                      {renderSortableHeader('kickReturn', 'av', 'AV', 'right')}
                       {renderSortableHeader('kickReturn', 'ret', 'Ret', 'right')}
                       {renderSortableHeader('kickReturn', 'yds', 'Yds', 'right')}
                       {renderSortableHeader('kickReturn', 'avg', 'Avg', 'right')}
@@ -4510,7 +4589,7 @@ function PlayerInner() {
                       const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
                       const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
-                      const colSpan = 8
+                      const colSpan = 9
                       return (
                         <React.Fragment key={y.year}>
                           <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: isGameLogExpanded(y.year, 'kickReturn') ? `${teamColors.primary}20` : idx % 2 === 1 ? 'var(--surface-2)' : 'var(--surface-1)', borderBottom: `1px solid ${teamColors.primary}25` }}>
@@ -4529,6 +4608,7 @@ function PlayerInner() {
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
+                            <td className="px-2 py-2 text-right font-semibold tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.av != null ? y.av.toFixed(1) : '-'}</td>
                             <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.kickReturn.ret}</td>
                             <td className="px-2 py-2 text-right font-semibold tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.kickReturn.yds}</td>
                             <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{calcAvg(y.kickReturn.yds, y.kickReturn.ret)}</td>
@@ -4545,6 +4625,7 @@ function PlayerInner() {
                       <td className="px-2 py-2.5 font-bold w-14 text-txt-primary">Career</td>
                       <td className="px-2 py-2 w-16"></td>
                       <td className="px-2 py-2 w-12"></td>
+                      <td className="px-2 py-2 text-right font-bold tabular-nums text-txt-primary">{careerAV.toFixed(1)}</td>
                       <td className="px-2 py-2 text-right font-semibold text-txt-primary">{careerKickReturn.ret}</td>
                       <td className="px-2 py-2 text-right font-bold text-txt-primary">{careerKickReturn.yds.toLocaleString()}</td>
                       <td className="px-2 py-2 text-right text-txt-secondary">{calcAvg(careerKickReturn.yds, careerKickReturn.ret)}</td>
@@ -4571,7 +4652,7 @@ function PlayerInner() {
                 // Sort by selected column
                 const puntReturnYears = sortStatYears(puntReturnYearsUnsorted, 'puntReturn', (y, col) => {
                   const pr = y.puntReturn
-                  const statMap = { ret: pr?.ret, yds: pr?.yds, td: pr?.td, lng: pr?.lng }
+                  const statMap = { ret: pr?.ret, yds: pr?.yds, td: pr?.td, lng: pr?.lng, av: y.av }
                   if (col === 'avg') return pr?.ret ? pr.yds / pr.ret : 0
                   return statMap[col] ?? 0
                 })
@@ -4584,6 +4665,7 @@ function PlayerInner() {
                       {renderSortableHeader('puntReturn', 'year', 'Year', 'left', 'w-14')}
                       {renderSortableHeader('puntReturn', 'class', 'Class', 'left', 'w-16')}
                       <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: secondaryText, opacity: 0.8 }}>Team</th>
+                      {renderSortableHeader('puntReturn', 'av', 'AV', 'right')}
                       {renderSortableHeader('puntReturn', 'ret', 'Ret', 'right')}
                       {renderSortableHeader('puntReturn', 'yds', 'Yds', 'right')}
                       {renderSortableHeader('puntReturn', 'avg', 'Avg', 'right')}
@@ -4596,7 +4678,7 @@ function PlayerInner() {
                       const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
                       const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
-                      const colSpan = 8
+                      const colSpan = 9
                       return (
                         <React.Fragment key={y.year}>
                           <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: isGameLogExpanded(y.year, 'puntReturn') ? `${teamColors.primary}20` : idx % 2 === 1 ? 'var(--surface-2)' : 'var(--surface-1)', borderBottom: `1px solid ${teamColors.primary}25` }}>
@@ -4615,6 +4697,7 @@ function PlayerInner() {
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
+                            <td className="px-2 py-2 text-right font-semibold tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.av != null ? y.av.toFixed(1) : '-'}</td>
                             <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.puntReturn.ret}</td>
                             <td className="px-2 py-2 text-right font-semibold tabular-nums" style={{ color: 'var(--text-primary)' }}>{y.puntReturn.yds}</td>
                             <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{calcAvg(y.puntReturn.yds, y.puntReturn.ret)}</td>
@@ -4631,6 +4714,7 @@ function PlayerInner() {
                       <td className="px-2 py-2.5 font-bold w-14 text-txt-primary">Career</td>
                       <td className="px-2 py-2 w-16"></td>
                       <td className="px-2 py-2 w-12"></td>
+                      <td className="px-2 py-2 text-right font-bold tabular-nums text-txt-primary">{careerAV.toFixed(1)}</td>
                       <td className="px-2 py-2 text-right font-semibold text-txt-primary">{careerPuntReturn.ret}</td>
                       <td className="px-2 py-2 text-right font-bold text-txt-primary">{careerPuntReturn.yds.toLocaleString()}</td>
                       <td className="px-2 py-2 text-right text-txt-secondary">{calcAvg(careerPuntReturn.yds, careerPuntReturn.ret)}</td>
@@ -5666,6 +5750,101 @@ function PlayerInner() {
           </div>
         )
       })()}
+
+      {/* Photos Tab — every game photo this player is tagged in */}
+      {activeTab === 'photos' && taggedPhotos.length > 0 && (
+        <div className="card overflow-hidden">
+          <div className="h-[3px] w-full" style={{ backgroundColor: teamInfo.backgroundColor }} aria-hidden="true" />
+          <div className="p-5">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+              {taggedPhotos.map((ph, idx) => {
+                const thumb = `https://wsrv.nl/?url=${encodeURIComponent(ph.url)}&w=240&output=webp`
+                return (
+                  <button
+                    key={`${ph.url}-${idx}`}
+                    type="button"
+                    onClick={() => setPhotoTabLightboxIdx(idx)}
+                    className="group relative aspect-square overflow-hidden rounded-md"
+                    style={{
+                      backgroundColor: 'var(--surface-2)',
+                      border: '1px solid var(--surface-4)',
+                      contentVisibility: 'auto',
+                      containIntrinsicSize: 'auto 160px',
+                    }}
+                  >
+                    <img
+                      src={thumb}
+                      alt={`Tagged photo ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                      fetchpriority="low"
+                      onError={(e) => { if (e.currentTarget.src !== ph.url) e.currentTarget.src = ph.url }}
+                    />
+                    {(ph.year || ph.week != null) && (
+                      <span
+                        className="absolute bottom-0 inset-x-0 px-1.5 py-1 text-[10px] font-semibold text-white text-left"
+                        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75), transparent)' }}
+                      >
+                        {ph.week != null ? `Wk ${ph.week}` : ''}{ph.year ? ` ${ph.year}` : ''}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Photos-tab lightbox */}
+      {photoTabLightboxIdx !== null && taggedPhotos[photoTabLightboxIdx] && createPortal(
+        (() => {
+          const total = taggedPhotos.length
+          const cur = taggedPhotos[photoTabLightboxIdx]
+          const step = (d) => setPhotoTabLightboxIdx((photoTabLightboxIdx + d + total) % total)
+          return (
+            <div
+              className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[9999] flex items-center justify-center"
+              style={{ margin: 0, backgroundColor: 'rgba(0,0,0,0.92)' }}
+              onClick={() => setPhotoTabLightboxIdx(null)}
+            >
+              <button
+                type="button"
+                onClick={() => setPhotoTabLightboxIdx(null)}
+                aria-label="Close"
+                className="absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center justify-center rounded-md"
+                style={{ width: 40, height: 40, backgroundColor: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.18)' }}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+              {total > 1 && (
+                <>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); step(-1) }} aria-label="Previous" className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full" style={{ width: 48, height: 48, backgroundColor: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.18)' }}>
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); step(1) }} aria-label="Next" className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full" style={{ width: 48, height: 48, backgroundColor: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.18)' }}>
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                </>
+              )}
+              <div className="flex flex-col items-center gap-3" style={{ maxWidth: 'calc(100vw - 32px)', maxHeight: 'calc(100vh - 32px)' }} onClick={(e) => e.stopPropagation()}>
+                <img src={`https://wsrv.nl/?url=${encodeURIComponent(cur.url)}&w=1600&output=webp&q=92`} alt="Tagged photo" className="block select-none" style={{ maxWidth: '100%', maxHeight: 'calc(100vh - 120px)', objectFit: 'contain', boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }} onError={(e) => { if (e.currentTarget.src !== cur.url) e.currentTarget.src = cur.url }} draggable={false} />
+                {cur.gameId && (
+                  <Link
+                    to={`${pathPrefix}/game/${cur.gameId}`}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)' }}
+                  >
+                    View game{cur.week != null ? ` · Wk ${cur.week}` : ''}{cur.year ? ` ${cur.year}` : ''} →
+                  </Link>
+                )}
+              </div>
+            </div>
+          )
+        })(),
+        document.body
+      )}
 
       {/* Accolade Games Modal */}
       {showAccoladeModal && (

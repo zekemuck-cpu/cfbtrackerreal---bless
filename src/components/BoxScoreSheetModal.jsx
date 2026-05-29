@@ -183,6 +183,48 @@ export default function BoxScoreSheetModal({
   const awayRosterObjects = useMemo(() => getRosterObjectsForTeamByTid(awayTeamTid),
     [currentDynasty?.players, awayTeamTid, gameYear])
 
+  // Game-scoped roster for team attribution in the play-by-play prompts.
+  // Source priority:
+  //   1. THIS game's box score (boxScore.byTid[tid]) — the definitive
+  //      "who actually played" list, and the ONLY source that covers
+  //      CPU / FCS opponents who have no entry in currentDynasty.players.
+  //      Without this the opponent roster block was empty, so the AI had
+  //      to GUESS team attribution for every non-user player — the root
+  //      cause of the col-A team mix-ups.
+  //   2. Fallback: the dynasty team roster (prior behavior).
+  // Enriches box-score names with jersey/position from the dynasty roster
+  // where a match exists (mostly the user team); opponent names carry
+  // through name-only, which is all the attribution lookup needs.
+  const getGameRosterObjectsForTeamByTid = (tid) => {
+    if (tid == null) return []
+    const byTid = game?.boxScore?.byTid
+    const teamBox = byTid ? (byTid[tid] ?? byTid[String(tid)] ?? byTid[Number(tid)]) : null
+    if (teamBox && typeof teamBox === 'object') {
+      const names = new Set()
+      for (const category of Object.values(teamBox)) {
+        if (!Array.isArray(category)) continue
+        for (const row of category) {
+          const nm = (row?.playerName || '').trim()
+          if (nm) names.add(nm)
+        }
+      }
+      if (names.size > 0) {
+        const dynastyByName = new Map(
+          (currentDynasty?.players || [])
+            .filter(p => isPlayerOnRoster(p, tid, gameYear))
+            .map(p => [p.name, p])
+        )
+        return Array.from(names).sort().map(name => {
+          const p = dynastyByName.get(name)
+          return p
+            ? { name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }
+            : { name }
+        })
+      }
+    }
+    return getRosterObjectsForTeamByTid(tid)
+  }
+
   // Check if home/away teams are user-controlled FOR THIS GAME'S YEAR (for dropdown behavior)
   // Only the team the user controlled in the game's season should have strict dropdown
   const isHomeTeamUserControlled = userTidForGameYear && homeTeamTid === userTidForGameYear
@@ -274,18 +316,21 @@ export default function BoxScoreSheetModal({
 
     // Determine which team (home/away) is user-controlled so we can label
     // the roster blocks correctly in scoring prompts.
-    const userIsHome = userTidForGameYear && homeTeamTid === userTidForGameYear
-    const userIsAway = userTidForGameYear && awayTeamTid === userTidForGameYear
-    const scoringUserRoster = userIsHome ? homeRosterObjects : (userIsAway ? awayRosterObjects : [])
-    const scoringOpponentRoster = userIsHome ? awayRosterObjects : (userIsAway ? homeRosterObjects : [])
+    // Two rosters for the two teams in this game — sourced box-score-first
+    // (see getGameRosterObjectsForTeamByTid) so the opponent block populates
+    // even for CPU / FCS teams with no dynasty roster. Framed by the game's
+    // two teams (home/away, which resolve from team1Tid/team2Tid), NOT by
+    // who the user controls — a recap of two CPU teams needs both blocks too.
+    const awayGameRoster = getGameRosterObjectsForTeamByTid(awayTeamTid)
+    const homeGameRoster = getGameRosterObjectsForTeamByTid(homeTeamTid)
 
     if (sheetType === 'scoring') {
       const allPlaysPrompt = buildAIPrompt({
         title: `${baseTitle} — All Plays`,
-        roster: scoringUserRoster,
-        opponentRoster: scoringOpponentRoster,
-        rosterLabel: `${userIsHome ? homeTeamAbbr : awayTeamAbbr} ROSTER (user-controlled team — for team-assignment, see below)`,
-        opponentRosterLabel: `${userIsHome ? awayTeamAbbr : homeTeamAbbr} ROSTER (opponent team — for team-assignment, see below)`,
+        roster: awayGameRoster,
+        opponentRoster: homeGameRoster,
+        rosterLabel: `${awayTeamAbbr} ROSTER (for team-assignment, see below)`,
+        opponentRosterLabel: `${homeTeamAbbr} ROSTER (for team-assignment, see below)`,
         structure: `This is an OCR task: extract structured data from images into TSV. Prioritize responding quickly rather than thinking deeply. Extended thinking adds latency and is NOT helpful here — when in doubt, respond directly. Skip every preamble and begin output immediately with the first row's first character.
 
 Output the full play-by-play of this game as 13-col TSV — one row per highlight line, chronological order (earliest first). The user will copy your reply and paste it at cell A2 of the "Scoring Summary" tab in Google Sheets, so the DATA block must contain ONLY tab-separated rows. No XML, no header row inside the data, no preamble or commentary other than the required paste-target label line above the fence (see Method A/B rules above).
@@ -357,40 +402,37 @@ Rule: col A = team of the PLAYER named on the line.
   • Rush / Pass / Sack / FG / PAT → team of player in B (or C for sacks)
   • Kickoff Return / Punt Return / Pass Intercepted / Fumble Recovery → team of the returner / interceptor / recoverer (B). Possession just flipped — that's fine.
 
-Anchor example: "Kickoff on ${homeTeamAbbr} 35. Jason Cummings returns kick for 19 yards." → A = ${awayTeamAbbr}. ("${homeTeamAbbr} 35" means ${homeTeamAbbr} is kicking FROM their own 35; Jason Cummings is ${awayTeamAbbr}'s returner.) Same pattern for "1st & Goal on ${homeTeamAbbr} 6" — that means someone is scoring AGAINST ${homeTeamAbbr}, so the offense is the OPPOSING team, not ${homeTeamAbbr}.
+HOW TO RESOLVE THE TEAM: the two ROSTER blocks below list the exact players on EACH team for THIS game — ${awayTeamAbbr} and ${homeTeamAbbr}. They are authoritative, NOT a "tiebreaker" — together they cover every player who appears. So:
+  • Player in the ${awayTeamAbbr} roster → col A = ${awayTeamAbbr}.
+  • Player in the ${homeTeamAbbr} roster → col A = ${homeTeamAbbr}.
+  • Player in NEITHER roster → you can't attribute it from the data. Write \`?\` in col A and move on (the user fixes \`?\` cells). Do NOT guess from Field Pos, and do NOT trace drives to infer it.
+Do the roster lookup ONCE per player per game, then trust it.
 
-Look each player up in the rosters ONCE per game, then trust the assignment.
+Anchor example: "Kickoff on ${homeTeamAbbr} 35. Jason Cummings returns kick for 19 yards." → look up Jason Cummings: if he's in the ${awayTeamAbbr} roster, A = ${awayTeamAbbr}. ("${homeTeamAbbr} 35" just means ${homeTeamAbbr} kicked from their own 35.) Same for "1st & Goal on ${homeTeamAbbr} 6" — someone is scoring AGAINST ${homeTeamAbbr}, so the offense is the OTHER team. Resolve by roster, not by the field-position abbr.
 
 ═══════════════════════════════════════════════════════════
-SCORE TYPE (col E) WHEN A PLAY SCORES
+SCORE TYPE (col E) — EXACT strings, only when a play scores
 ═══════════════════════════════════════════════════════════
-Rushing TD / Passing TD / Field Goal / Safety / Kick Return TD / Punt Return TD / INT Return TD / Fumble Return TD / Blocked Punt/FG TD
+When a play scores, col E is EXACTLY one of these 9 (case-sensitive):
+  Rushing TD | Passing TD | Field Goal | Safety
+  Kick Return TD | Punt Return TD | INT Return TD
+  Fumble Return TD | Blocked Punt/FG TD
+Otherwise col E is EMPTY.
 
-(No "PAT" — PAT attempts NEVER get their own row. See PAT section below.)
+Do NOT paraphrase — the front-end matches these literal strings and a paraphrase breaks downstream stat rollups: "Interception TD" → INT Return TD; "FG" → Field Goal; "Kickoff Return TD" → Kick Return TD.
 
-PAT Result (F) on TD rows only when visible: Made XP / Missed XP / Blocked XP / Converted 2PT / Failed 2PT
+NO "PAT" value — extra points go in col F on the TD row (see PAT section). PAT Result (col F), TD rows only when visible: Made XP / Missed XP / Blocked XP / Converted 2PT / Failed 2PT.
 
 ═══════════════════════════════════════════════════════════
 PAT (extra-point attempts) — collapse into the TD row
 ═══════════════════════════════════════════════════════════
-When a TD is followed by an extra-point attempt, you emit EXACTLY ONE row:
-the TD row itself, with the PAT outcome encoded in column F.
+A TD + its extra-point attempt = EXACTLY ONE row: the TD row, with the PAT
+outcome in column F (Made XP / Missed XP / Blocked XP / Converted 2PT /
+Failed 2PT). NEVER a separate PAT row, NEVER E="PAT", NEVER Play Type="PAT".
+The kicker's name is not kept on this sheet.
 
-  - TD row: F = "Made XP" (or "Missed XP" / "Blocked XP" / "Converted 2PT" / "Failed 2PT")
-  - DO NOT emit a separate PAT row. No row with E = "PAT". No row with
-    Play Type = "PAT". The kicker's name is not preserved in this sheet.
-
-Why one row: the front-end reads column F off the TD row to compute the
-running score (TD = 6 + XP = 1). A separate PAT row is redundant noise
-in the play list — the Made/Missed/Blocked outcome is already visible
-on the TD row's chip.
-
-Worked example — Bama's 9-yd TD pass with a good XP:
-  → BAMA  Lorenzo Corra  CJ Carr   9  Passing TD  Made XP  2  10:09        2  Goal  LSU 9  Pass Complete
-
-That's it. ONE row. No follow-up "BAMA Rico Melendez ... PAT ... Made XP"
-row underneath. Same rule for Missed XP / Blocked XP / Converted 2PT /
-Failed 2PT — always one row, the TD row.
+Worked example — a 9-yd TD pass with a good XP is ONE row:
+  → BAMA  Lorenzo Corra  CJ Carr  9  Passing TD  Made XP  2  10:09        2  Goal  LSU 9  Pass Complete
 
 ═══════════════════════════════════════════════════════════
 ORDER — this is the #2 failure mode, read it slowly
@@ -483,23 +525,6 @@ EMPTY. Never a quarter number. Never a yardage. Never a time. Empty.
 Same for PAT Result (col F) — empty unless it's a TD/PAT/2PT row.
 
 ═══════════════════════════════════════════════════════════
-SCORE TYPE — use these EXACT strings (col E)
-═══════════════════════════════════════════════════════════
-Valid values for col E when a play scores:
-  Rushing TD | Passing TD | Field Goal | Safety
-  Kick Return TD | Punt Return TD | INT Return TD
-  Fumble Return TD | Blocked Punt/FG TD
-
-There is no "PAT" value — extra points are encoded as column F on the
-TD row, not as their own row.
-
-Do NOT paraphrase. "Interception TD" → use "INT Return TD" instead.
-"FG" → use "Field Goal". "Kickoff Return TD" → use "Kick Return TD".
-The front-end's score-running logic looks at these EXACT strings; a
-paraphrased label still renders the play but breaks downstream
-aggregations (season stat rollups, awards counters).
-
-═══════════════════════════════════════════════════════════
 CELL FORMAT — exact strings, no paraphrasing
 ═══════════════════════════════════════════════════════════
 These format mistakes silently corrupt the sheet (the dropdown
@@ -571,10 +596,10 @@ checks. Do not send output that fails any of them.`,
 
       const scoringSummaryPrompt = buildAIPrompt({
         title: `${baseTitle} — Scoring Summary`,
-        roster: scoringUserRoster,
-        opponentRoster: scoringOpponentRoster,
-        rosterLabel: `${userIsHome ? homeTeamAbbr : awayTeamAbbr} ROSTER (user-controlled team — disambiguation reference for abbreviated names)`,
-        opponentRosterLabel: `${userIsHome ? awayTeamAbbr : homeTeamAbbr} ROSTER (opponent team — disambiguation reference for abbreviated names)`,
+        roster: awayGameRoster,
+        opponentRoster: homeGameRoster,
+        rosterLabel: `${awayTeamAbbr} ROSTER (disambiguation reference for abbreviated names)`,
+        opponentRosterLabel: `${homeTeamAbbr} ROSTER (disambiguation reference for abbreviated names)`,
         structure: `This sheet has ONE tab: "Scoring Summary". It has 30 rows (one per scoring play, unused rows blank) and 9 columns.
 
 ═══════════════════════════════════════════════════════════
@@ -1138,7 +1163,7 @@ output that fails any of them.`,
       includeTeamMap: true,
       dynastyTeams: currentDynasty?.teams,
     })
-  }, [sheetType, config.teamAbbr, config.opponentAbbr, config.isUserControlled, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear, homeRosterObjects, awayRosterObjects, targetRosterObjects, homeTeamTid, awayTeamTid, targetTidNum, userTidForGameYear, currentDynasty?.teams])
+  }, [sheetType, config.teamAbbr, config.opponentAbbr, config.isUserControlled, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear, game?.boxScore, homeRosterObjects, awayRosterObjects, targetRosterObjects, homeTeamTid, awayTeamTid, targetTidNum, userTidForGameYear, currentDynasty?.teams])
 
   // Short label used inside the Reset/Regenerate button text so the
   // user can tell at a glance what's about to be wiped (e.g. "wipe

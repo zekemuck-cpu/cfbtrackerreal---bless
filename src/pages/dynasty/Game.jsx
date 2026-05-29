@@ -1,11 +1,14 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import { proxyImageUrl } from '../../utils/imageProxy'
 import { createPortal } from 'react-dom'
 import { Link, useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
-import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear, getCustomConferencesForYear, getTeamRankForWeek } from '../../context/DynastyContext'
+import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear, getCustomConferencesForYear, getTeamRankForWeek, isPlayerOnRoster } from '../../context/DynastyContext'
+import { saveGamesToSubcollection } from '../../services/dynastyService'
+import { matchAndRankPlayers } from '../../utils/playerTagSearch'
 import CardComposer from '../../components/CardComposer'
 import { getCardsForGame } from '../../utils/playerCards'
 import { getTeamLogoRobust } from '../../utils/teamLogo'
@@ -782,6 +785,67 @@ export default function Game() {
     return map
   }, [currentDynasty?.players])
 
+  // The Photos tab shows the uploaded photos plus the AI score graphic,
+  // all taggable. Graphic leads (it's the marquee image). Deduped.
+  const photoTabImages = useMemo(() => {
+    const list = [
+      ...(game?.scoreGraphic ? [game.scoreGraphic] : []),
+      ...(Array.isArray(game?.photos) ? game.photos : []),
+    ]
+    return list.filter((u, i, arr) => u && arr.indexOf(u) === i)
+  }, [game?.scoreGraphic, game?.photos])
+
+  // pid → name, for rendering photo-tag chips in the Photos lightbox.
+  const playerNameByPid = useMemo(() => {
+    const map = new Map()
+    for (const p of currentDynasty?.players || []) {
+      if (p?.pid != null) map.set(String(p.pid), p.name || `Player ${p.pid}`)
+    }
+    return map
+  }, [currentDynasty?.players])
+
+  // Players taggable in this game's photos — dynasty players (with a pid →
+  // a real player page) rostered on either team this game. { pid, name,
+  // jerseyNumber, teamAbbr }. Drives the in-lightbox tag search.
+  const photoTaggablePlayers = useMemo(() => {
+    const players = currentDynasty?.players
+    if (!Array.isArray(players) || !game) return []
+    const tids = [game.team1Tid, game.team2Tid].filter(t => t != null).map(Number)
+    if (tids.length === 0) return []
+    const teamsObj = currentDynasty?.teams || {}
+    const abbrFor = (tid) => teamsObj[tid]?.abbr || teamsObj[String(tid)]?.abbr || ''
+    const yr = game.year
+    return players
+      .filter(p => p?.pid != null && tids.some(tid => isPlayerOnRoster(p, tid, yr)))
+      .map(p => {
+        const onTid = tids.find(tid => isPlayerOnRoster(p, tid, yr))
+        return { pid: p.pid, name: p.name || `Player ${p.pid}`, jerseyNumber: p.jerseyNumber, teamAbbr: abbrFor(onTid) }
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [currentDynasty?.players, currentDynasty?.teams, game])
+
+  // Persist a photo's player tags. Surgical single-game write on cloud
+  // dynasties (avoids re-uploading every game in the subcollection);
+  // plain full update locally (IndexedDB writes the whole dynasty anyway).
+  const savePhotoTags = useCallback(async (url, pids) => {
+    if (!currentDynasty || !game || isViewOnly) return
+    const tags = { ...(game.photoTags || {}) }
+    if (Array.isArray(pids) && pids.length > 0) tags[url] = pids
+    else delete tags[url]
+    const updatedGame = { ...game, photoTags: tags }
+    const updatedGames = (currentDynasty.games || []).map(g => String(g.id) === String(game.id) ? updatedGame : g)
+    try {
+      if (currentDynasty.storageType === 'cloud') {
+        await saveGamesToSubcollection(currentDynasty.id, [updatedGame], { deleteOrphans: false })
+        await updateDynasty(currentDynasty.id, { games: updatedGames }, { skipGamesSubcollection: true })
+      } else {
+        await updateDynasty(currentDynasty.id, { games: updatedGames })
+      }
+    } catch (e) {
+      console.error('Failed to save photo tags:', e)
+    }
+  }, [currentDynasty, game, isViewOnly, updateDynasty])
+
   // Recap player-link patterns. Also hoisted above the early returns
   // for hook-order stability. Heavy lifting only happens when the
   // dynasty + box score are both populated; null otherwise.
@@ -904,8 +968,7 @@ export default function Game() {
     if (hasRatingsData) return 'ratings'
     if (hasAwardsData) return 'awards'
     if (hasCardsData) return 'cards'
-    if (hasPhotosData) return 'photos'
-    if (hasScoreGraphicData) return 'graphic'
+    if (hasPhotosData || hasScoreGraphicData) return 'photos'
     return 'gamecast' // empty state — gamecast will render its own placeholder
   })()
   const effectiveDefaultTab = defaultTabPref === 'auto' ? autoDefaultTab : defaultTabPref
@@ -1999,8 +2062,7 @@ export default function Game() {
                 { key: 'ratings', label: 'Ratings', shortLabel: 'Rtg', show: !isCPUGame && hasRatingsData },
                 { key: 'awards', label: 'Awards', shortLabel: 'Awards', show: !isCPUGame && hasAwardsData },
                 { key: 'cards', label: 'Cards', shortLabel: 'Cards', show: hasCardsData },
-                { key: 'photos', label: 'Photos', shortLabel: 'Photos', show: hasPhotosData },
-                { key: 'graphic', label: 'Score Graphic', shortLabel: 'Graphic', show: hasScoreGraphicData },
+                { key: 'photos', label: hasPhotosData ? 'Photos' : 'Graphic', shortLabel: hasPhotosData ? 'Photos' : 'Graphic', show: hasPhotosData || hasScoreGraphicData },
               ].filter(tab => tab.show).map(tab => (
                 <button
                   key={tab.key}
@@ -2227,10 +2289,10 @@ export default function Game() {
                 aria-label="Open final score graphic"
               >
                 <img
-                  src={game.scoreGraphic}
+                  src={proxyImageUrl(game.scoreGraphic, 1200)}
                   alt={`${displayTeam} vs ${opponent} final score graphic`}
                   className="w-full h-auto block"
-                  onError={(e) => { e.target.parentElement.style.display = 'none' }}
+                  onError={(e) => { if (e.target.src !== game.scoreGraphic) { e.target.src = game.scoreGraphic } else { e.target.parentElement.style.display = 'none' } }}
                 />
               </button>
             )
@@ -3517,7 +3579,7 @@ export default function Game() {
                     style={{ boxShadow: `0 0 0 2px ${accent}55` }}
                   >
                     {player?.pictureUrl ? (
-                      <img src={player.pictureUrl} alt={name} className="w-full h-full object-cover" />
+                      <img src={proxyImageUrl(player.pictureUrl, 300)} alt={name} className="w-full h-full object-cover" />
                     ) : (
                       <div
                         className="w-full h-full flex items-center justify-center font-bold text-sm"
@@ -3679,10 +3741,32 @@ export default function Game() {
             </div>
           )}
 
-          {activeTab === 'photos' && Array.isArray(game.photos) && game.photos.length > 0 && (
+          {activeTab === 'photos' && photoTabImages.length > 0 && (
             <div className="px-3 sm:px-5 py-5 sm:py-6">
+              {!hasPhotosData && hasScoreGraphicData ? (
+                // Graphic-only: the score graphic is the whole point, so show
+                // it big rather than buried in the thumbnail grid.
+                <button
+                  type="button"
+                  onClick={() => setPhotoLightboxIdx(0)}
+                  className="group relative block w-full max-w-md aspect-square overflow-hidden rounded-xl transition-transform duration-150 hover:-translate-y-0.5"
+                  style={{
+                    backgroundColor: 'var(--surface-2)',
+                    border: '1px solid var(--surface-4)',
+                  }}
+                >
+                  <img
+                    src={`https://wsrv.nl/?url=${encodeURIComponent(photoTabImages[0])}&w=1600&output=webp&q=92`}
+                    alt="Score graphic"
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                    onError={(e) => { const u = photoTabImages[0]; if (e.currentTarget.src !== u) e.currentTarget.src = u }}
+                  />
+                </button>
+              ) : (
               <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-8 xl:grid-cols-10 gap-2">
-                {game.photos.map((url, idx) => {
+                {photoTabImages.map((url, idx) => {
                   // Route grid thumbs through wsrv.nl (free image proxy) to
                   // get ~240px webp instead of the full-res ImgBB original.
                   // ~10-30x smaller per tile. The lightbox still loads `url`
@@ -3719,20 +3803,7 @@ export default function Game() {
                   )
                 })}
               </div>
-            </div>
-          )}
-
-          {activeTab === 'graphic' && game.scoreGraphic && (
-            <div className="px-3 sm:px-5 py-5 sm:py-6">
-              <div className="flex justify-center">
-                <img
-                  src={game.scoreGraphic}
-                  alt={`${displayTeam} vs ${opponent} score graphic`}
-                  className="rounded-xl max-w-full"
-                  style={{ maxHeight: '600px', border: '1px solid var(--surface-4)' }}
-                  onError={(e) => { e.target.style.display = 'none' }}
-                />
-              </div>
+              )}
             </div>
           )}
 
@@ -3830,7 +3901,7 @@ export default function Game() {
               } else if (isImageLink(link)) {
                 return (
                   <div key={index} className="rounded-xl overflow-hidden shadow-lg ring-1 ring-surface-4">
-                    <img src={link} alt={`Game media ${index + 1}`} className="w-full h-auto" />
+                    <img src={proxyImageUrl(link, 1600, { animated: true })} alt={`Game media ${index + 1}`} className="w-full h-auto" />
                   </div>
                 )
               } else {
@@ -3887,12 +3958,19 @@ export default function Game() {
       {/* Full-screen photo lightbox — opens when a Photos-tab thumb
           is clicked. Esc / clicking the backdrop / × button closes;
           ←/→ arrow keys + on-screen chevrons step through. */}
-      {photoLightboxIdx !== null && Array.isArray(game.photos) && game.photos.length > 0 && (
+      {photoLightboxIdx !== null && photoTabImages.length > 0 && (
         <PhotoLightbox
-          photos={game.photos}
+          photos={photoTabImages}
           index={photoLightboxIdx}
           onClose={() => setPhotoLightboxIdx(null)}
           onIndexChange={setPhotoLightboxIdx}
+          photoTags={game.photoTags || null}
+          resolvePlayerName={(pid) => playerNameByPid.get(String(pid))}
+          pathPrefix={pathPrefix}
+          gameId={game.id}
+          isViewOnly={isViewOnly}
+          taggablePlayers={photoTaggablePlayers}
+          onSaveTags={savePhotoTags}
         />
       )}
 
@@ -3920,9 +3998,24 @@ export default function Game() {
  *   • ← / → arrows OR on-screen chevrons → previous / next
  *   • Body scroll is locked while open
  */
-function PhotoLightbox({ photos, index, onClose, onIndexChange }) {
+function PhotoLightbox({ photos, index, onClose, onIndexChange, photoTags = null, resolvePlayerName = null, pathPrefix = '', gameId = null, isViewOnly = false, taggablePlayers = [], onSaveTags = null }) {
   const total = photos.length
   const currentUrl = photos[index]
+  const tagPids = (photoTags && currentUrl && Array.isArray(photoTags[currentUrl])) ? photoTags[currentUrl] : []
+  const canEditTags = !isViewOnly && gameId != null && typeof onSaveTags === 'function'
+
+  // In-lightbox tag editor: opens a search panel right here so the user
+  // can tag players without leaving for the editor.
+  const [showTagPanel, setShowTagPanel] = useState(false)
+  const [tagQuery, setTagQuery] = useState('')
+
+  // Toggle one player's tag on the current photo and persist immediately.
+  const toggleTag = (pid) => {
+    if (!onSaveTags || !currentUrl) return
+    const has = tagPids.some(p => String(p) === String(pid))
+    const next = has ? tagPids.filter(p => String(p) !== String(pid)) : [...tagPids, pid]
+    onSaveTags(currentUrl, next)
+  }
 
   const goPrev = useCallback(() => {
     if (total <= 1) return
@@ -3934,18 +4027,28 @@ function PhotoLightbox({ photos, index, onClose, onIndexChange }) {
     onIndexChange((index + 1) % total)
   }, [index, total, onIndexChange])
 
-  // Key handlers (body scroll lock is handled globally by Layout)
+  // Close the tag panel whenever we move to a different photo.
+  useEffect(() => { setShowTagPanel(false); setTagQuery('') }, [index])
+
+  // Key handlers (body scroll lock is handled globally by Layout). While
+  // the tag panel is open, Esc closes the panel (not the lightbox) and
+  // arrow keys are left to the search input instead of stepping photos.
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.()
-      else if (e.key === 'ArrowLeft') goPrev()
+      if (e.key === 'Escape') {
+        if (showTagPanel) setShowTagPanel(false)
+        else onClose?.()
+        return
+      }
+      if (showTagPanel) return
+      if (e.key === 'ArrowLeft') goPrev()
       else if (e.key === 'ArrowRight') goNext()
     }
     document.addEventListener('keydown', onKey)
     return () => {
       document.removeEventListener('keydown', onKey)
     }
-  }, [onClose, goPrev, goNext])
+  }, [onClose, goPrev, goNext, showTagPanel])
 
   if (typeof document === 'undefined') return null
   return createPortal(
@@ -4027,20 +4130,132 @@ function PhotoLightbox({ photos, index, onClose, onIndexChange }) {
         </button>
       )}
 
-      {/* The image — clicking it does NOT close (only the backdrop does) */}
-      <img
-        src={currentUrl}
-        alt={`Game photo ${index + 1} of ${total}`}
+      {/* Image + Instagram-style tag bar below it. Clicking inside this
+          column does NOT close (only the backdrop does). */}
+      <div
+        className="flex flex-col items-center gap-3"
+        style={{ maxWidth: 'calc(100vw - 32px)', maxHeight: 'calc(100vh - 32px)' }}
         onClick={(e) => e.stopPropagation()}
-        className="block select-none"
-        style={{
-          maxWidth: 'calc(100vw - 32px)',
-          maxHeight: 'calc(100vh - 32px)',
-          objectFit: 'contain',
-          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.6)',
-        }}
-        draggable={false}
-      />
+      >
+        <img
+          src={`https://wsrv.nl/?url=${encodeURIComponent(currentUrl)}&w=1600&output=webp&q=92`}
+          alt={`Game photo ${index + 1} of ${total}`}
+          className="block select-none"
+          style={{
+            maxWidth: '100%',
+            maxHeight: (tagPids.length > 0 || canEditTags) ? 'calc(100vh - 120px)' : 'calc(100vh - 32px)',
+            objectFit: 'contain',
+            boxShadow: '0 24px 60px rgba(0, 0, 0, 0.6)',
+          }}
+          onError={(e) => { if (e.currentTarget.src !== currentUrl) e.currentTarget.src = currentUrl }}
+          draggable={false}
+        />
+        {(tagPids.length > 0 || canEditTags) && (
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {tagPids.map(pid => (
+              <Link
+                key={pid}
+                to={`${pathPrefix}/player/${pid}`}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors hover:opacity-90"
+                style={{ backgroundColor: 'rgba(255, 255, 255, 0.12)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.25)' }}
+              >
+                {(resolvePlayerName ? resolvePlayerName(pid) : null) || `Player ${pid}`}
+              </Link>
+            ))}
+            {canEditTags && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setShowTagPanel(true); setTagQuery('') }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors hover:opacity-90"
+                style={{ backgroundColor: 'rgba(255, 255, 255, 0.06)', color: 'rgba(255,255,255,0.85)', border: '1px dashed rgba(255, 255, 255, 0.3)' }}
+              >
+                {tagPids.length > 0 ? 'Edit tags' : 'Tag players'}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* In-lightbox tag panel — search + toggle players, saved immediately */}
+      {showTagPanel && canEditTags && (
+        <div
+          className="absolute inset-0 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+          onClick={(e) => { e.stopPropagation(); setShowTagPanel(false) }}
+        >
+          <div
+            className="w-full max-w-md rounded-lg overflow-hidden flex flex-col"
+            style={{ backgroundColor: 'var(--surface-1)', border: '1px solid var(--surface-4)', maxHeight: '80vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--surface-4)' }}>
+              <span className="text-sm font-bold text-txt-primary">Tag players in this photo</span>
+              <button
+                type="button"
+                onClick={() => setShowTagPanel(false)}
+                className="text-txt-tertiary hover:text-txt-primary text-sm font-semibold"
+              >
+                Done
+              </button>
+            </div>
+            <div className="px-4 py-3">
+              {tagPids.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {tagPids.map(pid => (
+                    <span
+                      key={pid}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium"
+                      style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-5)', color: 'var(--text-primary)' }}
+                    >
+                      {(resolvePlayerName ? resolvePlayerName(pid) : null) || `Player ${pid}`}
+                      <button type="button" onClick={() => toggleTag(pid)} className="hover:opacity-70" style={{ color: '#f87171' }} aria-label="Remove tag">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <input
+                type="text"
+                value={tagQuery}
+                onChange={(e) => setTagQuery(e.target.value)}
+                placeholder="Search players by name or number…"
+                autoFocus
+                className="w-full px-3 py-2 rounded-md text-sm bg-transparent text-txt-primary focus:outline-none focus:ring-1 focus:ring-white/40"
+                style={{ border: '1px solid var(--surface-4)' }}
+              />
+            </div>
+            <div className="overflow-y-auto" style={{ borderTop: '1px solid var(--surface-4)' }}>
+              {taggablePlayers.length === 0 ? (
+                <p className="text-xs text-txt-tertiary italic p-3 m-0">No dynasty players on either team to tag.</p>
+              ) : (
+                matchAndRankPlayers(taggablePlayers, tagQuery)
+                  .map(pl => {
+                    const tagged = tagPids.some(p => String(p) === String(pl.pid))
+                    return (
+                      <button
+                        key={pl.pid}
+                        type="button"
+                        onClick={() => toggleTag(pl.pid)}
+                        className="w-full flex items-center justify-between gap-2 px-4 py-2 text-left transition-colors hover:bg-surface-3"
+                        style={{ borderBottom: '1px solid var(--surface-4)', backgroundColor: tagged ? 'var(--surface-3)' : 'transparent' }}
+                      >
+                        <span className="flex items-center gap-2 min-w-0">
+                          {(pl.jerseyNumber != null && pl.jerseyNumber !== '') && (
+                            <span className="text-xs text-txt-tertiary tabular-nums flex-shrink-0">#{pl.jerseyNumber}</span>
+                          )}
+                          <span className="text-sm text-txt-primary truncate">{pl.name}</span>
+                        </span>
+                        <span className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-[10px] text-txt-tertiary uppercase tracking-wide">{pl.teamAbbr}</span>
+                          {tagged && <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>✓</span>}
+                        </span>
+                      </button>
+                    )
+                  })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
     document.body
   )

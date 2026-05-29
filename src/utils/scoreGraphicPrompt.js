@@ -118,7 +118,7 @@ export function buildScoreGraphicPrompt({
   const designRules = (mode = 'branded') => [
     `DESIGN RULES:`,
     `• Bold, contemporary, confident.`,
-    `• If a photo is attached, it must fill the entire canvas — the photo is the visual foundation. Layer school-branded graphics and wording on top: score zone, team or program name in bold type, and any other design elements that make it instantly recognizable as that school's graphic.`,
+    `• If NO photo is attached, the SCORE is the focal point — the matchup and final score read first and biggest. Team logos identify each side, sized to support the score; do NOT enlarge a team's primary mark into a giant hero/centerpiece. Branding lives in the palette, layout, and small marks, not in one oversized logo.`,
     `• No distressed, scratchy, or grungy letterforms. Clean, bold typography only.`,
     mode === 'branded'
       ? `• This is ${featuredName}'s post — their palette owns the canvas. The opponent's colors are limited to their logo and their side of the score zone — not background fills, panels, or design shapes elsewhere on the canvas.`
@@ -127,7 +127,7 @@ export function buildScoreGraphicPrompt({
 
   const textRules = (fictionalNamesList = []) => {
     const lines = [
-      `TEXT RULES: In the score zone, use logos to identify teams — do not write team names next to scores. School or program name as a supporting canvas element (not a score label) is welcome — keep it secondary in scale, not a large hero element. If a rank (#N) appears in the RESULT block for either team, it must be shown on the graphic. Do not include:`,
+      `TEXT RULES: In the score zone, use logos to identify teams — do not write team names next to scores. School or program name as a supporting canvas element (not a score label) is fine, but it MUST stay secondary: smaller than the score, never the largest or dominant element, and never a giant "[School] FOOTBALL" hero banner. The score is the biggest thing on the canvas. If a rank (#N) appears in the RESULT block for either team, it must be shown on the graphic. Do not include:`,
       `• "FINAL SCORE" as a large hero headline. "FINAL" may appear as a label.`,
       `• "AWAY", "HOME", "ROAD", or "VISITOR" as visible canvas text.`,
       `• Outcome declarations — "CATS WIN!", "[TEAM] WIN.", "VICTORY!", or equivalent hype banners.`,
@@ -142,6 +142,18 @@ export function buildScoreGraphicPrompt({
     }
     return lines.join('\n')
   }
+
+  // Top-of-prompt directive (both paths). Branches on whether the user has
+  // photos for this game (screenshotCount): with photos we expect an
+  // attachment and tell the AI to build on top of it; with none we forbid
+  // any generated/fabricated photo-realistic imagery outright. The no-photo
+  // failure mode is the AI hallucinating a fake "player" hero shot, so that
+  // branch is a hard, non-negotiable rule — not a soft "photo-free" hint the
+  // model fills in with an invented action photo.
+  const hasAttachedPhoto = screenshotCount > 0
+  const photoDirective = hasAttachedPhoto
+    ? `IF AN IMAGE IS ATTACHED to this request: that photo is the foundation of the graphic — it MUST fill the canvas edge to edge as the background, and you build the score + branding ON TOP of it. Do NOT ignore an attached photo. If no image actually comes through, fall back to a STRICT graphics-only design (logos, type, and color only) with NO generated or fabricated photo-realistic imagery whatsoever.`
+    : `STRICT GRAPHICS-ONLY — NO PHOTOGRAPHY OF ANY KIND. No photo is attached to this request. Do NOT generate, render, illustrate, paint, or fabricate any photo-realistic imagery — no players, faces, human figures, action shots, crowds, stadiums, fields, or sidelines, not even blurred or faded in the background. Build the ENTIRE graphic from team logos, typography, color, and clean geometric/graphic-design elements ONLY. A fabricated or AI-generated player or photo is an automatic failure of this brief.`
 
   // ─── NEUTRAL PATH ─────────────────────────────────────────────────────────
   if (featuredTeam === 0) {
@@ -181,6 +193,8 @@ export function buildScoreGraphicPrompt({
       ``,
       `You are a senior designer at a major sports network. Both teams are represented equally in color, logo placement, and type weight.`,
       ``,
+      photoDirective,
+      ``,
       `RESULT`,
       `${rank1Label}${team1Name}${t1RecordEff ? ` (${t1RecordEff})` : ''}:  ${s1}`,
       `${rank2Label}${team2Name}${t2RecordEff ? ` (${t2RecordEff})` : ''}:  ${s2}`,
@@ -207,7 +221,7 @@ export function buildScoreGraphicPrompt({
         ? `Layout: ${awayName} (${awayScore}) on the left or top; ${homeName} (${homeScore}) on the right or bottom.`
         : `Neutral site — layout is your call.`,
       ``,
-      `Do not invent or generate photo-realistic content — no fabricated players, crowds, or stadiums. If a photo is attached, use it. If not, the graphic is photo-free.`,
+      `Do not invent or generate photo-realistic content — no fabricated players, crowds, or stadiums.`,
       ``,
       designRules('neutral'),
       ``,
@@ -290,6 +304,8 @@ export function buildScoreGraphicPrompt({
     ``,
     `You are the creative director for ${featuredName} football's social media. This goes out on Instagram and Twitter within minutes of the final whistle.`,
     ``,
+    photoDirective,
+    ``,
     gameContext ? gameContext.line : null,
     gameContext ? gameContext.designNote : null,
     ``,
@@ -311,7 +327,7 @@ export function buildScoreGraphicPrompt({
     logoInstruction(...realTeamNames),
     ``,
     `Score accuracy: ${featuredName} = ${sf}, ${oppName} = ${so}. Each score must have its team's primary logo immediately adjacent. Never swap. Both teams' scores in the same visual format — equal type size and layout treatment.`,
-    `Secondary brand elements: a program slogan, motto, or short text phrase is welcome as a small supporting element — authentic to this school only, never invented. If you want to use a secondary logomark or monogram, only do so if you can recall it confidently and accurately — a hallucinated or approximate mark is worse than no mark. When in doubt, use bold lettering of the school name or team name instead. The scores and primary logos are the focal point; everything else is supporting.`,
+    `Secondary logomark or monogram: only use one if you can recall it confidently and accurately — a hallucinated or approximate mark is worse than no mark. When in doubt, use bold lettering of the school name or team name instead.`,
     ``,
     homeTeam !== null
       ? `Layout: ${awayName} (${awayScore}) on the left or top; ${homeName} (${homeScore}) on the right or bottom.`

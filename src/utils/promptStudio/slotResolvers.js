@@ -33,6 +33,46 @@ import { getMascotName } from '../../data/teams'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
+// The position picker offers umbrella groups (OL/DL/LB/DB) alongside
+// specific positions, but players are stored under their specific slot
+// (LT/LG/C/RG/RT, LE/RE/DT, LOLB/MLB/ROLB, CB/FS/SS, …). Map each picker
+// value to the stored positions that belong to it so "OL" actually
+// matches the offensive line (the position-group prompt was returning
+// "no OLs" because it did an exact-string compare).
+const POSITION_ALIASES = {
+  QB: ['QB'],
+  RB: ['RB', 'HB'],
+  FB: ['FB'],
+  WR: ['WR'],
+  TE: ['TE'],
+  OL: ['OL', 'LT', 'LG', 'C', 'RG', 'RT', 'OT', 'OG', 'G', 'T'],
+  DL: ['DL', 'DE', 'LE', 'RE', 'DT', 'NT'],
+  DE: ['DE', 'LE', 'RE'],
+  DT: ['DT', 'NT'],
+  LB: ['LB', 'OLB', 'ILB', 'MLB', 'LOLB', 'ROLB', 'SAM', 'MIKE', 'WILL'],
+  OLB: ['OLB', 'LOLB', 'ROLB', 'SAM', 'WILL'],
+  MLB: ['MLB', 'ILB', 'MIKE'],
+  CB: ['CB'],
+  S: ['S', 'FS', 'SS'],
+  FS: ['FS'],
+  SS: ['SS'],
+  DB: ['DB', 'CB', 'S', 'FS', 'SS'],
+  K: ['K'],
+  P: ['P'],
+  LS: ['LS'],
+  KR: ['KR'],
+  PR: ['PR'],
+}
+
+function positionMatches(playerPos, selected) {
+  if (!playerPos || !selected) return false
+  const pp = String(playerPos).toUpperCase().trim()
+  const sel = String(selected).toUpperCase().trim()
+  if (pp === sel) return true
+  const members = POSITION_ALIASES[sel]
+  return !!members && members.includes(pp)
+}
+
 function teamLabel(dynasty, tid) {
   if (tid == null) return 'Unknown team'
   const teams = dynasty?.teams || TEAMS
@@ -657,7 +697,7 @@ export function resolvePositionSlot(dynasty, position, options = {}) {
   const players = getAllPlayers(dynasty) || []
   const groupPlayers = players
     .filter(p => isPlayerOnRoster(p, tid, year))
-    .filter(p => (getPlayerPositionForYear(p, year) || p.position) === position)
+    .filter(p => positionMatches(getPlayerPositionForYear(p, year) || p.position, position))
     .sort((a, b) => (getPlayerOverallForYear(b, year) || 0) - (getPlayerOverallForYear(a, year) || 0))
 
   if (!groupPlayers.length) {

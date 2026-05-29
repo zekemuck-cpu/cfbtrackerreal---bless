@@ -21,6 +21,7 @@
  *                  omitted, the component renders nothing on empty.
  */
 import { getContrastTextColor } from '../utils/colorUtils'
+import { proxyImageUrl } from '../utils/imageProxy'
 
 function parseLinks(linksData) {
   if (!linksData) return []
@@ -166,7 +167,7 @@ export default function MediaList({
           return (
             <div key={index} className="rounded-xl overflow-hidden shadow-lg ring-1 ring-surface-4">
               <a href={link} target="_blank" rel="noopener noreferrer">
-                <img src={link} alt="" className="w-full h-auto" />
+                <img src={proxyImageUrl(link, 1600, { animated: true })} alt="" className="w-full h-auto" />
               </a>
             </div>
           )
