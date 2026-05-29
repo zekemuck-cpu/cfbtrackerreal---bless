@@ -33,7 +33,6 @@ import { stripMascotFromName } from '../data/teams'
 import { TEAMS } from '../data/teamRegistry'
 import { detectGameType, GAME_TYPES, getTeamRanking, calculateTeamRecordFromGames } from '../context/DynastyContext'
 import { WEEKLY_AWARDS } from '../data/cardStyles'
-import { formatScoreHighLow } from './scoreFormat'
 
 // Award keys → human display name. Mirrors the labels the player profile
 // surfaces so the prompt language reads consistently across the app.
@@ -119,8 +118,21 @@ function buildPlayerGameStatsLine(player, game) {
   const categories = ['passing', 'rushing', 'receiving', 'blocking', 'defense', 'kicking', 'punting', 'kickReturn', 'puntReturn']
   let found = null
 
-  for (const side of ['home', 'away']) {
-    const sideBoxScore = game.boxScore[side]
+  // Box scores are stored canonically under boxScore.byTid (one slot per
+  // team's tid). Legacy games keep boxScore.home / boxScore.away. Walk
+  // whichever exists — the same resolution extractBoxScoreContribution
+  // uses. (Reading only home/away missed every modern game, so game cards
+  // always reported "no box-score data on file".)
+  const sides = []
+  if (game.boxScore.byTid && typeof game.boxScore.byTid === 'object') {
+    for (const slot of Object.values(game.boxScore.byTid)) {
+      if (slot) sides.push(slot)
+    }
+  }
+  if (game.boxScore.home) sides.push(game.boxScore.home)
+  if (game.boxScore.away) sides.push(game.boxScore.away)
+
+  for (const sideBoxScore of sides) {
     if (!sideBoxScore) continue
     const collected = {}
     for (const cat of categories) {
@@ -898,7 +910,11 @@ export function buildCardPromptVariables({ player, dynasty, card }) {
     const myScore = playerIsT1 ? g.team1Score : g.team2Score
     const oppScore = playerIsT1 ? g.team2Score : g.team1Score
     if (myScore != null && oppScore != null) {
-      score = formatScoreHighLow(myScore, oppScore)
+      // Player's team first ("<myScore>-<oppScore>") so the "Final:
+      // <school> X, <opp> Y" line and the "(X-Y W/L)" label read
+      // correctly on losses too. (formatScoreHighLow always put the
+      // higher number first, which flipped the score on every loss.)
+      score = `${myScore}-${oppScore}`
       result = myScore > oppScore ? 'W' : 'L'
     }
     week = emptyToBlank(g.week)
@@ -1072,6 +1088,10 @@ export function buildCardPromptVariables({ player, dynasty, card }) {
     teamColor,
     teamSecondaryColor,
     teamLogoUrl,
+    // {{teamLogo}} appears in ~70 front templates ("a team helmet icon
+    // for {{teamLogo}}") and was never provided — it resolved to empty,
+    // leaving the team unnamed. Name the team so the art has a referent.
+    teamLogo: teamFull || school,
 
     // Season
     year: String(year),
@@ -1127,8 +1147,15 @@ export function interpolatePrompt(template, variables) {
     const v = variables[key]
     return v == null ? '' : String(v)
   })
-  // Collapse double-spaces left by empty substitutions
-  out = out.replace(/[ \t]{2,}/g, ' ')
+  // Collapse double-spaces left by empty {{var}} substitutions — but ONLY
+  // on flush-left prose lines. Indented lines carry intentional column
+  // alignment (the injected career stat table, the vitals strip), and a
+  // blanket collapse flattened those tables into single-spaced runs.
+  out = out.split('\n').map(line =>
+    /^[ \t]/.test(line)
+      ? line.replace(/[ \t]+$/, '')        // indented: keep alignment, trim trailing only
+      : line.replace(/[ \t]{2,}/g, ' ')    // flush-left prose: collapse gaps
+  ).join('\n')
   // Clean up orphan separators like " ,", " .", "()", "( )" etc.
   out = out.replace(/\s+,/g, ',')
   out = out.replace(/\(\s*\)/g, '')
