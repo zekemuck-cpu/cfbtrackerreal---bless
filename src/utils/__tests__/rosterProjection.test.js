@@ -155,6 +155,10 @@ describe('projectRoster — departure detection', () => {
   it('drops a departure stamped in the current year', () => {
     expect(projectRoster(base({ movementByYear: { 2035: { type: 'departure', departure: 'graduated' } } }), 10, 2036)).toHaveLength(0)
   })
+
+  it('drops legacy encouraged_to_transfer (un-normalized type)', () => {
+    expect(projectRoster(base({ movementByYear: { 2036: { type: 'encouraged_to_transfer' } } }), 10, 2036)).toHaveLength(0)
+  })
 })
 
 describe('projectRoster — pending leaving + unknown class + JUCO', () => {

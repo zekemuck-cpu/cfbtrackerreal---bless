@@ -78,9 +78,9 @@ function rosterForRealYear(dynasty, tid, year) {
 // Departure detection mirrors the canonical sets the rest of the app uses
 // (DynastyContext). A movement counts as a departure if its `type` is in the
 // type-set OR its `departure` sub-field is in the sub-field set.
-const DEPARTURE_TYPES = new Set(['departure', 'entered_portal', 'transferred_out', 'graduated', 'declared_for_draft', 'transfer'])
+const DEPARTURE_TYPES = new Set(['departure', 'entered_portal', 'transferred_out', 'graduated', 'declared_for_draft', 'transfer', 'encouraged_to_transfer'])
 const DEPARTURE_SUBFIELDS = new Set(['transfer_out', 'graduated', 'pro_draft'])
-const TRANSFER_OUT_MARKERS = new Set(['transferred_out', 'transfer'])
+const TRANSFER_OUT_MARKERS = new Set(['transferred_out', 'transfer', 'encouraged_to_transfer'])
 
 // Did this player leave (grad/draft/transfer-out) in any season fromYear..throughYear?
 // A `transfer_out` whose destination (toTid) is THIS team is actually an
