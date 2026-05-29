@@ -20,3 +20,6 @@ migrated-dynasty.json
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Brainstorming visual-companion artifacts
+.superpowers/
