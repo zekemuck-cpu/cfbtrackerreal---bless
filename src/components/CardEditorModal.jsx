@@ -1,29 +1,19 @@
 /**
- * CardEditorModal — focused full-screen editor for a single trading
- * card. Opened from PlayerCards' grid (for both adding new cards and
- * editing existing ones).
+ * CardEditorModal — focused editor for a single trading card. Opened
+ * from PlayerCards' grid (both new cards and edits).
  *
- * Wizard layout — three phases, one per screen:
- *
- *   1. STYLE     — pick the brand/year card design (CardStylePicker)
- *   2. CONTEXT   — what does this card commemorate (season / freshman /
- *                  game / championship / award / custom) + year + label
- *   3. GENERATE  — populated front + back prompts to copy into an AI
- *                  image generator, plus upload fields for the result
- *
- * Visual direction — "the slab": dark surfaces, hairline rules,
- * condensed display type for phase numerals, Outfit for headings,
- * DM Sans for body, ui-monospace for prompts. Team color is the only
- * chromatic accent — it lives on the active phase, primary buttons,
- * focus rings, and the completed-phase checks. Card slots in phase 3
- * use a 5:7 aspect ratio and a dashed sleeve border to feel like
- * grading slabs that haven't received their hit yet.
+ * Three steps: Style → Context → Generate. The chrome follows the app's
+ * neutral design language (surface tokens, the shared Button primitive,
+ * the standard modal backdrop) — no team-color accents, no decorative
+ * slab/terminal styling. The AI prompts are NOT shown by default; each
+ * side has a Copy button and an optional "view" disclosure.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import CardStylePicker from './CardStylePicker'
 import ImageUpload from './ImageUpload'
+import Button from './ui/Button'
 import { CARD_CONTEXTS, WEEKLY_AWARDS, getCardStyle } from '../data/cardStyles'
 import {
   buildCardPromptVariables,
@@ -32,14 +22,10 @@ import {
 import { listPlayerGames } from '../utils/playerCards'
 
 const PHASES = [
-  { id: 'style',    label: 'Style',    short: '01' },
-  { id: 'context',  label: 'Context',  short: '02' },
-  { id: 'generate', label: 'Generate', short: '03' },
+  { id: 'style',    label: 'Style' },
+  { id: 'context',  label: 'Context' },
+  { id: 'generate', label: 'Generate' },
 ]
-
-// Default accent when teamColors prop is missing. Pulls from
-// the design system's surface tones instead of system blue.
-const FALLBACK_ACCENT = 'var(--surface-5)'
 
 export default function CardEditorModal({
   card,
@@ -56,10 +42,8 @@ export default function CardEditorModal({
 
   const update = (patch) => setWorking(w => {
     const next = { ...w, ...patch }
-    // When the context type changes, drop the previous type's contextDetails
-    // so a stale gameId / awardKey / championshipKey can't linger and leak
-    // into the prompt (or silently pass the completion check) under a context
-    // that doesn't use it.
+    // Changing the context type drops the previous type's details so a
+    // stale gameId / awardKey / championshipKey can't linger.
     if ('contextType' in patch && patch.contextType !== w.contextType) {
       next.contextDetails = {}
     }
@@ -68,20 +52,11 @@ export default function CardEditorModal({
   const updateContextDetails = (patch) =>
     setWorking(w => ({ ...w, contextDetails: { ...(w.contextDetails || {}), ...patch } }))
 
-  // Esc to cancel
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape') onCancel?.() }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [onCancel])
-
-  const accent = teamColors?.primary || FALLBACK_ACCENT
-  // Translucent variants of the accent for subtle backgrounds, glows,
-  // and rings. Computed once per render — color-mix would do the same
-  // in CSS but inline gives finer control over alpha per use.
-  const accentSoft = `${accent}1f`     // ~12%
-  const accentTint = `${accent}33`     // ~20%
-  const accentRing = `${accent}66`     // ~40%
 
   const style = useMemo(() => getCardStyle(working.styleId), [working.styleId])
   const variables = useMemo(
@@ -106,9 +81,6 @@ export default function CardEditorModal({
     if (idx === 1) {
       if (!working.contextType || !working.year) return false
       const d = working.contextDetails || {}
-      // Game / award references must still resolve against current data —
-      // a game deleted (or an award removed) after the card was made would
-      // otherwise produce a blank back with no warning.
       if (working.contextType === 'game') {
         if (!d.gameId || !playerGames.some(g => g.gameId === d.gameId)) return false
       }
@@ -133,224 +105,103 @@ export default function CardEditorModal({
   if (!portalTarget) return null
 
   const phase = PHASES[phaseIdx]
-  const phaseTitle =
-    phaseIdx === 0 ? 'Pick a card style' :
-    phaseIdx === 1 ? 'What does this card commemorate?' :
-    (style?.label || 'Generate the card')
-
-  const footerStatus =
-    phaseIdx === 0 ? (working.styleId ? `Selected — ${style?.label}` : 'Pick a style to continue.') :
-    phaseIdx === 1 ? (canAdvance ? 'Context locked in.' : 'Pick a type, year, and any required detail.') :
-    (canSave ? 'Ready to save.' : 'Upload at least the front image to save.')
 
   return createPortal(
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[9999] flex items-stretch justify-center"
-      style={{
-        margin: 0,
-        // Atmospheric backdrop — a subtle radial pulse of the team
-        // accent fades into a deep near-black, giving depth without
-        // competing with the modal contents.
-        background: `radial-gradient(ellipse at top, ${accent}1a 0%, rgba(0,0,0,0.85) 60%)`,
-        backdropFilter: 'blur(6px)',
-        WebkitBackdropFilter: 'blur(6px)',
-      }}
-      onClick={onCancel}
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] p-3 sm:p-4 modal-backdrop-in"
+      style={{ margin: 0 }}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel?.() }}
     >
       <div
-        className="w-full max-w-5xl max-h-screen flex flex-col my-4 mx-4 overflow-hidden"
-        style={{
-          backgroundColor: 'var(--surface-1)',
-          border: '1px solid var(--surface-4)',
-          borderRadius: 14,
-          boxShadow: `
-            0 40px 100px rgba(0,0,0,0.7),
-            0 8px 24px rgba(0,0,0,0.5),
-            inset 0 1px 0 rgba(255,255,255,0.04)
-          `,
-          fontFamily: "'DM Sans', system-ui, sans-serif",
-        }}
-        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-5xl card-elevated flex flex-col max-h-[90dvh] overflow-hidden modal-panel-in"
+        role="dialog"
+        aria-modal="true"
       >
         {/* ─── Header ─────────────────────────────────────────────── */}
-        <header
-          className="flex items-center justify-between gap-4 px-6 py-4 flex-shrink-0 relative"
-          style={{
-            backgroundColor: 'var(--surface-2)',
-            borderBottom: '1px solid var(--surface-4)',
-          }}
-        >
-          {/* Left rail accent — a 2px team-color stroke that runs the
-              full height of the header. Tiny detail, but it's the kind
-              of thing premium products do. */}
-          <span
-            aria-hidden="true"
-            className="absolute left-0 top-0 bottom-0 w-[2px]"
-            style={{ backgroundColor: accent }}
-          />
-
-          <div className="min-w-0 flex items-baseline gap-3">
-            <span
-              className="font-black tabular-nums leading-none flex-shrink-0"
-              style={{
-                fontFamily: "'Outfit', system-ui, sans-serif",
-                fontSize: 28,
-                color: 'var(--text-primary)',
-                letterSpacing: '-0.02em',
-              }}
-            >
-              {String(phaseIdx + 1).padStart(2, '0')}
-              <span style={{ color: 'var(--text-muted)' }}>/03</span>
-            </span>
-            <div className="min-w-0">
-              <div
-                className="leading-none mb-1"
-                style={{
-                  fontSize: 9.5,
-                  letterSpacing: '0.22em',
-                  color: 'var(--text-tertiary)',
-                  textTransform: 'uppercase',
-                  fontWeight: 700,
-                }}
-              >
-                {isNew ? 'New Card' : 'Edit Card'} {phase.label}
-              </div>
-              <h2
-                className="font-bold text-txt-primary leading-tight truncate"
-                style={{
-                  fontFamily: "'Outfit', system-ui, sans-serif",
-                  fontSize: 18,
-                  letterSpacing: '-0.01em',
-                }}
-              >
-                {phaseTitle}
-              </h2>
+        <header className="px-6 py-4 border-b border-surface-4 flex items-center justify-between flex-shrink-0">
+          <div className="min-w-0">
+            <div className="label-xs text-txt-tertiary mb-1">
+              {isNew ? 'New Card' : 'Edit Card'}
             </div>
+            <h2 className="text-display-md text-txt-primary m-0 truncate">
+              {phase.id === 'style' ? 'Choose a style'
+                : phase.id === 'context' ? 'Set the context'
+                : (style?.label || 'Generate')}
+            </h2>
           </div>
-
           <button
-            type="button"
             onClick={onCancel}
-            className="flex items-center justify-center rounded-md text-txt-tertiary hover:text-txt-primary transition-colors flex-shrink-0"
-            style={{
-              width: 36,
-              height: 36,
-              backgroundColor: 'transparent',
-              border: '1px solid var(--surface-4)',
-            }}
+            className="p-1.5 rounded-md text-txt-tertiary hover:text-txt-primary hover:bg-surface-3 transition-colors flex-shrink-0"
             aria-label="Close"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </header>
 
-        {/* ─── Phase tracker — numbered chips on a hairline rail ──── */}
-        <PhaseTracker
+        {/* ─── Stepper ────────────────────────────────────────────── */}
+        <Stepper
           phases={PHASES}
           phaseIdx={phaseIdx}
           phaseComplete={phaseComplete}
-          onSelect={(i) => setPhaseIdx(i)}
-          accent={accent}
-          accentTint={accentTint}
+          onSelect={(i) => { if (i <= phaseIdx || phaseComplete(i - 1)) setPhaseIdx(i) }}
         />
 
-        {/* ─── Phase body ─────────────────────────────────────────── */}
-        <div
-          className="flex-1 overflow-y-auto"
-          style={{
-            backgroundColor: 'var(--surface-1)',
-            // Subtle vertical gradient so the body has depth — darker at
-            // the edges, slightly lifted at the top.
-            backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.012) 0%, rgba(0,0,0,0) 200px)',
-          }}
-        >
-          <div className="px-6 py-7 sm:px-8 sm:py-8">
-            {phase.id === 'style' && (
-              <PhaseStyle
-                styleId={working.styleId}
-                onChange={(styleId) => update({ styleId })}
-              />
-            )}
-            {phase.id === 'context' && (
-              <PhaseContext
-                working={working}
-                onChange={update}
-                onChangeContextDetails={updateContextDetails}
-                availableYears={availableYears}
-                availableGames={playerGames}
-                availableAwards={availableAwards}
-                accent={accent}
-                accentSoft={accentSoft}
-                accentRing={accentRing}
-              />
-            )}
-            {phase.id === 'generate' && (
-              <PhaseGenerate
-                style={style}
-                filledFrontPrompt={filledFrontPrompt}
-                filledBackPrompt={filledBackPrompt}
-                working={working}
-                onChange={update}
-                teamColors={teamColors}
-                accent={accent}
-                accentSoft={accentSoft}
-                accentRing={accentRing}
-              />
-            )}
-          </div>
+        {/* ─── Body ───────────────────────────────────────────────── */}
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {phase.id === 'style' && (
+            <CardStylePicker value={working.styleId} onChange={(styleId) => update({ styleId })} />
+          )}
+          {phase.id === 'context' && (
+            <PhaseContext
+              working={working}
+              onChange={update}
+              onChangeContextDetails={updateContextDetails}
+              availableYears={availableYears}
+              availableGames={playerGames}
+              availableAwards={availableAwards}
+            />
+          )}
+          {phase.id === 'generate' && (
+            <PhaseGenerate
+              style={style}
+              filledFrontPrompt={filledFrontPrompt}
+              filledBackPrompt={filledBackPrompt}
+              working={working}
+              onChange={update}
+              teamColors={teamColors}
+            />
+          )}
         </div>
 
         {/* ─── Footer ─────────────────────────────────────────────── */}
-        <footer
-          className="flex items-center justify-between gap-4 px-6 py-4 flex-shrink-0 flex-wrap"
-          style={{
-            backgroundColor: 'var(--surface-2)',
-            borderTop: '1px solid var(--surface-4)',
-          }}
-        >
-          <div
-            className="text-xs flex items-center gap-2 min-w-0"
-            style={{ color: 'var(--text-tertiary)' }}
-          >
-            <span
-              aria-hidden="true"
-              className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0"
-              style={{ backgroundColor: canAdvance || canSave ? accent : 'var(--surface-5)' }}
-            />
-            <span className="truncate">{footerStatus}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <SecondaryButton onClick={onCancel}>Cancel</SecondaryButton>
+        <footer className="px-6 py-4 border-t border-surface-4 flex items-center justify-between gap-3 flex-shrink-0 bg-surface-2">
+          <span className="text-sm text-txt-tertiary truncate hidden sm:block">
+            {phaseIdx === 0 ? (working.styleId ? style?.label : 'Pick a style to continue')
+              : phaseIdx === 1 ? (canAdvance ? 'Context set' : 'Pick a type, year, and any required detail')
+              : (canSave ? 'Ready to save' : 'Upload at least the front image to save')}
+          </span>
+          <div className="flex items-center gap-2 ml-auto">
+            <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
             {phaseIdx > 0 && (
-              <SecondaryButton onClick={goBack}>← Back</SecondaryButton>
+              <Button variant="secondary" size="sm" onClick={goBack}>Back</Button>
             )}
-            {phaseIdx < PHASES.length - 1 && (
-              <PrimaryButton
-                onClick={goNext}
-                disabled={!canAdvance}
-                accent={accent}
-              >
-                Next →
-              </PrimaryButton>
-            )}
-            {phaseIdx === PHASES.length - 1 && (
-              <PrimaryButton
+            {phaseIdx < PHASES.length - 1 ? (
+              <Button variant="primary" size="sm" onClick={goNext} disabled={!canAdvance}>Next</Button>
+            ) : (
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={async () => {
                   if (!canSave || saving) return
                   setSaving(true)
-                  try {
-                    await onSave(working)
-                  } finally {
-                    setSaving(false)
-                  }
+                  try { await onSave(working) } finally { setSaving(false) }
                 }}
                 disabled={!canSave || saving}
-                accent={accent}
               >
                 {saving ? 'Saving…' : (isNew ? 'Save card' : 'Save changes')}
-              </PrimaryButton>
+              </Button>
             )}
           </div>
         </footer>
@@ -361,96 +212,49 @@ export default function CardEditorModal({
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   Phase tracker
+   Stepper — slim, neutral
    ═══════════════════════════════════════════════════════════════════ */
 
-function PhaseTracker({ phases, phaseIdx, phaseComplete, onSelect, accent, accentTint }) {
+function Stepper({ phases, phaseIdx, phaseComplete, onSelect }) {
   return (
-    <nav
-      className="flex-shrink-0 px-6 py-4 sm:px-8"
-      style={{
-        backgroundColor: 'var(--surface-2)',
-        borderBottom: '1px solid var(--surface-4)',
-      }}
-    >
-      <ol className="flex items-center justify-between gap-2 sm:gap-4 max-w-2xl mx-auto">
+    <nav className="px-6 py-3 border-b border-surface-4 flex-shrink-0">
+      <ol className="flex items-center gap-2">
         {phases.map((p, i) => {
           const active = i === phaseIdx
-          const complete = phaseComplete(i)
-          const reachable = i <= phaseIdx || (i > phaseIdx && phaseComplete(i - 1))
-          const isLast = i === phases.length - 1
-
-          // Visual state for the chip: active → solid accent fill;
-          // complete → outlined accent with check; pending → muted.
-          const chipBg = active ? accent : complete ? 'transparent' : 'var(--surface-3)'
-          const chipBorder = active
-            ? accent
-            : complete
-              ? accent
-              : 'var(--surface-5)'
-          const chipColor = active
-            ? '#fff'
-            : complete
-              ? accent
-              : 'var(--text-tertiary)'
-          const labelColor = active
-            ? 'var(--text-primary)'
-            : complete
-              ? 'var(--text-secondary)'
-              : 'var(--text-tertiary)'
-
+          const complete = phaseComplete(i) && !active
+          const reachable = i <= phaseIdx || phaseComplete(i - 1)
           return (
-            <li key={p.id} className="flex items-center flex-1 min-w-0">
+            <li key={p.id} className="flex items-center gap-2 flex-1 min-w-0">
               <button
                 type="button"
-                onClick={() => { if (reachable) onSelect(i) }}
+                onClick={() => reachable && onSelect(i)}
                 disabled={!reachable}
-                className="flex items-center gap-2.5 sm:gap-3 group disabled:cursor-not-allowed flex-shrink-0"
+                className="flex items-center gap-2 disabled:cursor-not-allowed group"
               >
                 <span
-                  className="relative flex items-center justify-center font-bold tabular-nums transition-all"
+                  className="flex items-center justify-center rounded-full text-xs font-bold tabular-nums flex-shrink-0"
                   style={{
-                    width: 32,
-                    height: 32,
-                    fontFamily: "'Outfit', system-ui, sans-serif",
-                    fontSize: 12,
-                    backgroundColor: chipBg,
-                    border: `1.5px solid ${chipBorder}`,
-                    color: chipColor,
-                    borderRadius: 8,
-                    boxShadow: active ? `0 0 0 4px ${accentTint}` : 'none',
+                    width: 22, height: 22,
+                    backgroundColor: active ? 'var(--text-primary)' : 'transparent',
+                    color: active ? 'var(--surface-1)' : complete ? 'var(--accent-success)' : 'var(--text-tertiary)',
+                    border: `1px solid ${active ? 'var(--text-primary)' : complete ? 'var(--accent-success)' : 'var(--surface-5)'}`,
                   }}
                 >
-                  {complete && !active ? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+                  {complete ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
                       <polyline points="20 6 9 17 4 12" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                  ) : (
-                    p.short
-                  )}
+                  ) : i + 1}
                 </span>
                 <span
-                  className="text-xs font-bold uppercase whitespace-nowrap transition-colors"
-                  style={{
-                    fontFamily: "'Outfit', system-ui, sans-serif",
-                    letterSpacing: '0.12em',
-                    color: labelColor,
-                  }}
+                  className="text-sm font-semibold whitespace-nowrap"
+                  style={{ color: active ? 'var(--text-primary)' : 'var(--text-tertiary)' }}
                 >
                   {p.label}
                 </span>
               </button>
-              {!isLast && (
-                <span
-                  aria-hidden="true"
-                  className="flex-1 mx-2 sm:mx-3 transition-colors"
-                  style={{
-                    height: 1,
-                    backgroundColor: complete ? accent : 'var(--surface-5)',
-                    minWidth: 16,
-                    opacity: complete ? 0.5 : 1,
-                  }}
-                />
+              {i < phases.length - 1 && (
+                <span aria-hidden="true" className="flex-1 h-px bg-surface-4 min-w-[12px]" />
               )}
             </li>
           )
@@ -461,40 +265,21 @@ function PhaseTracker({ phases, phaseIdx, phaseComplete, onSelect, accent, accen
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   Phase 1 — Style
-   ═══════════════════════════════════════════════════════════════════ */
-
-function PhaseStyle({ styleId, onChange }) {
-  return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <PhaseLeadIn
-        eyebrow="Step 01 — Style"
-        title="Pick the brand and year"
-        body="Each style locks the front and back design, the era's typography, and the prompt language we'll send to the image generator on the final step. The full catalog runs from 1952 Bowman to today's Panini Prizm parallels."
-      />
-      <CardStylePicker value={styleId} onChange={onChange} />
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   Phase 2 — Context
+   Step 2 — Context
    ═══════════════════════════════════════════════════════════════════ */
 
 function PhaseContext({
   working, onChange, onChangeContextDetails,
   availableYears, availableGames, availableAwards,
-  accent, accentSoft, accentRing,
 }) {
-  return (
-    <div className="space-y-7 max-w-3xl mx-auto">
-      <PhaseLeadIn
-        eyebrow="Step 02 — Context"
-        title="What does this card commemorate?"
-        body="The context controls the back of the card — career table for a season card, single-game line for a game card, trophy detail for awards and championships."
-      />
+  const staleGame = working.contextType === 'game' && working.contextDetails?.gameId &&
+    !availableGames.some(g => g.gameId === working.contextDetails.gameId)
+  const staleAward = working.contextType === 'award' && working.contextDetails?.awardKey &&
+    !availableAwards.some(a => a.key === working.contextDetails.awardKey)
 
-      <Section title="Type" hint="Sets the storyline the card tells.">
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <Field label="Type" hint="What the card commemorates.">
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {CARD_CONTEXTS.map(ctx => {
             const active = working.contextType === ctx.id
@@ -503,55 +288,36 @@ function PhaseContext({
                 key={ctx.id}
                 type="button"
                 onClick={() => onChange({ contextType: ctx.id })}
-                className="text-left transition-all duration-150"
+                className="text-left px-3 py-2.5 rounded-lg transition-colors"
                 style={{
-                  padding: '12px 14px',
-                  backgroundColor: active ? accentSoft : 'var(--surface-2)',
-                  color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  border: `1px solid ${active ? accent : 'var(--surface-4)'}`,
-                  borderRadius: 8,
-                  boxShadow: active ? `inset 0 0 0 1px ${accent}` : 'none',
-                  cursor: 'pointer',
+                  backgroundColor: active ? 'var(--surface-3)' : 'var(--surface-2)',
+                  border: `1px solid ${active ? 'var(--text-primary)' : 'var(--surface-4)'}`,
                 }}
               >
-                <div
-                  className="text-sm font-bold leading-tight"
-                  style={{ fontFamily: "'Outfit', system-ui, sans-serif" }}
-                >
-                  {ctx.label}
-                </div>
-                <div
-                  className="text-[11px] mt-1 leading-snug"
-                  style={{ color: active ? 'var(--text-secondary)' : 'var(--text-tertiary)' }}
-                >
-                  {ctx.hint}
-                </div>
+                <div className="text-sm font-semibold text-txt-primary leading-tight">{ctx.label}</div>
+                <div className="text-xs text-txt-tertiary mt-0.5 leading-snug">{ctx.hint}</div>
               </button>
             )
           })}
         </div>
-      </Section>
+      </Field>
 
-      <Section title="Year" hint="Drives stats, classification, and team record.">
-        <StyledSelect
+      <Field label="Year" hint="Drives stats, class, and team record.">
+        <SelectControl
           value={working.year || ''}
           onChange={(e) => onChange({ year: Number(e.target.value) || null })}
-          accentRing={accentRing}
         >
           <option value="">Select a season…</option>
-          {availableYears.map(y => (
-            <option key={y} value={y}>{y}</option>
-          ))}
-        </StyledSelect>
-      </Section>
+          {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+        </SelectControl>
+      </Field>
 
       {working.contextType === 'game' && (
         <>
-          <Section title="Game" hint="Specific game memento. Only this game appears on the back.">
-            <StyledSelect
+          <Field label="Game" hint="Only this game appears on the back.">
+            <SelectControl
               value={working.contextDetails?.gameId || ''}
               onChange={(e) => onChangeContextDetails({ gameId: e.target.value })}
-              accentRing={accentRing}
             >
               <option value="">Select a game…</option>
               {availableGames.map(g => (
@@ -559,20 +325,18 @@ function PhaseContext({
                   {g.year} W{g.week} {g.won ? 'W' : 'L'} {(g.playerScore != null && g.oppScore != null) ? `${g.playerScore}-${g.oppScore}` : '—'} {g.location === 'home' ? 'vs' : g.location === 'away' ? '@' : 'vs (N)'} {g.opponentName}
                 </option>
               ))}
-            </StyledSelect>
-            {working.contextDetails?.gameId &&
-              !availableGames.some(g => g.gameId === working.contextDetails.gameId) && (
-              <div className="text-[11px] mt-2 leading-snug" style={{ color: 'var(--danger, #e5484d)' }}>
-                The game this card pointed to is no longer available (it may have been deleted). Pick a game above — otherwise the back will have no matchup or stats.
-              </div>
+            </SelectControl>
+            {staleGame && (
+              <p className="text-xs mt-2 text-danger">
+                The game this card pointed to is no longer available. Pick a game above — otherwise the back will have no matchup or stats.
+              </p>
             )}
-          </Section>
+          </Field>
 
-          <Section title="Weekly award (optional)" hint="If the player took home a Player-of-the-Week honor for this game, the card becomes a POTW commemorative.">
-            <StyledSelect
+          <Field label="Weekly award" hint="Optional — turns this into a Player-of-the-Week card.">
+            <SelectControl
               value={working.contextDetails?.weeklyAward || ''}
               onChange={(e) => onChangeContextDetails({ weeklyAward: e.target.value })}
-              accentRing={accentRing}
             >
               <option value="">— None —</option>
               <optgroup label="National">
@@ -585,135 +349,101 @@ function PhaseContext({
                   <option key={a.id} value={a.id}>{a.label}</option>
                 ))}
               </optgroup>
-            </StyledSelect>
-          </Section>
+            </SelectControl>
+          </Field>
         </>
       )}
 
       {working.contextType === 'championship' && (
-        <Section title="Championship" hint="Title or trophy this card commemorates.">
-          <StyledSelect
+        <Field label="Championship" hint="Title this card commemorates.">
+          <SelectControl
             value={working.contextDetails?.championshipKey || ''}
             onChange={(e) => onChangeContextDetails({
               championshipKey: e.target.value,
               championshipName: e.target.options[e.target.selectedIndex].text,
             })}
-            accentRing={accentRing}
           >
             <option value="">Select…</option>
             <option value="natty">National Championship</option>
             <option value="cfp_semi">CFP Semifinal Win</option>
             <option value="conf">Conference Championship</option>
             <option value="bowl">Bowl Win</option>
-          </StyledSelect>
-        </Section>
+          </SelectControl>
+        </Field>
       )}
 
       {working.contextType === 'award' && (
-        <Section title="Award" hint="Heisman, Maxwell, etc. The award becomes the back's headline.">
-          <StyledSelect
+        <Field label="Award" hint="Becomes the back's headline.">
+          <SelectControl
             value={working.contextDetails?.awardKey || ''}
             onChange={(e) => onChangeContextDetails({ awardKey: e.target.value })}
-            accentRing={accentRing}
           >
             <option value="">Select…</option>
             {availableAwards.map(a => (
               <option key={a.key} value={a.key}>{a.label} ({a.year})</option>
             ))}
             {availableAwards.length === 0 && <option disabled>No awards on this player</option>}
-          </StyledSelect>
-          {working.contextDetails?.awardKey &&
-            !availableAwards.some(a => a.key === working.contextDetails.awardKey) && (
-            <div className="text-[11px] mt-2 leading-snug" style={{ color: 'var(--danger, #e5484d)' }}>
-              The award this card pointed to is no longer on the player. Pick an award above — otherwise the back's headline will be blank.
-            </div>
+          </SelectControl>
+          {staleAward && (
+            <p className="text-xs mt-2 text-danger">
+              The award this card pointed to is no longer on the player. Pick an award above.
+            </p>
           )}
-        </Section>
+        </Field>
       )}
 
       {working.contextType === 'custom' && (
-        <Section title="Custom storyline" hint="Type the storyline yourself.">
-          <StyledInput
-            type="text"
+        <Field label="Custom storyline" hint="Type the storyline yourself.">
+          <InputControl
             value={working.contextDetails?.customLabel || ''}
             onChange={(e) => onChangeContextDetails({ customLabel: e.target.value })}
             placeholder="e.g. Walk-on to All-American, Bowl MVP, Senior Day farewell…"
-            accentRing={accentRing}
           />
-        </Section>
+        </Field>
       )}
 
-      <Section title="Label (optional)" hint="A short tag shown under the card thumbnail in the collection grid.">
-        <StyledInput
-          type="text"
+      <Field label="Label" hint="Optional — shown under the card in the collection.">
+        <InputControl
           value={working.label || ''}
           onChange={(e) => onChange({ label: e.target.value })}
           placeholder="e.g. Heisman Trophy, Iron Bowl Win, Senior Day"
-          accentRing={accentRing}
         />
-      </Section>
+      </Field>
     </div>
   )
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   Phase 3 — Generate
+   Step 3 — Generate
    ═══════════════════════════════════════════════════════════════════ */
 
-function PhaseGenerate({
-  style, filledFrontPrompt, filledBackPrompt, working, onChange,
-  teamColors, accent, accentSoft, accentRing,
-}) {
+function PhaseGenerate({ style, filledFrontPrompt, filledBackPrompt, working, onChange, teamColors }) {
   if (!style) {
     return (
-      <div className="max-w-3xl mx-auto text-center py-16">
-        <div
-          className="inline-flex items-center justify-center mb-4"
-          style={{
-            width: 56, height: 56,
-            borderRadius: 12,
-            backgroundColor: 'var(--surface-2)',
-            border: '1px dashed var(--surface-5)',
-            color: 'var(--text-tertiary)',
-          }}
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-          </svg>
-        </div>
-        <p className="text-sm text-txt-secondary">
-          Pick a card style on Step 01 to populate the prompts.
-        </p>
+      <div className="text-center py-16 text-sm text-txt-secondary">
+        Pick a card style on the first step to populate the prompts.
       </div>
     )
   }
   return (
-    <div className="space-y-7">
-      <PhaseLeadIn
-        eyebrow="Step 03 — Generate"
-        title={style.label}
-        body="Copy each prompt into your AI image generator. Drop the resulting front and back back into the slots below — the back is optional."
-      />
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <PromptCard
+    <div className="space-y-5">
+      <p className="text-sm text-txt-tertiary max-w-2xl">
+        Copy each prompt into your AI image generator, then drop the resulting images into the slots below. The back is optional.
+      </p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <SidePanel
           side="front"
           prompt={filledFrontPrompt}
           imageUrl={working.frontImageUrl}
           onChangeImage={(url) => onChange({ frontImageUrl: url })}
           teamColors={teamColors}
-          accent={accent}
-          accentSoft={accentSoft}
-          accentRing={accentRing}
         />
-        <PromptCard
+        <SidePanel
           side="back"
           prompt={filledBackPrompt}
           imageUrl={working.backImageUrl}
           onChangeImage={(url) => onChange({ backImageUrl: url })}
           teamColors={teamColors}
-          accent={accent}
-          accentSoft={accentSoft}
-          accentRing={accentRing}
         />
       </div>
     </div>
@@ -721,236 +451,90 @@ function PhaseGenerate({
 }
 
 /**
- * PromptCard — one side (front or back). The aesthetic mirrors a card
- * grading slab: a labelled head strip with the side number, a recessed
- * monospace prompt window, and a 5:7 card slot beneath that doubles as
- * the drop zone preview.
+ * SidePanel — one card face. Header with Copy + an optional collapsed
+ * "view prompt" disclosure (the prompt is not shown by default), then
+ * the image slot / upload.
  */
-function PromptCard({
-  side, prompt, imageUrl, onChangeImage, teamColors,
-  accent, accentSoft, accentRing,
-}) {
+function SidePanel({ side, prompt, imageUrl, onChangeImage, teamColors }) {
   const [copied, setCopied] = useState(false)
+  const [showPrompt, setShowPrompt] = useState(false)
   const imageUploadRef = useRef(null)
+  const label = side === 'front' ? 'Front' : 'Back'
+
   const onCopy = async () => {
     try {
       await navigator.clipboard?.writeText(prompt)
       setCopied(true)
-      setTimeout(() => setCopied(false), 1200)
+      setTimeout(() => setCopied(false), 1400)
     } catch {}
   }
-  const sideLabel = side === 'front' ? 'FRONT' : 'BACK'
-  const sideNumeral = side === 'front' ? 'A' : 'B'
 
   return (
-    <div
-      className="overflow-hidden"
-      style={{
-        backgroundColor: 'var(--surface-2)',
-        border: '1px solid var(--surface-4)',
-        borderRadius: 12,
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)',
-      }}
-    >
-      {/* ── Head strip ───────────────────────────────────────────── */}
-      <header
-        className="flex items-center justify-between gap-3 px-4 py-3"
-        style={{
-          backgroundColor: 'var(--surface-3)',
-          borderBottom: '1px solid var(--surface-4)',
-        }}
-      >
-        <div className="flex items-baseline gap-3 min-w-0">
-          <span
-            className="font-black leading-none flex-shrink-0 tabular-nums"
-            style={{
-              fontFamily: "'Outfit', system-ui, sans-serif",
-              fontSize: 22,
-              color: accent,
-              letterSpacing: '-0.03em',
-            }}
-          >
-            {sideNumeral}
+    <div className="rounded-lg border border-surface-4 bg-surface-2 overflow-hidden">
+      <header className="flex items-center justify-between gap-2 px-4 py-3 border-b border-surface-4">
+        <div className="flex items-baseline gap-2 min-w-0">
+          <span className="text-sm font-bold text-txt-primary">{label}</span>
+          <span className="label-xs text-txt-tertiary">
+            {imageUrl ? 'Image loaded' : 'No image yet'}
           </span>
-          <div className="min-w-0">
-            <div
-              className="leading-none"
-              style={{
-                fontFamily: "'Outfit', system-ui, sans-serif",
-                fontSize: 13,
-                fontWeight: 800,
-                color: 'var(--text-primary)',
-                letterSpacing: '0.04em',
-              }}
-            >
-              {sideLabel} OF CARD
-            </div>
-            <div
-              className="leading-none mt-1"
-              style={{
-                fontSize: 9,
-                letterSpacing: '0.22em',
-                color: 'var(--text-tertiary)',
-                textTransform: 'uppercase',
-                fontWeight: 600,
-              }}
-            >
-              {prompt ? `${prompt.length.toLocaleString()} chars` : 'Awaiting prompt'}
-            </div>
-          </div>
         </div>
-        <button
-          type="button"
-          onClick={onCopy}
-          disabled={!prompt}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
-          style={{
-            backgroundColor: copied ? accent : 'var(--surface-2)',
-            color: copied ? '#fff' : 'var(--text-secondary)',
-            border: `1px solid ${copied ? accent : 'var(--surface-5)'}`,
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: '0.04em',
-          }}
-        >
-          {copied ? (
-            <>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
-                <polyline points="20 6 9 17 4 12" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Copied
-            </>
-          ) : (
-            <>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-              </svg>
-              Copy
-            </>
-          )}
-        </button>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <Button variant="ghost" size="sm" onClick={() => setShowPrompt(s => !s)} disabled={!prompt}>
+            {showPrompt ? 'Hide prompt' : 'View prompt'}
+          </Button>
+          <Button variant="primary" size="sm" onClick={onCopy} disabled={!prompt}>
+            {copied ? 'Copied' : 'Copy prompt'}
+          </Button>
+        </div>
       </header>
 
-      {/* ── Body ─────────────────────────────────────────────────── */}
-      <div className="p-4 space-y-4">
-        {/* Prompt window — looks like an inset terminal pane */}
-        <div
-          className="overflow-hidden"
-          style={{
-            backgroundColor: 'var(--surface-0)',
-            border: '1px solid var(--surface-4)',
-            borderRadius: 8,
-            boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.4)',
-          }}
-        >
-          {/* Tiny title bar with terminal-style dots — sells the
-              "this is a real prompt" feel without being kitschy. */}
-          <div
-            className="flex items-center gap-2 px-3 py-2"
-            style={{
-              borderBottom: '1px solid var(--surface-4)',
-              backgroundColor: 'rgba(255,255,255,0.015)',
-            }}
-          >
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#3a3c45' }} />
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#3a3c45' }} />
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#3a3c45' }} />
-            </span>
-            <span
-              className="text-[9.5px] font-mono"
-              style={{ color: 'var(--text-muted)', letterSpacing: '0.05em' }}
-            >
-              {sideLabel.toLowerCase()}.prompt
-            </span>
-          </div>
+      {showPrompt && (
+        <div className="px-4 pt-3">
           <textarea
             value={prompt}
             readOnly
-            rows={9}
-            className="w-full px-3.5 py-3 leading-relaxed resize-vertical focus:outline-none"
-            style={{
-              fontFamily: "ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace",
-              fontSize: 11.5,
-              lineHeight: 1.65,
-              backgroundColor: 'transparent',
-              color: 'var(--text-secondary)',
-              border: 'none',
-              minHeight: 200,
-            }}
+            rows={8}
+            className="w-full rounded-md bg-surface-0 border border-surface-4 px-3 py-2 text-txt-secondary resize-y focus:outline-none focus:border-surface-5"
+            style={{ fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontSize: 11.5, lineHeight: 1.6 }}
           />
         </div>
+      )}
 
-        {/* Card slot — 5:7 aspect, dashed border when empty so it
-            reads as a sleeve waiting for a card. Sits above the
-            upload controls so the visual preview anchors the eye. */}
-        <div>
-          <div className="flex items-baseline justify-between mb-2.5">
-            <div
-              className="text-[9.5px] font-bold uppercase"
-              style={{
-                letterSpacing: '0.22em',
-                color: 'var(--text-tertiary)',
-                fontFamily: "'Outfit', system-ui, sans-serif",
-              }}
-            >
-              {sideLabel} Slot
-            </div>
-            <div
-              className="text-[9px] font-bold uppercase"
-              style={{
-                letterSpacing: '0.18em',
-                color: imageUrl ? accent : 'var(--text-muted)',
-                fontFamily: "'Outfit', system-ui, sans-serif",
-              }}
-            >
-              {imageUrl ? '● Loaded' : '○ Empty'}
-            </div>
-          </div>
-          <CardSlot
-            imageUrl={imageUrl}
-            sideLabel={sideLabel}
-            accent={accent}
-            accentSoft={accentSoft}
-            onClick={() => imageUploadRef.current?.triggerFileSelect()}
-            onDragOver={(e) => imageUploadRef.current?.handleDragOver(e)}
-            onDragLeave={(e) => imageUploadRef.current?.handleDragLeave(e)}
-            onDrop={(e) => imageUploadRef.current?.handleDrop(e)}
+      <div className="p-4">
+        <ImageSlot
+          imageUrl={imageUrl}
+          label={label}
+          onClick={() => imageUploadRef.current?.triggerFileSelect()}
+          onDragOver={(e) => imageUploadRef.current?.handleDragOver(e)}
+          onDragLeave={(e) => imageUploadRef.current?.handleDragLeave(e)}
+          onDrop={(e) => imageUploadRef.current?.handleDrop(e)}
+        />
+        <div className="mt-3">
+          <ImageUpload
+            ref={imageUploadRef}
+            value={imageUrl || ''}
+            onChange={onChangeImage}
+            teamColors={teamColors}
+            placeholder="Click, drag-drop, paste, or paste a URL"
+            showPreview={false}
+            hideDropzone={true}
           />
-          <div className="mt-3">
-            <ImageUpload
-              ref={imageUploadRef}
-              value={imageUrl || ''}
-              onChange={onChangeImage}
-              teamColors={teamColors}
-              placeholder="Click, drag-drop, paste, or paste a URL"
-              showPreview={false}
-              hideDropzone={true}
-            />
-          </div>
         </div>
       </div>
     </div>
   )
 }
 
-function CardSlot({ imageUrl, sideLabel, accent, accentSoft, onClick, onDragOver, onDragLeave, onDrop }) {
+function ImageSlot({ imageUrl, label, onClick, onDragOver, onDragLeave, onDrop }) {
   return (
     <div
-      className="relative overflow-hidden mx-auto"
+      className="relative overflow-hidden mx-auto rounded-lg cursor-pointer transition-colors"
       style={{
         aspectRatio: '5/7',
-        maxWidth: 240,
+        maxWidth: 220,
         width: '100%',
-        borderRadius: 10,
         backgroundColor: imageUrl ? 'transparent' : 'var(--surface-1)',
-        border: imageUrl ? `1px solid ${accent}` : '1.5px dashed var(--surface-5)',
-        boxShadow: imageUrl
-          ? `0 12px 32px rgba(0,0,0,0.5), 0 0 0 4px ${accentSoft}`
-          : 'inset 0 1px 0 rgba(255,255,255,0.02), 0 4px 16px rgba(0,0,0,0.25)',
-        transition: 'all 0.2s ease',
-        cursor: onClick ? 'pointer' : undefined,
+        border: imageUrl ? '1px solid var(--surface-5)' : '1.5px dashed var(--surface-5)',
       }}
       onClick={onClick}
       onDragOver={onDragOver}
@@ -958,162 +542,49 @@ function CardSlot({ imageUrl, sideLabel, accent, accentSoft, onClick, onDragOver
       onDrop={onDrop}
     >
       {imageUrl ? (
-        <img
-          src={imageUrl}
-          alt={sideLabel}
-          className="w-full h-full object-cover block"
-        />
+        <img src={imageUrl} alt={label} className="w-full h-full object-cover block" />
       ) : (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 p-4">
-          <CardCorners />
-          <span
-            className="font-black leading-none tabular-nums"
-            style={{
-              fontFamily: "'Outfit', system-ui, sans-serif",
-              fontSize: 56,
-              color: 'var(--text-muted)',
-              letterSpacing: '-0.04em',
-            }}
-          >
-            {sideLabel === 'FRONT' ? 'A' : 'B'}
-          </span>
-          <span
-            className="text-[10px] font-bold text-center"
-            style={{
-              letterSpacing: '0.22em',
-              color: 'var(--text-tertiary)',
-              textTransform: 'uppercase',
-              fontFamily: "'Outfit', system-ui, sans-serif",
-            }}
-          >
-            Upload {sideLabel === 'FRONT' ? 'Front' : 'Back'} Here
-          </span>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="text-txt-muted">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <path d="M21 15l-5-5L5 21" />
+          </svg>
+          <span className="label-xs text-txt-tertiary">Upload {label}</span>
         </div>
       )}
     </div>
   )
 }
 
-function CardCorners() {
-  // Four 14px L-shapes in each corner, evoking framing crops on a
-  // grading slab.
-  const cornerStyle = {
-    position: 'absolute',
-    width: 14,
-    height: 14,
-    borderColor: 'var(--surface-5)',
-  }
-  return (
-    <>
-      <span aria-hidden="true" style={{ ...cornerStyle, top: 8,    left: 8,    borderTop: '1.5px solid', borderLeft: '1.5px solid' }} />
-      <span aria-hidden="true" style={{ ...cornerStyle, top: 8,    right: 8,   borderTop: '1.5px solid', borderRight: '1.5px solid' }} />
-      <span aria-hidden="true" style={{ ...cornerStyle, bottom: 8, left: 8,    borderBottom: '1.5px solid', borderLeft: '1.5px solid' }} />
-      <span aria-hidden="true" style={{ ...cornerStyle, bottom: 8, right: 8,   borderBottom: '1.5px solid', borderRight: '1.5px solid' }} />
-    </>
-  )
-}
-
 /* ═══════════════════════════════════════════════════════════════════
-   Shared building blocks
+   Shared controls — match the app's neutral form styling
    ═══════════════════════════════════════════════════════════════════ */
 
-function PhaseLeadIn({ eyebrow, title, body }) {
+function Field({ label, hint, children }) {
   return (
-    <div className="space-y-2 mb-1">
-      <div
-        className="leading-none"
-        style={{
-          fontSize: 9.5,
-          letterSpacing: '0.28em',
-          color: 'var(--text-tertiary)',
-          textTransform: 'uppercase',
-          fontWeight: 700,
-        }}
-      >
-        {eyebrow}
+    <div>
+      <div className="flex items-baseline justify-between gap-3 mb-2">
+        <span className="label-xs text-txt-secondary">{label}</span>
+        {hint && <span className="text-xs text-txt-tertiary text-right">{hint}</span>}
       </div>
-      <h3
-        className="font-bold leading-tight"
-        style={{
-          fontFamily: "'Outfit', system-ui, sans-serif",
-          fontSize: 22,
-          color: 'var(--text-primary)',
-          letterSpacing: '-0.015em',
-        }}
-      >
-        {title}
-      </h3>
-      <p
-        className="text-sm leading-relaxed max-w-2xl"
-        style={{ color: 'var(--text-tertiary)' }}
-      >
-        {body}
-      </p>
+      {children}
     </div>
   )
 }
 
-function Section({ title, hint, children }) {
-  return (
-    <section>
-      <header className="mb-2.5 flex items-baseline justify-between gap-3">
-        <h4
-          className="font-bold leading-none"
-          style={{
-            fontFamily: "'Outfit', system-ui, sans-serif",
-            fontSize: 11,
-            letterSpacing: '0.2em',
-            color: 'var(--text-secondary)',
-            textTransform: 'uppercase',
-          }}
-        >
-          {title}
-        </h4>
-        {hint && (
-          <p
-            className="text-[11px] leading-snug text-right"
-            style={{ color: 'var(--text-tertiary)' }}
-          >
-            {hint}
-          </p>
-        )}
-      </header>
-      {children}
-    </section>
-  )
-}
-
-function StyledSelect({ value, onChange, children, accentRing }) {
-  const [focused, setFocused] = useState(false)
+function SelectControl({ value, onChange, children }) {
   return (
     <div className="relative">
       <select
         value={value}
         onChange={onChange}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        className="w-full appearance-none focus:outline-none"
-        style={{
-          padding: '11px 38px 11px 14px',
-          backgroundColor: 'var(--surface-2)',
-          color: 'var(--text-primary)',
-          fontSize: 14,
-          border: `1px solid ${focused ? accentRing : 'var(--surface-4)'}`,
-          borderRadius: 8,
-          fontFamily: "'DM Sans', system-ui, sans-serif",
-          fontWeight: 500,
-          transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-          boxShadow: focused ? `0 0 0 4px ${accentRing}33` : 'none',
-          cursor: 'pointer',
-        }}
+        className="w-full appearance-none rounded-lg bg-surface-2 border border-surface-4 text-txt-primary text-sm focus:outline-none focus:border-surface-5 transition-colors"
+        style={{ padding: '10px 36px 10px 12px', cursor: 'pointer' }}
       >
         {children}
       </select>
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
-        style={{ color: 'var(--text-tertiary)' }}
-      >
+      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-txt-tertiary">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
           <polyline points="6 9 12 15 18 9" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
@@ -1122,101 +593,16 @@ function StyledSelect({ value, onChange, children, accentRing }) {
   )
 }
 
-function StyledInput({ value, onChange, placeholder, type = 'text', accentRing }) {
-  const [focused, setFocused] = useState(false)
+function InputControl({ value, onChange, placeholder, type = 'text' }) {
   return (
     <input
       type={type}
       value={value}
       onChange={onChange}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
       placeholder={placeholder}
-      className="w-full focus:outline-none"
-      style={{
-        padding: '11px 14px',
-        backgroundColor: 'var(--surface-2)',
-        color: 'var(--text-primary)',
-        fontSize: 14,
-        border: `1px solid ${focused ? accentRing : 'var(--surface-4)'}`,
-        borderRadius: 8,
-        fontFamily: "'DM Sans', system-ui, sans-serif",
-        fontWeight: 500,
-        transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-        boxShadow: focused ? `0 0 0 4px ${accentRing}33` : 'none',
-      }}
+      className="w-full rounded-lg bg-surface-2 border border-surface-4 text-txt-primary text-sm focus:outline-none focus:border-surface-5 transition-colors"
+      style={{ padding: '10px 12px' }}
     />
-  )
-}
-
-function SecondaryButton({ children, onClick, disabled }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
-      style={{
-        padding: '8px 14px',
-        backgroundColor: 'var(--surface-3)',
-        color: 'var(--text-secondary)',
-        fontSize: 12.5,
-        fontWeight: 700,
-        border: '1px solid var(--surface-5)',
-        borderRadius: 8,
-        fontFamily: "'DM Sans', system-ui, sans-serif",
-        letterSpacing: '0.02em',
-      }}
-      onMouseEnter={(e) => {
-        if (!disabled) {
-          e.currentTarget.style.backgroundColor = 'var(--surface-4)'
-          e.currentTarget.style.color = 'var(--text-primary)'
-        }
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = 'var(--surface-3)'
-        e.currentTarget.style.color = 'var(--text-secondary)'
-      }}
-    >
-      {children}
-    </button>
-  )
-}
-
-function PrimaryButton({ children, onClick, disabled, accent }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
-      style={{
-        padding: '9px 18px',
-        backgroundColor: disabled ? 'var(--surface-3)' : accent,
-        color: disabled ? 'var(--text-muted)' : '#fff',
-        fontSize: 12.5,
-        fontWeight: 800,
-        border: `1px solid ${disabled ? 'var(--surface-5)' : accent}`,
-        borderRadius: 8,
-        fontFamily: "'DM Sans', system-ui, sans-serif",
-        letterSpacing: '0.02em',
-        boxShadow: disabled ? 'none' : `0 4px 14px ${accent}55, inset 0 1px 0 rgba(255,255,255,0.18)`,
-      }}
-      onMouseEnter={(e) => {
-        if (!disabled) {
-          e.currentTarget.style.transform = 'translateY(-1px)'
-          e.currentTarget.style.boxShadow = `0 6px 18px ${accent}66, inset 0 1px 0 rgba(255,255,255,0.22)`
-        }
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'translateY(0)'
-        if (!disabled) {
-          e.currentTarget.style.boxShadow = `0 4px 14px ${accent}55, inset 0 1px 0 rgba(255,255,255,0.18)`
-        }
-      }}
-    >
-      {children}
-    </button>
   )
 }
 
@@ -1226,21 +612,9 @@ function PrimaryButton({ children, onClick, disabled, accent }) {
 
 function collectAvailableYears(player, dynasty) {
   const years = new Set()
-  if (player?.classByYear) {
-    Object.keys(player.classByYear).forEach(y => {
-      const n = Number(y); if (Number.isFinite(n)) years.add(n)
-    })
-  }
-  if (player?.statsByYear) {
-    Object.keys(player.statsByYear).forEach(y => {
-      const n = Number(y); if (Number.isFinite(n)) years.add(n)
-    })
-  }
-  if (player?.teamsByYear) {
-    Object.keys(player.teamsByYear).forEach(y => {
-      const n = Number(y); if (Number.isFinite(n)) years.add(n)
-    })
-  }
+  if (player?.classByYear) Object.keys(player.classByYear).forEach(y => { const n = Number(y); if (Number.isFinite(n)) years.add(n) })
+  if (player?.statsByYear) Object.keys(player.statsByYear).forEach(y => { const n = Number(y); if (Number.isFinite(n)) years.add(n) })
+  if (player?.teamsByYear) Object.keys(player.teamsByYear).forEach(y => { const n = Number(y); if (Number.isFinite(n)) years.add(n) })
   if (dynasty?.currentYear) years.add(Number(dynasty.currentYear))
   if (dynasty?.startYear) years.add(Number(dynasty.startYear))
   return Array.from(years).sort((a, b) => b - a)
