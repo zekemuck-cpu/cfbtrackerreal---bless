@@ -86,10 +86,11 @@ export default function TeamOutlook({ tid }) {
     const nflCandidates = isFuture ? projectNflCandidates(currentDynasty, tid, year, { leaveFlags, nflDismissFlags }) : []
     return (TAB_GROUPS[posTab] || []).map(g => {
       const inGroup = (pos) => finePositionGroup(pos) === g
-      const ret = roster.filter(e => !e.isIncoming && inGroup(e.position)).sort(byOvr)
+      const nfl = nflCandidates.filter(d => inGroup(d.position)).sort(byOvr)
+      const nflPids = new Set(nfl.map(d => d.pid))
+      const ret = roster.filter(e => !e.isIncoming && inGroup(e.position) && !nflPids.has(e.pid)).sort(byOvr)
       const inc = roster.filter(e => e.isIncoming && inGroup(e.position)).sort(byOvr)
       const lv = departures.filter(d => inGroup(d.position)).sort(byOvr)
-      const nfl = nflCandidates.filter(d => inGroup(d.position)).sort(byOvr)
       const total = ret.length + inc.length
       const min = MIN_DEPTH[g] ?? 2
       let health

@@ -332,8 +332,9 @@ export function projectNflCandidates(dynasty, tid, targetYear, opts = {}) {
     if (projCls === null) continue // graduated before or at target year
     const clsBase = projCls.replace(/^RS\s+/i, '').trim()
     if (!['Jr', 'Sr'].includes(clsBase)) continue // only draft-eligible classes
-    const projOvr = projectOvrForward(ovrForYear(p, currentYear), curCls, devForYear(p, currentYear), step)
-    if ((projOvr ?? 0) < NFL_DRAFT_OVR_THRESHOLD) continue
+    const currentOvr = ovrForYear(p, currentYear)
+    if ((currentOvr ?? 0) < NFL_DRAFT_OVR_THRESHOLD) continue
+    const projOvr = projectOvrForward(currentOvr, curCls, devForYear(p, currentYear), step)
     out.push({
       pid: p.pid, player: p, name: p.name,
       position: resolvePosition(p, currentYear),
