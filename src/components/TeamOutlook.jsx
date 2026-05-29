@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef, useLayoutEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useDynasty } from '../context/DynastyContext'
 import { usePathPrefix } from '../hooks/usePathPrefix'
@@ -86,7 +86,7 @@ export default function TeamOutlook({ tid }) {
     return <EmptyState title="No team" message="No team to project." />
   }
 
-  const labelForYear = (y) => y === currentYear ? `${y} — Now` : `${y} (+${y - currentYear})`
+  const labelForYear = (y) => y === currentYear ? `${y} — Now` : `${y}`
 
   return (
     <div className="space-y-4">
@@ -98,14 +98,6 @@ export default function TeamOutlook({ tid }) {
           </Select>
         </label>
       </div>
-
-      {canEdit && (
-        <p className="text-xs text-txt-tertiary">
-          {isFuture
-            ? 'Returners carry their last-known OVR forward (developed by dev trait); recruits are shown by stars. Mark a player “Likely transfer” to drop them from the projection.'
-            : 'Showing the real roster for this season. Pick a future season to see departures, recruits, and projected holes.'}
-        </p>
-      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {groups.map(grp => (
@@ -174,7 +166,7 @@ function GroupBlock({ grp, isFuture, canFlag, flags, onToggleFlag, currentYear, 
               <Row key={e.key}
                 avatar={<Avatar />}
                 left={<>
-                  <span className="font-medium text-txt-primary truncate">{e.name}</span>
+                  <PlayerName name={e.name} />
                   {e.isPortal ? <Badge variant="info">Transfer</Badge> : null}
                   <span className="text-txt-tertiary text-xs shrink-0">{e.projectedClass}</span>
                   <DevBadge trait={e.devTrait} />
@@ -202,13 +194,44 @@ function Avatar({ url }) {
   )
 }
 
+// Abbreviate the first name to an initial ("Rich Beavers" → "R. Beavers").
+function shortName(name) {
+  if (!name) return name
+  const parts = String(name).trim().split(/\s+/)
+  if (parts.length < 2) return name
+  const first = parts[0]
+  const initial = first[0] ? `${first[0].toUpperCase()}.` : first
+  return `${initial} ${parts.slice(1).join(' ')}`
+}
+
+// Show the full name; only fall back to "R. Beavers" when the full name would
+// overflow its slot (measured), so we never abbreviate when there's room. An
+// off-screen mirror holds the full name so we can compare its natural width to
+// the available width on layout + resize.
 function PlayerName({ pid, name, pathPrefix }) {
-  if (!pid) return <span className="font-medium text-txt-primary truncate">{name}</span>
-  return (
-    <Link to={`${pathPrefix}/player/${pid}`} className="font-medium text-txt-primary hover:underline truncate">
-      {name}
-    </Link>
+  const ref = useRef(null)
+  const measureRef = useRef(null)
+  const [abbrev, setAbbrev] = useState(false)
+  useLayoutEffect(() => {
+    const c = ref.current, m = measureRef.current
+    if (!c || !m) return
+    const check = () => setAbbrev(m.offsetWidth > c.clientWidth + 1)
+    check()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(check) : null
+    ro?.observe(c)
+    return () => ro?.disconnect()
+  }, [name])
+  const content = (
+    <>
+      {abbrev ? shortName(name) : name}
+      <span ref={measureRef} aria-hidden="true" className="invisible absolute left-0 top-0 whitespace-nowrap">{name}</span>
+    </>
   )
+  const cls = 'relative block min-w-0 truncate font-medium text-txt-primary'
+  if (pid) {
+    return <Link ref={ref} to={`${pathPrefix}/player/${pid}`} title={name} className={`${cls} hover:underline`}>{content}</Link>
+  }
+  return <span ref={ref} title={name} className={cls}>{content}</span>
 }
 
 function DevBadge({ trait }) {
