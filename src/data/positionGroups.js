@@ -15,6 +15,18 @@ export const GROUP_POSITIONS = {
   P: ['P'],
 }
 
+// Display names + which groups belong to each Team Future tab, in render order.
+export const GROUP_LABELS = {
+  QB: 'Quarterbacks', RB: 'Running Backs', WR: 'Wide Receivers', TE: 'Tight Ends',
+  OL: 'Offensive Line', DL: 'Defensive Line', LB: 'Linebackers', DB: 'Defensive Backs',
+  K: 'Kicker', P: 'Punter',
+}
+export const TAB_GROUPS = {
+  offense: ['QB', 'RB', 'WR', 'TE', 'OL'],
+  defense: ['DL', 'LB', 'DB'],
+  st: ['K', 'P'],
+}
+
 const _posToGroup = {}
 for (const [group, positions] of Object.entries(GROUP_POSITIONS)) {
   for (const p of positions) _posToGroup[p] = group

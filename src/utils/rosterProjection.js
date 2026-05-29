@@ -197,3 +197,54 @@ export function projectRoster(dynasty, tid, targetYear, opts = {}) {
   if (ty <= currentYear) return rosterForRealYear(dynasty, tid, ty)
   return projectFutureRoster(dynasty, tid, ty, opts)
 }
+
+// Human-readable reason a player departs within fromYear..throughYear, or null
+// if they don't (mirrors departedBy, but classifies the movement). A
+// transfer-out whose destination is THIS team is an arrival, not a departure.
+function departureReason(player, fromYear, throughYear, tid) {
+  const mv = player.movementByYear || {}
+  for (let y = fromYear; y <= throughYear; y++) {
+    const m = mv[y] || mv[String(y)]
+    if (!m) continue
+    const isDep = DEPARTURE_TYPES.has(m.type) || DEPARTURE_SUBFIELDS.has(m.departure)
+    if (!isDep) continue
+    const isTransferOut = m.departure === 'transfer_out' || TRANSFER_OUT_MARKERS.has(m.type)
+    if (isTransferOut && m.toTid != null && Number(m.toTid) === Number(tid)) continue
+    if (m.type === 'declared_for_draft' || m.departure === 'pro_draft') return { reason: 'NFL draft', year: y }
+    if (m.type === 'graduated' || m.departure === 'graduated') return { reason: 'Graduating', year: y }
+    if (isTransferOut || m.type === 'entered_portal') return { reason: 'Transfer / portal', year: y }
+    return { reason: 'Departing', year: y }
+  }
+  return null
+}
+
+// Players on the CURRENT roster who are gone by targetYear (the "who you're
+// losing" side of the outlook), each with a reason. Empty for past/current
+// years. opts.leaveFlags = Set<pid> of manual "likely to leave".
+export function projectDepartures(dynasty, tid, targetYear, opts = {}) {
+  const currentYear = Number(dynasty.currentYear)
+  const ty = Number(targetYear)
+  if (ty <= currentYear) return []
+  const leaveFlags = opts.leaveFlags instanceof Set ? opts.leaveFlags : new Set(opts.leaveFlags || [])
+  const leaving = pendingLeavingPids(dynasty, tid, currentYear)
+  const current = (dynasty.players || []).filter(p => !p.isHonorOnly && isPlayerOnRoster(p, tid, currentYear))
+  const out = []
+  for (const p of current) {
+    const curCls = getPlayerClassForYear(p, currentYear)
+    const base = {
+      pid: p.pid, player: p, name: p.name,
+      position: positionForYear(p, currentYear),
+      classNow: curCls,
+      projectedOvr: ovrForYear(p, currentYear),
+      devTrait: devForYear(p, currentYear),
+    }
+    if (leaveFlags.has(p.pid)) { out.push({ ...base, reason: 'Flagged to leave', leaveYear: currentYear, isFlag: true }); continue }
+    if (leaving.has(p.pid)) { out.push({ ...base, reason: 'Leaving (offseason)', leaveYear: currentYear }); continue }
+    const dep = departureReason(p, currentYear, ty, tid)
+    if (dep) { out.push({ ...base, reason: dep.reason, leaveYear: dep.year }); continue }
+    if (trackFor(curCls) && advanceClass(curCls, ty - currentYear) === null) {
+      out.push({ ...base, reason: 'Graduating', leaveYear: currentYear + yearsLeftAfter(curCls) })
+    }
+  }
+  return out
+}

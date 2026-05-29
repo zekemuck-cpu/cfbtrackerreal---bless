@@ -11,7 +11,7 @@ vi.mock('../../context/DynastyContext', () => ({
   getRecruitingCommitments: (dynasty, tid, year) => dynasty.recruitingCommitmentsByTeamYear?.[year]?.[String(tid)] || {},
 }))
 
-import { advanceClass, yearsLeftAfter, projectRoster } from '../rosterProjection'
+import { advanceClass, yearsLeftAfter, projectRoster, projectDepartures } from '../rosterProjection'
 
 describe('advanceClass', () => {
   it('walks the standard track and graduates after Sr', () => {
@@ -190,5 +190,43 @@ describe('projectRoster — pending leaving + unknown class + JUCO', () => {
     const g = r.find(p => p.name === 'Juco Guy')
     expect(g.projectedClass).toBe('Jr')
     expect(g.isPortal).toBe(true)
+  })
+})
+
+describe('projectDepartures', () => {
+  const team = (players, extra = {}) => ({ currentYear: 2035, currentTid: 10, players, ...extra })
+  const P = (pid, cls, extra = {}) => ({ pid, name: pid, position: 'CB', teamsByYear: { 2035: 10 }, classByYear: { 2035: cls }, overallByYear: { 2035: 80 }, ...extra })
+
+  it('is empty for the current and past years', () => {
+    const d = team([P('a', 'Sr')])
+    expect(projectDepartures(d, 10, 2035)).toEqual([])
+    expect(projectDepartures(d, 10, 2034)).toEqual([])
+  })
+
+  it('lists a graduating senior with reason + last season + current class', () => {
+    const dep = projectDepartures(team([P('a', 'Sr')]), 10, 2036)
+    expect(dep.map(x => x.pid)).toEqual(['a'])
+    expect(dep[0].reason).toBe('Graduating')
+    expect(dep[0].leaveYear).toBe(2035)
+    expect(dep[0].classNow).toBe('Sr')
+  })
+
+  it('classifies draft and portal departures', () => {
+    const draft = team([P('a', 'Jr', { movementByYear: { 2035: { type: 'declared_for_draft' } } })])
+    expect(projectDepartures(draft, 10, 2036)[0].reason).toBe('NFL draft')
+    const portal = team([P('a', 'Jr', { movementByYear: { 2036: { type: 'entered_portal' } } })])
+    expect(projectDepartures(portal, 10, 2037)[0].reason).toBe('Transfer / portal')
+  })
+
+  it('omits a transfer INTO this team and a still-eligible returner', () => {
+    const arrival = team([P('a', 'Jr', { movementByYear: { 2036: { departure: 'transfer_out', toTid: 10 } } })])
+    expect(projectDepartures(arrival, 10, 2036)).toEqual([])   // arrival, and Jr→Sr still eligible
+    expect(projectDepartures(team([P('a', 'Fr')]), 10, 2036)).toEqual([])  // Fr→So, around
+  })
+
+  it('lists a manually flagged player with isFlag set', () => {
+    const dep = projectDepartures(team([P('a', 'Fr')]), 10, 2037, { leaveFlags: new Set(['a']) })
+    expect(dep[0].reason).toBe('Flagged to leave')
+    expect(dep[0].isFlag).toBe(true)
   })
 })
