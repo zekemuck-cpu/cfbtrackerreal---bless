@@ -61,30 +61,39 @@ function applyGroupOrder(entries, orderArr) {
 
 // Scan all [data-outlook-group] / [data-outlook-row] elements by bounding rect
 // to determine which group+row a touch coordinate falls inside.
-// More reliable than elementFromPoint on mobile (no z-index / stacking caveats).
-function findDropTargetByRect(clientX, clientY, liveGroups) {
+// `detectY` should be the ghost's visual center, not the raw finger Y, so the
+// insertion indicator matches what the user actually sees.
+function findDropTargetByRect(clientX, detectY, liveGroups) {
+  // Find which group the detection point is over.
   let toGroup = null
-  for (const gEl of document.querySelectorAll('[data-outlook-group]')) {
-    const r = gEl.getBoundingClientRect()
-    if (clientY >= r.top && clientY <= r.bottom && clientX >= r.left && clientX <= r.right) {
-      toGroup = gEl.dataset.outlookGroup
+  let groupEl = null
+  for (const el of document.querySelectorAll('[data-outlook-group]')) {
+    const r = el.getBoundingClientRect()
+    if (detectY >= r.top && detectY <= r.bottom && clientX >= r.left && clientX <= r.right) {
+      toGroup = el.dataset.outlookGroup
+      groupEl = el
       break
     }
   }
-  if (!toGroup) return null
+  if (!toGroup || !groupEl) return null
 
-  for (const rowEl of document.querySelectorAll(`[data-outlook-group="${toGroup}"] [data-outlook-row]`)) {
+  // Collect rows in this group sorted top-to-bottom.
+  const rows = []
+  for (const rowEl of groupEl.querySelectorAll('[data-outlook-row]')) {
     const r = rowEl.getBoundingClientRect()
-    if (clientY >= r.top && clientY <= r.bottom) {
-      const rowPid = rowEl.dataset.outlookRow
-      const grpRet = (liveGroups || []).find(g => g.g === toGroup)?.ret || []
-      const topHalf = clientY < r.top + r.height / 2
-      if (topHalf) return { toGroup, beforePid: rowPid }
-      const idx = grpRet.findIndex(en => en.pid === rowPid)
-      const next = idx >= 0 && idx < grpRet.length - 1 ? grpRet[idx + 1].pid : null
-      return { toGroup, beforePid: next }
-    }
+    if (r.height > 0) rows.push({ r, pid: rowEl.dataset.outlookRow })
   }
+  rows.sort((a, b) => a.r.top - b.r.top)
+
+  if (rows.length === 0) return { toGroup, beforePid: null }
+
+  // Insert before the first row whose midpoint is below the detection Y.
+  // This naturally handles inter-row gaps without needing exact rect containment.
+  for (const { r, pid } of rows) {
+    if (detectY <= r.top + r.height / 2) return { toGroup, beforePid: pid }
+  }
+
+  // Detection point is below all midpoints → append to end.
   return { toGroup, beforePid: null }
 }
 
@@ -313,7 +322,8 @@ export default function TeamOutlook({ tid }) {
 
       // Use bounding-rect scanning — far more reliable on mobile than
       // elementFromPoint, which can behave unexpectedly with z-index / transforms.
-      const dt = findDropTargetByRect(t.clientX, t.clientY, liveRef.current.groups)
+      // Ghost top = t.clientY - 36, height ≈ 24px → ghost center ≈ t.clientY - 24
+      const dt = findDropTargetByRect(t.clientX, t.clientY - 24, liveRef.current.groups)
       setDropBoth(prev => {
         if (!dt) return null
         if (prev?.toGroup === dt.toGroup && prev?.beforePid === dt.beforePid) return prev
