@@ -59,44 +59,6 @@ function applyGroupOrder(entries, orderArr) {
   })
 }
 
-// Scan all [data-outlook-group] / [data-outlook-row] elements by bounding rect
-// to determine which group+row a touch coordinate falls inside.
-// `detectY` should be the ghost's visual center, not the raw finger Y, so the
-// insertion indicator matches what the user actually sees.
-function findDropTargetByRect(clientX, detectY, liveGroups) {
-  // Find which group the detection point is over.
-  let toGroup = null
-  let groupEl = null
-  for (const el of document.querySelectorAll('[data-outlook-group]')) {
-    const r = el.getBoundingClientRect()
-    if (detectY >= r.top && detectY <= r.bottom && clientX >= r.left && clientX <= r.right) {
-      toGroup = el.dataset.outlookGroup
-      groupEl = el
-      break
-    }
-  }
-  if (!toGroup || !groupEl) return null
-
-  // Collect rows in this group sorted top-to-bottom.
-  const rows = []
-  for (const rowEl of groupEl.querySelectorAll('[data-outlook-row]')) {
-    const r = rowEl.getBoundingClientRect()
-    if (r.height > 0) rows.push({ r, pid: rowEl.dataset.outlookRow })
-  }
-  rows.sort((a, b) => a.r.top - b.r.top)
-
-  if (rows.length === 0) return { toGroup, beforePid: null }
-
-  // Insert before the first row whose midpoint is below the detection Y.
-  // This naturally handles inter-row gaps without needing exact rect containment.
-  for (const { r, pid } of rows) {
-    if (detectY <= r.top + r.height / 2) return { toGroup, beforePid: pid }
-  }
-
-  // Detection point is below all midpoints → append to end.
-  return { toGroup, beforePid: null }
-}
-
 export default function TeamOutlook({ tid }) {
   const { id: dynastyId } = useParams()
   const pathPrefix = usePathPrefix()
@@ -107,33 +69,33 @@ export default function TeamOutlook({ tid }) {
   const [year, setYear] = useState(currentYear + 1)
   useEffect(() => { setYear(currentYear + 1); setPosTab('offense') /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tid])
 
-  const tidData     = currentDynasty?.teamFuture?.[tid] || {}
-  const flagsArr    = tidData.leaveFlags       || EMPTY_ARR
-  const nflDismissArr = tidData.nflDismissFlags || EMPTY_ARR
+  const tidData       = currentDynasty?.teamFuture?.[tid] || {}
+  const flagsArr      = tidData.leaveFlags       || EMPTY_ARR
+  const nflDismissArr = tidData.nflDismissFlags  || EMPTY_ARR
   const posOverridesObj = tidData.positionOverrides || {}
   const groupOrderObj   = tidData.groupOrder        || {}
-  const leaveFlags      = useMemo(() => new Set(flagsArr),     [flagsArr])
-  const nflDismissFlags = useMemo(() => new Set(nflDismissArr),[nflDismissArr])
-  const isFuture  = year > currentYear
-  const canEdit   = !isViewOnly && tid != null
-  const canFlag   = canEdit && isFuture
-  const teamLogo  = currentDynasty?.teams?.[tid]?.logo || null
+  const leaveFlags      = useMemo(() => new Set(flagsArr),      [flagsArr])
+  const nflDismissFlags = useMemo(() => new Set(nflDismissArr), [nflDismissArr])
+  const isFuture = year > currentYear
+  const canEdit  = !isViewOnly && tid != null
+  const canFlag  = canEdit && isFuture
+  const teamLogo = currentDynasty?.teams?.[tid]?.logo || null
 
-  // Shared drag state — used by both the HTML5 DnD path (desktop) and the
-  // touch path (mobile). A single dropTarget ref keeps both in sync without
-  // stale-closure issues.
+  // ── Drag state ──────────────────────────────────────────────────────────────
   const [dragPid,    setDragPid]    = useState(null)
   const [dropTarget, setDropTarget] = useState(null) // { toGroup, beforePid }
   const dropTargetRef = useRef(null)
+  const dragRef       = useRef(null)  // active drag metadata
+  const ghostRef      = useRef(null)  // ghost DOM element
+
   const setDropBoth = useCallback((v) => {
     const next = typeof v === 'function' ? v(dropTargetRef.current) : v
     dropTargetRef.current = next
     setDropTarget(next)
   }, [])
 
-  // A ref that always holds the latest values needed by async touch handlers.
+  // Always-fresh snapshot for async pointer handlers (avoids stale closures).
   const liveRef = useRef({})
-  // (groups assigned below after useMemo)
 
   const years = useMemo(() => {
     if (!Number.isFinite(currentYear)) return []
@@ -148,8 +110,8 @@ export default function TeamOutlook({ tid }) {
 
   const groups = useMemo(() => {
     if (!currentDynasty || tid == null || !Number.isFinite(year)) return []
-    const roster      = applyOverrides(projectRoster(currentDynasty, tid, year, { leaveFlags }))
-    const departures  = isFuture ? applyOverrides(projectDepartures(currentDynasty, tid, year, { leaveFlags })) : []
+    const roster        = applyOverrides(projectRoster(currentDynasty, tid, year, { leaveFlags }))
+    const departures    = isFuture ? applyOverrides(projectDepartures(currentDynasty, tid, year, { leaveFlags })) : []
     const nflCandidates = isFuture ? applyOverrides(projectNflCandidates(currentDynasty, tid, year, { leaveFlags, nflDismissFlags })) : []
     return (TAB_GROUPS[posTab] || []).map(g => {
       const inGroup = (pos) => finePositionGroup(pos) === g
@@ -162,22 +124,19 @@ export default function TeamOutlook({ tid }) {
       const total   = ret.length + inc.length
       const min     = MIN_DEPTH[g] ?? 2
       let health
-      if (total === 0)        health = { label: 'Empty',    variant: 'danger' }
-      else if (ret.length === 0)   health = { label: 'Unproven', variant: 'warning' }
-      else if (total < min)        health = { label: 'Thin',     variant: 'warning' }
-      else                         health = null
+      if (total === 0)           health = { label: 'Empty',    variant: 'danger' }
+      else if (ret.length === 0) health = { label: 'Unproven', variant: 'warning' }
+      else if (total < min)      health = { label: 'Thin',     variant: 'warning' }
+      else                       health = null
       const grade = isFuture ? posGroupGrade(g, ret) : null
       return { g, label: GROUP_LABELS[g] || g, ret, inc, lv, nfl, health, grade }
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDynasty, tid, year, posTab, leaveFlags, nflDismissFlags, isFuture, posOverridesObj, groupOrderObj])
 
-  // Keep liveRef current every render so touch handlers never see stale state.
   liveRef.current = { groups, posOverridesObj, groupOrderObj, tidData, currentDynasty, currentYear }
 
-  const saveTidData = (patch) => {
-    saveTeamFuture(dynastyId, tid, { ...tidData, ...patch })
-  }
+  const saveTidData = (patch) => saveTeamFuture(dynastyId, tid, { ...tidData, ...patch })
 
   const toggleFlag = (pid) => {
     if (!canFlag || !pid) return
@@ -193,9 +152,7 @@ export default function TeamOutlook({ tid }) {
     saveTidData({ nflDismissFlags: [...set] })
   }
 
-  // ── Core drop executor ────────────────────────────────────────────────────
-  // Reads from liveRef so it's safe to call from async touch handlers.
-
+  // ── Drop executor ───────────────────────────────────────────────────────────
   const executeDrop = useCallback((pid, toGroup, beforePid) => {
     const { posOverridesObj, groupOrderObj, groups, tidData, currentDynasty, currentYear } = liveRef.current
     if (!pid || !toGroup || !groups) return
@@ -215,10 +172,10 @@ export default function TeamOutlook({ tid }) {
     for (const g of Object.keys(groupOrderObj)) {
       nextOrder[g] = (groupOrderObj[g] || []).filter(p => p !== pid)
     }
-    const storedOrder  = nextOrder[toGroup] || []
-    const currentPids  = (groups.find(grp => grp.g === toGroup)?.ret || []).map(en => en.pid).filter(p => p && p !== pid)
-    const merged       = [...storedOrder, ...currentPids.filter(p => !storedOrder.includes(p))]
-    const insertIdx    = beforePid != null ? merged.indexOf(beforePid) : -1
+    const storedOrder = nextOrder[toGroup] || []
+    const currentPids = (groups.find(grp => grp.g === toGroup)?.ret || []).map(en => en.pid).filter(p => p && p !== pid)
+    const merged      = [...storedOrder, ...currentPids.filter(p => !storedOrder.includes(p))]
+    const insertIdx   = beforePid != null ? merged.indexOf(beforePid) : -1
     if (insertIdx >= 0) merged.splice(insertIdx, 0, pid)
     else merged.push(pid)
     nextOrder[toGroup] = merged
@@ -226,126 +183,143 @@ export default function TeamOutlook({ tid }) {
     saveTeamFuture(dynastyId, tid, { ...tidData, positionOverrides: nextOverrides, groupOrder: nextOrder })
   }, [dynastyId, tid, saveTeamFuture])
 
-  // ── HTML5 DnD — desktop (mouse / pointer) ────────────────────────────────
+  // ── Unified pointer-events drag (desktop + mobile, single code path) ────────
+  //
+  // Strategy: onPointerDown records where the user grabbed, then document-level
+  // pointermove/pointerup listeners handle the rest.  The ghost has
+  // pointer-events:none, so document.elementsFromPoint(x, y) sees through it
+  // to the real rows underneath — no coordinate offset guessing required.
 
-  const handleDragStart = (e, pid) => {
-    if (!canEdit) { e.preventDefault(); return }
-    // Buttons must stay clickable; everything else on the row is a valid grab point.
-    if (e.target.closest('button')) { e.preventDefault(); return }
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', pid)
-    setDragPid(pid)
-  }
-
-  const handleDragEnd = () => { setDragPid(null); setDropBoth(null) }
-
-  // Called when the pointer moves over a specific row — computes before/after
-  // insertion point from the cursor's vertical position within the row.
-  const handleRowDragOver = (e, rowPid, toGroup) => {
-    if (!dragPid) return
-    e.preventDefault()
-    // No stopPropagation — group container also needs dragover so it stays a
-    // valid drop target, but we tell it not to update dropTarget (see below).
-    const rect = e.currentTarget.getBoundingClientRect()
-    const topHalf = e.clientY < rect.top + rect.height / 2
-    const grpRet  = groups.find(g => g.g === toGroup)?.ret || []
-    let beforePid
-    if (topHalf) {
-      beforePid = rowPid
-    } else {
-      const idx = grpRet.findIndex(en => en.pid === rowPid)
-      beforePid = idx >= 0 && idx < grpRet.length - 1 ? grpRet[idx + 1].pid : null
-    }
-    setDropBoth(prev =>
-      prev?.toGroup === toGroup && prev?.beforePid === beforePid ? prev : { toGroup, beforePid }
-    )
-  }
-
-  // Called on the group container — only updates dropTarget when hovering over
-  // empty space (the row handler already handled the precise position).
-  const handleGroupDragOver = (e, toGroup) => {
-    if (!dragPid) return
-    e.preventDefault() // must always be called so the container accepts drops
-    if (e.target.closest('[data-outlook-row]')) return // row handler owns this
-    setDropBoth(prev =>
-      prev?.toGroup === toGroup && prev?.beforePid == null ? prev : { toGroup, beforePid: null }
-    )
-  }
-
-  // Only the group container handles drop — rows don't have onDrop so the event
-  // bubbles up, avoiding double-execution.
-  const handleDrop = (e, toGroup) => {
-    e.preventDefault()
-    const pid = dragPid
-    if (!pid || !canEdit) { handleDragEnd(); return }
-    executeDrop(pid, toGroup, dropTargetRef.current?.toGroup === toGroup ? dropTargetRef.current.beforePid : null)
-    handleDragEnd()
-  }
-
-  // ── Touch DnD — mobile ────────────────────────────────────────────────────
-  // Registers non-passive document listeners so we can call preventDefault()
-  // to suppress scroll while dragging. Uses bounding-rect scanning (not
-  // elementFromPoint) for reliable row detection across all mobile browsers.
-
-  const handleTouchDragStart = useCallback((e, pid, playerName) => {
+  const handlePointerDown = useCallback((e, entry) => {
     if (!canEdit || !isFuture) return
-    e.preventDefault() // suppress long-press menu / text selection
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    if (e.target.closest('button')) return
 
-    const t0 = e.touches[0]
-    const startX = t0.clientX, startY = t0.clientY
-    let started = false
-    let ghostEl = null
+    const rect = e.currentTarget.getBoundingClientRect()
+    const d = {
+      pid:      entry.pid,
+      name:     entry.name,
+      position: entry.position || '',
+      ovr:      entry.projectedOvr ?? '',
+      startX:   e.clientX,
+      startY:   e.clientY,
+      offsetX:  e.clientX - rect.left,
+      offsetY:  e.clientY - rect.top,
+      rowWidth: rect.width,
+      pointerId: e.pointerId,
+      started:  false,
+    }
+    dragRef.current = d
 
     const onMove = (ev) => {
-      const t = ev.touches[0]
-      const dist = Math.hypot(t.clientX - startX, t.clientY - startY)
+      const dd = dragRef.current
+      if (!dd || ev.pointerId !== dd.pointerId) return
 
-      if (!started && dist > 8) {
-        started = true
-        setDragPid(pid)
-        ghostEl = document.createElement('div')
-        Object.assign(ghostEl.style, {
-          position: 'fixed', pointerEvents: 'none', zIndex: '9999',
-          background: '#1e293b', border: '1px solid #3b82f6', borderRadius: '6px',
-          padding: '4px 10px', fontSize: '12px', color: '#f1f5f9',
-          opacity: '0.92', whiteSpace: 'nowrap', boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-        })
-        ghostEl.textContent = playerName
-        document.body.appendChild(ghostEl)
+      if (!dd.started) {
+        if (Math.hypot(ev.clientX - dd.startX, ev.clientY - dd.startY) < 8) return
+        dd.started = true
+        setDragPid(dd.pid)
+
+        const ghost = document.createElement('div')
+        ghost.style.cssText = [
+          'position:fixed',
+          'pointer-events:none',
+          'z-index:9999',
+          `width:${dd.rowWidth}px`,
+          'background:#1e293b',
+          'border:2px solid #3b82f6',
+          'border-radius:8px',
+          'padding:6px 10px',
+          'box-shadow:0 8px 28px rgba(0,0,0,0.5)',
+          'opacity:0.95',
+          'left:-9999px',
+          'top:-9999px',
+        ].join(';')
+        ghost.innerHTML = `<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#f1f5f9">` +
+          `<span style="color:#94a3b8;font-size:11px;flex-shrink:0">${dd.position}</span>` +
+          `<span style="font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${dd.name}</span>` +
+          `<span style="font-weight:700;flex-shrink:0">${dd.ovr}</span>` +
+          `</div>`
+        document.body.appendChild(ghost)
+        ghostRef.current = ghost
       }
 
-      if (!started) return
+      if (!dragRef.current.started) return
       ev.preventDefault()
 
-      ghostEl.style.left = t.clientX + 16 + 'px'
-      ghostEl.style.top  = t.clientY - 36 + 'px'
+      // Position ghost at the exact grab offset so it "sticks" to the cursor.
+      const ghost = ghostRef.current
+      if (ghost) {
+        ghost.style.left = (ev.clientX - dragRef.current.offsetX) + 'px'
+        ghost.style.top  = (ev.clientY - dragRef.current.offsetY) + 'px'
+      }
 
-      // Use bounding-rect scanning — far more reliable on mobile than
-      // elementFromPoint, which can behave unexpectedly with z-index / transforms.
-      // Ghost top = t.clientY - 36, height ≈ 24px → ghost center ≈ t.clientY - 24
-      const dt = findDropTargetByRect(t.clientX, t.clientY - 24, liveRef.current.groups)
+      // elementsFromPoint queries by geometry/stacking order, not pointer-events.
+      // The ghost will appear in the list but has no data-outlook-* attributes,
+      // so the filter skips it and finds the real row underneath.
+      const els     = document.elementsFromPoint(ev.clientX, ev.clientY)
+      const rowEl   = els.find(el => el.dataset && 'outlookRow'   in el.dataset)
+      const groupEl = els.find(el => el.dataset && 'outlookGroup' in el.dataset)
+
+      let newTarget = null
+      if (rowEl) {
+        const toGroup = rowEl.closest('[data-outlook-group]')?.dataset.outlookGroup
+                     || groupEl?.dataset.outlookGroup
+        if (toGroup) {
+          const rowPid = rowEl.dataset.outlookRow
+          const r      = rowEl.getBoundingClientRect()
+          const topHalf = ev.clientY < r.top + r.height / 2
+          if (topHalf) {
+            newTarget = { toGroup, beforePid: rowPid }
+          } else {
+            const grpRet = liveRef.current.groups?.find(g => g.g === toGroup)?.ret || []
+            const idx    = grpRet.findIndex(en => en.pid === rowPid)
+            const next   = (idx >= 0 && idx < grpRet.length - 1) ? grpRet[idx + 1].pid : null
+            newTarget = { toGroup, beforePid: next }
+          }
+        }
+      } else if (groupEl) {
+        newTarget = { toGroup: groupEl.dataset.outlookGroup, beforePid: null }
+      }
+
       setDropBoth(prev => {
-        if (!dt) return null
-        if (prev?.toGroup === dt.toGroup && prev?.beforePid === dt.beforePid) return prev
-        return dt
+        if (!newTarget) return null
+        if (prev?.toGroup === newTarget.toGroup && prev?.beforePid === newTarget.beforePid) return prev
+        return newTarget
       })
     }
 
-    const onEnd = () => {
-      document.removeEventListener('touchmove', onMove)
-      document.removeEventListener('touchend',  onEnd)
-      if (ghostEl) ghostEl.remove()
-      if (started) {
+    const onUp = (ev) => {
+      const dd = dragRef.current
+      if (!dd) return
+      if (ev && dd.pointerId != null && ev.pointerId !== dd.pointerId) return
+
+      document.removeEventListener('pointermove',   onMove)
+      document.removeEventListener('pointerup',     onUp)
+      document.removeEventListener('pointercancel', onUp)
+
+      const ghost = ghostRef.current
+      if (ghost) { ghost.remove(); ghostRef.current = null }
+      dragRef.current = null
+
+      if (dd.started) {
         const dt = dropTargetRef.current
-        if (dt?.toGroup) executeDrop(pid, dt.toGroup, dt.beforePid ?? null)
+        if (dt?.toGroup) executeDrop(dd.pid, dt.toGroup, dt.beforePid ?? null)
       }
+
       setDragPid(null)
       setDropBoth(null)
     }
 
-    document.addEventListener('touchmove', onMove, { passive: false })
-    document.addEventListener('touchend',  onEnd)
+    document.addEventListener('pointermove',   onMove, { passive: false })
+    document.addEventListener('pointerup',     onUp)
+    document.addEventListener('pointercancel', onUp)
   }, [canEdit, isFuture, setDropBoth, executeDrop])
+
+  // Clean up ghost if component unmounts mid-drag.
+  useEffect(() => () => {
+    if (ghostRef.current) { ghostRef.current.remove(); ghostRef.current = null }
+  }, [])
 
   if (!currentDynasty || tid == null) {
     return <EmptyState title="No team" message="No team to project." />
@@ -370,10 +344,7 @@ export default function TeamOutlook({ tid }) {
             isFuture={isFuture} canFlag={canFlag} canEdit={canEdit}
             onToggleFlag={toggleFlag} onToggleNflDismiss={toggleNflDismiss}
             dragPid={dragPid} dropTarget={dropTarget}
-            onDragStart={handleDragStart} onDragEnd={handleDragEnd}
-            onRowDragOver={handleRowDragOver} onGroupDragOver={handleGroupDragOver}
-            onDrop={handleDrop}
-            onTouchDragStart={handleTouchDragStart}
+            onPointerDown={handlePointerDown}
             currentYear={currentYear} pathPrefix={pathPrefix} teamLogo={teamLogo}
           />
         ))}
@@ -386,8 +357,7 @@ function GroupBlock({
   grp, isFuture, canFlag, canEdit,
   onToggleFlag, onToggleNflDismiss,
   dragPid, dropTarget,
-  onDragStart, onDragEnd, onRowDragOver, onGroupDragOver, onDrop,
-  onTouchDragStart,
+  onPointerDown,
   currentYear, pathPrefix, teamLogo,
 }) {
   const { g, label, ret, inc, lv, nfl, health, grade } = grp
@@ -405,16 +375,11 @@ function GroupBlock({
           {isDropBefore && <DropLine />}
           <div
             data-outlook-row={e.pid}
-            draggable={canDrag}
-            onDragStart={(ev) => onDragStart(ev, e.pid)}
-            onDragEnd={onDragEnd}
-            onDragOver={(ev) => onRowDragOver(ev, e.pid, g)}
+            onPointerDown={canDrag ? (ev) => onPointerDown(ev, e) : undefined}
             className={`select-none transition-opacity ${canDrag ? 'cursor-grab active:cursor-grabbing' : ''} ${dragPid === e.pid ? 'opacity-25' : ''}`}
           >
             <Row
-              dragHandle={canDrag
-                ? <DragHandle onTouchStart={(ev) => onTouchDragStart(ev, e.pid, e.name)} />
-                : null}
+              dragHandle={canDrag ? <DragHandle /> : null}
               avatar={<Avatar url={e.player?.pictureUrl} fallback={teamLogo} />}
               left={<>
                 <PlayerName pid={e.pid} name={e.name} pathPrefix={pathPrefix} />
@@ -442,12 +407,9 @@ function GroupBlock({
         {health ? <Badge variant={health.variant}>{health.label}</Badge> : null}
       </div>
 
-      {/* The entire inner area is the drop zone for both desktop and touch. */}
       <div
         data-outlook-group={g}
         className={`p-3 space-y-3 min-h-[2.5rem] transition-colors ${isDropTarget ? 'bg-blue-500/5 ring-1 ring-inset ring-blue-500/25 rounded-b-lg' : ''}`}
-        onDragOver={(ev) => onGroupDragOver(ev, g)}
-        onDrop={(ev) => onDrop(ev, g)}
       >
         {isFuture
           ? <GroupSection label={`Returning (${ret.length})`}>{returningRows}</GroupSection>
@@ -515,13 +477,11 @@ function GroupBlock({
 
 // ── Small presentational components ──────────────────────────────────────────
 
-function DragHandle({ onTouchStart }) {
+function DragHandle() {
   return (
     <span
-      data-drag-handle="1"
-      onTouchStart={onTouchStart}
-      className="cursor-grab active:cursor-grabbing text-txt-muted hover:text-txt-secondary select-none shrink-0 px-0.5 text-base leading-none touch-none"
-      title="Drag to reorder or move to a different position group"
+      className="text-txt-muted hover:text-txt-secondary select-none shrink-0 px-0.5 text-base leading-none"
+      aria-hidden="true"
     >≡</span>
   )
 }
