@@ -44,17 +44,26 @@ function positionForYear(player, year) {
 }
 
 // Map an ATH player's archetype to the position group they'd most likely play.
+// Order matters: more-specific patterns first.
+// "Power Rusher" / "Speed Rusher" are EDGE archetypes in CFB, not HB.
 const ATH_ARCHETYPE_MAP = [
   [/scrambler|dual.?threat|pocket|strong.?arm|improviser|field.?general/i, 'QB'],
-  [/speed.?back|power.?back|power.?rush|north.?south|east.?west|elusive|receiving.?back|workhorse|rusher/i, 'HB'],
-  [/deep.?threat|slot|physical|route|red.?zone/i, 'WR'],
+  [/power.?rush|speed.?rush|pass.?rush|edge.?rush/i, 'EDGE'],
+  [/speed.?back|power.?back|north.?south|east.?west|playmaker|elusive|receiving.?back|workhorse/i, 'HB'],
+  [/deep.?threat|slot|speedster|gadget|route/i, 'WR'],
   [/vertical|possession|blocking|move.?te/i, 'TE'],
+  [/linebacker|thumper|signal.?caller|lurker/i, 'MIKE'],
+  [/safety|hybrid|coverage|box/i, 'Safety'],
 ]
 export function resolveAthPosition(player) {
   if (!player) return 'WR'
-  const arch = String(player.archetype || player.devTrait || '').toLowerCase()
-  for (const [rx, pos] of ATH_ARCHETYPE_MAP) {
-    if (rx.test(arch)) return pos
+  // Use archetype first; devTrait values (Normal/Impact/Star/Elite) are not
+  // position archetypes so skip them as the fallback to avoid false matches.
+  const arch = String(player.archetype || '').toLowerCase()
+  if (arch) {
+    for (const [rx, pos] of ATH_ARCHETYPE_MAP) {
+      if (rx.test(arch)) return pos
+    }
   }
   return 'WR'
 }

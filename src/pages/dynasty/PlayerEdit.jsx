@@ -110,6 +110,8 @@ const ARCHETYPES = {
   S: ['Box Specialist', 'Coverage Specialist', 'Hybrid'],
   K: ['Accurate', 'Power'],
   P: ['Accurate', 'Power'],
+  // ATH archetypes map to position groups in rosterProjection → resolveAthPosition
+  ATH: ['Dual Threat', 'Scrambler', 'Power Rusher', 'Speed Rusher', 'East/West Playmaker', 'North/South Runner', 'Elusive Runner', 'Slot Receiver', 'Deep Threat', 'Vertical Threat', 'Possession', 'Lurker', 'Thumper', 'Coverage Specialist', 'Hybrid'],
 }
 
 // Award options
@@ -1228,7 +1230,7 @@ export default function PlayerEdit() {
                     </label>
                     <select
                       value={formData.position || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, position: e.target.value, archetype: '' }))}
+                      onChange={(e) => setFormData(prev => ({ ...prev, position: e.target.value, archetype: e.target.value === 'ATH' ? prev.archetype : '' }))}
                       className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary bg-surface-2"
                     >
                       <option value="">--</option>

@@ -264,10 +264,12 @@ function StarRating({ stars, isPortal }) {
 }
 
 function Avatar({ url, fallback }) {
-  const src = url ? proxyImageUrl(url, 80) : fallback || null
+  const [errored, setErrored] = useState(false)
+  const hasUrl = url && !errored
+  const src = hasUrl ? proxyImageUrl(url, 80) : fallback || null
   return (
     <div className="w-7 h-7 rounded-full bg-surface-4 overflow-hidden flex-shrink-0 flex items-center justify-center">
-      {src ? <img src={src} alt="" className={`w-full h-full ${url ? 'object-cover' : 'object-contain p-0.5'}`} /> : null}
+      {src ? <img src={src} alt="" onError={() => setErrored(true)} className={`w-full h-full ${hasUrl ? 'object-cover' : 'object-contain p-0.5'}`} /> : null}
     </div>
   )
 }
@@ -305,9 +307,13 @@ function PlayerName({ pid, name, pathPrefix }) {
 
 function DevBadge({ trait }) {
   if (!trait) return null
-  const c = DEV_TRAIT_COLORS[trait]
-  if (!c) return <Badge variant="outline" className="shrink-0">{trait}</Badge>
-  return <Badge variant="solid" color={c.bg} textColor={c.text} className="shrink-0">{trait}</Badge>
+  // Normalize casing ("star" → "Star") so sheet imports with inconsistent case
+  // still hit the color map.
+  const t = String(trait).trim()
+  const key = t.charAt(0).toUpperCase() + t.slice(1).toLowerCase()
+  const c = DEV_TRAIT_COLORS[key]
+  if (!c) return <Badge variant="outline" className="shrink-0">{t}</Badge>
+  return <Badge variant="solid" color={c.bg} textColor={c.text} className="shrink-0">{key}</Badge>
 }
 
 function ActionBtn({ children, onClick }) {
