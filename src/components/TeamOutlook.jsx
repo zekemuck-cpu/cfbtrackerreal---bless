@@ -376,7 +376,7 @@ function GroupBlock({
           <div
             data-outlook-row={e.pid}
             onPointerDown={canDrag ? (ev) => onPointerDown(ev, e) : undefined}
-            className={`select-none transition-opacity ${canDrag ? 'cursor-grab active:cursor-grabbing' : ''} ${dragPid === e.pid ? 'opacity-25' : ''}`}
+            className={`select-none transition-opacity ${canDrag ? 'cursor-grab active:cursor-grabbing touch-none' : ''} ${dragPid === e.pid ? 'opacity-25' : ''}`}
           >
             <Row
               dragHandle={canDrag ? <DragHandle /> : null}
