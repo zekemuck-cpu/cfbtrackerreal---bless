@@ -590,7 +590,7 @@
       "position": "DT",
       "jerseyNumber": "95",
       "height": "6'5\"",
-      "weight": 579,
+      "weight": 379,
       "class": "RS So",
       "archetype": "Pure Power",
       "devTrait": "",
@@ -599,7 +599,8 @@
         "Grip Breaker"
       ],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Jordan Anthony",

@@ -1215,14 +1215,15 @@
       "position": "C",
       "jerseyNumber": "66",
       "height": "6'5\"",
-      "weight": 572,
+      "weight": 372,
       "class": "So",
       "archetype": "Agile",
       "devTrait": "",
       "overall": 67,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Tyreek Major",

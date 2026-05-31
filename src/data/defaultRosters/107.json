@@ -984,7 +984,7 @@
       "position": "RG",
       "jerseyNumber": "73",
       "height": "6'7\"",
-      "weight": 552,
+      "weight": 352,
       "class": "Fr",
       "archetype": "Raw Strength",
       "devTrait": "",
@@ -996,7 +996,8 @@
         "Inside Shield"
       ],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Darren Ikinnagbon",

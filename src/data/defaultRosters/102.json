@@ -281,14 +281,15 @@
       "position": "LG",
       "jerseyNumber": "65",
       "height": "6'5\"",
-      "weight": 566,
+      "weight": 366,
       "class": "Sr",
       "archetype": "Pass Protector",
       "devTrait": "",
       "overall": 76,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Mavin Anderson",
@@ -541,14 +542,15 @@
       "position": "RG",
       "jerseyNumber": "71",
       "height": "6'6\"",
-      "weight": 558,
+      "weight": 358,
       "class": "Sr",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 73,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Ta'Derius Collins",

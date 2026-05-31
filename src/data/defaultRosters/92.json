@@ -1305,14 +1305,15 @@
       "position": "RG",
       "jerseyNumber": "76",
       "height": "6'7\"",
-      "weight": 592,
+      "weight": 392,
       "class": "Fr",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 66,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Patrick Alberga",

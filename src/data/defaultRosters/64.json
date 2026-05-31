@@ -291,14 +291,15 @@
       "position": "RG",
       "jerseyNumber": "71",
       "height": "6'4\"",
-      "weight": 570,
+      "weight": 370,
       "class": "Sr",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 74,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "AJ Jones",

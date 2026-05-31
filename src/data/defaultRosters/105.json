@@ -542,14 +542,15 @@
       "position": "DT",
       "jerseyNumber": "13",
       "height": "6'6\"",
-      "weight": 547,
+      "weight": 347,
       "class": "RS Jr",
       "archetype": "Pure Power",
       "devTrait": "",
       "overall": 75,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Cameron Kinnie",

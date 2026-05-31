@@ -529,14 +529,15 @@
       "position": "C",
       "jerseyNumber": "50",
       "height": "6'2\"",
-      "weight": 547,
+      "weight": 347,
       "class": "Sr",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 77,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Braedyn Locke",

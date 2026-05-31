@@ -1141,14 +1141,15 @@
       "position": "DT",
       "jerseyNumber": "98",
       "height": "6'3\"",
-      "weight": 562,
+      "weight": 362,
       "class": "RS Jr",
       "archetype": "Gap Specialist",
       "devTrait": "",
       "overall": 64,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Adam Hopkins",

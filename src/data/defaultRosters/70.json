@@ -221,14 +221,15 @@
       "position": "RG",
       "jerseyNumber": "52",
       "height": "6'6\"",
-      "weight": 557,
+      "weight": 357,
       "class": "Sr",
       "archetype": "Pass Protector",
       "devTrait": "",
       "overall": 75,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Josh Grabowski",

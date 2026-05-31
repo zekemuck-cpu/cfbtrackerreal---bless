@@ -183,14 +183,15 @@
       "position": "RG",
       "jerseyNumber": "67",
       "height": "6'4\"",
-      "weight": 552,
+      "weight": 352,
       "class": "Sr",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 79,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Goose Crowder",

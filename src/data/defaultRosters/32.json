@@ -286,7 +286,7 @@
       "position": "RG",
       "jerseyNumber": "70",
       "height": "6'6\"",
-      "weight": 557,
+      "weight": 357,
       "class": "RS Sr",
       "archetype": "Raw Strength",
       "devTrait": "",
@@ -298,7 +298,8 @@
         "Inside Shield"
       ],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "George Gumbs Jr.",
@@ -721,7 +722,7 @@
       "position": "LG",
       "jerseyNumber": "75",
       "height": "6'8\"",
-      "weight": 556,
+      "weight": 356,
       "class": "RS Sr",
       "archetype": "Raw Strength",
       "devTrait": "",
@@ -730,7 +731,8 @@
         "Strong Grip"
       ],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Tony Livingston",

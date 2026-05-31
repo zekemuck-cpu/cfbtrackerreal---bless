@@ -725,7 +725,7 @@
       "position": "DT",
       "jerseyNumber": "99",
       "height": "6'6\"",
-      "weight": 547,
+      "weight": 347,
       "class": "RS So",
       "archetype": "Pure Power",
       "devTrait": "",
@@ -734,7 +734,8 @@
         "Grip Breaker"
       ],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Shone Washington",
@@ -1137,14 +1138,15 @@
       "position": "DT",
       "jerseyNumber": "94",
       "height": "6'4\"",
-      "weight": 552,
+      "weight": 352,
       "class": "Fr",
       "archetype": "Pure Power",
       "devTrait": "",
       "overall": 73,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Dylan Carpenter",

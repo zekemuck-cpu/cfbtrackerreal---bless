@@ -744,14 +744,15 @@
       "position": "RT",
       "jerseyNumber": "70",
       "height": "6'6\"",
-      "weight": 572,
+      "weight": 372,
       "class": "RS Sr",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 74,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Jerome Williams",

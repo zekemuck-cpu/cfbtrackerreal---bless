@@ -1089,14 +1089,15 @@
       "position": "RG",
       "jerseyNumber": "74",
       "height": "6'4\"",
-      "weight": 545,
+      "weight": 345,
       "class": "Fr",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 74,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Jeremiah Newcombe",

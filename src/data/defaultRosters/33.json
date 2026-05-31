@@ -797,14 +797,15 @@
       "position": "LG",
       "jerseyNumber": "67",
       "height": "6'3\"",
-      "weight": 550,
+      "weight": 350,
       "class": "Jr",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 71,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Jayon Farrar",

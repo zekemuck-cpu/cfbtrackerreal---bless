@@ -93,7 +93,7 @@
       "position": "RG",
       "jerseyNumber": "79",
       "height": "6'4\"",
-      "weight": 571,
+      "weight": 371,
       "class": "RS Sr",
       "archetype": "Raw Strength",
       "devTrait": "",
@@ -103,7 +103,8 @@
         "Ground N Pound"
       ],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Darrius Clemons",

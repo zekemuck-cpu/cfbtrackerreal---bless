@@ -452,14 +452,15 @@
       "position": "LG",
       "jerseyNumber": "74",
       "height": "6'5\"",
-      "weight": 554,
+      "weight": 354,
       "class": "Sr",
       "archetype": "Pass Protector",
       "devTrait": "",
       "overall": 73,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Rod Daniels",

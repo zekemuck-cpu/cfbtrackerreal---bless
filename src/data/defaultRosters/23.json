@@ -714,14 +714,15 @@
       "position": "RG",
       "jerseyNumber": "51",
       "height": "6'3\"",
-      "weight": 572,
+      "weight": 372,
       "class": "Fr",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 75,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Ben Finneseth",

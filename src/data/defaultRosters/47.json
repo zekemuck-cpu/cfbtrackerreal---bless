@@ -719,14 +719,15 @@
       "position": "LG",
       "jerseyNumber": "77",
       "height": "6'4\"",
-      "weight": 567,
+      "weight": 367,
       "class": "So",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 75,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Wesley Fair",

@@ -1182,14 +1182,15 @@
       "position": "LG",
       "jerseyNumber": "58",
       "height": "6'5\"",
-      "weight": 552,
+      "weight": 352,
       "class": "RS Fr",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 71,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Joseph Head Jr.",

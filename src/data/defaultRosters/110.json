@@ -781,14 +781,15 @@
       "position": "RT",
       "jerseyNumber": "79",
       "height": "6'8\"",
-      "weight": 555,
+      "weight": 355,
       "class": "RS Sr",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 69,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "J'Marion Gooch",

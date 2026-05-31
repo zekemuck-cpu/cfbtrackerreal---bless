@@ -547,7 +547,7 @@
       "position": "LT",
       "jerseyNumber": "73",
       "height": "6'7\"",
-      "weight": 572,
+      "weight": 372,
       "class": "Sr",
       "archetype": "Raw Strength",
       "devTrait": "",
@@ -558,7 +558,8 @@
         "Inside Shield"
       ],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Brycen Sanders",

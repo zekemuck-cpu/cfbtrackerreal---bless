@@ -824,14 +824,15 @@
       "position": "RT",
       "jerseyNumber": "68",
       "height": "6'4\"",
-      "weight": 581,
+      "weight": 381,
       "class": "So",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 71,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Terrence Lewis",

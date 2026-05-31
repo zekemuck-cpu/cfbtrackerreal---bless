@@ -515,7 +515,7 @@
       "position": "DT",
       "jerseyNumber": "0",
       "height": "6'5\"",
-      "weight": 552,
+      "weight": 352,
       "class": "RS So",
       "archetype": "Gap Specialist",
       "devTrait": "",
@@ -524,7 +524,8 @@
         "Grip Breaker"
       ],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Braylan Shelby",
@@ -1174,14 +1175,15 @@
       "position": "RT",
       "jerseyNumber": "79",
       "height": "6'8\"",
-      "weight": 577,
+      "weight": 377,
       "class": "Fr",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 71,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Shawn Ward",
@@ -1368,14 +1370,15 @@
       "position": "LG",
       "jerseyNumber": "65",
       "height": "6'4\"",
-      "weight": 552,
+      "weight": 352,
       "class": "RS So",
       "archetype": "Well Rounded",
       "devTrait": "",
       "overall": 66,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Zacharyus Williams",

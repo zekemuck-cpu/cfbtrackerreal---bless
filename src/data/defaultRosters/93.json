@@ -1453,14 +1453,15 @@
       "position": "LG",
       "jerseyNumber": "72",
       "height": "6'2\"",
-      "weight": 551,
+      "weight": 351,
       "class": "Fr",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 68,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Kelvion Riggins",

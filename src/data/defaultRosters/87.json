@@ -1360,14 +1360,15 @@
       "position": "RG",
       "jerseyNumber": "79",
       "height": "6'7\"",
-      "weight": 572,
+      "weight": 372,
       "class": "So",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 62,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Cody Wilber",

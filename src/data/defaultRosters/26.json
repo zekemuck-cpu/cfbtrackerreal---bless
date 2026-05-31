@@ -276,14 +276,15 @@
       "position": "RG",
       "jerseyNumber": "71",
       "height": "6'3\"",
-      "weight": 547,
+      "weight": 347,
       "class": "RS Sr",
       "archetype": "Pass Protector",
       "devTrait": "",
       "overall": 76,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Gavin Moul",

@@ -64,13 +64,16 @@ const STAT_LABELS = new Set(['SPD', 'STR', 'AGI', 'ACC', 'COD', 'INJ', 'STA', 'A
 // `abilities`, but the ability count doesn't reliably map to a dev-trait tier
 // and we don't want to fabricate one.)
 
-// Some pastes lose the leading digit on lineman weights ("283lbs" → "83lbs").
-// A real college player isn't under ~150 lbs, so a sub-150 value is a paste
-// truncation — add 200 back. Flagged with weightFixed: true so it's auditable.
+// Pastes have two recurring weight artifacts:
+//  • sub-150 (e.g. "83lbs"): a digit got dropped — add 200 back.
+//  • 540-590 range (e.g. "558lbs" for Kadyn Proctor whose real combine weight
+//    is 352 lbs): a "5" got prepended — subtract 200.
+// Both flagged with weightFixed: true so it's auditable.
 function fixWeight(w) {
   if (!Number.isFinite(w)) return { weight: null, fixed: false }
-  if (w >= 150) return { weight: w, fixed: false }
-  return { weight: 200 + w, fixed: true }
+  if (w < 150) return { weight: 200 + w, fixed: true }
+  if (w > 400) return { weight: w - 200, fixed: true }
+  return { weight: w, fixed: false }
 }
 
 function splitName(full) {

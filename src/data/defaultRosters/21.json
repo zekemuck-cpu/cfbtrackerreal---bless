@@ -460,14 +460,15 @@
       "position": "LG",
       "jerseyNumber": "74",
       "height": "6'7\"",
-      "weight": 547,
+      "weight": 347,
       "class": "Fr",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 80,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "David Eziomume",
@@ -990,14 +991,15 @@
       "position": "LG",
       "jerseyNumber": "59",
       "height": "6'5\"",
-      "weight": 547,
+      "weight": 347,
       "class": "RS Sr",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 73,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Logan Brooking",

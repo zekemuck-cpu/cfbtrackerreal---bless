@@ -102,14 +102,15 @@
       "position": "LG",
       "jerseyNumber": "77",
       "height": "6'6\"",
-      "weight": 553,
+      "weight": 353,
       "class": "Jr",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 83,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Tailique Williams",

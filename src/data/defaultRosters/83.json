@@ -160,14 +160,15 @@
       "position": "RG",
       "jerseyNumber": "58",
       "height": "6'5\"",
-      "weight": 552,
+      "weight": 352,
       "class": "So",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 79,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Nitro Tuggle",
@@ -898,14 +899,15 @@
       "position": "RG",
       "jerseyNumber": "56",
       "height": "6'5\"",
-      "weight": 552,
+      "weight": 352,
       "class": "So",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 71,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Sterling Smith",

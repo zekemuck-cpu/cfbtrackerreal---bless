@@ -132,14 +132,15 @@
       "position": "LG",
       "jerseyNumber": "60",
       "height": "6'3\"",
-      "weight": 546,
+      "weight": 346,
       "class": "Sr",
       "archetype": "Pass Protector",
       "devTrait": "",
       "overall": 79,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "De'Andre Tamarez",
@@ -588,14 +589,15 @@
       "position": "LT",
       "jerseyNumber": "74",
       "height": "6'9\"",
-      "weight": 550,
+      "weight": 350,
       "class": "RS Sr",
       "archetype": "Well Rounded",
       "devTrait": "",
       "overall": 72,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Marvae Myers",
@@ -700,14 +702,15 @@
       "position": "DT",
       "jerseyNumber": "52",
       "height": "6'2\"",
-      "weight": 550,
+      "weight": 350,
       "class": "RS So",
       "archetype": "Pure Power",
       "devTrait": "",
       "overall": 70,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Tracy Stephens",

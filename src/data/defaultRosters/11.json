@@ -34,7 +34,7 @@
       "position": "LT",
       "jerseyNumber": "74",
       "height": "6'7\"",
-      "weight": 558,
+      "weight": 358,
       "class": "Jr",
       "archetype": "Raw Strength",
       "devTrait": "",
@@ -48,7 +48,8 @@
         "Offensive Rally"
       ],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Jaeden Roberts",

@@ -565,14 +565,15 @@
       "position": "DT",
       "jerseyNumber": "35",
       "height": "6'3\"",
-      "weight": 554,
+      "weight": 354,
       "class": "Sr",
       "archetype": "Pure Power",
       "devTrait": "",
       "overall": 78,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Alvin Henderson",
@@ -1152,7 +1153,7 @@
       "position": "LG",
       "jerseyNumber": "78",
       "height": "6'4\"",
-      "weight": 547,
+      "weight": 347,
       "class": "RS Fr",
       "archetype": "Raw Strength",
       "devTrait": "",
@@ -1161,7 +1162,8 @@
         "Inside Shield"
       ],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Dwight Westerman",
@@ -1287,14 +1289,15 @@
       "position": "RG",
       "jerseyNumber": "74",
       "height": "6'4\"",
-      "weight": 545,
+      "weight": 345,
       "class": "Fr",
       "archetype": "Raw Strength",
       "devTrait": "",
       "overall": 70,
       "abilities": [],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Sam Turner",

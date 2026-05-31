@@ -614,7 +614,7 @@
       "position": "DT",
       "jerseyNumber": "88",
       "height": "6'3\"",
-      "weight": 568,
+      "weight": 368,
       "class": "RS So",
       "archetype": "Pure Power",
       "devTrait": "",
@@ -623,7 +623,8 @@
         "Grip Breaker"
       ],
       "hometown": "",
-      "state": ""
+      "state": "",
+      "weightFixed": true
     },
     {
       "name": "Kyler Jordan",
