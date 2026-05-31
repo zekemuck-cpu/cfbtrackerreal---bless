@@ -58,6 +58,15 @@ const CLASS_MAP = { SR: 'Sr', JR: 'Jr', SO: 'So', FR: 'Fr' }
 // `abilities`, but the ability count doesn't reliably map to a dev-trait tier
 // and we don't want to fabricate one.)
 
+// Some pastes lose the leading digit on lineman weights ("283lbs" → "83lbs").
+// A real college player isn't under ~150 lbs, so a sub-150 value is a paste
+// truncation — add 200 back. Flagged with weightFixed: true so it's auditable.
+function fixWeight(w) {
+  if (!Number.isFinite(w)) return { weight: null, fixed: false }
+  if (w >= 150) return { weight: w, fixed: false }
+  return { weight: 200 + w, fixed: true }
+}
+
 function splitName(full) {
   const parts = full.trim().split(/\s+/)
   if (parts.length < 2) return { firstName: '', lastName: full }
@@ -104,16 +113,14 @@ function parseBlock(L, start) {
   const baseClass = CLASS_MAP[classCode] || classCode
   const playerClass = isRS ? `RS ${baseClass}` : baseClass
   const { firstName, lastName } = splitName(name)
+  const { weight: fixedWeight, fixed: weightFixed } = fixWeight(weight)
 
   return {
     next: i,
     player: {
       name, firstName, lastName,
       position, jerseyNumber,
-      height,
-      // Weight kept exactly as parsed. Some pastes truncate the leading digit
-      // for linemen ("283lbs" → "83lbs"); not fixing here so we don't fabricate.
-      weight,
+      height, weight: fixedWeight, weightFixed: weightFixed || undefined,
       class: playerClass,
       archetype,
       devTrait: '',
@@ -161,14 +168,14 @@ writeFileSync(output, JSON.stringify(out, null, 2) + '\n')
 
 // brief summary on stderr
 const byPos = {}
-let suspectWeight = 0
+let weightFixCount = 0
 let withAbilities = 0
 for (const p of players) {
   byPos[p.position] = (byPos[p.position] || 0) + 1
-  if (Number.isFinite(p.weight) && p.weight < 150) suspectWeight++
+  if (p.weightFixed) weightFixCount++
   if (p.abilities?.length) withAbilities++
 }
 console.error(`✓ ${players.length} players → ${output}`)
 console.error(`  by position: ${Object.entries(byPos).sort().map(([k, v]) => `${k}=${v}`).join(' ')}`)
 console.error(`  players with ability tags listed: ${withAbilities} (devTrait left blank — not in source)`)
-if (suspectWeight) console.error(`  ⚠ ${suspectWeight} weights are < 150 lbs (likely paste truncation; left as-is)`)
+if (weightFixCount) console.error(`  weights auto-fixed (sub-150 → +200, paste truncation): ${weightFixCount}`)
