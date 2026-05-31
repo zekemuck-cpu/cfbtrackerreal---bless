@@ -21,7 +21,6 @@ export function buildScoreGraphicPrompt({
   year,
   featuredTeam = 1,
   homeTeam = null,
-  screenshotCount = 0,
   gameType = 'regular',
   bowlName = null,
   conference = null,
@@ -143,17 +142,20 @@ export function buildScoreGraphicPrompt({
     return lines.join('\n')
   }
 
-  // Top-of-prompt directive (both paths). Branches on whether the user has
-  // photos for this game (screenshotCount): with photos we expect an
-  // attachment and tell the AI to build on top of it; with none we forbid
-  // any generated/fabricated photo-realistic imagery outright. The no-photo
-  // failure mode is the AI hallucinating a fake "player" hero shot, so that
-  // branch is a hard, non-negotiable rule — not a soft "photo-free" hint the
-  // model fills in with an invented action photo.
-  const hasAttachedPhoto = screenshotCount > 0
-  const photoDirective = hasAttachedPhoto
-    ? `IF AN IMAGE IS ATTACHED to this request: that photo is the foundation of the graphic — it MUST fill the canvas edge to edge as the background, and you build the score + branding ON TOP of it. Do NOT ignore an attached photo. If no image actually comes through, fall back to a STRICT graphics-only design (logos, type, and color only) with NO generated or fabricated photo-realistic imagery whatsoever.`
-    : `STRICT GRAPHICS-ONLY — NO PHOTOGRAPHY OF ANY KIND. No photo is attached to this request. Do NOT generate, render, illustrate, paint, or fabricate any photo-realistic imagery — no players, faces, human figures, action shots, crowds, stadiums, fields, or sidelines, not even blurred or faded in the background. Build the ENTIRE graphic from team logos, typography, color, and clean geometric/graphic-design elements ONLY. A fabricated or AI-generated player or photo is an automatic failure of this brief.`
+  // Universal photo rule — the prompt presents BOTH branches and the model
+  // picks based on whether an attachment actually arrives. We can't predict
+  // that from the app: the user may attach an image at chat time even if no
+  // game photos are saved in our data. The no-image branch stays a hard,
+  // non-negotiable rule because the failure mode is the AI hallucinating a
+  // fake "player" hero shot — that has to be forbidden outright, not a soft
+  // hint the model fills in with an invented action photo.
+  const photoDirective = [
+    `PHOTO RULE — read carefully and pick the right branch based on whether an image is actually attached to this request:`,
+    ``,
+    `• IF AN IMAGE IS ATTACHED: that photo is the foundation of the graphic. It MUST fill the canvas edge to edge as the background, and you build the score + branding ON TOP of it. Do NOT ignore an attached photo.`,
+    ``,
+    `• IF NO IMAGE IS ATTACHED: STRICT GRAPHICS-ONLY — NO PHOTOGRAPHY OF ANY KIND. Do NOT generate, render, illustrate, paint, or fabricate any photo-realistic imagery — no players, faces, human figures, action shots, crowds, stadiums, fields, or sidelines, not even blurred or faded in the background. Build the ENTIRE graphic from team logos, typography, color, and clean geometric/graphic-design elements ONLY. A fabricated or AI-generated player or photo is an automatic failure of this brief.`,
+  ].join('\n')
 
   // ─── NEUTRAL PATH ─────────────────────────────────────────────────────────
   if (featuredTeam === 0) {
@@ -220,8 +222,6 @@ export function buildScoreGraphicPrompt({
       homeTeam !== null
         ? `Layout: ${awayName} (${awayScore}) on the left or top; ${homeName} (${homeScore}) on the right or bottom.`
         : `Neutral site — layout is your call.`,
-      ``,
-      `Do not invent or generate photo-realistic content — no fabricated players, crowds, or stadiums.`,
       ``,
       designRules('neutral'),
       ``,
@@ -332,8 +332,6 @@ export function buildScoreGraphicPrompt({
     homeTeam !== null
       ? `Layout: ${awayName} (${awayScore}) on the left or top; ${homeName} (${homeScore}) on the right or bottom.`
       : `Neutral site — layout is your call.`,
-    ``,
-    `Do not invent or generate photo-realistic content — no fabricated players, crowds, or stadiums. If a photo is attached, use it. If not, the graphic is photo-free.`,
     ``,
     designRules('branded'),
     ``,
