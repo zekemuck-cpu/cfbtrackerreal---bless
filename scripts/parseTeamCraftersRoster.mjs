@@ -53,15 +53,10 @@ const SOURCE_POS = new Set([
 ])
 const CLASS_MAP = { SR: 'Sr', JR: 'Jr', SO: 'So', FR: 'Fr' }
 
-// CFB-style ability slots → dev trait. The source page lists each player's
-// equipped ability tags above their name; their COUNT correlates with the dev
-// trait tier (Normal=0, Impact=1, Star=2-3, Elite=4+). Heuristic — overridable.
-function devTraitFromAbilities(n) {
-  if (n >= 4) return 'Elite'
-  if (n >= 2) return 'Star'
-  if (n >= 1) return 'Impact'
-  return 'Normal'
-}
+// Dev trait is NOT in the TeamCrafters source — leave blank rather than guess.
+// (The page does list each player's equipped ability tags, which we capture in
+// `abilities`, but the ability count doesn't reliably map to a dev-trait tier
+// and we don't want to fabricate one.)
 
 // Some weights in the paste lose their leading digit (linemen showing 83lbs
 // instead of 283). A real college player is never under ~150 lbs, so treat any
@@ -128,7 +123,7 @@ function parseBlock(L, start) {
       height, weight: fixedWeight, weightFixed: weightFixed || undefined,
       class: playerClass,
       archetype,
-      devTrait: devTraitFromAbilities(abilities.length),
+      devTrait: '',
       overall,
       abilities,
       ratings: { speed, strength, agility, accel, cod, injury, stamina, awareness },
@@ -173,14 +168,14 @@ writeFileSync(output, JSON.stringify(out, null, 2) + '\n')
 
 // brief summary on stderr
 const byPos = {}
-const byDev = { Normal: 0, Impact: 0, Star: 0, Elite: 0 }
 let weightFixCount = 0
+let withAbilities = 0
 for (const p of players) {
   byPos[p.position] = (byPos[p.position] || 0) + 1
-  byDev[p.devTrait] = (byDev[p.devTrait] || 0) + 1
   if (p.weightFixed) weightFixCount++
+  if (p.abilities?.length) withAbilities++
 }
 console.error(`✓ ${players.length} players → ${output}`)
 console.error(`  by position: ${Object.entries(byPos).sort().map(([k, v]) => `${k}=${v}`).join(' ')}`)
-console.error(`  by dev (from abilities): ${Object.entries(byDev).map(([k, v]) => `${k}=${v}`).join(' ')}`)
+console.error(`  players with ability tags listed: ${withAbilities} (devTrait left blank — not in source)`)
 console.error(`  weights auto-fixed (sub-150 → +200): ${weightFixCount}`)
