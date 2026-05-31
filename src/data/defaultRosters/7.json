@@ -24,16 +24,6 @@
         "Adrenaline",
         "Best Friend"
       ],
-      "ratings": {
-        "speed": 90,
-        "strength": 78,
-        "agility": 88,
-        "accel": 92,
-        "cod": 86,
-        "injury": 87,
-        "stamina": 93,
-        "awareness": 90
-      },
       "hometown": "",
       "state": ""
     },
@@ -50,16 +40,6 @@
       "devTrait": "",
       "overall": 84,
       "abilities": [],
-      "ratings": {
-        "speed": 66,
-        "strength": 86,
-        "agility": 65,
-        "accel": 75,
-        "cod": 52,
-        "injury": 84,
-        "stamina": 93,
-        "awareness": 82
-      },
       "hometown": "",
       "state": ""
     },
@@ -78,16 +58,6 @@
       "abilities": [
         "Take Down"
       ],
-      "ratings": {
-        "speed": 77,
-        "strength": 79,
-        "agility": 74,
-        "accel": 84,
-        "cod": 69,
-        "injury": 91,
-        "stamina": 85,
-        "awareness": 87
-      },
       "hometown": "",
       "state": ""
     },
@@ -106,16 +76,6 @@
       "abilities": [
         "Mobile Deadeye"
       ],
-      "ratings": {
-        "speed": 84,
-        "strength": 70,
-        "agility": 86,
-        "accel": 88,
-        "cod": 85,
-        "injury": 91,
-        "stamina": 92,
-        "awareness": 85
-      },
       "hometown": "",
       "state": ""
     },
@@ -132,16 +92,6 @@
       "devTrait": "",
       "overall": 81,
       "abilities": [],
-      "ratings": {
-        "speed": 94,
-        "strength": 51,
-        "agility": 87,
-        "accel": 93,
-        "cod": 86,
-        "injury": 80,
-        "stamina": 94,
-        "awareness": 84
-      },
       "hometown": "",
       "state": ""
     },
@@ -158,16 +108,6 @@
       "devTrait": "",
       "overall": 81,
       "abilities": [],
-      "ratings": {
-        "speed": 90,
-        "strength": 67,
-        "agility": 90,
-        "accel": 93,
-        "cod": 88,
-        "injury": 86,
-        "stamina": 94,
-        "awareness": 83
-      },
       "hometown": "",
       "state": ""
     },
@@ -184,16 +124,6 @@
       "devTrait": "",
       "overall": 80,
       "abilities": [],
-      "ratings": {
-        "speed": 86,
-        "strength": 61,
-        "agility": 83,
-        "accel": 89,
-        "cod": 81,
-        "injury": 90,
-        "stamina": 89,
-        "awareness": 85
-      },
       "hometown": "",
       "state": ""
     },
@@ -210,16 +140,6 @@
       "devTrait": "",
       "overall": 80,
       "abilities": [],
-      "ratings": {
-        "speed": 80,
-        "strength": 80,
-        "agility": 78,
-        "accel": 84,
-        "cod": 61,
-        "injury": 83,
-        "stamina": 82,
-        "awareness": 83
-      },
       "hometown": "",
       "state": ""
     },
@@ -236,16 +156,6 @@
       "devTrait": "",
       "overall": 80,
       "abilities": [],
-      "ratings": {
-        "speed": 62,
-        "strength": 39,
-        "agility": 55,
-        "accel": 62,
-        "cod": 51,
-        "injury": 82,
-        "stamina": 87,
-        "awareness": 70
-      },
       "hometown": "",
       "state": ""
     },
@@ -265,16 +175,6 @@
         "Take Down",
         "Wrap Up"
       ],
-      "ratings": {
-        "speed": 78,
-        "strength": 75,
-        "agility": 76,
-        "accel": 84,
-        "cod": 72,
-        "injury": 90,
-        "stamina": 87,
-        "awareness": 87
-      },
       "hometown": "",
       "state": ""
     },
@@ -294,16 +194,6 @@
         "Headfirst",
         "Arm Bar"
       ],
-      "ratings": {
-        "speed": 86,
-        "strength": 77,
-        "agility": 79,
-        "accel": 88,
-        "cod": 77,
-        "injury": 92,
-        "stamina": 86,
-        "awareness": 79
-      },
       "hometown": "",
       "state": ""
     },
@@ -320,16 +210,6 @@
       "devTrait": "",
       "overall": 79,
       "abilities": [],
-      "ratings": {
-        "speed": 71,
-        "strength": 83,
-        "agility": 68,
-        "accel": 78,
-        "cod": 54,
-        "injury": 84,
-        "stamina": 85,
-        "awareness": 82
-      },
       "hometown": "",
       "state": ""
     },
@@ -346,16 +226,6 @@
       "devTrait": "",
       "overall": 79,
       "abilities": [],
-      "ratings": {
-        "speed": 72,
-        "strength": 84,
-        "agility": 69,
-        "accel": 74,
-        "cod": 58,
-        "injury": 79,
-        "stamina": 90,
-        "awareness": 82
-      },
       "hometown": "",
       "state": ""
     },
@@ -372,16 +242,6 @@
       "devTrait": "",
       "overall": 79,
       "abilities": [],
-      "ratings": {
-        "speed": 86,
-        "strength": 66,
-        "agility": 86,
-        "accel": 88,
-        "cod": 85,
-        "injury": 84,
-        "stamina": 82,
-        "awareness": 81
-      },
       "hometown": "",
       "state": ""
     },
@@ -399,16 +259,6 @@
       "devTrait": "",
       "overall": 78,
       "abilities": [],
-      "ratings": {
-        "speed": 70,
-        "strength": 80,
-        "agility": 67,
-        "accel": 77,
-        "cod": 63,
-        "injury": 88,
-        "stamina": 83,
-        "awareness": 84
-      },
       "hometown": "",
       "state": ""
     },
@@ -425,16 +275,6 @@
       "devTrait": "",
       "overall": 78,
       "abilities": [],
-      "ratings": {
-        "speed": 79,
-        "strength": 78,
-        "agility": 75,
-        "accel": 83,
-        "cod": 66,
-        "injury": 79,
-        "stamina": 84,
-        "awareness": 80
-      },
       "hometown": "",
       "state": ""
     },
@@ -451,16 +291,6 @@
       "devTrait": "",
       "overall": 77,
       "abilities": [],
-      "ratings": {
-        "speed": 73,
-        "strength": 79,
-        "agility": 73,
-        "accel": 79,
-        "cod": 69,
-        "injury": 85,
-        "stamina": 95,
-        "awareness": 79
-      },
       "hometown": "",
       "state": ""
     },
@@ -477,16 +307,6 @@
       "devTrait": "",
       "overall": 77,
       "abilities": [],
-      "ratings": {
-        "speed": 56,
-        "strength": 87,
-        "agility": 57,
-        "accel": 66,
-        "cod": 53,
-        "injury": 89,
-        "stamina": 85,
-        "awareness": 87
-      },
       "hometown": "",
       "state": ""
     },
@@ -503,16 +323,6 @@
       "devTrait": "",
       "overall": 76,
       "abilities": [],
-      "ratings": {
-        "speed": 85,
-        "strength": 76,
-        "agility": 79,
-        "accel": 87,
-        "cod": 77,
-        "injury": 90,
-        "stamina": 87,
-        "awareness": 80
-      },
       "hometown": "",
       "state": ""
     },
@@ -529,16 +339,6 @@
       "devTrait": "",
       "overall": 76,
       "abilities": [],
-      "ratings": {
-        "speed": 91,
-        "strength": 41,
-        "agility": 89,
-        "accel": 93,
-        "cod": 87,
-        "injury": 94,
-        "stamina": 83,
-        "awareness": 78
-      },
       "hometown": "",
       "state": ""
     },
@@ -555,16 +355,6 @@
       "devTrait": "",
       "overall": 75,
       "abilities": [],
-      "ratings": {
-        "speed": 77,
-        "strength": 75,
-        "agility": 77,
-        "accel": 85,
-        "cod": 72,
-        "injury": 83,
-        "stamina": 84,
-        "awareness": 80
-      },
       "hometown": "",
       "state": ""
     },
@@ -581,16 +371,6 @@
       "devTrait": "",
       "overall": 75,
       "abilities": [],
-      "ratings": {
-        "speed": 63,
-        "strength": 85,
-        "agility": 63,
-        "accel": 72,
-        "cod": 54,
-        "injury": 87,
-        "stamina": 93,
-        "awareness": 79
-      },
       "hometown": "",
       "state": ""
     },
@@ -610,16 +390,6 @@
         "Hammer",
         "Aftershock"
       ],
-      "ratings": {
-        "speed": 85,
-        "strength": 65,
-        "agility": 83,
-        "accel": 90,
-        "cod": 81,
-        "injury": 91,
-        "stamina": 91,
-        "awareness": 71
-      },
       "hometown": "",
       "state": ""
     },
@@ -636,16 +406,6 @@
       "devTrait": "",
       "overall": 75,
       "abilities": [],
-      "ratings": {
-        "speed": 89,
-        "strength": 48,
-        "agility": 88,
-        "accel": 90,
-        "cod": 84,
-        "injury": 87,
-        "stamina": 86,
-        "awareness": 82
-      },
       "hometown": "",
       "state": ""
     },
@@ -662,16 +422,6 @@
       "devTrait": "",
       "overall": 74,
       "abilities": [],
-      "ratings": {
-        "speed": 59,
-        "strength": 86,
-        "agility": 49,
-        "accel": 67,
-        "cod": 46,
-        "injury": 88,
-        "stamina": 76,
-        "awareness": 83
-      },
       "hometown": "",
       "state": ""
     },
@@ -688,16 +438,6 @@
       "devTrait": "",
       "overall": 74,
       "abilities": [],
-      "ratings": {
-        "speed": 63,
-        "strength": 83,
-        "agility": 60,
-        "accel": 72,
-        "cod": 51,
-        "injury": 85,
-        "stamina": 86,
-        "awareness": 78
-      },
       "hometown": "",
       "state": ""
     },
@@ -714,16 +454,6 @@
       "devTrait": "",
       "overall": 74,
       "abilities": [],
-      "ratings": {
-        "speed": 81,
-        "strength": 69,
-        "agility": 83,
-        "accel": 86,
-        "cod": 80,
-        "injury": 88,
-        "stamina": 88,
-        "awareness": 82
-      },
       "hometown": "",
       "state": ""
     },
@@ -740,16 +470,6 @@
       "devTrait": "",
       "overall": 74,
       "abilities": [],
-      "ratings": {
-        "speed": 62,
-        "strength": 82,
-        "agility": 54,
-        "accel": 73,
-        "cod": 50,
-        "injury": 95,
-        "stamina": 83,
-        "awareness": 75
-      },
       "hometown": "",
       "state": ""
     },
@@ -768,16 +488,6 @@
       "abilities": [
         "Magician"
       ],
-      "ratings": {
-        "speed": 87,
-        "strength": 65,
-        "agility": 86,
-        "accel": 91,
-        "cod": 86,
-        "injury": 85,
-        "stamina": 86,
-        "awareness": 53
-      },
       "hometown": "",
       "state": ""
     },
@@ -794,16 +504,6 @@
       "devTrait": "",
       "overall": 73,
       "abilities": [],
-      "ratings": {
-        "speed": 81,
-        "strength": 64,
-        "agility": 80,
-        "accel": 86,
-        "cod": 76,
-        "injury": 90,
-        "stamina": 87,
-        "awareness": 75
-      },
       "hometown": "",
       "state": ""
     },
@@ -820,16 +520,6 @@
       "devTrait": "",
       "overall": 73,
       "abilities": [],
-      "ratings": {
-        "speed": 76,
-        "strength": 75,
-        "agility": 79,
-        "accel": 82,
-        "cod": 74,
-        "injury": 86,
-        "stamina": 91,
-        "awareness": 73
-      },
       "hometown": "",
       "state": ""
     },
@@ -846,16 +536,6 @@
       "devTrait": "",
       "overall": 72,
       "abilities": [],
-      "ratings": {
-        "speed": 88,
-        "strength": 53,
-        "agility": 85,
-        "accel": 89,
-        "cod": 81,
-        "injury": 89,
-        "stamina": 85,
-        "awareness": 75
-      },
       "hometown": "",
       "state": ""
     },
@@ -872,16 +552,6 @@
       "devTrait": "",
       "overall": 72,
       "abilities": [],
-      "ratings": {
-        "speed": 86,
-        "strength": 69,
-        "agility": 85,
-        "accel": 87,
-        "cod": 82,
-        "injury": 84,
-        "stamina": 84,
-        "awareness": 75
-      },
       "hometown": "",
       "state": ""
     },
@@ -898,16 +568,6 @@
       "devTrait": "",
       "overall": 72,
       "abilities": [],
-      "ratings": {
-        "speed": 89,
-        "strength": 45,
-        "agility": 87,
-        "accel": 93,
-        "cod": 86,
-        "injury": 87,
-        "stamina": 81,
-        "awareness": 76
-      },
       "hometown": "",
       "state": ""
     },
@@ -924,16 +584,6 @@
       "devTrait": "",
       "overall": 72,
       "abilities": [],
-      "ratings": {
-        "speed": 65,
-        "strength": 53,
-        "agility": 52,
-        "accel": 65,
-        "cod": 43,
-        "injury": 84,
-        "stamina": 84,
-        "awareness": 64
-      },
       "hometown": "",
       "state": ""
     },
@@ -950,16 +600,6 @@
       "devTrait": "",
       "overall": 71,
       "abilities": [],
-      "ratings": {
-        "speed": 57,
-        "strength": 87,
-        "agility": 69,
-        "accel": 68,
-        "cod": 56,
-        "injury": 84,
-        "stamina": 86,
-        "awareness": 75
-      },
       "hometown": "",
       "state": ""
     },
@@ -976,16 +616,6 @@
       "devTrait": "",
       "overall": 71,
       "abilities": [],
-      "ratings": {
-        "speed": 80,
-        "strength": 63,
-        "agility": 84,
-        "accel": 88,
-        "cod": 80,
-        "injury": 83,
-        "stamina": 92,
-        "awareness": 65
-      },
       "hometown": "",
       "state": ""
     },
@@ -1002,16 +632,6 @@
       "devTrait": "",
       "overall": 71,
       "abilities": [],
-      "ratings": {
-        "speed": 68,
-        "strength": 83,
-        "agility": 64,
-        "accel": 76,
-        "cod": 53,
-        "injury": 84,
-        "stamina": 85,
-        "awareness": 75
-      },
       "hometown": "",
       "state": ""
     },
@@ -1028,16 +648,6 @@
       "devTrait": "",
       "overall": 71,
       "abilities": [],
-      "ratings": {
-        "speed": 85,
-        "strength": 65,
-        "agility": 84,
-        "accel": 87,
-        "cod": 82,
-        "injury": 86,
-        "stamina": 87,
-        "awareness": 81
-      },
       "hometown": "",
       "state": ""
     },
@@ -1054,16 +664,6 @@
       "devTrait": "",
       "overall": 70,
       "abilities": [],
-      "ratings": {
-        "speed": 86,
-        "strength": 61,
-        "agility": 83,
-        "accel": 89,
-        "cod": 81,
-        "injury": 84,
-        "stamina": 89,
-        "awareness": 72
-      },
       "hometown": "",
       "state": ""
     },
@@ -1080,16 +680,6 @@
       "devTrait": "",
       "overall": 70,
       "abilities": [],
-      "ratings": {
-        "speed": 69,
-        "strength": 56,
-        "agility": 66,
-        "accel": 68,
-        "cod": 67,
-        "injury": 82,
-        "stamina": 86,
-        "awareness": 67
-      },
       "hometown": "",
       "state": ""
     },
@@ -1106,16 +696,6 @@
       "devTrait": "",
       "overall": 70,
       "abilities": [],
-      "ratings": {
-        "speed": 78,
-        "strength": 69,
-        "agility": 81,
-        "accel": 87,
-        "cod": 76,
-        "injury": 86,
-        "stamina": 85,
-        "awareness": 77
-      },
       "hometown": "",
       "state": ""
     },
@@ -1132,16 +712,6 @@
       "devTrait": "",
       "overall": 70,
       "abilities": [],
-      "ratings": {
-        "speed": 70,
-        "strength": 79,
-        "agility": 69,
-        "accel": 77,
-        "cod": 65,
-        "injury": 82,
-        "stamina": 81,
-        "awareness": 75
-      },
       "hometown": "",
       "state": ""
     },
@@ -1158,16 +728,6 @@
       "devTrait": "",
       "overall": 70,
       "abilities": [],
-      "ratings": {
-        "speed": 72,
-        "strength": 76,
-        "agility": 78,
-        "accel": 77,
-        "cod": 70,
-        "injury": 86,
-        "stamina": 92,
-        "awareness": 64
-      },
       "hometown": "",
       "state": ""
     },
@@ -1184,16 +744,6 @@
       "devTrait": "",
       "overall": 69,
       "abilities": [],
-      "ratings": {
-        "speed": 88,
-        "strength": 62,
-        "agility": 86,
-        "accel": 90,
-        "cod": 88,
-        "injury": 75,
-        "stamina": 86,
-        "awareness": 75
-      },
       "hometown": "",
       "state": ""
     },
@@ -1210,16 +760,6 @@
       "devTrait": "",
       "overall": 69,
       "abilities": [],
-      "ratings": {
-        "speed": 87,
-        "strength": 67,
-        "agility": 84,
-        "accel": 89,
-        "cod": 83,
-        "injury": 89,
-        "stamina": 88,
-        "awareness": 67
-      },
       "hometown": "",
       "state": ""
     },
@@ -1236,16 +776,6 @@
       "devTrait": "",
       "overall": 69,
       "abilities": [],
-      "ratings": {
-        "speed": 80,
-        "strength": 69,
-        "agility": 83,
-        "accel": 89,
-        "cod": 80,
-        "injury": 86,
-        "stamina": 84,
-        "awareness": 63
-      },
       "hometown": "",
       "state": ""
     },
@@ -1262,16 +792,6 @@
       "devTrait": "",
       "overall": 69,
       "abilities": [],
-      "ratings": {
-        "speed": 56,
-        "strength": 85,
-        "agility": 68,
-        "accel": 57,
-        "cod": 54,
-        "injury": 88,
-        "stamina": 90,
-        "awareness": 76
-      },
       "hometown": "",
       "state": ""
     },
@@ -1288,16 +808,6 @@
       "devTrait": "",
       "overall": 69,
       "abilities": [],
-      "ratings": {
-        "speed": 58,
-        "strength": 83,
-        "agility": 56,
-        "accel": 66,
-        "cod": 51,
-        "injury": 85,
-        "stamina": 84,
-        "awareness": 72
-      },
       "hometown": "",
       "state": ""
     },
@@ -1314,16 +824,6 @@
       "devTrait": "",
       "overall": 68,
       "abilities": [],
-      "ratings": {
-        "speed": 77,
-        "strength": 77,
-        "agility": 79,
-        "accel": 85,
-        "cod": 75,
-        "injury": 94,
-        "stamina": 78,
-        "awareness": 72
-      },
       "hometown": "",
       "state": ""
     },
@@ -1340,16 +840,6 @@
       "devTrait": "",
       "overall": 68,
       "abilities": [],
-      "ratings": {
-        "speed": 66,
-        "strength": 82,
-        "agility": 60,
-        "accel": 67,
-        "cod": 47,
-        "injury": 81,
-        "stamina": 90,
-        "awareness": 68
-      },
       "hometown": "",
       "state": ""
     },
@@ -1366,16 +856,6 @@
       "devTrait": "",
       "overall": 68,
       "abilities": [],
-      "ratings": {
-        "speed": 80,
-        "strength": 72,
-        "agility": 78,
-        "accel": 85,
-        "cod": 75,
-        "injury": 86,
-        "stamina": 84,
-        "awareness": 74
-      },
       "hometown": "",
       "state": ""
     },
@@ -1392,16 +872,6 @@
       "devTrait": "",
       "overall": 67,
       "abilities": [],
-      "ratings": {
-        "speed": 87,
-        "strength": 56,
-        "agility": 85,
-        "accel": 85,
-        "cod": 83,
-        "injury": 71,
-        "stamina": 92,
-        "awareness": 71
-      },
       "hometown": "",
       "state": ""
     },
@@ -1418,16 +888,6 @@
       "devTrait": "",
       "overall": 67,
       "abilities": [],
-      "ratings": {
-        "speed": 85,
-        "strength": 56,
-        "agility": 84,
-        "accel": 86,
-        "cod": 82,
-        "injury": 87,
-        "stamina": 92,
-        "awareness": 73
-      },
       "hometown": "",
       "state": ""
     },
@@ -1444,16 +904,6 @@
       "devTrait": "",
       "overall": 67,
       "abilities": [],
-      "ratings": {
-        "speed": 58,
-        "strength": 85,
-        "agility": 69,
-        "accel": 68,
-        "cod": 51,
-        "injury": 80,
-        "stamina": 84,
-        "awareness": 56
-      },
       "hometown": "",
       "state": ""
     },
@@ -1470,16 +920,6 @@
       "devTrait": "",
       "overall": 67,
       "abilities": [],
-      "ratings": {
-        "speed": 87,
-        "strength": 68,
-        "agility": 84,
-        "accel": 92,
-        "cod": 88,
-        "injury": 88,
-        "stamina": 84,
-        "awareness": 59
-      },
       "hometown": "",
       "state": ""
     },
@@ -1496,16 +936,6 @@
       "devTrait": "",
       "overall": 67,
       "abilities": [],
-      "ratings": {
-        "speed": 58,
-        "strength": 84,
-        "agility": 54,
-        "accel": 67,
-        "cod": 49,
-        "injury": 87,
-        "stamina": 91,
-        "awareness": 78
-      },
       "hometown": "",
       "state": ""
     },
@@ -1522,16 +952,6 @@
       "devTrait": "",
       "overall": 67,
       "abilities": [],
-      "ratings": {
-        "speed": 64,
-        "strength": 77,
-        "agility": 64,
-        "accel": 72,
-        "cod": 54,
-        "injury": 86,
-        "stamina": 82,
-        "awareness": 68
-      },
       "hometown": "",
       "state": ""
     },
@@ -1548,16 +968,6 @@
       "devTrait": "",
       "overall": 67,
       "abilities": [],
-      "ratings": {
-        "speed": 84,
-        "strength": 55,
-        "agility": 83,
-        "accel": 87,
-        "cod": 79,
-        "injury": 92,
-        "stamina": 85,
-        "awareness": 70
-      },
       "hometown": "",
       "state": ""
     },
@@ -1574,16 +984,6 @@
       "devTrait": "",
       "overall": 67,
       "abilities": [],
-      "ratings": {
-        "speed": 69,
-        "strength": 48,
-        "agility": 52,
-        "accel": 71,
-        "cod": 51,
-        "injury": 82,
-        "stamina": 87,
-        "awareness": 55
-      },
       "hometown": "",
       "state": ""
     },
@@ -1600,16 +1000,6 @@
       "devTrait": "",
       "overall": 66,
       "abilities": [],
-      "ratings": {
-        "speed": 61,
-        "strength": 82,
-        "agility": 59,
-        "accel": 72,
-        "cod": 54,
-        "injury": 85,
-        "stamina": 90,
-        "awareness": 75
-      },
       "hometown": "",
       "state": ""
     },
@@ -1626,16 +1016,6 @@
       "devTrait": "",
       "overall": 66,
       "abilities": [],
-      "ratings": {
-        "speed": 56,
-        "strength": 79,
-        "agility": 63,
-        "accel": 70,
-        "cod": 46,
-        "injury": 93,
-        "stamina": 88,
-        "awareness": 65
-      },
       "hometown": "",
       "state": ""
     },
@@ -1652,16 +1032,6 @@
       "devTrait": "",
       "overall": 66,
       "abilities": [],
-      "ratings": {
-        "speed": 79,
-        "strength": 69,
-        "agility": 76,
-        "accel": 83,
-        "cod": 72,
-        "injury": 89,
-        "stamina": 82,
-        "awareness": 70
-      },
       "hometown": "",
       "state": ""
     },
@@ -1678,16 +1048,6 @@
       "devTrait": "",
       "overall": 66,
       "abilities": [],
-      "ratings": {
-        "speed": 89,
-        "strength": 61,
-        "agility": 87,
-        "accel": 92,
-        "cod": 85,
-        "injury": 77,
-        "stamina": 86,
-        "awareness": 74
-      },
       "hometown": "",
       "state": ""
     },
@@ -1704,16 +1064,6 @@
       "devTrait": "",
       "overall": 66,
       "abilities": [],
-      "ratings": {
-        "speed": 88,
-        "strength": 59,
-        "agility": 86,
-        "accel": 87,
-        "cod": 83,
-        "injury": 83,
-        "stamina": 88,
-        "awareness": 65
-      },
       "hometown": "",
       "state": ""
     },
@@ -1730,16 +1080,6 @@
       "devTrait": "",
       "overall": 66,
       "abilities": [],
-      "ratings": {
-        "speed": 84,
-        "strength": 74,
-        "agility": 83,
-        "accel": 85,
-        "cod": 79,
-        "injury": 88,
-        "stamina": 88,
-        "awareness": 62
-      },
       "hometown": "",
       "state": ""
     },
@@ -1756,16 +1096,6 @@
       "devTrait": "",
       "overall": 66,
       "abilities": [],
-      "ratings": {
-        "speed": 88,
-        "strength": 45,
-        "agility": 85,
-        "accel": 90,
-        "cod": 83,
-        "injury": 83,
-        "stamina": 86,
-        "awareness": 65
-      },
       "hometown": "",
       "state": ""
     },
@@ -1782,16 +1112,6 @@
       "devTrait": "",
       "overall": 66,
       "abilities": [],
-      "ratings": {
-        "speed": 72,
-        "strength": 75,
-        "agility": 68,
-        "accel": 79,
-        "cod": 63,
-        "injury": 81,
-        "stamina": 78,
-        "awareness": 72
-      },
       "hometown": "",
       "state": ""
     },
@@ -1808,16 +1128,6 @@
       "devTrait": "",
       "overall": 66,
       "abilities": [],
-      "ratings": {
-        "speed": 83,
-        "strength": 57,
-        "agility": 82,
-        "accel": 87,
-        "cod": 80,
-        "injury": 82,
-        "stamina": 88,
-        "awareness": 68
-      },
       "hometown": "",
       "state": ""
     },
@@ -1834,16 +1144,6 @@
       "devTrait": "",
       "overall": 66,
       "abilities": [],
-      "ratings": {
-        "speed": 86,
-        "strength": 56,
-        "agility": 85,
-        "accel": 88,
-        "cod": 83,
-        "injury": 82,
-        "stamina": 85,
-        "awareness": 74
-      },
       "hometown": "",
       "state": ""
     },
@@ -1860,16 +1160,6 @@
       "devTrait": "",
       "overall": 66,
       "abilities": [],
-      "ratings": {
-        "speed": 81,
-        "strength": 61,
-        "agility": 89,
-        "accel": 87,
-        "cod": 73,
-        "injury": 88,
-        "stamina": 94,
-        "awareness": 52
-      },
       "hometown": "",
       "state": ""
     },
@@ -1887,16 +1177,6 @@
       "devTrait": "",
       "overall": 65,
       "abilities": [],
-      "ratings": {
-        "speed": 63,
-        "strength": 95,
-        "agility": 59,
-        "accel": 72,
-        "cod": 56,
-        "injury": 87,
-        "stamina": 91,
-        "awareness": 75
-      },
       "hometown": "",
       "state": ""
     },
@@ -1913,16 +1193,6 @@
       "devTrait": "",
       "overall": 65,
       "abilities": [],
-      "ratings": {
-        "speed": 86,
-        "strength": 57,
-        "agility": 85,
-        "accel": 88,
-        "cod": 83,
-        "injury": 83,
-        "stamina": 84,
-        "awareness": 66
-      },
       "hometown": "",
       "state": ""
     },
@@ -1939,16 +1209,6 @@
       "devTrait": "",
       "overall": 65,
       "abilities": [],
-      "ratings": {
-        "speed": 88,
-        "strength": 50,
-        "agility": 86,
-        "accel": 87,
-        "cod": 85,
-        "injury": 83,
-        "stamina": 85,
-        "awareness": 61
-      },
       "hometown": "",
       "state": ""
     },
@@ -1965,16 +1225,6 @@
       "devTrait": "",
       "overall": 65,
       "abilities": [],
-      "ratings": {
-        "speed": 54,
-        "strength": 80,
-        "agility": 62,
-        "accel": 64,
-        "cod": 52,
-        "injury": 85,
-        "stamina": 86,
-        "awareness": 59
-      },
       "hometown": "",
       "state": ""
     },
@@ -1991,16 +1241,6 @@
       "devTrait": "",
       "overall": 65,
       "abilities": [],
-      "ratings": {
-        "speed": 79,
-        "strength": 63,
-        "agility": 78,
-        "accel": 84,
-        "cod": 75,
-        "injury": 86,
-        "stamina": 85,
-        "awareness": 64
-      },
       "hometown": "",
       "state": ""
     },
@@ -2018,16 +1258,6 @@
       "devTrait": "",
       "overall": 65,
       "abilities": [],
-      "ratings": {
-        "speed": 65,
-        "strength": 76,
-        "agility": 61,
-        "accel": 77,
-        "cod": 57,
-        "injury": 86,
-        "stamina": 78,
-        "awareness": 73
-      },
       "hometown": "",
       "state": ""
     },
@@ -2044,16 +1274,6 @@
       "devTrait": "",
       "overall": 65,
       "abilities": [],
-      "ratings": {
-        "speed": 54,
-        "strength": 81,
-        "agility": 60,
-        "accel": 62,
-        "cod": 54,
-        "injury": 83,
-        "stamina": 84,
-        "awareness": 70
-      },
       "hometown": "",
       "state": ""
     },
@@ -2070,16 +1290,6 @@
       "devTrait": "",
       "overall": 65,
       "abilities": [],
-      "ratings": {
-        "speed": 80,
-        "strength": 65,
-        "agility": 77,
-        "accel": 83,
-        "cod": 76,
-        "injury": 82,
-        "stamina": 88,
-        "awareness": 69
-      },
       "hometown": "",
       "state": ""
     },
@@ -2096,16 +1306,6 @@
       "devTrait": "",
       "overall": 64,
       "abilities": [],
-      "ratings": {
-        "speed": 76,
-        "strength": 69,
-        "agility": 75,
-        "accel": 82,
-        "cod": 70,
-        "injury": 79,
-        "stamina": 85,
-        "awareness": 70
-      },
       "hometown": "",
       "state": ""
     },
@@ -2122,16 +1322,6 @@
       "devTrait": "",
       "overall": 64,
       "abilities": [],
-      "ratings": {
-        "speed": 85,
-        "strength": 55,
-        "agility": 84,
-        "accel": 90,
-        "cod": 82,
-        "injury": 74,
-        "stamina": 86,
-        "awareness": 65
-      },
       "hometown": "",
       "state": ""
     },
@@ -2148,16 +1338,6 @@
       "devTrait": "",
       "overall": 64,
       "abilities": [],
-      "ratings": {
-        "speed": 75,
-        "strength": 78,
-        "agility": 76,
-        "accel": 78,
-        "cod": 72,
-        "injury": 94,
-        "stamina": 81,
-        "awareness": 66
-      },
       "hometown": "",
       "state": ""
     },
@@ -2174,16 +1354,6 @@
       "devTrait": "",
       "overall": 63,
       "abilities": [],
-      "ratings": {
-        "speed": 61,
-        "strength": 78,
-        "agility": 60,
-        "accel": 70,
-        "cod": 56,
-        "injury": 86,
-        "stamina": 81,
-        "awareness": 63
-      },
       "hometown": "",
       "state": ""
     },
@@ -2200,16 +1370,6 @@
       "devTrait": "",
       "overall": 61,
       "abilities": [],
-      "ratings": {
-        "speed": 52,
-        "strength": 89,
-        "agility": 66,
-        "accel": 63,
-        "cod": 54,
-        "injury": 85,
-        "stamina": 83,
-        "awareness": 54
-      },
       "hometown": "",
       "state": ""
     },
@@ -2226,16 +1386,6 @@
       "devTrait": "",
       "overall": 61,
       "abilities": [],
-      "ratings": {
-        "speed": 82,
-        "strength": 65,
-        "agility": 81,
-        "accel": 86,
-        "cod": 78,
-        "injury": 81,
-        "stamina": 89,
-        "awareness": 65
-      },
       "hometown": "",
       "state": ""
     }

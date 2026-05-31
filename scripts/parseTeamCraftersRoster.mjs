@@ -20,7 +20,12 @@
 //   [RS]
 //   •
 //   Archetype
-//   OVR  SPD  STR  AGI  ACC  COD  INJ  STA  AWR   (tab/space-separated)
+//   OVR  SPD  STR  AGI  ACC  COD  INJ  STA  AWR   (tab-separated, wide view)
+//
+// Narrow / mobile view replaces the single stats line with:
+//   OVR
+//   SPD\nNUM\nSTR\nNUM\n…AWR\nNUM   (label/number pairs, may omit ACC/STA)
+// We only keep OVR; individual ratings are intentionally dropped.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 
@@ -52,6 +57,7 @@ const SOURCE_POS = new Set([
   'K', 'P', 'LS',
 ])
 const CLASS_MAP = { SR: 'Sr', JR: 'Jr', SO: 'So', FR: 'Fr' }
+const STAT_LABELS = new Set(['SPD', 'STR', 'AGI', 'ACC', 'COD', 'INJ', 'STA', 'AWR'])
 
 // Dev trait is NOT in the TeamCrafters source — leave blank rather than guess.
 // (The page does list each player's equipped ability tags, which we capture in
@@ -103,11 +109,24 @@ function parseBlock(L, start) {
   if (L[i] && L[i].trim() === 'RS') { isRS = true; i++ }
   if (L[i] && L[i].trim() === '•') i++
   const archetype = (L[i] || '').trim(); i++
-  // Stats line — 9 numbers, OVR first.
-  const nums = (L[i] || '').trim().split(/\s+/).map(Number)
-  if (!Number.isFinite(nums[0])) return null
-  i++
-  const [overall, speed, strength, agility, accel, cod, injury, stamina, awareness] = nums
+  // Stats — wide view is a single tab/space line; narrow view is OVR alone
+  // followed by LABEL\nNUMBER pairs. We only keep OVR either way.
+  const statsLine = (L[i] || '').trim()
+  const nums = statsLine.split(/\s+/).map(Number)
+  let overall
+  if (nums.length >= 9 && nums.every(n => Number.isFinite(n))) {
+    overall = nums[0]
+    i++
+  } else if (nums.length === 1 && Number.isFinite(nums[0])) {
+    overall = nums[0]
+    i++
+    while (i < L.length && STAT_LABELS.has((L[i] || '').trim())) {
+      i++
+      if (i < L.length && /^\d+$/.test((L[i] || '').trim())) i++
+    }
+  } else {
+    return null
+  }
 
   const position = POSITION_MAP[sourcePos] || sourcePos
   const baseClass = CLASS_MAP[classCode] || classCode
@@ -126,7 +145,6 @@ function parseBlock(L, start) {
       devTrait: '',
       overall,
       abilities,
-      ratings: { speed, strength, agility, accel, cod, injury, stamina, awareness },
       hometown: '',
       state: '',
     },
