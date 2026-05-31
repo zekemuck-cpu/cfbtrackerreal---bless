@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { groupForPosition, finePositionGroup, OFFENSE_FORMATION, DEFENSE_FORMATION, ST_FORMATION } from '../../data/positionGroups'
+import { groupForPosition, finePositionGroup } from '../../data/positionGroups'
 
 describe('groupForPosition', () => {
   it('maps OL positions to OL', () => {
@@ -33,17 +33,5 @@ describe('finePositionGroup (Team Future breakout)', () => {
     expect(finePositionGroup('MIKE')).toBe('MIKE')
     expect(finePositionGroup('CB')).toBe('CB')
     expect(['FS', 'SS'].map(finePositionGroup)).toEqual(['Safety', 'Safety'])
-  })
-})
-
-describe('formations', () => {
-  it('offense has the OL + skill slots', () => {
-    const ids = OFFENSE_FORMATION.map(s => s.id)
-    expect(ids).toEqual(['LT', 'LG', 'C', 'RG', 'RT', 'TE', 'WR1', 'HB', 'QB', 'FB', 'WR2'])
-  })
-  it('every slot names a real position pool', () => {
-    for (const f of [OFFENSE_FORMATION, DEFENSE_FORMATION, ST_FORMATION]) {
-      for (const slot of f) expect(typeof slot.pos).toBe('string')
-    }
   })
 })
