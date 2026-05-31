@@ -56,7 +56,8 @@ const US_STATES = [
   { code: 'WV', name: 'West Virginia' },
   { code: 'WI', name: 'Wisconsin' },
   { code: 'WY', name: 'Wyoming' },
-  { code: 'DC', name: 'District of Columbia' }
+  { code: 'DC', name: 'District of Columbia' },
+  { code: 'Non-US', name: 'Non-US' }
 ]
 
 const DEV_TRAIT_VARIANT = {
