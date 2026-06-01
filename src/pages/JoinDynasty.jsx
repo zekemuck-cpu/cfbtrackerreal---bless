@@ -82,7 +82,12 @@ export default function JoinDynasty() {
           setStatus('invalid')
           return
         }
-        if (!isInviteValid(inv)) {
+        // Already redeemed BY ME but (per phase-2 failure) maybe not yet an
+        // editor? Treat as resumable rather than dead — handleAccept will skip
+        // re-claiming and just (re)append to editors. Only a redemption by
+        // SOMEONE ELSE, or expiry, is a hard "invalid".
+        const redeemedByMe = inv.redeemedBy && inv.redeemedBy === user.uid
+        if (!isInviteValid(inv) && !redeemedByMe) {
           setInvite(inv)
           setStatus('invalid')
           return
@@ -132,7 +137,12 @@ export default function JoinDynasty() {
       // that the invite was unredeemed AND the new redeemedBy equals
       // request.auth.uid, so a stranger can't claim it on someone else's
       // behalf and a race-loser can't double-redeem.
-      await redeemInviteDoc(dynastyId, token, user.uid)
+      // Skip phase 1 if this invite is already claimed by us (a prior attempt
+      // where phase 2 failed) — re-claiming a redeemed invite would be blocked
+      // by the rule, and we just need to (re)run phase 2 to land in editors[].
+      if (invite.redeemedBy !== user.uid) {
+        await redeemInviteDoc(dynastyId, token, user.uid)
+      }
 
       // Phase 2 — append our uid to dynasty.editors[]. The Firestore
       // rule on the dynasty doc verifies the lastRedemption marker
@@ -143,10 +153,9 @@ export default function JoinDynasty() {
       // cocommish) coCommishes via the regular editor write that's
       // unlocked once we're an editor — DOES NOT WORK in the same call;
       // splitting cocommish promotion to a follow-up call below.
+      // Dedup with a Set so a stale in-memory editors[] can't double-add us.
       const existingEditors = Array.isArray(dynasty?.editors) ? dynasty.editors : []
-      const nextEditors = existingEditors.includes(user.uid)
-        ? existingEditors
-        : [...existingEditors, user.uid]
+      const nextEditors = [...new Set([...existingEditors, user.uid])]
       await fsUpdateDynasty(dynastyId, {
         editors: nextEditors,
         lastRedemption: { uid: user.uid, token, at: Date.now() },

@@ -21,6 +21,8 @@ import {
   getCoachesForTeamYear,
   claimTeamForYear,
   releaseTeamForYear,
+  getRole,
+  maxTeamsForRole,
 } from '../data/leagueModel'
 
 export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
@@ -83,9 +85,21 @@ export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
     await updateDynasty(currentDynasty.id, updates)
   }
 
+  // Members coach at most one team per season; commish/co-commish are uncapped.
+  const cap = maxTeamsForRole(getRole(currentDynasty, uid))
+
   const handleClaim = async (year, tidStr) => {
     const tid = Number(tidStr)
     if (!Number.isFinite(tid)) return
+    // Enforce the per-season team cap (the dropdown otherwise allows unlimited
+    // adds). Already-assigned tids are filtered out of the options, so a claim
+    // here is always a NEW team for the year.
+    const already = getMemberTeamsForYear(currentDynasty, uid, year)
+    if (cap !== Infinity && already.length >= cap) {
+      toast.error(`${memberName} can only coach ${cap} team per season.`)
+      setPendingPick(p => ({ ...p, [year]: '' }))
+      return
+    }
     const otherUids = getCoachesForTeamYear(currentDynasty, tid, year).filter(u => u !== uid)
     setBusyYear(year)
     try {
@@ -130,10 +144,12 @@ export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
       if (tids.length > 0) { sourceTids = tids; break }
     }
     if (!sourceTids || sourceTids.length === 0) return
+    // Respect the per-season cap when copying a multi-team year down.
+    const toCopy = cap === Infinity ? sourceTids : sourceTids.slice(0, cap)
     setBusyYear(year)
     try {
       let next = currentDynasty.memberTeamHistory
-      for (const tid of sourceTids) {
+      for (const tid of toCopy) {
         next = claimTeamForYear(next, uid, year, tid)
       }
       await writeHistory(next, year)
@@ -233,6 +249,7 @@ export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
                 </div>
 
                 <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {(cap === Infinity || tids.length < cap) && (
                   <select
                     value={pickValue}
                     onChange={(e) => {
@@ -259,6 +276,7 @@ export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
                       )
                     })}
                   </select>
+                  )}
 
                   {tids.length === 0 && year < currentYear && (
                     <button

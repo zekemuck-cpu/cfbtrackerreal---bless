@@ -659,7 +659,7 @@ export default function LeagueSettings() {
             shows for self-rows. */}
         {hasAnyAction && (
           <div className="flex flex-col gap-1 flex-shrink-0">
-            {(canManage || isYou) && (
+            {(isYou || canActOnThis) && (
               <Button variant="outline" size="sm" onClick={() => setTimelineUid(uid)} disabled={isBusy}>
                 Timeline
               </Button>

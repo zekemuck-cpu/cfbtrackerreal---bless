@@ -531,7 +531,7 @@ export function createInviteToken(length = 16) {
 /** True iff the invite is usable: exists, unredeemed, unexpired. */
 export function isInviteValid(invite) {
   if (!invite || invite.redeemedBy) return false
-  if (invite.expiresAt && Date.now() > Number(invite.expiresAt)) return false
+  if (invite.expiresAt != null && Date.now() > Number(invite.expiresAt)) return false
   return true
 }
 
