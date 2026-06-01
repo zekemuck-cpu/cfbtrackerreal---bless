@@ -24,6 +24,7 @@ import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromNa
 import { isSameYear, weekSortKey } from '../../utils/compareUtils'
 import { calculateRecruitingClassScore, formatRecruitingClassScore, flattenClassCommitments } from '../../utils/recruitingScore'
 import { useToast } from '../../components/ui/Toast'
+import FittedPlayerName from '../../components/ui/FittedPlayerName'
 import SortableStatsTable, { PlayerCell } from '../../components/SortableStatsTable'
 import { formatScoreHighLow } from '../../utils/scoreFormat'
 import { getCoachStints } from '../../data/coachStats'
@@ -3331,7 +3332,7 @@ export default function TeamYear() {
                       className="flex-shrink-0 w-36 group"
                     >
                       <div className="text-[10px] font-black uppercase tracking-[0.18em] text-txt-tertiary">{l.label}</div>
-                      <div className="text-sm font-semibold truncate mt-0.5 group-hover:opacity-80 transition-opacity" style={{ color: accentColor }}>{l.data.name}</div>
+                      <FittedPlayerName name={l.data.name} className="text-sm font-semibold mt-0.5 group-hover:opacity-80 transition-opacity" style={{ color: accentColor }} />
                       <div className="font-display font-black tabular-nums leading-none mt-1" style={{ color: accentColor, fontSize: '1.75rem' }}>
                         {l.valueText}
                         <span className="text-[10px] font-bold tracking-wider ml-1" style={{ color: accentColorMuted }}>{l.unit}</span>
@@ -3365,7 +3366,7 @@ export default function TeamYear() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-[10px] font-black uppercase tracking-[0.18em] text-txt-tertiary">{l.label}</div>
-                        <div className="text-[13px] font-semibold truncate group-hover:opacity-80 transition-opacity" style={{ color: accentColor }}>{l.data.name}</div>
+                        <FittedPlayerName name={l.data.name} className="text-[13px] font-semibold group-hover:opacity-80 transition-opacity" style={{ color: accentColor }} />
                         <div className="font-display font-black tabular-nums leading-none mt-0.5" style={{ color: accentColor, fontSize: '1.5rem' }}>
                           {l.valueText}
                           <span className="text-[10px] font-bold tracking-wider ml-1" style={{ color: accentColorMuted }}>{l.unit}</span>
