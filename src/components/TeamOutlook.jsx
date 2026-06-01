@@ -33,13 +33,14 @@ function hexRgb(hex) {
   return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`
 }
 
-// Subtle left→right wash in the player's dev-trait color, layered over the
-// tile surface so text stays readable. Brighter for the starter.
-function devTraitGradient(trait, isStarter) {
+// Left→right wash in the player's dev-trait color, layered over the tile
+// surface so text stays readable. Same strength for every tile — the starter
+// is not visually brighter than the rest of the depth.
+function devTraitGradient(trait) {
   const c = DEV_TRAIT_COLORS[devTraitKey(trait)]
   if (!c) return undefined
   const rgb = hexRgb(c.bg)
-  const a = isStarter ? 0.52 : 0.32
+  const a = 0.5
   return `linear-gradient(90deg, rgba(${rgb},${a}) 0%, rgba(${rgb},${a * 0.6}) 60%, rgba(${rgb},${a * 0.12}) 100%)`
 }
 
@@ -706,12 +707,13 @@ function ovrColor(ovr) {
 }
 
 function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode }) {
-  const tint = leaving ? undefined : devTraitGradient(tile.devTrait, isStarter)
+  const tint = leaving ? undefined : devTraitGradient(tile.devTrait)
   const cursor = grab ? (markMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing') : 'cursor-pointer'
   const marker = leaving ? 'OUT' : tile.isNfl ? 'NFL' : tile.portalRisk ? '↗' : null
   const markerColor = leaving ? 'var(--accent-error)' : tile.isNfl ? 'var(--accent-info)' : 'var(--accent-warning)'
   return (
-    <div className={`relative rounded-md px-2 py-1.5 overflow-hidden ${dragging ? 'shadow-xl bg-surface-3 ring-1 ring-[color:var(--accent-info)]' : isStarter ? 'bg-surface-3' : 'bg-surface-2'} ${cursor} ${leaving ? 'ring-1 ring-[color:var(--accent-error)] opacity-70' : ''}`}>
+    // Same surface for every tile — the starter is not visually brighter.
+    <div className={`relative rounded-md px-2 py-1.5 overflow-hidden ${dragging ? 'shadow-xl bg-surface-3 ring-1 ring-[color:var(--accent-info)]' : 'bg-surface-2'} ${cursor} ${leaving ? 'ring-1 ring-[color:var(--accent-error)] opacity-70' : ''}`}>
       {tint && <span aria-hidden="true" className="absolute inset-0 pointer-events-none" style={{ background: tint }} />}
       <div className="relative z-[1]">
         {/* Row 1: name spans the full width of the tile (nothing else on this row). */}

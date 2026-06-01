@@ -3369,12 +3369,13 @@ export default function TeamYear() {
                       style={idx > 0 ? { borderLeft: `1px solid ${accentColor}15` } : undefined}
                     >
                       <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ border: `2px solid ${teamInfo.backgroundColor}40`, backgroundColor: `${accentColor}10` }}>
-                        {/* Team-branded rail: the avatar is the team logo from the
-                            single source of truth (teamLogo), so updating the
-                            team logo updates here too. Falls back to the player's
-                            initial only when the team has no logo at all. */}
-                        {teamLogo ? (
-                          <img src={proxyImageUrl(teamLogo, 300)} alt="" className="w-full h-full object-contain p-1.5" />
+                        {/* Real player photo first; else the team logo (rendered
+                            raw — the proxy can choke on user-uploaded logo URLs);
+                            else the player's initial. */}
+                        {l.data.player?.pictureUrl ? (
+                          <img src={proxyImageUrl(l.data.player.pictureUrl, 300)} alt="" className="w-full h-full object-cover" />
+                        ) : teamLogo ? (
+                          <img src={teamLogo} alt="" className="w-full h-full object-contain p-1.5" />
                         ) : (
                           <span className="text-lg font-bold" style={{ color: accentColor }}>{l.data.name?.charAt(0) || l.fallback}</span>
                         )}
@@ -3435,10 +3436,11 @@ export default function TeamYear() {
                           className="group flex items-center gap-3 py-2.5 px-2 transition-colors hover:bg-white/[0.02]"
                         >
                           <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ border: `2px solid ${teamInfo.backgroundColor}40`, backgroundColor: `${accentColor}10` }}>
-                            {/* Team-branded: avatar is the team logo from the single
-                                source of truth (teamLogo). Letter only if no logo. */}
-                            {teamLogo ? (
-                              <img src={proxyImageUrl(teamLogo, 300)} alt="" className="w-full h-full object-contain p-1" />
+                            {/* Real player photo first; else team logo (raw); else initial. */}
+                            {p.pictureUrl ? (
+                              <img src={proxyImageUrl(p.pictureUrl, 300)} alt="" className="w-full h-full object-cover" />
+                            ) : teamLogo ? (
+                              <img src={teamLogo} alt="" className="w-full h-full object-contain p-1" />
                             ) : (
                               <span className="text-sm font-bold" style={{ color: accentColor }}>{p.name?.charAt(0) || '?'}</span>
                             )}
