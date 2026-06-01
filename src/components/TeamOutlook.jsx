@@ -530,12 +530,14 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
         onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
 
         <ShrinkToFit className="py-2" onZoom={setBoardZoom}>
-          <div className="space-y-6 w-fit">
+          <div className="space-y-6 w-fit lg:w-full">
             {board.tiers.map((tier, ti) => (
-              // Fixed-width columns ⇒ stable natural size; ShrinkToFit scales the
-              // whole board (text and all) down to fit narrower screens — keeps
-              // the full formation, just smaller, including 5-wide on phones.
-              <div key={ti} className="flex flex-nowrap gap-3 justify-center items-start">
+              // Mobile: fixed-width columns ⇒ stable natural size; ShrinkToFit
+              // scales the whole board (text and all) down to fit narrow screens —
+              // keeps the full formation, just smaller, incl. 5-wide on phones.
+              // Desktop (lg+): columns grow to fill the width so the formation
+              // uses the whole row instead of clustering in the center.
+              <div key={ti} className="flex flex-nowrap gap-3 lg:gap-5 justify-center items-start">
                 {tier.map(id => {
                   const slot = board.slots.find(s => s.id === id)
                   if (!slot) return null
@@ -585,7 +587,10 @@ function SlotColumn({ slot, items, byKey, ...rest }) {
   const { setNodeRef, isOver } = useDroppable({ id: slot.id })
   const hole = slot.isHole
   return (
-    <div className="w-[7.5rem] shrink-0 flex flex-col">
+    // Mobile: fixed 7.5rem so the formation has a stable natural width for
+    // ShrinkToFit to scale. Desktop (lg+): grow to fill the row (capped so tiles
+    // don't get cartoonishly wide), giving names more horizontal room.
+    <div className="w-[7.5rem] shrink-0 lg:w-auto lg:flex-1 lg:basis-0 lg:min-w-[8rem] lg:max-w-[16rem] flex flex-col">
       {/* position header */}
       <div className="flex items-center justify-between gap-1 px-1 mb-1.5">
         <span className="font-bold text-txt-primary text-xs uppercase tracking-wider">{slot.label}</span>
@@ -625,8 +630,18 @@ function ShrinkToFit({ children, className = '', onZoom }) {
     const outer = outerRef.current, inner = innerRef.current
     if (!outer || !inner) return
     const measure = () => {
-      const rect = outer.getBoundingClientRect()
       const viewportW = document.documentElement.clientWidth
+      // Desktop (lg+): never shrink — the board fills the row via flex-grow
+      // columns, so zoom stays 1 and the formation uses the full width.
+      if (viewportW >= 1024) {
+        if (zoomRef.current !== 1) {
+          zoomRef.current = 1
+          setZoom(1)
+          onZoomRef.current?.(1)
+        }
+        return
+      }
+      const rect = outer.getBoundingClientRect()
       const avail = Math.max(0, viewportW - rect.left - 16)
       // getBoundingClientRect returns the ZOOMED width, so divide by the zoom
       // that's actually applied (ref, not stale closure) to recover the natural
@@ -654,7 +669,9 @@ function ShrinkToFit({ children, className = '', onZoom }) {
 
   return (
     <div ref={outerRef} className={`w-full min-w-0 ${className}`}>
-      <div ref={innerRef} className="w-fit mx-auto" style={{ zoom }}>
+      {/* Mobile: w-fit + centered so ShrinkToFit can scale the natural width
+          down. Desktop (lg+): full width so flex-grow columns spread out. */}
+      <div ref={innerRef} className="w-fit mx-auto lg:w-full lg:mx-0" style={{ zoom }}>
         {children}
       </div>
     </div>
