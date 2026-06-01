@@ -683,27 +683,25 @@ function ovrColor(ovr) {
 function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode }) {
   const tint = leaving ? undefined : devTraitGradient(tile.devTrait, isStarter)
   const cursor = grab ? (markMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing') : 'cursor-pointer'
+  const marker = leaving ? 'OUT' : tile.isNfl ? 'NFL' : tile.portalRisk ? '↗' : null
+  const markerColor = leaving ? 'var(--accent-error)' : tile.isNfl ? 'var(--accent-info)' : 'var(--accent-warning)'
   return (
-    <div className={`relative rounded-md pl-2 pr-1.5 py-1 overflow-hidden ${dragging ? 'shadow-xl bg-surface-3 ring-1 ring-[color:var(--accent-info)]' : isStarter ? 'bg-surface-3' : 'bg-surface-2'} ${cursor} ${leaving ? 'ring-1 ring-[color:var(--accent-error)] opacity-70' : ''}`}>
+    <div className={`relative rounded-md px-2 py-1.5 overflow-hidden ${dragging ? 'shadow-xl bg-surface-3 ring-1 ring-[color:var(--accent-info)]' : isStarter ? 'bg-surface-3' : 'bg-surface-2'} ${cursor} ${leaving ? 'ring-1 ring-[color:var(--accent-error)] opacity-70' : ''}`}>
       {tint && <span aria-hidden="true" className="absolute inset-0 pointer-events-none" style={{ background: tint }} />}
-      <div className="relative z-[1] flex items-center gap-1.5 min-w-0">
-        <span className="text-xs font-bold tabular-nums text-txt-primary w-6 text-right shrink-0">{tile.jerseyNumber != null && tile.jerseyNumber !== '' ? `#${tile.jerseyNumber}` : ''}</span>
-        <Avatar url={tile.player?.pictureUrl} fallback={teamLogo} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1 min-w-0">
-            <PlayerName name={tile.name} strike={leaving} />
-          </div>
-          <div className="text-[10px] text-txt-tertiary">{tile.position} · {tile.projectedClass}</div>
+      <div className="relative z-[1]">
+        {/* Row 1: avatar + name (name gets the full remaining width) + OVR */}
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Avatar url={tile.player?.pictureUrl} fallback={teamLogo} />
+          <div className="min-w-0 flex-1"><PlayerName name={tile.name} strike={leaving} /></div>
+          <span className="tabular-nums font-bold text-sm shrink-0" style={{ color: ovrColor(tile.projectedOvr) }}>{tile.projectedOvr ?? '—'}</span>
         </div>
-        <div className="text-right shrink-0">
-          <span className="tabular-nums font-bold text-sm" style={{ color: ovrColor(tile.projectedOvr) }}>{tile.projectedOvr ?? '—'}</span>
-          {(leaving || tile.isNfl || tile.portalRisk) && (
-            <div className="flex justify-end gap-0.5 mt-0.5">
-              {leaving && <span className="text-[8px] font-bold uppercase tracking-wide text-[color:var(--accent-error)]">OUT</span>}
-              {!leaving && tile.isNfl && <span className="text-[8px] font-bold uppercase tracking-wide text-[color:var(--accent-info)]">NFL</span>}
-              {!leaving && tile.portalRisk && <span className="text-[8px] font-bold uppercase tracking-wide text-[color:var(--accent-warning)]">↗</span>}
-            </div>
+        {/* Row 2: #jersey · pos · class, plus any status marker */}
+        <div className="flex items-center gap-1 mt-0.5 text-[10px] text-txt-tertiary">
+          {tile.jerseyNumber != null && tile.jerseyNumber !== '' && (
+            <span className="font-bold tabular-nums text-txt-secondary">#{tile.jerseyNumber}</span>
           )}
+          <span>{tile.position}</span><span>·</span><span>{tile.projectedClass}</span>
+          {marker && <span className="ml-auto font-bold uppercase tracking-wide" style={{ color: markerColor }}>{marker}</span>}
         </div>
       </div>
     </div>
