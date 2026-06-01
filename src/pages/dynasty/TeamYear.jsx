@@ -640,7 +640,7 @@ export default function TeamYear() {
   const [showStatsEntryModal, setShowStatsEntryModal] = useState(false)
   const [showDetailedStatsModal, setShowDetailedStatsModal] = useState(false)
   const [leadersMode, setLeadersMode] = useState('career') // 'career' or 'season'
-  const [leadersCategory, setLeadersCategory] = useState('passing')
+  const [leadersCategory, setLeadersCategory] = useState('av')
 
   // Quick image upload state
   const [quickImagePlayer, setQuickImagePlayer] = useState(null)
@@ -6487,6 +6487,12 @@ export default function TeamYear() {
             {(() => {
               // Stat categories for team leaders
               const LEADER_CATEGORIES = {
+                av: {
+                  name: 'Approximate Value',
+                  stats: [
+                    { key: 'av', label: 'AV', av: true },
+                  ]
+                },
                 passing: {
                   name: 'Passing',
                   stats: [
@@ -6545,6 +6551,7 @@ export default function TeamYear() {
               // Calculate leaders
               const calculateLeaders = (category) => {
                 const catKey = category === 'defense' ? 'defense' : category
+                const isAV = category === 'av'
                 const playerTotals = {}
 
                 teamPlayers.forEach(player => {
@@ -6554,7 +6561,10 @@ export default function TeamYear() {
                     const year = parseInt(yearStr)
                     if (!wasOnTeamInYear(player, year)) return
 
-                    const catStats = yearStats[catKey]
+                    // AV is cross-category — computed from the whole season's
+                    // stat block, not a single sub-category. Everything else
+                    // reads its category sub-object.
+                    const catStats = isAV ? yearStats : yearStats[catKey]
                     if (!catStats) return
 
                     const playerKey = leadersMode === 'career' ? player.pid : `${player.pid}-${year}`
@@ -6568,6 +6578,14 @@ export default function TeamYear() {
                         year: leadersMode === 'season' ? year : null,
                         years: []
                       }
+                    }
+
+                    if (isAV) {
+                      const seasonAV = computeSeasonAV(yearStats, player.position) || 0
+                      if (!playerTotals[playerKey].years.includes(year)) playerTotals[playerKey].years.push(year)
+                      playerTotals[playerKey].av = (playerTotals[playerKey].av || 0) + (leadersMode === 'career' ? seasonAV : 0)
+                      if (leadersMode === 'season') playerTotals[playerKey].av = seasonAV
+                      return
                     }
 
                     if (!playerTotals[playerKey].years.includes(year)) {
@@ -6662,16 +6680,10 @@ export default function TeamYear() {
                   <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
 
                     {currentCategory.stats.map(stat => {
+                      const statVal = (p) => stat.av ? p.av : stat.calculated ? p[stat.key] : p[stat.field]
                       const sortedLeaders = [...leaders]
-                        .filter(p => {
-                          const value = stat.calculated ? p[stat.key] : p[stat.field]
-                          return value && value > 0
-                        })
-                        .sort((a, b) => {
-                          const aVal = stat.calculated ? a[stat.key] : a[stat.field]
-                          const bVal = stat.calculated ? b[stat.key] : b[stat.field]
-                          return (bVal || 0) - (aVal || 0)
-                        })
+                        .filter(p => { const v = statVal(p); return v && v > 0 })
+                        .sort((a, b) => (statVal(b) || 0) - (statVal(a) || 0))
                         .slice(0, 5)
 
                       return (
@@ -6710,7 +6722,8 @@ export default function TeamYear() {
                           ) : (
                             <div>
                               {sortedLeaders.map((player, idx) => {
-                                const value = stat.calculated ? player[stat.key] : player[stat.field]
+                                const rawValue = statVal(player)
+                                const value = stat.av ? rawValue.toFixed(1) : rawValue?.toLocaleString()
                                 const rank = idx + 1
                                 const isFirst = rank === 1
                                 const rankColor = isFirst ? 'var(--accent-warning)'
@@ -6744,7 +6757,7 @@ export default function TeamYear() {
                                       <span className={`${isFirst ? 'text-[15px]' : 'text-sm'} font-semibold text-txt-primary hover:underline truncate block`}>{player.name}</span>
                                       <p className="text-[11px] text-txt-tertiary truncate m-0">{player.position && `${player.position} · `}{yearsLabel}</p>
                                     </div>
-                                    <span className="tabular flex-shrink-0 text-right text-txt-primary" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isFirst ? '1.85rem' : rank === 2 ? '1.35rem' : '1.15rem', fontWeight: isFirst ? 900 : 700, letterSpacing: '0.5px', lineHeight: 1 }}>{value?.toLocaleString()}</span>
+                                    <span className="tabular flex-shrink-0 text-right text-txt-primary" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isFirst ? '1.85rem' : rank === 2 ? '1.35rem' : '1.15rem', fontWeight: isFirst ? 900 : 700, letterSpacing: '0.5px', lineHeight: 1 }}>{value}</span>
                                   </Link>
                                 )
                               })}
