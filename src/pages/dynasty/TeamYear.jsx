@@ -20,7 +20,7 @@ import TeamEditModal from '../../components/TeamEditModal'
 import { TEAMS, resolveTid, getTeam, getTeamByAbbr, getCurrentTeamAbbr, getCurrentTeamTid, getGameTeamInfo, getAbbrFromTeamName, getTidFromTeamName } from '../../data/teamRegistry'
 import { uploadImage } from '../../utils/imageUpload'
 import { readClipboardImageAsFile } from '../../utils/clipboardImage'
-import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
+import { getTeamLogo, getTeamLogoByTid, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { isSameYear, weekSortKey } from '../../utils/compareUtils'
 import { calculateRecruitingClassScore, formatRecruitingClassScore, flattenClassCommitments } from '../../utils/recruitingScore'
 import { useToast } from '../../components/ui/Toast'
@@ -776,7 +776,11 @@ export default function TeamYear() {
   const conference = getTeamConferenceForDynasty(currentDynasty, teamAbbr, selectedYear)
   const conferenceLogo = conference ? getConferenceLogo(conference) : null
   const mascotName = team?.name || ''
-  const teamLogo = team?.logo || null
+  // Single source of truth for this team's logo: dynasty.teams[tid].logo, with
+  // the static registry as fallback. getTeamLogoByTid is the canonical tid-based
+  // resolver (per CLAUDE.md) — everything on this page points at `teamLogo` so a
+  // logo change in the team editor propagates everywhere at once.
+  const teamLogo = getTeamLogoByTid(tid, teamsSource)
   const teamBgText = getContrastTextColor(teamInfo.backgroundColor)
   const teamPrimaryText = getContrastTextColor(teamInfo.textColor)
   const secondaryBgText = getContrastTextColor(viewedTeamColors.secondary)
@@ -3364,13 +3368,15 @@ export default function TeamYear() {
                       className="group flex items-center gap-3 py-3 px-4 transition-colors hover:bg-white/[0.02]"
                       style={idx > 0 ? { borderLeft: `1px solid ${accentColor}15` } : undefined}
                     >
-                      <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0" style={{ border: `2px solid ${teamInfo.backgroundColor}40` }}>
-                        {l.data.player?.pictureUrl ? (
-                          <img src={proxyImageUrl(l.data.player.pictureUrl, 300)} alt="" className="w-full h-full object-cover" />
+                      <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ border: `2px solid ${teamInfo.backgroundColor}40`, backgroundColor: `${accentColor}10` }}>
+                        {/* Team-branded rail: the avatar is the team logo from the
+                            single source of truth (teamLogo), so updating the
+                            team logo updates here too. Falls back to the player's
+                            initial only when the team has no logo at all. */}
+                        {teamLogo ? (
+                          <img src={proxyImageUrl(teamLogo, 300)} alt="" className="w-full h-full object-contain p-1.5" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
-                            <span className="text-lg font-bold" style={{ color: accentColor }}>{l.data.name?.charAt(0) || l.fallback}</span>
-                          </div>
+                          <span className="text-lg font-bold" style={{ color: accentColor }}>{l.data.name?.charAt(0) || l.fallback}</span>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -3428,13 +3434,13 @@ export default function TeamYear() {
                           to={`${pathPrefix}/player/${p.pid}`}
                           className="group flex items-center gap-3 py-2.5 px-2 transition-colors hover:bg-white/[0.02]"
                         >
-                          <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0" style={{ border: `2px solid ${teamInfo.backgroundColor}40` }}>
-                            {p.pictureUrl ? (
-                              <img src={proxyImageUrl(p.pictureUrl, 300)} alt="" className="w-full h-full object-cover" />
+                          <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ border: `2px solid ${teamInfo.backgroundColor}40`, backgroundColor: `${accentColor}10` }}>
+                            {/* Team-branded: avatar is the team logo from the single
+                                source of truth (teamLogo). Letter only if no logo. */}
+                            {teamLogo ? (
+                              <img src={proxyImageUrl(teamLogo, 300)} alt="" className="w-full h-full object-contain p-1" />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
-                                <span className="text-sm font-bold" style={{ color: accentColor }}>{p.name?.charAt(0) || '?'}</span>
-                              </div>
+                              <span className="text-sm font-bold" style={{ color: accentColor }}>{p.name?.charAt(0) || '?'}</span>
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
