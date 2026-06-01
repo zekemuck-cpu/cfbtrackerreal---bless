@@ -731,17 +731,19 @@ function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode
   const cursor = grab ? (markMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing') : 'cursor-pointer'
   const marker = leaving ? 'OUT' : tile.isNfl ? 'NFL' : tile.portalRisk ? '↗' : null
   const markerColor = leaving ? 'var(--accent-error)' : tile.isNfl ? 'var(--accent-info)' : 'var(--accent-warning)'
+  const hasJersey = tile.jerseyNumber != null && tile.jerseyNumber !== ''
   return (
     // Same surface for every tile — the starter is not visually brighter.
-    <div className={`relative rounded-md px-2 py-1.5 overflow-hidden ${dragging ? 'shadow-xl bg-surface-3 ring-1 ring-[color:var(--accent-info)]' : 'bg-surface-2'} ${cursor} ${leaving ? 'ring-1 ring-[color:var(--accent-error)] opacity-70' : ''}`}>
+    <div className={`relative rounded-md overflow-hidden ${dragging ? 'shadow-xl bg-surface-3 ring-1 ring-[color:var(--accent-info)]' : 'bg-surface-2'} ${cursor} ${leaving ? 'ring-1 ring-[color:var(--accent-error)] opacity-70' : ''}`}>
       {tint && <span aria-hidden="true" className="absolute inset-0 pointer-events-none" style={{ background: tint }} />}
-      <div className="relative z-[1]">
-        {/* Row 1: name spans the full width of the tile (nothing else on this row). */}
+
+      {/* Mobile / narrow: compact two-row (name on top, then avatar·#·class·OVR).
+          Kept as-is so ShrinkToFit can scale it on phones. */}
+      <div className="relative z-[1] px-2 py-1.5 lg:hidden">
         <div className="min-w-0"><PlayerName name={tile.name} strike={leaving} /></div>
-        {/* Row 2: avatar · #jersey · class · OVR · marker (position removed). */}
         <div className="flex items-center gap-1 mt-1 text-[10px] text-txt-tertiary min-w-0">
           <Avatar url={photoUrl} fallback={teamLogo} />
-          {tile.jerseyNumber != null && tile.jerseyNumber !== '' && (
+          {hasJersey && (
             <span className="font-bold tabular-nums text-txt-secondary">#{tile.jerseyNumber}</span>
           )}
           <span className="truncate">{tile.projectedClass}</span>
@@ -749,16 +751,37 @@ function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode
           {marker && <span className="font-bold uppercase tracking-wide shrink-0" style={{ color: markerColor }}>{marker}</span>}
         </div>
       </div>
+
+      {/* Desktop (lg+): horizontal — bigger image + jersey on the left, larger
+          name, OVR anchored right. Fills the wider tile instead of leaving the
+          row half-empty. */}
+      <div className="relative z-[1] hidden lg:flex items-center gap-3 px-3 py-2">
+        <div className="flex flex-col items-center gap-1 shrink-0 w-12">
+          <Avatar url={photoUrl} fallback={teamLogo} size="lg" />
+          {hasJersey && (
+            <span className="font-bold tabular-nums text-txt-secondary text-sm leading-none">#{tile.jerseyNumber}</span>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <PlayerName name={tile.name} strike={leaving} textClass="text-[15px] font-semibold" />
+          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-txt-tertiary min-w-0">
+            <span className="truncate">{tile.projectedClass}</span>
+            {marker && <span className="font-bold uppercase tracking-wide shrink-0" style={{ color: markerColor }}>{marker}</span>}
+          </div>
+        </div>
+        <span className="tabular-nums font-black text-2xl leading-none shrink-0" style={{ color: ovrColor(tile.projectedOvr) }}>{tile.projectedOvr ?? '—'}</span>
+      </div>
     </div>
   )
 }
 
-function Avatar({ url, fallback }) {
+function Avatar({ url, fallback, size = 'sm' }) {
   const [errored, setErrored] = useState(false)
   const hasUrl = url && !errored
-  const src = hasUrl ? proxyImageUrl(url, 80) : fallback || null
+  const lg = size === 'lg'
+  const src = hasUrl ? proxyImageUrl(url, lg ? 160 : 80) : fallback || null
   return (
-    <div className="w-6 h-6 rounded-full bg-surface-4 overflow-hidden flex-shrink-0 flex items-center justify-center">
+    <div className={`${lg ? 'w-12 h-12' : 'w-6 h-6'} rounded-full bg-surface-4 overflow-hidden flex-shrink-0 flex items-center justify-center`}>
       {src ? <img src={src} alt="" draggable={false} onError={() => setErrored(true)} className={`w-full h-full ${hasUrl ? 'object-cover' : 'object-contain p-0.5'}`} /> : null}
     </div>
   )
@@ -771,7 +794,7 @@ function shortName(name) {
   return `${parts[0][0].toUpperCase()}. ${parts.slice(1).join(' ')}`
 }
 
-function PlayerName({ name, strike }) {
+function PlayerName({ name, strike, textClass = 'text-xs font-medium' }) {
   const ref = useRef(null)
   const measureRef = useRef(null)
   const [abbrev, setAbbrev] = useState(false)
@@ -796,6 +819,6 @@ function PlayerName({ name, strike }) {
       <span ref={measureRef} aria-hidden="true" className="invisible absolute left-0 top-0 whitespace-nowrap">{name}</span>
     </>
   )
-  const cls = `relative block min-w-0 truncate font-medium text-txt-primary text-xs ${strike ? 'line-through opacity-70' : ''}`
+  const cls = `relative block min-w-0 truncate text-txt-primary ${textClass} ${strike ? 'line-through opacity-70' : ''}`
   return <span ref={ref} title={name} className={cls}>{content}</span>
 }
