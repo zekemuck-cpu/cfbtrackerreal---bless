@@ -54,7 +54,6 @@ const POSITION_FILTER_OPTIONS = [
   { value: 'all', label: 'All Positions' },
   { value: 'offense', label: 'Offense' },
   { value: 'defense', label: 'Defense' },
-  { value: 'st', label: 'Special Teams' },
   { value: 'QB', label: 'QB' },
   { value: 'RB', label: 'RB' },
   { value: 'WR', label: 'WR' },
@@ -76,7 +75,6 @@ function matchesPositionFilter(filter, position) {
   const isAth = (position || '').toUpperCase() === 'ATH'
   const side = sideOfPosition(position)
   if (filter === 'offense' || filter === 'defense') return side === filter || isAth
-  if (filter === 'st') return side === filter
   const g = finePositionGroup(position)
   if (filter === 'OL') return OL_GROUPS.has(g)
   if (filter === 'LB') return LB_GROUPS.has(g)
