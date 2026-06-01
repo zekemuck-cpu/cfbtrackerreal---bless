@@ -689,20 +689,17 @@ function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode
     <div className={`relative rounded-md px-2 py-1.5 overflow-hidden ${dragging ? 'shadow-xl bg-surface-3 ring-1 ring-[color:var(--accent-info)]' : isStarter ? 'bg-surface-3' : 'bg-surface-2'} ${cursor} ${leaving ? 'ring-1 ring-[color:var(--accent-error)] opacity-70' : ''}`}>
       {tint && <span aria-hidden="true" className="absolute inset-0 pointer-events-none" style={{ background: tint }} />}
       <div className="relative z-[1]">
-        {/* Row 1: name on its OWN full-width line (nothing competes for space, so
-            names show in full even at 5-wide) + OVR pinned right. */}
-        <div className="flex items-baseline gap-1 min-w-0">
-          <div className="min-w-0 flex-1"><PlayerName name={tile.name} strike={leaving} /></div>
-          <span className="tabular-nums font-bold text-sm shrink-0" style={{ color: ovrColor(tile.projectedOvr) }}>{tile.projectedOvr ?? '—'}</span>
-        </div>
-        {/* Row 2: avatar + #jersey · pos · class + status marker */}
+        {/* Row 1: name spans the full width of the tile (nothing else on this row). */}
+        <div className="min-w-0"><PlayerName name={tile.name} strike={leaving} /></div>
+        {/* Row 2: avatar · #jersey · class · OVR · marker (position removed). */}
         <div className="flex items-center gap-1 mt-1 text-[10px] text-txt-tertiary min-w-0">
           <Avatar url={tile.player?.pictureUrl} fallback={teamLogo} />
           {tile.jerseyNumber != null && tile.jerseyNumber !== '' && (
             <span className="font-bold tabular-nums text-txt-secondary">#{tile.jerseyNumber}</span>
           )}
-          <span className="truncate">{tile.position} · {tile.projectedClass}</span>
-          {marker && <span className="ml-auto font-bold uppercase tracking-wide shrink-0" style={{ color: markerColor }}>{marker}</span>}
+          <span className="truncate">{tile.projectedClass}</span>
+          <span className="ml-auto tabular-nums font-bold text-sm shrink-0" style={{ color: ovrColor(tile.projectedOvr) }}>{tile.projectedOvr ?? '—'}</span>
+          {marker && <span className="font-bold uppercase tracking-wide shrink-0" style={{ color: markerColor }}>{marker}</span>}
         </div>
       </div>
     </div>
