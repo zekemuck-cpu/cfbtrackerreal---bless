@@ -4209,6 +4209,10 @@ export default function TeamYear() {
           onSideChange={(s) => setSearchParams(prev => {
             const p = new URLSearchParams(prev); p.set('side', s); return p
           }, { replace: true })}
+          dcYear={searchParams.get('dcyear')}
+          onYearChange={(y) => setSearchParams(prev => {
+            const p = new URLSearchParams(prev); p.set('dcyear', String(y)); return p
+          }, { replace: true })}
           onFocusConsumed={() => setSearchParams(prev => {
             const p = new URLSearchParams(prev); p.delete('player'); return p
           }, { replace: true })}

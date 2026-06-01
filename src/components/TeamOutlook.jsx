@@ -88,7 +88,7 @@ function sameContainers(a, b) {
   return true
 }
 
-export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, onSideChange, onFocusConsumed }) {
+export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, onSideChange, dcYear, onYearChange, onFocusConsumed }) {
   const { id: dynastyId } = useParams()
   const navigate = useNavigate()
   const pathPrefix = usePathPrefix()
@@ -101,7 +101,13 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
   // route; setSide writes back up so the URL stays in sync.
   const side = VALID_SIDES.includes(sideProp) ? sideProp : 'offense'
   const setSide = (s) => onSideChange?.(s)
-  const [year, setYear] = useState(currentYear)
+  // `year` is URL-driven too (?dcyear=), clamped to the selectable range
+  // [currentYear .. currentYear+4]; defaults to currentYear.
+  const parsedDcYear = Number(dcYear)
+  const year = (Number.isFinite(parsedDcYear) && Number.isFinite(currentYear)
+    && parsedDcYear >= currentYear && parsedDcYear <= currentYear + 4)
+    ? parsedDcYear : currentYear
+  const setYear = (y) => onYearChange?.(y)
   const [markMode, setMarkMode] = useState(false)
   const [highlightKey, setHighlightKey] = useState(null)
 
@@ -125,7 +131,6 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
   }, [persistedStr])
 
   useEffect(() => {
-    setYear(currentYear)
     setMarkMode(false)
     touchedRef.current = false
     setDraft(clonePlan(currentDynasty?.teamFuture?.[tid] || {}))
