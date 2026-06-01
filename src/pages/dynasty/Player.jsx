@@ -2368,7 +2368,7 @@ function PlayerInner() {
                 column that keeps the video directly below stats. */}
             <div className="flex flex-col lg:flex-row lg:items-start gap-6 lg:gap-4 xl:gap-6">
               {/* LEFT — Timeline (condensed, with connecting line) */}
-              <div className="card overflow-hidden order-4 lg:order-none w-full lg:w-[240px] lg:flex-shrink-0">
+              <div className="card overflow-hidden order-4 lg:order-none w-full lg:flex-1 lg:min-w-0">
                 {sectionHeader('Timeline')}
                 {timelineYears.length === 0 ? (
                   <div className="px-4 py-4 text-sm" style={{ color: secondaryText }}>No timeline data</div>
@@ -2694,7 +2694,7 @@ function PlayerInner() {
               </div>
 
               {/* RIGHT — Recent Game Log */}
-              <div className="card overflow-hidden order-2 lg:order-none w-full lg:w-[300px] lg:flex-shrink-0">
+              <div className="card overflow-hidden order-2 lg:order-none w-full lg:flex-1 lg:min-w-0">
                 {sectionHeader('Recent Games')}
                 {recentGames.length === 0 ? (
                   <div className="px-4 py-4 text-sm" style={{ color: secondaryText }}>No game log data</div>

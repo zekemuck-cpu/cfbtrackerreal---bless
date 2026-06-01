@@ -56,10 +56,11 @@ const DEFENSE_SLOTS = [
   s('FS', 'FS', 'Safety', ['FS']),
   s('SS', 'SS', 'Safety', ['SS']),
 ]
-// Front seven on the line, the secondary (CB/FS/SS) in a second row beneath.
+// Three tiers like a real defense: line, then linebackers, then the secondary.
 const DEFENSE_TIERS = [
-  ['LEDG', 'DT', 'REDG', 'SAM', 'MIKE', 'WILL'],
-  ['CB', 'FS', 'SS'],
+  ['LEDG', 'DT', 'REDG'],   // line
+  ['SAM', 'MIKE', 'WILL'],  // linebackers
+  ['CB', 'FS', 'SS'],       // secondary
 ]
 
 const ST_SLOTS = [
