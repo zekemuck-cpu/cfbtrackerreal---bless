@@ -524,9 +524,9 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
         <ShrinkToFit className="py-2" onZoom={setBoardZoom}>
           <div className="space-y-6 w-fit">
             {board.tiers.map((tier, ti) => (
-              // Fixed-width columns ⇒ the board has a stable natural size.
-              // ShrinkToFit scales the whole thing down uniformly to fit narrow
-              // screens — identical layout to desktop, just smaller.
+              // Fixed-width columns ⇒ stable natural size; ShrinkToFit scales the
+              // whole board (text and all) down to fit narrower screens — keeps
+              // the full formation, just smaller, including 5-wide on phones.
               <div key={ti} className="flex flex-nowrap gap-3 justify-center items-start">
                 {tier.map(id => {
                   const slot = board.slots.find(s => s.id === id)
@@ -577,7 +577,7 @@ function SlotColumn({ slot, items, byKey, ...rest }) {
   const { setNodeRef, isOver } = useDroppable({ id: slot.id })
   const hole = slot.isHole
   return (
-    <div className="w-[10.5rem] shrink-0 flex flex-col">
+    <div className="w-[9rem] shrink-0 flex flex-col">
       {/* position header */}
       <div className="flex items-center justify-between gap-1 px-1 mb-1.5">
         <span className="font-bold text-txt-primary text-xs uppercase tracking-wider">{slot.label}</span>
