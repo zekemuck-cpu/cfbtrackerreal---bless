@@ -42,7 +42,6 @@ export default function DangerZone() {
 
   // Status states
   const [clearCacheStatus, setClearCacheStatus] = useState(null)
-  const [recruitingSyncStatus, setRecruitingSyncStatus] = useState(null)
   const [duplicateGameCleanupStatus, setDuplicateGameCleanupStatus] = useState(null)
   const [sizeAnalysis, setSizeAnalysis] = useState(null)
   const [optimizeStatus, setOptimizeStatus] = useState(null)
@@ -61,18 +60,14 @@ export default function DangerZone() {
   const [cfpRepairStatus, setCfpRepairStatus] = useState(null)
 
   // Conference migration state
-  const [confMigrationStatus, setConfMigrationStatus] = useState(null)
 
   // CCG repair state
-  const [ccgRepairStatus, setCcgRepairStatus] = useState(null)
   // CCG mis-flag cleanup state — finds games incorrectly tagged as
   // conference championships (e.g. Army-Navy was being auto-promoted
   // before the Week-15-only fix) and removes the flag.
-  const [ccgMisflagStatus, setCcgMisflagStatus] = useState(null)
   // CCG restore state — re-flags games that look like CCGs but lost
   // the flag (e.g. an over-aggressive earlier version of the Unflag
   // tool that stripped any CCG without an exact Week 15 marker).
-  const [ccgRestoreStatus, setCcgRestoreStatus] = useState(null)
 
   // Game deletion state
   const [showGameDeletion, setShowGameDeletion] = useState(false)
@@ -85,7 +80,6 @@ export default function DangerZone() {
   const [boxScoreSwapStatus, setBoxScoreSwapStatus] = useState(null)
 
   // Honors sync state
-  const [honorsSyncStatus, setHonorsSyncStatus] = useState(null)
 
   // v2 Consolidation state
   const [v2ConsolidateStatus, setV2ConsolidateStatus] = useState(null)
@@ -96,12 +90,9 @@ export default function DangerZone() {
   const [selectedMergeGroups, setSelectedMergeGroups] = useState(new Set()) // Which groups to merge
 
   // Preseason recap location fix state
-  const [preseasonRecapFixStatus, setPreseasonRecapFixStatus] = useState(null)
 
   // Class data fix state
-  const [classDataFixStatus, setClassDataFixStatus] = useState(null)
   const [transferYearFixStatus, setTransferYearFixStatus] = useState(null)
-  const [strandedSeniorStatus, setStrandedSeniorStatus] = useState(null)
   const [advanceClassesStatus, setAdvanceClassesStatus] = useState(null)
   const [showAdvanceModal, setShowAdvanceModal] = useState(false)
   const [advanceSelections, setAdvanceSelections] = useState({}) // { pid: boolean }
@@ -112,7 +103,6 @@ export default function DangerZone() {
   const [statsSyncSkipGamesPlayed, setStatsSyncSkipGamesPlayed] = useState(false) // Option to skip updating games played/snaps
 
   // Schedule link fix state
-  const [scheduleLinkFixStatus, setScheduleLinkFixStatus] = useState(null)
   const [storageAnalysisStatus, setStorageAnalysisStatus] = useState(null)
   const [storageAnalysisDetail, setStorageAnalysisDetail] = useState(null)
 
@@ -365,231 +355,7 @@ export default function DangerZone() {
     }
   }
 
-  const handleSyncRecruitingData = async () => {
-    setRecruitingSyncStatus('running')
-    try {
-      const players = currentDynasty.players || []
-      const existingCommitments = currentDynasty.recruitingCommitmentsByTeamYear || {}
-      let updatedCount = 0
-      let addedCount = 0
-      const updatedCommitments = { ...existingCommitments }
 
-      players.forEach(player => {
-        if (!player.recruitYear || !player.name) return
-        const recruitYear = Number(player.recruitYear)
-        const enrollmentYear = recruitYear + 1
-        const recruitedTeam = player.teamsByYear?.[enrollmentYear] || player.team
-        if (!recruitedTeam) return
-
-        if (!updatedCommitments[recruitedTeam]) updatedCommitments[recruitedTeam] = {}
-        if (!updatedCommitments[recruitedTeam][recruitYear]) updatedCommitments[recruitedTeam][recruitYear] = {}
-
-        let foundExisting = false
-        Object.entries(updatedCommitments[recruitedTeam][recruitYear]).forEach(([key, weekCommitments]) => {
-          if (Array.isArray(weekCommitments)) {
-            const idx = weekCommitments.findIndex(c => c.name?.toLowerCase().trim() === player.name.toLowerCase().trim())
-            if (idx !== -1) {
-              foundExisting = true
-              const isPortalPlayer = player.isPortal || !!player.previousTeam
-              weekCommitments[idx] = {
-                ...weekCommitments[idx], name: player.name, position: player.position,
-                class: isPortalPlayer ? player.year : (weekCommitments[idx].class || 'HS'),
-                devTrait: player.devTrait, archetype: player.archetype, height: player.height,
-                weight: player.weight, hometown: player.hometown, state: player.state,
-                stars: player.stars, nationalRank: player.nationalRank, stateRank: player.stateRank,
-                positionRank: player.positionRank, gemBust: player.gemBust, previousTeam: player.previousTeam,
-                isPortal: player.isPortal || !!player.previousTeam, pid: player.pid
-              }
-              updatedCount++
-            }
-          }
-        })
-
-        const isPortalPlayer = player.isPortal || !!player.previousTeam
-        if (!foundExisting && (player.stars || player.nationalRank || isPortalPlayer)) {
-          if (!updatedCommitments[recruitedTeam][recruitYear]['synced']) {
-            updatedCommitments[recruitedTeam][recruitYear]['synced'] = []
-          }
-          updatedCommitments[recruitedTeam][recruitYear]['synced'].push({
-            name: player.name, position: player.position, class: isPortalPlayer ? player.year : 'HS',
-            devTrait: player.devTrait, archetype: player.archetype, height: player.height,
-            weight: player.weight, hometown: player.hometown, state: player.state, stars: player.stars,
-            nationalRank: player.nationalRank, stateRank: player.stateRank, positionRank: player.positionRank,
-            gemBust: player.gemBust, previousTeam: player.previousTeam,
-            isPortal: player.isPortal || !!player.previousTeam, pid: player.pid
-          })
-          addedCount++
-        }
-      })
-
-      await updateDynasty(currentDynasty.id, { recruitingCommitmentsByTeamYear: updatedCommitments })
-      setRecruitingSyncStatus({ success: true, message: `Updated ${updatedCount}, added ${addedCount}` })
-    } catch (error) {
-      setRecruitingSyncStatus({ success: false, message: 'Sync failed: ' + error.message })
-    }
-  }
-
-  // Fix class data for all players - auto-populate entryYear, entryClass, and classByYear
-  const handleFixClassData = async () => {
-    setClassDataFixStatus('running')
-    try {
-      const players = currentDynasty.players || []
-      const currentYear = currentDynasty.currentYear || new Date().getFullYear()
-      let fixedCount = 0
-      let alreadyGoodCount = 0
-      let errorCount = 0
-
-      const CLASS_PROGRESSION = {
-        'Fr': 'So', 'RS Fr': 'RS So', 'So': 'Jr', 'RS So': 'RS Jr',
-        'Jr': 'Sr', 'RS Jr': 'RS Sr', 'Sr': 'RS Sr', 'RS Sr': 'RS Sr'
-      }
-      const CLASS_ORDER = ['Fr', 'So', 'Jr', 'Sr']
-      const RS_CLASS_ORDER = ['RS Fr', 'RS So', 'RS Jr', 'RS Sr']
-
-      const updatedPlayers = players.map(player => {
-        try {
-          // Skip honor-only players
-          if (player.isHonorOnly) return player
-
-          // Determine if player already has good class data
-          const hasEntryYear = player.entryYear !== null && player.entryYear !== undefined
-          const hasEntryClass = player.entryClass && player.entryClass.trim() !== ''
-          const hasClassByYear = player.classByYear && Object.keys(player.classByYear).length > 0
-
-          if (hasEntryYear && hasEntryClass && hasClassByYear) {
-            alreadyGoodCount++
-            return player
-          }
-
-          // Try to infer entryYear from various sources
-          let inferredEntryYear = player.entryYear
-          if (!inferredEntryYear) {
-            // From recruitYear (entry is recruitYear + 1)
-            if (player.recruitYear) {
-              inferredEntryYear = Number(player.recruitYear) + 1
-            }
-            // From first year in teamsByYear
-            else if (player.teamsByYear && Object.keys(player.teamsByYear).length > 0) {
-              const years = Object.keys(player.teamsByYear).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b)
-              if (years.length > 0) inferredEntryYear = years[0]
-            }
-            // From first stint in teamHistory
-            else if (player.teamHistory && player.teamHistory.length > 0) {
-              const firstStint = player.teamHistory.sort((a, b) => (a.fromYear || 0) - (b.fromYear || 0))[0]
-              if (firstStint.fromYear) inferredEntryYear = firstStint.fromYear
-            }
-            // From classByYear (earliest year)
-            else if (player.classByYear && Object.keys(player.classByYear).length > 0) {
-              const years = Object.keys(player.classByYear).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b)
-              if (years.length > 0) inferredEntryYear = years[0]
-            }
-          }
-
-          // Try to infer entryClass
-          let inferredEntryClass = player.entryClass
-          if (!inferredEntryClass && inferredEntryYear) {
-            // From classByYear for entry year
-            if (player.classByYear?.[inferredEntryYear] || player.classByYear?.[String(inferredEntryYear)]) {
-              inferredEntryClass = player.classByYear[inferredEntryYear] || player.classByYear[String(inferredEntryYear)]
-            }
-            // If portal/transfer, infer from current class and years elapsed
-            else if ((player.isPortal || player.previousTeam) && player.year) {
-              // Portal players - use their current class at entry
-              inferredEntryClass = player.year
-            }
-            // For recruits, assume Fr
-            else {
-              inferredEntryClass = 'Fr'
-            }
-          }
-
-          // Build classByYear based on entry info
-          const newClassByYear = { ...(player.classByYear || {}) }
-          if (inferredEntryYear && inferredEntryClass) {
-            const isRS = inferredEntryClass.startsWith('RS ')
-            const baseClass = isRS ? inferredEntryClass.replace('RS ', '') : inferredEntryClass
-            const order = isRS ? RS_CLASS_ORDER : CLASS_ORDER
-
-            let baseIndex = CLASS_ORDER.indexOf(baseClass)
-            if (baseIndex === -1) baseIndex = 0
-
-            // Get all years this player has been active
-            const activeYears = new Set()
-            if (player.teamsByYear) {
-              Object.keys(player.teamsByYear).forEach(y => activeYears.add(Number(y)))
-            }
-            if (player.teamHistory) {
-              player.teamHistory.forEach(stint => {
-                const from = stint.fromYear || inferredEntryYear
-                const to = stint.toYear || currentYear
-                for (let y = from; y <= to; y++) activeYears.add(y)
-              })
-            }
-            // Ensure entry year is included
-            activeYears.add(inferredEntryYear)
-            // Add current year if they're on roster
-            if (!player.isRecruit) activeYears.add(currentYear)
-
-            // Fill in classes for each year
-            Array.from(activeYears).sort((a, b) => a - b).forEach(year => {
-              if (newClassByYear[year] || newClassByYear[String(year)]) return // Don't overwrite existing
-
-              const yearsSinceEntry = year - inferredEntryYear
-              if (yearsSinceEntry < 0) return
-
-              // Check for redshirt year
-              const redshirtYear = player.redshirtYear ? Number(player.redshirtYear) : null
-              let useRS = isRS
-              if (redshirtYear && year > redshirtYear && !isRS) {
-                useRS = true
-              }
-
-              const effectiveOrder = useRS ? RS_CLASS_ORDER : CLASS_ORDER
-              let classIndex = baseIndex + yearsSinceEntry
-              if (redshirtYear && year > redshirtYear && !isRS) {
-                classIndex = baseIndex + yearsSinceEntry - 1
-              }
-
-              if (classIndex >= 0 && classIndex < effectiveOrder.length) {
-                newClassByYear[year] = effectiveOrder[classIndex]
-              }
-            })
-          }
-
-          // Only update if we actually changed something
-          const hasChanges =
-            inferredEntryYear !== player.entryYear ||
-            inferredEntryClass !== player.entryClass ||
-            Object.keys(newClassByYear).length !== Object.keys(player.classByYear || {}).length
-
-          if (hasChanges) {
-            fixedCount++
-            return {
-              ...player,
-              entryYear: inferredEntryYear || player.entryYear,
-              entryClass: inferredEntryClass || player.entryClass,
-              classByYear: newClassByYear
-            }
-          }
-
-          alreadyGoodCount++
-          return player
-        } catch (err) {
-          console.error(`[FixClassData] Error processing player ${player.name}:`, err)
-          errorCount++
-          return player
-        }
-      })
-
-      await updateDynasty(currentDynasty.id, { players: updatedPlayers })
-      setClassDataFixStatus({
-        success: true,
-        message: `Fixed ${fixedCount} players, ${alreadyGoodCount} already good${errorCount > 0 ? `, ${errorCount} errors` : ''}`
-      })
-    } catch (error) {
-      setClassDataFixStatus({ success: false, message: 'Fix failed: ' + error.message })
-    }
-  }
 
   // Backfill blank TRANSFER/ARRIVAL years. Older transfers only wrote
   // teamsByYear[arrivalYear] without the companion class/OVR/dev maps, so the
@@ -651,84 +417,6 @@ export default function DangerZone() {
     }
   }
 
-  // One-time cleanup for players (on OTHER teams) who were carried onto this
-  // season's roster despite having already exhausted eligibility — e.g. a
-  // transfer whose senior year wasn't recorded, who then reappears as a senior
-  // again. Graduates them by stripping this season's entries. Skips the user's
-  // own roster and anyone who actually has stats this season (a real, if
-  // unusual, redshirt senior).
-  const handleGraduateStrandedSeniors = async () => {
-    const currentYear = Number(currentDynasty.currentYear)
-    const userTid = currentDynasty.currentTid
-    const players = currentDynasty.players || []
-
-    // Preview who would be graduated.
-    const stranded = players.filter(player => {
-      if (player.isHonorOnly) return false
-      const teamCY = player.teamsByYear?.[currentYear] ?? player.teamsByYear?.[String(currentYear)]
-      if (teamCY == null || Number(teamCY) === Number(userTid)) return false
-      const cyStats = player.statsByYear?.[currentYear] || player.statsByYear?.[String(currentYear)]
-      if (cyStats && ((cyStats.gamesPlayed || 0) > 0 || (cyStats.snapsPlayed || 0) > 0)) return false
-      const priorClass = getPlayerClassForYear(player, currentYear - 1)
-      const hasHistory = !!(player.classByYear && Object.keys(player.classByYear).length)
-      return priorClass === 'Sr' || priorClass === 'RS Sr' || (priorClass == null && hasHistory)
-    })
-
-    if (stranded.length === 0) {
-      setStrandedSeniorStatus({ success: true, message: 'No stranded seniors found — other-team rosters look clean.' })
-      return
-    }
-
-    const ok = await confirm({
-      title: `Graduate ${stranded.length} stranded senior${stranded.length === 1 ? '' : 's'}?`,
-      message: `These players on other teams should already have graduated and will be removed from the ${currentYear} season: ${stranded.slice(0, 12).map(p => p.name).join(', ')}${stranded.length > 12 ? `, +${stranded.length - 12} more` : ''}.`,
-      confirmLabel: 'Graduate them',
-      variant: 'danger',
-    })
-    if (!ok) return
-
-    setStrandedSeniorStatus('running')
-    try {
-      const strandedPids = new Set(stranded.map(p => p.pid))
-      const strip = (obj) => {
-        if (!obj) return obj
-        const n = { ...obj }
-        delete n[currentYear]
-        delete n[String(currentYear)]
-        return n
-      }
-      const updatedPlayers = players.map(player => {
-        if (!strandedPids.has(player.pid)) return player
-        const next = {
-          ...player,
-          teamsByYear: strip(player.teamsByYear),
-          classByYear: strip(player.classByYear),
-          overallByYear: strip(player.overallByYear),
-          devTraitByYear: strip(player.devTraitByYear),
-          positionByYear: strip(player.positionByYear),
-          statsByYear: strip(player.statsByYear),
-        }
-        // Close any team-history stint that runs into the current season.
-        if (Array.isArray(player.teamHistory) && player.teamHistory.length) {
-          next.teamHistory = player.teamHistory
-            .map(st => {
-              const from = Number(st.fromYear)
-              const to = st.toYear == null ? currentYear : Number(st.toYear)
-              return (from <= currentYear && to >= currentYear) ? { ...st, toYear: currentYear - 1 } : st
-            })
-            .filter(st => st.toYear == null || Number(st.toYear) >= Number(st.fromYear))
-        }
-        return next
-      })
-      await updateDynasty(currentDynasty.id, { players: updatedPlayers })
-      setStrandedSeniorStatus({
-        success: true,
-        message: `Graduated ${stranded.length} stranded senior${stranded.length === 1 ? '' : 's'}: ${stranded.slice(0, 8).map(p => p.name).join(', ')}${stranded.length > 8 ? `, +${stranded.length - 8} more` : ''}`,
-      })
-    } catch (error) {
-      setStrandedSeniorStatus({ success: false, message: 'Cleanup failed: ' + error.message })
-    }
-  }
 
 
   // Get players on user's team for the advance modal
@@ -1033,81 +721,6 @@ export default function DangerZone() {
     }
   }
 
-  // Fix schedule links - ensures all schedule entries point to correct games
-  const handleFixScheduleLinks = async () => {
-    setScheduleLinkFixStatus('running')
-    try {
-      const games = currentDynasty.games || []
-      const teams = currentDynasty.teams || {}
-      let fixedCount = 0
-      let gameTypeFixedCount = 0
-
-      // First, fix gameType on all regular season games that are missing it
-      const updatedGames = games.map(game => {
-        if (!game.gameType && !game.isConferenceChampionship && !game.isBowlGame &&
-            !game.isCFPFirstRound && !game.isCFPQuarterfinal &&
-            !game.isCFPSemifinal && !game.isCFPChampionship) {
-          gameTypeFixedCount++
-          return { ...game, gameType: 'regular' }
-        }
-        return game
-      })
-
-      // Update each team's schedule entries
-      const updatedTeams = { ...teams }
-      Object.keys(updatedTeams).forEach(tidKey => {
-        const tid = Number(tidKey)
-        const team = updatedTeams[tid]
-        if (!team.byYear) return
-
-        Object.keys(team.byYear).forEach(yearKey => {
-          const year = Number(yearKey)
-          const yearData = team.byYear[year]
-          if (!yearData.schedule || yearData.schedule.length === 0) return
-
-          const updatedSchedule = yearData.schedule.map(entry => {
-            // Skip bye weeks
-            if (entry.isBye || !entry.opponent) return entry
-
-            // If already has a valid gameId, keep it
-            if (entry.gameId && updatedGames.find(g => g.id === entry.gameId)) {
-              return entry
-            }
-
-            // Find matching game by week/year/teams
-            const opponentTid = getTidFromAbbr(entry.opponent, currentDynasty)
-            const matchingGame = updatedGames.find(g =>
-              Number(g.week) === Number(entry.week) &&
-              Number(g.year) === Number(year) &&
-              (g.gameType === 'regular' || !g.gameType) &&
-              ((g.team1Tid === tid && g.team2Tid === opponentTid) ||
-               (g.team2Tid === tid && g.team1Tid === opponentTid))
-            )
-
-            if (matchingGame && matchingGame.id !== entry.gameId) {
-              fixedCount++
-              return { ...entry, gameId: matchingGame.id }
-            }
-
-            return entry
-          })
-
-          updatedTeams[tid].byYear[year].schedule = updatedSchedule
-        })
-      })
-
-      // Save updates
-      await updateDynasty(currentDynasty.id, {
-        games: updatedGames,
-        teams: updatedTeams
-      })
-
-      const message = `Fixed ${fixedCount} schedule link(s)${gameTypeFixedCount > 0 ? ` and ${gameTypeFixedCount} game type(s)` : ''}`
-      setScheduleLinkFixStatus({ success: true, message })
-    } catch (error) {
-      setScheduleLinkFixStatus({ success: false, message: 'Fix failed: ' + error.message })
-    }
-  }
 
   // Delete a specific game by ID
   const handleDeleteGame = async (gameId) => {
@@ -1155,280 +768,6 @@ export default function DangerZone() {
     }
   }
 
-  // Sync all honors (awards, All-Americans, All-Conference) to player records
-  const handleSyncHonorsToPlayers = async () => {
-    setHonorsSyncStatus('running')
-    try {
-      const awardsByYear = currentDynasty.awardsByYear || {}
-      const allAmericansByYear = currentDynasty.allAmericansByYear || {}
-      let existingPlayers = [...(currentDynasty.players || [])]
-      let nextPID = currentDynasty.nextPID || (existingPlayers.length + 1)
-
-      let linkedCount = 0
-      let createdCount = 0
-      let skippedCount = 0
-
-      console.log('[HonorsSync] Starting honors sync...')
-      console.log(`[HonorsSync] Existing players: ${existingPlayers.length}`)
-
-      // Helper: Check if a player already has a specific honor
-      const playerHasHonor = (player, honorType, honor, year) => {
-        if (honorType === 'awards') {
-          return player.accolades?.some(a =>
-            a.year === year && a.award === honor.award
-          )
-        } else if (honorType === 'allAmericans') {
-          return player.allAmericans?.some(a =>
-            a.year === year && a.designation === honor.designation && a.position === honor.position
-          )
-        } else if (honorType === 'allConference') {
-          return player.allConference?.some(a =>
-            a.year === year && a.designation === honor.designation && a.position === honor.position
-          )
-        }
-        return false
-      }
-
-      // Helper: Add honor to a player record
-      const addHonorToPlayer = (player, honorType, honor, year, playerTeam) => {
-        const updatedPlayer = { ...player }
-
-        // Initialize arrays if needed
-        if (!updatedPlayer.accolades) updatedPlayer.accolades = []
-        if (!updatedPlayer.allAmericans) updatedPlayer.allAmericans = []
-        if (!updatedPlayer.allConference) updatedPlayer.allConference = []
-        if (!updatedPlayer.teams) updatedPlayer.teams = []
-        if (!updatedPlayer.teamsByYear) updatedPlayer.teamsByYear = {}
-
-        // Add team if not already tracked
-        if (playerTeam && !updatedPlayer.teams.includes(playerTeam)) {
-          updatedPlayer.teams.push(playerTeam)
-        }
-
-        // Get tid for the team
-        const tid = playerTeam ? getTidFromAbbr(playerTeam, currentDynasty) : null
-
-        // Add to teamsByYear if we have a tid and this year isn't already tracked
-        if (tid && !updatedPlayer.teamsByYear[year]) {
-          updatedPlayer.teamsByYear[year] = tid
-        }
-
-        // Add the honor
-        if (honorType === 'awards') {
-          updatedPlayer.accolades.push({
-            year,
-            award: honor.award,
-            team: playerTeam,
-            position: honor.position,
-            class: honor.class
-          })
-        } else if (honorType === 'allAmericans') {
-          updatedPlayer.allAmericans.push({
-            year,
-            designation: honor.designation,
-            position: honor.position,
-            school: playerTeam,
-            class: honor.class
-          })
-        } else if (honorType === 'allConference') {
-          updatedPlayer.allConference.push({
-            year,
-            designation: honor.designation,
-            position: honor.position,
-            school: playerTeam,
-            class: honor.class
-          })
-        }
-
-        return updatedPlayer
-      }
-
-      // Helper: Create a new player for an honor. Honor-imported players
-      // are regular roster records — `isHonorOnly: false` is explicit so
-      // the legacy `!p.isHonorOnly` filters scattered around the codebase
-      // keep them visible in every list view.
-      const createPlayerForHonor = (name, position, team, honorType, honor, year) => {
-        const tid = team ? getTidFromAbbr(team, currentDynasty) : null
-        const newPlayer = {
-          pid: nextPID++,
-          name: name,
-          position: position || '',
-          team: team || '',
-          teams: team ? [team] : [],
-          teamsByYear: tid ? { [year]: tid } : {},
-          accolades: [],
-          allAmericans: [],
-          allConference: [],
-          statsByYear: {},
-          movements: [],
-          isHonorOnly: false,
-        }
-
-        // Add the honor to the new player
-        if (honorType === 'awards') {
-          newPlayer.accolades.push({
-            year,
-            award: honor.award,
-            team: team,
-            position: position,
-            class: honor.class
-          })
-        } else if (honorType === 'allAmericans') {
-          newPlayer.allAmericans.push({
-            year,
-            designation: honor.designation,
-            position: position,
-            school: team,
-            class: honor.class
-          })
-        } else if (honorType === 'allConference') {
-          newPlayer.allConference.push({
-            year,
-            designation: honor.designation,
-            position: position,
-            school: team,
-            class: honor.class
-          })
-        }
-
-        return newPlayer
-      }
-
-      // Helper: Process a single honor entry
-      const processHonorEntry = (honorType, entry, year) => {
-        // Get player info from entry
-        const playerName = entry.player || entry.name
-        const playerTeam = (entry.school || entry.team || '').toUpperCase()
-        const playerPosition = entry.position || ''
-
-        // Skip entries without a name or coach awards
-        if (!playerName) return { action: 'skip' }
-        if (entry.award && entry.award.toLowerCase().includes('coach')) return { action: 'skip' }
-
-        // Find matching player. Pass dynasty.teams so teambuilder-renamed
-        // slots resolve correctly (else a TB takeover would mis-classify the
-        // same person as a transfer to a "different" team).
-        const match = findMatchingPlayer(playerName, playerTeam, year, existingPlayers, currentDynasty?.teams)
-
-        if (match.matchType === 'exact' || match.matchType === 'transfer') {
-          // Found a matching player (auto-confirm transfers)
-          const player = match.player
-          const playerIdx = existingPlayers.findIndex(p => p.pid === player.pid)
-
-          if (playerIdx === -1) return { action: 'skip' }
-
-          // Check if honor already exists
-          if (playerHasHonor(player, honorType, entry, year)) {
-            return { action: 'skip', reason: 'already_has' }
-          }
-
-          // Add honor to player
-          existingPlayers[playerIdx] = addHonorToPlayer(player, honorType, entry, year, playerTeam)
-          return { action: 'linked', playerName: player.name }
-        } else {
-          // No match - create new player
-          const newPlayer = createPlayerForHonor(playerName, playerPosition, playerTeam, honorType, entry, year)
-          existingPlayers.push(newPlayer)
-          return { action: 'created', playerName: playerName }
-        }
-      }
-
-      // Process all awards
-      for (const [yearStr, yearAwards] of Object.entries(awardsByYear)) {
-        const year = parseInt(yearStr, 10)
-        if (isNaN(year)) continue
-
-        // Awards are stored as { heismanTrophy: { player, position, team, class }, ... }
-        for (const [awardKey, awardData] of Object.entries(yearAwards)) {
-          if (!awardData || !awardData.player) continue
-          // Skip coach awards (bearBryantCoachOfTheYear, etc.)
-          if (awardKey.toLowerCase().includes('coach')) continue
-
-          // Convert camelCase to readable, capitalize first letter of each word
-          const awardName = awardKey
-            .replace(/([A-Z])/g, ' $1')
-            .trim()
-            .split(' ')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ')
-
-          const entry = {
-            ...awardData,
-            award: awardName,
-          }
-
-          const result = processHonorEntry('awards', entry, year)
-          if (result.action === 'linked') linkedCount++
-          else if (result.action === 'created') createdCount++
-          else skippedCount++
-        }
-      }
-
-      // Process All-Americans and All-Conference
-      for (const [yearStr, yearData] of Object.entries(allAmericansByYear)) {
-        const year = parseInt(yearStr, 10)
-        if (isNaN(year)) continue
-
-        // All-Americans
-        const allAmericans = yearData.allAmericans || []
-        for (const entry of allAmericans) {
-          if (!entry.player) continue
-          const result = processHonorEntry('allAmericans', entry, year)
-          if (result.action === 'linked') linkedCount++
-          else if (result.action === 'created') createdCount++
-          else skippedCount++
-        }
-
-        // All-Conference
-        const allConference = yearData.allConference || []
-        for (const entry of allConference) {
-          if (!entry.player) continue
-          const result = processHonorEntry('allConference', entry, year)
-          if (result.action === 'linked') linkedCount++
-          else if (result.action === 'created') createdCount++
-          else skippedCount++
-        }
-
-        // All-Conference by conference (newer structure)
-        const allConferenceByConference = yearData.allConferenceByConference || {}
-        for (const [confName, confData] of Object.entries(allConferenceByConference)) {
-          const confEntries = confData.allConference || []
-          for (const entry of confEntries) {
-            if (!entry.player) continue
-            const result = processHonorEntry('allConference', entry, year)
-            if (result.action === 'linked') linkedCount++
-            else if (result.action === 'created') createdCount++
-            else skippedCount++
-          }
-        }
-      }
-
-      console.log(`[HonorsSync] Complete: linked=${linkedCount}, created=${createdCount}, skipped=${skippedCount}`)
-
-      // Save updated players
-      if (linkedCount > 0 || createdCount > 0) {
-        await updateDynasty(currentDynasty.id, {
-          players: existingPlayers,
-          nextPID: nextPID
-        })
-        setHonorsSyncStatus({
-          success: true,
-          message: `Linked ${linkedCount} honors, created ${createdCount} players`
-        })
-      } else {
-        setHonorsSyncStatus({
-          success: true,
-          message: 'All honors already synced!'
-        })
-      }
-    } catch (error) {
-      console.error('[HonorsSync] Error:', error)
-      setHonorsSyncStatus({
-        success: false,
-        message: 'Sync failed: ' + error.message
-      })
-    }
-  }
 
   // Get game display info for the deletion list
   const getGameDisplayInfo = (game) => {
@@ -1848,107 +1187,7 @@ export default function DangerZone() {
     }
   }
 
-  // Migrate legacy conference data to the canonical per-team byYear store
-  const handleMigrateConferences = async () => {
-    if (!currentDynasty) {
-      toast.error('No dynasty loaded.')
-      return
-    }
-    setConfMigrationStatus('running')
-    try {
-      const result = await migrateConferencesToPerTeam(currentDynasty.id)
-      setConfMigrationStatus({
-        success: true,
-        message: result?.message || `Migration complete.`,
-      })
-    } catch (err) {
-      console.error('[Conf Migration] Error:', err)
-      setConfMigrationStatus({ success: false, message: 'Migration failed: ' + err.message })
-    }
-  }
 
-  // Repair Conference Championship games - add missing conference field
-  const handleRepairCCGames = async () => {
-    setCcgRepairStatus('running')
-    try {
-      const games = currentDynasty.games || []
-      // Use the canonical getter so all legacy and canonical conference
-      // data stores (customConferencesByYear, conferenceByTeamYear,
-      // teams[tid].byYear[year].conference) are consulted in the correct
-      // priority order.  The old direct read used the wrong field name
-      // "conferencesByYear" (should be "customConferencesByYear") and
-      // would always return undefined, making the repair function a no-op.
-      const customConferences = getCustomConferencesForYear(currentDynasty, currentDynasty?.currentYear)
-      let fixedCount = 0
-      let checkedCount = 0
-
-      const updatedGames = games.map(game => {
-        // Only process Conference Championship games
-        if (!game.isConferenceChampionship && game.gameType !== 'conference_championship') {
-          return game
-        }
-
-        checkedCount++
-
-        // If it already has a conference field, skip it
-        if (game.conference) {
-          return game
-        }
-
-        // Detect conference from teams
-        // Get team abbreviations from game
-        let team1Abbr = game.team1
-        let team2Abbr = game.team2
-
-        // Try to get abbr from tid if not directly available
-        if (!team1Abbr && game.team1Tid) {
-          const team = currentDynasty?.teams?.[game.team1Tid] || TEAMS[game.team1Tid]
-          team1Abbr = team?.abbr || getOriginalTeamAbbr(game.team1Tid)
-        }
-        if (!team2Abbr && game.team2Tid) {
-          const team = currentDynasty?.teams?.[game.team2Tid] || TEAMS[game.team2Tid]
-          team2Abbr = team?.abbr || getOriginalTeamAbbr(game.team2Tid)
-        }
-
-        // Also check legacy fields
-        if (!team1Abbr) team1Abbr = game.userTeam
-        if (!team2Abbr) team2Abbr = game.opponent
-
-        if (!team1Abbr && !team2Abbr) {
-          console.log(`[CCG Repair] Could not determine teams for game ${game.id}`)
-          return game
-        }
-
-        // Get conference from either team
-        const team1Conf = team1Abbr ? getTeamConference(team1Abbr, customConferences, currentDynasty?.teams) : null
-        const team2Conf = team2Abbr ? getTeamConference(team2Abbr, customConferences, currentDynasty?.teams) : null
-
-        // Use whichever conference we found (they should be the same for a conference championship)
-        const conference = team1Conf || team2Conf
-
-        if (conference) {
-          console.log(`[CCG Repair] Game ${game.id}: Added conference "${conference}" (teams: ${team1Abbr} vs ${team2Abbr})`)
-          fixedCount++
-          return { ...game, conference }
-        }
-
-        console.log(`[CCG Repair] Could not determine conference for game ${game.id} (teams: ${team1Abbr} vs ${team2Abbr})`)
-        return game
-      })
-
-      if (fixedCount > 0) {
-        await updateDynasty(currentDynasty.id, { games: updatedGames })
-        setCcgRepairStatus({ success: true, message: `Fixed ${fixedCount} of ${checkedCount} CCG games` })
-      } else if (checkedCount === 0) {
-        setCcgRepairStatus({ success: true, message: 'No Conference Championship games found' })
-      } else {
-        setCcgRepairStatus({ success: true, message: `All ${checkedCount} CCG games already have conference field!` })
-      }
-    } catch (error) {
-      console.error('[CCG Repair] Error:', error)
-      setCcgRepairStatus({ success: false, message: 'Repair failed: ' + error.message })
-    }
-  }
 
   // Remove the isConferenceChampionship flag from games that match a
   // known non-CCG rivalry pair (currently just Army-Navy — the
@@ -1976,179 +1215,7 @@ export default function DangerZone() {
     return side === 1 ? game.userTeam : game.opponent
   }
 
-  const handleUnflagWrongCCG = async () => {
-    try {
-      const games = currentDynasty.games || []
-      let checkedCount = 0
 
-      // FIRST: identify what we'd change, WITHOUT modifying anything.
-      // Then show the user a confirm dialog with the list. Two prior
-      // versions of this tool over-matched and silently wiped every CCG
-      // in the dynasty — a preview-and-confirm step makes that
-      // impossible to repeat regardless of any future logic bug.
-      const candidates = []
-      for (const game of games) {
-        const isFlaggedCCG = game.isConferenceChampionship
-          || game.gameType === 'conference_championship'
-        if (!isFlaggedCCG) continue
-        checkedCount++
-
-        const a = (resolveGameAbbr(game, 1) || '').toUpperCase()
-        const b = (resolveGameAbbr(game, 2) || '').toUpperCase()
-        const pair = a && b ? [a, b].sort().join('|') : null
-        const isKnownNonCCG = pair && NON_CCG_RIVALRY_PAIRS.has(pair)
-        if (!isKnownNonCCG) continue
-
-        candidates.push({ id: game.id, year: game.year, a, b, conference: game.conference })
-      }
-
-      if (candidates.length === 0) {
-        setCcgMisflagStatus({ success: true, message: checkedCount === 0
-          ? 'No conference-championship games to check.'
-          : `All ${checkedCount} CCG games look legitimate — nothing to unflag.`
-        })
-        return
-      }
-
-      // Preview dialog. List every game we'd touch so the user can
-      // verify before anything is written. Bail out if they say no.
-      const previewLines = candidates.slice(0, 20).map(c =>
-        `  • ${c.year || '?'} ${c.a} vs ${c.b}${c.conference ? ` (${c.conference})` : ''}`
-      ).join('\n')
-      const overflow = candidates.length > 20 ? `\n  …and ${candidates.length - 20} more` : ''
-      const ok = await confirm({
-        title: `Unflag ${candidates.length} game${candidates.length === 1 ? '' : 's'}?`,
-        message: `Will remove the conference-championship flag from:\n\n${previewLines}${overflow}\n\nMatches the known non-CCG rivalry list (currently only Army-Navy). Continue?`,
-        confirmLabel: 'Unflag',
-        variant: 'danger',
-      })
-      if (!ok) return
-
-      setCcgMisflagStatus('running')
-
-      // Now actually apply the changes.
-      const candidateIds = new Set(candidates.map(c => c.id))
-      let fixedCount = 0
-      const updatedGames = games.map(game => {
-        if (!candidateIds.has(game.id)) return game
-        const { isConferenceChampionship: _ccg, ...rest } = game
-        fixedCount++
-        return { ...rest, gameType: GAME_TYPES.REGULAR }
-      })
-
-      const changedGames = updatedGames.filter((g, i) => g !== games[i])
-      if (currentDynasty.storageType === 'cloud') {
-        try {
-          await saveWeeklyGamesChanges(currentDynasty.id, changedGames, [])
-          await updateDynasty(currentDynasty.id, { games: updatedGames }, { skipGamesSubcollection: true })
-          setCcgMisflagStatus({ success: true, message: `Unflagged ${fixedCount} mis-classified game(s).` })
-          return
-        } catch (err) {
-          console.error('[CCG Mis-flag] Fast-path failed, falling back:', err)
-        }
-      }
-      await updateDynasty(currentDynasty.id, { games: updatedGames })
-      setCcgMisflagStatus({ success: true, message: `Unflagged ${fixedCount} mis-classified game(s).` })
-    } catch (error) {
-      console.error('[CCG Mis-flag] Error:', error)
-      setCcgMisflagStatus({ success: false, message: 'Repair failed: ' + error.message })
-    }
-  }
-
-  // Re-flag CCG games that lost their flag. The broken first version
-  // of handleUnflagWrongCCG (shipped briefly in 32fdebc) stripped the
-  // championship flag from any CCG without game.week === 15 — which
-  // hit every legitimate CCG saved through the dedicated CC flow
-  // (those don't carry a week field at all).
-  //
-  // Heuristic for "this game LOOKS like a CCG that lost its flag":
-  //   - `conference` field is set (a non-empty string). This is the
-  //     critical breadcrumb — the strip removed isConferenceChampionship
-  //     and downgraded gameType to 'regular', but `conference` was
-  //     preserved. CCG saves consistently set this; regular conference
-  //     games do not.
-  //   - Currently NOT flagged as CCG.
-  //   - Not in the known non-CCG rivalry list (so we don't re-flag
-  //     Army-Navy if the unflag tool just ran).
-  //
-  // For each match, re-set isConferenceChampionship + gameType. If a
-  // legitimate regular game happens to have a `conference` field, the
-  // user can run "Unflag Wrong CCGs" after with that pair added to
-  // NON_CCG_RIVALRY_PAIRS — but in practice the field is CCG-only.
-  const handleRestoreCCGFlags = async () => {
-    try {
-      const games = currentDynasty.games || []
-      const candidates = []
-
-      for (const game of games) {
-        const isFlaggedCCG = game.isConferenceChampionship
-          || game.gameType === 'conference_championship'
-        if (isFlaggedCCG) continue
-
-        // Conference-field breadcrumb. Required: must be a non-empty
-        // string. Regular conference games typically don't have this
-        // field — it's set when saving through the CC flow OR by the
-        // weekly-scores auto-promote.
-        if (!game.conference || typeof game.conference !== 'string') continue
-
-        const a = (resolveGameAbbr(game, 1) || '').toUpperCase()
-        const b = (resolveGameAbbr(game, 2) || '').toUpperCase()
-        const pair = a && b ? [a, b].sort().join('|') : null
-        if (pair && NON_CCG_RIVALRY_PAIRS.has(pair)) continue
-
-        candidates.push({ id: game.id, year: game.year, a, b, conference: game.conference })
-      }
-
-      if (candidates.length === 0) {
-        setCcgRestoreStatus({ success: true, message: 'Nothing to restore — no candidate games found.' })
-        return
-      }
-
-      // Preview-and-confirm before writing anything.
-      const previewLines = candidates.slice(0, 20).map(c =>
-        `  • ${c.year || '?'} ${c.a} vs ${c.b}${c.conference ? ` (${c.conference} Championship)` : ''}`
-      ).join('\n')
-      const overflow = candidates.length > 20 ? `\n  …and ${candidates.length - 20} more` : ''
-      const ok = await confirm({
-        title: `Restore CCG flag on ${candidates.length} game${candidates.length === 1 ? '' : 's'}?`,
-        message: `Will re-flag these games as their conference championship:\n\n${previewLines}${overflow}\n\nUses the conference-field breadcrumb left from past CCG saves. Continue?`,
-        confirmLabel: 'Restore',
-        variant: 'default',
-      })
-      if (!ok) return
-
-      setCcgRestoreStatus('running')
-
-      const candidateIds = new Set(candidates.map(c => c.id))
-      let restoredCount = 0
-      const updatedGames = games.map(game => {
-        if (!candidateIds.has(game.id)) return game
-        restoredCount++
-        return {
-          ...game,
-          isConferenceChampionship: true,
-          gameType: GAME_TYPES.CONFERENCE_CHAMPIONSHIP,
-        }
-      })
-
-      const changedGames = updatedGames.filter((g, i) => g !== games[i])
-      if (currentDynasty.storageType === 'cloud') {
-        try {
-          await saveWeeklyGamesChanges(currentDynasty.id, changedGames, [])
-          await updateDynasty(currentDynasty.id, { games: updatedGames }, { skipGamesSubcollection: true })
-          setCcgRestoreStatus({ success: true, message: `Restored CCG flag on ${restoredCount} game(s).` })
-          return
-        } catch (err) {
-          console.error('[CCG Restore] Fast-path failed:', err)
-        }
-      }
-      await updateDynasty(currentDynasty.id, { games: updatedGames })
-      setCcgRestoreStatus({ success: true, message: `Restored CCG flag on ${restoredCount} game(s).` })
-    } catch (error) {
-      console.error('[CCG Restore] Error:', error)
-      setCcgRestoreStatus({ success: false, message: 'Restore failed: ' + error.message })
-    }
-  }
 
   const handleAnalyzeSize = () => {
     const result = analyzeDocumentSize(currentDynasty.id)
@@ -2461,55 +1528,6 @@ export default function DangerZone() {
     return team?.abbr || `Team ${tid}`
   }
 
-  // ==========================================================
-  // V2 CONSOLIDATION — ONE-CLICK FULL CLEANUP
-  // ==========================================================
-  //
-  // Runs the v2 migration (consolidates movements[] → movementByYear,
-  // drops ghost records, trims stale teamsByYear entries past departure)
-  // AND rewrites every player through syncDerivedFieldsFromV2 so the
-  // top-level player.year / .team / .overall / .devTrait fields are a
-  // consistent mirror of the canonical per-year maps. Persists with
-  // forceOverwrite so legacy keys actually get stripped from Firestore.
-  // Stamps _schemaVersion: 2 on the dynasty.
-  //
-  // Safe to re-run. No-op on a dynasty that's already v2-clean.
-  //
-  const handleFixPreseasonRecap = async () => {
-    const recaps = currentDynasty?.weekRecapsByYear || {}
-    const yearsWithWeek0 = Object.keys(recaps).filter(y => recaps[y]?.[0]?.text)
-    if (yearsWithWeek0.length === 0) {
-      setPreseasonRecapFixStatus('done — no week-0 preseason recaps found')
-      return
-    }
-    const ok = await confirm({
-      title: 'Fix preseason recap location?',
-      message: `Found preseason recap data stored at week 0 in ${yearsWithWeek0.length} season(s). This will move each to week -1 (if empty there) or delete it (if week -1 already has a recap). This frees week 0 for actual Week 0 game recaps.`,
-      confirmLabel: 'Fix',
-      variant: 'primary',
-    })
-    if (!ok) return
-
-    setPreseasonRecapFixStatus('running')
-    try {
-      let moved = 0, deleted = 0
-      for (const y of yearsWithWeek0) {
-        const year = Number(y)
-        const week0recap = recaps[y][0]
-        const week_1recap = recaps[y]?.[-1] || recaps[y]?.[-1]
-        if (!week_1recap?.text) {
-          await saveWeekRecap(currentDynasty.id, year, -1, week0recap)
-          moved++
-        } else {
-          deleted++
-        }
-        await deleteWeekRecap(currentDynasty.id, year, 0)
-      }
-      setPreseasonRecapFixStatus(`done — ${moved} moved, ${deleted} cleared`)
-    } catch (e) {
-      setPreseasonRecapFixStatus(`error: ${e.message}`)
-    }
-  }
 
   const handleV2Consolidate = async () => {
     const ok = await confirm({
@@ -2694,13 +1712,6 @@ export default function DangerZone() {
             status={v2ConsolidateStatus}
           />
           <ActionCard
-            title="Sync Recruiting"
-            description="Updates recruiting pages from player data"
-            buttonText="Sync Data"
-            onClick={handleSyncRecruitingData}
-            status={recruitingSyncStatus}
-          />
-          <ActionCard
             title="Remove Duplicates"
             description="Fixes duplicate games causing wrong records"
             buttonText="Remove"
@@ -2708,60 +1719,11 @@ export default function DangerZone() {
             status={duplicateGameCleanupStatus}
           />
           <ActionCard
-            title="Fix Schedule Links"
-            description="Links schedule entries to game records and fixes missing gameType"
-            buttonText="Fix Links"
-            onClick={handleFixScheduleLinks}
-            status={scheduleLinkFixStatus}
-          />
-          <ActionCard
-            title="Migrate Conferences"
-            description="One-time migration: copies legacy conference data into each team's per-season record (teams[tid].byYear[year].conference). Safe to run multiple times — skips teams already migrated."
-            buttonText="Migrate"
-            onClick={handleMigrateConferences}
-            status={confMigrationStatus}
-          />
-          <ActionCard
-            title="Repair CCG Games"
-            description="Adds missing conference field to Conference Championship games"
-            buttonText="Repair CCG"
-            onClick={handleRepairCCGames}
-            status={ccgRepairStatus}
-          />
-          <ActionCard
-            title="Unflag Wrong CCG Games"
-            description="Removes the conference-championship flag from games matching a known non-CCG rivalry pair (currently just Army-Navy)"
-            buttonText="Unflag Wrong CCGs"
-            onClick={handleUnflagWrongCCG}
-            status={ccgMisflagStatus}
-          />
-          <ActionCard
-            title="Restore CCG Flags"
-            description="Re-flags games that look like CCGs but lost the flag (uses the conference-field breadcrumb left by every CCG save). Run this if an earlier version of the Unflag tool stripped your real championships."
-            buttonText="Restore CCGs"
-            onClick={handleRestoreCCGFlags}
-            status={ccgRestoreStatus}
-          />
-          <ActionCard
             title="Merge Duplicate Players"
             description="Finds players with same name and merges their stats/history"
             buttonText="Merge Players"
             onClick={handleDetectDuplicates}
             status={duplicateMergeStatus}
-          />
-          <ActionCard
-            title="Sync Honors to Players"
-            description="Links awards, All-Americans & All-Conference to player records. Normalizes legacy award names back to canonical keys so the editor stays clean."
-            buttonText="Sync Honors"
-            onClick={handleSyncHonorsToPlayers}
-            status={honorsSyncStatus}
-          />
-          <ActionCard
-            title="Fix Preseason Recap Location"
-            description="Moves preseason recaps stored at week 0 (old format) to week -1, freeing week 0 for actual Week 0 game recaps."
-            buttonText="Fix"
-            onClick={handleFixPreseasonRecap}
-            status={preseasonRecapFixStatus}
           />
           {/* Storage size diagnostic — surfaces which dynasty fields are
               taking up the most space in the main Firestore doc, since
@@ -3226,14 +2188,6 @@ export default function DangerZone() {
           />
           <ActionCard
             danger
-            title="Fix Player Classes"
-            description="Auto-fills entryYear / entryClass / classByYear by inference. Can overwrite the canonical classByYear map with stale legacy values."
-            buttonText="Fix Classes"
-            onClick={handleFixClassData}
-            status={classDataFixStatus}
-          />
-          <ActionCard
-            danger
             title="Fix Transfer Years"
             description="Backfills blank transfer/arrival years. Older transfers only recorded the new team for the arrival year, leaving class / OVR / dev trait empty (the 'skipped year'). Fills each missing year from the prior year, aging the class one step."
             buttonText="Fix Transfers"
@@ -3247,14 +2201,6 @@ export default function DangerZone() {
             buttonText="Select Players"
             onClick={handleOpenAdvanceModal}
             status={advanceClassesStatus}
-          />
-          <ActionCard
-            danger
-            title="Graduate Stranded Seniors"
-            description="Removes players on OTHER teams who were carried onto this season despite having exhausted eligibility (e.g. a transfer whose senior year wasn't recorded, reappearing as a senior again). Skips your roster and anyone with stats this season."
-            buttonText="Graduate Strays"
-            onClick={handleGraduateStrandedSeniors}
-            status={strandedSeniorStatus}
           />
         </div>
       </div>
