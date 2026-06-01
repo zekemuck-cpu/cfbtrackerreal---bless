@@ -482,20 +482,21 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
       <DndContext sensors={sensors} collisionDetection={closestCorners}
         onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
 
-        <ScaleToFit className="py-2">
-          <div className="flex flex-col gap-6 w-fit">
-            {board.tiers.map((tier, ti) => (
-              <div key={ti} className="flex gap-3 justify-center items-start">
-                {tier.map(id => {
-                  const slot = board.slots.find(s => s.id === id)
-                  if (!slot) return null
-                  return <SlotColumn key={id} slot={slot} items={containers[id] || EMPTY_ARR}
-                    byKey={byKey} activeId={activeId} {...tileActions} />
-                })}
-              </div>
-            ))}
-          </div>
-        </ScaleToFit>
+        <div className="py-2 space-y-6">
+          {board.tiers.map((tier, ti) => (
+            // Columns flex to fill the row width (font stays fixed, so the extra
+            // width becomes name room), capped so a 2-column row doesn't make
+            // giant tiles. Wraps on very narrow screens.
+            <div key={ti} className="flex flex-wrap gap-3 justify-center items-start">
+              {tier.map(id => {
+                const slot = board.slots.find(s => s.id === id)
+                if (!slot) return null
+                return <SlotColumn key={id} slot={slot} items={containers[id] || EMPTY_ARR}
+                  byKey={byKey} activeId={activeId} {...tileActions} />
+              })}
+            </div>
+          ))}
+        </div>
 
         {createPortal(
           <DragOverlay dropAnimation={null} style={activeWidth ? { width: activeWidth } : undefined}>
@@ -530,7 +531,7 @@ function SlotColumn({ slot, items, byKey, ...rest }) {
   const { setNodeRef, isOver } = useDroppable({ id: slot.id })
   const hole = slot.isHole
   return (
-    <div className="w-[10.5rem] shrink-0 flex flex-col">
+    <div className="flex-1 basis-[9.5rem] min-w-[8.5rem] max-w-[16rem] flex flex-col">
       {/* position header */}
       <div className="flex items-center justify-between gap-1 px-1 mb-1.5">
         <span className="font-bold text-txt-primary text-xs uppercase tracking-wider">{slot.label}</span>
@@ -549,54 +550,6 @@ function SlotColumn({ slot, items, byKey, ...rest }) {
               : null)}
         </div>
       </SortableContext>
-    </div>
-  )
-}
-
-// ── Scale-to-fit: shrink the board uniformly so the whole formation fits the
-// available width (never overflows). Scales down only (max 1); re-measures on
-// resize and on content changes. The outer wrapper's height tracks the scaled
-// content so nothing below it gets a gap.
-function ScaleToFit({ children, className = '' }) {
-  const outerRef = useRef(null)
-  const innerRef = useRef(null)
-  const [scale, setScale] = useState(1)
-  const [innerH, setInnerH] = useState(null)
-
-  useLayoutEffect(() => {
-    const outer = outerRef.current, inner = innerRef.current
-    if (!outer || !inner) return
-    const measure = () => {
-      // The board's natural width can stretch its own ancestors (content-sized
-      // containers), so outer.clientWidth isn't trustworthy. Anchor instead to
-      // the real visible right edge: viewport width minus the outer's left
-      // offset, minus a small safety margin. This guarantees the scaled board
-      // never crosses the right side of the screen regardless of parent layout.
-      const rect = outer.getBoundingClientRect()
-      const viewportW = document.documentElement.clientWidth
-      const avail = Math.max(0, viewportW - rect.left - 8)
-      const natural = inner.scrollWidth
-      const s = natural > 0 ? Math.min(1, avail / natural) : 1
-      setScale(s)
-      setInnerH(inner.scrollHeight * s)
-    }
-    measure()
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
-    ro?.observe(outer)
-    ro?.observe(inner)
-    window.addEventListener('resize', measure)
-    return () => { ro?.disconnect(); window.removeEventListener('resize', measure) }
-  })
-
-  // Left-anchored: the board starts at the outer's left edge and the transform
-  // scales from top-left, so the scaled right edge is exactly
-  // outer.left + natural*scale ≤ viewport − margin. Guaranteed on-screen.
-  return (
-    <div ref={outerRef} className={`w-full min-w-0 overflow-hidden ${className}`} style={{ height: innerH ?? undefined }}>
-      <div ref={innerRef} className="w-fit"
-        style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
-        {children}
-      </div>
     </div>
   )
 }
