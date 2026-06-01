@@ -103,35 +103,39 @@ export default function Home() {
   const nonStarredDynasties = dynasties.filter(d => !d.favorite)
   const hasNonStarred = nonStarredDynasties.length > 0
 
+  // One-shot guard: createDynasty is async, so the effect would re-run (param
+  // still 'true', data still in localStorage) on every re-render its state
+  // update triggers — spawning an unbounded number of copies. Disarm
+  // SYNCHRONOUSLY (consume the localStorage key + clear the URL param BEFORE
+  // the async call) and latch a ref so it can only ever fire once per mount.
+  const importCopyRanRef = useRef(false)
   useEffect(() => {
-    const importCopy = searchParams.get('importCopy')
-    if (importCopy === 'true' && createDynasty) {
-      const copyData = localStorage.getItem('dynastyCopyData')
-      if (copyData) {
-        try {
-          const dynastyData = JSON.parse(copyData)
-          createDynasty(dynastyData).then((newDynasty) => {
-            localStorage.removeItem('dynastyCopyData')
-            setSearchParams({})
-            if (newDynasty?.id) {
-              navigate(`/dynasty/${newDynasty.id}`)
-            }
-          }).catch((error) => {
-            console.error('Error creating copied dynasty:', error)
-            toast.error('Failed to copy dynasty. Please try again.')
-            localStorage.removeItem('dynastyCopyData')
-            setSearchParams({})
-          })
-        } catch (error) {
-          console.error('Error parsing dynasty copy data:', error)
-          localStorage.removeItem('dynastyCopyData')
-          setSearchParams({})
-        }
-      } else {
-        setSearchParams({})
-      }
+    if (importCopyRanRef.current) return
+    if (searchParams.get('importCopy') !== 'true') return
+    if (!createDynasty) return
+    importCopyRanRef.current = true
+
+    // Consume the payload immediately so nothing can re-read it.
+    const copyData = localStorage.getItem('dynastyCopyData')
+    localStorage.removeItem('dynastyCopyData')
+    setSearchParams({}, { replace: true })
+    if (!copyData) return
+
+    let dynastyData
+    try {
+      dynastyData = JSON.parse(copyData)
+    } catch (error) {
+      console.error('Error parsing dynasty copy data:', error)
+      return
     }
-  }, [searchParams, createDynasty, setSearchParams, navigate])
+    createDynasty(dynastyData)
+      .then((newDynasty) => { if (newDynasty?.id) navigate(`/dynasty/${newDynasty.id}`) })
+      .catch((error) => {
+        console.error('Error creating copied dynasty:', error)
+        toast.error('Failed to copy dynasty. Please try again.')
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, createDynasty])
 
   const handleDeleteClick = (e, dynasty) => {
     e.preventDefault()
