@@ -380,7 +380,10 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
   // mode (future seasons), toggles whether they're projected to leave.
   const onTileClick = (tile) => {
     if (markMode && tile.pid) { toggleLeave(tile.pid); return }
-    if (tile.pid) navigate(`${pathPrefix}/player/${tile.pid}`)
+    // pid (returning players) or linkPid (incoming recruits → their enrolled
+    // player record) both resolve to a player page.
+    const navPid = tile.pid || tile.linkPid
+    if (navPid) navigate(`${pathPrefix}/player/${navPid}`)
   }
   // Reset the CURRENT side back to the auto-suggested depth chart: drop any
   // custom placements into this side's slots, custom order on its slots, notes

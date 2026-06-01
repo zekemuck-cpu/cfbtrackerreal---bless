@@ -131,10 +131,15 @@ export function projectOvrForward(startOvr, startClass, devTrait, seasons) {
   return ovr
 }
 
-function projectedEntry(player, { position, projectedClass, projectedOvr, devTrait, status, isIncoming = false, stars = null, name = null, isPortal = false, incomingKey = '' }) {
+function projectedEntry(player, { position, projectedClass, projectedOvr, devTrait, status, isIncoming = false, stars = null, name = null, isPortal = false, incomingKey = '', linkPid = null }) {
   return {
     key: isIncoming ? `inc:${incomingKey}:${name}:${position}` : `pid:${player.pid}`,
     pid: isIncoming ? null : player.pid,
+    // For incoming recruits, pid stays null (so leave/NFL flags that key on pid
+    // never apply to them), but linkPid points at the real enrolled player
+    // record the app creates on commit — letting the tile link to that player
+    // page. Returning/current players link via pid directly.
+    linkPid: isIncoming ? (linkPid ?? null) : (player?.pid ?? null),
     player: isIncoming ? null : player,
     name: name ?? player.name,
     jerseyNumber: isIncoming ? null : (player.jerseyNumber ?? null),
@@ -255,12 +260,14 @@ function projectFutureRoster(dynasty, tid, targetYear, opts = {}) {
   // own devTrait is often stale/missing (old data, partial sheet imports), so
   // the depth chart's incoming tiles showed the wrong trait. Prefer the enrolled
   // player's devTrait, keyed by name+joinYear, falling back to the commit field.
-  const enrolledDevTrait = (name, joinYear) => {
+  // Find the real player record the app creates when a recruit commits, keyed
+  // by name + join year. Used both for the canonical devTrait and for linking
+  // the incoming tile to that player's page.
+  const enrolledPlayer = (name, joinYear) => {
     const n = (name || '').trim().toLowerCase()
     if (!n) return null
-    const p = (dynasty.players || []).find(pl =>
-      (pl.name || '').trim().toLowerCase() === n && isPlayerOnRoster(pl, tid, joinYear))
-    return p ? devForYear(p, joinYear, currentYear) : null
+    return (dynasty.players || []).find(pl =>
+      (pl.name || '').trim().toLowerCase() === n && isPlayerOnRoster(pl, tid, joinYear)) || null
   }
 
   for (let ry = currentYear; ry <= ty - 1; ry++) {
@@ -281,7 +288,8 @@ function projectFutureRoster(dynasty, tid, targetYear, opts = {}) {
       if (projCls === null) continue // graduated before targetYear
       const rawPos = (rec.position || '').toUpperCase()
       const position = rawPos === 'ATH' ? resolveAthPosition(rec) : rawPos
-      const devTrait = enrolledDevTrait(rec.name, joinYear) || rec.devTrait || 'Normal'
+      const enrolled = enrolledPlayer(rec.name, joinYear)
+      const devTrait = (enrolled ? devForYear(enrolled, joinYear, currentYear) : null) || rec.devTrait || 'Normal'
       out.push(projectedEntry(null, {
         name: rec.name,
         position,
@@ -295,6 +303,7 @@ function projectFutureRoster(dynasty, tid, targetYear, opts = {}) {
         stars: rec.stars ?? null,
         isPortal: !!rec.isPortal,
         incomingKey: `${ry}:${idx++}`,      // unique discriminator for React keys
+        linkPid: enrolled?.pid ?? null,     // link to the enrolled player page
       }))
     }
   }
