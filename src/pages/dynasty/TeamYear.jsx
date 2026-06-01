@@ -1610,8 +1610,17 @@ export default function TeamYear() {
     }
     const teamWonGame = (g) => {
       if (!g) return false
-      const winnerTid = g.winnerTid || resolveTid(g.winner, teamsSource)
-      return winnerTid === tid
+      // Prefer an explicit winner stamp, but fall back to the score — CFP games
+      // often have a final score without winnerTid/winner set, which otherwise
+      // made the actual champion read as the runner-up.
+      const winnerTid = g.winnerTid || (g.winner ? resolveTid(g.winner, teamsSource) : null)
+      if (winnerTid != null) return winnerTid === tid
+      const t1 = g.team1Tid || resolveTid(g.team1, teamsSource)
+      const t2 = g.team2Tid || resolveTid(g.team2, teamsSource)
+      const s1 = Number(g.team1Score), s2 = Number(g.team2Score)
+      if (!Number.isFinite(s1) || !Number.isFinite(s2) || s1 === s2) return false
+      const winByScore = s1 > s2 ? t1 : t2
+      return winByScore === tid
     }
 
     // Check championship first - unified games array, then legacy
