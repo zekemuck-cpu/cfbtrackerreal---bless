@@ -119,6 +119,28 @@ describe('projectRoster — future year', () => {
     expect(frosh.projectedClass).toBe('So')   // joined 2036 as Fr → So in 2037
   })
 
+  it('uses the enrolled player\'s devTrait for an incoming commit whose record is stale', () => {
+    const d = futureDynasty()
+    // Commit record says Normal, but the enrolled player (on roster in 2036)
+    // carries the real trait — the board should use the player's.
+    d.recruitingCommitmentsByTeamYear[2035]['10'].regular_1[0].devTrait = 'Normal'
+    d.players.push({
+      pid: 'froshP', name: 'Frosh WR', position: 'WR',
+      teamsByYear: { 2036: 10 }, classByYear: { 2036: 'Fr' },
+      overallByYear: { 2036: 75 }, devTraitByYear: { 2036: 'Elite' },
+    })
+    const r = projectRoster(d, 10, 2036)
+    const frosh = r.find(p => p.isIncoming && p.name === 'Frosh WR')
+    expect(frosh.devTrait).toBe('Elite')
+  })
+
+  it('falls back to the commit record devTrait when no enrolled player matches', () => {
+    const d = futureDynasty() // 'Frosh WR' commit has devTrait 'Star', no matching player
+    const r = projectRoster(d, 10, 2036)
+    const frosh = r.find(p => p.isIncoming && p.name === 'Frosh WR')
+    expect(frosh.devTrait).toBe('Star')
+  })
+
   it('excludes manually flagged "likely to leave" players', () => {
     const d = futureDynasty()
     const r = projectRoster(d, 10, 2036, { leaveFlags: new Set(['risk']) })

@@ -250,6 +250,19 @@ function projectFutureRoster(dynasty, tid, targetYear, opts = {}) {
   //    RECRUITING year and enroll the FOLLOWING year (canonical: enrollment =
   //    recruitingYear + 1). So a class joining in roster-year (ry+1) is read
   //    from recruiting year ry. Iterate recruiting years currentYear..ty-1.
+  // When a recruit commits, the app also creates a real player carrying the
+  // canonical devTrait (and teamsByYear[joinYear] = tid). The commit RECORD's
+  // own devTrait is often stale/missing (old data, partial sheet imports), so
+  // the depth chart's incoming tiles showed the wrong trait. Prefer the enrolled
+  // player's devTrait, keyed by name+joinYear, falling back to the commit field.
+  const enrolledDevTrait = (name, joinYear) => {
+    const n = (name || '').trim().toLowerCase()
+    if (!n) return null
+    const p = (dynasty.players || []).find(pl =>
+      (pl.name || '').trim().toLowerCase() === n && isPlayerOnRoster(pl, tid, joinYear))
+    return p ? devForYear(p, joinYear, currentYear) : null
+  }
+
   for (let ry = currentYear; ry <= ty - 1; ry++) {
     const joinYear = ry + 1
     let commits = []
@@ -268,14 +281,15 @@ function projectFutureRoster(dynasty, tid, targetYear, opts = {}) {
       if (projCls === null) continue // graduated before targetYear
       const rawPos = (rec.position || '').toUpperCase()
       const position = rawPos === 'ATH' ? resolveAthPosition(rec) : rawPos
+      const devTrait = enrolledDevTrait(rec.name, joinYear) || rec.devTrait || 'Normal'
       out.push(projectedEntry(null, {
         name: rec.name,
         position,
         projectedClass: projCls,
         // Star-implied baseline, aged forward — used for slotting/health only;
         // the UI renders stars, not this number.
-        projectedOvr: projectOvrForward(starBaselineOvr(rec.stars), startCls, rec.devTrait || 'Normal', ty - joinYear),
-        devTrait: rec.devTrait || 'Normal',
+        projectedOvr: projectOvrForward(starBaselineOvr(rec.stars), startCls, devTrait, ty - joinYear),
+        devTrait,
         status: 'incoming',
         isIncoming: true,
         stars: rec.stars ?? null,
