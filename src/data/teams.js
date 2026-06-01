@@ -87,7 +87,7 @@ const teamLogos = {
   "Northwestern Wildcats": "https://i.imgur.com/XJ90C3s.png",
   "Notre Dame Fighting Irish": "https://i.imgur.com/v5Jt5U0.png",
   "Ohio Bobcats": "https://i.imgur.com/c0cvsse.png",
-  "Ohio State Buckeyes": "https://i.imgur.com/l4sb8kJ.png",
+  "Ohio State Buckeyes": "https://i.imgur.com/DRYsRrs.png",
   "Oklahoma Sooners": "https://i.imgur.com/2xQtIAj.png",
   "Oklahoma State Cowboys": "https://i.imgur.com/wnZzORg.png",
   "Old Dominion Monarchs": "https://i.imgur.com/mybV1nZ.png",

@@ -687,7 +687,7 @@ export const TEAMS = {
     name: "Ohio State Buckeyes",
     primaryColor: "#bb0000",
     secondaryColor: "#FFFFFF",
-    logo: "https://i.imgur.com/l4sb8kJ.png"
+    logo: "https://i.imgur.com/DRYsRrs.png"
   },
   80: {
     tid: 80,
