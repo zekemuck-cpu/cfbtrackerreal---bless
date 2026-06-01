@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { proxyImageUrl } from '../../utils/imageProxy'
 import { saveWeeklyGamesChanges } from '../../services/dynastyService'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
-import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord, getCurrentTeamRanking, getEncourageTransfers, getRecruitingCommitments, getConferenceChampionshipData, createOrUpdateCFPGameShells, createOrUpdateBowlGameShell, getUserCFPGameStatus, getCFPRoundDisplayName, propagateCFPWinner, findUserCFPGameShell, isPlayerOnRoster, getPlayerClassForYear, lookupByTeamYear, getTeamConferenceForDynasty } from '../../context/DynastyContext'
+import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord, getCurrentTeamRanking, getEncourageTransfers, getRecruitingCommitments, getConferenceChampionshipData, createOrUpdateCFPGameShells, createOrUpdateBowlGameShell, getUserCFPGameStatus, getCFPRoundDisplayName, propagateCFPWinner, findUserCFPGameShell, isPlayerOnRoster, getPlayerClassForYear, lookupByTeamYear, getTeamConferenceForDynasty, CLASS_PROGRESSION } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
@@ -1701,6 +1701,21 @@ export default function Dashboard() {
         // Check if this is a RECOMMIT (destination = their current team)
         const isRecommit = newTeamTid === oldTeamTid || newTeamTid === teamTid
 
+        // Advance the player's per-year fields into the arrival year exactly
+        // like the normal season rollover does for returners. Previously only
+        // teamsByYear[nextYear] was written, so class/OVR/dev were blank for the
+        // transfer year (the "skipped year" bug). Age the class one step and
+        // carry OVR/dev forward.
+        const priorClass = getPlayerClassForYear(player, Number(year)) || player.year
+        const advancedClass = CLASS_PROGRESSION[priorClass] || priorClass
+        const carriedOverall = player.overallByYear?.[String(year)] ?? player.overallByYear?.[Number(year)] ?? player.overall
+        const carriedDev = player.devTraitByYear?.[String(year)] ?? player.devTraitByYear?.[Number(year)] ?? player.devTrait
+        const advanceByYear = {
+          ...(advancedClass ? { classByYear: { ...(player.classByYear || {}), [String(nextYear)]: advancedClass } } : {}),
+          ...(carriedOverall != null ? { overallByYear: { ...(player.overallByYear || {}), [String(nextYear)]: carriedOverall } } : {}),
+          ...(carriedDev ? { devTraitByYear: { ...(player.devTraitByYear || {}), [String(nextYear)]: carriedDev } } : {}),
+        }
+
         if (isRecommit) {
           // Player recommitted — they're staying on the team. Canonical
           // v2 type; legacy 'recommitted' was being healed on save anyway.
@@ -1715,6 +1730,7 @@ export default function Dashboard() {
               ...(player.teamsByYear || {}),
               [String(nextYear)]: oldTeamTid,
             },
+            ...advanceByYear,
           }
         } else {
           // Normal transfer to another team. Canonical v2 departure —
@@ -1730,6 +1746,7 @@ export default function Dashboard() {
               ...(player.teamsByYear || {}),
               [String(nextYear)]: newTeamTid,
             },
+            ...advanceByYear,
           }
         }
       }

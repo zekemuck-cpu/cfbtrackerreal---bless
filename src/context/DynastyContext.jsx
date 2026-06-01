@@ -4057,7 +4057,7 @@ export function getCurrentRecruits(dynasty) {
 /**
  * Class progression mapping for season advancement
  */
-const CLASS_PROGRESSION = {
+export const CLASS_PROGRESSION = {
   'HS': 'Fr',
   // JUCO players: drop the JUCO prefix, keep the class level
   // Their first season on team they play as that class (Fr, So, Jr, Sr)

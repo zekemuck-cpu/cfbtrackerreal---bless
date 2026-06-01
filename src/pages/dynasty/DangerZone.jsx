@@ -100,6 +100,7 @@ export default function DangerZone() {
 
   // Class data fix state
   const [classDataFixStatus, setClassDataFixStatus] = useState(null)
+  const [transferYearFixStatus, setTransferYearFixStatus] = useState(null)
   const [strandedSeniorStatus, setStrandedSeniorStatus] = useState(null)
   const [advanceClassesStatus, setAdvanceClassesStatus] = useState(null)
   const [showAdvanceModal, setShowAdvanceModal] = useState(false)
@@ -587,6 +588,66 @@ export default function DangerZone() {
       })
     } catch (error) {
       setClassDataFixStatus({ success: false, message: 'Fix failed: ' + error.message })
+    }
+  }
+
+  // Backfill blank TRANSFER/ARRIVAL years. Older transfers only wrote
+  // teamsByYear[arrivalYear] without the companion class/OVR/dev maps, so the
+  // arrival year rendered blank ("the skipped year" bug). For every year a
+  // player is on a roster (teamsByYear) that's missing class/OVR/dev, fill from
+  // the most recent prior year that has them — aging the class one step.
+  const handleFixTransferYears = async () => {
+    setTransferYearFixStatus('running')
+    try {
+      const CLASS_PROGRESSION = {
+        'HS': 'Fr', 'JUCO Fr': 'Fr', 'JUCO So': 'So', 'JUCO Jr': 'Jr', 'JUCO Sr': 'Sr',
+        'Fr': 'So', 'RS Fr': 'RS So', 'So': 'Jr', 'RS So': 'RS Jr', 'Jr': 'Sr', 'RS Jr': 'RS Sr',
+      }
+      const num = (m, y) => (m?.[y] ?? m?.[String(y)])
+      let fixedPlayers = 0, fixedYears = 0
+      const updatedPlayers = (currentDynasty.players || []).map(player => {
+        if (player.isHonorOnly) return player
+        const teamsByYear = player.teamsByYear || {}
+        const years = Object.keys(teamsByYear).map(Number).filter(Number.isFinite).sort((a, b) => a - b)
+        if (years.length === 0) return player
+
+        const cls = { ...(player.classByYear || {}) }
+        const ovr = { ...(player.overallByYear || {}) }
+        const dev = { ...(player.devTraitByYear || {}) }
+        let changed = false
+
+        for (const y of years) {
+          const hasCls = num(cls, y) != null && num(cls, y) !== ''
+          const hasOvr = num(ovr, y) != null
+          const hasDev = num(dev, y) != null && num(dev, y) !== ''
+          if (hasCls && hasOvr && hasDev) continue
+
+          // Find the nearest prior year (with data) to carry forward from.
+          let prior = null
+          for (let py = y - 1; py >= years[0] - 1; py--) {
+            if (num(cls, py) != null || num(ovr, py) != null || num(dev, py) != null) { prior = py; break }
+          }
+          if (prior == null) continue // nothing earlier to derive from — leave as-is
+
+          const priorCls = num(cls, prior)
+          if (!hasCls && priorCls) { cls[String(y)] = CLASS_PROGRESSION[priorCls] || priorCls; changed = true; fixedYears++ }
+          if (!hasOvr && num(ovr, prior) != null) { ovr[String(y)] = num(ovr, prior); changed = true }
+          if (!hasDev && num(dev, prior)) { dev[String(y)] = num(dev, prior); changed = true }
+        }
+
+        if (!changed) return player
+        fixedPlayers++
+        return { ...player, classByYear: cls, overallByYear: ovr, devTraitByYear: dev }
+      })
+
+      if (fixedPlayers === 0) {
+        setTransferYearFixStatus({ success: true, message: 'No blank transfer years found — all good.' })
+        return
+      }
+      await updateDynasty(currentDynasty.id, { players: updatedPlayers })
+      setTransferYearFixStatus({ success: true, message: `Backfilled ${fixedYears} year(s) across ${fixedPlayers} player(s).` })
+    } catch (error) {
+      setTransferYearFixStatus({ success: false, message: 'Fix failed: ' + error.message })
     }
   }
 
@@ -3170,6 +3231,14 @@ export default function DangerZone() {
             buttonText="Fix Classes"
             onClick={handleFixClassData}
             status={classDataFixStatus}
+          />
+          <ActionCard
+            danger
+            title="Fix Transfer Years"
+            description="Backfills blank transfer/arrival years. Older transfers only recorded the new team for the arrival year, leaving class / OVR / dev trait empty (the 'skipped year'). Fills each missing year from the prior year, aging the class one step."
+            buttonText="Fix Transfers"
+            onClick={handleFixTransferYears}
+            status={transferYearFixStatus}
           />
           <ActionCard
             danger
