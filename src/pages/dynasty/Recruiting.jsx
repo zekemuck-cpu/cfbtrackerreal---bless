@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { proxyImageUrl } from '../../utils/imageProxy'
-import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
+import { Link, useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useDynasty, getRecruitingCommitments, lookupByTeamYear } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import RecruitingCommitmentsModal from '../../components/RecruitingCommitmentsModal'
@@ -115,19 +115,39 @@ export default function Recruiting() {
   const pathPrefix = usePathPrefix()
   const location = useLocation()
 
-  const [viewMode, setViewMode] = useState(() => {
-    if (location.pathname.includes('/recruiting/portal/')) return 'portal'
-    return 'both'
-  })
-  const [selectedStars, setSelectedStars] = useState([])
-  const [positionFilter, setPositionFilter] = useState('all')
-  // Recruit sort: 'rank' (national rank, default) | 'position' | 'dev'.
-  // Persisted to the device so the chosen sort sticks across visits
-  // (Ezekiel wanted it to stay on Dev Trait).
-  const [sortBy, setSortBy] = useState(() => localStorage.getItem('recruiting-sort') || 'rank')
+  // All four filters are URL-driven so each is its own route (back/forward,
+  // refresh, and shared links preserve them). Helper writes one param, keeping
+  // the others, with replace so filter changes don't spam history.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const setParam = (key, value, dflt) => setSearchParams(prev => {
+    const p = new URLSearchParams(prev)
+    if (value == null || value === dflt) p.delete(key); else p.set(key, value)
+    return p
+  }, { replace: true })
+
+  // viewMode: ?view= ; defaults to 'portal' on the /recruiting/portal/ route, else 'both'.
+  const defaultView = location.pathname.includes('/recruiting/portal/') ? 'portal' : 'both'
+  const viewMode = searchParams.get('view') || defaultView
+  const setViewMode = (v) => setParam('view', v, defaultView)
+
+  // stars: ?stars=<n> (single tier) ; absent = All. Memoized so the array
+  // identity is stable across renders (it feeds a useMemo dep below).
+  const starsParam = Number(searchParams.get('stars'))
+  const selectedStars = useMemo(
+    () => (Number.isFinite(starsParam) && starsParam >= 1 && starsParam <= 5 ? [starsParam] : []),
+    [starsParam])
+  const setSelectedStars = (arr) => setParam('stars', arr.length ? String(arr[0]) : null, null)
+
+  // position: ?pos= ; absent = all.
+  const positionFilter = searchParams.get('pos') || 'all'
+  const setPositionFilter = (v) => setParam('pos', v, 'all')
+
+  // sort: ?sort= ; defaults from the device-persisted preference, falling back to 'rank'.
+  const sortPref = (typeof localStorage !== 'undefined' && localStorage.getItem('recruiting-sort')) || 'rank'
+  const sortBy = searchParams.get('sort') || sortPref
   const handleSortChange = (value) => {
-    setSortBy(value)
     try { localStorage.setItem('recruiting-sort', value) } catch { /* ignore */ }
+    setParam('sort', value, null)
   }
   const [showEditModal, setShowEditModal] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
