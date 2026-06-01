@@ -3630,9 +3630,14 @@ export default function TeamYear() {
                 })
 
               return (
-                <Link
-                  to={`${pathPrefix}/game/${nextGame.id}`}
-                  className="group block stagger-reveal transition-opacity hover:opacity-90"
+                // Clickable card (not a <Link>) so the nested "previous meeting"
+                // <Link>s below remain valid — <a> can't contain <a>.
+                <div
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => navigate(`${pathPrefix}/game/${nextGame.id}`)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') navigate(`${pathPrefix}/game/${nextGame.id}`) }}
+                  className="group block stagger-reveal transition-opacity hover:opacity-90 cursor-pointer"
                   style={{ borderLeft: `3px solid ${teamInfo.backgroundColor}`, paddingLeft: '1rem' }}
                 >
                   {/* Section header */}
@@ -3720,7 +3725,7 @@ export default function TeamYear() {
                       </div>
                     </div>
                   )}
-                </Link>
+                </div>
               )
             })()}
           </div>
@@ -4200,9 +4205,12 @@ export default function TeamYear() {
       {activeTab === 'depthchart' && (
         <TeamOutlook tid={tid} guardRef={outlookGuardRef}
           focusPid={searchParams.get('player')}
-          focusSide={searchParams.get('side')}
+          side={searchParams.get('side') || 'offense'}
+          onSideChange={(s) => setSearchParams(prev => {
+            const p = new URLSearchParams(prev); p.set('side', s); return p
+          }, { replace: true })}
           onFocusConsumed={() => setSearchParams(prev => {
-            const p = new URLSearchParams(prev); p.delete('player'); p.delete('side'); return p
+            const p = new URLSearchParams(prev); p.delete('player'); return p
           }, { replace: true })}
         />
       )}

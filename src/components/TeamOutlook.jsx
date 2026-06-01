@@ -75,7 +75,7 @@ function stableStr(o) {
 }
 const samePlan = (a, b) => stableStr(canonPlan(a)) === stableStr(canonPlan(b))
 
-export default function TeamOutlook({ tid, guardRef, focusPid, focusSide, onFocusConsumed }) {
+export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, onSideChange, onFocusConsumed }) {
   const { id: dynastyId } = useParams()
   const navigate = useNavigate()
   const pathPrefix = usePathPrefix()
@@ -84,7 +84,10 @@ export default function TeamOutlook({ tid, guardRef, focusPid, focusSide, onFocu
   const currentYear = Number(currentDynasty?.currentYear)
 
   const VALID_SIDES = ['offense', 'defense', 'st']
-  const [side, setSide] = useState(VALID_SIDES.includes(focusSide) ? focusSide : 'offense')
+  // `side` is URL-driven (parent owns the ?side= param) so each side is its own
+  // route; setSide writes back up so the URL stays in sync.
+  const side = VALID_SIDES.includes(sideProp) ? sideProp : 'offense'
+  const setSide = (s) => onSideChange?.(s)
   const [year, setYear] = useState(currentYear)
   const [markMode, setMarkMode] = useState(false)
   const [highlightKey, setHighlightKey] = useState(null)
@@ -110,7 +113,6 @@ export default function TeamOutlook({ tid, guardRef, focusPid, focusSide, onFocu
 
   useEffect(() => {
     setYear(currentYear)
-    setSide(VALID_SIDES.includes(focusSide) ? focusSide : 'offense')
     setMarkMode(false)
     touchedRef.current = false
     setDraft(clonePlan(currentDynasty?.teamFuture?.[tid] || {}))
@@ -480,8 +482,8 @@ export default function TeamOutlook({ tid, guardRef, focusPid, focusSide, onFocu
       <DndContext sensors={sensors} collisionDetection={closestCorners}
         onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
 
-        <div className="overflow-x-auto no-scrollbar py-2">
-          <div className="mx-auto flex flex-col gap-6 w-fit">
+        <ScaleToFit className="py-2">
+          <div className="flex flex-col gap-6 w-fit">
             {board.tiers.map((tier, ti) => (
               <div key={ti} className="flex gap-3 justify-center items-start">
                 {tier.map(id => {
@@ -493,7 +495,7 @@ export default function TeamOutlook({ tid, guardRef, focusPid, focusSide, onFocu
               </div>
             ))}
           </div>
-        </div>
+        </ScaleToFit>
 
         {createPortal(
           <DragOverlay dropAnimation={null} style={activeWidth ? { width: activeWidth } : undefined}>
@@ -547,6 +549,54 @@ function SlotColumn({ slot, items, byKey, ...rest }) {
               : null)}
         </div>
       </SortableContext>
+    </div>
+  )
+}
+
+// ── Scale-to-fit: shrink the board uniformly so the whole formation fits the
+// available width (never overflows). Scales down only (max 1); re-measures on
+// resize and on content changes. The outer wrapper's height tracks the scaled
+// content so nothing below it gets a gap.
+function ScaleToFit({ children, className = '' }) {
+  const outerRef = useRef(null)
+  const innerRef = useRef(null)
+  const [scale, setScale] = useState(1)
+  const [innerH, setInnerH] = useState(null)
+
+  useLayoutEffect(() => {
+    const outer = outerRef.current, inner = innerRef.current
+    if (!outer || !inner) return
+    const measure = () => {
+      // The board's natural width can stretch its own ancestors (content-sized
+      // containers), so outer.clientWidth isn't trustworthy. Anchor instead to
+      // the real visible right edge: viewport width minus the outer's left
+      // offset, minus a small safety margin. This guarantees the scaled board
+      // never crosses the right side of the screen regardless of parent layout.
+      const rect = outer.getBoundingClientRect()
+      const viewportW = document.documentElement.clientWidth
+      const avail = Math.max(0, viewportW - rect.left - 8)
+      const natural = inner.scrollWidth
+      const s = natural > 0 ? Math.min(1, avail / natural) : 1
+      setScale(s)
+      setInnerH(inner.scrollHeight * s)
+    }
+    measure()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    ro?.observe(outer)
+    ro?.observe(inner)
+    window.addEventListener('resize', measure)
+    return () => { ro?.disconnect(); window.removeEventListener('resize', measure) }
+  })
+
+  // Left-anchored: the board starts at the outer's left edge and the transform
+  // scales from top-left, so the scaled right edge is exactly
+  // outer.left + natural*scale ≤ viewport − margin. Guaranteed on-screen.
+  return (
+    <div ref={outerRef} className={`w-full min-w-0 overflow-hidden ${className}`} style={{ height: innerH ?? undefined }}>
+      <div ref={innerRef} className="w-fit"
+        style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+        {children}
+      </div>
     </div>
   )
 }
