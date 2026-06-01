@@ -39,8 +39,8 @@ function devTraitGradient(trait, isStarter) {
   const c = DEV_TRAIT_COLORS[devTraitKey(trait)]
   if (!c) return undefined
   const rgb = hexRgb(c.bg)
-  const a = isStarter ? 0.30 : 0.16
-  return `linear-gradient(90deg, rgba(${rgb},${a}) 0%, rgba(${rgb},${a * 0.4}) 45%, rgba(${rgb},0) 100%)`
+  const a = isStarter ? 0.52 : 0.32
+  return `linear-gradient(90deg, rgba(${rgb},${a}) 0%, rgba(${rgb},${a * 0.6}) 60%, rgba(${rgb},${a * 0.12}) 100%)`
 }
 
 const findIn = (map, id) => (id in map ? id : Object.keys(map).find(c => map[c].includes(id)))
