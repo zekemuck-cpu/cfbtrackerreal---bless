@@ -1262,6 +1262,39 @@ export default function GameEdit() {
     return total
   }
 
+  // Keep the overtime row in sync REACTIVELY, not just while typing a quarter.
+  // handleQuarterChange only fires on a keystroke, so a game that's already
+  // tied after regulation when the editor loads (or whose tie is reached via a
+  // non-quarter path) never got an OT input and there was no way to add one.
+  // This effect guarantees: regulation complete + tied ⇒ a trailing empty OT
+  // row exists; tie later broken ⇒ a trailing all-empty OT row is removed.
+  useEffect(() => {
+    const q = formData.quarters
+    const regFilled =
+      q?.team1?.Q1 !== '' && q?.team1?.Q2 !== '' && q?.team1?.Q3 !== '' && q?.team1?.Q4 !== '' &&
+      q?.team2?.Q1 !== '' && q?.team2?.Q2 !== '' && q?.team2?.Q3 !== '' && q?.team2?.Q4 !== '' &&
+      q?.team1?.Q1 != null && q?.team1?.Q2 != null && q?.team1?.Q3 != null && q?.team1?.Q4 != null &&
+      q?.team2?.Q1 != null && q?.team2?.Q2 != null && q?.team2?.Q3 != null && q?.team2?.Q4 != null
+    if (!regFilled) return
+
+    const overtimes = formData.overtimes || []
+    const t1 = calculateTotalFromQuarters('team1', q, overtimes)
+    const t2 = calculateTotalFromQuarters('team2', q, overtimes)
+    const lastOT = overtimes[overtimes.length - 1]
+    const lastOTEmpty = !lastOT || (lastOT.team1 === '' && lastOT.team2 === '')
+
+    if (t1 === t2) {
+      // Currently tied — need a fresh empty OT row to break the tie.
+      if (!lastOT || !lastOTEmpty) {
+        setFormData(prev => ({ ...prev, overtimes: [...(prev.overtimes || []), { team1: '', team2: '' }] }))
+      }
+    } else if (lastOTEmpty && overtimes.length > 0) {
+      // No longer tied but a leftover blank OT row is hanging around — drop it.
+      setFormData(prev => ({ ...prev, overtimes: (prev.overtimes || []).slice(0, -1) }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.quarters, formData.overtimes])
+
   const handleQuarterChange = (teamKey, quarter, value) => {
     // Parse as integer to handle cases like "07" → "7"
     // Keep empty string as empty (for placeholder display)
