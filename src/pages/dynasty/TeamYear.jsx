@@ -550,12 +550,23 @@ export default function TeamYear() {
   // empty and we default to 'roster' so the user lands on something useful.
   // See `defaultTab` below the teamYearGames memo for the no-games case.
   const explicitTab = searchParams.get('tab')
-  const setActiveTab = (tab) => {
+  const applyTab = (tab) => {
     setSearchParams(prev => {
       const newParams = new URLSearchParams(prev)
       newParams.set('tab', tab)
       return newParams
     }, { replace: true })
+  }
+  // The Outlook tab registers an unsaved-changes guard here. When leaving the
+  // Outlook tab we await it; it resolves true to proceed (clean, or the user
+  // chose save/discard) or false to stay.
+  const outlookGuardRef = useRef(null)
+  const setActiveTab = async (tab) => {
+    if (activeTab === 'outlook' && tab !== 'outlook' && outlookGuardRef.current) {
+      const ok = await outlookGuardRef.current()
+      if (!ok) return
+    }
+    applyTab(tab)
   }
 
   // Roster tab state — persisted in URL so back-button preserves the
@@ -3058,8 +3069,8 @@ export default function TeamYear() {
           { key: 'home', label: 'Home' },
           { key: 'schedule', label: 'Schedule' },
           { key: 'stats', label: 'Stats' },
+          { key: 'outlook', label: 'Depth Chart' },
           { key: 'roster', label: 'Roster' },
-          { key: 'outlook', label: 'Outlook' },
           { key: 'recruiting', label: 'Recruiting' },
           ...(departures.length > 0 ? [{ key: 'departures', label: 'Departures' }] : []),
           { key: 'history', label: 'History' }
@@ -4184,7 +4195,13 @@ export default function TeamYear() {
 
       {/* OUTLOOK TAB */}
       {activeTab === 'outlook' && (
-        <TeamOutlook tid={tid} />
+        <TeamOutlook tid={tid} guardRef={outlookGuardRef}
+          focusPid={searchParams.get('player')}
+          focusSide={searchParams.get('side')}
+          onFocusConsumed={() => setSearchParams(prev => {
+            const p = new URLSearchParams(prev); p.delete('player'); p.delete('side'); return p
+          }, { replace: true })}
+        />
       )}
 
       {/* STATS TAB */}

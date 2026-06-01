@@ -60,6 +60,11 @@ export function ConfirmProvider({ children }) {
               <Button variant="ghost" onClick={() => close(false)}>
                 {state.cancelLabel || 'Cancel'}
               </Button>
+              {state.extraLabel && (
+                <Button variant="danger" onClick={() => close('extra')}>
+                  {state.extraLabel}
+                </Button>
+              )}
               <Button
                 variant={state.variant === 'danger' ? 'danger' : 'primary'}
                 onClick={() => close(true)}

@@ -26,9 +26,8 @@ describe('sideOfPosition', () => {
 })
 
 describe('formationFor', () => {
-  it('omits FB by default and includes it when enabled', () => {
-    expect(formationFor('offense').slots.some(s => s.id === 'FB')).toBe(false)
-    expect(formationFor('offense', true).slots.some(s => s.id === 'FB')).toBe(true)
+  it('includes FB in the offense formation', () => {
+    expect(formationFor('offense').slots.some(s => s.id === 'FB')).toBe(true)
   })
 })
 
@@ -40,13 +39,28 @@ describe('buildBoard — auto-seed', () => {
     expect(findSlot(board, 'C').starter.pid).toBe('c1')
   })
 
-  it('distributes WR across WR1/SLOT/WR2 by OVR', () => {
+  it('stacks all WRs in the single WR slot, ordered by OVR', () => {
     const board = buildBoard(
       [ret('a', 'WR', 90), ret('b', 'WR', 85), ret('c', 'WR', 80), ret('d', 'WR', 70)], 'offense')
-    expect(findSlot(board, 'WR1').starter.pid).toBe('a')
-    expect(findSlot(board, 'SLOTWR').starter.pid).toBe('b')
-    expect(findSlot(board, 'WR2').starter.pid).toBe('c')
-    expect(findSlot(board, 'WR1').tiles.map(t => t.pid)).toEqual(['a', 'd'])
+    expect(findSlot(board, 'WR').tiles.map(t => t.pid)).toEqual(['a', 'b', 'c', 'd'])
+    expect(findSlot(board, 'WR').starter.pid).toBe('a')
+  })
+
+  it('pins LEDG/REDG to their side and balances generic EDGE across the pair', () => {
+    const board = buildBoard([ret('l1', 'LEDG', 88), ret('r1', 'REDG', 84), ret('e1', 'EDGE', 80)], 'defense')
+    expect(findSlot(board, 'LEDG').starter.pid).toBe('l1')
+    expect(findSlot(board, 'REDG').starter.pid).toBe('r1')
+    // the generic edge back-fills the lighter side (both have 1; picks first → LEDG)
+    const onLeft = findSlot(board, 'LEDG').tiles.some(t => t.pid === 'e1')
+    const onRight = findSlot(board, 'REDG').tiles.some(t => t.pid === 'e1')
+    expect(onLeft || onRight).toBe(true)
+  })
+
+  it('pins SAM/WILL to their side', () => {
+    const board = buildBoard([ret('s1', 'SAM', 85), ret('w1', 'WILL', 80), ret('m1', 'MIKE', 82)], 'defense')
+    expect(findSlot(board, 'SAM').starter.pid).toBe('s1')
+    expect(findSlot(board, 'WILL').starter.pid).toBe('w1')
+    expect(findSlot(board, 'MIKE').starter.pid).toBe('m1')
   })
 
   it('flags an empty slot as a hole with grade F', () => {
@@ -61,23 +75,34 @@ describe('buildBoard — auto-seed', () => {
 
 describe('buildBoard — placements & cascade', () => {
   it('honors an explicit cross-position placement', () => {
-    // A safety the user slid to nickel.
+    // A safety the user slid to corner.
     const board = buildBoard([ret('s1', 'FS', 85), ret('cb1', 'CB', 80)], 'defense',
-      { placements: { 'pid:s1': 'NICKEL' } })
-    expect(findSlot(board, 'NICKEL').starter.pid).toBe('s1')
+      { placements: { 'pid:s1': 'CB' } })
+    // both stack at CB, ordered by OVR (s1 85 > cb1 80)
+    expect(findSlot(board, 'CB').tiles.map(t => t.pid)).toEqual(['s1', 'cb1'])
     expect(findSlot(board, 'FS').isHole).toBe(true)
   })
 
-  it('sends an unplaced incoming commit to the pen, not a slot', () => {
-    const board = buildBoard([inc('r1', 'WR', 74)], 'offense')
-    expect(board.pen.map(t => t.key)).toEqual(['inc:r1'])
-    expect(findSlot(board, 'WR1').isHole).toBe(true)
+  it('auto-seeds an incoming commit into its position column by projected OVR', () => {
+    // commit (74) stacks under the returning starter (82) at WR
+    const board = buildBoard([ret('w1', 'WR', 82), inc('r1', 'WR', 74)], 'offense')
+    expect(findSlot(board, 'WR').tiles.map(t => t.key)).toEqual(['pid:w1', 'inc:r1'])
   })
 
-  it('places an incoming commit once it has a placement (cascade by stable key)', () => {
-    const board = buildBoard([inc('r1', 'WR', 74)], 'offense', { placements: { 'inc:r1': 'WR2' } })
-    expect(board.pen).toHaveLength(0)
-    expect(findSlot(board, 'WR2').starter.key).toBe('inc:r1')
+  it('honors an explicit placement for an incoming commit (cascade by stable key)', () => {
+    const board = buildBoard([inc('r1', 'WR', 74)], 'offense', { placements: { 'inc:r1': 'TE' } })
+    expect(findSlot(board, 'TE').starter.key).toBe('inc:r1')
+    expect(findSlot(board, 'WR').isHole).toBe(true)
+  })
+
+  it('treats a reset sentinel ("" placement, [] order) as default (auto-seed by OVR)', () => {
+    // resetSide writes '' / [] instead of deleting keys (the local-state merge
+    // can\'t delete). buildBoard must read these as "no customization".
+    const board = buildBoard(
+      [ret('s1', 'FS', 85), ret('cb1', 'CB', 80)], 'defense',
+      { placements: { 'pid:s1': '' }, order: { CB: [] } })
+    expect(findSlot(board, 'FS').starter.pid).toBe('s1')   // back at natural FS
+    expect(findSlot(board, 'CB').starter.pid).toBe('cb1')
   })
 })
 
@@ -90,16 +115,12 @@ describe('buildBoard — within-slot order', () => {
   })
 })
 
-describe('buildBoard — special teams roles', () => {
-  it('auto-seeds K/P and fills KR/PR from stRoles (which may reference an offense player)', () => {
-    const players = [ret('k1', 'K', 80), ret('p1', 'P', 78), ret('wr1', 'WR', 90)]
-    const board = buildBoard(players, 'st', { stRoles: { KR: ['pid:wr1'], PR: ['pid:wr1'] } })
+describe('buildBoard — special teams', () => {
+  it('auto-seeds K and P into their columns', () => {
+    const board = buildBoard([ret('k1', 'K', 80), ret('p1', 'P', 78)], 'st')
     expect(findSlot(board, 'K').starter.pid).toBe('k1')
-    expect(findSlot(board, 'KR').starter.pid).toBe('wr1')
-    expect(findSlot(board, 'PR').starter.pid).toBe('wr1')
-    // KR/PR being empty does not count as a roster hole.
-    const board2 = buildBoard([ret('k1', 'K', 80), ret('p1', 'P', 78)], 'st')
-    expect(board2.summary.holes).toBe(0)
+    expect(findSlot(board, 'P').starter.pid).toBe('p1')
+    expect(board.summary.holes).toBe(0)
   })
 })
 

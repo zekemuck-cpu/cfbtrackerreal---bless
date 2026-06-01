@@ -18,13 +18,13 @@ import { finePositionGroup } from '../data/positionGroups'
 //             balanced across each other by OVR
 const s = (id, label, group, accepts, multi = false) => ({ id, label, group, accepts, multi })
 
+// One column per position group: every player in a group stacks vertically in
+// that group's single slot (depth ordered by OVR), like the paper sheet.
 const OFFENSE_SLOTS = [
   s('QB', 'QB', 'QB', ['QB']),
   s('HB', 'HB', 'RB', ['HB', 'RB']),
-  s('FB', 'FB', 'RB', ['FB']),            // optional — filtered out unless fbEnabled
-  s('WR1', 'WR', 'WR', ['WR'], true),
-  s('SLOTWR', 'SLOT', 'WR', ['WR'], true),
-  s('WR2', 'WR', 'WR', ['WR'], true),
+  s('FB', 'FB', 'RB', ['FB']),
+  s('WR', 'WR', 'WR', ['WR']),
   s('TE', 'TE', 'TE', ['TE']),
   s('LT', 'LT', 'OT', ['LT']),
   s('LG', 'LG', 'OG', ['LG']),
@@ -32,33 +32,44 @@ const OFFENSE_SLOTS = [
   s('RG', 'RG', 'OG', ['RG']),
   s('RT', 'RT', 'OT', ['RT']),
 ]
-const OFFENSE_ROWS = [['QB', 'HB', 'FB'], ['WR1', 'SLOTWR', 'WR2', 'TE'], ['LT', 'LG', 'C', 'RG', 'RT']]
+// Formation tiers — each tier is a centered row of position columns, stacked
+// top→bottom like a formation. Avoids the empty-column gaps a fixed grid leaves
+// for uneven groups.
+const OFFENSE_TIERS = [
+  ['LT', 'LG', 'C', 'RG', 'RT'],   // the line
+  ['WR', 'HB', 'QB', 'FB', 'TE'],  // skill players
+]
 
+// Edges and outside LBs are split L/R so the front mirrors a real formation:
+// LEDG · DT · REDG and SAM · MIKE · WILL. Side-specific codes (LEDG/LE, SAM…)
+// pin to their side via an exact accept-match; generic codes (EDGE/DE, OLB)
+// appear in BOTH paired slots' accepts, so they match two candidates and the
+// builder balances them across the pair by OVR.
 const DEFENSE_SLOTS = [
-  s('LEDG', 'LE', 'EDGE', ['LEDG', 'LE']),
-  s('DT1', 'DT', 'DT', ['DT'], true),
-  s('DT2', 'DT', 'DT', ['DT'], true),
-  s('REDG', 'RE', 'EDGE', ['REDG', 'RE']),
-  s('SAM', 'SAM', 'OLB', ['SAM']),
+  s('LEDG', 'LE', 'EDGE', ['LEDG', 'LE', 'EDGE', 'DE']),
+  s('REDG', 'RE', 'EDGE', ['REDG', 'RE', 'EDGE', 'DE']),
+  s('DT', 'DT', 'DT', ['DT', 'NT']),
+  s('SAM', 'SAM', 'OLB', ['SAM', 'OLB']),
+  s('WILL', 'WILL', 'OLB', ['WILL', 'OLB']),
   s('MIKE', 'MIKE', 'MIKE', ['MIKE']),
-  s('WILL', 'WILL', 'OLB', ['WILL']),
-  s('CB1', 'CB', 'CB', ['CB'], true),
-  s('NICKEL', 'SLOT', 'CB', ['CB'], true),
-  s('CB2', 'CB', 'CB', ['CB'], true),
+  s('CB', 'CB', 'CB', ['CB']),
   s('FS', 'FS', 'Safety', ['FS']),
   s('SS', 'SS', 'Safety', ['SS']),
 ]
-const DEFENSE_ROWS = [['LEDG', 'DT1', 'DT2', 'REDG'], ['SAM', 'MIKE', 'WILL'], ['CB1', 'NICKEL', 'CB2', 'FS', 'SS']]
+// Front seven on the line, the secondary (CB/FS/SS) in a second row beneath.
+const DEFENSE_TIERS = [
+  ['LEDG', 'DT', 'REDG', 'SAM', 'MIKE', 'WILL'],
+  ['CB', 'FS', 'SS'],
+]
 
-// KR/PR are roles (no auto-seed group) filled manually from stRoles.
 const ST_SLOTS = [
   s('K', 'K', 'K', ['K']),
   s('P', 'P', 'P', ['P']),
-  s('KR', 'KR', null, []),
-  s('PR', 'PR', null, []),
 ]
-const ST_ROWS = [['K', 'P', 'KR', 'PR']]
-export const ST_ROLE_SLOTS = ['KR', 'PR']
+const ST_TIERS = [['K', 'P']]
+// No picker-based role slots anymore (KR/PR removed). Kept exported (empty) so
+// existing references in the component degrade to no-ops without edits.
+export const ST_ROLE_SLOTS = []
 
 // Which fine position group belongs to which side of the ball.
 const SIDE_OF_GROUP = {
@@ -78,13 +89,11 @@ export const SIDE_OPTIONS = [
   { value: 'st', label: 'Special Teams' },
 ]
 
-// Returns { slots, rows } for a side. The FB slot is dropped unless enabled.
-export function formationFor(side, fbEnabled = false) {
-  if (side === 'defense') return { slots: DEFENSE_SLOTS, rows: DEFENSE_ROWS }
-  if (side === 'st') return { slots: ST_SLOTS, rows: ST_ROWS }
-  const slots = fbEnabled ? OFFENSE_SLOTS : OFFENSE_SLOTS.filter(sl => sl.id !== 'FB')
-  const rows = fbEnabled ? OFFENSE_ROWS : OFFENSE_ROWS.map(r => r.filter(id => id !== 'FB'))
-  return { slots, rows }
+// Returns { slots, tiers } for a side.
+export function formationFor(side) {
+  if (side === 'defense') return { slots: DEFENSE_SLOTS, tiers: DEFENSE_TIERS }
+  if (side === 'st') return { slots: ST_SLOTS, tiers: ST_TIERS }
+  return { slots: OFFENSE_SLOTS, tiers: OFFENSE_TIERS }
 }
 
 const byOvrDesc = (a, b) => (b.projectedOvr ?? -1) - (a.projectedOvr ?? -1)
@@ -117,17 +126,16 @@ function orderTiles(tiles, manualIds = []) {
  *                    slots can reference offense/defense players, so we keep them all.
  * @param side        'offense' | 'defense' | 'st'
  * @param opts        { placements, order, notes, stRoles, nflPids, fbEnabled, lastYear }
- * @returns { slots, rows, pen, summary }
+ * @returns { slots, tiers, summary }
  *   slots: [{ id, label, group, multi, tiles:[tile], starter, isHole, grade }]
- *   pen:   [tile]  (incoming commits for this side not yet placed)
  *   tile:  projected entry + { note, isNfl, portalRisk }
  */
 export function buildBoard(allPlayers, side, opts = {}) {
   const {
     placements = {}, order = {}, notes = {}, stRoles = {},
-    nflPids = new Set(), fbEnabled = false, lastYear = null,
+    nflPids = new Set(), lastYear = null,
   } = opts
-  const { slots, rows } = formationFor(side, fbEnabled)
+  const { slots, tiers } = formationFor(side)
   const slotIds = new Set(slots.map(sl => sl.id))
 
   const byKey = new Map((allPlayers || []).map(p => [p.key, p]))
@@ -140,12 +148,11 @@ export function buildBoard(allPlayers, side, opts = {}) {
 
   const bySlot = {}
   for (const sl of slots) bySlot[sl.id] = []
-  const pen = []
 
   if (side === 'st') {
     // K / P auto-seed by position; KR / PR come only from stRoles (any player).
     const sidePlayers = (allPlayers || []).filter(p => sideOfPosition(p.position) === 'st')
-    seedSide(sidePlayers, slots, slotIds, placements, bySlot, pen, decorate)
+    seedSide(sidePlayers, slots, slotIds, placements, bySlot, decorate)
     for (const roleId of ST_ROLE_SLOTS) {
       const ids = stRoles[roleId] || []
       for (const id of ids) {
@@ -155,7 +162,7 @@ export function buildBoard(allPlayers, side, opts = {}) {
     }
   } else {
     const sidePlayers = (allPlayers || []).filter(p => sideOfPosition(p.position) === side)
-    seedSide(sidePlayers, slots, slotIds, placements, bySlot, pen, decorate)
+    seedSide(sidePlayers, slots, slotIds, placements, bySlot, decorate)
   }
 
   // Order + summarize.
@@ -180,26 +187,23 @@ export function buildBoard(allPlayers, side, opts = {}) {
   const unitOvr = starterOvrs.length
     ? Math.round(starterOvrs.reduce((a, b) => a + b, 0) / starterOvrs.length)
     : null
-  const penSorted = pen.sort((a, b) => (b.stars ?? 0) - (a.stars ?? 0) || byOvrDesc(a, b))
 
   return {
     slots: outSlots,
-    rows,
-    pen: penSorted,
-    summary: { unitOvr, holes, toPlace: penSorted.length },
+    tiers,
+    summary: { unitOvr, holes },
   }
 }
 
-// Place a side's players into bySlot / pen (mutates). Placed (explicit) first,
-// then auto-seed established singles, then distribute multi-slot established;
-// unplaced incoming go to the pen.
-function seedSide(sidePlayers, slots, slotIds, placements, bySlot, pen, decorate) {
+// Place a side's players into bySlot (mutates). Explicit placements first, then
+// auto-seed singles, then distribute multi-slot players. Incoming commits seed
+// by their star-implied projected OVR exactly like returning players — no pen.
+function seedSide(sidePlayers, slots, slotIds, placements, bySlot, decorate) {
   const auto = []
   for (const p of sidePlayers) {
     const placed = placements[p.key]
     if (placed && slotIds.has(placed)) { bySlot[placed].push(decorate(p)); continue }
-    if (p.isIncoming) { pen.push(decorate(p)); continue }   // unplaced commit → pen
-    auto.push(p)                                            // established → auto-seed
+    auto.push(p)
   }
   const withCands = auto
     .map(p => ({ p, cands: candidateSlotIds(slots, p.position) }))

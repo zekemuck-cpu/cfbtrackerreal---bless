@@ -15,6 +15,7 @@ import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamLogo, getTeamLogoByTid, getMascotName as getMascotNameFromTeams, getSchoolName as getSchoolNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
+import { sideOfPosition } from '../../utils/outlookBoard'
 import { getTeamColors } from '../../data/teamColors'
 import OverallProgressionModal from '../../components/OverallProgressionModal'
 import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
@@ -1733,7 +1734,7 @@ function PlayerInner() {
           {/* Team and Class */}
           <div className="flex items-center justify-between">
             <Link
-              to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}?tab=roster`}
+              to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}?tab=outlook&player=${pid}&side=${sideOfPosition(player.position) || 'offense'}`}
               className="inline-flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider hover:underline text-txt-primary"
               style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.2px' }}
             >
@@ -1957,7 +1958,7 @@ function PlayerInner() {
 
               <div className="flex items-center gap-2 mb-2">
                 <Link
-                  to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}?tab=roster`}
+                  to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}?tab=outlook&player=${pid}&side=${sideOfPosition(player.position) || 'offense'}`}
                   className="inline-flex items-center gap-2 text-base font-bold uppercase tracking-wider hover:underline text-txt-secondary"
                   style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}
                 >
