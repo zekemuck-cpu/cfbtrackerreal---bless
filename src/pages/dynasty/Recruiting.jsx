@@ -9,6 +9,8 @@ import { getTeamLogoByTid, stripMascotFromName } from '../../data/teams'
 import { PageHero, Card, Badge, Button, Select, EmptyState, TeamLogo } from '../../components/ui'
 import Modal from '../../components/ui/Modal'
 import { calculateRecruitingClassScore, formatRecruitingClassScore, flattenClassCommitments } from '../../utils/recruitingScore'
+import { sideOfPosition } from '../../utils/outlookBoard'
+import { finePositionGroup } from '../../data/positionGroups'
 import TeamPermissionBanner from '../../components/TeamPermissionBanner'
 
 const stateFullNames = {
@@ -45,6 +47,43 @@ const RECRUIT_POSITION_ORDER = [
   'CB', 'FS', 'SS', 'S', 'DB',
   'K', 'P', 'LS', 'ATH',
 ]
+
+// Position filter — side groupings (offense/defense/special) plus the finer
+// position groups. matchPos(filterValue, recruitPosition) decides inclusion.
+const POSITION_FILTER_OPTIONS = [
+  { value: 'all', label: 'All Positions' },
+  { value: 'offense', label: 'Offense' },
+  { value: 'defense', label: 'Defense' },
+  { value: 'st', label: 'Special Teams' },
+  { value: 'QB', label: 'QB' },
+  { value: 'RB', label: 'RB' },
+  { value: 'WR', label: 'WR' },
+  { value: 'TE', label: 'TE' },
+  { value: 'OL', label: 'OL' },
+  { value: 'EDGE', label: 'EDGE' },
+  { value: 'DT', label: 'DT' },
+  { value: 'LB', label: 'LB' },
+  { value: 'DB', label: 'DB' },
+  { value: 'K/P', label: 'K/P' },
+]
+// Map a recruit position to the coarse group used by the position dropdown.
+const OL_GROUPS = new Set(['OT', 'OG', 'C'])
+const LB_GROUPS = new Set(['OLB', 'MIKE'])
+const DB_GROUPS = new Set(['CB', 'Safety'])
+function matchesPositionFilter(filter, position) {
+  if (filter === 'all') return true
+  // ATH (athlete) has no fixed side — surface them under BOTH Offense and Defense.
+  const isAth = (position || '').toUpperCase() === 'ATH'
+  const side = sideOfPosition(position)
+  if (filter === 'offense' || filter === 'defense') return side === filter || isAth
+  if (filter === 'st') return side === filter
+  const g = finePositionGroup(position)
+  if (filter === 'OL') return OL_GROUPS.has(g)
+  if (filter === 'LB') return LB_GROUPS.has(g)
+  if (filter === 'DB') return DB_GROUPS.has(g)
+  if (filter === 'K/P') return g === 'K' || g === 'P'
+  return g === filter
+}
 
 const StarRating = ({ stars, size = 'md' }) => {
   const starCount = Number(stars) || 0
@@ -83,6 +122,7 @@ export default function Recruiting() {
     return 'both'
   })
   const [selectedStars, setSelectedStars] = useState([])
+  const [positionFilter, setPositionFilter] = useState('all')
   // Recruit sort: 'rank' (national rank, default) | 'position' | 'dev'.
   // Persisted to the device so the chosen sort sticks across visits
   // (Ezekiel wanted it to stay on Dev Trait).
@@ -666,6 +706,10 @@ export default function Recruiting() {
       filtered = filtered.filter(c => selectedStars.includes(Number(c.stars)))
     }
 
+    if (positionFilter !== 'all') {
+      filtered = filtered.filter(c => matchesPositionFilter(positionFilter, c.position))
+    }
+
     // Sort by the chosen key. 'rank' mirrors the base order (national
     // rank, then stars). 'position' groups by football order; 'dev' puts
     // the best dev traits first. All fall back to rank within ties.
@@ -696,7 +740,7 @@ export default function Recruiting() {
       sorted.sort(byRank)
     }
     return sorted
-  }, [allCommitmentsUnfiltered, viewMode, selectedStars, sortBy])
+  }, [allCommitmentsUnfiltered, viewMode, selectedStars, positionFilter, sortBy])
 
   const classStats = useMemo(() => {
     // Single pass over allCommitmentsUnfiltered. Was five separate
@@ -926,6 +970,21 @@ export default function Recruiting() {
               <option value="3">3 ★ ({classStats.threeStars})</option>
               <option value="2">2 ★ ({classStats.twoStars})</option>
               <option value="1">1 ★ ({classStats.oneStars})</option>
+            </Select>
+          </div>
+
+          {/* Position filter — Offense/Defense/Special Teams plus finer groups. */}
+          <div className="flex items-center gap-1.5 px-3 sm:px-4 py-3 flex-shrink-0">
+            <span className="label-xs text-txt-tertiary hidden sm:inline" style={{ letterSpacing: '1.5px' }}>Pos</span>
+            <Select
+              size="sm"
+              value={positionFilter}
+              onChange={(e) => setPositionFilter(e.target.value)}
+              aria-label="Filter by position"
+            >
+              {POSITION_FILTER_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
             </Select>
           </div>
 
