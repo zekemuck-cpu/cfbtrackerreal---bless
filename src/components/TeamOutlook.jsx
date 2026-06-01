@@ -480,7 +480,7 @@ export default function TeamOutlook({ tid, guardRef, focusPid, focusSide, onFocu
       <DndContext sensors={sensors} collisionDetection={closestCorners}
         onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
 
-        <div className="overflow-x-auto no-scrollbar rounded-xl border border-surface-4 bg-surface-2/30 p-4 sm:p-6">
+        <div className="overflow-x-auto no-scrollbar py-2">
           <div className="mx-auto flex flex-col gap-6 w-fit">
             {board.tiers.map((tier, ti) => (
               <div key={ti} className="flex gap-3 justify-center items-start">

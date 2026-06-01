@@ -549,7 +549,10 @@ export default function TeamYear() {
   // games recorded for this team/year yet, in which case the Home tab is
   // empty and we default to 'roster' so the user lands on something useful.
   // See `defaultTab` below the teamYearGames memo for the no-games case.
-  const explicitTab = searchParams.get('tab')
+  // 'outlook' was the old key for the Depth Chart tab; keep accepting it so
+  // existing links/bookmarks still resolve.
+  const rawTab = searchParams.get('tab')
+  const explicitTab = rawTab === 'outlook' ? 'depthchart' : rawTab
   const applyTab = (tab) => {
     setSearchParams(prev => {
       const newParams = new URLSearchParams(prev)
@@ -562,7 +565,7 @@ export default function TeamYear() {
   // chose save/discard) or false to stay.
   const outlookGuardRef = useRef(null)
   const setActiveTab = async (tab) => {
-    if (activeTab === 'outlook' && tab !== 'outlook' && outlookGuardRef.current) {
+    if (activeTab === 'depthchart' && tab !== 'depthchart' && outlookGuardRef.current) {
       const ok = await outlookGuardRef.current()
       if (!ok) return
     }
@@ -3069,7 +3072,7 @@ export default function TeamYear() {
           { key: 'home', label: 'Home' },
           { key: 'schedule', label: 'Schedule' },
           { key: 'stats', label: 'Stats' },
-          { key: 'outlook', label: 'Depth Chart' },
+          { key: 'depthchart', label: 'Depth Chart' },
           { key: 'roster', label: 'Roster' },
           { key: 'recruiting', label: 'Recruiting' },
           ...(departures.length > 0 ? [{ key: 'departures', label: 'Departures' }] : []),
@@ -4193,8 +4196,8 @@ export default function TeamYear() {
       </div>
       )}
 
-      {/* OUTLOOK TAB */}
-      {activeTab === 'outlook' && (
+      {/* DEPTH CHART TAB */}
+      {activeTab === 'depthchart' && (
         <TeamOutlook tid={tid} guardRef={outlookGuardRef}
           focusPid={searchParams.get('player')}
           focusSide={searchParams.get('side')}
