@@ -1689,6 +1689,20 @@ export default function TeamYear() {
     isPlayerOnRoster(p, tid, selectedYear)
   )
 
+  // Placeholder images: imported rosters often set every player's pictureUrl to
+  // the team logo. A real photo is unique, so any image shared by 3+ players is
+  // treated as a placeholder and the avatar falls back to the team logo instead
+  // of showing a stale per-player logo copy.
+  const placeholderImages = useMemo(() => {
+    const counts = new Map()
+    for (const p of teamPlayers) {
+      const u = p.pictureUrl
+      if (u) counts.set(u, (counts.get(u) || 0) + 1)
+    }
+    return new Set([...counts].filter(([, n]) => n >= 3).map(([u]) => u))
+  }, [teamPlayers])
+  const realPhoto = (url) => (url && !placeholderImages.has(url) ? url : null)
+
   // ─── Departures: players who actually left the team after
   // `selectedYear`. We require POSITIVE evidence — earlier this just
   // looked at "on team in Y but not Y+1", which over-reported for the
@@ -3369,11 +3383,11 @@ export default function TeamYear() {
                       style={idx > 0 ? { borderLeft: `1px solid ${accentColor}15` } : undefined}
                     >
                       <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ border: `2px solid ${teamInfo.backgroundColor}40`, backgroundColor: `${accentColor}10` }}>
-                        {/* Real player photo first; else the team logo (rendered
-                            raw — the proxy can choke on user-uploaded logo URLs);
-                            else the player's initial. */}
-                        {l.data.player?.pictureUrl ? (
-                          <img src={proxyImageUrl(l.data.player.pictureUrl, 300)} alt="" className="w-full h-full object-cover" />
+                        {/* Real player photo first (placeholder team-logo copies
+                            ignored); else the team logo (rendered raw — the proxy
+                            can choke on user-uploaded logo URLs); else initial. */}
+                        {realPhoto(l.data.player?.pictureUrl) ? (
+                          <img src={proxyImageUrl(realPhoto(l.data.player.pictureUrl), 300)} alt="" className="w-full h-full object-cover" />
                         ) : teamLogo ? (
                           <img src={teamLogo} alt="" className="w-full h-full object-contain p-1.5" />
                         ) : (
@@ -3436,9 +3450,9 @@ export default function TeamYear() {
                           className="group flex items-center gap-3 py-2.5 px-2 transition-colors hover:bg-white/[0.02]"
                         >
                           <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ border: `2px solid ${teamInfo.backgroundColor}40`, backgroundColor: `${accentColor}10` }}>
-                            {/* Real player photo first; else team logo (raw); else initial. */}
-                            {p.pictureUrl ? (
-                              <img src={proxyImageUrl(p.pictureUrl, 300)} alt="" className="w-full h-full object-cover" />
+                            {/* Real photo first (placeholder logo copies ignored); else team logo (raw); else initial. */}
+                            {realPhoto(p.pictureUrl) ? (
+                              <img src={proxyImageUrl(realPhoto(p.pictureUrl), 300)} alt="" className="w-full h-full object-cover" />
                             ) : teamLogo ? (
                               <img src={teamLogo} alt="" className="w-full h-full object-contain p-1" />
                             ) : (

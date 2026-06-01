@@ -13,6 +13,7 @@ import { Card, Badge, Select, EmptyState, Tabs, useConfirm } from './ui'
 import { proxyImageUrl } from '../utils/imageProxy'
 import { projectRoster, projectDepartures, projectNflCandidates } from '../utils/rosterProjection'
 import { buildBoard, SIDE_OPTIONS, ST_ROLE_SLOTS, sideOfPosition } from '../utils/outlookBoard'
+import { getTeamLogoByTid } from '../data/teams'
 
 const EMPTY_ARR = []
 const EMPTY_OBJ = {}
@@ -167,6 +168,19 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
     return projectRoster(currentDynasty, tid, year, { leaveFlags: leaveSet })
   }, [currentDynasty, tid, year, leaveSet])
 
+  // Placeholder images: a real player photo is unique, but imported rosters
+  // often set every player's pictureUrl to the team logo. Any image shared by
+  // 3+ players is treated as a placeholder so the tile falls back to the
+  // (canonical) team logo instead of showing a stale per-player logo copy.
+  const placeholderImages = useMemo(() => {
+    const counts = new Map()
+    for (const p of players) {
+      const u = p.player?.pictureUrl
+      if (u) counts.set(u, (counts.get(u) || 0) + 1)
+    }
+    return new Set([...counts].filter(([, n]) => n >= 3).map(([u]) => u))
+  }, [players])
+
   const nflPids = useMemo(() => {
     if (!isFuture) return new Set()
     return new Set(projectNflCandidates(currentDynasty, tid, year, { leaveFlags: leaveSet, nflDismissFlags: nflDismissSet }).map(c => c.pid))
@@ -182,7 +196,9 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
     [currentDynasty, tid, year, isFuture, leaveSet],
   )
 
-  const teamLogo = currentDynasty?.teams?.[tid]?.logo || null
+  // Canonical resolver (dynasty.teams[tid].logo -> static default), so an empty
+  // stored logo still resolves to the registry default instead of nothing.
+  const teamLogo = getTeamLogoByTid(tid, currentDynasty?.teams)
 
   // Deep-link focus: arrive from a player page with ?player=<pid>&side=<side>.
   // The side is already applied from the URL; once that player's tile is in the
@@ -482,7 +498,7 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
 
   const tileActions = {
     canEdit, teamLogo, leaveSet, markMode, highlightKey,
-    onTileClick,
+    onTileClick, placeholderImages,
   }
 
   return (
@@ -557,7 +573,7 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
               // width; render the tile at its layout width (÷ zoom) then re-apply
               // zoom so the floating tile matches the on-board tile exactly.
               ? <div style={{ width: activeWidth ? activeWidth / boardZoom : undefined, zoom: boardZoom }}>
-                  <TileView tile={byKey[activeId]} dragging teamLogo={teamLogo} />
+                  <TileView tile={byKey[activeId]} dragging teamLogo={teamLogo} placeholderImages={placeholderImages} />
                 </div>
               : null}
           </DragOverlay>,
@@ -680,7 +696,7 @@ function ShrinkToFit({ children, className = '', onZoom }) {
 }
 
 // ── Sortable wrapper around a tile ────────────────────────────────────────────
-function SortableTile({ tile, isStarter, canEdit, teamLogo, leaveSet, markMode, highlightKey, onTileClick }) {
+function SortableTile({ tile, isStarter, canEdit, teamLogo, leaveSet, markMode, highlightKey, onTileClick, placeholderImages }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tile.key, disabled: !canEdit })
   // touchAction:'none' lets the TouchSensor long-press own the gesture once it
   // activates; without it the browser keeps scrolling and the tile never moves.
@@ -693,7 +709,7 @@ function SortableTile({ tile, isStarter, canEdit, teamLogo, leaveSet, markMode, 
       className={highlighted ? 'rounded-md ring-2 ring-[color:var(--accent-info)] ring-offset-2 ring-offset-surface-1 transition-shadow' : ''}
       onClick={(e) => { e.stopPropagation(); onTileClick?.(tile) }}>
       <TileView tile={tile} isStarter={isStarter} grab={canEdit}
-        teamLogo={teamLogo} leaving={leaving} markMode={markMode} />
+        teamLogo={teamLogo} leaving={leaving} markMode={markMode} placeholderImages={placeholderImages} />
     </div>
   )
 }
@@ -706,7 +722,11 @@ function ovrColor(ovr) {
   return 'var(--text-tertiary)'
 }
 
-function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode }) {
+function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode, placeholderImages }) {
+  // Ignore a pictureUrl that's actually a shared team-logo placeholder so the
+  // avatar falls back to the canonical team logo (real photos are unique).
+  const rawPhoto = tile.player?.pictureUrl
+  const photoUrl = rawPhoto && !placeholderImages?.has(rawPhoto) ? rawPhoto : null
   const tint = leaving ? undefined : devTraitGradient(tile.devTrait)
   const cursor = grab ? (markMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing') : 'cursor-pointer'
   const marker = leaving ? 'OUT' : tile.isNfl ? 'NFL' : tile.portalRisk ? '↗' : null
@@ -720,7 +740,7 @@ function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode
         <div className="min-w-0"><PlayerName name={tile.name} strike={leaving} /></div>
         {/* Row 2: avatar · #jersey · class · OVR · marker (position removed). */}
         <div className="flex items-center gap-1 mt-1 text-[10px] text-txt-tertiary min-w-0">
-          <Avatar url={tile.player?.pictureUrl} fallback={teamLogo} />
+          <Avatar url={photoUrl} fallback={teamLogo} />
           {tile.jerseyNumber != null && tile.jerseyNumber !== '' && (
             <span className="font-bold tabular-nums text-txt-secondary">#{tile.jerseyNumber}</span>
           )}
