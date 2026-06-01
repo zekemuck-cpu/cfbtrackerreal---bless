@@ -75,6 +75,19 @@ function stableStr(o) {
 }
 const samePlan = (a, b) => stableStr(canonPlan(a)) === stableStr(canonPlan(b))
 
+// Two container maps ({ slotId: [tileKey…] }) are equal iff every slot holds the
+// same tile keys in the same order. Used to detect a no-op drag.
+function sameContainers(a, b) {
+  const ka = Object.keys(a), kb = Object.keys(b)
+  if (ka.length !== kb.length) return false
+  for (const slot of ka) {
+    const x = a[slot] || [], y = b[slot] || []
+    if (x.length !== y.length) return false
+    for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return false
+  }
+  return true
+}
+
 export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, onSideChange, onFocusConsumed }) {
   const { id: dynastyId } = useParams()
   const navigate = useNavigate()
@@ -211,6 +224,7 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
   const [containers, setContainers] = useState(() => deriveContainers(board))
   const [activeId, setActiveId] = useState(null)
   const [activeWidth, setActiveWidth] = useState(null)
+  const [boardZoom, setBoardZoom] = useState(1) // mirror of ShrinkToFit zoom, for the portaled drag overlay
   const containersRef = useRef(containers)
   useEffect(() => { containersRef.current = containers }, [containers])
   // Resync local arrangement ONLY when the projected board actually changes
@@ -269,9 +283,10 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
   const discard = () => { touchedRef.current = false; setDraft(clonePlan(persisted)) }
 
   // Persist the full arrangement of the CURRENT side; merge with other sides'
-  // existing placements so switching sides never wipes the other.
-  const persistArrangement = (map) => {
-    if (!canEdit) return
+  // existing placements so switching sides never wipes the other. Returns the
+  // next plan WITHOUT marking touched — the caller decides whether it actually
+  // changed (a no-op drag shouldn't dirty the board / light up Save).
+  const arrangementPlan = (map) => {
     const sideKeys = Object.values(map).flat()
     const np = { ...placements }
     for (const k of sideKeys) delete np[k]
@@ -280,7 +295,7 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
       for (const k of keys) np[k] = cid
       no[cid] = keys
     }
-    save({ placements: np, order: no })
+    return { ...draft, placements: np, order: no }
   }
 
   const onDragStart = ({ active }) => {
@@ -310,7 +325,7 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
   const onDragEnd = ({ active, over }) => {
     const prev = containersRef.current
     const a = findIn(prev, active.id)
-    if (!a) { setActiveId(null); return }
+    if (!a) { setActiveId(null); setActiveWidth(null); return }
     let next = prev
     const o = over ? findIn(prev, over.id) : a
     if (o && a === o) {
@@ -320,10 +335,34 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
       const newIndex = (!over || overIsContainer) ? items.length - 1 : items.indexOf(over.id)
       if (oldIndex !== newIndex && newIndex >= 0) next = { ...prev, [a]: arrayMove(items, oldIndex, newIndex) }
     }
-    setContainers(next)
-    persistArrangement(next)
     setActiveId(null)
     setActiveWidth(null)
+
+    setContainers(next)
+
+    // Only dirty the draft if this side's arrangement actually differs from what
+    // the SAVED plan renders — so a no-op drag (drop in the same spot) doesn't
+    // light up Save. A real change writes explicit placements; a no-op leaves the
+    // draft's placements for this side cleared (matching saved/auto-seed).
+    const savedContainers = deriveContainers(buildBoard(players, side, {
+      placements: persisted.placements || EMPTY_OBJ, order: persisted.order || EMPTY_OBJ,
+      notes: persisted.notes || EMPTY_OBJ, stRoles: persisted.stRoles || EMPTY_OBJ,
+      nflPids, lastYear: currentYear,
+    }))
+    const plan = arrangementPlan(next)
+    if (sameContainers(next, savedContainers)) {
+      // Matches saved → strip this side's placements/order back to saved's so the
+      // draft stays canonically equal (no spurious dirty), preserving other sides.
+      const sideSlots = new Set(Object.keys(next))
+      const np = { ...plan.placements }
+      for (const k of Object.keys(np)) { if (sideSlots.has(np[k])) np[k] = (persisted.placements || EMPTY_OBJ)[k] ?? '' }
+      const no = { ...plan.order }
+      for (const sid of sideSlots) no[sid] = (persisted.order || EMPTY_OBJ)[sid] ?? []
+      setDraft({ ...plan, placements: np, order: no })
+    } else {
+      setDraft(plan)
+      touchedRef.current = true
+    }
   }
 
   // ── Per-tile actions ────────────────────────────────────────────────────────
@@ -482,26 +521,33 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
       <DndContext sensors={sensors} collisionDetection={closestCorners}
         onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
 
-        <div className="py-2 space-y-6">
-          {board.tiers.map((tier, ti) => (
-            // Columns flex to fill the row width (font stays fixed, so the extra
-            // width becomes name room), capped so a 2-column row doesn't make
-            // giant tiles. Wraps on very narrow screens.
-            <div key={ti} className="flex flex-wrap gap-3 justify-center items-start">
-              {tier.map(id => {
-                const slot = board.slots.find(s => s.id === id)
-                if (!slot) return null
-                return <SlotColumn key={id} slot={slot} items={containers[id] || EMPTY_ARR}
-                  byKey={byKey} activeId={activeId} {...tileActions} />
-              })}
-            </div>
-          ))}
-        </div>
+        <ShrinkToFit className="py-2" onZoom={setBoardZoom}>
+          <div className="space-y-6 w-fit">
+            {board.tiers.map((tier, ti) => (
+              // Fixed-width columns ⇒ the board has a stable natural size.
+              // ShrinkToFit scales the whole thing down uniformly to fit narrow
+              // screens — identical layout to desktop, just smaller.
+              <div key={ti} className="flex flex-nowrap gap-3 justify-center items-start">
+                {tier.map(id => {
+                  const slot = board.slots.find(s => s.id === id)
+                  if (!slot) return null
+                  return <SlotColumn key={id} slot={slot} items={containers[id] || EMPTY_ARR}
+                    byKey={byKey} activeId={activeId} {...tileActions} />
+                })}
+              </div>
+            ))}
+          </div>
+        </ShrinkToFit>
 
         {createPortal(
-          <DragOverlay dropAnimation={null} style={activeWidth ? { width: activeWidth } : undefined}>
+          <DragOverlay dropAnimation={null}>
             {activeId && byKey[activeId]
-              ? <TileView tile={byKey[activeId]} dragging teamLogo={teamLogo} />
+              // activeWidth (getBoundingClientRect) is the already-zoomed visual
+              // width; render the tile at its layout width (÷ zoom) then re-apply
+              // zoom so the floating tile matches the on-board tile exactly.
+              ? <div style={{ width: activeWidth ? activeWidth / boardZoom : undefined, zoom: boardZoom }}>
+                  <TileView tile={byKey[activeId]} dragging teamLogo={teamLogo} />
+                </div>
               : null}
           </DragOverlay>,
           document.body,
@@ -531,7 +577,7 @@ function SlotColumn({ slot, items, byKey, ...rest }) {
   const { setNodeRef, isOver } = useDroppable({ id: slot.id })
   const hole = slot.isHole
   return (
-    <div className="flex-1 basis-[9.5rem] min-w-[8.5rem] max-w-[16rem] flex flex-col">
+    <div className="w-[10.5rem] shrink-0 flex flex-col">
       {/* position header */}
       <div className="flex items-center justify-between gap-1 px-1 mb-1.5">
         <span className="font-bold text-txt-primary text-xs uppercase tracking-wider">{slot.label}</span>
@@ -550,6 +596,59 @@ function SlotColumn({ slot, items, byKey, ...rest }) {
               : null)}
         </div>
       </SortableContext>
+    </div>
+  )
+}
+
+// ── Shrink-to-fit: the board fills its container width (flex columns expand,
+// names show). On screens too narrow to fit even at the columns' min width, it
+// scales the whole board DOWN uniformly (≤1, so text never zooms up) so the
+// formation still fits — the mobile behavior. Container height tracks the
+// scaled content so nothing below it gets a gap.
+function ShrinkToFit({ children, className = '', onZoom }) {
+  const outerRef = useRef(null)
+  const innerRef = useRef(null)
+  const [zoom, setZoom] = useState(1)
+  const zoomRef = useRef(1)  // the zoom actually applied to the current render
+  const onZoomRef = useRef(onZoom)
+  onZoomRef.current = onZoom
+
+  useLayoutEffect(() => {
+    const outer = outerRef.current, inner = innerRef.current
+    if (!outer || !inner) return
+    const measure = () => {
+      const rect = outer.getBoundingClientRect()
+      const viewportW = document.documentElement.clientWidth
+      const avail = Math.max(0, viewportW - rect.left - 16)
+      // getBoundingClientRect returns the ZOOMED width, so divide by the zoom
+      // that's actually applied (ref, not stale closure) to recover the natural
+      // width. Using closure `zoom` here would create a shrink feedback loop.
+      const applied = zoomRef.current || 1
+      const natural = inner.getBoundingClientRect().width / applied
+      // Shrink ONLY (≤1). CSS `zoom` (not transform:scale) reflows the layout at
+      // the smaller size so pointer coords/element rects stay consistent and
+      // dnd-kit drag works identically to desktop. transform:scale breaks that.
+      const next = natural > avail && natural > 0 ? (avail / natural) * 0.99 : 1
+      // Only update past a small epsilon so subpixel jitter can't cause flicker.
+      if (Math.abs(next - zoomRef.current) > 0.005) {
+        zoomRef.current = next
+        setZoom(next)
+        onZoomRef.current?.(next)
+      }
+    }
+    measure()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    ro?.observe(outer)
+    window.addEventListener('resize', measure)
+    return () => { ro?.disconnect(); window.removeEventListener('resize', measure) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return (
+    <div ref={outerRef} className={`w-full min-w-0 ${className}`}>
+      <div ref={innerRef} className="w-fit mx-auto" style={{ zoom }}>
+        {children}
+      </div>
     </div>
   )
 }
