@@ -64,12 +64,12 @@ export default function RecruitingCommitmentsModal({
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Recruiting Commitments — ${recruitingLabel || ''}`.trim(),
     structure: `This sheet has ONE tab: "Commitments".
-The header row (row 1) is pre-filled and PROTECTED. Data rows start at row 2. You will output one row per recruit visible in the screenshots (up to 35 recruits — max scholarships per class).
+The header row (row 1) is pre-filled and PROTECTED. Commitments already entered occupy the rows above the paste point. Output ONLY the NEW commitments visible in the screenshots attached to THIS request — one row per new recruit (up to 35 total per class). Do NOT re-output commitments that are already in the sheet or from a prior week; the user pastes your rows BELOW the ones already entered.
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
-1. Output ONLY the data rows (row 2 onward). NEVER output the header row.
+1. Output ONLY the data rows for the NEW recruits in this request. NEVER output the header row, and never re-output commitments already entered in the sheet.
 2. Output ALL 15 columns per row, tab-separated, in the exact order A→O below.
 3. One row per recruit. Do not reorder rows arbitrarily; keep the same order as the screenshots.
 4. NO COMMAS in numbers. Output "1234" — never "1,234".
@@ -82,7 +82,7 @@ CRITICAL RULES — read before anything else
 
 ═══════════════════════════════════════════════════════════
 TAB: "Commitments" — up to 35 rows × 15 columns
-Paste at cell A2 of the "Commitments" tab
+Paste at cell A${(existingCommitments?.length || 0) + 2} of the "Commitments" tab — the first empty row, just below the ${existingCommitments?.length || 0} commitment(s) already entered. If your sheet has a different number of rows filled, paste at the first empty row in column A instead.
 ═══════════════════════════════════════════════════════════
 
 Row | Col | Header (protected)  | Your value                                                                            | Format
@@ -154,7 +154,7 @@ Column O — Prev Team: use ONLY abbreviations from the team mapping appended be
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
-=== COMMITMENTS — paste at cell A2 of "Commitments" tab ===
+=== COMMITMENTS — paste at cell A${(existingCommitments?.length || 0) + 2} of "Commitments" tab ===
 <Player>\\t<Class>\\t<Position>\\t<Archetype>\\t<Stars>\\t<Nat. Rank>\\t<State Rank>\\t<Pos. Rank>\\t<Height>\\t<Weight>\\t<Hometown>\\t<State>\\t<Gem/Bust>\\t<Dev Trait>\\t<Prev Team>
 <next recruit row...>
 ...
