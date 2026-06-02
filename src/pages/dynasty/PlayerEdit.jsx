@@ -7,6 +7,7 @@ import { getContrastTextColor } from '../../utils/colorUtils'
 import { TEAMS, getTidFromAbbr } from '../../data/teamRegistry'
 import { getTeamLogoByTid, getMascotName } from '../../data/teams'
 import { useToast } from '../../components/ui/Toast'
+import { Button } from '../../components/ui'
 import ImageUpload from '../../components/ImageUpload'
 import PlayerCards from '../../components/PlayerCards'
 import { getPlayerCards } from '../../utils/playerCards'
@@ -1133,31 +1134,15 @@ export default function PlayerEdit() {
             {/* Header Actions */}
             {!isViewOnly && (
               <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  disabled={deleting || saving}
-                  className="px-3 py-2 rounded-lg text-xs font-semibold bg-surface-3 border border-surface-4 text-red-400 hover:bg-surface-4 hover:text-red-300 disabled:opacity-50 transition-colors"
-                >
+                <Button variant="danger" size="sm" onClick={() => setShowDeleteConfirm(true)} disabled={deleting || saving}>
                   Delete
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  disabled={saving || deleting}
-                  className="btn btn-secondary text-xs"
-                >
+                </Button>
+                <Button variant="secondary" size="sm" onClick={handleCancel} disabled={saving || deleting}>
                   Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={saving || deleting}
-                  className="px-4 py-2 rounded-lg text-xs font-bold transition-all hover:opacity-90 disabled:opacity-50"
-                  style={{ backgroundColor: teamColors.primary, color: primaryText }}
-                >
+                </Button>
+                <Button variant="primary" size="sm" accentColor={teamColors.primary} onClick={handleSave} disabled={saving || deleting}>
                   {saving ? 'Saving…' : 'Save Changes'}
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -2892,31 +2877,15 @@ export default function PlayerEdit() {
         >
           <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
           <div className="px-4 py-3 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowDeleteConfirm(true)}
-              disabled={deleting || saving}
-              className="px-3 py-2 rounded-lg text-xs font-semibold bg-surface-3 border border-surface-4 text-red-400 disabled:opacity-50"
-            >
+            <Button variant="danger" size="sm" onClick={() => setShowDeleteConfirm(true)} disabled={deleting || saving}>
               Delete
-            </button>
-            <button
-              type="button"
-              onClick={handleCancel}
-              disabled={saving || deleting}
-              className="btn btn-secondary flex-1 text-xs"
-            >
+            </Button>
+            <Button variant="secondary" size="sm" className="flex-1" onClick={handleCancel} disabled={saving || deleting}>
               Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving || deleting}
-              className="flex-1 px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 disabled:opacity-50"
-              style={{ backgroundColor: teamColors.primary, color: primaryText }}
-            >
+            </Button>
+            <Button variant="primary" size="sm" accentColor={teamColors.primary} className="flex-1" onClick={handleSave} disabled={saving || deleting}>
               {saving ? 'Saving…' : 'Save'}
-            </button>
+            </Button>
           </div>
         </div>
       )}
