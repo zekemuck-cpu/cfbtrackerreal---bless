@@ -752,24 +752,21 @@ function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode
         </div>
       </div>
 
-      {/* Desktop (lg+): horizontal — bigger image + jersey on the left, larger
-          name, OVR anchored right. Fills the wider tile instead of leaving the
-          row half-empty. */}
-      <div className="relative z-[1] hidden lg:flex items-center gap-3 px-3 py-2">
-        <div className="flex flex-col items-center gap-1 shrink-0 w-12">
+      {/* Desktop (lg+): name gets the FULL top row so it can read out without
+          truncating; the photo · #jersey · class · OVR sit on the row below. */}
+      <div className="relative z-[1] hidden lg:block px-3 py-2">
+        <div className="min-w-0">
+          <PlayerName name={tile.name} strike={leaving} textClass="text-[15px] font-semibold" />
+        </div>
+        <div className="mt-1.5 flex items-center gap-2 text-[11px] text-txt-tertiary min-w-0">
           <Avatar url={photoUrl} fallback={teamLogo} size="lg" />
           {hasJersey && (
             <span className="font-bold tabular-nums text-txt-secondary text-sm leading-none">#{tile.jerseyNumber}</span>
           )}
+          <span className="truncate">{tile.projectedClass}</span>
+          <span className="ml-auto tabular-nums font-black text-2xl leading-none shrink-0" style={{ color: ovrColor(tile.projectedOvr) }}>{tile.projectedOvr ?? '—'}</span>
+          {marker && <span className="font-bold uppercase tracking-wide shrink-0" style={{ color: markerColor }}>{marker}</span>}
         </div>
-        <div className="flex-1 min-w-0">
-          <PlayerName name={tile.name} strike={leaving} textClass="text-[15px] font-semibold" />
-          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-txt-tertiary min-w-0">
-            <span className="truncate">{tile.projectedClass}</span>
-            {marker && <span className="font-bold uppercase tracking-wide shrink-0" style={{ color: markerColor }}>{marker}</span>}
-          </div>
-        </div>
-        <span className="tabular-nums font-black text-2xl leading-none shrink-0" style={{ color: ovrColor(tile.projectedOvr) }}>{tile.projectedOvr ?? '—'}</span>
       </div>
     </div>
   )

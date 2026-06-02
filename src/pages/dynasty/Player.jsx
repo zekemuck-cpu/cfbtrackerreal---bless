@@ -1280,7 +1280,7 @@ function PlayerInner() {
       <tr>
         <td colSpan={colSpan} className="p-0">
           <div className="p-3" style={{ backgroundColor: `${teamInfo.backgroundColor}15`, borderTop: `1px solid ${teamInfo.backgroundColor}30`, borderBottom: `1px solid ${teamInfo.backgroundColor}30` }}>
-            <div className="text-xs font-semibold mb-2 uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>Game Log - {year}</div>
+            <div className="text-xs font-semibold mb-2 tracking-wide" style={{ color: 'var(--text-primary)' }}>Game Log - {year}</div>
             {gameLog.length === 0 ? (
               <div className="text-xs italic" style={{ color: secondaryText, opacity: 0.6 }}>No game data available</div>
             ) : (
@@ -1784,7 +1784,7 @@ function PlayerInner() {
             {departureMovement && departureMovement.type === 'transfer' && !departureMovement.to && (
               isPostSigningDay ? (
                 <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold"
                   style={{
                     backgroundColor: 'rgba(107, 114, 128, 0.15)',
                     color: '#9ca3af',
@@ -1797,7 +1797,7 @@ function PlayerInner() {
                 </span>
               ) : (
                 <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold"
                   style={{
                     backgroundColor: 'rgba(245, 158, 11, 0.15)',
                     color: '#fbbf24',
@@ -1982,7 +1982,7 @@ function PlayerInner() {
                 {departureMovement && departureMovement.type === 'transfer' && !departureMovement.to && (
                   isPostSigningDay ? (
                     <span
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold"
                       style={{
                         backgroundColor: 'rgba(107, 114, 128, 0.15)',
                         color: '#9ca3af',
@@ -1995,7 +1995,7 @@ function PlayerInner() {
                     </span>
                   ) : (
                     <span
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold"
                       style={{
                         backgroundColor: 'rgba(245, 158, 11, 0.15)',
                         color: '#fbbf24',
@@ -2135,7 +2135,7 @@ function PlayerInner() {
             const desktopOvr = player.overallByYear?.[currentYear] || player.overallByYear?.[String(currentYear)] || player.overall
             return desktopOvr ? (
               <div className="text-center flex-shrink-0">
-                <div className="text-xs font-bold uppercase tracking-widest mb-1 text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Overall</div>
+                <div className="text-xs font-bold tracking-wide mb-1 text-white" style={{ fontFamily: "var(--font-display)" }}>Overall</div>
                 <button
                   onClick={() => setShowOverallProgressionModal(true)}
                   className="text-6xl md:text-7xl font-black hover:opacity-80 transition-opacity cursor-pointer text-white tabular"
@@ -2147,7 +2147,7 @@ function PlayerInner() {
               </div>
             ) : (
               <div className="text-center flex-shrink-0">
-                <div className="text-xs font-bold uppercase tracking-widest mb-1 text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Overall</div>
+                <div className="text-xs font-bold tracking-wide mb-1 text-white" style={{ fontFamily: "var(--font-display)" }}>Overall</div>
                 <div
                   className="text-6xl md:text-7xl font-black text-txt-muted"
                   style={{ fontFamily: "'Bebas Neue', sans-serif" }}
@@ -2172,7 +2172,7 @@ function PlayerInner() {
           {awardPlates.map((p, i) => {
             // Per-variant chrome; the trophy image (when the award has one) sits
             // before the label in every variant.
-            const base = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider"
+            const base = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold tracking-wide"
             let cls = ''
             let style = { fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1px' }
             if (p.variant === 'gold') {
@@ -2224,11 +2224,10 @@ function PlayerInner() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className="pb-3 pt-2 font-black uppercase tracking-wider transition-colors"
+              className="pb-3 pt-2 font-black tracking-tight transition-colors"
               style={{
-                fontFamily: "'Bebas Neue', sans-serif",
-                letterSpacing: '1px',
-                fontSize: '0.85rem',
+                fontFamily: "var(--font-display)",
+                fontSize: '0.95rem',
                 color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
                 borderBottom: isActive ? `2px solid ${teamInfo.backgroundColor}` : '2px solid transparent',
                 marginBottom: '-1px',
@@ -2302,7 +2301,7 @@ function PlayerInner() {
 
         const sectionHeader = (label) => (
           <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-            <h3 className="text-sm font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>{label}</h3>
+            <h3 className="text-sm font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>{label}</h3>
           </div>
         )
 
@@ -2401,7 +2400,7 @@ function PlayerInner() {
                 })()}
                 <button
                   onClick={() => setActiveTab('timeline')}
-                  className="w-full px-4 py-2.5 text-[11px] uppercase tracking-widest font-bold border-t border-surface-4 hover:bg-surface-3 transition-colors"
+                  className="w-full px-4 py-2.5 text-[11px] tracking-wide font-bold border-t border-surface-4 hover:bg-surface-3 transition-colors"
                   style={{ color: secondaryText, fontFamily: "'Bebas Neue', sans-serif" }}
                 >
                   Full Timeline →
@@ -2606,7 +2605,7 @@ function PlayerInner() {
                             ))}
                             {rowsForCategory.length > 1 && (
                               <tr className="bg-surface-3 border-t-2" style={{ borderTopColor: teamInfo.backgroundColor }}>
-                                <td className="px-3 py-2 font-black uppercase text-[11px] tracking-wider" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif" }}>Career</td>
+                                <td className="px-3 py-2 font-black text-[11px] tracking-tight" style={{ color: primaryText, fontFamily: "var(--font-display)" }}>Career</td>
                                 {displayTotalRow.map((v, i) => (
                                   <td key={i} className="px-2 py-2 text-right font-bold tabular-nums" style={{ color: primaryText }}>{v}</td>
                                 ))}
@@ -2620,7 +2619,7 @@ function PlayerInner() {
                 })()}
                 <button
                   onClick={() => setActiveTab('stats')}
-                  className="w-full px-4 py-2.5 text-[11px] uppercase tracking-widest font-bold border-t border-surface-4 hover:bg-surface-3 transition-colors"
+                  className="w-full px-4 py-2.5 text-[11px] tracking-wide font-bold border-t border-surface-4 hover:bg-surface-3 transition-colors"
                   style={{ color: secondaryText, fontFamily: "'Bebas Neue', sans-serif" }}
                 >
                   Full Stats →
@@ -2735,7 +2734,7 @@ function PlayerInner() {
                 )}
                 <button
                   onClick={() => setActiveTab('gamelog')}
-                  className="w-full px-4 py-2.5 text-[11px] uppercase tracking-widest font-bold border-t border-surface-4 hover:bg-surface-3 transition-colors"
+                  className="w-full px-4 py-2.5 text-[11px] tracking-wide font-bold border-t border-surface-4 hover:bg-surface-3 transition-colors"
                   style={{ color: secondaryText, fontFamily: "'Bebas Neue', sans-serif" }}
                 >
                   Full Game Log →
@@ -3773,7 +3772,7 @@ function PlayerInner() {
           {hasStats.passing && (
             <div className="card overflow-hidden" style={{ order: getStatOrder('passing') }}>
               <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Passing</h3>
+                <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>Passing</h3>
               </div>
               {(() => {
                 const passingYearsUnsorted = yearByYearStats.filter(y => y.passing && hasNonZeroStats(y.passing, ['att', 'cmp', 'yds', 'td']))
@@ -3891,7 +3890,7 @@ function PlayerInner() {
           {hasStats.rushing && (
             <div className="card overflow-hidden" style={{ order: getStatOrder('rushing') }}>
               <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Rushing</h3>
+                <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>Rushing</h3>
               </div>
               {(() => {
                 const rushingYearsUnsorted = yearByYearStats.filter(y => y.rushing && hasNonZeroStats(y.rushing, ['car', 'yds', 'td']))
@@ -4003,7 +4002,7 @@ function PlayerInner() {
           {hasStats.receiving && (
             <div className="card overflow-hidden" style={{ order: getStatOrder('receiving') }}>
               <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Receiving</h3>
+                <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>Receiving</h3>
               </div>
               {(() => {
                 // Check if any receiving year has non-zero snaps
@@ -4110,7 +4109,7 @@ function PlayerInner() {
           {hasStats.blocking && ['TE', 'LT', 'LG', 'C', 'RG', 'RT'].includes(player.position?.toUpperCase()) && (
             <div className="card overflow-hidden" style={{ order: getStatOrder('blocking') }}>
               <div className="px-4 py-3 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Blocking</h3>
+                <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>Blocking</h3>
               </div>
               {(() => {
                 const blockingYearsUnsorted = yearByYearStats.filter(y => y.blocking && hasNonZeroStats(y.blocking, ['sacksAllowed', 'pancakes']))
@@ -4193,7 +4192,7 @@ function PlayerInner() {
           {hasStats.defensive && (
             <div className="card overflow-hidden" style={{ order: getStatOrder('defense') }}>
               <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Defense</h3>
+                <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>Defense</h3>
               </div>
               {(() => {
                 const defenseYearsUnsorted = yearByYearStats.filter(y => y.defensive && hasNonZeroStats(y.defensive, ['solo', 'ast', 'tfl', 'sacks', 'int', 'pdef', 'ff', 'fr']))
@@ -4308,7 +4307,7 @@ function PlayerInner() {
           {hasStats.kicking && (
             <div className="card overflow-hidden" style={{ order: getStatOrder('kicking') }}>
               <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Kicking</h3>
+                <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>Kicking</h3>
               </div>
               {(() => {
                 const kickingYearsUnsorted = yearByYearStats.filter(y => y.kicking && hasNonZeroStats(y.kicking, ['fgm', 'fga', 'xpm', 'xpa']))
@@ -4412,7 +4411,7 @@ function PlayerInner() {
           {hasStats.punting && (
             <div className="card overflow-hidden" style={{ order: getStatOrder('punting') }}>
               <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Punting</h3>
+                <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>Punting</h3>
               </div>
               {(() => {
                 const puntingYearsUnsorted = yearByYearStats.filter(y => y.punting && hasNonZeroStats(y.punting, ['punts', 'yds']))
@@ -4512,7 +4511,7 @@ function PlayerInner() {
           {hasStats.kickReturn && (
             <div className="card overflow-hidden" style={{ order: getStatOrder('kickReturn') }}>
               <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Kick Returns</h3>
+                <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>Kick Returns</h3>
               </div>
               {(() => {
                 const kickReturnYearsUnsorted = yearByYearStats.filter(y => y.kickReturn && hasNonZeroStats(y.kickReturn, ['ret', 'yds', 'td']))
@@ -4601,7 +4600,7 @@ function PlayerInner() {
           {hasStats.puntReturn && (
             <div className="card overflow-hidden" style={{ order: getStatOrder('puntReturn') }}>
               <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Punt Returns</h3>
+                <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>Punt Returns</h3>
               </div>
               {(() => {
                 const puntReturnYearsUnsorted = yearByYearStats.filter(y => y.puntReturn && hasNonZeroStats(y.puntReturn, ['ret', 'yds', 'td']))
@@ -4855,7 +4854,7 @@ function PlayerInner() {
             {trophies.length > 0 && (
               <div className="mb-6">
                 <div className="flex items-center gap-3 mb-3">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-txt-tertiary">Trophies</span>
+                  <span className="text-[11px] font-black tracking-wide text-txt-tertiary">Trophies</span>
                   <div className="flex-1 h-px bg-surface-4" />
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -4870,7 +4869,7 @@ function PlayerInner() {
                         <div className="h-20 flex items-center justify-center mb-2">
                           <img src={t.img} alt={t.label} loading="lazy" className="max-h-full w-auto object-contain" style={{ filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))' }} />
                         </div>
-                        <div className="text-[11px] font-bold uppercase leading-tight tracking-wide text-white">{t.label}</div>
+                        <div className="text-[11px] font-bold leading-tight tracking-tight text-white">{t.label}</div>
                         <div className="mt-1.5 flex flex-wrap justify-center gap-1">
                           {t.years.map(yr => (
                             <span key={yr} className="px-2 py-0.5 rounded text-[11px] font-bold tabular-nums bg-surface-3 text-white">&rsquo;{String(yr).slice(-2)}</span>
@@ -4893,7 +4892,7 @@ function PlayerInner() {
             {(honorRows.length > 0 || powHonors.nationalPOW > 0 || powHonors.confPOW > 0) && (
               <div>
                 <div className="flex items-center gap-3 mb-3">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-txt-tertiary">Honors</span>
+                  <span className="text-[11px] font-black tracking-wide text-txt-tertiary">Honors</span>
                   <div className="flex-1 h-px bg-surface-4" />
                 </div>
                 <div className="rounded-xl bg-surface-2 border border-surface-4 divide-y divide-surface-4 overflow-hidden">
@@ -5357,7 +5356,7 @@ function PlayerInner() {
                   const seasonScoringPlays = allPlayerScoringPlays.filter(p => p.gameInfo?.year === Number(year))
                   return (
                     <div className="px-4 py-3 bg-surface-2 border-b border-surface-4 border-l-[3px] flex items-center justify-between gap-3" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                      <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>
+                      <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>
                         {year} Season
                       </h3>
                       {seasonScoringPlays.length > 0 && (
@@ -5371,7 +5370,7 @@ function PlayerInner() {
                           title={`Watch ${seasonScoringPlays.length} scoring ${seasonScoringPlays.length === 1 ? 'play' : 'plays'} from ${year}`}
                         >
                           <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                          <span className="font-bold text-[11px] uppercase tracking-wider" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>Watch Scores ({seasonScoringPlays.length})</span>
+                          <span className="font-bold text-[11px] tracking-wide" style={{ fontFamily: "var(--font-display)" }}>Watch Scores ({seasonScoringPlays.length})</span>
                         </button>
                       )}
                     </div>
