@@ -4,15 +4,14 @@ import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
-import { getTeamColors } from '../../data/teamColors'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
 import AwardsModal from '../../components/AwardsModal'
 import { normalizePlayerName as normalizePlayerNameUtil } from '../../utils/playerMatching'
+import { proxyImageUrl } from '../../utils/imageProxy'
 import {
   PageHero,
   Card,
   Button,
-  Badge,
   EmptyState,
   TitleWithYear,
 } from '../../components/ui'
@@ -115,13 +114,29 @@ const AWARD_ORDER = [
   'bearBryantCoachOfTheYear', 'broyles'
 ]
 
-const CATEGORY_LABEL = {
-  coach: 'Coaching',
-  defense: 'Defense',
-  offense: 'Offense',
-  lineman: 'Lineman',
-  special: 'Special Teams',
-  player: 'Player'
+// Trophy artwork per award (keyed to the award keys above).
+const AWARD_IMAGES = {
+  heisman: 'https://i.imgur.com/QSEqrfZ.png',
+  maxwell: 'https://i.imgur.com/PFQjCyy.png',
+  walterCamp: 'https://i.imgur.com/VyEXh6I.png',
+  chuckBednarik: 'https://i.imgur.com/gDyzPvN.png',
+  broncoNagurski: 'https://i.imgur.com/I50KC2g.png',
+  outland: 'https://i.imgur.com/QUWsA6c.png',
+  lombardi: 'https://i.imgur.com/gfq762C.png',
+  bearBryantCoachOfTheYear: 'https://i.imgur.com/oij7wEs.png',
+  daveyObrien: 'https://i.imgur.com/Dy3u42Q.png',
+  doakWalker: 'https://i.imgur.com/nBM1cVP.png',
+  johnMackey: 'https://i.imgur.com/BOitGT8.png',
+  fredBiletnikoff: 'https://i.imgur.com/Iasg7ZZ.png',
+  jimThorpe: 'https://i.imgur.com/ngipDjp.png',
+  unitasGoldenArm: 'https://i.imgur.com/jv5M8NL.png',
+  dickButkus: 'https://i.imgur.com/RRWai9B.png',
+  edgeRusherOfTheYear: 'https://i.imgur.com/akmqbUw.png', // Ted Hendricks Award
+  rimington: 'https://i.imgur.com/IzDtHBk.png',
+  louGroza: 'https://i.imgur.com/3x0LhzY.png',
+  rayGuy: 'https://i.imgur.com/VfkzgIk.png',
+  broyles: 'https://i.imgur.com/WZaJ975.png',
+  returnerOfTheYear: 'https://i.imgur.com/CHVXg6r.png', // Jet Award
 }
 
 // Delegate to the shared mascot-strip helper.
@@ -243,241 +258,70 @@ export default function Awards() {
     )
   }
 
-  // Heisman Trophy — broadcast-scorebug feature card. Editorial year +
-  // award lockup on top, then the winner with logo, name, and meta row.
-  // Gold left rail replaces the soft top gradient — it scans cleaner and
-  // matches the design language's "team color is an accent, never a fill"
-  // rule (gold here is the prestige accent).
-  const HeismanCard = ({ awardData }) => {
-    const mascotName = getMascotName(awardData.team, currentDynasty?.teams || currentDynasty?.customTeams)
-    const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
-    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: '#b8860b', secondary: '#fff' }
-    const matchingPlayer = findPlayerByName(awardData.player, awardData.team, displayYear)
-    const schoolName = getSchoolName(mascotName) || awardData.team
-
-    return (
-      <Card padding="none" className="relative overflow-hidden">
-        {/* Heisman accent — 1px hairline at the TOP (not a side stripe).
-            Gold-tinted, signals the trophy without violating BAN 1. */}
-        <div
-          aria-hidden="true"
-          className="absolute top-0 left-0 right-0 h-px"
-          style={{ backgroundColor: '#d4af37' }}
-        />
-        <div className="px-5 py-5 sm:px-8 sm:py-7">
-          <div className="flex items-baseline gap-3 mb-4">
-            <span
-              aria-hidden="true"
-              className="leading-none"
-              style={{
-                color: '#d4af37',
-                fontSize: '0.95em',
-              }}
-            >
-              ★
-            </span>
-            <span
-              className="font-display font-black tabular leading-none"
-              style={{
-                fontSize: '14px',
-                color: '#d4af37',
-                letterSpacing: '0.05em',
-              }}
-            >
-              {displayYear}
-            </span>
-            <span
-              className="label-xs"
-              style={{
-                color: '#d4af37',
-                letterSpacing: '2.5px',
-                fontSize: '10px',
-              }}
-            >
-              HEISMAN TROPHY
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4 sm:gap-6">
-            <Link
-              to={`${pathPrefix}/team/${resolveTid(awardData.team, currentDynasty?.teams || TEAMS)}/${displayYear}`}
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white p-1.5 flex-shrink-0"
-              style={{ border: '1px solid var(--surface-5)' }}
-            >
-              {teamLogo ? (
-                <img src={teamLogo} alt="" className="w-full h-full object-contain" />
-              ) : (
-                <div
-                  className="w-full h-full rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: colors.primary }}
-                >
-                  <span className="text-2xl font-bold" style={{ color: colors.secondary }}>
-                    {awardData.team?.charAt(0)}
-                  </span>
-                </div>
-              )}
-            </Link>
-
-            <div className="flex-1 min-w-0">
-              {matchingPlayer ? (
-                <Link
-                  to={`${pathPrefix}/player/${matchingPlayer.pid}`}
-                  className="display-md text-txt-primary hover:text-txt-primary transition-colors truncate block"
-                  style={{ letterSpacing: '-0.02em' }}
-                >
-                  {awardData.player}
-                </Link>
-              ) : (
-                <span
-                  className="display-md text-txt-primary truncate block"
-                  style={{ letterSpacing: '-0.02em' }}
-                >
-                  {awardData.player}
-                </span>
-              )}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-sm">
-                {awardData.position && (
-                  <span
-                    className="font-bold tabular"
-                    style={{ color: '#d4af37', letterSpacing: '0.05em' }}
-                  >
-                    {awardData.position}
-                  </span>
-                )}
-                {awardData.class && (
-                  <span className="text-txt-secondary">{awardData.class}</span>
-                )}
-                <Link
-                  to={`${pathPrefix}/team/${resolveTid(awardData.team, currentDynasty?.teams || TEAMS)}/${displayYear}`}
-                  className="text-txt-secondary hover:text-txt-primary transition-colors truncate"
-                >
-                  {schoolName}
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
-    )
-  }
-
-  // Elite award card — accent left rail
-  const EliteAwardCard = ({ awardKey, awardData }) => {
+  // Trophy card — the award's trophy shown large, with the award name above
+  // and the winner below. The whole card links to the winner's player page
+  // (or the team page for coach awards). The Heisman gets a subtle gold ring.
+  const TrophyCard = ({ awardKey, awardData }) => {
     const display = AWARD_DISPLAY[awardKey]
+    const img = AWARD_IMAGES[awardKey]
     const mascotName = getMascotName(awardData.team, currentDynasty?.teams || currentDynasty?.customTeams)
     const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
     const matchingPlayer = findPlayerByName(awardData.player, awardData.team, displayYear)
     const isCoachAward = display.category === 'coach'
     const schoolName = getSchoolName(mascotName) || awardData.team
+    const isHeisman = awardKey === 'heisman'
+    const to = (matchingPlayer && !isCoachAward)
+      ? `${pathPrefix}/player/${matchingPlayer.pid}`
+      : `${pathPrefix}/team/${resolveTid(awardData.team, currentDynasty?.teams || TEAMS)}/${displayYear}`
 
     return (
-      <Card padding="md" className="relative overflow-hidden">
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="min-w-0 flex-1">
-            <div className="label-xs text-txt-tertiary mb-1">{CATEGORY_LABEL[display.category] || ''}</div>
-            <h3 className="font-semibold text-txt-primary text-sm leading-tight">{display.name}</h3>
-          </div>
-          {teamLogo && (
-            <Link
-              to={`${pathPrefix}/team/${resolveTid(awardData.team, currentDynasty?.teams || TEAMS)}/${displayYear}`}
-              className="w-10 h-10 rounded-full bg-white p-1 flex-shrink-0"
-              style={{ border: '1px solid var(--surface-4)' }}
-            >
-              <img src={teamLogo} alt="" className="w-full h-full object-contain" />
-            </Link>
-          )}
-        </div>
-
+      <Link to={to} className="group block h-full">
         <div
-          className="pt-3 flex items-start gap-2"
-          style={{ borderTop: '1px solid var(--surface-4)' }}
+          className={`relative h-full rounded-xl bg-surface-2 border p-4 flex flex-col items-center text-center transition-all hover:bg-surface-3 ${isHeisman ? 'border-[#d4af37]/50 ring-1 ring-[#d4af37]/30' : 'border-surface-4 hover:border-surface-5'}`}
         >
-          {awardData.position && (
-            <Badge variant="default" size="sm">{awardData.position}</Badge>
-          )}
-          {isCoachAward && !awardData.position && (
-            <Badge variant="default" size="sm">HC</Badge>
-          )}
-          <div className="flex-1 min-w-0">
-            {matchingPlayer && !isCoachAward ? (
-              <Link
-                to={`${pathPrefix}/player/${matchingPlayer.pid}`}
-                className="font-semibold text-txt-primary hover:text-txt-primary transition-colors truncate block"
-              >
-                {awardData.player}
-              </Link>
+          {/* Award name */}
+          <div
+            className="label-xs text-txt-tertiary mb-3 leading-tight line-clamp-2 w-full"
+            style={{ letterSpacing: '1.2px', fontSize: '9px', minHeight: '22px' }}
+          >
+            {display.name}
+          </div>
+
+          {/* Trophy */}
+          <div className="h-24 sm:h-28 flex items-center justify-center mb-3">
+            {img ? (
+              <img
+                src={proxyImageUrl(img, 240)}
+                alt={display.name}
+                className="max-h-full w-auto object-contain transition-transform duration-200 group-hover:scale-105"
+                style={{ filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.45))' }}
+              />
             ) : (
-              <span className="font-semibold text-txt-primary truncate block">{awardData.player}</span>
+              <span className="text-txt-tertiary text-xs">—</span>
             )}
-            <div className="flex items-center gap-2 text-xs text-txt-tertiary">
-              {!isCoachAward && awardData.class && <span>{awardData.class}</span>}
-              {!isCoachAward && awardData.class && <span>•</span>}
+          </div>
+
+          {/* Winner */}
+          <div className="mt-auto w-full min-w-0">
+            <div className="font-semibold text-txt-primary text-sm leading-tight truncate">{awardData.player}</div>
+            <div className="mt-1 flex items-center justify-center gap-1.5 text-[11px] text-txt-tertiary min-w-0">
+              {teamLogo && <img src={teamLogo} alt="" className="w-4 h-4 object-contain flex-shrink-0" />}
+              {!isCoachAward && awardData.position && (
+                <span className="font-semibold text-txt-secondary">{awardData.position}</span>
+              )}
               <span className="truncate">{schoolName}</span>
             </div>
-          </div>
-        </div>
-      </Card>
-    )
-  }
-
-  // Position award row — compact
-  const PositionAwardRow = ({ awardKey, awardData }) => {
-    const display = AWARD_DISPLAY[awardKey]
-    const mascotName = getMascotName(awardData.team, currentDynasty?.teams || currentDynasty?.customTeams)
-    const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
-    const matchingPlayer = findPlayerByName(awardData.player, awardData.team, displayYear)
-    const isCoachAward = display.category === 'coach'
-    const schoolName = getSchoolName(mascotName) || awardData.team
-
-    return (
-      <Link
-        to={matchingPlayer && !isCoachAward ? `${pathPrefix}/player/${matchingPlayer.pid}` : `${pathPrefix}/team/${resolveTid(awardData.team, currentDynasty?.teams || TEAMS)}/${displayYear}`}
-        className="group flex items-center gap-3 px-3 py-2.5 hover:bg-surface-3 transition-colors"
-        style={{ borderBottom: '1px solid var(--surface-4)' }}
-      >
-        {teamLogo ? (
-          <div className="w-8 h-8 rounded-full bg-white p-0.5 flex-shrink-0">
-            <img src={teamLogo} alt="" className="w-full h-full object-contain" />
-          </div>
-        ) : (
-          <div className="w-8 h-8 rounded-full bg-surface-4 flex-shrink-0" />
-        )}
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-txt-primary text-sm truncate group-hover:text-txt-primary transition-colors">
-              {awardData.player}
-            </span>
-            {!isCoachAward && awardData.position && (
-              <Badge variant="outline" size="sm">{awardData.position}</Badge>
-            )}
-          </div>
-          <div className="text-xs text-txt-tertiary truncate">
-            {display.name} {schoolName}
           </div>
         </div>
       </Link>
     )
   }
 
-  // Group awards
-  const heismanData = yearAwards.heisman
-  const eliteAwards = []
-  const positionAwards = []
-
-  AWARD_ORDER.forEach(key => {
-    if (key === 'heisman') return
-    if (yearAwards[key]) {
-      const display = AWARD_DISPLAY[key]
-      if (display?.prestige === 'elite') {
-        eliteAwards.push({ key, data: yearAwards[key] })
-      } else {
-        positionAwards.push({ key, data: yearAwards[key] })
-      }
-    }
-  })
-
-  const hasAnyAwards = heismanData || eliteAwards.length > 0 || positionAwards.length > 0
+  // Awards present this season, in canonical order, for the trophy gallery.
+  const presentAwards = AWARD_ORDER
+    .filter(key => yearAwards[key])
+    .map(key => ({ key, data: yearAwards[key] }))
+  const hasAnyAwards = presentAwards.length > 0
 
   const heroActions = !isViewOnly ? (
     <Button variant="secondary" size="sm" onClick={() => setShowAwardsModal(true)}>
@@ -511,58 +355,10 @@ export default function Awards() {
           />
         </Card>
       ) : (
-        <div className="space-y-6">
-          {heismanData && <HeismanCard awardData={heismanData} />}
-
-          {eliteAwards.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <h2
-                  className="label-xs text-txt-secondary"
-                  style={{ letterSpacing: '2.5px', fontSize: '10px' }}
-                >
-                  Major Awards
-                </h2>
-                <div className="flex-1 h-px bg-surface-4" />
-                <span
-                  className="label-xs tabular text-txt-tertiary"
-                  style={{ letterSpacing: '1.5px', fontSize: '10px' }}
-                >
-                  {eliteAwards.length}
-                </span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {eliteAwards.map(({ key, data }) => (
-                  <EliteAwardCard key={key} awardKey={key} awardData={data} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {positionAwards.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <h2
-                  className="label-xs text-txt-secondary"
-                  style={{ letterSpacing: '2.5px', fontSize: '10px' }}
-                >
-                  Position Awards
-                </h2>
-                <div className="flex-1 h-px bg-surface-4" />
-                <span
-                  className="label-xs tabular text-txt-tertiary"
-                  style={{ letterSpacing: '1.5px', fontSize: '10px' }}
-                >
-                  {positionAwards.length}
-                </span>
-              </div>
-              <Card padding="none">
-                {positionAwards.map(({ key, data }) => (
-                  <PositionAwardRow key={key} awardKey={key} awardData={data} />
-                ))}
-              </Card>
-            </div>
-          )}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {presentAwards.map(({ key, data }) => (
+            <TrophyCard key={key} awardKey={key} awardData={data} />
+          ))}
         </div>
       )}
 
