@@ -4861,26 +4861,28 @@ function PlayerInner() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {trophies.map(t => {
                     const isHeisman = t.key === 'heisman'
-                    return (
-                      <div
-                        key={t.key}
-                        className="relative rounded-xl bg-surface-2 border p-3 flex flex-col items-center text-center"
-                        style={isHeisman
-                          ? { borderColor: 'rgba(212,175,55,0.6)', boxShadow: '0 0 0 1px rgba(212,175,55,0.25), 0 0 18px rgba(212,175,55,0.15)' }
-                          : { borderColor: 'var(--surface-4)' }}
-                      >
+                    const tileStyle = isHeisman
+                      ? { borderColor: 'rgba(212,175,55,0.6)', boxShadow: '0 0 0 1px rgba(212,175,55,0.25), 0 0 18px rgba(212,175,55,0.15)' }
+                      : { borderColor: 'var(--surface-4)' }
+                    const tileClass = "relative rounded-xl bg-surface-2 border p-3 flex flex-col items-center text-center transition-colors hover:bg-surface-3"
+                    const body = (
+                      <>
                         <div className="h-20 flex items-center justify-center mb-2">
                           <img src={t.img} alt={t.label} loading="lazy" className="max-h-full w-auto object-contain" style={{ filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))' }} />
                         </div>
-                        {t.years.length > 0 ? (
-                          <Link to={`${pathPrefix}/awards/${t.years[0]}`} className="text-[11px] font-bold uppercase leading-tight tracking-wide text-white hover:underline">{t.label}</Link>
-                        ) : (
-                          <div className="text-[11px] font-bold uppercase leading-tight tracking-wide text-white">{t.label}</div>
-                        )}
+                        <div className="text-[11px] font-bold uppercase leading-tight tracking-wide text-white">{t.label}</div>
                         <div className="mt-1.5 flex flex-wrap justify-center gap-1">
-                          {t.years.map(yr => <YearChip key={yr} year={yr} base="awards" />)}
+                          {t.years.map(yr => (
+                            <span key={yr} className="px-2 py-0.5 rounded text-[11px] font-bold tabular-nums bg-surface-3 text-white">&rsquo;{String(yr).slice(-2)}</span>
+                          ))}
                         </div>
-                      </div>
+                      </>
+                    )
+                    // Whole tile links to the award's page for the most recent year won.
+                    return t.years.length > 0 ? (
+                      <Link key={t.key} to={`${pathPrefix}/awards/${t.years[0]}`} className={tileClass} style={tileStyle}>{body}</Link>
+                    ) : (
+                      <div key={t.key} className={tileClass} style={tileStyle}>{body}</div>
                     )
                   })}
                 </div>
