@@ -28,6 +28,9 @@ import { healPlayer, PLAYER_HEAL_VERSION, normalizeAwardName } from '../../utils
 import { buildTimelineEvents, eventsForYear, labelForEventKind } from '../../utils/playerTimeline'
 import { computeSeasonAV } from '../../utils/approximateValue'
 
+// Team-captain patch, shown beside the name in the hero when player.isCaptain.
+const CAPTAIN_PATCH_URL = 'https://i.imgur.com/wPIRWdW.png'
+
 // Load premium fonts
 const FONT_LINK = document.createElement('link')
 FONT_LINK.href = 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800&display=swap'
@@ -1687,9 +1690,14 @@ function PlayerInner() {
             />
           )}
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-black leading-none tracking-tight text-white" style={{ fontFamily: "var(--font-display)" }}>
-              {player.name}
-            </h1>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h1 className="text-xl font-black leading-none tracking-tight text-white truncate" style={{ fontFamily: "var(--font-display)" }}>
+                {player.name}
+              </h1>
+              {player.isCaptain && (
+                <img src={CAPTAIN_PATCH_URL} alt="Team Captain" title="Team Captain" className="w-6 h-6 object-contain flex-shrink-0" />
+              )}
+            </div>
             <div className="flex items-center gap-2 mt-1.5">
               <span className="text-xs font-semibold text-white" style={{ fontFamily: "var(--font-display)" }}>
                 {player.jerseyNumber != null && player.jerseyNumber !== '' && `#${player.jerseyNumber} • `}{player.position}
@@ -1944,6 +1952,9 @@ function PlayerInner() {
                 <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white" style={{ fontFamily: "var(--font-display)" }}>
                   {player.name}
                 </h1>
+                {player.isCaptain && (
+                  <img src={CAPTAIN_PATCH_URL} alt="Team Captain" title="Team Captain" className="w-8 h-8 object-contain flex-shrink-0" />
+                )}
                 {!isViewOnly && (
                   <button
                     onClick={() => navigate(`${pathPrefix}/player/${pid}/edit`)}

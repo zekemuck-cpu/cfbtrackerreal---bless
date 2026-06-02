@@ -500,6 +500,7 @@ export default function PlayerEdit() {
       jerseyNumber: player.jerseyNumber || '',
       devTrait: player.devTrait || '',
       pictureUrl: player.pictureUrl || '',
+      isCaptain: player.isCaptain === true,
 
       // Highlights — array of URLs (YouTube clips, Imgur albums, direct
       // image links). Stored verbatim so the renderer can auto-detect
@@ -792,6 +793,7 @@ export default function PlayerEdit() {
       jerseyNumber: formData.jerseyNumber,
       devTrait: formData.devTrait,
       pictureUrl: formData.pictureUrl,
+      isCaptain: formData.isCaptain === true,
       // Highlights — persist as a deduped, trimmed array of URLs.
       highlights: Array.isArray(formData.highlights)
         ? Array.from(new Set(formData.highlights.map(s => (typeof s === 'string' ? s.trim() : '')).filter(Boolean)))
@@ -1369,6 +1371,17 @@ export default function PlayerEdit() {
                     </select>
                   </div>
                 </div>
+
+                {/* Captain */}
+                <label className="flex items-center gap-2.5 cursor-pointer select-none w-fit">
+                  <input
+                    type="checkbox"
+                    checked={formData.isCaptain === true}
+                    onChange={(e) => setFormData(prev => ({ ...prev, isCaptain: e.target.checked }))}
+                    className="w-4 h-4 rounded border-2 border-surface-4 bg-surface-2 accent-[color:var(--accent-info)] cursor-pointer"
+                  />
+                  <span className="text-sm font-medium text-txt-primary">Team Captain</span>
+                </label>
               </div>
             </div>
 
