@@ -9030,6 +9030,14 @@ export function DynastyProvider({ children }) {
 
     // Walk parsed rows, build a Map keyed by sorted-tid pair so duplicates collapse
     const newByPair = new Map()
+    // Poll ranks pasted on the user's OWN game row. The user's game is entered
+    // via its own flow, so we skip creating/replacing it below — but the ranks
+    // on that row are still part of the CURRENT poll the screenshot shows.
+    // Captured here so the rank pass writes them to rankByWeek[currentWeek] too;
+    // without this the user's team rank is silently dropped and the user's team
+    // goes missing from the Top 25 after a weekly-scores save.
+    const userGameRankRows = []
+    const validPollRank = (r) => (typeof r === 'number' && r >= 1 && r <= 25) ? r : null
     for (const row of weeklyGames) {
       const homeTid = Number(row.homeTid)
       const awayTid = Number(row.awayTid)
@@ -9040,9 +9048,13 @@ export function DynastyProvider({ children }) {
       const hi = Math.max(homeTid, awayTid)
       const key = `${lo}-${hi}`
 
-      // Preserve user-team games that already have scores
+      // Preserve user-team games that already have scores — but keep the poll
+      // ranks pasted on that row so the rank pass can still record them.
       const existing = existingByPair.get(key)
-      if (isUserGameWithScores(existing)) continue
+      if (isUserGameWithScores(existing)) {
+        userGameRankRows.push({ homeTid, awayTid, homeRank: validPollRank(row.homeRank), awayRank: validPollRank(row.awayRank) })
+        continue
+      }
 
       // Use HOME as team1 so home/away orientation is preserved
       const team1Tid = homeTid
@@ -9231,6 +9243,14 @@ export function DynastyProvider({ children }) {
       for (const g of newGamesArr) {
         if (typeof g._team1CurrentWeekRank === 'number') writeRankByWeek(g.team1Tid, currentWeek, g._team1CurrentWeekRank)
         if (typeof g._team2CurrentWeekRank === 'number') writeRankByWeek(g.team2Tid, currentWeek, g._team2CurrentWeekRank)
+      }
+      // (1a-user) The user's own game is excluded from newGamesArr (it has its
+      // own entry flow), but its row's poll ranks still belong in the current
+      // poll — otherwise the user's team is missing from the Top 25 after a
+      // weekly-scores save (this is the "my team's rank spot went blank" bug).
+      for (const r of userGameRankRows) {
+        if (typeof r.homeRank === 'number') writeRankByWeek(r.homeTid, currentWeek, r.homeRank)
+        if (typeof r.awayRank === 'number') writeRankByWeek(r.awayTid, currentWeek, r.awayRank)
       }
     }
 
