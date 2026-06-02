@@ -752,20 +752,22 @@ function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode
         </div>
       </div>
 
-      {/* Desktop (lg+): name gets the FULL top row so it can read out without
-          truncating; the photo · #jersey · class · OVR sit on the row below. */}
+      {/* Desktop (lg+): top row is "name • class"; the photo · #jersey · OVR
+          sit on the row below. All text is fully white. */}
       <div className="relative z-[1] hidden lg:block px-3 py-2">
-        <div className="min-w-0">
-          <PlayerName name={tile.name} strike={leaving} textClass="text-[15px] font-semibold" />
+        <div className="flex items-baseline gap-1.5 min-w-0">
+          <PlayerName name={tile.name} strike={leaving} textClass="text-[15px] font-semibold text-white" />
+          {tile.projectedClass && (
+            <span className="shrink-0 text-[12px] font-semibold text-white">&bull; {tile.projectedClass}</span>
+          )}
         </div>
-        <div className="mt-1.5 flex items-center gap-2 text-[11px] text-txt-tertiary min-w-0">
+        <div className="mt-1.5 flex items-center gap-2 min-w-0">
           <Avatar url={photoUrl} fallback={teamLogo} size="lg" />
           {hasJersey && (
-            <span className="font-bold tabular-nums text-txt-secondary text-sm leading-none">#{tile.jerseyNumber}</span>
+            <span className="font-bold tabular-nums text-white text-lg leading-none">#{tile.jerseyNumber}</span>
           )}
-          <span className="truncate">{tile.projectedClass}</span>
-          <span className="ml-auto tabular-nums font-black text-2xl leading-none shrink-0" style={{ color: ovrColor(tile.projectedOvr) }}>{tile.projectedOvr ?? '—'}</span>
-          {marker && <span className="font-bold uppercase tracking-wide shrink-0" style={{ color: markerColor }}>{marker}</span>}
+          <span className="ml-auto tabular-nums font-black text-2xl leading-none shrink-0 text-white">{tile.projectedOvr ?? '—'}</span>
+          {marker && <span className="font-bold uppercase tracking-wide shrink-0 text-[11px]" style={{ color: markerColor }}>{marker}</span>}
         </div>
       </div>
     </div>
@@ -816,6 +818,6 @@ function PlayerName({ name, strike, textClass = 'text-xs font-medium' }) {
       <span ref={measureRef} aria-hidden="true" className="invisible absolute left-0 top-0 whitespace-nowrap">{name}</span>
     </>
   )
-  const cls = `relative block min-w-0 truncate text-txt-primary ${textClass} ${strike ? 'line-through opacity-70' : ''}`
+  const cls = `relative block min-w-0 truncate text-white ${textClass} ${strike ? 'line-through opacity-70' : ''}`
   return <span ref={ref} title={name} className={cls}>{content}</span>
 }
