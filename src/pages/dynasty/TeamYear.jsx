@@ -272,9 +272,10 @@ function TabBar({ tabs, activeKey, onSelect, accentColor }) {
             key={tab.key}
             ref={el => { if (el) buttonRefs.current[tab.key] = el; else delete buttonRefs.current[tab.key] }}
             onClick={() => onSelect(tab.key)}
-            className={`px-2 sm:px-3 md:px-4 lg:px-6 py-3 label-sm whitespace-nowrap transition-colors ${
+            className={`px-2 sm:px-3 md:px-4 lg:px-6 py-3 font-black tracking-tight whitespace-nowrap transition-colors ${
               isActive ? 'text-txt-primary' : 'text-txt-tertiary hover:text-txt-secondary'
             }`}
+            style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem' }}
           >
             {tab.label}
           </button>
