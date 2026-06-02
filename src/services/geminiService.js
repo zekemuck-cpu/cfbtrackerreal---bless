@@ -1539,7 +1539,7 @@ export function getQualityWinsAndBadLosses(allGames, teamAbbr, year, dynasty) {
       const wasPriorRanked = typeof oppPriorRank === 'number' && oppPriorRank >= 1 && oppPriorRank <= 25
       if (wasRanked || wasPriorRanked) {
         qualityWins.push({
-          opponentAbbr: oppAbbr,
+          opponentAbbr: oppAbbr || oppAbbrFromTid,
           opponentTid: oppTid,
           opponentRank: wasRanked ? oppRank : null,
           opponentPriorYearRank: wasPriorRanked ? oppPriorRank : null,
@@ -1554,7 +1554,7 @@ export function getQualityWinsAndBadLosses(allGames, teamAbbr, year, dynasty) {
       const sub500 = oppRec && oppRec.w + oppRec.l >= 3 && oppRec.l > oppRec.w
       if (sub500) {
         badLosses.push({
-          opponentAbbr: oppAbbr,
+          opponentAbbr: oppAbbr || oppAbbrFromTid,
           opponentTid: oppTid,
           opponentRecord: oppRecLabel,
           week: g.week,
@@ -3799,46 +3799,21 @@ You are operating in CLOSED-BOOK mode. The data block below is the ONLY ground t
 
 Asymmetric cost: a missing fact is a small loss (the article is shorter). A wrong fact is a much bigger loss (it gets pasted into the user's tracker as a permanent record). When in doubt, OMIT. Always.
 
-Top five hallucination patterns this prompt has observed and that you must actively resist:
+Five hallucination patterns to resist — do NOT write any of these:
+1. Coherence patching — plausible bridges the data never states ("after a tough loss the prior week," "the offense had been struggling," "with the crowd behind them").
+2. Pattern-completion from clusters — "two-game losing streak," "third straight road game," "fourth turnover of the year" derived by eyeballing the schedule. A count is valid ONLY if the exact number is given.
+3. Plausible numbers — yards-per-attempt, "led at the half," "longest run of the year" when the precise figure isn't in the data. Write "287 yards" (data), never "287 yards on 8.4 per attempt" (derived).
+4. Color/scene — weather, crowd, sideline body language, momentum, "first start since," "after returning from injury." None of it exists in the data.
+5. Causal inference — "the turnover deflated the offense," "responded with confidence," "made a halftime adjustment." The data gives what, not why; soften to neutral or cut.
 
-1. NARRATIVE COHERENCE PATCHING. LLMs are trained on coherent stories, so when the data has a gap, you reach for a plausible-sounding bridge ("after a tough loss the prior week," "the offense had been struggling," "with the home crowd behind them"). These bridges are not in the data. Do not write them.
-
-2. PATTERN-COMPLETION FROM CLUSTERS. If the data shows W L W L W you may be tempted to call it "a two-game losing streak snapped" — but those losses had wins between them. Same trap with "third straight road game," "fourth turnover of the year," "back-to-back ranked opponents," "seventh sack of the season." None of those claims are valid unless the EXACT cumulative number is given. Counts you compute by eyeballing a list are NOT data; they're inferences.
-
-3. PLAUSIBLE-SOUNDING NUMBERS. Yards-per-attempt rounded to an integer, "led at the half," "his longest run of the year" — if the precise number isn't in the data, don't print it. It is much better to say "Mateer threw for 287 yards" (data) than "Mateer threw for 287 yards on 8.4 per attempt" (the per-attempt is fabricated unless explicitly listed).
-
-4. COLOR DETAILS. Anything that sets a scene — weather, crowd reaction, sideline body language, a coach's facial expression, the noise level, momentum shifts ("you could feel the energy"), travel/road context, "first start since," "after returning from injury" — is invented. There is no scene to draw from. Stick to plays and stats.
-
-5. CAUSAL INFERENCE. "After the early turnover deflated the offense" — was that in the data, or did you guess? If guessed, soften ("the offense did not score in the second quarter") or cut. Same for "responded with confidence," "leaned on the run game," "made a halftime adjustment." These imply a why; the data only gives what.
-
-ATOMIC-CLAIM HABIT: before each sentence, mentally break it into atomic claims (X happened, Y stat is N, Z is true). For each atom, ask "is this in the data?" If any atom is not, rewrite the sentence to drop that atom. A sentence with one fabricated atom is a fabricated sentence.
-
-CALIBRATION: do not use hedging language to launder a guess ("appeared to," "seemingly," "likely," "may have") — if you'd need a hedge to print something, that's the signal to omit it instead. Hedges are not a hallucination escape valve.
+Atomic-claim habit: break each sentence into its facts; if any one isn't in the data, drop it. A hedge ("appeared to," "seemingly," "may have") is not an escape valve — if you'd need one, omit the claim.
 
 ═══════════════════════════════════════════════════════════
-THINK BEFORE YOU WRITE — this is mandatory
+THINK BEFORE YOU WRITE
 ═══════════════════════════════════════════════════════════
-Take your time. Do not start drafting the article on your first response. The quality bar here is professional reporting; rushing produces hallucinations and weak prose. Even if you feel ready, force yourself through these steps in your head (or in <thinking> if your interface supports it) before writing a single word of the article:
+Before drafting: (1) note which data sections are populated vs absent — you can't write what isn't there; (2) pick the one or two storylines the data actually supports (thin data → thin article, that's fine); (3) source every concrete claim — score, stat, record, name, play, rank — to a specific data row, dropping any you can't; (4) plan the headline, lede, 2-3 middle beats, and closing line. Never invented, even when they'd feel obvious: jersey numbers, weather, attendance, injuries, suspensions, quotes, sideline reactions, crowd noise, recruiting/draft context, family ties, prior head-to-head unless shown.
 
-1. INVENTORY THE DATA. Walk through every section above (Final Score, Quarter Scores, Scoring Summary, Team Stats, Player Stats, Records, Rankings, Conference, Recent Schedule, etc.). For each, note: fully populated, partial, or absent. You cannot write about what isn't there.
-
-2. PICK THE STORYLINE FROM THE DATA. Choose one or two threads that the data actually supports — e.g., "QB X dominates with 4 TD passes," "comeback after trailing by 17," "defense forces 4 turnovers," "lopsided road blowout extends streak." Do NOT pick a storyline the data can't carry. If the data is thin, the article is thin — that is correct.
-
-3. LIST EVERY CONCRETE CLAIM you intend to make (every score, stat, record, player name, play, ranking) and point each one at the specific row in the data that supports it. If you can't find the source, drop the claim. Things that ARE NEVER in the data and must NEVER appear in the article unless explicitly given: jersey numbers, weather, attendance figures, injuries, suspensions, quotes from players or coaches, sideline reactions, crowd noise, recruiting context, draft stock, family ties, prior-season head-to-head unless shown.
-
-═══════════════════════════════════════════════════════════
-STREAK / MOMENTUM CLAIMS — STRICT GUARDRAIL
-═══════════════════════════════════════════════════════════
-Streak claims are the #1 hallucination source in these articles. Read carefully:
-
-- A "streak" means CONSECUTIVE games with the same result, ending at the most recent game played BEFORE this one. It is NOT "any cluster of similar results" or "two of the last four were losses."
-- The ONLY trustworthy streak signal is the explicit "Current streak: ..." line in the data. If that line is absent, NO STREAK EXISTS. Do not infer one from the recent schedule.
-- "Snaps a losing streak" / "extends winning streak" / "ends the skid" / "now riding a two-game streak" / "back-to-back wins" / "third straight loss" — every one of these is a streak claim and is GOVERNED by the same rule above.
-- If the recent schedule shows (e.g.) W L W L W, that is not a "two-game losing streak" — the wins are interleaved. The team's last result before this game was a win OR a loss; nothing more can be inferred without the explicit streak line.
-- "Bouncing back" is a streak claim too (it implies the previous game was a loss). Only use it when the data explicitly shows the previous game was a loss.
-- When in doubt: omit. A clean article that just states the current record is correct; a fabricated streak claim is wrong.
-
-4. PLAN THE ARC. Decide your headline, dateline, lead, two or three middle beats, and closing line BEFORE drafting. The article should read like you knew where it was going.
+STREAK / MOMENTUM — the #1 hallucination source. A streak is CONSECUTIVE same-result games ending at the game just before this one. The ONLY valid signal is the explicit "Current streak:" data line — if it's absent, NO streak exists; never infer one from the schedule (W L W L W is not a "two-game skid"). This governs every "snaps / extends / back-to-back / third straight / bouncing back" phrasing. When unsure, state the record and omit the streak.
 
 ═══════════════════════════════════════════════════════════
 ADAPT TO THE DATA YOU HAVE
@@ -3856,24 +3831,6 @@ The data block varies game-to-game. Some games have rich box scores plus full pl
 When a major section's data is absent, skip the section entirely. Do NOT explain to the reader what's missing — never write "the box score was not available" or "stats are limited". Just write around the gap.
 
 When the data is exceptionally rich, do NOT force every available section in just because the data is there. Use what advances the story. A 10-paragraph article that uses 80% of the data well beats a 20-paragraph article that uses 100% of the data evenly.
-
-═══════════════════════════════════════════════════════════
-SELF-CHECK BEFORE EMITTING
-═══════════════════════════════════════════════════════════
-Re-read your draft against the data, line by line, before sending. For every:
-- Numeric claim (score, yards, %, distance, time): the exact number must be in the data.
-- Player name: spelled exactly as the data has it.
-- Player class/position: only if their bracket tag exists; otherwise drop the descriptor.
-- Drive description: only as detailed as the scoring summary supports — don't invent intermediate plays.
-- Quoted text: there are no quotes in the data. If you wrote a quote, delete it.
-- Causal language ("because," "due to," "after he was benched," "with confidence rebuilt"): is this stated in the data, or are you inferring? If inferring, soften to neutral or cut it.
-- Comparisons to past games or seasons: only when the data explicitly provides that history.
-- Streak / momentum language ("snaps a __-game losing streak," "extends winning streak to __," "third straight," "back-to-back," "bounces back"): the explicit "Current streak:" field MUST exist AND match the claim. Pattern-matching a recent schedule (e.g., seeing W L W L W and writing "snaps a two-game losing streak") is a hallucination — losses with wins between them are not a streak.
-- Counts derived by eyeballing a list ("third turnover of the year," "fifth sack," "fourth ranked opponent"): only valid if the cumulative count is explicitly in the data. If you derived it by scanning, drop it.
-- Color / scene details (weather, crowd, sideline reactions, momentum, travel context, "first start since"): never present in the data. If any survived to the draft, cut.
-- Hedged claims ("appeared to," "seemingly," "may have"): hedges are not a fabrication escape valve. If a claim needs a hedge, omit the claim.
-
-If anything fails, fix it before emitting. A shorter, 100% accurate article is much better than a longer one with fabrications.
 
 ═══════════════════════════════════════════════════════════
 VOICE — ESPN BEAT-WRITER, NOT COLUMNIST
@@ -4077,6 +4034,7 @@ MANDATORY SELF-CHECK BEFORE YOU SEND
 ═══════════════════════════════════════════════════════════
 Read your draft top to bottom. Honest answers. If any answer is no, REWRITE before sending.
 
+   0. FACTS: every number, name, and stat line traces exactly to a data row — no derived figures (per-attempt/per-carry), no eyeballed counts, no quotes, no color (weather/crowd/sideline), no causal "why" the data doesn't state. Cut anything that fails.
    1. LEDE LENGTH: is the lede 1-2 sentences? If sentence 3 exists, it must be cut or moved to the body.
    2. LEDE CONTENT: sentence 1 is who/what/score (inverted pyramid). Sentence 2 (optional) adds ONE angle — streak, conference implication, ranking. NO specific plays (pick-sixes, fourth-down conversions, key turnovers) in the lede.
    3. Did I tailor article LENGTH to the actual data available? (Rich data → full story. Thin data → 2-4 paragraphs. No padding when data is sparse.)
@@ -5274,7 +5232,7 @@ Use this when the gap between recruiting hype and on-field results is wide enoug
     if (!qwl) return null
     const lines = []
     if (qwl.qualityWins.length > 0) {
-      const wins = qwl.qualityWins.map(w => {
+      const wins = qwl.qualityWins.filter(w => getTeamName(w.opponentAbbr) || w.opponentAbbr).map(w => {
         const oppName = getTeamName(w.opponentAbbr) || w.opponentAbbr
         const rankBit = w.opponentRank
           ? `#${w.opponentRank} at the time`
@@ -5285,7 +5243,7 @@ Use this when the gap between recruiting hype and on-field results is wide enoug
       lines.push(`Quality wins: ${wins}.`)
     }
     if (qwl.badLosses.length > 0) {
-      const losses = qwl.badLosses.map(l => {
+      const losses = qwl.badLosses.filter(l => getTeamName(l.opponentAbbr) || l.opponentAbbr).map(l => {
         const oppName = getTeamName(l.opponentAbbr) || l.opponentAbbr
         return `Week ${l.week} L to ${oppName}${l.opponentRecord ? ` (${l.opponentRecord})` : ''}`
       }).join('; ')
