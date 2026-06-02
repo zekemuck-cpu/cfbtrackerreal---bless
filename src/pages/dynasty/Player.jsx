@@ -1687,19 +1687,19 @@ function PlayerInner() {
             />
           )}
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-black uppercase leading-none tracking-wide text-white" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+            <h1 className="text-xl font-black leading-none tracking-tight text-white" style={{ fontFamily: "var(--font-display)" }}>
               {player.name}
             </h1>
             <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-xs font-bold uppercase tracking-widest text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>
+              <span className="text-xs font-semibold text-white" style={{ fontFamily: "var(--font-display)" }}>
                 {player.jerseyNumber != null && player.jerseyNumber !== '' && `#${player.jerseyNumber} • `}{player.position}
               </span>
               {(() => {
                 const currentDevTrait = player.devTraitByYear?.[currentYear] || player.devTraitByYear?.[String(currentYear)] || player.devTrait
                 return currentDevTrait && currentDevTrait !== 'Normal' ? (
                   <span
-                    className="text-xs font-bold uppercase tracking-widest text-white"
-                    style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}
+                    className="text-xs font-semibold text-white"
+                    style={{ fontFamily: "var(--font-display)" }}
                   >
                     • {currentDevTrait}
                   </span>
@@ -1736,8 +1736,8 @@ function PlayerInner() {
           <div className="flex items-center justify-between">
             <Link
               to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}?tab=depthchart&player=${pid}&side=${sideOfPosition(player.position) || 'offense'}`}
-              className="inline-flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider hover:underline text-white"
-              style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.2px' }}
+              className="inline-flex items-center gap-1.5 text-sm font-bold hover:underline text-white"
+              style={{ fontFamily: "var(--font-display)" }}
             >
               {getTeamLogo(playerTeamName, dynasty?.teams || dynasty?.customTeams) && (
                 <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 bg-surface-3" style={{ padding: '2px' }}>
@@ -1746,7 +1746,7 @@ function PlayerInner() {
               )}
               <span className="truncate max-w-[140px]">{playerTeamName}</span>
             </Link>
-            <span className="text-sm font-bold uppercase tracking-wider text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.2px' }}>{player.classByYear?.[dynasty?.currentYear] || player.year}</span>
+            <span className="text-sm font-bold text-white" style={{ fontFamily: "var(--font-display)" }}>{player.classByYear?.[dynasty?.currentYear] || player.year}</span>
           </div>
 
           {/* Archetype and Physical */}
@@ -1941,7 +1941,7 @@ function PlayerInner() {
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2">
-                <h1 className="text-3xl md:text-4xl font-black uppercase tracking-wide text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>
+                <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white" style={{ fontFamily: "var(--font-display)" }}>
                   {player.name}
                 </h1>
                 {!isViewOnly && (
@@ -1960,8 +1960,8 @@ function PlayerInner() {
               <div className="flex items-center gap-2 mb-2">
                 <Link
                   to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}?tab=depthchart&player=${pid}&side=${sideOfPosition(player.position) || 'offense'}`}
-                  className="inline-flex items-center gap-2 text-base font-bold uppercase tracking-wider hover:underline text-white"
-                  style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}
+                  className="inline-flex items-center gap-2 text-base font-bold hover:underline text-white"
+                  style={{ fontFamily: "var(--font-display)" }}
                 >
                   {getTeamLogo(playerTeamName, dynasty?.teams || dynasty?.customTeams) && (
                     <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '3px' }}>
@@ -2100,7 +2100,7 @@ function PlayerInner() {
                 })()}
               </div>
 
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-bold uppercase tracking-widest text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-white" style={{ fontFamily: "var(--font-display)" }}>
                 {player.jerseyNumber != null && player.jerseyNumber !== '' && <span>#{player.jerseyNumber}</span>}
                 {player.jerseyNumber != null && player.jerseyNumber !== '' && <span className="text-txt-muted">•</span>}
                 <span>{player.position}</span>
