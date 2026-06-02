@@ -6,6 +6,7 @@ import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromNa
 import { getTeamColors } from '../../data/teamColors'
 import { TEAMS, resolveTid } from '../../data/teamRegistry'
 import AllAmericansModal from '../../components/AllAmericansModal'
+import { HonorPlayerTile, SchoolLeaderboard } from '../../components/HonorsUI'
 import { normalizePlayerName } from '../../utils/playerMatching'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import {
@@ -115,12 +116,19 @@ export default function AllAmericans() {
     availableYears.push(year)
   }
 
-  // First-season dynasties have no prior year — default to current
-  // year so a 2025-start dynasty doesn't open showing "2024".
+  // Default to the most recent season that actually has All-Americans entered
+  // (newest-first scan), falling back to current/last year when none exist.
+  // An explicit URL year always wins.
+  const yearHasData = (y) => {
+    const d = allAmericansByYear[y] || allAmericansByYear[String(y)]
+    return !!d && Array.isArray(d.allAmericans) && d.allAmericans.length > 0
+  }
+  const mostRecentYearWithData = availableYears.find(yearHasData) || null
   const isFirstSeason = Number(currentDynasty.currentYear) <= Number(currentDynasty.startYear)
   const displayYear = urlYear
     ? parseInt(urlYear)
-    : (isFirstSeason ? currentDynasty.currentYear : currentDynasty.currentYear - 1)
+    : (mostRecentYearWithData
+        ?? (isFirstSeason ? currentDynasty.currentYear : currentDynasty.currentYear - 1))
   const yearData = allAmericansByYear[displayYear] || {}
   const allAmericans = yearData.allAmericans || []
 
@@ -232,7 +240,20 @@ export default function AllAmericans() {
     })
     return Array.from(byKey.values()).sort((a, b) => b.score - a.score || b.total - a.total)
   })()
-  const topSchools = schoolTally.slice(0, 6)
+  const leaderboardEntries = schoolTally.slice(0, 10).map((e, idx) => {
+    const mascotName = getMascotName(e.school, currentDynasty?.teams || currentDynasty?.customTeams)
+    const tid = resolveTid(e.school, currentDynasty?.teams || TEAMS)
+    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+    return {
+      key: e.school,
+      rank: idx + 1,
+      name: getSchoolName(mascotName) || e.school,
+      logo: mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null,
+      primary: colors?.primary || '#64748b',
+      first: e.first, second: e.second, freshman: e.freshman, total: e.total,
+      link: tid ? `${pathPrefix}/team/${tid}/${displayYear}` : '#',
+    }
+  })
 
   const findPlayerByNameAndSchool = (playerName, school, schoolTid = null) => {
     if (!playerName || !currentDynasty.players) return null
@@ -316,61 +337,37 @@ export default function AllAmericans() {
     return nameMatches[0]
   }
 
+  // Placeholder images: imported rosters often set every player's pictureUrl to
+  // the team logo. A real photo is unique, so anything shared by 3+ players is
+  // treated as a placeholder and the tile shows a monogram instead.
+  const placeholderImages = (() => {
+    const counts = new Map()
+    for (const p of (currentDynasty.players || [])) {
+      const u = p.pictureUrl
+      if (u) counts.set(u, (counts.get(u) || 0) + 1)
+    }
+    return new Set([...counts].filter(([, n]) => n >= 3).map(([u]) => u))
+  })()
+  const realPhoto = (url) => (url && !placeholderImages.has(url) ? url : null)
+
   const PlayerRow = ({ player }) => {
     const mascotName = getMascotName(player.school, currentDynasty?.teams || currentDynasty?.customTeams)
     const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
-    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: '#64748b', secondary: '#fff' }
+    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+    const primary = colors?.primary || '#64748b'
     const matchingPlayer = findPlayerByNameAndSchool(player.player, player.school, player.schoolTid)
     const schoolName = getSchoolName(mascotName) || player.school
-
     return (
-      <div
-        className="group relative flex items-center gap-3 px-4 py-2.5 hover:bg-surface-3 transition-colors"
-        style={{ borderBottom: '1px solid var(--surface-4)' }}
-      >
-        {/* Position chip — broadcast lower-third style: tracked uppercase */}
-        <span
-          className="label-xs tabular flex-shrink-0 text-center"
-          style={{
-            width: '34px',
-            color: 'var(--text-secondary)',
-            letterSpacing: '1.5px',
-            fontSize: '10px',
-            fontWeight: 700,
-          }}
-        >
-          {player.position}
-        </span>
-
-        {teamLogo ? (
-          <Link
-            to={`${pathPrefix}/team/${resolveTid(player.school, currentDynasty?.teams || TEAMS)}/${displayYear}`}
-            className="w-7 h-7 rounded-full bg-white p-0.5 flex-shrink-0 transition-transform duration-150 group-hover:scale-110"
-          >
-            <img src={teamLogo} alt="" className="w-full h-full object-contain" />
-          </Link>
-        ) : (
-          <div className="w-7 h-7 rounded-full bg-surface-4 flex-shrink-0" />
-        )}
-
-        <div className="flex-1 min-w-0">
-          {matchingPlayer ? (
-            <Link
-              to={`${pathPrefix}/player/${matchingPlayer.pid}`}
-              className="font-semibold text-sm text-txt-primary hover:text-txt-primary transition-colors truncate block"
-            >
-              {cleanPlayerName(player.player)}
-            </Link>
-          ) : (
-            <span className="font-semibold text-sm text-txt-primary truncate block">
-              {cleanPlayerName(player.player)}
-            </span>
-          )}
-          <div className="text-xs text-txt-tertiary truncate">
-            {player.class && <>{player.class} </>}{schoolName}
-          </div>
-        </div>
-      </div>
+      <HonorPlayerTile
+        position={player.position}
+        name={cleanPlayerName(player.player)}
+        klass={player.class}
+        schoolName={schoolName}
+        teamLogo={teamLogo}
+        primary={primary}
+        photoUrl={realPhoto(matchingPlayer?.pictureUrl)}
+        to={matchingPlayer ? `${pathPrefix}/player/${matchingPlayer.pid}` : null}
+      />
     )
   }
 
@@ -412,14 +409,14 @@ export default function AllAmericans() {
           </span>
         </header>
 
-        <Card padding="none" className="overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-5 gap-2">
           {players.map((player, idx) => (
             <PlayerRow
               key={`${designation}-${player.position}-${player.player}-${idx}`}
               player={player}
             />
           ))}
-        </Card>
+        </div>
       </section>
     )
   }
@@ -445,76 +442,6 @@ export default function AllAmericans() {
         }
         actions={heroActions}
       />
-
-      {hasAnyPlayers && topSchools.length > 0 && (
-        <section>
-          <header className="flex items-baseline justify-between mb-2">
-            <h2
-              className="label-xs text-txt-tertiary"
-              style={{ letterSpacing: '2px', fontSize: '10px', fontWeight: 700 }}
-            >
-              SCHOOL LEADERBOARD
-            </h2>
-            <span
-              className="label-xs tabular text-txt-muted"
-              style={{ letterSpacing: '1.5px', fontSize: '10px' }}
-            >
-              {schoolTally.length} {schoolTally.length === 1 ? 'SCHOOL' : 'SCHOOLS'} REPRESENTED
-            </span>
-          </header>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-            {topSchools.map((entry, idx) => {
-              const mascotName = getMascotName(entry.school, currentDynasty?.teams || currentDynasty?.customTeams)
-              const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
-              const schoolName = getSchoolName(mascotName) || entry.school
-              const tid = resolveTid(entry.school, currentDynasty?.teams || TEAMS)
-              return (
-                <Link
-                  key={entry.school}
-                  to={tid ? `${pathPrefix}/team/${tid}/${displayYear}` : '#'}
-                  className="group relative flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 transition-colors no-underline"
-                  style={{ border: '1px solid var(--surface-4)' }}
-                >
-                  <span
-                    className="label-xs tabular flex-shrink-0 text-txt-muted"
-                    style={{ width: '14px', fontSize: '10px', fontWeight: 700 }}
-                  >
-                    {idx + 1}
-                  </span>
-                  {teamLogo ? (
-                    <div className="w-7 h-7 rounded-full bg-white p-0.5 flex-shrink-0">
-                      <img src={teamLogo} alt="" className="w-full h-full object-contain" />
-                    </div>
-                  ) : (
-                    <div className="w-7 h-7 rounded-full bg-surface-4 flex-shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-semibold text-txt-primary truncate">
-                      {schoolName}
-                    </div>
-                    <div
-                      className="tabular text-txt-tertiary mt-0.5"
-                      style={{ fontSize: '10px', letterSpacing: '0.5px' }}
-                    >
-                      {entry.first > 0 && <span>{entry.first}×1st</span>}
-                      {entry.first > 0 && (entry.second > 0 || entry.freshman > 0) && <span className="text-txt-muted"> </span>}
-                      {entry.second > 0 && <span>{entry.second}×2nd</span>}
-                      {entry.second > 0 && entry.freshman > 0 && <span className="text-txt-muted"> </span>}
-                      {entry.freshman > 0 && <span>{entry.freshman}×Fr</span>}
-                    </div>
-                  </div>
-                  <span
-                    className="tabular flex-shrink-0 font-display font-black text-txt-primary"
-                    style={{ fontSize: '20px', lineHeight: 1, letterSpacing: '-0.02em' }}
-                  >
-                    {entry.total}
-                  </span>
-                </Link>
-              )
-            })}
-          </div>
-        </section>
-      )}
 
       {hasAnyPlayers && (
         <Tabs
@@ -552,6 +479,10 @@ export default function AllAmericans() {
           designation={filter}
           players={filteredPlayers}
         />
+      )}
+
+      {hasAnyPlayers && leaderboardEntries.length > 0 && (
+        <SchoolLeaderboard entries={leaderboardEntries} totalSchools={schoolTally.length} />
       )}
 
       <AllAmericansModal

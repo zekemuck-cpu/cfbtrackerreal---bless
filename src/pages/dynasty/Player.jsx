@@ -17,6 +17,7 @@ import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
 import { sideOfPosition } from '../../utils/outlookBoard'
 import { getTeamColors } from '../../data/teamColors'
+import { getAwardImage } from '../../data/awardImages'
 import OverallProgressionModal from '../../components/OverallProgressionModal'
 import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
 import InlineScoringHighlights from '../../components/InlineScoringHighlights'
@@ -1562,12 +1563,12 @@ function PlayerInner() {
     // Tier 2 — major named awards. After normalization every accolade
     // resolves to its canonical key; we look that up in AWARD_LABELS
     // and aggregate by display label.
-    const majorByLabel = {} // label -> { years: number[], firstSeen: idx for stable sort }
+    const majorByLabel = {} // label -> { years: number[], firstSeen: idx, key }
     accolades.forEach((a, idx) => {
       const key = normalizeAwardName(a.award)
       const label = AWARD_LABELS[key]
       if (!label) return
-      if (!majorByLabel[label]) majorByLabel[label] = { years: [], firstSeen: idx }
+      if (!majorByLabel[label]) majorByLabel[label] = { years: [], firstSeen: idx, key }
       const yr = Number(a.year)
       if (Number.isFinite(yr)) majorByLabel[label].years.push(yr)
     })
@@ -1630,7 +1631,7 @@ function PlayerInner() {
 
     // Prestige tier — gold
     if (heismanCount > 0) {
-      tiers.push({ label: plateLabel(heismanCount, 'Heisman', heismanYears), variant: 'gold' })
+      tiers.push({ label: plateLabel(heismanCount, 'Heisman', heismanYears), variant: 'gold', img: getAwardImage('heisman') })
     }
     // Silver tier — finalist-only seasons (winner years filtered out above).
     if (finalistCount > 0) {
@@ -1645,8 +1646,8 @@ function PlayerInner() {
         if (diff !== 0) return diff
         return a[1].firstSeen - b[1].firstSeen
       })
-      .forEach(([label, { years }]) => {
-        tiers.push({ label: plateLabel(years.length, label, years), variant: 'accent' })
+      .forEach(([label, { years, key }]) => {
+        tiers.push({ label: plateLabel(years.length, label, years), variant: 'accent', img: getAwardImage(key) })
       })
 
     // Honors-team tier — now annotated with years.
@@ -2169,70 +2170,25 @@ function PlayerInner() {
           title="View all awards"
         >
           {awardPlates.map((p, i) => {
+            // Per-variant chrome; the trophy image (when the award has one) sits
+            // before the label in every variant.
+            const base = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider"
+            let cls = ''
+            let style = { fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1px' }
             if (p.variant === 'gold') {
-              return (
-                <span
-                  key={i}
-                  className="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider"
-                  style={{
-                    fontFamily: "'Bebas Neue', sans-serif",
-                    letterSpacing: '1px',
-                    backgroundColor: '#fbbf24',
-                    color: '#78350f',
-                    boxShadow: '0 0 0 1px rgba(251, 191, 36, 0.4), 0 2px 6px rgba(251, 191, 36, 0.25)',
-                  }}
-                >
-                  {p.label}
-                </span>
-              )
-            }
-            if (p.variant === 'silver') {
-              // Sits between gold (Heisman win) and accent (major awards) in
-              // visual weight — a finalist year is more than a position award
-              // but less than a trophy.
-              return (
-                <span
-                  key={i}
-                  className="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider"
-                  style={{
-                    fontFamily: "'Bebas Neue', sans-serif",
-                    letterSpacing: '1px',
-                    backgroundColor: '#cbd5e1',
-                    color: '#1e293b',
-                    boxShadow: '0 0 0 1px rgba(148, 163, 184, 0.45), 0 2px 6px rgba(148, 163, 184, 0.2)',
-                  }}
-                >
-                  {p.label}
-                </span>
-              )
-            }
-            if (p.variant === 'accent') {
-              return (
-                <span
-                  key={i}
-                  className="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-txt-primary"
-                  style={{
-                    fontFamily: "'Bebas Neue', sans-serif",
-                    letterSpacing: '1px',
-                    backgroundColor: 'var(--surface-2)',
-                    border: `1px solid ${teamInfo.backgroundColor}`,
-                  }}
-                >
-                  {p.label}
-                </span>
-              )
+              style = { ...style, backgroundColor: '#fbbf24', color: '#78350f', boxShadow: '0 0 0 1px rgba(251, 191, 36, 0.4), 0 2px 6px rgba(251, 191, 36, 0.25)' }
+            } else if (p.variant === 'silver') {
+              style = { ...style, backgroundColor: '#cbd5e1', color: '#1e293b', boxShadow: '0 0 0 1px rgba(148, 163, 184, 0.45), 0 2px 6px rgba(148, 163, 184, 0.2)' }
+            } else if (p.variant === 'accent') {
+              cls = 'text-txt-primary'
+              style = { ...style, backgroundColor: 'var(--surface-2)', border: `1px solid ${teamInfo.backgroundColor}` }
+            } else {
+              cls = 'text-txt-secondary'
+              style = { ...style, backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }
             }
             return (
-              <span
-                key={i}
-                className="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-txt-secondary"
-                style={{
-                  fontFamily: "'Bebas Neue', sans-serif",
-                  letterSpacing: '1px',
-                  backgroundColor: 'var(--surface-2)',
-                  border: '1px solid var(--surface-4)',
-                }}
-              >
+              <span key={i} className={`${base} ${cls}`} style={style}>
+                {p.img && <img src={p.img} alt="" className="h-5 w-5 object-contain flex-shrink-0 -ml-1" />}
                 {p.label}
               </span>
             )
@@ -4797,158 +4753,181 @@ function PlayerInner() {
 
         if (!hasAwards) return null
 
-        // Group accolades by award type for counting multiples
-        const accoladesByType = accolades.reduce((acc, a) => {
-          if (!acc[a.award]) acc[a.award] = []
-          acc[a.award].push(a.year)
-          return acc
-        }, {})
+        // Canonical-key display labels (post-normalizeAwardName).
+        const TROPHY_LABELS = {
+          heisman: 'Heisman Trophy',
+          maxwell: 'Maxwell Award',
+          walterCamp: 'Walter Camp Award',
+          daveyObrien: "Davey O'Brien Award",
+          chuckBednarik: 'Chuck Bednarik Award',
+          broncoNagurski: 'Bronco Nagurski Trophy',
+          dickButkus: 'Dick Butkus Award',
+          lombardi: 'Lombardi Award',
+          outland: 'Outland Trophy',
+          jimThorpe: 'Jim Thorpe Award',
+          fredBiletnikoff: 'Fred Biletnikoff Award',
+          johnMackey: 'John Mackey Award',
+          rimington: 'Rimington Trophy',
+          rayGuy: 'Ray Guy Award',
+          louGroza: 'Lou Groza Award',
+          doakWalker: 'Doak Walker Award',
+          unitasGoldenArm: 'Unitas Golden Arm Award',
+          edgeRusherOfTheYear: 'Ted Hendricks Award',
+          returnerOfTheYear: 'Jet Award',
+          tedHendricksAward: 'Ted Hendricks Award',
+          bearBryantCoachOfTheYear: 'Bear Bryant Award',
+          broyles: 'Broyles Award',
+        }
+        const HONOR_LABELS = {
+          heismanFinalist: 'Heisman Finalist',
+          confPOY: 'Conference Player of the Year',
+          confOPOY: 'Conference Offensive POY',
+          confDPOY: 'Conference Defensive POY',
+          confFreshmanOY: 'Conference Freshman of the Year',
+          bowlMVP: 'Bowl Game MVP',
+          cfpChampMVP: 'CFP Championship MVP',
+          paulHornungAward: 'Paul Hornung Award',
+        }
 
-        // Group All-Americans by designation for display
-        const allAmericansByDesignation = allAmericans.reduce((acc, a) => {
-          const key = a.designation || 'first'
-          if (!acc[key]) acc[key] = []
-          acc[key].push(a.year)
-          return acc
-        }, {})
+        const uniqSortDesc = (arr) => [...new Set(arr.filter(Number.isFinite))].sort((a, b) => b - a)
 
-        // Group All-Conference by designation for display
-        const allConferenceByDesignation = allConference.reduce((acc, a) => {
-          const key = a.designation || 'first'
-          if (!acc[key]) acc[key] = []
-          acc[key].push(a.year)
+        // Split accolades: those with trophy artwork become "Trophies", the rest
+        // (finalist, POY, MVPs) join the "Honors" list.
+        const trophyMap = {}
+        const honorMap = {}
+        accolades.forEach(a => {
+          const key = normalizeAwardName(a.award)
+          const yr = Number(a.year)
+          const img = getAwardImage(key)
+          if (img) {
+            if (!trophyMap[key]) trophyMap[key] = { key, label: TROPHY_LABELS[key] || formatAwardName(a.award), years: [], img }
+            trophyMap[key].years.push(yr)
+          } else {
+            if (!honorMap[key]) honorMap[key] = { key, label: HONOR_LABELS[key] || formatAwardName(a.award), years: [] }
+            honorMap[key].years.push(yr)
+          }
+        })
+        const trophies = Object.values(trophyMap)
+          .map(t => ({ ...t, years: uniqSortDesc(t.years) }))
+          .sort((a, b) => (b.key === 'heisman') - (a.key === 'heisman') || b.years.length - a.years.length || a.label.localeCompare(b.label))
+
+        // Honor rows (no artwork): All-American / All-Conference designations,
+        // then named honors. Player of the Week is rendered separately (modal).
+        const desOrder = { first: 0, second: 1, freshman: 2 }
+        const desTier = (d) => d === 'first' ? '1st Team' : d === 'second' ? '2nd Team' : d === 'freshman' ? 'Freshman' : d
+        const groupDes = (list) => list.reduce((acc, a) => {
+          const k = a.designation || 'first'
+          ;(acc[k] = acc[k] || []).push(Number(a.year))
           return acc
         }, {})
+        const honorRows = []
+        Object.entries(groupDes(allAmericans))
+          .sort((a, b) => (desOrder[a[0]] ?? 9) - (desOrder[b[0]] ?? 9))
+          .forEach(([d, yrs]) => honorRows.push({ label: `All-American (${desTier(d)})`, years: uniqSortDesc(yrs), linkBase: 'all-americans' }))
+        Object.entries(groupDes(allConference))
+          .sort((a, b) => (desOrder[a[0]] ?? 9) - (desOrder[b[0]] ?? 9))
+          .forEach(([d, yrs]) => honorRows.push({ label: `All-Conference (${desTier(d)})`, years: uniqSortDesc(yrs), linkBase: 'all-conference' }))
+        Object.values(honorMap)
+          .sort((a, b) => b.years.length - a.years.length || a.label.localeCompare(b.label))
+          .forEach(h => honorRows.push({ label: h.label, years: uniqSortDesc(h.years), linkBase: 'awards' }))
+
+        const YearChip = ({ year, base }) => (
+          <Link
+            to={`${pathPrefix}/${base}/${year}`}
+            className="px-2 py-0.5 rounded text-[11px] font-bold tabular-nums bg-surface-3 text-white hover:bg-surface-4 transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            &rsquo;{String(year).slice(-2)}
+          </Link>
+        )
+        const CountChip = ({ children }) => (
+          <span className="px-2 py-0.5 rounded text-[11px] font-bold tabular-nums bg-surface-3 text-white flex-shrink-0">{children}</span>
+        )
 
         return (
           <div
             className="card p-4 sm:p-6 border-l-[3px]"
             style={{ borderLeftColor: teamColors.primary }}
           >
-            <h2 className="text-xl font-bold mb-4" style={{ color: secondaryText }}>Awards</h2>
-            <div className="space-y-1">
-              {/* POW honors from game data */}
-              {powHonors.confPOW > 0 && (
-                <button
-                  onClick={() => handleAccoladeClick('confPOW')}
-                  className="block text-left hover:opacity-70 transition-opacity"
-                >
-                  <span className="font-semibold" style={{ color: secondaryText }}>Conference Player of the Week</span>
-                  <span style={{ color: secondaryText, opacity: 0.7 }}> ({powHonors.confPOW}x)</span>
-                </button>
-              )}
-              {powHonors.nationalPOW > 0 && (
-                <button
-                  onClick={() => handleAccoladeClick('nationalPOW')}
-                  className="block text-left hover:opacity-70 transition-opacity"
-                >
-                  <span className="font-semibold" style={{ color: secondaryText }}>National Player of the Week</span>
-                  <span style={{ color: secondaryText, opacity: 0.7 }}> ({powHonors.nationalPOW}x)</span>
-                </button>
-              )}
-              {/* Render per-year year-chips that link to the respective
-                  honor page for that year. Clicking the label links to the
-                  most recent year's page. POW awards above stay as modals. */}
-              {Object.entries(accoladesByType)
-                .filter(([award]) => award !== 'confPOW' && award !== 'nationalPOW')
-                .map(([award, years]) => {
-                  const label = formatAwardName(award)
-                  const sortedYears = [...years].sort((a, b) => b - a)
-                  return (
-                    <div key={award} className="flex flex-wrap items-baseline gap-x-1">
-                      <Link
-                        to={`${pathPrefix}/awards/${sortedYears[0]}`}
-                        className="font-semibold hover:underline transition-colors"
-                        style={{ color: secondaryText }}
+            <h2 className="text-xl font-bold mb-5 text-white">Awards</h2>
+
+            {/* Trophies — major named awards shown as a case of artwork. */}
+            {trophies.length > 0 && (
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-txt-tertiary">Trophies</span>
+                  <div className="flex-1 h-px bg-surface-4" />
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {trophies.map(t => {
+                    const isHeisman = t.key === 'heisman'
+                    return (
+                      <div
+                        key={t.key}
+                        className="relative rounded-xl bg-surface-2 border p-3 flex flex-col items-center text-center"
+                        style={isHeisman
+                          ? { borderColor: 'rgba(212,175,55,0.6)', boxShadow: '0 0 0 1px rgba(212,175,55,0.25), 0 0 18px rgba(212,175,55,0.15)' }
+                          : { borderColor: 'var(--surface-4)' }}
                       >
-                        {label}
-                      </Link>
-                      {/* Single span so the parens hug the year(s) — flex gap-x-1 on the parent
-                          would otherwise put visible whitespace between "(" and the year. */}
-                      <span style={{ color: secondaryText, opacity: 0.7 }}>
-                        ({sortedYears.map((yr, i) => (
-                          <span key={yr}>
-                            <Link
-                              to={`${pathPrefix}/awards/${yr}`}
-                              className="hover:underline"
-                              style={{ color: secondaryText }}
-                            >
-                              {yr}
-                            </Link>
-                            {i < sortedYears.length - 1 ? ', ' : ''}
-                          </span>
-                        ))})
-                      </span>
+                        <div className="h-20 flex items-center justify-center mb-2">
+                          <img src={t.img} alt={t.label} loading="lazy" className="max-h-full w-auto object-contain" style={{ filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))' }} />
+                        </div>
+                        {t.years.length > 0 ? (
+                          <Link to={`${pathPrefix}/awards/${t.years[0]}`} className="text-[11px] font-bold uppercase leading-tight tracking-wide text-white hover:underline">{t.label}</Link>
+                        ) : (
+                          <div className="text-[11px] font-bold uppercase leading-tight tracking-wide text-white">{t.label}</div>
+                        )}
+                        <div className="mt-1.5 flex flex-wrap justify-center gap-1">
+                          {t.years.map(yr => <YearChip key={yr} year={yr} base="awards" />)}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Honors — All-American / All-Conference / named honors + POW. */}
+            {(honorRows.length > 0 || powHonors.nationalPOW > 0 || powHonors.confPOW > 0) && (
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-txt-tertiary">Honors</span>
+                  <div className="flex-1 h-px bg-surface-4" />
+                </div>
+                <div className="rounded-xl bg-surface-2 border border-surface-4 divide-y divide-surface-4 overflow-hidden">
+                  {honorRows.map((h, idx) => (
+                    <div key={idx} className="flex items-center gap-2.5 px-3 py-2.5">
+                      {h.years.length > 0 ? (
+                        <Link to={`${pathPrefix}/${h.linkBase}/${h.years[0]}`} className="font-semibold text-sm text-white hover:underline">{h.label}</Link>
+                      ) : (
+                        <span className="font-semibold text-sm text-white">{h.label}</span>
+                      )}
+                      <div className="flex flex-wrap gap-1">
+                        {h.years.map(yr => <YearChip key={yr} year={yr} base={h.linkBase} />)}
+                      </div>
                     </div>
-                  )
-                })}
-              {/* All-Americans — per-year links to /all-americans/:year */}
-              {Object.entries(allAmericansByDesignation).map(([designation, years]) => {
-                const label = designation === 'first' ? 'All-American (1st Team)' :
-                              designation === 'second' ? 'All-American (2nd Team)' :
-                              designation === 'freshman' ? 'Freshman All-American' :
-                              `All-American (${designation})`
-                const sortedYears = [...years].sort((a, b) => b - a)
-                return (
-                  <div key={`aa-${designation}`} className="flex flex-wrap items-baseline gap-x-1">
-                    <Link
-                      to={`${pathPrefix}/all-americans/${sortedYears[0]}`}
-                      className="font-semibold hover:underline transition-colors"
-                      style={{ color: secondaryText }}
+                  ))}
+                  {powHonors.nationalPOW > 0 && (
+                    <button
+                      onClick={() => handleAccoladeClick('nationalPOW')}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-surface-3 transition-colors"
                     >
-                      {label}
-                    </Link>
-                    <span style={{ color: secondaryText, opacity: 0.7 }}>
-                      ({sortedYears.map((yr, i) => (
-                        <span key={yr}>
-                          <Link
-                            to={`${pathPrefix}/all-americans/${yr}`}
-                            className="hover:underline"
-                            style={{ color: secondaryText }}
-                          >
-                            {yr}
-                          </Link>
-                          {i < sortedYears.length - 1 ? ', ' : ''}
-                        </span>
-                      ))})
-                    </span>
-                  </div>
-                )
-              })}
-              {/* All-Conference — per-year links to /all-conference/:year */}
-              {Object.entries(allConferenceByDesignation).map(([designation, years]) => {
-                const label = designation === 'first' ? 'All-Conference (1st Team)' :
-                              designation === 'second' ? 'All-Conference (2nd Team)' :
-                              designation === 'freshman' ? 'Freshman All-Conference' :
-                              `All-Conference (${designation})`
-                const sortedYears = [...years].sort((a, b) => b - a)
-                return (
-                  <div key={`ac-${designation}`} className="flex flex-wrap items-baseline gap-x-1">
-                    <Link
-                      to={`${pathPrefix}/all-conference/${sortedYears[0]}`}
-                      className="font-semibold hover:underline transition-colors"
-                      style={{ color: secondaryText }}
+                      <span className="font-semibold text-sm text-white">National Player of the Week</span>
+                      <CountChip>{powHonors.nationalPOW}&times;</CountChip>
+                    </button>
+                  )}
+                  {powHonors.confPOW > 0 && (
+                    <button
+                      onClick={() => handleAccoladeClick('confPOW')}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-surface-3 transition-colors"
                     >
-                      {label}
-                    </Link>
-                    <span style={{ color: secondaryText, opacity: 0.7 }}>
-                      ({sortedYears.map((yr, i) => (
-                        <span key={yr}>
-                          <Link
-                            to={`${pathPrefix}/all-conference/${yr}`}
-                            className="hover:underline"
-                            style={{ color: secondaryText }}
-                          >
-                            {yr}
-                          </Link>
-                          {i < sortedYears.length - 1 ? ', ' : ''}
-                        </span>
-                      ))})
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
+                      <span className="font-semibold text-sm text-white">Conference Player of the Week</span>
+                      <CountChip>{powHonors.confPOW}&times;</CountChip>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )
       })()}

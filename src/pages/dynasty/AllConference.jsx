@@ -7,6 +7,7 @@ import { getTeamColors } from '../../data/teamColors'
 import { TEAMS, resolveTid, getCurrentTeamAbbr } from '../../data/teamRegistry'
 import { conferenceTeams, getAllConferences } from '../../data/conferenceTeams'
 import AllConferenceModal from '../../components/AllConferenceModal'
+import { HonorPlayerTile } from '../../components/HonorsUI'
 import { normalizePlayerName } from '../../utils/playerMatching'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import {
@@ -114,12 +115,37 @@ export default function AllConference() {
     availableYears.push(year)
   }
 
-  // First-season dynasties have no prior year — default to current
-  // year so a 2025-start dynasty doesn't open showing "2024".
+  // Default to the most recent season that actually has NON-EMPTY All-Conference
+  // data for the user's own conference (newest-first scan). The conference is
+  // resolved against the current year so it doesn't depend on the year we're
+  // about to pick. An explicit URL year always wins.
+  const defaultUserConf = (() => {
+    const cy = Number(currentDynasty.currentYear)
+    const coachRecord = currentDynasty.coachTeamByYear?.[cy] || currentDynasty.coachTeamByYear?.[String(cy)]
+    const abbr = coachRecord?.team || getCurrentTeamAbbr(currentDynasty)
+    return getTeamConferenceForDynasty(currentDynasty, abbr, cy) || 'SEC'
+  })()
+  const confTeamsForYear = (conf, y) => {
+    const custom = getCustomConferencesForYear(currentDynasty, y)
+    if (custom && custom[conf]) return custom[conf]
+    return conferenceTeams[conf] || []
+  }
+  const yearHasData = (y) => {
+    const d = allAmericansByYear[y] || allAmericansByYear[String(y)]
+    if (!d) return false
+    const byConf = d.allConferenceByConference?.[defaultUserConf]
+    if (Array.isArray(byConf) && byConf.length > 0) return true
+    const flat = d.allConference || []
+    if (flat.length === 0) return false
+    const teams = confTeamsForYear(defaultUserConf, y)
+    return flat.some(p => p.school && (teams.includes(p.school.toUpperCase()) || teams.includes(p.school)))
+  }
+  const mostRecentYearWithData = availableYears.find(yearHasData) || null
   const isFirstSeason = Number(currentDynasty.currentYear) <= Number(currentDynasty.startYear)
   const displayYear = urlYear
     ? parseInt(urlYear)
-    : (isFirstSeason ? currentDynasty.currentYear : currentDynasty.currentYear - 1)
+    : (mostRecentYearWithData
+        ?? (isFirstSeason ? currentDynasty.currentYear : currentDynasty.currentYear - 1))
   const yearData = allAmericansByYear[displayYear] || {}
 
   const userTeamAbbrForYear = useMemo(() => {
@@ -325,60 +351,37 @@ export default function AllConference() {
     return nameMatches[0]
   }
 
+  // Placeholder images: imported rosters often set every player's pictureUrl to
+  // the team logo. A real photo is unique, so anything shared by 3+ players is
+  // treated as a placeholder and the tile shows a monogram instead.
+  const placeholderImages = (() => {
+    const counts = new Map()
+    for (const p of (currentDynasty.players || [])) {
+      const u = p.pictureUrl
+      if (u) counts.set(u, (counts.get(u) || 0) + 1)
+    }
+    return new Set([...counts].filter(([, n]) => n >= 3).map(([u]) => u))
+  })()
+  const realPhoto = (url) => (url && !placeholderImages.has(url) ? url : null)
+
   const PlayerRow = ({ player }) => {
     const mascotName = getMascotName(player.school, currentDynasty?.teams || currentDynasty?.customTeams)
     const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
-    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: '#64748b', secondary: '#fff' }
+    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+    const primary = colors?.primary || '#64748b'
     const matchingPlayer = findPlayerByNameAndSchool(player.player, player.school, player.schoolTid)
     const schoolName = getSchoolName(mascotName) || player.school
-
     return (
-      <div
-        className="group relative flex items-center gap-3 px-4 py-2.5 hover:bg-surface-3 transition-colors"
-        style={{ borderBottom: '1px solid var(--surface-4)' }}
-      >
-        <span
-          className="label-xs tabular flex-shrink-0 text-center"
-          style={{
-            width: '34px',
-            color: 'var(--text-secondary)',
-            letterSpacing: '1.5px',
-            fontSize: '10px',
-            fontWeight: 700,
-          }}
-        >
-          {player.position}
-        </span>
-
-        {teamLogo ? (
-          <Link
-            to={`${pathPrefix}/team/${resolveTid(player.school, currentDynasty?.teams || TEAMS)}/${displayYear}`}
-            className="w-7 h-7 rounded-full bg-white p-0.5 flex-shrink-0 transition-transform duration-150 group-hover:scale-110"
-          >
-            <img src={teamLogo} alt="" className="w-full h-full object-contain" />
-          </Link>
-        ) : (
-          <div className="w-7 h-7 rounded-full bg-surface-4 flex-shrink-0" />
-        )}
-
-        <div className="flex-1 min-w-0">
-          {matchingPlayer ? (
-            <Link
-              to={`${pathPrefix}/player/${matchingPlayer.pid}`}
-              className="font-semibold text-sm text-txt-primary hover:text-txt-primary transition-colors truncate block"
-            >
-              {cleanPlayerName(player.player)}
-            </Link>
-          ) : (
-            <span className="font-semibold text-sm text-txt-primary truncate block">
-              {cleanPlayerName(player.player)}
-            </span>
-          )}
-          <div className="text-xs text-txt-tertiary truncate">
-            {player.class && <>{player.class} </>}{schoolName}
-          </div>
-        </div>
-      </div>
+      <HonorPlayerTile
+        position={player.position}
+        name={cleanPlayerName(player.player)}
+        klass={player.class}
+        schoolName={schoolName}
+        teamLogo={teamLogo}
+        primary={primary}
+        photoUrl={realPhoto(matchingPlayer?.pictureUrl)}
+        to={matchingPlayer ? `${pathPrefix}/player/${matchingPlayer.pid}` : null}
+      />
     )
   }
 
@@ -417,14 +420,14 @@ export default function AllConference() {
           </span>
         </header>
 
-        <Card padding="none" className="overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-5 gap-2">
           {players.map((player, idx) => (
             <PlayerRow
               key={`${designation}-${player.position}-${player.player}-${idx}`}
               player={player}
             />
           ))}
-        </Card>
+        </div>
       </section>
     )
   }

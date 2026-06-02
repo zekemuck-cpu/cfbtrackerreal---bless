@@ -4,10 +4,12 @@ import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
+import { getTeamColors } from '../../data/teamColors'
+import { getContrastTextColor } from '../../utils/colorUtils'
+import { AWARD_IMAGES } from '../../data/awardImages'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
 import AwardsModal from '../../components/AwardsModal'
 import { normalizePlayerName as normalizePlayerNameUtil } from '../../utils/playerMatching'
-import { proxyImageUrl } from '../../utils/imageProxy'
 import {
   PageHero,
   Card,
@@ -114,33 +116,18 @@ const AWARD_ORDER = [
   'bearBryantCoachOfTheYear', 'broyles'
 ]
 
-// Trophy artwork per award (keyed to the award keys above).
-const AWARD_IMAGES = {
-  heisman: 'https://i.imgur.com/QSEqrfZ.png',
-  maxwell: 'https://i.imgur.com/PFQjCyy.png',
-  walterCamp: 'https://i.imgur.com/VyEXh6I.png',
-  chuckBednarik: 'https://i.imgur.com/gDyzPvN.png',
-  broncoNagurski: 'https://i.imgur.com/I50KC2g.png',
-  outland: 'https://i.imgur.com/QUWsA6c.png',
-  lombardi: 'https://i.imgur.com/gfq762C.png',
-  bearBryantCoachOfTheYear: 'https://i.imgur.com/oij7wEs.png',
-  daveyObrien: 'https://i.imgur.com/Dy3u42Q.png',
-  doakWalker: 'https://i.imgur.com/nBM1cVP.png',
-  johnMackey: 'https://i.imgur.com/BOitGT8.png',
-  fredBiletnikoff: 'https://i.imgur.com/Iasg7ZZ.png',
-  jimThorpe: 'https://i.imgur.com/ngipDjp.png',
-  unitasGoldenArm: 'https://i.imgur.com/jv5M8NL.png',
-  dickButkus: 'https://i.imgur.com/RRWai9B.png',
-  edgeRusherOfTheYear: 'https://i.imgur.com/akmqbUw.png', // Ted Hendricks Award
-  rimington: 'https://i.imgur.com/IzDtHBk.png',
-  louGroza: 'https://i.imgur.com/3x0LhzY.png',
-  rayGuy: 'https://i.imgur.com/VfkzgIk.png',
-  broyles: 'https://i.imgur.com/WZaJ975.png',
-  returnerOfTheYear: 'https://i.imgur.com/CHVXg6r.png', // Jet Award
-}
-
 // Delegate to the shared mascot-strip helper.
 const getSchoolName = stripMascotFromName
+
+// Hex (#rgb / #rrggbb) → rgba() string, for team-color card tints.
+const hexA = (hex, a) => {
+  if (!hex || typeof hex !== 'string') return `rgba(120,120,120,${a})`
+  let h = hex.replace('#', '')
+  if (h.length === 3) h = h.split('').map(c => c + c).join('')
+  const n = parseInt(h, 16)
+  if (Number.isNaN(n)) return `rgba(120,120,120,${a})`
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`
+}
 
 export default function Awards() {
   const { id, year: urlYear } = useParams()
@@ -258,14 +245,18 @@ export default function Awards() {
     )
   }
 
-  // Trophy card — the award's trophy shown large, with the award name above
-  // and the winner below. The whole card links to the winner's player page
-  // (or the team page for coach awards). The Heisman gets a subtle gold ring.
+  // Trophy card — the award's trophy shown large, with the award name above and
+  // the winner below. Cards are uniform/neutral with a thin team-color top
+  // accent (not a full fill); the team color lives in the logo+name pill. The
+  // Heisman gets the animated gold prestige treatment (.heisman-card).
   const TrophyCard = ({ awardKey, awardData }) => {
     const display = AWARD_DISPLAY[awardKey]
     const img = AWARD_IMAGES[awardKey]
     const mascotName = getMascotName(awardData.team, currentDynasty?.teams || currentDynasty?.customTeams)
     const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+    const primary = colors?.primary || '#3a3f47'
+    const pillText = getContrastTextColor(primary)
     const matchingPlayer = findPlayerByName(awardData.player, awardData.team, displayYear)
     const isCoachAward = display.category === 'coach'
     const schoolName = getSchoolName(mascotName) || awardData.team
@@ -277,12 +268,18 @@ export default function Awards() {
     return (
       <Link to={to} className="group block h-full">
         <div
-          className={`relative h-full rounded-xl bg-surface-2 border p-4 flex flex-col items-center text-center transition-all hover:bg-surface-3 ${isHeisman ? 'border-[#d4af37]/50 ring-1 ring-[#d4af37]/30' : 'border-surface-4 hover:border-surface-5'}`}
+          className={`relative h-full rounded-xl border p-4 flex flex-col items-center text-center transition-all overflow-hidden hover:brightness-110 ${isHeisman ? 'heisman-card' : ''}`}
+          style={{
+            // Brushed metallic / silver-slate base (not flat black) with a subtle
+            // diagonal sheen. Team color now lives only in the pill below.
+            background: 'linear-gradient(145deg, #3c424b 0%, #272b31 55%, #1f2228 100%)',
+            borderColor: isHeisman ? undefined : 'rgba(255,255,255,0.12)',
+          }}
         >
           {/* Award name */}
           <div
-            className="label-xs text-txt-tertiary mb-3 leading-tight line-clamp-2 w-full"
-            style={{ letterSpacing: '1.2px', fontSize: '9px', minHeight: '22px' }}
+            className="mb-3 leading-tight line-clamp-2 w-full font-display font-bold uppercase"
+            style={{ letterSpacing: '1.2px', fontSize: '9px', minHeight: '22px', color: 'rgba(255,255,255,0.6)' }}
           >
             {display.name}
           </div>
@@ -291,26 +288,38 @@ export default function Awards() {
           <div className="h-24 sm:h-28 flex items-center justify-center mb-3">
             {img ? (
               <img
-                src={proxyImageUrl(img, 240)}
+                src={img}
                 alt={display.name}
+                loading="lazy"
                 className="max-h-full w-auto object-contain transition-transform duration-200 group-hover:scale-105"
-                style={{ filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.45))' }}
+                style={{ filter: 'drop-shadow(0 6px 16px rgba(0,0,0,0.5))' }}
               />
             ) : (
-              <span className="text-txt-tertiary text-xs">—</span>
+              <span className="text-xs text-txt-tertiary">—</span>
             )}
           </div>
 
-          {/* Winner */}
-          <div className="mt-auto w-full min-w-0">
-            <div className="font-semibold text-txt-primary text-sm leading-tight truncate">{awardData.player}</div>
-            <div className="mt-1 flex items-center justify-center gap-1.5 text-[11px] text-txt-tertiary min-w-0">
-              {teamLogo && <img src={teamLogo} alt="" className="w-4 h-4 object-contain flex-shrink-0" />}
+          {/* Winner — name + position, then the team pill. */}
+          <div className="mt-auto w-full min-w-0 flex flex-col items-center gap-1.5">
+            <div className="flex items-baseline justify-center gap-1.5 w-full min-w-0">
+              <span className="font-semibold text-txt-primary text-sm leading-tight truncate">{awardData.player}</span>
               {!isCoachAward && awardData.position && (
-                <span className="font-semibold text-txt-secondary">{awardData.position}</span>
+                <span className="text-[11px] font-bold flex-shrink-0" style={{ color: 'rgba(255,255,255,0.78)' }}>{awardData.position}</span>
               )}
-              <span className="truncate">{schoolName}</span>
             </div>
+            <span
+              className="inline-flex items-center gap-1.5 max-w-full pl-1 pr-2.5 py-0.5 rounded-full"
+              style={{ backgroundColor: primary }}
+            >
+              {teamLogo && (
+                <span className="w-4 h-4 rounded-full bg-white p-px flex items-center justify-center flex-shrink-0">
+                  <img src={teamLogo} alt="" className="w-full h-full object-contain" />
+                </span>
+              )}
+              <span className="text-[11px] font-bold uppercase tracking-wide truncate" style={{ color: pillText }}>
+                {schoolName}
+              </span>
+            </span>
           </div>
         </div>
       </Link>

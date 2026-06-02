@@ -1159,3 +1159,35 @@ table.data-table th[data-numeric] {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+
+/* ── Heisman award tile — prestige treatment ───────────────────────────────
+   A pulsing gold glow + a periodic gold shimmer sweep, layered over the
+   team-colored card so the Heisman reads as the headliner of the gallery. */
+@keyframes heisman-glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.55), 0 0 14px rgba(212, 175, 55, 0.30); }
+  50%      { box-shadow: 0 0 0 1px rgba(245, 224, 140, 0.95), 0 0 28px rgba(212, 175, 55, 0.60); }
+}
+@keyframes heisman-shimmer {
+  0%        { transform: translateX(-180%) skewX(-18deg); opacity: 0; }
+  35%       { opacity: 1; }
+  70%, 100% { transform: translateX(280%) skewX(-18deg); opacity: 0; }
+}
+.heisman-card {
+  border-color: rgba(212, 175, 55, 0.75) !important;
+  animation: heisman-glow-pulse 2.8s ease-in-out infinite;
+}
+.heisman-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 0%, rgba(245, 224, 140, 0.38) 50%, transparent 100%);
+  animation: heisman-shimmer 3.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .heisman-card { animation: none; box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.7), 0 0 16px rgba(212, 175, 55, 0.35); }
+  .heisman-card::after { animation: none; display: none; }
+}
