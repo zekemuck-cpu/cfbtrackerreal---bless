@@ -272,7 +272,7 @@ export default function Home() {
     }
   }
 
-  const TEST_DYNASTY_URL = 'https://www.dropbox.com/scl/fi/tilq7lxp2n03h6la5ag97/UK_2035_Preseason.json?rlkey=jauklgzvwsh2hocr7ohr0xdtw&st=84bgobn2&dl=0'
+  const TEST_DYNASTY_URL = 'https://www.dropbox.com/scl/fi/y49gxbn427hi69hqw8pga/UK_2035_Week12.json?rlkey=n4wno8rs3c1al31edktemof6t&st=2yakp8n8&dl=0'
 
   const handleTestImport = async () => {
     setImporting(true)
