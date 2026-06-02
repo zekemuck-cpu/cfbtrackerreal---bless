@@ -16,6 +16,7 @@ import {
   Button,
   EmptyState,
   TitleWithYear,
+  FittedTeamName,
 } from '../../components/ui'
 
 // Map abbreviation to mascot name for logo lookup
@@ -260,10 +261,12 @@ export default function Awards() {
     const matchingPlayer = findPlayerByName(awardData.player, awardData.team, displayYear)
     const isCoachAward = display.category === 'coach'
     const schoolName = getSchoolName(mascotName) || awardData.team
+    const teamTid = resolveTid(awardData.team, currentDynasty?.teams || TEAMS)
+    const teamAbbrVal = currentDynasty?.teams?.[teamTid]?.abbr || awardData.team
     const isHeisman = awardKey === 'heisman'
     const to = (matchingPlayer && !isCoachAward)
       ? `${pathPrefix}/player/${matchingPlayer.pid}`
-      : `${pathPrefix}/team/${resolveTid(awardData.team, currentDynasty?.teams || TEAMS)}/${displayYear}`
+      : `${pathPrefix}/team/${teamTid}/${displayYear}`
 
     return (
       <Link to={to} className="group block h-full">
@@ -278,8 +281,8 @@ export default function Awards() {
         >
           {/* Award name */}
           <div
-            className="mb-3 leading-tight line-clamp-2 w-full font-display font-bold uppercase"
-            style={{ letterSpacing: '1.2px', fontSize: '9px', minHeight: '22px', color: 'rgba(255,255,255,0.6)' }}
+            className="mb-3 leading-tight line-clamp-2 w-full font-display font-bold uppercase text-white"
+            style={{ letterSpacing: '1.2px', fontSize: '9px', minHeight: '22px' }}
           >
             {display.name}
           </div>
@@ -316,9 +319,12 @@ export default function Awards() {
                   <img src={teamLogo} alt="" className="w-full h-full object-contain" />
                 </span>
               )}
-              <span className="text-[11px] font-bold uppercase tracking-wide truncate" style={{ color: pillText }}>
-                {schoolName}
-              </span>
+              <FittedTeamName
+                name={schoolName}
+                abbr={teamAbbrVal}
+                className="text-[11px] font-bold uppercase tracking-wide"
+                style={{ color: pillText }}
+              />
             </span>
           </div>
         </div>

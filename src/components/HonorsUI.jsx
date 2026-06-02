@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { proxyImageUrl } from '../utils/imageProxy'
 import { getContrastTextColor } from '../utils/colorUtils'
+import { FittedTeamName } from './ui'
 
 // Hex (#rgb / #rrggbb) → rgba() string for team-color gradient washes.
 const hexA = (hex, a) => {
@@ -15,7 +16,7 @@ const hexA = (hex, a) => {
 // One honoree tile — a team-color gradient row with the player's photo (or a
 // monogram), name, a team logo+name pill, class, and position. The whole tile
 // links to the player's page.
-export function HonorPlayerTile({ position, name, klass, schoolName, teamLogo, primary = '#64748b', photoUrl, to }) {
+export function HonorPlayerTile({ position, name, klass, schoolName, schoolAbbr, teamLogo, primary = '#64748b', photoUrl, to }) {
   const pillText = getContrastTextColor(primary)
   const initial = (name || '?').trim().charAt(0).toUpperCase()
   const inner = (
@@ -42,7 +43,7 @@ export function HonorPlayerTile({ position, name, klass, schoolName, teamLogo, p
                 <img src={teamLogo} alt="" className="w-full h-full object-contain" />
               </span>
             )}
-            <span className="text-[10px] font-bold uppercase tracking-wide truncate" style={{ color: pillText }}>{schoolName}</span>
+            <FittedTeamName name={schoolName} abbr={schoolAbbr} className="text-[10px] font-bold uppercase tracking-wide" style={{ color: pillText }} />
           </span>
           {klass && <span className="text-[11px] flex-shrink-0" style={{ color: 'rgba(255,255,255,0.7)' }}>{klass}</span>}
         </div>

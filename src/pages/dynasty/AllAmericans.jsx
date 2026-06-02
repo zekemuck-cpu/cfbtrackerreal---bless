@@ -363,6 +363,7 @@ export default function AllAmericans() {
         name={cleanPlayerName(player.player)}
         klass={player.class}
         schoolName={schoolName}
+        schoolAbbr={player.school}
         teamLogo={teamLogo}
         primary={primary}
         photoUrl={realPhoto(matchingPlayer?.pictureUrl)}
