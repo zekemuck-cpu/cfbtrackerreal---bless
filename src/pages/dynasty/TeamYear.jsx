@@ -638,6 +638,11 @@ export default function TeamYear() {
   const [showHistoryGamesModal, setShowHistoryGamesModal] = useState(false)
   const [historyGamesModalTitle, setHistoryGamesModalTitle] = useState('')
   const [historyGamesModalGames, setHistoryGamesModalGames] = useState([])
+  // "Your History" games — rendered from the USER's perspective per game
+  // (entries are { game, userTid }), so W/L and opponent are user-relative.
+  const [showUserGamesModal, setShowUserGamesModal] = useState(false)
+  const [userGamesModalTitle, setUserGamesModalTitle] = useState('')
+  const [userGamesModalGames, setUserGamesModalGames] = useState([])
   const [showStatsEntryModal, setShowStatsEntryModal] = useState(false)
   const [showDetailedStatsModal, setShowDetailedStatsModal] = useState(false)
   const [leadersMode, setLeadersMode] = useState('career') // 'career' or 'season'
@@ -6323,20 +6328,35 @@ export default function TeamYear() {
         // user was coaching a DIFFERENT team that year. Games where the user
         // was coaching `tid` that year belong to "As Coach", not "Vs".
         let userVsTeamWins = 0, userVsTeamLosses = 0
+        const userVsTeamGames = []   // [{ game, userTid }] — user faced this team
+        const userAsTeamGames = []   // [{ game, userTid }] — user coached this team
         allTeamGames.forEach(g => {
           const gameYear = Number(g.year)
           const userTidInYear = yearToUserTid[gameYear]
-          if (!userTidInYear || userTidInYear === tid) return
+          if (!userTidInYear) return
           const g1Tid = g.team1Tid || resolveTid(g.team1, teamsSource)
           const g2Tid = g.team2Tid || resolveTid(g.team2, teamsSource)
+          const hasScores = g.team1Score != null && g.team2Score != null
+          if (userTidInYear === tid) {
+            // User WAS coaching this team that year — an "As Coach" game.
+            if ((g1Tid === tid || g2Tid === tid) && hasScores) userAsTeamGames.push({ game: g, userTid: tid })
+            return
+          }
           const userInGame = g1Tid === userTidInYear || g2Tid === userTidInYear
-          if (userInGame && g.team1Score != null && g.team2Score != null) {
+          if (userInGame && hasScores) {
             const userIsTeam1 = g1Tid === userTidInYear
             const userWon = userIsTeam1 ? g.team1Score > g.team2Score : g.team2Score > g.team1Score
             if (userWon) userVsTeamWins++
             else userVsTeamLosses++
+            userVsTeamGames.push({ game: g, userTid: userTidInYear })
           }
         })
+        const openUserGames = (title, entries) => {
+          if (!entries || entries.length === 0) return
+          setUserGamesModalTitle(title)
+          setUserGamesModalGames(entries)
+          setShowUserGamesModal(true)
+        }
 
         // Editorial KPI descriptors — renders as divided cells, no card fill
         const kpiCells = [
@@ -6457,20 +6477,30 @@ export default function TeamYear() {
                     <div>
                       <div className="text-[10px] font-bold uppercase mb-1.5 text-txt-tertiary" style={{ letterSpacing: '1px' }}>As {teamAbbr} Coach</div>
                       {userCoachingYears.length > 0 ? (
-                        <div className="flex items-baseline gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => openUserGames(`Your games as ${teamAbbr}`, userAsTeamGames)}
+                          disabled={userAsTeamGames.length === 0}
+                          className="flex items-baseline gap-2 flex-wrap text-left enabled:hover:opacity-80 transition-opacity enabled:cursor-pointer"
+                        >
                           <span className="tabular-nums leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-primary)' }}>{userAsCoachWins}<span style={{ color: 'var(--text-tertiary)' }}>–</span>{userAsCoachLosses}</span>
                           <span className="tabular-nums text-xs font-semibold text-txt-tertiary">{((userAsCoachWins / (userAsCoachWins + userAsCoachLosses || 1)) * 100).toFixed(0)}%</span>
                           <span className="text-[10px] font-bold uppercase" style={{ letterSpacing: '1px', color: teamInfo.backgroundColor }}>{userCoachingYears.length} yr{userCoachingYears.length !== 1 ? 's' : ''}</span>
-                        </div>
+                        </button>
                       ) : <span className="text-sm text-txt-tertiary">—</span>}
                     </div>
                     <div>
                       <div className="text-[10px] font-bold uppercase mb-1.5 text-txt-tertiary" style={{ letterSpacing: '1px' }}>Vs {teamAbbr}</div>
                       {(userVsTeamWins > 0 || userVsTeamLosses > 0) ? (
-                        <div className="flex items-baseline gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openUserGames(`Your games vs ${teamAbbr}`, userVsTeamGames)}
+                          disabled={userVsTeamGames.length === 0}
+                          className="flex items-baseline gap-2 text-left enabled:hover:opacity-80 transition-opacity enabled:cursor-pointer"
+                        >
                           <span className="tabular-nums leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-primary)' }}>{userVsTeamWins}<span style={{ color: 'var(--text-tertiary)' }}>–</span>{userVsTeamLosses}</span>
                           <span className="tabular-nums text-xs font-semibold text-txt-tertiary">{((userVsTeamWins / (userVsTeamWins + userVsTeamLosses || 1)) * 100).toFixed(0)}%</span>
-                        </div>
+                        </button>
                       ) : <span className="text-sm text-txt-tertiary">—</span>}
                     </div>
                   </div>
@@ -7327,6 +7357,105 @@ export default function TeamYear() {
                             </div>
                             <div className="text-xs" style={{ color: accentColorMuted }}>
                               {game.year} {gameType}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0 ml-3">
+                          <div className="font-bold tabular-nums" style={{ color: accentColor }}>
+                            {hasScores ? formatScoreHighLow(teamScore, oppScore) : '—'}
+                          </div>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {/* "Your History" games modal — rendered from the USER's perspective
+          per game (each entry is { game, userTid }) so W/L and the opponent
+          are user-relative, not the viewed team's. */}
+      {showUserGamesModal && createPortal(
+        <div
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+          style={{ margin: 0 }}
+          onClick={() => setShowUserGamesModal(false)}
+        >
+          <div
+            className="card-elevated w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="h-[3px] w-full" style={{ backgroundColor: teamInfo.backgroundColor }} aria-hidden="true" />
+            <div className="px-6 py-4 flex items-center justify-between flex-shrink-0 bg-surface-2 border-b border-surface-4">
+              <h3 className="text-xl font-bold text-txt-primary">{userGamesModalTitle}</h3>
+              <button aria-label="Close"
+                onClick={() => setShowUserGamesModal(false)}
+                className="p-1 rounded hover:bg-surface-3 transition-colors text-txt-tertiary hover:text-txt-primary"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {userGamesModalGames.length === 0 ? (
+                <p className="text-center py-8" style={{ color: accentColorMuted }}>No games found</p>
+              ) : (
+                <div className="space-y-2">
+                  {userGamesModalGames.map((entry, idx) => {
+                    const game = entry.game
+                    const perspTid = entry.userTid
+                    const g1Tid = game.team1Tid ?? resolveTid(game.team1, teamsSource)
+                    const g2Tid = game.team2Tid ?? resolveTid(game.team2, teamsSource)
+                    const isTeam1 = g1Tid === perspTid
+                    const teamScore = isTeam1 ? game.team1Score : game.team2Score
+                    const oppScore = isTeam1 ? game.team2Score : game.team1Score
+                    const oppTid = isTeam1 ? g2Tid : g1Tid
+                    const oppRecord = oppTid != null ? teamsSource?.[oppTid] : null
+                    const oppAbbr = oppRecord?.abbr || (isTeam1 ? game.team2 : game.team1) || ''
+                    const oppMascot = getMascotNameFromTeams(oppTid ?? oppAbbr, teamsSource) || oppAbbr
+                    const oppLogo = getTeamLogo(oppMascot, teamsSource) || getTeamLogo(oppAbbr, teamsSource)
+                    const hasScores = teamScore != null && oppScore != null
+                    const won = Number(teamScore) > Number(oppScore)
+                    const gameType = game.isCFPChampionship ? 'National Championship' :
+                                    game.isCFPSemifinal ? 'CFP Semifinal' :
+                                    game.isCFPQuarterfinal ? 'CFP Quarterfinal' :
+                                    game.isCFPFirstRound ? 'CFP First Round' :
+                                    game.isConferenceChampionship ? 'Conference Championship' :
+                                    game.isBowlGame ? (game.bowlName || 'Bowl Game') :
+                                    (game.week != null ? `Week ${game.week}` : '')
+                    return (
+                      <Link
+                        key={game.id || idx}
+                        to={`${pathPrefix}/game/${game.id}`}
+                        className="flex items-center justify-between p-3 rounded-lg hover:opacity-80 transition-opacity"
+                        style={{ backgroundColor: `${accentColor}10` }}
+                        onClick={() => setShowUserGamesModal(false)}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {hasScores && (
+                            <span
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                              style={{ backgroundColor: won ? '#16a34a' : '#dc2626' }}
+                            >
+                              {won ? 'W' : 'L'}
+                            </span>
+                          )}
+                          {oppLogo && (
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white p-[2px] flex-shrink-0">
+                              <img src={oppLogo} alt="" className="w-full h-full object-contain" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="font-semibold truncate" style={{ color: accentColor }}>
+                              vs {oppMascot || oppAbbr || 'Unknown'}
+                            </div>
+                            <div className="text-xs" style={{ color: accentColorMuted }}>
+                              {game.year}{gameType ? ` ${gameType}` : ''}
                             </div>
                           </div>
                         </div>
