@@ -1687,18 +1687,18 @@ function PlayerInner() {
             />
           )}
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-black uppercase leading-none tracking-wide text-txt-primary" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+            <h1 className="text-xl font-black uppercase leading-none tracking-wide text-white" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
               {player.name}
             </h1>
             <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-xs font-bold uppercase tracking-widest text-txt-secondary" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>
+              <span className="text-xs font-bold uppercase tracking-widest text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>
                 {player.jerseyNumber != null && player.jerseyNumber !== '' && `#${player.jerseyNumber} • `}{player.position}
               </span>
               {(() => {
                 const currentDevTrait = player.devTraitByYear?.[currentYear] || player.devTraitByYear?.[String(currentYear)] || player.devTrait
                 return currentDevTrait && currentDevTrait !== 'Normal' ? (
                   <span
-                    className="text-xs font-bold uppercase tracking-widest text-txt-secondary"
+                    className="text-xs font-bold uppercase tracking-widest text-white"
                     style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}
                   >
                     • {currentDevTrait}
@@ -1717,13 +1717,13 @@ function PlayerInner() {
                   className="hover:opacity-80 transition-opacity"
                   title="View overall progression"
                 >
-                  <div className="text-4xl font-black text-txt-primary tabular" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>{currentOvr}</div>
-                  <div className="text-[9px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>OVR</div>
+                  <div className="text-4xl font-black text-white tabular" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>{currentOvr}</div>
+                  <div className="text-[9px] font-bold uppercase tracking-widest text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>OVR</div>
                 </button>
               ) : (
                 <div>
                   <div className="text-4xl font-black text-txt-muted" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>—</div>
-                  <div className="text-[9px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>OVR</div>
+                  <div className="text-[9px] font-bold uppercase tracking-widest text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>OVR</div>
                 </div>
               )
             })()}
@@ -1731,12 +1731,12 @@ function PlayerInner() {
         </div>
 
         {/* Info rows */}
-        <div className="px-4 pb-3 space-y-2 text-txt-secondary">
+        <div className="px-4 pb-3 space-y-2 text-white">
           {/* Team and Class */}
           <div className="flex items-center justify-between">
             <Link
               to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}?tab=depthchart&player=${pid}&side=${sideOfPosition(player.position) || 'offense'}`}
-              className="inline-flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider hover:underline text-txt-primary"
+              className="inline-flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider hover:underline text-white"
               style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.2px' }}
             >
               {getTeamLogo(playerTeamName, dynasty?.teams || dynasty?.customTeams) && (
@@ -1746,12 +1746,12 @@ function PlayerInner() {
               )}
               <span className="truncate max-w-[140px]">{playerTeamName}</span>
             </Link>
-            <span className="text-sm font-bold uppercase tracking-wider text-txt-secondary" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.2px' }}>{player.classByYear?.[dynasty?.currentYear] || player.year}</span>
+            <span className="text-sm font-bold uppercase tracking-wider text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.2px' }}>{player.classByYear?.[dynasty?.currentYear] || player.year}</span>
           </div>
 
           {/* Archetype and Physical */}
           {(player.archetype || player.height || player.weight) && (
-            <div className="flex items-center justify-between text-xs text-txt-tertiary">
+            <div className="flex items-center justify-between text-xs text-white">
               {player.archetype && <span>{player.archetype}</span>}
               {(player.height || player.weight) && (
                 <span>{player.height}{player.height && player.weight && ', '}{player.weight ? `${player.weight} lbs` : ''}</span>
@@ -1763,7 +1763,7 @@ function PlayerInner() {
           {(player.hometown || player.state) && player.state && (
             <Link
               to={`${pathPrefix}/players/state/${player.state}`}
-              className="text-xs hover:underline text-txt-tertiary transition-colors"
+              className="text-xs hover:underline text-white transition-colors"
               onClick={(e) => e.stopPropagation()}
             >
               {player.hometown}{player.hometown && player.state && ', '}{player.state}
@@ -1941,7 +1941,7 @@ function PlayerInner() {
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2">
-                <h1 className="text-3xl md:text-4xl font-black uppercase tracking-wide text-txt-primary" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>
+                <h1 className="text-3xl md:text-4xl font-black uppercase tracking-wide text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>
                   {player.name}
                 </h1>
                 {!isViewOnly && (
@@ -1960,7 +1960,7 @@ function PlayerInner() {
               <div className="flex items-center gap-2 mb-2">
                 <Link
                   to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}?tab=depthchart&player=${pid}&side=${sideOfPosition(player.position) || 'offense'}`}
-                  className="inline-flex items-center gap-2 text-base font-bold uppercase tracking-wider hover:underline text-txt-secondary"
+                  className="inline-flex items-center gap-2 text-base font-bold uppercase tracking-wider hover:underline text-white"
                   style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}
                 >
                   {getTeamLogo(playerTeamName, dynasty?.teams || dynasty?.customTeams) && (
@@ -2100,7 +2100,7 @@ function PlayerInner() {
                 })()}
               </div>
 
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-bold uppercase tracking-widest text-txt-secondary" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-bold uppercase tracking-widest text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>
                 {player.jerseyNumber != null && player.jerseyNumber !== '' && <span>#{player.jerseyNumber}</span>}
                 {player.jerseyNumber != null && player.jerseyNumber !== '' && <span className="text-txt-muted">•</span>}
                 <span>{player.position}</span>
@@ -2119,7 +2119,7 @@ function PlayerInner() {
                     <span className="text-txt-muted">•</span>
                     <Link
                       to={`${pathPrefix}/players/state/${player.state}`}
-                      className="normal-case hover:underline text-txt-secondary"
+                      className="normal-case hover:underline text-white"
                       onClick={(e) => e.stopPropagation()}
                     >
                       {player.hometown}{player.hometown && player.state && ', '}{player.state}
@@ -2135,10 +2135,10 @@ function PlayerInner() {
             const desktopOvr = player.overallByYear?.[currentYear] || player.overallByYear?.[String(currentYear)] || player.overall
             return desktopOvr ? (
               <div className="text-center flex-shrink-0">
-                <div className="text-xs font-bold uppercase tracking-widest mb-1 text-txt-tertiary" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Overall</div>
+                <div className="text-xs font-bold uppercase tracking-widest mb-1 text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Overall</div>
                 <button
                   onClick={() => setShowOverallProgressionModal(true)}
-                  className="text-6xl md:text-7xl font-black hover:opacity-80 transition-opacity cursor-pointer text-txt-primary tabular"
+                  className="text-6xl md:text-7xl font-black hover:opacity-80 transition-opacity cursor-pointer text-white tabular"
                   style={{ fontFamily: "'Bebas Neue', sans-serif" }}
                   title="View overall progression"
                 >
@@ -2147,7 +2147,7 @@ function PlayerInner() {
               </div>
             ) : (
               <div className="text-center flex-shrink-0">
-                <div className="text-xs font-bold uppercase tracking-widest mb-1 text-txt-tertiary" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Overall</div>
+                <div className="text-xs font-bold uppercase tracking-widest mb-1 text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Overall</div>
                 <div
                   className="text-6xl md:text-7xl font-black text-txt-muted"
                   style={{ fontFamily: "'Bebas Neue', sans-serif" }}
