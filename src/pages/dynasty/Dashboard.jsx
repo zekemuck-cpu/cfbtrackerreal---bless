@@ -3756,14 +3756,25 @@ export default function Dashboard() {
               if (!isByeWeek && hasCurWeek && scheduledGame) {
                 const gameDone = !!playedGame
                 const userIsAway = gameLocation === 'away'
+                const oppTid = scheduledGame?.opponent ? getTidFromAbbr(scheduledGame.opponent, currentDynasty) : null
                 const leftLogo = userIsAway ? userLogoUrl : oppLogoUrl
                 const rightLogo = userIsAway ? oppLogoUrl : userLogoUrl
                 const leftAbbr = userIsAway ? userAbbr : oppAbbr
                 const rightAbbr = userIsAway ? oppAbbr : userAbbr
+                const leftTid = userIsAway ? userTeamTid : oppTid
+                const rightTid = userIsAway ? oppTid : userTeamTid
                 const centerLabel = isNeutral ? 'vs' : (userIsAway ? '@' : 'vs')
-                const renderLogo = (url, abbr, key) => url
-                  ? <img key={key} src={url} alt={abbr || ''} className="w-7 h-7 sm:w-8 sm:h-8 object-contain flex-shrink-0" />
-                  : <div key={key} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 border-dashed border-surface-4 flex items-center justify-center text-[9px] font-bold text-txt-secondary flex-shrink-0">{abbr ? abbr.charAt(0) : 'TBD'}</div>
+                // Each logo links to that team's page. The to-do row itself is a
+                // div (not a link), so these inner links don't nest.
+                const gameYear = currentDynasty.currentYear
+                const renderLogo = (url, abbr, key, tid) => {
+                  const inner = url
+                    ? <img src={url} alt={abbr || ''} className="w-7 h-7 sm:w-8 sm:h-8 object-contain flex-shrink-0" />
+                    : <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 border-dashed border-surface-4 flex items-center justify-center text-[9px] font-bold text-txt-secondary flex-shrink-0">{abbr ? abbr.charAt(0) : 'TBD'}</div>
+                  return tid
+                    ? <Link key={key} to={`${pathPrefix}/team/${tid}/${gameYear}`} title={abbr || ''} onClick={(e) => e.stopPropagation()} className="flex-shrink-0 hover:opacity-80 transition-opacity">{inner}</Link>
+                    : <span key={key} className="flex-shrink-0">{inner}</span>
+                }
                 // Score + result subtitle removed per user request — the
                 // logos + VS line tells the matchup, score belongs on the
                 // game page, not the dashboard row.
@@ -3773,14 +3784,14 @@ export default function Dashboard() {
                   done: gameDone,
                   title: (
                     <div className="flex items-center gap-2 sm:gap-3">
-                      {renderLogo(leftLogo, leftAbbr, 'L')}
+                      {renderLogo(leftLogo, leftAbbr, 'L', leftTid)}
                       <span
                         className="text-[11px] sm:text-xs font-bold uppercase tabular-nums text-txt-tertiary"
                         style={{ letterSpacing: '1.5px' }}
                       >
                         {centerLabel}
                       </span>
-                      {renderLogo(rightLogo, rightAbbr, 'R')}
+                      {renderLogo(rightLogo, rightAbbr, 'R', rightTid)}
                     </div>
                   ),
                   subtitle: gameSubtitle,
