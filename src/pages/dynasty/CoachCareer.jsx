@@ -134,7 +134,11 @@ export default function CoachCareer() {
       return getMemberTeamsForYear(currentDynasty, uid, yearNum)
     }
     // Pre-migration owner-only fallback: read legacy coachTeamByYear.
-    if (uid === currentDynasty.userId) {
+    // Applies when this uid is the recorded owner OR when the dynasty has no
+    // recorded owner uid at all (legacy / free single-coach dynasties where
+    // userId was never persisted). Without the second case, the sole coach's
+    // career renders empty because `someUid === undefined` is never true.
+    if (uid === currentDynasty.userId || currentDynasty.userId == null) {
       const cty = currentDynasty.coachTeamByYear?.[yearNum] || currentDynasty.coachTeamByYear?.[String(yearNum)]
       if (cty?.tid != null) return [Number(cty.tid)]
       if (cty?.team) {
@@ -280,13 +284,15 @@ export default function CoachCareer() {
         teamKey = teamData?.abbr || getAbbrFromTeamName(teamData?.name)
       }
       // Owner-only legacy fallback — older dynasties may not have
-      // tids on every game record.
-      if (!teamKey && uid === currentDynasty.userId) {
+      // tids on every game record. Also applies when no owner uid was
+      // recorded (legacy/free single-coach dynasties).
+      const isOwnerOrOwnerless = uid === currentDynasty.userId || currentDynasty.userId == null
+      if (!teamKey && isOwnerOrOwnerless) {
         const gameYear = Number(game.year)
-        const coachTeamEntry = currentDynasty.coachTeamByYear?.[gameYear]
+        const coachTeamEntry = currentDynasty.coachTeamByYear?.[gameYear] || currentDynasty.coachTeamByYear?.[String(gameYear)]
         teamKey = coachTeamEntry?.team
       }
-      if (!teamKey && uid === currentDynasty.userId) {
+      if (!teamKey && isOwnerOrOwnerless) {
         teamKey = currentTeamAbbr
       }
       if (!teamKey) return // skip games we can't attribute to a team
