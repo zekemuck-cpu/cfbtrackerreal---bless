@@ -1949,11 +1949,11 @@ function PlayerInner() {
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2">
-                <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white" style={{ fontFamily: "var(--font-display)" }}>
+                <h1 className="text-3xl md:text-4xl font-black tracking-tight leading-none text-white" style={{ fontFamily: "var(--font-display)" }}>
                   {player.name}
                 </h1>
                 {player.isCaptain && (
-                  <img src={CAPTAIN_PATCH_URL} alt="Team Captain" title="Team Captain" className="w-8 h-8 object-contain flex-shrink-0" />
+                  <img src={CAPTAIN_PATCH_URL} alt="Team Captain" title="Team Captain" className="w-8 h-8 object-contain flex-shrink-0 self-center" />
                 )}
                 {!isViewOnly && (
                   <button
