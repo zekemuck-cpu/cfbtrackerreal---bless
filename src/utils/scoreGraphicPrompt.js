@@ -142,6 +142,7 @@ export function buildScoreGraphicPrompt({
     return lines.join('\n')
   }
 
+<<<<<<< HEAD
   // Universal photo rule — the prompt presents BOTH branches and the model
   // picks based on whether an attachment actually arrives. We can't predict
   // that from the app: the user may attach an image at chat time even if no
@@ -152,7 +153,7 @@ export function buildScoreGraphicPrompt({
   const photoDirective = [
     `PHOTO RULE — read carefully and pick the right branch based on whether an image is actually attached to this request:`,
     ``,
-    `• IF AN IMAGE IS ATTACHED: that photo is the foundation of the graphic. It MUST fill the canvas edge to edge as the background, and you build the score + branding ON TOP of it. Do NOT ignore an attached photo.`,
+    `• IF AN IMAGE IS ATTACHED: that photo is the foundation of the graphic. It MUST fill the canvas edge to edge as the background, and you build the score + branding ON TOP of it. Do NOT ignore an attached photo. You MAY make subtle enhancements to the photo (slight boost to contrast, saturation, or brightness; minor crop or straighten) if doing so improves the overall graphic — but keep the original composition recognizable and do not alter the subject.`,
     ``,
     `• IF NO IMAGE IS ATTACHED: STRICT GRAPHICS-ONLY — NO PHOTOGRAPHY OF ANY KIND. Do NOT generate, render, illustrate, paint, or fabricate any photo-realistic imagery — no players, faces, human figures, action shots, crowds, stadiums, fields, or sidelines, not even blurred or faded in the background. Build the ENTIRE graphic from team logos, typography, color, and clean geometric/graphic-design elements ONLY. A fabricated or AI-generated player or photo is an automatic failure of this brief.`,
   ].join('\n')
