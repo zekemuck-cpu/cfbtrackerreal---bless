@@ -17,6 +17,10 @@ import { getTeamLogoByTid } from '../data/teams'
 
 const EMPTY_ARR = []
 const EMPTY_OBJ = {}
+// Team-captain patch — shown small beside the name on a captain's depth-chart
+// tile. pointer-events-none + draggable=false so it never steals the dnd-kit
+// drag gesture. Same artwork as the player page.
+const CAPTAIN_PATCH_URL = 'https://i.imgur.com/wPIRWdW.png'
 const DEV_TRAIT_COLORS = {
   Elite: { bg: '#fbbf24' }, Star: { bg: '#a855f7' }, Impact: { bg: '#3b82f6' }, Normal: { bg: '#6b7280' },
 }
@@ -732,6 +736,7 @@ function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode
   const marker = leaving ? 'OUT' : tile.isNfl ? 'NFL' : tile.portalRisk ? '↗' : null
   const markerColor = leaving ? 'var(--accent-error)' : tile.isNfl ? 'var(--accent-info)' : 'var(--accent-warning)'
   const hasJersey = tile.jerseyNumber != null && tile.jerseyNumber !== ''
+  const isCaptain = !!tile.player?.isCaptain
   return (
     // Same surface for every tile — the starter is not visually brighter.
     <div className={`relative rounded-md overflow-hidden ${dragging ? 'shadow-xl bg-surface-3 ring-1 ring-[color:var(--accent-info)]' : 'bg-surface-2'} ${cursor} ${leaving ? 'ring-1 ring-[color:var(--accent-error)] opacity-70' : ''}`}>
@@ -740,7 +745,13 @@ function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode
       {/* Mobile / narrow: compact two-row (name on top, then avatar·#·class·OVR).
           Kept as-is so ShrinkToFit can scale it on phones. */}
       <div className="relative z-[1] px-2 py-1.5 lg:hidden">
-        <div className="min-w-0"><PlayerName name={tile.name} strike={leaving} /></div>
+        <div className="flex items-center gap-1 min-w-0">
+          <PlayerName name={tile.name} strike={leaving} />
+          {isCaptain && (
+            <img src={CAPTAIN_PATCH_URL} alt="Team Captain" draggable={false}
+              className="shrink-0 w-3.5 h-3.5 object-contain pointer-events-none" />
+          )}
+        </div>
         <div className="flex items-center gap-1 mt-1 text-[10px] text-txt-tertiary min-w-0">
           <Avatar url={photoUrl} fallback={teamLogo} />
           {hasJersey && (
@@ -760,6 +771,10 @@ function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode
             <span className="shrink-0 font-bold tabular-nums text-white text-[15px] leading-none">#{tile.jerseyNumber}</span>
           )}
           <PlayerName name={tile.name} strike={leaving} textClass="text-[15px] font-semibold text-white" />
+          {isCaptain && (
+            <img src={CAPTAIN_PATCH_URL} alt="Team Captain" draggable={false}
+              className="shrink-0 self-center w-4 h-4 object-contain pointer-events-none" />
+          )}
         </div>
         <div className="mt-1.5 flex items-center gap-2 min-w-0">
           <Avatar url={photoUrl} fallback={teamLogo} size="lg" />

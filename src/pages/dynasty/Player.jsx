@@ -940,9 +940,16 @@ function PlayerInner() {
   const taggedPhotos = useMemo(() => {
     const pid = player?.pid
     if (pid == null) return []
-    const games = dynasty?.games
-    if (!Array.isArray(games)) return []
     const out = []
+    // Photos uploaded directly to this player (player editor → Photos).
+    // They have no game context, so they sort to the top (no year/week).
+    if (Array.isArray(player?.photos)) {
+      for (const url of player.photos) {
+        if (url) out.push({ url, playerUpload: true })
+      }
+    }
+    const games = dynasty?.games
+    if (!Array.isArray(games)) return out
     for (const g of games) {
       const tags = g?.photoTags
       if (!tags || typeof tags !== 'object') continue
@@ -960,6 +967,9 @@ function PlayerInner() {
     }
     // Newest first: year desc, then week desc.
     out.sort((a, b) => {
+      // Player-uploaded photos always lead; game photos follow, newest first.
+      if (a.playerUpload && !b.playerUpload) return -1
+      if (b.playerUpload && !a.playerUpload) return 1
       const yA = Number(a.year) || 0
       const yB = Number(b.year) || 0
       if (yB !== yA) return yB - yA
@@ -968,7 +978,7 @@ function PlayerInner() {
       return (Number.isFinite(wB) ? wB : -1) - (Number.isFinite(wA) ? wA : -1)
     })
     return out
-  }, [player?.pid, dynasty?.games])
+  }, [player?.pid, player?.photos, dynasty?.games])
 
   const [photoTabLightboxIdx, setPhotoTabLightboxIdx] = useState(null)
 
@@ -1426,7 +1436,7 @@ function PlayerInner() {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-3 mt-3 border-t border-surface-4">
         <span
           className="text-[10px] font-bold uppercase tracking-widest text-txt-tertiary"
-          style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}
+          style={{ fontFamily: "var(--font-display)", letterSpacing: '1.5px' }}
         >
           {isPortalEntry ? 'Transfer Portal' : 'Recruitment'}
         </span>
@@ -1677,7 +1687,6 @@ function PlayerInner() {
     >
       {/* Player Header - Mobile Layout */}
       <div className="sm:hidden card overflow-hidden">
-        <div className="h-[3px] w-full" style={{ backgroundColor: teamInfo.backgroundColor }} aria-hidden="true" />
         {/* Top row: Photo, Name, Overall */}
         <div className="p-4 flex items-center gap-3">
           {player.pictureUrl && (
@@ -1691,7 +1700,7 @@ function PlayerInner() {
           )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 min-w-0">
-              <h1 className="text-xl font-black leading-none tracking-tight text-white truncate" style={{ fontFamily: "var(--font-display)" }}>
+              <h1 className="text-xl font-bold leading-none tracking-tight text-white truncate" style={{ fontFamily: "var(--font-display)" }}>
                 {player.name}
               </h1>
               {player.isCaptain && (
@@ -1725,13 +1734,13 @@ function PlayerInner() {
                   className="hover:opacity-80 transition-opacity"
                   title="View overall progression"
                 >
-                  <div className="text-4xl font-black text-white tabular" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>{currentOvr}</div>
-                  <div className="text-[9px] font-bold uppercase tracking-widest text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>OVR</div>
+                  <div className="text-4xl font-black text-white tabular" style={{ fontFamily: "var(--font-display)" }}>{currentOvr}</div>
+                  <div className="text-[9px] font-bold uppercase tracking-widest text-white" style={{ fontFamily: "var(--font-display)", letterSpacing: '1.5px' }}>OVR</div>
                 </button>
               ) : (
                 <div>
-                  <div className="text-4xl font-black text-txt-muted" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>—</div>
-                  <div className="text-[9px] font-bold uppercase tracking-widest text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>OVR</div>
+                  <div className="text-4xl font-black text-txt-muted" style={{ fontFamily: "var(--font-display)" }}>—</div>
+                  <div className="text-[9px] font-bold uppercase tracking-widest text-white" style={{ fontFamily: "var(--font-display)", letterSpacing: '1.5px' }}>OVR</div>
                 </div>
               )
             })()}
@@ -1782,8 +1791,8 @@ function PlayerInner() {
           <div className="flex flex-wrap items-center gap-2">
             {isUnenrolledRecruit && (
               <span
-                className="px-2 py-0.5 rounded-full text-xs font-bold"
-                style={{ backgroundColor: `${teamInfo.backgroundColor}25`, color: teamInfo.backgroundColor, border: `1px solid ${teamInfo.backgroundColor}50` }}
+                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-[0.12em]"
+                style={{ backgroundColor: teamInfo.backgroundColor, color: teamBgText }}
               >
                 Commitment
               </span>
@@ -1933,7 +1942,6 @@ function PlayerInner() {
 
       {/* Player Header - Desktop Layout */}
       <div className="hidden sm:block card overflow-hidden">
-        <div className="h-[3px] w-full" style={{ backgroundColor: teamInfo.backgroundColor }} aria-hidden="true" />
         <div className="p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-start gap-4 flex-1">
@@ -1949,7 +1957,7 @@ function PlayerInner() {
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2">
-                <h1 className="text-3xl md:text-4xl font-black tracking-tight leading-none text-white" style={{ fontFamily: "var(--font-display)" }}>
+                <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-none text-white" style={{ fontFamily: "var(--font-display)" }}>
                   {player.name}
                 </h1>
                 {player.isCaptain && (
@@ -1983,8 +1991,8 @@ function PlayerInner() {
                 </Link>
                 {isUnenrolledRecruit && (
                   <span
-                    className="px-2 py-0.5 rounded-full text-xs font-bold"
-                    style={{ backgroundColor: `${teamInfo.backgroundColor}25`, color: teamInfo.backgroundColor, border: `1px solid ${teamInfo.backgroundColor}50` }}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-[0.12em]"
+                    style={{ backgroundColor: teamInfo.backgroundColor, color: teamBgText }}
                   >
                     Commitment
                   </span>
@@ -2150,7 +2158,7 @@ function PlayerInner() {
                 <button
                   onClick={() => setShowOverallProgressionModal(true)}
                   className="text-6xl md:text-7xl font-black hover:opacity-80 transition-opacity cursor-pointer text-white tabular"
-                  style={{ fontFamily: "'Bebas Neue', sans-serif" }}
+                  style={{ fontFamily: "var(--font-display)" }}
                   title="View overall progression"
                 >
                   {desktopOvr}
@@ -2161,7 +2169,7 @@ function PlayerInner() {
                 <div className="text-xs font-bold tracking-wide mb-1 text-white" style={{ fontFamily: "var(--font-display)" }}>Overall</div>
                 <div
                   className="text-6xl md:text-7xl font-black text-txt-muted"
-                  style={{ fontFamily: "'Bebas Neue', sans-serif" }}
+                  style={{ fontFamily: "var(--font-display)" }}
                 >
                   —
                 </div>
@@ -2185,7 +2193,7 @@ function PlayerInner() {
             // before the label in every variant.
             const base = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold tracking-wide"
             let cls = ''
-            let style = { fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1px' }
+            let style = { fontFamily: "var(--font-display)", letterSpacing: '1px' }
             if (p.variant === 'gold') {
               style = { ...style, backgroundColor: '#fbbf24', color: '#78350f', boxShadow: '0 0 0 1px rgba(251, 191, 36, 0.4), 0 2px 6px rgba(251, 191, 36, 0.25)' }
             } else if (p.variant === 'silver') {
@@ -2235,7 +2243,7 @@ function PlayerInner() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className="pb-3 pt-2 font-black tracking-tight transition-colors"
+              className="pb-3 pt-2 font-semibold tracking-tight transition-colors"
               style={{
                 fontFamily: "var(--font-display)",
                 fontSize: '0.95rem',
@@ -2412,7 +2420,7 @@ function PlayerInner() {
                 <button
                   onClick={() => setActiveTab('timeline')}
                   className="w-full px-4 py-2.5 text-[11px] tracking-wide font-bold border-t border-surface-4 hover:bg-surface-3 transition-colors"
-                  style={{ color: secondaryText, fontFamily: "'Bebas Neue', sans-serif" }}
+                  style={{ color: secondaryText, fontFamily: "var(--font-display)" }}
                 >
                   Full Timeline →
                 </button>
@@ -2578,7 +2586,7 @@ function PlayerInner() {
                               onClick={() => setOverviewStatTab(cat.key)}
                               className="px-4 py-2 text-[11px] uppercase tracking-widest font-bold transition-colors flex-shrink-0"
                               style={{
-                                fontFamily: "'Bebas Neue', sans-serif",
+                                fontFamily: "var(--font-display)",
                                 letterSpacing: '1.5px',
                                 color: isActive ? primaryText : secondaryText,
                                 borderBottom: isActive ? `2px solid ${teamInfo.backgroundColor}` : '2px solid transparent',
@@ -2631,7 +2639,7 @@ function PlayerInner() {
                 <button
                   onClick={() => setActiveTab('stats')}
                   className="w-full px-4 py-2.5 text-[11px] tracking-wide font-bold border-t border-surface-4 hover:bg-surface-3 transition-colors"
-                  style={{ color: secondaryText, fontFamily: "'Bebas Neue', sans-serif" }}
+                  style={{ color: secondaryText, fontFamily: "var(--font-display)" }}
                 >
                   Full Stats →
                 </button>
@@ -2746,7 +2754,7 @@ function PlayerInner() {
                 <button
                   onClick={() => setActiveTab('gamelog')}
                   className="w-full px-4 py-2.5 text-[11px] tracking-wide font-bold border-t border-surface-4 hover:bg-surface-3 transition-colors"
-                  style={{ color: secondaryText, fontFamily: "'Bebas Neue', sans-serif" }}
+                  style={{ color: secondaryText, fontFamily: "var(--font-display)" }}
                 >
                   Full Game Log →
                 </button>
@@ -3319,7 +3327,7 @@ function PlayerInner() {
               {yearMarker && (
                 <div
                   className="font-black tabular text-txt-primary leading-none"
-                  style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.35rem', letterSpacing: '0.5px' }}
+                  style={{ fontFamily: "var(--font-display)", fontSize: '1.35rem', letterSpacing: '0.5px' }}
                 >
                   {yearMarker}
                 </div>
@@ -3372,7 +3380,7 @@ function PlayerInner() {
                   )}
                   <div
                     className="font-display font-black text-xl sm:text-2xl leading-tight text-txt-primary"
-                    style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '0.5px' }}
+                    style={{ fontFamily: "var(--font-display)", letterSpacing: '0.5px' }}
                   >
                     {headlineLink
                       ? <Link to={headlineLink} className="hover:text-team-primary transition-colors">{headline}</Link>
@@ -3643,7 +3651,7 @@ function PlayerInner() {
                   <>
                     <span
                       className="text-xl sm:text-2xl font-black tabular leading-none text-txt-primary"
-                      style={{ fontFamily: "'Bebas Neue', sans-serif" }}
+                      style={{ fontFamily: "var(--font-display)" }}
                     >
                       {yd.overall}
                     </span>
@@ -3662,7 +3670,7 @@ function PlayerInner() {
                       <div key={i} className="flex items-baseline gap-1.5">
                         <span
                           className="text-base sm:text-lg font-black leading-none tabular text-txt-primary"
-                          style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '0.5px' }}
+                          style={{ fontFamily: "var(--font-display)", letterSpacing: '0.5px' }}
                         >
                           {qs.value}
                         </span>
@@ -5656,14 +5664,13 @@ function PlayerInner() {
 
         return (
           <div className="card overflow-hidden">
-            <div className="h-[3px] w-full" style={{ backgroundColor: teamInfo.backgroundColor }} aria-hidden="true" />
             <div className="p-5">
               <div className="flex items-end justify-between mb-5">
                 <div>
                   <div className="label-xs text-txt-tertiary mb-1" style={{ letterSpacing: '1.5px' }}>
                     {collection.length} {collection.length === 1 ? 'card' : 'cards'}
                   </div>
-                  <h2 className="text-xl font-black text-txt-primary" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1px' }}>
+                  <h2 className="text-xl font-black text-txt-primary" style={{ fontFamily: "var(--font-display)", letterSpacing: '1px' }}>
                     Card Collection
                   </h2>
                 </div>
@@ -5739,7 +5746,6 @@ function PlayerInner() {
       {/* Photos Tab — every game photo this player is tagged in */}
       {activeTab === 'photos' && taggedPhotos.length > 0 && (
         <div className="card overflow-hidden">
-          <div className="h-[3px] w-full" style={{ backgroundColor: teamInfo.backgroundColor }} aria-hidden="true" />
           <div className="p-5">
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
               {taggedPhotos.map((ph, idx) => {
@@ -5842,7 +5848,6 @@ function PlayerInner() {
             className="card rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="h-[3px] w-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
             <div className="p-4 border-b border-surface-4 sticky top-0 bg-surface-2 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div>
@@ -5961,7 +5966,6 @@ function PlayerInner() {
             className="card rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="h-[3px] w-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
             <div className="p-4 border-b border-surface-4 flex-shrink-0 bg-surface-2">
               <div className="flex items-center justify-between">
                 <div>

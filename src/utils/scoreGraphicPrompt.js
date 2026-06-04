@@ -117,11 +117,11 @@ export function buildScoreGraphicPrompt({
   const designRules = (mode = 'branded') => [
     `DESIGN RULES:`,
     `• Bold, contemporary, confident.`,
-    `• If a photo IS attached: score and branding elements float over the full-bleed photo — they do not sit inside a separate panel or zone. Acceptable overlay treatments: a small semi-transparent pill/badge behind scores, a soft color vignette at an edge, drop shadows on type. Unacceptable: an opaque rectangular bar covering the bottom quarter or more of the frame, a full-width color slab, or any panel that clearly replaces the photo rather than overlaying it.`,
+    `• If a photo IS attached: score and branding elements float over the full-bleed photo — they do not sit inside a separate panel or zone. Acceptable overlay treatments: a small semi-transparent pill/badge behind scores, drop shadows on type. Unacceptable: an opaque rectangular bar covering the bottom quarter or more of the frame, a full-width color slab, or any panel that clearly replaces the photo rather than overlaying it.`,
     `• If NO photo is attached: the SCORE is the focal point — the matchup and final score read first and biggest. Team logos identify each side, sized to support the score; do NOT enlarge a team's primary mark into a giant hero/centerpiece. Branding lives in the palette, layout, and small marks, not in one oversized logo.`,
     `• No distressed, scratchy, or grungy letterforms. Clean, bold typography only.`,
     mode === 'branded'
-      ? `• This is ${featuredName}'s post — their palette owns the canvas. The opponent's colors are limited to their logo and their side of the score zone — not background fills, panels, or design shapes elsewhere on the canvas.`
+      ? `• This is ${featuredName}'s post — their palette drives the design language. The opponent's colors are limited to their logo and their side of the score zone — not background fills, panels, or design shapes elsewhere on the canvas.`
       : `• Both teams represented equally — neither palette dominates.`,
   ].join('\n')
 
@@ -143,19 +143,17 @@ export function buildScoreGraphicPrompt({
     return lines.join('\n')
   }
 
-  // Universal photo rule — the prompt presents BOTH branches and the model
-  // picks based on whether an attachment actually arrives. We can't predict
-  // that from the app: the user may attach an image at chat time even if no
-  // game photos are saved in our data. The no-image branch stays a hard,
-  // non-negotiable rule because the failure mode is the AI hallucinating a
-  // fake "player" hero shot — that has to be forbidden outright, not a soft
-  // hint the model fills in with an invented action photo.
+  // Two separate paths live in ONE prompt; the model picks based on whether
+  // the USER attached an image file to their request. We can't know that at
+  // build time (the prompt is copied into an external tool), so both branches
+  // ship. The no-image branch is a hard prohibition with an "if unsure, you're
+  // in this path" tiebreaker, so the model never fabricates a fake player.
   const photoDirective = [
-    `PHOTO RULE — read carefully and pick the right branch based on whether an image is actually attached to this request:`,
+    `PHOTO RULE — there are TWO separate paths. Pick ONE based on a single fact: did the user attach an actual image file to THIS request?`,
     ``,
-    `• IF AN IMAGE IS ATTACHED: the photo IS the graphic. It fills the entire 1080×1080 canvas, bleeding corner to corner — no gaps, no bars, no panels eating into it. Score numbers, logos, ranks, and records overlay the photo directly on top as floating elements. DO NOT place any solid or near-solid rectangular panel over the photo that covers more than roughly 15% of the canvas (e.g., no heavy opaque score bar across the bottom third, no full-width color slab). If you need readability behind text, use a semi-transparent color wash, a soft vignette, or a subtle drop-shadow on the type — not an opaque rectangle. The photo breathes across the entire canvas. Think: a team photographer's best shot, with a handful of graphic elements placed tastefully on top of it. That is what this is. You MAY make subtle enhancements (slight contrast, saturation, or brightness boost; minor crop or straighten) if it improves the graphic — but keep the original composition intact.`,
+    `• IF NO IMAGE WAS ATTACHED → GRAPHICS ONLY. Do NOT generate, create, illustrate, paint, imagine, composite, or fabricate ANY photographic or photo-realistic imagery of any kind — no players, faces, people, action shots, crowds, stadiums, fields, sidelines, or backgrounds, not even faint, blurred, or faded. Inventing a player or any photo is an automatic failure. Build the ENTIRE 1080×1080 graphic from team logos, typography, color, and clean geometric/graphic-design elements ONLY. If you are unsure whether an image is attached, you are in THIS path.`,
     ``,
-    `• IF NO IMAGE IS ATTACHED: STRICT GRAPHICS-ONLY — NO PHOTOGRAPHY OF ANY KIND. Do NOT generate, render, illustrate, paint, or fabricate any photo-realistic imagery — no players, faces, human figures, action shots, crowds, stadiums, fields, or sidelines, not even blurred or faded in the background. Build the ENTIRE graphic from team logos, typography, color, and clean geometric/graphic-design elements ONLY. A fabricated or AI-generated player or photo is an automatic failure of this brief.`,
+    `• IF THE USER ATTACHED AN IMAGE → that attached photo IS the graphic. It fills the entire 1080×1080 canvas, bleeding corner to corner — no gaps, bars, or panels eating into it. Score numbers, logos, ranks, and records overlay the photo directly as floating elements. Do NOT place any solid/near-solid rectangular panel over the photo covering more than ~15% of the canvas (no heavy opaque score bar, no full-width color slab). For readability behind text, use a subtle drop-shadow on the type or a soft neutral dark scrim directly behind the text — keep the photo's own natural colors; the team palette comes through the score, logos, and type, NOT a color wash, gradient, or tint laid over the image. The photo breathes across the whole canvas: a team photographer's best shot with a handful of graphic elements placed tastefully on top. You MAY make subtle enhancements (slight contrast, saturation, or brightness; minor crop or straighten) but keep the original composition intact. Work ONLY with the attached photo — do not invent or composite additional people or scenery.`,
   ].join('\n')
 
   // ─── NEUTRAL PATH ─────────────────────────────────────────────────────────

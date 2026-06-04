@@ -85,6 +85,7 @@ import {
 } from '../data/teamRegistry'
 import { findMatchingPlayer, getPlayerLastHonorDescription, normalizePlayerName } from '../utils/playerMatching'
 import { syncDerivedFieldsFromV2, legacyMovementToCanonical } from '../data/rosterModel'
+import { buildDefaultRosterPlayers } from '../data/defaultRosterLoader'
 import { normalizeAwardName } from '../utils/playerHeal'
 import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId, CFP_BRACKET_SLOTS, DEFAULT_BOWL_CONFIG, getBowlForSlot, CFP_BRACKET_FLOW, getBracketFlowConfig } from '../data/cfpConstants'
 import { migrateDynastyToEditors, needsEditorsMigration, getMemberTeams, snapshotAllMembersForYear, getCoachNameForUid } from '../data/leagueModel'
@@ -7042,6 +7043,21 @@ export function DynastyProvider({ children }) {
       }
     }
 
+    // Auto-populate the user's team roster from the bundled default rosters
+    // (src/data/defaultRosters/{tid}.json). Teambuilder/custom teams are
+    // skipped — their slot's default file is the REPLACED team's roster, not
+    // the user's custom one. Failure is non-fatal: a dynasty still creates
+    // with an empty roster the user can fill via the Add Roster flow.
+    let seededPlayers = []
+    if (currentTid && !teams[currentTid]?.isCustom) {
+      try {
+        seededPlayers = await buildDefaultRosterPlayers(currentTid, startYear, 1)
+      } catch (err) {
+        console.warn('[createDynasty] default roster seed failed:', err)
+        seededPlayers = []
+      }
+    }
+
     // Create first career entry
     const coachCareer = addCareerEntry([], startYear, currentTid, coachPosition)
 
@@ -7075,7 +7091,7 @@ export function DynastyProvider({ children }) {
       recruits: [],
       schedule: [],
       rankings: [],
-      nextPID: 1, // Initialize player ID counter
+      nextPID: seededPlayers.length + 1, // Initialize player ID counter (continues past any auto-seeded roster)
       // Teams map - single source of truth for all team data (tid-keyed)
       // Now includes userId and coachPosition on the user's team
       teams,
@@ -7110,7 +7126,7 @@ export function DynastyProvider({ children }) {
       } : {}),
       preseasonSetup: {
         scheduleEntered: false,
-        rosterEntered: false,
+        rosterEntered: seededPlayers.length > 0, // auto-seeded roster counts as entered
         teamRatingsEntered: false,
         coachingStaffEntered: false,
         conferencesEntered: false  // Shows as incomplete, but defaults are valid if user skips
@@ -7163,6 +7179,28 @@ export function DynastyProvider({ children }) {
       })() : {})
     }
 
+    // When we auto-seeded the roster, also flip the tid-based byYear
+    // rosterEntered flag (the source the team page's preseason checklist
+    // reads) so the "enter your roster" step shows complete from day one.
+    if (seededPlayers.length > 0 && currentTid) {
+      const t = newDynastyData.teams?.[currentTid] || {}
+      const by = t.byYear || {}
+      const yd = by[startYear] || {}
+      newDynastyData.teams = {
+        ...newDynastyData.teams,
+        [currentTid]: {
+          ...t,
+          byYear: {
+            ...by,
+            [startYear]: {
+              ...yd,
+              preseasonSetup: { ...(yd.preseasonSetup || {}), rosterEntered: true },
+            },
+          },
+        },
+      }
+    }
+
     // Note: Google Sheet is created lazily when user opens Schedule Entry modal
     // This avoids creating sheets that may never be used
 
@@ -7172,6 +7210,7 @@ export function DynastyProvider({ children }) {
       const newDynasty = {
         id: Date.now().toString(),
         ...newDynastyData,
+        players: seededPlayers, // local dynasties read players inline from the IndexedDB doc
         createdAt: new Date().toISOString(),
         lastModified: Date.now()
       }
@@ -7198,8 +7237,21 @@ export function DynastyProvider({ children }) {
         // New dynasties start with subcollections enabled to avoid 1MB limit
         _subcollectionsMigrated: true
       })
-      // Mark local state as migrated too
-      const dynastyWithFlag = { ...newDynasty, _subcollectionsMigrated: true }
+      // Cloud dynasties read players from the players subcollection (the main
+      // doc's 1 MB cap is exactly why _subcollectionsMigrated is set), so the
+      // seeded roster must be written there — NOT inline in the doc, where it
+      // would be ignored on the next load. The collection is brand-new and
+      // empty, so this is a pure insert.
+      if (seededPlayers.length > 0) {
+        try {
+          await savePlayersToSubcollection(newDynasty.id, seededPlayers, { forceOverwrite: true })
+        } catch (err) {
+          console.warn('[createDynasty] failed to seed players subcollection:', err)
+        }
+      }
+      // Mark local state as migrated too; carry the seeded roster so the UI
+      // shows it immediately without waiting for a subcollection re-read.
+      const dynastyWithFlag = { ...newDynasty, _subcollectionsMigrated: true, players: seededPlayers }
       // CRITICAL: Update both dynasties array AND currentDynasty
       // Without this, updateDynasty can't find the dynasty and routes players incorrectly
       setDynasties(prev => [...prev, dynastyWithFlag])

@@ -513,6 +513,10 @@ export default function PlayerEdit() {
           ? player.highlights.split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
           : []),
 
+      // Player photos — uploaded in the editor, shown on the player page's
+      // Photos tab (implicitly tagged to this player — it's their gallery).
+      photos: Array.isArray(player.photos) ? player.photos.filter(Boolean) : [],
+
       // Trading-card collection — array of card records. Migrated
       // from legacy single-card fields (cardFront/cardBack/cardGameId)
       // on first edit so existing cards aren't lost.
@@ -799,6 +803,10 @@ export default function PlayerEdit() {
       highlights: Array.isArray(formData.highlights)
         ? Array.from(new Set(formData.highlights.map(s => (typeof s === 'string' ? s.trim() : '')).filter(Boolean)))
         : [],
+      // Player photos — deduped list of uploaded image URLs.
+      photos: Array.isArray(formData.photos)
+        ? Array.from(new Set(formData.photos.filter(Boolean)))
+        : [],
       // New canonical storage — array of card records. Two shapes coexist:
       // legacy (templateId + photoUrl) and prompt-driven (styleId +
       // frontImageUrl/backImageUrl). Prune empty scaffolds under either
@@ -973,7 +981,6 @@ export default function PlayerEdit() {
       <div
         className="sticky top-0 z-30 bg-surface-2 border-b border-surface-4 shadow-lg"
       >
-        <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
         <div className="max-w-5xl mx-auto px-4 py-5">
           <div className="flex items-center gap-5">
             {/* Player Image or Placeholder - Clickable to edit */}
@@ -1461,32 +1468,55 @@ export default function PlayerEdit() {
               </div>
             </div>
 
-            {/* Highlights — paste any mix of YouTube clips, Imgur albums,
-                or direct image URLs (one per line). The Player profile
-                renders a "Highlights" tab that auto-embeds each link. */}
+            {/* Photos — upload images of this player. They surface on the
+                player page's Photos tab, implicitly tagged to this player
+                (it's their own gallery, so there's no per-photo tagging). */}
             <div className="bg-surface-2 rounded-xl border border-surface-4 overflow-hidden">
               <div className="px-5 py-3 bg-surface-1 border-b border-surface-4">
                 <h2 className="text-sm font-bold uppercase tracking-wide text-txt-secondary">
-                  Highlights
+                  Photos
                 </h2>
                 <p className="mt-1 text-xs text-txt-tertiary">
-                  One URL per line — YouTube clips, Imgur albums, or direct image links. They'll auto-embed on the Highlights tab of the player page.
+                  Upload images of this player — they appear on the Photos tab of the player page.
                 </p>
               </div>
-              <div className="p-5">
-                <textarea
-                  value={(formData.highlights || []).join('\n')}
-                  onChange={(e) => {
-                    const lines = e.target.value.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
-                    setFormData(prev => ({ ...prev, highlights: lines }))
-                  }}
-                  rows={5}
-                  className="w-full px-3 py-2.5 rounded-lg border-2 border-surface-4 focus:border-surface-5 focus:outline-none transition-colors text-txt-primary resize-none font-mono text-xs"
-                  placeholder={`https://youtu.be/abc123\nhttps://imgur.com/a/xyz789\nhttps://i.imgur.com/clip.mp4`}
+              <div className="p-5 space-y-3">
+                {(formData.photos || []).length > 0 && (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {(formData.photos || []).map((url, idx) => (
+                      <div
+                        key={`${url}-${idx}`}
+                        className="group relative aspect-square overflow-hidden rounded-md"
+                        style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
+                      >
+                        <img src={url} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, photos: (prev.photos || []).filter((_, i) => i !== idx) }))}
+                          className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          style={{ backgroundColor: 'rgba(15, 23, 42, 0.85)', color: '#f87171', border: '1px solid var(--surface-5)' }}
+                          title="Remove photo"
+                          aria-label="Remove photo"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Each upload appends to the list, so several can be added. */}
+                <ImageUpload
+                  value=""
+                  onChange={(url) => { if (url) setFormData(prev => ({ ...prev, photos: [...(prev.photos || []), url] })) }}
+                  placeholder="Paste image (Ctrl+V), drop a file, or enter a URL..."
+                  showPreview={false}
+                  hideDropzone={false}
                 />
-                {(formData.highlights || []).length > 0 && (
-                  <div className="mt-2 text-[11px] tabular-nums text-txt-tertiary">
-                    {(formData.highlights || []).length} highlight{(formData.highlights || []).length === 1 ? '' : 's'}
+                {(formData.photos || []).length > 0 && (
+                  <div className="text-[11px] tabular-nums text-txt-tertiary">
+                    {(formData.photos || []).length} photo{(formData.photos || []).length === 1 ? '' : 's'}
                   </div>
                 )}
               </div>
@@ -2875,7 +2905,6 @@ export default function PlayerEdit() {
           className="sm:hidden fixed bottom-10 left-0 right-0 z-[60] bg-surface-2 border-t border-surface-4 shadow-2xl"
           style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         >
-          <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
           <div className="px-4 py-3 flex items-center gap-2">
             <Button variant="danger" size="sm" onClick={() => setShowDeleteConfirm(true)} disabled={deleting || saving}>
               Delete

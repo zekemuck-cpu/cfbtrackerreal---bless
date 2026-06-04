@@ -18,6 +18,7 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getBowlLogo } from '../../data/bowlLogos'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { getTeamConference } from '../../data/conferenceTeams'
+import { getContrastTextColor } from '../../utils/colorUtils'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName, getBowlForSlot, DEFAULT_BOWL_CONFIG } from '../../data/cfpConstants'
 import { STAT_TABS, STAT_TAB_ORDER } from '../../data/boxScoreConstants'
 import { canonicalBoxScore, getPlayerStatsForTid, getTeamStatsForTid, listPlayerStatsTids, hasAnyPlayerStats, hasAnyTeamStats, PLAYER_STAT_KEYS } from '../../utils/boxScoreHelpers'
@@ -3569,122 +3570,102 @@ export default function Game() {
 
           {/* Awards Tab */}
           {activeTab === 'awards' && (game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW) && (() => {
-            // Shared honoree row — avatar, OFFENSIVE/DEFENSIVE chip, name, stat
-            // line. Accent color is the only thing that changes between the
-            // Conference (neutral) and National (gold) panels.
+            const yr = game.year
+            // Resolve a POW honoree's team for this game's year, then its
+            // conference (year-specific when set) and team color — so the
+            // header reads e.g. "SEC Player of the Week" and each honoree is
+            // themed in their own team's color.
+            const teamTidForName = (name) => {
+              const p = getPlayerByName(name)
+              if (!p) return null
+              return p.teamsByYear?.[yr] ?? p.teamsByYear?.[String(yr)] ?? p.team ?? null
+            }
+            const confForName = (name) => {
+              const tid = teamTidForName(name)
+              if (tid == null) return null
+              const byYearConf = teams?.[tid]?.byYear?.[yr]?.conference
+              if (byYearConf) return byYearConf
+              const customConf = currentDynasty?.customConferencesByYear?.[yr] || currentDynasty?.customConferences || null
+              return getTeamConference(tid, customConf, teams) || null
+            }
+            const teamColorForName = (name) => {
+              const tid = teamTidForName(name)
+              return (tid != null && teams?.[tid]?.primaryColor) || '#64748b'
+            }
+            const confName = confForName(game.conferencePOW) || confForName(game.confDefensePOW)
+            const confLogo = confName ? getConferenceLogo(confName) : null
+
+            // Shared honoree — team-colored avatar ring, solid side chip, name,
+            // stat line.
             const HonoreeRow = ({ name, side, accent }) => {
               const player = getPlayerByName(name)
               const stats = getPlayerBoxScoreStats(name)
               const pid = getPlayerPID(name)
-              const initials = (name || '?')
-                .split(/\s+/)
-                .slice(0, 2)
-                .map((w) => w[0])
-                .join('')
-                .toUpperCase()
+              const initials = (name || '?').split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()
               return (
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-surface-3"
-                    style={{ boxShadow: `0 0 0 2px ${accent}55` }}
-                  >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0 bg-surface-3" style={{ boxShadow: `0 0 0 2px ${accent}` }}>
                     {player?.pictureUrl ? (
                       <img src={proxyImageUrl(player.pictureUrl, 300)} alt={name} className="w-full h-full object-cover" />
                     ) : (
-                      <div
-                        className="w-full h-full flex items-center justify-center font-bold text-sm"
-                        style={{ color: accent }}
-                      >
-                        {initials}
-                      </div>
+                      <div className="w-full h-full flex items-center justify-center font-bold text-base" style={{ color: accent }}>{initials}</div>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <span
-                      className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest mb-1"
-                      style={{
-                        color: accent,
-                        backgroundColor: `${accent}1a`,
-                        border: `1px solid ${accent}40`,
-                      }}
+                      className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider mb-1"
+                      style={{ color: getContrastTextColor(accent), backgroundColor: accent }}
                     >
                       {side}
                     </span>
                     {pid ? (
-                      <Link
-                        to={`${pathPrefix}/player/${pid}`}
-                        className="block font-bold text-txt-primary truncate hover:underline"
-                      >
+                      <Link to={`${pathPrefix}/player/${pid}`} className="block font-display font-bold text-txt-primary text-base leading-tight truncate hover:underline" style={{ letterSpacing: '-0.01em' }}>
                         {name}
                       </Link>
                     ) : (
-                      <div className="font-bold text-txt-primary truncate">{name}</div>
+                      <div className="font-display font-bold text-txt-primary text-base leading-tight truncate" style={{ letterSpacing: '-0.01em' }}>{name}</div>
                     )}
-                    {stats && (
-                      <div className="text-xs text-txt-tertiary mt-0.5 tabular-nums">{stats}</div>
-                    )}
+                    {stats && <div className="text-xs text-txt-tertiary mt-0.5 tabular-nums">{stats}</div>}
                   </div>
                 </div>
               )
             }
 
+            const panelCount = ((game.conferencePOW || game.confDefensePOW) ? 1 : 0) + ((game.nationalPOW || game.natlDefensePOW) ? 1 : 0)
+
             return (
-              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                {/* Conference Player of the Week — neutral, team-colored accent */}
+              <div className={`p-4 grid grid-cols-1 gap-3 ${panelCount > 1 ? 'md:grid-cols-2' : 'max-w-xl'}`}>
+                {/* Conference Player(s) of the Week — conference-branded header */}
                 {(game.conferencePOW || game.confDefensePOW) && (
-                  <div
-                    className="rounded-xl overflow-hidden"
-                    style={{
-                      backgroundColor: 'var(--surface-2)',
-                      border: '1px solid var(--surface-4)',
-                    }}
-                  >
-                    <div
-                      className="h-[3px] w-full"
-                      style={{ backgroundColor: 'var(--text-primary)' }}
-                      aria-hidden="true"
-                    />
+                  <div className="rounded-xl overflow-hidden bg-surface-2 border border-surface-4">
+                    <div className="flex items-center gap-2.5 px-5 py-3 border-b border-surface-4">
+                      {confLogo && (
+                        <span className="w-7 h-7 rounded-full bg-white p-1 flex items-center justify-center flex-shrink-0">
+                          <img src={confLogo} alt="" className="w-full h-full object-contain" />
+                        </span>
+                      )}
+                      <h3 className="font-display font-bold text-txt-primary leading-none" style={{ fontSize: '1.05rem', letterSpacing: '-0.01em' }}>
+                        {confName ? `${confName} Player of the Week` : 'Conference Player of the Week'}
+                      </h3>
+                    </div>
                     <div className="px-5 py-4 space-y-4">
-                      <div className="label-xs text-txt-tertiary">Conference Player of the Week</div>
-                      {game.conferencePOW && (
-                        <HonoreeRow name={game.conferencePOW} side="Offensive" accent={'var(--text-primary)'} />
-                      )}
-                      {game.confDefensePOW && (
-                        <HonoreeRow name={game.confDefensePOW} side="Defensive" accent="#60a5fa" />
-                      )}
+                      {game.conferencePOW && <HonoreeRow name={game.conferencePOW} side="Offensive" accent={teamColorForName(game.conferencePOW)} />}
+                      {game.confDefensePOW && <HonoreeRow name={game.confDefensePOW} side="Defensive" accent={teamColorForName(game.confDefensePOW)} />}
                     </div>
                   </div>
                 )}
 
-                {/* National Player of the Week — gold treatment for prestige */}
+                {/* National Player(s) of the Week — gold treatment for prestige */}
                 {(game.nationalPOW || game.natlDefensePOW) && (
-                  <div
-                    className="rounded-xl overflow-hidden relative"
-                    style={{
-                      background:
-                        'linear-gradient(180deg, rgba(251, 191, 36, 0.08) 0%, rgba(251, 191, 36, 0.02) 100%)',
-                      border: '1px solid rgba(251, 191, 36, 0.3)',
-                      boxShadow: '0 0 0 1px rgba(251, 191, 36, 0.05) inset',
-                    }}
-                  >
-                    <div
-                      className="h-[3px] w-full"
-                      style={{ backgroundColor: '#fbbf24' }}
-                      aria-hidden="true"
-                    />
-                    <div className="px-5 py-4 space-y-4">
-                      <div
-                        className="label-xs"
-                        style={{ color: '#fbbf24' }}
-                      >
+                  <div className="rounded-xl overflow-hidden border" style={{ background: 'linear-gradient(180deg, rgba(251,191,36,0.10) 0%, rgba(251,191,36,0.02) 100%)', borderColor: 'rgba(251,191,36,0.35)' }}>
+                    <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(251,191,36,0.25)' }}>
+                      <h3 className="font-display font-bold leading-none" style={{ fontSize: '1.05rem', letterSpacing: '-0.01em', color: '#fbbf24' }}>
                         National Player of the Week
-                      </div>
-                      {game.nationalPOW && (
-                        <HonoreeRow name={game.nationalPOW} side="Offensive" accent="#fbbf24" />
-                      )}
-                      {game.natlDefensePOW && (
-                        <HonoreeRow name={game.natlDefensePOW} side="Defensive" accent="#fbbf24" />
-                      )}
+                      </h3>
+                    </div>
+                    <div className="px-5 py-4 space-y-4">
+                      {game.nationalPOW && <HonoreeRow name={game.nationalPOW} side="Offensive" accent="#fbbf24" />}
+                      {game.natlDefensePOW && <HonoreeRow name={game.natlDefensePOW} side="Defensive" accent="#fbbf24" />}
                     </div>
                   </div>
                 )}

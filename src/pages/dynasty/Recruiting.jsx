@@ -1027,6 +1027,11 @@ export default function Recruiting() {
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 stagger-reveal">
           {allCommitments.map((recruit, index) => {
             const player = findPlayerByName(recruit.name, recruit.recruitYear)
+            // pid is resolved two ways: the lenient _findPlayer match baked
+            // onto the commitment during construction (recruit.pid), and the
+            // stricter name lookup above. Use whichever resolves so the whole
+            // tile links to the recruit's player page.
+            const linkPid = recruit.pid || player?.pid
             const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
             const transferTid = recruit.previousTeam ? getTidFromAbbr(recruit.previousTeam, teamsData) : null
             const transferLogo = transferTid ? getTeamLogoByTid(transferTid, teamsData) : null
@@ -1073,7 +1078,7 @@ export default function Recruiting() {
               <Card
                 padding="none"
                 variant="bordered"
-                interactive={!!player}
+                interactive={!!linkPid}
                 className="h-full overflow-hidden group"
               >
                 <div className="p-2 sm:p-3 flex flex-col h-full gap-1.5 sm:gap-2.5">
@@ -1298,10 +1303,10 @@ export default function Recruiting() {
               </Card>
             )
 
-            return player ? (
+            return linkPid ? (
               <Link
                 key={`${recruit.name}-${index}`}
-                to={`${pathPrefix}/player/${player.pid}`}
+                to={`${pathPrefix}/player/${linkPid}`}
                 className="block"
               >
                 {cardContent}

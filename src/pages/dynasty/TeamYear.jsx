@@ -272,7 +272,7 @@ function TabBar({ tabs, activeKey, onSelect, accentColor }) {
             key={tab.key}
             ref={el => { if (el) buttonRefs.current[tab.key] = el; else delete buttonRefs.current[tab.key] }}
             onClick={() => onSelect(tab.key)}
-            className={`px-2 sm:px-3 md:px-4 lg:px-6 py-3 font-black tracking-tight whitespace-nowrap transition-colors ${
+            className={`px-2 sm:px-3 md:px-4 lg:px-6 py-3 font-semibold tracking-tight whitespace-nowrap transition-colors ${
               isActive ? 'text-txt-primary' : 'text-txt-tertiary hover:text-txt-secondary'
             }`}
             style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem' }}
@@ -2522,11 +2522,6 @@ export default function TeamYear() {
     <div className="space-y-4 sm:space-y-6">
       {/* Team Header */}
       <div className="card overflow-hidden relative reveal">
-        <div
-          className="h-[3px] w-full"
-          style={{ backgroundColor: teamInfo.backgroundColor }}
-          aria-hidden="true"
-        />
         <div className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
           {/* Mobile: Logo + Ratings + Record Row */}
           <div className="flex items-center justify-between sm:hidden">
@@ -3342,15 +3337,11 @@ export default function TeamYear() {
 
             return (
               <div>
-                <div className="py-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="w-[3px] h-5 inline-block" style={{ backgroundColor: teamInfo.backgroundColor }} aria-hidden="true" />
-                    <span className="text-xs font-black uppercase tracking-[0.2em] text-txt-secondary">Stat Leaders</span>
-                  </div>
+                <div className="flex items-end justify-between mb-3 px-1">
+                  <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>Stat Leaders</h3>
                   <button
                     onClick={() => setActiveTab('stats')}
-                    className="text-xs font-semibold uppercase tracking-wider transition-colors hover:opacity-100"
-                    style={{ color: teamInfo.textColor, opacity: 0.7 }}
+                    className="text-xs font-semibold text-txt-tertiary hover:text-txt-secondary transition-colors"
                   >
                     Full Stats →
                   </button>
@@ -3425,15 +3416,11 @@ export default function TeamYear() {
               .slice(0, 8)
             return (
               <div>
-                <div className="py-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="w-[3px] h-5 inline-block" style={{ backgroundColor: teamInfo.backgroundColor }} aria-hidden="true" />
-                    <span className="text-xs font-black uppercase tracking-[0.2em] text-txt-secondary">Top Rated</span>
-                  </div>
+                <div className="flex items-end justify-between mb-3 px-1">
+                  <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>Top Rated</h3>
                   <button
                     onClick={() => setActiveTab('roster')}
-                    className="text-xs font-semibold uppercase tracking-wider transition-colors hover:opacity-100"
-                    style={{ color: teamInfo.textColor, opacity: 0.7 }}
+                    className="text-xs font-semibold text-txt-tertiary hover:text-txt-secondary transition-colors"
                   >
                     Full Roster →
                   </button>
@@ -3515,19 +3502,17 @@ export default function TeamYear() {
             <Link
               to={`${pathPrefix}/game/${lastGame.id}`}
               className="group block stagger-reveal transition-opacity hover:opacity-90"
-              style={{ borderLeft: `3px solid ${teamInfo.backgroundColor}`, paddingLeft: '1rem' }}
             >
               {/* Section header */}
-              <div className="flex items-baseline justify-between mb-4 pb-2" style={{ borderBottom: `1px solid var(--surface-4)` }}>
-                <span
-                  className="text-[11px] font-bold uppercase"
-                  style={{ letterSpacing: '2px', color: 'var(--text-secondary)', fontFamily: 'var(--font-display)' }}
+              <div className="flex items-end justify-between mb-4 px-1">
+                <h3
+                  className="font-display font-bold leading-none text-txt-primary"
+                  style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}
                 >
                   Previous Game
-                </span>
+                </h3>
                 <span
-                  className="text-[10px] font-semibold uppercase tabular-nums"
-                  style={{ letterSpacing: '1.5px', color: 'var(--text-tertiary)' }}
+                  className="text-xs font-semibold text-txt-tertiary tabular-nums"
                 >
                   {lastGame.isCFPChampionship ? 'Natty' : lastGame.isCFPSemifinal ? 'CFP SF' : lastGame.isCFPQuarterfinal ? 'CFP QF' : lastGame.isCFPFirstRound ? 'CFP R1' : lastGame.isBowlGame ? 'Bowl' : lastGame.isConferenceChampionship ? 'CCG' : `Week ${lastGame.week}`}
                 </span>
@@ -3540,7 +3525,7 @@ export default function TeamYear() {
                 return (
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3 min-w-0">
-                  {teamLogo && <img src={teamLogo} alt="" className="w-11 h-11 object-contain flex-shrink-0" />}
+                  {teamLogo && <img src={teamLogo} alt="" className="w-12 h-12 object-contain flex-shrink-0" />}
                   {/* Always render the rank-over-score stack so both sides
                       share the same vertical structure. When a side has no
                       rank we still render the rank slot with a non-breaking
@@ -3556,20 +3541,25 @@ export default function TeamYear() {
                     >
                       {teamRank ? `#${teamRank}` : ' '}
                     </span>
+                    {/* Winner's score reads bright, loser's dims — the result is
+                        legible at a glance without leaning on the W/L chip. */}
                     <span
-                      className="text-3xl font-black tabular-nums leading-none"
-                      style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}
+                      className="text-5xl font-black tabular-nums leading-none"
+                      style={{ color: lastGameInfo.isWin ? 'var(--text-primary)' : 'var(--text-tertiary)', fontFamily: 'var(--font-display)' }}
                     >
                       {lastGameInfo.teamScore}
                     </span>
                   </div>
                 </div>
-                <span
-                  className={`text-[10px] font-bold uppercase px-2 py-1 rounded-sm ${lastGameInfo.isWin ? 'bg-green-600/15 text-green-400' : 'bg-red-600/15 text-red-400'}`}
-                  style={{ letterSpacing: '1.5px' }}
-                >
-                  {lastGameInfo.isWin ? 'W' : 'L'}
-                </span>
+                <div className="flex flex-col items-center gap-1 px-1 flex-shrink-0">
+                  <span
+                    className={`text-[11px] font-black uppercase px-2.5 py-1 rounded-md ${lastGameInfo.isWin ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}
+                    style={{ letterSpacing: '1px' }}
+                  >
+                    {lastGameInfo.isWin ? 'W' : 'L'}
+                  </span>
+                  <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Final</span>
+                </div>
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="flex flex-col items-end min-w-0">
                     <span
@@ -3579,13 +3569,13 @@ export default function TeamYear() {
                       {lastGame.opponentRank ? `#${lastGame.opponentRank}` : ' '}
                     </span>
                     <span
-                      className="text-3xl font-black tabular-nums leading-none"
-                      style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-display)' }}
+                      className="text-5xl font-black tabular-nums leading-none"
+                      style={{ color: lastGameInfo.isWin ? 'var(--text-tertiary)' : 'var(--text-primary)', fontFamily: 'var(--font-display)' }}
                     >
                       {lastGameInfo.oppScore}
                     </span>
                   </div>
-                  {lastGameInfo.oppLogo && <img src={lastGameInfo.oppLogo} alt="" className="w-11 h-11 object-contain flex-shrink-0" />}
+                  {lastGameInfo.oppLogo && <img src={lastGameInfo.oppLogo} alt="" className="w-12 h-12 object-contain flex-shrink-0" />}
                 </div>
               </div>
                 )
@@ -3676,19 +3666,17 @@ export default function TeamYear() {
                   onClick={() => navigate(`${pathPrefix}/game/${nextGame.id}`)}
                   onKeyDown={(e) => { if (e.key === 'Enter') navigate(`${pathPrefix}/game/${nextGame.id}`) }}
                   className="group block stagger-reveal transition-opacity hover:opacity-90 cursor-pointer"
-                  style={{ borderLeft: `3px solid ${teamInfo.backgroundColor}`, paddingLeft: '1rem' }}
                 >
                   {/* Section header */}
-                  <div className="flex items-baseline justify-between mb-4 pb-2" style={{ borderBottom: `1px solid var(--surface-4)` }}>
-                    <span
-                      className="text-[11px] font-bold uppercase"
-                      style={{ letterSpacing: '2px', color: 'var(--text-secondary)', fontFamily: 'var(--font-display)' }}
+                  <div className="flex items-end justify-between mb-4 px-1">
+                    <h3
+                      className="font-display font-bold leading-none text-txt-primary"
+                      style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}
                     >
                       Next Game
-                    </span>
+                    </h3>
                     <span
-                      className="text-[10px] font-semibold uppercase tabular-nums"
-                      style={{ letterSpacing: '1.5px', color: 'var(--text-tertiary)' }}
+                      className="text-xs font-semibold text-txt-tertiary tabular-nums"
                     >
                       {nextGame.isCFPChampionship ? 'Natty' : nextGame.isCFPSemifinal ? 'CFP SF' : nextGame.isCFPQuarterfinal ? 'CFP QF' : nextGame.isCFPFirstRound ? 'CFP R1' : nextGame.isBowlGame ? 'Bowl' : nextGame.isConferenceChampionship ? 'CCG' : `Week ${nextGame.week}`}
                     </span>
@@ -3732,10 +3720,7 @@ export default function TeamYear() {
                   {/* Last Meeting(s) — divided rows, no box */}
                   {previousMeetings.length > 0 && (
                     <div className="pt-3" style={{ borderTop: `1px solid var(--surface-4)` }}>
-                      <div
-                        className="text-[10px] font-bold uppercase mb-2"
-                        style={{ letterSpacing: '1.5px', color: 'var(--text-tertiary)' }}
-                      >
+                      <div className="text-[11px] font-semibold text-txt-tertiary mb-2">
                         Last {previousMeetings.length === 1 ? 'Meeting' : `${previousMeetings.length} Meetings`}
                       </div>
                       <div>
@@ -3837,27 +3822,16 @@ export default function TeamYear() {
             return (
               <div className="stagger-reveal">
                 {/* Editorial header: left-rail accent + tracked caps */}
-                <div
-                  className="flex items-center justify-between mb-4 pb-2"
-                  style={{ borderBottom: `1px solid var(--surface-4)` }}
-                >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="w-1 h-5"
-                      style={{ backgroundColor: teamInfo.backgroundColor }}
-                      aria-hidden="true"
-                    />
-                    <h3
-                      className="text-[13px] font-bold uppercase"
-                      style={{ letterSpacing: '2.5px', color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}
-                    >
-                      Season Schedule
-                    </h3>
-                  </div>
+                <div className="flex items-end justify-between mb-4 px-1">
+                  <h3
+                    className="font-display font-bold leading-none text-txt-primary"
+                    style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}
+                  >
+                    Season Schedule
+                  </h3>
                   <button
                     onClick={() => setActiveTab('schedule')}
-                    className="text-[10px] font-bold uppercase transition-opacity hover:opacity-70"
-                    style={{ letterSpacing: '1.5px', color: 'var(--text-tertiary)' }}
+                    className="text-xs font-semibold text-txt-tertiary hover:text-txt-secondary transition-colors"
                   >
                     Full Schedule →
                   </button>
@@ -4216,7 +4190,6 @@ export default function TeamYear() {
       {/* Add Roster Section for Teams with No Players for this year */}
       {!isViewOnly && sortedTeamPlayers.length === 0 && (
         <div className="card overflow-hidden">
-          <div className="h-[2px] w-full" style={{ backgroundColor: teamInfo.backgroundColor }} aria-hidden="true" />
           <div className="px-3 sm:px-4 py-2 sm:py-3 border-b border-surface-4">
             <h2 className="display-md text-txt-primary m-0">
               {selectedYear} Roster
@@ -5629,14 +5602,13 @@ export default function TeamYear() {
         return (
           <div className="space-y-4">
             <div className="card overflow-hidden">
-              <div className="h-[3px] w-full" style={{ backgroundColor: viewedPrimary }} aria-hidden="true" />
               <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="flex items-center gap-3 sm:gap-5">
                   <div
                     className="flex items-center gap-3 sm:gap-4 px-4 py-3 rounded-sm"
                     style={{ backgroundColor: 'var(--surface-3)', borderLeft: `3px solid ${viewedPrimary}` }}
                   >
-                    <div className="text-4xl sm:text-5xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                    <div className="text-4xl sm:text-5xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "var(--font-display)" }}>
                       {nationalRank ? `#${nationalRank}` : '—'}
                     </div>
                     <div className="flex flex-col">
@@ -5648,7 +5620,7 @@ export default function TeamYear() {
                     className="flex items-center gap-3 sm:gap-4 px-4 py-3 rounded-sm"
                     style={{ backgroundColor: 'var(--surface-3)', borderLeft: `3px solid ${viewedPrimary}` }}
                   >
-                    <div className="text-4xl sm:text-5xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                    <div className="text-4xl sm:text-5xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "var(--font-display)" }}>
                       {formatRecruitingClassScore(classScore)}
                     </div>
                     <div className="flex flex-col">
@@ -5677,7 +5649,7 @@ export default function TeamYear() {
               <div className="grid grid-cols-5 border-t border-surface-4">
                 {starCounts.map(tile => (
                   <div key={tile.count} className="px-2 py-3 text-center border-r border-surface-4 last:border-r-0">
-                    <div className="text-2xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>{tile.total}</div>
+                    <div className="text-2xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "var(--font-display)" }}>{tile.total}</div>
                     <div className="flex justify-center mt-1 gap-0.5">
                       {[...Array(tile.count)].map((_, i) => (
                         <svg key={i} className="w-2.5 h-2.5" fill="var(--accent-warning)" viewBox="0 0 20 20">
@@ -5887,13 +5859,12 @@ export default function TeamYear() {
                 a lot of horizontal space. Each breakdown cell is a
                 clickable scroll target for its section. */}
             <div className="card overflow-hidden">
-              <div className="h-[3px] w-full" style={{ backgroundColor: viewedPrimary }} aria-hidden="true" />
               <div className="flex flex-col sm:flex-row sm:items-stretch">
                 <div
                   className="flex items-center gap-3 sm:gap-4 px-4 py-3 sm:px-5 flex-shrink-0"
                   style={{ backgroundColor: 'var(--surface-3)', borderLeft: `3px solid ${viewedPrimary}` }}
                 >
-                  <div className="text-4xl sm:text-5xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                  <div className="text-4xl sm:text-5xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "var(--font-display)" }}>
                     {departures.length}
                   </div>
                   <div className="flex flex-col">
@@ -5913,7 +5884,7 @@ export default function TeamYear() {
                         className={`px-2 py-3 text-center border-r border-surface-4 last:border-r-0 transition-colors ${interactive ? 'hover:bg-surface-3 cursor-pointer' : 'cursor-default'}`}
                         aria-label={interactive ? `Scroll to ${group.label}` : undefined}
                       >
-                        <div className="text-2xl font-black tabular leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif", color: interactive ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                        <div className="text-2xl font-black tabular leading-none" style={{ fontFamily: "var(--font-display)", color: interactive ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                           {count}
                         </div>
                         <div className="mt-1">
@@ -6071,7 +6042,7 @@ export default function TeamYear() {
                             {ovr != null && (
                               <>
                                 
-                                <span className="text-[11px] font-black tabular-nums text-txt-secondary" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>{ovr}</span>
+                                <span className="text-[11px] font-black tabular-nums text-txt-secondary" style={{ fontFamily: "var(--font-display)" }}>{ovr}</span>
                               </>
                             )}
                           </div>
@@ -6098,7 +6069,7 @@ export default function TeamYear() {
                         </span>
                         <span className="hidden sm:block text-right tabular-nums">
                           {ovr != null ? (
-                            <span className="text-base font-black text-txt-primary" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>{ovr}</span>
+                            <span className="text-base font-black text-txt-primary" style={{ fontFamily: "var(--font-display)" }}>{ovr}</span>
                           ) : (
                             <span className="text-txt-muted">—</span>
                           )}
@@ -6432,12 +6403,12 @@ export default function TeamYear() {
               {/* PROGRAM RECORD + ACHIEVEMENTS (wider) */}
               <div className="card overflow-hidden lg:col-span-2">
                 <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px] flex items-center justify-between" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                  <h3 className="text-sm font-black uppercase tracking-widest m-0" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Program Record</h3>
+                  <h3 className="text-sm font-black uppercase tracking-widest m-0" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)", letterSpacing: '2px' }}>Program Record</h3>
                   <span className="text-[10px] font-semibold uppercase tabular-nums text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{yearsWithRecords.length} season{yearsWithRecords.length !== 1 ? 's' : ''}</span>
                 </div>
                 <div className="p-4">
                   <div className="flex items-end gap-4 mb-4">
-                    <span className="tabular-nums leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(2.5rem, 7vw, 4rem)', fontWeight: 900, color: 'var(--text-primary)' }}>
+                    <span className="tabular-nums leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 'clamp(2.5rem, 7vw, 4rem)', fontWeight: 900, color: 'var(--text-primary)' }}>
                       {allTimeWins}<span style={{ color: 'var(--text-tertiary)', margin: '0 0.1em' }}>–</span>{allTimeLosses}
                     </span>
                     <span className="tabular-nums pb-1.5 text-sm font-bold text-txt-tertiary">{winPct}%</span>
@@ -6456,7 +6427,7 @@ export default function TeamYear() {
                           className={`group relative flex flex-col items-start py-3 px-3 text-left transition-colors ${isClickable ? 'cursor-pointer hover:bg-surface-3' : 'cursor-default'}`}
                           style={{ borderLeft: idx % 6 === 0 ? 'none' : '1px solid var(--surface-4)' }}
                         >
-                          <span className="tabular-nums leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.5rem', fontWeight: 900, color: valueColor }}>{cell.value}</span>
+                          <span className="tabular-nums leading-none" style={{ fontFamily: "var(--font-display)", fontSize: '1.5rem', fontWeight: 900, color: valueColor }}>{cell.value}</span>
                           <span className="text-[10px] font-bold uppercase mt-1.5 text-txt-tertiary" style={{ letterSpacing: '1px' }}>{cell.label}</span>
                           {isClickable && (
                             <span className="absolute left-3 right-3 bottom-0 h-[2px] origin-left scale-x-0 transition-transform duration-200 ease-out group-hover:scale-x-100" style={{ backgroundColor: cell.accent || teamInfo.backgroundColor }} aria-hidden="true" />
@@ -6472,7 +6443,7 @@ export default function TeamYear() {
               {(userCoachingYears.length > 0 || userVsTeamWins > 0 || userVsTeamLosses > 0) && (
                 <div className="card overflow-hidden">
                   <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                    <h3 className="text-sm font-black uppercase tracking-widest m-0" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Your History</h3>
+                    <h3 className="text-sm font-black uppercase tracking-widest m-0" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)", letterSpacing: '2px' }}>Your History</h3>
                   </div>
                   <div className="p-4 grid grid-cols-2 lg:grid-cols-1 gap-4">
                     <div>
@@ -6484,7 +6455,7 @@ export default function TeamYear() {
                           disabled={userAsTeamGames.length === 0}
                           className="flex items-baseline gap-2 flex-wrap text-left enabled:hover:opacity-80 transition-opacity enabled:cursor-pointer"
                         >
-                          <span className="tabular-nums leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-primary)' }}>{userAsCoachWins}<span style={{ color: 'var(--text-tertiary)' }}>–</span>{userAsCoachLosses}</span>
+                          <span className="tabular-nums leading-none" style={{ fontFamily: "var(--font-display)", fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-primary)' }}>{userAsCoachWins}<span style={{ color: 'var(--text-tertiary)' }}>–</span>{userAsCoachLosses}</span>
                           <span className="tabular-nums text-xs font-semibold text-txt-tertiary">{((userAsCoachWins / (userAsCoachWins + userAsCoachLosses || 1)) * 100).toFixed(0)}%</span>
                           <span className="text-[10px] font-bold uppercase" style={{ letterSpacing: '1px', color: teamInfo.backgroundColor }}>{userCoachingYears.length} yr{userCoachingYears.length !== 1 ? 's' : ''}</span>
                         </button>
@@ -6499,7 +6470,7 @@ export default function TeamYear() {
                           disabled={userVsTeamGames.length === 0}
                           className="flex items-baseline gap-2 text-left enabled:hover:opacity-80 transition-opacity enabled:cursor-pointer"
                         >
-                          <span className="tabular-nums leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-primary)' }}>{userVsTeamWins}<span style={{ color: 'var(--text-tertiary)' }}>–</span>{userVsTeamLosses}</span>
+                          <span className="tabular-nums leading-none" style={{ fontFamily: "var(--font-display)", fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-primary)' }}>{userVsTeamWins}<span style={{ color: 'var(--text-tertiary)' }}>–</span>{userVsTeamLosses}</span>
                           <span className="tabular-nums text-xs font-semibold text-txt-tertiary">{((userVsTeamWins / (userVsTeamWins + userVsTeamLosses || 1)) * 100).toFixed(0)}%</span>
                         </button>
                       ) : <span className="text-sm text-txt-tertiary">—</span>}
@@ -6512,7 +6483,7 @@ export default function TeamYear() {
             {/* SEASON HISTORY */}
             <div className="card overflow-hidden">
               <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px] flex items-center justify-between" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="text-sm font-black uppercase tracking-widest m-0" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Season History</h3>
+                <h3 className="text-sm font-black uppercase tracking-widest m-0" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)", letterSpacing: '2px' }}>Season History</h3>
                 <span className="text-[10px] font-semibold uppercase tabular-nums text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{yearRecords.length} total</span>
               </div>
               <div className="overflow-x-auto">
@@ -6691,7 +6662,7 @@ export default function TeamYear() {
               return (
                 <div className="card overflow-hidden">
                   <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px] flex items-center justify-between gap-3 flex-wrap" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                    <h3 className="text-sm font-black uppercase tracking-widest m-0" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>All-Time Leaders</h3>
+                    <h3 className="text-sm font-black uppercase tracking-widest m-0" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)", letterSpacing: '2px' }}>All-Time Leaders</h3>
                     <div className="flex items-center gap-1">
                       {[
                         { key: 'career', label: 'Career' },
@@ -6707,7 +6678,7 @@ export default function TeamYear() {
                               letterSpacing: '1px',
                               color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
                               backgroundColor: isActive ? 'var(--surface-3)' : 'transparent',
-                              border: 'none', cursor: 'pointer', fontFamily: "'Bebas Neue', sans-serif",
+                              border: 'none', cursor: 'pointer', fontFamily: "var(--font-display)",
                             }}
                           >
                             {opt.label}
@@ -6729,7 +6700,7 @@ export default function TeamYear() {
                           style={{
                             letterSpacing: '1.5px',
                             color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                            background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: "'Bebas Neue', sans-serif",
+                            background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: "var(--font-display)",
                           }}
                         >
                           {cat.name}
@@ -6814,7 +6785,7 @@ export default function TeamYear() {
                                       textDecoration: 'none',
                                     }}
                                   >
-                                    <span className="text-right tabular flex-shrink-0" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isFirst ? '1.4rem' : '1rem', letterSpacing: '0.5px', lineHeight: 1, width: isFirst ? '1.6rem' : '1.25rem', color: rankColor, fontWeight: isFirst ? 700 : 600 }}>{rank}</span>
+                                    <span className="text-right tabular flex-shrink-0" style={{ fontFamily: "var(--font-display)", fontSize: isFirst ? '1.4rem' : '1rem', letterSpacing: '0.5px', lineHeight: 1, width: isFirst ? '1.6rem' : '1.25rem', color: rankColor, fontWeight: isFirst ? 700 : 600 }}>{rank}</span>
                                     {player.pictureUrl ? (
                                       <img src={proxyImageUrl(player.pictureUrl, 300)} alt="" className={`${isFirst ? 'w-10 h-10' : 'w-8 h-8'} rounded-full object-cover flex-shrink-0`} style={{ border: isFirst ? '1.5px solid var(--accent-warning)' : '1px solid var(--surface-4)' }} />
                                     ) : (
@@ -6824,7 +6795,7 @@ export default function TeamYear() {
                                       <span className={`${isFirst ? 'text-[15px]' : 'text-sm'} font-semibold text-txt-primary hover:underline truncate block`}>{player.name}</span>
                                       <p className="text-[11px] text-txt-tertiary truncate m-0">{player.position && `${player.position} · `}{yearsLabel}</p>
                                     </div>
-                                    <span className="tabular flex-shrink-0 text-right text-txt-primary" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isFirst ? '1.85rem' : rank === 2 ? '1.35rem' : '1.15rem', fontWeight: isFirst ? 900 : 700, letterSpacing: '0.5px', lineHeight: 1 }}>{value}</span>
+                                    <span className="tabular flex-shrink-0 text-right text-txt-primary" style={{ fontFamily: "var(--font-display)", fontSize: isFirst ? '1.85rem' : rank === 2 ? '1.35rem' : '1.15rem', fontWeight: isFirst ? 900 : 700, letterSpacing: '0.5px', lineHeight: 1 }}>{value}</span>
                                   </Link>
                                 )
                               })}
@@ -7187,7 +7158,6 @@ export default function TeamYear() {
             className="card-elevated w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="h-[3px] w-full" style={{ backgroundColor: teamInfo.backgroundColor }} aria-hidden="true" />
             {/* Modal Header */}
             <div className="px-6 py-4 flex items-center justify-between flex-shrink-0 bg-surface-2 border-b border-surface-4">
               <div>
@@ -7283,7 +7253,6 @@ export default function TeamYear() {
             className="card-elevated w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="h-[3px] w-full" style={{ backgroundColor: teamInfo.backgroundColor }} aria-hidden="true" />
             {/* Modal Header */}
             <div className="px-6 py-4 flex items-center justify-between flex-shrink-0 bg-surface-2 border-b border-surface-4">
               <h3 className="text-xl font-bold text-txt-primary">
@@ -7390,7 +7359,6 @@ export default function TeamYear() {
             className="card-elevated w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="h-[3px] w-full" style={{ backgroundColor: teamInfo.backgroundColor }} aria-hidden="true" />
             <div className="px-6 py-4 flex items-center justify-between flex-shrink-0 bg-surface-2 border-b border-surface-4">
               <h3 className="text-xl font-bold text-txt-primary">{userGamesModalTitle}</h3>
               <button aria-label="Close"

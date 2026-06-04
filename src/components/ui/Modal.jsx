@@ -70,14 +70,6 @@ export default function Modal({
         aria-modal="true"
         aria-label={title || undefined}
       >
-        {accent && (
-          <div
-            className="h-[3px] w-full flex-shrink-0"
-            style={{ backgroundColor: accent }}
-            aria-hidden="true"
-          />
-        )}
-
         {title && (
           <header className="px-6 py-4 border-b border-surface-4 flex items-center justify-between flex-shrink-0">
             <h2 className="text-display-md text-txt-primary m-0">{title}</h2>

@@ -173,7 +173,6 @@ export default function TeamEditModal({
         className="card-elevated max-w-lg w-full max-h-[90dvh] overflow-hidden flex flex-col modal-panel-in"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="h-[3px] w-full" style={{ backgroundColor: accent }} aria-hidden="true" />
 
         {/* Header */}
         <div className="px-6 py-4 flex items-center justify-between border-b border-surface-4">
