@@ -5855,7 +5855,7 @@ function PlayerInner() {
                 </>
               )}
               <div className="flex flex-col items-center gap-3" style={{ maxWidth: 'calc(100vw - 32px)', maxHeight: 'calc(100vh - 32px)' }} onClick={(e) => e.stopPropagation()}>
-                <img src={`https://wsrv.nl/?url=${encodeURIComponent(cur.url)}&w=1600&output=webp&q=92`} alt="Tagged photo" className="block select-none" style={{ maxWidth: '100%', maxHeight: 'calc(100vh - 120px)', objectFit: 'contain', boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }} onError={(e) => { if (e.currentTarget.src !== cur.url) e.currentTarget.src = cur.url }} draggable={false} />
+                <img src={`https://wsrv.nl/?url=${encodeURIComponent(cur.url)}&output=webp&q=92`} alt="Tagged photo" className="block select-none" style={{ maxWidth: '100%', maxHeight: 'calc(100vh - 120px)', objectFit: 'contain', boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }} onError={(e) => { if (e.currentTarget.src !== cur.url) e.currentTarget.src = cur.url }} draggable={false} />
                 {cur.gameId && (
                   <Link
                     to={`${pathPrefix}/game/${cur.gameId}`}

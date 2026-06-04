@@ -3747,7 +3747,7 @@ export default function Game() {
                   }}
                 >
                   <img
-                    src={`https://wsrv.nl/?url=${encodeURIComponent(photoTabImages[0])}&w=1600&output=webp&q=92`}
+                    src={`https://wsrv.nl/?url=${encodeURIComponent(photoTabImages[0])}&output=webp&q=92`}
                     alt="Score graphic"
                     className="w-full h-full object-cover"
                     loading="lazy"
@@ -4129,7 +4129,7 @@ function PhotoLightbox({ photos, index, onClose, onIndexChange, photoTags = null
         onClick={(e) => e.stopPropagation()}
       >
         <img
-          src={`https://wsrv.nl/?url=${encodeURIComponent(currentUrl)}&w=1600&output=webp&q=92`}
+          src={`https://wsrv.nl/?url=${encodeURIComponent(currentUrl)}&output=webp&q=92`}
           alt={`Game photo ${index + 1} of ${total}`}
           className="block select-none"
           style={{

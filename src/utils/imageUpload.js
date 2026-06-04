@@ -50,12 +50,53 @@ function coerceToBlob(input) {
   throw new Error(`Unsupported upload input type: ${typeof input}`)
 }
 
+// Re-encode an image before upload so the STORED source is far smaller while
+// keeping its resolution. Full-res game screenshots (multi-MB PNGs) are the
+// cause of slow photo loads: the wsrv proxy must fetch the whole original to
+// serve any size, and the grid fires a dozen of those at once. Re-encoding to
+// webp turns a multi-MB PNG into a fraction of the size with no visible quality
+// loss — so the full-size view still shows full resolution, and thumbnails load
+// fast. We only downscale when an image exceeds 4000px (well past 4K) as a
+// canvas/memory safety bound. Defensive: any failure (or an animated GIF, which
+// a canvas would flatten) returns the original untouched.
+const MAX_UPLOAD_DIMENSION = 4000
+const UPLOAD_QUALITY = 0.92
+
+async function compressImageBlob(blob) {
+  try {
+    if (typeof document === 'undefined' || typeof createImageBitmap !== 'function') return blob
+    if (!blob || !blob.type || !blob.type.startsWith('image/')) return blob
+    if (blob.type === 'image/gif') return blob // preserve animation
+
+    const bmp = await createImageBitmap(blob)
+    const scale = Math.min(1, MAX_UPLOAD_DIMENSION / Math.max(bmp.width, bmp.height))
+    const w = Math.max(1, Math.round(bmp.width * scale))
+    const h = Math.max(1, Math.round(bmp.height * scale))
+
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext('2d')
+    if (!ctx) { bmp.close?.(); return blob }
+    ctx.drawImage(bmp, 0, 0, w, h)
+    bmp.close?.()
+
+    const out = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', UPLOAD_QUALITY))
+    // Keep whichever is smaller (re-encoding an already-tiny image can grow it).
+    return (out && out.size > 0 && out.size < blob.size) ? out : blob
+  } catch {
+    return blob
+  }
+}
+
 /**
  * Upload a single image to imgbb. Returns the hosted image URL.
  * Throws on failure — caller decides how to surface (toast, etc.).
  */
 export async function uploadImage(input, { signal } = {}) {
-  const blob = coerceToBlob(input)
+  let blob = coerceToBlob(input)
+  // Shrink the source before upload so it loads fast later (see compressImageBlob).
+  blob = await compressImageBlob(blob)
   if (blob.size > MAX_BYTES) {
     throw new Error(`Image must be ≤ ${Math.round(MAX_BYTES / 1024 / 1024)}MB (imgbb limit)`)
   }

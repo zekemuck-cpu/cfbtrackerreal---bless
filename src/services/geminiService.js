@@ -3893,7 +3893,7 @@ PATTERN 1 — PLAYER-LED:
    ✅ "Quarterback Donte Ware threw for 318 yards and Kentucky pulled away in the second half to beat Louisville 45-27."
 
 PATTERN 2 — RESULT-LED:
-   ✅ "Kentucky won its fourth straight Governor's Cup with a 45-27 victory over Louisville on Saturday."
+   ✅ "Kentucky beat Louisville 45-27 on Saturday to finish the regular season 8-4."
    ✅ "No. 6 Tennessee fell to South Carolina 38-35 on Saturday, the Volunteers' second loss in three weeks."
 
 If either team is ranked, lead with the rank ("No. 6 Tennessee..."). Otherwise drop ranks from the lede.
@@ -3958,7 +3958,7 @@ RULE E — HEADLINE & SUBHEAD DISCIPLINE
 HEADLINE — write an ESPN.com news headline. Sentence case (capitalize the first word and proper nouns; leave the rest lowercase). Around 6-12 words. The headline REPORTS — it does not editorialize, twist, or deliver a kicker.
 
 GOOD PATTERNS:
-   ✅ "Kentucky beats Louisville 45-27 to extend Governor's Cup streak"
+   ✅ "Kentucky beats Louisville 45-27 behind Dahl's three touchdowns"
    ✅ "Dahl runs for 3 TDs as Kentucky beats Louisville"
    ✅ "Kentucky overcomes Reed's 494 passing yards in 45-27 win over Louisville"
    ✅ "No. 6 Tennessee falls to South Carolina 38-35"
@@ -4017,7 +4017,7 @@ A game recap is not a logbook. The data block may give you every scoring play wi
 
    • COMEBACK / FRONT-RUNNER: the GAME FLOW FACTS block tells you the biggest deficit overcome and whether the winner ever trailed. Use it in ONE sentence — and respect the size of the deficit. A one-drive 7-0 deficit early is NOT a "rally" or a "comeback"; do not call it one. A 17-point deficit overcome IS.
 
-   • RIVALRY / STREAK: when the data flags a rivalry / trophy game (Governor's Cup, Iron Bowl, Apple Cup, etc.) or a multi-year streak being extended/broken, name it — but only ONCE, usually in the lede or first body paragraph.
+   • RIVALRY / STREAK: if the data flags a rivalry/trophy game or a multi-year series streak, treat it as SUPPORTING color — mention it at most once, in a BODY paragraph. Do NOT make it the headline or the lede angle unless it is the single biggest story of the game.
 
 (3) NO-REPETITION CAP. Any specific fact appears AT MOST TWICE across the article: once where it's introduced, once where it's expanded with detail. Then stop.
 
@@ -4043,7 +4043,7 @@ Read your draft top to bottom. Honest answers. If any answer is no, REWRITE befo
    6. FEATURABLE BEATS — when the data supports them, did I actually feature these (per RULE F)?
         • OUTGAINED-BUT-LOST: if the losing team outgained the winner in total yards, did I write a paragraph that frames the paradox? Not a "despite" clause at the end.
         • STAR-IN-A-LOSS: if a player on the losing side hit 400+ pass yards, 4+ TDs, or 150+ rush yards, did I give him a paragraph contrasting the line with the result?
-        • GUTSY ANSWERING DRIVE / TURNOVER SWING / RIVALRY-STREAK: surfaced if the data supports?
+        • GUTSY ANSWERING DRIVE / TURNOVER SWING: surfaced if the data supports? (Rivalry/series streak, if present, kept to a single supporting body mention — NOT the headline or lede.)
    7. COMEBACK FRAMING: any "rally" / "comeback" / "came back from behind" language? It must match the GAME FLOW FACTS deficit data. A one-drive 7-0 deficit is NOT a rally — don't call it one.
    8. Did I avoid the COLUMNIST PHRASES? ("the numbers lied," "less dramatic than it sounds," "that says something about how X went," "the obituary started writing itself," "[Player] just made the case for [thing]," "in the most [Team] way imaginable," "watched a [stat] performance turn into a [result]," "[Team]'s season died in [City]")
    9. Did I avoid the standard CLICHÉS? ("set the tone," "imposed their will," "found their rhythm," "made plays when it mattered," "dialed up," "got cooking," "sealed it" more than once, "controlled the line of scrimmage" without OL/DL data, "shifted the momentum," "answered the call," "leaves no doubt," "made it look easy")
@@ -4070,7 +4070,7 @@ Your ENTIRE response must be wrapped in a single fenced code block so the user c
 - Do NOT add additional code fences inside the article. The outer fence is the only one.
 
 FORMAT (the markdown that goes INSIDE the fence):
-- HEADLINE on its own line as a level-1 heading (e.g., "# Kentucky beats Louisville 45-27 to extend Governor's Cup streak"). Sentence case.
+- HEADLINE on its own line as a level-1 heading (e.g., "# Kentucky beats Louisville 45-27 behind Dahl's three touchdowns"). Sentence case.
 - DATELINE on its own line if the game has a home team: "City, ST —" in EXACTLY this format — two-letter state abbreviation, a space, an em-dash "—", a space, then the first sentence of the lede. Examples: "Lexington, KY — Kentucky..." or "Madison, WI — The Badgers...". Use the home team's city. For neutral-site games (bowls, CFP, conference championships), omit the dateline.
 - SUBHEADS only if used (per RULE E) — level-2 markdown headings, short label form ("## Turning point").
 - **bold** for pivotal stats, decisive plays, and standout stat lines you want the reader's eye to land on. 3-6 boldings across the entire article is the sweet spot — don't over-bold.
@@ -4158,9 +4158,9 @@ LEDE — NAME ${focusTeamName}:
 
 HEADLINE — ${focusTeamName} COMES FIRST:
 - ${focusTeamName} leads the headline, always.
-- ✅ "${focusTeamName} beats [opponent] 45-27 to extend Governor's Cup streak"
+- ✅ "${focusTeamName} beats [opponent] 45-27 behind Dahl's three touchdowns"
 - ✅ "Dahl runs for 3 TDs as ${focusTeamName} tops [opponent]"
-- ✅ "${focusTeamName} pulls away from [opponent] for fourth-straight Governor's Cup"
+- ✅ "${focusTeamName} pulls away from [opponent] 45-27 in the second half"
 - ✗ "[Opponent] falls to ${focusTeamName} 45-27" — wrong order
 - All other RULE E rules (sentence case, 6-12 words, no clever twist, no "Survives", no clever-with-period) still apply.
 
@@ -5019,7 +5019,7 @@ HEAD-TO-HEAD HISTORY (${ctx.team1FullName} vs ${ctx.team2FullName})
 
     if (ctx.headToHeadSummary) {
       const s = ctx.headToHeadSummary
-      prompt += `\n\nRIVALRY FRAMING — use whichever of these naturally fits the lede or a body paragraph:`
+      prompt += `\n\nSERIES CONTEXT — SUPPORTING COLOR ONLY. Weave at most ONE of these into a BODY paragraph when it fits. Do NOT make the series/rivalry streak the headline or the lede angle unless it is genuinely the single biggest story of THIS game (it usually is not). The headline and lede lead with THIS game's result and performance:`
       if (s.lastMeeting) {
         const lm = s.lastMeeting
         prompt += `\n  • Last meeting (${lm.year}): ${lm.winner} beat ${lm.loser} ${lm.winnerScore}-${lm.loserScore} in the ${lm.gameType}.`
@@ -5271,7 +5271,7 @@ REFERENCE DATA. You DO NOT need to mention these — they exist so you can ancho
 ===========================================
 RIVALRY GAME
 ===========================================
-This game is ${ctx.rivalryName}. Refer to it by that name at least once in the recap (lede or first body paragraph). Trophy/rivalry framing carries weight on its own — winning a rivalry game when you're 4-6 is a real story, and losing one when you're 9-1 is a real wound.`
+This game is ${ctx.rivalryName}. You MAY name it once as SUPPORTING color in a body paragraph — it is NOT the required headline or lede angle, and should not be the recap's main thread by default. Lead the headline and lede with THIS game's result and performance; bring the rivalry forward only when it is genuinely the defining story (a rivalry win that rescues a losing season, a rivalry loss that wrecks a great one).`
   }
 
   // Per-game POW awards from THIS game. Only emit if any are set —
