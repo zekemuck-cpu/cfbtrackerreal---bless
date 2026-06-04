@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { proxyImageUrl } from '../utils/imageProxy'
+import { sortGamesNewestFirst } from '../utils/gameOrder'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 
@@ -295,7 +296,7 @@ export default function ScoringHighlightsModal({
         }
       }
     })
-    return uniqueGames
+    return sortGamesNewestFirst(uniqueGames)
   }, [playsWithVideo])
 
   // Jump to first play of selected season

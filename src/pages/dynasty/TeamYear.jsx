@@ -22,6 +22,7 @@ import { uploadImage } from '../../utils/imageUpload'
 import { readClipboardImageAsFile } from '../../utils/clipboardImage'
 import { getTeamLogo, getTeamLogoByTid, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { isSameYear, weekSortKey } from '../../utils/compareUtils'
+import { sortGamesNewestFirst } from '../../utils/gameOrder'
 import { calculateRecruitingClassScore, formatRecruitingClassScore, flattenClassCommitments } from '../../utils/recruitingScore'
 import { useToast } from '../../components/ui/Toast'
 import FittedPlayerName from '../../components/ui/FittedPlayerName'
@@ -6325,8 +6326,9 @@ export default function TeamYear() {
         })
         const openUserGames = (title, entries) => {
           if (!entries || entries.length === 0) return
+          // Most recent first: year desc, then within-season position desc.
           setUserGamesModalTitle(title)
-          setUserGamesModalGames(entries)
+          setUserGamesModalGames(sortGamesNewestFirst(entries, e => e.game))
           setShowUserGamesModal(true)
         }
 
@@ -7190,11 +7192,7 @@ export default function TeamYear() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {recordGamesModalGames
-                    .sort((a, b) => {
-                      if (b.year !== a.year) return b.year - a.year
-                      return (b.week || 0) - (a.week || 0)
-                    })
+                  {sortGamesNewestFirst(recordGamesModalGames)
                     .map((game, idx) => {
                       const opponentName = getMascotName(game.opponentTid, currentDynasty.teams) || game.opponentAbbr || 'Unknown'
                       const opponentLogo = getTeamLogo(opponentName, currentDynasty.teams)
@@ -7274,7 +7272,7 @@ export default function TeamYear() {
                 <p className="text-center py-8" style={{ color: accentColorMuted }}>No games found</p>
               ) : (
                 <div className="space-y-2">
-                  {historyGamesModalGames.map((game, idx) => {
+                  {sortGamesNewestFirst(historyGamesModalGames).map((game, idx) => {
                     // Resolve both sides, tolerating records that only carry
                     // the tid, only carry the abbr, or both. Older modals
                     // read game.team1/team2 directly and rendered "vs "

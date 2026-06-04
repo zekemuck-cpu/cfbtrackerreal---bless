@@ -9,6 +9,7 @@ import PlayerErrorBoundary from '../../components/PlayerErrorBoundary'
 import MediaList from '../../components/MediaList'
 import { getPlayerCards } from '../../utils/playerCards'
 import { formatScoreHighLow } from '../../utils/scoreFormat'
+import { sortGamesNewestFirst } from '../../utils/gameOrder'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -958,10 +959,21 @@ function PlayerInner() {
         ...(Array.isArray(g.photos) ? g.photos : []),
         ...(g.scoreGraphic ? [g.scoreGraphic] : []),
       ]
+      // Resolve the opponent relative to the player's team that season so the
+      // lightbox can label each photo "YYYY Wk n vs/@ OPP".
+      const teamsData = dynasty?.teams || {}
+      const ptTid = player?.teamsByYear?.[g.year] ?? player?.teamsByYear?.[String(g.year)] ?? player?.team ?? null
+      const t1 = g.team1Tid != null ? Number(g.team1Tid) : null
+      const t2 = g.team2Tid != null ? Number(g.team2Tid) : null
+      const oppTid = (ptTid != null && Number(ptTid) === t1) ? t2 : (ptTid != null && Number(ptTid) === t2) ? t1 : t2
+      const oppAbbr = (oppTid != null && (teamsData[oppTid]?.abbr || getMascotName(oppTid, teamsData))) || ''
+      const oppLogo = oppTid != null ? getTeamLogoByTid(oppTid, teamsData) : null
+      const homeTid = g.homeTeamTid != null ? Number(g.homeTeamTid) : null
+      const loc = homeTid == null ? 'vs' : (ptTid != null && homeTid === Number(ptTid) ? 'vs' : '@')
       for (const url of urls) {
         const pids = tags[url]
         if (Array.isArray(pids) && pids.some(p => String(p) === String(pid))) {
-          out.push({ url, gameId: g.id, year: g.year, week: g.week })
+          out.push({ url, gameId: g.id, year: g.year, week: g.week, oppAbbr, oppLogo, loc })
         }
       }
     }
@@ -978,9 +990,24 @@ function PlayerInner() {
       return (Number.isFinite(wB) ? wB : -1) - (Number.isFinite(wA) ? wA : -1)
     })
     return out
-  }, [player?.pid, player?.photos, dynasty?.games])
+  }, [player?.pid, player?.photos, player?.teamsByYear, player?.team, dynasty?.games, dynasty?.teams])
 
   const [photoTabLightboxIdx, setPhotoTabLightboxIdx] = useState(null)
+
+  // Keyboard nav for the Photos-tab lightbox: ←/→ to move between images,
+  // Esc to close — matching the game-page lightbox.
+  useEffect(() => {
+    if (photoTabLightboxIdx === null) return
+    const total = taggedPhotos.length
+    if (total === 0) return
+    const onKey = (e) => {
+      if (e.key === 'Escape') setPhotoTabLightboxIdx(null)
+      else if (e.key === 'ArrowLeft') setPhotoTabLightboxIdx(i => (i == null ? i : (i - 1 + total) % total))
+      else if (e.key === 'ArrowRight') setPhotoTabLightboxIdx(i => (i == null ? i : (i + 1) % total))
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [photoTabLightboxIdx, taggedPhotos.length])
 
   // Default tab: overview if any games are entered, otherwise stats if any
   // stats exist, otherwise timeline. Explicit ?tab= in the URL overrides.
@@ -5772,12 +5799,20 @@ function PlayerInner() {
                       fetchpriority="low"
                       onError={(e) => { if (e.currentTarget.src !== ph.url) e.currentTarget.src = ph.url }}
                     />
-                    {(ph.year || ph.week != null) && (
+                    {(ph.year || ph.week != null || ph.oppLogo || ph.oppAbbr) && (
                       <span
-                        className="absolute bottom-0 inset-x-0 px-1.5 py-1 text-[10px] font-semibold text-white text-left"
-                        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75), transparent)' }}
+                        className="absolute bottom-0 inset-x-0 px-1.5 py-1 flex items-center gap-1 text-[10px] font-semibold text-white"
+                        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.78), transparent)' }}
                       >
-                        {ph.week != null ? `Wk ${ph.week}` : ''}{ph.year ? ` ${ph.year}` : ''}
+                        <span className="tabular-nums">{[ph.year, ph.week != null ? `Wk ${ph.week}` : null].filter(Boolean).join(' ')}</span>
+                        {(ph.oppLogo || ph.oppAbbr) && (
+                          <span className="inline-flex items-center gap-0.5 min-w-0">
+                            <span className="opacity-80">{ph.loc || 'vs'}</span>
+                            {ph.oppLogo
+                              ? <img src={ph.oppLogo} alt="" className="w-3.5 h-3.5 object-contain flex-shrink-0" />
+                              : <span className="truncate">{ph.oppAbbr}</span>}
+                          </span>
+                        )}
                       </span>
                     )}
                   </button>
@@ -5827,7 +5862,16 @@ function PlayerInner() {
                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold"
                     style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)' }}
                   >
-                    View game{cur.week != null ? ` · Wk ${cur.week}` : ''}{cur.year ? ` ${cur.year}` : ''} →
+                    <span className="tabular-nums">{[cur.year, cur.week != null ? `Wk ${cur.week}` : null].filter(Boolean).join(' ')}</span>
+                    {(cur.oppLogo || cur.oppAbbr) && (
+                      <>
+                        <span className="opacity-80">{cur.loc || 'vs'}</span>
+                        {cur.oppLogo
+                          ? <img src={cur.oppLogo} alt="" className="w-4 h-4 object-contain" />
+                          : <span>{cur.oppAbbr}</span>}
+                      </>
+                    )}
+                    <span>→</span>
                   </Link>
                 )}
               </div>
@@ -5865,7 +5909,7 @@ function PlayerInner() {
             </div>
 
             <div className="p-4 space-y-2">
-              {(accoladeType === 'confPOW' ? powHonors.confPOWGames : powHonors.nationalPOWGames).map((game, index) => {
+              {sortGamesNewestFirst(accoladeType === 'confPOW' ? powHonors.confPOWGames : powHonors.nationalPOWGames).map((game, index) => {
                 const teamsData = dynasty?.teams || dynasty?.customTeams
                 const opponentName = getMascotName(game.opponent, teamsData) || game.opponent
                 const opponentLogo = getTeamLogo(opponentName, teamsData)

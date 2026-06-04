@@ -131,7 +131,7 @@ export function projectOvrForward(startOvr, startClass, devTrait, seasons) {
   return ovr
 }
 
-function projectedEntry(player, { position, projectedClass, projectedOvr, devTrait, status, isIncoming = false, stars = null, name = null, isPortal = false, incomingKey = '', linkPid = null }) {
+function projectedEntry(player, { position, projectedClass, projectedOvr, devTrait, status, isIncoming = false, stars = null, name = null, isPortal = false, incomingKey = '', linkPid = null, pictureUrl = null }) {
   return {
     key: isIncoming ? `inc:${incomingKey}:${name}:${position}` : `pid:${player.pid}`,
     pid: isIncoming ? null : player.pid,
@@ -141,6 +141,10 @@ function projectedEntry(player, { position, projectedClass, projectedOvr, devTra
     // page. Returning/current players link via pid directly.
     linkPid: isIncoming ? (linkPid ?? null) : (player?.pid ?? null),
     player: isIncoming ? null : player,
+    // Single source of truth for the tile headshot — the player record's
+    // pictureUrl (the enrolled player's, for incoming recruits whose `player`
+    // is null here). The depth-chart tile renders this via the wsrv proxy.
+    pictureUrl: isIncoming ? (pictureUrl ?? null) : (player?.pictureUrl ?? null),
     name: name ?? player.name,
     jerseyNumber: isIncoming ? null : (player.jerseyNumber ?? null),
     position,
@@ -304,6 +308,7 @@ function projectFutureRoster(dynasty, tid, targetYear, opts = {}) {
         isPortal: !!rec.isPortal,
         incomingKey: `${ry}:${idx++}`,      // unique discriminator for React keys
         linkPid: enrolled?.pid ?? null,     // link to the enrolled player page
+        pictureUrl: enrolled?.pictureUrl ?? null, // headshot from the enrolled player record
       }))
     }
   }

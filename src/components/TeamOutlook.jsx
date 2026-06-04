@@ -172,19 +172,6 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
     return projectRoster(currentDynasty, tid, year, { leaveFlags: leaveSet })
   }, [currentDynasty, tid, year, leaveSet])
 
-  // Placeholder images: a real player photo is unique, but imported rosters
-  // often set every player's pictureUrl to the team logo. Any image shared by
-  // 3+ players is treated as a placeholder so the tile falls back to the
-  // (canonical) team logo instead of showing a stale per-player logo copy.
-  const placeholderImages = useMemo(() => {
-    const counts = new Map()
-    for (const p of players) {
-      const u = p.player?.pictureUrl
-      if (u) counts.set(u, (counts.get(u) || 0) + 1)
-    }
-    return new Set([...counts].filter(([, n]) => n >= 3).map(([u]) => u))
-  }, [players])
-
   const nflPids = useMemo(() => {
     if (!isFuture) return new Set()
     return new Set(projectNflCandidates(currentDynasty, tid, year, { leaveFlags: leaveSet, nflDismissFlags: nflDismissSet }).map(c => c.pid))
@@ -502,7 +489,7 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
 
   const tileActions = {
     canEdit, teamLogo, leaveSet, markMode, highlightKey,
-    onTileClick, placeholderImages,
+    onTileClick,
   }
 
   return (
@@ -577,7 +564,7 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
               // width; render the tile at its layout width (÷ zoom) then re-apply
               // zoom so the floating tile matches the on-board tile exactly.
               ? <div style={{ width: activeWidth ? activeWidth / boardZoom : undefined, zoom: boardZoom }}>
-                  <TileView tile={byKey[activeId]} dragging teamLogo={teamLogo} placeholderImages={placeholderImages} />
+                  <TileView tile={byKey[activeId]} dragging teamLogo={teamLogo} />
                 </div>
               : null}
           </DragOverlay>,
@@ -700,7 +687,7 @@ function ShrinkToFit({ children, className = '', onZoom }) {
 }
 
 // ── Sortable wrapper around a tile ────────────────────────────────────────────
-function SortableTile({ tile, isStarter, canEdit, teamLogo, leaveSet, markMode, highlightKey, onTileClick, placeholderImages }) {
+function SortableTile({ tile, isStarter, canEdit, teamLogo, leaveSet, markMode, highlightKey, onTileClick }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tile.key, disabled: !canEdit })
   // touchAction:'none' lets the TouchSensor long-press own the gesture once it
   // activates; without it the browser keeps scrolling and the tile never moves.
@@ -713,7 +700,7 @@ function SortableTile({ tile, isStarter, canEdit, teamLogo, leaveSet, markMode, 
       className={highlighted ? 'rounded-md ring-2 ring-[color:var(--accent-info)] ring-offset-2 ring-offset-surface-1 transition-shadow' : ''}
       onClick={(e) => { e.stopPropagation(); onTileClick?.(tile) }}>
       <TileView tile={tile} isStarter={isStarter} grab={canEdit}
-        teamLogo={teamLogo} leaving={leaving} markMode={markMode} placeholderImages={placeholderImages} />
+        teamLogo={teamLogo} leaving={leaving} markMode={markMode} />
     </div>
   )
 }
@@ -726,11 +713,11 @@ function ovrColor(ovr) {
   return 'var(--text-tertiary)'
 }
 
-function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode, placeholderImages }) {
-  // Ignore a pictureUrl that's actually a shared team-logo placeholder so the
-  // avatar falls back to the canonical team logo (real photos are unique).
-  const rawPhoto = tile.player?.pictureUrl
-  const photoUrl = rawPhoto && !placeholderImages?.has(rawPhoto) ? rawPhoto : null
+function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode }) {
+  // Single source of truth: the player's headshot link (tile.pictureUrl, set by
+  // the projection from player.pictureUrl — the enrolled player's, for incoming
+  // recruits). Rendered through the wsrv proxy in <Avatar>, team logo fallback.
+  const photoUrl = tile.pictureUrl || null
   const tint = leaving ? undefined : devTraitGradient(tile.devTrait)
   const cursor = grab ? (markMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing') : 'cursor-pointer'
   const marker = leaving ? 'OUT' : tile.isNfl ? 'NFL' : tile.portalRisk ? '↗' : null
