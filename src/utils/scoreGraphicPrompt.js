@@ -142,7 +142,6 @@ export function buildScoreGraphicPrompt({
     return lines.join('\n')
   }
 
-<<<<<<< HEAD
   // Universal photo rule — the prompt presents BOTH branches and the model
   // picks based on whether an attachment actually arrives. We can't predict
   // that from the app: the user may attach an image at chat time even if no
