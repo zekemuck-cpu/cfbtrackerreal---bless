@@ -351,10 +351,11 @@ export function projectDepartures(dynasty, tid, targetYear, opts = {}) {
   return out
 }
 
-// Auto-detected NFL Draft candidates: Jr/Sr players whose projected OVR at the
-// viewed year meets or exceeds NFL_DRAFT_OVR_THRESHOLD. These are shown as
-// "Likely NFL" in the Outlook without any manual flagging. Users can dismiss
-// individual players (stored in opts.nflDismissFlags).
+// Auto-detected NFL Draft candidates: players who are eligible to declare
+// (have completed at least their Jr year or RS So year) and whose projected
+// OVR meets or exceeds NFL_DRAFT_OVR_THRESHOLD. Eligibility is based on the
+// class they COMPLETE in the season BEFORE targetYear — a true junior who will
+// BE a junior in targetYear hasn't finished that year yet and cannot declare.
 export function projectNflCandidates(dynasty, tid, targetYear, opts = {}) {
   const currentYear = Number(dynasty.currentYear)
   const ty = Number(targetYear)
@@ -369,8 +370,17 @@ export function projectNflCandidates(dynasty, tid, targetYear, opts = {}) {
     const curCls = getPlayerClassForYear(p, currentYear)
     const projCls = trackFor(curCls) ? advanceClass(curCls, step) : null
     if (projCls === null) continue // graduated before or at target year
-    const clsBase = projCls.replace(/^RS\s+/i, '').trim()
-    if (!['Jr', 'Sr'].includes(clsBase)) continue // only draft-eligible classes
+    // Draft eligibility: player must have completed at least their Junior year
+    // (standard track) or RS So year (redshirt track = 3 years in school) by
+    // the end of the season BEFORE targetYear. Check their class at step-1.
+    const priorCls = advanceClass(curCls, step - 1)
+    if (!priorCls) continue
+    const priorIsRS = priorCls.startsWith('RS ')
+    const priorBase = priorCls.replace(/^RS\s+/i, '').trim()
+    const isEligible = priorIsRS
+      ? ['So', 'Jr', 'Sr'].includes(priorBase)  // RS So / RS Jr / RS Sr all eligible
+      : ['Jr', 'Sr'].includes(priorBase)          // only Jr+ on standard track
+    if (!isEligible) continue
     const currentOvr = ovrForYear(p, currentYear)
     if ((currentOvr ?? 0) < NFL_DRAFT_OVR_THRESHOLD) continue
     const projOvr = projectOvrForward(currentOvr, curCls, devForYear(p, currentYear, currentYear), step)
