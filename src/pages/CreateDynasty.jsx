@@ -318,17 +318,6 @@ export default function CreateDynasty() {
       </div>
 
       <Card padding="lg">
-        <div className="mb-6 p-4 rounded-lg bg-surface-2 border border-surface-4">
-          <p className="text-sm font-semibold text-txt-primary mb-0.5">
-            {user ? 'Google Sheets integration enabled' : 'Sign in for Google Sheets'}
-          </p>
-          <p className="text-sm text-txt-secondary">
-            {user
-              ? 'Your dynasty will automatically create a Google Sheet for schedule and roster management.'
-              : "Sign in with Google to enable automatic Google Sheets creation. Otherwise, you'll use the built-in spreadsheet."}
-          </p>
-        </div>
-
         <div className="mb-6 flex w-full rounded-lg p-1 bg-surface-2 border border-surface-4">
           {[
             { value: 'fbs', label: 'FBS Team' },
