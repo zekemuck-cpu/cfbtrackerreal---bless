@@ -7,7 +7,7 @@ import { teams } from '../data/teams'
 import { getSelectableTeamsList, getTeamName } from '../data/teamAbbreviations'
 import { useDynasty } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
-import { PageHero, Card, Button, Tabs, Input } from '../components/ui'
+import { Card, Button, Input } from '../components/ui'
 import { useToast } from '../components/ui/Toast'
 
 const newBlankTeambuilder = () => ({
@@ -311,36 +311,45 @@ export default function CreateDynasty() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4">
-      <PageHero eyebrow="New Dynasty" title="Create New Dynasty" />
+    <div className="max-w-2xl mx-auto">
+      <div className="mb-6">
+        <h1 className="display-lg text-txt-primary leading-none m-0">Create New Dynasty</h1>
+        <p className="mt-2 text-sm text-txt-secondary">Choose your team and coach to start a new dynasty.</p>
+      </div>
 
-      <Card>
-        {user ? (
-          <div className="mb-6 p-4 rounded-lg" style={{ backgroundColor: 'var(--surface-3)', borderLeft: '3px solid var(--accent-success)' }}>
-            <p className="label-sm text-txt-primary mb-1">Google Sheets Integration Enabled</p>
-            <p className="text-sm text-txt-secondary">
-              Your dynasty will automatically create a Google Sheet for schedule and roster management.
-            </p>
-          </div>
-        ) : (
-          <div className="mb-6 p-4 rounded-lg" style={{ backgroundColor: 'var(--surface-3)', borderLeft: '3px solid var(--accent-warning)' }}>
-            <p className="label-sm text-txt-primary mb-1">Sign in for Google Sheets</p>
-            <p className="text-sm text-txt-secondary">
-              Sign in with Google to enable automatic Google Sheets creation for your dynasty. Otherwise, you'll use the built-in spreadsheet.
-            </p>
-          </div>
-        )}
+      <Card padding="lg">
+        <div className="mb-6 p-4 rounded-lg bg-surface-2 border border-surface-4">
+          <p className="text-sm font-semibold text-txt-primary mb-0.5">
+            {user ? 'Google Sheets integration enabled' : 'Sign in for Google Sheets'}
+          </p>
+          <p className="text-sm text-txt-secondary">
+            {user
+              ? 'Your dynasty will automatically create a Google Sheet for schedule and roster management.'
+              : "Sign in with Google to enable automatic Google Sheets creation. Otherwise, you'll use the built-in spreadsheet."}
+          </p>
+        </div>
 
-        <div className="mb-6">
-          <Tabs
-            variant="pill"
-            value={mode}
-            onChange={setMode}
-            options={[
-              { value: 'fbs', label: 'FBS Team' },
-              { value: 'teambuilder', label: 'TeamBuilder' },
-            ]}
-          />
+        <div className="mb-6 flex w-full rounded-lg p-1 bg-surface-2 border border-surface-4">
+          {[
+            { value: 'fbs', label: 'FBS Team' },
+            { value: 'teambuilder', label: 'TeamBuilder' },
+          ].map((opt) => {
+            const active = mode === opt.value
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setMode(opt.value)}
+                aria-pressed={active}
+                className={`flex-1 py-2 rounded-md text-sm font-semibold transition-colors ${
+                  active ? 'text-txt-primary' : 'text-txt-tertiary hover:text-txt-secondary'
+                }`}
+                style={active ? { backgroundColor: 'var(--surface-4)' } : undefined}
+              >
+                {opt.label}
+              </button>
+            )
+          })}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -383,7 +392,7 @@ export default function CreateDynasty() {
           </div>
 
           <div>
-            <label htmlFor="coachName" className="label-xs text-txt-tertiary block mb-2">Coach Name</label>
+            <label htmlFor="coachName" className="block text-sm font-medium text-txt-primary mb-2">Coach Name</label>
             <Input
               type="text"
               id="coachName"
@@ -412,7 +421,7 @@ export default function CreateDynasty() {
           </div>
 
           <div>
-            <label htmlFor="startYear" className="label-xs text-txt-tertiary block mb-2">Starting Year</label>
+            <label htmlFor="startYear" className="block text-sm font-medium text-txt-primary mb-2">Starting Year</label>
             <Input
               type="number"
               id="startYear"

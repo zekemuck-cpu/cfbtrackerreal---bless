@@ -122,13 +122,12 @@ export default function SearchableSelect({
           onFocus={handleInputFocus}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="w-full py-2 border rounded-lg focus:ring-2 focus:outline-none transition-colors placeholder-gray-500"
+          className="w-full py-2 rounded-md text-sm text-txt-primary placeholder:text-txt-tertiary focus:outline-none focus:ring-1 focus:ring-white/30 transition-shadow"
           style={{
-            borderColor: '#374151',
-            paddingLeft: value && getTeamLogo(value, dynastyTeams) ? '2.75rem' : '1rem',
-            paddingRight: '2.75rem',
-            color: '#f3f4f6',
-            backgroundColor: '#1f2937'
+            border: '1px solid var(--surface-4)',
+            backgroundColor: 'var(--surface-2)',
+            paddingLeft: value && getTeamLogo(value, dynastyTeams) ? '2.75rem' : '0.875rem',
+            paddingRight: '2.5rem',
           }}
           autoComplete="off"
           required={required}
@@ -137,7 +136,7 @@ export default function SearchableSelect({
         <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
           <svg
             className={`w-5 h-5 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-            style={{ color: '#9ca3af' }}
+            style={{ color: 'var(--text-tertiary)' }}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -149,8 +148,8 @@ export default function SearchableSelect({
 
       {isOpen && filteredOptions.length > 0 && (
         <div
-          className="absolute z-10 w-full mt-1 rounded-lg shadow-lg max-h-60 overflow-auto"
-          style={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}
+          className="absolute z-10 w-full mt-1.5 rounded-md shadow-xl max-h-72 overflow-auto"
+          style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
         >
           {filteredOptions.map((option, index) => {
             const optionColors = getTeamColors(option, dynastyTeams)
@@ -165,8 +164,8 @@ export default function SearchableSelect({
                 onMouseEnter={() => setHighlightedIndex(index)}
                 className="px-4 py-2.5 cursor-pointer transition-colors flex items-center gap-3"
                 style={{
-                  backgroundColor: isHighlighted ? optionColors.primary : isSelected ? `${optionColors.primary}30` : 'transparent',
-                  color: isHighlighted ? optionColors.secondary : '#f3f4f6'
+                  backgroundColor: isHighlighted ? optionColors.primary : isSelected ? `${optionColors.primary}26` : 'transparent',
+                  color: isHighlighted ? optionColors.secondary : 'var(--text-primary)'
                 }}
               >
                 {logoUrl && (
@@ -187,8 +186,8 @@ export default function SearchableSelect({
 
       {isOpen && searchTerm && filteredOptions.length === 0 && (
         <div
-          className="absolute z-10 w-full mt-1 rounded-lg shadow-lg p-4 text-center"
-          style={{ backgroundColor: '#1f2937', border: '1px solid #374151', color: '#9ca3af' }}
+          className="absolute z-10 w-full mt-1.5 rounded-md shadow-xl p-4 text-center text-sm"
+          style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)', color: 'var(--text-tertiary)' }}
         >
           No teams found matching "{searchTerm}"
         </div>
