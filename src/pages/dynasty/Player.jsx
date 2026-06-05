@@ -2243,7 +2243,7 @@ function PlayerInner() {
       )}
 
       {/* Tab Navigation */}
-      <div className="flex gap-6 border-b border-surface-4 overflow-x-auto">
+      <div className="flex gap-6 border-b border-surface-4 overflow-x-auto no-scrollbar">
         {[
           { key: 'overview', label: 'Overview' },
           { key: 'stats', label: 'Stats' },
@@ -2270,7 +2270,7 @@ function PlayerInner() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className="pb-3 pt-2 font-semibold tracking-tight transition-colors"
+              className="pb-3 pt-2 font-semibold tracking-tight transition-colors whitespace-nowrap flex-shrink-0"
               style={{
                 fontFamily: "var(--font-display)",
                 fontSize: '0.95rem',
