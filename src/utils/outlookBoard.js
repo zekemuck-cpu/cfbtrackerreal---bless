@@ -11,63 +11,91 @@ import { gradeForOvr, isPortalRisk } from './depthChart'
 import { finePositionGroup } from '../data/positionGroups'
 
 // ── Formations ──────────────────────────────────────────────────────────────
-// slot: { id, label, group, accepts:[exact position codes], multi }
+// slot: { id, label, group, accepts:[exact position codes], base }
 //  - accepts: exact roster codes that auto-seed straight into this slot
 //  - group:   fine position group used as the auto-seed fallback + side lookup
-//  - multi:   same-role slots that share a position pool (WR/DT/CB) and get
-//             balanced across each other by OVR
-const s = (id, label, group, accepts, multi = false) => ({ id, label, group, accepts, multi })
+//  - base:    true = shown by default; false = an optional "extra" column the
+//             user opts into via Positions settings. Extras share their group's
+//             accepts (e.g. WR2/WR3/Slot WR all accept WR), so the existing
+//             OVR-balancing automatically spreads players across the columns
+//             that happen to be enabled — one column = the old single-stack.
+// The catalog defines per-column metadata; FORMATION_ROWS (below) owns the
+// on-screen ordering and grouping.
+const s = (id, label, group, accepts, base = true) => ({ id, label, group, accepts, base })
 
-// One column per position group: every player in a group stacks vertically in
-// that group's single slot (depth ordered by OVR), like the paper sheet.
-const OFFENSE_SLOTS = [
-  s('QB', 'QB', 'QB', ['QB']),
-  s('HB', 'HB', 'RB', ['HB', 'RB']),
-  s('FB', 'FB', 'RB', ['FB']),
-  s('WR', 'WR', 'WR', ['WR']),
-  s('TE', 'TE', 'TE', ['TE']),
+const OFFENSE_CATALOG = [
   s('LT', 'LT', 'OT', ['LT']),
   s('LG', 'LG', 'OG', ['LG']),
   s('C', 'C', 'C', ['C']),
   s('RG', 'RG', 'OG', ['RG']),
   s('RT', 'RT', 'OT', ['RT']),
-]
-// Formation tiers — each tier is a centered row of position columns, stacked
-// top→bottom like a formation. Avoids the empty-column gaps a fixed grid leaves
-// for uneven groups.
-const OFFENSE_TIERS = [
-  ['LT', 'LG', 'C', 'RG', 'RT'],   // the line
-  ['WR', 'HB', 'QB', 'FB', 'TE'],  // skill players
+  s('WR', 'WR', 'WR', ['WR']),
+  s('WR2', 'WR2', 'WR', ['WR'], false),
+  s('WR3', 'WR3', 'WR', ['WR'], false),
+  s('SLWR', 'Slot WR', 'WR', ['WR'], false),
+  s('TE', 'TE', 'TE', ['TE']),
+  s('TE2', 'TE2', 'TE', ['TE'], false),
+  s('HB', 'HB', 'RB', ['HB', 'RB']),
+  s('HB2', 'HB2', 'RB', ['HB', 'RB'], false),
+  s('QB', 'QB', 'QB', ['QB']),
+  s('FB', 'FB', 'RB', ['FB']),
 ]
 
-// Edges and outside LBs are split L/R so the front mirrors a real formation:
-// LEDG · DT · REDG and SAM · MIKE · WILL. Side-specific codes (LEDG/LE, SAM…)
-// pin to their side via an exact accept-match; generic codes (EDGE/DE, OLB)
-// appear in BOTH paired slots' accepts, so they match two candidates and the
-// builder balances them across the pair by OVR.
-const DEFENSE_SLOTS = [
+// Edges and outside LBs are split L/R so the front mirrors a real formation.
+// Side-specific codes (LEDG/LE, SAM…) pin to their side via an exact match;
+// generic codes (EDGE/DE, OLB) appear in BOTH paired slots' accepts, so they
+// match two candidates and the builder balances them across the pair by OVR.
+const DEFENSE_CATALOG = [
   s('LEDG', 'LE', 'EDGE', ['LEDG', 'LE', 'EDGE', 'DE']),
-  s('REDG', 'RE', 'EDGE', ['REDG', 'RE', 'EDGE', 'DE']),
   s('DT', 'DT', 'DT', ['DT', 'NT']),
+  s('DT2', 'DT2', 'DT', ['DT', 'NT'], false),
+  s('REDG', 'RE', 'EDGE', ['REDG', 'RE', 'EDGE', 'DE']),
   s('SAM', 'SAM', 'OLB', ['SAM', 'OLB']),
-  s('WILL', 'WILL', 'OLB', ['WILL', 'OLB']),
   s('MIKE', 'MIKE', 'MIKE', ['MIKE']),
+  s('WILL', 'WILL', 'OLB', ['WILL', 'OLB']),
   s('CB', 'CB', 'CB', ['CB']),
+  s('CB2', 'CB2', 'CB', ['CB'], false),
+  s('NB', 'Nickel', 'CB', ['CB'], false),
   s('FS', 'FS', 'Safety', ['FS']),
   s('SS', 'SS', 'Safety', ['SS']),
-]
-// Three tiers like a real defense: line, then linebackers, then the secondary.
-const DEFENSE_TIERS = [
-  ['LEDG', 'DT', 'REDG'],   // line
-  ['SAM', 'MIKE', 'WILL'],  // linebackers
-  ['CB', 'FS', 'SS'],       // secondary
+  s('S3', 'Dime', 'Safety', ['FS', 'SS'], false),
 ]
 
-const ST_SLOTS = [
+const ST_CATALOG = [
   s('K', 'K', 'K', ['K']),
   s('P', 'P', 'P', ['P']),
 ]
-const ST_TIERS = [['K', 'P']]
+
+// On-screen formation rows (top → bottom); each lists its columns left → right.
+// formationFor() filters these to the enabled columns and drops empty rows, so
+// the order here is the formation: pass-catchers grouped together (TEs beside
+// the WRs) and a backfield row with the QB centered and the HB beside it.
+const OFFENSE_ROWS = [
+  ['LT', 'LG', 'C', 'RG', 'RT'],              // line
+  ['WR', 'WR2', 'WR3', 'SLWR', 'TE', 'TE2'],  // receivers + tight ends
+  ['HB2', 'HB', 'QB', 'FB'],                  // backfield (QB centered, HB beside)
+]
+const DEFENSE_ROWS = [
+  ['LEDG', 'DT', 'DT2', 'REDG'],              // line
+  ['SAM', 'MIKE', 'WILL'],                    // linebackers
+  ['CB', 'CB2', 'NB', 'FS', 'SS', 'S3'],      // secondary
+]
+const ST_ROWS = [['K', 'P']]
+
+const CATALOGS = { offense: OFFENSE_CATALOG, defense: DEFENSE_CATALOG, st: ST_CATALOG }
+const FORMATION_ROWS = { offense: OFFENSE_ROWS, defense: DEFENSE_ROWS, st: ST_ROWS }
+
+// Every toggleable column per side — drives the Positions settings modal.
+export const DEPTH_CHART_CATALOG = CATALOGS
+
+// Default-on column ids per side (everything marked base). Used when a dynasty
+// has no saved Positions preference for a side.
+export const DEFAULT_DEPTH_POSITIONS = {
+  offense: OFFENSE_CATALOG.filter(sl => sl.base).map(sl => sl.id),
+  defense: DEFENSE_CATALOG.filter(sl => sl.base).map(sl => sl.id),
+  st: ST_CATALOG.filter(sl => sl.base).map(sl => sl.id),
+}
+
 // No picker-based role slots anymore (KR/PR removed). Kept exported (empty) so
 // existing references in the component degrade to no-ops without edits.
 export const ST_ROLE_SLOTS = []
@@ -90,11 +118,24 @@ export const SIDE_OPTIONS = [
   { value: 'st', label: 'Special Teams' },
 ]
 
-// Returns { slots, tiers } for a side.
-export function formationFor(side) {
-  if (side === 'defense') return { slots: DEFENSE_SLOTS, tiers: DEFENSE_TIERS }
-  if (side === 'st') return { slots: ST_SLOTS, tiers: ST_TIERS }
-  return { slots: OFFENSE_SLOTS, tiers: OFFENSE_TIERS }
+// Returns { slots, tiers } for a side, limited to the enabled column ids
+// (defaults to the side's base columns when nothing is enabled). `tiers` are the
+// formation rows filtered to the enabled columns, with empty rows dropped — so
+// hidden columns never leave gaps and extras slot into the right row.
+export function formationFor(side, enabledIds = null) {
+  const catalog = CATALOGS[side] || OFFENSE_CATALOG
+  const rows = FORMATION_ROWS[side] || OFFENSE_ROWS
+  const enabledSet = new Set(
+    enabledIds && enabledIds.length ? enabledIds : catalog.filter(sl => sl.base).map(sl => sl.id),
+  )
+  let enabled = catalog.filter(sl => enabledSet.has(sl.id))
+  // Never render an empty side — fall back to the base columns.
+  if (!enabled.length) {
+    enabled = catalog.filter(sl => sl.base)
+    for (const sl of enabled) enabledSet.add(sl.id)
+  }
+  const tiers = rows.map(row => row.filter(id => enabledSet.has(id))).filter(row => row.length)
+  return { slots: enabled, tiers }
 }
 
 const byOvrDesc = (a, b) => (b.projectedOvr ?? -1) - (a.projectedOvr ?? -1)
@@ -134,9 +175,9 @@ function orderTiles(tiles, manualIds = []) {
 export function buildBoard(allPlayers, side, opts = {}) {
   const {
     placements = {}, order = {}, notes = {}, stRoles = {},
-    nflPids = new Set(), lastYear = null,
+    nflPids = new Set(), lastYear = null, enabledIds = null,
   } = opts
-  const { slots, tiers } = formationFor(side)
+  const { slots, tiers } = formationFor(side, enabledIds)
   const slotIds = new Set(slots.map(sl => sl.id))
 
   const byKey = new Map((allPlayers || []).map(p => [p.key, p]))
@@ -179,7 +220,7 @@ export function buildBoard(allPlayers, side, opts = {}) {
       starterOvrs.push(Number(starter.projectedOvr))
     }
     return {
-      id: sl.id, label: sl.label, group: sl.group, multi: sl.multi,
+      id: sl.id, label: sl.label, group: sl.group,
       tiles, starter, isHole,
       grade: gradeForOvr(starter?.projectedOvr ?? null),
     }

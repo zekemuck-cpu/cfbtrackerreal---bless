@@ -12,8 +12,9 @@ import { usePathPrefix } from '../hooks/usePathPrefix'
 import { Card, Badge, Select, EmptyState, Tabs, useConfirm } from './ui'
 import { proxyImageUrl } from '../utils/imageProxy'
 import { projectRoster, projectDepartures, projectNflCandidates } from '../utils/rosterProjection'
-import { buildBoard, SIDE_OPTIONS, ST_ROLE_SLOTS, sideOfPosition } from '../utils/outlookBoard'
+import { buildBoard, SIDE_OPTIONS, ST_ROLE_SLOTS, sideOfPosition, DEFAULT_DEPTH_POSITIONS } from '../utils/outlookBoard'
 import { getTeamLogoByTid } from '../data/teams'
+import DepthChartPositionsModal from './DepthChartPositionsModal'
 
 const EMPTY_ARR = []
 const EMPTY_OBJ = {}
@@ -50,6 +51,21 @@ function devTraitGradient(trait) {
 }
 
 const findIn = (map, id) => (id in map ? id : Object.keys(map).find(c => map[c].includes(id)))
+
+// Max columns in a single visual row before a tier wraps. Beyond this, a tier
+// (e.g. a 10-wide skill row once extras are on) splits into balanced sub-rows.
+const MAX_COLS_PER_ROW = 6
+
+// Split a tier's column ids into balanced rows no wider than `max`, so wrapped
+// rows are even (10 → 5+5, 7 → 4+3) rather than full-then-stub (6+4, 6+1).
+function chunkRows(ids, max) {
+  if (!ids || ids.length <= max) return [ids || []]
+  const rowCount = Math.ceil(ids.length / max)
+  const per = Math.ceil(ids.length / rowCount)
+  const out = []
+  for (let i = 0; i < ids.length; i += per) out.push(ids.slice(i, i + per))
+  return out
+}
 
 // ── Draft / dirty helpers ─────────────────────────────────────────────────────
 const clonePlan = (p) => JSON.parse(JSON.stringify(p || {}))
@@ -98,9 +114,15 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
   const { id: dynastyId } = useParams()
   const navigate = useNavigate()
   const pathPrefix = usePathPrefix()
-  const { currentDynasty, isViewOnly, saveTeamFuture } = useDynasty()
+  const { currentDynasty, isViewOnly, saveTeamFuture, updateDynasty } = useDynasty()
   const { confirm } = useConfirm()
   const currentYear = Number(currentDynasty?.currentYear)
+
+  // Which depth-chart columns are enabled — a per-dynasty setting (applies to
+  // every team). Absent → the side's base columns. Saved via the Positions
+  // modal. Stored separately from the per-team teamFuture plan.
+  const depthPositions = currentDynasty?.depthChartPositions || EMPTY_OBJ
+  const [showPositions, setShowPositions] = useState(false)
 
   const VALID_SIDES = ['offense', 'defense', 'st']
   // `side` is URL-driven (parent owns the ?side= param) so each side is its own
@@ -177,10 +199,40 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
     return new Set(projectNflCandidates(currentDynasty, tid, year, { leaveFlags: leaveSet, nflDismissFlags: nflDismissSet }).map(c => c.pid))
   }, [currentDynasty, tid, year, isFuture, leaveSet, nflDismissSet])
 
-  const board = useMemo(
-    () => buildBoard(players, side, { placements, order, notes, stRoles, nflPids, lastYear: currentYear }),
-    [players, side, placements, order, notes, stRoles, nflPids, currentYear],
+  // Enabled columns for the current side (falls back to base when unset).
+  const enabledIds = useMemo(
+    () => (depthPositions[side]?.length ? depthPositions[side] : DEFAULT_DEPTH_POSITIONS[side]),
+    [depthPositions, side],
   )
+
+  const board = useMemo(
+    () => buildBoard(players, side, { placements, order, notes, stRoles, nflPids, lastYear: currentYear, enabledIds }),
+    [players, side, placements, order, notes, stRoles, nflPids, currentYear, enabledIds],
+  )
+
+  // Reflow the formation: each tier becomes one or more balanced sub-rows, and
+  // every column is sized to 1/gridCols of the width so columns stay uniform
+  // across rows regardless of how many positions are enabled. With only the base
+  // columns nothing wraps, so the default layout is unchanged.
+  const { rowLayout, gridCols } = useMemo(() => {
+    let maxLen = 1
+    const tiers = board.tiers.map(tier => {
+      const sub = chunkRows(tier, MAX_COLS_PER_ROW)
+      for (const r of sub) if (r.length > maxLen) maxLen = r.length
+      return sub
+    })
+    return { rowLayout: tiers, gridCols: maxLen }
+  }, [board.tiers])
+
+  // Persist the enabled-column selection to the dynasty (main-doc field). The
+  // per-team plan (placements/order) is untouched; placements pointing at a
+  // now-hidden column are simply ignored by buildBoard.
+  const savePositions = async (next) => {
+    setShowPositions(false)
+    if (!currentDynasty?.id || !updateDynasty) return
+    try { await updateDynasty(currentDynasty.id, { depthChartPositions: next }) }
+    catch (e) { console.error('[depth-chart] failed to save positions', e) }
+  }
 
   const departures = useMemo(
     () => (isFuture ? projectDepartures(currentDynasty, tid, year, { leaveFlags: leaveSet }) : []),
@@ -360,7 +412,7 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
     const savedContainers = deriveContainers(buildBoard(players, side, {
       placements: persisted.placements || EMPTY_OBJ, order: persisted.order || EMPTY_OBJ,
       notes: persisted.notes || EMPTY_OBJ, stRoles: persisted.stRoles || EMPTY_OBJ,
-      nflPids, lastYear: currentYear,
+      nflPids, lastYear: currentYear, enabledIds,
     }))
     const plan = arrangementPlan(next)
     if (sameContainers(next, savedContainers)) {
@@ -494,6 +546,13 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
 
   return (
     <div className="space-y-4">
+      {showPositions && (
+        <DepthChartPositionsModal
+          enabled={depthPositions}
+          onSave={savePositions}
+          onClose={() => setShowPositions(false)}
+        />
+      )}
       {/* Controls */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <Tabs variant="pill" value={side} onChange={setSide} options={SIDE_OPTIONS} />
@@ -512,6 +571,12 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
               {years.map(y => <option key={y} value={String(y)}>{y}</option>)}
             </Select>
           </label>
+          {canEdit && (
+            <button onClick={() => setShowPositions(true)}
+              className="text-xs font-semibold px-2.5 py-1 rounded border border-surface-5 text-txt-secondary hover:text-txt-primary hover:bg-surface-3 transition-colors">
+              Positions
+            </button>
+          )}
           {canEdit && (
             <button onClick={handleReset} disabled={isSideDefault}
               className="text-xs font-semibold px-2.5 py-1 rounded border border-surface-5 text-txt-secondary hover:text-txt-primary hover:bg-surface-3 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
@@ -538,20 +603,26 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
         onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
 
         <ShrinkToFit className="py-2" onZoom={setBoardZoom}>
-          <div className="space-y-6 w-fit lg:w-full">
-            {board.tiers.map((tier, ti) => (
-              // Mobile: fixed-width columns ⇒ stable natural size; ShrinkToFit
-              // scales the whole board (text and all) down to fit narrow screens —
-              // keeps the full formation, just smaller, incl. 5-wide on phones.
-              // Desktop (lg+): columns grow to fill the width so the formation
-              // uses the whole row instead of clustering in the center.
-              <div key={ti} className="flex flex-nowrap gap-3 lg:gap-5 justify-center items-start">
-                {tier.map(id => {
-                  const slot = board.slots.find(s => s.id === id)
-                  if (!slot) return null
-                  return <SlotColumn key={id} slot={slot} items={containers[id] || EMPTY_ARR}
-                    byKey={byKey} activeId={activeId} {...tileActions} />
-                })}
+          {/* Mobile: fixed-width columns ⇒ stable natural size; ShrinkToFit
+              scales the whole board (text and all) down to fit narrow screens.
+              Desktop (lg+): every column is 1/gridCols of the width (see --col-w)
+              so columns stay uniform across rows; partial/wrapped rows center. */}
+          <div
+            className="space-y-6 w-fit lg:w-full"
+            style={{ '--col-w': `calc((100% - ${(gridCols - 1) * 1.25}rem) / ${gridCols})` }}
+          >
+            {rowLayout.map((tierRows, ti) => (
+              <div key={ti} className="space-y-3 lg:space-y-5">
+                {tierRows.map((rowIds, ri) => (
+                  <div key={ri} className="flex flex-nowrap gap-3 lg:gap-5 justify-center items-start">
+                    {rowIds.map(id => {
+                      const slot = board.slots.find(s => s.id === id)
+                      if (!slot) return null
+                      return <SlotColumn key={id} slot={slot} items={containers[id] || EMPTY_ARR}
+                        byKey={byKey} activeId={activeId} {...tileActions} />
+                    })}
+                  </div>
+                ))}
               </div>
             ))}
           </div>
@@ -596,9 +667,10 @@ function SlotColumn({ slot, items, byKey, ...rest }) {
   const hole = slot.isHole
   return (
     // Mobile: fixed 7.5rem so the formation has a stable natural width for
-    // ShrinkToFit to scale. Desktop (lg+): grow to fill the row (capped so tiles
-    // don't get cartoonishly wide), giving names more horizontal room.
-    <div className="w-[7.5rem] shrink-0 lg:w-auto lg:flex-1 lg:basis-0 lg:min-w-[8rem] lg:max-w-[16rem] flex flex-col">
+    // ShrinkToFit to scale. Desktop (lg+): a uniform 1/gridCols width (--col-w,
+    // set on the board) so every column matches across rows, capped so tiles
+    // don't get cartoonishly wide on ultrawide screens.
+    <div className="w-[7.5rem] shrink-0 lg:w-[var(--col-w)] lg:flex-none lg:min-w-0 lg:max-w-[16rem] flex flex-col">
       {/* position header */}
       <div className="flex items-center justify-between gap-1 px-1 mb-1.5">
         <span className="font-bold text-txt-primary text-xs uppercase tracking-wider">{slot.label}</span>
