@@ -4638,8 +4638,8 @@ export default function TeamYear() {
                 <>
                   {/* Season Record Card */}
                   <div className="card overflow-hidden">
-                    <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                      <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Season Record</h4>
+                    <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
+                      <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '-0.02em' }}>Season Record</h4>
                     </div>
                     <div className="grid grid-cols-3 sm:grid-cols-6 divide-x">
                       <button
@@ -4685,8 +4685,8 @@ export default function TeamYear() {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {/* Offense Card */}
                     <div className="card overflow-hidden">
-                      <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                        <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Offense</h4>
+                      <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
+                        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '-0.02em' }}>Offense</h4>
                       </div>
                       <div className="divide-y" style={{ '--tw-divide-opacity': 1, borderColor: `${accentColor}15` }}>
                         <div className="flex justify-between items-center px-4 py-2.5">
@@ -4710,8 +4710,8 @@ export default function TeamYear() {
 
                     {/* Passing Card */}
                     <div className="card overflow-hidden">
-                      <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                        <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Passing</h4>
+                      <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
+                        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '-0.02em' }}>Passing</h4>
                       </div>
                       <div className="divide-y" style={{ '--tw-divide-opacity': 1, borderColor: `${accentColor}15` }}>
                         <div className="flex justify-between items-center px-4 py-2.5">
@@ -4735,8 +4735,8 @@ export default function TeamYear() {
 
                     {/* Rushing Card */}
                     <div className="card overflow-hidden">
-                      <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                        <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Rushing</h4>
+                      <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
+                        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '-0.02em' }}>Rushing</h4>
                       </div>
                       <div className="divide-y" style={{ '--tw-divide-opacity': 1, borderColor: `${accentColor}15` }}>
                         <div className="flex justify-between items-center px-4 py-2.5">
@@ -4760,8 +4760,8 @@ export default function TeamYear() {
 
                     {/* Efficiency Card */}
                     <div className="card overflow-hidden">
-                      <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                        <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Efficiency</h4>
+                      <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
+                        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '-0.02em' }}>Efficiency</h4>
                       </div>
                       <div className="divide-y" style={{ '--tw-divide-opacity': 1, borderColor: `${accentColor}15` }}>
                         <div className="flex justify-between items-center px-4 py-2.5">
@@ -4789,8 +4789,8 @@ export default function TeamYear() {
 
                     {/* Turnovers Card */}
                     <div className="card overflow-hidden">
-                      <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                        <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Turnovers</h4>
+                      <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
+                        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '-0.02em' }}>Turnovers</h4>
                       </div>
                       <div className="divide-y" style={{ '--tw-divide-opacity': 1, borderColor: `${accentColor}15` }}>
                         <div className="flex justify-between items-center px-4 py-2.5">
@@ -4814,8 +4814,8 @@ export default function TeamYear() {
 
                     {/* Special Teams Card */}
                     <div className="card overflow-hidden">
-                      <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                        <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Special Teams & Misc</h4>
+                      <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
+                        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '-0.02em' }}>Special Teams & Misc</h4>
                       </div>
                       <div className="divide-y" style={{ '--tw-divide-opacity': 1, borderColor: `${accentColor}15` }}>
                         <div className="flex justify-between items-center px-4 py-2.5">
@@ -6405,7 +6405,7 @@ export default function TeamYear() {
               {/* PROGRAM RECORD + ACHIEVEMENTS (wider) */}
               <div className="card overflow-hidden lg:col-span-2">
                 <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px] flex items-center justify-between" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                  <h3 className="text-sm font-black uppercase tracking-widest m-0" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)", letterSpacing: '2px' }}>Program Record</h3>
+                  <h3 className="font-display font-bold leading-none text-txt-primary m-0" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>Program Record</h3>
                   <span className="text-[10px] font-semibold uppercase tabular-nums text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{yearsWithRecords.length} season{yearsWithRecords.length !== 1 ? 's' : ''}</span>
                 </div>
                 <div className="p-4">
@@ -6445,7 +6445,7 @@ export default function TeamYear() {
               {(userCoachingYears.length > 0 || userVsTeamWins > 0 || userVsTeamLosses > 0) && (
                 <div className="card overflow-hidden">
                   <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                    <h3 className="text-sm font-black uppercase tracking-widest m-0" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)", letterSpacing: '2px' }}>Your History</h3>
+                    <h3 className="font-display font-bold leading-none text-txt-primary m-0" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>Your History</h3>
                   </div>
                   <div className="p-4 grid grid-cols-2 lg:grid-cols-1 gap-4">
                     <div>
@@ -6485,7 +6485,7 @@ export default function TeamYear() {
             {/* SEASON HISTORY */}
             <div className="card overflow-hidden">
               <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px] flex items-center justify-between" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="text-sm font-black uppercase tracking-widest m-0" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)", letterSpacing: '2px' }}>Season History</h3>
+                <h3 className="font-display font-bold leading-none text-txt-primary m-0" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>Season History</h3>
                 <span className="text-[10px] font-semibold uppercase tabular-nums text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{yearRecords.length} total</span>
               </div>
               <div className="overflow-x-auto">
@@ -6664,7 +6664,7 @@ export default function TeamYear() {
               return (
                 <div className="card overflow-hidden">
                   <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px] flex items-center justify-between gap-3 flex-wrap" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                    <h3 className="text-sm font-black uppercase tracking-widest m-0" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)", letterSpacing: '2px' }}>All-Time Leaders</h3>
+                    <h3 className="font-display font-bold leading-none text-txt-primary m-0" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>All-Time Leaders</h3>
                     <div className="flex items-center gap-1">
                       {[
                         { key: 'career', label: 'Career' },

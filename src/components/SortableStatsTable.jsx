@@ -78,11 +78,8 @@ export default function SortableStatsTable({
 
   return (
     <div className="card overflow-hidden">
-      <div
-        className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]"
-        style={{ borderLeftColor: teamBgColor }}
-      >
-        <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>{title}</h4>
+      <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4">
+        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '-0.02em' }}>{title}</h4>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">

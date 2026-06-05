@@ -582,6 +582,32 @@ export function healPlayer(player, options = {}) {
       changed = true
     }
   }
+  // Drop a spurious origin-less "transfer_in" arrival on a created player.
+  // The default-roster seed and saveRoster's sheet-add path stamped a
+  // transfer_in on initial-roster players, which made the player page badge
+  // every one of them "Portal Transfer". A real transfer always carries an
+  // origin (fromTid), so removing only the origin-less ones on entryReason
+  // 'created' players with no previousTeam targets just those markers and
+  // self-heals dynasties seeded before this was fixed.
+  {
+    const mby = next.movementByYear
+    if (mby && typeof mby === 'object' && next.entryReason === 'created' && !next.previousTeam) {
+      let mutated = false
+      const cleaned = {}
+      for (const [y, m] of Object.entries(mby)) {
+        if (m && m.type === 'arrival' && m.arrival === 'transfer_in' && m.fromTid == null) {
+          mutated = true
+          continue // drop the meaningless portal marker
+        }
+        cleaned[y] = m
+      }
+      if (mutated) {
+        next = next === player ? { ...player } : next
+        next.movementByYear = cleaned
+        changed = true
+      }
+    }
+  }
   if ('teamsByYear' in player) {
     const r = healTeamsByYear(player.teamsByYear)
     if (r.changed) {

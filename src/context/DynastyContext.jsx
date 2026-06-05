@@ -9152,6 +9152,21 @@ export function DynastyProvider({ children }) {
       const awayCurrentWeekRank = (typeof awayRankRaw === 'number' && awayRankRaw >= 1 && awayRankRaw <= 25) ? awayRankRaw : null
 
       newByPair.set(key, {
+        // PRESERVE user-added data attached to the prior record for this
+        // matchup. The weekly-scores save rebuilds the game object from the
+        // parsed sheet; without this, re-entering a week's scores wiped
+        // everything a user had layered onto these games — photo tags,
+        // uploaded photos, the score graphic, the box score, the AI recap.
+        // Spread these FIRST so the fresh score/rank/tid fields below win.
+        ...(existing ? {
+          ...(existing.photoTags ? { photoTags: existing.photoTags } : {}),
+          ...(Array.isArray(existing.photos) && existing.photos.length ? { photos: existing.photos } : {}),
+          ...(existing.scoreGraphic ? { scoreGraphic: existing.scoreGraphic } : {}),
+          ...(existing.boxScore ? { boxScore: existing.boxScore } : {}),
+          ...(existing.aiRecap ? { aiRecap: existing.aiRecap } : {}),
+          ...(existing.gameNote ? { gameNote: existing.gameNote } : {}),
+          ...(Array.isArray(existing.links) && existing.links.length ? { links: existing.links } : {}),
+        } : {}),
         id: existing?.id || idForGame(homeTid, awayTid),
         year: yearNum,
         week: weekNum,

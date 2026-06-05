@@ -1,9 +1,10 @@
 // Lazy-loads the bundled per-team default rosters
-// (src/data/defaultRosters/{tid}.json) and shapes each player into the
-// SAME object a manually-entered roster produces via saveRoster() — so an
-// auto-seeded roster is indistinguishable from one entered through the
-// Google-Sheet flow (same teamsByYear / classByYear / overallByYear /
-// devTraitByYear / movementByYear, same entryReason).
+// (src/data/defaultRosters/{tid}.json) and shapes each player into an app
+// player object (teamsByYear / classByYear / overallByYear / devTraitByYear,
+// entryReason: 'created'). It mirrors saveRoster()'s new-player shape with one
+// deliberate exception: it does NOT stamp a `transfer_in` arrival movement —
+// these are the dynasty's STARTING roster, not portal transfers, so the player
+// page must not badge them all "Portal Transfer".
 //
 // import.meta.glob keeps every team file in its own lazy chunk, so only
 // the user's team JSON is fetched at dynasty-creation time — not the full
@@ -76,9 +77,12 @@ export async function buildDefaultRosterPlayers(tid, year, startPID = 1) {
         classByYear: { [year]: klass },
         overallByYear: overall ? { [year]: overall } : {},
         devTraitByYear: devTrait ? { [year]: devTrait } : {},
-        movementByYear: {
-          [year]: { type: 'arrival', arrival: 'transfer_in', fromTid: null },
-        },
+        // No arrival movement. These are the dynasty's STARTING roster, not
+        // portal transfers — stamping a `transfer_in` arrival (as saveRoster's
+        // sheet path does for newly-typed players) made the player page badge
+        // EVERY seeded player "Portal Transfer". `entryReason: 'created'` +
+        // a single starting-year team entry is all an initial-roster player
+        // needs; the player page shows no arrival badge for it.
       }
     })
 }
