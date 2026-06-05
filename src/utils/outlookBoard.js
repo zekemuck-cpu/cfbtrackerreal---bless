@@ -118,24 +118,44 @@ export const SIDE_OPTIONS = [
   { value: 'st', label: 'Special Teams' },
 ]
 
-// Returns { slots, tiers } for a side, limited to the enabled column ids
-// (defaults to the side's base columns when nothing is enabled). `tiers` are the
-// formation rows filtered to the enabled columns, with empty rows dropped — so
-// hidden columns never leave gaps and extras slot into the right row.
-export function formationFor(side, enabledIds = null) {
+// Default layout for a side: the base formation rows (extras dropped).
+export function defaultLayoutForSide(side) {
   const catalog = CATALOGS[side] || OFFENSE_CATALOG
   const rows = FORMATION_ROWS[side] || OFFENSE_ROWS
-  const enabledSet = new Set(
-    enabledIds && enabledIds.length ? enabledIds : catalog.filter(sl => sl.base).map(sl => sl.id),
-  )
-  let enabled = catalog.filter(sl => enabledSet.has(sl.id))
-  // Never render an empty side — fall back to the base columns.
-  if (!enabled.length) {
-    enabled = catalog.filter(sl => sl.base)
-    for (const sl of enabled) enabledSet.add(sl.id)
+  const baseSet = new Set(catalog.filter(sl => sl.base).map(sl => sl.id))
+  return rows.map(r => r.filter(id => baseSet.has(id))).filter(r => r.length)
+}
+
+// Resolve the rows to render for a side, newest source first: an explicit
+// drag-arranged layout, else a legacy enabled-columns set mapped onto the
+// default formation rows, else the base default.
+export function resolveDepthLayout(side, layoutMap, positionsMap) {
+  const saved = layoutMap?.[side]
+  if (Array.isArray(saved) && saved.length) return saved
+  const pos = positionsMap?.[side]
+  if (Array.isArray(pos) && pos.length) {
+    const rows = FORMATION_ROWS[side] || OFFENSE_ROWS
+    const set = new Set(pos)
+    return rows.map(r => r.filter(id => set.has(id))).filter(r => r.length)
   }
-  const tiers = rows.map(row => row.filter(id => enabledSet.has(id))).filter(row => row.length)
-  return { slots: enabled, tiers }
+  return defaultLayoutForSide(side)
+}
+
+// Returns { slots, tiers } for a side from a layout (array of column-id rows).
+// Invalid/duplicate ids are dropped and empty rows removed; an empty/missing
+// layout falls back to the base default. `slots` stays in catalog order so
+// seeding/balancing is deterministic regardless of the on-screen arrangement.
+export function formationFor(side, layout = null) {
+  const catalog = CATALOGS[side] || OFFENSE_CATALOG
+  const valid = new Set(catalog.map(sl => sl.id))
+  const seen = new Set()
+  let tiers = (Array.isArray(layout) ? layout : [])
+    .map(row => (Array.isArray(row) ? row : []).filter(id => valid.has(id) && !seen.has(id) && seen.add(id)))
+    .filter(row => row.length)
+  if (!tiers.length) tiers = defaultLayoutForSide(side)
+  const placed = new Set(tiers.flat())
+  const slots = catalog.filter(sl => placed.has(sl.id))
+  return { slots, tiers }
 }
 
 const byOvrDesc = (a, b) => (b.projectedOvr ?? -1) - (a.projectedOvr ?? -1)
@@ -175,9 +195,9 @@ function orderTiles(tiles, manualIds = []) {
 export function buildBoard(allPlayers, side, opts = {}) {
   const {
     placements = {}, order = {}, notes = {}, stRoles = {},
-    nflPids = new Set(), lastYear = null, enabledIds = null,
+    nflPids = new Set(), lastYear = null, layoutRows = null,
   } = opts
-  const { slots, tiers } = formationFor(side, enabledIds)
+  const { slots, tiers } = formationFor(side, layoutRows)
   const slotIds = new Set(slots.map(sl => sl.id))
 
   const byKey = new Map((allPlayers || []).map(p => [p.key, p]))

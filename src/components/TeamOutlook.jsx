@@ -12,7 +12,7 @@ import { usePathPrefix } from '../hooks/usePathPrefix'
 import { Card, Badge, Select, EmptyState, Tabs, useConfirm } from './ui'
 import { proxyImageUrl } from '../utils/imageProxy'
 import { projectRoster, projectDepartures, projectNflCandidates } from '../utils/rosterProjection'
-import { buildBoard, SIDE_OPTIONS, ST_ROLE_SLOTS, sideOfPosition, DEFAULT_DEPTH_POSITIONS } from '../utils/outlookBoard'
+import { buildBoard, SIDE_OPTIONS, ST_ROLE_SLOTS, sideOfPosition, resolveDepthLayout } from '../utils/outlookBoard'
 import { getTeamLogoByTid } from '../data/teams'
 import DepthChartPositionsModal from './DepthChartPositionsModal'
 
@@ -118,9 +118,11 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
   const { confirm } = useConfirm()
   const currentYear = Number(currentDynasty?.currentYear)
 
-  // Which depth-chart columns are enabled — a per-dynasty setting (applies to
-  // every team). Absent → the side's base columns. Saved via the Positions
-  // modal. Stored separately from the per-team teamFuture plan.
+  // Depth-chart column layout — a per-dynasty setting (applies to every team),
+  // arranged in the Positions modal. `depthChartLayout` is the drag-arranged
+  // rows; `depthChartPositions` is the legacy enabled-only set we still migrate
+  // from. Both are separate from the per-team teamFuture plan.
+  const depthLayoutMap = currentDynasty?.depthChartLayout || EMPTY_OBJ
   const depthPositions = currentDynasty?.depthChartPositions || EMPTY_OBJ
   const [showPositions, setShowPositions] = useState(false)
 
@@ -199,15 +201,16 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
     return new Set(projectNflCandidates(currentDynasty, tid, year, { leaveFlags: leaveSet, nflDismissFlags: nflDismissSet }).map(c => c.pid))
   }, [currentDynasty, tid, year, isFuture, leaveSet, nflDismissSet])
 
-  // Enabled columns for the current side (falls back to base when unset).
-  const enabledIds = useMemo(
-    () => (depthPositions[side]?.length ? depthPositions[side] : DEFAULT_DEPTH_POSITIONS[side]),
-    [depthPositions, side],
+  // Column rows for the current side (saved drag layout → legacy enabled set →
+  // base default).
+  const layoutRows = useMemo(
+    () => resolveDepthLayout(side, depthLayoutMap, depthPositions),
+    [depthLayoutMap, depthPositions, side],
   )
 
   const board = useMemo(
-    () => buildBoard(players, side, { placements, order, notes, stRoles, nflPids, lastYear: currentYear, enabledIds }),
-    [players, side, placements, order, notes, stRoles, nflPids, currentYear, enabledIds],
+    () => buildBoard(players, side, { placements, order, notes, stRoles, nflPids, lastYear: currentYear, layoutRows }),
+    [players, side, placements, order, notes, stRoles, nflPids, currentYear, layoutRows],
   )
 
   // Reflow the formation: each tier becomes one or more balanced sub-rows, and
@@ -224,14 +227,14 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
     return { rowLayout: tiers, gridCols: maxLen }
   }, [board.tiers])
 
-  // Persist the enabled-column selection to the dynasty (main-doc field). The
+  // Persist the drag-arranged column layout to the dynasty (main-doc field). The
   // per-team plan (placements/order) is untouched; placements pointing at a
   // now-hidden column are simply ignored by buildBoard.
-  const savePositions = async (next) => {
+  const saveLayout = async (next) => {
     setShowPositions(false)
     if (!currentDynasty?.id || !updateDynasty) return
-    try { await updateDynasty(currentDynasty.id, { depthChartPositions: next }) }
-    catch (e) { console.error('[depth-chart] failed to save positions', e) }
+    try { await updateDynasty(currentDynasty.id, { depthChartLayout: next }) }
+    catch (e) { console.error('[depth-chart] failed to save layout', e) }
   }
 
   const departures = useMemo(
@@ -412,7 +415,7 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
     const savedContainers = deriveContainers(buildBoard(players, side, {
       placements: persisted.placements || EMPTY_OBJ, order: persisted.order || EMPTY_OBJ,
       notes: persisted.notes || EMPTY_OBJ, stRoles: persisted.stRoles || EMPTY_OBJ,
-      nflPids, lastYear: currentYear, enabledIds,
+      nflPids, lastYear: currentYear, layoutRows,
     }))
     const plan = arrangementPlan(next)
     if (sameContainers(next, savedContainers)) {
@@ -548,8 +551,9 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
     <div className="space-y-4">
       {showPositions && (
         <DepthChartPositionsModal
-          enabled={depthPositions}
-          onSave={savePositions}
+          layoutMap={depthLayoutMap}
+          positionsMap={depthPositions}
+          onSave={saveLayout}
           onClose={() => setShowPositions(false)}
         />
       )}
@@ -805,6 +809,9 @@ function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode
           Kept as-is so ShrinkToFit can scale it on phones. */}
       <div className="relative z-[1] px-2 py-1.5 lg:hidden">
         <div className="flex items-center gap-1 min-w-0">
+          {hasJersey && (
+            <span className="shrink-0 text-xs font-bold tabular-nums text-txt-secondary">#{tile.jerseyNumber}</span>
+          )}
           <PlayerName name={tile.name} strike={leaving} />
           {isCaptain && (
             <img src={CAPTAIN_PATCH_URL} alt="Team Captain" draggable={false}
@@ -813,9 +820,6 @@ function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode
         </div>
         <div className="flex items-center gap-1 mt-1 text-[10px] text-txt-tertiary min-w-0">
           <Avatar url={photoUrl} fallback={teamLogo} />
-          {hasJersey && (
-            <span className="font-bold tabular-nums text-txt-secondary">#{tile.jerseyNumber}</span>
-          )}
           <span className="truncate">{tile.projectedClass}</span>
           <span className="ml-auto tabular-nums font-bold text-sm shrink-0" style={{ color: ovrColor(tile.projectedOvr) }}>{tile.projectedOvr ?? '—'}</span>
           {marker && <span className="font-bold uppercase tracking-wide shrink-0" style={{ color: markerColor }}>{marker}</span>}
