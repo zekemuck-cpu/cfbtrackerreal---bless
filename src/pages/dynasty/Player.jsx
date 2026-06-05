@@ -5742,6 +5742,7 @@ function PlayerInner() {
                           <FlippableCard
                             frontImageUrl={card.frontImageUrl}
                             backImageUrl={card.backImageUrl}
+                            styleId={card.styleId}
                           />
                         ) : (
                           <CardComposer

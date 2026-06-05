@@ -438,6 +438,7 @@ function PhaseGenerate({ style, filledFrontPrompt, filledBackPrompt, working, on
           imageUrl={working.frontImageUrl}
           onChangeImage={(url) => onChange({ frontImageUrl: url })}
           teamColors={teamColors}
+          aspectRatio={style.aspectRatio}
         />
         <SidePanel
           side="back"
@@ -445,6 +446,7 @@ function PhaseGenerate({ style, filledFrontPrompt, filledBackPrompt, working, on
           imageUrl={working.backImageUrl}
           onChangeImage={(url) => onChange({ backImageUrl: url })}
           teamColors={teamColors}
+          aspectRatio={style.aspectRatio}
         />
       </div>
     </div>
@@ -456,7 +458,7 @@ function PhaseGenerate({ style, filledFrontPrompt, filledBackPrompt, working, on
  * "view prompt" disclosure (the prompt is not shown by default), then
  * the image slot / upload.
  */
-function SidePanel({ side, prompt, imageUrl, onChangeImage, teamColors }) {
+function SidePanel({ side, prompt, imageUrl, onChangeImage, teamColors, aspectRatio = '5 / 7' }) {
   const [copied, setCopied] = useState(false)
   const [showPrompt, setShowPrompt] = useState(false)
   const imageUploadRef = useRef(null)
@@ -505,6 +507,7 @@ function SidePanel({ side, prompt, imageUrl, onChangeImage, teamColors }) {
         <ImageSlot
           imageUrl={imageUrl}
           label={label}
+          aspectRatio={aspectRatio}
           onClick={() => imageUploadRef.current?.triggerFileSelect()}
           onDragOver={(e) => imageUploadRef.current?.handleDragOver(e)}
           onDragLeave={(e) => imageUploadRef.current?.handleDragLeave(e)}
@@ -526,12 +529,12 @@ function SidePanel({ side, prompt, imageUrl, onChangeImage, teamColors }) {
   )
 }
 
-function ImageSlot({ imageUrl, label, onClick, onDragOver, onDragLeave, onDrop }) {
+function ImageSlot({ imageUrl, label, onClick, onDragOver, onDragLeave, onDrop, aspectRatio = '5 / 7' }) {
   return (
     <div
       className="relative overflow-hidden mx-auto rounded-lg cursor-pointer transition-colors"
       style={{
-        aspectRatio: '5/7',
+        aspectRatio,
         maxWidth: 220,
         width: '100%',
         backgroundColor: imageUrl ? 'transparent' : 'var(--surface-1)',
@@ -543,7 +546,7 @@ function ImageSlot({ imageUrl, label, onClick, onDragOver, onDragLeave, onDrop }
       onDrop={onDrop}
     >
       {imageUrl ? (
-        <img src={proxyImageUrl(imageUrl, 800)} alt={label} className="w-full h-full object-cover block" />
+        <img src={proxyImageUrl(imageUrl, 800)} alt={label} className="w-full h-full object-contain block" />
       ) : (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="text-txt-muted">

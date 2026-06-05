@@ -89,6 +89,7 @@ export default function CardCollection() {
                     <FlippableCard
                       frontImageUrl={card.frontImageUrl}
                       backImageUrl={card.backImageUrl}
+                      styleId={card.styleId}
                     />
                   )}
                 </div>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { proxyImageUrl } from '../utils/imageProxy'
+import { getCardStyle } from '../data/cardStyles'
 
 // Render width for card faces — matches the full-size photo treatment so
 // cards stay crisp at any on-screen size while gaining wsrv's resilience
@@ -32,10 +33,14 @@ function ImageWithFallback({ src, onError, ...rest }) {
  * Aspect ratio is locked to 5:7 (real card proportion). The component
  * fills its container width.
  */
-export default function FlippableCard({ frontImageUrl, backImageUrl, className = '' }) {
+export default function FlippableCard({ frontImageUrl, backImageUrl, styleId, className = '' }) {
   const [flipped, setFlipped] = useState(false)
   const [frontBroken, setFrontBroken] = useState(false)
   const [backBroken, setBackBroken] = useState(false)
+  // Card proportion comes from the style (oversized sets like the 1965
+  // "Tall Boys" are much taller than the standard 5:7), so the face isn't
+  // cropped to standard size. Falls back to standard when unknown.
+  const aspectRatio = getCardStyle(styleId)?.aspectRatio || '5 / 7'
   const hasFront = !!frontImageUrl && !frontBroken
   const hasBack = !!backImageUrl && !backBroken
 
@@ -45,7 +50,7 @@ export default function FlippableCard({ frontImageUrl, backImageUrl, className =
         className={`rounded-xl flex items-center justify-center text-xs text-txt-tertiary ${className}`}
         style={{
           width: '100%',
-          aspectRatio: '5 / 7',
+          aspectRatio,
           backgroundColor: 'var(--surface-2)',
           border: '1px dashed var(--surface-4)',
         }}
@@ -61,7 +66,7 @@ export default function FlippableCard({ frontImageUrl, backImageUrl, className =
     return (
       <div
         className={`rounded-xl overflow-hidden shadow-2xl ${className}`}
-        style={{ aspectRatio: '5 / 7' }}
+        style={{ aspectRatio }}
       >
         <ImageWithFallback
           src={proxyImageUrl(url, CARD_W)}
@@ -78,7 +83,7 @@ export default function FlippableCard({ frontImageUrl, backImageUrl, className =
       type="button"
       onClick={() => setFlipped(f => !f)}
       className={`w-full block text-left ${className}`}
-      style={{ aspectRatio: '5 / 7', perspective: '1200px', cursor: 'pointer' }}
+      style={{ aspectRatio, perspective: '1200px', cursor: 'pointer' }}
       title={flipped ? 'Click to flip — front' : 'Click to flip — back'}
     >
       <div

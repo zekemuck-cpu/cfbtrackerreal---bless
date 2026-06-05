@@ -46,6 +46,10 @@ function transformRawStyle(s) {
   return {
     id: s.id,
     label: s.label,
+    // CSS aspect-ratio (width / height) for the card face. Most sets are the
+    // standard ~2.5x3.5 (5/7); oversized sets like the 1965 "Tall Boys"
+    // declare their own so the renderer doesn't crop them to standard size.
+    aspectRatio: s.aspectRatio || '5 / 7',
     brand: s.brand,
     year: s.year,
     era: s.era,
