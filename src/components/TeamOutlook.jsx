@@ -233,7 +233,11 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
   const saveLayout = async (next) => {
     setShowPositions(false)
     if (!currentDynasty?.id || !updateDynasty) return
-    try { await updateDynasty(currentDynasty.id, { depthChartLayout: next }) }
+    // Firestore forbids directly-nested arrays, so store each row as a
+    // { cols: [...] } object; resolveDepthLayout decodes it back to rows.
+    const encoded = {}
+    for (const k of Object.keys(next || {})) encoded[k] = (next[k] || []).map(cols => ({ cols }))
+    try { await updateDynasty(currentDynasty.id, { depthChartLayout: encoded }) }
     catch (e) { console.error('[depth-chart] failed to save layout', e) }
   }
 

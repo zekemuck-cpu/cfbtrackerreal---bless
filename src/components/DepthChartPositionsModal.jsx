@@ -258,7 +258,9 @@ export default function DepthChartPositionsModal({ layoutMap, positionsMap, onSa
           </div>
 
           {createPortal(
-            <DragOverlay dropAnimation={null}>
+            // zIndex above the modal (z-[9999]) — dnd-kit defaults the overlay to
+            // 999, which would hide it behind the opaque modal panel.
+            <DragOverlay zIndex={10000} dropAnimation={null}>
               {activeId ? <TileFace label={labelFor(side, activeId)} dragging /> : null}
             </DragOverlay>,
             document.body,

@@ -131,7 +131,14 @@ export function defaultLayoutForSide(side) {
 // default formation rows, else the base default.
 export function resolveDepthLayout(side, layoutMap, positionsMap) {
   const saved = layoutMap?.[side]
-  if (Array.isArray(saved) && saved.length) return saved
+  if (Array.isArray(saved) && saved.length) {
+    // Rows are stored as { cols: [...] } objects (Firestore can't nest arrays),
+    // but tolerate a raw array-of-arrays too (local-storage dynasties).
+    const rows = saved
+      .map(r => (Array.isArray(r) ? r : (r && Array.isArray(r.cols) ? r.cols : [])))
+      .filter(r => r.length)
+    if (rows.length) return rows
+  }
   const pos = positionsMap?.[side]
   if (Array.isArray(pos) && pos.length) {
     const rows = FORMATION_ROWS[side] || OFFENSE_ROWS
