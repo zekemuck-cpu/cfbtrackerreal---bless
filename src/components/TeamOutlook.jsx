@@ -752,25 +752,28 @@ function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode
 
       {/* Desktop (lg+): top row is "#jersey  name"; the photo · class · OVR
           sit on the row below. All text is fully white. */}
-      <div className="relative z-[1] hidden lg:block px-3 py-2">
-        <div className="flex items-baseline gap-1.5 min-w-0">
-          {hasJersey && (
-            <span className="shrink-0 font-bold tabular-nums text-white text-[15px] leading-none">#{tile.jerseyNumber}</span>
-          )}
-          <PlayerName name={tile.name} strike={leaving} textClass="text-[15px] font-semibold text-white" />
-          {isCaptain && (
-            <img src={CAPTAIN_PATCH_URL} alt="Team Captain" draggable={false}
-              className="shrink-0 self-center w-4 h-4 object-contain pointer-events-none" />
-          )}
-        </div>
-        <div className="mt-1.5 flex items-center gap-2 min-w-0">
-          <Avatar url={photoUrl} fallback={teamLogo} size="lg" />
+      {/* Desktop (lg+): one compact list row — avatar on the left, name over
+          class in the middle, OVR on the right. Keeps every field but cuts the
+          tile height vs. stacking the avatar on its own row. */}
+      <div className="relative z-[1] hidden lg:flex items-center gap-2.5 px-3 py-1.5">
+        <Avatar url={photoUrl} fallback={teamLogo} size="lg" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-1.5 min-w-0">
+            {hasJersey && (
+              <span className="shrink-0 font-bold tabular-nums text-white text-[13px] leading-none">#{tile.jerseyNumber}</span>
+            )}
+            <PlayerName name={tile.name} strike={leaving} textClass="text-[14px] font-semibold text-white" />
+            {isCaptain && (
+              <img src={CAPTAIN_PATCH_URL} alt="Team Captain" draggable={false}
+                className="shrink-0 self-center w-3.5 h-3.5 object-contain pointer-events-none" />
+            )}
+          </div>
           {tile.projectedClass && (
-            <span className="text-[12px] font-semibold text-white">{tile.projectedClass}</span>
+            <div className="text-[11px] font-semibold text-white/80 truncate leading-tight mt-0.5">{tile.projectedClass}</div>
           )}
-          <span className="ml-auto tabular-nums font-black text-2xl leading-none shrink-0 text-white">{tile.projectedOvr ?? '—'}</span>
-          {marker && <span className="font-bold uppercase tracking-wide shrink-0 text-[11px]" style={{ color: markerColor }}>{marker}</span>}
         </div>
+        <span className="tabular-nums font-black text-2xl leading-none shrink-0 text-white">{tile.projectedOvr ?? '—'}</span>
+        {marker && <span className="font-bold uppercase tracking-wide shrink-0 text-[11px]" style={{ color: markerColor }}>{marker}</span>}
       </div>
     </div>
   )
@@ -782,7 +785,7 @@ function Avatar({ url, fallback, size = 'sm' }) {
   const lg = size === 'lg'
   const src = hasUrl ? proxyImageUrl(url, lg ? 160 : 80) : fallback || null
   return (
-    <div className={`${lg ? 'w-12 h-12' : 'w-6 h-6'} rounded-full bg-surface-4 overflow-hidden flex-shrink-0 flex items-center justify-center`}>
+    <div className={`${lg ? 'w-9 h-9' : 'w-6 h-6'} rounded-full bg-surface-4 overflow-hidden flex-shrink-0 flex items-center justify-center`}>
       {src ? <img src={src} alt="" draggable={false} onError={() => setErrored(true)} className={`w-full h-full ${hasUrl ? 'object-cover' : 'object-contain p-0.5'}`} /> : null}
     </div>
   )
