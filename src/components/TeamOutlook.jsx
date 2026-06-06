@@ -249,6 +249,7 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
   // Canonical resolver (dynasty.teams[tid].logo -> static default), so an empty
   // stored logo still resolves to the registry default instead of nothing.
   const teamLogo = getTeamLogoByTid(tid, currentDynasty?.teams)
+  const teamColor = currentDynasty?.teams?.[tid]?.primaryColor || '#374151'
 
   // Deep-link focus: arrive from a player page with ?player=<pid>&side=<side>.
   // The side is already applied from the URL; once that player's tile is in the
@@ -617,7 +618,7 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
               so columns stay uniform across rows; partial/wrapped rows center. */}
           <div
             className="space-y-6 w-fit lg:w-full"
-            style={{ '--col-w': `calc((100% - ${(gridCols - 1) * 1.25}rem) / ${gridCols})` }}
+            style={{ '--col-w': `calc((100% - ${(gridCols - 1) * 1.25}rem) / ${gridCols})`, '--team': teamColor }}
           >
             {rowLayout.map((tierRows, ti) => (
               <div key={ti} className="space-y-3 lg:space-y-5">
@@ -679,8 +680,8 @@ function SlotColumn({ slot, items, byKey, ...rest }) {
     // set on the board) so every column matches across rows, capped so tiles
     // don't get cartoonishly wide on ultrawide screens.
     <div className="w-[7.5rem] shrink-0 lg:w-[var(--col-w)] lg:flex-none lg:min-w-0 lg:max-w-[16rem] flex flex-col">
-      {/* position header */}
-      <div className="flex items-center justify-between gap-1 px-1 mb-1.5">
+      {/* position header — team-color underline ties the board to the team */}
+      <div className="flex items-center justify-between gap-1 px-1 pb-1 mb-1.5" style={{ borderBottom: '2px solid var(--team, var(--surface-5))' }}>
         <span className="font-bold text-txt-primary text-xs uppercase tracking-wider">{slot.label}</span>
         <div className="flex items-center gap-1.5">
           <Badge variant="outline">{slot.grade}</Badge>
