@@ -5657,7 +5657,7 @@ export default function TeamYear() {
                 <div className="flex items-center gap-3 sm:gap-5">
                   <div
                     className="flex items-center gap-3 sm:gap-4 px-4 py-3 rounded-sm"
-                    style={{ backgroundColor: 'var(--surface-3)', borderLeft: `3px solid ${viewedPrimary}` }}
+                    style={{ backgroundColor: viewedPrimary, backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0) 55%), linear-gradient(rgba(0,0,0,0.42), rgba(0,0,0,0.42))' }}
                   >
                     <div className="text-4xl sm:text-5xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "var(--font-display)" }}>
                       {nationalRank ? `#${nationalRank}` : '—'}
@@ -5669,7 +5669,7 @@ export default function TeamYear() {
                   </div>
                   <div
                     className="flex items-center gap-3 sm:gap-4 px-4 py-3 rounded-sm"
-                    style={{ backgroundColor: 'var(--surface-3)', borderLeft: `3px solid ${viewedPrimary}` }}
+                    style={{ backgroundColor: viewedPrimary, backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0) 55%), linear-gradient(rgba(0,0,0,0.42), rgba(0,0,0,0.42))' }}
                   >
                     <div className="text-4xl sm:text-5xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "var(--font-display)" }}>
                       {formatRecruitingClassScore(classScore)}
@@ -5730,7 +5730,7 @@ export default function TeamYear() {
               </div>
             ) : (
               <div className="card overflow-hidden">
-                <div className="grid grid-cols-[auto_1fr_auto_auto] sm:grid-cols-[auto_auto_1fr_auto_auto] gap-3 sm:gap-4 items-center px-4 py-2.5 border-b border-surface-4 bg-surface-2">
+                <div className="grid grid-cols-[auto_1fr_auto_auto] sm:grid-cols-[auto_auto_1fr_auto_auto] gap-3 sm:gap-4 items-center px-4 py-2.5 border-b border-surface-4" style={{ backgroundColor: `${viewedPrimary}1f` }}>
                   <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>★</span>
                   <span className="label-xs text-txt-tertiary hidden sm:inline" style={{ letterSpacing: '1.5px' }}>Pos</span>
                   <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Name</span>
@@ -6543,7 +6543,7 @@ export default function TeamYear() {
                   <thead>
                     <tr>
                       {['Year', 'Record', 'Final Rank', 'Postseason'].map(h => (
-                        <th key={h} className="px-4 py-2 text-left text-[10px] font-bold uppercase bg-surface-2 text-txt-tertiary" style={{ letterSpacing: '1.5px', borderBottom: '1px solid var(--surface-4)' }}>{h}</th>
+                        <th key={h} className="px-4 py-2 text-left text-[10px] font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '1.5px', borderBottom: '1px solid var(--surface-4)', backgroundColor: `${teamInfo.backgroundColor}1f` }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
