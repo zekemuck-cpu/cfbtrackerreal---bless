@@ -3399,7 +3399,7 @@ export default function TeamYear() {
                     (Was lg+ before — but the outer 3-col grid also moved
                     to xl, so between lg and xl the leaders should keep
                     the wide horizontal row instead of stacking early.) */}
-                <div className="hidden md:grid md:grid-cols-5 xl:grid-cols-1 stagger-reveal rounded-xl overflow-hidden" style={{ backgroundColor: teamInfo.backgroundColor, backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0) 55%), linear-gradient(180deg, rgba(0,0,0,0.28), rgba(0,0,0,0.55))' }}>
+                <div className="hidden md:grid md:grid-cols-5 xl:grid-cols-1 stagger-reveal rounded-xl overflow-hidden" style={{ backgroundColor: teamInfo.backgroundColor, backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0) 55%), linear-gradient(rgba(0,0,0,0.40), rgba(0,0,0,0.40))' }}>
                   {leaders.map((l, idx) => (
                     <Link
                       key={l.key}
@@ -3455,7 +3455,7 @@ export default function TeamYear() {
                 </div>
                 <ul
                   className="stagger-reveal rounded-xl overflow-hidden"
-                  style={{ backgroundColor: teamInfo.backgroundColor, backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0) 55%), linear-gradient(180deg, rgba(0,0,0,0.28), rgba(0,0,0,0.55))' }}
+                  style={{ backgroundColor: teamInfo.backgroundColor, backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0) 55%), linear-gradient(rgba(0,0,0,0.40), rgba(0,0,0,0.40))' }}
                 >
                   {topRated.map((p, idx) => {
                     const ovr = getPlayerOverallForYear(p, selectedYear)
@@ -3558,7 +3558,7 @@ export default function TeamYear() {
                 return (
               <div
                 className="relative mb-5 rounded-xl overflow-hidden"
-                style={{ backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.34), rgba(0,0,0,0.52)), linear-gradient(100deg, ${userColor} 0%, ${userColor} 43%, ${oppColor} 57%, ${oppColor} 100%)` }}
+                style={{ backgroundImage: `linear-gradient(rgba(0,0,0,0.42), rgba(0,0,0,0.42)), linear-gradient(90deg, ${userColor} 0%, ${userColor} 47%, ${oppColor} 53%, ${oppColor} 100%)` }}
               >
                 <div className="flex items-stretch justify-between">
                 <div className="flex items-center gap-3 min-w-0 px-4 py-4">
@@ -3727,7 +3727,7 @@ export default function TeamYear() {
                   {/* Matchup row — split by both teams' colors */}
                   <div
                     className="relative flex items-stretch justify-between mb-5 rounded-xl overflow-hidden"
-                    style={{ backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.34), rgba(0,0,0,0.58)), linear-gradient(100deg, ${userColor} 0%, ${userColor} 43%, ${oppColor} 57%, ${oppColor} 100%)` }}
+                    style={{ backgroundImage: `linear-gradient(rgba(0,0,0,0.42), rgba(0,0,0,0.42)), linear-gradient(90deg, ${userColor} 0%, ${userColor} 47%, ${oppColor} 53%, ${oppColor} 100%)` }}
                   >
                     <div className="flex items-center gap-3 min-w-0 px-4 py-4" style={{ borderBottom: `4px solid ${userSecondary}` }}>
                       {teamLogo && <img src={teamLogo} alt="" className="w-11 h-11 object-contain flex-shrink-0" />}
