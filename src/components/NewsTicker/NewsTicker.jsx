@@ -179,7 +179,7 @@ export default function NewsTicker({ dynasty }) {
           borderTop: '1px solid var(--surface-4)',
           boxShadow: '0 -6px 16px rgba(4, 6, 16, 0.4)',
           height: '40px',
-          fontFamily: "var(--font-display, 'Outfit', system-ui, sans-serif)"
+          fontFamily: "var(--font-display, 'Saira Semi Condensed', system-ui, sans-serif)"
         }}
       >
         <div className="flex items-center h-full">
@@ -315,6 +315,15 @@ export default function NewsTicker({ dynasty }) {
                           style={{ fontWeight: 500 }}
                         >
                           {item.text}
+                        </span>
+                      )}
+
+                      {item.trailing && (
+                        <span
+                          className="text-[11px] sm:text-xs uppercase"
+                          style={{ fontWeight: 700, letterSpacing: '0.06em', color: item.trailingColor || 'var(--text-secondary)' }}
+                        >
+                          {item.trailing}
                         </span>
                       )}
                     </div>

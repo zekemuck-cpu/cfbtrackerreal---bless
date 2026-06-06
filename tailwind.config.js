@@ -38,8 +38,8 @@ export default {
         'info': 'var(--accent-info)',
       },
       fontFamily: {
-        'display': ['Outfit', 'system-ui', 'sans-serif'],
-        'body': ['DM Sans', 'system-ui', 'sans-serif'],
+        'display': ['Saira Semi Condensed', 'system-ui', 'sans-serif'],
+        'body': ['Saira', 'system-ui', 'sans-serif'],
       },
       fontSize: {
         'display-xl': ['var(--text-display-xl)', { lineHeight: '1', letterSpacing: '-0.03em', fontWeight: '900' }],

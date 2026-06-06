@@ -48,8 +48,8 @@
   --accent-info: #3b82f6;
 
   /* Typography */
-  --font-display: 'Outfit', system-ui, sans-serif;
-  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-display: 'Saira Semi Condensed', system-ui, sans-serif;
+  --font-body: 'Saira', system-ui, sans-serif;
 
   /* Typography scale (see docs/DESIGN.md) */
   --text-display-xl: 3.5rem;   /* Team name in hero */

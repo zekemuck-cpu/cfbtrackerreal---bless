@@ -202,6 +202,13 @@ const getMascotName = (abbr, teamsData = null) => {
 // list stays in one place.
 const getSchoolName = (m) => stripMascotFromName(m) || ''
 
+// 1 -> "1st", 12 -> "12th" — for the conference-standing line ("12th in SEC").
+const ordinal = (n) => {
+  const v = n % 100
+  const s = ['th', 'st', 'nd', 'rd']
+  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`
+}
+
 // Award display names
 const AWARD_DISPLAY = {
   heisman: 'Heisman Trophy',
@@ -273,10 +280,10 @@ function TabBar({ tabs, activeKey, onSelect, accentColor }) {
             key={tab.key}
             ref={el => { if (el) buttonRefs.current[tab.key] = el; else delete buttonRefs.current[tab.key] }}
             onClick={() => onSelect(tab.key)}
-            className={`px-2 sm:px-3 md:px-4 lg:px-6 py-3 font-semibold tracking-tight whitespace-nowrap transition-colors ${
+            className={`px-2 sm:px-3 md:px-4 lg:px-6 py-3 font-bold uppercase tracking-wide whitespace-nowrap transition-colors ${
               isActive ? 'text-txt-primary' : 'text-txt-tertiary hover:text-txt-secondary'
             }`}
-            style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem' }}
+            style={{ fontFamily: 'var(--font-display)', fontSize: '0.9rem' }}
           >
             {tab.label}
           </button>
@@ -518,6 +525,42 @@ function PositionFilterTab({
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+// CFB-broadcast-style rating rings: OVR / OFF / DEF in team-color outlined
+// circles. Used in the team header (compact on mobile, full on desktop).
+function StatRings({ ratings, ringColor, textColor, compact = false }) {
+  if (!ratings) return null
+  const items = [
+    { label: 'OVR', value: ratings.overall },
+    { label: 'OFF', value: ratings.offense },
+    { label: 'DEF', value: ratings.defense },
+  ]
+  const dim = 'w-11 h-11 sm:w-[3.25rem] sm:h-[3.25rem]'
+  const num = 'text-sm sm:text-base'
+  const lab = 'text-[7px] sm:text-[8px]'
+  return (
+    <div className="flex items-center gap-1 sm:gap-1.5">
+      {items.map(it => (
+        <div
+          key={it.label}
+          className={`${dim} rounded-full flex flex-col items-center justify-center shrink-0`}
+          style={{
+            border: `2px solid ${ringColor}`,
+            background: 'radial-gradient(circle at 50% 30%, rgba(255,255,255,0.12), rgba(255,255,255,0.02) 70%)',
+            boxShadow: `0 0 14px ${ringColor}40, inset 0 1px 1px rgba(255,255,255,0.12)`,
+          }}
+        >
+          <span className={`font-display font-extrabold leading-none tabular-nums ${num}`} style={{ color: textColor }}>
+            {it.value ?? '—'}
+          </span>
+          <span className={`font-bold tracking-[0.12em] mt-0.5 ${lab}`} style={{ color: textColor, opacity: 0.65 }}>
+            {it.label}
+          </span>
+        </div>
+      ))}
     </div>
   )
 }
@@ -1463,6 +1506,28 @@ export default function TeamYear() {
     null
   const storedFallback = standingsRecord || storedRecord
   const storedGames = (storedFallback?.wins || 0) + (storedFallback?.losses || 0)
+
+  // The team's place in its conference standings ("12th in SEC"), shown only
+  // when conference records have actually been entered for the year.
+  const confRank = (() => {
+    for (const confTeams of Object.values(yearStandings)) {
+      if (!Array.isArray(confTeams)) continue
+      const inConf = confTeams.some(t => t && ((t.tid || resolveTid(t.team, teamsSource)) === tid))
+      if (!inConf) continue
+      const hasConfData = confTeams.some(t => t && ((t.confWins || 0) + (t.confLosses || 0) > 0))
+      if (!hasConfData) return null
+      const ranked = [...confTeams].filter(Boolean).sort((a, b) => {
+        const ad = (a.confWins || 0) - (a.confLosses || 0)
+        const bd = (b.confWins || 0) - (b.confLosses || 0)
+        if (bd !== ad) return bd - ad
+        if ((b.confWins || 0) !== (a.confWins || 0)) return (b.confWins || 0) - (a.confWins || 0)
+        return (b.wins || 0) - (a.wins || 0)
+      })
+      const idx = ranked.findIndex(t => (t.tid || resolveTid(t.team, teamsSource)) === tid)
+      return idx >= 0 ? idx + 1 : null
+    }
+    return null
+  })()
 
   // Pick the record covering the most games; ties go to calculated
   // (it carries point-diff + conf record from the actual game rows).
@@ -2520,79 +2585,58 @@ export default function TeamYear() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6 relative isolate">
+      {/* Team-color wash — the banner's color bleeds down the page so the whole
+          team page reads as the team's, fading into the dark surface. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-10"
+        style={{
+          background: `linear-gradient(to bottom, ${teamInfo.backgroundColor}80 0%, ${teamInfo.backgroundColor}4d 28%, ${teamInfo.backgroundColor}38 62%, ${teamInfo.backgroundColor}2b 100%)`,
+        }}
+      />
       {/* Team Header */}
-      <div className="card overflow-hidden relative reveal">
-        <div className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-          {/* Mobile: Logo + Ratings + Record Row */}
-          <div className="flex items-center justify-between sm:hidden">
-            {teamLogo && (
-              <div
-                className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 bg-white overflow-hidden"
-                style={{
-                  border: `2px solid ${teamInfo.backgroundColor}`,
-                  padding: '7px'
-                }}
-              >
-                <img
-                  src={teamLogo}
-                  alt={`${teamInfo.name} logo`}
-                  className="w-full h-full object-contain"
-                />
-              </div>
-            )}
-            <div className="flex items-center gap-2">
-              {/* Team Ratings (mobile) */}
-              {teamRatings && (
-                <div className="flex gap-1 bg-surface-3 rounded-lg px-2 py-1 divide-x divide-surface-4">
-                  <div className="text-center px-2">
-                    <div className="stat-md tabular text-txt-primary">
-                      {teamRatings.overall}
-                    </div>
-                    <div className="label-xs text-txt-tertiary">
-                      OVR
-                    </div>
-                  </div>
-                  <div className="text-center px-2">
-                    <div className="stat-md tabular text-txt-primary">
-                      {teamRatings.offense}
-                    </div>
-                    <div className="label-xs text-txt-tertiary">
-                      OFF
-                    </div>
-                  </div>
-                  <div className="text-center px-2">
-                    <div className="stat-md tabular text-txt-primary">
-                      {teamRatings.defense}
-                    </div>
-                    <div className="label-xs text-txt-tertiary">
-                      DEF
-                    </div>
-                  </div>
-                </div>
-              )}
-              {/* Edit Team Info Button (mobile) */}
-              {!isViewOnly && (
-                <button
-                  onClick={() => setShowTeamEditModal(true)}
-                  className="p-1.5 rounded-lg transition-colors hover:bg-surface-3 flex-shrink-0 text-txt-secondary hover:text-txt-primary"
-                  title="Edit Team Info"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Desktop: Logo */}
+      <div
+        className="card overflow-hidden relative reveal"
+        style={{
+          backgroundColor: teamInfo.backgroundColor,
+          backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 44%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.44) 100%)',
+        }}
+      >
+        {/* Diagonal chalk-line texture — broadcast/field look, strongest on the
+            team-colored left edge. */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: 'repeating-linear-gradient(115deg, rgba(255,255,255,0.08) 0 1.5px, transparent 1.5px 22px)',
+            maskImage: 'linear-gradient(115deg, #000 0%, transparent 72%)',
+            WebkitMaskImage: 'linear-gradient(115deg, #000 0%, transparent 72%)',
+          }}
+        />
+        {/* Edit button — mobile only, pinned to the corner so it never becomes a
+            stray row under the identity. Desktop has its own in the RIGHT group. */}
+        {!isViewOnly && (
+          <button
+            onClick={() => setShowTeamEditModal(true)}
+            className="sm:hidden absolute top-3 right-3 z-[1] p-2 rounded-lg hover:bg-black/20 transition-colors"
+            style={{ color: teamBgText }}
+            title="Edit Team Info"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+        )}
+        <div className="relative p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 lg:max-w-5xl lg:mx-auto">
+          {/* LEFT: logo + identity (name / season / record) */}
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
           {teamLogo && (
             <div
-              className="hidden sm:flex w-20 h-20 rounded-full items-center justify-center flex-shrink-0 bg-white overflow-hidden"
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center flex-shrink-0 bg-white overflow-hidden"
               style={{
                 border: `2px solid ${teamInfo.backgroundColor}`,
-                padding: '10px'
+                padding: '8px'
               }}
             >
               <img
@@ -2602,10 +2646,10 @@ export default function TeamYear() {
               />
             </div>
           )}
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0">
             {/* Year Selector - embedded in season label */}
             <div className="flex items-center gap-1.5">
-              <div className="dropdown-chrome inline-flex items-center gap-1 px-2 py-0.5 rounded cursor-pointer hover:bg-surface-3 transition-colors bg-surface-2 border border-surface-4">
+              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded cursor-pointer transition-colors" style={{ backgroundColor: 'rgba(0,0,0,0.22)' }}>
                 <select
                   value={selectedYear}
                   onChange={(e) => {
@@ -2613,7 +2657,8 @@ export default function TeamYear() {
                     const tabParam = activeTab && activeTab !== 'home' ? `?tab=${activeTab}` : ''
                     navigate(`${pathPrefix}/team/${tid}/${newYear}${tabParam}`)
                   }}
-                  className="dropdown-chrome__control bg-transparent text-xs sm:text-sm font-bold uppercase tracking-wide cursor-pointer focus:outline-none appearance-none text-txt-primary"
+                  className="bg-transparent text-xs sm:text-sm font-bold uppercase tracking-wide cursor-pointer focus:outline-none appearance-none"
+                  style={{ color: teamBgText }}
                 >
                   {availableYears.map((y) => (
                     <option key={y} value={y} style={{ color: '#fff', backgroundColor: '#1a1a1a' }}>
@@ -2621,15 +2666,12 @@ export default function TeamYear() {
                     </option>
                   ))}
                 </select>
-                <svg className="w-3 h-3 flex-shrink-0 text-txt-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3 h-3 flex-shrink-0" style={{ color: teamBgText, opacity: 0.7 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </div>
-              <span className="label-xs text-txt-tertiary">
-                Season
-              </span>
             </div>
-            <div className="flex items-center gap-2 flex-wrap mt-0.5 min-w-0 overflow-hidden">
+            <div className="flex items-center gap-2 flex-nowrap mt-0.5 min-w-0 overflow-hidden">
               {/* Ranking Badge — desktop position, beside the team
                   selector. Hidden on mobile to keep the team-name line
                   uncluttered; mobile shows the same ranking inline
@@ -2637,7 +2679,7 @@ export default function TeamYear() {
               {unifiedRanking?.rank ? (
                 <Link
                   to={`${pathPrefix}/rankings/${selectedYear}`}
-                  className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
+                  className="hidden sm:flex shrink-0 items-center gap-1 px-2 py-1 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
                   style={
                     unifiedRanking.source === 'final_poll'
                       ? { backgroundColor: '#fbbf24', color: '#78350f' }
@@ -2652,8 +2694,27 @@ export default function TeamYear() {
                   #{unifiedRanking.rank}
                 </Link>
               ) : null}
-              {/* Team Selector - embedded in team name */}
-              <div className="dropdown-chrome inline-flex items-center gap-1 rounded-lg cursor-pointer hover:bg-surface-3 transition-colors bg-surface-2 border border-surface-4 max-w-full min-w-0">
+              {/* Team name lockup — school over mascot, broadcast style. An
+                  invisible native <select> is overlaid so the OS dropdown still
+                  changes teams. */}
+              <div className="relative inline-flex items-center gap-1.5 min-w-0">
+                <div className="leading-[0.92] min-w-0">
+                  <div className="font-display font-extrabold uppercase tracking-tight truncate" style={{ color: teamBgText, fontSize: 'clamp(1.375rem, 2.6vw, 2.125rem)' }}>
+                    {getSchoolName(mascotName) || teamInfo.name}
+                  </div>
+                  {(() => {
+                    const sch = getSchoolName(mascotName) || ''
+                    const masc = (mascotName || '').slice(sch.length).trim()
+                    return masc ? (
+                      <div className="font-display font-semibold uppercase tracking-[0.06em] truncate" style={{ color: teamBgText, opacity: 0.82, fontSize: 'clamp(0.75rem, 1.2vw, 0.95rem)' }}>
+                        {masc}
+                      </div>
+                    ) : null
+                  })()}
+                </div>
+                <svg className="w-5 h-5 flex-shrink-0 pointer-events-none" style={{ color: teamBgText, opacity: 0.7 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
                 <select
                   value={tid}
                   onChange={(e) => {
@@ -2661,12 +2722,8 @@ export default function TeamYear() {
                     const tabParam = activeTab && activeTab !== 'home' ? `?tab=${activeTab}` : ''
                     navigate(`${pathPrefix}/team/${newTid}/${selectedYear}${tabParam}`)
                   }}
-                  className="dropdown-chrome__control bg-transparent display-md text-txt-primary cursor-pointer focus:outline-none appearance-none px-2 py-0.5"
-                  style={{
-                    width: `${Math.max((mascotName || teamInfo.name || '').length * 0.72 + 3.5, 12)}ch`,
-                    maxWidth: '100%',
-                    minWidth: 0,
-                  }}
+                  aria-label="Change team"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 >
                   {allTeams.map((t) => (
                     <option key={t.tid} value={t.tid} style={{ color: '#fff', backgroundColor: '#1a1a1a', fontSize: '14px' }}>
@@ -2674,13 +2731,10 @@ export default function TeamYear() {
                     </option>
                   ))}
                 </select>
-                <svg className="w-5 h-5 flex-shrink-0 mr-1.5 text-txt-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
               </div>
               {/* Coaching Staff Popup - show for any team/year with coaching staff data */}
               {(teamCoachingStaff?.hcName || teamCoachingStaff?.ocName || teamCoachingStaff?.dcName) && (
-                <div className="relative">
+                <div className="relative shrink-0">
                   <button
                     ref={coachingStaffButtonRef}
                     onClick={() => {
@@ -2693,7 +2747,8 @@ export default function TeamYear() {
                       }
                       setShowCoachingStaffPopup(!showCoachingStaffPopup)
                     }}
-                    className="p-1.5 rounded-lg hover:bg-surface-3 transition-colors text-txt-secondary hover:text-txt-primary"
+                    className="p-1.5 rounded-lg hover:bg-black/20 transition-colors"
+                    style={{ color: teamBgText }}
                     title="Coaching Staff"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2709,34 +2764,29 @@ export default function TeamYear() {
                         onClick={() => setShowCoachingStaffPopup(false)}
                       />
                       <div
-                        className="fixed z-[9999] w-72 max-w-[calc(100vw-1.5rem)] card-elevated overflow-hidden border-l-[3px]"
+                        className="fixed z-[9999] w-72 max-w-[calc(100vw-1.5rem)] rounded-2xl overflow-hidden card-elevated"
                         style={{
-                          borderLeftColor: teamInfo.backgroundColor,
                           top: coachingStaffPopupPosition.top,
                           right: coachingStaffPopupPosition.right
                         }}
                       >
-                        <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4">
-                          <h4 className="label-xs text-txt-tertiary mb-0.5">Coaching Staff</h4>
-                          <p className="font-bold text-sm text-txt-primary">
-                            {selectedYear}
-                          </p>
+                        <div className="px-4 py-3 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: 'var(--text-primary)' }}>
+                          <h4 className="font-display font-bold text-sm uppercase tracking-wide text-txt-primary">
+                            Coaching Staff
+                          </h4>
                         </div>
-                        <div className="p-3 space-y-2">
+                        <div className="p-4 space-y-3">
                           {/* Head Coach */}
                           {teamCoachingStaff?.hcName && (
-                            <div className="flex items-center gap-3 p-2 rounded-lg" style={{ backgroundColor: `${accentColor}08` }}>
-                              <div
-                                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                                style={{ backgroundColor: teamInfo.backgroundColor }}
-                              >
-                                <span className="text-xs font-bold" style={{ color: teamBgText }}>HC</span>
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                                <span className="font-display text-xs font-bold text-txt-primary">HC</span>
                               </div>
                               <div className="min-w-0 flex-1">
-                                <div className="text-[10px] uppercase font-semibold tracking-wider" style={{ color: accentColorMuted }}>
+                                <div className="font-display text-[10px] uppercase font-semibold tracking-wider text-txt-tertiary">
                                   Head Coach
                                 </div>
-                                <div className="font-semibold text-sm" style={{ color: accentColor }}>
+                                <div className="font-semibold truncate text-txt-primary">
                                   {teamCoachingStaff.hcName}
                                 </div>
                               </div>
@@ -2745,18 +2795,15 @@ export default function TeamYear() {
 
                           {/* Offensive Coordinator */}
                           {teamCoachingStaff?.ocName && (
-                            <div className="flex items-center gap-3 p-2 rounded-lg" style={{ backgroundColor: `${accentColor}08` }}>
-                              <div
-                                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                                style={{ backgroundColor: teamInfo.backgroundColor }}
-                              >
-                                <span className="text-xs font-bold" style={{ color: teamBgText }}>OC</span>
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                                <span className="font-display text-xs font-bold text-txt-primary">OC</span>
                               </div>
                               <div className="min-w-0 flex-1">
-                                <div className="text-[10px] uppercase font-semibold tracking-wider" style={{ color: accentColorMuted }}>
+                                <div className="font-display text-[10px] uppercase font-semibold tracking-wider text-txt-tertiary">
                                   Offensive Coordinator
                                 </div>
-                                <div className="font-semibold text-sm" style={{ color: accentColor }}>
+                                <div className="font-semibold truncate text-txt-primary">
                                   {teamCoachingStaff.ocName}
                                 </div>
                               </div>
@@ -2765,18 +2812,15 @@ export default function TeamYear() {
 
                           {/* Defensive Coordinator */}
                           {teamCoachingStaff?.dcName && (
-                            <div className="flex items-center gap-3 p-2 rounded-lg" style={{ backgroundColor: `${accentColor}08` }}>
-                              <div
-                                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                                style={{ backgroundColor: teamInfo.backgroundColor }}
-                              >
-                                <span className="text-xs font-bold" style={{ color: teamBgText }}>DC</span>
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                                <span className="font-display text-xs font-bold text-txt-primary">DC</span>
                               </div>
                               <div className="min-w-0 flex-1">
-                                <div className="text-[10px] uppercase font-semibold tracking-wider" style={{ color: accentColorMuted }}>
+                                <div className="font-display text-[10px] uppercase font-semibold tracking-wider text-txt-tertiary">
                                   Defensive Coordinator
                                 </div>
-                                <div className="font-semibold text-sm" style={{ color: accentColor }}>
+                                <div className="font-semibold truncate text-txt-primary">
                                   {teamCoachingStaff.dcName}
                                 </div>
                               </div>
@@ -2827,10 +2871,10 @@ export default function TeamYear() {
                     onMouseLeave={() => setShowRecordTooltip(false)}
                     onClick={() => setShowRecordTooltip(!showRecordTooltip)}
                   >
-                    <div className="text-base sm:text-lg font-bold tabular cursor-pointer text-txt-primary">
+                    <div className="text-base sm:text-lg font-bold tabular cursor-pointer" style={{ color: teamBgText }}>
                       {displayRecord.wins}-{displayRecord.losses}
                       {(displayRecord.confWins > 0 || displayRecord.confLosses > 0) && (
-                        <span className="text-txt-tertiary"> ({displayRecord.confWins}-{displayRecord.confLosses})</span>
+                        <span style={{ color: teamBgText, opacity: 0.6 }}> ({displayRecord.confWins}-{displayRecord.confLosses})</span>
                       )}
                     </div>
                     {/* Points Tooltip */}
@@ -2867,24 +2911,16 @@ export default function TeamYear() {
                   </div>
                 )}
                 {displayRecord && conference && (
-                  <span className="text-txt-muted">•</span>
+                  <span style={{ color: teamBgText, opacity: 0.4 }}>•</span>
                 )}
                 {conference && (
                   <Link
                     to={`${pathPrefix}/conference-standings/${selectedYear}?conf=${encodeURIComponent(conference)}`}
-                    className="flex items-center gap-1.5 hover:opacity-80 transition-opacity cursor-pointer"
+                    className="text-sm font-semibold uppercase tracking-wide hover:underline cursor-pointer"
+                    style={{ color: teamBgText, opacity: 0.85 }}
                     title={`View ${conference} standings`}
                   >
-                    {conferenceLogo && (
-                      <img
-                        src={conferenceLogo}
-                        alt={`${conference} logo`}
-                        className="w-4 h-4 object-contain"
-                      />
-                    )}
-                    <span className="text-sm font-semibold text-txt-secondary hover:underline">
-                      {conference}
-                    </span>
+                    {confRank ? `${ordinal(confRank)} in ${conference}` : conference}
                   </Link>
                 )}
               </div>
@@ -3044,43 +3080,30 @@ export default function TeamYear() {
             })()}
             </div>
           </div>
+          </div>
 
-          {/* Ratings and Record Section (desktop only - mobile shown above) */}
-          <div className="hidden sm:flex items-center gap-4">
-            {/* Team Ratings (desktop) */}
-            {teamRatings && (
-              <div className="flex bg-surface-3 rounded-lg px-3 py-2 divide-x divide-surface-4">
-                <div className="text-center px-3">
-                  <div className="stat-md tabular text-txt-primary">
-                    {teamRatings.overall}
-                  </div>
-                  <div className="label-xs text-txt-tertiary">
-                    OVR
-                  </div>
-                </div>
-                <div className="text-center px-3">
-                  <div className="stat-md tabular text-txt-primary">
-                    {teamRatings.offense}
-                  </div>
-                  <div className="label-xs text-txt-tertiary">
-                    OFF
-                  </div>
-                </div>
-                <div className="text-center px-3">
-                  <div className="stat-md tabular text-txt-primary">
-                    {teamRatings.defense}
-                  </div>
-                  <div className="label-xs text-txt-tertiary">
-                    DEF
-                  </div>
-                </div>
-              </div>
+          {/* RIGHT: ratings + conference + edit */}
+          <div className="flex items-center gap-2 sm:gap-3 self-start sm:self-center empty:hidden">
+            {/* Team Ratings — circular CFB-style rings (contrast outline on the
+                team-colored banner) */}
+            <StatRings ratings={teamRatings} ringColor={teamBgText} textColor={teamBgText} />
+            {/* Conference logo — broadcast style, anchored far right; links to
+                the conference standings like the meta-row label. */}
+            {conferenceLogo && (
+              <Link
+                to={`${pathPrefix}/conference-standings/${selectedYear}?conf=${encodeURIComponent(conference || '')}`}
+                title={conference ? `View ${conference} standings` : ''}
+                className="hidden sm:block shrink-0 ml-0.5 hover:opacity-80 transition-opacity"
+              >
+                <img src={conferenceLogo} alt={conference || 'conference'} className="w-11 h-11 object-contain" />
+              </Link>
             )}
-            {/* Edit Team Info Button (desktop) */}
+            {/* Edit Team Info Button (desktop — mobile has its own corner button) */}
             {!isViewOnly && (
               <button
                 onClick={() => setShowTeamEditModal(true)}
-                className="p-2 rounded-lg transition-colors hover:bg-surface-3 flex-shrink-0 text-txt-secondary hover:text-txt-primary"
+                className="hidden sm:flex p-2 rounded-lg transition-colors flex-shrink-0 hover:bg-black/20"
+                style={{ color: teamBgText }}
                 title="Edit Team Info"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3339,7 +3362,7 @@ export default function TeamYear() {
             return (
               <div>
                 <div className="flex items-end justify-between mb-3 px-1">
-                  <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>Stat Leaders</h3>
+                  <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Stat Leaders</h3>
                   <button
                     onClick={() => setActiveTab('stats')}
                     className="text-xs font-semibold text-txt-tertiary hover:text-txt-secondary transition-colors"
@@ -3418,7 +3441,7 @@ export default function TeamYear() {
             return (
               <div>
                 <div className="flex items-end justify-between mb-3 px-1">
-                  <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>Top Rated</h3>
+                  <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Top Rated</h3>
                   <button
                     onClick={() => setActiveTab('roster')}
                     className="text-xs font-semibold text-txt-tertiary hover:text-txt-secondary transition-colors"
@@ -3508,7 +3531,7 @@ export default function TeamYear() {
               <div className="flex items-end justify-between mb-4 px-1">
                 <h3
                   className="font-display font-bold leading-none text-txt-primary"
-                  style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}
+                  style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', textTransform: 'uppercase' }}
                 >
                   Previous Game
                 </h3>
@@ -3672,7 +3695,7 @@ export default function TeamYear() {
                   <div className="flex items-end justify-between mb-4 px-1">
                     <h3
                       className="font-display font-bold leading-none text-txt-primary"
-                      style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}
+                      style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', textTransform: 'uppercase' }}
                     >
                       Next Game
                     </h3>
@@ -3826,7 +3849,7 @@ export default function TeamYear() {
                 <div className="flex items-end justify-between mb-4 px-1">
                   <h3
                     className="font-display font-bold leading-none text-txt-primary"
-                    style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}
+                    style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', textTransform: 'uppercase' }}
                   >
                     Season Schedule
                   </h3>
@@ -4639,7 +4662,7 @@ export default function TeamYear() {
                   {/* Season Record Card */}
                   <div className="card overflow-hidden">
                     <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
-                      <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '-0.02em' }}>Season Record</h4>
+                      <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Season Record</h4>
                     </div>
                     <div className="grid grid-cols-3 sm:grid-cols-6 divide-x">
                       <button
@@ -4686,7 +4709,7 @@ export default function TeamYear() {
                     {/* Offense Card */}
                     <div className="card overflow-hidden">
                       <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
-                        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '-0.02em' }}>Offense</h4>
+                        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Offense</h4>
                       </div>
                       <div className="divide-y" style={{ '--tw-divide-opacity': 1, borderColor: `${accentColor}15` }}>
                         <div className="flex justify-between items-center px-4 py-2.5">
@@ -4711,7 +4734,7 @@ export default function TeamYear() {
                     {/* Passing Card */}
                     <div className="card overflow-hidden">
                       <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
-                        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '-0.02em' }}>Passing</h4>
+                        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Passing</h4>
                       </div>
                       <div className="divide-y" style={{ '--tw-divide-opacity': 1, borderColor: `${accentColor}15` }}>
                         <div className="flex justify-between items-center px-4 py-2.5">
@@ -4736,7 +4759,7 @@ export default function TeamYear() {
                     {/* Rushing Card */}
                     <div className="card overflow-hidden">
                       <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
-                        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '-0.02em' }}>Rushing</h4>
+                        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Rushing</h4>
                       </div>
                       <div className="divide-y" style={{ '--tw-divide-opacity': 1, borderColor: `${accentColor}15` }}>
                         <div className="flex justify-between items-center px-4 py-2.5">
@@ -4761,7 +4784,7 @@ export default function TeamYear() {
                     {/* Efficiency Card */}
                     <div className="card overflow-hidden">
                       <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
-                        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '-0.02em' }}>Efficiency</h4>
+                        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Efficiency</h4>
                       </div>
                       <div className="divide-y" style={{ '--tw-divide-opacity': 1, borderColor: `${accentColor}15` }}>
                         <div className="flex justify-between items-center px-4 py-2.5">
@@ -4790,7 +4813,7 @@ export default function TeamYear() {
                     {/* Turnovers Card */}
                     <div className="card overflow-hidden">
                       <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
-                        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '-0.02em' }}>Turnovers</h4>
+                        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Turnovers</h4>
                       </div>
                       <div className="divide-y" style={{ '--tw-divide-opacity': 1, borderColor: `${accentColor}15` }}>
                         <div className="flex justify-between items-center px-4 py-2.5">
@@ -4815,7 +4838,7 @@ export default function TeamYear() {
                     {/* Special Teams Card */}
                     <div className="card overflow-hidden">
                       <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
-                        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '-0.02em' }}>Special Teams & Misc</h4>
+                        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Special Teams & Misc</h4>
                       </div>
                       <div className="divide-y" style={{ '--tw-divide-opacity': 1, borderColor: `${accentColor}15` }}>
                         <div className="flex justify-between items-center px-4 py-2.5">
@@ -6405,7 +6428,7 @@ export default function TeamYear() {
               {/* PROGRAM RECORD + ACHIEVEMENTS (wider) */}
               <div className="card overflow-hidden lg:col-span-2">
                 <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px] flex items-center justify-between" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                  <h3 className="font-display font-bold leading-none text-txt-primary m-0" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>Program Record</h3>
+                  <h3 className="font-display font-bold leading-none text-txt-primary m-0" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Program Record</h3>
                   <span className="text-[10px] font-semibold uppercase tabular-nums text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{yearsWithRecords.length} season{yearsWithRecords.length !== 1 ? 's' : ''}</span>
                 </div>
                 <div className="p-4">
@@ -6445,7 +6468,7 @@ export default function TeamYear() {
               {(userCoachingYears.length > 0 || userVsTeamWins > 0 || userVsTeamLosses > 0) && (
                 <div className="card overflow-hidden">
                   <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                    <h3 className="font-display font-bold leading-none text-txt-primary m-0" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>Your History</h3>
+                    <h3 className="font-display font-bold leading-none text-txt-primary m-0" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Your History</h3>
                   </div>
                   <div className="p-4 grid grid-cols-2 lg:grid-cols-1 gap-4">
                     <div>
@@ -6485,7 +6508,7 @@ export default function TeamYear() {
             {/* SEASON HISTORY */}
             <div className="card overflow-hidden">
               <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px] flex items-center justify-between" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="font-display font-bold leading-none text-txt-primary m-0" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>Season History</h3>
+                <h3 className="font-display font-bold leading-none text-txt-primary m-0" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Season History</h3>
                 <span className="text-[10px] font-semibold uppercase tabular-nums text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{yearRecords.length} total</span>
               </div>
               <div className="overflow-x-auto">
@@ -6664,7 +6687,7 @@ export default function TeamYear() {
               return (
                 <div className="card overflow-hidden">
                   <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px] flex items-center justify-between gap-3 flex-wrap" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                    <h3 className="font-display font-bold leading-none text-txt-primary m-0" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>All-Time Leaders</h3>
+                    <h3 className="font-display font-bold leading-none text-txt-primary m-0" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', textTransform: 'uppercase' }}>All-Time Leaders</h3>
                     <div className="flex items-center gap-1">
                       {[
                         { key: 'career', label: 'Career' },

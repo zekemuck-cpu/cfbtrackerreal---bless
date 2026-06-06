@@ -198,9 +198,10 @@ export function useTickerSections(dynasty) {
         return {
           id: `g${i}`,
           team: opp,
-          label: isWin ? 'W' : 'L',
-          labelColor: isWin ? '#22c55e' : '#ef4444',
-          text: `${loc} ${formatScoreHighLow(info?.userScore ?? g.teamScore, info?.opponentScore ?? g.opponentScore)}`,
+          label: loc,
+          text: formatScoreHighLow(info?.userScore ?? g.teamScore, info?.opponentScore ?? g.opponentScore),
+          trailing: isWin ? 'W' : 'L',
+          trailingColor: isWin ? '#22c55e' : '#ef4444',
           link: g.id ? `/game/${g.id}` : null
         }
       })
@@ -664,8 +665,10 @@ export function useTickerSections(dynasty) {
           return {
             id: `g${i}`,
             team: opp,
-            label: isWin ? 'W' : 'L',
-            text: `${loc} ${formatScoreHighLow(info?.userScore ?? g.teamScore, info?.opponentScore ?? g.opponentScore)}`,
+            label: loc,
+            text: formatScoreHighLow(info?.userScore ?? g.teamScore, info?.opponentScore ?? g.opponentScore),
+            trailing: isWin ? 'W' : 'L',
+            trailingColor: isWin ? '#22c55e' : '#ef4444',
             link: g.id ? `/game/${g.id}` : null
           }
         })

@@ -79,7 +79,7 @@ export default function SortableStatsTable({
   return (
     <div className="card overflow-hidden">
       <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4">
-        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '-0.02em' }}>{title}</h4>
+        <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>{title}</h4>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -94,7 +94,7 @@ export default function SortableStatsTable({
                   <th
                     key={col.key}
                     onClick={() => onHeaderClick(col)}
-                    className={`${align} ${padX} py-2 font-semibold whitespace-nowrap ${sortable ? 'cursor-pointer select-none' : ''}`}
+                    className={`${align} ${padX} py-2 font-bold uppercase tracking-wider text-xs whitespace-nowrap ${sortable ? 'cursor-pointer select-none' : ''}`}
                     style={{
                       color: accentColor,
                       // Subtle hover affordance for sortable cols only.
@@ -131,7 +131,7 @@ export default function SortableStatsTable({
             {sorted.map((row, i) => (
               <tr
                 key={row.pid || i}
-                className="border-t"
+                className="border-t transition-colors hover:bg-white/[0.03]"
                 style={{ borderColor: `${accentColor}20` }}
               >
                 {columns.map(col => {
