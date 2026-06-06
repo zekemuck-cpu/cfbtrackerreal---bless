@@ -283,7 +283,11 @@ function TabBar({ tabs, activeKey, onSelect, accentColor }) {
             className={`px-2 sm:px-3 md:px-4 lg:px-6 py-3 font-bold uppercase tracking-wide whitespace-nowrap transition-colors ${
               isActive ? 'text-txt-primary' : 'text-txt-tertiary hover:text-txt-secondary'
             }`}
-            style={{ fontFamily: 'var(--font-display)', fontSize: '0.9rem' }}
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: '0.9rem',
+              backgroundImage: isActive ? `linear-gradient(to top, ${accentColor}30, transparent 70%)` : undefined,
+            }}
           >
             {tab.label}
           </button>
@@ -2592,7 +2596,7 @@ export default function TeamYear() {
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 -z-10"
         style={{
-          background: `linear-gradient(to bottom, ${teamInfo.backgroundColor}80 0%, ${teamInfo.backgroundColor}4d 28%, ${teamInfo.backgroundColor}38 62%, ${teamInfo.backgroundColor}2b 100%)`,
+          background: `linear-gradient(to bottom, ${teamInfo.backgroundColor}24 0%, ${teamInfo.backgroundColor}0d 20%, transparent 55%)`,
         }}
       />
       {/* Team Header */}
@@ -3395,15 +3399,15 @@ export default function TeamYear() {
                     (Was lg+ before — but the outer 3-col grid also moved
                     to xl, so between lg and xl the leaders should keep
                     the wide horizontal row instead of stacking early.) */}
-                <div className="hidden md:grid md:grid-cols-5 xl:grid-cols-1 stagger-reveal" style={{ borderTop: `1px solid ${accentColor}20`, borderBottom: `1px solid ${accentColor}20` }}>
+                <div className="hidden md:grid md:grid-cols-5 xl:grid-cols-1 stagger-reveal rounded-xl overflow-hidden" style={{ backgroundColor: teamInfo.backgroundColor, backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0) 55%), linear-gradient(180deg, rgba(0,0,0,0.28), rgba(0,0,0,0.55))' }}>
                   {leaders.map((l, idx) => (
                     <Link
                       key={l.key}
                       to={l.data.player ? `${pathPrefix}/player/${l.data.player.pid}` : '#'}
-                      className="group flex items-center gap-3 py-3 px-4 transition-colors hover:bg-white/[0.02]"
-                      style={idx > 0 ? { borderLeft: `1px solid ${accentColor}15` } : undefined}
+                      className="group flex items-center gap-3 py-3 px-4 transition-colors hover:bg-white/[0.06]"
+                      style={idx > 0 ? { borderLeft: `1px solid ${teamBgText}26` } : undefined}
                     >
-                      <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ border: `2px solid ${teamInfo.backgroundColor}40`, backgroundColor: `${accentColor}10` }}>
+                      <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ border: `2px solid ${teamBgText}99`, backgroundColor: 'rgba(255,255,255,0.10)' }}>
                         {/* Real player photo first (placeholder team-logo copies
                             ignored); else the team logo (rendered raw — the proxy
                             can choke on user-uploaded logo URLs); else initial. */}
@@ -3412,17 +3416,17 @@ export default function TeamYear() {
                         ) : teamLogo ? (
                           <img src={teamLogo} alt="" className="w-full h-full object-contain p-1.5" />
                         ) : (
-                          <span className="text-lg font-bold" style={{ color: accentColor }}>{l.data.name?.charAt(0) || l.fallback}</span>
+                          <span className="text-lg font-bold" style={{ color: teamBgText }}>{l.data.name?.charAt(0) || l.fallback}</span>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-txt-tertiary">{l.label}</div>
-                        <FittedPlayerName name={l.data.name} className="text-[13px] font-semibold group-hover:opacity-80 transition-opacity" style={{ color: accentColor }} />
-                        <div className="font-display font-black tabular-nums leading-none mt-0.5" style={{ color: accentColor, fontSize: '1.5rem' }}>
+                        <div className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: teamBgText, opacity: 0.7 }}>{l.label}</div>
+                        <FittedPlayerName name={l.data.name} className="text-[13px] font-semibold group-hover:opacity-80 transition-opacity" style={{ color: teamBgText }} />
+                        <div className="font-display font-black tabular-nums leading-none mt-0.5" style={{ color: teamBgText, fontSize: '1.5rem' }}>
                           {l.valueText}
-                          <span className="text-[10px] font-bold tracking-wider ml-1" style={{ color: accentColorMuted }}>{l.unit}</span>
+                          <span className="text-[10px] font-bold tracking-wider ml-1" style={{ color: teamBgText, opacity: 0.65 }}>{l.unit}</span>
                         </div>
-                        <div className="text-[10px] tabular-nums mt-0.5 truncate" style={{ color: accentColorMuted }}>{l.sub}</div>
+                        <div className="text-[10px] tabular-nums mt-0.5 truncate" style={{ color: teamBgText, opacity: 0.65 }}>{l.sub}</div>
                       </div>
                     </Link>
                   ))}
@@ -3450,8 +3454,8 @@ export default function TeamYear() {
                   </button>
                 </div>
                 <ul
-                  className="stagger-reveal"
-                  style={{ borderTop: `1px solid ${accentColor}20`, borderBottom: `1px solid ${accentColor}20` }}
+                  className="stagger-reveal rounded-xl overflow-hidden"
+                  style={{ backgroundColor: teamInfo.backgroundColor, backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0) 55%), linear-gradient(180deg, rgba(0,0,0,0.28), rgba(0,0,0,0.55))' }}
                 >
                   {topRated.map((p, idx) => {
                     const ovr = getPlayerOverallForYear(p, selectedYear)
@@ -3460,27 +3464,27 @@ export default function TeamYear() {
                     return (
                       <li
                         key={p.pid}
-                        style={idx > 0 ? { borderTop: `1px solid ${accentColor}12` } : undefined}
+                        style={idx > 0 ? { borderTop: `1px solid ${teamBgText}1f` } : undefined}
                       >
                         <Link
                           to={`${pathPrefix}/player/${p.pid}`}
-                          className="group flex items-center gap-3 py-2.5 px-2 transition-colors hover:bg-white/[0.02]"
+                          className="group flex items-center gap-3 py-2.5 px-3 transition-colors hover:bg-white/[0.06]"
                         >
-                          <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ border: `2px solid ${teamInfo.backgroundColor}40`, backgroundColor: `${accentColor}10` }}>
+                          <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ border: `2px solid ${teamBgText}99`, backgroundColor: 'rgba(255,255,255,0.10)' }}>
                             {/* Real photo first (placeholder logo copies ignored); else team logo (raw); else initial. */}
                             {realPhoto(p.pictureUrl) ? (
                               <img src={proxyImageUrl(realPhoto(p.pictureUrl), 300)} alt="" className="w-full h-full object-cover" />
                             ) : teamLogo ? (
                               <img src={teamLogo} alt="" className="w-full h-full object-contain p-1" />
                             ) : (
-                              <span className="text-sm font-bold" style={{ color: accentColor }}>{p.name?.charAt(0) || '?'}</span>
+                              <span className="text-sm font-bold" style={{ color: teamBgText }}>{p.name?.charAt(0) || '?'}</span>
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="text-[13px] font-semibold truncate group-hover:opacity-80 transition-opacity" style={{ color: accentColor }}>
+                            <div className="text-[13px] font-semibold truncate group-hover:opacity-80 transition-opacity" style={{ color: teamBgText }}>
                               {p.name}
                             </div>
-                            <div className="text-[10px] tabular-nums mt-0.5 truncate flex items-center gap-1.5" style={{ color: accentColorMuted }}>
+                            <div className="text-[10px] tabular-nums mt-0.5 truncate flex items-center gap-1.5" style={{ color: teamBgText, opacity: 0.65 }}>
                               <span>{pos || '—'}</span>
                               {cls && (<><span>{cls}</span></>)}
                               {p.devTrait && (
@@ -3489,10 +3493,10 @@ export default function TeamYear() {
                             </div>
                           </div>
                           <div className="flex-shrink-0 text-right">
-                            <div className="font-display font-black tabular-nums leading-none text-txt-primary" style={{ fontSize: '1.25rem' }}>
+                            <div className="font-display font-black tabular-nums leading-none" style={{ color: teamBgText, fontSize: '1.25rem' }}>
                               {ovr ?? '—'}
                             </div>
-                            <div className="text-[9px] font-bold tracking-wider mt-0.5" style={{ color: accentColorMuted }}>OVR</div>
+                            <div className="text-[9px] font-bold tracking-wider mt-0.5" style={{ color: teamBgText, opacity: 0.65 }}>OVR</div>
                           </div>
                         </Link>
                       </li>
@@ -3546,9 +3550,18 @@ export default function TeamYear() {
               {(() => {
                 const teamIsTeam1 = Number(lastGame.team1Tid) === Number(tid)
                 const teamRank = teamIsTeam1 ? lastGame.team1Rank : lastGame.team2Rank
+                const oppTid = teamIsTeam1 ? lastGame.team2Tid : lastGame.team1Tid
+                const userColor = teamInfo.backgroundColor
+                const oppColor = teamsSource?.[oppTid]?.primaryColor || '#374151'
+                const userSecondary = teamInfo.textColor || '#ffffff'
+                const oppSecondary = teamsSource?.[oppTid]?.secondaryColor || '#ffffff'
                 return (
-              <div className="flex items-center justify-between mb-5">
-                <div className="flex items-center gap-3 min-w-0">
+              <div
+                className="relative mb-5 rounded-xl overflow-hidden"
+                style={{ backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.34), rgba(0,0,0,0.52)), linear-gradient(100deg, ${userColor} 0%, ${userColor} 43%, ${oppColor} 57%, ${oppColor} 100%)` }}
+              >
+                <div className="flex items-stretch justify-between">
+                <div className="flex items-center gap-3 min-w-0 px-4 py-4">
                   {teamLogo && <img src={teamLogo} alt="" className="w-12 h-12 object-contain flex-shrink-0" />}
                   {/* Always render the rank-over-score stack so both sides
                       share the same vertical structure. When a side has no
@@ -3561,7 +3574,7 @@ export default function TeamYear() {
                   <div className="flex flex-col items-start min-w-0">
                     <span
                       className="text-[10px] font-semibold uppercase leading-tight"
-                      style={{ letterSpacing: '1.5px', color: 'var(--text-tertiary)' }}
+                      style={{ letterSpacing: '1.5px', color: '#fff', opacity: 0.7 }}
                     >
                       {teamRank ? `#${teamRank}` : ' '}
                     </span>
@@ -3569,45 +3582,41 @@ export default function TeamYear() {
                         legible at a glance without leaning on the W/L chip. */}
                     <span
                       className="text-5xl font-black tabular-nums leading-none"
-                      style={{ color: lastGameInfo.isWin ? 'var(--text-primary)' : 'var(--text-tertiary)', fontFamily: 'var(--font-display)' }}
+                      style={{ color: userSecondary, opacity: lastGameInfo.isWin ? 1 : 0.6, fontFamily: 'var(--font-display)' }}
                     >
                       {lastGameInfo.teamScore}
                     </span>
                   </div>
                 </div>
-                <div className="flex flex-col items-center gap-1 px-1 flex-shrink-0">
+                <div className="flex flex-col items-center justify-center gap-1 px-1 flex-shrink-0">
                   <span
-                    className={`text-[11px] font-black uppercase px-2.5 py-1 rounded-md ${lastGameInfo.isWin ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}
+                    className={`text-[11px] font-black uppercase px-2.5 py-1 rounded-md ${lastGameInfo.isWin ? 'bg-green-500/25 text-green-300' : 'bg-red-500/25 text-red-300'}`}
                     style={{ letterSpacing: '1px' }}
                   >
                     {lastGameInfo.isWin ? 'W' : 'L'}
                   </span>
-                  <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Final</span>
+                  <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: '#fff', opacity: 0.6 }}>Final</span>
                 </div>
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-3 min-w-0 px-4 py-4">
                   <div className="flex flex-col items-end min-w-0">
                     <span
                       className="text-[10px] font-semibold uppercase leading-tight"
-                      style={{ letterSpacing: '1.5px', color: 'var(--text-tertiary)' }}
+                      style={{ letterSpacing: '1.5px', color: '#fff', opacity: 0.7 }}
                     >
                       {lastGame.opponentRank ? `#${lastGame.opponentRank}` : ' '}
                     </span>
                     <span
                       className="text-5xl font-black tabular-nums leading-none"
-                      style={{ color: lastGameInfo.isWin ? 'var(--text-tertiary)' : 'var(--text-primary)', fontFamily: 'var(--font-display)' }}
+                      style={{ color: oppSecondary, opacity: lastGameInfo.isWin ? 0.6 : 1, fontFamily: 'var(--font-display)' }}
                     >
                       {lastGameInfo.oppScore}
                     </span>
                   </div>
                   {lastGameInfo.oppLogo && <img src={lastGameInfo.oppLogo} alt="" className="w-12 h-12 object-contain flex-shrink-0" />}
                 </div>
-              </div>
-                )
-              })()}
-
-              {/* Quick game stat leaders — divided rows, no box */}
-              {lastGameStats && (
-                <div className="pt-3 space-y-2 text-xs" style={{ borderTop: `1px solid var(--surface-4)` }}>
+                </div>
+                {lastGameStats && (
+                <div className="px-4 pb-4 pt-3 space-y-2 text-xs" style={{ borderTop: `1px solid rgba(255,255,255,0.14)` }}>
                   {[
                     { key: 'pass', label: 'Pass', fmt: (p) => `${p.comp}/${p.att} ${p.yards} yds` },
                     { key: 'rush', label: 'Rush', fmt: (p) => `${p.carries} car ${p.yards} yds` },
@@ -3620,15 +3629,15 @@ export default function TeamYear() {
                       <div key={key} className="grid grid-cols-[auto_1fr_1fr] items-center gap-4">
                         <span
                           className="font-bold uppercase"
-                          style={{ letterSpacing: '1.5px', color: 'var(--text-tertiary)', fontSize: '10px', minWidth: '34px' }}
+                          style={{ letterSpacing: '1.5px', color: '#fff', opacity: 0.55, fontSize: '10px', minWidth: '34px' }}
                         >
                           {label}
                         </span>
                         <div className="flex flex-col min-w-0">
                           {our ? (
                             <>
-                              <span className="font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{our.name}</span>
-                              <span className="tabular-nums" style={{ color: 'var(--text-tertiary)' }}>{fmt(our)}</span>
+                              <span className="font-semibold truncate" style={{ color: '#fff' }}>{our.name}</span>
+                              <span className="tabular-nums" style={{ color: '#fff', opacity: 0.7 }}>{fmt(our)}</span>
                             </>
                           ) : (
                             <span className="opacity-30">—</span>
@@ -3637,8 +3646,8 @@ export default function TeamYear() {
                         <div className="flex flex-col text-right min-w-0">
                           {opp ? (
                             <>
-                              <span className="font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{opp.name}</span>
-                              <span className="tabular-nums" style={{ color: 'var(--text-tertiary)' }}>{fmt(opp)}</span>
+                              <span className="font-semibold truncate" style={{ color: '#fff' }}>{opp.name}</span>
+                              <span className="tabular-nums" style={{ color: '#fff', opacity: 0.7 }}>{fmt(opp)}</span>
                             </>
                           ) : (
                             <span className="opacity-30">—</span>
@@ -3648,7 +3657,10 @@ export default function TeamYear() {
                     )
                   })}
                 </div>
-              )}
+                )}
+              </div>
+                )
+              })()}
             </Link>
           )}
 
@@ -3681,6 +3693,12 @@ export default function TeamYear() {
                   return { ...g, ourScore, oppScore, won }
                 })
 
+              const ngOppTid = resolveTid(nextGameInfo.oppAbbr, teamsSource)
+              const userColor = teamInfo.backgroundColor
+              const oppColor = teamsSource?.[ngOppTid]?.primaryColor || '#374151'
+              const userSecondary = teamInfo.textColor || '#ffffff'
+              const oppSecondary = teamsSource?.[ngOppTid]?.secondaryColor || '#ffffff'
+
               return (
                 // Clickable card (not a <Link>) so the nested "previous meeting"
                 // <Link>s below remain valid — <a> can't contain <a>.
@@ -3706,36 +3724,39 @@ export default function TeamYear() {
                     </span>
                   </div>
 
-                  {/* Matchup row */}
-                  <div className="flex items-center justify-between mb-5">
-                    <div className="flex items-center gap-3 min-w-0">
+                  {/* Matchup row — split by both teams' colors */}
+                  <div
+                    className="relative flex items-stretch justify-between mb-5 rounded-xl overflow-hidden"
+                    style={{ backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.34), rgba(0,0,0,0.58)), linear-gradient(100deg, ${userColor} 0%, ${userColor} 43%, ${oppColor} 57%, ${oppColor} 100%)` }}
+                  >
+                    <div className="flex items-center gap-3 min-w-0 px-4 py-4" style={{ borderBottom: `4px solid ${userSecondary}` }}>
                       {teamLogo && <img src={teamLogo} alt="" className="w-11 h-11 object-contain flex-shrink-0" />}
                       <span
                         className="text-base font-bold uppercase truncate"
-                        style={{ letterSpacing: '1px', color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}
+                        style={{ letterSpacing: '1px', color: userSecondary, fontFamily: 'var(--font-display)' }}
                       >
                         {teamAbbr}
                       </span>
                     </div>
                     <span
-                      className="text-[10px] font-bold uppercase px-2"
-                      style={{ letterSpacing: '2px', color: 'var(--text-tertiary)' }}
+                      className="flex items-center text-[10px] font-bold uppercase px-2 flex-shrink-0"
+                      style={{ letterSpacing: '2px', color: '#fff', opacity: 0.6 }}
                     >
                       {nextGameInfo.location === 'away' ? 'at' : 'vs'}
                     </span>
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-3 min-w-0 px-4 py-4" style={{ borderBottom: `4px solid ${oppSecondary}` }}>
                       <span
                         className="text-base font-bold uppercase text-right truncate"
-                        style={{ letterSpacing: '1px', color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}
+                        style={{ letterSpacing: '1px', color: oppSecondary, fontFamily: 'var(--font-display)' }}
                       >
-                        {nextGame.opponentRank && <span style={{ color: 'var(--text-tertiary)' }}>#{nextGame.opponentRank} </span>}
+                        {nextGame.opponentRank && <span style={{ color: '#fff', opacity: 0.7 }}>#{nextGame.opponentRank} </span>}
                         {nextGameInfo.oppAbbr}
                       </span>
                       {nextGameInfo.oppLogo ? (
                         <img src={nextGameInfo.oppLogo} alt="" className="w-11 h-11 object-contain flex-shrink-0" />
                       ) : (
-                        <div className="w-11 h-11 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}10` }}>
-                          <span className="text-base font-bold" style={{ color: accentColor, fontFamily: 'var(--font-display)' }}>{nextGameInfo.oppAbbr?.charAt(0)}</span>
+                        <div className="w-11 h-11 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
+                          <span className="text-base font-bold" style={{ color: oppSecondary, fontFamily: 'var(--font-display)' }}>{nextGameInfo.oppAbbr?.charAt(0)}</span>
                         </div>
                       )}
                     </div>
@@ -3797,6 +3818,7 @@ export default function TeamYear() {
               const oppAbbr = getAbbrFromTeamName(rawOpp) || rawOpp
               const oppTeam = getTeamByAbbr(teamsSource, oppAbbr)
               const oppLogo = oppTeam?.logo || (oppTeam?.name ? getTeamLogo(oppTeam.name, teamsSource) : null)
+              const oppColor = oppTeam?.primaryColor || '#374151'
               const result = game._isFlippedPerspective ? game._displayResult : game.result
               const location = game._isFlippedPerspective ? game._displayLocation : game.location
               const teamScore = game._isFlippedPerspective ? game._displayTeamScore : game.teamScore
@@ -3809,8 +3831,12 @@ export default function TeamYear() {
                 <Link
                   key={game.id || index}
                   to={`${pathPrefix}/game/${game.id}`}
-                  className="flex items-center gap-2 py-2 transition-opacity hover:opacity-80"
-                  style={{ borderBottom: `1px solid var(--surface-4)` }}
+                  className="flex items-center gap-2 py-2 pl-3 transition-opacity hover:opacity-90"
+                  style={{
+                    borderBottom: `1px solid var(--surface-4)`,
+                    borderLeft: `4px solid ${oppColor}`,
+                    background: `linear-gradient(90deg, ${oppColor}66 0%, ${oppColor}40 55%, ${oppColor}24 100%)`,
+                  }}
                 >
                   <span
                     className="text-[10px] font-bold uppercase w-10 flex-shrink-0 tabular-nums"
@@ -5087,11 +5113,12 @@ export default function TeamYear() {
               const isHomeGame = displayLocation === 'home' || displayLocation === 'Home'
               const gameContent = (
                 <div
-                  className="relative py-2.5 sm:py-3 transition-all duration-200 bg-surface-2"
+                  className="relative py-2.5 sm:py-3 transition-all duration-200"
                   style={{
                     paddingLeft: '1rem',
                     paddingRight: '1rem',
-                    borderLeft: isHomeGame ? `4px solid ${teamInfo.backgroundColor}` : '4px solid transparent'
+                    borderLeft: `4px solid ${oppColors.backgroundColor || '#6b7280'}`,
+                    background: `linear-gradient(90deg, ${oppColors.backgroundColor || '#6b7280'}4d 0%, ${oppColors.backgroundColor || '#6b7280'}1f 42%, var(--surface-2) 82%)`,
                   }}
                 >
                   {/* Main game row */}
@@ -6768,7 +6795,7 @@ export default function TeamYear() {
                             </span>
                             <span
                               className="text-[9px] font-semibold uppercase tabular-nums"
-                              style={{ letterSpacing: '1.5px', color: 'var(--text-tertiary)' }}
+                              style={{ letterSpacing: '1.5px', color: '#fff', opacity: 0.7 }}
                             >
                               Top {sortedLeaders.length || 5}
                             </span>
@@ -6778,7 +6805,7 @@ export default function TeamYear() {
                           {sortedLeaders.length === 0 ? (
                             <div
                               className="py-2 text-[11px] uppercase"
-                              style={{ letterSpacing: '1.5px', color: 'var(--text-tertiary)' }}
+                              style={{ letterSpacing: '1.5px', color: '#fff', opacity: 0.7 }}
                             >
                               No data
                             </div>
