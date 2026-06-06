@@ -2590,15 +2590,18 @@ export default function TeamYear() {
 
   return (
     <div className="space-y-4 sm:space-y-6 relative isolate">
-      {/* Team-color wash — the banner's color bleeds down the page so the whole
-          team page reads as the team's, fading into the dark surface. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          background: `linear-gradient(to bottom, ${teamInfo.backgroundColor}24 0%, ${teamInfo.backgroundColor}0d 20%, transparent 55%)`,
-        }}
-      />
+      {/* Team-color wash — only on Home, where the team-colored sections sit on
+          top of it. On the table-heavy tabs (Stats/Roster/etc.) it just shows
+          behind the tables as an off-looking gradient, so it's scoped out. */}
+      {activeTab === 'home' && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10"
+          style={{
+            background: `linear-gradient(to bottom, ${teamInfo.backgroundColor}24 0%, ${teamInfo.backgroundColor}0d 20%, transparent 55%)`,
+          }}
+        />
+      )}
       {/* Team Header */}
       <div
         className="card overflow-hidden relative reveal"
