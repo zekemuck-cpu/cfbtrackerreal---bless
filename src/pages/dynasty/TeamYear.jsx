@@ -3556,8 +3556,6 @@ export default function TeamYear() {
                 const oppTid = teamIsTeam1 ? lastGame.team2Tid : lastGame.team1Tid
                 const userColor = teamInfo.backgroundColor
                 const oppColor = teamsSource?.[oppTid]?.primaryColor || '#374151'
-                const userSecondary = teamInfo.textColor || '#ffffff'
-                const oppSecondary = teamsSource?.[oppTid]?.secondaryColor || '#ffffff'
                 return (
               <div
                 className="relative mb-5 rounded-xl overflow-hidden"
@@ -3585,7 +3583,7 @@ export default function TeamYear() {
                         legible at a glance without leaning on the W/L chip. */}
                     <span
                       className="text-5xl font-black tabular-nums leading-none"
-                      style={{ color: userSecondary, opacity: lastGameInfo.isWin ? 1 : 0.6, fontFamily: 'var(--font-display)' }}
+                      style={{ color: '#fff', opacity: lastGameInfo.isWin ? 1 : 0.6, fontFamily: 'var(--font-display)' }}
                     >
                       {lastGameInfo.teamScore}
                     </span>
@@ -3610,7 +3608,7 @@ export default function TeamYear() {
                     </span>
                     <span
                       className="text-5xl font-black tabular-nums leading-none"
-                      style={{ color: oppSecondary, opacity: lastGameInfo.isWin ? 0.6 : 1, fontFamily: 'var(--font-display)' }}
+                      style={{ color: '#fff', opacity: lastGameInfo.isWin ? 0.6 : 1, fontFamily: 'var(--font-display)' }}
                     >
                       {lastGameInfo.oppScore}
                     </span>
