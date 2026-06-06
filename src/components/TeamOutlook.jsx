@@ -814,18 +814,18 @@ function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode
       <div className="relative z-[1] px-2 py-1.5 lg:hidden">
         <div className="flex items-center gap-1 min-w-0">
           {hasJersey && (
-            <span className="shrink-0 text-xs font-bold tabular-nums text-txt-secondary">#{tile.jerseyNumber}</span>
+            <span className="shrink-0 text-[9px] font-bold tabular-nums text-txt-secondary leading-tight">#{tile.jerseyNumber}</span>
           )}
-          <PlayerName name={tile.name} strike={leaving} />
+          <PlayerName name={tile.name} strike={leaving} textClass="text-[9px] font-medium leading-tight" />
           {isCaptain && (
             <img src={CAPTAIN_PATCH_URL} alt="Team Captain" draggable={false}
-              className="shrink-0 w-3.5 h-3.5 object-contain pointer-events-none" />
+              className="shrink-0 w-3 h-3 object-contain pointer-events-none" />
           )}
         </div>
-        <div className="flex items-center gap-1 mt-1 text-[10px] text-txt-tertiary min-w-0">
+        <div className="flex items-center gap-1 mt-0.5 text-[8px] text-txt-tertiary min-w-0">
           <Avatar url={photoUrl} fallback={teamLogo} />
           <span className="truncate">{tile.projectedClass}</span>
-          <span className="ml-auto tabular-nums font-bold text-sm shrink-0" style={{ color: ovrColor(tile.projectedOvr) }}>{tile.projectedOvr ?? '—'}</span>
+          <span className="ml-auto tabular-nums font-bold text-[11px] shrink-0" style={{ color: ovrColor(tile.projectedOvr) }}>{tile.projectedOvr ?? '—'}</span>
           {marker && <span className="font-bold uppercase tracking-wide shrink-0" style={{ color: markerColor }}>{marker}</span>}
         </div>
       </div>
