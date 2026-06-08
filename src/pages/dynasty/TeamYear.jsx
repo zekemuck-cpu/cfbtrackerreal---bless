@@ -2505,7 +2505,7 @@ export default function TeamYear() {
         {!isViewOnly && (
           <button
             onClick={() => setShowTeamEditModal(true)}
-            className="sm:hidden absolute top-3 right-3 z-[1] p-2 rounded-lg hover:bg-black/20 transition-colors"
+            className="sm:hidden absolute bottom-3 right-3 z-[1] p-2 rounded-lg hover:bg-black/20 transition-colors"
             style={{ color: teamBgText }}
             title="Edit Team Info"
           >
@@ -2514,9 +2514,11 @@ export default function TeamYear() {
             </svg>
           </button>
         )}
-        <div className="relative p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-          {/* LEFT: logo + identity (name / season / record) */}
-          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+        <div className="relative p-4 sm:p-5 flex flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+          {/* LEFT: logo + identity (name / season / record). flex-1 so the
+              name truncates instead of shoving the rating rings off-screen on
+              mobile, where the rings now sit inline at the top-right. */}
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
           {teamLogo && (
             <div
               className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center flex-shrink-0 bg-white overflow-hidden"
@@ -2585,7 +2587,7 @@ export default function TeamYear() {
                   changes teams. */}
               <div className="relative inline-flex items-center gap-1.5 min-w-0">
                 <div className="leading-[0.92] min-w-0">
-                  <div className="font-display font-extrabold uppercase tracking-tight truncate" style={{ color: teamBgText, fontSize: 'clamp(1.375rem, 2.6vw, 2.125rem)' }}>
+                  <div className="font-display font-extrabold uppercase tracking-tight truncate" style={{ color: teamBgText, fontSize: 'clamp(1.125rem, 2.6vw, 2.125rem)' }}>
                     {getSchoolName(mascotName) || teamInfo.name}
                   </div>
                   {(() => {

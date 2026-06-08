@@ -4,8 +4,9 @@ import { Link, useParams, useNavigate, useLocation, useSearchParams } from 'reac
 import { useDynasty, getRecruitingCommitments, lookupByTeamYear } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import RecruitingCommitmentsModal from '../../components/RecruitingCommitmentsModal'
-import { TEAMS, resolveTid, getCurrentTeamAbbr, getTidFromAbbr, getOriginalTeamAbbr } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getCurrentTeamAbbr, getTidFromAbbr, getOriginalTeamAbbr, getColorsFromTid } from '../../data/teamRegistry'
 import { getTeamLogoByTid, stripMascotFromName } from '../../data/teams'
+import { getContrastTextColor } from '../../utils/colorUtils'
 import { PageHero, Card, Badge, Button, Select, EmptyState, TeamLogo } from '../../components/ui'
 import Modal from '../../components/ui/Modal'
 import { calculateRecruitingClassScore, formatRecruitingClassScore, flattenClassCommitments } from '../../utils/recruitingScore'
@@ -164,6 +165,12 @@ export default function Recruiting() {
   const selectedYear = urlYear === 'all' ? 'all' : (urlYear ? Number(urlYear) : currentDynasty?.currentYear)
 
   const teamFullName = team?.name || baseTeam?.name || teamAbbr
+
+  // The whole page belongs to ONE team's class — wash it in that team's
+  // colors (hero, toolbar accent, and every recruit card).
+  const teamColorsRaw = getColorsFromTid(currentDynasty?.teams, selectedTid) || { primary: '#1f2937', secondary: '#f3f4f6' }
+  const teamAccent = teamColorsRaw.primary || '#1f2937'
+  const teamBgText = getContrastTextColor(teamAccent)
 
   const teamsSource = currentDynasty?.teams || TEAMS
 
@@ -832,10 +839,24 @@ export default function Recruiting() {
           on behalf of another coach. Silent for commish/co-commishes. */}
       <TeamPermissionBanner tids={selectedTid ? [selectedTid] : []} />
 
-      <PageHero
-        title="Recruiting Class"
-        meta={
-          <span className="group inline-flex items-baseline flex-wrap gap-x-2 text-[clamp(1.1rem,2.2vw,1.5rem)] font-bold text-txt-secondary">
+      <section
+        className="card overflow-hidden relative reveal"
+        style={{
+          backgroundColor: teamAccent,
+          backgroundImage:
+            'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 44%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.44) 100%)',
+        }}
+      >
+        <div className="relative px-6 py-5 sm:px-8 sm:py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="min-w-0">
+            <h1
+              className="font-display font-extrabold uppercase leading-none m-0 break-words"
+              style={{ color: teamBgText, fontSize: 'clamp(1.6rem, 4vw, 2.6rem)' }}
+            >
+              Recruiting Class
+            </h1>
+            <div className="mt-2">
+              <span className="group inline-flex items-baseline flex-wrap gap-x-2 text-[clamp(1.1rem,2.2vw,1.5rem)] font-bold" style={{ color: teamBgText, opacity: 0.92 }}>
             {/* Inline year selector (falls back to "All Seasons") */}
             <span className="relative inline-flex items-baseline">
               <span className="tabular-nums" aria-hidden="true">
@@ -892,18 +913,28 @@ export default function Recruiting() {
                 </>
               )}
             </span>
-          </span>
-        }
-        actions={
-          !isViewOnly && !isAllSeasons ? (
-            <Button variant="primary" size="sm" onClick={() => setShowEditModal(true)}>
+              </span>
+            </div>
+          </div>
+          {!isViewOnly && !isAllSeasons && (
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="self-start sm:self-center flex-shrink-0 px-4 py-1.5 rounded-lg font-display font-bold uppercase tracking-wide text-sm hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: teamBgText, color: teamAccent }}
+            >
               Edit
-            </Button>
-          ) : null
-        }
-      />
+            </button>
+          )}
+        </div>
+      </section>
 
-      <div className="media-card overflow-hidden">
+      <div
+        className="media-card overflow-hidden"
+        style={{
+          borderLeft: `3px solid ${teamAccent}`,
+          backgroundImage: `linear-gradient(90deg, ${teamAccent}24 0%, ${teamAccent}0d 16%, transparent 40%)`,
+        }}
+      >
         {/* Toolbar — stacks vertically on mobile so each block (metrics,
             view toggle, star filters) gets a full-width row instead of
             cramming together and wrapping awkwardly. From md: up they sit
@@ -958,9 +989,9 @@ export default function Recruiting() {
                     key={opt.value}
                     onClick={() => setViewMode(opt.value)}
                     className={`px-2.5 py-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider transition-colors ${
-                      active ? 'text-txt-primary' : 'text-txt-tertiary hover:text-txt-primary hover:bg-surface-3'
+                      active ? '' : 'text-txt-tertiary hover:text-txt-primary hover:bg-surface-3'
                     }`}
-                    style={active ? { backgroundColor: 'var(--surface-3)' } : undefined}
+                    style={active ? { backgroundColor: teamAccent, color: teamBgText } : undefined}
                   >
                     {opt.label} <span className="tabular opacity-70">{count}</span>
                   </button>
@@ -1080,6 +1111,10 @@ export default function Recruiting() {
                 variant="bordered"
                 interactive={!!linkPid}
                 className="h-full overflow-hidden group"
+                style={{
+                  borderColor: `${teamAccent}59`,
+                  backgroundImage: `linear-gradient(160deg, ${teamAccent}24 0%, ${teamAccent}0d 46%, transparent 100%)`,
+                }}
               >
                 <div className="p-2 sm:p-3 flex flex-col h-full gap-1.5 sm:gap-2.5">
                   {/* === IDENTITY BAND === photo + name + pos·class + stars,
@@ -1094,12 +1129,12 @@ export default function Recruiting() {
                         src={proxyImageUrl(player.pictureUrl, 300)}
                         alt={recruit.name}
                         className="w-11 h-11 sm:w-14 sm:h-14 object-cover rounded-md flex-shrink-0"
-                        style={{ border: '1px solid var(--surface-4)' }}
+                        style={{ border: `1px solid ${teamAccent}` }}
                       />
                     ) : (
                       <div
                         className="w-11 h-11 sm:w-14 sm:h-14 rounded-md flex-shrink-0 flex items-center justify-center"
-                        style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
+                        style={{ backgroundColor: 'var(--surface-3)', border: `1px solid ${teamAccent}` }}
                       >
                         <span
                           className="text-xs sm:text-sm font-black uppercase tracking-wide text-txt-secondary tabular-nums"
@@ -1155,8 +1190,8 @@ export default function Recruiting() {
                     <div
                       className="grid grid-cols-3 gap-1 sm:gap-2 py-1.5 sm:py-2"
                       style={{
-                        borderTop: '1px solid var(--surface-4)',
-                        borderBottom: '1px solid var(--surface-4)',
+                        borderTop: `1px solid ${teamAccent}40`,
+                        borderBottom: `1px solid ${teamAccent}40`,
                       }}
                     >
                       <div className="text-center">
@@ -1176,8 +1211,8 @@ export default function Recruiting() {
                       <div
                         className="text-center"
                         style={{
-                          borderLeft: '1px solid var(--surface-4)',
-                          borderRight: '1px solid var(--surface-4)',
+                          borderLeft: `1px solid ${teamAccent}40`,
+                          borderRight: `1px solid ${teamAccent}40`,
                         }}
                       >
                         <div
@@ -1243,7 +1278,7 @@ export default function Recruiting() {
                   {showBottomChips && (
                     <div
                       className="mt-auto pt-1.5 sm:pt-2 flex justify-center"
-                      style={{ borderTop: '1px solid var(--surface-4)' }}
+                      style={{ borderTop: `1px solid ${teamAccent}40` }}
                     >
                       {showFromChip ? (() => {
                         // Paint the FROM chip in the previous school's
@@ -1290,8 +1325,9 @@ export default function Recruiting() {
                           className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest"
                           style={{
                             letterSpacing: '1.5px',
-                            color: 'var(--text-tertiary)',
-                            border: '1px solid var(--surface-5)',
+                            color: teamBgText,
+                            backgroundColor: teamAccent,
+                            border: `1px solid ${teamAccent}`,
                           }}
                         >
                           High School

@@ -16,7 +16,7 @@ import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamLogo, getTeamLogoByTid, getMascotName as getMascotNameFromTeams, getSchoolName as getSchoolNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
-import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFromAbbr, getColorsFromTid } from '../../data/teamRegistry'
 import { sideOfPosition } from '../../utils/outlookBoard'
 import { getTeamColors } from '../../data/teamColors'
 import { getAwardImage } from '../../data/awardImages'
@@ -1729,11 +1729,12 @@ function PlayerInner() {
           backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 44%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.44) 100%)',
         }}
       >
-        {/* Edit button — pinned to the corner so it never becomes a stray row. */}
+        {/* Edit button — desktop: pinned top-right. On mobile the small OVR
+            ring takes this corner instead and edit relocates below the meta. */}
         {!isViewOnly && (
           <button
             onClick={() => navigate(`${pathPrefix}/player/${pid}/edit`)}
-            className="absolute top-3 right-3 z-[1] p-2 rounded-lg hover:bg-black/20 transition-colors"
+            className="hidden sm:block absolute top-3 right-3 z-[1] p-2 rounded-lg hover:bg-black/20 transition-colors"
             style={{ color: teamBgText }}
             title="Edit Player"
           >
@@ -1742,6 +1743,21 @@ function PlayerInner() {
             </svg>
           </button>
         )}
+        {/* Mobile: compact OVR ring pinned to the top-right corner (replaces the
+            big right-rail ring that wasted a whole row on phones). Tap → progression. */}
+        {(() => {
+          const currentOvr = player.overallByYear?.[currentYear] || player.overallByYear?.[String(currentYear)] || player.overall
+          if (!currentOvr) return null
+          return (
+            <button
+              onClick={() => setShowOverallProgressionModal(true)}
+              className="sm:hidden absolute top-3 right-3 z-[1] hover:opacity-85 transition-opacity"
+              title="View overall progression"
+            >
+              <StatRings items={[{ label: 'OVR', value: currentOvr }]} ringColor={teamBgText} textColor={teamBgText} size="sm" />
+            </button>
+          )
+        })()}
         <div className="relative p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           {/* LEFT: photo + identity */}
           <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0 flex-1">
@@ -1755,8 +1771,9 @@ function PlayerInner() {
               />
             )}
             <div className="min-w-0 flex-1">
-              {/* Name + captain */}
-              <div className="flex items-center gap-2 min-w-0 pr-8">
+              {/* Name + captain (extra right padding on mobile clears the
+                  pinned OVR ring; desktop clears the edit button) */}
+              <div className="flex items-center gap-2 min-w-0 pr-14 sm:pr-8">
                 <h1
                   className="font-display font-extrabold uppercase tracking-tight leading-none truncate"
                   style={{ color: teamBgText, fontSize: 'clamp(1.45rem, 3.2vw, 2.5rem)' }}
@@ -1923,10 +1940,29 @@ function PlayerInner() {
                 )}
               </div>
 
+              {/* Mobile-only edit — relocated here since the OVR ring now owns
+                  the top-right corner on phones. */}
+              {!isViewOnly && (
+                <div className="sm:hidden mt-3 flex justify-end">
+                  <button
+                    onClick={() => navigate(`${pathPrefix}/player/${pid}/edit`)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide hover:bg-black/20 transition-colors"
+                    style={{ color: teamBgText, border: `1px solid ${teamBgText}55` }}
+                    title="Edit Player"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit
+                  </button>
+                </div>
+              )}
+
             </div>
           </div>
 
           {/* RIGHT: OVR ring — broadcast-style, clickable to progression.
+              Desktop only; mobile uses the compact ring pinned top-right.
               Hidden entirely when the player has no overall on file. */}
           {(() => {
             const currentOvr = player.overallByYear?.[currentYear] || player.overallByYear?.[String(currentYear)] || player.overall
@@ -1934,7 +1970,7 @@ function PlayerInner() {
             return (
               <button
                 onClick={() => setShowOverallProgressionModal(true)}
-                className="self-start sm:self-center flex-shrink-0 hover:opacity-85 transition-opacity"
+                className="hidden sm:block sm:self-center flex-shrink-0 hover:opacity-85 transition-opacity"
                 title="View overall progression"
               >
                 <StatRings items={[{ label: 'OVR', value: currentOvr }]} ringColor={teamBgText} textColor={teamBgText} size="lg" />
@@ -2445,6 +2481,12 @@ function PlayerInner() {
                       const resultBg = isWin ? 'rgba(16, 185, 129, 0.12)' : isLoss ? 'rgba(239, 68, 68, 0.12)' : 'transparent'
                       const resultColor = isWin ? '#10b981' : isLoss ? '#ef4444' : secondaryText
                       const oppLogo = game.opponentTid ? getTeamLogoByTid(game.opponentTid, dynasty.teams) : null
+                      // Opponent team color → broadcast-style row wash + logo chip
+                      const oppColors = game.opponentTid != null ? getColorsFromTid(dynasty.teams, game.opponentTid) : null
+                      const oppPrimary = oppColors?.primary || null
+                      const rowGradient = oppPrimary
+                        ? `linear-gradient(to right, color-mix(in srgb, ${oppPrimary} 32%, transparent) 0%, color-mix(in srgb, ${oppPrimary} 11%, transparent) 52%, transparent 84%)`
+                        : undefined
                       let statDisplay = ''
                       if (stats?.category === 'passing') {
                         const c = stats.comp ?? stats.cmp ?? stats.completions ?? 0
@@ -2479,8 +2521,8 @@ function PlayerInner() {
                         <RowWrap
                           key={idx}
                           {...rowProps}
-                          className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/[0.04] cursor-pointer"
-                          style={{ borderLeft: `3px solid ${resultColor}` }}
+                          className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/[0.06] cursor-pointer"
+                          style={{ background: rowGradient, boxShadow: `inset 3px 0 0 0 ${resultColor}` }}
                         >
                           {/* Date / week column */}
                           <div className="flex-shrink-0 w-11 text-center">
@@ -2489,7 +2531,14 @@ function PlayerInner() {
                           </div>
                           {/* Opponent + inline stat line */}
                           <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                            {oppLogo && <img src={oppLogo} alt="" className="w-7 h-7 object-contain flex-shrink-0" />}
+                            {oppLogo && (
+                              <div
+                                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-white"
+                                style={{ boxShadow: oppPrimary ? `0 0 0 1.5px ${oppPrimary}` : '0 0 0 1px rgba(0,0,0,0.1)', padding: '4px' }}
+                              >
+                                <img src={oppLogo} alt="" className="w-full h-full object-contain" />
+                              </div>
+                            )}
                             <div className="min-w-0">
                               <div className="flex items-baseline gap-1.5">
                                 <span className="text-[10px] uppercase tracking-wider" style={{ color: secondaryText }}>{locationPrefix}</span>

@@ -334,26 +334,29 @@ export default function Rankings() {
     const isLeader = rank === 1
     const isTopFive = rank <= 5
 
+    const primary = colors.primary || '#6e6e78'
+    // Broadcast-style left-anchored team wash (stronger on the left, fading to
+    // transparent) + a crisp inset color spine — same treatment as the Weekly
+    // Scores game cards, so each row reads unmistakably as "that team."
+    const rowGradient = `linear-gradient(to right, color-mix(in srgb, ${primary} ${isLeader ? 60 : 46}%, transparent) 0%, color-mix(in srgb, ${primary} ${isLeader ? 26 : 18}%, transparent) 48%, transparent 84%)`
+
     return (
       <Link
         to={`${pathPrefix}/team/${linkTid}/${year}`}
-        className="ranking-row group relative flex items-center gap-3 px-3 transition-all duration-150"
+        className="ranking-row group relative flex items-center gap-3 px-3 sm:px-4 transition-all duration-150 hover:brightness-125"
         style={{
-          borderBottom: '1px solid var(--surface-4)',
-          borderLeft: `3px solid ${colors.primary || 'var(--surface-4)'}`,
-          paddingTop: isLeader ? '12px' : '10px',
-          paddingBottom: isLeader ? '12px' : '10px',
-          // Subtle team-color tint so each row is recognizably "that team"
-          // without overwhelming the page. Leader gets a slightly stronger
-          // tint to maintain the #1-stands-out emphasis the row already had.
-          backgroundColor: `color-mix(in srgb, ${colors.primary || 'var(--surface-3)'} ${isLeader ? 22 : 12}%, transparent)`,
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          paddingTop: isLeader ? '14px' : '11px',
+          paddingBottom: isLeader ? '14px' : '11px',
+          background: rowGradient,
+          boxShadow: `inset 4px 0 0 0 ${primary}`,
         }}
       >
         <span
           className="text-right font-display font-black tabular leading-none flex-shrink-0"
           style={{
             width: isLeader ? '40px' : '32px',
-            fontSize: isLeader ? '24px' : isTopFive ? '17px' : '14px',
+            fontSize: isLeader ? '26px' : isTopFive ? '19px' : '15px',
             color: isLeader ? 'var(--text-primary)' : isTopFive ? 'var(--text-secondary)' : 'var(--text-tertiary)',
             letterSpacing: '-0.02em',
           }}
@@ -361,38 +364,32 @@ export default function Rankings() {
           {rank}
         </span>
         <div
-          className={`logo-container ${isLeader ? 'logo-container-lg' : 'logo-container-md'} flex-shrink-0 transition-transform duration-200 group-hover:scale-110`}
+          className={`logo-container ${isLeader ? 'logo-container-xl' : 'logo-container-lg'} flex-shrink-0 transition-transform duration-200 group-hover:scale-110`}
         >
           {teamLogo ? (
             <img src={teamLogo} alt="" />
           ) : (
             <div
               className="w-full h-full rounded-full flex items-center justify-center text-xs font-bold"
-              style={{ backgroundColor: colors.primary, color: colors.secondary }}
+              style={{ backgroundColor: primary, color: colors.secondary }}
             >
               {(resolvedAbbr || '').charAt(0)}
             </div>
           )}
         </div>
         <span
-          className="flex-1 truncate transition-colors group-hover:text-txt-primary"
+          className="flex-1 truncate font-display font-bold uppercase tracking-tight text-txt-primary leading-none"
           style={{
-            color: 'var(--text-primary)',
-            fontSize: isLeader ? '17px' : '14px',
-            fontWeight: isLeader ? 700 : isTopFive ? 600 : 500,
-            letterSpacing: isLeader ? '-0.01em' : 0,
+            fontSize: isLeader ? 'clamp(1.05rem, 2vw, 1.3rem)' : isTopFive ? '1.02rem' : '0.95rem',
+            letterSpacing: '0.01em',
           }}
         >
           {getSchoolName(mascotName) || resolvedAbbr}
         </span>
         {record && (
           <span
-            className="tabular flex-shrink-0"
-            style={{
-              fontSize: isLeader ? '14px' : '12px',
-              color: 'var(--text-primary)',
-              fontWeight: isLeader ? 600 : 500,
-            }}
+            className="tabular-nums flex-shrink-0 font-display font-bold text-txt-primary"
+            style={{ fontSize: isLeader ? '15px' : '13px' }}
           >
             {record.wins}-{record.losses}
           </span>
