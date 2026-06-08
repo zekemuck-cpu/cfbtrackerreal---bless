@@ -9844,18 +9844,22 @@ export function DynastyProvider({ children }) {
     )
     console.log('[saveCPUCC] User conference:', userConference)
     console.log('[saveCPUCC] Championships includes user conf:', championshipsIncludesUserConf)
-    const shouldPreserveUserCCGame = userCCGame && !championshipsIncludesUserConf
+    // Always preserve the user's existing CC game regardless of whether the sheet includes
+    // their conference. When the sheet DOES include the user's conf we patch the scores/ranks
+    // into the preserved game rather than replacing it with a sparse new entry — this keeps
+    // gameNote, links, id, createdAt, and any other rich data the user entered.
+    const shouldPreserveUserCCGame = !!userCCGame
 
     // Filter out existing conference championship games for this year to avoid duplicates
-    // EXCEPT preserve user's CC game if it's not in the incoming data
+    // EXCEPT preserve user's CC game unconditionally
     const filteredGames = existingGames.filter(g => {
       // Keep games from different years
       if (Number(g.year) !== Number(year)) return true
       // Keep non-CC games
       if (!g.isConferenceChampionship) return true
-      // Preserve user's CC game if their conference was excluded from sheet
+      // Always preserve user's CC game — we'll patch scores into it below if the sheet
+      // includes their conference
       if (shouldPreserveUserCCGame) {
-        // Check if this is user's game (unified or legacy format)
         const isUserGame = (g.team1Tid === userTidForYear || g.team2Tid === userTidForYear) ||
                           (g.userTeam && getTidFromAbbr(g.userTeam, dynasty) === userTidForYear)
         if (isUserGame) {
@@ -9868,6 +9872,38 @@ export function DynastyProvider({ children }) {
     })
     console.log('[saveCPUCC] After filtering out CC games for year:', filteredGames.length)
 
+    // If the sheet includes the user's conference, patch the preserved game in-place with
+    // the sheet's scores/ranks instead of letting newGames create a competing sparse entry.
+    const userConfCCFromSheet = (userCCGame && championshipsIncludesUserConf)
+      ? championships.find(cc => cc.conference?.toLowerCase() === userCCGame.conference?.toLowerCase())
+      : null
+    if (userConfCCFromSheet) {
+      const pT1Tid = userConfCCFromSheet.team1Tid || getTidFromAbbr(userConfCCFromSheet.team1, dynasty)
+      const pT2Tid = userConfCCFromSheet.team2Tid || getTidFromAbbr(userConfCCFromSheet.team2, dynasty)
+      const pT1Score = parseInt(userConfCCFromSheet.team1Score)
+      const pT2Score = parseInt(userConfCCFromSheet.team2Score)
+      const pR1 = userConfCCFromSheet.team1Rank != null ? parseInt(userConfCCFromSheet.team1Rank, 10) : null
+      const pR2 = userConfCCFromSheet.team2Rank != null ? parseInt(userConfCCFromSheet.team2Rank, 10) : null
+      const pWinnerTid = pT1Score > pT2Score ? pT1Tid : pT2Tid
+      const patchIdx = filteredGames.findIndex(g =>
+        g.id === userCCGame.id ||
+        (g.isConferenceChampionship && Number(g.year) === Number(year) &&
+         g.conference?.toLowerCase() === userCCGame.conference?.toLowerCase()))
+      if (patchIdx >= 0) {
+        filteredGames[patchIdx] = {
+          ...filteredGames[patchIdx],
+          team1Tid: pT1Tid,
+          team2Tid: pT2Tid,
+          team1Score: pT1Score,
+          team2Score: pT2Score,
+          winnerTid: pWinnerTid,
+          ...(pR1 >= 1 && pR1 <= 25 ? { team1Rank: pR1 } : {}),
+          ...(pR2 >= 1 && pR2 <= 25 ? { team2Rank: pR2 } : {}),
+        }
+        console.log('[saveCPUCC] Patched scores into preserved user CC game for:', userCCGame.conference)
+      }
+    }
+
     // Create game entries for each conference championship game
     // UNIFIED FORMAT: Use tid-based fields, no legacy userTeam/opponent/teamScore/opponentScore/result
     const newGames = championships
@@ -9876,6 +9912,8 @@ export function DynastyProvider({ children }) {
         if (!cc.team1 || !cc.team2) return false
         if (cc.team1Score === null || cc.team1Score === undefined) return false
         if (cc.team2Score === null || cc.team2Score === undefined) return false
+        // Skip user's conference — already handled by patching the preserved game above
+        if (userCCGame && cc.conference?.toLowerCase() === userCCGame.conference?.toLowerCase()) return false
         return true
       })
       .map(cc => {
