@@ -9882,6 +9882,8 @@ export function DynastyProvider({ children }) {
         const team2Score = parseInt(cc.team2Score)
         const winnerTid = team1Score > team2Score ? team1Tid : team2Tid
 
+        const r1 = cc.team1Rank != null ? parseInt(cc.team1Rank, 10) : null
+        const r2 = cc.team2Rank != null ? parseInt(cc.team2Rank, 10) : null
         return {
           id: `cc-${year}-${cc.conference?.replace(/\s+/g, '-').toLowerCase() || Date.now()}`,
           isConferenceChampionship: true,
@@ -9895,6 +9897,9 @@ export function DynastyProvider({ children }) {
           // Scores
           team1Score,
           team2Score,
+          // Rankings at time of game
+          ...(r1 >= 1 && r1 <= 25 ? { team1Rank: r1 } : {}),
+          ...(r2 >= 1 && r2 <= 25 ? { team2Rank: r2 } : {}),
           // Home/away (CC games are neutral site)
           homeTeamTid: null,
           // Winner (tid-based)

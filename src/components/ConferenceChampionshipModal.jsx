@@ -64,12 +64,12 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
       .map((conf, i) => {
         const sheetRow = String(i + 2).padStart(5, ' ')
         const confPadded = conf.padEnd(20, ' ')
-        return `  ${sheetRow}    | ${confPadded} | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>`
+        return `  ${sheetRow}    | ${confPadded} | <Team1>\\t<Team2>\\t<Score1>\\t<Score2>\\t<Rank1>\\t<Rank2>`
       })
       .join('\n')
 
     const outputTemplateLines = sheetConferences
-      .map(conf => `<${conf} row: Team1\\tTeam2\\tScore1\\tScore2   OR blank line if unknown>`)
+      .map(conf => `<${conf} row: Team1\\tTeam2\\tScore1\\tScore2\\tRank1\\tRank2   OR blank line if unknown>`)
       .join('\n')
 
     const exclusionNote = `Output exactly ${totalRows} lines (one per conference, in the exact order listed below).`
@@ -100,15 +100,15 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
 
     return buildAIPrompt({
       title: `${currentYear} Conference Championships`,
-      structure: `This sheet has ONE tab named "Conference Championships". 5 columns, ${totalRows + 1} rows (1 header + ${totalRows} conferences).
+      structure: `This sheet has ONE tab named "Conference Championships". 7 columns, ${totalRows + 1} rows (1 header + ${totalRows} conferences).
 
 Column A (Conference name) is PRE-FILLED and PROTECTED — you never output it.
-You fill columns B (Team 1), C (Team 2), D (Team 1 Score), E (Team 2 Score).
+You fill columns B (Team 1), C (Team 2), D (Team 1 Score), E (Team 2 Score), F (Team 1 Rank), G (Team 2 Rank).
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
-1. Output ONLY columns B, C, D, E. Never output column A (conference name) or the header row.
+1. Output ONLY columns B, C, D, E, F, G. Never output column A (conference name) or the header row.
 2. Row order is FIXED — it is NOT alphabetical. The sheet pre-fills column A in the EXACT order listed in the row table below. Your line N must correspond to the conference on sheet row N+1. Do not re-sort.
 3. ${exclusionNote}
 4. NO COMMAS in scores. Integers only. No decimals.
@@ -118,14 +118,14 @@ CRITICAL RULES — read before anything else
 8. ONE TSV block, preceded by the required paste-target label line above the fence (see Method A/B rules above).
 
 ═══════════════════════════════════════════════════════════
-TAB "Conference Championships" — ${totalRows} rows × 4 output columns
+TAB "Conference Championships" — ${totalRows} rows × 6 output columns
 Paste at cell B2 of the "Conference Championships" tab
 ═══════════════════════════════════════════════════════════
 
 Column A is pre-filled with these ${totalRows} conferences in this EXACT order (this is NOT alphabetical — it is the literal order the sheet uses, hard-coded). Match this order line-for-line:
 
-Sheet Row | Col A (PROTECTED)    | Your output: Team1\\tTeam2\\tTeam1Score\\tTeam2Score
-----------+----------------------+----------------------------------------------------
+Sheet Row | Col A (PROTECTED)    | Your output: Team1\\tTeam2\\tScore1\\tScore2\\tRank1\\tRank2
+----------+----------------------+--------------------------------------------------------------
 ${rowTable}
 
 Order in plain words: ${orderListInline}.
@@ -139,14 +139,16 @@ The dynasty user can move any team between conferences. The list below is the ON
 
 ${membershipBlock}
 
-Per-line output (4 tab-separated fields):
-<Team 1 Abbr>\\t<Team 2 Abbr>\\t<Team 1 Score>\\t<Team 2 Score>
+Per-line output (6 tab-separated fields):
+<Team 1 Abbr>\\t<Team 2 Abbr>\\t<Team 1 Score>\\t<Team 2 Score>\\t<Team 1 Rank>\\t<Team 2 Rank>
 
 Field formats:
 - Team 1 (strict dropdown) — UPPERCASE abbreviation from the mapping at the bottom. Must be a member of the conference on that row.
 - Team 2 (strict dropdown) — same rules. Must be a different team from Team 1, same conference.
 - Team 1 Score — integer (no commas, no decimals). e.g. "31" not "31.0".
 - Team 2 Score — integer (no commas, no decimals).
+- Team 1 Rank — integer 1–25 if ranked, blank if unranked. e.g. "4" if ranked #4, "" if unranked.
+- Team 2 Rank — integer 1–25 if ranked, blank if unranked.
 
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
@@ -160,11 +162,12 @@ FINAL CHECK before you send
 [ ] Exactly ${totalRows} lines total, in this EXACT order: ${orderListInline}
 [ ] First line is for ${sheetConferences[0]} (NOT alphabetical — match the row table)
 [ ] Last line is for ${sheetConferences[totalRows - 1]}
-[ ] Every non-blank line has exactly 4 tab-separated fields (3 tabs)
+[ ] Every non-blank line has exactly 6 tab-separated fields (5 tabs)
 [ ] Both teams on each line appear in that row's conference list in the CONFERENCE MEMBERSHIP block (not your real-world knowledge)
 [ ] Team 1 and Team 2 are different teams
 [ ] All team values are uppercase abbreviations from the mapping — no full names
 [ ] All scores are integers with no commas and no decimals
+[ ] Ranks are integers 1–25 or blank — never 0, never a word
 [ ] Blank entire lines for unknown results — nothing invented (still keeps the line position)
 [ ] No Conference name, no header row, no commentary INSIDE the data. The paste-target label above the fence is required (see Method A/B rules above).`,
       includeTeamMap: true,
@@ -252,7 +255,9 @@ FINAL CHECK before you send
                 team1: team1,
                 team2: team2,
                 team1Score: g.team1Score ?? g.teamScore,
-                team2Score: g.team2Score ?? g.opponentScore
+                team2Score: g.team2Score ?? g.opponentScore,
+                team1Rank: g.team1Rank ?? null,
+                team2Rank: g.team2Rank ?? null,
               }
             })
             .filter(cc => cc.conference) // Must have conference name

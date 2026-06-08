@@ -2385,7 +2385,7 @@ export async function createConferenceChampionshipSheet(dynastyName, year, exclu
               title: 'Conference Championships',
               gridProperties: {
                 rowCount: conferences.length + 1,
-                columnCount: 5,
+                columnCount: 7,
                 frozenRowCount: 1
               }
             }
@@ -2509,7 +2509,7 @@ async function initializeConferenceChampionshipSheet(spreadsheetId, accessToken,
           startRowIndex: 0,
           endRowIndex: 1,
           startColumnIndex: 0,
-          endColumnIndex: 5
+          endColumnIndex: 7
         },
         rows: [{
           values: [
@@ -2517,7 +2517,9 @@ async function initializeConferenceChampionshipSheet(spreadsheetId, accessToken,
             { userEnteredValue: { stringValue: 'Team 1' } },
             { userEnteredValue: { stringValue: 'Team 2' } },
             { userEnteredValue: { stringValue: 'Team 1 Score' } },
-            { userEnteredValue: { stringValue: 'Team 2 Score' } }
+            { userEnteredValue: { stringValue: 'Team 2 Score' } },
+            { userEnteredValue: { stringValue: 'T1 Rank' } },
+            { userEnteredValue: { stringValue: 'T2 Rank' } },
           ]
         }],
         fields: 'userEnteredValue'
@@ -2531,17 +2533,21 @@ async function initializeConferenceChampionshipSheet(spreadsheetId, accessToken,
           startRowIndex: 1,
           endRowIndex: rowCount + 1,
           startColumnIndex: 0,
-          endColumnIndex: 5
+          endColumnIndex: 7
         },
         rows: conferences.map(conf => {
           const existing = getExistingCC(conf)
+          const r1 = Number(existing.team1Rank)
+          const r2 = Number(existing.team2Rank)
           return {
             values: [
               { userEnteredValue: { stringValue: String(conf ?? '') } },
               { userEnteredValue: { stringValue: String(existing.team1 ?? '') } },
               { userEnteredValue: { stringValue: String(existing.team2 ?? '') } },
               { userEnteredValue: (existing.team1Score != null && !Number.isNaN(Number(existing.team1Score))) ? { numberValue: Number(existing.team1Score) } : { stringValue: '' } },
-              { userEnteredValue: (existing.team2Score != null && !Number.isNaN(Number(existing.team2Score))) ? { numberValue: Number(existing.team2Score) } : { stringValue: '' } }
+              { userEnteredValue: (existing.team2Score != null && !Number.isNaN(Number(existing.team2Score))) ? { numberValue: Number(existing.team2Score) } : { stringValue: '' } },
+              { userEnteredValue: (r1 >= 1 && r1 <= 25) ? { numberValue: r1 } : { stringValue: '' } },
+              { userEnteredValue: (r2 >= 1 && r2 <= 25) ? { numberValue: r2 } : { stringValue: '' } },
             ]
           }
         }),
@@ -2618,7 +2624,7 @@ async function initializeConferenceChampionshipSheet(spreadsheetId, accessToken,
             startRowIndex: 0,
             endRowIndex: 1,
             startColumnIndex: 0,
-            endColumnIndex: 5
+            endColumnIndex: 7
           },
           description: 'Protected header row',
           warningOnly: false
@@ -2638,6 +2644,46 @@ async function initializeConferenceChampionshipSheet(spreadsheetId, accessToken,
           },
           description: 'Protected Conference column',
           warningOnly: false
+        }
+      }
+    },
+    // Rank dropdown validation — T1 Rank (col F, index 5)
+    {
+      setDataValidation: {
+        range: {
+          sheetId: sheetId,
+          startRowIndex: 1,
+          endRowIndex: rowCount + 1,
+          startColumnIndex: 5,
+          endColumnIndex: 6
+        },
+        rule: {
+          condition: {
+            type: 'ONE_OF_LIST',
+            values: [{ userEnteredValue: '' }, ...Array.from({ length: 25 }, (_, i) => ({ userEnteredValue: String(i + 1) }))],
+          },
+          showCustomUi: true,
+          strict: false
+        }
+      }
+    },
+    // Rank dropdown validation — T2 Rank (col G, index 6)
+    {
+      setDataValidation: {
+        range: {
+          sheetId: sheetId,
+          startRowIndex: 1,
+          endRowIndex: rowCount + 1,
+          startColumnIndex: 6,
+          endColumnIndex: 7
+        },
+        rule: {
+          condition: {
+            type: 'ONE_OF_LIST',
+            values: [{ userEnteredValue: '' }, ...Array.from({ length: 25 }, (_, i) => ({ userEnteredValue: String(i + 1) }))],
+          },
+          showCustomUi: true,
+          strict: false
         }
       }
     },
@@ -2674,7 +2720,19 @@ async function initializeConferenceChampionshipSheet(spreadsheetId, accessToken,
           startIndex: 3,
           endIndex: 5
         },
-        properties: { pixelSize: 100 },
+        properties: { pixelSize: 80 },
+        fields: 'pixelSize'
+      }
+    },
+    {
+      updateDimensionProperties: {
+        range: {
+          sheetId: sheetId,
+          dimension: 'COLUMNS',
+          startIndex: 5,
+          endIndex: 7
+        },
+        properties: { pixelSize: 70 },
         fields: 'pixelSize'
       }
     },
@@ -2708,7 +2766,7 @@ export async function readConferenceChampionshipsFromSheet(spreadsheetId, dynast
     const accessToken = await getAccessToken()
 
     const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/Conference Championships!A2:E11`,
+      `${SHEETS_API_BASE}/${spreadsheetId}/values/Conference Championships!A2:G11`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -2734,6 +2792,10 @@ export async function readConferenceChampionshipsFromSheet(spreadsheetId, dynast
       const team2Score = row[4] ? parseInt(row[4]) : null
       const team1Tid = team1Abbr ? getTidFromAbbr(team1Abbr, dynastyTeams) : null
       const team2Tid = team2Abbr ? getTidFromAbbr(team2Abbr, dynastyTeams) : null
+      const r1 = row[5] ? parseInt(row[5], 10) : null
+      const r2 = row[6] ? parseInt(row[6], 10) : null
+      const team1Rank = r1 >= 1 && r1 <= 25 ? r1 : null
+      const team2Rank = r2 >= 1 && r2 <= 25 ? r2 : null
 
       // Determine winner by score
       let winner = null
@@ -2756,6 +2818,8 @@ export async function readConferenceChampionshipsFromSheet(spreadsheetId, dynast
         team2Tid,
         team1Score,
         team2Score,
+        team1Rank,
+        team2Rank,
         winner,
         winnerTid
       }
