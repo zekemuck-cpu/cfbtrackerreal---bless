@@ -7754,11 +7754,23 @@ export function DynastyProvider({ children }) {
   }
 
   const deleteDynasty = async (dynastyId) => {
-    // Find the dynasty to determine its storage type
+    // Find the dynasty to determine its storage type. The list exposed to
+    // consumers is dynastiesWithShared (owner + shared), so a dynasty the
+    // user can see may live in sharedDynasties — search both, same as
+    // selectDynasty. Searching only the owner list here was the bug behind
+    // "delete does nothing": a miss fell through to the local branch, which
+    // clears IndexedDB but never deletes the Firestore doc, so the listener
+    // re-added the dynasty on the next snapshot.
     const dynasty = dynasties.find(d => String(d.id) === String(dynastyId))
+      || sharedDynasties.find(d => String(d.id) === String(dynastyId))
 
-    // Route based on dynasty's storageType, not global premium status
-    const isLocalStorage = !dynasty || dynasty.storageType !== 'cloud' || !user
+    // Route based on the dynasty's actual storage. Only treat it as local
+    // when it's explicitly tagged 'local' (or nobody is signed in). A
+    // signed-in user deleting an untagged / not-found dynasty must go
+    // through the Firestore teardown: if the doc doesn't exist there the
+    // delete is a harmless no-op, whereas wrongly taking the local branch
+    // can never remove a cloud doc and risks clearAll() on IndexedDB.
+    const isLocalStorage = !user || dynasty?.storageType === 'local'
 
     if (isLocalStorage) {
       // Local storage: delete from IndexedDB
