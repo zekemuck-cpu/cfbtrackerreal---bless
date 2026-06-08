@@ -291,6 +291,7 @@ FINAL CHECK before you send
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {
           console.error('Failed to create CC sheet:', error)
+          auth.handleError(error)
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false

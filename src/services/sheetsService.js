@@ -21,11 +21,22 @@ const DEFAULT_FETCH_TIMEOUT_MS = 30000
 // Wrapper around fetch() that aborts the request after `timeoutMs` and
 // throws a clear "Request timed out" error instead of letting the modal
 // spin indefinitely. Caller still owns retry/error handling.
+//
+// Also throws OAuthError on HTTP 401 so every caller gets reauth
+// detection for free. Without this, a 401 body like "Invalid Credentials"
+// flows through as a generic Error whose message doesn't match any of
+// isAuthError()'s keyword patterns — the reauth modal never fires.
+// 401 from Google APIs ALWAYS means the OAuth token is expired or revoked,
+// so there is no ambiguity about whether to throw here.
 async function fetchWithTimeout(url, init = {}, { timeoutMs = DEFAULT_FETCH_TIMEOUT_MS, label } = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    return await fetch(url, { ...init, signal: controller.signal })
+    const response = await fetch(url, { ...init, signal: controller.signal })
+    if (response.status === 401) {
+      throw new OAuthError('Google API returned 401 — OAuth token expired or revoked. Please re-authenticate.')
+    }
+    return response
   } catch (err) {
     if (err?.name === 'AbortError') {
       const tag = label ? ` (${label})` : ''
@@ -73,11 +84,14 @@ async function shareSheetPublicly(spreadsheetId, accessToken) {
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      console.error('Failed to share sheet:', error)
-      // Don't throw - sheet still works, just won't embed properly
+      const errData = await response.json()
+      console.error('Failed to share sheet:', errData)
+      // 403 = scope issue — sheet still works, just won't embed. Don't throw.
     }
   } catch (error) {
+    // Re-throw OAuthError (from fetchWithTimeout 401 or getAccessToken) so
+    // the caller's catch block can open the reauth modal instead of hiding it.
+    if (error?.isAuthError) throw error
     console.error('Error sharing sheet:', error)
     // Don't throw - sheet still works, just won't embed properly
   }
@@ -2063,6 +2077,10 @@ export async function sheetExists(spreadsheetId) {
     const data = await response.json()
     return !data.trashed
   } catch (error) {
+    // Re-throw auth errors so callers can show the reauth modal.
+    // For other network/parse errors, assume the sheet is still live
+    // (conservative — avoids accidental "sheet not found" UX on transient failures).
+    if (error?.isAuthError) throw error
     console.warn('sheetExists probe failed, assuming sheet is still live:', error?.message || error)
     return true
   }
