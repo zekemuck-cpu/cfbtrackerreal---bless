@@ -2178,10 +2178,11 @@ function PlayerInner() {
                             <li key={year}>
                               <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold tabular-nums" style={{ color: primaryText }}>{year}</span>
-                                {logo && <img src={logo} alt="" className="w-4 h-4 object-contain" />}
-                                <span className="text-[11px] font-semibold truncate flex-1 min-w-0" style={{ color: primaryText }}>{abbr || mascot || '—'}</span>
+                                {logo
+                                  ? <img src={logo} alt={abbr || mascot || ''} className="w-4 h-4 object-contain" />
+                                  : <span className="text-[11px] font-semibold truncate min-w-0" style={{ color: primaryText }}>{abbr || mascot || '—'}</span>}
                                 {ovr != null && (
-                                  <span className="text-[11px] font-bold tabular-nums flex-shrink-0" style={{ color: primaryText }}>{ovr}</span>
+                                  <span className="ml-auto text-[11px] font-bold tabular-nums flex-shrink-0" style={{ color: primaryText }}>{ovr}</span>
                                 )}
                               </div>
                               <div className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: secondaryText }}>
