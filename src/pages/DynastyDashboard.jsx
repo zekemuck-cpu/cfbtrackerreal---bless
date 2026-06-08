@@ -7,6 +7,8 @@ import Sidebar from '../components/Sidebar'
 import NewsTicker from '../components/NewsTicker/NewsTicker'
 import TeamSwitcher from '../components/TeamSwitcher'
 import MemberOnboardingModal from '../components/MemberOnboardingModal'
+import ScoutStaff from '../components/ScoutStaff';
+
 
 // Check if we're on a desktop-sized screen
 const isDesktop = () => typeof window !== 'undefined' && window.innerWidth >= 1024
@@ -117,10 +119,10 @@ export default function DynastyDashboard() {
         className={`min-w-0 transition-[margin] duration-300 ${sidebarOpen ? 'lg:ml-56' : ''}`}
         style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
       >
-        <Suspense fallback={<RouteFallback />}>
-          <Outlet />
-        </Suspense>
-      </div>
+              <Suspense fallback={<RouteFallback />}>
+        <ScoutStaff />
+        <Outlet />
+      </Suspense>
 
       {/* Team switcher (visible when user controls 2+ teams) */}
       <TeamSwitcher />
