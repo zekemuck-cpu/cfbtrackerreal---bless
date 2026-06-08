@@ -368,6 +368,8 @@ const AWARD_LABEL_TO_KEY = {
   'groza award':                 'louGroza',
   'ray guy award':               'rayGuy',
   'returner of the year':        'returnerOfTheYear',
+  'shaun alexander award':       'shaunAlexander',
+  'shaun alexander':             'shaunAlexander',
 }
 
 // Legacy KEY → canonical key. Pre-2026 builds wrote 'maxwellAward'
@@ -398,6 +400,7 @@ const AWARD_LEGACY_KEY_TO_KEY = {
   unitasGoldenArmAward:   'unitasGoldenArm',
   heismanTrophy:          'heisman',
   heismanRunnerUp:        'heismanFinalist',
+  shaunAlexanderAward:    'shaunAlexander',
 }
 
 // Exported so processHonorPlayers (and any future writer) can convert

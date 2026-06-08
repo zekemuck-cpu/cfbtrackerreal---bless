@@ -11,6 +11,7 @@ import { getPlayerCards } from '../../utils/playerCards'
 import { formatScoreHighLow } from '../../utils/scoreFormat'
 import { sortGamesNewestFirst } from '../../utils/gameOrder'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
+import { TabBar, StatRings, CardSectionHeader } from '../../components/CfbUI'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamLogo, getTeamLogoByTid, getMascotName as getMascotNameFromTeams, getSchoolName as getSchoolNameFromTeams, stripMascotFromName } from '../../data/teams'
@@ -1439,6 +1440,10 @@ function PlayerInner() {
       ? resolveTid(player.teamsByYear?.[player.recruitYear] || playerTeamAbbr, currentDynasty?.teams || TEAMS)
       : null
 
+    // Rendered ON the team-color hero banner, so every token is derived
+    // from teamBgText (the banner's contrast color) with opacity steps —
+    // the old dark-theme txt-* tokens washed out on the colored wash.
+    const rc = teamBgText
     const prevTeamNode = recruitmentInfo.previousTeam ? (() => {
       const prevFullName = getMascotName(recruitmentInfo.previousTeam, teamsData)
       const prevLogo = prevFullName ? getTeamLogo(prevFullName, teamsData) : null
@@ -1450,20 +1455,28 @@ function PlayerInner() {
       return (
         <Link
           to={`${pathPrefix}/team/${prevTid}/${transferYear}`}
-          className="inline-flex items-center gap-1.5 hover:text-txt-primary transition-colors text-sm text-txt-secondary"
+          className="inline-flex items-center gap-1.5 text-sm hover:opacity-80 transition-opacity"
+          style={{ color: rc }}
         >
-          <span className="text-[10px] uppercase tracking-widest text-txt-tertiary">from</span>
+          <span className="text-[10px] uppercase tracking-widest" style={{ color: rc, opacity: 0.6 }}>from</span>
           {prevLogo && <img src={prevLogo} alt="" className="w-4 h-4 object-contain" />}
           <span className="font-semibold">{prevSchool}</span>
         </Link>
       )
     })() : null
 
+    const RankPill = ({ value, label }) => (
+      <span className="text-sm" style={{ color: rc }}>
+        <span className="font-bold tabular-nums">#{value}</span>
+        <span className="text-[10px] ml-1 uppercase tracking-widest" style={{ color: rc, opacity: 0.6 }}>{label}</span>
+      </span>
+    )
+
     return (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-3 mt-3 border-t border-surface-4">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <span
-          className="text-[10px] font-bold uppercase tracking-widest text-txt-tertiary"
-          style={{ fontFamily: "var(--font-display)", letterSpacing: '1.5px' }}
+          className="text-[10px] font-bold uppercase tracking-widest"
+          style={{ fontFamily: "var(--font-display)", letterSpacing: '1.5px', color: rc, opacity: 0.72 }}
         >
           {isPortalEntry ? 'Transfer Portal' : 'Recruitment'}
         </span>
@@ -1471,31 +1484,16 @@ function PlayerInner() {
         {starCount > 0 && (
           <div className="flex items-center gap-0.5" aria-label={`${starCount} star recruit`}>
             {[...Array(5)].map((_, i) => (
-              <svg key={i} className="w-3.5 h-3.5" fill={i < starCount ? '#FFD700' : 'rgba(255,255,255,0.18)'} viewBox="0 0 20 20">
+              <svg key={i} className="w-3.5 h-3.5" fill={i < starCount ? '#FFD700' : `${rc}40`} viewBox="0 0 20 20">
                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
               </svg>
             ))}
           </div>
         )}
 
-        {Number(recruitmentInfo.nationalRank) > 0 && (
-          <span className="text-sm text-txt-primary">
-            <span className="font-bold tabular">#{recruitmentInfo.nationalRank}</span>
-            <span className="text-[10px] ml-1 uppercase tracking-widest text-txt-tertiary">Natl</span>
-          </span>
-        )}
-        {Number(recruitmentInfo.positionRank) > 0 && (
-          <span className="text-sm text-txt-primary">
-            <span className="font-bold tabular">#{recruitmentInfo.positionRank}</span>
-            <span className="text-[10px] ml-1 uppercase tracking-widest text-txt-tertiary">{player.position}</span>
-          </span>
-        )}
-        {Number(recruitmentInfo.stateRank) > 0 && (
-          <span className="text-sm text-txt-primary">
-            <span className="font-bold tabular">#{recruitmentInfo.stateRank}</span>
-            <span className="text-[10px] ml-1 uppercase tracking-widest text-txt-tertiary">{recruitmentInfo.state || player.state}</span>
-          </span>
-        )}
+        {Number(recruitmentInfo.nationalRank) > 0 && <RankPill value={recruitmentInfo.nationalRank} label="Natl" />}
+        {Number(recruitmentInfo.positionRank) > 0 && <RankPill value={recruitmentInfo.positionRank} label={player.position} />}
+        {Number(recruitmentInfo.stateRank) > 0 && <RankPill value={recruitmentInfo.stateRank} label={recruitmentInfo.state || player.state} />}
 
         {prevTeamNode}
 
@@ -1512,22 +1510,31 @@ function PlayerInner() {
           </span>
         )}
 
-        <span className="ml-auto flex items-center gap-3">
-          {classYear && (
-            <span className="text-[10px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
-              Class of <span className="tabular text-txt-secondary">{classYear}</span>
-            </span>
-          )}
-          {recruitingClassTid && player.recruitYear && (
+        {classYear && (() => {
+          // "Class of YYYY →" is itself the View-Class link when the recruiting
+          // class is resolvable; otherwise it's plain text (no dangling arrow).
+          const canLink = recruitingClassTid && player.recruitYear
+          const inner = (
+            <>
+              <span style={{ opacity: 0.66 }}>Class of </span>
+              <span className="tabular-nums">{classYear}</span>
+              {canLink && <span aria-hidden="true"> →</span>}
+            </>
+          )
+          const cls = 'ml-auto text-[10px] font-bold uppercase tracking-widest'
+          return canLink ? (
             <Link
               to={`${pathPrefix}/recruiting/${recruitingClassTid}/${player.recruitYear}`}
-              className="text-[10px] font-bold uppercase tracking-widest text-txt-secondary hover:text-txt-primary transition-colors"
-              style={{ letterSpacing: '1.5px' }}
+              className={`${cls} hover:opacity-80 transition-opacity`}
+              style={{ letterSpacing: '1.5px', color: rc }}
+              title="View recruiting class"
             >
-              View Class →
+              {inner}
             </Link>
-          )}
-        </span>
+          ) : (
+            <span className={cls} style={{ letterSpacing: '1.5px', color: rc }}>{inner}</span>
+          )
+        })()}
       </div>
     )
   })() : null
@@ -1572,6 +1579,7 @@ function PlayerInner() {
       unitasGoldenArm: 'Unitas Golden Arm',
       edgeRusherOfTheYear: 'Edge Rusher of the Year',
       returnerOfTheYear: 'Returner of the Year',
+      shaunAlexander: 'Shaun Alexander',
       // Other player honors that don't have a label form in the
       // dropdown but still surface on the profile awards plate.
       tedHendricksAward: 'Hendricks',
@@ -1712,314 +1720,72 @@ function PlayerInner() {
     <div
       className="space-y-4 sm:space-y-6 max-w-6xl mx-auto -mt-4 sm:-mt-6 px-4 sm:px-6 lg:px-8 pt-2 sm:pt-3 pb-4 sm:pb-6"
     >
-      {/* Player Header - Mobile Layout */}
-      <div className="sm:hidden card overflow-hidden">
-        {/* Top row: Photo, Name, Overall */}
-        <div className="p-4 flex items-center gap-3">
-          {player.pictureUrl && (
-            <img
-              src={proxyImageUrl(player.pictureUrl, 300)}
-              alt={player.name}
-              className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
-              style={{ border: `2px solid ${teamInfo.backgroundColor}` }}
-              onError={(e) => { e.target.style.display = 'none' }}
-            />
-          )}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <h1 className="text-xl font-bold leading-none tracking-tight text-white truncate" style={{ fontFamily: "var(--font-display)" }}>
-                {player.name}
-              </h1>
-              {player.isCaptain && (
-                <img src={CAPTAIN_PATCH_URL} alt="Team Captain" title="Team Captain" className="w-6 h-6 object-contain flex-shrink-0" />
-              )}
-            </div>
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-xs font-semibold text-white" style={{ fontFamily: "var(--font-display)" }}>
-                {player.jerseyNumber != null && player.jerseyNumber !== '' && `#${player.jerseyNumber} • `}{player.position}
-              </span>
-              {(() => {
-                const currentDevTrait = player.devTraitByYear?.[currentYear] || player.devTraitByYear?.[String(currentYear)] || player.devTrait
-                return currentDevTrait && currentDevTrait !== 'Normal' ? (
-                  <span
-                    className="text-xs font-semibold text-white"
-                    style={{ fontFamily: "var(--font-display)" }}
-                  >
-                    • {currentDevTrait}
-                  </span>
-                ) : null
-              })()}
-            </div>
-          </div>
-          {/* Overall Rating */}
-          <div className="text-center flex-shrink-0">
-            {(() => {
-              const currentOvr = player.overallByYear?.[currentYear] || player.overallByYear?.[String(currentYear)] || player.overall
-              return currentOvr ? (
-                <button
-                  onClick={() => setShowOverallProgressionModal(true)}
-                  className="hover:opacity-80 transition-opacity"
-                  title="View overall progression"
-                >
-                  <div className="text-4xl font-black text-white tabular" style={{ fontFamily: "var(--font-display)" }}>{currentOvr}</div>
-                  <div className="text-[9px] font-bold uppercase tracking-widest text-white" style={{ fontFamily: "var(--font-display)", letterSpacing: '1.5px' }}>OVR</div>
-                </button>
-              ) : (
-                <div>
-                  <div className="text-4xl font-black text-txt-muted" style={{ fontFamily: "var(--font-display)" }}>—</div>
-                  <div className="text-[9px] font-bold uppercase tracking-widest text-white" style={{ fontFamily: "var(--font-display)", letterSpacing: '1.5px' }}>OVR</div>
-                </div>
-              )
-            })()}
-          </div>
-        </div>
-
-        {/* Info rows */}
-        <div className="px-4 pb-3 space-y-2 text-white">
-          {/* Team and Class */}
-          <div className="flex items-center justify-between">
-            <Link
-              to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}?tab=depthchart&player=${pid}&side=${sideOfPosition(player.position) || 'offense'}`}
-              className="inline-flex items-center gap-1.5 text-sm font-bold hover:underline text-white"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              {getTeamLogo(playerTeamName, dynasty?.teams || dynasty?.customTeams) && (
-                <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 bg-surface-3" style={{ padding: '2px' }}>
-                  <img src={getTeamLogo(playerTeamName, dynasty?.teams || dynasty?.customTeams)} alt="" className="w-full h-full object-contain" />
-                </div>
-              )}
-              <span className="truncate max-w-[140px]">{playerTeamName}</span>
-            </Link>
-            <span className="text-sm font-bold text-white" style={{ fontFamily: "var(--font-display)" }}>{player.classByYear?.[dynasty?.currentYear] || player.year}</span>
-          </div>
-
-          {/* Archetype and Physical */}
-          {(player.archetype || player.height || player.weight) && (
-            <div className="flex items-center justify-between text-xs text-white">
-              {player.archetype && <span>{player.archetype}</span>}
-              {(player.height || player.weight) && (
-                <span>{player.height}{player.height && player.weight && ', '}{player.weight ? `${player.weight} lbs` : ''}</span>
-              )}
-            </div>
-          )}
-
-          {/* Hometown */}
-          {(player.hometown || player.state) && player.state && (
-            <Link
-              to={`${pathPrefix}/players/state/${player.state}`}
-              className="text-xs hover:underline text-white transition-colors"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {player.hometown}{player.hometown && player.state && ', '}{player.state}
-            </Link>
-          )}
-
-          {/* Status badges */}
-          <div className="flex flex-wrap items-center gap-2">
-            {isUnenrolledRecruit && (
-              <span
-                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-[0.12em]"
-                style={{ backgroundColor: teamInfo.backgroundColor, color: teamBgText }}
-              >
-                Commitment
-              </span>
-            )}
-            {/* In-Portal / Transferred Away badge — no destination entered */}
-            {departureMovement && departureMovement.type === 'transfer' && !departureMovement.to && (
-              isPostSigningDay ? (
-                <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold"
-                  style={{
-                    backgroundColor: 'rgba(107, 114, 128, 0.15)',
-                    color: '#9ca3af',
-                    border: '1px solid rgba(107, 114, 128, 0.4)',
-                    letterSpacing: '1px',
-                  }}
-                  title={`Transferred away${departureMovement.year ? ` (${departureMovement.year})` : ''} — no destination recorded`}
-                >
-                  Transferred Away No destination
-                </span>
-              ) : (
-                <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold"
-                  style={{
-                    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                    color: '#fbbf24',
-                    border: '1px solid rgba(245, 158, 11, 0.5)',
-                    letterSpacing: '1px',
-                  }}
-                  title={`In transfer portal${departureMovement.year ? ` since ${departureMovement.year}` : ''}${departureMovement.reason ? ` — ${departureMovement.reason}` : ''}`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#fbbf24' }} aria-hidden="true" />
-                  In Portal
-                  {departureMovement.reason && (
-                    <span className="font-semibold normal-case opacity-90 tracking-normal">{departureMovement.reason}</span>
-                  )}
-                </span>
-              )
-            )}
-            {/* Departure badge - show based on movements[] */}
-            {departureMovement && departureMovement.type === 'departure' && (() => {
-              const reason = departureMovement.reason
-              const portalReason = departureMovement.portalReason
-              const year = departureMovement.year
-              const draftRoundRaw = departureMovement.extra?.draftRound || player.draftRound
-              // Normalize to "<ordinal> Round" — e.g. "5th Round". Strip
-              // any trailing "Round"/"Rd" the stored value already
-              // carries, then append " Round" once. Covers both legacy
-              // "5th Round" data and newer "5" / "5th" data, with no
-              // duplicate suffix either way.
-              const draftRound = (() => {
-                if (draftRoundRaw == null) return null
-                const ordinal = String(draftRoundRaw).replace(/\s*(rounds?|rd)\.?\s*$/i, '').trim()
-                return ordinal ? `${ordinal} Round` : null
-              })()
-              const label = reason === 'Pro Draft' && draftRound
-                ? `${year} NFL Draft - ${draftRound}`
-                : reason === 'Pro Draft'
-                ? `${year} NFL Draft`
-                : reason === 'Graduating'
-                ? `Graduated (${year})`
-                : reason === 'Encouraged Transfer'
-                ? `Transferred (${year})`
-                : ['Playing Style', 'Proximity to Home', 'Championship Contender', 'Program Tradition',
-                   'Campus Lifestyle', 'Stadium Atmosphere', 'Pro Potential', 'Brand Exposure',
-                   'Academic Prestige', 'Conference Prestige', 'Coach Stability', 'Coach Prestige',
-                   'Athletic Facilities'].includes(reason)
-                ? `Transfer: ${reason} (${year})`
-                : reason
-                ? `${reason} (${year})`
-                : `Left Team (${year})`
-              return (
-                <span
-                  className="px-2 py-0.5 rounded-full text-xs font-bold"
-                  style={{ backgroundColor: '#6b7280', color: '#ffffff' }}
-                  title={portalReason ? `Reason: ${portalReason}` : undefined}
-                >
-                  {label}
-                  {portalReason && reason === 'Encouraged Transfer' && (
-                    <span className="font-semibold opacity-90"> {portalReason}</span>
-                  )}
-                </span>
-              )
-            })()}
-            {/* Finalized transfer (destination set) — reason chip alongside ← PREV */}
-            {departureMovement && departureMovement.type === 'transfer' && departureMovement.to && departureMovement.reason && (
-              <span
-                className="px-2 py-0.5 rounded-full text-xs font-bold"
-                style={{
-                  backgroundColor: 'rgba(59, 130, 246, 0.15)',
-                  color: '#60a5fa',
-                  border: '1px solid rgba(59, 130, 246, 0.5)',
-                }}
-                title={`Transferred for: ${departureMovement.reason}`}
-              >
-                Transfer: {departureMovement.reason}
-              </span>
-            )}
-            {/* Transfer badge - show where player transferred FROM */}
-            {transferredFromTeam && (() => {
-              // Show where the player transferred FROM (not previousTeam which is portal recruit origin)
-              const teamsData = dynasty?.teams || dynasty?.customTeams
-              const prevTeamName = getMascotName(transferredFromTeam, teamsData) || transferredFromTeam
-              const prevTeamColors = getTeamColors(prevTeamName, teamsData) || { primary: '#4b5563', secondary: '#6b7280' }
-              const prevTeamTextColor = getContrastTextColor(prevTeamColors.primary)
-              // Get abbreviation from tid if needed
-              const prevTeamAbbr = typeof transferredFromTeam === 'number'
-                ? (teamsData?.[transferredFromTeam]?.abbr || getOriginalTeamAbbr(transferredFromTeam) || transferredFromTeam)
-                : transferredFromTeam
-              return (
-                <Link
-                  to={`${pathPrefix}/team/${resolveTid(transferredFromTeam, currentDynasty?.teams || TEAMS)}/${currentYear - 1}`}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold hover:opacity-80 transition-opacity"
-                  style={{ backgroundColor: prevTeamColors.primary, color: prevTeamTextColor }}
-                >
-                  <span>←</span>
-                  {getTeamLogo(prevTeamName, teamsData) && (
-                    <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}>
-                      <img src={getTeamLogo(prevTeamName, teamsData)} alt="" className="w-full h-full object-contain" />
-                    </div>
-                  )}
-                  <span>{prevTeamAbbr}</span>
-                </Link>
-              )
-            })()}
-          </div>
-
-          {recruitmentStrip}
-        </div>
-
-        {/* Action buttons row */}
-        <div
-          className="flex items-center justify-end gap-1 px-3 py-2 bg-surface-3"
-        >
-          {!isViewOnly && (
-            <button
-              onClick={() => navigate(`${pathPrefix}/player/${pid}/edit`)}
-              className="p-2 rounded-lg hover:bg-surface-4 transition-colors text-txt-secondary"
-              title="Edit Player"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Player Header - Desktop Layout */}
-      <div className="hidden sm:block card overflow-hidden">
-        <div className="p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-start gap-4 flex-1">
+      {/* Player Header — CFB 27 broadcast banner (team-color wash, chalk
+          texture, contrast text). One responsive block for mobile + desktop. */}
+      <div
+        className="card overflow-hidden relative reveal"
+        style={{
+          backgroundColor: teamInfo.backgroundColor,
+          backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 44%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.44) 100%)',
+        }}
+      >
+        {/* Edit button — pinned to the corner so it never becomes a stray row. */}
+        {!isViewOnly && (
+          <button
+            onClick={() => navigate(`${pathPrefix}/player/${pid}/edit`)}
+            className="absolute top-3 right-3 z-[1] p-2 rounded-lg hover:bg-black/20 transition-colors"
+            style={{ color: teamBgText }}
+            title="Edit Player"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+        )}
+        <div className="relative p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          {/* LEFT: photo + identity */}
+          <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0 flex-1">
             {player.pictureUrl && (
               <img
                 src={proxyImageUrl(player.pictureUrl, 300)}
                 alt={player.name}
-                className="w-28 h-28 object-cover rounded-lg flex-shrink-0"
-                style={{ border: `2px solid ${teamInfo.backgroundColor}` }}
+                className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-xl flex-shrink-0"
+                style={{ border: `2px solid ${teamBgText}66`, boxShadow: '0 2px 10px rgba(0,0,0,0.35)' }}
                 onError={(e) => { e.target.style.display = 'none' }}
               />
             )}
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-none text-white" style={{ fontFamily: "var(--font-display)" }}>
+            <div className="min-w-0 flex-1">
+              {/* Name + captain */}
+              <div className="flex items-center gap-2 min-w-0 pr-8">
+                <h1
+                  className="font-display font-extrabold uppercase tracking-tight leading-none truncate"
+                  style={{ color: teamBgText, fontSize: 'clamp(1.45rem, 3.2vw, 2.5rem)' }}
+                >
                   {player.name}
                 </h1>
                 {player.isCaptain && (
-                  <img src={CAPTAIN_PATCH_URL} alt="Team Captain" title="Team Captain" className="w-8 h-8 object-contain flex-shrink-0 self-center" />
-                )}
-                {!isViewOnly && (
-                  <button
-                    onClick={() => navigate(`${pathPrefix}/player/${pid}/edit`)}
-                    className="p-1.5 rounded-lg hover:bg-surface-4 transition-colors flex-shrink-0 text-txt-secondary"
-                    title="Edit Player"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
+                  <img src={CAPTAIN_PATCH_URL} alt="Team Captain" title="Team Captain" className="w-7 h-7 sm:w-8 sm:h-8 object-contain flex-shrink-0 self-center" />
                 )}
               </div>
 
-              <div className="flex items-center gap-2 mb-2">
+              {/* Team link + status badges */}
+              <div className="flex flex-wrap items-center gap-2 mt-2">
                 <Link
                   to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}?tab=depthchart&player=${pid}&side=${sideOfPosition(player.position) || 'offense'}`}
-                  className="inline-flex items-center gap-2 text-base font-bold hover:underline text-white"
-                  style={{ fontFamily: "var(--font-display)" }}
+                  className="inline-flex items-center gap-2 font-display font-bold hover:opacity-80 transition-opacity"
+                  style={{ color: teamBgText, fontSize: 'clamp(0.95rem, 1.5vw, 1.1rem)' }}
                 >
                   {getTeamLogo(playerTeamName, dynasty?.teams || dynasty?.customTeams) && (
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '3px' }}>
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 bg-white" style={{ boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '3px' }}>
                       <img src={getTeamLogo(playerTeamName, dynasty?.teams || dynasty?.customTeams)} alt="" className="w-full h-full object-contain" />
                     </div>
                   )}
-                  {playerTeamName}
+                  <span className="truncate max-w-[180px] sm:max-w-none">{playerTeamName}</span>
                 </Link>
                 {isUnenrolledRecruit && (
                   <span
                     className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-[0.12em]"
-                    style={{ backgroundColor: teamInfo.backgroundColor, color: teamBgText }}
+                    style={{ backgroundColor: teamBgText, color: teamInfo.backgroundColor }}
                   >
                     Commitment
                   </span>
@@ -2029,12 +1795,7 @@ function PlayerInner() {
                   isPostSigningDay ? (
                     <span
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold"
-                      style={{
-                        backgroundColor: 'rgba(107, 114, 128, 0.15)',
-                        color: '#9ca3af',
-                        border: '1px solid rgba(107, 114, 128, 0.4)',
-                        letterSpacing: '1px',
-                      }}
+                      style={{ backgroundColor: 'rgba(15,15,18,0.35)', color: '#e5e7eb', border: '1px solid rgba(255,255,255,0.35)', letterSpacing: '1px' }}
                       title={`Transferred away${departureMovement.year ? ` (${departureMovement.year})` : ''} — no destination recorded`}
                     >
                       Transferred Away No destination
@@ -2042,12 +1803,7 @@ function PlayerInner() {
                   ) : (
                     <span
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold"
-                      style={{
-                        backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                        color: '#fbbf24',
-                        border: '1px solid rgba(245, 158, 11, 0.5)',
-                        letterSpacing: '1px',
-                      }}
+                      style={{ backgroundColor: 'rgba(245, 158, 11, 0.2)', color: '#fde68a', border: '1px solid rgba(245, 158, 11, 0.6)', letterSpacing: '1px' }}
                       title={`In transfer portal${departureMovement.year ? ` since ${departureMovement.year}` : ''}${departureMovement.reason ? ` — ${departureMovement.reason}` : ''}`}
                     >
                       <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#fbbf24' }} aria-hidden="true" />
@@ -2064,11 +1820,6 @@ function PlayerInner() {
                   const portalReason = departureMovement.portalReason
                   const year = departureMovement.year
                   const draftRoundRaw = departureMovement.extra?.draftRound || player.draftRound
-                  // See matching normalizer above — strips any trailing
-                  // "Round"/"Rd" suffix the stored value already carries,
-                  // then re-appends " Round" once, so output always reads
-                  // "<ordinal> Round" (e.g. "5th Round") regardless of
-                  // how the value was stored.
                   const draftRound = (() => {
                     if (draftRoundRaw == null) return null
                     const ordinal = String(draftRoundRaw).replace(/\s*(rounds?|rd)\.?\s*$/i, '').trim()
@@ -2093,7 +1844,7 @@ function PlayerInner() {
                   return (
                     <span
                       className="px-2 py-0.5 rounded-full text-xs font-bold"
-                      style={{ backgroundColor: '#6b7280', color: '#ffffff' }}
+                      style={{ backgroundColor: 'rgba(15,15,18,0.4)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.25)' }}
                       title={portalReason ? `Reason: ${portalReason}` : undefined}
                     >
                       {label}
@@ -2107,11 +1858,7 @@ function PlayerInner() {
                 {departureMovement && departureMovement.type === 'transfer' && departureMovement.to && departureMovement.reason && (
                   <span
                     className="px-2 py-0.5 rounded-full text-xs font-bold"
-                    style={{
-                      backgroundColor: 'rgba(59, 130, 246, 0.15)',
-                      color: '#60a5fa',
-                      border: '1px solid rgba(59, 130, 246, 0.5)',
-                    }}
+                    style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', color: '#bfdbfe', border: '1px solid rgba(59, 130, 246, 0.6)' }}
                     title={`Transferred for: ${departureMovement.reason}`}
                   >
                     Transfer: {departureMovement.reason}
@@ -2119,12 +1866,10 @@ function PlayerInner() {
                 )}
                 {/* Transfer badge - show where player transferred FROM */}
                 {transferredFromTeam && (() => {
-                  // Show where the player transferred FROM (not previousTeam which is portal recruit origin)
                   const teamsData = dynasty?.teams || dynasty?.customTeams
                   const prevTeamName = getMascotName(transferredFromTeam, teamsData) || transferredFromTeam
                   const prevTeamColors = getTeamColors(prevTeamName, teamsData) || { primary: '#4b5563', secondary: '#6b7280' }
                   const prevTeamTextColor = getContrastTextColor(prevTeamColors.primary)
-                  // Get abbreviation from tid if needed
                   const prevTeamAbbr = typeof transferredFromTeam === 'number'
                     ? (teamsData?.[transferredFromTeam]?.abbr || getOriginalTeamAbbr(transferredFromTeam) || transferredFromTeam)
                     : transferredFromTeam
@@ -2146,26 +1891,30 @@ function PlayerInner() {
                 })()}
               </div>
 
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-white" style={{ fontFamily: "var(--font-display)" }}>
-                {player.jerseyNumber != null && player.jerseyNumber !== '' && <span>#{player.jerseyNumber}</span>}
-                {player.jerseyNumber != null && player.jerseyNumber !== '' && <span className="text-txt-muted">•</span>}
+              {/* Meta row — jersey / position / archetype / class / dev / size / hometown */}
+              <div
+                className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2 font-display font-semibold uppercase tracking-wide"
+                style={{ color: teamBgText, fontSize: '0.82rem' }}
+              >
+                {player.jerseyNumber != null && player.jerseyNumber !== '' && <><span>#{player.jerseyNumber}</span><span style={{ opacity: 0.4 }}>•</span></>}
                 <span>{player.position}</span>
-                {player.archetype && <><span className="text-txt-muted">•</span><span className="normal-case">{player.archetype}</span></>}
-                <span className="text-txt-muted">•</span>
+                {player.archetype && <><span style={{ opacity: 0.4 }}>•</span><span className="normal-case">{player.archetype}</span></>}
+                <span style={{ opacity: 0.4 }}>•</span>
                 <span>{player.classByYear?.[dynasty?.currentYear] || player.year}</span>
                 {(() => {
                   const dt = player.devTraitByYear?.[currentYear] || player.devTraitByYear?.[String(currentYear)] || player.devTrait
-                  return dt ? <><span className="text-txt-muted">•</span><span>{dt}</span></> : null
+                  return dt && dt !== 'Normal' ? <><span style={{ opacity: 0.4 }}>•</span><span>{dt}</span></> : null
                 })()}
                 {(player.height || player.weight) && (
-                  <><span className="text-txt-muted">•</span><span className="normal-case">{player.height}{player.height && player.weight && ', '}{player.weight ? `${player.weight} lbs` : ''}</span></>
+                  <><span style={{ opacity: 0.4 }}>•</span><span className="normal-case">{player.height}{player.height && player.weight && ', '}{player.weight ? `${player.weight} lbs` : ''}</span></>
                 )}
                 {(player.hometown || player.state) && player.state && (
                   <>
-                    <span className="text-txt-muted">•</span>
+                    <span style={{ opacity: 0.4 }}>•</span>
                     <Link
                       to={`${pathPrefix}/players/state/${player.state}`}
-                      className="normal-case hover:underline text-white"
+                      className="normal-case hover:underline transition-opacity hover:opacity-80"
+                      style={{ color: teamBgText }}
                       onClick={(e) => e.stopPropagation()}
                     >
                       {player.hometown}{player.hometown && player.state && ', '}{player.state}
@@ -2173,39 +1922,35 @@ function PlayerInner() {
                   </>
                 )}
               </div>
+
             </div>
           </div>
 
-          {/* Overall Rating */}
+          {/* RIGHT: OVR ring — broadcast-style, clickable to progression.
+              Hidden entirely when the player has no overall on file. */}
           {(() => {
-            const desktopOvr = player.overallByYear?.[currentYear] || player.overallByYear?.[String(currentYear)] || player.overall
-            return desktopOvr ? (
-              <div className="text-center flex-shrink-0">
-                <div className="text-xs font-bold tracking-wide mb-1 text-white" style={{ fontFamily: "var(--font-display)" }}>Overall</div>
-                <button
-                  onClick={() => setShowOverallProgressionModal(true)}
-                  className="text-6xl md:text-7xl font-black hover:opacity-80 transition-opacity cursor-pointer text-white tabular"
-                  style={{ fontFamily: "var(--font-display)" }}
-                  title="View overall progression"
-                >
-                  {desktopOvr}
-                </button>
-              </div>
-            ) : (
-              <div className="text-center flex-shrink-0">
-                <div className="text-xs font-bold tracking-wide mb-1 text-white" style={{ fontFamily: "var(--font-display)" }}>Overall</div>
-                <div
-                  className="text-6xl md:text-7xl font-black text-txt-muted"
-                  style={{ fontFamily: "var(--font-display)" }}
-                >
-                  —
-                </div>
-              </div>
+            const currentOvr = player.overallByYear?.[currentYear] || player.overallByYear?.[String(currentYear)] || player.overall
+            if (!currentOvr) return null
+            return (
+              <button
+                onClick={() => setShowOverallProgressionModal(true)}
+                className="self-start sm:self-center flex-shrink-0 hover:opacity-85 transition-opacity"
+                title="View overall progression"
+              >
+                <StatRings items={[{ label: 'OVR', value: currentOvr }]} ringColor={teamBgText} textColor={teamBgText} size="lg" />
+              </button>
             )
           })()}
         </div>
-        {recruitmentStrip}
-        </div>
+
+        {/* Recruitment / Transfer-portal strip — full-width row INSIDE the
+            banner, divided from the identity row above with a faint
+            contrast-colored rule. */}
+        {recruitmentStrip && (
+          <div className="relative px-4 sm:px-5 py-3" style={{ borderTop: `1px solid ${teamBgText}26` }}>
+            {recruitmentStrip}
+          </div>
+        )}
       </div>
 
       {/* Award Plates — career honors summary (only render when the player has any) */}
@@ -2242,9 +1987,9 @@ function PlayerInner() {
         </div>
       )}
 
-      {/* Tab Navigation */}
-      <div className="flex gap-6 border-b border-surface-4 overflow-x-auto no-scrollbar">
-        {[
+      {/* Tab Navigation — shared CFB 27 sliding-underline bar */}
+      <TabBar
+        tabs={[
           { key: 'overview', label: 'Overview' },
           { key: 'stats', label: 'Stats' },
           { key: 'gamelog', label: 'Game Log' },
@@ -2264,26 +2009,14 @@ function PlayerInner() {
           // The Photos tab appears once the player is tagged in at least
           // one game photo (game editor → Photos → tag players).
           ...(taggedPhotos.length > 0 ? [{ key: 'photos', label: 'Photos' }] : []),
-        ].map(tab => {
-          const isActive = activeTab === tab.key
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className="pb-3 pt-2 font-semibold tracking-tight transition-colors whitespace-nowrap flex-shrink-0"
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: '0.95rem',
-                color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                borderBottom: isActive ? `2px solid ${teamInfo.backgroundColor}` : '2px solid transparent',
-                marginBottom: '-1px',
-              }}
-            >
-              {tab.label}
-            </button>
-          )
-        })}
-      </div>
+        ]}
+        activeKey={activeTab}
+        onSelect={setActiveTab}
+        accentColor={teamInfo.backgroundColor}
+      />
+
+      {/* Tab content — keyed so the whole subtree fades up on each switch */}
+      <div key={activeTab} className="reveal">
 
       {/* Overview - 3-column summary with inline scoring highlights */}
       {activeTab === 'overview' && (() => {
@@ -2345,10 +2078,8 @@ function PlayerInner() {
           hasPassing: false, hasRushing: false, hasReceiving: false, hasDefense: false, hasKicking: false, hasBlocking: false,
         })
 
-        const sectionHeader = (label) => (
-          <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-            <h3 className="text-sm font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>{label}</h3>
-          </div>
+        const sectionHeader = (label, right) => (
+          <CardSectionHeader label={label} accent={teamInfo.backgroundColor} right={right} />
         )
 
         const statRow = (label, value) => (
@@ -2628,21 +2359,25 @@ function PlayerInner() {
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs">
                           <thead>
-                            <tr className="bg-surface-3">
-                              <th className="px-3 py-2 text-left font-semibold uppercase tracking-wider" style={{ color: secondaryText, opacity: 0.8 }}>Year</th>
+                            <tr className="bg-surface-3" style={{ borderBottom: `2px solid ${teamInfo.backgroundColor}` }}>
+                              <th className="px-3 py-2.5 text-left font-bold uppercase" style={{ color: secondaryText, letterSpacing: '0.08em', fontSize: '10px' }}>Year</th>
                               {displayColumns.map(col => (
-                                <th key={col.k} className="px-2 py-2 text-right font-semibold uppercase tracking-wider" style={{ color: secondaryText, opacity: 0.8 }}>{col.label}</th>
+                                <th key={col.k} className="px-2 py-2.5 text-right font-bold uppercase" style={{ color: secondaryText, letterSpacing: '0.08em', fontSize: '10px' }}>{col.label}</th>
                               ))}
                             </tr>
                           </thead>
                           <tbody>
                             {rowsForCategory.map((y, idx) => (
-                              <tr key={y.year} className={idx % 2 ? '' : 'bg-surface-2/40'}>
-                                <td className="px-3 py-2 font-bold tabular-nums" style={{ color: primaryText }}>{y.year}</td>
+                              <tr
+                                key={y.year}
+                                className="transition-colors hover:bg-white/[0.035]"
+                                style={{ backgroundColor: idx % 2 === 1 ? 'var(--surface-2)' : 'transparent', borderBottom: `1px solid ${teamInfo.backgroundColor}1f` }}
+                              >
+                                <td className="px-3 py-2.5 font-bold tabular-nums" style={{ color: primaryText, fontFamily: "var(--font-display)" }}>{y.year}</td>
                                 {displayColumns.map(col => {
                                   const v = col.get(y)
                                   return (
-                                    <td key={col.k} className="px-2 py-2 text-right tabular-nums" style={{ color: primaryText }}>
+                                    <td key={col.k} className="px-2 py-2.5 text-right tabular-nums" style={{ color: primaryText }}>
                                       {col.format ? col.format(v) : v}
                                     </td>
                                   )
@@ -2650,10 +2385,10 @@ function PlayerInner() {
                               </tr>
                             ))}
                             {rowsForCategory.length > 1 && (
-                              <tr className="bg-surface-3 border-t-2" style={{ borderTopColor: teamInfo.backgroundColor }}>
-                                <td className="px-3 py-2 font-black text-[11px] tracking-tight" style={{ color: primaryText, fontFamily: "var(--font-display)" }}>Career</td>
+                              <tr className="bg-surface-3" style={{ borderTop: `2px solid ${teamInfo.backgroundColor}` }}>
+                                <td className="px-3 py-2.5 font-black uppercase tracking-tight" style={{ color: primaryText, fontFamily: "var(--font-display)", letterSpacing: '0.04em' }}>Career</td>
                                 {displayTotalRow.map((v, i) => (
-                                  <td key={i} className="px-2 py-2 text-right font-bold tabular-nums" style={{ color: primaryText }}>{v}</td>
+                                  <td key={i} className="px-2 py-2.5 text-right font-bold tabular-nums" style={{ color: primaryText }}>{v}</td>
                                 ))}
                               </tr>
                             )}
@@ -2741,38 +2476,44 @@ function PlayerInner() {
                       const RowWrap = gameId ? Link : 'div'
                       const rowProps = gameId ? { to: `${pathPrefix}/game/${gameId}` } : {}
                       return (
-                        <RowWrap key={idx} {...rowProps} className="block px-4 py-3 hover:bg-surface-2/60 transition-colors cursor-pointer">
-                          <div className="flex items-center gap-3">
-                            {/* Date / week column */}
-                            <div className="flex-shrink-0 w-12 text-center">
-                              <div className="text-[11px] font-bold tabular-nums" style={{ color: primaryText }}>{game.year}</div>
-                              <div className="text-[10px] uppercase tracking-wider tabular-nums" style={{ color: secondaryText }}>W{game.week ?? '-'}</div>
-                            </div>
-                            {/* Opponent */}
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                              {oppLogo && <img src={oppLogo} alt="" className="w-6 h-6 object-contain flex-shrink-0" />}
-                              <div className="min-w-0">
-                                <div className="text-[11px] uppercase tracking-wider" style={{ color: secondaryText }}>{locationPrefix}</div>
-                                <div className="text-sm font-bold truncate" style={{ color: primaryText }}>{game.opponent || '—'}</div>
+                        <RowWrap
+                          key={idx}
+                          {...rowProps}
+                          className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/[0.04] cursor-pointer"
+                          style={{ borderLeft: `3px solid ${resultColor}` }}
+                        >
+                          {/* Date / week column */}
+                          <div className="flex-shrink-0 w-11 text-center">
+                            <div className="text-[12px] font-bold tabular-nums" style={{ color: primaryText, fontFamily: "var(--font-display)" }}>{game.year}</div>
+                            <div className="text-[10px] uppercase tracking-wider tabular-nums" style={{ color: secondaryText }}>W{game.week ?? '-'}</div>
+                          </div>
+                          {/* Opponent + inline stat line */}
+                          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                            {oppLogo && <img src={oppLogo} alt="" className="w-7 h-7 object-contain flex-shrink-0" />}
+                            <div className="min-w-0">
+                              <div className="flex items-baseline gap-1.5">
+                                <span className="text-[10px] uppercase tracking-wider" style={{ color: secondaryText }}>{locationPrefix}</span>
+                                <span className="text-sm font-bold uppercase tracking-tight truncate" style={{ color: primaryText, fontFamily: "var(--font-display)" }}>{game.opponent || '—'}</span>
                               </div>
-                            </div>
-                            {/* Result pill */}
-                            <div className="flex-shrink-0 flex items-center gap-2">
-                              <div className="text-right">
-                                <div className="text-xs font-bold tabular-nums" style={{ color: resultColor }}>
-                                  {game.result || '—'} {formatScoreHighLow(game.teamScore, game.opponentScore)}
-                                </div>
-                              </div>
+                              {statDisplay && (
+                                <div className="text-[11px] tabular-nums truncate mt-0.5" style={{ color: secondaryText }}>{statDisplay}</div>
+                              )}
                             </div>
                           </div>
-                          {statDisplay && (
-                            <div
-                              className="text-[11px] mt-2 px-2 py-1 rounded"
-                              style={{ color: primaryText, backgroundColor: resultBg }}
-                            >
-                              {statDisplay}
-                            </div>
-                          )}
+                          {/* Result — broadcast W/L chip + score */}
+                          <div className="flex-shrink-0 flex items-center gap-2">
+                            {(isWin || isLoss) && (
+                              <span
+                                className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded"
+                                style={{ backgroundColor: `${resultColor}26`, color: resultColor, letterSpacing: '0.5px' }}
+                              >
+                                {game.result}
+                              </span>
+                            )}
+                            <span className="text-sm font-black tabular-nums" style={{ color: primaryText, fontFamily: "var(--font-display)" }}>
+                              {formatScoreHighLow(game.teamScore, game.opponentScore)}
+                            </span>
+                          </div>
                         </RowWrap>
                       )
                     })}
@@ -3817,9 +3558,7 @@ function PlayerInner() {
           {/* Passing Table */}
           {hasStats.passing && (
             <div className="card overflow-hidden" style={{ order: getStatOrder('passing') }}>
-              <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>Passing</h3>
-              </div>
+              <CardSectionHeader label="Passing" accent={teamInfo.backgroundColor} />
               {(() => {
                 const passingYearsUnsorted = yearByYearStats.filter(y => y.passing && hasNonZeroStats(y.passing, ['att', 'cmp', 'yds', 'td']))
                 const hasAnySnaps = passingYearsUnsorted.some(y => y.snapsPlayed > 0)
@@ -3935,9 +3674,7 @@ function PlayerInner() {
           {/* Rushing Table */}
           {hasStats.rushing && (
             <div className="card overflow-hidden" style={{ order: getStatOrder('rushing') }}>
-              <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>Rushing</h3>
-              </div>
+              <CardSectionHeader label="Rushing" accent={teamInfo.backgroundColor} />
               {(() => {
                 const rushingYearsUnsorted = yearByYearStats.filter(y => y.rushing && hasNonZeroStats(y.rushing, ['car', 'yds', 'td']))
                 const hasAnySnaps = rushingYearsUnsorted.some(y => y.snapsPlayed > 0)
@@ -4047,9 +3784,7 @@ function PlayerInner() {
           {/* Receiving Table */}
           {hasStats.receiving && (
             <div className="card overflow-hidden" style={{ order: getStatOrder('receiving') }}>
-              <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>Receiving</h3>
-              </div>
+              <CardSectionHeader label="Receiving" accent={teamInfo.backgroundColor} />
               {(() => {
                 // Check if any receiving year has non-zero snaps
                 const receivingYearsUnsorted = yearByYearStats.filter(y => y.receiving && hasNonZeroStats(y.receiving, ['rec', 'yds', 'td']))
@@ -4154,9 +3889,7 @@ function PlayerInner() {
           {/* Blocking Table - Only show for TE and OL positions */}
           {hasStats.blocking && ['TE', 'LT', 'LG', 'C', 'RG', 'RT'].includes(player.position?.toUpperCase()) && (
             <div className="card overflow-hidden" style={{ order: getStatOrder('blocking') }}>
-              <div className="px-4 py-3 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>Blocking</h3>
-              </div>
+              <CardSectionHeader label="Blocking" accent={teamInfo.backgroundColor} />
               {(() => {
                 const blockingYearsUnsorted = yearByYearStats.filter(y => y.blocking && hasNonZeroStats(y.blocking, ['sacksAllowed', 'pancakes']))
                 const hasAnySnaps = blockingYearsUnsorted.some(y => (y.snapsPlayed || 0) > 0)
@@ -4237,9 +3970,7 @@ function PlayerInner() {
           {/* Defense Table */}
           {hasStats.defensive && (
             <div className="card overflow-hidden" style={{ order: getStatOrder('defense') }}>
-              <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>Defense</h3>
-              </div>
+              <CardSectionHeader label="Defense" accent={teamInfo.backgroundColor} />
               {(() => {
                 const defenseYearsUnsorted = yearByYearStats.filter(y => y.defensive && hasNonZeroStats(y.defensive, ['solo', 'ast', 'tfl', 'sacks', 'int', 'pdef', 'ff', 'fr']))
                 const hasAnySnaps = defenseYearsUnsorted.some(y => y.snapsPlayed > 0)
@@ -4352,9 +4083,7 @@ function PlayerInner() {
           {/* Kicking Table */}
           {hasStats.kicking && (
             <div className="card overflow-hidden" style={{ order: getStatOrder('kicking') }}>
-              <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>Kicking</h3>
-              </div>
+              <CardSectionHeader label="Kicking" accent={teamInfo.backgroundColor} />
               {(() => {
                 const kickingYearsUnsorted = yearByYearStats.filter(y => y.kicking && hasNonZeroStats(y.kicking, ['fgm', 'fga', 'xpm', 'xpa']))
                 const hasAnySnaps = kickingYearsUnsorted.some(y => y.snapsPlayed > 0)
@@ -4456,9 +4185,7 @@ function PlayerInner() {
           {/* Punting Table */}
           {hasStats.punting && (
             <div className="card overflow-hidden" style={{ order: getStatOrder('punting') }}>
-              <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>Punting</h3>
-              </div>
+              <CardSectionHeader label="Punting" accent={teamInfo.backgroundColor} />
               {(() => {
                 const puntingYearsUnsorted = yearByYearStats.filter(y => y.punting && hasNonZeroStats(y.punting, ['punts', 'yds']))
                 const hasAnySnaps = puntingYearsUnsorted.some(y => y.snapsPlayed > 0)
@@ -4556,9 +4283,7 @@ function PlayerInner() {
           {/* Kick Returns Table */}
           {hasStats.kickReturn && (
             <div className="card overflow-hidden" style={{ order: getStatOrder('kickReturn') }}>
-              <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>Kick Returns</h3>
-              </div>
+              <CardSectionHeader label="Kick Returns" accent={teamInfo.backgroundColor} />
               {(() => {
                 const kickReturnYearsUnsorted = yearByYearStats.filter(y => y.kickReturn && hasNonZeroStats(y.kickReturn, ['ret', 'yds', 'td']))
 
@@ -4645,9 +4370,7 @@ function PlayerInner() {
           {/* Punt Returns Table */}
           {hasStats.puntReturn && (
             <div className="card overflow-hidden" style={{ order: getStatOrder('puntReturn') }}>
-              <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>Punt Returns</h3>
-              </div>
+              <CardSectionHeader label="Punt Returns" accent={teamInfo.backgroundColor} />
               {(() => {
                 const puntReturnYearsUnsorted = yearByYearStats.filter(y => y.puntReturn && hasNonZeroStats(y.puntReturn, ['ret', 'yds', 'td']))
 
@@ -4773,6 +4496,8 @@ function PlayerInner() {
           rayGuyAward: 'Ray Guy Award',
           louGrozaAward: 'Lou Groza Award',
           paulHornungAward: 'Paul Hornung Award',
+          shaunAlexander: 'Shaun Alexander Award',
+          shaunAlexanderAward: 'Shaun Alexander Award',
         }
 
         // Fallback: format unknown awards properly (capitalize each word)
@@ -4822,9 +4547,11 @@ function PlayerInner() {
           tedHendricksAward: 'Ted Hendricks Award',
           bearBryantCoachOfTheYear: 'Bear Bryant Award',
           broyles: 'Broyles Award',
+          shaunAlexander: 'Shaun Alexander Award',
         }
         const HONOR_LABELS = {
           heismanFinalist: 'Heisman Finalist',
+          shaunAlexander: 'Shaun Alexander Award',
           confPOY: 'Conference Player of the Year',
           confOPOY: 'Conference Offensive POY',
           confDPOY: 'Conference Defensive POY',
@@ -4894,7 +4621,7 @@ function PlayerInner() {
             className="card p-4 sm:p-6 border-l-[3px]"
             style={{ borderLeftColor: teamColors.primary }}
           >
-            <h2 className="text-xl font-bold mb-5 text-white">Awards</h2>
+            <h2 className="font-display font-black uppercase mb-5 text-white" style={{ fontSize: '1.4rem', letterSpacing: '0.04em' }}>Awards</h2>
 
             {/* Trophies — major named awards shown as a case of artwork. */}
             {trophies.length > 0 && (
@@ -4985,7 +4712,7 @@ function PlayerInner() {
           className="card p-4 sm:p-6 border-l-[3px]"
           style={{ borderLeftColor: teamColors.primary }}
         >
-          <h2 className="text-xl font-bold mb-4" style={{ color: secondaryText }}>Notes & Media</h2>
+          <h2 className="font-display font-black uppercase mb-4 text-txt-primary" style={{ fontSize: '1.4rem', letterSpacing: '0.04em' }}>Notes & Media</h2>
           {player.notes && (
             <div className="mb-4">
               <div className="p-4 rounded-lg whitespace-pre-wrap bg-surface-2 text-txt-primary">
@@ -5266,8 +4993,15 @@ function PlayerInner() {
           )
         }
         return (
-          <div className="max-w-3xl">
-            <MediaList links={highlights} accentColor={teamInfo.backgroundColor} />
+          <div className="card overflow-hidden max-w-3xl">
+            <CardSectionHeader
+              label="Highlights"
+              accent={teamInfo.backgroundColor}
+              right={<span className="text-[11px] font-bold tabular-nums text-txt-tertiary uppercase tracking-wider">{highlights.length} {highlights.length === 1 ? 'clip' : 'clips'}</span>}
+            />
+            <div className="p-4">
+              <MediaList links={highlights} accentColor={teamInfo.backgroundColor} />
+            </div>
           </div>
         )
       })()}
@@ -5401,17 +5135,16 @@ function PlayerInner() {
                 {(() => {
                   const seasonScoringPlays = allPlayerScoringPlays.filter(p => p.gameInfo?.year === Number(year))
                   return (
-                    <div className="px-4 py-3 bg-surface-2 border-b border-surface-4 border-l-[3px] flex items-center justify-between gap-3" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                      <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: "var(--font-display)" }}>
-                        {year} Season
-                      </h3>
-                      {seasonScoringPlays.length > 0 && (
+                    <CardSectionHeader
+                      label={`${year} Season`}
+                      accent={teamInfo.backgroundColor}
+                      right={seasonScoringPlays.length > 0 && (
                         <button
                           onClick={() => {
                             setSelectedGameScoringPlays({ plays: seasonScoringPlays, opponent: 'All Games', customTitle: `${player.name} — ${year} Scores` })
                             setShowScoringHighlightsModal(true)
                           }}
-                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-colors shrink-0"
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-colors shrink-0 hover:opacity-90"
                           style={{ backgroundColor: teamInfo.backgroundColor, color: primaryText }}
                           title={`Watch ${seasonScoringPlays.length} scoring ${seasonScoringPlays.length === 1 ? 'play' : 'plays'} from ${year}`}
                         >
@@ -5419,7 +5152,7 @@ function PlayerInner() {
                           <span className="font-bold text-[11px] tracking-wide" style={{ fontFamily: "var(--font-display)" }}>Watch Scores ({seasonScoringPlays.length})</span>
                         </button>
                       )}
-                    </div>
+                    />
                   )
                 })()}
                 <div className="overflow-x-auto">
@@ -5697,7 +5430,7 @@ function PlayerInner() {
                   <div className="label-xs text-txt-tertiary mb-1" style={{ letterSpacing: '1.5px' }}>
                     {collection.length} {collection.length === 1 ? 'card' : 'cards'}
                   </div>
-                  <h2 className="text-xl font-black text-txt-primary" style={{ fontFamily: "var(--font-display)", letterSpacing: '1px' }}>
+                  <h2 className="text-xl font-black uppercase text-txt-primary" style={{ fontFamily: "var(--font-display)", letterSpacing: '1px' }}>
                     Card Collection
                   </h2>
                 </div>
@@ -5774,6 +5507,11 @@ function PlayerInner() {
       {/* Photos Tab — every game photo this player is tagged in */}
       {activeTab === 'photos' && taggedPhotos.length > 0 && (
         <div className="card overflow-hidden">
+          <CardSectionHeader
+            label="Photos"
+            accent={teamInfo.backgroundColor}
+            right={<span className="text-[11px] font-bold tabular-nums text-txt-tertiary uppercase tracking-wider">{taggedPhotos.length} {taggedPhotos.length === 1 ? 'photo' : 'photos'}</span>}
+          />
           <div className="p-5">
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
               {taggedPhotos.map((ph, idx) => {
@@ -5823,6 +5561,7 @@ function PlayerInner() {
           </div>
         </div>
       )}
+      </div>
 
       {/* Photos-tab lightbox */}
       {photoTabLightboxIdx !== null && taggedPhotos[photoTabLightboxIdx] && createPortal(
@@ -5896,7 +5635,7 @@ function PlayerInner() {
             <div className="p-4 border-b border-surface-4 sticky top-0 bg-surface-2 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg sm:text-xl font-bold text-txt-primary">
+                  <h3 className="font-display font-black uppercase text-txt-primary" style={{ fontSize: '1.15rem', letterSpacing: '0.03em' }}>
                     {accoladeType === 'confPOW' ? 'Conference Player of the Week' : 'National Player of the Week'}
                   </h3>
                   <p className="text-sm font-semibold mt-0.5 text-txt-secondary">{player.name}</p>

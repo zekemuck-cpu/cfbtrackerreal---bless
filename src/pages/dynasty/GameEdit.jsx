@@ -194,6 +194,25 @@ function deriveDisplayWeek(game, fallbackWeek, fallbackGameType, fallbackBowlNam
   return (w !== null && w !== undefined && w !== '') ? String(w) : (fallbackWeek || '')
 }
 
+// Resolve the rankByWeek slot that holds a game's ENTERING-week poll, so the
+// editor can auto-fill team ranks the same way it does for regular weeks.
+//
+// Regular-season games key directly on their numeric week. Conference
+// Championship games carry the string sentinel week='CCG' (see weekLabel
+// above) — that must map to the canonical slot the weekly-scores entry writes
+// the pre-CCG poll into: slot 15 (post-Week-14 / pre-CCG poll), the same slot
+// used by the Top-25 seed builder and the CCG-phase rank override in
+// DynastyContext. Without this, getTeamRankForWeek(week='CCG') reads
+// rankByWeek['CCG'] / rankByWeek[NaN], finds nothing, and CCG ranks never
+// auto-fill even when the user entered that week's Top 25.
+function resolveRankWeek(game) {
+  if (!game) return null
+  const n = typeof game.week === 'number' ? game.week : parseInt(game.week, 10)
+  if (Number.isFinite(n)) return n
+  if (game.isConferenceChampionship || game.gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP || game.week === 'CCG') return 15
+  return null
+}
+
 export default function GameEdit() {
   const { id, gameId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -1112,7 +1131,7 @@ export default function GameEdit() {
         if (seed) rank2 = seed.toString()
       }
 
-      const weekForRank = existingGame.week
+      const weekForRank = resolveRankWeek(existingGame)
       if (!rank1 && existingGame.team1Tid != null && weekForRank != null) {
         const r = getTeamRankForWeek(currentDynasty, existingGame.team1Tid, gameYear, weekForRank)
         if (r) rank1 = String(r)
@@ -1185,7 +1204,7 @@ export default function GameEdit() {
       // rank from the rankByWeek store. If the user already saved
       // that week's Top 25 via the weekly scores entry, the rank
       // appears here automatically.
-      const weekForNewRank = gameWeek
+      const weekForNewRank = resolveRankWeek({ week: gameWeek, gameType, isConferenceChampionship: gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP })
       if (!rank1 && team1Tid != null && weekForNewRank != null) {
         const r = getTeamRankForWeek(currentDynasty, team1Tid, gameYear, weekForNewRank)
         if (r) rank1 = String(r)

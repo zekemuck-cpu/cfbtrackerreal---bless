@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamConferenceForDynasty, calculateTeamRecordFromGames, getTeamRanking, getRecruitingCommitments, getPlayerPositionForYear, getPlayerOverallForYear, lookupByTeamYear, getPlayersLeaving } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
+import { TabBar, StatRings } from '../../components/CfbUI'
 // Team colors are derived from the viewed team, not the user's team
 import { getContrastTextColor, getContrastRatio } from '../../utils/colorUtils'
 import { canonicalBoxScore, getPlayerStatsForTid, getTeamStatsForTid, hasAnyTeamStats } from '../../utils/boxScoreHelpers'
@@ -231,7 +232,8 @@ const AWARD_DISPLAY = {
   rimington: 'Rimington Trophy',
   louGroza: 'Lou Groza Award',
   rayGuy: 'Ray Guy Award',
-  returnerOfTheYear: 'Returner of the Year'
+  returnerOfTheYear: 'Returner of the Year',
+  shaunAlexander: 'Shaun Alexander Award'
 }
 
 // Award order for display (same as Awards page)
@@ -241,74 +243,9 @@ const AWARD_ORDER = [
   'chuckBednarik', 'broncoNagurski', 'jimThorpe', 'dickButkus', 'edgeRusherOfTheYear',
   'outland', 'lombardi', 'rimington',
   'louGroza', 'rayGuy', 'returnerOfTheYear',
-  'bearBryantCoachOfTheYear', 'broyles'
+  'bearBryantCoachOfTheYear', 'broyles',
+  'shaunAlexander'
 ]
-
-// Tab bar with a single underline that slides between tabs.
-function TabBar({ tabs, activeKey, onSelect, accentColor }) {
-  const containerRef = useRef(null)
-  const buttonRefs = useRef({})
-  const [indicator, setIndicator] = useState({ left: 0, width: 0, ready: false })
-
-  const measure = () => {
-    const btn = buttonRefs.current[activeKey]
-    const container = containerRef.current
-    if (!btn || !container) return
-    // offsetLeft is relative to the offsetParent; the container is positioned
-    // so this gives us the inner-x within the tab strip.
-    setIndicator({ left: btn.offsetLeft, width: btn.offsetWidth, ready: true })
-  }
-
-  useLayoutEffect(() => {
-    measure()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeKey])
-
-  useEffect(() => {
-    const onResize = () => measure()
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeKey])
-
-  return (
-    <div ref={containerRef} className="relative border-b border-surface-4 flex overflow-x-auto no-scrollbar">
-      {tabs.map(tab => {
-        const isActive = activeKey === tab.key
-        return (
-          <button
-            key={tab.key}
-            ref={el => { if (el) buttonRefs.current[tab.key] = el; else delete buttonRefs.current[tab.key] }}
-            onClick={() => onSelect(tab.key)}
-            className={`px-2 sm:px-3 md:px-4 lg:px-6 py-3 font-bold uppercase tracking-wide whitespace-nowrap transition-colors ${
-              isActive ? 'text-txt-primary' : 'text-txt-tertiary hover:text-txt-secondary'
-            }`}
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: '0.9rem',
-              backgroundImage: isActive ? `linear-gradient(to top, ${accentColor}30, transparent 70%)` : undefined,
-            }}
-          >
-            {tab.label}
-          </button>
-        )
-      })}
-      <span
-        className="absolute bottom-0 h-[2px] pointer-events-none"
-        style={{
-          backgroundColor: accentColor,
-          transform: `translateX(${indicator.left}px)`,
-          width: `${indicator.width}px`,
-          // Skip the slide on first paint so the indicator just appears in
-          // the right spot; only animate subsequent activeKey changes.
-          transition: indicator.ready ? 'transform 300ms ease-out, width 300ms ease-out' : 'none',
-          opacity: indicator.ready ? 1 : 0,
-        }}
-        aria-hidden="true"
-      />
-    </div>
-  )
-}
 
 // Roster-tab position filter pill. Atomic groups (QB/WR/TE) render
 // as a plain button; composite groups (OL/DL/LB/DB/K/P/RB) get a
@@ -533,41 +470,6 @@ function PositionFilterTab({
   )
 }
 
-// CFB-broadcast-style rating rings: OVR / OFF / DEF in team-color outlined
-// circles. Used in the team header (compact on mobile, full on desktop).
-function StatRings({ ratings, ringColor, textColor, compact = false }) {
-  if (!ratings) return null
-  const items = [
-    { label: 'OVR', value: ratings.overall },
-    { label: 'OFF', value: ratings.offense },
-    { label: 'DEF', value: ratings.defense },
-  ]
-  const dim = 'w-11 h-11 sm:w-[3.25rem] sm:h-[3.25rem]'
-  const num = 'text-sm sm:text-base'
-  const lab = 'text-[7px] sm:text-[8px]'
-  return (
-    <div className="flex items-center gap-1 sm:gap-1.5">
-      {items.map(it => (
-        <div
-          key={it.label}
-          className={`${dim} rounded-full flex flex-col items-center justify-center shrink-0`}
-          style={{
-            border: `2px solid ${ringColor}`,
-            background: 'radial-gradient(circle at 50% 30%, rgba(255,255,255,0.12), rgba(255,255,255,0.02) 70%)',
-            boxShadow: `0 0 14px ${ringColor}40, inset 0 1px 1px rgba(255,255,255,0.12)`,
-          }}
-        >
-          <span className={`font-display font-extrabold leading-none tabular-nums ${num}`} style={{ color: textColor }}>
-            {it.value ?? '—'}
-          </span>
-          <span className={`font-bold tracking-[0.12em] mt-0.5 ${lab}`} style={{ color: textColor, opacity: 0.65 }}>
-            {it.label}
-          </span>
-        </div>
-      ))}
-    </div>
-  )
-}
 
 export default function TeamYear() {
   const { id, tid: tidParam, year } = useParams()
@@ -2590,18 +2492,6 @@ export default function TeamYear() {
 
   return (
     <div className="space-y-4 sm:space-y-6 relative isolate">
-      {/* Team-color wash — only on Home, where the team-colored sections sit on
-          top of it. On the table-heavy tabs (Stats/Roster/etc.) it just shows
-          behind the tables as an off-looking gradient, so it's scoped out. */}
-      {activeTab === 'home' && (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -z-10"
-          style={{
-            background: `linear-gradient(to bottom, ${teamInfo.backgroundColor}24 0%, ${teamInfo.backgroundColor}0d 20%, transparent 55%)`,
-          }}
-        />
-      )}
       {/* Team Header */}
       <div
         className="card overflow-hidden relative reveal"
@@ -2610,17 +2500,6 @@ export default function TeamYear() {
           backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 44%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.44) 100%)',
         }}
       >
-        {/* Diagonal chalk-line texture — broadcast/field look, strongest on the
-            team-colored left edge. */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            backgroundImage: 'repeating-linear-gradient(115deg, rgba(255,255,255,0.08) 0 1.5px, transparent 1.5px 22px)',
-            maskImage: 'linear-gradient(115deg, #000 0%, transparent 72%)',
-            WebkitMaskImage: 'linear-gradient(115deg, #000 0%, transparent 72%)',
-          }}
-        />
         {/* Edit button — mobile only, pinned to the corner so it never becomes a
             stray row under the identity. Desktop has its own in the RIGHT group. */}
         {!isViewOnly && (
@@ -2635,7 +2514,7 @@ export default function TeamYear() {
             </svg>
           </button>
         )}
-        <div className="relative p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 lg:max-w-5xl lg:mx-auto">
+        <div className="relative p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           {/* LEFT: logo + identity (name / season / record) */}
           <div className="flex items-center gap-3 sm:gap-4 min-w-0">
           {teamLogo && (
@@ -3093,7 +2972,7 @@ export default function TeamYear() {
           <div className="flex items-center gap-2 sm:gap-3 self-start sm:self-center empty:hidden">
             {/* Team Ratings — circular CFB-style rings (contrast outline on the
                 team-colored banner) */}
-            <StatRings ratings={teamRatings} ringColor={teamBgText} textColor={teamBgText} />
+            <StatRings items={teamRatings ? [{ label: 'OVR', value: teamRatings.overall }, { label: 'OFF', value: teamRatings.offense }, { label: 'DEF', value: teamRatings.defense }] : null} ringColor={teamBgText} textColor={teamBgText} />
             {/* Conference logo — broadcast style, anchored far right; links to
                 the conference standings like the meta-row label. */}
             {conferenceLogo && (
@@ -3121,6 +3000,22 @@ export default function TeamYear() {
           </div>
         </div>
       </div>
+
+      {/* Team-color wash — only on Home, where the team-colored sections sit on
+          top of it. On the table-heavy tabs (Stats/Roster/etc.) it just shows
+          behind the tables as an off-looking gradient, so it's scoped out.
+          Rendered AFTER the header (not as the first child) so Tailwind's
+          space-y doesn't push a stray margin onto the header on the Home tab —
+          it's absolutely positioned so DOM order doesn't change what it covers. */}
+      {activeTab === 'home' && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10"
+          style={{
+            background: `linear-gradient(to bottom, ${teamInfo.backgroundColor}24 0%, ${teamInfo.backgroundColor}0d 20%, transparent 55%)`,
+          }}
+        />
+      )}
 
       {/* Tab Navigation — single sliding underline. Departures tab
           is hidden when this team has nothing to show for the year

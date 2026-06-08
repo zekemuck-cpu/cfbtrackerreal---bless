@@ -6,8 +6,9 @@ import { TEAMS, getCurrentTeamTid, getCurrentTeamAbbr, isFCSPlaceholderAbbr } fr
 import { getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { conferenceTeams as DEFAULT_CONFERENCES, getTeamConference } from '../../data/conferenceTeams'
-import { PageHero, Card, EmptyState, TeamLogo } from '../../components/ui'
+import { Card, EmptyState, TeamLogo } from '../../components/ui'
 import InlineYearSelect from '../../components/ui/InlineYearSelect'
+import { TabBar } from '../../components/CfbUI'
 import WeeklyScoresModal from '../../components/WeeklyScoresModal'
 import WeekRecapModal from '../../components/WeekRecapModal'
 import BowlWeek1Modal from '../../components/BowlWeek1Modal'
@@ -185,13 +186,17 @@ function GameCard({ game, teams, pathPrefix, recordsByTid, domId, compact = fals
     // score so the score number stays readable on the card background.
     const teamColors = mascot ? getTeamColors(mascot, teams) : null
     const teamPrimary = teamColors?.primary || null
+    // Broadcast scorebug feel — a stronger team-color wash on the left
+    // (under the logo/name) that fades out before the score so the number
+    // stays readable on the dark card. A solid 3px team-color spine on the
+    // far edge makes the matchup's two teams pop at a glance.
     const rowGradient = teamPrimary
-      ? `linear-gradient(to right, color-mix(in srgb, ${teamPrimary} 30%, transparent) 0%, color-mix(in srgb, ${teamPrimary} 8%, transparent) 60%, transparent 100%)`
+      ? `linear-gradient(to right, color-mix(in srgb, ${teamPrimary} 52%, transparent) 0%, color-mix(in srgb, ${teamPrimary} 20%, transparent) 52%, transparent 88%)`
       : 'transparent'
     return (
       <div
         className={`flex items-center ${compact ? 'gap-1.5 pl-1.5 pr-2 py-2' : 'gap-2.5 pl-2 pr-4 py-2.5'}`}
-        style={{ background: rowGradient }}
+        style={{ background: rowGradient, boxShadow: teamPrimary ? `inset 3px 0 0 0 ${teamPrimary}` : undefined }}
       >
         {/* ESPN-style winner indicator: small filled triangle pointing at the row */}
         <span
@@ -260,8 +265,8 @@ function GameCard({ game, teams, pathPrefix, recordsByTid, domId, compact = fals
       id={domId}
       onClick={handleCardClick}
       onKeyDown={handleCardKey}
-      className="game-card relative rounded-md overflow-hidden bg-surface-2 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-surface-5"
-      style={{ border: '1px solid rgba(255, 255, 255, 0.18)' }}
+      className="game-card relative rounded-lg overflow-hidden bg-surface-2 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-surface-5"
+      style={{ border: '1px solid rgba(255, 255, 255, 0.10)', boxShadow: '0 1px 3px rgba(0,0,0,0.35)' }}
     >
       {/* Header strip only renders for non-default states (tie, scheduled, neutral) */}
       {showStatusStrip && (
@@ -693,141 +698,101 @@ export default function WeeklyScores() {
 
   return (
     <div className="space-y-6 page-enter">
-      <PageHero
-        title={
-          <h1 className="group display-lg text-txt-primary leading-none m-0 break-words inline-flex items-baseline flex-wrap gap-x-3">
-            <InlineYearSelect
-              value={displayYear}
-              years={availableYears}
-              onChange={handleYearChange}
-              ariaLabel="Select year"
-            />
-            {displayWeek >= 0 && displayWeek < 15 && <span>Week</span>}
-            <InlineYearSelect
-              value={displayWeek}
-              years={ALL_WEEKS}
-              labels={WEEK_LABELS}
-              onChange={handleWeekChange}
-              ariaLabel="Select week"
-            />
-            <span>Recap</span>
-          </h1>
-        }
-        actions={
-          <div className="flex items-center gap-2 flex-wrap">
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="bg-surface-3 text-txt-primary text-sm px-2 py-2 rounded border border-surface-4 hover:border-surface-5 focus:outline-none focus:border-surface-5 transition-colors cursor-pointer"
-              style={{ minWidth: '9rem' }}
-              aria-label="Filter games"
-            >
-              <option value="all">All FBS</option>
-              <option value="top25">Top 25</option>
-              <optgroup label="Conferences">
-                {conferenceList.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </optgroup>
-            </select>
-            {!isViewOnly && (
-              <>
-                {displayWeek <= 14 && (
-                <button
-                  type="button"
-                  onClick={() => setEditing(true)}
-                  className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0"
-                  style={{
-                    backgroundColor: 'var(--surface-3)',
-                    borderColor: 'var(--surface-4)',
-                    color: 'var(--text-secondary)',
-                    letterSpacing: '1.4px',
-                  }}
-                  title={`Edit ${weekLabelFor(displayWeek)} scores`}
-                >
-                  Edit Scores
-                </button>
-                )}
-                {displayWeek === 16 && (
-                <button
-                  type="button"
-                  onClick={() => setBowlWeek1Open(true)}
-                  className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0"
-                  style={{
-                    backgroundColor: 'var(--surface-3)',
-                    borderColor: 'var(--surface-4)',
-                    color: 'var(--text-secondary)',
-                    letterSpacing: '1.4px',
-                  }}
-                  title="Enter Bowl Week 1 scores"
-                >
-                  Enter Scores
-                </button>
-                )}
-                {displayWeek === 17 && (
-                <button
-                  type="button"
-                  onClick={() => setBowlWeek2Open(true)}
-                  className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0"
-                  style={{
-                    backgroundColor: 'var(--surface-3)',
-                    borderColor: 'var(--surface-4)',
-                    color: 'var(--text-secondary)',
-                    letterSpacing: '1.4px',
-                  }}
-                  title="Enter Bowl Week 2 scores"
-                >
-                  Enter Scores
-                </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setRecapModalOpen(true)}
-                  className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0"
-                  style={{
-                    backgroundColor: 'var(--surface-3)',
-                    borderColor: 'var(--surface-4)',
-                    color: 'var(--text-secondary)',
-                    letterSpacing: '1.4px',
-                  }}
-                  title={`Edit ${weekLabelFor(displayWeek)} recap`}
-                >
-                  Edit Recap
-                </button>
-              </>
-            )}
-          </div>
-        }
-      />
-
-      {/* Tab bar — Scores / Recap. The Recap tab houses the AI-narrated
-          week-in-review (preseason variant at week 0). */}
+      {/* Hero — CFB 27 broadcast panel. NEUTRAL (no team color): this is a
+          league-wide page, not about the user's team. */}
       {(() => {
-        const Tab = ({ value, label }) => {
-          const active = tabParam === value
-          return (
-            <button
-              type="button"
-              onClick={() => setTab(value)}
-              className="px-4 py-2 -mb-px font-display font-semibold text-sm uppercase tracking-wider transition-colors"
-              style={{
-                letterSpacing: '1.5px',
-                color: active ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                borderBottom: active ? `2px solid var(--text-primary)` : '2px solid transparent',
-              }}
-              aria-pressed={active}
-            >
-              {label}
-            </button>
-          )
+        const btnStyle = {
+          backgroundColor: 'var(--surface-3)',
+          borderColor: 'var(--surface-4)',
+          color: 'var(--text-secondary)',
+          letterSpacing: '1.4px',
         }
         return (
-          <div className="flex gap-1 border-b border-surface-4 -mt-2">
-            {displayWeek !== -1 && <Tab value="scores" label="Scores" />}
-            <Tab value="recap" label={displayWeek === -1 ? 'Preseason Recap' : 'Recap'} />
+        <div
+          className="card overflow-hidden relative reveal"
+          style={{
+            backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 42%), linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 32%, rgba(0,0,0,0.25) 100%)',
+          }}
+        >
+          <div className="relative p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <h1
+              className="group font-display font-extrabold uppercase tracking-tight leading-none m-0 break-words inline-flex items-baseline flex-wrap gap-x-3 text-txt-primary"
+              style={{ fontSize: 'clamp(1.6rem, 3.4vw, 2.6rem)' }}
+            >
+              <InlineYearSelect
+                value={displayYear}
+                years={availableYears}
+                onChange={handleYearChange}
+                ariaLabel="Select year"
+              />
+              {displayWeek >= 0 && displayWeek < 15 && <span>Week</span>}
+              <InlineYearSelect
+                value={displayWeek}
+                years={ALL_WEEKS}
+                labels={WEEK_LABELS}
+                onChange={handleWeekChange}
+                ariaLabel="Select week"
+              />
+              <span>Recap</span>
+            </h1>
+            <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="text-sm px-2 py-2 rounded border focus:outline-none transition-colors cursor-pointer text-txt-primary"
+                style={{ minWidth: '9rem', backgroundColor: 'var(--surface-3)', borderColor: 'var(--surface-4)' }}
+                aria-label="Filter games"
+              >
+                <option value="all">All FBS</option>
+                <option value="top25">Top 25</option>
+                <optgroup label="Conferences">
+                  {conferenceList.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </optgroup>
+              </select>
+              {!isViewOnly && (
+                <>
+                  {displayWeek <= 14 && (
+                    <button type="button" onClick={() => setEditing(true)} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0 hover:bg-surface-4" style={btnStyle} title={`Edit ${weekLabelFor(displayWeek)} scores`}>
+                      Edit Scores
+                    </button>
+                  )}
+                  {displayWeek === 16 && (
+                    <button type="button" onClick={() => setBowlWeek1Open(true)} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0 hover:bg-surface-4" style={btnStyle} title="Enter Bowl Week 1 scores">
+                      Enter Scores
+                    </button>
+                  )}
+                  {displayWeek === 17 && (
+                    <button type="button" onClick={() => setBowlWeek2Open(true)} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0 hover:bg-surface-4" style={btnStyle} title="Enter Bowl Week 2 scores">
+                      Enter Scores
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setRecapModalOpen(true)} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0 hover:bg-surface-4" style={btnStyle} title={`Edit ${weekLabelFor(displayWeek)} recap`}>
+                    Edit Recap
+                  </button>
+                </>
+              )}
+            </div>
           </div>
+        </div>
         )
       })()}
+
+      {/* Tab bar — Scores / Recap, shared sliding-underline bar. Neutral
+          accent (light), since this page is not about the user's team. */}
+      <TabBar
+        tabs={[
+          ...(displayWeek !== -1 ? [{ key: 'scores', label: 'Scores' }] : []),
+          { key: 'recap', label: displayWeek === -1 ? 'Preseason Recap' : 'Recap' },
+        ]}
+        activeKey={tabParam}
+        onSelect={setTab}
+        accentColor="#e2e8f0"
+      />
+
+      {/* Tab content — keyed so it fades up on each switch */}
+      <div key={tabParam} className="reveal">
 
       {tabParam === 'scores' && (
         sortedGames.length > 0 ? (
@@ -902,6 +867,7 @@ export default function WeeklyScores() {
           </Card>
         )
       })()}
+      </div>
 
       {editing && (
         <WeeklyScoresModal

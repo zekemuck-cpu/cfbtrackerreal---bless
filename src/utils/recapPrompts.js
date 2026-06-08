@@ -1369,6 +1369,8 @@ export function buildPreseasonRecapPrompt(dynasty, year) {
     if (m) recentAwardLines.push(m)
     const o = fmtAward(aw.daveyObrien, "Davey O'Brien")
     if (o) recentAwardLines.push(o)
+    const sa = fmtAward(aw.shaunAlexander, 'Shaun Alexander (Freshman of the Year)')
+    if (sa) recentAwardLines.push(sa)
   }
 
   // ----- National-trend lines: which programs were consistently top-tier? -----

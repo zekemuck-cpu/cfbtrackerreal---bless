@@ -56,6 +56,7 @@ const AWARD_NAMES = {
   louGroza: 'Lou Groza Award',
   rayGuy: 'Ray Guy Award',
   returnerOfTheYear: 'Returner of the Year',
+  shaunAlexander: 'Shaun Alexander Award',
 }
 
 const POSITION_FULL = {

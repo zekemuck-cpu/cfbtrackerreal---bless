@@ -346,8 +346,29 @@ You must NOT apply football reasoning on top:
   ✗ Don't compute or reconcile field-position math (${awayTeamAbbr} 14 + 31 = ${awayTeamAbbr} 45 — skip the check).
   ✗ Don't cross-check rosters every play. Look up each name ONCE, then trust.
   ✗ Don't "fix" what the screenshot says. Line and football logic disagree → the line wins.
+  ✗ Don't cross-check your output against the box score, and don't compute per-quarter or per-team point totals to "verify" anything. The totals are not your job and checking them wastes effort.
+  ✗ Don't match extra points to touchdowns by kickoff timing or score math. An extra-point line always sits directly after its own TD in game time — that local adjacency is all you need (see PAT section). Nothing else.
+
+The ONLY two judgments you make are: (1) which roster each named player is on — looked up ONCE per player; and (2) chronological order. Everything else is verbatim transcription. If you find yourself reasoning about anything else, stop and just transcribe the line.
 
 If a cell is illegible or ambiguous, write \`?\` for that cell and move on. The user fixes \`?\` cells after.
+
+═══════════════════════════════════════════════════════════
+HOW TO READ EACH SCREENSHOT
+═══════════════════════════════════════════════════════════
+Each image is one scroll-window of the in-game Highlights list:
+  • A QUARTER banner ("QUARTER 1" / "QUARTER 2" / "QUARTER 3" /
+    "QUARTER 4", or "OT") sits at the TOP-RIGHT of the play list. EVERY
+    row in that screenshot belongs to that quarter — this banner is your
+    ONLY source for col G (Quarter). Re-read it for each image; a new
+    image can be a different quarter.
+  • The list has three columns: TIME, RATING, HIGHLIGHT.
+      – TIME      = game clock remaining → goes in col H (Time Left).
+      – RATING    = a play-grade number ("235", "1050") or "N/A".
+                    IGNORE it entirely; it is NEVER written to the sheet.
+      – HIGHLIGHT = the play sentence you transcribe into cols A–F, J–M.
+  • The scorebug ABOVE the list (the team line-score-by-quarter grid) is
+    NOT data — do not transcribe it, and never use it to "check" totals.
 
 ═══════════════════════════════════════════════════════════
 13 COLUMNS (TSV order — exactly 12 tabs per row)
@@ -363,44 +384,85 @@ H Time Left   — MM:SS with leading zeros. Required.
 I Video Link  — blank.
 J Down        — "1"/"2"/"3"/"4" if the line has "Nth & X" prefix. Blank for kickoffs/PATs.
 K Distance    — number or "Goal" (when the line says "& Goal"). Blank if J blank.
-L Field Pos   — copy verbatim from the prefix: "${homeTeamAbbr} 45", "${awayTeamAbbr} 7", "MID 50".
+L Field Pos   — copy the prefix VERBATIM: "${homeTeamAbbr} 45", "${awayTeamAbbr} 7", or "MID 50" at the 50. EA already prints midfield as "MID 50", so transcribe exactly what's shown — there is NOTHING to convert (never rewrite "${homeTeamAbbr} 50"↔"MID 50", never reason about which side the 50 is on).
 M Play Type   — see list below.
 
 ═══════════════════════════════════════════════════════════
-PLAY TYPE (col M) — match by phrasing
+PLAY TYPE (col M) — match by the line's phrasing
 ═══════════════════════════════════════════════════════════
-"X yard rush by Y"                  → Rush             B=Y
-"X pass to Y for N yards"           → Pass Complete    B=Y      C=X
-"X incomplete pass; intended for Y" → Pass Incomplete  B=Y      C=X
-"X pass knocked away by Y"          → Pass Knocked Away B=Y     C=X
-"X pass intercepted by Y"           → Pass Intercepted B=Y      C=X
-"X sacked for a N yard loss"        → Sack             B=blank  C=X      D=-N
-"Kickoff on FP. Y returns kick…"    → Kickoff Return   B=Y      L=FP
-"N yard punt return by Y"           → Punt Return      B=Y
-"Y N yard field goal good"          → Field Goal Made  B=Y      D=N      E=Field Goal
-"Y missed a N yard field goal"      → Field Goal Missed B=Y     D=N
-"Extra point good/missed/blocked by Y" → DO NOT EMIT a new row. Instead, set F on the preceding TD row to "Made XP" / "Missed XP" / "Blocked XP". See the PAT section below.
-"Fumble recovered by Y for N yards" → Fumble Recovery  B=Y
-"…penalty against…"                 → Penalty
-"Safety"                            → Safety
-Anything else                       → Other
+EA prints ONE sentence per play. Match its verb/phrase to a Play Type.
+"→" shows which cells to fill; any cell not shown stays blank. Append a TD
+Score Type (col E) ONLY when the line literally ends with "for a TD",
+"for a N yard TD", or "for a touchdown".
 
-PUNT DETECTION — EA CFB26 does NOT write "punts" in the play text. A punt
-looks identical to a rush: "Y N yds" with no verb. Classify as Punt when:
-  • The down is 4th AND
-  • The play is just "[player name] [N] yds" (no pass/sack/rush keyword) AND
-  • The player is a P (punter) in the roster, OR no matching skill player
-    (QB/RB/WR/TE) exists with that name in the roster.
-Set B = punter name, D = distance. Do NOT classify punts as Rush.
+RUSH
+  "N yard rush by Y"                     → Rush  B=Y  D=N
+  "N yard rush by Y for a TD"            → Rush  B=Y  D=N  E=Rushing TD
+  (N may be negative — "-3 yard rush by Y" → D=-3. Keep the minus sign.)
+  "Y kneels"                             → Rush  B=Y  D=0      (QB kneel-down)
+
+PASS — C is ALWAYS the passer (QB); B is the other player when one is named
+  "X pass to Y for N yards"             → Pass Complete     C=X  B=Y  D=N
+  "X pass to Y for a N yard TD"         → Pass Complete     C=X  B=Y  D=N  E=Passing TD
+  "X incomplete pass; intended for Y"   → Pass Incomplete   C=X  B=Y
+  "X pass thrown away"                  → Pass Incomplete   C=X           (no target named)
+  "X pass knocked away by Y"            → Pass Knocked Away C=X  B=Y      (Y = the DEFENDER who broke it up)
+  "X sacked for a N yard loss"          → Sack              C=X  D=-N     (B blank)
+
+TURNOVERS — the named ball-carrier is the DEFENDER who got the ball
+  "Interception by Y for N yards"       → Pass Intercepted  B=Y  D=N      (no QB on the line → C blank)
+  "X pass intercepted by Y for N yds"   → Pass Intercepted  B=Y  C=X  D=N
+  "…intercepted by Y … for a TD"        → Pass Intercepted  B=Y  D=N  E=INT Return TD   (add C=X if a passer is named)
+  "Fumble recovered by TM Y for N yds"  → Fumble Recovery   A=TM  B=Y  D=N
+  "Fumble recovered by TM Y for a touchdown" → Fumble Recovery  A=TM  B=Y  E=Fumble Return TD
+        (EA prints the recovering TEAM ABBREVIATION right before the
+         recoverer's name — use that abbr DIRECTLY for col A; no roster
+         lookup needed for fumble recoveries.)
+
+KICKING & RETURNS
+  "Kickoff on FP. Y returns kick for N yards"       → Kickoff Return  B=Y  D=N  L=FP
+  "Kickoff on FP. N yard kick by Y for a touchback" → Kickoff Return  L=FP
+        (touchback: B blank, D blank; col A = the KICKING team = Y's team)
+  "N yard punt return by Y"             → Punt Return  B=Y  D=N
+  "X punts for N yards. No return"      → Punt  B=X  D=N
+  "X punts for N yards for a fair catch"→ Punt  B=X  D=N
+  "X punts for N yards" + "M yard punt return by Z"  → TWO rows: a Punt
+        (B=X D=N) AND a Punt Return (B=Z D=M). EA writes "punts" in plain
+        text — a punt is NEVER a rush. Do not invent or merge these.
+
+KICKS AT THE POSTS
+  "Y N yard field goal is good"         → Field Goal Made    B=Y  D=N  E=Field Goal
+  "Y missed a N yard field goal"        → Field Goal Missed  B=Y  D=N
+  "Extra point good / missed / blocked by Y" → DO NOT emit a row. Fold the
+        result into the PRECEDING TD row's col F (see PAT section below).
+
+OTHER
+  "… Penalty …" / "…penalty against…"   → Penalty   (all player cells blank)
+  "Safety"                              → Safety
+  anything you genuinely can't classify → Other
 
 ═══════════════════════════════════════════════════════════
 COL A — derive from the PLAYER, never from Field Pos
 ═══════════════════════════════════════════════════════════
 The team abbreviation inside Field Pos ("${homeTeamAbbr} 35", "${awayTeamAbbr} 7", "MID 50") is a GEOGRAPHIC label — it describes which END of the field the ball is on, NOT who has the ball. Confusing them flips col A on every play and ruins the sheet. This is the #1 failure mode for this task.
 
-Rule: col A = team of the PLAYER named on the line.
-  • Rush / Pass / Sack / FG / PAT → team of player in B (or C for sacks)
-  • Kickoff Return / Punt Return / Pass Intercepted / Fumble Recovery → team of the returner / interceptor / recoverer (B). Possession just flipped — that's fine.
+Rule: col A = the team that "owns" the play's outcome. Resolve it by the
+RIGHT player, never by the Field Pos abbr:
+  • OFFENSE keeps the ball → col A = the OFFENSE's team:
+      – Rush / Kneel        → the rusher's team        (player in B)
+      – Pass Complete / Incomplete / Thrown Away / Knocked Away / Sack
+                            → the PASSER's team         (player in C)
+        (Yes — on "knocked away" the named player B is a DEFENDER, but the
+         play is still the offense's pass attempt, so col A = the passer.)
+      – Field Goal made/missed → the kicker's team      (player in B)
+      – Punt                → the punter's team         (player in B)
+      – Penalty             → often not derivable → col A = ?
+  • POSSESSION CHANGES → col A = the team that GAINS the ball (the named
+    defender / returner), even though Field Pos still shows the old end:
+      – Pass Intercepted    → the interceptor's team    (player in B)
+      – Fumble Recovery     → the recovering team — use the ABBR EA prints
+                              right before the name; otherwise B's team
+      – Kickoff Return / Punt Return → the returner's team  (player in B)
 
 HOW TO RESOLVE THE TEAM: the two ROSTER blocks below list the exact players on EACH team for THIS game — ${awayTeamAbbr} and ${homeTeamAbbr}. They are authoritative, NOT a "tiebreaker" — together they cover every player who appears. So:
   • Player in the ${awayTeamAbbr} roster → col A = ${awayTeamAbbr}.
@@ -424,12 +486,27 @@ Do NOT paraphrase — the front-end matches these literal strings and a paraphra
 NO "PAT" value — extra points go in col F on the TD row (see PAT section). PAT Result (col F), TD rows only when visible: Made XP / Missed XP / Blocked XP / Converted 2PT / Failed 2PT.
 
 ═══════════════════════════════════════════════════════════
-PAT (extra-point attempts) — collapse into the TD row
+PAT (extra-point attempts) — a PURELY LOCAL one-line merge
 ═══════════════════════════════════════════════════════════
 A TD + its extra-point attempt = EXACTLY ONE row: the TD row, with the PAT
 outcome in column F (Made XP / Missed XP / Blocked XP / Converted 2PT /
 Failed 2PT). NEVER a separate PAT row, NEVER E="PAT", NEVER Play Type="PAT".
 The kicker's name is not kept on this sheet.
+
+This is the simplest possible operation — do NOT make it hard:
+  • An "Extra point …" line ALWAYS belongs to the touchdown that came
+    immediately before it (same team, a few game-seconds earlier).
+  • So once your plays are in chronological order, every "Extra point …"
+    line sits in the row DIRECTLY ABOVE-in-time / next-to its TD. Take
+    its result into that TD row's column F, then delete the XP line.
+  • That adjacency is the ONLY signal you use. Do NOT search the game for
+    the matching TD, do NOT use kickoff times, do NOT add up quarter
+    scores, do NOT consult the box score. The XP is the line right after
+    its TD — nothing more to figure out.
+  • If you genuinely can't see a TD adjacent to an "Extra point" line
+    (e.g. it got cut off between screenshots), just drop the XP line and
+    move on. The user fixes the one missing F cell — that is far cheaper
+    than you guessing the wrong TD.
 
 Worked example — a 9-yd TD pass with a good XP is ONE row:
   → BAMA  Lorenzo Corra  CJ Carr  9  Passing TD  Made XP  2  10:09        2  Goal  LSU 9  Pass Complete
@@ -457,6 +534,12 @@ Treat all screenshots as ONE POOL of plays — do NOT emit them screenshot-by-sc
   2. DEDUPE: if (quarter, time-left, play-text) match between two screenshots (overlap during scroll), keep ONE copy.
   3. SORT globally: first by quarter ascending (1 → OT…), then within each quarter by time-left DESCENDING (12:00 → 00:00).
   4. Emit the sorted, deduped list in one continuous TSV block.
+
+PARTIAL / CUT-OFF ROWS: a play whose text is sliced by the very top or
+bottom edge of a screenshot is just the scroll seam — that SAME play
+appears in full in the neighboring screenshot. Use the complete copy and
+ignore the fragment. A cut-off fragment is NEVER a separate play, so it
+does not get its own row and it is not a "duplicate entry" to puzzle over.
 
 ❌ FAIL MODE — emitting each screenshot as a contiguous block produces a sawtooth timeline like
    "Q4 6:34 … 3:24, Q4 6:21 … 2:20, Q4 10:24 … 7:00, Q4 12:00 … 10:34, Q4 0:59 … 0:10, Q4 2:16 … 0:48"
@@ -537,9 +620,11 @@ rejects them or the front-end misparses). Use the LITERAL form:
   • Down (col J): "1" / "2" / "3" / "4". NOT "1st", "2nd", "3rd", "4th".
   • Distance (col K): a number ("10", "5") OR the literal word "Goal"
     when the line says "& Goal". NOT "G", "& Goal", "Goal Line", or "&G".
-  • Field Pos (col L): "<ABBR> <number>" e.g. "${homeTeamAbbr} 35", "${awayTeamAbbr} 7".
-    Special case for the 50-yard line: "MID 50" — NOT "50" alone,
-    NOT "midfield", NOT "50-yard line".
+  • Field Pos (col L): copy what the line shows, verbatim — "<ABBR> <number>"
+    like "${homeTeamAbbr} 35" or "${awayTeamAbbr} 7", and "MID 50" at midfield
+    (EA writes the 50 this way already; just copy it). Do NOT convert between
+    "<ABBR> 50" and "MID 50", and at the 50 never write "50" alone, "midfield",
+    or "50-yard line" — only whatever the screenshot literally prints.
   • Yards (col D): plain integer, negatives allowed ("-7"). NEVER
     a percentage, parenthetical, or comma-grouped number ("1,234").
     Blank when the play has no yardage (incomplete pass, PAT row,

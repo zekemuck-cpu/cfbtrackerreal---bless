@@ -155,6 +155,7 @@ const AWARD_OPTIONS = [
   { value: 'louGroza',          label: 'Lou Groza Award',           tier: 'award' },
   { value: 'rayGuy',            label: 'Ray Guy Award',             tier: 'award' },
   { value: 'returnerOfTheYear', label: 'Returner of the Year',      tier: 'award' },
+  { value: 'shaunAlexander',    label: 'Shaun Alexander Award',     tier: 'award' },
 ]
 
 // Convert nested stats structure to flat form fields

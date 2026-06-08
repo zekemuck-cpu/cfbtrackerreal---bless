@@ -270,7 +270,6 @@ export default function ConferenceStandings() {
           "Conference Standings"
         )
       }
-      meta={<span>Season records by conference</span>}
       actions={heroActions}
     />
   )

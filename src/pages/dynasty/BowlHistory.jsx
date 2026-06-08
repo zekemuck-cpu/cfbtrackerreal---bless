@@ -344,12 +344,6 @@ export default function BowlHistory() {
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <div
-                      className="label-xs text-txt-tertiary mb-0.5"
-                      style={{ letterSpacing: '1.5px', fontSize: '9px' }}
-                    >
-                      BOWL GAME
-                    </div>
                     <div className="font-display font-bold text-txt-primary truncate text-base leading-tight">
                       {bowlName}
                     </div>

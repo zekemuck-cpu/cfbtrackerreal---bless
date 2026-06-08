@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useDynasty, getGamesByType, GAME_TYPES, detectGameType, getUserGamePerspective } from '../../context/DynastyContext'
+import { useDynasty, getGamesByType, GAME_TYPES, detectGameType, getUserGamePerspective, calculateTeamRecordFromGames } from '../../context/DynastyContext'
 import { buildCFPProjection } from '../../utils/cfpProjection'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -9,8 +9,11 @@ import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo } from '../../data/teamRegistry'
 import { getBowlLogo } from '../../data/bowlGames'
 import { getCFPGameId, DEFAULT_BOWL_CONFIG, getBowlForSlot, getBowlForSeed } from '../../data/cfpConstants'
-import { PageHero, TitleWithYear } from '../../components/ui'
+import { InlineYearSelect } from '../../components/ui'
 import GameEntryModal from '../../components/GameEntryModal'
+
+// Broadcast gold used for round labels, eyebrow, and trophy accents.
+const CFP_GOLD = '#e4b04a'
 
 // Map abbreviations to mascot names for logo lookup
 const mascotMap = {
@@ -624,49 +627,39 @@ export default function CFPBracket() {
     // produce inconsistent behavior). stopPropagation prevents the parent
     // matchup link from also firing.
     const linkTid = teamTid != null ? Number(teamTid) : (resolvedAbbr ? resolveTid(resolvedAbbr, dynastyTeams || TEAMS) : null)
+
+    // Season record for the broadcast-style "(12-1)" line under the name.
+    const record = (() => {
+      if (linkTid == null) return null
+      const r = calculateTeamRecordFromGames(currentDynasty, linkTid, displayYear)
+      if (!r || (r.wins === 0 && r.losses === 0)) return null
+      return `${r.wins}-${r.losses}`
+    })()
+
+    const nameClass = 'font-display font-bold uppercase tracking-tight leading-none truncate'
+    const nameStyle = { color: txtColor, fontSize: '1.15rem', letterSpacing: '0.01em' }
     const TeamName = () => {
       if (!resolvedAbbr) {
-        return (
-          <span className="text-xl font-semibold" style={{ color: txtColor }}>
-            TBD
-          </span>
-        )
+        return <span className={nameClass} style={{ ...nameStyle, opacity: 0.8 }}>TBD</span>
       }
-
       if (linkTid == null) {
-        return (
-          <span className="text-xl font-semibold" style={{ color: txtColor }}>
-            {getShortName(resolvedAbbr)}
-          </span>
-        )
+        return <span className={nameClass} style={nameStyle}>{getShortName(resolvedAbbr)}</span>
       }
-
       const teamHref = `${pathPrefix}/team/${linkTid}/${displayYear}`
-
       if (isParentClickable) {
         return (
           <button
             type="button"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              navigate(teamHref)
-            }}
-            className="text-xl font-semibold hover:underline text-left bg-transparent border-0 p-0 cursor-pointer"
-            style={{ color: txtColor }}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(teamHref) }}
+            className={`${nameClass} hover:underline text-left bg-transparent border-0 p-0 cursor-pointer max-w-full`}
+            style={nameStyle}
           >
             {getShortName(resolvedAbbr)}
           </button>
         )
       }
-
       return (
-        <Link
-          to={teamHref}
-          onClick={(e) => e.stopPropagation()}
-          className="text-xl font-semibold hover:underline"
-          style={{ color: txtColor }}
-        >
+        <Link to={teamHref} onClick={(e) => e.stopPropagation()} className={`${nameClass} hover:underline max-w-full`} style={nameStyle}>
           {getShortName(resolvedAbbr)}
         </Link>
       )
@@ -674,29 +667,46 @@ export default function CFPBracket() {
 
     return (
       <div
-        className="flex items-center gap-3 px-4 rounded border"
+        className="relative flex items-center gap-2.5 pl-2.5 pr-3 rounded-lg overflow-hidden"
         style={{
           backgroundColor: bgColor,
           width: `${SLOT_WIDTH}px`,
           height: `${SLOT_HEIGHT}px`,
-          borderColor: team ? 'transparent' : '#6B7280',
-          opacity: isLoser ? 0.85 : 1,
-          filter: isLoser ? 'grayscale(30%)' : 'none'
+          boxShadow: isWinner
+            ? `inset 0 0 0 1.5px ${CFP_GOLD}, 0 2px 10px rgba(0,0,0,0.45)`
+            : '0 2px 8px rgba(0,0,0,0.40)',
+          opacity: isLoser ? 0.78 : 1,
+          filter: isLoser ? 'grayscale(35%)' : 'none',
         }}
       >
-        <span className="text-lg font-bold w-8 opacity-70" style={{ color: txtColor }}>
+        {/* Glossy broadcast sheen over the team color */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none"
+          style={{ backgroundImage: 'linear-gradient(118deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0) 42%), linear-gradient(180deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.34) 100%)' }}
+        />
+        {/* Seed — prominent, broadcast style */}
+        <span
+          className="relative font-display font-black tabular-nums w-7 text-center flex-shrink-0"
+          style={{ color: txtColor, opacity: 0.85, fontSize: '1.5rem', lineHeight: 1 }}
+        >
           {seed || ''}
         </span>
         {logo && (
-          <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center flex-shrink-0">
+          <div className="relative w-10 h-10 rounded-full bg-white flex items-center justify-center flex-shrink-0" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.35)' }}>
             <img src={logo} alt="" className="w-7 h-7 object-contain" />
           </div>
         )}
-        <div className="flex-1 truncate">
+        <div className="relative flex-1 min-w-0 flex flex-col justify-center">
           <TeamName />
+          {record && (
+            <span className="font-semibold tabular-nums leading-none mt-1" style={{ color: txtColor, opacity: 0.7, fontSize: '0.72rem' }}>
+              ({record})
+            </span>
+          )}
         </div>
         {score !== undefined && (
-          <span className="text-xl font-bold ml-auto" style={{ color: txtColor }}>
+          <span className="relative font-display font-black tabular-nums ml-auto flex-shrink-0" style={{ color: txtColor, fontSize: '1.6rem', lineHeight: 1 }}>
             {score}
           </span>
         )}
@@ -792,6 +802,10 @@ export default function CFPBracket() {
     )
   }
 
+  // Connector colour — translucent white reads cleanly over the dark,
+  // gold-flecked playoff backdrop (the old surface-4 vanished on it).
+  const CONNECTOR_COLOR = 'rgba(255,255,255,0.28)'
+
   // Horizontal line
   const HLine = ({ top, left, width }) => (
     <div
@@ -801,7 +815,7 @@ export default function CFPBracket() {
         left: `${left}px`,
         width: `${width}px`,
         height: '2px',
-        backgroundColor: 'var(--surface-4)'
+        backgroundColor: CONNECTOR_COLOR
       }}
     />
   )
@@ -815,7 +829,7 @@ export default function CFPBracket() {
         left: `${left}px`,
         width: '2px',
         height: `${height}px`,
-        backgroundColor: 'var(--surface-4)'
+        backgroundColor: CONNECTOR_COLOR
       }}
     />
   )
@@ -1096,26 +1110,32 @@ export default function CFPBracket() {
     }
   }
 
-  const titleNode = (
-    <TitleWithYear
-      year={displayYear}
-      years={availableYears}
-      onChange={handleYearChange}
-      label={showProjection ? 'Projection' : 'Bracket'}
-    />
-  )
-
   return (
-    <div className="space-y-4">
-      <PageHero
-        eyebrow={
-          <span className="inline-flex items-center gap-2">
-            <img src="https://i.imgur.com/ZKD9dQJ.png" alt="" className="h-4 opacity-80" />
-            College Football Playoff
-          </span>
-        }
-        title={titleNode}
-      />
+    <div
+      className="relative overflow-hidden rounded-2xl px-4 sm:px-6 py-5 sm:py-6 space-y-5"
+      style={{
+        backgroundColor: '#0b0c10',
+        backgroundImage: `radial-gradient(circle at 18% -10%, rgba(228,176,74,0.12), transparent 38%), radial-gradient(circle at 88% 120%, rgba(228,176,74,0.09), transparent 42%), radial-gradient(ellipse at 50% 42%, transparent 50%, rgba(0,0,0,0.62) 100%)`,
+      }}
+    >
+
+      {/* Header — CFB 27 broadcast title */}
+      <div className="relative">
+        <div className="flex items-center gap-2 mb-1.5">
+          <img src="https://i.imgur.com/ZKD9dQJ.png" alt="" className="h-4 opacity-90" />
+          <span className="font-display font-bold uppercase" style={{ color: CFP_GOLD, letterSpacing: '0.2em', fontSize: '0.72rem' }}>College Football Playoff</span>
+        </div>
+        <h1
+          className="group m-0 font-display font-black uppercase leading-none text-white inline-flex items-baseline flex-wrap gap-x-3"
+          style={{ fontSize: 'clamp(1.6rem, 4vw, 3rem)', letterSpacing: '0.01em' }}
+        >
+          <InlineYearSelect value={displayYear} years={availableYears} onChange={handleYearChange} ariaLabel="Select playoff year" />
+          <span>College Football Playoff</span>
+          {showProjection && (
+            <span className="font-display font-bold" style={{ color: CFP_GOLD, fontSize: '0.42em', letterSpacing: '0.18em' }}>· Projection</span>
+          )}
+        </h1>
+      </div>
 
       {/* When the actual bracket for this year hasn't been entered,
           the projection seeds fall straight into the bracket slots
@@ -1179,12 +1199,12 @@ export default function CFPBracket() {
               transformOrigin: 'top left'
             }}
           >
-          {/* Round Labels */}
-          <div className="flex mb-6 label-xs text-txt-tertiary" style={{ fontSize: '16px', letterSpacing: '0.22em', fontWeight: 600 }}>
-            <div style={{ width: `${SLOT_WIDTH}px`, marginLeft: `${COL1}px` }} className="text-center pb-2 border-b border-surface-4">FIRST ROUND</div>
-            <div style={{ width: `${SLOT_WIDTH}px`, marginLeft: `${CONNECTOR_GAP}px` }} className="text-center pb-2 border-b border-surface-4">QUARTERFINALS</div>
-            <div style={{ width: `${SLOT_WIDTH}px`, marginLeft: `${CONNECTOR_GAP}px` }} className="text-center pb-2 border-b border-surface-4">SEMIFINALS</div>
-            <div style={{ width: `${SLOT_WIDTH}px`, marginLeft: `${CONNECTOR_GAP}px` }} className="text-center pb-2 border-b border-surface-4">CHAMPIONSHIP</div>
+          {/* Round Labels — broadcast gold, matching the CFB 27 bracket */}
+          <div className="flex mb-6 font-display" style={{ fontSize: '17px', letterSpacing: '0.2em', fontWeight: 700, color: CFP_GOLD }}>
+            <div style={{ width: `${SLOT_WIDTH}px`, marginLeft: `${COL1}px`, borderColor: 'rgba(228,176,74,0.35)' }} className="text-left pb-2 border-b">FIRST ROUND</div>
+            <div style={{ width: `${SLOT_WIDTH}px`, marginLeft: `${CONNECTOR_GAP}px`, borderColor: 'rgba(228,176,74,0.35)' }} className="text-left pb-2 border-b">QUARTERFINAL</div>
+            <div style={{ width: `${SLOT_WIDTH}px`, marginLeft: `${CONNECTOR_GAP}px`, borderColor: 'rgba(228,176,74,0.35)' }} className="text-left pb-2 border-b">SEMIFINAL</div>
+            <div style={{ width: `${SLOT_WIDTH}px`, marginLeft: `${CONNECTOR_GAP}px`, borderColor: 'rgba(228,176,74,0.35)' }} className="text-left pb-2 border-b">NATIONAL CHAMPIONSHIP</div>
           </div>
 
           {/* Bracket Area */}
@@ -1331,8 +1351,13 @@ export default function CFPBracket() {
 
             {/* Trophy */}
             <div className="absolute text-center" style={{ top: CHAMP + MATCHUP_HEIGHT + 30, left: COL4, width: `${SLOT_WIDTH}px` }}>
-              <img src="https://i.imgur.com/3goz1NK.png" alt="CFP Trophy" className="h-32 mx-auto mb-3" />
-              <div className="label-xs text-txt-secondary" style={{ fontSize: '16px', letterSpacing: '0.2em' }}>NATIONAL CHAMPION</div>
+              <img
+                src="https://i.imgur.com/3goz1NK.png"
+                alt="CFP Trophy"
+                className="h-36 mx-auto mb-3"
+                style={{ filter: 'drop-shadow(0 0 26px rgba(228,176,74,0.45)) drop-shadow(0 6px 14px rgba(0,0,0,0.55))' }}
+              />
+              <div className="font-display font-black uppercase" style={{ fontSize: '17px', letterSpacing: '0.2em', color: CFP_GOLD }}>National Champion</div>
             </div>
           </div>
         </div>
