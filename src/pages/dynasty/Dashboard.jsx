@@ -930,11 +930,24 @@ export default function Dashboard() {
   // Roster + Schedule fold into one tabbed section (matching the mobile
   // pattern) and the recap card sits where Schedule used to be.
   const lastWeekRecap = (() => {
-    if (currentDynasty.currentPhase !== 'regular_season') return null
-    const cw = Number(currentDynasty.currentWeek)
-    if (!Number.isFinite(cw) || cw < 2) return null
     const yr = Number(currentDynasty.currentYear)
-    return currentDynasty.weekRecapsByYear?.[yr]?.[cw - 1] || null
+    const phase = currentDynasty.currentPhase
+    const cw = Number(currentDynasty.currentWeek)
+    if (!Number.isFinite(cw)) return null
+    // The slot of the week that JUST completed (the one whose recap should
+    // surface as a card on the dashboard), per phase. Postseason weeks recap
+    // the prior calendar slot: bowl week 1 → Conf Champ Week (15), bowl week 2
+    // → Bowl Week 1 (16), etc. — mirroring the Weekly Recap page's displayWeek.
+    let prevSlot = null
+    if (phase === 'regular_season') {
+      if (cw >= 2) prevSlot = cw - 1
+    } else if (phase === 'conference_championship') {
+      prevSlot = 14
+    } else if (phase === 'postseason') {
+      prevSlot = Math.max(15, 14 + cw)
+    }
+    if (prevSlot == null) return null
+    return currentDynasty.weekRecapsByYear?.[yr]?.[prevSlot] || null
   })()
   const lastWeekRecapExists = !!lastWeekRecap?.text
 
@@ -4813,6 +4826,21 @@ export default function Dashboard() {
                 viewTo: hasBowlWeek1Data ? `${pathPrefix}/weekly-scores/${year}/16` : null,
               })
 
+              {
+                const yearNum = Number(currentDynasty.currentYear)
+                const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[16]
+                const done = !!recap?.text
+                bw2Todos.push({
+                  key: 'bw1-recap',
+                  done,
+                  title: done ? 'Bowl Week 1 Recap Saved' : 'Generate Bowl Week 1 Recap',
+                  subtitle: done ? 'Narrative recap stored for Bowl Week 1' : 'Generate the AI recap of Bowl Week 1',
+                  viewTo: `${pathPrefix}/weekly-scores/${yearNum}/16?tab=recap`,
+                  onAction: () => setRecapModalContext({ year: yearNum, week: 16 }),
+                  actionLabel: done ? 'Edit' : 'Generate',
+                })
+              }
+
               if (userHasBowlWeek1Game && !userBowlGameScoresEntered) {
                 const bw1CarryoverOpponentTid = Number(userBowlGame.team1Tid) === Number(userTeamTid)
                   ? userBowlGame.team2Tid
@@ -5288,6 +5316,21 @@ export default function Dashboard() {
 
               const w5Todos = []
 
+              {
+                const yearNum = Number(currentDynasty.currentYear)
+                const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[19]
+                const done = !!recap?.text
+                w5Todos.push({
+                  key: 'nc-recap',
+                  done,
+                  title: done ? 'National Championship Recap Saved' : 'Generate National Championship Recap',
+                  subtitle: done ? 'Narrative recap stored for the National Championship' : 'Generate the AI recap of the National Championship',
+                  viewTo: `${pathPrefix}/weekly-scores/${yearNum}/19?tab=recap`,
+                  onAction: () => setRecapModalContext({ year: yearNum, week: 19 }),
+                  actionLabel: done ? 'Edit' : 'Generate',
+                })
+              }
+
               if (userInCFPChampionship) {
                 // User played in the NC — link to their game record
                 const userChampHasScoresW5 = userCFPChampionshipGame &&
@@ -5434,6 +5477,21 @@ export default function Dashboard() {
                 actionLabel: hasBowlWeek2Data ? 'Edit' : 'Enter',
                 viewTo: hasBowlWeek2Data ? `${pathPrefix}/weekly-scores/${year}/17` : null,
               })
+
+              {
+                const yearNum = Number(currentDynasty.currentYear)
+                const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[17]
+                const done = !!recap?.text
+                w34Todos.push({
+                  key: 'bw2-recap',
+                  done,
+                  title: done ? 'Bowl Week 2 Recap Saved' : 'Generate Bowl Week 2 Recap',
+                  subtitle: done ? 'Narrative recap stored for Bowl Week 2' : 'Generate the AI recap of Bowl Week 2',
+                  viewTo: `${pathPrefix}/weekly-scores/${yearNum}/17?tab=recap`,
+                  onAction: () => setRecapModalContext({ year: yearNum, week: 17 }),
+                  actionLabel: done ? 'Edit' : 'Generate',
+                })
+              }
             }
 
             // CFP Semifinal bye (user's team didn't advance) — no to-do row,
@@ -5485,6 +5543,21 @@ export default function Dashboard() {
                 onAction: () => setShowCFPSemifinalsModal(true),
                 actionLabel: w4AllSFComplete ? 'Edit' : 'Enter',
               })
+
+              {
+                const yearNum = Number(currentDynasty.currentYear)
+                const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[18]
+                const done = !!recap?.text
+                w34Todos.push({
+                  key: 'bw3-recap',
+                  done,
+                  title: done ? 'Bowl Week 3 Recap Saved' : 'Generate Bowl Week 3 Recap',
+                  subtitle: done ? 'Narrative recap stored for Bowl Week 3' : 'Generate the AI recap of Bowl Week 3',
+                  viewTo: `${pathPrefix}/weekly-scores/${yearNum}/18?tab=recap`,
+                  onAction: () => setRecapModalContext({ year: yearNum, week: 18 }),
+                  actionLabel: done ? 'Edit' : 'Generate',
+                })
+              }
             }
 
             // National Championship bye (user's team didn't advance) — no

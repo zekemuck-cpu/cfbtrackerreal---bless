@@ -910,14 +910,46 @@ export function findUserCFPGameShell(dynasty, round, year) {
  */
 function getGameOrderForRecord(game) {
   if (!game) return 0
+  // Delegate to the canonical slot so record ordering matches every other
+  // subsystem. (Kept as a thin wrapper for the existing call sites.)
+  return gameSlot(game)
+}
+
+// ============================================================================
+// CANONICAL GAME SLOT — the single source of truth for "which calendar week
+// does this game belong to." Every game, regular or postseason, maps to ONE
+// number. The gameType (NOT the slot) is what distinguishes a CFP game from a
+// regular bowl played the SAME week — CFP rounds are concurrent with bowl
+// weeks, they don't get their own calendar slots:
+//
+//   1–14  Regular season
+//   15    Conference Championship Week
+//   16    Bowl Week 1   (regular bowls + CFP First Round live here)
+//   17    Bowl Week 2   (regular bowls + CFP Quarterfinals)
+//   18    Bowl Week 3   (regular bowls + CFP Semifinals)
+//   19    National Championship
+//
+// This reads BOTH the new shape (gameType + numeric week) AND every legacy
+// shape (string week 'CCG' / 'Bowl' / 'Bowl 1'…, or the boolean is* flags),
+// via detectGameType. So old league files compute correct slots with ZERO data
+// mutation — the migration that stamps numeric `week` is then purely additive.
+// ============================================================================
+export function gameSlot(game) {
+  if (!game) return null
   const type = detectGameType(game)
-  if (type === GAME_TYPES.CFP_CHAMPIONSHIP) return 23
-  if (type === GAME_TYPES.CFP_SEMIFINAL) return 22
-  if (type === GAME_TYPES.CFP_QUARTERFINAL) return 21
-  if (type === GAME_TYPES.CFP_FIRST_ROUND) return 20
-  if (type === GAME_TYPES.CONFERENCE_CHAMPIONSHIP) return 15
-  if (type === GAME_TYPES.BOWL) return game.bowlWeek === 'week2' ? 17 : 16
-  return game.week || 0
+  switch (type) {
+    case GAME_TYPES.CONFERENCE_CHAMPIONSHIP: return 15
+    case GAME_TYPES.CFP_FIRST_ROUND: return 16
+    case GAME_TYPES.CFP_QUARTERFINAL: return 17
+    case GAME_TYPES.CFP_SEMIFINAL: return 18
+    case GAME_TYPES.CFP_CHAMPIONSHIP: return 19
+    case GAME_TYPES.BOWL:
+      return game.bowlWeek === 'week3' ? 18 : game.bowlWeek === 'week2' ? 17 : 16
+    default: {
+      const w = Number(game.week)
+      return Number.isFinite(w) ? w : 0
+    }
+  }
 }
 
 /**

@@ -10,6 +10,7 @@ import { getContrastTextColor, getContrastRatio } from '../../utils/colorUtils'
 import { canonicalBoxScore, getPlayerStatsForTid, getTeamStatsForTid, hasAnyTeamStats } from '../../utils/boxScoreHelpers'
 import { computeSeasonAV } from '../../utils/approximateValue'
 import { getConferenceLogo } from '../../data/conferenceLogos'
+import { conferenceTeams as DEFAULT_CONFERENCE_TEAMS } from '../../data/conferenceTeams'
 import { bowlLogos } from '../../data/bowlLogos'
 import { getCFPGameId, getSlotIdFromBowlName, getCFPSlotDisplayName, getFirstRoundSlotId } from '../../data/cfpConstants'
 // GameDetailModal and GameEntryModal removed - now using game pages
@@ -1416,23 +1417,53 @@ export default function TeamYear() {
   // The team's place in its conference standings ("12th in SEC"), shown only
   // when conference records have actually been entered for the year.
   const confRank = (() => {
+    const sortByConf = (a, b) => {
+      const ad = (a.confWins || 0) - (a.confLosses || 0)
+      const bd = (b.confWins || 0) - (b.confLosses || 0)
+      if (bd !== ad) return bd - ad
+      if ((b.confWins || 0) !== (a.confWins || 0)) return (b.confWins || 0) - (a.confWins || 0)
+      return (b.wins || 0) - (a.wins || 0)
+    }
+
+    // 1) Prefer saved conference standings when they've been entered.
     for (const confTeams of Object.values(yearStandings)) {
       if (!Array.isArray(confTeams)) continue
       const inConf = confTeams.some(t => t && ((t.tid || resolveTid(t.team, teamsSource)) === tid))
       if (!inConf) continue
       const hasConfData = confTeams.some(t => t && ((t.confWins || 0) + (t.confLosses || 0) > 0))
-      if (!hasConfData) return null
-      const ranked = [...confTeams].filter(Boolean).sort((a, b) => {
-        const ad = (a.confWins || 0) - (a.confLosses || 0)
-        const bd = (b.confWins || 0) - (b.confLosses || 0)
-        if (bd !== ad) return bd - ad
-        if ((b.confWins || 0) !== (a.confWins || 0)) return (b.confWins || 0) - (a.confWins || 0)
-        return (b.wins || 0) - (a.wins || 0)
-      })
+      if (!hasConfData) break // fall through to the games-based computation
+      const ranked = [...confTeams].filter(Boolean).sort(sortByConf)
       const idx = ranked.findIndex(t => (t.tid || resolveTid(t.team, teamsSource)) === tid)
       return idx >= 0 ? idx + 1 : null
     }
-    return null
+
+    // 2) Fallback: compute the team's place live from games[] + the
+    // conference alignment, so the header shows "Nth in <Conf>" even when
+    // standings were never manually entered (the common case mid-season).
+    if (!conference) return null
+    const CONF_ALIASES = {
+      'Mountain West': ['Mountain West', 'MWC'], 'American': ['American', 'AAC'],
+      'Big 12': ['Big 12', 'Big XII'], 'Big Ten': ['Big Ten', 'B1G'],
+      'Conference USA': ['Conference USA', 'CUSA', 'C-USA'], 'Independent': ['Independent', 'Ind', 'IND'],
+      'Pac-12': ['Pac-12', 'Pac 12'],
+    }
+    const confMap = getCustomConferencesForYear(currentDynasty, selectedYear) || DEFAULT_CONFERENCE_TEAMS
+    const aliases = CONF_ALIASES[conference] || [conference]
+    let teamAbbrs = []
+    for (const alias of aliases) {
+      if (Array.isArray(confMap[alias]) && confMap[alias].length > 0) { teamAbbrs = confMap[alias]; break }
+    }
+    if (teamAbbrs.length === 0) return null
+    const rows = teamAbbrs.map(abbr => {
+      const ttid = resolveTid(abbr, teamsSource || TEAMS)
+      if (ttid == null) return null
+      const rec = calculateTeamRecordFromGames(currentDynasty, Number(ttid), selectedYear)
+      return { tid: Number(ttid), confWins: rec?.confWins || 0, confLosses: rec?.confLosses || 0, wins: rec?.wins || 0 }
+    }).filter(Boolean)
+    if (!rows.some(r => (r.confWins + r.confLosses) > 0)) return null
+    rows.sort(sortByConf)
+    const idx = rows.findIndex(r => r.tid === tid)
+    return idx >= 0 ? idx + 1 : null
   })()
 
   // Pick the record covering the most games; ties go to calculated

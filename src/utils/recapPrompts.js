@@ -381,7 +381,14 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
     : weekNum === 18 ? 'Bowl Week 3 / CFP Semifinals'
     : weekNum === 19 ? 'National Championship'
     : `Week ${weekNum}`
-  const isBowlWeek = weekNum >= 15
+  // Bowl/CFP weeks (16+) get bowl-season framing + the CFP-lead structure.
+  // Conference Championship Week (15) is postseason for game-INCLUSION, but is
+  // recapped like a national week with the title games as the headline — it
+  // has no CFP/bowl games to lead with, and its games don't fit the bowl
+  // buckets, so routing it through the bowl path would emit zero games.
+  const isBowlWeek = weekNum >= 16
+  const isConfChampWeek = weekNum === 15
+  const isPostseason = weekNum >= 15
   const cfpRoundLabel = weekNum === 16 ? 'CFP First Round'
     : weekNum === 17 ? 'CFP Quarterfinals'
     : weekNum === 18 ? 'CFP Semifinals'
@@ -390,7 +397,12 @@ export function buildWeekRecapPrompt(dynasty, year, week) {
   const games = (dynasty?.games || []).filter(g => g && Number(g.year) === yearNum)
   const weekGames = games.filter(g => {
     if (Number(g.week) === weekNum) return true
-    if (!isBowlWeek) return false
+    if (!isPostseason) return false
+    // Postseason games don't carry a numeric `week`, so match them by
+    // flag/type. Conference Championship games have no `week` field at all —
+    // without this clause the Conf Champ Week recap has zero games and the AI
+    // (correctly) refuses to write it.
+    if (isConfChampWeek && (g.isConferenceChampionship || g.gameType === 'conference_championship')) return true
     // Bowl/CFP games store week as 'Bowl' — include them based on bowlWeek/gameType
     if (weekNum === 16 && (g.isCFPFirstRound || g.gameType === 'cfp_first_round' || (g.isBowlGame && g.bowlWeek === 'week1'))) return true
     if (weekNum === 17 && (g.isCFPQuarterfinal || g.gameType === 'cfp_quarterfinal' || (g.isBowlGame && g.bowlWeek === 'week2'))) return true
