@@ -283,6 +283,22 @@ button.card-elevated:hover {
 }
 .cfb-texture-strong::after { opacity: 0.85; }
 
+/* App-wide grain. A single fixed, full-viewport layer that blends over the
+   ENTIRE app — header, sidebar, content, and the gaps between them — so the
+   grain reads as one continuous background rather than living only on certain
+   cards. Sits above the chrome (z above the sticky header) but below modals
+   (z-[9999]) so dialogs stay crisp. pointer-events:none keeps it click-through. */
+.cfb-grain-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.22;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='cfbn'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23cfbn)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+}
+
 /* Faint team-logo watermark for team-colored panels (hero, scorebugs). Set
    --cfb-watermark to the logo url. Bleeds off the right edge, sits behind
    content, never intercepts clicks. */

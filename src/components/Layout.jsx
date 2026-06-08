@@ -531,6 +531,9 @@ export default function Layout({ children }) {
     <div
       className="min-h-dvh flex flex-col surface-1"
     >
+      {/* App-wide paper grain — one fixed layer over the whole UI so the
+          texture is continuous across header, sidebar, content, and gaps. */}
+      <div className="cfb-grain-overlay" aria-hidden="true" />
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[10002] focus:px-4 focus:py-2 focus:rounded-md focus:font-semibold focus:outline-none focus:ring-2"

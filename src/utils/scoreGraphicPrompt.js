@@ -134,6 +134,7 @@ export function buildScoreGraphicPrompt({
       `• Sentence captions — "STATEMENT WIN IN ATHENS" or any explanatory subtitle.`,
       `• Slogans as the dominant element. A program slogan (small, corner or footer) is fine if it's authentic to this school — never invented.`,
       `• Location text — venue, stadium, city, or state names.`,
+      `• Any year, season, or date — NO four-digit year (e.g. "2024", "2025", "2035"), no "20XX", no month/day, anywhere on the canvas. This is absolute. If an official event mark you're recalling (conference-championship logo, CFP shield, bowl logo) normally includes a year, recreate the mark WITHOUT that year — drop the date entirely. Never print YYYY in any form.`,
       `• Hex codes, color names, hashtags, handles, or URLs.`,
     ]
     if (fictionalNamesList.length > 0) {

@@ -64,13 +64,26 @@ export default function CardEditorModal({
     () => buildCardPromptVariables({ player, dynasty, card: working }),
     [player, dynasty, working]
   )
+  // Appended to BOTH prompts: the featured team's color is the ONLY accent
+  // anywhere on the card. Without this the image model sometimes pulled the
+  // opponent's palette into borders/panels on game cards (ugly + wrong).
+  const teamColorRule = useMemo(() => {
+    const c = variables.teamColor
+    if (!c) return ''
+    const school = variables.school || 'the featured team'
+    const sec = variables.teamSecondaryColor ? `, secondary ${variables.teamSecondaryColor}` : ''
+    const oppClause = variables.opponent
+      ? ` Do NOT use ${variables.opponent}'s colors anywhere as an accent, border, frame, panel, background, banner, or design fill — the opponent's colors may appear ONLY inside the opponent's own logo if one is shown, and nowhere else on the card.`
+      : ` Do NOT introduce any second team's colors as accents — only ${school}'s palette drives the design.`
+    return `\n\nTEAM COLOR — ABSOLUTE: This is a ${school} card. ${school}'s team color (${c}${sec}) is THE accent for every colored design element — borders, frame, name plate, banners, panels, stat-table headers, card-number box, foil/refractor/chrome tint, and any background or color fill.${oppClause} Whenever it's unclear which color an element should be, use ${school}'s team color.`
+  }, [variables])
   const filledFrontPrompt = useMemo(
-    () => style?.frontPrompt ? interpolatePrompt(style.frontPrompt, variables) : '',
-    [style?.frontPrompt, variables]
+    () => style?.frontPrompt ? interpolatePrompt(style.frontPrompt, variables) + teamColorRule : '',
+    [style?.frontPrompt, variables, teamColorRule]
   )
   const filledBackPrompt = useMemo(
-    () => style?.backPrompt ? interpolatePrompt(style.backPrompt, variables) : '',
-    [style?.backPrompt, variables]
+    () => style?.backPrompt ? interpolatePrompt(style.backPrompt, variables) + teamColorRule : '',
+    [style?.backPrompt, variables, teamColorRule]
   )
 
   const playerGames = useMemo(() => listPlayerGames(player, dynasty), [player, dynasty])

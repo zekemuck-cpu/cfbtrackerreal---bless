@@ -929,38 +929,43 @@ export default function Recruiting() {
             </button>
           )}
         </div>
-      </section>
 
-      <div
-        className="media-card overflow-hidden"
-        style={{
-          borderLeft: `3px solid ${teamAccent}`,
-          backgroundImage: `linear-gradient(90deg, ${teamAccent}24 0%, ${teamAccent}0d 16%, transparent 40%)`,
-        }}
-      >
+        {/* Toolbar merged into the hero — one unified team-color section,
+            divided from the title by a hairline. Numbers inherit the
+            contrast text color; labels use a translucent version (via the
+            --text-tertiary override); the Select pills keep their own dark
+            surface so they stay legible on any team color. */}
+        <div
+          className="relative"
+          style={{
+            borderTop: '1px solid rgba(255,255,255,0.18)',
+            color: teamBgText,
+            '--text-tertiary': `color-mix(in srgb, ${teamBgText} 66%, transparent)`,
+          }}
+        >
         {/* Toolbar — stacks vertically on mobile so each block (metrics,
             view toggle, star filters) gets a full-width row instead of
             cramming together and wrapping awkwardly. From md: up they sit
             side-by-side with vertical dividers. */}
-        <div className="flex flex-col md:flex-row md:flex-wrap md:items-stretch divide-y md:divide-y-0 md:divide-x divide-surface-4">
+        <div className="flex flex-col md:flex-row md:flex-wrap md:items-stretch divide-y md:divide-y-0 md:divide-x divide-white/15">
           {/* Metrics — entire block opens the class history modal */}
           {!isAllSeasons ? (
             <button
               type="button"
               onClick={() => setShowHistoryModal(true)}
               disabled={classHistory.length <= 1}
-              className="flex items-center gap-4 sm:gap-6 px-3 sm:px-5 py-3 flex-shrink-0 text-left transition-colors hover:bg-surface-3 disabled:cursor-default disabled:hover:bg-transparent"
+              className="flex items-center gap-4 sm:gap-6 px-3 sm:px-5 py-3 flex-shrink-0 text-left transition-colors hover:bg-white/10 disabled:cursor-default disabled:hover:bg-transparent"
               title={classHistory.length > 1 ? 'View class scores by season' : 'NCAA Football 25 class score formula'}
               aria-label="View recruiting class history"
             >
               <span className="flex items-baseline gap-2">
-                <span className="text-2xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                <span className="text-2xl font-black tabular leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                   {nationalRank ? `#${nationalRank}` : '—'}
                 </span>
                 <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Natl Rank</span>
               </span>
               <span className="flex items-baseline gap-2">
-                <span className="text-2xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                <span className="text-2xl font-black tabular leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                   {formatRecruitingClassScore(classScore)}
                 </span>
                 <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Score</span>
@@ -969,7 +974,7 @@ export default function Recruiting() {
           ) : (
             <div className="flex items-center gap-4 sm:gap-6 px-3 sm:px-5 py-3 flex-shrink-0">
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                <span className="text-2xl font-black tabular leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                   {classStats.total}
                 </span>
                 <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Commits</span>
@@ -992,9 +997,9 @@ export default function Recruiting() {
                     key={opt.value}
                     onClick={() => setViewMode(opt.value)}
                     className={`px-2.5 py-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider transition-colors ${
-                      active ? '' : 'text-txt-tertiary hover:text-txt-primary hover:bg-surface-3'
+                      active ? '' : 'hover:bg-white/10'
                     }`}
-                    style={active ? { backgroundColor: teamAccent, color: teamBgText } : undefined}
+                    style={active ? { backgroundColor: teamBgText, color: teamAccent } : undefined}
                   >
                     {opt.label} <span className="tabular opacity-70">{count}</span>
                   </button>
@@ -1056,6 +1061,7 @@ export default function Recruiting() {
           </div>
         </div>
       </div>
+      </section>
 
       {allCommitments.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 stagger-reveal">

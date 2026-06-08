@@ -795,10 +795,6 @@ function ovrColor(ovr) {
 }
 
 function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode }) {
-  // Single source of truth: the player's headshot link (tile.pictureUrl, set by
-  // the projection from player.pictureUrl — the enrolled player's, for incoming
-  // recruits). Rendered through the wsrv proxy in <Avatar>, team logo fallback.
-  const photoUrl = tile.pictureUrl || null
   const tint = leaving ? undefined : devTraitGradient(tile.devTrait)
   const cursor = grab ? (markMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing') : 'cursor-pointer'
   const marker = leaving ? 'OUT' : tile.isNfl ? 'NFL' : tile.portalRisk ? '↗' : null
@@ -836,7 +832,9 @@ function TileView({ tile, isStarter, grab, dragging, teamLogo, leaving, markMode
           class in the middle, OVR on the right. Keeps every field but cuts the
           tile height vs. stacking the avatar on its own row. */}
       <div className="relative z-[1] hidden lg:flex items-center gap-2.5 px-3 py-1.5">
-        <Avatar url={photoUrl} fallback={teamLogo} size="lg" />
+        {/* No headshot here — these position columns are narrow, and the photo
+            squeezed the name down to a single initial. The name is what matters
+            on a depth chart, so it gets the full width. */}
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-1.5 min-w-0">
             {hasJersey && (

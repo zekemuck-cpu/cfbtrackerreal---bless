@@ -1462,6 +1462,11 @@ export default function Game() {
       ? `linear-gradient(90deg, ${leftData.colors.primary} 0%, ${leftData.colors.primary} 55%, ${rightData.colors.primary} 85%, ${rightData.colors.primary} 100%)`
       : `linear-gradient(90deg, ${leftData.colors.primary} 0%, ${leftData.colors.primary} 15%, ${rightData.colors.primary} 45%, ${rightData.colors.primary} 100%)`
 
+  // CFB-27 broadcast scorebug: hard 50/50 team-color split with a centered
+  // divider + a dark legibility wash (white text reads on any team color).
+  // Matches the team page's Previous/Next Game scorebug treatment.
+  const splitHeroBg = `linear-gradient(90deg, transparent calc(50% - 1.5px), rgba(0,0,0,0.55) calc(50% - 1.5px), rgba(0,0,0,0.55) calc(50% + 1.5px), transparent calc(50% + 1.5px)), linear-gradient(rgba(0,0,0,0.46), rgba(0,0,0,0.46)), linear-gradient(90deg, ${leftData.colors.primary} 0%, ${leftData.colors.primary} 50%, ${rightData.colors.primary} 50%, ${rightData.colors.primary} 100%)`
+
   // Title-cluster pieces. For regular-season games we split the
   // wrapping link so the conference logo navigates to standings while
   // the subtitle/title text navigates to that week's Weekly Scores
@@ -1543,33 +1548,21 @@ export default function Game() {
 
   return (
     <div className="space-y-4 overflow-x-hidden">
-      {/* Hero Scoreboard */}
-      <div className="bg-surface-1 rounded-2xl overflow-hidden shadow-2xl">
-        {/* Top bar — clean dark strip with a thin team-color accent line.
-            Replaces the full-width team gradient (too loud) with a sports-
-            webpage-style header: subtle accent + structured title cluster. */}
+      {/* Hero Scoreboard — CFB-27 broadcast scorebug. The card carries the
+          team-color split + grain; the header strip below sits opaque on top
+          (z-10) so it reads as a clean broadcast bar over the colored body. */}
+      <div
+        className="relative rounded-2xl overflow-hidden shadow-2xl cfb-texture cfb-texture-strong"
+        style={{ backgroundImage: splitHeroBg }}
+      >
+        {/* Top bar — opaque broadcast header over the colored scorebug. */}
         <div
-          className="relative px-3 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between gap-3"
+          className="relative z-10 px-3 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between gap-3"
           style={{
             backgroundColor: 'var(--surface-2)',
             borderBottom: '1px solid var(--surface-4)',
           }}
         >
-          {/* Thin team-color accent line at the very top — keeps a hint of
-              identity without flooding the strip. */}
-          <div
-            aria-hidden="true"
-            className="absolute top-0 left-0 right-0"
-            style={{
-              height: '2px',
-              background: !gameIsPlayed
-                ? `linear-gradient(90deg, ${leftData.colors.primary} 0%, ${leftData.colors.primary} 45%, ${rightData.colors.primary} 55%, ${rightData.colors.primary} 100%)`
-                : leftWon
-                  ? `linear-gradient(90deg, ${leftData.colors.primary} 0%, ${leftData.colors.primary} 60%, ${rightData.colors.primary} 80%, ${rightData.colors.primary} 100%)`
-                  : `linear-gradient(90deg, ${leftData.colors.primary} 0%, ${leftData.colors.primary} 20%, ${rightData.colors.primary} 40%, ${rightData.colors.primary} 100%)`,
-              opacity: 0.9,
-            }}
-          />
 
           {/* Left-aligned title cluster (logo + subtitle/title).
               Special-event games (CFP / Bowl / Conf Champ) keep the
@@ -1679,7 +1672,7 @@ export default function Game() {
                     )}
                     <div className="text-white font-bold text-lg group-hover:underline">{leftData.name}</div>
                     {leftData.record && (
-                      <div className="text-txt-tertiary text-sm">{leftData.record}</div>
+                      <div className="text-sm" style={{ color: 'rgba(255,255,255,0.72)' }}>{leftData.record}</div>
                     )}
                   </div>
                 </Link>
@@ -1688,7 +1681,7 @@ export default function Game() {
                     quarter table. */}
                 <div className="flex items-center gap-2">
                   <div
-                    className={`text-6xl font-black tabular-nums ${leftData.isWinner ? 'text-white' : 'text-txt-muted'}`}
+                    className={`text-6xl font-black tabular-nums ${leftData.isWinner ? 'text-white' : 'text-white opacity-60'}`}
                     style={leftData.isWinner ? { textShadow: '0 0 20px rgba(255,255,255,0.3)' } : {}}
                   >
                     {leftData.score}
@@ -1701,8 +1694,9 @@ export default function Game() {
                 </div>
               </div>
 
-              {/* Center: Quarter Scores Table */}
-              <div className="flex-shrink-0 mx-4">
+              {/* Center: Quarter Scores Table — dark panel keeps the table
+                  legible where it sits over the team-color split + divider. */}
+              <div className="flex-shrink-0 mx-4 rounded-xl px-4 py-2.5" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}>
                 {(() => {
                   const t = game.quarters.team1 || game.quarters.team || {}
                   const o = game.quarters.team2 || game.quarters.opponent || {}
@@ -1744,7 +1738,7 @@ export default function Game() {
                           {game.overtimes?.map((ot, i) => (
                             <td key={i} className="px-3 py-1.5 text-txt-secondary text-sm">{ot[leftQuarterKey] ?? '-'}</td>
                           ))}
-                          <td className={`px-3 py-1.5 pl-4 border-l border-surface-4 text-xl font-black ${leftData.isWinner ? 'text-white' : 'text-txt-muted'}`}>
+                          <td className={`px-3 py-1.5 pl-4 border-l border-surface-4 text-xl font-black ${leftData.isWinner ? 'text-white' : 'text-white opacity-60'}`}>
                             {leftData.score}
                           </td>
                         </tr>
@@ -1758,7 +1752,7 @@ export default function Game() {
                           {game.overtimes?.map((ot, i) => (
                             <td key={i} className="px-3 py-1.5 text-txt-secondary text-sm">{ot[rightQuarterKey] ?? '-'}</td>
                           ))}
-                          <td className={`px-3 py-1.5 pl-4 border-l border-surface-4 text-xl font-black ${rightData.isWinner ? 'text-white' : 'text-txt-muted'}`}>
+                          <td className={`px-3 py-1.5 pl-4 border-l border-surface-4 text-xl font-black ${rightData.isWinner ? 'text-white' : 'text-white opacity-60'}`}>
                             {rightData.score}
                           </td>
                         </tr>
@@ -1789,7 +1783,7 @@ export default function Game() {
                     </svg>
                   )}
                   <div
-                    className={`text-6xl font-black tabular-nums ${rightData.isWinner ? 'text-white' : 'text-txt-muted'}`}
+                    className={`text-6xl font-black tabular-nums ${rightData.isWinner ? 'text-white' : 'text-white opacity-60'}`}
                     style={rightData.isWinner ? { textShadow: '0 0 20px rgba(255,255,255,0.3)' } : {}}
                   >
                     {rightData.score}
@@ -1802,7 +1796,7 @@ export default function Game() {
                     )}
                     <div className="text-white font-bold text-lg group-hover:underline">{rightData.name}</div>
                     {rightData.record && (
-                      <div className="text-txt-tertiary text-sm">{rightData.record}</div>
+                      <div className="text-sm" style={{ color: 'rgba(255,255,255,0.72)' }}>{rightData.record}</div>
                     )}
                   </div>
                   <div className="relative flex-shrink-0">
@@ -1869,7 +1863,7 @@ export default function Game() {
                     {leftData.name}
                   </div>
                   {leftData.record && (
-                    <div className="text-txt-tertiary text-[9px] sm:text-xs mt-0.5">{leftData.record}</div>
+                    <div className="text-[9px] sm:text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.72)' }}>{leftData.record}</div>
                   )}
                 </div>
               </div>
@@ -1881,8 +1875,8 @@ export default function Game() {
                 <div className="flex items-center gap-1.5 sm:gap-6">
                   <div className="text-center">
                     <div
-                      className={`text-2xl sm:text-5xl md:text-6xl font-black tabular-nums transition-all ${leftData.isWinner ? 'text-white' : 'text-txt-muted'}`}
-                      style={leftData.isWinner ? { textShadow: '0 0 20px rgba(255,255,255,0.3)' } : {}}
+                      className={`inline-block text-center text-2xl sm:text-5xl md:text-6xl font-black tabular-nums transition-all ${leftData.isWinner ? 'text-white' : 'text-white opacity-60'}`}
+                      style={{ minWidth: '1.5em', ...(leftData.isWinner ? { textShadow: '0 0 20px rgba(255,255,255,0.3)' } : {}) }}
                     >
                       {leftData.score}
                     </div>
@@ -1907,8 +1901,8 @@ export default function Game() {
 
                   <div className="text-center">
                     <div
-                      className={`text-2xl sm:text-5xl md:text-6xl font-black tabular-nums transition-all ${rightData.isWinner ? 'text-white' : 'text-txt-muted'}`}
-                      style={rightData.isWinner ? { textShadow: '0 0 20px rgba(255,255,255,0.3)' } : {}}
+                      className={`inline-block text-center text-2xl sm:text-5xl md:text-6xl font-black tabular-nums transition-all ${rightData.isWinner ? 'text-white' : 'text-white opacity-60'}`}
+                      style={{ minWidth: '1.5em', ...(rightData.isWinner ? { textShadow: '0 0 20px rgba(255,255,255,0.3)' } : {}) }}
                     >
                       {rightData.score}
                     </div>
@@ -1956,7 +1950,7 @@ export default function Game() {
                     {rightData.name}
                   </div>
                   {rightData.record && (
-                    <div className="text-txt-tertiary text-[9px] sm:text-xs mt-0.5">{rightData.record}</div>
+                    <div className="text-[9px] sm:text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.72)' }}>{rightData.record}</div>
                   )}
                 </div>
               </div>
@@ -1971,7 +1965,7 @@ export default function Game() {
           Surface matches the hero card above and the tabs card below
           (bg-surface-1) so the table doesn't read as a brighter slab. */}
       {hasQuarterScores && (
-        <div className="xl:hidden bg-surface-1 rounded-xl overflow-hidden shadow-lg">
+        <div className="xl:hidden bg-surface-1 rounded-xl overflow-hidden shadow-lg cfb-texture cfb-texture-strong">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -2001,7 +1995,10 @@ export default function Game() {
                     ? (idx === 0 ? (isLeftTeam1 ? 'team1' : 'team2') : (isLeftTeam1 ? 'team2' : 'team1'))
                     : ((idx === 0 ? leftTeam : rightTeam) === 'user' ? 'team' : 'opponent')
                   return (
-                    <tr key={idx} className={idx === 0 ? 'border-b border-surface-4' : ''}>
+                    <tr
+                      key={idx}
+                      style={{ backgroundColor: team.colors.primary, backgroundImage: 'linear-gradient(rgba(0,0,0,0.40), rgba(0,0,0,0.40))' }}
+                    >
                       <td className="py-3 px-3 sm:px-4">
                         <Link to={`${pathPrefix}/team/${resolveTid(team.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group">
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -2010,7 +2007,7 @@ export default function Game() {
                             >
                               {team.logo && <img src={team.logo} alt="" className="w-full h-full object-contain" />}
                             </div>
-                            <span className={`font-bold group-hover:underline ${team.isWinner ? 'text-white' : 'text-txt-tertiary'}`}>
+                            <span className={`font-bold group-hover:underline ${team.isWinner ? 'text-white' : 'text-white opacity-70'}`}>
                               <span className="sm:hidden">{team.abbr}</span>
                               <span className="hidden sm:inline">{team.name}</span>
                             </span>
@@ -2020,15 +2017,15 @@ export default function Game() {
                       {['Q1', 'Q2', 'Q3', 'Q4'].map(q => {
                         const val = game.quarters[quarterKey]?.[q]
                         return (
-                          <td key={q} className="text-center py-3 px-2 sm:px-3 text-txt-secondary font-medium">
+                          <td key={q} className="text-center py-3 px-2 sm:px-3 text-white font-medium">
                             {val === '' || val === null || val === undefined ? 0 : val}
                           </td>
                         )
                       })}
                       {game.overtimes?.map((ot, i) => (
-                        <td key={i} className="text-center py-3 px-2 sm:px-3 text-txt-secondary font-medium">{ot[quarterKey] ?? '-'}</td>
+                        <td key={i} className="text-center py-3 px-2 sm:px-3 text-white font-medium">{ot[quarterKey] ?? '-'}</td>
                       ))}
-                      <td className={`text-center py-3 px-3 sm:px-4 font-black text-lg sm:text-xl ${team.isWinner ? 'text-white' : 'text-txt-muted'}`}>
+                      <td className={`text-center py-3 px-3 sm:px-4 font-black text-lg sm:text-xl ${team.isWinner ? 'text-white' : 'text-white opacity-60'}`}>
                         {team.score}
                       </td>
                     </tr>
@@ -2188,26 +2185,36 @@ export default function Game() {
 
             const LeaderRow = ({ player, statLine, teamData }) => {
               const pid = getPlayerPID(player)
+              // Each leader sits on their team's color (rename-safe — colors
+              // come from teamData), with a contrast-aware text color and the
+              // same soft sheen + grain the rest of the app's team cards use.
+              const color = teamData?.colors?.primary || '#374151'
+              const txt = getContrastTextColor(color)
+              const rowStyle = {
+                backgroundColor: color,
+                backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 42%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.34) 100%)',
+              }
               const content = (
                 <>
-                  <div className="w-7 h-7 rounded-md flex-shrink-0 flex items-center justify-center bg-surface-3/80 p-1 ring-1 ring-surface-4/70">
+                  <div className="w-7 h-7 rounded-md flex-shrink-0 flex items-center justify-center bg-white p-1 shadow-sm">
                     {teamData?.logo && <img src={teamData.logo} alt="" className="w-full h-full object-contain" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-semibold text-txt-primary truncate leading-tight">{player}</div>
-                    <div className="text-[12px] text-txt-secondary truncate tabular-nums leading-snug mt-0.5">{statLine}</div>
+                    <div className="text-[13px] font-semibold truncate leading-tight" style={{ color: txt }}>{player}</div>
+                    <div className="text-[12px] truncate tabular-nums leading-snug mt-0.5" style={{ color: txt, opacity: 0.82 }}>{statLine}</div>
                   </div>
                 </>
               )
               return pid ? (
                 <Link
                   to={`${pathPrefix}/player/${pid}`}
-                  className="flex items-center gap-2.5 min-w-0 py-1 -mx-1 px-1 rounded-md hover:bg-surface-2/60 transition-colors"
+                  className="cfb-texture flex items-center gap-2.5 min-w-0 py-2.5 px-2.5 hover:brightness-110 transition-all"
+                  style={rowStyle}
                 >
                   {content}
                 </Link>
               ) : (
-                <div className="flex items-center gap-2.5 min-w-0 py-1">{content}</div>
+                <div className="cfb-texture flex items-center gap-2.5 min-w-0 py-2.5 px-2.5" style={rowStyle}>{content}</div>
               )
             }
 
@@ -2339,7 +2346,7 @@ export default function Game() {
                             <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-txt-muted mb-2">
                               {cat.label}
                             </div>
-                            <div className="space-y-1.5">
+                            <div className="rounded-lg overflow-hidden">
                               {leftLine && (
                                 <LeaderRow player={leftTop.playerName} statLine={leftLine} teamData={leftData} />
                               )}
@@ -2414,10 +2421,12 @@ export default function Game() {
                           if (!hasAnyRatings(ratings)) return null
                           const other = idx === 0 ? rightRatings : leftRatings
                           const better = (key) => (ratings[key] || 0) > (other[key] || 0)
+                          const color = team?.colors?.primary || '#374151'
+                          const txt = getContrastTextColor(color)
                           const cell = (label, val, key) => val == null ? null : (
                             <div className="flex flex-col items-start min-w-0">
-                              <span className="text-[9px] uppercase tracking-[0.18em] text-txt-muted">{label}</span>
-                              <span className={`text-base tabular-nums leading-none mt-1 text-txt-primary ${better(key) ? 'font-bold' : 'font-medium'}`}>
+                              <span className="text-[9px] uppercase tracking-[0.18em]" style={{ color: txt, opacity: 0.65 }}>{label}</span>
+                              <span className={`text-base tabular-nums leading-none mt-1 ${better(key) ? 'font-bold' : 'font-medium'}`} style={{ color: txt }}>
                                 {val}
                               </span>
                             </div>
@@ -2426,13 +2435,14 @@ export default function Game() {
                             <Link
                               key={idx}
                               to={`${pathPrefix}/team/${resolveTid(team.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`}
-                              className="group flex items-center gap-3 rounded-lg py-2 pl-2 pr-3 hover:bg-surface-2/70 transition-colors"
+                              className="cfb-texture group flex items-center gap-3 rounded-lg py-2 pl-2 pr-3 overflow-hidden hover:brightness-110 transition-all"
+                              style={{ backgroundColor: color, backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 42%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.34) 100%)' }}
                             >
-                              <div className="w-9 h-9 rounded-md flex items-center justify-center p-1 bg-surface-3/80 ring-1 ring-surface-4/70 flex-shrink-0">
+                              <div className="w-9 h-9 rounded-md flex items-center justify-center p-1 bg-white shadow-sm flex-shrink-0">
                                 {team.logo && <img src={team.logo} alt="" className="w-full h-full object-contain" />}
                               </div>
                               <div className="flex-1 min-w-0 flex items-center gap-4">
-                                <div className="flex-1 min-w-0 text-[13px] font-semibold text-txt-primary truncate group-hover:underline">
+                                <div className="flex-1 min-w-0 text-[13px] font-semibold truncate group-hover:underline" style={{ color: txt }}>
                                   {team.name}
                                 </div>
                                 <div className="flex items-center gap-3 flex-shrink-0">
@@ -3316,18 +3326,21 @@ export default function Game() {
                         <div className="grid grid-cols-2 gap-6">
                           {/* Left Team */}
                           <div className="min-w-0">
-                            <div className="flex items-center gap-2 mb-2 px-2">
-                              <Link to={`${pathPrefix}/team/${resolveTid(leftTeamData_bs.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-0.5 ">
+                            <div
+                              className="cfb-texture flex items-center gap-2 mb-2 px-3 py-2 rounded-lg overflow-hidden"
+                              style={{ backgroundColor: leftTeamData_bs.colors.primary, backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 42%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.34) 100%)' }}
+                            >
+                              <Link to={`${pathPrefix}/team/${resolveTid(leftTeamData_bs.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2 min-w-0">
+                                <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-0.5 shadow-sm">
                                   <img
                                     src={getTeamLogo(getMascotName(leftTeamData_bs.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || leftTeamData_bs.abbr)}
                                     alt={leftTeamData_bs.name}
                                     className="w-full h-full object-contain"
                                   />
                                 </div>
-                                <span className="text-white font-semibold text-sm group-hover:underline">{leftTeamData_bs.name}</span>
+                                <span className="font-semibold text-sm group-hover:underline truncate" style={{ color: getContrastTextColor(leftTeamData_bs.colors.primary) }}>{leftTeamData_bs.name}</span>
                               </Link>
-                              <span className="text-txt-tertiary text-sm">{tab.title}</span>
+                              <span className="text-sm flex-shrink-0" style={{ color: getContrastTextColor(leftTeamData_bs.colors.primary), opacity: 0.72 }}>{tab.title}</span>
                             </div>
                             {hasLeftData ? renderTeamStatTable(leftData_bs, leftTeamData_bs, statKey, false) : (
                               <div className="text-txt-muted text-sm px-2 py-4">No {tab.title.toLowerCase()} stats</div>
@@ -3335,18 +3348,21 @@ export default function Game() {
                           </div>
                           {/* Right Team */}
                           <div className="min-w-0">
-                            <div className="flex items-center gap-2 mb-2 px-2">
-                              <Link to={`${pathPrefix}/team/${resolveTid(rightTeamData_bs.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-0.5 ">
+                            <div
+                              className="cfb-texture flex items-center gap-2 mb-2 px-3 py-2 rounded-lg overflow-hidden"
+                              style={{ backgroundColor: rightTeamData_bs.colors.primary, backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 42%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.34) 100%)' }}
+                            >
+                              <Link to={`${pathPrefix}/team/${resolveTid(rightTeamData_bs.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2 min-w-0">
+                                <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-0.5 shadow-sm">
                                   <img
                                     src={getTeamLogo(getMascotName(rightTeamData_bs.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || rightTeamData_bs.abbr)}
                                     alt={rightTeamData_bs.name}
                                     className="w-full h-full object-contain"
                                   />
                                 </div>
-                                <span className="text-white font-semibold text-sm group-hover:underline">{rightTeamData_bs.name}</span>
+                                <span className="font-semibold text-sm group-hover:underline truncate" style={{ color: getContrastTextColor(rightTeamData_bs.colors.primary) }}>{rightTeamData_bs.name}</span>
                               </Link>
-                              <span className="text-txt-tertiary text-sm">{tab.title}</span>
+                              <span className="text-sm flex-shrink-0" style={{ color: getContrastTextColor(rightTeamData_bs.colors.primary), opacity: 0.72 }}>{tab.title}</span>
                             </div>
                             {hasRightData ? renderTeamStatTable(rightData_bs, rightTeamData_bs, statKey, false) : (
                               <div className="text-txt-muted text-sm px-2 py-4">No {tab.title.toLowerCase()} stats</div>
@@ -3477,21 +3493,24 @@ export default function Game() {
 
         return (
           <>
-            {/* Team header with logos */}
-            <div className="px-4 py-3 border-b border-surface-4 flex items-center justify-between">
+            {/* Team header with logos — each side washed in its team color. */}
+            <div
+              className="px-4 py-3 border-b border-surface-4 flex items-center justify-between"
+              style={{ backgroundImage: `linear-gradient(90deg, ${leftTeamColors.primary} 0%, ${leftTeamColors.primary}00 38%, ${rightTeamColors.primary}00 62%, ${rightTeamColors.primary} 100%)` }}
+            >
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-white p-1">
+                <div className="w-8 h-8 rounded-full bg-white p-1 shadow-sm">
                   <img src={getTeamLogoRobust(leftTeamAbbr)} alt="" className="w-full h-full object-contain" />
                 </div>
-                <span className="text-sm font-bold text-white hidden sm:inline">
+                <span className="text-sm font-bold text-white hidden sm:inline" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
                   {getMascotName(leftTeamAbbr, currentDynasty?.teams) || leftTeamAbbr}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-white hidden sm:inline">
+                <span className="text-sm font-bold text-white hidden sm:inline" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
                   {getMascotName(rightTeamAbbr, currentDynasty?.teams) || rightTeamAbbr}
                 </span>
-                <div className="w-8 h-8 rounded-full bg-white p-1">
+                <div className="w-8 h-8 rounded-full bg-white p-1 shadow-sm">
                   <img src={getTeamLogoRobust(rightTeamAbbr)} alt="" className="w-full h-full object-contain" />
                 </div>
               </div>
