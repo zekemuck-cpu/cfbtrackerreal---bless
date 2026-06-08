@@ -208,11 +208,20 @@ export default function Dashboard() {
   // which busted the memo even when the user wasn't on a screen that
   // shows the recap.
   const recapLinks = useMemo(() => {
-    if (currentDynasty?.currentPhase !== 'regular_season') return null
-    const cw = Number(currentDynasty?.currentWeek)
-    if (!Number.isFinite(cw) || cw < 2) return null
     const yr = Number(currentDynasty?.currentYear)
-    const lastWeekText = currentDynasty?.weekRecapsByYear?.[yr]?.[cw - 1]?.text
+    const phase = currentDynasty?.currentPhase
+    const cw = Number(currentDynasty?.currentWeek)
+    if (!Number.isFinite(cw)) return null
+    // Same just-completed-week slot the recap CARD uses (see lastWeekRecap):
+    // regular → cw-1, conf champ → 14, postseason → 14+cw. Must match so the
+    // links are built from the exact text being rendered (otherwise team
+    // names / scores in a postseason recap never become clickable).
+    let prevSlot = null
+    if (phase === 'regular_season') { if (cw >= 2) prevSlot = cw - 1 }
+    else if (phase === 'conference_championship') prevSlot = 14
+    else if (phase === 'postseason') prevSlot = Math.max(15, 14 + cw)
+    if (prevSlot == null) return null
+    const lastWeekText = currentDynasty?.weekRecapsByYear?.[yr]?.[prevSlot]?.text
     if (!lastWeekText) return null
     return buildRecapLinks(currentDynasty, yr, pathPrefix, lastWeekText)
   }, [
