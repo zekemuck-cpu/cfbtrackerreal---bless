@@ -6,7 +6,7 @@ import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCust
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { TabBar, StatRings } from '../../components/CfbUI'
 // Team colors are derived from the viewed team, not the user's team
-import { getContrastTextColor, getContrastRatio } from '../../utils/colorUtils'
+import { getContrastTextColor, getContrastRatio, isDarkColor } from '../../utils/colorUtils'
 import { canonicalBoxScore, getPlayerStatsForTid, getTeamStatsForTid, hasAnyTeamStats } from '../../utils/boxScoreHelpers'
 import { computeSeasonAV } from '../../utils/approximateValue'
 import { getConferenceLogo } from '../../data/conferenceLogos'
@@ -741,6 +741,25 @@ export default function TeamYear() {
   const teamBgText = getContrastTextColor(teamInfo.backgroundColor)
   const teamPrimaryText = getContrastTextColor(teamInfo.textColor)
   const secondaryBgText = getContrastTextColor(viewedTeamColors.secondary)
+
+  // A team logo rendered ON a team-colored panel. When that panel color is
+  // very dark (black / dark navy), a dark logo would vanish — so it gets a
+  // white circular plate; otherwise it renders bare. Keeps light/mid team
+  // colors plate-free while rescuing the dark-on-dark cases.
+  const teamColorLogo = (src, bgColor, sizePx = 48) => {
+    if (!src) return null
+    if (!isDarkColor(bgColor)) {
+      return <img src={src} alt="" className="object-contain flex-shrink-0" style={{ width: sizePx, height: sizePx }} />
+    }
+    return (
+      <div
+        className="rounded-full bg-white flex items-center justify-center flex-shrink-0"
+        style={{ width: sizePx, height: sizePx, padding: Math.round(sizePx * 0.1) }}
+      >
+        <img src={src} alt="" className="w-full h-full object-contain" />
+      </div>
+    )
+  }
 
   // Cards now use neutral dark surfaces — text uses semantic tokens
   // (team color is reserved for accent stripes, borders, chips; not body text)
@@ -2525,10 +2544,13 @@ export default function TeamYear() {
     <div className="space-y-4 sm:space-y-6 relative isolate">
       {/* Team Header */}
       <div
-        className="card overflow-hidden relative reveal"
+        className="card overflow-hidden relative reveal cfb-texture cfb-texture-strong cfb-watermark"
         style={{
           backgroundColor: teamInfo.backgroundColor,
           backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 44%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.44) 100%)',
+          // Tuck the logo watermark just left of the right-side cluster: clear
+          // the rating rings when they're shown, else sit left of the conf logo.
+          ...(teamLogo ? { '--cfb-watermark': `url("${teamLogo}")`, '--cfb-watermark-right': teamRatings ? '18rem' : '7rem' } : {}),
         }}
       >
         {/* Edit button — mobile only, pinned to the corner so it never becomes a
@@ -3212,7 +3234,7 @@ export default function TeamYear() {
                 <div className="flex items-center justify-between mb-2">
                   <Link to={`${pathPrefix}/awards/${selectedYear}`} className="text-sm font-bold uppercase tracking-wider hover:underline" style={{ color: accentColorMuted }}>{selectedYear} Awards →</Link>
                 </div>
-                <div className="card p-4 flex flex-wrap gap-x-6 gap-y-2">
+                <div className="card p-4 flex flex-wrap gap-x-6 gap-y-2 cfb-texture">
                   {teamAwardWinners.map((award) => {
                     // Find matching player
                     let matchingPlayer = null
@@ -3330,7 +3352,7 @@ export default function TeamYear() {
                     (Was lg+ before — but the outer 3-col grid also moved
                     to xl, so between lg and xl the leaders should keep
                     the wide horizontal row instead of stacking early.) */}
-                <div className="hidden md:grid md:grid-cols-5 xl:grid-cols-1 stagger-reveal rounded-xl overflow-hidden" style={{ backgroundColor: teamInfo.backgroundColor, backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0) 55%), linear-gradient(rgba(0,0,0,0.40), rgba(0,0,0,0.40))' }}>
+                <div className="hidden md:grid md:grid-cols-5 xl:grid-cols-1 stagger-reveal rounded-xl overflow-hidden cfb-texture cfb-texture-strong" style={{ backgroundColor: teamInfo.backgroundColor, backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 44%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.44) 100%)' }}>
                   {leaders.map((l, idx) => (
                     <Link
                       key={l.key}
@@ -3385,8 +3407,8 @@ export default function TeamYear() {
                   </button>
                 </div>
                 <ul
-                  className="stagger-reveal rounded-xl overflow-hidden"
-                  style={{ backgroundColor: teamInfo.backgroundColor, backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0) 55%), linear-gradient(rgba(0,0,0,0.40), rgba(0,0,0,0.40))' }}
+                  className="stagger-reveal rounded-xl overflow-hidden cfb-texture cfb-texture-strong"
+                  style={{ backgroundColor: teamInfo.backgroundColor, backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 44%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.44) 100%)' }}
                 >
                   {topRated.map((p, idx) => {
                     const ovr = getPlayerOverallForYear(p, selectedYear)
@@ -3486,12 +3508,12 @@ export default function TeamYear() {
                 const oppColor = teamsSource?.[oppTid]?.primaryColor || '#374151'
                 return (
               <div
-                className="relative mb-5 rounded-xl overflow-hidden"
-                style={{ backgroundImage: `linear-gradient(rgba(0,0,0,0.42), rgba(0,0,0,0.42)), linear-gradient(108deg, ${userColor} 0%, ${userColor} 48%, ${oppColor} 52%, ${oppColor} 100%)` }}
+                className="relative mb-5 rounded-xl overflow-hidden cfb-texture cfb-texture-strong"
+                style={{ backgroundImage: `linear-gradient(90deg, transparent calc(50% - 1.5px), rgba(0,0,0,0.55) calc(50% - 1.5px), rgba(0,0,0,0.55) calc(50% + 1.5px), transparent calc(50% + 1.5px)), linear-gradient(rgba(0,0,0,0.42), rgba(0,0,0,0.42)), linear-gradient(90deg, ${userColor} 0%, ${userColor} 50%, ${oppColor} 50%, ${oppColor} 100%)` }}
               >
                 <div className="flex items-stretch justify-between">
-                <div className="flex items-center gap-3 min-w-0 px-4 py-4">
-                  {teamLogo && <img src={teamLogo} alt="" className="w-12 h-12 object-contain flex-shrink-0" />}
+                <div className="flex flex-1 items-center gap-3 min-w-0 px-4 py-4">
+                  {teamColorLogo(teamLogo, userColor, 48)}
                   {/* Always render the rank-over-score stack so both sides
                       share the same vertical structure. When a side has no
                       rank we still render the rank slot with a non-breaking
@@ -3526,7 +3548,7 @@ export default function TeamYear() {
                   </span>
                   <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: '#fff', opacity: 0.6 }}>Final</span>
                 </div>
-                <div className="flex items-center gap-3 min-w-0 px-4 py-4">
+                <div className="flex flex-1 items-center justify-end gap-3 min-w-0 px-4 py-4">
                   <div className="flex flex-col items-end min-w-0">
                     <span
                       className="text-[10px] font-semibold uppercase leading-tight"
@@ -3541,7 +3563,7 @@ export default function TeamYear() {
                       {lastGameInfo.oppScore}
                     </span>
                   </div>
-                  {lastGameInfo.oppLogo && <img src={lastGameInfo.oppLogo} alt="" className="w-12 h-12 object-contain flex-shrink-0" />}
+                  {teamColorLogo(lastGameInfo.oppLogo, oppColor, 48)}
                 </div>
                 </div>
                 {lastGameStats && (
@@ -3655,11 +3677,11 @@ export default function TeamYear() {
 
                   {/* Matchup row — split by both teams' colors */}
                   <div
-                    className="relative flex items-stretch justify-between mb-5 rounded-xl overflow-hidden"
-                    style={{ backgroundImage: `linear-gradient(rgba(0,0,0,0.42), rgba(0,0,0,0.42)), linear-gradient(108deg, ${userColor} 0%, ${userColor} 48%, ${oppColor} 52%, ${oppColor} 100%)` }}
+                    className="relative flex items-stretch justify-between mb-5 rounded-xl overflow-hidden cfb-texture cfb-texture-strong"
+                    style={{ backgroundImage: `linear-gradient(90deg, transparent calc(50% - 1.5px), rgba(0,0,0,0.55) calc(50% - 1.5px), rgba(0,0,0,0.55) calc(50% + 1.5px), transparent calc(50% + 1.5px)), linear-gradient(rgba(0,0,0,0.42), rgba(0,0,0,0.42)), linear-gradient(90deg, ${userColor} 0%, ${userColor} 50%, ${oppColor} 50%, ${oppColor} 100%)` }}
                   >
-                    <div className="flex items-center gap-3 min-w-0 px-4 py-4" style={{ borderBottom: `4px solid ${userSecondary}` }}>
-                      {teamLogo && <img src={teamLogo} alt="" className="w-11 h-11 object-contain flex-shrink-0" />}
+                    <div className="flex flex-1 items-center gap-3 min-w-0 px-4 py-4" style={{ borderBottom: `4px solid ${userSecondary}` }}>
+                      {teamColorLogo(teamLogo, userColor, 44)}
                       <span
                         className="text-base font-bold uppercase truncate"
                         style={{ letterSpacing: '1px', color: userSecondary, fontFamily: 'var(--font-display)' }}
@@ -3673,7 +3695,7 @@ export default function TeamYear() {
                     >
                       {nextGameInfo.location === 'away' ? 'at' : 'vs'}
                     </span>
-                    <div className="flex items-center gap-3 min-w-0 px-4 py-4" style={{ borderBottom: `4px solid ${oppSecondary}` }}>
+                    <div className="flex flex-1 items-center justify-end gap-3 min-w-0 px-4 py-4" style={{ borderBottom: `4px solid ${oppSecondary}` }}>
                       <span
                         className="text-base font-bold uppercase text-right truncate"
                         style={{ letterSpacing: '1px', color: oppSecondary, fontFamily: 'var(--font-display)' }}
@@ -3682,7 +3704,7 @@ export default function TeamYear() {
                         {nextGameInfo.oppAbbr}
                       </span>
                       {nextGameInfo.oppLogo ? (
-                        <img src={nextGameInfo.oppLogo} alt="" className="w-11 h-11 object-contain flex-shrink-0" />
+                        teamColorLogo(nextGameInfo.oppLogo, oppColor, 44)
                       ) : (
                         <div className="w-11 h-11 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
                           <span className="text-base font-bold" style={{ color: oppSecondary, fontFamily: 'var(--font-display)' }}>{nextGameInfo.oppAbbr?.charAt(0)}</span>
@@ -3779,7 +3801,7 @@ export default function TeamYear() {
                   >
                     {location === 'away' ? '@' : 'vs'}
                   </span>
-                  {oppLogo && <img src={oppLogo} alt="" className="w-4 h-4 object-contain flex-shrink-0" />}
+                  {teamColorLogo(oppLogo, oppColor, 16)}
                   <span
                     className="text-xs font-semibold truncate flex-1"
                     style={{ color: 'var(--text-primary)' }}
@@ -4168,7 +4190,7 @@ export default function TeamYear() {
 
       {/* Add Roster Section for Teams with No Players for this year */}
       {!isViewOnly && sortedTeamPlayers.length === 0 && (
-        <div className="card overflow-hidden">
+        <div className="card overflow-hidden cfb-texture">
           <div className="px-3 sm:px-4 py-2 sm:py-3 border-b border-surface-4">
             <h2 className="display-md text-txt-primary m-0">
               {selectedYear} Roster
@@ -4615,7 +4637,7 @@ export default function TeamYear() {
               ) : (
                 <>
                   {/* Season Record Card */}
-                  <div className="card overflow-hidden">
+                  <div className="card overflow-hidden cfb-texture">
                     <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
                       <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Season Record</h4>
                     </div>
@@ -4662,7 +4684,7 @@ export default function TeamYear() {
                   {/* Stats Cards */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {/* Offense Card */}
-                    <div className="card overflow-hidden">
+                    <div className="card overflow-hidden cfb-texture">
                       <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
                         <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Offense</h4>
                       </div>
@@ -4687,7 +4709,7 @@ export default function TeamYear() {
                     </div>
 
                     {/* Passing Card */}
-                    <div className="card overflow-hidden">
+                    <div className="card overflow-hidden cfb-texture">
                       <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
                         <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Passing</h4>
                       </div>
@@ -4712,7 +4734,7 @@ export default function TeamYear() {
                     </div>
 
                     {/* Rushing Card */}
-                    <div className="card overflow-hidden">
+                    <div className="card overflow-hidden cfb-texture">
                       <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
                         <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Rushing</h4>
                       </div>
@@ -4737,7 +4759,7 @@ export default function TeamYear() {
                     </div>
 
                     {/* Efficiency Card */}
-                    <div className="card overflow-hidden">
+                    <div className="card overflow-hidden cfb-texture">
                       <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
                         <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Efficiency</h4>
                       </div>
@@ -4766,7 +4788,7 @@ export default function TeamYear() {
                     </div>
 
                     {/* Turnovers Card */}
-                    <div className="card overflow-hidden">
+                    <div className="card overflow-hidden cfb-texture">
                       <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
                         <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Turnovers</h4>
                       </div>
@@ -4791,7 +4813,7 @@ export default function TeamYear() {
                     </div>
 
                     {/* Special Teams Card */}
-                    <div className="card overflow-hidden">
+                    <div className="card overflow-hidden cfb-texture">
                       <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary">
                         <h4 className="font-display font-bold text-txt-primary" style={{ fontSize: '1.05rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Special Teams & Misc</h4>
                       </div>
@@ -4858,7 +4880,7 @@ export default function TeamYear() {
 
           {/* Schedule - shows games played by this team this year */}
           {teamYearGames.length > 0 && (
-        <div className="card-elevated overflow-hidden relative">
+        <div className="card-elevated overflow-hidden relative cfb-texture">
           {!isViewOnly && (
             <button
               type="button"
@@ -5581,7 +5603,7 @@ export default function TeamYear() {
         const viewedPrimaryText = getContrastTextColor(viewedPrimary)
         return (
           <div className="space-y-4">
-            <div className="card overflow-hidden">
+            <div className="card overflow-hidden cfb-texture">
               <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="flex items-center gap-3 sm:gap-5">
                   <div
@@ -5658,7 +5680,7 @@ export default function TeamYear() {
                 </Link>
               </div>
             ) : (
-              <div className="card overflow-hidden">
+              <div className="card overflow-hidden cfb-texture">
                 <div className="grid grid-cols-[auto_1fr_auto_auto] sm:grid-cols-[auto_auto_1fr_auto_auto] gap-3 sm:gap-4 items-center px-4 py-2.5 border-b border-surface-4" style={{ backgroundColor: `${viewedPrimary}1f` }}>
                   <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>★</span>
                   <span className="label-xs text-txt-tertiary hidden sm:inline" style={{ letterSpacing: '1.5px' }}>Pos</span>
@@ -5838,7 +5860,7 @@ export default function TeamYear() {
                 alone on a padded row above the breakdown which wasted
                 a lot of horizontal space. Each breakdown cell is a
                 clickable scroll target for its section. */}
-            <div className="card overflow-hidden">
+            <div className="card overflow-hidden cfb-texture">
               <div className="flex flex-col sm:flex-row sm:items-stretch">
                 <div
                   className="flex items-center gap-3 sm:gap-4 px-4 py-3 sm:px-5 flex-shrink-0"
@@ -5885,7 +5907,7 @@ export default function TeamYear() {
                 <div
                   key={group.key}
                   id={anchorId(group.key)}
-                  className="card overflow-hidden scroll-mt-20"
+                  className="card overflow-hidden scroll-mt-20 cfb-texture"
                 >
                   {/* Section header — neutral surface band, no accent
                       colors. Category is conveyed by the label text
@@ -6382,7 +6404,7 @@ export default function TeamYear() {
             {/* TOP ROW: Program Record + Your History side-by-side (stack on mobile) */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* PROGRAM RECORD + ACHIEVEMENTS (wider) */}
-              <div className="card overflow-hidden lg:col-span-2">
+              <div className="card overflow-hidden lg:col-span-2 cfb-texture">
                 <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px] flex items-center justify-between" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                   <h3 className="font-display font-bold leading-none text-txt-primary m-0" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Program Record</h3>
                   <span className="text-[10px] font-semibold uppercase tabular-nums text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{yearsWithRecords.length} season{yearsWithRecords.length !== 1 ? 's' : ''}</span>
@@ -6422,7 +6444,7 @@ export default function TeamYear() {
 
               {/* YOUR HISTORY (narrow rail) */}
               {(userCoachingYears.length > 0 || userVsTeamWins > 0 || userVsTeamLosses > 0) && (
-                <div className="card overflow-hidden">
+                <div className="card overflow-hidden cfb-texture">
                   <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                     <h3 className="font-display font-bold leading-none text-txt-primary m-0" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Your History</h3>
                   </div>
@@ -6462,7 +6484,7 @@ export default function TeamYear() {
             </div>
 
             {/* SEASON HISTORY */}
-            <div className="card overflow-hidden">
+            <div className="card overflow-hidden cfb-texture">
               <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px] flex items-center justify-between" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                 <h3 className="font-display font-bold leading-none text-txt-primary m-0" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Season History</h3>
                 <span className="text-[10px] font-semibold uppercase tabular-nums text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{yearRecords.length} total</span>
@@ -6641,7 +6663,7 @@ export default function TeamYear() {
               const leaders = calculateLeaders(leadersCategory)
 
               return (
-                <div className="card overflow-hidden">
+                <div className="card overflow-hidden cfb-texture">
                   <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px] flex items-center justify-between gap-3 flex-wrap" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                     <h3 className="font-display font-bold leading-none text-txt-primary m-0" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', textTransform: 'uppercase' }}>All-Time Leaders</h3>
                     <div className="flex items-center gap-1">

@@ -41,6 +41,21 @@ export function isLightColor(hexColor) {
 }
 
 /**
+ * Is this color very dark (near-black / dark navy / dark maroon)?
+ * Used to decide when a team logo sitting ON this color needs a white
+ * plate behind it — a black-on-black logo otherwise vanishes. Threshold is
+ * low (0.12) so only genuinely dark team colors trigger it; mid-tone team
+ * colors (green, red, blue) leave logos plate-free.
+ */
+export function isDarkColor(hexColor, threshold = 0.12) {
+  if (!hexColor || typeof hexColor !== 'string' || !hexColor.match(/^#[0-9A-Fa-f]{6}$/)) {
+    return false
+  }
+  const { r, g, b } = hexToRgb(hexColor)
+  return getLuminance(r, g, b) < threshold
+}
+
+/**
  * Get the appropriate text color (black or white) based on background color
  */
 export function getContrastTextColor(backgroundColor) {

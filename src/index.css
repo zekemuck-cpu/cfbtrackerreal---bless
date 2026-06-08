@@ -262,6 +262,52 @@ button.card-elevated:hover {
   box-shadow: var(--shadow-accent);
 }
 
+/* ── CFB-27 broadcast texture ─────────────────────────────────────────────
+   Subtle paper/film grain overlay. Reusable: add `cfb-texture` to any card or
+   panel (it should have overflow:hidden or a border-radius so the grain clips
+   to its corners). Pure CSS — an inline-SVG fractal-noise tile, composited via
+   soft-light at low opacity, so it reads as broadcast grain without hurting
+   text contrast or adding any network request. Intensity is tuned by the
+   ::after opacity; `cfb-texture-strong` bumps it for team-colored panels. */
+.cfb-texture { position: relative; }
+.cfb-texture::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.3;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='cfbn'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23cfbn)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+}
+.cfb-texture-strong::after { opacity: 0.85; }
+
+/* Faint team-logo watermark for team-colored panels (hero, scorebugs). Set
+   --cfb-watermark to the logo url. Bleeds off the right edge, sits behind
+   content, never intercepts clicks. */
+.cfb-watermark { position: relative; }
+.cfb-watermark::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: var(--cfb-watermark-right, 8rem);
+  width: 19rem;
+  height: 19rem;
+  transform: translateY(-50%);
+  pointer-events: none;
+  opacity: 0.1;
+  background-image: var(--cfb-watermark);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+/* Hide the logo watermark on mobile — the narrow hero has no room for it
+   and it crowds the identity. (Tailwind `sm` breakpoint = 640px.) */
+@media (max-width: 639px) {
+  .cfb-watermark::before { display: none; }
+}
+
 /* Accent card — thin team-color rule across the top. Use for hero-ish items. */
 .card-accent {
   position: relative;

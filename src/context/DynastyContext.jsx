@@ -10650,9 +10650,23 @@ export function DynastyProvider({ children }) {
           let teamsBeforeFlip = additionalUpdates.teams || dynasty.teams
 
           if (teamsBeforeFlip) {
-            // FALLBACK: If newJobData says user is taking a new job but pendingUserId wasn't set
-            // (e.g., job was selected before this code was added), set it now before flip
-            if (newJobData?.takingNewJob && newJobData.team) {
+            // Keep the userId flip ATOMIC with the teamName / currentTid /
+            // conference update above — that update only runs for a COMPLETE
+            // accepted job (takingNewJob + team + position). So the team-flag
+            // flip must use the SAME condition. Otherwise a declined job, or a
+            // half-finished selection (team picked but no position), would let
+            // applyPendingUserTeam switch `userId` to the new team while
+            // currentTid/teamName stay on the old one — a divergence that makes
+            // getUserTeamTid and currentTid disagree and corrupts the save.
+            const jobAccepted = !!(newJobData?.takingNewJob && newJobData.team && newJobData.position)
+            if (!jobAccepted) {
+              // No complete accepted job this cycle — strip any pending marker
+              // so the flip below is a no-op and the team does NOT change.
+              teamsBeforeFlip = clearPendingUserTeam(teamsBeforeFlip)
+            } else {
+              // FALLBACK: the job is accepted but no pendingUserId is set
+              // (e.g. saves from before the marker existed) — set it now so the
+              // flip matches the teamName/currentTid update above.
               const hasPendingUser = Object.values(teamsBeforeFlip).some(t => t.pendingUserId === 'currentUser')
               if (!hasPendingUser) {
                 const newTeamTid = getTidFromTeamName(newJobData.team, teamsBeforeFlip)

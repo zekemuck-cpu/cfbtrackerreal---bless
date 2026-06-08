@@ -1112,8 +1112,10 @@ export default function Recruiting() {
                 interactive={!!linkPid}
                 className="h-full overflow-hidden group"
                 style={{
-                  borderColor: `${teamAccent}59`,
-                  backgroundImage: `linear-gradient(160deg, ${teamAccent}24 0%, ${teamAccent}0d 46%, transparent 100%)`,
+                  color: teamBgText,
+                  borderColor: `${teamBgText}33`,
+                  backgroundColor: teamAccent,
+                  backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 44%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.30) 100%)',
                 }}
               >
                 <div className="p-2 sm:p-3 flex flex-col h-full gap-1.5 sm:gap-2.5">
@@ -1129,16 +1131,16 @@ export default function Recruiting() {
                         src={proxyImageUrl(player.pictureUrl, 300)}
                         alt={recruit.name}
                         className="w-11 h-11 sm:w-14 sm:h-14 object-cover rounded-md flex-shrink-0"
-                        style={{ border: `1px solid ${teamAccent}` }}
+                        style={{ border: `2px solid ${teamBgText}66` }}
                       />
                     ) : (
                       <div
                         className="w-11 h-11 sm:w-14 sm:h-14 rounded-md flex-shrink-0 flex items-center justify-center"
-                        style={{ backgroundColor: 'var(--surface-3)', border: `1px solid ${teamAccent}` }}
+                        style={{ backgroundColor: 'rgba(255,255,255,0.12)', border: `2px solid ${teamBgText}66` }}
                       >
                         <span
-                          className="text-xs sm:text-sm font-black uppercase tracking-wide text-txt-secondary tabular-nums"
-                          style={{ letterSpacing: '0.05em' }}
+                          className="text-xs sm:text-sm font-black uppercase tracking-wide tabular-nums"
+                          style={{ letterSpacing: '0.05em', color: teamBgText, opacity: 0.9 }}
                         >
                           {(recruit.position || 'ATH').slice(0, 3)}
                         </span>
@@ -1146,13 +1148,13 @@ export default function Recruiting() {
                     )}
                     <h3
                       className="font-display font-black text-txt-primary leading-tight truncate max-w-full"
-                      style={{ fontSize: 'clamp(13px, 3.4vw, 16px)', letterSpacing: '-0.02em' }}
+                      style={{ fontSize: 'clamp(13px, 3.4vw, 16px)', letterSpacing: '-0.02em', color: teamBgText }}
                     >
                       {recruit.name || 'Unknown'}
                     </h3>
                     <div
                       className="flex items-center justify-center gap-1 sm:gap-1.5 label-xs text-txt-secondary flex-wrap"
-                      style={{ letterSpacing: '1.2px', fontSize: '9px' }}
+                      style={{ letterSpacing: '1.2px', fontSize: '9px', color: teamBgText, opacity: 0.85 }}
                     >
                       <span className="font-bold">{recruit.position || 'ATH'}</span>
                       
@@ -1190,20 +1192,20 @@ export default function Recruiting() {
                     <div
                       className="grid grid-cols-3 gap-1 sm:gap-2 py-1.5 sm:py-2"
                       style={{
-                        borderTop: `1px solid ${teamAccent}40`,
-                        borderBottom: `1px solid ${teamAccent}40`,
+                        borderTop: `1px solid ${teamBgText}33`,
+                        borderBottom: `1px solid ${teamBgText}33`,
                       }}
                     >
                       <div className="text-center">
                         <div
                           className="label-xs text-txt-tertiary"
-                          style={{ letterSpacing: '1.2px', fontSize: '8px' }}
+                          style={{ letterSpacing: '1.2px', fontSize: '8px', color: teamBgText, opacity: 0.6 }}
                         >
                           NATL
                         </div>
                         <div
                           className="font-display font-black tabular-nums text-txt-primary leading-none mt-0.5 sm:mt-1"
-                          style={{ fontSize: 'clamp(13px, 3.5vw, 17px)', letterSpacing: '-0.02em' }}
+                          style={{ fontSize: 'clamp(13px, 3.5vw, 17px)', letterSpacing: '-0.02em', color: teamBgText }}
                         >
                           {recruit.nationalRank ? `#${recruit.nationalRank}` : '—'}
                         </div>
@@ -1211,19 +1213,19 @@ export default function Recruiting() {
                       <div
                         className="text-center"
                         style={{
-                          borderLeft: `1px solid ${teamAccent}40`,
-                          borderRight: `1px solid ${teamAccent}40`,
+                          borderLeft: `1px solid ${teamBgText}33`,
+                          borderRight: `1px solid ${teamBgText}33`,
                         }}
                       >
                         <div
                           className="label-xs text-txt-tertiary"
-                          style={{ letterSpacing: '1.2px', fontSize: '8px' }}
+                          style={{ letterSpacing: '1.2px', fontSize: '8px', color: teamBgText, opacity: 0.6 }}
                         >
                           {recruit.position || 'POS'}
                         </div>
                         <div
                           className="font-display font-black tabular-nums text-txt-primary leading-none mt-0.5 sm:mt-1"
-                          style={{ fontSize: 'clamp(13px, 3.5vw, 17px)', letterSpacing: '-0.02em' }}
+                          style={{ fontSize: 'clamp(13px, 3.5vw, 17px)', letterSpacing: '-0.02em', color: teamBgText }}
                         >
                           {recruit.positionRank ? `#${recruit.positionRank}` : '—'}
                         </div>
@@ -1231,13 +1233,13 @@ export default function Recruiting() {
                       <div className="text-center">
                         <div
                           className="label-xs text-txt-tertiary"
-                          style={{ letterSpacing: '1.2px', fontSize: '8px' }}
+                          style={{ letterSpacing: '1.2px', fontSize: '8px', color: teamBgText, opacity: 0.6 }}
                         >
                           {recruit.state || 'ST'}
                         </div>
                         <div
                           className="font-display font-black tabular-nums text-txt-primary leading-none mt-0.5 sm:mt-1"
-                          style={{ fontSize: 'clamp(13px, 3.5vw, 17px)', letterSpacing: '-0.02em' }}
+                          style={{ fontSize: 'clamp(13px, 3.5vw, 17px)', letterSpacing: '-0.02em', color: teamBgText }}
                         >
                           {recruit.stateRank ? `#${recruit.stateRank}` : '—'}
                         </div>
@@ -1253,17 +1255,17 @@ export default function Recruiting() {
                   {(recruit.archetype || sizeOnly || hometownText) && (
                     <div className="text-[10px] sm:text-[12px] leading-snug space-y-0.5 text-center">
                       {recruit.archetype && (
-                        <div className="font-semibold text-txt-primary truncate">
+                        <div className="font-semibold truncate" style={{ color: teamBgText }}>
                           {recruit.archetype}
                         </div>
                       )}
                       {sizeOnly && (
-                        <div className="text-txt-secondary tabular-nums truncate">
+                        <div className="tabular-nums truncate" style={{ color: teamBgText, opacity: 0.85 }}>
                           {sizeOnly}
                         </div>
                       )}
                       {hometownText && (
-                        <div className="text-txt-tertiary truncate">{hometownText}</div>
+                        <div className="truncate" style={{ color: teamBgText, opacity: 0.65 }}>{hometownText}</div>
                       )}
                     </div>
                   )}
@@ -1278,7 +1280,7 @@ export default function Recruiting() {
                   {showBottomChips && (
                     <div
                       className="mt-auto pt-1.5 sm:pt-2 flex justify-center"
-                      style={{ borderTop: `1px solid ${teamAccent}40` }}
+                      style={{ borderTop: `1px solid ${teamBgText}33` }}
                     >
                       {showFromChip ? (() => {
                         // Paint the FROM chip in the previous school's
@@ -1325,9 +1327,9 @@ export default function Recruiting() {
                           className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest"
                           style={{
                             letterSpacing: '1.5px',
-                            color: teamBgText,
-                            backgroundColor: teamAccent,
-                            border: `1px solid ${teamAccent}`,
+                            color: teamAccent,
+                            backgroundColor: teamBgText,
+                            border: `1px solid ${teamBgText}`,
                           }}
                         >
                           High School

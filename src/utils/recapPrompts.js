@@ -82,18 +82,34 @@ function userPerspective(game, userTid) {
   return { won, userScore, oppScore, oppTid, oppAbbr, rank, oppRank, isHome, ot: !!game.ot }
 }
 
+// Canonical calendar slot for a game — mirrors gameSlot() in DynastyContext.
+// 1-14 regular · 15 Conf Champ · 16/17/18 bowl weeks (CFP rounds live in the
+// same weeks) · 19 National Championship. Postseason games carry a NON-NUMERIC
+// `week` ('CCG' / 'Bowl 1'), so anything that caps games by week MUST key off
+// this, not Number(g.week) — otherwise postseason results never count toward
+// the records the recap shows (a CCG recap would feed pre-CCG records).
+function gameSlotFor(g) {
+  if (!g) return 0
+  if (g.gameType === 'cfp_championship' || g.isCFPChampionship) return 19
+  if (g.gameType === 'cfp_semifinal' || g.isCFPSemifinal) return 18
+  if (g.gameType === 'cfp_quarterfinal' || g.isCFPQuarterfinal) return 17
+  if (g.gameType === 'cfp_first_round' || g.isCFPFirstRound) return 16
+  if (g.gameType === 'bowl' || g.isBowlGame) return g.bowlWeek === 'week3' ? 18 : g.bowlWeek === 'week2' ? 17 : 16
+  if (g.gameType === 'conference_championship' || g.isConferenceChampionship) return 15
+  const w = Number(g.week)
+  return Number.isFinite(w) ? w : 0
+}
+
 function recordFromGames(games, year, tid, upToWeek = null) {
   let w = 0, l = 0
   const cap = upToWeek != null ? Number(upToWeek) : null
   for (const g of (games || [])) {
     if (Number(g?.year) !== Number(year)) continue
-    // When called for an in-season weekly recap, only count games at or
-    // before the recap week — otherwise a recap regenerated mid-season
-    // surfaces every team's full-season record (including future weeks
-    // the user has already entered) instead of the through-Week-N record.
-    // NaN week values (postseason strings like "Bowl 1") fail the < cap
-    // check naturally so they're excluded from regular-season caps.
-    if (cap != null && !(Number(g?.week) <= cap)) continue
+    // Count games at or before the recap's canonical slot. Using the slot
+    // (not Number(g.week)) means a Conf Champ / bowl / CFP recap INCLUDES
+    // that week's results in the records it shows, while still excluding
+    // future weeks the user may have already entered.
+    if (cap != null && !(gameSlotFor(g) <= cap)) continue
     const persp = userPerspective(g, tid)
     if (!persp || persp.won == null) continue
     if (persp.won) w++; else l++

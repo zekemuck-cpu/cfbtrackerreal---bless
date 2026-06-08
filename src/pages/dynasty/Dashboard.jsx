@@ -1000,9 +1000,12 @@ export default function Dashboard() {
 
     if (teamInfo) {
       return {
-        backgroundColor: teamInfo.primaryColor,
-        textColor: teamInfo.secondaryColor,
-        secondaryColor: teamInfo.secondaryColor
+        // Guard against a resolved team that's missing a primary color —
+        // an undefined here would produce an invalid `undefined99` gradient
+        // (no color at all), which is what blanked out some postseason rows.
+        backgroundColor: teamInfo.primaryColor || '#6b7280',
+        textColor: teamInfo.secondaryColor || '#ffffff',
+        secondaryColor: teamInfo.secondaryColor || '#ffffff'
       }
     }
 
@@ -3259,14 +3262,16 @@ export default function Dashboard() {
               { label: 'DEF', value: teamRatings.defense },
             ]
           : null
+        const heroLogo = (userTeamData?.logo || userTeamData?.logoUrl) || getTeamLogo(userTeamName, currentDynasty.teams)
 
         return (
           <div
-            className="card overflow-hidden mb-4 sm:mb-6 relative z-10 reveal"
+            className="card overflow-hidden mb-4 sm:mb-6 relative z-10 reveal cfb-texture cfb-texture-strong cfb-watermark"
             style={{
               backgroundColor: heroBg,
               backgroundImage:
                 'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 44%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.44) 100%)',
+              ...(heroLogo ? { '--cfb-watermark': `url("${heroLogo}")`, '--cfb-watermark-right': ratingItems ? '18rem' : '7rem' } : {}),
             }}
           >
             <div className="relative p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
@@ -4712,8 +4717,13 @@ export default function Dashboard() {
                   <button
                     onClick={async () => {
                       setTakingNewJob(false)
+                      // Clear any pending-team marker set while the user was
+                      // mid-selection, so declining a job can't still flip teams
+                      // at the season rollover (matches the Edit / modal paths).
+                      const updatedTeams = clearPendingUserTeam(currentDynasty.teams)
                       await updateDynasty(currentDynasty.id, {
                         newJobData: { takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek },
+                        teams: updatedTeams,
                       })
                     }}
                     className="btn-refined text-center"
@@ -4794,7 +4804,7 @@ export default function Dashboard() {
                             key={pos}
                             onClick={async () => {
                               setNewJobPosition(pos)
-                              const newTeamTid = getTidFromTeamName(currentDynasty.newJobData?.team, currentDynasty.teams)
+                              const newTeamTid = getTidFromTeamName(newJobTeam || currentDynasty.newJobData?.team, currentDynasty.teams)
                               const updatedTeams = newTeamTid
                                 ? setPendingUserTeam(currentDynasty.teams, newTeamTid, pos)
                                 : currentDynasty.teams
@@ -4979,8 +4989,13 @@ export default function Dashboard() {
                   <button
                     onClick={async () => {
                       setTakingNewJob(false)
+                      // Clear any pending-team marker set while the user was
+                      // mid-selection, so declining a job can't still flip teams
+                      // at the season rollover (matches the Edit / modal paths).
+                      const updatedTeams = clearPendingUserTeam(currentDynasty.teams)
                       await updateDynasty(currentDynasty.id, {
                         newJobData: { takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek },
+                        teams: updatedTeams,
                       })
                     }}
                     className="btn-refined text-center"
@@ -5142,7 +5157,7 @@ export default function Dashboard() {
                             key={pos}
                             onClick={async () => {
                               setNewJobPosition(pos)
-                              const newTeamTid = getTidFromTeamName(currentDynasty.newJobData?.team, currentDynasty.teams)
+                              const newTeamTid = getTidFromTeamName(newJobTeam || currentDynasty.newJobData?.team, currentDynasty.teams)
                               const updatedTeams = newTeamTid
                                 ? setPendingUserTeam(currentDynasty.teams, newTeamTid, pos)
                                 : currentDynasty.teams
@@ -5638,8 +5653,13 @@ export default function Dashboard() {
                   <button
                     onClick={async () => {
                       setTakingNewJob(false)
+                      // Clear any pending-team marker set while the user was
+                      // mid-selection, so declining a job can't still flip teams
+                      // at the season rollover (matches the Edit / modal paths).
+                      const updatedTeams = clearPendingUserTeam(currentDynasty.teams)
                       await updateDynasty(currentDynasty.id, {
                         newJobData: { takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek },
+                        teams: updatedTeams,
                       })
                     }}
                     className="btn-refined text-center"
@@ -7348,8 +7368,12 @@ export default function Dashboard() {
                       const ccOppScore = ccPerspective?.opponentScore
                       const ccIsPlayed = ccGame.isPlayed || (ccGame.team1Score != null && ccGame.team2Score != null)
                       const ccIsWin = ccPerspective?.userWon
+                      const ccOppColors = getOpponentColors(ccOppTid)
                       const ccRow = (isLink) => (
-                        <div className={`relative flex items-center py-2.5 px-4 gap-3 transition-colors ${isLink ? 'hover:bg-surface-3' : ''}`}>
+                        <div
+                          className={`relative flex items-center py-2.5 px-4 gap-3 transition-all ${isLink ? 'hover:brightness-110' : ''}`}
+                          style={{ background: `linear-gradient(to right, transparent 0%, ${ccOppColors.backgroundColor}99 100%)` }}
+                        >
                           <span className="w-7 text-xs font-semibold text-txt-tertiary">CC</span>
                           <div className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 bg-white" style={{ padding: '5px' }}>
                             {ccOppLogo ? <img src={ccOppLogo} alt={ccOppName} className="w-full h-full object-contain" /> : <span className="text-xs font-bold text-txt-primary">{String(ccOppTid)?.slice(0, 3)}</span>}
@@ -7387,8 +7411,12 @@ export default function Dashboard() {
                       const bowlOppScore = bowlPerspective?.opponentScore
                       const bowlIsPlayed = bowlGame.isPlayed || (bowlGame.team1Score != null && bowlGame.team2Score != null)
                       const bowlIsWin = bowlPerspective?.userWon
+                      const bowlOppColors = getOpponentColors(bowlOppTid)
                       const bowlRow = (isLink) => (
-                        <div className={`relative flex items-center py-2.5 px-4 gap-3 transition-colors ${isLink ? 'hover:bg-surface-3' : ''}`}>
+                        <div
+                          className={`relative flex items-center py-2.5 px-4 gap-3 transition-all ${isLink ? 'hover:brightness-110' : ''}`}
+                          style={{ background: `linear-gradient(to right, transparent 0%, ${bowlOppColors.backgroundColor}99 100%)` }}
+                        >
                           <span className="w-7 text-xs font-semibold text-txt-tertiary">Bowl</span>
                           <div className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 bg-white" style={{ padding: '5px' }}>
                             {bowlOppLogo ? <img src={bowlOppLogo} alt={bowlOppName} className="w-full h-full object-contain" /> : <span className="text-xs font-bold text-txt-primary">{String(bowlOppTid)?.slice(0, 3)}</span>}
