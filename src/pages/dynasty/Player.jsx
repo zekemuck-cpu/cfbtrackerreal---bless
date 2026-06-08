@@ -2523,7 +2523,7 @@ function PlayerInner() {
                           key={idx}
                           {...rowProps}
                           className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/[0.06] cursor-pointer"
-                          style={{ background: rowGradient, boxShadow: `inset 3px 0 0 0 ${resultColor}` }}
+                          style={{ background: rowGradient }}
                         >
                           {/* Date / week column */}
                           <div className="flex-shrink-0 w-11 text-center">
