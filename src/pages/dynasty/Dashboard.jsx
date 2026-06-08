@@ -4613,6 +4613,20 @@ export default function Dashboard() {
               const bw1Todos = []
 
               bw1Todos.push({
+                key: 'cc-results',
+                done: hasCCData,
+                title: hasCCData
+                  ? `${ccGamesWithScores}/${totalCCGames} CCG Results Logged`
+                  : 'Conference Championship Results',
+                subtitle: hasCCData
+                  ? `${ccGamesWithScores} of ${totalCCGames} conference championship games entered`
+                  : 'Log all conference championship results',
+                viewTo: `${pathPrefix}/weekly-scores/${Number(currentDynasty.currentYear)}/15`,
+                onAction: () => setShowCCModal(true),
+                actionLabel: hasCCData ? 'Edit' : 'Enter',
+              })
+
+              bw1Todos.push({
                 key: 'cfp-seeds',
                 done: hasCFPSeedsData,
                 title: 'CFP Seeds (1-12)',
