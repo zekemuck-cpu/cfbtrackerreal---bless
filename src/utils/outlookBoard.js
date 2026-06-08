@@ -68,12 +68,13 @@ const ST_CATALOG = [
 
 // On-screen formation rows (top → bottom); each lists its columns left → right.
 // formationFor() filters these to the enabled columns and drops empty rows, so
-// the order here is the formation: pass-catchers grouped together (TEs beside
-// the WRs) and a backfield row with the QB centered and the HB beside it.
+// the order here is the formation: a line row, then a single skill row with the
+// WRs on the LEFT, the backfield (QB centered, HB beside) in the MIDDLE, and the
+// TEs on the RIGHT. With only base columns on, that skill row is WR-HB-QB-FB-TE,
+// so the default offense is exactly TWO rows.
 const OFFENSE_ROWS = [
-  ['LT', 'LG', 'C', 'RG', 'RT'],              // line
-  ['WR', 'WR2', 'WR3', 'SLWR', 'TE', 'TE2'],  // receivers + tight ends
-  ['HB2', 'HB', 'QB', 'FB'],                  // backfield (QB centered, HB beside)
+  ['LT', 'LG', 'C', 'RG', 'RT'],                                       // line
+  ['WR', 'WR2', 'WR3', 'SLWR', 'HB2', 'HB', 'QB', 'FB', 'TE', 'TE2'],  // WRs | backfield | TEs
 ]
 const DEFENSE_ROWS = [
   ['LEDG', 'DT', 'DT2', 'REDG'],              // line
