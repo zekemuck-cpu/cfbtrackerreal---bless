@@ -111,6 +111,7 @@ export function CardSectionHeader({ label, accent, right, className = '' }) {
 export function StatRings({ items, ringColor, textColor, size = 'md' }) {
   if (!items || items.length === 0) return null
   const dims = {
+    xs: { dim: 'w-9 h-9', num: 'text-[11px]', lab: 'text-[6px]' },
     sm: { dim: 'w-11 h-11', num: 'text-sm', lab: 'text-[7px]' },
     md: { dim: 'w-11 h-11 sm:w-[3.25rem] sm:h-[3.25rem]', num: 'text-sm sm:text-base', lab: 'text-[7px] sm:text-[8px]' },
     lg: { dim: 'w-16 h-16 sm:w-20 sm:h-20', num: 'text-2xl sm:text-3xl', lab: 'text-[9px] sm:text-[10px]' },

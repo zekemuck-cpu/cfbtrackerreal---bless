@@ -164,14 +164,19 @@ export default function Dashboard() {
 
   const teamColors = useTeamColors(userTeamName, currentDynasty?.teams || currentDynasty?.customTeams)
   // Team primary as a hex (alpha suffixes need hex) for the CFB-27 team-color
-  // accent strips on the dashboard's Roster / Schedule panels.
+  // treatment on the dashboard.
   const teamAccent = teamColors?.primary || '#374151'
-  // A faint team-color wash + left-accent style shared by the dashboard's
-  // section header strips, matching the CardSectionHeader treatment.
-  const sectionStripStyle = {
-    borderLeft: `3px solid ${teamAccent}`,
-    borderBottom: '1px solid var(--surface-4)',
-    backgroundImage: `linear-gradient(90deg, ${teamAccent}26 0%, ${teamAccent}0d 16%, transparent 40%)`,
+  const teamBgText = getContrastTextColor(teamAccent)
+  // CFB-27 broadcast section labels: the title sits in a SOLID team-color
+  // block (contrast text + subtle top sheen) — a proper broadcast bug, not a
+  // faint wash. The header row itself stays a clean dark strip so any controls
+  // beside the label keep their contrast.
+  const sectionStripStyle = { borderBottom: '1px solid var(--surface-4)' }
+  const teamLabelStyle = {
+    backgroundColor: teamAccent,
+    color: teamBgText,
+    backgroundImage:
+      'linear-gradient(120deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0) 58%), linear-gradient(180deg, rgba(255,255,255,0.10) 0%, transparent 45%, rgba(0,0,0,0.18) 100%)',
   }
 
   // Build path prefix from the actual route — `/view/:shareCode` for
@@ -3230,6 +3235,13 @@ export default function Dashboard() {
         // team. Mirrors the team page (TeamYear) hero exactly.
         const heroBg = teamColors?.primary || '#1f2937'
         const heroText = getContrastTextColor(heroBg)
+        const ratingItems = teamRatings
+          ? [
+              { label: 'OVR', value: teamRatings.overall },
+              { label: 'OFF', value: teamRatings.offense },
+              { label: 'DEF', value: teamRatings.defense },
+            ]
+          : null
 
         return (
           <div
@@ -3240,10 +3252,10 @@ export default function Dashboard() {
                 'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 44%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.44) 100%)',
             }}
           >
-            <div className="relative p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <div className="relative p-4 sm:p-6 flex flex-row items-center justify-between gap-2.5 sm:gap-4">
               <Link
                 to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}`}
-                className="flex items-center gap-3 sm:gap-5 hover:opacity-90 transition-opacity min-w-0 group"
+                className="flex items-center gap-3 sm:gap-5 hover:opacity-90 transition-opacity min-w-0 flex-1 group"
               >
                 {(() => {
                   // Get logo from user's current team (using userId as source of truth)
@@ -3277,7 +3289,7 @@ export default function Dashboard() {
                     )}
                     <h2
                       className="font-display font-extrabold uppercase tracking-tight leading-none truncate"
-                      style={{ color: heroText, fontSize: 'clamp(1.375rem, 2.6vw, 2.125rem)' }}
+                      style={{ color: heroText, fontSize: 'clamp(1.05rem, 2.6vw, 2.125rem)' }}
                     >
                       {userTeamName}
                     </h2>
@@ -3308,20 +3320,19 @@ export default function Dashboard() {
                 </div>
               </Link>
               {teamRatings && (
-                <div className="flex items-center gap-2 sm:gap-3 self-start sm:self-center">
-                  <StatRings
-                    items={[
-                      { label: 'OVR', value: teamRatings.overall },
-                      { label: 'OFF', value: teamRatings.offense },
-                      { label: 'DEF', value: teamRatings.defense },
-                    ]}
-                    ringColor={heroText}
-                    textColor={heroText}
-                  />
+                <div className="flex items-center gap-1 sm:gap-3 self-center flex-shrink-0">
+                  {/* Compact rings on mobile so OVR/OFF/DEF fit inline beside
+                      the identity instead of wrapping to their own row. */}
+                  <div className="sm:hidden">
+                    <StatRings items={ratingItems} ringColor={heroText} textColor={heroText} size="xs" />
+                  </div>
+                  <div className="hidden sm:block">
+                    <StatRings items={ratingItems} ringColor={heroText} textColor={heroText} size="md" />
+                  </div>
                   {!isViewOnly && (
                     <button
                       onClick={() => setShowTeamRatingsModal(true)}
-                      className="p-2 rounded-lg hover:bg-black/20 transition-colors"
+                      className="p-1.5 sm:p-2 rounded-lg hover:bg-black/20 transition-colors"
                       style={{ color: heroText }}
                       title="Edit Team Ratings"
                     >
@@ -3344,7 +3355,7 @@ export default function Dashboard() {
           {/* Phase-Specific Content */}
           {currentDynasty.currentPhase === 'preseason' ? (
         <div className="space-y-3">
-          <h3 className="font-display font-bold uppercase leading-none text-txt-primary pl-2.5 pr-1" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', borderLeft: `3px solid ${teamAccent}` }}>
+          <h3 className="w-fit font-display font-black uppercase leading-none rounded-md px-3 py-2 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.04em', ...teamLabelStyle }}>
             Pre-Season Setup
           </h3>
           {(() => {
@@ -3862,7 +3873,7 @@ export default function Dashboard() {
         </div>
       ) : currentDynasty.currentPhase === 'conference_championship' ? (
         <div className="space-y-3">
-          <h3 className="font-display font-bold uppercase leading-none text-txt-primary pl-2.5 pr-1" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', borderLeft: `3px solid ${teamAccent}` }}>
+          <h3 className="w-fit font-display font-black uppercase leading-none rounded-md px-3 py-2 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.04em', ...teamLabelStyle }}>
             Conference Championship Week
           </h3>
           {(() => {
@@ -4706,7 +4717,7 @@ export default function Dashboard() {
 
               return (
                 <>
-                  <h3 className="font-display font-bold uppercase leading-none text-txt-primary pl-2.5 pr-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', borderLeft: `3px solid ${teamAccent}` }}>
+                  <h3 className="w-fit font-display font-black uppercase leading-none rounded-md px-3 py-2 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.04em', ...teamLabelStyle }}>
                     Bowl Week 1
                   </h3>
                   {renderTodoList({ todos: bw1Todos, isViewOnly })}
@@ -5038,7 +5049,7 @@ export default function Dashboard() {
 
               return (
                 <>
-                  <h3 className="font-display font-bold uppercase leading-none text-txt-primary pl-2.5 pr-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', borderLeft: `3px solid ${teamAccent}` }}>
+                  <h3 className="w-fit font-display font-black uppercase leading-none rounded-md px-3 py-2 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.04em', ...teamLabelStyle }}>
                     Bowl Week 2
                   </h3>
                   {renderTodoList({ todos: bw2Todos, isViewOnly })}
@@ -5382,7 +5393,7 @@ export default function Dashboard() {
 
               return (
                 <>
-                  <h3 className="font-display font-bold uppercase leading-none text-txt-primary pl-2.5 pr-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', borderLeft: `3px solid ${teamAccent}` }}>
+                  <h3 className="w-fit font-display font-black uppercase leading-none rounded-md px-3 py-2 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.04em', ...teamLabelStyle }}>
                     End of Season Recap
                   </h3>
                   {renderTodoList({ todos: w5Todos, isViewOnly })}
@@ -5650,7 +5661,7 @@ export default function Dashboard() {
 
             return (
               <>
-                <h3 className="font-display font-bold uppercase leading-none text-txt-primary pl-2.5 pr-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', borderLeft: `3px solid ${teamAccent}` }}>
+                <h3 className="w-fit font-display font-black uppercase leading-none rounded-md px-3 py-2 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.04em', ...teamLabelStyle }}>
                   {week === 4 ? 'National Championship' : `Bowl Week ${week}`}
                 </h3>
                 {renderTodoList({ todos: w34Todos, isViewOnly })}
@@ -5834,7 +5845,7 @@ export default function Dashboard() {
                 }]
                 return (
                   <>
-                    <h3 className="font-display font-bold uppercase leading-none text-txt-primary pl-2.5 pr-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', borderLeft: `3px solid ${teamAccent}` }}>
+                    <h3 className="w-fit font-display font-black uppercase leading-none rounded-md px-3 py-2 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.04em', ...teamLabelStyle }}>
                       New Team — No Players Leaving
                     </h3>
                     {renderTodoList({ todos: skippedTodos, isViewOnly })}
@@ -5855,7 +5866,7 @@ export default function Dashboard() {
 
               return (
                 <>
-                  <h3 className="font-display font-bold uppercase leading-none text-txt-primary pl-2.5 pr-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', borderLeft: `3px solid ${teamAccent}` }}>
+                  <h3 className="w-fit font-display font-black uppercase leading-none rounded-md px-3 py-2 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.04em', ...teamLabelStyle }}>
                     Players Leaving
                   </h3>
                   {renderTodoList({ todos: ow1Todos, isViewOnly })}
@@ -6114,7 +6125,7 @@ export default function Dashboard() {
 
               return (
                 <>
-                  <h3 className="font-display font-bold uppercase leading-none text-txt-primary pl-2.5 pr-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', borderLeft: `3px solid ${teamAccent}` }}>
+                  <h3 className="w-fit font-display font-black uppercase leading-none rounded-md px-3 py-2 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.04em', ...teamLabelStyle }}>
                     {recruitingWeekNum === 5 ? 'National Signing Day' : `Recruiting Week ${recruitingWeekNum} of 4`}
                   </h3>
                   {renderTodoList({ todos: o26Todos, isViewOnly })}
@@ -6138,7 +6149,7 @@ export default function Dashboard() {
                 }]
                 return (
                   <>
-                    <h3 className="font-display font-bold uppercase leading-none text-txt-primary pl-2.5 pr-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', borderLeft: `3px solid ${teamAccent}` }}>
+                    <h3 className="w-fit font-display font-black uppercase leading-none rounded-md px-3 py-2 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.04em', ...teamLabelStyle }}>
                       Training Camp
                     </h3>
                     {renderTodoList({ todos: skippedTodos, isViewOnly })}
@@ -6223,7 +6234,7 @@ export default function Dashboard() {
 
               return (
                 <>
-                  <h3 className="font-display font-bold uppercase leading-none text-txt-primary pl-2.5 pr-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', borderLeft: `3px solid ${teamAccent}` }}>
+                  <h3 className="w-fit font-display font-black uppercase leading-none rounded-md px-3 py-2 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.04em', ...teamLabelStyle }}>
                     Training Camp
                   </h3>
                   {renderTodoList({ todos: w7Todos, isViewOnly })}
@@ -6265,7 +6276,7 @@ export default function Dashboard() {
 
               return (
                 <>
-                  <h3 className="font-display font-bold uppercase leading-none text-txt-primary pl-2.5 pr-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', borderLeft: `3px solid ${teamAccent}` }}>
+                  <h3 className="w-fit font-display font-black uppercase leading-none rounded-md px-3 py-2 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.04em', ...teamLabelStyle }}>
                     Offseason
                   </h3>
                   {renderTodoList({ todos: w8Todos, isViewOnly })}
@@ -6311,10 +6322,11 @@ export default function Dashboard() {
               <div className="py-3 pl-3 pr-1 flex items-center justify-between flex-shrink-0" style={sectionStripStyle}>
                 <div className="flex items-center gap-3">
                   <div
-                    className="font-display font-bold uppercase leading-none text-txt-primary"
+                    className="w-fit font-display font-black uppercase leading-none rounded-md px-3 py-1.5"
                     style={{
                       fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)',
-                      letterSpacing: '0.03em'
+                      letterSpacing: '0.04em',
+                      ...teamLabelStyle,
                     }}
                   >
                     <span className="tabular-nums">{currentDynasty.currentYear}</span>
@@ -6461,10 +6473,11 @@ export default function Dashboard() {
         <div className="py-3 pl-3 pr-1 flex items-center justify-between" style={sectionStripStyle}>
           <div className="flex items-center gap-3">
             <div
-              className="font-display font-bold uppercase leading-none text-txt-primary"
+              className="w-fit font-display font-black uppercase leading-none rounded-md px-3 py-1.5"
               style={{
                 fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)',
-                letterSpacing: '0.03em'
+                letterSpacing: '0.04em',
+                ...teamLabelStyle,
               }}
             >
               <span className="tabular-nums">{currentDynasty.currentYear}</span>
@@ -6532,9 +6545,12 @@ export default function Dashboard() {
 
                 const renderGameRow = (isLink) => (
                   <div
-                    className={`relative flex items-center py-2.5 px-4 gap-3 transition-colors ${isLink ? 'hover:bg-surface-3' : ''}`}
+                    className={`relative flex items-center py-2.5 px-4 gap-3 transition-all ${isLink ? 'hover:brightness-110' : ''}`}
                     style={{
                       borderBottom: '1px solid var(--surface-4)',
+                      // Opponent-color wash — same treatment the CC + bowl rows
+                      // already use, so the whole schedule reads consistently.
+                      background: `linear-gradient(to right, transparent 0%, ${opponentColors.backgroundColor}99 100%)`,
                       ...(isCurrentWeek ? { boxShadow: 'inset 2px 0 0 0 var(--text-primary)' } : {})
                     }}
                   >
@@ -7091,7 +7107,7 @@ export default function Dashboard() {
               <div className="px-5 py-4 flex items-center justify-between" style={sectionStripStyle}>
                 <div className="flex items-center gap-3">
                   <div>
-                    <h2 className="font-display font-bold uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1rem, 1.6vw, 1.125rem)', letterSpacing: '0.03em' }}>
+                    <h2 className="w-fit font-display font-black uppercase leading-none rounded-md px-3 py-1.5" style={{ fontSize: 'clamp(1rem, 1.6vw, 1.125rem)', letterSpacing: '0.04em', ...teamLabelStyle }}>
                       <span className="tabular-nums">{currentDynasty.currentYear}</span>
                       <span className="ml-2">Schedule</span>
                     </h2>
@@ -7156,8 +7172,11 @@ export default function Dashboard() {
 
                       const renderMobileGameRow = (isLink) => (
                         <div
-                          className={`relative flex items-center py-2.5 px-4 gap-3 transition-colors ${isLink ? 'hover:bg-surface-3' : ''}`}
-                          style={isCurrentWeek ? { boxShadow: 'inset 2px 0 0 0 var(--text-primary)' } : undefined}
+                          className={`relative flex items-center py-2.5 px-4 gap-3 transition-all ${isLink ? 'hover:brightness-110' : ''}`}
+                          style={{
+                            background: `linear-gradient(to right, transparent 0%, ${opponentColors.backgroundColor}99 100%)`,
+                            ...(isCurrentWeek ? { boxShadow: 'inset 2px 0 0 0 var(--text-primary)' } : {}),
+                          }}
                         >
                           <span className={`w-7 text-xs font-semibold tabular-nums ${isCurrentWeek ? 'text-txt-primary' : 'text-txt-tertiary'}`}>
                             {weekNum}
@@ -7318,7 +7337,7 @@ export default function Dashboard() {
             <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--surface-4)' }}>
               <div className="flex items-center gap-3">
                 <div>
-                  <h2 className="font-display font-bold uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1rem, 1.6vw, 1.125rem)', letterSpacing: '0.03em' }}>
+                  <h2 className="w-fit font-display font-black uppercase leading-none rounded-md px-3 py-1.5" style={{ fontSize: 'clamp(1rem, 1.6vw, 1.125rem)', letterSpacing: '0.04em', ...teamLabelStyle }}>
                     <span className="tabular-nums">{currentDynasty.currentYear}</span>
                     <span className="ml-2">Roster</span>
                   </h2>

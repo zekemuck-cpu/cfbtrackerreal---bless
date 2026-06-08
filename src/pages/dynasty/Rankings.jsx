@@ -123,6 +123,12 @@ export default function Rankings() {
       for (const k of Object.keys(rbw)) {
         const wk = Number(k)
         if (!Number.isFinite(wk)) continue
+        // Canonical poll slots only: Preseason(0), Weeks 1–14, Conf Champ(15),
+        // Bowl Weeks(16–18), CFP rounds + Final(101–105). Skip legacy/orphan
+        // slots like the old shared "100" (deprecated CCG/bowl key) so they
+        // don't surface as a bogus "Week 100" in the picker.
+        const isCanonical = (wk >= 0 && wk <= 18) || (wk >= 101 && wk <= 105)
+        if (!isCanonical) continue
         const v = rbw[k]
         if (typeof v !== 'number' || v < 1 || v > 25) continue
         counts.set(wk, (counts.get(wk) || 0) + 1)
@@ -438,6 +444,9 @@ export default function Rankings() {
   const weekLabel = (w) => {
     if (w === 0) return 'Preseason Rankings'
     if (w === 15) return 'Conf Champ Week'  // post-Week-14 / pre-CCG poll slot
+    if (w === 16) return 'Bowl Week 1'
+    if (w === 17) return 'Bowl Week 2'
+    if (w === 18) return 'Bowl Week 3'
     if (w === 101) return 'CFP First Round'
     if (w === 102) return 'CFP Quarterfinals'
     if (w === 103) return 'CFP Semifinals'

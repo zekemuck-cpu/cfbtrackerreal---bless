@@ -1463,8 +1463,12 @@ export function migrateRanksToRankByWeek(dynasty, options = {}) {
     if (g.isCFPSemifinal) return 103
     if (g.isCFPQuarterfinal) return 102
     if (g.isCFPFirstRound) return 101
-    if (g.isConferenceChampionship) return 100
-    if (g.isBowlGame) return 100
+    // Canonical rankByWeek slots: Conf Champ = 15, Bowl Week 1 = 16,
+    // Bowl Week 2 = 17 (matches getGameOrderForRecord + the Rankings
+    // labels). The old shared "100" slot collided CCG with bowls and
+    // surfaced as a bogus "Week 100" in the Top 25 week picker.
+    if (g.isConferenceChampionship) return 15
+    if (g.isBowlGame) return g.bowlWeek === 'week2' ? 17 : 16
     const w = Number(g.week)
     return Number.isFinite(w) ? w : null
   }
@@ -1642,8 +1646,12 @@ export function rebuildRankByWeekFromCurrentState(dynasty) {
     if (g.isCFPSemifinal) return 103
     if (g.isCFPQuarterfinal) return 102
     if (g.isCFPFirstRound) return 101
-    if (g.isConferenceChampionship) return 100
-    if (g.isBowlGame) return 100
+    // Canonical rankByWeek slots: Conf Champ = 15, Bowl Week 1 = 16,
+    // Bowl Week 2 = 17 (matches getGameOrderForRecord + the Rankings
+    // labels). The old shared "100" slot collided CCG with bowls and
+    // surfaced as a bogus "Week 100" in the Top 25 week picker.
+    if (g.isConferenceChampionship) return 15
+    if (g.isBowlGame) return g.bowlWeek === 'week2' ? 17 : 16
     const w = Number(g.week)
     return Number.isFinite(w) ? w : null
   }
@@ -1721,8 +1729,10 @@ export function applyGameRanksToTeams(dynasty, game) {
     if (game.isCFPSemifinal) return 103
     if (game.isCFPQuarterfinal) return 102
     if (game.isCFPFirstRound) return 101
-    if (game.isConferenceChampionship) return 100
-    if (game.isBowlGame) return 100
+    // Canonical rankByWeek slots: Conf Champ = 15, Bowl Week 1 = 16,
+    // Bowl Week 2 = 17 (see weekKeyOf above).
+    if (game.isConferenceChampionship) return 15
+    if (game.isBowlGame) return game.bowlWeek === 'week2' ? 17 : 16
     const w = Number(game.week)
     return Number.isFinite(w) ? w : null
   })()
