@@ -10347,10 +10347,13 @@ export function DynastyProvider({ children }) {
       // Apply new job if user accepted one during postseason
       const newJobData = dynasty.newJobData
       if (newJobData?.takingNewJob && newJobData.team && newJobData.position) {
-        // newJobData.team is a full team name from SearchableSelect (e.g., "Wisconsin Badgers")
-        // All lookups go through dynasty.teams[tid] — the only source of truth.
-        const newTeamName = getTeamName(newJobData.team, dynasty.teams)
-        const newTeamAbbr = getAbbrFromTeamName(newJobData.team, dynasty.teams) || newJobData.team
+        // Prefer the canonical newJobData.teamTid (stored at pick time);
+        // fall back to resolving the legacy team-name field. All display
+        // values derive from dynasty.teams[tid] — the only source of truth.
+        const newTeamTid = newJobData.teamTid ?? getTidFromTeamName(newJobData.team, dynasty.teams)
+        const resolvedNewTeam = newTeamTid != null ? dynasty.teams?.[newTeamTid] : null
+        const newTeamName = resolvedNewTeam?.name || getTeamName(newJobData.team, dynasty.teams)
+        const newTeamAbbr = resolvedNewTeam?.abbr || getAbbrFromTeamName(newJobData.team, dynasty.teams) || newJobData.team
         const newConference = getTeamConference(newTeamAbbr, null, dynasty.teams)
 
         // REVERT SUPPORT: Save previous job data so we can restore on revert.
@@ -10681,7 +10684,7 @@ export function DynastyProvider({ children }) {
               // flip matches the teamName/currentTid update above.
               const hasPendingUser = Object.values(teamsBeforeFlip).some(t => t.pendingUserId === 'currentUser')
               if (!hasPendingUser) {
-                const newTeamTid = getTidFromTeamName(newJobData.team, teamsBeforeFlip)
+                const newTeamTid = newJobData.teamTid ?? getTidFromTeamName(newJobData.team, teamsBeforeFlip)
                 if (newTeamTid && teamsBeforeFlip[newTeamTid]) {
                   teamsBeforeFlip = {
                     ...teamsBeforeFlip,

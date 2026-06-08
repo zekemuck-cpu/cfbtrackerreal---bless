@@ -230,20 +230,23 @@ export default function Recruiting() {
       })
     }
     const abbrData = currentDynasty?.recruitingCommitmentsByTeamYear || {}
-    Object.entries(abbrData).forEach(([abbr, yearData]) => {
+    Object.entries(abbrData).forEach(([key, yearData]) => {
       const hasRecruits = Object.values(yearData).some(yearCommitments => {
         return Object.values(yearCommitments).some(weekCommitments => {
           return Array.isArray(weekCommitments) && weekCommitments.length > 0
         })
       })
       if (hasRecruits) {
-        const tid = getTidFromAbbr(abbr, currentDynasty)
+        // The map is dual-keyed: numeric tid keys (rename-safe) and legacy
+        // abbr keys. Prefer the tid key directly; only resolve abbr→tid for
+        // legacy entries — otherwise a renamed team's class drops out here.
+        const tid = /^\d+$/.test(key) ? Number(key) : getTidFromAbbr(key, currentDynasty)
         if (tid && !teamsMap.has(tid)) {
           const teamData = teamsSource[tid]
           teamsMap.set(tid, {
-            abbr,
+            abbr: teamData?.abbr || key,
             tid,
-            name: teamData?.name || abbr
+            name: teamData?.name || key
           })
         }
       }

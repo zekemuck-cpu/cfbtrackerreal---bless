@@ -5339,8 +5339,11 @@ export default function TeamYear() {
               // If user didn't make championship or no CC game data, skip
               if (!madeChampionship && !teamCCGame) return null
 
-              // Get opponent from ccData or teamCCGame (tid-based)
-              let ccOpponentAbbr = ccData?.opponent
+              // Get opponent from ccData or teamCCGame (tid-based). Prefer the
+              // canonical opponentTid; fall back to a legacy abbr.
+              let ccOpponentAbbr = ccData?.opponentTid
+                ? (teamsSource?.[ccData.opponentTid]?.abbr || null)
+                : ccData?.opponent
               let ccIsTeam1 = false
               if (!ccOpponentAbbr && teamCCGame) {
                 const ccTeam1Tid = teamCCGame.team1Tid || resolveTid(teamCCGame.team1, teamsSource)

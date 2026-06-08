@@ -657,6 +657,9 @@ export default function Dashboard() {
   // Conference Championship states
   const [ccMadeChampionship, setCCMadeChampionship] = useState(null) // null = not answered, true/false = answered
   const [ccOpponent, setCCOpponent] = useState('')
+  // Canonical conference-championship opponent identity is the tid (rename-safe).
+  // ccOpponent (abbr) is kept only as a derived display mirror.
+  const [ccOpponentTid, setCCOpponentTid] = useState(null)
   const [ccOpponentSearch, setCCOpponentSearch] = useState('')
   const [showCCOpponentDropdown, setShowCCOpponentDropdown] = useState(false)
   // showCCGameModal removed - now using game pages instead
@@ -699,7 +702,11 @@ export default function Dashboard() {
 
     if (ccData) {
       setCCMadeChampionship(ccData.madeChampionship ?? null)
-      setCCOpponent(ccData.opponent || '')
+      // Prefer the canonical tid; fall back to resolving a legacy abbr.
+      const ccTid = ccData.opponentTid
+        ?? (ccData.opponent ? getTidFromAbbr(ccData.opponent, currentDynasty) : null)
+      setCCOpponentTid(ccTid ?? null)
+      setCCOpponent(ccData.opponent || (ccTid ? (getGameTeamInfo(currentDynasty?.teams || TEAMS, ccTid)?.abbr || '') : ''))
       // Restore pending firing selection
       const pending = ccData.pendingFiring
       if (pending !== undefined) {
@@ -713,6 +720,7 @@ export default function Dashboard() {
       // Reset when no data for this year
       setCCMadeChampionship(null)
       setCCOpponent('')
+      setCCOpponentTid(null)
       setFiringCoordinators(null)
       setCoordinatorToFire('')
     }
@@ -1150,9 +1158,14 @@ export default function Dashboard() {
     await updateDynasty(currentDynasty.id, updates)
   }
 
-  // Handle CC opponent selection - team-centric
-  const handleCCOpponentSelect = async (opponent) => {
-    setCCOpponent(opponent)
+  // Handle CC opponent selection - team-centric.
+  // opponentTid is the canonical identity; we also store a derived abbr as a
+  // display mirror for backward-compatible readers.
+  const handleCCOpponentSelect = async (opponentTid) => {
+    if (!opponentTid) return
+    const opponentAbbr = getGameTeamInfo(currentDynasty?.teams || TEAMS, opponentTid)?.abbr || ''
+    setCCOpponentTid(opponentTid)
+    setCCOpponent(opponentAbbr)
     setCCOpponentSearch('')
     setShowCCOpponentDropdown(false)
     const year = currentDynasty.currentYear
@@ -1160,7 +1173,7 @@ export default function Dashboard() {
     const existingByTeamYear = currentDynasty.conferenceChampionshipDataByTeamYear || {}
     const existingForTeam = existingByTeamYear[teamAbbr] || {}
     const tid = getTidFromAbbr(teamAbbr, currentDynasty)
-    const ccData = { ...(existingForTeam[year] || {}), opponent }
+    const ccData = { ...(existingForTeam[year] || {}), opponentTid, opponent: opponentAbbr }
 
     // Also get existing year-only structure for backward compatibility
     const existingByYearOnly = currentDynasty.conferenceChampionshipDataByYear || {}
@@ -3617,7 +3630,12 @@ export default function Dashboard() {
               )
               // Only consider a game "played" if it has actual scores
               const playedGame = isGameActuallyPlayed(gameRecord) ? gameRecord : null
-              const mascotName = scheduledGame ? getMascotName(scheduledGame.opponent) : null
+              // Prefer the schedule entry's canonical opponentTid; fall back to
+              // resolving the legacy abbr only if the tid isn't present.
+              const schedOppTid = scheduledGame
+                ? (scheduledGame.opponentTid ?? (scheduledGame.opponent ? getTidFromAbbr(scheduledGame.opponent, currentDynasty) : null))
+                : null
+              const mascotName = scheduledGame ? getMascotName(schedOppTid ?? scheduledGame.opponent) : null
               const opponentName = mascotName || (scheduledGame ? getTeamNameFromAbbr(scheduledGame.opponent) : 'TBD')
 
               // Check if this week is a bye week (explicit BYE or empty/missing schedule entry)
@@ -3650,7 +3668,7 @@ export default function Dashboard() {
                 if (gameRecord) {
                   navigate(`${pathPrefix}/game/${gameRecord.id}/edit`, { state: { from: location.pathname } })
                 } else {
-                  const opponentTid = scheduledGame?.opponent ? getTidFromAbbr(scheduledGame.opponent, currentDynasty) : null
+                  const opponentTid = schedOppTid
                   const team1 = userTeamTid
                   const team2 = opponentTid
                   const params = new URLSearchParams({
@@ -3709,7 +3727,7 @@ export default function Dashboard() {
               if (!isByeWeek && hasCurWeek && scheduledGame) {
                 const gameDone = !!playedGame
                 const userIsAway = gameLocation === 'away'
-                const oppTid = scheduledGame?.opponent ? getTidFromAbbr(scheduledGame.opponent, currentDynasty) : null
+                const oppTid = schedOppTid
                 const leftLogo = userIsAway ? userLogoUrl : oppLogoUrl
                 const rightLogo = userIsAway ? oppLogoUrl : userLogoUrl
                 const leftAbbr = userIsAway ? userAbbr : oppAbbr
@@ -3967,13 +3985,14 @@ export default function Dashboard() {
               onAction: ccQuestionDone && !isViewOnly ? async () => {
                 setCCMadeChampionship(null)
                 setCCOpponent('')
+                setCCOpponentTid(null)
                 const year = currentDynasty.currentYear
                 const existingByYear = currentDynasty.conferenceChampionshipDataByYear || {}
                 const currentCCData = existingByYear[year] || {}
                 await updateDynasty(currentDynasty.id, {
                   conferenceChampionshipDataByYear: {
                     ...existingByYear,
-                    [year]: { ...currentCCData, madeChampionship: null, opponent: null }
+                    [year]: { ...currentCCData, madeChampionship: null, opponent: null, opponentTid: null }
                   }
                 })
               } : null,
@@ -4002,8 +4021,11 @@ export default function Dashboard() {
                       options={teams}
                       value=""
                       onChange={(teamName) => {
-                        const abbr = getAbbrFromTeamName(teamName, currentDynasty?.teams)
-                        if (abbr) handleCCOpponentSelect(abbr)
+                        // Resolve the picked team straight to its tid — the only
+                        // identity we store. getTidFromTeamName walks dynasty.teams
+                        // so a renamed/teambuilder team resolves correctly.
+                        const oppTid = getTidFromTeamName(teamName, currentDynasty?.teams)
+                        if (oppTid) handleCCOpponentSelect(oppTid)
                       }}
                       placeholder="Select opponent..."
                       teamColors={teamColors}
@@ -4015,22 +4037,9 @@ export default function Dashboard() {
                   if (ccGame) {
                     navigate(`${pathPrefix}/game/${ccGame.id}/edit`, { state: { from: location.pathname } })
                   } else {
-                    // Resolve the opponent abbr → tid by walking
-                    // dynasty.teams so a teambuilder team that
-                    // overrode an FBS abbr wins over the static
-                    // registry. getTidFromAbbr collapses to the
-                    // static TEAMS map for unknown dynasties and
-                    // silently misroutes to the wrong (real) team
-                    // for that abbr — that's the bug we're avoiding.
-                    const opponentTid = (() => {
-                      const teamsMap = currentDynasty?.teams
-                      if (!teamsMap || !ccOpponent) return null
-                      const upper = ccOpponent.toUpperCase()
-                      for (const [tid, team] of Object.entries(teamsMap)) {
-                        if (team?.abbr?.toUpperCase() === upper) return Number(tid)
-                      }
-                      return null
-                    })()
+                    // Opponent identity is the stored tid — no abbr→tid
+                    // resolution, so a renamed/teambuilder opponent can't misroute.
+                    const opponentTid = ccOpponentTid
                     const params = new URLSearchParams({
                       week: 'CCG',
                       year: currentDynasty.currentYear?.toString() || '',
@@ -5011,7 +5020,7 @@ export default function Dashboard() {
                           onChange={async (value) => {
                             setNewJobTeam(value)
                             await updateDynasty(currentDynasty.id, {
-                              newJobData: { ...currentDynasty.newJobData, takingNewJob: true, team: value },
+                              newJobData: { ...currentDynasty.newJobData, takingNewJob: true, team: value, teamTid: getTidFromTeamName(value, currentDynasty?.teams) ?? null },
                             })
                           }}
                           placeholder="Search for team..."
@@ -5033,7 +5042,7 @@ export default function Dashboard() {
                             key={pos}
                             onClick={async () => {
                               setNewJobPosition(pos)
-                              const newTeamTid = getTidFromTeamName(newJobTeam || currentDynasty.newJobData?.team, currentDynasty.teams)
+                              const newTeamTid = currentDynasty.newJobData?.teamTid ?? getTidFromTeamName(newJobTeam || currentDynasty.newJobData?.team, currentDynasty.teams)
                               const updatedTeams = newTeamTid
                                 ? setPendingUserTeam(currentDynasty.teams, newTeamTid, pos)
                                 : currentDynasty.teams
@@ -5364,7 +5373,7 @@ export default function Dashboard() {
                           onChange={async (value) => {
                             setNewJobTeam(value)
                             await updateDynasty(currentDynasty.id, {
-                              newJobData: { ...currentDynasty.newJobData, takingNewJob: true, team: value },
+                              newJobData: { ...currentDynasty.newJobData, takingNewJob: true, team: value, teamTid: getTidFromTeamName(value, currentDynasty?.teams) ?? null },
                             })
                           }}
                           placeholder="Search for team..."
@@ -5386,7 +5395,7 @@ export default function Dashboard() {
                             key={pos}
                             onClick={async () => {
                               setNewJobPosition(pos)
-                              const newTeamTid = getTidFromTeamName(newJobTeam || currentDynasty.newJobData?.team, currentDynasty.teams)
+                              const newTeamTid = currentDynasty.newJobData?.teamTid ?? getTidFromTeamName(newJobTeam || currentDynasty.newJobData?.team, currentDynasty.teams)
                               const updatedTeams = newTeamTid
                                 ? setPendingUserTeam(currentDynasty.teams, newTeamTid, pos)
                                 : currentDynasty.teams
@@ -6048,7 +6057,7 @@ export default function Dashboard() {
                           key={pos}
                           onClick={async () => {
                             setNewJobPosition(pos)
-                            const newTeamTid = getTidFromTeamName(currentDynasty.newJobData?.team, currentDynasty.teams)
+                            const newTeamTid = currentDynasty.newJobData?.teamTid ?? getTidFromTeamName(currentDynasty.newJobData?.team, currentDynasty.teams)
                             const updatedTeams = newTeamTid
                               ? setPendingUserTeam(currentDynasty.teams, newTeamTid, pos)
                               : currentDynasty.teams
@@ -6877,15 +6886,15 @@ export default function Dashboard() {
 
                 // Use merged game data from getScheduleWithGameData
                 const playedGame = entry.game
-                const opponentColors = getOpponentColors(entry.opponent)
-                const mascotName = getMascotName(entry.opponent)
+                const opponentColors = getOpponentColors(entry.opponentTid ?? entry.opponent)
+                const mascotName = getMascotName(entry.opponentTid ?? entry.opponent)
                 const opponentName = mascotName || getTeamNameFromAbbr(entry.opponent)
                 const opponentLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
                 const isCurrentWeek = currentDynasty.currentPhase === 'regular_season' &&
                   weekNum === Number(currentDynasty.currentWeek) && !entry.isPlayed
                 const isWin = entry.perspective?.userWon
                 const isLoss = entry.perspective && !entry.perspective.userWon
-                const teamPageUrl = `${pathPrefix}/team/${resolveTid(entry.opponent, currentDynasty?.teams || TEAMS)}/${currentDynasty.currentYear}`
+                const teamPageUrl = `${pathPrefix}/team/${entry.opponentTid ?? resolveTid(entry.opponent, currentDynasty?.teams || TEAMS)}/${currentDynasty.currentYear}`
 
                 const renderGameRow = (isLink) => (
                   <div
@@ -6995,8 +7004,12 @@ export default function Dashboard() {
             })() && (() => {
               const ccGame = getCCGame()
               const ccDataForYear = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear] || {}
-              const ccOpponentInfo = ccGame?.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, ccGame.perspective.opponentTid) : null
-              const ccOpponentAbbr = ccOpponentInfo?.abbr || ccOpponent || ccDataForYear.opponent
+              // Root the opponent in tid: the game shell first, then the
+              // pre-game pick (ccOpponentTid / stored opponentTid), then a
+              // legacy abbr only as a last resort.
+              const ccOppTid = ccGame?.perspective?.opponentTid ?? ccOpponentTid ?? ccDataForYear.opponentTid ?? null
+              const ccOpponentInfo = ccOppTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, ccOppTid) : null
+              const ccOpponentAbbr = ccOpponentInfo?.abbr || ccDataForYear.opponent
               const hasOpponent = !!ccOpponentAbbr
               const ccOpponentColors = hasOpponent ? getOpponentColors(ccOpponentAbbr) : { backgroundColor: '#6b7280', textColor: '#ffffff' }
               const ccMascotFromAbbr = hasOpponent ? getMascotName(ccOpponentAbbr) : null
@@ -7500,8 +7513,8 @@ export default function Dashboard() {
                         )
                       }
 
-                      const opponentColors = getOpponentColors(entry.opponent)
-                      const mascotFromAbbr = getMascotName(entry.opponent)
+                      const opponentColors = getOpponentColors(entry.opponentTid ?? entry.opponent)
+                      const mascotFromAbbr = getMascotName(entry.opponentTid ?? entry.opponent)
                       const opponentName = mascotFromAbbr || getTeamNameFromAbbr(entry.opponent)
                       const opponentLogo = mascotFromAbbr ? getTeamLogo(mascotFromAbbr, currentDynasty?.teams || currentDynasty?.customTeams) : getTeamLogo(entry.opponent, currentDynasty?.teams || currentDynasty?.customTeams)
                       const playedGame = (currentDynasty.games || []).find(g => {
@@ -7512,7 +7525,7 @@ export default function Dashboard() {
                       })
                       const isCurrentWeek = currentDynasty.currentWeek === entry.week && currentDynasty.currentPhase === 'regular_season'
                       const isWin = entry.perspective?.userWon
-                      const teamPageUrl = `${pathPrefix}/team/${resolveTid(entry.opponent, currentDynasty?.teams || TEAMS)}/${currentDynasty.currentYear}`
+                      const teamPageUrl = `${pathPrefix}/team/${entry.opponentTid ?? resolveTid(entry.opponent, currentDynasty?.teams || TEAMS)}/${currentDynasty.currentYear}`
 
                       const renderMobileGameRow = (isLink) => (
                         <div
