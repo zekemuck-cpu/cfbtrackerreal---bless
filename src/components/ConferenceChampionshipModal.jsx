@@ -86,8 +86,30 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
     for (const t of Object.values(currentDynasty?.teams || {})) {
       if (t?.abbr && t?.name) abbrToName[String(t.abbr).toUpperCase()] = t.name
     }
+
+    // Build a per-conference membership map from sourceMap (shallow copy so we
+    // can safely patch without mutating the shared DEFAULT_CONFERENCE_TEAMS object).
+    const membershipMap = Object.fromEntries(
+      sheetConferences.map(conf => [conf, Array.isArray(sourceMap[conf]) ? [...sourceMap[conf]] : []])
+    )
+
+    // Safety net: ensure the user's own team appears in their conference.
+    // dynasty.conference is the authoritative value for the user's team's
+    // conference, but getCustomConferencesForYear reads byYear[year].conference
+    // — a field that may be absent when a team was part of the conference since
+    // dynasty creation and never explicitly moved via the conference editor.
+    // Without this, the AI is told the user's team is not in any conference and
+    // leaves their CCG row blank even when the game data clearly shows them there.
+    const userAbbr = (currentDynasty?.teamAbbr || '').toUpperCase()
+    const userConf = currentDynasty?.conference
+    if (userAbbr && userConf && Array.isArray(membershipMap[userConf])) {
+      if (!membershipMap[userConf].some(t => (t || '').toUpperCase() === userAbbr)) {
+        membershipMap[userConf].push(userAbbr)
+      }
+    }
+
     const membershipBlock = sheetConferences.map(conf => {
-      const abbrs = Array.isArray(sourceMap[conf]) ? [...sourceMap[conf]] : []
+      const abbrs = membershipMap[conf] || []
       abbrs.sort((a, b) => String(a).localeCompare(String(b)))
       if (abbrs.length === 0) return `${conf}: (no teams assigned in this dynasty)`
       const entries = abbrs.map(a => {

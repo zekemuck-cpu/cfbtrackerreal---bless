@@ -4454,7 +4454,13 @@ export function getCustomConferencesForYear(dynasty, year) {
   // Canonical path (higher priority — applied last so it wins)
   for (const [, team] of Object.entries(dynasty.teams || {})) {
     const yearData = team?.byYear?.[yearNum] || team?.byYear?.[String(yearNum)]
-    const conf = yearData?.conference
+    // Prefer year-specific conference; fall back to the top-level team.conference
+    // field for teams that were set up as part of the conference at dynasty
+    // creation but never explicitly "moved" via the year-by-year conference editor
+    // (so byYear[year].conference is absent). Without this fallback such teams
+    // disappear from the membership block even though the app shows them in the
+    // correct conference on every other screen.
+    const conf = yearData?.conference || team?.conference
     const abbr = team?.abbr
     if (conf && abbr) overrides.set(abbr.toUpperCase(), conf)
   }
