@@ -13,6 +13,7 @@ import WeeklyScoresModal from '../../components/WeeklyScoresModal'
 import WeekRecapModal from '../../components/WeekRecapModal'
 import BowlWeek1Modal from '../../components/BowlWeek1Modal'
 import BowlWeek2Modal from '../../components/BowlWeek2Modal'
+import ConferenceChampionshipModal from '../../components/ConferenceChampionshipModal'
 import FormattedRecap from '../../components/FormattedRecap'
 import buildRecapLinks from '../../utils/buildRecapLinks'
 import { useTeamColors } from '../../hooks/useTeamColors'
@@ -331,9 +332,10 @@ export default function WeeklyScores() {
   const { year: urlYear, week: urlWeek } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { currentDynasty, isViewOnly, saveCPUBowlGames, saveCFPGames, saveRankings } = useDynasty()
+  const { currentDynasty, isViewOnly, saveCPUBowlGames, saveCFPGames, saveRankings, saveCPUConferenceChampionships, updateDynasty } = useDynasty()
   const pathPrefix = usePathPrefix()
   const [editing, setEditing] = useState(false)
+  const [ccModalOpen, setCcModalOpen] = useState(false)
   const [bowlWeek1Open, setBowlWeek1Open] = useState(false)
   const [bowlWeek2Open, setBowlWeek2Open] = useState(false)
   // Recap modal opens locally on this page too — no need to round-trip to
@@ -431,6 +433,17 @@ export default function WeeklyScores() {
 
   const handleYearChange = (y) => navigate(`${pathPrefix}/weekly-scores/${y}/${displayWeek}`)
   const handleWeekChange = (w) => navigate(`${pathPrefix}/weekly-scores/${displayYear}/${w}`)
+
+  const handleCCModalSave = async (championships) => {
+    const year = displayYear
+    const existingByYear = currentDynasty.conferenceChampionshipsByYear || {}
+    await updateDynasty(currentDynasty.id, {
+      conferenceChampionships: championships,
+      conferenceChampionshipsByYear: { ...existingByYear, [year]: championships },
+    })
+    await saveCPUConferenceChampionships(currentDynasty.id, championships, year)
+    setCcModalOpen(false)
+  }
 
   const handleBowlWeek1Save = async (bowlGames) => {
     try {
@@ -758,6 +771,11 @@ export default function WeeklyScores() {
                       Edit Scores
                     </button>
                   )}
+                  {displayWeek === 15 && (
+                    <button type="button" onClick={() => setCcModalOpen(true)} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0 hover:bg-surface-4" style={btnStyle} title="Enter Conference Championship scores">
+                      Enter Scores
+                    </button>
+                  )}
                   {displayWeek === 16 && (
                     <button type="button" onClick={() => setBowlWeek1Open(true)} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0 hover:bg-surface-4" style={btnStyle} title="Enter Bowl Week 1 scores">
                       Enter Scores
@@ -827,7 +845,9 @@ export default function WeeklyScores() {
               message={
                 isViewOnly
                   ? `The dynasty owner hasn't entered ${weekLabelFor(displayWeek)} scores for ${displayYear} yet.`
-                  : `Click "Edit Scores" to enter results from across the country.`
+                  : displayWeek <= 14
+                    ? `Click "Edit Scores" to enter results from across the country.`
+                    : `Click "Enter Scores" to add ${weekLabelFor(displayWeek)} results.`
               }
             />
           </Card>
@@ -875,6 +895,16 @@ export default function WeeklyScores() {
           onClose={() => setEditing(false)}
           year={displayYear}
           week={displayWeek}
+          teamColors={teamColors}
+        />
+      )}
+
+      {ccModalOpen && (
+        <ConferenceChampionshipModal
+          isOpen={ccModalOpen}
+          onClose={() => setCcModalOpen(false)}
+          onSave={handleCCModalSave}
+          currentYear={displayYear}
           teamColors={teamColors}
         />
       )}

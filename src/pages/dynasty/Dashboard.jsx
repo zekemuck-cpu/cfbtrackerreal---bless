@@ -4060,6 +4060,51 @@ export default function Dashboard() {
               })
             }
 
+            // Task: Enter CCG Scores (all 10 conference championships)
+            {
+              const yearNum = Number(currentDynasty.currentYear)
+              const allGamesCC = currentDynasty.games || []
+              const ccGamesThisYear = allGamesCC.filter(g =>
+                g && g.isConferenceChampionship && Number(g.year) === yearNum
+              )
+              const ccGamesWithScores = ccGamesThisYear.filter(g =>
+                g.team1Score != null && g.team2Score != null
+              ).length
+              const totalCCGames = 10
+              const hasCCData = ccGamesThisYear.length > 0
+              todos.push({
+                key: 'cc-scores',
+                done: hasCCData,
+                title: hasCCData
+                  ? `${ccGamesWithScores}/${totalCCGames} CCG Results Logged`
+                  : 'Enter CCG Scores',
+                subtitle: hasCCData
+                  ? `${ccGamesWithScores} of ${totalCCGames} conference championship games entered`
+                  : 'Log all conference championship results',
+                viewTo: `${pathPrefix}/weekly-scores/${yearNum}/15`,
+                onAction: () => setShowCCModal(true),
+                actionLabel: hasCCData ? 'Edit' : 'Enter',
+              })
+            }
+
+            // Task: Generate CCG Recap
+            {
+              const yearNum = Number(currentDynasty.currentYear)
+              const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[15]
+              const done = !!recap?.text
+              todos.push({
+                key: 'cc-recap',
+                done,
+                title: done ? 'CCG Recap Saved' : 'Generate CCG Recap',
+                subtitle: done
+                  ? 'Narrative recap stored for Conference Championship Week'
+                  : 'Generate the AI recap of Conference Championship Week',
+                viewTo: `${pathPrefix}/weekly-scores/${yearNum}/15?tab=recap`,
+                onAction: () => setRecapModalContext({ year: yearNum, week: 15 }),
+                actionLabel: done ? 'Edit' : 'Generate',
+              })
+            }
+
             // Task: Enter Week 14 Scores. CCG week always follows Week 14
             // (the last regular-season week), so the lookback target is
             // hard-coded to 14 — same pattern the regular-season block
