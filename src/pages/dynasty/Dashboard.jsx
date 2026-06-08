@@ -119,7 +119,7 @@ function renderTodoList({ todos, isViewOnly }) {
                 )}
               </div>
             </div>
-            {!isViewOnly && todo.actionLabel && (
+            {!isViewOnly && (todo.actionLabel || todo.viewTo || todo.extraTools) && (
               <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 [&_.btn-refined]:min-w-[4.5rem]">
                 {todo.extraTools}
                 {todo.viewTo && (
@@ -127,12 +127,14 @@ function renderTodoList({ todos, isViewOnly }) {
                     View
                   </Link>
                 )}
-                <button
-                  onClick={todo.onAction}
-                  className="btn-refined btn-refined--solid text-center"
-                >
-                  {todo.actionLabel}
-                </button>
+                {todo.actionLabel && (
+                  <button
+                    onClick={todo.onAction}
+                    className="btn-refined btn-refined--solid text-center"
+                  >
+                    {todo.actionLabel}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -4663,219 +4665,199 @@ export default function Dashboard() {
                 done: hasCFPSeedsData,
                 title: 'CFP Seeds (1-12)',
                 subtitle: hasCFPSeedsData ? 'Seeds entered' : '12 playoff teams',
+                viewTo: hasCFPSeedsData ? `${pathPrefix}/cfp-bracket/${currentDynasty.currentYear}` : null,
                 onAction: () => setShowCFPSeedsModal(true),
                 actionLabel: hasCFPSeedsData ? 'Edit' : 'Enter',
               })
 
-              // ─── Bowl Status wizard ──────────────────────────────────
-              // For non-CFP teams: "Did you make a bowl?" → Yes/No → pick
-              // bowl → pick opponent → createOrUpdateBowlGameShell. The
-              // answer persists to bowlEligibilityDataByYear (survives
-              // reloads); the created shell then surfaces the "Enter Your
-              // Bowl Game" tile this week (week-1 bowls) or carries to Bowl
-              // Week 2. CFP teams (seeds 1-12) skip the picker entirely —
-              // the row just reflects their playoff status.
+              // ─── Your Bowl Game ──────────────────────────────────────
+              // ONE row handles the whole flow. Three states:
+              //  (1) shell exists  → matchup + game entry (View + Enter/Edit,
+              //      "Change bowl" inline). No separate "Enter Your Bowl Game"
+              //      tile — this row owns entry too.
+              //  (2) CFP team      → playoff status + bracket View (the
+              //      actionable game is the CFP first-round tile below).
+              //  (3) no shell yet  → wizard: Did you make a bowl? → pick bowl
+              //      → pick opponent → createOrUpdateBowlGameShell.
               {
                 const bowlYear = currentDynasty.currentYear
                 const allBowlGames = getAllBowlGamesList()
-                const userBowlIsWeek2 = !!selectedBowl && isBowlInWeek2(selectedBowl)
-                // Opponent identity is the tid; derive the display name from it
-                // (rename-safe). Never read a stored name/abbr for identity.
-                const bowlOpponentName = bowlOpponentTid != null ? (getMascotName(bowlOpponentTid) || 'opponent') : ''
-                const bowlTaskComplete = hasCFPSeedsData && (
-                  userHasCFPBye || userInCFPFirstRound ||
-                  (bowlEligible !== null && (bowlEligible === false || (bowlEligible && selectedBowl && bowlOpponentTid != null)))
-                )
-                const showBowlEditButton = hasCFPSeedsData && !userCFPSeed && bowlEligible !== null
-                const bowlStatusSubtitle = !hasCFPSeedsData
-                  ? 'Enter CFP Seeds first'
-                  : userHasCFPBye
-                    ? `#${userCFPSeed} Seed - Bye to Quarterfinals (Week 2)`
-                    : userInCFPFirstRound
-                      ? `#${userCFPSeed} Seed vs #${17 - userCFPSeed} ${getMascotName(userCFPOpponent)}`
-                      : bowlEligible === false
-                        ? 'Not bowl eligible this year'
-                        : bowlEligible === true && selectedBowl && bowlOpponentTid != null
-                          ? `${selectedBowl} vs ${bowlOpponentName}${userBowlIsWeek2 ? ' (plays in Week 2)' : ''}`
-                          : bowlEligible === true && selectedBowl
-                            ? `Playing in: ${selectedBowl}`
-                            : bowlEligible === true
-                              ? 'Choose your bowl game'
-                              : 'Did you make a bowl game?'
 
-                // The user's existing bowl shell for this year (tid-matched),
-                // used to delete it via the targeted write path on reset.
+                // Reset back to "Did you make a bowl?": clears the eligibility
+                // record and deletes the shell via the targeted write path.
                 const existingUserBowlShell = (currentDynasty.games || []).find(g =>
                   g && g.isBowlGame && Number(g.year) === Number(bowlYear) &&
                   (Number(g.team1Tid) === Number(userTeamTid) || Number(g.team2Tid) === Number(userTeamTid))
                 )
-
-                // Show inline Yes/No on the row itself when the user hasn't
-                // answered yet — keeps the prompt in one place rather than a
-                // separate panel that reads as a duplicate to-do.
-                const askingBowlEligibility = hasCFPSeedsData && !userCFPSeed && bowlEligible === null
-                bw1Todos.push({
-                  key: 'bowl-status',
-                  done: bowlTaskComplete,
-                  title: userCFPSeed ? 'Your CFP Game' : 'Your Bowl Game',
-                  subtitle: bowlStatusSubtitle,
-                  onAction: askingBowlEligibility ? async () => {
-                    setBowlEligible(true)
-                    const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
-                    await updateDynasty(currentDynasty.id, {
-                      bowlEligibilityDataByYear: {
-                        ...existingByYear,
-                        [bowlYear]: { eligible: true, bowlGame: '', opponentTid: null },
-                      },
+                const resetBowl = async () => {
+                  setBowlEligible(null)
+                  setSelectedBowl('')
+                  setBowlOpponentTid(null)
+                  const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
+                  const { [bowlYear]: _removed, ...restByYear } = existingByYear
+                  if (existingUserBowlShell) {
+                    const localGames = (currentDynasty.games || []).filter(g => g.id !== existingUserBowlShell.id)
+                    await saveGameSetChanges(currentDynasty.id, {
+                      gameIdsToDelete: [existingUserBowlShell.id],
+                      extraUpdates: { bowlEligibilityDataByYear: restByYear },
+                      localGamesArray: localGames,
                     })
-                  } : showBowlEditButton ? async () => {
-                    const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
-                    // Complete state (bowl + opponent set): keep the bowl, just re-open opponent picker
-                    if (bowlEligible === true && selectedBowl && bowlOpponentTid != null) {
-                      setBowlOpponentTid(null)
-                      const currentBowlData = existingByYear[bowlYear] || {}
-                      const extraUpdates = {
-                        bowlEligibilityDataByYear: {
-                          ...existingByYear,
-                          [bowlYear]: { ...currentBowlData, opponentTid: null },
-                        },
-                      }
-                      if (existingUserBowlShell) {
-                        // Targeted delete of just the user's bowl shell — avoids
-                        // the full games-array rewrite that freezes large dynasties.
-                        const localGames = (currentDynasty.games || []).filter(g => g.id !== existingUserBowlShell.id)
-                        await saveGameSetChanges(currentDynasty.id, {
-                          gameIdsToDelete: [existingUserBowlShell.id],
-                          extraUpdates,
-                          localGamesArray: localGames,
-                        })
-                      } else {
-                        await updateDynasty(currentDynasty.id, extraUpdates)
-                      }
-                    } else {
-                      // Bowl-picker or "No" state: full reset back to Yes/No
-                      setBowlEligible(null)
-                      setSelectedBowl('')
-                      setBowlOpponentTid(null)
-                      const { [bowlYear]: _removed, ...restByYear } = existingByYear
-                      if (existingUserBowlShell) {
-                        const localGames = (currentDynasty.games || []).filter(g => g.id !== existingUserBowlShell.id)
-                        await saveGameSetChanges(currentDynasty.id, {
-                          gameIdsToDelete: [existingUserBowlShell.id],
-                          extraUpdates: { bowlEligibilityDataByYear: restByYear },
-                          localGamesArray: localGames,
-                        })
-                      } else {
-                        await updateDynasty(currentDynasty.id, { bowlEligibilityDataByYear: restByYear })
-                      }
-                    }
-                  } : undefined,
-                  actionLabel: askingBowlEligibility ? 'Yes' : showBowlEditButton ? 'Edit' : undefined,
-                  extraTools: askingBowlEligibility ? (
-                    <button
-                      onClick={async () => {
-                        setBowlEligible(false)
-                        const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
-                        await updateDynasty(currentDynasty.id, {
-                          bowlEligibilityDataByYear: {
-                            ...existingByYear,
-                            [bowlYear]: { eligible: false, bowlGame: null, opponentTid: null },
-                          },
-                        })
-                      }}
-                      className="btn-refined text-center"
-                    >
-                      No
-                    </button>
-                  ) : null,
-                  belowContent: !userCFPSeed && bowlEligible === true && !selectedBowl ? (
-                    <div className="max-w-xs">
-                      <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Which bowl game?</p>
-                      <DropdownSelect
-                        options={allBowlGames}
-                        value={selectedBowl}
-                        onChange={async (bowl) => {
-                          setSelectedBowl(bowl)
+                  } else {
+                    await updateDynasty(currentDynasty.id, { bowlEligibilityDataByYear: restByYear })
+                  }
+                }
+
+                if (userBowlGame) {
+                  // (1) Merged matchup + entry row — bowl + opponent are set.
+                  const oppTid = Number(userBowlGame.team1Tid) === Number(userTeamTid)
+                    ? userBowlGame.team2Tid : userBowlGame.team1Tid
+                  const subtitle = userBowlGameScoresEntered
+                    ? `${userBowlGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}-${Math.min(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}`
+                    : `vs ${getMascotName(oppTid) || 'opponent'}${userHasBowlWeek1Game ? '' : ' (plays in Week 2)'}`
+                  bw1Todos.push({
+                    key: 'bowl-status',
+                    done: userBowlGameScoresEntered || !userHasBowlWeek1Game,
+                    title: `Your ${userBowlGame.bowlName || 'Bowl'} Game`,
+                    subtitle,
+                    viewTo: `${pathPrefix}/game/${userBowlGame.id}`,
+                    onAction: () => navigate(`${pathPrefix}/game/${userBowlGame.id}/edit`, { state: { from: location.pathname } }),
+                    actionLabel: userBowlGameScoresEntered ? 'Edit' : 'Enter',
+                    inlineAction: !isViewOnly ? { label: 'Change bowl', onClick: resetBowl } : null,
+                  })
+                } else if (userCFPSeed) {
+                  // (2) CFP team — playoff status + bracket view.
+                  const cfpSubtitle = userHasCFPBye
+                    ? `#${userCFPSeed} Seed - Bye to Quarterfinals (Week 2)`
+                    : userInCFPFirstRound
+                      ? `#${userCFPSeed} Seed vs #${17 - userCFPSeed} ${getMascotName(userCFPOpponent)}`
+                      : `#${userCFPSeed} Seed`
+                  bw1Todos.push({
+                    key: 'bowl-status',
+                    done: true,
+                    title: 'Your CFP Game',
+                    subtitle: cfpSubtitle,
+                    viewTo: `${pathPrefix}/cfp-bracket/${bowlYear}`,
+                  })
+                } else {
+                  // (3) Wizard: Did you make a bowl? → pick bowl → pick opponent.
+                  const askingBowlEligibility = hasCFPSeedsData && bowlEligible === null
+                  const subtitle = !hasCFPSeedsData
+                    ? 'Enter CFP Seeds first'
+                    : bowlEligible === false
+                      ? 'Not bowl eligible this year'
+                      : bowlEligible === true && selectedBowl
+                        ? `Playing in: ${selectedBowl}`
+                        : bowlEligible === true
+                          ? 'Choose your bowl game'
+                          : 'Did you make a bowl game?'
+                  bw1Todos.push({
+                    key: 'bowl-status',
+                    done: hasCFPSeedsData && bowlEligible === false,
+                    title: 'Your Bowl Game',
+                    subtitle,
+                    onAction: askingBowlEligibility ? async () => {
+                      setBowlEligible(true)
+                      const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
+                      await updateDynasty(currentDynasty.id, {
+                        bowlEligibilityDataByYear: { ...existingByYear, [bowlYear]: { eligible: true, bowlGame: '', opponentTid: null } },
+                      })
+                    } : (bowlEligible !== null ? resetBowl : undefined),
+                    actionLabel: askingBowlEligibility ? 'Yes' : (bowlEligible !== null ? 'Edit' : undefined),
+                    extraTools: askingBowlEligibility ? (
+                      <button
+                        onClick={async () => {
+                          setBowlEligible(false)
                           const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
-                          const currentBowlData = existingByYear[bowlYear] || {}
                           await updateDynasty(currentDynasty.id, {
-                            bowlEligibilityDataByYear: {
-                              ...existingByYear,
-                              [bowlYear]: { ...currentBowlData, eligible: true, bowlGame: bowl },
-                            },
+                            bowlEligibilityDataByYear: { ...existingByYear, [bowlYear]: { eligible: false, bowlGame: null, opponentTid: null } },
                           })
                         }}
-                        placeholder="Search bowls..."
-                        teamColors={teamColors}
-                      />
-                    </div>
-                  ) : !userCFPSeed && bowlEligible === true && selectedBowl && bowlOpponentTid == null ? (
-                    <div className="max-w-xs">
-                      <div className="flex items-center gap-2 mb-2">
-                        <p className="text-xs sm:text-sm text-txt-secondary">Playing in: <strong className="text-txt-primary">{selectedBowl}</strong></p>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            setSelectedBowl('')
+                        className="btn-refined text-center"
+                      >
+                        No
+                      </button>
+                    ) : null,
+                    belowContent: bowlEligible === true && !selectedBowl ? (
+                      <div className="max-w-xs">
+                        <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Which bowl game?</p>
+                        <DropdownSelect
+                          options={allBowlGames}
+                          value={selectedBowl}
+                          onChange={async (bowl) => {
+                            setSelectedBowl(bowl)
                             const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
                             const currentBowlData = existingByYear[bowlYear] || {}
                             await updateDynasty(currentDynasty.id, {
-                              bowlEligibilityDataByYear: {
-                                ...existingByYear,
-                                [bowlYear]: { ...currentBowlData, bowlGame: '' },
-                              },
+                              bowlEligibilityDataByYear: { ...existingByYear, [bowlYear]: { ...currentBowlData, eligible: true, bowlGame: bowl } },
                             })
                           }}
-                          className="text-[11px] uppercase font-bold text-txt-tertiary hover:text-txt-secondary underline underline-offset-2 transition-colors flex-shrink-0"
-                          style={{ letterSpacing: '1.2px' }}
-                        >
-                          Change
-                        </button>
+                          placeholder="Search bowls..."
+                          teamColors={teamColors}
+                        />
                       </div>
-                      <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Who is your opponent?</p>
-                      <SearchableSelect
-                        options={teams}
-                        value=""
-                        onChange={async (value) => {
-                          // Resolve the picked team to its tid immediately — tid is
-                          // the only identity we store or build the shell from.
-                          const opponentTid = getTidFromTeamName(value, currentDynasty?.teams)
-                          if (!opponentTid) return
-                          setBowlOpponentTid(opponentTid)
-                          const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
-                          const currentBowlData = existingByYear[bowlYear] || {}
-                          const updatedGames = createOrUpdateBowlGameShell(currentDynasty.games || [], {
-                            bowlName: selectedBowl,
-                            year: bowlYear,
-                            userTid: userTeamTid,
-                            opponentTid,
-                            isWeek1: isBowlInWeek1(selectedBowl),
-                          })
-                          const shell = updatedGames.find(g =>
-                            g && g.isBowlGame && Number(g.year) === Number(bowlYear) &&
-                            (Number(g.team1Tid) === Number(userTeamTid) || Number(g.team2Tid) === Number(userTeamTid))
-                          )
-                          // Targeted single-game write (shell only) + the eligibility
-                          // record. The full updateDynasty({games}) path rewrites every
-                          // game with orphan cleanup, which froze large cloud dynasties.
-                          await saveGameSetChanges(currentDynasty.id, {
-                            gamesToSet: shell ? [shell] : [],
-                            extraUpdates: {
-                              bowlEligibilityDataByYear: {
-                                ...existingByYear,
-                                [bowlYear]: { ...currentBowlData, eligible: true, bowlGame: selectedBowl, opponentTid },
+                    ) : bowlEligible === true && selectedBowl && bowlOpponentTid == null ? (
+                      <div className="max-w-xs">
+                        <div className="flex items-center gap-2 mb-2">
+                          <p className="text-xs sm:text-sm text-txt-secondary">Playing in: <strong className="text-txt-primary">{selectedBowl}</strong></p>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setSelectedBowl('')
+                              const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
+                              const currentBowlData = existingByYear[bowlYear] || {}
+                              await updateDynasty(currentDynasty.id, {
+                                bowlEligibilityDataByYear: { ...existingByYear, [bowlYear]: { ...currentBowlData, bowlGame: '' } },
+                              })
+                            }}
+                            className="text-[11px] uppercase font-bold text-txt-tertiary hover:text-txt-secondary underline underline-offset-2 transition-colors flex-shrink-0"
+                            style={{ letterSpacing: '1.2px' }}
+                          >
+                            Change
+                          </button>
+                        </div>
+                        <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Who is your opponent?</p>
+                        <SearchableSelect
+                          options={teams}
+                          value=""
+                          onChange={async (value) => {
+                            // Resolve the picked team to its tid immediately — tid is
+                            // the only identity we store or build the shell from.
+                            const opponentTid = getTidFromTeamName(value, currentDynasty?.teams)
+                            if (!opponentTid) return
+                            setBowlOpponentTid(opponentTid)
+                            const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
+                            const currentBowlData = existingByYear[bowlYear] || {}
+                            const updatedGames = createOrUpdateBowlGameShell(currentDynasty.games || [], {
+                              bowlName: selectedBowl,
+                              year: bowlYear,
+                              userTid: userTeamTid,
+                              opponentTid,
+                              isWeek1: isBowlInWeek1(selectedBowl),
+                            })
+                            const shell = updatedGames.find(g =>
+                              g && g.isBowlGame && Number(g.year) === Number(bowlYear) &&
+                              (Number(g.team1Tid) === Number(userTeamTid) || Number(g.team2Tid) === Number(userTeamTid))
+                            )
+                            // Targeted single-game write (shell only) + eligibility record.
+                            await saveGameSetChanges(currentDynasty.id, {
+                              gamesToSet: shell ? [shell] : [],
+                              extraUpdates: {
+                                bowlEligibilityDataByYear: {
+                                  ...existingByYear,
+                                  [bowlYear]: { ...currentBowlData, eligible: true, bowlGame: selectedBowl, opponentTid },
+                                },
                               },
-                            },
-                            localGamesArray: updatedGames,
-                          })
-                        }}
-                        placeholder="Search for opponent..."
-                        teamColors={teamColors}
-                        dynastyTeams={currentDynasty?.teams}
-                      />
-                    </div>
-                  ) : null,
-                })
+                              localGamesArray: updatedGames,
+                            })
+                          }}
+                          placeholder="Search for opponent..."
+                          teamColors={teamColors}
+                          dynastyTeams={currentDynasty?.teams}
+                        />
+                      </div>
+                    ) : null,
+                  })
+                }
               }
 
               if (userHasCFPFirstRoundGame) {
@@ -4906,26 +4888,17 @@ export default function Dashboard() {
                 })
               }
 
-              if (userHasBowlWeek1Game) {
-                const bw1BowlOpponentTid = Number(userBowlGame.team1Tid) === Number(userTeamTid)
-                  ? userBowlGame.team2Tid
-                  : userBowlGame.team1Tid
-                bw1Todos.push({
-                  key: 'bowl-week1-game',
-                  done: userBowlGameScoresEntered,
-                  title: `Enter Your ${userBowlGame.bowlName || 'Bowl Game'} Game`,
-                  subtitle: userBowlGameScoresEntered
-                    ? `${userBowlGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}-${Math.min(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}`
-                    : `vs ${getMascotName(bw1BowlOpponentTid, currentDynasty.teams)}`,
-                  onAction: () => {
-                    navigate(`${pathPrefix}/game/${userBowlGame.id}/edit`, { state: { from: location.pathname } })
-                  },
-                  actionLabel: userBowlGameScoresEntered ? 'Edit' : 'Enter',
-                })
-              }
+              // (The week-1 bowl game entry is now merged into the single
+              // "Your Bowl Game" row above — no separate tile.)
 
               const newJobDone = takingNewJob !== null && (takingNewJob === false || (newJobTeam && newJobPosition))
               const askingNewJobBW1 = takingNewJob === null
+              // View links to the new team's page — only once a job is
+              // accepted (yes) AND a team has been chosen. tid-rooted: prefer
+              // the stored teamTid, resolving the legacy name only as fallback.
+              const newJobTid = takingNewJob === true && newJobTeam
+                ? (currentDynasty.newJobData?.teamTid ?? getTidFromTeamName(newJobTeam, currentDynasty.teams))
+                : null
               bw1Todos.push({
                 key: 'new-job-bw1',
                 done: newJobDone,
@@ -4935,6 +4908,7 @@ export default function Dashboard() {
                     ? `${newJobPosition} at ${getTeamNameFromAbbr(newJobTeam)}`
                     : 'Staying with current team'
                   : 'Yes or no?',
+                viewTo: newJobTid ? `${pathPrefix}/team/${newJobTid}/${currentDynasty.currentYear}` : null,
                 onAction: askingNewJobBW1 ? async () => {
                   setTakingNewJob(true)
                   await updateDynasty(currentDynasty.id, {
@@ -4988,6 +4962,7 @@ export default function Dashboard() {
                     ? `${bw1CommitmentsCount} commitment${bw1CommitmentsCount !== 1 ? 's' : ''} recorded`
                     : 'No commitments this week'
                   : 'Record any recruiting commitments',
+                viewTo: bw1HasCommitmentsData ? `${pathPrefix}/recruiting/${bw1UserTidForCommits}/${currentDynasty.currentYear}` : null,
                 onAction: () => setShowRecruitingModal(true),
                 actionLabel: bw1HasCommitmentsData ? 'Edit' : 'Yes',
                 extraTools: recruitingExtraTools,
