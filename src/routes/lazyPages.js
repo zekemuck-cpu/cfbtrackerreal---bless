@@ -39,6 +39,8 @@ export const GameEdit = lazyWithPreload(() => import('../pages/dynasty/GameEdit'
 export const DangerZone = lazyWithPreload(() => import('../pages/dynasty/DangerZone'))
 export const LeagueSettings = lazyWithPreload(() => import('../pages/dynasty/LeagueSettings'))
 export const PromptStudio = lazyWithPreload(() => import('../pages/dynasty/PromptStudio'))
+export const ScoutStaff = lazyWithPreload(() => import('../components/ScoutStaff'));
+
 
 // Preload map: sidebar nav name → chunk preload fn.
 // Called on mouseenter/focus of nav links so chunks warm up before click.
@@ -47,6 +49,7 @@ export const preloadByNavName = {
   'Coach Career': CoachCareer.preload,
   'Leaderboard': DynastyRecords.preload,
   'Recruiting': Recruiting.preload,
+  'Scout Staff': ScoutStaff.preload,
   'Awards': Awards.preload,
   'All-Americans': AllAmericans.preload,
   'All-Conference': AllConference.preload,

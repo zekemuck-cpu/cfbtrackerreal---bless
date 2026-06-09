@@ -23,11 +23,12 @@ import Contact from './pages/Contact'
 // Lazy pages with `.preload()` capability — see routes/lazyPages.js
 import {
   Dashboard, Roster, Rankings, Stats, CoachCareer, Coaches, Players, Player, PlayerEdit,
-  PlayersByState, AllTimeLineup, Recruiting, Leaders, Awards, AllAmericans,
+  PlayersByState, AllTimeLineup, Recruiting, ScoutStaff, Leaders, Awards, AllAmericans,
   AllConference, DynastyRecords, Teams, TeamYear, BowlHistory,
   ConferenceChampionshipHistory, ConferenceStandings, CFPBracket, WeeklyScores, Game,
   GameEdit, DangerZone, LeagueSettings, CardCollection, PromptStudio,
 } from './routes/lazyPages'
+
 
 // Protected route wrapper
 function ProtectedRoute({ children }) {
@@ -151,6 +152,7 @@ function AppRoutes() {
                   <Route path="recruiting" element={<Recruiting />} />
                   <Route path="recruiting/:tid/:year" element={<Recruiting />} />
                   <Route path="recruiting/portal/:tid/:year" element={<Recruiting />} />
+                  <Route path="scout-staff" element={<ScoutStaff />} />
                   <Route path="leaders" element={<Leaders />} />
                   <Route path="awards" element={<Awards />} />
                   <Route path="awards/:year" element={<Awards />} />
