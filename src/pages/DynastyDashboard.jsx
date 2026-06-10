@@ -102,7 +102,7 @@ export default function DynastyDashboard() {
     return null
   }
 
-  return (
+    return (
     <>
       <Sidebar
         isOpen={sidebarOpen}
@@ -119,24 +119,18 @@ export default function DynastyDashboard() {
         className={`min-w-0 transition-[margin] duration-300 ${sidebarOpen ? 'lg:ml-56' : ''}`}
         style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
       >
-              <Suspense fallback={<RouteFallback />}>
-        <ScoutStaff />
-        <Outlet />
-      </Suspense>
+        <Suspense fallback={<RouteFallback />}>
+          <Outlet />
+        </Suspense>
+      </div>
 
       {/* Team switcher (visible when user controls 2+ teams) */}
       <TeamSwitcher />
 
-      {/* News ticker at bottom — mounted after the rest of the dashboard
-          has painted so the ticker's heavy section computation
-          (iterates every player × year × stat category, can be
-          100–500ms on a big roster) doesn't block the initial route
-          paint. Once mounted, useDeferredValue inside the ticker keeps
-          subsequent recomputes off the urgent render path. */}
+      {/* News ticker at bottom */}
       <DeferredNewsTicker dynasty={currentDynasty} />
 
-      {/* Onboarding for freshly-joined members. Self-gates on whether
-          this user needs it (in editors[], no team, not dismissed). */}
+      {/* Onboarding for freshly-joined members */}
       <MemberOnboardingModal />
     </>
   )
