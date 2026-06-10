@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { getStaffData } from './staffDB';
 
-// Explicit Archetype Specific Overrides mapping right past the ATH prefix straight to underlying attribute matrices
-// We keep a local reference here to drive the dynamic form labeling instantly
-const RECRUIT_FORM_OVERRIDES = {
+// --- CONSTANTS ---
+export const RECRUIT_FORM_OVERRIDES = {
   "Speedster": ["Awareness", "Speed", "Acceleration", "Catching", "Catch In Traffic", "Spectacular Catch", "Short Route", "Medium Route", "Deep Route", "Release"],
   "Route Artist": ["Awareness", "Speed", "Acceleration", "Catching", "Catch In Traffic", "Spectacular Catch", "Short Route", "Medium Route", "Deep Route", "Agility"],
   "Elusive Route Runner": ["Awareness", "Speed", "Acceleration", "Catching", "Catch In Traffic", "Spectacular Catch", "Short Route", "Medium Route", "Deep Route", "Agility"],
@@ -14,7 +14,6 @@ const RECRUIT_FORM_OVERRIDES = {
   "Raw Strength (OT)": ["Awareness", "Run Block", "Run Block Power", "Run Block Finesse", "Pass Block", "Pass Block Power", "Pass Block Finesse", "Impact Blocking", "Agility", "Strength"],
   "Raw Strength (OG)": ["Awareness", "Run Block", "Run Block Power", "Run Block Finesse", "Pass Block", "Pass Block Power", "Pass Block Finesse", "Impact Blocking", "Agility", "Strength"],
   "Raw Strength (C)": ["Awareness", "Run Block", "Run Block Power", "Run Block Finesse", "Pass Block", "Pass Block Power", "Pass Block Finesse", "Impact Blocking", "Agility", "Strength"],
-  
   "ATH - Power Rusher": ["Awareness", "Strength", "Acceleration", "Block Shedding", "Tackle", "Hit Power", "Power Moves", "Finesse Moves", "Speed", "Pursuit"],
   "ATH - East/West Playmaker": ["Awareness", "Speed", "Acceleration", "Carrying", "Break Tackle", "Change of Direction", "Juke Move", "Spin Move", "BC Vision", "Catching"],
   "ATH - Contested Specialist": ["Awareness", "Speed", "Acceleration", "Catching", "Catch In Traffic", "Spectacular Catch", "Short Route", "Medium Route", "Deep Route", "Release"],
@@ -29,7 +28,7 @@ const RECRUIT_FORM_OVERRIDES = {
   "ATH - Physical Route Runner": ["Awareness", "Speed", "Strength", "Acceleration", "Run Block", "Pass Block", "Catching", "Catch In Traffic", "Short Route", "Medium Route"]
 };
 
-const BASE_POSITION_CONFIG = {
+export const BASE_POSITION_CONFIG = {
   QB: ["Awareness", "Throw Power", "Short Accuracy", "Medium Accuracy", "Deep Accuracy", "Throw On Run", "Under Pressure", "Break Sack", "Speed", "Acceleration"],
   HB: ["Awareness", "Speed", "Acceleration", "Carrying", "Break Tackle", "Change of Direction", "Juke Move", "Spin Move", "BC Vision", "Catching"],
   WR: ["Awareness", "Speed", "Acceleration", "Catching", "Catch In Traffic", "Spectacular Catch", "Short Route", "Medium Route", "Deep Route", "Release"],
@@ -62,13 +61,7 @@ const OPTIONS_REGISTRY = [
   { position: "CB", archetypes: ["Field", "Bump and Run", "Boundary", "Zone"] },
   { position: "FS", archetypes: ["Hybrid", "Coverage Specialist", "Box Specialist"] },
   { position: "SS", archetypes: ["Hybrid", "Coverage Specialist", "Box Specialist"] },
-  { position: "ATH", archetypes: [
-      "ATH - Power Rusher", "ATH - East/West Playmaker", "ATH - Contested Specialist", 
-      "ATH - Agile", "ATH - Pure Runner", "ATH - Dual Threat", "ATH - Contact Seeker", 
-      "ATH - Lurker", "ATH - Pure Possession", "ATH - Thumper", "ATH - Backfield Threat", 
-      "ATH - Physical Route Runner"
-    ] 
-  }
+  { position: "ATH", archetypes: ["ATH - Power Rusher", "ATH - East/West Playmaker", "ATH - Contested Specialist", "ATH - Agile", "ATH - Pure Runner", "ATH - Dual Threat", "ATH - Contact Seeker", "ATH - Lurker", "ATH - Pure Possession", "ATH - Thumper", "ATH - Backfield Threat", "ATH - Physical Route Runner"] }
 ];
 
 export default function ScoutingReport({ setView, players, setPlayers }) {
@@ -76,6 +69,25 @@ export default function ScoutingReport({ setView, players, setPlayers }) {
     name: '', position: 'QB', archetype: 'Pocket Passer', devTrait: 'Normal', stars: '5',
     attrs: Array(10).fill('')
   });
+  const [scoutImg, setScoutImg] = useState('');
+  const [scoutName, setScoutName] = useState('Regional Scout');
+
+    useEffect(() => {
+    async function loadScout() {
+      try {
+        const img = await getStaffData('scout_img');
+        const name = await getStaffData('scout_name');
+        
+        console.log("Database fetch result:", { img, name }); // DEBUG: Check console
+        
+        if (img) setScoutImg(img);
+        if (name) setScoutName(name);
+      } catch (err) {
+        console.error("Database connection failed:", err);
+      }
+    }
+    loadScout();
+  }, []);
 
   const currentOptions = OPTIONS_REGISTRY.find(item => item.position === form.position);
   const availableArchetypes = currentOptions ? currentOptions.archetypes : [];
@@ -86,110 +98,85 @@ export default function ScoutingReport({ setView, players, setPlayers }) {
     }
   }, [form.position]);
 
-  // Swaps attribute fields instantly when archetype or position drop-downs are chosen
   let activeLabels = RECRUIT_FORM_OVERRIDES[form.archetype] || BASE_POSITION_CONFIG[form.position] || Array(10).fill('Attribute');
+  
+const copyPrompt = () => {
+  const prompt = `Act as an advanced OCR and data entry assistant for my Google Sheets "Scout Staff" tracker. 
+
+I am going to provide you with screenshots of fully scouted recruits. Your job is to extract the data and format it exactly to match the vertical layout of column C (Rows 2 through 17) in my spreadsheet. 
+
+Extract and format the data using these strict rules:
+1. Row 2 (Player Name): First and Last name capitalized (Title Case).
+2. Row 3 (Position): Use the position abbreviation exactly as shown in the picture reference, with the following strict exceptions:
+   - Convert "SAM" to "OLB"
+   - Convert "WILL" to "OLB"
+   - Convert "RT" to "OT"
+   - Convert "LT" to "OT"
+   - Convert "LG" to "OG"
+   - Convert "RG" to "OG"
+   - Convert "LEDG" to "DE"
+   - Convert "REDG" to "DE"
+3. Row 4 (Archetype): The player's specific archetype.
+4. Row 5 (Dev Trait): The development trait (e.g., Normal, Impact, Star, Elite). If not visible, leave it completely blank.
+5. Row 6 (Star Rating): Output ONLY the numerical value of the stars the recruit has (e.g., 5, 4, 3) referenced in the picture.
+6. Row 7 (Header Spacer): Always leave a completely blank line here so the "Scouted Attributes" header row is skipped.
+7. Rows 8-17 (Scouted Attributes): List ONLY the numerical values of the attributes, one per line. Read strictly DOWN the entire left column of the Attributes grid first (top to bottom, items 1-5), and then DOWN the entire right column of the grid second (top to bottom, items 6-10). Do not include the attribute names.
+
+Output Isolation Rules for Copy-Pasting:
+- Treat every single player as an entirely isolated entity. 
+- Put each individual player's 16-line data block inside its own separate markdown code block (
+\`\`\`text ... 
+\`\`\`) so I can use the UI's one-click copy button for each player.
+- Separate these code blocks from one another using a line with "***".
+
+Do not include conversational filler, markdown bolding, or bullet points anywhere in the response. Output only the isolated player blocks.`;
+
+  navigator.clipboard.writeText(prompt);
+  alert("AI Prompt copied to clipboard!");
+};
 
   const executeSubmit = (e) => {
     e.preventDefault();
     if (!form.name) return;
-
     const assignedAttributes = {};
-    activeLabels.forEach((label, i) => {
-      assignedAttributes[label] = Number(form.attrs[i]) || 0;
-    });
-
+    activeLabels.forEach((label, i) => { assignedAttributes[label] = Number(form.attrs[i]) || 0; });
     const scoreSum = Object.values(assignedAttributes).reduce((a, b) => a + b, 0);
     const avg = scoreSum / (activeLabels.length || 1);
     let staffGrade = 'C';
-
     if (form.devTrait === 'Elite' || avg >= 88) staffGrade = 'A+';
     else if (form.devTrait === 'Star' || avg >= 82) staffGrade = 'A';
     else if (form.devTrait === 'Impact' || avg >= 76) staffGrade = 'B';
-
-    const record = {
-      name: form.name,
-      grade: staffGrade,
-      group: form.position === 'ATH' ? 'Athlete Pipeline' : ['QB','HB','WR','TE','OT','OG','C'].includes(form.position) ? 'Offense' : 'Defense',
-      position: form.position,
-      archetype: form.archetype,
-      stars: form.stars,
-      devTrait: form.devTrait,
-      attributes: assignedAttributes
-    };
-
+    const record = { name: form.name, grade: staffGrade, group: form.position === 'ATH' ? 'Athlete Pipeline' : ['QB','HB','WR','TE','OT','OG','C'].includes(form.position) ? 'Offense' : 'Defense', position: form.position, archetype: form.archetype, stars: form.stars, devTrait: form.devTrait, attributes: assignedAttributes };
     setPlayers([record, ...players]);
     setView('database');
   };
 
   return (
     <div className="max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
-      <div className="bg-slate-950/40 px-5 py-3 border-b border-slate-800 text-xs font-black uppercase tracking-wider text-emerald-400">
-        Manual Entry Terminal Form
+      <div className="flex items-center gap-4 p-4 bg-slate-950 border-b border-slate-800">
+        {scoutImg ? <img src={scoutImg} alt="Regional Scout" className="w-12 h-12 rounded-lg object-cover border border-slate-700" /> : <div className="w-12 h-12 bg-slate-800 rounded-lg flex items-center justify-center text-[8px] text-slate-500">N/A</div>}
+        <div>
+          <h3 className="text-xs font-bold text-white">{scoutName}</h3>
+          <p className="text-[9px] font-black uppercase text-sky-500 tracking-wider">Regional Scout</p>
+        </div>
       </div>
       <form onSubmit={executeSubmit} className="p-5 space-y-4">
-        <div className="space-y-1">
-          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Player Name</label>
-          <input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full bg-slate-950 border border-slate-800 p-2 rounded text-xs focus:outline-none focus:border-emerald-500 text-slate-200" placeholder="Prospect Identity..." required />
-        </div>
+        {/* ... form fields ... */}
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Position Group</label>
-            <select value={form.position} onChange={e => setForm({...form, position: e.target.value})} className="w-full bg-slate-950 border border-slate-800 p-2 rounded text-xs focus:outline-none focus:border-emerald-500 text-slate-200">
-              {OPTIONS_REGISTRY.map(o => <option key={o.position} value={o.position}>{o.position}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Archetype Focus</label>
-            <select value={form.archetype} onChange={e => setForm({...form, archetype: e.target.value})} className="w-full bg-slate-950 border border-slate-800 p-2 rounded text-xs focus:outline-none focus:border-emerald-500 text-slate-200">
-              {availableArchetypes.map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Dev Trait</label>
-            <select value={form.devTrait} onChange={e => setForm({...form, devTrait: e.target.value})} className="w-full bg-slate-950 border border-slate-800 p-2 rounded text-xs focus:outline-none focus:border-emerald-500 text-slate-200">
-              <option value="Normal">Normal</option>
-              <option value="Impact">Impact</option>
-              <option value="Star">Star</option>
-              <option value="Elite">Elite</option>
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Stars</label>
-            <select value={form.stars} onChange={e => setForm({...form, stars: e.target.value})} className="w-full bg-slate-950 border border-slate-800 p-2 rounded text-xs focus:outline-none focus:border-emerald-500 text-slate-200">
-              <option value="5">5 Stars</option>
-              <option value="4">4 Stars</option>
-              <option value="3">3 Stars</option>
-              <option value="2">2 Stars</option>
-              <option value="1">1 Star</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="bg-slate-950 p-3 border border-slate-850 rounded-lg space-y-2">
-          <div className="text-[10px] font-black uppercase tracking-widest text-emerald-400/80 border-b border-slate-800/60 pb-1">
-            Dynamic Position Attributes
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {activeLabels.map((label, idx) => (
-              <div key={idx} className="flex justify-between items-center bg-slate-900 border border-slate-800/40 p-1.5 rounded animate-fadeIn">
-                <span className="text-[10px] font-medium text-slate-400 truncate pr-1">{label}</span>
-                <input type="number" min="0" max="99" value={form.attrs[idx]} onChange={e => {
-                  const updated = [...form.attrs];
-                  updated[idx] = e.target.value;
-                  setForm({...form, attrs: updated});
-                }} className="w-12 bg-slate-950 border border-slate-850 text-center rounded text-xs py-0.5 font-bold text-emerald-400 focus:outline-none" />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black uppercase tracking-widest py-2.5 rounded text-xs transition shadow-lg">
-          SUBMIT SCOUT DATA
-        </button>
+        <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 my-4">
+  <p className="text-xs text-slate-300 mb-3">
+    Screenshot up to 10 players' attributes, copy and paste the AI prompt, 
+    and/or enter in the data 1 by 1 and send to your Data Analyst.
+  </p>
+  <button 
+  type="button" 
+  onClick={copyPrompt}
+  className="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 px-4 rounded text-xs w-full transition-colors"
+>
+  COPY AI PROMPT
+</button>
+</div>
+        <button type="submit" className="w-full bg-emerald-500 py-2 rounded text-xs">SUBMIT</button>
       </form>
     </div>
   );
