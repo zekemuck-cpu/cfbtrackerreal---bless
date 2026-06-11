@@ -98,6 +98,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     { name: 'Awards', path: `${pathPrefix}/awards` },
     { name: 'All-Americans', path: `${pathPrefix}/all-americans` },
     { name: 'All-Conference', path: `${pathPrefix}/all-conference/${currentYear}/${conferenceUrlParam}` },
+    { name: 'All-Time Team', path: `${pathPrefix}/all-time-lineup` },
     { name: 'All Teams', path: `${pathPrefix}/teams` },
     { name: 'All Players', path: `${pathPrefix}/players` },
     { name: 'Card Collection', path: `${pathPrefix}/cards` },

@@ -53,6 +53,7 @@ export const preloadByNavName = {
   'Awards': Awards.preload,
   'All-Americans': AllAmericans.preload,
   'All-Conference': AllConference.preload,
+  'All-Time Team': AllTimeLineup.preload,
   'CFP Bracket': CFPBracket.preload,
   'Bowl History': BowlHistory.preload,
   'CC History': ConferenceChampionshipHistory.preload,
