@@ -21,6 +21,8 @@ import { DEFAULT_SOCIAL_PLATFORM, getEffectiveCharacters } from '../../data/soci
 import buildRecapLinks from '../../utils/buildRecapLinks'
 import { getRivalryTrophyForTeams } from '../../utils/trophyEngine'
 import { useTeamColors } from '../../hooks/useTeamColors'
+import WeeklyPodcast from '../../components/WeeklyPodcast'
+import PositionBattles from '../../components/PositionBattles'
 
 const REGULAR_SEASON_WEEKS = Array.from({ length: 16 }, (_, i) => i)  // 0-15
 
@@ -428,12 +430,14 @@ export default function WeeklyScores() {
     return latestPlayedWeekForYear(currentDynasty?.games, displayYear) ?? 16
   })()
 
-  // Tab state lives in the URL (?tab=scores|recap) so deep-links from the
+  // Tab state lives in the URL (?tab=scores|recap|podcast) so deep-links from the
   // dashboard's recap to-do land directly on the recap view, and so the
   // user's choice survives navigating into a game and back.
   const rawTab = searchParams.get('tab')
-  const tabParam = displayWeek === -1 ? 'recap'
-    : (rawTab === 'recap' || rawTab === 'social') ? rawTab
+  const isPreseasonWeek = displayWeek === -1 || displayWeek === 0 || displayWeek === 1
+  const tabParam = rawTab === 'podcast' ? 'podcast'
+    : (rawTab === 'battles' && isPreseasonWeek) ? 'battles'
+    : (rawTab === 'recap' || displayWeek === -1) ? 'recap'
     : 'scores'
   const setTab = (next) => {
     setSearchParams(prev => {
@@ -910,6 +914,22 @@ export default function WeeklyScores() {
         )
       })()}
 
+
+      {/* Tab bar — Scores / Recap, shared sliding-underline bar. Neutral
+          accent (light), since this page is not about the user's team. */}
+      <TabBar
+        tabs={[
+          ...(displayWeek !== -1 ? [{ key: 'scores', label: 'Scores' }] : []),
+          { key: 'recap', label: displayWeek === -1 ? 'Preseason Recap' : 'Recap' },
+          { key: 'podcast', label: 'Weekly Podcast' },
+          ...(isPreseasonWeek ? [{ key: 'battles', label: 'Position Battles' }] : []),
+        ]}
+        activeKey={tabParam}
+        onSelect={setTab}
+        accentColor="#e2e8f0"
+      />
+
+
       {/* Tab content — keyed so it fades up on each switch */}
       <div key={tabParam} className="reveal">
 
@@ -955,6 +975,14 @@ export default function WeeklyScores() {
             />
           </Card>
         )
+      )}
+
+      {tabParam === 'podcast' && (
+        <WeeklyPodcast year={displayYear} week={displayWeek} />
+      )}
+
+      {tabParam === 'battles' && isPreseasonWeek && (
+        <PositionBattles year={displayYear} week={displayWeek} />
       )}
 
       {tabParam === 'recap' && (() => {

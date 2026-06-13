@@ -32,7 +32,6 @@ function normalizeYearKeyedObject(obj, valueCoercer) {
 //
 // Triggers migration when ANY player has:
 //   - legacy movements[] array with entries
-//   - teamHistory[] array (stint-based)
 //   - _legacy_teamsByYear object
 //   - entryYear / entryClass legacy fields
 //   - leftTeam / leavingYear / transferredTo / pendingDeparture
@@ -51,7 +50,8 @@ export function needsV2Migration(dynasty) {
   for (const p of players) {
     // Legacy arrays / objects that v2 doesn't use.
     if (Array.isArray(p.movements) && p.movements.length) return true
-    if (Array.isArray(p.teamHistory) && p.teamHistory.length) return true
+    // teamHistory[] is the active stint-based field used throughout the app —
+    // do NOT flag it as migration debt. Only movements[] and teams[] are legacy.
     if (Array.isArray(p.teams) && p.teams.length) return true
     if (p._legacy_teamsByYear && Object.keys(p._legacy_teamsByYear).length) return true
 
@@ -122,6 +122,9 @@ export function isCleanButUnstamped(dynasty) {
 }
 
 export function migrateDynastyToV2(dynasty) {
+  const dynastyCurrentYear = Number(dynasty.currentYear)
+  const hasDynastyYear = Number.isFinite(dynastyCurrentYear)
+
   const report = {
     playersTotal: 0,
     playersMigrated: 0,
@@ -230,7 +233,35 @@ export function migrateDynastyToV2(dynasty) {
       _schemaVersion: 2,
       _normalizedAt: new Date().toISOString(),
     }
+    // Delete every legacy field that needsV2Migration checks for.
+    // Without these deletes the modal re-fires on every load because
+    // the spread above preserves the fields.
     delete out.movements
+    delete out.teams
+    delete out._legacy_teamsByYear
+    delete out.entryYear
+    delete out.entryClass
+    delete out.leftTeam
+    delete out.leftYear
+    delete out.leftReason
+    delete out.leavingYear
+    delete out.leavingReason
+    delete out.transferredTo
+    delete out.pendingDeparture
+
+    // Resync top-level mirror fields with the canonical per-year values for
+    // the current year so the drift check in needsV2Migration doesn't re-fire.
+    if (hasDynastyYear) {
+      const syncedClass = classByYear[dynastyCurrentYear]
+      if (syncedClass != null) out.year = syncedClass
+      const syncedTid = teamsByYear[dynastyCurrentYear]
+      if (syncedTid != null) out.team = syncedTid
+      const syncedOvr = overallByYear[dynastyCurrentYear]
+      if (syncedOvr != null) out.overall = syncedOvr
+      const syncedDev = devTraitByYear[dynastyCurrentYear]
+      if (syncedDev != null) out.devTrait = syncedDev
+    }
+
     report.playersMigrated++
     return out
   }
