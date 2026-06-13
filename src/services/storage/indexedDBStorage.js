@@ -1,257 +1,277 @@
 /**
  * IndexedDB Storage Service (Free Tier)
  *
- * Uses localforage for IndexedDB access with localStorage-like API.
- * Provides ~50MB+ storage compared to localStorage's 5-10MB limit.
+ * Uses the native IndexedDB API directly — no localforage, no localStorage
+ * fallback. This guarantees large dynasty saves never hit the 5MB localStorage
+ * quota, and removes all ambiguity about which driver is actually in use.
  */
 
-import localforage from 'localforage';
+const DB_NAME    = 'CFBDynastyTracker'
+const DB_STORE   = 'dynasties'
+const DB_VERSION = 2
 
-// Debug logging flag - set to true to see all storage operations
-let DEBUG = true;
+const DYNASTIES_KEY = 'cfb-dynasties'
 
-const log = (...args) => {
-  if (DEBUG) console.log('[IndexedDB]', ...args);
-};
+let DEBUG = true
+const log = (...args) => { if (DEBUG) console.log('[IndexedDB]', ...args) }
 
-// Configure localforage instance for dynasties
-const dynastyStore = localforage.createInstance({
-  name: 'CFBDynastyTracker',
-  storeName: 'dynasties',
-  description: 'Dynasty data storage for CFB Dynasty Tracker'
-});
+// Cached DB connection — opened once, reused across all operations.
+let _db = null
 
-// Storage key (matches old localStorage key for potential migration)
-const DYNASTIES_KEY = 'cfb-dynasties';
+function friendlyIDBError(err) {
+  const msg = err?.message || String(err)
+  if (msg.includes('full disk') || msg.includes('QuotaExceeded') || err?.name === 'QuotaExceededError') {
+    return new Error(
+      'Your browser\'s storage is full. To fix this: open your browser settings, ' +
+      'find "Site data" or "Storage" for this site, and clear it. Then reload and try again. ' +
+      'Or use the "Clear App Storage" button in Dynasty Settings > Admin.'
+    )
+  }
+  return err
+}
 
-/**
- * IndexedDB Storage Implementation
- *
- * All methods are async and return Promises.
- * Data structure is identical to Firebase storage for easy migration.
- */
+function openDB() {
+  if (_db) return Promise.resolve(_db)
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION)
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result
+      if (!db.objectStoreNames.contains(DB_STORE)) {
+        db.createObjectStore(DB_STORE)
+      }
+    }
+    req.onsuccess = (e) => {
+      _db = e.target.result
+      // Reset cached connection if the browser closes it unexpectedly
+      _db.onclose = () => { _db = null }
+      resolve(_db)
+    }
+    req.onerror = (e) => reject(friendlyIDBError(e.target.error))
+    req.onblocked = () => reject(new Error('IndexedDB open blocked — close other tabs and try again.'))
+  })
+}
+
+function idbGet(key) {
+  return openDB().then(db => new Promise((resolve, reject) => {
+    const tx  = db.transaction(DB_STORE, 'readonly')
+    const req = tx.objectStore(DB_STORE).get(key)
+    req.onsuccess = () => resolve(req.result ?? null)
+    req.onerror   = () => reject(req.error)
+  }))
+}
+
+function idbSet(key, value) {
+  return openDB().then(db => new Promise((resolve, reject) => {
+    const tx  = db.transaction(DB_STORE, 'readwrite')
+    const req = tx.objectStore(DB_STORE).put(value, key)
+    req.onsuccess = () => resolve()
+    req.onerror   = () => reject(req.error)
+  }))
+}
+
+function idbDelete(key) {
+  return openDB().then(db => new Promise((resolve, reject) => {
+    const tx  = db.transaction(DB_STORE, 'readwrite')
+    const req = tx.objectStore(DB_STORE).delete(key)
+    req.onsuccess = () => resolve()
+    req.onerror   = () => reject(req.error)
+  }))
+}
+
+// ─── Public storage interface ─────────────────────────────────────────────────
+
 export const indexedDBStorage = {
-  /**
-   * Get all dynasties from IndexedDB
-   * @returns {Promise<Array>} Array of dynasty objects
-   */
   async getDynasties() {
     try {
-      log('getDynasties() called');
-      const dynasties = await dynastyStore.getItem(DYNASTIES_KEY);
-      log(`getDynasties() returned ${dynasties?.length || 0} dynasties`);
-      return dynasties || [];
+      log('getDynasties() called')
+      const dynasties = await idbGet(DYNASTIES_KEY)
+      log(`getDynasties() returned ${dynasties?.length || 0} dynasties`)
+      return dynasties || []
     } catch (error) {
-      console.error('[IndexedDB] Error getting dynasties:', error);
-      return [];
+      console.error('[IndexedDB] Error getting dynasties:', error)
+      return []
     }
   },
 
-  /**
-   * Save all dynasties to IndexedDB
-   * @param {Array} dynasties - Array of dynasty objects
-   * @returns {Promise<void>}
-   */
   async saveDynasties(dynasties) {
     try {
-      log(`saveDynasties() called with ${dynasties?.length || 0} dynasties`);
-      await dynastyStore.setItem(DYNASTIES_KEY, dynasties);
-      log('saveDynasties() complete');
+      log(`saveDynasties() called with ${dynasties?.length || 0} dynasties`)
+      await idbSet(DYNASTIES_KEY, dynasties)
+      log('saveDynasties() complete')
     } catch (error) {
-      console.error('[IndexedDB] Error saving dynasties:', error);
-      throw error;
+      console.error('[IndexedDB] Error saving dynasties:', error)
+      throw error
     }
   },
 
-  /**
-   * Get a single dynasty by ID
-   * @param {string} dynastyId - Dynasty ID
-   * @returns {Promise<Object|null>} Dynasty object or null
-   */
   async getDynasty(dynastyId) {
     try {
-      log(`getDynasty(${dynastyId}) called`);
-      const dynasties = await this.getDynasties();
-      const dynasty = dynasties.find(d => String(d.id) === String(dynastyId)) || null;
-      log(`getDynasty(${dynastyId}) found: ${dynasty ? dynasty.name : 'null'}`);
-      return dynasty;
+      log(`getDynasty(${dynastyId}) called`)
+      const dynasties = await this.getDynasties()
+      const dynasty = dynasties.find(d => String(d.id) === String(dynastyId)) || null
+      log(`getDynasty(${dynastyId}) found: ${dynasty ? dynasty.name : 'null'}`)
+      return dynasty
     } catch (error) {
-      console.error('[IndexedDB] Error getting dynasty:', error);
-      return null;
+      console.error('[IndexedDB] Error getting dynasty:', error)
+      return null
     }
   },
 
-  /**
-   * Create a new dynasty
-   * @param {Object} dynasty - Dynasty object (must include id)
-   * @returns {Promise<Object>} Created dynasty
-   */
   async createDynasty(dynasty) {
     try {
-      log(`createDynasty() called for "${dynasty.name}"`);
-      const dynasties = await this.getDynasties();
-      dynasties.push(dynasty);
-      await this.saveDynasties(dynasties);
-      log(`createDynasty() complete - id: ${dynasty.id}`);
-      return dynasty;
+      log(`createDynasty() called for "${dynasty.name}"`)
+      const dynasties = await this.getDynasties()
+      dynasties.push(dynasty)
+      await this.saveDynasties(dynasties)
+      log(`createDynasty() complete - id: ${dynasty.id}`)
+      return dynasty
     } catch (error) {
-      console.error('[IndexedDB] Error creating dynasty:', error);
-      throw error;
+      console.error('[IndexedDB] Error creating dynasty:', error)
+      throw error
     }
   },
 
-  /**
-   * Update a dynasty by ID
-   * @param {string} dynastyId - Dynasty ID
-   * @param {Object} updates - Partial updates to apply
-   * @returns {Promise<Object>} Updated dynasty
-   */
   async updateDynasty(dynastyId, updates) {
     try {
-      log(`updateDynasty(${dynastyId}) called with keys:`, Object.keys(updates));
-      const dynasties = await this.getDynasties();
-      const index = dynasties.findIndex(d => String(d.id) === String(dynastyId));
+      log(`updateDynasty(${dynastyId}) called with keys:`, Object.keys(updates))
+      const dynasties = await this.getDynasties()
+      const index = dynasties.findIndex(d => String(d.id) === String(dynastyId))
 
-      if (index === -1) {
-        throw new Error(`Dynasty ${dynastyId} not found`);
-      }
+      if (index === -1) throw new Error(`Dynasty ${dynastyId} not found`)
 
-      // Apply updates (supports dot notation for nested fields)
-      const updated = { ...dynasties[index] };
-
+      const updated = { ...dynasties[index] }
       for (const [key, value] of Object.entries(updates)) {
         if (key.includes('.')) {
-          // Handle dot notation (e.g., 'preseasonSetup.scheduleEntered')
-          const parts = key.split('.');
-          let obj = updated;
+          const parts = key.split('.')
+          let obj = updated
           for (let i = 0; i < parts.length - 1; i++) {
-            if (!obj[parts[i]]) obj[parts[i]] = {};
-            obj = obj[parts[i]];
+            if (!obj[parts[i]]) obj[parts[i]] = {}
+            obj = obj[parts[i]]
           }
-          obj[parts[parts.length - 1]] = value;
+          obj[parts[parts.length - 1]] = value
         } else {
-          updated[key] = value;
+          updated[key] = value
         }
       }
 
-      dynasties[index] = updated;
-      await this.saveDynasties(dynasties);
-      log(`updateDynasty(${dynastyId}) complete`);
-      return updated;
+      dynasties[index] = updated
+      await this.saveDynasties(dynasties)
+      log(`updateDynasty(${dynastyId}) complete`)
+      return updated
     } catch (error) {
-      console.error('[IndexedDB] Error updating dynasty:', error);
-      throw error;
+      console.error('[IndexedDB] Error updating dynasty:', error)
+      throw error
     }
   },
 
-  /**
-   * Delete a dynasty by ID
-   * @param {string} dynastyId - Dynasty ID
-   * @returns {Promise<void>}
-   */
   async deleteDynasty(dynastyId) {
     try {
-      log(`deleteDynasty(${dynastyId}) called`);
-      const dynasties = await this.getDynasties();
-      const filtered = dynasties.filter(d => String(d.id) !== String(dynastyId));
-      await this.saveDynasties(filtered);
-      log(`deleteDynasty(${dynastyId}) complete`);
+      log(`deleteDynasty(${dynastyId}) called`)
+      const dynasties = await this.getDynasties()
+      const filtered = dynasties.filter(d => String(d.id) !== String(dynastyId))
+      await this.saveDynasties(filtered)
+      log(`deleteDynasty(${dynastyId}) complete`)
     } catch (error) {
-      console.error('[IndexedDB] Error deleting dynasty:', error);
-      throw error;
+      console.error('[IndexedDB] Error deleting dynasty:', error)
+      throw error
     }
   },
 
-  /**
-   * Clear all dynasty data
-   * @returns {Promise<void>}
-   */
   async clearAll() {
     try {
-      log('clearAll() called');
-      await dynastyStore.removeItem(DYNASTIES_KEY);
-      log('clearAll() complete');
+      log('clearAll() called')
+      await idbDelete(DYNASTIES_KEY)
+      log('clearAll() complete')
     } catch (error) {
-      console.error('[IndexedDB] Error clearing data:', error);
-      throw error;
+      console.error('[IndexedDB] Error clearing data:', error)
+      throw error
     }
   },
 
-  /**
-   * Set debug mode
-   * @param {boolean} enabled - Whether to enable debug logging
-   */
   setDebug(enabled) {
-    DEBUG = enabled;
-    log(`Debug mode ${enabled ? 'enabled' : 'disabled'}`);
+    DEBUG = enabled
+    log(`Debug mode ${enabled ? 'enabled' : 'disabled'}`)
   },
 
-  /**
-   * Check if IndexedDB is available
-   * @returns {Promise<boolean>}
-   */
   async isAvailable() {
     try {
-      await dynastyStore.setItem('__test__', true);
-      await dynastyStore.removeItem('__test__');
-      return true;
+      await idbSet('__test__', true)
+      await idbDelete('__test__')
+      return true
     } catch (error) {
-      console.error('[IndexedDB] Storage not available:', error);
-      return false;
+      console.error('[IndexedDB] Storage not available:', error)
+      return false
     }
   },
 
-  /**
-   * Get storage usage info
-   * @returns {Promise<Object>} { used, quota, percent }
-   */
   async getStorageInfo() {
     try {
       if (navigator.storage && navigator.storage.estimate) {
-        const { usage, quota } = await navigator.storage.estimate();
-        return {
-          used: usage,
-          quota: quota,
-          percent: ((usage / quota) * 100).toFixed(2)
-        };
+        const { usage, quota } = await navigator.storage.estimate()
+        return { used: usage, quota, percent: ((usage / quota) * 100).toFixed(2) }
       }
-      return { used: 0, quota: 0, percent: 0 };
+      return { used: 0, quota: 0, percent: 0 }
     } catch (error) {
-      console.error('[IndexedDB] Error getting storage info:', error);
-      return { used: 0, quota: 0, percent: 0 };
+      console.error('[IndexedDB] Error getting storage info:', error)
+      return { used: 0, quota: 0, percent: 0 }
     }
   },
 
-  /**
-   * Migrate data from localStorage to IndexedDB
-   * Call this once on app init to migrate existing localStorage users
-   * @returns {Promise<boolean>} True if migration occurred
-   */
+  // Deletes the entire IndexedDB database and clears related localStorage keys.
+  // Use as a last resort when storage is corrupted or disk is full.
+  async deleteDatabase() {
+    try {
+      if (_db) { _db.close(); _db = null }
+      await new Promise((resolve, reject) => {
+        const req = indexedDB.deleteDatabase(DB_NAME)
+        req.onsuccess = () => resolve()
+        req.onerror   = (e) => reject(e.target.error)
+        req.onblocked = () => {
+          // Still resolve — deletion will complete once other tabs close
+          resolve()
+        }
+      })
+      // Also clear any leftover localforage localStorage keys
+      localStorage.removeItem('CFBDynastyTracker/dynasties/cfb-dynasties')
+      localStorage.removeItem('cfb-dynasties')
+      log('deleteDatabase() complete — all app storage cleared')
+      return true
+    } catch (error) {
+      console.error('[IndexedDB] deleteDatabase failed:', error)
+      throw error
+    }
+  },
+
+  // Migrates data from the old localforage-localStorage key format.
+  // Safe to call every init — skips if IndexedDB already has data.
   async migrateFromLocalStorage() {
     try {
-      const localData = localStorage.getItem('cfb-dynasties');
-      if (!localData) return false;
+      // localforage stored data under this compound key when using localStorage driver
+      const localforageKey = 'CFBDynastyTracker/dynasties/cfb-dynasties'
+      const rawForage = localStorage.getItem(localforageKey)
+      // Also check the plain key some older code paths used
+      const rawPlain  = localStorage.getItem('cfb-dynasties')
+      const raw = rawForage || rawPlain
+      if (!raw) return false
 
-      const existingIndexedDB = await this.getDynasties();
-      if (existingIndexedDB.length > 0) {
-        // Already have data in IndexedDB, don't overwrite
-        console.log('[IndexedDB] Data already exists, skipping migration');
-        return false;
+      const existingIDB = await this.getDynasties()
+      if (existingIDB.length > 0) {
+        log('Migration skipped — IndexedDB already has data')
+        return false
       }
 
-      const dynasties = JSON.parse(localData);
-      await this.saveDynasties(dynasties);
-
-      // Optionally remove localStorage after successful migration
-      // localStorage.removeItem('cfb-dynasties');
-
-      console.log('[IndexedDB] Successfully migrated from localStorage');
-      return true;
+      const dynasties = JSON.parse(raw)
+      await this.saveDynasties(dynasties)
+      // Clean up both possible localStorage keys after successful migration
+      localStorage.removeItem(localforageKey)
+      localStorage.removeItem('cfb-dynasties')
+      log(`Migration complete — moved ${dynasties.length} dynasties to IndexedDB`)
+      return true
     } catch (error) {
-      console.error('[IndexedDB] Migration from localStorage failed:', error);
-      return false;
+      console.error('[IndexedDB] Migration from localStorage failed:', error)
+      return false
     }
-  }
-};
+  },
+}
 
-export default indexedDBStorage;
+export default indexedDBStorage

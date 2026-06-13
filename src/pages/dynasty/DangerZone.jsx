@@ -51,6 +51,8 @@ export default function DangerZone() {
   const [selectedTeambuilderTid, setSelectedTeambuilderTid] = useState(null)
   const [showHelp, setShowHelp] = useState(false)
 
+  const [clearStorageStatus, setClearStorageStatus] = useState(null)
+
   // Storage tier testing state
   const [currentStorageTier, setCurrentStorageTier] = useState(storageService.getTier())
   const [debugEnabled, setDebugEnabled] = useState(true)
@@ -152,6 +154,23 @@ export default function DangerZone() {
       setClearCacheStatus({ success: true, message: `Cleared ${keysToRemove.length} items` })
     } catch (error) {
       setClearCacheStatus({ success: false, message: 'Failed: ' + error.message })
+    }
+  }
+
+  const handleClearStorage = async () => {
+    const confirmed = await confirm({
+      title: 'Clear All App Storage?',
+      message: 'This permanently deletes the local IndexedDB database and all cached dynasty data. Use this if you\'re seeing "full disk" or storage errors. You cannot undo this.',
+      confirmText: 'Delete all local storage',
+      variant: 'danger',
+    })
+    if (!confirmed) return
+    setClearStorageStatus('running')
+    try {
+      await indexedDBStorage.deleteDatabase()
+      setClearStorageStatus({ success: true, message: 'All local storage cleared. Reload the page to start fresh.' })
+    } catch (err) {
+      setClearStorageStatus({ success: false, message: 'Failed: ' + err.message })
     }
   }
 
@@ -2379,6 +2398,26 @@ export default function DangerZone() {
                 {clearCacheStatus === 'running' ? 'Running...' : 'Clear Cache'}
               </Button>
               <StatusLine status={clearCacheStatus} />
+            </div>
+          </Card>
+          <Card className="flex flex-col h-full" style={{ borderLeft: '3px solid var(--accent-error)' }}>
+            <div className="mb-3">
+              <h3 className="label-sm text-txt-primary m-0">Clear App Storage</h3>
+              <p className="text-xs mt-1 text-txt-tertiary leading-relaxed m-0">
+                Deletes the local IndexedDB database. Use if you see "full disk" or storage errors preventing dynasties from loading.
+              </p>
+            </div>
+            <div className="mt-auto">
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={handleClearStorage}
+                disabled={clearStorageStatus === 'running'}
+                className="w-full"
+              >
+                {clearStorageStatus === 'running' ? 'Clearing...' : 'Clear App Storage'}
+              </Button>
+              <StatusLine status={clearStorageStatus} />
             </div>
           </Card>
         </div>

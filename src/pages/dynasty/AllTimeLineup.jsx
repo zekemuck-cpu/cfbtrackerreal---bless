@@ -876,12 +876,11 @@ const PRESTIGE_STYLES = {
     border:    '#c8972a',
     lineColor: '#d4a030',
     boxShadow: [
-      'inset 0 1px 0 rgba(255,235,120,0.22)',
-      '0 0 0 1px rgba(175,125,18,0.75)',
-      '0 0 10px 3px rgba(218,162,22,0.9)',
-      '0 0 24px 8px rgba(188,132,8,0.65)',
-      '0 0 52px 16px rgba(158,105,0,0.42)',
-      '0 0 90px 30px rgba(120,78,0,0.22)',
+      'inset 0 1px 0 rgba(255,235,120,0.10)',
+      '0 0 0 1px rgba(175,125,18,0.28)',
+      '0 0 10px 0px rgba(218,162,22,0.38)',
+      '0 0 22px 0px rgba(188,132,8,0.22)',
+      '0 3px 30px 0px rgba(158,105,0,0.14)',
     ].join(', '),
     cardBg: (primary) => [
       // Strong overhead spotlight beam
@@ -904,12 +903,11 @@ const PRESTIGE_STYLES = {
     border:    '#a8aaae',
     lineColor: '#b8babe',
     boxShadow: [
-      'inset 0 1px 0 rgba(255,255,255,0.18)',
-      '0 0 0 1px rgba(148,152,165,0.75)',
-      '0 0 10px 3px rgba(192,196,212,0.88)',
-      '0 0 24px 8px rgba(162,166,182,0.62)',
-      '0 0 52px 16px rgba(130,134,148,0.38)',
-      '0 0 90px 30px rgba(98,102,115,0.2)',
+      'inset 0 1px 0 rgba(255,255,255,0.10)',
+      '0 0 0 1px rgba(148,152,165,0.28)',
+      '0 0 10px 0px rgba(192,196,212,0.38)',
+      '0 0 22px 0px rgba(162,166,182,0.22)',
+      '0 3px 30px 0px rgba(130,134,148,0.14)',
     ].join(', '),
     cardBg: (primary) => [
       'radial-gradient(ellipse 115% 80% at 50% -18%, rgba(225,230,248,0.38) 0%, rgba(178,183,205,0.15) 38%, transparent 65%)',
@@ -987,78 +985,97 @@ function PositionCol({ slot, pid, onSelect, eligible, pathPrefix, playerMap, pla
       }} />
 
       {player ? (
-        <div
-          className="rounded flex flex-col"
-          style={{
-            background: prestige.cardBg(primary),
-            border: `2px solid ${prestige.border}`,
-            boxShadow: prestige.boxShadow,
-            overflow: 'hidden',
-            position: 'relative',
-          }}
-        >
-          {/* Portrait photo — full width, dramatically lit */}
-          <div style={{ position: 'relative', height: '105px', overflow: 'hidden', flexShrink: 0 }}>
-            {photoUrl ? (
-              <img
-                src={proxyImageUrl(photoUrl, 300)} alt=""
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 22%' }}
-              />
-            ) : (
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: hexA(primary, 0.22) }}>
-                <span style={{ fontSize: '46px', fontWeight: 900, color: hexA(secondary, 0.88), textShadow: `0 2px 12px rgba(0,0,0,0.7)` }}>{initial}</span>
+        <div className="flex flex-col">
+          {/* Visual card — clip-path contained here so dropdown panel (position:fixed) isn't clipped */}
+          <div
+            className="rounded"
+            style={{
+              background: prestige.cardBg(primary),
+              border: `1px solid ${hexA(prestige.border, 0.55)}`,
+              boxShadow: prestige.boxShadow,
+              overflow: 'hidden',
+              position: 'relative',
+              clipPath: 'inset(0 -4px -16px -4px round 4px)',
+            }}
+          >
+            {/* Portrait photo — full width, with text overlay */}
+            <div style={{ position: 'relative', height: '185px', overflow: 'hidden', flexShrink: 0, background: '#000' }}>
+              {photoUrl ? (
+                <>
+                  {/* Blurred cover layer — auto-matches whatever background the EA photo has */}
+                  <img
+                    src={proxyImageUrl(photoUrl, 80)} alt=""
+                    style={{
+                      position: 'absolute', inset: 0, width: '100%', height: '100%',
+                      objectFit: 'cover', objectPosition: 'center',
+                      filter: 'blur(14px) saturate(1.3) brightness(0.4)',
+                      transform: 'scale(1.12)',
+                    }}
+                  />
+                  {/* Main portrait — contained so nothing is cut off */}
+                  <img
+                    src={proxyImageUrl(photoUrl, 400)} alt=""
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center' }}
+                  />
+                </>
+              ) : (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: hexA(primary, 0.22) }}>
+                  <span style={{ fontSize: '46px', fontWeight: 900, color: hexA(secondary, 0.88), textShadow: `0 2px 12px rgba(0,0,0,0.7)` }}>{initial}</span>
+                </div>
+              )}
+              {/* Dramatic spotlight */}
+              <div style={{ position: 'absolute', inset: 0, background: prestige.photoSpotlight, pointerEvents: 'none' }} />
+              {/* Bottom text fade */}
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(0deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 38%, transparent 62%)', pointerEvents: 'none' }} />
+              {/* OVR badge — top right */}
+              <div style={{
+                position: 'absolute', top: '6px', right: '6px',
+                background: 'rgba(0,0,0,0.72)',
+                border: `1px solid ${hexA(prestige.border, 0.75)}`,
+                borderRadius: '3px',
+                padding: '1px 5px',
+                fontSize: '11px', fontWeight: 900,
+                color: prestige.awardColor,
+                letterSpacing: '0.3px',
+                boxShadow: `0 0 6px ${hexA(prestige.border, 0.4)}`,
+              }}>
+                {peakOvr}
               </div>
-            )}
-            {/* Dramatic spotlight + bottom nameplate fade */}
-            <div style={{ position: 'absolute', inset: 0, background: prestige.photoSpotlight, pointerEvents: 'none' }} />
-            {/* OVR badge — top right */}
-            <div style={{
-              position: 'absolute', top: '6px', right: '6px',
-              background: 'rgba(0,0,0,0.72)',
-              border: `1px solid ${hexA(prestige.border, 0.75)}`,
-              borderRadius: '3px',
-              padding: '1px 5px',
-              fontSize: '11px', fontWeight: 900,
-              color: prestige.awardColor,
-              letterSpacing: '0.3px',
-              boxShadow: `0 0 6px ${hexA(prestige.border, 0.4)}`,
-            }}>
-              {peakOvr}
+              {/* Team logo — top left */}
+              {teamLogo && (
+                <img src={teamLogo} alt="" style={{
+                  position: 'absolute', top: '7px', left: '7px',
+                  width: '18px', height: '18px', objectFit: 'contain',
+                  filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.9))',
+                }} />
+              )}
+              {/* Name / awards / stats — pinned to bottom of photo */}
+              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '6px 8px 6px' }}>
+                <Link
+                  to={`${pathPrefix}/player/${player.pid}`}
+                  className="font-bold hover:underline leading-tight"
+                  style={{ fontSize: '11.5px', color: '#fff', display: 'block', lineHeight: '1.3', marginBottom: '2px' }}
+                >
+                  {player.name}
+                </Link>
+                {awards.length > 0 && (
+                  <div style={{ fontSize: '9px', color: prestige.awardColor, fontWeight: 700, lineHeight: '1.4' }}>
+                    {awards.map((a, i) => <div key={i} className="truncate">{a}</div>)}
+                  </div>
+                )}
+                {stats.length > 0 && (
+                  <div style={{ fontSize: '9px', color: 'rgba(215,215,215,0.75)', lineHeight: '1.3', marginTop: '2px' }}>
+                    {year && <span style={{ color: 'rgba(195,195,195,0.5)', marginRight: '3px' }}>{year}</span>}
+                    {stats.join(' · ')}
+                  </div>
+                )}
+              </div>
             </div>
-            {/* Team logo — bottom left */}
-            {teamLogo && (
-              <img src={teamLogo} alt="" style={{
-                position: 'absolute', bottom: '7px', left: '7px',
-                width: '18px', height: '18px', objectFit: 'contain',
-                filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.9))',
-              }} />
-            )}
           </div>
 
-          {/* Nameplate */}
-          <div style={{ padding: '6px 8px 5px', background: 'rgba(0,0,0,0.55)' }}>
-            <Link
-              to={`${pathPrefix}/player/${player.pid}`}
-              className="font-bold hover:underline leading-tight"
-              style={{ fontSize: '11.5px', color: '#fff', display: 'block', lineHeight: '1.3', marginBottom: '3px' }}
-            >
-              {player.name}
-            </Link>
-            {awards.length > 0 && (
-              <div style={{ fontSize: '9px', color: prestige.awardColor, fontWeight: 700, lineHeight: '1.4' }}>
-                {awards.map((a, i) => <div key={i} className="truncate">{a}</div>)}
-              </div>
-            )}
-            {stats.length > 0 && (
-              <div style={{ fontSize: '9px', color: 'rgba(195,195,195,0.55)', lineHeight: '1.3', marginTop: '2px' }}>
-                {year && <span style={{ color: 'rgba(195,195,195,0.35)', marginRight: '3px' }}>{year}</span>}
-                {stats.join(' · ')}
-              </div>
-            )}
-          </div>
-
+          {/* Dropdown outside the clipped div so position:fixed panel isn't clipped */}
           {!isViewOnly && (
-            <div style={{ borderTop: `1px solid ${hexA(prestige.border, 0.22)}`, padding: '4px 6px' }}>
+            <div style={{ padding: '4px 6px' }}>
               <PlayerSelectDropdown
                 slotKey={slot.key}
                 pid={pid}
@@ -1114,7 +1131,7 @@ function SectionGrid({ title, rows, teamData, onSelect, eligibleBySlot, pathPref
         </span>
         <div style={{ flex: 1, height: '1px', background: `linear-gradient(90deg, ${hexA(prestige.border, 0.5)}, transparent)` }} />
       </div>
-      <div className="space-y-6">
+      <div className="space-y-3">
         {rows.map((rowKeys, rowIdx) => {
           const slots = rowKeys.map(key => slotByKey[key]).filter(Boolean)
           if (!slots.length) return null

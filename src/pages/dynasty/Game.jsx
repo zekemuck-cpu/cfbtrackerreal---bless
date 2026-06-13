@@ -26,6 +26,7 @@ import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
 import InlineScoringHighlights from '../../components/InlineScoringHighlights'
 import FormattedRecap from '../../components/FormattedRecap'
 import { sortPlaysChronologically, collapsePatRowsIntoTDs } from '../../utils/scoringPlayOrder'
+import { calcDramaScore, getTier, getClassicGames, ESPN_CLASSIC_BADGE_STYLE } from '../../utils/espnClassic'
 import {
   PageHero,
   Card,
@@ -1227,6 +1228,14 @@ export default function Game() {
   const userTid = perspective?.userTid || resolveTid(displayTeamAbbr, teams)
   const oppTid = perspective?.opponentTid || resolveTid(opponentAbbr, teams)
 
+  // ESPN Classic rank for this game
+  const espnClassicInfo = useMemo(() => {
+    if (!game || !userTid || !currentDynasty?.games) return null
+    const classics = getClassicGames(currentDynasty.games, userTid, currentDynasty?.teams)
+    const entry = classics.find(c => c.game.id === game.id || (c.game === game))
+    return entry || null
+  }, [game, userTid, currentDynasty])
+
   // Get seeds for user/opponent. We CANNOT trust game.seed1 → user,
   // game.seed2 → opp, because seed1/seed2 align with team1/team2 in
   // storage order — and team1 may be either side. Map via tid so
@@ -1601,6 +1610,19 @@ export default function Game() {
               ) : (
                 <div className="min-w-0">{titleTextBlock}</div>
               )}
+            </div>
+          )}
+
+          {/* ESPN Classic badge + rank */}
+          {espnClassicInfo && (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div style={{ display: 'inline-flex', alignItems: 'center', userSelect: 'none' }}>
+                <div style={ESPN_CLASSIC_BADGE_STYLE.espn}>ESPN</div>
+                <div style={ESPN_CLASSIC_BADGE_STYLE.classic}>CLASSIC</div>
+              </div>
+              <span style={{ fontSize: '12px', fontWeight: 900, color: espnClassicInfo.tier.color, letterSpacing: '0.5px', fontFamily: 'var(--font-display)' }}>
+                #{espnClassicInfo.rank}
+              </span>
             </div>
           )}
 

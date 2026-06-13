@@ -14,6 +14,7 @@ import { proxyImageUrl } from '../utils/imageProxy'
 import { projectRoster, projectDepartures, projectNflCandidates } from '../utils/rosterProjection'
 import { buildBoard, SIDE_OPTIONS, ST_ROLE_SLOTS, sideOfPosition, resolveDepthLayout } from '../utils/outlookBoard'
 import { getTeamLogoByTid } from '../data/teams'
+import { OFFENSE_SCHEMES, DEFENSE_SCHEMES } from '../data/schemes'
 import DepthChartPositionsModal from './DepthChartPositionsModal'
 
 const EMPTY_ARR = []
@@ -239,6 +240,15 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
     for (const k of Object.keys(next || {})) encoded[k] = (next[k] || []).map(cols => ({ cols }))
     try { await updateDynasty(currentDynasty.id, { depthChartLayout: encoded }) }
     catch (e) { console.error('[depth-chart] failed to save layout', e) }
+  }
+
+  const offenseScheme = currentDynasty?.offenseScheme || ''
+  const defenseScheme = currentDynasty?.defenseScheme || ''
+  const saveScheme = async (schemeSide, value) => {
+    if (!currentDynasty?.id || !updateDynasty) return
+    const field = schemeSide === 'offense' ? 'offenseScheme' : 'defenseScheme'
+    try { await updateDynasty(currentDynasty.id, { [field]: value || null }) }
+    catch (e) { console.error('[scheme] failed to save', e) }
   }
 
   const departures = useMemo(
@@ -607,6 +617,37 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
           )}
         </div>
       </div>
+
+      {/* Scheme selector — shown for offense/defense only; ST has no scheme */}
+      {side !== 'st' && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+            {side === 'offense' ? 'Offense' : 'Defense'} Scheme
+          </span>
+          {canEdit ? (
+            <select
+              value={side === 'offense' ? offenseScheme : defenseScheme}
+              onChange={e => saveScheme(side, e.target.value)}
+              className="text-xs px-2 py-1 rounded border"
+              style={{ backgroundColor: 'var(--surface-2)', borderColor: 'var(--surface-4)', color: 'var(--text-primary)', cursor: 'pointer' }}
+            >
+              <option value="">No scheme selected</option>
+              {(side === 'offense' ? OFFENSE_SCHEMES : DEFENSE_SCHEMES).map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+              {(side === 'offense' ? offenseScheme : defenseScheme) || 'None'}
+            </span>
+          )}
+          {(side === 'offense' ? offenseScheme : defenseScheme) && (
+            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              · used for Position Battles PBS scoring
+            </span>
+          )}
+        </div>
+      )}
 
       <DndContext sensors={sensors} collisionDetection={closestCorners}
         onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>

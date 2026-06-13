@@ -3539,6 +3539,25 @@ export default function Dashboard() {
               })
             }
 
+            // Position Battles
+            {
+              const yearNum = Number(currentDynasty.currentYear)
+              const battles = currentDynasty.positionBattlesByYear?.[yearNum] || []
+              const battlesDone = battles.length > 0
+              const resolvedCount = battles.filter(b => b.winnerId).length
+              todos.push({
+                key: 'position-battles',
+                done: battlesDone,
+                title: 'Position Battles',
+                subtitle: battlesDone
+                  ? `${battles.length} battle${battles.length === 1 ? '' : 's'} · ${resolvedCount} decided`
+                  : 'Track depth chart competitions heading into the season',
+                viewTo: battlesDone ? `${pathPrefix}/weekly-scores/${yearNum}/-1?tab=battles` : null,
+                onAction: () => navigate(`${pathPrefix}/weekly-scores/${yearNum}/-1?tab=battles`),
+                actionLabel: battlesDone ? 'Edit' : 'Set Up',
+              })
+            }
+
             // Preseason CFB Recap
             {
               const yearNum = Number(currentDynasty.currentYear)

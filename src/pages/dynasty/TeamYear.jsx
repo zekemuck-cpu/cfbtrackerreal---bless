@@ -32,6 +32,7 @@ import SortableStatsTable, { PlayerCell } from '../../components/SortableStatsTa
 import { formatScoreHighLow } from '../../utils/scoreFormat'
 import { getCoachStints } from '../../data/coachStats'
 import TeamOutlook from '../../components/TeamOutlook'
+import { calcDramaScore, getTier, getClassicGames, TIER_CONFIG, ESPN_CLASSIC_BADGE_STYLE } from '../../utils/espnClassic'
 
 // Map abbreviation to mascot name for logo lookup
 // Accepts optional teamsData for tid-based teambuilder support
@@ -5059,6 +5060,12 @@ export default function TeamYear() {
                        game.isConferenceChampionship ? 'CCG' :
                        `Week ${game.week}`
 
+              // ESPN Classic check for this game
+              const gameDramaScore = (hasResult && game.team1Score != null && game.team2Score != null)
+                ? calcDramaScore(game, tid, teamsSource)
+                : null
+              const gameTier = gameDramaScore ? getTier(gameDramaScore.total) : null
+
               // Content for the detailed game display - matches Dashboard style
               // Home games: left accent bar in team color, Away games: plain background
               const isHomeGame = displayLocation === 'home' || displayLocation === 'Home'
@@ -5138,6 +5145,19 @@ export default function TeamYear() {
                         <span className="text-sm" style={{ color: `${accentColor}40` }}>—</span>
                       )}
                     </div>
+
+                    {/* ESPN Classic badge on the game row */}
+                    {gameTier && (
+                      <div className="flex-shrink-0 flex items-center gap-1">
+                        <div style={{ display: 'inline-flex', alignItems: 'center', userSelect: 'none' }}>
+                          <div style={ESPN_CLASSIC_BADGE_STYLE.espn}>ESPN</div>
+                          <div style={ESPN_CLASSIC_BADGE_STYLE.classic}>CLASSIC</div>
+                        </div>
+                        <span style={{ fontSize: '9px', fontWeight: 700, color: gameTier.color, letterSpacing: '0.5px' }}>
+                          {gameTier.label}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Stat Leaders - Desktop: flex columns that fill remaining space */}
                     <div className="hidden md:flex flex-1 items-center ml-3 pl-3 min-w-0 overflow-hidden" style={{ borderLeft: `1px solid ${accentColor}20` }}>
@@ -6810,6 +6830,144 @@ export default function TeamYear() {
                         </div>
                       )
                     })}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* ── ESPN Classic Engine ────────────────────────────────── */}
+            {(() => {
+              // Build classic games list from all dynasty games involving this team
+              const classicGames = getClassicGames(currentDynasty.games || [], tid, teamsSource)
+
+              const ESPNBadge = () => (
+                <div style={{ display: 'inline-flex', alignItems: 'center', userSelect: 'none', flexShrink: 0 }}>
+                  <div style={ESPN_CLASSIC_BADGE_STYLE.espn}>ESPN</div>
+                  <div style={ESPN_CLASSIC_BADGE_STYLE.classic}>CLASSIC</div>
+                </div>
+              )
+
+              return (
+                <div className="card overflow-hidden cfb-texture">
+                  {/* Header */}
+                  <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px] flex items-center justify-between gap-3 flex-wrap" style={{ borderLeftColor: teamInfo.backgroundColor }}>
+                    <div className="flex items-center gap-3">
+                      <h3 className="font-display font-bold leading-none text-txt-primary m-0" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', textTransform: 'uppercase' }}>ESPN Classics</h3>
+                      <ESPNBadge />
+                    </div>
+                    <span className="text-[10px] font-semibold uppercase tabular-nums text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
+                      {classicGames.length} {classicGames.length === 1 ? 'classic' : 'classics'}
+                    </span>
+                  </div>
+
+                  {classicGames.length === 0 ? (
+                    <div className="px-4 py-10 text-center">
+                      <div className="text-txt-tertiary text-sm">No ESPN Classic games yet.</div>
+                      <div className="text-txt-tertiary text-xs mt-1">Close games, comebacks, and ranked matchups earn Classic status.</div>
+                    </div>
+                  ) : (
+                    <div>
+                      {classicGames.map(({ game, ds, tier, rank }) => {
+                        const idx = rank - 1
+                        const isTeam1 = (game.team1Tid || resolveTid(game.team1, teamsSource)) === tid
+                        const myScore   = isTeam1 ? game.team1Score  : game.team2Score
+                        const oppScore  = isTeam1 ? game.team2Score  : game.team1Score
+                        const myRank    = isTeam1 ? game.team1Rank   : game.team2Rank
+                        const oppRank   = isTeam1 ? game.team2Rank   : game.team1Rank
+                        const oppTid    = isTeam1 ? (game.team2Tid || resolveTid(game.team2, teamsSource)) : (game.team1Tid || resolveTid(game.team1, teamsSource))
+                        const oppName   = getMascotName(oppTid, teamsSource) || (isTeam1 ? game.team2 : game.team1) || 'Opponent'
+                        const oppLogo   = getTeamLogoByTid(oppTid, teamsSource)
+                        const won       = myScore > oppScore
+                        const isOT      = ds.otCount > 0
+
+                        const gameLabel = game.bowlName
+                          ? game.bowlName
+                          : game.isConferenceChampionship
+                            ? 'Conf. Championship'
+                            : game.isCFPChampionship
+                              ? 'CFP Championship'
+                              : game.isCFPSemifinal
+                                ? 'CFP Semifinal'
+                                : game.isCFPQuarterfinal
+                                  ? 'CFP Quarterfinal'
+                                  : game.isCFPFirstRound
+                                    ? 'CFP First Round'
+                                    : `Wk ${game.week}`
+
+                        return (
+                          <Link
+                            key={game.id || idx}
+                            to={game.id ? `${pathPrefix}/game/${game.id}` : '#'}
+                            className="block transition-colors hover:bg-surface-2"
+                            style={{ borderBottom: '1px solid var(--surface-4)', textDecoration: 'none' }}
+                          >
+                            <div className="px-4 py-3 flex items-center gap-3">
+                              {/* Rank number */}
+                              <div className="flex-shrink-0 w-6 text-center">
+                                <span className="text-xs font-bold tabular-nums" style={{ color: idx === 0 ? tier.color : 'var(--text-tertiary)' }}>
+                                  #{idx + 1}
+                                </span>
+                              </div>
+
+                              {/* Tier badge */}
+                              <div className="flex-shrink-0" style={{
+                                background: `${tier.glow}`,
+                                border: `1px solid ${tier.border}`,
+                                borderRadius: '3px',
+                                padding: '2px 6px',
+                                minWidth: '62px', textAlign: 'center',
+                              }}>
+                                <span className="font-display font-black" style={{ fontSize: '9px', letterSpacing: '1.5px', color: tier.color }}>{tier.label}</span>
+                              </div>
+
+                              {/* Opponent logo + matchup */}
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                {oppLogo && (
+                                  <img src={oppLogo} alt="" style={{ width: '22px', height: '22px', objectFit: 'contain', flexShrink: 0, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                                )}
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-bold text-txt-primary truncate" style={{ fontSize: '12px' }}>
+                                      {won ? 'vs.' : 'at'} {oppRank ? `#${oppRank} ` : ''}{oppName}
+                                    </span>
+                                    {myRank && (
+                                      <span className="text-[10px] font-semibold" style={{ color: 'var(--text-tertiary)' }}>(#{myRank})</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{game.year} · {gameLabel}{isOT ? ` · ${ds.otCount > 1 ? ds.otCount + 'OT' : 'OT'}` : ''}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Score */}
+                              <div className="flex-shrink-0 text-right">
+                                <div className="font-display font-black tabular-nums" style={{ fontSize: '14px', color: won ? '#4ade80' : '#f87171', letterSpacing: '0.5px' }}>
+                                  {won ? 'W' : 'L'} {myScore}–{oppScore}
+                                </div>
+                              </div>
+
+                              {/* Drama Score */}
+                              <div className="flex-shrink-0 text-right" style={{ minWidth: '56px' }}>
+                                <div className="font-display font-black tabular-nums" style={{ fontSize: '13px', color: tier.color }}>{ds.total.toLocaleString()}</div>
+                                <div className="text-[9px] font-bold uppercase" style={{ letterSpacing: '1px', color: 'var(--text-tertiary)' }}>Drama</div>
+                              </div>
+                            </div>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* Legend */}
+                  <div className="px-4 py-2 flex items-center gap-4 flex-wrap border-t border-surface-4">
+                    <span className="text-[9px] font-bold uppercase" style={{ letterSpacing: '1.5px', color: 'var(--text-tertiary)' }}>Tiers:</span>
+                    {Object.values(TIER_CONFIG).map(t => (
+                      <div key={t.label} className="flex items-center gap-1">
+                        <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: t.color, opacity: 0.85 }} />
+                        <span className="text-[9px] font-semibold" style={{ color: 'var(--text-tertiary)' }}>{t.label} ({t.min.toLocaleString()}+)</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )

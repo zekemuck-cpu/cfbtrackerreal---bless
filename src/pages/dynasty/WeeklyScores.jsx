@@ -17,6 +17,8 @@ import ConferenceChampionshipModal from '../../components/ConferenceChampionship
 import FormattedRecap from '../../components/FormattedRecap'
 import buildRecapLinks from '../../utils/buildRecapLinks'
 import { useTeamColors } from '../../hooks/useTeamColors'
+import WeeklyPodcast from '../../components/WeeklyPodcast'
+import PositionBattles from '../../components/PositionBattles'
 
 const REGULAR_SEASON_WEEKS = Array.from({ length: 15 }, (_, i) => i)  // 0-14
 
@@ -358,10 +360,15 @@ export default function WeeklyScores() {
     return 15
   })()
 
-  // Tab state lives in the URL (?tab=scores|recap) so deep-links from the
+  // Tab state lives in the URL (?tab=scores|recap|podcast) so deep-links from the
   // dashboard's recap to-do land directly on the recap view, and so the
   // user's choice survives navigating into a game and back.
-  const tabParam = (searchParams.get('tab') === 'recap' || displayWeek === -1) ? 'recap' : 'scores'
+  const rawTab = searchParams.get('tab')
+  const isPreseasonWeek = displayWeek === -1 || displayWeek === 0 || displayWeek === 1
+  const tabParam = rawTab === 'podcast' ? 'podcast'
+    : (rawTab === 'battles' && isPreseasonWeek) ? 'battles'
+    : (rawTab === 'recap' || displayWeek === -1) ? 'recap'
+    : 'scores'
   const setTab = (next) => {
     setSearchParams(prev => {
       const params = new URLSearchParams(prev)
@@ -803,6 +810,8 @@ export default function WeeklyScores() {
         tabs={[
           ...(displayWeek !== -1 ? [{ key: 'scores', label: 'Scores' }] : []),
           { key: 'recap', label: displayWeek === -1 ? 'Preseason Recap' : 'Recap' },
+          { key: 'podcast', label: 'Weekly Podcast' },
+          ...(isPreseasonWeek ? [{ key: 'battles', label: 'Position Battles' }] : []),
         ]}
         activeKey={tabParam}
         onSelect={setTab}
@@ -852,6 +861,14 @@ export default function WeeklyScores() {
             />
           </Card>
         )
+      )}
+
+      {tabParam === 'podcast' && (
+        <WeeklyPodcast year={displayYear} week={displayWeek} />
+      )}
+
+      {tabParam === 'battles' && isPreseasonWeek && (
+        <PositionBattles year={displayYear} week={displayWeek} />
       )}
 
       {tabParam === 'recap' && (() => {
