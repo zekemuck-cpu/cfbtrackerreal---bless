@@ -13,6 +13,7 @@ import { getBowlLogo } from '../../data/bowlLogos'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { getTeamConference } from '../../data/conferenceTeams'
 import BoxScoreSheetModal from '../../components/BoxScoreSheetModal'
+import PlaySheetModal from '../../components/PlaySheetModal'
 import { setPlayerStatsForTid, setTeamStatsForTid, setScoringSummary, getPlayerStatsSheetIdForTid, canonicalBoxScore, swapBoxScoreTeams, hasAnyPlayerStats, hasAnyTeamStats } from '../../utils/boxScoreHelpers'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName } from '../../data/cfpConstants'
 import { isBowlInWeek1, isBowlInWeek2, getWeek1BowlGamesList, getWeek2BowlGamesList } from '../../services/sheetsService'
@@ -262,6 +263,7 @@ export default function GameEdit() {
 
   // Box score sheet modal state
   const [showBoxScoreModal, setShowBoxScoreModal] = useState(false)
+  const [showPlaySheet, setShowPlaySheet] = useState(false)
   // Modal toggles for bulky panels that we've pulled off the page proper
   // (Photos in particular). Keep state at this level so the modal body
   // can read/write the same form fields as the rest of the editor.
@@ -2989,6 +2991,28 @@ export default function GameEdit() {
         <p className="text-[10px] text-txt-tertiary text-center pb-6 select-all">
           Game ID: {currentGameId || existingGame?.id}
         </p>
+      )}
+
+      {/* Play Sheet FAB */}
+      {!isViewOnly && (
+        <button
+          type="button"
+          onClick={() => setShowPlaySheet(true)}
+          className="fixed bottom-10 right-4 z-40 px-6 py-3.5 rounded-full font-bold text-base bg-surface-1 border-2 border-surface-5 text-txt-primary shadow-xl hover:bg-surface-3 transition-colors"
+        >
+          Play Sheet
+        </button>
+      )}
+
+      {/* Play Sheet Modal */}
+      {showPlaySheet && (
+        <PlaySheetModal
+          dynastyId={id}
+          gameId={currentGameId || gameId}
+          week={gameWeek}
+          opponent={team1Tid === currentDynasty?.currentTid ? team2Name : team1Name}
+          onClose={() => setShowPlaySheet(false)}
+        />
       )}
 
       {/* Box Score Sheet Modal */}
