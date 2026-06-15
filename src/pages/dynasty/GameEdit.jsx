@@ -2993,18 +2993,18 @@ export default function GameEdit() {
         </p>
       )}
 
-      {/* Play Sheet FAB */}
+      {/* Call Sheet FAB */}
       {!isViewOnly && (
         <button
           type="button"
           onClick={() => setShowPlaySheet(true)}
           className="fixed bottom-10 right-4 z-40 px-6 py-3.5 rounded-full font-bold text-base bg-surface-1 border-2 border-surface-5 text-txt-primary shadow-xl hover:bg-surface-3 transition-colors"
         >
-          Play Sheet
+          Call Sheet
         </button>
       )}
 
-      {/* Play Sheet Modal */}
+      {/* Call Sheet Modal */}
       {showPlaySheet && (
         <PlaySheetModal
           dynastyId={id}
