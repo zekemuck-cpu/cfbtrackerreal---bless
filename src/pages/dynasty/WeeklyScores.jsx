@@ -21,7 +21,6 @@ import { DEFAULT_SOCIAL_PLATFORM, getEffectiveCharacters } from '../../data/soci
 import buildRecapLinks from '../../utils/buildRecapLinks'
 import { getRivalryTrophyForTeams } from '../../utils/trophyEngine'
 import { useTeamColors } from '../../hooks/useTeamColors'
-import WeeklyPodcast from '../../components/WeeklyPodcast'
 import PositionBattles from '../../components/PositionBattles'
 
 const REGULAR_SEASON_WEEKS = Array.from({ length: 16 }, (_, i) => i)  // 0-15
@@ -435,8 +434,7 @@ export default function WeeklyScores() {
   // user's choice survives navigating into a game and back.
   const rawTab = searchParams.get('tab')
   const isPreseasonWeek = displayWeek === -1 || displayWeek === 0 || displayWeek === 1
-  const tabParam = rawTab === 'podcast' ? 'podcast'
-    : (rawTab === 'battles' && isPreseasonWeek) ? 'battles'
+  const tabParam = (rawTab === 'battles' && isPreseasonWeek) ? 'battles'
     : (rawTab === 'recap' || displayWeek === -1) ? 'recap'
     : 'scores'
   const setTab = (next) => {
@@ -921,8 +919,7 @@ export default function WeeklyScores() {
         tabs={[
           ...(displayWeek !== -1 ? [{ key: 'scores', label: 'Scores' }] : []),
           { key: 'recap', label: displayWeek === -1 ? 'Preseason Recap' : 'Recap' },
-          { key: 'podcast', label: 'Weekly Podcast' },
-          ...(isPreseasonWeek ? [{ key: 'battles', label: 'Position Battles' }] : []),
+...(isPreseasonWeek ? [{ key: 'battles', label: 'Position Battles' }] : []),
         ]}
         activeKey={tabParam}
         onSelect={setTab}
@@ -977,11 +974,7 @@ export default function WeeklyScores() {
         )
       )}
 
-      {tabParam === 'podcast' && (
-        <WeeklyPodcast year={displayYear} week={displayWeek} />
-      )}
-
-      {tabParam === 'battles' && isPreseasonWeek && (
+{tabParam === 'battles' && isPreseasonWeek && (
         <PositionBattles year={displayYear} week={displayWeek} />
       )}
 

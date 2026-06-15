@@ -15,6 +15,7 @@ import { projectRoster, projectDepartures, projectNflCandidates } from '../utils
 import { buildBoard, SIDE_OPTIONS, ST_ROLE_SLOTS, sideOfPosition, resolveDepthLayout } from '../utils/outlookBoard'
 import { getTeamLogoByTid } from '../data/teams'
 import { OFFENSE_SCHEMES, DEFENSE_SCHEMES } from '../data/schemes'
+import { OFFENSE_TEAM_PLAYBOOKS, OFFENSE_SCHEME_PLAYBOOKS, DEFENSE_PLAYBOOKS, ALL_OFFENSE_PLAYBOOKS } from '../data/playbookList'
 import DepthChartPositionsModal from './DepthChartPositionsModal'
 
 const EMPTY_ARR = []
@@ -268,6 +269,43 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
     try { await updateDynasty(currentDynasty.id, { [field]: value || null }) }
     catch (e) { console.error('[scheme] failed to save', e) }
   }
+
+  const offensePlaybook = currentDynasty?.offensePlaybook || ''
+  const defensePlaybook = currentDynasty?.defensePlaybook || ''
+  const offensePlaybookCustom = currentDynasty?.offensePlaybookCustom || { base: '', additions: [] }
+  const defensePlaybookCustom = currentDynasty?.defensePlaybookCustom || { base: '', additions: [] }
+
+  const [pbSearch, setPbSearch] = useState('')
+
+  const savePlaybookSelection = async (pbSide, value) => {
+    if (!currentDynasty?.id || !updateDynasty) return
+    const field = pbSide === 'offense' ? 'offensePlaybook' : 'defensePlaybook'
+    try { await updateDynasty(currentDynasty.id, { [field]: value || null }) }
+    catch (e) { console.error('[playbook] failed to save', e) }
+  }
+
+  const saveCustomPlaybook = async (pbSide, patch) => {
+    if (!currentDynasty?.id || !updateDynasty) return
+    const field = pbSide === 'offense' ? 'offensePlaybookCustom' : 'defensePlaybookCustom'
+    const current = pbSide === 'offense' ? offensePlaybookCustom : defensePlaybookCustom
+    try { await updateDynasty(currentDynasty.id, { [field]: { ...current, ...patch } }) }
+    catch (e) { console.error('[playbook-custom] failed to save', e) }
+  }
+
+  const [showPbDropdown, setShowPbDropdown] = useState(null) // 'offense' | 'defense' | null
+  const pbDropdownRef = useRef(null)
+
+  useEffect(() => {
+    if (!showPbDropdown) return
+    const close = (e) => {
+      if (pbDropdownRef.current && !pbDropdownRef.current.contains(e.target)) {
+        setShowPbDropdown(null)
+        setPbSearch('')
+      }
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [showPbDropdown])
 
   const departures = useMemo(
     () => (isFuture ? projectDepartures(currentDynasty, tid, year, { leaveFlags: leaveSet }) : []),
@@ -645,33 +683,200 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
         </div>
       </div>
 
-      {/* Scheme selector — shown for offense/defense only; ST has no scheme */}
+      {/* Scheme + Playbook selectors — offense/defense only */}
       {side !== 'st' && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            {side === 'offense' ? 'Offense' : 'Defense'} Scheme
-          </span>
-          {canEdit ? (
-            <select
-              value={side === 'offense' ? offenseScheme : defenseScheme}
-              onChange={e => saveScheme(side, e.target.value)}
-              className="text-xs px-2 py-1 rounded border"
-              style={{ backgroundColor: 'var(--surface-2)', borderColor: 'var(--surface-4)', color: 'var(--text-primary)', cursor: 'pointer' }}
-            >
-              <option value="">No scheme selected</option>
-              {(side === 'offense' ? OFFENSE_SCHEMES : DEFENSE_SCHEMES).map(s => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          ) : (
-            <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-              {(side === 'offense' ? offenseScheme : defenseScheme) || 'None'}
-            </span>
-          )}
-          {(side === 'offense' ? offenseScheme : defenseScheme) && (
+        <div className="space-y-2">
+          {/* Scheme */}
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              · used for Position Battles PBS scoring
+              {side === 'offense' ? 'Offense' : 'Defense'} Scheme
             </span>
+            {canEdit ? (
+              <select
+                value={side === 'offense' ? offenseScheme : defenseScheme}
+                onChange={e => saveScheme(side, e.target.value)}
+                className="text-xs px-2 py-1 rounded border"
+                style={{ backgroundColor: 'var(--surface-2)', borderColor: 'var(--surface-4)', color: 'var(--text-primary)', cursor: 'pointer' }}
+              >
+                <option value="">No scheme selected</option>
+                {(side === 'offense' ? OFFENSE_SCHEMES : DEFENSE_SCHEMES).map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            ) : (
+              <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                {(side === 'offense' ? offenseScheme : defenseScheme) || 'None'}
+              </span>
+            )}
+            {(side === 'offense' ? offenseScheme : defenseScheme) && (
+              <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                · used for Position Battles PBS scoring
+              </span>
+            )}
+          </div>
+
+          {/* Playbook */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              {side === 'offense' ? 'Offense' : 'Defense'} Playbook
+            </span>
+            {canEdit ? (
+              <div className="relative" ref={showPbDropdown === side ? pbDropdownRef : null}>
+                {/* Trigger button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPbDropdown(prev => prev === side ? null : side)
+                    setPbSearch('')
+                  }}
+                  className="text-xs px-2 py-1 rounded border text-left"
+                  style={{ backgroundColor: 'var(--surface-2)', borderColor: 'var(--surface-4)', color: 'var(--text-primary)', cursor: 'pointer', minWidth: '160px' }}
+                >
+                  {(side === 'offense' ? offensePlaybook : defensePlaybook) || 'No playbook selected'}
+                  <span className="ml-1" style={{ color: 'var(--text-tertiary)' }}>▾</span>
+                </button>
+
+                {showPbDropdown === side && (
+                  <div
+                    className="absolute z-50 mt-1 rounded border shadow-xl"
+                    style={{ backgroundColor: 'var(--surface-2)', borderColor: 'var(--surface-4)', width: '240px', maxHeight: '320px', overflowY: 'auto', top: '100%', left: 0 }}
+                    ref={pbDropdownRef}
+                  >
+                    {/* Search — only for offense (many team options) */}
+                    {side === 'offense' && (
+                      <div className="sticky top-0 p-2" style={{ backgroundColor: 'var(--surface-2)', borderBottom: '1px solid var(--surface-4)' }}>
+                        <input
+                          autoFocus
+                          value={pbSearch}
+                          onChange={e => setPbSearch(e.target.value)}
+                          placeholder="Search playbooks..."
+                          className="w-full text-xs px-2 py-1.5 rounded border"
+                          style={{ backgroundColor: 'var(--surface-3)', borderColor: 'var(--surface-5)', color: 'var(--text-primary)' }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Clear option */}
+                    <button
+                      type="button"
+                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-surface-3 transition-colors"
+                      style={{ color: 'var(--text-tertiary)' }}
+                      onClick={() => { savePlaybookSelection(side, ''); setShowPbDropdown(null); setPbSearch('') }}
+                    >
+                      No playbook selected
+                    </button>
+
+                    {/* Custom option */}
+                    <button
+                      type="button"
+                      className="w-full text-left px-3 py-1.5 text-xs font-semibold hover:bg-surface-3 transition-colors border-b"
+                      style={{ color: 'var(--text-primary)', borderColor: 'var(--surface-4)' }}
+                      onClick={() => { savePlaybookSelection(side, 'Custom'); setShowPbDropdown(null); setPbSearch('') }}
+                    >
+                      Custom
+                    </button>
+
+                    {side === 'offense' ? (
+                      <>
+                        {/* Team playbooks */}
+                        <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                          Team Playbooks
+                        </div>
+                        {OFFENSE_TEAM_PLAYBOOKS
+                          .filter(pb => !pbSearch || pb.toLowerCase().includes(pbSearch.toLowerCase()))
+                          .map(pb => (
+                            <button
+                              key={pb}
+                              type="button"
+                              className="w-full text-left px-3 py-1.5 text-xs hover:bg-surface-3 transition-colors"
+                              style={{ color: (side === 'offense' ? offensePlaybook : defensePlaybook) === pb ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: (side === 'offense' ? offensePlaybook : defensePlaybook) === pb ? '600' : undefined }}
+                              onClick={() => { savePlaybookSelection(side, pb); setShowPbDropdown(null); setPbSearch('') }}
+                            >
+                              {pb}
+                            </button>
+                          ))}
+
+                        {/* Scheme playbooks */}
+                        {(!pbSearch || OFFENSE_SCHEME_PLAYBOOKS.some(pb => pb.toLowerCase().includes(pbSearch.toLowerCase()))) && (
+                          <>
+                            <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider border-t mt-1" style={{ color: 'var(--text-tertiary)', borderColor: 'var(--surface-4)' }}>
+                              Scheme Playbooks
+                            </div>
+                            {OFFENSE_SCHEME_PLAYBOOKS
+                              .filter(pb => !pbSearch || pb.toLowerCase().includes(pbSearch.toLowerCase()))
+                              .map(pb => (
+                                <button
+                                  key={pb}
+                                  type="button"
+                                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-surface-3 transition-colors"
+                                  style={{ color: offensePlaybook === pb ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: offensePlaybook === pb ? '600' : undefined }}
+                                  onClick={() => { savePlaybookSelection(side, pb); setShowPbDropdown(null); setPbSearch('') }}
+                                >
+                                  {pb}
+                                </button>
+                              ))}
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      /* Defense — shorter list, no search needed */
+                      <>
+                        <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                          Defense Playbooks
+                        </div>
+                        {DEFENSE_PLAYBOOKS.map(pb => (
+                          <button
+                            key={pb}
+                            type="button"
+                            className="w-full text-left px-3 py-1.5 text-xs hover:bg-surface-3 transition-colors"
+                            style={{ color: defensePlaybook === pb ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: defensePlaybook === pb ? '600' : undefined }}
+                            onClick={() => { savePlaybookSelection(side, pb); setShowPbDropdown(null); setPbSearch('') }}
+                          >
+                            {pb}
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                {(side === 'offense' ? offensePlaybook : defensePlaybook) || 'None'}
+              </span>
+            )}
+          </div>
+
+          {/* Custom playbook config — shown when Custom is active */}
+          {canEdit && (side === 'offense' ? offensePlaybook : defensePlaybook) === 'Custom' && (
+            <div className="ml-0 pl-3 border-l-2 space-y-2" style={{ borderColor: 'var(--surface-5)' }}>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Base playbook</span>
+                <select
+                  value={side === 'offense' ? offensePlaybookCustom.base : defensePlaybookCustom.base}
+                  onChange={e => saveCustomPlaybook(side, { base: e.target.value })}
+                  className="text-xs px-2 py-1 rounded border"
+                  style={{ backgroundColor: 'var(--surface-2)', borderColor: 'var(--surface-4)', color: 'var(--text-primary)', cursor: 'pointer', minWidth: '160px' }}
+                >
+                  <option value="">Select base playbook...</option>
+                  {side === 'offense' ? (
+                    <>
+                      <optgroup label="Team Playbooks">
+                        {OFFENSE_TEAM_PLAYBOOKS.map(pb => <option key={pb} value={pb}>{pb}</option>)}
+                      </optgroup>
+                      <optgroup label="Scheme Playbooks">
+                        {OFFENSE_SCHEME_PLAYBOOKS.map(pb => <option key={pb} value={pb}>{pb}</option>)}
+                      </optgroup>
+                    </>
+                  ) : (
+                    DEFENSE_PLAYBOOKS.map(pb => <option key={pb} value={pb}>{pb}</option>)
+                  )}
+                </select>
+              </div>
+              <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                Formation/play additions from other playbooks will be available once playbooks are uploaded.
+              </div>
+            </div>
           )}
         </div>
       )}

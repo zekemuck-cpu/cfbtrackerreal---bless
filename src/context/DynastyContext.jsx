@@ -16497,6 +16497,19 @@ export function DynastyProvider({ children }) {
     return updateDynasty(dynastyId, { teamFuture: { ...tf, [tid]: dataForTid } })
   }
 
+  const savePlaybook = (dynastyId, playbook) => {
+    const playbooks = [...(currentDynasty?.playbooks || [])]
+    const idx = playbooks.findIndex(p => p.id === playbook.id)
+    if (idx >= 0) playbooks[idx] = playbook
+    else playbooks.push(playbook)
+    return updateDynasty(dynastyId, { playbooks })
+  }
+
+  const deletePlaybook = (dynastyId, playbookId) => {
+    const playbooks = (currentDynasty?.playbooks || []).filter(p => p.id !== playbookId)
+    return updateDynasty(dynastyId, { playbooks })
+  }
+
   // Backward-compat: a few older consumers still destructure `customTeams`
   // from the context. Keep the export but always null — the migration
   // collapses the field on load and nothing writes it anymore. Consumers
@@ -16846,6 +16859,8 @@ export function DynastyProvider({ children }) {
     addCustomTeam,
     migrateDynastyStorage,
     saveTeamFuture,
+    savePlaybook,
+    deletePlaybook,
   }
 
   return (
