@@ -47,6 +47,7 @@ export const CoachEdit = lazyWithPreload(() => import('../pages/dynasty/CoachEdi
 export const DevTools = lazyWithPreload(() => import('../pages/dynasty/DevTools'))
 export const ImageGallery = lazyWithPreload(() => import('../pages/admin/ImageGallery'))
 export const ScoutStaff = lazyWithPreload(() => import('../components/ScoutStaff'))
+export const CoachBuild = lazyWithPreload(() => import('../pages/dynasty/CoachBuild'))
 
 // Preload map: sidebar nav name → chunk preload fn.
 // Called on mouseenter/focus of nav links so chunks warm up before click.

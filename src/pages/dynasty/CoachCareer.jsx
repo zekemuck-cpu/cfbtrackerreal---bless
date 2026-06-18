@@ -636,16 +636,32 @@ export default function CoachCareer() {
               stats no longer feel orphaned from the headline. */}
           <div className="flex items-end gap-x-6 sm:gap-x-10 gap-y-3 flex-wrap">
             <div className="min-w-0">
-              <h1
-                className="m-0 text-txt-primary leading-[0.9] uppercase break-words"
-                style={{
-                  fontFamily: "'Bebas Neue', sans-serif",
-                  fontSize: 'clamp(2rem, 4.5vw, 3.25rem)',
-                  letterSpacing: '0.5px',
-                }}
-              >
-                {selectedDisplayName}
-              </h1>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1
+                  className="m-0 text-txt-primary leading-[0.9] uppercase break-words"
+                  style={{
+                    fontFamily: "'Bebas Neue', sans-serif",
+                    fontSize: 'clamp(2rem, 4.5vw, 3.25rem)',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  {selectedDisplayName}
+                </h1>
+                <button
+                  onClick={() => navigate(`${pathPrefix}/coach-build`)}
+                  className="px-2.5 py-1 rounded text-xs font-semibold uppercase transition-colors hover:border-surface-5 hover:text-txt-primary"
+                  style={{
+                    letterSpacing: '1.5px',
+                    color: 'var(--text-secondary)',
+                    border: '1px solid var(--surface-4)',
+                    backgroundColor: 'var(--surface-2)',
+                    flexShrink: 0,
+                    alignSelf: 'center',
+                  }}
+                >
+                  Coach Build
+                </button>
+              </div>
               <div
                 className="label-xs text-txt-tertiary mt-1.5 tabular-nums"
                 style={{ letterSpacing: '1.8px', fontSize: '10px' }}
