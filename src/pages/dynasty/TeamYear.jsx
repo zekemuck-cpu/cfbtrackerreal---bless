@@ -38,6 +38,7 @@ import { getCoachStints } from '../../data/coachStats'
 import { getRivalryTrophyForTeams } from '../../utils/trophyEngine'
 import TeamOutlook from '../../components/TeamOutlook'
 import { calcDramaScore, getTier, getClassicGames, TIER_CONFIG, ESPN_CLASSIC_BADGE_STYLE } from '../../utils/espnClassic'
+import RivalriesTab from '../../components/RivalriesTab'
 
 // Map abbreviation to mascot name for logo lookup
 // Accepts optional teamsData for tid-based teambuilder support
@@ -481,7 +482,7 @@ export default function TeamYear() {
   const { id, tid: tidParam, year } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { currentDynasty: _dyn, loadingDynastyId, updateDynasty, updatePlayer, addGame, saveRoster, isViewOnly, saveTeamYearInfo, saveSchedule } = useDynasty()
+  const { currentDynasty: _dyn, loadingDynastyId, updateDynasty, updatePlayer, addGame, saveRoster, isViewOnly, saveTeamYearInfo, saveSchedule, saveRivalries } = useDynasty()
   // Shadow with a non-null alias so intermediate useMemos and non-hook
   // computations below don't have to constantly null-check. The real
   // null gate sits at the end of the component, AFTER all hooks have
@@ -3219,11 +3220,27 @@ export default function TeamYear() {
         />
       )}
 
-      {activeTab === 'blueprint' && (
-        <div className="px-3 sm:px-4 pt-4">
-          <DynastyBlueprintPanel year={year} tid={tid} />
-        </div>
-      )}
+      {/* Tab Navigation — single sliding underline. Departures tab
+          is hidden when this team has nothing to show for the year
+          (most commonly the current season before the leaving sheet
+          is filled in) so it doesn't clutter the bar with an empty
+          page the user can't usefully navigate to. */}
+      <TabBar
+        tabs={[
+          { key: 'home', label: 'Home' },
+          { key: 'schedule', label: 'Schedule' },
+          { key: 'stats', label: 'Stats' },
+          { key: 'depthchart', label: 'Depth Chart' },
+          { key: 'roster', label: 'Roster' },
+          { key: 'recruiting', label: 'Recruiting' },
+          ...(departures.length > 0 ? [{ key: 'departures', label: 'Departures' }] : []),
+          { key: 'history', label: 'History' },
+          { key: 'rivalries', label: 'Rivalries' },
+        ]}
+        activeKey={activeTab}
+        onSelect={setActiveTab}
+        accentColor={teamInfo.backgroundColor}
+      />
 
       <div key={activeTab} className="reveal">
 
@@ -7218,6 +7235,17 @@ export default function TeamYear() {
           </div>
         )
       })()}
+
+      {/* RIVALRIES TAB */}
+      {activeTab === 'rivalries' && (
+        <RivalriesTab
+          dynasty={currentDynasty}
+          tid={tid}
+          selectedYear={selectedYear}
+          dynastyId={currentDynasty.id}
+          saveRivalries={saveRivalries}
+        />
+      )}
 
       {/* GameEntryModal removed - now using game pages instead */}
 

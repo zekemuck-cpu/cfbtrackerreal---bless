@@ -25,6 +25,7 @@ const ImageUpload = forwardRef(function ImageUpload({
   compact = false,
   disabled = false,
   hideDropzone = false,
+  hidePasteButton = false,
 }, ref) {
   const { toast } = useToast()
   const [uploading, setUploading] = useState(false)
@@ -500,23 +501,27 @@ const ImageUpload = forwardRef(function ImageUpload({
         disabled={disabled || uploading}
       />
 
-      {/* Mobile paste button */}
-      <button
-        type="button"
-        onClick={handleClipboardPaste}
-        disabled={disabled || uploading}
-        className="w-full py-2 px-4 rounded-lg border-2 font-medium hover:opacity-80 disabled:opacity-50 flex items-center justify-center gap-2"
-        style={{
-          borderColor: 'var(--text-primary)',
-          color: 'var(--text-primary)',
-          backgroundColor: 'transparent'
-        }}
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-        </svg>
-        Paste from Clipboard
-      </button>
+      {/* Mobile paste button — hidden when hidePasteButton is set, since
+          navigator.clipboard.read() requires explicit browser permission.
+          Use the URL field below + Ctrl+V instead. */}
+      {!hidePasteButton && (
+        <button
+          type="button"
+          onClick={handleClipboardPaste}
+          disabled={disabled || uploading}
+          className="w-full py-2 px-4 rounded-lg border-2 font-medium hover:opacity-80 disabled:opacity-50 flex items-center justify-center gap-2"
+          style={{
+            borderColor: 'var(--text-primary)',
+            color: 'var(--text-primary)',
+            backgroundColor: 'transparent'
+          }}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          Paste from Clipboard
+        </button>
+      )}
 
       {/* URL input */}
       <div className="flex gap-2">

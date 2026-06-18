@@ -7305,6 +7305,7 @@ export function DynastyProvider({ children }) {
       recruits: [],
       schedule: [],
       rankings: [],
+      rivalries: [],
       nextPID: seededPlayers.length + 1, // Initialize player ID counter (continues past any auto-seeded roster)
       // Teams map - single source of truth for all team data (tid-keyed)
       // Now includes userId and coachPosition on the user's team
@@ -16510,6 +16511,10 @@ export function DynastyProvider({ children }) {
     return updateDynasty(dynastyId, { playbooks })
   }
 
+  const saveRivalries = (dynastyId, rivalries) => {
+    return updateDynasty(dynastyId, { rivalries })
+  }
+
   // Backward-compat: a few older consumers still destructure `customTeams`
   // from the context. Keep the export but always null — the migration
   // collapses the field on load and nothing writes it anymore. Consumers
@@ -16861,6 +16866,7 @@ export function DynastyProvider({ children }) {
     saveTeamFuture,
     savePlaybook,
     deletePlaybook,
+    saveRivalries,
   }
 
   return (
