@@ -125,6 +125,7 @@ const DEFAULT_STYLE = {
   prefMatch:   false,
   prefBase:    false,
   prefPackage: false,
+  prefNickel:  false,
 }
 
 function scorePlay(play, down, ytg, scout, side, oppContext = null, fieldPos = 'opp_mid', pbTendency = null, userStyle = null, offScheme = '', successContext = null, gameScript = null) {
@@ -817,6 +818,7 @@ function scorePlay(play, down, ytg, scout, side, oppContext = null, fieldPos = '
       if (userStyle.prefMatch   && isMatch)  s += 3
       if (userStyle.prefBase    && isBase)   s += 3
       if (userStyle.prefPackage && isPkg)    s += 3
+      if (userStyle.prefNickel  && /nickel/i.test(play.formation || play.name || '')) s += 3
     }
   }
 
@@ -1121,7 +1123,7 @@ const BASE_ABBRS = { 'Gun': 'Gun', 'Pistol': 'Pistol', 'I Form': 'I Form', 'Wild
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onClose }) {
+export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode = 'coach', onClose }) {
   const { currentDynasty } = useDynasty()
 
   const offScheme       = currentDynasty?.offenseScheme    || ''
@@ -2014,17 +2016,17 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
       {/* Reset session confirmation */}
       {showResetConfirm && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center px-8" style={{ background: 'rgba(0,0,0,0.7)' }}>
-          <div className="w-full max-w-xs rounded-2xl p-6 flex flex-col gap-4" style={{ background: 'var(--surface-2)', border: '1px solid #7f1d1d' }}>
+          <div className="w-full max-w-xs rounded-2xl p-6 flex flex-col gap-4" style={{ background: 'var(--surface-2)', border: '1px solid var(--accent-error)' }}>
             <div className="text-center">
-              <div className="text-base font-bold mb-1" style={{ color: '#f87171' }}>Reset Session?</div>
+              <div className="text-base font-bold mb-1" style={{ color: 'var(--accent-error)' }}>Reset Session?</div>
               <p className="text-sm text-txt-secondary">This will clear the play log, down & distance, and field position. Scout data is kept.</p>
-              <p className="text-xs mt-2 font-bold" style={{ color: '#f87171' }}>This cannot be undone.</p>
+              <p className="text-xs mt-2 font-bold" style={{ color: 'var(--accent-error)' }}>This cannot be undone.</p>
             </div>
             <div className="flex flex-col gap-2.5">
               <button
                 onClick={resetSession}
                 className="w-full py-3 rounded-xl font-bold text-sm"
-                style={{ background: '#7f1d1d', color: '#fca5a5', border: '1px solid #ef4444' }}
+                style={{ background: 'color-mix(in srgb, var(--accent-error) 20%, var(--surface-2))', color: 'var(--accent-error)', border: '1px solid var(--accent-error)' }}
               >
                 Yes, Reset Everything
               </button>
@@ -2393,6 +2395,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
                       { key: 'prefMatch',   label: 'Match Coverage', desc: 'Boosts match/hybrid shells' },
                       { key: 'prefBase',    label: 'Base Defense',   desc: 'Boosts base formation calls' },
                       { key: 'prefPackage', label: 'Packages',       desc: 'Boosts specialty packages' },
+                      { key: 'prefNickel',  label: 'Nickel Base',    desc: 'Boosts all Nickel formations' },
                     ].map(({ key, label, desc }) => (
                       <button key={key} onClick={() => patchStyle(key, !userStyle[key])}
                         className="text-left rounded-xl px-3 py-2.5 border transition-colors"
@@ -2419,8 +2422,8 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
           ) : /* Log view */
           view === 'log' ? (
             <LogView log={log} onBack={() => setView('sheet')} onEditEntry={(id, patch) => setLog(prev => prev.map(e => e.id === id ? { ...e, ...patch } : e))} />
-          ) : pending ? (
-            /* Result picker */
+          ) : pending && mode !== 'user' ? (
+            /* Result picker — Coach Mode only */
             <div className="flex-1 overflow-y-auto px-4 py-4">
               <ResultPicker
                 play={pending}
@@ -2440,15 +2443,15 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
             <>
               {/* XP / 2PT banner — appears immediately after any TD */}
               {xpStep && (
-                <div className="shrink-0 px-4 py-3 border-b" style={{ background: '#1c0a00', borderColor: '#ea580c' }}>
-                  <div className="text-sm font-black text-center mb-2.5" style={{ color: '#fed7aa' }}>
+                <div className="shrink-0 px-4 py-3 border-b" style={{ background: 'color-mix(in srgb, var(--accent-warning) 8%, var(--surface-1))', borderColor: 'var(--accent-warning)' }}>
+                  <div className="text-sm font-black text-center mb-2.5" style={{ color: 'var(--accent-warning)' }}>
                     {xpStep.scoringSide === 'offense' ? 'Touchdown! Extra Point?' : 'TD Allowed — Opp Extra Point?'}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { label: 'XP Good',   pts: 1,  style: { background: '#14532d', color: '#86efac', borderColor: '#22c55e' } },
+                      { label: 'XP Good',   pts: 1,  style: { background: 'color-mix(in srgb, var(--accent-success) 15%, transparent)', color: 'var(--accent-success)', borderColor: 'var(--accent-success)' } },
                       { label: 'XP Miss',   pts: 0,  style: { background: 'var(--surface-3)', color: 'var(--text-primary)', borderColor: 'var(--surface-5)' } },
-                      { label: '2PT Good',  pts: 2,  style: { background: '#1e3a5f', color: '#93c5fd', borderColor: '#3b82f6' } },
+                      { label: '2PT Good',  pts: 2,  style: { background: 'color-mix(in srgb, var(--accent-info) 15%, transparent)', color: 'var(--accent-info)', borderColor: 'var(--accent-info)' } },
                       { label: '2PT Fail',  pts: 0,  style: { background: 'var(--surface-3)', color: 'var(--text-primary)', borderColor: 'var(--surface-5)' } },
                     ].map(({ label, pts, style }) => (
                       <button
@@ -2473,34 +2476,62 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
                 {/* Left side — situational controls */}
                 <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap gap-1.5 items-center">
-                  <span className="text-xs text-txt-secondary shrink-0">
-                    {side === 'defense' ? 'Opp ' : ''}Down:
-                  </span>
-                  {[1, 2, 3, 4].map(d => (
-                    <button
-                      key={d}
-                      onClick={() => { setSituation(s => ({ ...s, down: d })); if (d === 1) setExactYtg(10) }}
-                      className="px-2.5 py-1.5 rounded text-xs font-bold border transition-colors"
-                      style={down === d
-                        ? { background: 'var(--text-primary)', color: 'var(--surface-1)', borderColor: 'var(--text-primary)' }
-                        : { background: 'var(--surface-3)', color: 'var(--text-primary)', borderColor: 'var(--surface-5)' }}
-                    >
-                      {DOWN_LABELS[d]}
-                    </button>
-                  ))}
-                  <span className="text-xs text-txt-secondary mx-0.5">&</span>
-                  {Object.entries(YTG_LABELS).map(([k, lbl]) => (
-                    <button
-                      key={k}
-                      onClick={() => { setSituation(s => ({ ...s, ytg: k })); setExactYtg(k === 'short' ? 4 : k === 'med' ? 7 : 10) }}
-                      className="px-2.5 py-1.5 rounded text-xs font-bold border transition-colors"
-                      style={ytg === k
-                        ? { background: 'var(--text-primary)', color: 'var(--surface-1)', borderColor: 'var(--text-primary)' }
-                        : { background: 'var(--surface-3)', color: 'var(--text-primary)', borderColor: 'var(--surface-5)' }}
-                    >
-                      {lbl}
-                    </button>
-                  ))}
+                  {mode === 'user' ? (
+                    /* User Play: 4×3 situation tap grid */
+                    <div className="w-full grid gap-1 mb-0.5" style={{ gridTemplateColumns: 'auto 1fr 1fr 1fr' }}>
+                      <div />
+                      {['Short', 'Med', 'Long'].map(l => (
+                        <div key={l} style={{ textAlign: 'center', fontSize: 9, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.5px', paddingBottom: 2 }}>{l}</div>
+                      ))}
+                      {[1, 2, 3, 4].flatMap(d => [
+                        <div key={`lbl-${d}`} style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 4 }}>{DOWN_LABELS[d]}</div>,
+                        ...['short', 'med', 'long'].map(k => {
+                          const isActive = down === d && ytg === k
+                          return (
+                            <button
+                              key={`${d}-${k}`}
+                              onClick={() => { setSituation({ down: d, ytg: k }); setExactYtg(k === 'short' ? 4 : k === 'med' ? 7 : 10) }}
+                              className="rounded border transition-colors"
+                              style={{ padding: '6px 0', fontSize: 10, fontWeight: 900, textAlign: 'center', background: isActive ? 'var(--text-primary)' : 'var(--surface-3)', color: isActive ? 'var(--surface-1)' : 'var(--text-secondary)', borderColor: isActive ? 'var(--text-primary)' : 'var(--surface-5)' }}
+                            >
+                              {d}&{k === 'short' ? 'S' : k === 'med' ? 'M' : 'L'}
+                            </button>
+                          )
+                        }),
+                      ])}
+                    </div>
+                  ) : (
+                    <>
+                      <span className="text-xs text-txt-secondary shrink-0">
+                        {side === 'defense' ? 'Opp ' : ''}Down:
+                      </span>
+                      {[1, 2, 3, 4].map(d => (
+                        <button
+                          key={d}
+                          onClick={() => { setSituation(s => ({ ...s, down: d })); if (d === 1) setExactYtg(10) }}
+                          className="px-2.5 py-1.5 rounded text-xs font-bold border transition-colors"
+                          style={down === d
+                            ? { background: 'var(--text-primary)', color: 'var(--surface-1)', borderColor: 'var(--text-primary)' }
+                            : { background: 'var(--surface-3)', color: 'var(--text-primary)', borderColor: 'var(--surface-5)' }}
+                        >
+                          {DOWN_LABELS[d]}
+                        </button>
+                      ))}
+                      <span className="text-xs text-txt-secondary mx-0.5">&</span>
+                      {Object.entries(YTG_LABELS).map(([k, lbl]) => (
+                        <button
+                          key={k}
+                          onClick={() => { setSituation(s => ({ ...s, ytg: k })); setExactYtg(k === 'short' ? 4 : k === 'med' ? 7 : 10) }}
+                          className="px-2.5 py-1.5 rounded text-xs font-bold border transition-colors"
+                          style={ytg === k
+                            ? { background: 'var(--text-primary)', color: 'var(--surface-1)', borderColor: 'var(--text-primary)' }
+                            : { background: 'var(--surface-3)', color: 'var(--text-primary)', borderColor: 'var(--surface-5)' }}
+                        >
+                          {lbl}
+                        </button>
+                      ))}
+                    </>
+                  )}
                   {/* Field position — yard line input */}
                   <div className="w-full mt-1.5 flex items-center gap-2">
                     <span className="text-xs text-txt-secondary shrink-0">Ball On:</span>
@@ -2792,9 +2823,9 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
                   <div className="px-4 pt-3 pb-1">
                     <div
                       className="rounded-xl p-3"
-                      style={{ background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.3)' }}
+                      style={{ background: 'color-mix(in srgb, var(--accent-warning) 6%, var(--surface-2))', border: '1px solid color-mix(in srgb, var(--accent-warning) 30%, transparent)' }}
                     >
-                      <div className="text-[10px] font-black uppercase tracking-widest text-center mb-2.5" style={{ color: '#fbbf24' }}>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-center mb-2.5" style={{ color: 'var(--accent-warning)' }}>
                         4th Down — Kick or Special
                       </div>
 
@@ -2900,14 +2931,14 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
                             <button
                               onClick={() => handleFGResult(true)}
                               className="py-3 rounded-xl font-bold text-sm border"
-                              style={{ background: 'rgba(22,101,52,0.4)', borderColor: '#16a34a', color: '#86efac' }}
+                              style={{ background: 'color-mix(in srgb, var(--accent-success) 15%, transparent)', borderColor: 'var(--accent-success)', color: 'var(--accent-success)' }}
                             >
                               {side === 'offense' ? 'Good!' : 'FG Made'}
                             </button>
                             <button
                               onClick={() => handleFGResult(false)}
                               className="py-3 rounded-xl font-bold text-sm border"
-                              style={{ background: 'rgba(127,29,29,0.3)', borderColor: '#991b1b', color: '#fca5a5' }}
+                              style={{ background: 'color-mix(in srgb, var(--accent-error) 15%, transparent)', borderColor: 'var(--accent-error)', color: 'var(--accent-error)' }}
                             >
                               {side === 'offense' ? 'No Good' : 'Blocked / No Good'}
                             </button>
@@ -2928,14 +2959,14 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
                           <button
                             onClick={() => setKickStep({ type: 'fg' })}
                             className="py-3 rounded-xl font-bold text-sm border transition-colors"
-                            style={{ background: 'rgba(22,101,52,0.4)', borderColor: '#16a34a', color: '#86efac' }}
+                            style={{ background: 'color-mix(in srgb, var(--accent-success) 15%, transparent)', borderColor: 'var(--accent-success)', color: 'var(--accent-success)' }}
                           >
                             Field Goal
                           </button>
                           <button
                             onClick={() => setKickStep({ type: 'punt', yard: 20 })}
                             className="py-3 rounded-xl font-bold text-sm border transition-colors"
-                            style={{ background: 'rgba(30,58,138,0.4)', borderColor: '#3b82f6', color: '#93c5fd' }}
+                            style={{ background: 'color-mix(in srgb, var(--accent-info) 15%, transparent)', borderColor: 'var(--accent-info)', color: 'var(--accent-info)' }}
                           >
                             {side === 'offense' ? 'Punt' : 'Opp Punts'}
                           </button>
@@ -2955,11 +2986,11 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
                         {/* Top Calls */}
                         {topPlays.length > 0 && (
                           <div className="pt-4 pb-2">
-                            <div className="flex items-baseline gap-2 mb-3">
-                              <span className="text-xs font-black uppercase tracking-widest text-txt-secondary">AI Top Calls</span>
-                              {scout && <span className="text-xs text-green-400">vs scouted defense</span>}
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '2px' }}>AI TOP CALLS</span>
+                              {scout && <span className="text-[10px] font-semibold" style={{ color: 'var(--accent-success)' }}>scouted</span>}
                             </div>
-                            <div className="space-y-2">
+                            <div className="media-card overflow-hidden">
                               {topPlays.map((play, i) => {
                                 const tier      = getTier(play._score)
                                 const tierStyle = TIER_STYLE[tier]
@@ -2971,11 +3002,8 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
                                   <button
                                     key={`top-${play.name}-${i}`}
                                     onClick={() => setPending(play)}
-                                    className="w-full flex items-start gap-3 px-4 py-3.5 rounded-xl text-left transition-all active:scale-[0.99] border"
-                                    style={{
-                                      background:  tier === 'neutral' ? 'var(--surface-2)' : `${tc}11`,
-                                      borderColor: tier === 'neutral' ? 'var(--surface-4)'  : `${tc}44`,
-                                    }}
+                                    className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-3 active:bg-surface-4"
+                                    style={{ borderTop: i > 0 ? `1px solid ${tc}22` : undefined, background: tier === 'neutral' ? undefined : `color-mix(in srgb, ${tc} 5%, transparent)` }}
                                   >
                                     <div className="flex-1 min-w-0">
                                       {/* Row 1: P# · Formation · type label */}
@@ -3013,13 +3041,13 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
                         {topPlays.length > 0 && situationalPlays.length > 0 && (
                           <div className="flex items-center gap-3 my-4">
                             <div className="flex-1 h-px" style={{ background: 'var(--surface-4)' }} />
-                            <span className="text-[10px] uppercase tracking-widest text-txt-secondary font-bold">All Plays</span>
+                            <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '2px' }}>ALL PLAYS</span>
                             <div className="flex-1 h-px" style={{ background: 'var(--surface-4)' }} />
                           </div>
                         )}
 
                         {/* All situational plays */}
-                        <div className="space-y-1.5">
+                        <div className="media-card overflow-hidden">
                           {situationalPlays.map((play, i) => (
                             <PlayRow
                               key={`all-${play.name}-${i}`}
@@ -3029,6 +3057,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
                               showFormation
                               successData={playSuccessMap[play.name] || null}
                               pNum={play.formPlayIdx != null ? Math.floor(play.formPlayIdx / 3) + 1 : null}
+                              index={i}
                             />
                           ))}
                         </div>
@@ -3129,12 +3158,12 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
                       {/* Top Calls */}
                       {topDefPlays.length > 0 && (
                         <div className="pb-2">
-                          <div className="flex items-baseline gap-2 mb-3 flex-wrap">
-                            <span className="text-xs font-black uppercase tracking-widest text-txt-secondary">Top Calls</span>
-                            {oppContext && <span className="text-xs text-yellow-400">vs {oppContext.name ? `${oppContext.base} ${oppContext.name}` : oppContext.base}</span>}
-                            {scout && <span className="text-xs text-green-400">vs scouted offense</span>}
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '2px' }}>TOP CALLS</span>
+                            {oppContext && <span className="text-[10px] font-semibold" style={{ color: 'var(--accent-warning)' }}>vs {oppContext.name ? `${oppContext.base} ${oppContext.name}` : oppContext.base}</span>}
+                            {scout && <span className="text-[10px] font-semibold" style={{ color: 'var(--accent-success)' }}>scouted</span>}
                           </div>
-                          <div className="space-y-2">
+                          <div className="media-card overflow-hidden">
                             {topDefPlays.map((play, i) => {
                               const tier      = getTier(play._score)
                               const tierStyle = TIER_STYLE[tier]
@@ -3146,11 +3175,8 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
                                 <button
                                   key={`td-${i}`}
                                   onClick={() => setPending(play)}
-                                  className="w-full flex items-start gap-3 px-4 py-3.5 rounded-xl text-left border transition-all active:scale-[0.99]"
-                                  style={{
-                                    background:  tier === 'neutral' ? 'var(--surface-2)' : `${tc}11`,
-                                    borderColor: tier === 'neutral' ? 'var(--surface-4)'  : `${tc}44`,
-                                  }}
+                                  className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-3 active:bg-surface-4"
+                                  style={{ borderTop: i > 0 ? `1px solid ${tc}22` : undefined, background: tier === 'neutral' ? undefined : `color-mix(in srgb, ${tc} 5%, transparent)` }}
                                 >
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
@@ -3185,10 +3211,10 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
                         <>
                           <div className="flex items-center gap-3 my-4">
                             <div className="flex-1 h-px" style={{ background: 'var(--surface-4)' }} />
-                            <span className="text-[10px] uppercase tracking-widest text-txt-secondary font-bold">More Options</span>
+                            <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '2px' }}>MORE OPTIONS</span>
                             <div className="flex-1 h-px" style={{ background: 'var(--surface-4)' }} />
                           </div>
-                          <div className="space-y-1.5">
+                          <div className="media-card overflow-hidden">
                             {scoredDefPlays.filter(p => !topDefPlays.some(t => t.name === p.name)).slice(0, 30).map((play, i) => (
                               <PlayRow
                                 key={`dpr-${i}`}
@@ -3198,6 +3224,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
                                 showFormation
                                 successData={playSuccessMap[play.name] || null}
                                 pNum={play.formPlayIdx != null ? Math.floor(play.formPlayIdx / 3) + 1 : null}
+                                index={i}
                               />
                             ))}
                           </div>
@@ -3232,12 +3259,12 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
                         {/* Top calls from default plays */}
                         {defaultPlays.filter(p => p._score >= 3).length > 0 && (
                           <div className="pt-4 pb-2">
-                            <div className="flex items-baseline gap-2 mb-3 flex-wrap">
-                              <span className="text-xs font-black uppercase tracking-widest text-txt-secondary">Top Calls</span>
-                              {side === 'defense' && oppContext && <span className="text-xs text-yellow-400">vs {oppContext.name ? `${oppContext.base} ${oppContext.name}` : oppContext.base}</span>}
-                              {scout && <span className="text-xs text-green-400">vs scouted {side === 'offense' ? 'defense' : 'offense'}</span>}
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '2px' }}>TOP CALLS</span>
+                              {side === 'defense' && oppContext && <span className="text-[10px] font-semibold" style={{ color: 'var(--accent-warning)' }}>vs {oppContext.name ? `${oppContext.base} ${oppContext.name}` : oppContext.base}</span>}
+                              {scout && <span className="text-[10px] font-semibold" style={{ color: 'var(--accent-success)' }}>scouted</span>}
                             </div>
-                            <div className="space-y-2">
+                            <div className="media-card overflow-hidden">
                               {defaultPlays.filter(p => p._score >= 3).slice(0, 4).map((play, i) => {
                                 const tier      = getTier(play._score)
                                 const tierStyle = TIER_STYLE[tier]
@@ -3249,11 +3276,8 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
                                   <button
                                     key={`dt-${i}`}
                                     onClick={() => setPending(play)}
-                                    className="w-full flex items-start gap-3 px-4 py-3.5 rounded-xl text-left border transition-all active:scale-[0.99]"
-                                    style={{
-                                      background:  tier === 'neutral' ? 'var(--surface-2)' : `${tc}11`,
-                                      borderColor: tier === 'neutral' ? 'var(--surface-4)'  : `${tc}44`,
-                                    }}
+                                    className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-3 active:bg-surface-4"
+                                    style={{ borderTop: i > 0 ? `1px solid ${tc}22` : undefined, background: tier === 'neutral' ? undefined : `color-mix(in srgb, ${tc} 5%, transparent)` }}
                                   >
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2 mb-1.5 flex-wrap">
@@ -3288,10 +3312,10 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
                           <>
                             <div className="flex items-center gap-3 my-4">
                               <div className="flex-1 h-px" style={{ background: 'var(--surface-4)' }} />
-                              <span className="text-[10px] uppercase tracking-widest text-txt-secondary font-bold">More Options</span>
+                              <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '2px' }}>MORE OPTIONS</span>
                               <div className="flex-1 h-px" style={{ background: 'var(--surface-4)' }} />
                             </div>
-                            <div className="space-y-1.5">
+                            <div className="media-card overflow-hidden">
                               {defaultPlays.filter(p => p._score < 3).map((play, i) => (
                                 <PlayRow
                                   key={`dr-${i}`}
@@ -3300,6 +3324,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
                                   typeColors={typeColors}
                                   successData={playSuccessMap[play.name] || null}
                                   pNum={play.formPlayIdx != null ? Math.floor(play.formPlayIdx / 3) + 1 : null}
+                                  index={i}
                                 />
                               ))}
                             </div>
@@ -3319,6 +3344,33 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
                   </div>
                 )}
               </div>
+
+              {/* User Play inline result picker */}
+              {mode === 'user' && pending && !xpStep && (
+                <div className="shrink-0 border-t" style={{ borderColor: 'var(--surface-4)', background: 'var(--surface-2)' }}>
+                  <div className="flex items-center justify-between px-4 pt-2.5 pb-1.5">
+                    <div>
+                      <div className="text-xs font-bold text-txt-primary">{pending.name}</div>
+                      {pending.formation && <div className="text-[10px] text-txt-tertiary">{pending.formation}</div>}
+                    </div>
+                    <button onClick={() => setPending(null)} className="text-xs text-txt-secondary hover:text-txt-primary transition-colors px-1">✕</button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 px-4 pb-3">
+                    {resultOptions.map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => handleResult(opt)}
+                        className="py-2.5 rounded-lg text-xs font-bold border transition-colors text-center"
+                        style={opt.success
+                          ? { background: 'color-mix(in srgb, var(--accent-success) 12%, transparent)', borderColor: 'var(--accent-success)', color: 'var(--accent-success)' }
+                          : { background: 'color-mix(in srgb, var(--accent-error) 12%, transparent)', borderColor: 'var(--accent-error)', color: 'var(--accent-error)' }}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Stats bar */}
               {total > 0 && (
@@ -3343,7 +3395,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, onCl
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function PlayRow({ play, onPick, typeColors, showFormation = false, successData = null, pNum = null }) {
+function PlayRow({ play, onPick, typeColors, showFormation = false, successData = null, pNum = null, index = 0 }) {
   const sd    = successData
   const stats = sd && sd.total > 0 ? {
     total: sd.total,
@@ -3354,8 +3406,8 @@ function PlayRow({ play, onPick, typeColors, showFormation = false, successData 
   return (
     <button
       onClick={onPick}
-      className="w-full px-3 py-3 rounded-lg text-left border transition-colors active:scale-[0.99]"
-      style={{ background: 'var(--surface-2)', borderColor: 'var(--surface-4)' }}
+      className="w-full px-4 py-3 text-left transition-colors hover:bg-surface-3 active:bg-surface-4"
+      style={index > 0 ? { borderTop: '1px solid var(--surface-4)' } : {}}
     >
       {/* Row 1: P# · Formation · type */}
       <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -3810,19 +3862,23 @@ function LogView({ log, onBack, onEditEntry }) {
       {reversed.length === 0 ? (
         <div className="py-16 text-center text-txt-secondary text-sm">No plays logged yet.</div>
       ) : (
-        <div className="px-4 py-3 space-y-2">
-          {reversed.map(entry => {
+        <div className="px-4 py-3">
+          <div className="media-card overflow-hidden">
+          {reversed.map((entry, i) => {
             const isEditing = editingId === entry.id
             const resultOpts = entry.side === 'offense' ? getOffResults(entry.down) : getDefResults(entry.down)
             return (
               <div key={entry.id}>
                 <div
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg border"
-                  style={entry.success
-                    ? { borderColor: '#166534', background: 'rgba(74,222,128,0.06)' }
-                    : { borderColor: '#7f1d1d', background: 'rgba(239,68,68,0.05)' }}
+                  className="flex items-center gap-3 px-3 py-2.5"
+                  style={{
+                    borderTop: i > 0 ? '1px solid var(--surface-4)' : undefined,
+                    background: entry.success
+                      ? 'color-mix(in srgb, var(--accent-success) 5%, var(--surface-2))'
+                      : 'color-mix(in srgb, var(--accent-error) 5%, var(--surface-2))',
+                  }}
                 >
-                  <span className={`text-xs font-bold shrink-0 ${entry.success ? 'text-green-400' : 'text-red-400'}`}>
+                  <span className="text-xs font-bold shrink-0" style={{ color: entry.success ? 'var(--accent-success)' : 'var(--accent-error)' }}>
                     {entry.side === 'defense'
                       ? (entry.success ? 'STOP' : 'GAVE')
                       : (entry.success ? 'WIN'  : 'FAIL')}
@@ -3877,6 +3933,7 @@ function LogView({ log, onBack, onEditEntry }) {
               </div>
             )
           })}
+          </div>
         </div>
       )}
     </div>

@@ -264,6 +264,7 @@ export default function GameEdit() {
   // Box score sheet modal state
   const [showBoxScoreModal, setShowBoxScoreModal] = useState(false)
   const [showPlaySheet, setShowPlaySheet] = useState(false)
+  const [playSheetMode, setPlaySheetMode] = useState('coach') // 'coach' | 'user'
   // Modal toggles for bulky panels that we've pulled off the page proper
   // (Photos in particular). Keep state at this level so the modal body
   // can read/write the same form fields as the rest of the editor.
@@ -2993,15 +2994,26 @@ export default function GameEdit() {
         </p>
       )}
 
-      {/* Call Sheet FAB */}
+      {/* Call Sheet FABs */}
       {!isViewOnly && (
-        <button
-          type="button"
-          onClick={() => setShowPlaySheet(true)}
-          className="fixed bottom-10 right-4 z-40 px-6 py-3.5 rounded-full font-bold text-base bg-surface-1 border-2 border-surface-5 text-txt-primary shadow-xl hover:bg-surface-3 transition-colors"
-        >
-          Call Sheet
-        </button>
+        <div className="fixed bottom-10 right-4 z-40 flex flex-col gap-2 items-end">
+          <button
+            type="button"
+            onClick={() => { setPlaySheetMode('coach'); setShowPlaySheet(true) }}
+            className="px-5 py-2 rounded-full bg-surface-1 border-2 border-surface-5 text-txt-primary shadow-xl hover:bg-surface-3 transition-colors flex flex-col items-center justify-center"
+          >
+            <span className="text-[9px] font-normal text-txt-tertiary tracking-wide leading-none mb-1">(Coach Mode)</span>
+            <span className="font-bold text-sm leading-none">Call Sheet</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => { setPlaySheetMode('user'); setShowPlaySheet(true) }}
+            className="px-5 py-2 rounded-full bg-surface-1 border-2 border-surface-5 text-txt-primary shadow-xl hover:bg-surface-3 transition-colors flex flex-col items-center justify-center"
+          >
+            <span className="text-[9px] font-normal text-txt-tertiary tracking-wide leading-none mb-1">(User Play)</span>
+            <span className="font-bold text-sm leading-none">Call Sheet</span>
+          </button>
+        </div>
       )}
 
       {/* Call Sheet Modal */}
@@ -3011,6 +3023,7 @@ export default function GameEdit() {
           gameId={currentGameId || gameId}
           week={gameWeek}
           opponent={team1Tid === currentDynasty?.currentTid ? team2Name : team1Name}
+          mode={playSheetMode}
           onClose={() => setShowPlaySheet(false)}
         />
       )}
