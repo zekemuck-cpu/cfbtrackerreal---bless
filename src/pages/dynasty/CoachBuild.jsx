@@ -368,163 +368,141 @@ function DetailPanel({ archetype, pkg, purchased, cpRemaining, cpSpentByArchId, 
   if (archetype && !pkg) {
     const isPremium = !!archetype.unlockReqs
     return (
-      <div style={styles.detailPanel}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-          <div style={{ width: 10, height: 10, borderRadius: '50%', background: archetype.color }} />
-          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: 3, color: archetype.color }}>
-            {archetype.name.toUpperCase()}
+      <div className="p-4 flex flex-col gap-4 h-full overflow-y-auto">
+        {/* Header */}
+        <div>
+          <div className="flex items-center gap-2 mb-0.5">
+            <div className="rounded-full flex-shrink-0" style={{ width: 8, height: 8, background: archetype.color }} />
+            <div className="font-display font-bold uppercase leading-none" style={{ fontSize: 'clamp(1rem, 1.8vw, 1.25rem)', letterSpacing: '0.04em', color: archetype.color }}>
+              {archetype.name}
+            </div>
+            {isPremium && (
+              <span className="text-xs font-bold px-1.5 py-0.5 rounded flex-shrink-0" style={{ letterSpacing: '1px', color: archetype.color, border: `1px solid ${archetype.color}`, background: `color-mix(in srgb, ${archetype.color} 10%, transparent)` }}>
+                PREMIUM
+              </span>
+            )}
           </div>
-          {isPremium && (
-            <span style={{ fontSize: 9, color: archetype.color, border: `1px solid ${archetype.color}`, borderRadius: 3, padding: '1px 5px', letterSpacing: 1 }}>
-              PREMIUM
-            </span>
-          )}
+          {archetype.subtitle && <div className="text-xs text-txt-tertiary mt-1">{archetype.subtitle}</div>}
         </div>
-        {archetype.subtitle && (
-          <div style={{ fontSize: 11, color: '#6e6e78', marginBottom: 12 }}>{archetype.subtitle}</div>
-        )}
-        <div style={styles.detailSection}>
-          <div style={styles.detailLabel}>ARCHETYPE PERK</div>
-          {archetype.perk ? (
-            <>
-              <div style={styles.detailPerkName}>{archetype.perk.name}</div>
-              <div style={styles.detailPerkDesc}>{archetype.perk.desc}</div>
-            </>
-          ) : (
-            <div style={styles.detailPerkDesc}>—</div>
-          )}
-        </div>
-        <div style={{ height: 1, background: '#2f313b', margin: '14px 0' }} />
-        {!isPremium && archetype.premiumName && (
-          <>
-            <div style={styles.detailSection}>
-              <div style={styles.detailLabel}>PREMIUM UPGRADE</div>
-              <div style={{ ...styles.detailPerkName, color: '#d97706' }}>{archetype.premiumName}</div>
-              <div style={styles.detailPerkName}>{archetype.premiumPerk.name}</div>
-              <div style={styles.detailPerkDesc}>{archetype.premiumPerk.desc}</div>
-            </div>
-            <div style={{ height: 1, background: '#2f313b', margin: '14px 0' }} />
-          </>
-        )}
-        <div style={styles.detailSection}>
-          <div style={styles.detailLabel}>UNLOCK REQUIREMENTS</div>
-          {isPremium ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
-              {archetype.unlockReqs.map((req, i) => {
-                // Compute current progress for spend-based requirements
-                let current = 0
-                if (req.type === 'progress' && req.archId) {
-                  if (req.archId.startsWith('__starter_')) {
-                    // "Unlock X first" — check if that archetype is the chosen starter or unlocked
-                    const targetId = req.archId.replace('__starter_', '')
-                    current = (starterArchId === targetId || purchased?.has?.(`__unlock_${targetId}`)) ? 1 : 0
-                  } else {
-                    current = cpSpentByArchId?.[req.archId] ?? 0
-                  }
-                }
-                const pct = req.total ? Math.min(100, (current / req.total) * 100) : (current ? 100 : 0)
-                const met = req.total ? current >= req.total : current > 0
 
-                const isChecked = req.type === 'checkbox' && checkedReqs?.has(`${archetype.id}::${req.label}`)
-                return (
-                  <div key={i}>
-                    {req.type === 'checkbox' ? (
-                      <div
-                        style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}
-                        onClick={() => onToggleReqCheck?.(archetype.id, req.label)}
-                      >
-                        <div style={{
-                          width: 13, height: 13,
-                          border: `2px solid ${isChecked ? archetype.color : '#4a4a52'}`,
-                          borderRadius: 3, background: isChecked ? archetype.color : '#0b0c11', flexShrink: 0,
-                        }} />
-                        <span style={{ fontSize: 11, color: isChecked ? archetype.color : '#6e6e78' }}>{req.label}</span>
-                      </div>
-                    ) : req.type === 'plain' ? (
-                      <div style={{ fontSize: 11, color: '#6e6e78' }}>{req.label}</div>
-                    ) : (
-                      <>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                          <span style={{ fontSize: 11, color: met ? archetype.color : '#6e6e78' }}>{req.label}</span>
-                          {req.total && (
-                            <span style={{ fontSize: 10, color: met ? archetype.color : '#4a4a52' }}>
-                              {Math.min(current, req.total)}/{req.total}
-                            </span>
-                          )}
-                        </div>
-                        <div style={{ height: 3, background: '#2f313b', borderRadius: 2 }}>
-                          <div style={{ height: '100%', width: `${pct}%`, background: archetype.color, borderRadius: 2, opacity: met ? 1 : 0.6, transition: 'width 0.3s' }} />
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )
-              })}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                <span style={{ fontSize: 11, color: '#f59e0b' }}>&#9679;</span>
-                <span style={{ fontSize: 11, color: '#6e6e78' }}>Purchase Price: <strong style={{ color: archetype.color }}>{archetype.unlockCost > 0 ? `${archetype.unlockCost} CP` : 'Free'}</strong></span>
+        {/* Perk */}
+        <div className="media-card overflow-hidden">
+          <div className="px-3 py-2 border-b border-surface-4">
+            <div className="label-xs text-txt-tertiary" style={{ letterSpacing: '2px' }}>ARCHETYPE PERK</div>
+          </div>
+          <div className="px-3 py-2.5">
+            {archetype.perk ? (
+              <>
+                <div className="text-sm font-semibold text-txt-primary mb-0.5">{archetype.perk.name}</div>
+                <div className="text-xs text-txt-tertiary leading-relaxed">{archetype.perk.desc}</div>
+              </>
+            ) : <div className="text-xs text-txt-tertiary">—</div>}
+            {!isPremium && archetype.premiumName && (
+              <div className="mt-3 pt-3 border-t border-surface-4">
+                <div className="label-xs mb-1.5" style={{ color: 'var(--accent-warning)', letterSpacing: '2px' }}>PREMIUM UPGRADE</div>
+                <div className="text-xs font-bold mb-0.5" style={{ color: '#d97706' }}>{archetype.premiumName}</div>
+                <div className="text-sm font-semibold text-txt-primary mb-0.5">{archetype.premiumPerk?.name}</div>
+                <div className="text-xs text-txt-tertiary leading-relaxed">{archetype.premiumPerk?.desc}</div>
               </div>
-            </div>
-          ) : (
-            <div style={styles.detailPerkDesc}>Choose this as your free starter archetype</div>
-          )}
+            )}
+          </div>
         </div>
-        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+        {/* Unlock requirements */}
+        <div className="media-card overflow-hidden">
+          <div className="px-3 py-2 border-b border-surface-4">
+            <div className="label-xs text-txt-tertiary" style={{ letterSpacing: '2px' }}>UNLOCK REQUIREMENTS</div>
+          </div>
+          <div className="px-3 py-3">
+            {isPremium ? (
+              <div className="flex flex-col gap-3">
+                {archetype.unlockReqs.map((req, i) => {
+                  let current = 0
+                  if (req.type === 'progress' && req.archId) {
+                    if (req.archId.startsWith('__starter_')) {
+                      const targetId = req.archId.replace('__starter_', '')
+                      current = (starterArchId === targetId || purchased?.has?.(`__unlock_${targetId}`)) ? 1 : 0
+                    } else {
+                      current = cpSpentByArchId?.[req.archId] ?? 0
+                    }
+                  }
+                  const pct = req.total ? Math.min(100, (current / req.total) * 100) : (current ? 100 : 0)
+                  const met = req.total ? current >= req.total : current > 0
+                  const isChecked = req.type === 'checkbox' && checkedReqs?.has(`${archetype.id}::${req.label}`)
+                  return (
+                    <div key={i}>
+                      {req.type === 'checkbox' ? (
+                        <div className="flex items-center gap-2 cursor-pointer select-none" onClick={() => onToggleReqCheck?.(archetype.id, req.label)}>
+                          <div className="flex-shrink-0 rounded" style={{ width: 13, height: 13, border: `2px solid ${isChecked ? archetype.color : 'var(--surface-5)'}`, background: isChecked ? archetype.color : 'var(--surface-1)' }} />
+                          <span className="text-xs" style={{ color: isChecked ? archetype.color : 'var(--text-tertiary)' }}>{req.label}</span>
+                        </div>
+                      ) : req.type === 'plain' ? (
+                        <div className="text-xs text-txt-tertiary">{req.label}</div>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs" style={{ color: met ? archetype.color : 'var(--text-tertiary)' }}>{req.label}</span>
+                            {req.total && <span className="text-xs font-bold tabular-nums" style={{ color: met ? archetype.color : 'var(--text-muted)' }}>{Math.min(current, req.total)}/{req.total}</span>}
+                          </div>
+                          <div className="rounded-full overflow-hidden" style={{ height: 3, background: 'var(--surface-4)' }}>
+                            <div style={{ height: '100%', width: `${pct}%`, background: archetype.color, opacity: met ? 1 : 0.6, transition: 'width 0.3s' }} />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )
+                })}
+                <div className="flex items-center justify-between pt-1 border-t border-surface-4 mt-1">
+                  <span className="text-xs text-txt-tertiary">Purchase price</span>
+                  <span className="text-xs font-bold" style={{ color: archetype.color }}>{archetype.unlockCost > 0 ? `${archetype.unlockCost} CP` : 'Free'}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-xs text-txt-tertiary">Choose this as your free starter archetype</div>
+            )}
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex flex-col gap-2 mt-auto">
           {!archetype._isChosenStarter && (() => {
             const needsUnlock = isPremium || archetype._isLevel10Unlock
             const alreadyUnlocked = needsUnlock && purchased?.has?.(`__unlock_${archetype.id}`)
             const canEnter = !needsUnlock || archReqsMet
-            const label = alreadyUnlocked
-              ? 'UNLOCKED'
-              : needsUnlock
-              ? `UNLOCK ${archetype.name.toUpperCase()}`
-              : `START AS ${archetype.name.toUpperCase()}`
+            const label = alreadyUnlocked ? 'Unlocked' : needsUnlock ? `Unlock ${archetype.name}` : `Start as ${archetype.name}`
             return (
               <>
                 <button
-                  disabled={alreadyUnlocked || (!canEnter)}
+                  disabled={alreadyUnlocked || !canEnter}
                   onClick={() => canEnter && !alreadyUnlocked ? (needsUnlock ? onUnlockArchetype?.(archetype.id) : onSelectArchetype(archetype.id)) : null}
+                  className="w-full py-2.5 rounded text-xs font-bold uppercase transition-colors"
                   style={{
-                    ...styles.btnPrimary,
-                    background: alreadyUnlocked ? '#0d2010' : canEnter ? archetype.color : '#23252e',
-                    color: alreadyUnlocked ? '#22c55e' : canEnter ? '#fff' : '#4a4a52',
-                    border: alreadyUnlocked ? '1px solid #16a34a' : canEnter ? 'none' : '1px solid #2f313b',
+                    letterSpacing: '1.5px',
+                    background: alreadyUnlocked ? 'color-mix(in srgb, var(--accent-success) 12%, transparent)' : canEnter ? archetype.color : 'var(--surface-3)',
+                    color: alreadyUnlocked ? 'var(--accent-success)' : canEnter ? '#fff' : 'var(--text-muted)',
+                    border: alreadyUnlocked ? '1px solid color-mix(in srgb, var(--accent-success) 30%, transparent)' : canEnter ? 'none' : '1px solid var(--surface-4)',
                     cursor: alreadyUnlocked ? 'default' : canEnter ? 'pointer' : 'not-allowed',
-                    width: '100%',
                   }}
-                >
-                  {label}
-                </button>
+                >{label}</button>
                 {needsUnlock && !canEnter && !alreadyUnlocked && (
-                  <div style={{ fontSize: 10, color: '#6e6e78', textAlign: 'center', letterSpacing: 0.5 }}>
-                    Complete unlock requirements above
-                  </div>
+                  <div className="text-center text-xs text-txt-tertiary">Complete requirements above first</div>
                 )}
               </>
             )
           })()}
           {archetype._isChosenStarter ? (
-            <button onClick={() => onSelectArchetype(archetype.id)} style={{
-              ...styles.btnPrimary,
-              background: archetype.color,
-              width: '100%',
-            }}>
-              ENTER TREE
+            <button onClick={() => onSelectArchetype(archetype.id)} className="w-full py-2.5 rounded text-xs font-bold uppercase" style={{ letterSpacing: '1.5px', background: archetype.color, color: '#fff', border: 'none', cursor: 'pointer' }}>
+              Enter Tree
             </button>
           ) : onPreview && (() => {
             const isUnlocked = (isPremium || archetype._isLevel10Unlock) && purchased?.has?.(`__unlock_${archetype.id}`)
             return (
               <button
                 onClick={() => isUnlocked ? onSelectArchetype(archetype.id) : onPreview(archetype.id)}
-                style={{
-                  ...styles.btnPrimary,
-                  background: isUnlocked ? archetype.color : 'transparent',
-                  border: isUnlocked ? 'none' : '1px solid #2f313b',
-                  color: isUnlocked ? '#fff' : '#a8a8b0',
-                  width: '100%',
-                }}
+                className="w-full py-2 rounded text-xs font-semibold uppercase transition-colors hover:border-surface-5"
+                style={{ letterSpacing: '1.5px', background: isUnlocked ? archetype.color : 'transparent', border: isUnlocked ? 'none' : '1px solid var(--surface-4)', color: isUnlocked ? '#fff' : 'var(--text-secondary)', cursor: 'pointer' }}
               >
-                {isUnlocked ? 'ENTER TREE' : 'PREVIEW TREE'}
+                {isUnlocked ? 'Enter Tree' : 'Preview Tree'}
               </button>
             )
           })()}
@@ -536,82 +514,65 @@ function DetailPanel({ archetype, pkg, purchased, cpRemaining, cpSpentByArchId, 
   if (pkg) {
     const tiersOwned = pkg.tiers.filter((_, ti) => purchased.has(`${pkg.id}_${ti}`)).length
     return (
-      <div style={styles.detailPanel}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-          <div style={{
-            background: '#23252e', borderRadius: 4, padding: '3px 8px',
-            fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, color: archetype.color, letterSpacing: 2,
-          }}>
-            {tiersOwned}/{pkg.tiers.length}
+      <div className="flex flex-col h-full overflow-y-auto">
+        {/* Package header */}
+        <div className="px-4 py-3 border-b border-surface-4 flex-shrink-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-xs font-bold tabular-nums px-1.5 py-0.5 rounded bg-surface-3 flex-shrink-0" style={{ color: archetype.color }}>{tiersOwned}/{pkg.tiers.length}</span>
+            <div className="font-display font-bold text-txt-primary leading-tight" style={{ fontSize: 'clamp(0.9rem, 1.6vw, 1.1rem)', letterSpacing: '0.03em' }}>{pkg.name}</div>
           </div>
-          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: 2, color: '#f5f5f7' }}>
-            {pkg.name.toUpperCase()}
-          </div>
-        </div>
-        <div style={{ fontSize: 11, color: '#6e6e78', marginBottom: 16 }}>
-          {pkg.desc || `Purchase upgrades for your ${pkg.sub}`}
-        </div>
-
-        {(isElitePkg || isPreview) && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12,
-            padding: '6px 10px', background: '#0b0c11', border: '1px solid #1e2d40', borderRadius: 5,
-          }}>
-            <span style={{ fontSize: 10, color: '#f59e0b' }}>&#128274;</span>
-            <span style={{ fontSize: 10, color: '#6e6e78' }}>
-              {isPreview
-                ? `Start as ${archetype.name} to purchase these tiers`
-                : `Unlock ${archetype.name} first to purchase these tiers`}
-            </span>
-          </div>
-        )}
-
-        {pkg.tiers.map((tier, ti) => {
-          const key = `${pkg.id}_${ti}`
-          const owned = purchased.has(key)
-          const prevOwned = ti === 0 || purchased.has(`${pkg.id}_${ti - 1}`)
-          const canAfford = cpRemaining >= tier.cp
-          const canBuy = !isElitePkg && !isPreview && prevOwned && !owned && canAfford
-          const locked = !prevOwned && !owned
-
-          return (
-            <div key={key} style={{
-              ...styles.tierRow,
-              opacity: locked ? 0.4 : isElitePkg && !owned ? 0.7 : 1,
-              borderColor: owned ? archetype.color : '#2f313b',
-              background: owned ? 'rgba(15,30,50,0.8)' : '#191b22',
-            }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 10, color: '#6e6e78', letterSpacing: 1, marginBottom: 2 }}>
-                  TIER {ti + 1}
-                </div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: owned ? archetype.color : '#a8a8b0', marginBottom: 2 }}>
-                  {tier.name}
-                </div>
-                <div style={{ fontSize: 11, color: '#6e6e78' }}>{tier.desc}</div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                <div style={{ fontSize: 11, color: '#f59e0b', fontWeight: 700 }}>
-                  {tier.cp} CP
-                </div>
-                {!locked && !isElitePkg && !isPreview && (
-                  <button
-                    onClick={() => onToggleTier(key, tier.cp)}
-                    disabled={!owned && !canBuy}
-                    style={{
-                      ...styles.tierBtn,
-                      background: owned ? '#23252e' : canBuy ? archetype.color : '#191b22',
-                      color: owned ? '#a8a8b0' : canBuy ? '#fff' : '#4a4a52',
-                      cursor: owned || canBuy ? 'pointer' : 'not-allowed',
-                    }}
-                  >
-                    {owned ? 'Refund' : canAfford ? 'Buy' : 'Cost'}
-                  </button>
-                )}
-              </div>
+          <div className="text-xs text-txt-tertiary mt-1">{pkg.desc || `Purchase upgrades for your ${pkg.sub}`}</div>
+          {(isElitePkg || isPreview) && (
+            <div className="flex items-center gap-1.5 mt-2 px-2.5 py-1.5 rounded bg-surface-2 border border-surface-4">
+              <span className="text-xs" style={{ color: 'var(--accent-warning)' }}>🔒</span>
+              <span className="text-xs text-txt-tertiary">{isPreview ? `Start as ${archetype.name} to purchase` : `Unlock ${archetype.name} first`}</span>
             </div>
-          )
-        })}
+          )}
+        </div>
+
+        {/* Tiers — divider list */}
+        <div className="flex-1 overflow-y-auto">
+          {pkg.tiers.map((tier, ti) => {
+            const key = `${pkg.id}_${ti}`
+            const owned = purchased.has(key)
+            const prevOwned = ti === 0 || purchased.has(`${pkg.id}_${ti - 1}`)
+            const canAfford = cpRemaining >= tier.cp
+            const canBuy = !isElitePkg && !isPreview && prevOwned && !owned && canAfford
+            const locked = !prevOwned && !owned
+            return (
+              <div key={key}
+                className="flex items-start gap-3 px-4 py-3 transition-colors"
+                style={{
+                  borderTop: ti > 0 ? '1px solid var(--surface-4)' : undefined,
+                  opacity: locked ? 0.35 : isElitePkg && !owned ? 0.6 : 1,
+                  background: owned ? `color-mix(in srgb, ${archetype.color} 6%, var(--surface-2))` : undefined,
+                }}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="label-xs text-txt-tertiary mb-1" style={{ letterSpacing: '1.5px' }}>TIER {ti + 1}</div>
+                  <div className="text-sm font-semibold mb-0.5" style={{ color: owned ? archetype.color : 'var(--text-primary)' }}>{tier.name}</div>
+                  <div className="text-xs text-txt-tertiary leading-relaxed">{tier.desc}</div>
+                </div>
+                <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                  <div className="text-xs font-bold tabular-nums" style={{ color: 'var(--accent-warning)' }}>{tier.cp} CP</div>
+                  {!locked && !isElitePkg && !isPreview && (
+                    <button
+                      onClick={() => onToggleTier(key, tier.cp)}
+                      disabled={!owned && !canBuy}
+                      className="px-2.5 py-0.5 rounded text-xs font-semibold transition-colors"
+                      style={{
+                        background: owned ? 'var(--surface-3)' : canBuy ? archetype.color : 'var(--surface-2)',
+                        color: owned ? 'var(--text-secondary)' : canBuy ? '#fff' : 'var(--text-muted)',
+                        border: owned || canBuy ? 'none' : '1px solid var(--surface-4)',
+                        cursor: owned || canBuy ? 'pointer' : 'not-allowed',
+                      }}
+                    >{owned ? 'Refund' : canAfford ? 'Buy' : 'Cost'}</button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
       </div>
     )
   }
@@ -620,7 +581,6 @@ function DetailPanel({ archetype, pkg, purchased, cpRemaining, cpSpentByArchId, 
 // ─── SUMMARY VIEW ─────────────────────────────────────────────────────────────
 
 function SummaryView({ dynamicArchetype, purchased, totalCpSpent, budget }) {
-  // Collect all purchased tiers across every archetype, grouped by archetype
   const groups = []
   let totalPerks = 0
   for (const arch of ARCHETYPES) {
@@ -628,83 +588,64 @@ function SummaryView({ dynamicArchetype, purchased, totalCpSpent, budget }) {
     const items = []
     for (const pkg of pkgList) {
       for (let ti = 0; ti < pkg.tiers.length; ti++) {
-        if (purchased.has(`${pkg.id}_${ti}`)) {
-          items.push({ pkg, tier: pkg.tiers[ti], ti })
-          totalPerks++
-        }
+        if (purchased.has(`${pkg.id}_${ti}`)) { items.push({ pkg, tier: pkg.tiers[ti], ti }); totalPerks++ }
       }
     }
     if (items.length > 0) groups.push({ arch, items })
   }
-
   const cpRemaining = budget - totalCpSpent
 
   return (
-    <div style={{ padding: '24px 32px', maxWidth: 700 }}>
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: 3, color: dynamicArchetype?.color || '#f59e0b', marginBottom: 4 }}>
-          {dynamicArchetype ? dynamicArchetype.name.toUpperCase() : 'NO ARCHETYPE'}
+    <div className="p-4 sm:p-6 space-y-5 max-w-2xl">
+      {/* Hero card */}
+      <section className="media-card overflow-hidden">
+        <div className="px-4 py-4 sm:px-5 sm:py-4 border-b border-surface-4">
+          <div className="label-xs text-txt-tertiary mb-1.5" style={{ letterSpacing: '2.5px' }}>YOUR BUILD</div>
+          <div className="font-display font-bold uppercase leading-tight" style={{ fontSize: 'clamp(1.25rem, 2.5vw, 1.75rem)', letterSpacing: '0.04em', color: dynamicArchetype?.color || 'var(--text-primary)' }}>
+            {dynamicArchetype ? dynamicArchetype.name : 'No Archetype Selected'}
+          </div>
+          {dynamicArchetype?.perk && (
+            <div className="text-xs text-txt-tertiary mt-1">{dynamicArchetype.perk.name} — {dynamicArchetype.perk.desc}</div>
+          )}
         </div>
-        <div style={{ fontSize: 12, color: '#6e6e78' }}>
-          {dynamicArchetype?.perk ? `${dynamicArchetype.perk.name} — ${dynamicArchetype.perk.desc}` : '—'}
+        {/* Stat strip */}
+        <div className="flex flex-wrap">
+          {[
+            { label: 'CP SPENT', value: totalCpSpent, color: 'var(--text-primary)' },
+            { label: 'CP REMAINING', value: cpRemaining, color: cpRemaining < 0 ? 'var(--accent-error)' : 'var(--accent-success)' },
+            { label: 'PERKS OWNED', value: totalPerks, color: 'var(--text-primary)' },
+          ].map((c, i, arr) => (
+            <div key={c.label} className="px-4 py-3 flex-1" style={i > 0 ? { borderLeft: '1px solid var(--surface-4)' } : {}}>
+              <div className="font-display font-black tabular-nums leading-none" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.02em', color: c.color }}>{c.value}</div>
+              <div className="label-xs text-txt-tertiary mt-1" style={{ letterSpacing: '1.5px' }}>{c.label}</div>
+            </div>
+          ))}
         </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: 24, marginBottom: 28 }}>
-        <div style={styles.summaryStatBox}>
-          <div style={styles.summaryStatVal}>{totalCpSpent}</div>
-          <div style={styles.summaryStatLabel}>CP SPENT</div>
-        </div>
-        <div style={styles.summaryStatBox}>
-          <div style={{ ...styles.summaryStatVal, color: cpRemaining < 0 ? '#ef4444' : '#22c55e' }}>{cpRemaining}</div>
-          <div style={styles.summaryStatLabel}>CP REMAINING</div>
-        </div>
-        <div style={styles.summaryStatBox}>
-          <div style={styles.summaryStatVal}>{totalPerks}</div>
-          <div style={styles.summaryStatLabel}>PERKS OWNED</div>
-        </div>
-      </div>
+      </section>
 
       {groups.length === 0 ? (
-        <div style={{ color: '#4a4a52', fontSize: 13 }}>No perks purchased yet.</div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {groups.map(({ arch, items }) => {
-            const treeTotal = items.reduce((sum, { tier }) => sum + tier.cp, 0)
-            return (
-            <div key={arch.id}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <div style={{ fontSize: 10, color: arch.color, letterSpacing: 2, fontWeight: 700, textTransform: 'uppercase' }}>
-                  {arch.name}
-                </div>
-                <div style={{ fontSize: 11, color: arch.color, fontWeight: 700 }}>{treeTotal} CP</div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {items.map(({ pkg, tier, ti }) => (
-                  <div key={`${pkg.id}_${ti}`} style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '10px 14px', background: '#191b22',
-                    border: `1px solid ${arch.color}22`, borderRadius: 6,
-                  }}>
-                    <div style={{
-                      minWidth: 36, fontSize: 10, fontWeight: 700, color: arch.color,
-                      background: '#191b22', padding: '2px 6px', borderRadius: 3, textAlign: 'center',
-                    }}>
-                      {pkg.sub}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#f5f5f7' }}>{tier.name}</div>
-                      <div style={{ fontSize: 11, color: '#6e6e78' }}>{tier.desc}</div>
-                    </div>
-                    <div style={{ fontSize: 11, color: arch.color, fontWeight: 700 }}>{tier.cp} CP</div>
-                  </div>
-                ))}
-              </div>
+        <div className="text-center py-8 text-txt-tertiary text-sm">No perks purchased yet.</div>
+      ) : groups.map(({ arch, items }) => {
+        const treeTotal = items.reduce((s, { tier }) => s + tier.cp, 0)
+        return (
+          <section key={arch.id} className="media-card overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-surface-4">
+              <div className="label-xs font-bold" style={{ color: arch.color, letterSpacing: '2px' }}>{arch.name.toUpperCase()}</div>
+              <div className="text-xs font-bold tabular-nums" style={{ color: arch.color }}>{treeTotal} CP</div>
             </div>
-            )
-          })}
-        </div>
-      )}
+            {items.map(({ pkg, tier, ti }, idx) => (
+              <div key={`${pkg.id}_${ti}`} className="flex items-center gap-3 px-4 py-3" style={idx > 0 ? { borderTop: '1px solid var(--surface-4)' } : {}}>
+                {pkg.sub && <div className="text-xs font-bold flex-shrink-0 w-7 text-center py-0.5 rounded bg-surface-3" style={{ color: arch.color }}>{pkg.sub}</div>}
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-txt-primary">{tier.name}</div>
+                  <div className="text-xs text-txt-tertiary">{tier.desc}</div>
+                </div>
+                <div className="text-xs font-bold tabular-nums flex-shrink-0" style={{ color: arch.color }}>{tier.cp} CP</div>
+              </div>
+            ))}
+          </section>
+        )
+      })}
     </div>
   )
 }
@@ -1096,55 +1037,56 @@ export default function CoachBuild() {
   return (
     <div style={styles.root}>
       {/* ── TOP BAR ── */}
-      <div style={styles.topBar}>
-        <button onClick={() => navigate(`${pathPrefix}/coach-career`)} style={styles.backBtn}>
+      <div className="flex items-center gap-3 flex-wrap px-4 py-2 border-b border-surface-4 bg-surface-1 flex-shrink-0">
+        <button onClick={() => navigate(`${pathPrefix}/coach-career`)} className="text-txt-tertiary text-sm font-medium bg-transparent border-0 cursor-pointer p-0 flex-shrink-0 hover:text-txt-secondary transition-colors">
           ← Back
         </button>
 
-        <div style={styles.topTitle}>COACH BUILDER</div>
+        <span className="font-display font-bold uppercase text-txt-primary flex-shrink-0" style={{ fontSize: '1rem', letterSpacing: '3px' }}>
+          Coach Builder
+        </span>
 
-        <div style={styles.topTabs}>
+        <div className="flex gap-0.5">
           {['builder', 'summary'].map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{
-              ...styles.tabBtn,
-              color: activeTab === tab ? '#f5f5f7' : '#6e6e78',
-              borderBottom: activeTab === tab ? '2px solid #f59e0b' : '2px solid transparent',
-            }}>
-              {tab.toUpperCase()}
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-3 py-1 text-xs font-semibold uppercase rounded-sm transition-colors ${activeTab === tab ? 'text-txt-primary' : 'text-txt-tertiary hover:text-txt-primary hover:bg-surface-3'}`}
+              style={activeTab === tab ? { backgroundColor: 'var(--surface-3)', boxShadow: 'inset 0 -2px 0 0 var(--text-primary)' } : {}}
+            >
+              {tab}
             </button>
           ))}
         </div>
 
-        <div style={styles.topControls}>
-          <label style={styles.checkLabel}>
-            <input type="checkbox" checked={preorder} onChange={e => setPreorder(e.target.checked)}
-              style={{ accentColor: '#f59e0b' }} />
-            <span style={{ color: '#f59e0b' }}>Preorder +100</span>
+        <div className="flex items-center gap-4 ml-auto flex-wrap">
+          <label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer" style={{ color: 'var(--accent-warning)' }}>
+            <input type="checkbox" checked={preorder} onChange={e => setPreorder(e.target.checked)} style={{ accentColor: 'var(--accent-warning)' }} />
+            Preorder +100
           </label>
-          <label style={styles.checkLabel}>
-            <input type="checkbox" checked={mvp} onChange={e => setMvp(e.target.checked)}
-              style={{ accentColor: '#f59e0b' }} />
-            <span style={{ color: '#f59e0b' }}>MVP+ +150</span>
+          <label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer" style={{ color: 'var(--accent-warning)' }}>
+            <input type="checkbox" checked={mvp} onChange={e => setMvp(e.target.checked)} style={{ accentColor: 'var(--accent-warning)' }} />
+            MVP+ +150
           </label>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 11, color: '#6e6e78', letterSpacing: 1 }}>LEVEL</span>
+          <div className="flex items-center gap-1.5">
+            <span className="label-xs text-txt-tertiary">LEVEL</span>
             <input
               type="number" min={1} max={100} value={levelInput}
               onChange={e => setLevelInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSetLevel()}
-              style={styles.levelInput}
+              className="w-12 bg-surface-2 border border-surface-4 rounded text-txt-primary text-xs font-bold text-center py-0.5"
             />
-            <button onClick={handleSetLevel} style={styles.setBtn}>SET</button>
+            <button onClick={handleSetLevel} className="px-2 py-0.5 rounded bg-surface-3 border-0 text-txt-secondary text-xs font-bold cursor-pointer hover:text-txt-primary transition-colors">SET</button>
           </div>
 
-          <div style={styles.cpCounter}>
-            <span style={{ color: '#f59e0b', fontWeight: 700 }}>{budget - totalCpSpent}</span>
-            <span style={{ color: '#6e6e78' }}> / {budget}</span>
-            <span style={{ fontSize: 10, color: '#6e6e78', marginLeft: 4, letterSpacing: 1 }}>CP</span>
+          <div className="flex items-center gap-1 bg-surface-2 border border-surface-4 rounded px-2.5 py-1">
+            <span className="font-display font-black tabular-nums text-sm" style={{ color: cpRemaining < 0 ? 'var(--accent-error)' : 'var(--accent-warning)', letterSpacing: '-0.01em' }}>{cpRemaining}</span>
+            <span className="text-txt-tertiary text-xs">/ {budget}</span>
+            <span className="label-xs text-txt-tertiary ml-0.5">CP</span>
           </div>
 
-          <button onClick={handleReset} style={styles.resetBtn}>RESET</button>
+          <button onClick={handleReset} className="px-2.5 py-1 rounded text-xs font-semibold uppercase border border-surface-4 bg-transparent text-txt-tertiary cursor-pointer hover:border-surface-5 hover:text-txt-secondary transition-colors" style={{ letterSpacing: '1px' }}>Reset</button>
         </div>
       </div>
 
@@ -1160,106 +1102,80 @@ export default function CoachBuild() {
       ) : (
         <div style={styles.mainContent}>
           {/* ── LEFT SIDEBAR ── */}
-          <div style={styles.sidebar}>
-            <div style={styles.sideCoachCard}>
-              <div style={styles.sideCoachAvatar}>
-                {currentTeamLogoUrl && (
-                  <img
-                    src={currentTeamLogoUrl}
-                    alt=""
-                    style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%' }}
-                  />
-                )}
+          <div className="flex-shrink-0 border-r border-surface-4 overflow-y-auto flex flex-col" style={{ width: 220, padding: '14px 12px', gap: 0 }}>
+
+            {/* Coach card */}
+            <div className="media-card flex items-center gap-3 px-3 py-2.5 mb-4">
+              <div className="rounded-full bg-surface-3 flex-shrink-0 overflow-hidden flex items-center justify-center" style={{ width: 38, height: 38 }}>
+                {currentTeamLogoUrl && <img src={currentTeamLogoUrl} alt="" className="w-full h-full object-contain" />}
               </div>
-              <div>
-                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: 2, color: '#f5f5f7' }}>
+              <div className="min-w-0">
+                <div className="font-display font-bold leading-tight text-txt-primary truncate" style={{ fontSize: 'clamp(0.9rem, 1.5vw, 1.1rem)', letterSpacing: '0.02em' }}>
                   {coachName}
                 </div>
                 {currentTeamName && (
-                  <div style={{ fontSize: 10, color: '#f59e0b', letterSpacing: 1, marginBottom: 1 }}>
+                  <div className="label-xs mt-0.5 truncate" style={{ color: 'var(--accent-warning)', letterSpacing: '1.5px' }}>
                     {currentTeamName.toUpperCase()}
                   </div>
                 )}
-                <div style={{ fontSize: 11, color: dynamicArchetype ? dynamicArchetype.color : '#6e6e78', letterSpacing: 1 }}>
-                  {dynamicArchetype
-                    ? dynamicArchetype.name.toUpperCase()
-                    : 'NO ARCHETYPE'}
+                <div className="label-xs mt-0.5 truncate" style={{ color: dynamicArchetype ? dynamicArchetype.color : 'var(--text-tertiary)', letterSpacing: '1px' }}>
+                  {dynamicArchetype ? dynamicArchetype.name.toUpperCase() : 'NO ARCHETYPE'}
                 </div>
               </div>
             </div>
 
-            <div style={styles.sideSection}>
-              <div style={styles.sideSectionLabel}>CP BUDGET</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: '#6e6e78' }}>Spent</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#f5f5f7' }}>{totalCpSpent}</span>
+            {/* CP Budget */}
+            <div className="pt-3 border-t border-surface-4">
+              <div className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '2px' }}>CP BUDGET</div>
+              <div className="media-card overflow-hidden mb-3">
+                {[
+                  { label: 'Spent', value: totalCpSpent, color: 'var(--text-primary)' },
+                  ...(archetypeId ? [{ label: `In ${archetype?.name || archetypeId}`, value: cpSpentByArchId[archetypeId] ?? 0, color: archetype?.color || 'var(--text-secondary)' }] : []),
+                  { label: 'Remaining', value: cpRemaining, color: cpRemaining < 0 ? 'var(--accent-error)' : 'var(--accent-success)' },
+                ].map((row, i, arr) => (
+                  <div key={row.label} className="flex items-center justify-between px-3 py-2" style={i > 0 ? { borderTop: '1px solid var(--surface-4)' } : {}}>
+                    <span className="text-xs text-txt-tertiary">{row.label}</span>
+                    <span className="font-display font-black tabular-nums text-sm" style={{ color: row.color, letterSpacing: '-0.01em' }}>{row.value}</span>
+                  </div>
+                ))}
               </div>
-              {archetypeId && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, color: archetype?.color || '#6e6e78' }}>
-                    In {archetype?.name || archetypeId}
-                  </span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: archetype?.color || '#f5f5f7' }}>
-                    {cpSpentByArchId[archetypeId] ?? 0}
-                  </span>
-                </div>
-              )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <span style={{ fontSize: 11, color: '#6e6e78' }}>Remaining</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: cpRemaining < 0 ? '#ef4444' : '#22c55e' }}>
-                  {cpRemaining}
-                </span>
-              </div>
-              {/* Budget bar */}
-              <div style={{ height: 4, background: '#2f313b', borderRadius: 2, overflow: 'hidden' }}>
-                <div style={{
-                  height: '100%',
-                  width: `${Math.min(100, (totalCpSpent / budget) * 100)}%`,
-                  background: cpRemaining < 0 ? '#ef4444' : archetype?.color || '#f59e0b',
-                  transition: 'width 0.3s',
-                }} />
+              <div className="rounded-full overflow-hidden" style={{ height: 3, background: 'var(--surface-4)' }}>
+                <div style={{ height: '100%', width: `${Math.min(100, (totalCpSpent / budget) * 100)}%`, background: cpRemaining < 0 ? 'var(--accent-error)' : archetype?.color || 'var(--accent-warning)', transition: 'width 0.3s' }} />
               </div>
             </div>
 
-            {(archetype || previewArch) && (
-              <div style={styles.sideSection}>
-                <div style={styles.sideSectionLabel}>
-                  {isPreviewMode ? 'PERK (PREVIEW)' : 'ARCHETYPE PERK'}
-                </div>
-                <div style={{ fontSize: 11, color: (archetype || previewArch).color, fontWeight: 700, marginBottom: 2 }}>
-                  {(archetype || previewArch).perk?.name ?? '—'}
-                </div>
-                <div style={{ fontSize: 10, color: '#6e6e78', lineHeight: 1.5 }}>
-                  {(archetype || previewArch).perk?.desc ?? ''}
+            {/* Archetype perk */}
+            {(archetype || previewArch) && (archetype || previewArch).perk && (
+              <div className="pt-3 mt-3 border-t border-surface-4">
+                <div className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '2px' }}>{isPreviewMode ? 'PERK (PREVIEW)' : 'ARCHETYPE PERK'}</div>
+                <div className="media-card px-3 py-2.5">
+                  <div className="text-xs font-bold mb-1" style={{ color: (archetype || previewArch).color }}>{(archetype || previewArch).perk.name}</div>
+                  <div className="text-xs text-txt-tertiary leading-relaxed">{(archetype || previewArch).perk.desc}</div>
                 </div>
               </div>
             )}
 
+            {/* Purchased packages */}
             {purchasedList.length > 0 && (() => {
-              // Group flat list by archetype
               const groups = []
               const seen = new Map()
               for (const item of purchasedList) {
-                if (!seen.has(item.archId)) {
-                  const g = { archId: item.archId, archName: item.archName, archColor: item.archColor, items: [] }
-                  seen.set(item.archId, g)
-                  groups.push(g)
-                }
+                if (!seen.has(item.archId)) { const g = { archId: item.archId, archName: item.archName, archColor: item.archColor, items: [] }; seen.set(item.archId, g); groups.push(g) }
                 seen.get(item.archId).items.push(item)
               }
               return (
-                <div style={styles.sideSection}>
-                  <div style={styles.sideSectionLabel}>PURCHASED PACKAGES</div>
+                <div className="pt-3 mt-3 border-t border-surface-4">
+                  <div className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '2px' }}>PURCHASED</div>
                   {groups.map(({ archId, archName, archColor, items }) => (
-                    <div key={archId} style={{ marginBottom: 8 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                        <span style={{ fontSize: 9, color: archColor, letterSpacing: 1, fontWeight: 700 }}>{archName.toUpperCase()}</span>
-                        <span style={{ fontSize: 10, color: archColor, fontWeight: 700 }}>{cpSpentByArchId[archId] ?? 0} CP</span>
+                    <div key={archId} className="media-card overflow-hidden mb-2">
+                      <div className="flex items-center justify-between px-3 py-1.5 border-b border-surface-4">
+                        <span className="label-xs font-bold" style={{ color: archColor, letterSpacing: '1.5px' }}>{archName.toUpperCase()}</span>
+                        <span className="text-xs font-bold tabular-nums" style={{ color: archColor }}>{cpSpentByArchId[archId] ?? 0} CP</span>
                       </div>
-                      {items.map(({ pkg, count, total, archColor: c }) => (
-                        <div key={pkg.id} style={styles.sidePkgRow}>
-                          <span style={{ fontSize: 11, color: '#a8a8b0' }}>{pkg.name}</span>
-                          <span style={{ fontSize: 11, color: c, fontWeight: 700 }}>{count}/{total}</span>
+                      {items.map(({ pkg, count, total, archColor: c }, idx) => (
+                        <div key={pkg.id} className="flex items-center justify-between px-3 py-1.5" style={idx > 0 ? { borderTop: '1px solid var(--surface-4)' } : {}}>
+                          <span className="text-xs text-txt-secondary truncate">{pkg.name}</span>
+                          <span className="text-xs font-bold tabular-nums flex-shrink-0 ml-2" style={{ color: c }}>{count}/{total}</span>
                         </div>
                       ))}
                     </div>
@@ -1273,9 +1189,9 @@ export default function CoachBuild() {
           <div style={styles.canvas}>
             {!archetypeId && !previewArchId ? (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div style={styles.chooseTitle}>CHOOSE YOUR STARTING ARCHETYPE</div>
-                <div style={styles.chooseSubtitle}>
-                  Pick one of the three highlighted trees — it's free. The other two unlock at level 10.
+                <div className="text-center mb-1">
+                  <div className="font-display font-bold uppercase text-txt-primary" style={{ fontSize: 'clamp(1.1rem, 2vw, 1.5rem)', letterSpacing: '0.1em' }}>Choose Your Starting Archetype</div>
+                  <div className="text-xs text-txt-tertiary mt-1">Pick one of the three highlighted trees — it's free. The other two unlock at level 10.</div>
                 </div>
                 <div style={{ flex: 1, width: '100%', maxWidth: 820 }}>
                   <ArchetypeWheel
@@ -1288,13 +1204,13 @@ export default function CoachBuild() {
             ) : (
               <div style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
                 {/* Back button */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexShrink: 0 }}>
+                <div className="flex-shrink-0 mb-1.5">
                   <button
                     onClick={() => {
                       if (isPreviewMode) { setPreviewArchId(null); setSelectedPkg(null) }
                       else { setArchetypeId(null); setSelectedPkg(null) }
                     }}
-                    style={{ ...styles.backBtn, fontSize: 11 }}
+                    className="text-txt-tertiary text-xs font-medium bg-transparent border-0 cursor-pointer p-0 hover:text-txt-secondary transition-colors"
                   >
                     ← Back to wheel
                   </button>
@@ -1302,28 +1218,13 @@ export default function CoachBuild() {
 
                 {/* Preview banner */}
                 {isPreviewMode && previewArch && (
-                  <div style={{
-                    flexShrink: 0,
-                    margin: '0 0 8px',
-                    padding: '10px 14px',
-                    background: '#0b0c11',
-                    border: '1px solid #2f313b',
-                    borderRadius: 7,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 12,
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{
-                        fontSize: 9, fontWeight: 700, letterSpacing: 1.5,
-                        color: '#f59e0b', background: '#1a1200', border: '1px solid #5a3d00',
-                        borderRadius: 3, padding: '2px 6px',
-                      }}>
+                  <div className="media-card flex items-center justify-between gap-3 px-4 py-2.5 mb-2 flex-shrink-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold flex-shrink-0" style={{ letterSpacing: '1.5px', color: 'var(--accent-warning)', background: 'color-mix(in srgb, var(--accent-warning) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--accent-warning) 25%, transparent)' }}>
                         PREVIEW
-                      </div>
-                      <span style={{ fontSize: 12, color: '#6e6e78' }}>
-                        <strong style={{ color: '#a8a8b0' }}>{previewArch.name}</strong> isn't unlocked yet — browse what you'd get.
+                      </span>
+                      <span className="text-xs text-txt-tertiary truncate">
+                        <strong className="text-txt-secondary">{previewArch.name}</strong> — browse before unlocking
                       </span>
                     </div>
                     {(() => {
@@ -1333,19 +1234,16 @@ export default function CoachBuild() {
                         <button
                           disabled={prevAlreadyUnlocked}
                           onClick={() => prevAlreadyUnlocked ? null : isPrevPremium ? handleUnlockArchetype(previewArch.id) : handleSelectArchetype(previewArch.id)}
+                          className="flex-shrink-0 px-3 py-1 rounded text-xs font-bold uppercase transition-colors"
                           style={{
-                            ...styles.btnPrimary,
-                            background: prevAlreadyUnlocked ? '#0d2010' : previewArch.color,
-                            color: prevAlreadyUnlocked ? '#22c55e' : '#fff',
-                            border: prevAlreadyUnlocked ? '1px solid #16a34a' : 'none',
+                            letterSpacing: '1px',
+                            background: prevAlreadyUnlocked ? 'color-mix(in srgb, var(--accent-success) 12%, transparent)' : previewArch.color,
+                            color: prevAlreadyUnlocked ? 'var(--accent-success)' : '#fff',
+                            border: prevAlreadyUnlocked ? '1px solid color-mix(in srgb, var(--accent-success) 30%, transparent)' : 'none',
                             cursor: prevAlreadyUnlocked ? 'default' : 'pointer',
-                            padding: '6px 14px',
-                            fontSize: 10,
-                            whiteSpace: 'nowrap',
-                            flexShrink: 0,
                           }}
                         >
-                          {prevAlreadyUnlocked ? 'UNLOCKED' : isPrevPremium ? `UNLOCK ${previewArch.name.toUpperCase()}` : `START AS ${previewArch.name.toUpperCase()}`}
+                          {prevAlreadyUnlocked ? 'Unlocked' : isPrevPremium ? `Unlock ${previewArch.name}` : `Start as ${previewArch.name}`}
                         </button>
                       )
                     })()}
@@ -1407,9 +1305,10 @@ export default function CoachBuild() {
                   onPreview={handlePreview}
                 />
               ) : (
-                <div style={styles.detailEmpty}>
-                  <div style={{ color: '#4a4a52', fontSize: 12, textAlign: 'center', lineHeight: 1.7, letterSpacing: 0.5 }}>
-                    Click an archetype<br />to preview it
+                <div className="flex items-center justify-center h-full p-6">
+                  <div className="text-center text-txt-muted">
+                    <div className="text-xs font-semibold uppercase mb-1" style={{ letterSpacing: '2px' }}>Select an archetype</div>
+                    <div className="text-xs text-txt-tertiary">to preview its tree</div>
                   </div>
                 </div>
               )
@@ -1429,9 +1328,10 @@ export default function CoachBuild() {
               />
             )}
             {isPreviewMode && !selectedPackage && (
-              <div style={styles.detailEmpty}>
-                <div style={{ color: '#4a4a52', fontSize: 12, textAlign: 'center', lineHeight: 1.7, letterSpacing: 0.5 }}>
-                  Click a package<br />to see its tiers
+              <div className="flex items-center justify-center h-full p-6">
+                <div className="text-center">
+                  <div className="text-xs font-semibold uppercase text-txt-tertiary mb-1" style={{ letterSpacing: '2px' }}>Click a package</div>
+                  <div className="text-xs text-txt-tertiary">to see its tiers</div>
                 </div>
               </div>
             )}
