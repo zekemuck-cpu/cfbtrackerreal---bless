@@ -158,7 +158,7 @@ function PackageWheel({ archetype, packages, purchased, selected, onSelect }) {
             key={pkg.id + '_line'}
             x1={CX} y1={CY}
             x2={pos.x} y2={pos.y}
-            stroke={active ? archetype.color : '#1e3352'}
+            stroke={active ? archetype.color : '#2f313b'}
             strokeWidth={active ? 2.5 : 1.5}
             strokeOpacity={active ? 0.8 : 0.5}
           />
@@ -167,12 +167,12 @@ function PackageWheel({ archetype, packages, purchased, selected, onSelect }) {
 
       {/* Center archetype node */}
       <circle cx={CX} cy={CY} r={CENTER_R + 6} fill={archetype.glowColor} />
-      <circle cx={CX} cy={CY} r={CENTER_R} fill="#0d1520" stroke={archetype.color} strokeWidth={2.5} />
+      <circle cx={CX} cy={CY} r={CENTER_R} fill="#191b22" stroke={archetype.color} strokeWidth={2.5} />
       <text x={CX} y={CY - 8} textAnchor="middle" fill={archetype.color}
         style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: 1 }}>
         {archetype.name.toUpperCase()}
       </text>
-      <text x={CX} y={CY + 8} textAnchor="middle" fill="#64748b"
+      <text x={CX} y={CY + 8} textAnchor="middle" fill="#6e6e78"
         style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 10, letterSpacing: 1 }}>
         ARCHETYPE
       </text>
@@ -198,8 +198,8 @@ function PackageWheel({ archetype, packages, purchased, selected, onSelect }) {
             )}
             {/* Main node circle */}
             <circle cx={pos.x} cy={pos.y} r={NODE_R}
-              fill={active ? '#0f1e30' : '#0d1520'}
-              stroke={isSelected ? archetype.color : active ? archetype.color : '#1e3352'}
+              fill={active ? '#0f1e30' : '#191b22'}
+              stroke={isSelected ? archetype.color : active ? archetype.color : '#2f313b'}
               strokeWidth={isSelected ? 2.5 : active ? 2 : 1.5}
               strokeOpacity={isSelected ? 1 : active ? 0.8 : 0.5}
             />
@@ -209,17 +209,17 @@ function PackageWheel({ archetype, packages, purchased, selected, onSelect }) {
               cx={pos.x}
               cy={pos.y - 6}
               size={22}
-              color={active ? archetype.color : isSelected ? archetype.color : '#334155'}
+              color={active ? archetype.color : isSelected ? archetype.color : '#4a4a52'}
             />
             {/* Tier count */}
             <text x={pos.x} y={pos.y + 17} textAnchor="middle"
-              fill={active ? '#f8fafc' : '#334155'}
+              fill={active ? '#f5f5f7' : '#4a4a52'}
               style={{ fontSize: 10, fontWeight: 600, pointerEvents: 'none' }}>
               {tiersOwned}/{total}
             </text>
             {/* Package name below node */}
             <text x={pos.x} y={pos.y + NODE_R + 14} textAnchor="middle"
-              fill={active ? '#94a3b8' : '#334155'}
+              fill={active ? '#a8a8b0' : '#4a4a52'}
               style={{ fontSize: 10, letterSpacing: 0.5, pointerEvents: 'none' }}>
               {pkg.name.toUpperCase()}
             </text>
@@ -268,9 +268,9 @@ function ArchetypeWheel({ onSelect, selected, starterArchId }) {
     <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} width="100%" height="100%" style={{ overflow: 'visible' }}>
       {/* Decorative center hexagon (matches game's large center hex piece) */}
       <polygon points="490,370 445,293 355,293 310,370 355,447 445,447"
-        fill="#0d1520" stroke="#d4a017" strokeWidth={1.5} strokeOpacity={0.25} />
+        fill="#191b22" stroke="#f59e0b" strokeWidth={1.5} strokeOpacity={0.25} />
       <polygon points="460,370 423,306 377,306 340,370 377,434 423,434"
-        fill="#0a0f1a" stroke="#d4a017" strokeWidth={1} strokeOpacity={0.15} />
+        fill="#0b0c11" stroke="#f59e0b" strokeWidth={1} strokeOpacity={0.15} />
 
       {/* Direct edges between connected archetypes */}
       {edges.map(([a, b], i) => {
@@ -282,7 +282,7 @@ function ArchetypeWheel({ onSelect, selected, starterArchId }) {
         return (
           <line key={`edge_${i}`}
             x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y}
-            stroke={highlight ? (isHovA ? ARCHETYPES[a].color : ARCHETYPES[b].color) : '#1e3352'}
+            stroke={highlight ? (isHovA ? ARCHETYPES[a].color : ARCHETYPES[b].color) : '#2f313b'}
             strokeWidth={highlight ? 2 : 1.5}
             strokeOpacity={highlight ? 0.7 : 0.4}
           />
@@ -313,7 +313,7 @@ function ArchetypeWheel({ onSelect, selected, starterArchId }) {
         const glowR = highlight ? 62 : isPreSelection ? 58 : 54
         const strokeW = isSelected ? 3.5 : isPreSelection ? 2.5 : highlight ? 3 : 2
         const strokeOpacity = (isPremium || isLevel10Locked) && !highlight ? 0.6 : 1
-        const labelColor = isSelected ? arch.color : isPreSelection ? arch.color : '#475569'
+        const labelColor = isSelected ? arch.color : isPreSelection ? arch.color : '#6e6e78'
 
         return (
           <g key={arch.id}
@@ -331,7 +331,7 @@ function ArchetypeWheel({ onSelect, selected, starterArchId }) {
             <circle cx={pos.x} cy={pos.y} r={glowR} fill={arch.glowColor} />
             {/* Main circle */}
             <circle cx={pos.x} cy={pos.y} r={48}
-              fill={highlight ? '#111d30' : '#0d1520'}
+              fill={highlight ? '#23252e' : '#191b22'}
               stroke={arch.color} strokeWidth={strokeW}
               strokeOpacity={strokeOpacity} />
             {/* Archetype name */}
@@ -358,7 +358,7 @@ function DetailPanel({ archetype, pkg, purchased, cpRemaining, cpSpentByArchId, 
   if (!archetype && !pkg) {
     return (
       <div style={styles.detailEmpty}>
-        <div style={{ color: '#334155', fontSize: 13, textAlign: 'center', lineHeight: 1.7 }}>
+        <div style={{ color: '#4a4a52', fontSize: 13, textAlign: 'center', lineHeight: 1.7 }}>
           Select an archetype<br />to begin building
         </div>
       </div>
@@ -381,7 +381,7 @@ function DetailPanel({ archetype, pkg, purchased, cpRemaining, cpSpentByArchId, 
           )}
         </div>
         {archetype.subtitle && (
-          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 12 }}>{archetype.subtitle}</div>
+          <div style={{ fontSize: 11, color: '#6e6e78', marginBottom: 12 }}>{archetype.subtitle}</div>
         )}
         <div style={styles.detailSection}>
           <div style={styles.detailLabel}>ARCHETYPE PERK</div>
@@ -394,7 +394,7 @@ function DetailPanel({ archetype, pkg, purchased, cpRemaining, cpSpentByArchId, 
             <div style={styles.detailPerkDesc}>—</div>
           )}
         </div>
-        <div style={{ height: 1, background: '#1a2640', margin: '14px 0' }} />
+        <div style={{ height: 1, background: '#2f313b', margin: '14px 0' }} />
         {!isPremium && archetype.premiumName && (
           <>
             <div style={styles.detailSection}>
@@ -403,7 +403,7 @@ function DetailPanel({ archetype, pkg, purchased, cpRemaining, cpSpentByArchId, 
               <div style={styles.detailPerkName}>{archetype.premiumPerk.name}</div>
               <div style={styles.detailPerkDesc}>{archetype.premiumPerk.desc}</div>
             </div>
-            <div style={{ height: 1, background: '#1a2640', margin: '14px 0' }} />
+            <div style={{ height: 1, background: '#2f313b', margin: '14px 0' }} />
           </>
         )}
         <div style={styles.detailSection}>
@@ -435,24 +435,24 @@ function DetailPanel({ archetype, pkg, purchased, cpRemaining, cpSpentByArchId, 
                       >
                         <div style={{
                           width: 13, height: 13,
-                          border: `2px solid ${isChecked ? archetype.color : '#334155'}`,
-                          borderRadius: 3, background: isChecked ? archetype.color : '#0a0f1a', flexShrink: 0,
+                          border: `2px solid ${isChecked ? archetype.color : '#4a4a52'}`,
+                          borderRadius: 3, background: isChecked ? archetype.color : '#0b0c11', flexShrink: 0,
                         }} />
-                        <span style={{ fontSize: 11, color: isChecked ? archetype.color : '#475569' }}>{req.label}</span>
+                        <span style={{ fontSize: 11, color: isChecked ? archetype.color : '#6e6e78' }}>{req.label}</span>
                       </div>
                     ) : req.type === 'plain' ? (
-                      <div style={{ fontSize: 11, color: '#475569' }}>{req.label}</div>
+                      <div style={{ fontSize: 11, color: '#6e6e78' }}>{req.label}</div>
                     ) : (
                       <>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                          <span style={{ fontSize: 11, color: met ? archetype.color : '#475569' }}>{req.label}</span>
+                          <span style={{ fontSize: 11, color: met ? archetype.color : '#6e6e78' }}>{req.label}</span>
                           {req.total && (
-                            <span style={{ fontSize: 10, color: met ? archetype.color : '#334155' }}>
+                            <span style={{ fontSize: 10, color: met ? archetype.color : '#4a4a52' }}>
                               {Math.min(current, req.total)}/{req.total}
                             </span>
                           )}
                         </div>
-                        <div style={{ height: 3, background: '#1a2640', borderRadius: 2 }}>
+                        <div style={{ height: 3, background: '#2f313b', borderRadius: 2 }}>
                           <div style={{ height: '100%', width: `${pct}%`, background: archetype.color, borderRadius: 2, opacity: met ? 1 : 0.6, transition: 'width 0.3s' }} />
                         </div>
                       </>
@@ -461,8 +461,8 @@ function DetailPanel({ archetype, pkg, purchased, cpRemaining, cpSpentByArchId, 
                 )
               })}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                <span style={{ fontSize: 11, color: '#d4a017' }}>&#9679;</span>
-                <span style={{ fontSize: 11, color: '#475569' }}>Purchase Price: <strong style={{ color: archetype.color }}>{archetype.unlockCost > 0 ? `${archetype.unlockCost} CP` : 'Free'}</strong></span>
+                <span style={{ fontSize: 11, color: '#f59e0b' }}>&#9679;</span>
+                <span style={{ fontSize: 11, color: '#6e6e78' }}>Purchase Price: <strong style={{ color: archetype.color }}>{archetype.unlockCost > 0 ? `${archetype.unlockCost} CP` : 'Free'}</strong></span>
               </div>
             </div>
           ) : (
@@ -486,9 +486,9 @@ function DetailPanel({ archetype, pkg, purchased, cpRemaining, cpSpentByArchId, 
                   onClick={() => canEnter && !alreadyUnlocked ? (needsUnlock ? onUnlockArchetype?.(archetype.id) : onSelectArchetype(archetype.id)) : null}
                   style={{
                     ...styles.btnPrimary,
-                    background: alreadyUnlocked ? '#0d2010' : canEnter ? archetype.color : '#1a2640',
-                    color: alreadyUnlocked ? '#22c55e' : canEnter ? '#fff' : '#334155',
-                    border: alreadyUnlocked ? '1px solid #16a34a' : canEnter ? 'none' : '1px solid #1e3352',
+                    background: alreadyUnlocked ? '#0d2010' : canEnter ? archetype.color : '#23252e',
+                    color: alreadyUnlocked ? '#22c55e' : canEnter ? '#fff' : '#4a4a52',
+                    border: alreadyUnlocked ? '1px solid #16a34a' : canEnter ? 'none' : '1px solid #2f313b',
                     cursor: alreadyUnlocked ? 'default' : canEnter ? 'pointer' : 'not-allowed',
                     width: '100%',
                   }}
@@ -496,7 +496,7 @@ function DetailPanel({ archetype, pkg, purchased, cpRemaining, cpSpentByArchId, 
                   {label}
                 </button>
                 {needsUnlock && !canEnter && !alreadyUnlocked && (
-                  <div style={{ fontSize: 10, color: '#475569', textAlign: 'center', letterSpacing: 0.5 }}>
+                  <div style={{ fontSize: 10, color: '#6e6e78', textAlign: 'center', letterSpacing: 0.5 }}>
                     Complete unlock requirements above
                   </div>
                 )}
@@ -519,8 +519,8 @@ function DetailPanel({ archetype, pkg, purchased, cpRemaining, cpSpentByArchId, 
                 style={{
                   ...styles.btnPrimary,
                   background: isUnlocked ? archetype.color : 'transparent',
-                  border: isUnlocked ? 'none' : '1px solid #1e3352',
-                  color: isUnlocked ? '#fff' : '#94a3b8',
+                  border: isUnlocked ? 'none' : '1px solid #2f313b',
+                  color: isUnlocked ? '#fff' : '#a8a8b0',
                   width: '100%',
                 }}
               >
@@ -539,26 +539,26 @@ function DetailPanel({ archetype, pkg, purchased, cpRemaining, cpSpentByArchId, 
       <div style={styles.detailPanel}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
           <div style={{
-            background: '#1a2640', borderRadius: 4, padding: '3px 8px',
+            background: '#23252e', borderRadius: 4, padding: '3px 8px',
             fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, color: archetype.color, letterSpacing: 2,
           }}>
             {tiersOwned}/{pkg.tiers.length}
           </div>
-          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: 2, color: '#f8fafc' }}>
+          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: 2, color: '#f5f5f7' }}>
             {pkg.name.toUpperCase()}
           </div>
         </div>
-        <div style={{ fontSize: 11, color: '#475569', marginBottom: 16 }}>
+        <div style={{ fontSize: 11, color: '#6e6e78', marginBottom: 16 }}>
           {pkg.desc || `Purchase upgrades for your ${pkg.sub}`}
         </div>
 
         {(isElitePkg || isPreview) && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12,
-            padding: '6px 10px', background: '#0a0f1a', border: '1px solid #1e2d40', borderRadius: 5,
+            padding: '6px 10px', background: '#0b0c11', border: '1px solid #1e2d40', borderRadius: 5,
           }}>
-            <span style={{ fontSize: 10, color: '#d4a017' }}>&#128274;</span>
-            <span style={{ fontSize: 10, color: '#64748b' }}>
+            <span style={{ fontSize: 10, color: '#f59e0b' }}>&#128274;</span>
+            <span style={{ fontSize: 10, color: '#6e6e78' }}>
               {isPreview
                 ? `Start as ${archetype.name} to purchase these tiers`
                 : `Unlock ${archetype.name} first to purchase these tiers`}
@@ -578,20 +578,20 @@ function DetailPanel({ archetype, pkg, purchased, cpRemaining, cpSpentByArchId, 
             <div key={key} style={{
               ...styles.tierRow,
               opacity: locked ? 0.4 : isElitePkg && !owned ? 0.7 : 1,
-              borderColor: owned ? archetype.color : '#1a2640',
-              background: owned ? 'rgba(15,30,50,0.8)' : '#0d1520',
+              borderColor: owned ? archetype.color : '#2f313b',
+              background: owned ? 'rgba(15,30,50,0.8)' : '#191b22',
             }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 10, color: '#475569', letterSpacing: 1, marginBottom: 2 }}>
+                <div style={{ fontSize: 10, color: '#6e6e78', letterSpacing: 1, marginBottom: 2 }}>
                   TIER {ti + 1}
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: owned ? archetype.color : '#94a3b8', marginBottom: 2 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: owned ? archetype.color : '#a8a8b0', marginBottom: 2 }}>
                   {tier.name}
                 </div>
-                <div style={{ fontSize: 11, color: '#475569' }}>{tier.desc}</div>
+                <div style={{ fontSize: 11, color: '#6e6e78' }}>{tier.desc}</div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                <div style={{ fontSize: 11, color: '#d4a017', fontWeight: 700 }}>
+                <div style={{ fontSize: 11, color: '#f59e0b', fontWeight: 700 }}>
                   {tier.cp} CP
                 </div>
                 {!locked && !isElitePkg && !isPreview && (
@@ -600,8 +600,8 @@ function DetailPanel({ archetype, pkg, purchased, cpRemaining, cpSpentByArchId, 
                     disabled={!owned && !canBuy}
                     style={{
                       ...styles.tierBtn,
-                      background: owned ? '#1a2640' : canBuy ? archetype.color : '#111d30',
-                      color: owned ? '#94a3b8' : canBuy ? '#fff' : '#334155',
+                      background: owned ? '#23252e' : canBuy ? archetype.color : '#191b22',
+                      color: owned ? '#a8a8b0' : canBuy ? '#fff' : '#4a4a52',
                       cursor: owned || canBuy ? 'pointer' : 'not-allowed',
                     }}
                   >
@@ -642,10 +642,10 @@ function SummaryView({ dynamicArchetype, purchased, totalCpSpent, budget }) {
   return (
     <div style={{ padding: '24px 32px', maxWidth: 700 }}>
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: 3, color: dynamicArchetype?.color || '#d4a017', marginBottom: 4 }}>
+        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: 3, color: dynamicArchetype?.color || '#f59e0b', marginBottom: 4 }}>
           {dynamicArchetype ? dynamicArchetype.name.toUpperCase() : 'NO ARCHETYPE'}
         </div>
-        <div style={{ fontSize: 12, color: '#64748b' }}>
+        <div style={{ fontSize: 12, color: '#6e6e78' }}>
           {dynamicArchetype?.perk ? `${dynamicArchetype.perk.name} — ${dynamicArchetype.perk.desc}` : '—'}
         </div>
       </div>
@@ -666,7 +666,7 @@ function SummaryView({ dynamicArchetype, purchased, totalCpSpent, budget }) {
       </div>
 
       {groups.length === 0 ? (
-        <div style={{ color: '#334155', fontSize: 13 }}>No perks purchased yet.</div>
+        <div style={{ color: '#4a4a52', fontSize: 13 }}>No perks purchased yet.</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {groups.map(({ arch, items }) => {
@@ -683,18 +683,18 @@ function SummaryView({ dynamicArchetype, purchased, totalCpSpent, budget }) {
                 {items.map(({ pkg, tier, ti }) => (
                   <div key={`${pkg.id}_${ti}`} style={{
                     display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '10px 14px', background: '#0d1520',
+                    padding: '10px 14px', background: '#191b22',
                     border: `1px solid ${arch.color}22`, borderRadius: 6,
                   }}>
                     <div style={{
                       minWidth: 36, fontSize: 10, fontWeight: 700, color: arch.color,
-                      background: '#0a1520', padding: '2px 6px', borderRadius: 3, textAlign: 'center',
+                      background: '#191b22', padding: '2px 6px', borderRadius: 3, textAlign: 'center',
                     }}>
                       {pkg.sub}
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9' }}>{tier.name}</div>
-                      <div style={{ fontSize: 11, color: '#475569' }}>{tier.desc}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#f5f5f7' }}>{tier.name}</div>
+                      <div style={{ fontSize: 11, color: '#6e6e78' }}>{tier.desc}</div>
                     </div>
                     <div style={{ fontSize: 11, color: arch.color, fontWeight: 700 }}>{tier.cp} CP</div>
                   </div>
@@ -719,10 +719,10 @@ function EliteSection({ archetype, premium, purchased, baseOnlyCpSpent, selected
   const checkboxReq = premium.unlockReqs.find(r => r.type === 'checkbox')
 
   return (
-    <div style={{ padding: '16px 20px 24px', borderTop: '1px solid #1a2640', marginTop: 8 }}>
+    <div style={{ padding: '16px 20px 24px', borderTop: '1px solid #2f313b', marginTop: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-        <span style={{ fontSize: 12, color: '#d4a017' }}>&#128274;</span>
-        <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: 3, color: '#64748b' }}>
+        <span style={{ fontSize: 12, color: '#f59e0b' }}>&#128274;</span>
+        <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: 3, color: '#6e6e78' }}>
           {premium.name.toUpperCase()}
         </span>
       </div>
@@ -737,8 +737,8 @@ function EliteSection({ archetype, premium, purchased, baseOnlyCpSpent, selected
               onClick={() => onSelect(pkg.id)}
               title={pkg.name + (pkg.sub ? ` (${pkg.sub})` : '')}
               style={{
-                background: '#0a0f1a',
-                border: `2px solid ${isSelected ? '#94a3b8' : '#1e2d40'}`,
+                background: '#0b0c11',
+                border: `2px solid ${isSelected ? '#a8a8b0' : '#1e2d40'}`,
                 borderRadius: 8,
                 padding: '10px 6px 6px',
                 cursor: 'pointer',
@@ -753,16 +753,16 @@ function EliteSection({ archetype, premium, purchased, baseOnlyCpSpent, selected
               onMouseLeave={e => { e.currentTarget.style.opacity = isSelected ? 0.75 : 0.55 }}
             >
               <div style={{
-                width: 34, height: 34, background: '#1a2640', borderRadius: 4,
+                width: 34, height: 34, background: '#23252e', borderRadius: 4,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 <InlineIcon
                   iconKey={pkg.icon}
                   size={20}
-                  color={tiersOwned > 0 ? '#64748b' : '#334155'}
+                  color={tiersOwned > 0 ? '#6e6e78' : '#4a4a52'}
                 />
               </div>
-              <div style={{ fontSize: 10, color: tiersOwned > 0 ? '#64748b' : '#334155' }}>
+              <div style={{ fontSize: 10, color: tiersOwned > 0 ? '#6e6e78' : '#4a4a52' }}>
                 {tiersOwned}/{pkg.tiers.length}
               </div>
             </div>
@@ -772,20 +772,20 @@ function EliteSection({ archetype, premium, purchased, baseOnlyCpSpent, selected
 
       {/* Unlock requirements */}
       <div>
-        <div style={{ fontSize: 9, color: '#334155', letterSpacing: 2, marginBottom: 10 }}>UNLOCK REQUIREMENTS</div>
+        <div style={{ fontSize: 9, color: '#4a4a52', letterSpacing: 2, marginBottom: 10 }}>UNLOCK REQUIREMENTS</div>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 160 }}>
-            <div style={{ fontSize: 11, color: '#475569', marginBottom: 4 }}>Unlock {archetype.name} first</div>
-            <div style={{ height: 3, background: '#1a2640', borderRadius: 2 }}>
+            <div style={{ fontSize: 11, color: '#6e6e78', marginBottom: 4 }}>Unlock {archetype.name} first</div>
+            <div style={{ height: 3, background: '#2f313b', borderRadius: 2 }}>
               <div style={{ height: '100%', width: '100%', background: archetype.color, borderRadius: 2, opacity: 0.4 }} />
             </div>
-            <div style={{ fontSize: 11, color: '#475569', marginTop: 8, marginBottom: 4 }}>
+            <div style={{ fontSize: 11, color: '#6e6e78', marginTop: 8, marginBottom: 4 }}>
               Spend {spendReq} In {archetype.name}{' '}
-              <span style={{ color: spendProgress >= spendReq ? '#22c55e' : '#64748b', fontWeight: 700 }}>
+              <span style={{ color: spendProgress >= spendReq ? '#22c55e' : '#6e6e78', fontWeight: 700 }}>
                 {spendProgress}/{spendReq}
               </span>
             </div>
-            <div style={{ height: 3, background: '#1a2640', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ height: 3, background: '#2f313b', borderRadius: 2, overflow: 'hidden' }}>
               <div style={{
                 height: '100%',
                 width: `${(spendProgress / spendReq) * 100}%`,
@@ -798,10 +798,10 @@ function EliteSection({ archetype, premium, purchased, baseOnlyCpSpent, selected
           {checkboxReq && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 180 }}>
               <div style={{
-                width: 14, height: 14, border: '2px solid #334155', borderRadius: 3,
-                background: '#0a0f1a', flexShrink: 0,
+                width: 14, height: 14, border: '2px solid #4a4a52', borderRadius: 3,
+                background: '#0b0c11', flexShrink: 0,
               }} />
-              <span style={{ fontSize: 11, color: '#475569' }}>{checkboxReq.label}</span>
+              <span style={{ fontSize: 11, color: '#6e6e78' }}>{checkboxReq.label}</span>
             </div>
           )}
         </div>
@@ -1107,8 +1107,8 @@ export default function CoachBuild() {
           {['builder', 'summary'].map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
               ...styles.tabBtn,
-              color: activeTab === tab ? '#f8fafc' : '#475569',
-              borderBottom: activeTab === tab ? '2px solid #d4a017' : '2px solid transparent',
+              color: activeTab === tab ? '#f5f5f7' : '#6e6e78',
+              borderBottom: activeTab === tab ? '2px solid #f59e0b' : '2px solid transparent',
             }}>
               {tab.toUpperCase()}
             </button>
@@ -1118,17 +1118,17 @@ export default function CoachBuild() {
         <div style={styles.topControls}>
           <label style={styles.checkLabel}>
             <input type="checkbox" checked={preorder} onChange={e => setPreorder(e.target.checked)}
-              style={{ accentColor: '#d4a017' }} />
-            <span style={{ color: '#d4a017' }}>Preorder +100</span>
+              style={{ accentColor: '#f59e0b' }} />
+            <span style={{ color: '#f59e0b' }}>Preorder +100</span>
           </label>
           <label style={styles.checkLabel}>
             <input type="checkbox" checked={mvp} onChange={e => setMvp(e.target.checked)}
-              style={{ accentColor: '#d4a017' }} />
-            <span style={{ color: '#d4a017' }}>MVP+ +150</span>
+              style={{ accentColor: '#f59e0b' }} />
+            <span style={{ color: '#f59e0b' }}>MVP+ +150</span>
           </label>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 11, color: '#64748b', letterSpacing: 1 }}>LEVEL</span>
+            <span style={{ fontSize: 11, color: '#6e6e78', letterSpacing: 1 }}>LEVEL</span>
             <input
               type="number" min={1} max={100} value={levelInput}
               onChange={e => setLevelInput(e.target.value)}
@@ -1139,9 +1139,9 @@ export default function CoachBuild() {
           </div>
 
           <div style={styles.cpCounter}>
-            <span style={{ color: '#d4a017', fontWeight: 700 }}>{budget - totalCpSpent}</span>
-            <span style={{ color: '#475569' }}> / {budget}</span>
-            <span style={{ fontSize: 10, color: '#475569', marginLeft: 4, letterSpacing: 1 }}>CP</span>
+            <span style={{ color: '#f59e0b', fontWeight: 700 }}>{budget - totalCpSpent}</span>
+            <span style={{ color: '#6e6e78' }}> / {budget}</span>
+            <span style={{ fontSize: 10, color: '#6e6e78', marginLeft: 4, letterSpacing: 1 }}>CP</span>
           </div>
 
           <button onClick={handleReset} style={styles.resetBtn}>RESET</button>
@@ -1172,15 +1172,15 @@ export default function CoachBuild() {
                 )}
               </div>
               <div>
-                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: 2, color: '#f8fafc' }}>
+                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: 2, color: '#f5f5f7' }}>
                   {coachName}
                 </div>
                 {currentTeamName && (
-                  <div style={{ fontSize: 10, color: '#d4a017', letterSpacing: 1, marginBottom: 1 }}>
+                  <div style={{ fontSize: 10, color: '#f59e0b', letterSpacing: 1, marginBottom: 1 }}>
                     {currentTeamName.toUpperCase()}
                   </div>
                 )}
-                <div style={{ fontSize: 11, color: dynamicArchetype ? dynamicArchetype.color : '#64748b', letterSpacing: 1 }}>
+                <div style={{ fontSize: 11, color: dynamicArchetype ? dynamicArchetype.color : '#6e6e78', letterSpacing: 1 }}>
                   {dynamicArchetype
                     ? dynamicArchetype.name.toUpperCase()
                     : 'NO ARCHETYPE'}
@@ -1191,31 +1191,31 @@ export default function CoachBuild() {
             <div style={styles.sideSection}>
               <div style={styles.sideSectionLabel}>CP BUDGET</div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: '#64748b' }}>Spent</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>{totalCpSpent}</span>
+                <span style={{ fontSize: 11, color: '#6e6e78' }}>Spent</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#f5f5f7' }}>{totalCpSpent}</span>
               </div>
               {archetypeId && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, color: archetype?.color || '#64748b' }}>
+                  <span style={{ fontSize: 11, color: archetype?.color || '#6e6e78' }}>
                     In {archetype?.name || archetypeId}
                   </span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: archetype?.color || '#f1f5f9' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: archetype?.color || '#f5f5f7' }}>
                     {cpSpentByArchId[archetypeId] ?? 0}
                   </span>
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <span style={{ fontSize: 11, color: '#64748b' }}>Remaining</span>
+                <span style={{ fontSize: 11, color: '#6e6e78' }}>Remaining</span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: cpRemaining < 0 ? '#ef4444' : '#22c55e' }}>
                   {cpRemaining}
                 </span>
               </div>
               {/* Budget bar */}
-              <div style={{ height: 4, background: '#1a2640', borderRadius: 2, overflow: 'hidden' }}>
+              <div style={{ height: 4, background: '#2f313b', borderRadius: 2, overflow: 'hidden' }}>
                 <div style={{
                   height: '100%',
                   width: `${Math.min(100, (totalCpSpent / budget) * 100)}%`,
-                  background: cpRemaining < 0 ? '#ef4444' : archetype?.color || '#d4a017',
+                  background: cpRemaining < 0 ? '#ef4444' : archetype?.color || '#f59e0b',
                   transition: 'width 0.3s',
                 }} />
               </div>
@@ -1229,7 +1229,7 @@ export default function CoachBuild() {
                 <div style={{ fontSize: 11, color: (archetype || previewArch).color, fontWeight: 700, marginBottom: 2 }}>
                   {(archetype || previewArch).perk?.name ?? '—'}
                 </div>
-                <div style={{ fontSize: 10, color: '#64748b', lineHeight: 1.5 }}>
+                <div style={{ fontSize: 10, color: '#6e6e78', lineHeight: 1.5 }}>
                   {(archetype || previewArch).perk?.desc ?? ''}
                 </div>
               </div>
@@ -1258,7 +1258,7 @@ export default function CoachBuild() {
                       </div>
                       {items.map(({ pkg, count, total, archColor: c }) => (
                         <div key={pkg.id} style={styles.sidePkgRow}>
-                          <span style={{ fontSize: 11, color: '#94a3b8' }}>{pkg.name}</span>
+                          <span style={{ fontSize: 11, color: '#a8a8b0' }}>{pkg.name}</span>
                           <span style={{ fontSize: 11, color: c, fontWeight: 700 }}>{count}/{total}</span>
                         </div>
                       ))}
@@ -1306,8 +1306,8 @@ export default function CoachBuild() {
                     flexShrink: 0,
                     margin: '0 0 8px',
                     padding: '10px 14px',
-                    background: '#0a0f1a',
-                    border: '1px solid #1e3352',
+                    background: '#0b0c11',
+                    border: '1px solid #2f313b',
                     borderRadius: 7,
                     display: 'flex',
                     alignItems: 'center',
@@ -1317,13 +1317,13 @@ export default function CoachBuild() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{
                         fontSize: 9, fontWeight: 700, letterSpacing: 1.5,
-                        color: '#d4a017', background: '#1a1200', border: '1px solid #5a3d00',
+                        color: '#f59e0b', background: '#1a1200', border: '1px solid #5a3d00',
                         borderRadius: 3, padding: '2px 6px',
                       }}>
                         PREVIEW
                       </div>
-                      <span style={{ fontSize: 12, color: '#64748b' }}>
-                        <strong style={{ color: '#94a3b8' }}>{previewArch.name}</strong> isn't unlocked yet — browse what you'd get.
+                      <span style={{ fontSize: 12, color: '#6e6e78' }}>
+                        <strong style={{ color: '#a8a8b0' }}>{previewArch.name}</strong> isn't unlocked yet — browse what you'd get.
                       </span>
                     </div>
                     {(() => {
@@ -1365,7 +1365,7 @@ export default function CoachBuild() {
 
                 {/* Empty state when archetype has no packages yet */}
                 {packages.length === 0 && (
-                  <div style={{ textAlign: 'center', color: '#334155', fontSize: 12, marginTop: 24, letterSpacing: 1 }}>
+                  <div style={{ textAlign: 'center', color: '#4a4a52', fontSize: 12, marginTop: 24, letterSpacing: 1 }}>
                     PACKAGE DATA COMING SOON
                   </div>
                 )}
@@ -1408,7 +1408,7 @@ export default function CoachBuild() {
                 />
               ) : (
                 <div style={styles.detailEmpty}>
-                  <div style={{ color: '#334155', fontSize: 12, textAlign: 'center', lineHeight: 1.7, letterSpacing: 0.5 }}>
+                  <div style={{ color: '#4a4a52', fontSize: 12, textAlign: 'center', lineHeight: 1.7, letterSpacing: 0.5 }}>
                     Click an archetype<br />to preview it
                   </div>
                 </div>
@@ -1430,7 +1430,7 @@ export default function CoachBuild() {
             )}
             {isPreviewMode && !selectedPackage && (
               <div style={styles.detailEmpty}>
-                <div style={{ color: '#334155', fontSize: 12, textAlign: 'center', lineHeight: 1.7, letterSpacing: 0.5 }}>
+                <div style={{ color: '#4a4a52', fontSize: 12, textAlign: 'center', lineHeight: 1.7, letterSpacing: 0.5 }}>
                   Click a package<br />to see its tiers
                 </div>
               </div>
@@ -1485,21 +1485,22 @@ const styles = {
     flexDirection: 'column',
     height: '100%',
     minHeight: 'calc(100vh - 60px)',
-    backgroundColor: '#080b14',
-    color: '#f8fafc',
+    backgroundColor: '#06070b',
+    color: '#f5f5f7',
+    fontFamily: "'Saira', system-ui, sans-serif",
   },
   topBar: {
     display: 'flex',
     alignItems: 'center',
     gap: 16,
     padding: '8px 16px',
-    borderBottom: '1px solid #1a2640',
-    backgroundColor: '#0a0e1a',
+    borderBottom: '1px solid #2f313b',
+    backgroundColor: '#0b0c11',
     flexShrink: 0,
     flexWrap: 'wrap',
   },
   backBtn: {
-    color: '#64748b',
+    color: '#6e6e78',
     fontSize: 13,
     fontWeight: 500,
     background: 'none',
@@ -1512,7 +1513,7 @@ const styles = {
     fontFamily: "'Bebas Neue', sans-serif",
     fontSize: '1.1rem',
     letterSpacing: '4px',
-    color: '#f8fafc',
+    color: '#f5f5f7',
     flexShrink: 0,
   },
   topTabs: {
@@ -1545,24 +1546,24 @@ const styles = {
     fontWeight: 600,
     letterSpacing: 0.5,
     cursor: 'pointer',
-    color: '#d4a017',
+    color: '#f59e0b',
   },
   levelInput: {
     width: 54,
-    background: '#0d1520',
-    border: '1px solid #1a2640',
+    background: '#191b22',
+    border: '1px solid #2f313b',
     borderRadius: 4,
-    color: '#f8fafc',
+    color: '#f5f5f7',
     fontSize: 13,
     fontWeight: 700,
     padding: '3px 6px',
     textAlign: 'center',
   },
   setBtn: {
-    background: '#1a2640',
+    background: '#23252e',
     border: 'none',
     borderRadius: 4,
-    color: '#f8fafc',
+    color: '#f5f5f7',
     fontSize: 10,
     fontWeight: 700,
     letterSpacing: 1.5,
@@ -1572,16 +1573,16 @@ const styles = {
   cpCounter: {
     fontSize: 14,
     fontWeight: 700,
-    background: '#0d1520',
-    border: '1px solid #1a2640',
+    background: '#191b22',
+    border: '1px solid #2f313b',
     borderRadius: 6,
     padding: '4px 12px',
   },
   resetBtn: {
     background: 'none',
-    border: '1px solid #1a2640',
+    border: '1px solid #2f313b',
     borderRadius: 4,
-    color: '#475569',
+    color: '#6e6e78',
     fontSize: 10,
     fontWeight: 700,
     letterSpacing: 1.5,
@@ -1596,7 +1597,7 @@ const styles = {
   sidebar: {
     width: 220,
     flexShrink: 0,
-    borderRight: '1px solid #1a2640',
+    borderRight: '1px solid #2f313b',
     overflowY: 'auto',
     padding: '16px 14px',
     display: 'flex',
@@ -1608,15 +1609,15 @@ const styles = {
     alignItems: 'center',
     gap: 12,
     padding: '10px 12px',
-    background: '#0d1520',
-    border: '1px solid #1a2640',
+    background: '#191b22',
+    border: '1px solid #2f313b',
     borderRadius: 8,
   },
   sideCoachAvatar: {
     width: 38,
     height: 38,
     borderRadius: '50%',
-    background: '#1a2640',
+    background: '#23252e',
     flexShrink: 0,
     overflow: 'hidden',
     display: 'flex',
@@ -1625,13 +1626,15 @@ const styles = {
   },
   sideSection: {
     padding: '12px 0',
-    borderTop: '1px solid #1a2640',
+    borderTop: '1px solid #2f313b',
   },
   sideSectionLabel: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: 700,
-    letterSpacing: 2,
-    color: '#334155',
+    letterSpacing: '0.12em',
+    color: '#6e6e78',
+    textTransform: 'uppercase',
+    fontFamily: "'Saira Semi Condensed', system-ui, sans-serif",
     marginBottom: 8,
   },
   sidePkgRow: {
@@ -1650,7 +1653,7 @@ const styles = {
   rightPanel: {
     width: 280,
     flexShrink: 0,
-    borderLeft: '1px solid #1a2640',
+    borderLeft: '1px solid #2f313b',
     overflowY: 'auto',
   },
   detailEmpty: {
@@ -1667,21 +1670,23 @@ const styles = {
     marginBottom: 4,
   },
   detailLabel: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: 700,
-    letterSpacing: 2,
-    color: '#334155',
+    letterSpacing: '0.12em',
+    color: '#6e6e78',
+    textTransform: 'uppercase',
+    fontFamily: "'Saira Semi Condensed', system-ui, sans-serif",
     marginBottom: 6,
   },
   detailPerkName: {
     fontSize: 13,
     fontWeight: 700,
-    color: '#f1f5f9',
+    color: '#f5f5f7',
     marginBottom: 3,
   },
   detailPerkDesc: {
     fontSize: 11,
-    color: '#64748b',
+    color: '#6e6e78',
     lineHeight: 1.5,
   },
   tierRow: {
@@ -1689,7 +1694,7 @@ const styles = {
     alignItems: 'flex-start',
     gap: 10,
     padding: '10px 12px',
-    border: '1px solid #1a2640',
+    border: '1px solid #2f313b',
     borderRadius: 6,
     marginBottom: 8,
     transition: 'border-color 0.2s',
@@ -1717,20 +1722,20 @@ const styles = {
     fontFamily: "'Bebas Neue', sans-serif",
     fontSize: '1.6rem',
     letterSpacing: '4px',
-    color: '#d4a017',
+    color: '#f59e0b',
     textAlign: 'center',
     marginBottom: 6,
   },
   chooseSubtitle: {
     fontSize: 12,
-    color: '#475569',
+    color: '#6e6e78',
     textAlign: 'center',
     marginBottom: 8,
     maxWidth: 380,
   },
   summaryStatBox: {
-    background: '#0d1520',
-    border: '1px solid #1a2640',
+    background: '#191b22',
+    border: '1px solid #2f313b',
     borderRadius: 8,
     padding: '12px 20px',
     minWidth: 90,
@@ -1738,13 +1743,15 @@ const styles = {
   summaryStatVal: {
     fontFamily: "'Bebas Neue', sans-serif",
     fontSize: 26,
-    color: '#d4a017',
+    color: '#f59e0b',
     letterSpacing: 2,
   },
   summaryStatLabel: {
-    fontSize: 9,
-    color: '#334155',
-    letterSpacing: 2,
+    fontSize: 10,
+    color: '#6e6e78',
+    letterSpacing: '0.12em',
     fontWeight: 700,
+    textTransform: 'uppercase',
+    fontFamily: "'Saira Semi Condensed', system-ui, sans-serif",
   },
 }
