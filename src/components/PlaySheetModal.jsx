@@ -128,7 +128,7 @@ const DEFAULT_STYLE = {
   prefNickel:  false,
 }
 
-function scorePlay(play, down, ytg, scout, side, oppContext = null, fieldPos = 'opp_mid', pbTendency = null, userStyle = null, offScheme = '', successContext = null, gameScript = null) {
+function scorePlay(play, down, ytg, scout, side, oppContext = null, fieldPos = 'opp_mid', pbTendency = null, userStyle = null, offScheme = '', successContext = null, gameScript = null, twoMinuteDrill = false) {
   const c = classify(play)
   let s = 0
 
@@ -545,6 +545,17 @@ function scorePlay(play, down, ytg, scout, side, oppContext = null, fieldPos = '
         }
       }
     }
+
+    // ── 2-minute drill (offense): go quick, get out of bounds, no clock-killers ──
+    if (twoMinuteDrill) {
+      if (c.isQuick)                                 s += 7  // quick outs, hitches — stop the clock
+      if (c.isScreen)                                s += 5  // YAC + sideline opportunity
+      if (c.isMid && !c.isPA)                        s += 4  // solid chunk, can hit sideline
+      if (c.isDeep || c.isChunk)                     s += 3  // big play = fast score
+      if (c.isPA)                                    s -= 3  // slow-developing fake wastes precious seconds
+      if (c.isRun && !c.isDraw && !c.isRPO)          s -= 6  // runs eat clock — only use on purpose
+      if (c.isPower && !c.isRPO)                     s -= 4  // extra hit on power runs
+    }
   }
 
   if (side === 'defense') {
@@ -784,6 +795,15 @@ function scorePlay(play, down, ytg, scout, side, oppContext = null, fieldPos = '
         if (close)    { if (isBlitz)  s += 1; if (isAnyCov) s += 1 }  // either works, slight edge to both
       }
     }
+
+    // ── 2-minute drill (defense): prevent mode — no free completions, stay in bounds ──
+    if (twoMinuteDrill) {
+      if (isAnyCov)   s += 7  // soft coverage: let them catch underneath but no big plays
+      if (isPkg)      s += 5  // prevent package built for this exact situation
+      if (isMatch)    s += 4  // match coverage locks individual routes without giving up seams
+      if (isBlitz)    s -= 6  // blitz risks quick slants and quick screens for big gains
+      if (isBase)     s -= 3  // base defense too aggressive — leaves over-the-top open
+    }
   }
 
   // ── User style preferences ──────────────────────────────────────────────
@@ -988,60 +1008,43 @@ function tierBadgeStyle(tier, color) {
 const DOWN_LABELS = { 1: '1st', 2: '2nd', 3: '3rd', 4: '4th' }
 const YTG_LABELS  = { short: '1-4', med: '5-7', long: '8+' }
 
-function getOffResults(down) {
+// Unified result options for both offense and defense.
+// success = did the team calling this play succeed?
+// On offense: converting/gaining = success. On defense: holding/forcing = success.
+function getPlayResults(down, side) {
+  const off = side === 'offense'
   const base = [
-    { value: 'td',       label: 'Touchdown',  success: true  },
-    { value: 'turnover', label: 'Turnover',   success: false },
+    { value: 'td',       label: off ? 'Touchdown'  : 'TD Allowed', success: off  },
+    { value: 'turnover', label: off ? 'Turnover'   : 'Turnover!',  success: !off },
   ]
   if (down === 1) return [
-    { value: '1st',       label: '1st Down',      success: true  },
-    { value: 'chunk',     label: 'Chunk (20+)',    success: true  },
-    { value: '2nd_short', label: '2nd & Short',   success: true  },
-    { value: '2nd_med',   label: '2nd & Med',     success: true  },
-    { value: '2nd_long',  label: '2nd & Long',    success: false },
+    { value: '1st',       label: '1st Down',     success: off  },
+    { value: 'chunk',     label: 'Chunk (20+)',  success: off  },
+    { value: '2nd_short', label: '2nd & Short',  success: off  },
+    { value: '2nd_med',   label: '2nd & Med',    success: off  },
+    { value: '2nd_long',  label: '2nd & Long',   success: !off },
     ...base,
   ]
   if (down === 2) return [
-    { value: '1st',       label: '1st & 10',    success: true  },
-    { value: '3rd_short', label: '3rd & Short', success: true  },
-    { value: '3rd_med',   label: '3rd & Med',   success: false },
-    { value: '3rd_long',  label: '3rd & Long',  success: false },
+    { value: '1st',       label: '1st & 10',    success: off  },
+    { value: '3rd_short', label: '3rd & Short', success: off  },
+    { value: '3rd_med',   label: '3rd & Med',   success: !off },
+    { value: '3rd_long',  label: '3rd & Long',  success: !off },
     ...base,
   ]
   if (down === 3) return [
-    { value: '1st',       label: '1st & 10',   success: true  },
-    { value: 'fg',        label: 'Field Goal',  success: true  },
-    { value: '4th',       label: '4th Down',   success: false },
-    { value: 'punt',      label: 'Punt',        success: false },
+    { value: '1st',  label: '1st & 10',                        success: off  },
+    { value: 'fg',   label: off ? 'Field Goal' : 'FG Allowed', success: off  },
+    { value: '4th',  label: '4th Down',                         success: !off },
+    { value: 'punt', label: off ? 'Punt' : 'Opp Punts',         success: !off },
     ...base,
   ]
   // 4th down
   return [
-    { value: '1st',       label: '1st & 10',   success: true  },
-    { value: 'fg',        label: 'Field Goal',  success: true  },
-    { value: 'punt',      label: 'Kick / Punt', success: false },
+    { value: '1st',  label: '1st & 10',                        success: off  },
+    { value: 'fg',   label: off ? 'Field Goal' : 'FG Allowed', success: off  },
+    { value: 'punt', label: off ? 'Kick / Punt' : 'Opp Punts', success: !off },
     ...base,
-  ]
-}
-
-function getDefResults(down) {
-  if (down <= 2) return [
-    { value: 'sack',    label: 'Sack / TFL',      success: true  },
-    { value: 'stop',    label: 'Stop (0-3 yds)',   success: true  },
-    { value: 'turnover',label: 'Turnover!',        success: true  },
-    { value: 'med',     label: 'Medium Gain',      success: false },
-    { value: 'big',     label: 'Big Play (8+)',    success: false },
-    { value: 'td',      label: 'TD Allowed',       success: false },
-  ]
-  return [
-    { value: 'sack',       label: 'Sack / TFL',       success: true  },
-    { value: 'stop',       label: 'Stop / 3 & Out',   success: true  },
-    { value: 'turnover',   label: 'Turnover!',         success: true  },
-    { value: 'fg_miss',    label: 'FG Miss (we ball)', success: true  },
-    { value: 'punt_recv',  label: 'Opp Punts',         success: true  },
-    { value: 'fg_allowed', label: 'FG Allowed',        success: false },
-    { value: 'conv',       label: 'Conversion',        success: false },
-    { value: 'td',         label: 'TD Allowed',        success: false },
   ]
 }
 
@@ -1053,16 +1056,11 @@ function yardToZone(yd) {
   return 'red_zone'
 }
 
-// Terminal results that end a possession and switch sides
-const OFF_TERMINAL = new Set(['td', 'turnover', 'punt', 'fg'])
-const DEF_TERMINAL = new Set(['td', 'turnover', 'fg_allowed', 'punt_recv', 'fg_miss'])
+// Terminal results that end a possession and switch sides (same keys for both offense and defense)
+const TERMINAL = new Set(['td', 'turnover', 'punt', 'fg'])
 
-function nextSit(result, down, side) {
-  if (side === 'defense') {
-    if (result === 'sack') return { down: Math.min(down + 1, 4), ytg: 'long' }
-    if (result === 'stop') return { down: Math.min(down + 1, 4), ytg: down === 1 ? 'long' : 'med' }
-    return { down: 1, ytg: 'long' } // turnover, conv, td, fg_allowed, big
-  }
+// Both sides now use the same result keys, so nextSit is unified
+function nextSit(result) {
   const map = {
     '2nd_short': { down: 2, ytg: 'short' },
     '2nd_med':   { down: 2, ytg: 'med'   },
@@ -1075,6 +1073,21 @@ function nextSit(result, down, side) {
     '4th':       { down: 4, ytg: 'med'   },
   }
   return map[result] || { down: 1, ytg: 'long' }
+}
+
+// Predict yards for categorical play results — same logic for both sides since ball moves
+// in the same direction regardless of who is calling offense or defense.
+function predictYardsFromResult(result, exactYtg) {
+  if (result === 'chunk')     return 20
+  if (result === '1st')       return exactYtg
+  if (result === '2nd_short') return Math.max(1, exactYtg - 3)
+  if (result === '2nd_med')   return Math.max(0, exactYtg - 6)
+  if (result === '2nd_long')  return 1
+  if (result === '3rd_short') return Math.max(1, exactYtg - 3)
+  if (result === '3rd_med')   return Math.max(0, exactYtg - 6)
+  if (result === '3rd_long')  return 1
+  if (result === '4th')       return 1
+  return 0
 }
 
 // ─── Offensive formation types (opponent) ─────────────────────────────────────
@@ -1253,7 +1266,8 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
   const [quarter,     setQuarter]     = useState(() => _loadSession()?.quarter || 1)
   const [userScore,   setUserScore]   = useState(() => _loadSession()?.userScore ?? 0)
   const [oppScore,    setOppScore]    = useState(() => _loadSession()?.oppScore ?? 0)
-  const [xpStep,      setXpStep]      = useState(null) // null | { scoringSide: 'offense'|'defense' }
+  const [xpStep,         setXpStep]         = useState(null) // null | { scoringSide, phase, play? }
+  const [twoMinuteDrill, setTwoMinuteDrill] = useState(() => _loadSession()?.twoMinuteDrill ?? false)
 
   // Auto-save full session state on every relevant change
   useEffect(() => {
@@ -1261,10 +1275,10 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
     try {
       localStorage.setItem(sessionKey, JSON.stringify({
         log, side, situation, exactYtg, yardLine, fieldPos, recentPlays,
-        quarter, userScore, oppScore,
+        quarter, userScore, oppScore, twoMinuteDrill,
       }))
     } catch {}
-  }, [log, side, situation, exactYtg, yardLine, fieldPos, recentPlays, quarter, userScore, oppScore, sessionKey])
+  }, [log, side, situation, exactYtg, yardLine, fieldPos, recentPlays, quarter, userScore, oppScore, twoMinuteDrill, sessionKey])
 
   // ── Official playbook ────────────────────────────────────────────────────
   const [formations, setFormations] = useState(null)
@@ -1392,10 +1406,10 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
         formation: `${f.base} ${f.name}`,
         formBase: f.base,
         formPlayIdx: idx,
-        _score: scorePlay(p, down, ytg, scout, 'offense', null, fieldPos, pbTendency, userStyle, offScheme, offSuccessContext, gameScript),
+        _score: scorePlay(p, down, ytg, scout, 'offense', null, fieldPos, pbTendency, userStyle, offScheme, offSuccessContext, gameScript, twoMinuteDrill),
       }))
     ).sort((a, b) => b._score - a._score)
-  }, [formations, down, ytg, scout, fieldPos, pbTendency, userStyle, offScheme, offSuccessContext, gameScript])
+  }, [formations, down, ytg, scout, fieldPos, pbTendency, userStyle, offScheme, offSuccessContext, gameScript, twoMinuteDrill])
 
   const applyTypeFilter = (plays, tf) => {
     if (tf === 'all')    return plays
@@ -1576,10 +1590,10 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
         formation: `${f.base} ${f.name}`,
         formBase: f.base,
         formPlayIdx: idx,
-        _score: scorePlay(p, down, ytg, scout, 'defense', oppContext, fieldPos, null, userStyle, '', defSuccessContext, gameScript),
+        _score: scorePlay(p, down, ytg, scout, 'defense', oppContext, fieldPos, null, userStyle, '', defSuccessContext, gameScript, twoMinuteDrill),
       }))
     ).sort((a, b) => b._score - a._score)
-  }, [defFormations, down, ytg, scout, oppContext, fieldPos, userStyle, defSuccessContext])
+  }, [defFormations, down, ytg, scout, oppContext, fieldPos, userStyle, defSuccessContext, twoMinuteDrill])
 
   const topDefPlays = useMemo(() => {
     const recentSet = new Set(recentPlays)
@@ -1644,9 +1658,28 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
     return raw.map(p => ({
       ...p,
       _score: scorePlay(p, down, ytg, scout, side, side === 'defense' ? oppContext : null, fieldPos, null, null,
-        side === 'offense' ? offScheme : '', side === 'offense' ? offSuccessContext : defSuccessContext, gameScript),
+        side === 'offense' ? offScheme : '', side === 'offense' ? offSuccessContext : defSuccessContext, gameScript, twoMinuteDrill),
     })).sort((a, b) => b._score - a._score)
-  }, [side, offScheme, defScheme, down, ytg, scout, oppContext, fieldPos, offSuccessContext, defSuccessContext, gameScript])
+  }, [side, offScheme, defScheme, down, ytg, scout, oppContext, fieldPos, offSuccessContext, defSuccessContext, gameScript, twoMinuteDrill])
+
+  // Top plays scored for a 2PT conversion (goal-line, 1st & short)
+  const twoPtTopPlays = useMemo(() => {
+    const src = formations
+      ? formations.flatMap(f => f.plays.map(p => ({ ...p, formation: `${f.base} ${f.name}`, formBase: f.base })))
+      : defaultPlays
+    const scored = src
+      .map(p => ({
+        ...p,
+        _score: scorePlay(p, 1, 'short', scout, 'offense', null, 'red_zone', pbTendency, userStyle, offScheme, offSuccessContext, gameScript),
+      }))
+      .sort((a, b) => b._score - a._score)
+    const seen = new Set(); const out = []
+    for (const p of scored) {
+      if (out.length >= 6) break
+      if (!seen.has(p.name)) { seen.add(p.name); out.push(p) }
+    }
+    return out
+  }, [formations, defaultPlays, scout, pbTendency, userStyle, offScheme, offSuccessContext, gameScript])
 
   // Formation browser data
   const bases = useMemo(() => {
@@ -1667,14 +1700,14 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
   const formPlays = useMemo(() => {
     if (!activeForm) return []
     const plays = applyTypeFilter(activeForm.plays, typeFilter)
-    return plays.map(p => ({ ...p, _score: scorePlay(p, down, ytg, scout, 'offense', null, fieldPos, pbTendency, userStyle, offScheme, offSuccessContext, gameScript) }))
+    return plays.map(p => ({ ...p, _score: scorePlay(p, down, ytg, scout, 'offense', null, fieldPos, pbTendency, userStyle, offScheme, offSuccessContext, gameScript, twoMinuteDrill) }))
       .sort((a, b) => b._score - a._score)
   }, [activeForm, typeFilter, down, ytg, scout, fieldPos, pbTendency, userStyle, offScheme, offSuccessContext])
 
   const applyYardLine = (v) => { setYardLine(v); setYardRaw(String(v <= 50 ? v : 100 - v)) }
 
   // ── Result handling ──────────────────────────────────────────────────────
-  const resultOptions = side === 'offense' ? getOffResults(down) : getDefResults(down)
+  const resultOptions = getPlayResults(down, side)
 
   // FG result (made = true → scored, made = false → no good / blocked)
   const handleFGResult = (made) => {
@@ -1748,17 +1781,17 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
     }])
     // Auto-update score on scoring plays
     if (side === 'offense') {
-      if (opt.value === 'td')  { setUserScore(s => s + 6); setXpStep({ scoringSide: 'offense' }) }
-      if (opt.value === 'fg')  setUserScore(s => s + 3)
+      if (opt.value === 'td') { setUserScore(s => s + 6); setXpStep({ scoringSide: 'offense', phase: 'choice' }) }
+      if (opt.value === 'fg') setUserScore(s => s + 3)
     } else {
-      if (opt.value === 'td')         { setOppScore(s => s + 6); setXpStep({ scoringSide: 'defense' }) }
-      if (opt.value === 'fg_allowed') setOppScore(s => s + 3)
+      if (opt.value === 'td') { setOppScore(s => s + 6); setXpStep({ scoringSide: 'defense', phase: 'choice' }) }
+      if (opt.value === 'fg') setOppScore(s => s + 3)  // fg on defense = FG allowed to opponent
     }
     setRecentPlays(prev => [pending.name, ...prev].slice(0, 5))
     setShuffleKey(k => k + 1)
     setPending(null)
-    const offSwitch = side === 'offense' && OFF_TERMINAL.has(opt.value)
-    const defSwitch = side === 'defense' && (DEF_TERMINAL.has(opt.value) || (opt.value === 'stop' && down >= 3))
+    const offSwitch = side === 'offense' && TERMINAL.has(opt.value)
+    const defSwitch = side === 'defense' && TERMINAL.has(opt.value)
     if (offSwitch) {
       setSide('defense')
       setSituation({ down: 1, ytg: 'long' })
@@ -1788,7 +1821,11 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
         setFieldPos('own_mid')
       }
     } else {
-      setSituation(nextSit(opt.value, down, side))
+      const predictedYards = predictYardsFromResult(opt.value, exactYtg)
+      const newYardLine = Math.max(1, Math.min(99, yardLine + predictedYards))
+      applyYardLine(newYardLine)
+      setFieldPos(yardToZone(newYardLine))
+      setSituation(nextSit(opt.value))
     }
   }
 
@@ -1810,7 +1847,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
     if (side === 'offense') {
       if (newYardLine >= 100) {
         setLog(prev => [...prev, { ...logBase, result: 'td', resultLabel: 'Touchdown', success: true }])
-        setUserScore(s => s + 6); setXpStep({ scoringSide: 'offense' })
+        setUserScore(s => s + 6); setXpStep({ scoringSide: 'offense', phase: 'choice' })
         setSide('defense')
         setSituation({ down: 1, ytg: 'long' })
         setExactYtg(10)
@@ -1846,7 +1883,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
       // Defense: yards = yards allowed (positive = opponent gains, negative = sack/TFL)
       if (newYardLine >= 100) {
         setLog(prev => [...prev, { ...logBase, result: 'td', resultLabel: 'TD Allowed', success: false }])
-        setOppScore(s => s + 6); setXpStep({ scoringSide: 'defense' })
+        setOppScore(s => s + 6); setXpStep({ scoringSide: 'defense', phase: 'choice' })
         setSide('offense')
         setSituation({ down: 1, ytg: 'long' })
         setExactYtg(10)
@@ -1959,6 +1996,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
     setPending(null)
     setKickStep(null)
     setXpStep(null)
+    setTwoMinuteDrill(false)
     setQuarter(1)
     setUserScore(0)
     setOppScore(0)
@@ -1982,7 +2020,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
       {/* Exit confirmation overlay */}
       {showExitConfirm && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center px-8" style={{ background: 'rgba(0,0,0,0.6)' }}>
-          <div className="w-full max-w-xs rounded-2xl p-6 flex flex-col gap-4" style={{ background: 'var(--surface-2)', border: '1px solid var(--surface-5)' }}>
+          <div className="w-full max-w-xs rounded-lg p-6 flex flex-col gap-4" style={{ background: 'var(--surface-2)', border: '1px solid var(--surface-5)' }}>
             <div className="text-center">
               <div className="text-base font-bold text-txt-primary mb-1">Unsaved Scout Data</div>
               <p className="text-sm text-txt-secondary">You have scout information entered. Do you want to save it before leaving?</p>
@@ -1990,14 +2028,14 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
             <div className="flex flex-col gap-2.5">
               <button
                 onClick={() => { saveScout(draft); setShowExitConfirm(false); onClose() }}
-                className="w-full py-3 rounded-xl font-bold text-sm transition-opacity hover:opacity-90"
+                className="w-full py-3 rounded-md font-semibold text-sm transition-opacity hover:opacity-90"
                 style={{ background: 'var(--text-primary)', color: 'var(--surface-1)' }}
               >
                 Save Scout &amp; Exit
               </button>
               <button
                 onClick={() => { setShowExitConfirm(false); onClose() }}
-                className="w-full py-3 rounded-xl font-semibold text-sm border transition-colors text-txt-secondary hover:text-txt-primary"
+                className="w-full py-3 rounded-md font-semibold text-sm border transition-colors text-txt-secondary hover:text-txt-primary"
                 style={{ borderColor: 'var(--surface-5)', background: 'var(--surface-3)' }}
               >
                 Exit Without Saving
@@ -2016,7 +2054,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
       {/* Reset session confirmation */}
       {showResetConfirm && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center px-8" style={{ background: 'rgba(0,0,0,0.7)' }}>
-          <div className="w-full max-w-xs rounded-2xl p-6 flex flex-col gap-4" style={{ background: 'var(--surface-2)', border: '1px solid var(--accent-error)' }}>
+          <div className="w-full max-w-xs rounded-lg p-6 flex flex-col gap-4" style={{ background: 'var(--surface-2)', border: '1px solid var(--accent-error)' }}>
             <div className="text-center">
               <div className="text-base font-bold mb-1" style={{ color: 'var(--accent-error)' }}>Reset Session?</div>
               <p className="text-sm text-txt-secondary">This will clear the play log, down & distance, and field position. Scout data is kept.</p>
@@ -2025,7 +2063,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
             <div className="flex flex-col gap-2.5">
               <button
                 onClick={resetSession}
-                className="w-full py-3 rounded-xl font-bold text-sm"
+                className="w-full py-3 rounded-md font-semibold text-sm"
                 style={{ background: 'color-mix(in srgb, var(--accent-error) 20%, var(--surface-2))', color: 'var(--accent-error)', border: '1px solid var(--accent-error)' }}
               >
                 Yes, Reset Everything
@@ -2050,7 +2088,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
             <button
               key={s}
               onClick={() => { setSide(s); setPending(null) }}
-              className="px-3 py-1.5 rounded-full text-xs font-bold border transition-colors capitalize"
+              className="px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors capitalize"
               style={side === s
                 ? { background: 'var(--text-primary)', color: 'var(--surface-1)', borderColor: 'var(--text-primary)' }
                 : { background: 'var(--surface-3)', color: 'var(--text-secondary)', borderColor: 'var(--surface-5)' }}
@@ -2079,11 +2117,11 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
         {phase === 'ready' && (
           <button
             onClick={() => setView(v => v === 'style' ? 'sheet' : 'style')}
-            className="text-xs font-semibold px-2.5 py-1.5 rounded border transition-colors"
+            className="text-xs font-semibold px-2.5 py-1.5 rounded-md border transition-colors"
             style={view === 'style'
-              ? { color: '#a5f3fc', borderColor: '#06b6d4', background: 'rgba(6,182,212,0.12)' }
+              ? { color: 'var(--accent-info)', borderColor: 'var(--accent-info)', background: 'color-mix(in srgb, var(--accent-info) 12%, transparent)' }
               : userStyle.tendency !== 'balanced' || Object.values(userStyle).some(v => v === true)
-                ? { color: '#fde68a', borderColor: '#f59e0b', background: 'rgba(245,158,11,0.08)' }
+                ? { color: 'var(--accent-warning)', borderColor: 'var(--accent-warning)', background: 'color-mix(in srgb, var(--accent-warning) 8%, transparent)' }
                 : { color: 'var(--text-secondary)', borderColor: 'var(--surface-5)', background: 'var(--surface-3)' }}
           >
             My Style
@@ -2095,18 +2133,18 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
           <div className="flex items-center gap-1">
             <button
               onClick={() => { setDraft(scout || EMPTY_SCOUT); setScoutTab('their-defense'); setPhase('form') }}
-              className="text-xs font-semibold px-2.5 py-1.5 rounded border transition-colors"
+              className="text-xs font-semibold px-2.5 py-1.5 rounded-md border transition-colors"
               style={scout
-                ? { color: '#4ade80', borderColor: '#4ade80', background: 'rgba(74,222,128,0.08)' }
+                ? { color: 'var(--accent-success)', borderColor: 'var(--accent-success)', background: 'color-mix(in srgb, var(--accent-success) 8%, transparent)' }
                 : { color: 'var(--text-secondary)', borderColor: 'var(--surface-5)', background: 'var(--surface-3)' }}
             >
-              {scout ? '✓ Scouted' : 'Scout opp'}
+              {scout ? 'Scouted' : 'Scout opp'}
             </button>
             {scout && (
               <button
                 onClick={resetScout}
                 title="Clear saved scout data"
-                className="text-xs px-1.5 py-1.5 rounded border transition-colors"
+                className="text-xs px-1.5 py-1.5 rounded-md border transition-colors"
                 style={{ color: 'var(--text-secondary)', borderColor: 'var(--surface-5)', background: 'var(--surface-3)' }}
               >
                 Reset
@@ -2119,7 +2157,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
         {phase === 'ready' && (
           <button
             onClick={() => setView(v => v === 'log' ? 'sheet' : 'log')}
-            className="text-xs font-semibold px-2.5 py-1.5 rounded border transition-colors"
+            className="text-xs font-semibold px-2.5 py-1.5 rounded-md border transition-colors"
             style={{
               borderColor: 'var(--surface-5)',
               background: view === 'log' ? 'var(--surface-4)' : 'var(--surface-3)',
@@ -2134,8 +2172,8 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
         {phase === 'ready' && log.length > 0 && (
           <button
             onClick={() => setShowResetConfirm(true)}
-            className="text-xs font-bold px-2.5 py-1.5 rounded border transition-colors"
-            style={{ background: 'var(--surface-3)', borderColor: '#7f1d1d', color: '#f87171' }}
+            className="text-xs font-semibold px-2.5 py-1.5 rounded-md border transition-colors"
+            style={{ background: 'var(--surface-3)', borderColor: 'var(--accent-error)', color: 'var(--accent-error)' }}
           >
             Reset
           </button>
@@ -2144,10 +2182,10 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
         {/* Exit — always rightmost */}
         <button
           onClick={handleExit}
-          className="px-3 py-1.5 rounded-lg text-xs font-bold border"
+          className="px-3 py-1.5 rounded-md text-xs font-semibold border"
           style={{ background: 'var(--surface-3)', borderColor: 'var(--surface-4)', color: 'var(--text-primary)' }}
         >
-          ← Exit
+          Exit
         </button>
       </div>
 
@@ -2163,14 +2201,14 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
           <div className="flex flex-col gap-3 w-full max-w-xs">
             <button
               onClick={() => { setDraft(EMPTY_SCOUT); setScoutTab('their-defense'); setPhase('form') }}
-              className="w-full py-4 rounded-xl font-bold text-sm shadow-lg transition-opacity hover:opacity-90"
+              className="w-full py-3 rounded-md font-semibold text-sm transition-opacity hover:opacity-90"
               style={{ background: 'var(--text-primary)', color: 'var(--surface-1)' }}
             >
               Scout Opponent
             </button>
             <button
               onClick={() => setPhase('ready')}
-              className="w-full py-3 rounded-xl font-semibold text-sm border transition-colors text-txt-secondary hover:text-txt-primary"
+              className="w-full py-3 rounded-md font-semibold text-sm border transition-colors text-txt-secondary hover:text-txt-primary"
               style={{ borderColor: 'var(--surface-5)', background: 'var(--surface-3)' }}
             >
               Skip — use default sheet
@@ -2287,14 +2325,14 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
           <div className="shrink-0 px-4 py-3 flex gap-3 border-t" style={{ borderColor: 'var(--surface-4)' }}>
             <button
               onClick={() => setPhase(scout ? 'ready' : 'prompt')}
-              className="flex-1 py-3 rounded-xl text-sm font-semibold text-txt-secondary hover:text-txt-primary border transition-colors"
+              className="flex-1 py-3 rounded-md text-sm font-semibold text-txt-secondary hover:text-txt-primary border transition-colors"
               style={{ borderColor: 'var(--surface-5)', background: 'var(--surface-3)' }}
             >
               Back
             </button>
             <button
               onClick={() => setPhase('ready')}
-              className="flex-1 py-3 rounded-xl text-sm font-bold transition-opacity hover:opacity-90"
+              className="flex-1 py-3 rounded-md text-sm font-semibold transition-opacity hover:opacity-90"
               style={{ background: 'var(--text-primary)', color: 'var(--surface-1)' }}
             >
               Done Scouting
@@ -2327,7 +2365,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
                       { id: 'rpo',      label: 'RPO Heavy',  desc: 'Strong boost to RPO plays across all downs' },
                     ].map(({ id, label, desc }) => (
                       <button key={id} onClick={() => patchStyle('tendency', id)}
-                        className="text-left rounded-xl px-3 py-2.5 border transition-colors"
+                        className="text-left rounded-lg px-3 py-2.5 border transition-colors"
                         style={userStyle.tendency === id
                           ? { background: 'var(--text-primary)', color: 'var(--surface-1)', borderColor: 'var(--text-primary)' }
                           : { background: 'var(--surface-3)', color: 'var(--text-secondary)', borderColor: 'var(--surface-5)' }}>
@@ -2351,9 +2389,9 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
                       { key: 'prefZone',   label: 'Zone Run',    desc: 'Boosts inside/outside zone' },
                     ].map(({ key, label, desc }) => (
                       <button key={key} onClick={() => patchStyle(key, !userStyle[key])}
-                        className="text-left rounded-xl px-3 py-2.5 border transition-colors"
+                        className="text-left rounded-lg px-3 py-2.5 border transition-colors"
                         style={userStyle[key]
-                          ? { background: 'rgba(245,158,11,0.12)', color: '#fde68a', borderColor: '#f59e0b' }
+                          ? { background: 'color-mix(in srgb, var(--accent-warning) 12%, transparent)', color: 'var(--accent-warning)', borderColor: 'var(--accent-warning)' }
                           : { background: 'var(--surface-3)', color: 'var(--text-secondary)', borderColor: 'var(--surface-5)' }}>
                         <div className="text-xs font-bold mb-0.5">{label}</div>
                         <div className="text-[10px] opacity-70 leading-tight">{desc}</div>
@@ -2373,7 +2411,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
                       { id: 'man',       label: 'Man Heavy',       desc: 'Boosts man coverage calls' },
                     ].map(({ id, label, desc }) => (
                       <button key={id} onClick={() => patchStyle('defTendency', id)}
-                        className="text-left rounded-xl px-3 py-2.5 border transition-colors"
+                        className="text-left rounded-lg px-3 py-2.5 border transition-colors"
                         style={userStyle.defTendency === id
                           ? { background: 'var(--text-primary)', color: 'var(--surface-1)', borderColor: 'var(--text-primary)' }
                           : { background: 'var(--surface-3)', color: 'var(--text-secondary)', borderColor: 'var(--surface-5)' }}>
@@ -2398,9 +2436,9 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
                       { key: 'prefNickel',  label: 'Nickel Base',    desc: 'Boosts all Nickel formations' },
                     ].map(({ key, label, desc }) => (
                       <button key={key} onClick={() => patchStyle(key, !userStyle[key])}
-                        className="text-left rounded-xl px-3 py-2.5 border transition-colors"
+                        className="text-left rounded-lg px-3 py-2.5 border transition-colors"
                         style={userStyle[key]
-                          ? { background: 'rgba(245,158,11,0.12)', color: '#fde68a', borderColor: '#f59e0b' }
+                          ? { background: 'color-mix(in srgb, var(--accent-warning) 12%, transparent)', color: 'var(--accent-warning)', borderColor: 'var(--accent-warning)' }
                           : { background: 'var(--surface-3)', color: 'var(--text-secondary)', borderColor: 'var(--surface-5)' }}>
                         <div className="text-xs font-bold mb-0.5">{label}</div>
                         <div className="text-[10px] opacity-70 leading-tight">{desc}</div>
@@ -2444,30 +2482,138 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
               {/* XP / 2PT banner — appears immediately after any TD */}
               {xpStep && (
                 <div className="shrink-0 px-4 py-3 border-b" style={{ background: 'color-mix(in srgb, var(--accent-warning) 8%, var(--surface-1))', borderColor: 'var(--accent-warning)' }}>
-                  <div className="text-sm font-black text-center mb-2.5" style={{ color: 'var(--accent-warning)' }}>
-                    {xpStep.scoringSide === 'offense' ? 'Touchdown! Extra Point?' : 'TD Allowed — Opp Extra Point?'}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { label: 'XP Good',   pts: 1,  style: { background: 'color-mix(in srgb, var(--accent-success) 15%, transparent)', color: 'var(--accent-success)', borderColor: 'var(--accent-success)' } },
-                      { label: 'XP Miss',   pts: 0,  style: { background: 'var(--surface-3)', color: 'var(--text-primary)', borderColor: 'var(--surface-5)' } },
-                      { label: '2PT Good',  pts: 2,  style: { background: 'color-mix(in srgb, var(--accent-info) 15%, transparent)', color: 'var(--accent-info)', borderColor: 'var(--accent-info)' } },
-                      { label: '2PT Fail',  pts: 0,  style: { background: 'var(--surface-3)', color: 'var(--text-primary)', borderColor: 'var(--surface-5)' } },
-                    ].map(({ label, pts, style }) => (
-                      <button
-                        key={label}
-                        onClick={() => {
-                          if (pts > 0) {
-                            if (xpStep.scoringSide === 'offense') setUserScore(s => s + pts)
-                            else setOppScore(s => s + pts)
-                          }
-                          setXpStep(null)
-                        }}
-                        className="py-2.5 rounded-lg text-sm font-black border transition-colors"
-                        style={style}
-                      >{label}</button>
-                    ))}
-                  </div>
+                  {xpStep.scoringSide === 'defense' ? (
+                    /* Opponent TD — simple XP / 2PT choice */
+                    <>
+                      <div className="text-sm font-black text-center mb-2.5" style={{ color: 'var(--accent-warning)' }}>TD Allowed — Opp Extra Point?</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { label: 'XP Good',  pts: 1, style: { background: 'color-mix(in srgb, var(--accent-success) 15%, transparent)', color: 'var(--accent-success)', borderColor: 'var(--accent-success)' } },
+                          { label: 'XP Miss',  pts: 0, style: { background: 'var(--surface-3)', color: 'var(--text-primary)', borderColor: 'var(--surface-5)' } },
+                          { label: '2PT Good', pts: 2, style: { background: 'color-mix(in srgb, var(--accent-info) 15%, transparent)', color: 'var(--accent-info)', borderColor: 'var(--accent-info)' } },
+                          { label: '2PT Fail', pts: 0, style: { background: 'var(--surface-3)', color: 'var(--text-primary)', borderColor: 'var(--surface-5)' } },
+                        ].map(({ label, pts, style }) => (
+                          <button key={label} onClick={() => { if (pts > 0) setOppScore(s => s + pts); setXpStep(null) }}
+                            className="py-2.5 rounded-md text-sm font-bold border transition-colors" style={style}>{label}</button>
+                        ))}
+                      </div>
+                    </>
+                  ) : xpStep.phase === 'choice' ? (
+                    /* User TD — choose XP or go for 2PT */
+                    <>
+                      <div className="text-sm font-black text-center mb-2.5" style={{ color: 'var(--accent-warning)' }}>Touchdown! Extra Point or Go for 2?</div>
+                      <div className="grid grid-cols-3 gap-2 mb-2">
+                        <button onClick={() => { setUserScore(s => s + 1); setXpStep(null) }}
+                          className="py-2.5 rounded-md text-sm font-bold border transition-colors"
+                          style={{ background: 'color-mix(in srgb, var(--accent-success) 15%, transparent)', color: 'var(--accent-success)', borderColor: 'var(--accent-success)' }}>
+                          XP Good
+                        </button>
+                        <button onClick={() => setXpStep(null)}
+                          className="py-2.5 rounded-md text-sm font-bold border transition-colors"
+                          style={{ background: 'var(--surface-3)', color: 'var(--text-primary)', borderColor: 'var(--surface-5)' }}>
+                          XP Miss
+                        </button>
+                        <button onClick={() => setXpStep(s => ({ ...s, phase: '2pt_pick' }))}
+                          className="py-2.5 rounded-md text-sm font-bold border transition-colors"
+                          style={{ background: 'color-mix(in srgb, var(--accent-info) 18%, transparent)', color: 'var(--accent-info)', borderColor: 'var(--accent-info)' }}>
+                          Go for 2
+                        </button>
+                      </div>
+                    </>
+                  ) : xpStep.phase === '2pt_pick' ? (
+                    /* 2PT play selection — scored for goal-line 1st & short */
+                    <>
+                      <div className="flex items-center gap-2 mb-2">
+                        <button onClick={() => setXpStep(s => ({ ...s, phase: 'choice' }))}
+                          className="text-xs font-semibold px-2 py-1 rounded-md border"
+                          style={{ background: 'var(--surface-3)', color: 'var(--text-secondary)', borderColor: 'var(--surface-5)' }}>
+                          Back
+                        </button>
+                        <span className="text-xs font-black uppercase tracking-wide" style={{ color: 'var(--accent-info)' }}>2PT Conversion — Pick a Play</span>
+                      </div>
+                      {twoPtTopPlays.length === 0 ? (
+                        <p className="text-xs text-txt-secondary text-center py-2">No playbook loaded — add a playbook in League Settings.</p>
+                      ) : (
+                        <div className="rounded-lg overflow-hidden border" style={{ borderColor: 'var(--surface-5)' }}>
+                          {twoPtTopPlays.map((play, i) => {
+                            const tier = getTier(play._score)
+                            const typeColor = OFF_TYPE_COLORS[getPlayLabel(play)] || OFF_TYPE_COLORS[play.type] || 'var(--text-secondary)'
+                            return (
+                              <button
+                                key={play.name}
+                                onClick={() => setXpStep(s => ({ ...s, phase: '2pt_result', play }))}
+                                className="w-full text-left px-3 py-2.5 transition-colors hover:bg-surface-3"
+                                style={i > 0 ? { borderTop: '1px solid var(--surface-4)' } : {}}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-black text-txt-primary truncate flex-1">{play.name}</span>
+                                  {tier !== 'neutral' && (
+                                    <span style={tierBadgeStyle(tier, typeColor)}>{TIER_STYLE[tier].badge}</span>
+                                  )}
+                                  <span className="text-[10px] font-bold uppercase shrink-0" style={{ color: typeColor }}>{getPlayLabel(play) || play.type}</span>
+                                </div>
+                                {play.formation && (
+                                  <div className="text-[10px] text-txt-tertiary mt-0.5">{play.formation}</div>
+                                )}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </>
+                  ) : xpStep.phase === '2pt_result' ? (
+                    /* 2PT result — log the play + Good or Fail */
+                    <>
+                      <div className="flex items-center gap-2 mb-2.5">
+                        <button onClick={() => setXpStep(s => ({ ...s, phase: '2pt_pick', play: undefined }))}
+                          className="text-xs font-semibold px-2 py-1 rounded-md border"
+                          style={{ background: 'var(--surface-3)', color: 'var(--text-secondary)', borderColor: 'var(--surface-5)' }}>
+                          Back
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-bold text-txt-primary truncate">{xpStep.play?.name}</div>
+                          <div className="text-[10px] text-txt-tertiary">2PT Attempt</div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => {
+                            if (xpStep.play) {
+                              setLog(prev => [...prev, {
+                                id: Date.now().toString(36),
+                                side: 'offense', down: 1, ytg: 'short',
+                                playName: xpStep.play.name, playType: xpStep.play.type,
+                                formation: xpStep.play.formation || null,
+                                result: '2pt_good', resultLabel: '2PT Good', success: true,
+                              }])
+                            }
+                            setUserScore(s => s + 2)
+                            setXpStep(null)
+                          }}
+                          className="py-2.5 rounded-md text-sm font-bold border transition-colors"
+                          style={{ background: 'color-mix(in srgb, var(--accent-success) 15%, transparent)', color: 'var(--accent-success)', borderColor: 'var(--accent-success)' }}>
+                          2PT Good (+2)
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (xpStep.play) {
+                              setLog(prev => [...prev, {
+                                id: Date.now().toString(36),
+                                side: 'offense', down: 1, ytg: 'short',
+                                playName: xpStep.play.name, playType: xpStep.play.type,
+                                formation: xpStep.play.formation || null,
+                                result: '2pt_fail', resultLabel: '2PT Fail', success: false,
+                              }])
+                            }
+                            setXpStep(null)
+                          }}
+                          className="py-2.5 rounded-md text-sm font-bold border transition-colors"
+                          style={{ background: 'var(--surface-3)', color: 'var(--text-primary)', borderColor: 'var(--surface-5)' }}>
+                          2PT Fail
+                        </button>
+                      </div>
+                    </>
+                  ) : null}
                 </div>
               )}
 
@@ -2693,7 +2839,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
                                 }}
                                 className="px-2.5 py-1 rounded text-[11px] font-bold border transition-colors"
                                 style={userDefFormBase === base
-                                  ? { background: '#14532d', color: '#86efac', borderColor: '#22c55e' }
+                                  ? { background: 'color-mix(in srgb, var(--accent-success) 15%, transparent)', color: 'var(--accent-success)', borderColor: 'var(--accent-success)' }
                                   : { background: 'var(--surface-3)', color: 'var(--text-secondary)', borderColor: 'var(--surface-5)' }}
                               >
                                 {base}
@@ -2709,7 +2855,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
                                   onClick={() => setUserDefFormName(prev => prev === f.name ? null : f.name)}
                                   className="px-2.5 py-1 rounded text-[11px] font-bold border transition-colors"
                                   style={userDefFormName === f.name
-                                    ? { background: '#14532d', color: '#86efac', borderColor: '#22c55e' }
+                                    ? { background: 'color-mix(in srgb, var(--accent-success) 15%, transparent)', color: 'var(--accent-success)', borderColor: 'var(--accent-success)' }
                                     : { background: 'var(--surface-3)', color: 'var(--text-secondary)', borderColor: 'var(--surface-5)' }}
                                 >
                                   {f.name}
@@ -2805,12 +2951,25 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
                             style={isTied
                               ? { background: 'var(--surface-3)', color: 'var(--text-secondary)', borderColor: 'var(--surface-5)' }
                               : isUp
-                                ? { background: '#14532d', color: '#86efac', borderColor: '#22c55e' }
+                                ? { background: 'color-mix(in srgb, var(--accent-success) 15%, transparent)', color: 'var(--accent-success)', borderColor: 'var(--accent-success)' }
                                 : { background: '#7f1d1d', color: '#fca5a5', borderColor: '#ef4444' }}
                           >{isTied ? 'TIED' : isUp ? `+${diff}` : String(diff)}</span>
                         </div>
                       )
                     })()}
+                  </div>
+
+                  {/* 2-Minute Drill toggle */}
+                  <div className="w-full">
+                    <button
+                      onClick={() => setTwoMinuteDrill(v => !v)}
+                      className="w-full py-2 rounded-md text-[10px] font-bold uppercase tracking-wide border transition-colors"
+                      style={twoMinuteDrill
+                        ? { background: 'color-mix(in srgb, #f97316 18%, transparent)', color: '#fb923c', borderColor: '#f97316' }
+                        : { background: 'var(--surface-3)', color: 'var(--text-secondary)', borderColor: 'var(--surface-5)' }}
+                    >
+                      {twoMinuteDrill ? '2-Min ON' : '2-Min'}
+                    </button>
                   </div>
                 </div>
               </div>{/* end situation bar */}
@@ -2822,7 +2981,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
                 {down === 4 && (
                   <div className="px-4 pt-3 pb-1">
                     <div
-                      className="rounded-xl p-3"
+                      className="rounded-lg p-3"
                       style={{ background: 'color-mix(in srgb, var(--accent-warning) 6%, var(--surface-2))', border: '1px solid color-mix(in srgb, var(--accent-warning) 30%, transparent)' }}
                     >
                       <div className="text-[10px] font-black uppercase tracking-widest text-center mb-2.5" style={{ color: 'var(--accent-warning)' }}>
@@ -2851,8 +3010,8 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
                                 }}
                                 className="text-[10px] font-black uppercase px-2 py-1 rounded border shrink-0"
                                 style={pIsOpp
-                                  ? { background: '#7f1d1d', color: '#fca5a5', borderColor: '#ef4444' }
-                                  : { background: '#14532d', color: '#86efac', borderColor: '#22c55e' }
+                                  ? { background: 'color-mix(in srgb, var(--accent-warning) 15%, transparent)', color: 'var(--accent-warning)', borderColor: 'var(--accent-warning)' }
+                                  : { background: 'color-mix(in srgb, var(--accent-success) 15%, transparent)', color: 'var(--accent-success)', borderColor: 'var(--accent-success)' }
                                 }
                               >{pIsOpp ? 'Opp' : 'Own'}</button>
                               <button
@@ -2904,14 +3063,14 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
                             <div className="grid grid-cols-2 gap-2">
                               <button
                                 onClick={() => handlePuntResult(pYard)}
-                                className="py-2.5 rounded-xl font-bold text-sm border"
-                                style={{ background: 'rgba(22,101,52,0.4)', borderColor: '#16a34a', color: '#86efac' }}
+                                className="py-2.5 rounded-md font-semibold text-sm border"
+                                style={{ background: 'color-mix(in srgb, var(--accent-success) 15%, transparent)', borderColor: 'var(--accent-success)', color: 'var(--accent-success)' }}
                               >
                                 Confirm Punt
                               </button>
                               <button
                                 onClick={() => setKickStep(null)}
-                                className="py-2.5 rounded-xl font-bold text-sm border"
+                                className="py-2.5 rounded-md font-semibold text-sm border"
                                 style={{ background: 'var(--surface-3)', borderColor: 'var(--surface-5)', color: 'var(--text-secondary)' }}
                               >
                                 Cancel
@@ -2930,14 +3089,14 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
                           <div className="grid grid-cols-2 gap-2 mb-2">
                             <button
                               onClick={() => handleFGResult(true)}
-                              className="py-3 rounded-xl font-bold text-sm border"
+                              className="py-3 rounded-md font-semibold text-sm border"
                               style={{ background: 'color-mix(in srgb, var(--accent-success) 15%, transparent)', borderColor: 'var(--accent-success)', color: 'var(--accent-success)' }}
                             >
                               {side === 'offense' ? 'Good!' : 'FG Made'}
                             </button>
                             <button
                               onClick={() => handleFGResult(false)}
-                              className="py-3 rounded-xl font-bold text-sm border"
+                              className="py-3 rounded-md font-semibold text-sm border"
                               style={{ background: 'color-mix(in srgb, var(--accent-error) 15%, transparent)', borderColor: 'var(--accent-error)', color: 'var(--accent-error)' }}
                             >
                               {side === 'offense' ? 'No Good' : 'Blocked / No Good'}
@@ -2958,14 +3117,14 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
                         <div className="grid grid-cols-2 gap-2">
                           <button
                             onClick={() => setKickStep({ type: 'fg' })}
-                            className="py-3 rounded-xl font-bold text-sm border transition-colors"
+                            className="py-3 rounded-md font-semibold text-sm border transition-colors"
                             style={{ background: 'color-mix(in srgb, var(--accent-success) 15%, transparent)', borderColor: 'var(--accent-success)', color: 'var(--accent-success)' }}
                           >
                             Field Goal
                           </button>
                           <button
                             onClick={() => setKickStep({ type: 'punt', yard: 20 })}
-                            className="py-3 rounded-xl font-bold text-sm border transition-colors"
+                            className="py-3 rounded-md font-semibold text-sm border transition-colors"
                             style={{ background: 'color-mix(in srgb, var(--accent-info) 15%, transparent)', borderColor: 'var(--accent-info)', color: 'var(--accent-info)' }}
                           >
                             {side === 'offense' ? 'Punt' : 'Opp Punts'}
@@ -3021,9 +3180,9 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
                                       <div className="text-base font-black text-txt-primary leading-tight">{play.name}</div>
                                       {stats && (
                                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                          <span className="text-[10px]" style={{ color: '#6b7280' }}>{stats.total}x called</span>
-                                          <span className="text-[10px] font-bold" style={{ color: stats.pct >= 50 ? '#86efac' : '#fca5a5' }}>{stats.pct}% success</span>
-                                          {stats.avg !== null && <span className="text-[10px]" style={{ color: '#6b7280' }}>avg {stats.avg} yds</span>}
+                                          <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{stats.total}x called</span>
+                                          <span className="text-[10px] font-bold" style={{ color: stats.pct >= 50 ? 'var(--accent-success)' : 'var(--accent-error)' }}>{stats.pct}% success</span>
+                                          {stats.avg !== null && <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>avg {stats.avg} yds</span>}
                                         </div>
                                       )}
                                       {rationale && (
@@ -3065,10 +3224,10 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
                         {/* Formation browser toggle */}
                         <button
                           onClick={() => setShowFormBrowser(true)}
-                          className="w-full mt-5 py-3 rounded-xl text-sm font-semibold text-txt-secondary hover:text-txt-primary border transition-colors text-center"
+                          className="w-full mt-5 py-3 rounded-md text-sm font-semibold text-txt-secondary hover:text-txt-primary border transition-colors text-center"
                           style={{ borderColor: 'var(--surface-5)', background: 'var(--surface-2)' }}
                         >
-                          Browse All Formations →
+                          Browse All Formations
                         </button>
                       </>
                     )}
@@ -3093,7 +3252,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
                         <button
                           key={b}
                           onClick={() => { setBaseFilter(b); setFormName(null) }}
-                          className="px-3 py-1.5 rounded-full text-xs font-bold border transition-colors"
+                          className="px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors"
                           style={baseFilter === b
                             ? { background: 'var(--text-primary)', color: 'var(--surface-1)', borderColor: 'var(--text-primary)' }
                             : { background: 'var(--surface-3)', color: 'var(--text-secondary)', borderColor: 'var(--surface-5)' }}
@@ -3135,7 +3294,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
                                 className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0"
                                 style={{
                                   background: sd.wins / sd.total >= 0.5 ? 'rgba(22,101,52,0.4)' : 'rgba(127,29,29,0.3)',
-                                  color: sd.wins / sd.total >= 0.5 ? '#86efac' : '#fca5a5',
+                                  color: sd.wins / sd.total >= 0.5 ? 'var(--accent-success)' : 'var(--accent-error)',
                                 }}
                               >
                                 {winRate}
@@ -3192,9 +3351,9 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
                                     <div className="text-base font-black text-txt-primary leading-tight">{play.name}</div>
                                     {stats && (
                                       <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                        <span className="text-[10px]" style={{ color: '#6b7280' }}>{stats.total}x called</span>
-                                        <span className="text-[10px] font-bold" style={{ color: stats.pct >= 50 ? '#86efac' : '#fca5a5' }}>{stats.pct}% success</span>
-                                        {stats.avg !== null && <span className="text-[10px]" style={{ color: '#6b7280' }}>avg {stats.avg} yds</span>}
+                                        <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{stats.total}x called</span>
+                                        <span className="text-[10px] font-bold" style={{ color: stats.pct >= 50 ? 'var(--accent-success)' : 'var(--accent-error)' }}>{stats.pct}% success</span>
+                                        {stats.avg !== null && <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>avg {stats.avg} yds</span>}
                                       </div>
                                     )}
                                     {rationale && <div className="text-xs text-txt-secondary mt-0.5">{rationale}</div>}
@@ -3293,9 +3452,9 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
                                       <div className="text-base font-black text-txt-primary leading-tight">{play.name}</div>
                                       {stats && (
                                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                          <span className="text-[10px]" style={{ color: '#6b7280' }}>{stats.total}x called</span>
-                                          <span className="text-[10px] font-bold" style={{ color: stats.pct >= 50 ? '#86efac' : '#fca5a5' }}>{stats.pct}% success</span>
-                                          {stats.avg !== null && <span className="text-[10px]" style={{ color: '#6b7280' }}>avg {stats.avg} yds</span>}
+                                          <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{stats.total}x called</span>
+                                          <span className="text-[10px] font-bold" style={{ color: stats.pct >= 50 ? 'var(--accent-success)' : 'var(--accent-error)' }}>{stats.pct}% success</span>
+                                          {stats.avg !== null && <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>avg {stats.avg} yds</span>}
                                         </div>
                                       )}
                                       {rationale && <div className="text-xs text-txt-secondary mt-0.5">{rationale}</div>}
@@ -3360,7 +3519,7 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
                       <button
                         key={opt.value}
                         onClick={() => handleResult(opt)}
-                        className="py-2.5 rounded-lg text-xs font-bold border transition-colors text-center"
+                        className="py-2.5 rounded-md text-xs font-bold border transition-colors text-center"
                         style={opt.success
                           ? { background: 'color-mix(in srgb, var(--accent-success) 12%, transparent)', borderColor: 'var(--accent-success)', color: 'var(--accent-success)' }
                           : { background: 'color-mix(in srgb, var(--accent-error) 12%, transparent)', borderColor: 'var(--accent-error)', color: 'var(--accent-error)' }}
@@ -3375,10 +3534,10 @@ export default function PlaySheetModal({ dynastyId, gameId, week, opponent, mode
               {/* Stats bar */}
               {total > 0 && (
                 <div className="shrink-0 px-4 py-2 border-t flex gap-4 text-xs" style={{ borderColor: 'var(--surface-4)' }}>
-                  <span className="text-green-400 font-semibold">
+                  <span className="font-semibold" style={{ color: 'var(--accent-success)' }}>
                     {wins} {side === 'defense' ? 'stop' : 'success'}{wins !== 1 ? 's' : ''}
                   </span>
-                  <span className="text-red-400 font-semibold">
+                  <span className="font-semibold" style={{ color: 'var(--accent-error)' }}>
                     {total - wins} {side === 'defense' ? 'allowed' : 'fail'}{(total - wins) !== 1 ? 's' : ''}
                   </span>
                   <span className="text-txt-secondary">{Math.round((wins / total) * 100)}% rate</span>
@@ -3427,9 +3586,9 @@ function PlayRow({ play, onPick, typeColors, showFormation = false, successData 
       <div className="text-base font-black text-txt-primary leading-tight">{play.name}</div>
       {stats && (
         <div className="flex items-center gap-2 mt-1 flex-wrap">
-          <span className="text-[10px]" style={{ color: '#6b7280' }}>{stats.total}x</span>
-          <span className="text-[10px] font-bold" style={{ color: stats.pct >= 50 ? '#86efac' : '#fca5a5' }}>{stats.pct}%</span>
-          {stats.avg !== null && <span className="text-[10px]" style={{ color: '#6b7280' }}>avg {stats.avg} yds</span>}
+          <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{stats.total}x</span>
+          <span className="text-[10px] font-bold" style={{ color: stats.pct >= 50 ? 'var(--accent-success)' : 'var(--accent-error)' }}>{stats.pct}%</span>
+          {stats.avg !== null && <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>avg {stats.avg} yds</span>}
         </div>
       )}
     </button>
@@ -3480,7 +3639,7 @@ function PuntStrip({ yard, onChange }) {
         </div>
       </div>
       <div className="flex gap-3 px-2 pb-1.5 text-[9px]" style={{ borderTop: '1px solid #1a4a1a' }}>
-        <span style={{ color: '#86efac' }}>Pinned back (great)</span>
+        <span style={{ color: 'var(--accent-success)' }}>Pinned back (great)</span>
         <span style={{ color: '#6b7280' }}>Midfield</span>
         <span style={{ color: '#fcd34d' }}>Short punt</span>
         <span style={{ color: '#f87171' }}>Very short</span>
@@ -3534,10 +3693,10 @@ function FieldStrip({ lossRange, gainRange, yardLine, btnStyle, posLabel, onYard
               <button
                 key={opt.value}
                 onClick={() => onResult(opt)}
-                className="py-2.5 rounded-lg font-bold text-sm border transition-colors"
+                className="py-2.5 rounded-md font-semibold text-sm border transition-colors"
                 style={opt.success
-                  ? { background: 'rgba(22,101,52,0.4)', borderColor: '#16a34a', color: '#86efac' }
-                  : { background: 'rgba(127,29,29,0.3)', borderColor: '#b45309', color: '#fcd34d' }}
+                  ? { background: 'color-mix(in srgb, var(--accent-success) 15%, transparent)', borderColor: 'var(--accent-success)', color: 'var(--accent-success)' }
+                  : { background: 'color-mix(in srgb, var(--accent-warning) 15%, transparent)', borderColor: 'var(--accent-warning)', color: 'var(--accent-warning)' }}
               >
                 {opt.label}
               </button>
@@ -3633,8 +3792,8 @@ function FieldStrip({ lossRange, gainRange, yardLine, btnStyle, posLabel, onYard
         <div className="flex gap-3 px-2 pb-1.5 text-[9px]" style={{ borderTop: '1px solid #1a4a1a' }}>
           <span style={{ color: '#f87171' }}>Loss</span>
           <span style={{ color: '#9ca3af' }}>No gain</span>
-          <span style={{ color: '#86efac' }}>Gain / 1st</span>
-          <span style={{ color: '#fca5a5' }}>Red Zone</span>
+          <span style={{ color: 'var(--accent-success)' }}>Gain / 1st</span>
+          <span style={{ color: 'var(--accent-error)' }}>Red Zone</span>
           <span style={{ color: '#4ade80' }}>TD</span>
         </div>
       </div>
@@ -3652,10 +3811,10 @@ function FieldStrip({ lossRange, gainRange, yardLine, btnStyle, posLabel, onYard
               <button
                 key={opt.value}
                 onClick={() => onResult(opt)}
-                className="py-3 rounded-xl font-bold text-sm border transition-colors"
+                className="py-3 rounded-md font-semibold text-sm border transition-colors"
                 style={opt.success
-                  ? { background: 'rgba(22,101,52,0.4)', borderColor: '#16a34a', color: '#86efac' }
-                  : { background: 'rgba(127,29,29,0.3)', borderColor: '#7f1d1d', color: '#fca5a5' }}
+                  ? { background: 'color-mix(in srgb, var(--accent-success) 15%, transparent)', borderColor: 'var(--accent-success)', color: 'var(--accent-success)' }
+                  : { background: 'color-mix(in srgb, var(--accent-error) 15%, transparent)', borderColor: 'var(--accent-error)', color: 'var(--accent-error)' }}
               >
                 {opt.label}
               </button>
@@ -3671,15 +3830,8 @@ function FieldStrip({ lossRange, gainRange, yardLine, btnStyle, posLabel, onYard
 }
 
 function ResultPicker({ play, situLabel, side, down, exactYtg, yardLine, options, onResult, onYardage, onBack, typeColors }) {
-  const specialOptions = side === 'offense'
-    ? options.filter(o => ['td', 'turnover'].includes(o.value))
-    : options.filter(o => ['td', 'turnover', 'fg_allowed'].includes(o.value))
-
-  const fourthDownOpts = down >= 3
-    ? (side === 'offense'
-        ? options.filter(o => ['fg', 'punt'].includes(o.value))
-        : options.filter(o => ['fg_miss', 'punt_recv'].includes(o.value)))
-    : []
+  const specialOptions = options.filter(o => ['td', 'turnover'].includes(o.value))
+  const fourthDownOpts = down >= 3 ? options.filter(o => ['fg', 'punt'].includes(o.value)) : []
 
   const header = (
     <div className="text-center pb-2">
@@ -3855,7 +4007,7 @@ function LogView({ log, onBack, onEditEntry }) {
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--surface-4)' }}>
-        <button onClick={onBack} className="text-xs text-txt-secondary hover:text-txt-primary">← Call Sheet</button>
+        <button onClick={onBack} className="text-xs text-txt-secondary hover:text-txt-primary">Call Sheet</button>
         <span className="text-sm font-bold text-txt-primary">Session Log</span>
         <span className="text-xs text-txt-secondary ml-auto">{log.length} plays</span>
       </div>
@@ -3866,7 +4018,7 @@ function LogView({ log, onBack, onEditEntry }) {
           <div className="media-card overflow-hidden">
           {reversed.map((entry, i) => {
             const isEditing = editingId === entry.id
-            const resultOpts = entry.side === 'offense' ? getOffResults(entry.down) : getDefResults(entry.down)
+            const resultOpts = getPlayResults(entry.down, entry.side)
             return (
               <div key={entry.id}>
                 <div
@@ -3903,7 +4055,7 @@ function LogView({ log, onBack, onEditEntry }) {
                 </div>
                 {isEditing && (
                   <div className="mt-1 mb-1 px-3 py-2.5 rounded-lg border" style={{ borderColor: 'var(--surface-4)', background: 'var(--surface-2)' }}>
-                    <div className="text-[10px] font-black uppercase tracking-wider text-txt-secondary mb-2">Change Result</div>
+                    <div className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '2px' }}>CHANGE RESULT</div>
                     <div className="flex flex-wrap gap-1.5">
                       {resultOpts.map(opt => {
                         const isActive = entry.result === opt.value
@@ -3920,7 +4072,7 @@ function LogView({ log, onBack, onEditEntry }) {
                             }}
                             className="px-2.5 py-1 rounded text-[11px] font-bold border transition-colors"
                             style={isActive
-                              ? { background: opt.success ? '#14532d' : '#7f1d1d', color: opt.success ? '#86efac' : '#fca5a5', borderColor: opt.success ? '#22c55e' : '#ef4444' }
+                              ? { background: opt.success ? 'color-mix(in srgb, var(--accent-success) 15%, transparent)' : 'color-mix(in srgb, var(--accent-error) 15%, transparent)', color: opt.success ? 'var(--accent-success)' : 'var(--accent-error)', borderColor: opt.success ? 'var(--accent-success)' : 'var(--accent-error)' }
                               : { background: 'var(--surface-3)', color: 'var(--text-secondary)', borderColor: 'var(--surface-5)' }}
                           >
                             {opt.label}
