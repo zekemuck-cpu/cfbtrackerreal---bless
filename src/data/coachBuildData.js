@@ -42,7 +42,7 @@ export const ARCHETYPES = [
     unlockCost: 90,
     unlockReqs: [
       { label: 'Win Two National Championships', type: 'checkbox' },
-      { label: 'Spend 500 In Any Archetype', type: 'progress', total: 500 },
+      { label: 'Spend 500 In Any Archetype', type: 'progress', total: 500, archId: '__total' },
     ],
   },
   {
@@ -54,7 +54,7 @@ export const ARCHETYPES = [
     unlockCost: 70,
     unlockReqs: [
       { label: 'Win 5 Playoff Games', type: 'checkbox' },
-      { label: 'Spend 300 In Any Archetype', type: 'progress', total: 300 },
+      { label: 'Spend 300 In Any Archetype', type: 'progress', total: 300, archId: '__total' },
     ],
   },
   {
@@ -66,8 +66,8 @@ export const ARCHETYPES = [
     unlockCost: 30,
     unlockReqs: [
       { label: '2 Players Drafted In 1st Round', type: 'checkbox' },
-      { label: 'Spend 200 In Motivator', type: 'progress', total: 200 },
-      { label: 'Spend 200 In Recruiter', type: 'progress', total: 200 },
+      { label: 'Spend 200 In Motivator', type: 'progress', total: 200, archId: 'motivator' },
+      { label: 'Spend 200 In Recruiter', type: 'progress', total: 200, archId: 'recruiter' },
     ],
   },
   {
@@ -79,8 +79,8 @@ export const ARCHETYPES = [
     unlockCost: 30,
     unlockReqs: [
       { label: 'Win 4 Rivalry Games', type: 'checkbox' },
-      { label: 'Spend 200 In Tactician', type: 'progress', total: 200 },
-      { label: 'Spend 200 In Motivator', type: 'progress', total: 200 },
+      { label: 'Spend 200 In Tactician', type: 'progress', total: 200, archId: 'tactician' },
+      { label: 'Spend 200 In Motivator', type: 'progress', total: 200, archId: 'motivator' },
     ],
   },
   {
@@ -92,8 +92,8 @@ export const ARCHETYPES = [
     unlockCost: 30,
     unlockReqs: [
       { label: 'Win 4 Bowl Games', type: 'checkbox' },
-      { label: 'Spend 200 In Tactician', type: 'progress', total: 200 },
-      { label: 'Spend 200 In Recruiter', type: 'progress', total: 200 },
+      { label: 'Spend 200 In Tactician', type: 'progress', total: 200, archId: 'tactician' },
+      { label: 'Spend 200 In Recruiter', type: 'progress', total: 200, archId: 'recruiter' },
     ],
   },
   {
@@ -116,7 +116,7 @@ export const ARCHETYPES = [
     unlockCost: 0,
     subtitle: 'Exclusively for MVP+ members',
     unlockReqs: [
-      { label: 'Requires an MVP+ membership', type: 'plain' },
+      { label: 'I have an MVP+ membership', type: 'checkbox' },
     ],
   },
 ]
@@ -197,8 +197,8 @@ export const PREMIUM = {
     name: 'Elite Recruiter',
     perk: { name: 'Firmer Handshakes', desc: '200 Bonus XP for signing a recruit' },
     unlockReqs: [
-      { label: 'Unlock Recruiter first', type: 'progress', current: 0, total: null },
-      { label: 'Spend 200 In Recruiter', type: 'progress', current: 0, total: 200 },
+      { label: 'Unlock Recruiter first', type: 'progress', total: null, archId: '__starter_recruiter' },
+      { label: 'Spend 200 In Recruiter', type: 'progress', total: 200, archId: 'recruiter' },
       { label: 'Sign Two Top 5 Recruiting Classes', type: 'checkbox' },
     ],
     packages: ELITE_RECRUITER_PACKAGES,
@@ -208,8 +208,8 @@ export const PREMIUM = {
     name: 'Master Motivator',
     perk: { name: "Let's Grow", desc: '15 Bonus XP whenever a player levels up' },
     unlockReqs: [
-      { label: 'Unlock Motivator first', type: 'progress', current: 0, total: null },
-      { label: 'Spend 200 In Motivator', type: 'progress', current: 0, total: 200 },
+      { label: 'Unlock Motivator first', type: 'progress', total: null, archId: '__starter_motivator' },
+      { label: 'Spend 200 In Motivator', type: 'progress', total: 200, archId: 'motivator' },
       { label: 'Have 5 Players Drafted', type: 'checkbox' },
     ],
     packages: [
@@ -284,8 +284,8 @@ export const PREMIUM = {
     name: 'Scheme Guru',
     perk: { name: 'Winners Win', desc: '900 Bonus XP for each win' },
     unlockReqs: [
-      { label: 'Unlock Tactician first', type: 'progress', current: 0, total: null },
-      { label: 'Spend 200 In Tactician', type: 'progress', current: 0, total: 200 },
+      { label: 'Unlock Tactician first', type: 'progress', total: null, archId: '__starter_tactician' },
+      { label: 'Spend 200 In Tactician', type: 'progress', total: 200, archId: 'tactician' },
       { label: 'Win 8 Top 25 Games', type: 'checkbox' },
     ],
     packages: [

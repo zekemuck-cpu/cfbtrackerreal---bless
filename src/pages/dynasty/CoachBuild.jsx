@@ -1,6 +1,11 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
+import { useDynasty } from '../../context/DynastyContext'
+import { useAuth } from '../../context/AuthContext'
+import { getCoachNameForUid } from '../../data/leagueModel'
+import { getMascotName } from '../../data/teams'
+import { getTeamLogoRobust } from '../../utils/teamLogo'
 import { ARCHETYPES, PACKAGES, PREMIUM, computeBudget } from '../../data/coachBuildData'
 
 // ─── PACKAGE ICONS ───────────────────────────────────────────────────────────
@@ -227,7 +232,7 @@ function PackageWheel({ archetype, packages, purchased, selected, onSelect }) {
 
 // ─── ARCHETYPE SELECTION WHEEL ────────────────────────────────────────────────
 
-function ArchetypeWheel({ onSelect, selected }) {
+function ArchetypeWheel({ onSelect, selected, starterArchId }) {
   const [hovered, setHovered] = useState(null)
 
   // Positions ordered by ARCHETYPES index — matches game's exact vertical diamond layout
@@ -291,23 +296,44 @@ function ArchetypeWheel({ onSelect, selected }) {
         const isSelected = selected === arch.id
         const highlight = isHovered || isSelected
         const isPremium = !!arch.unlockReqs
+        const isFreeStarter = FREE_STARTERS.includes(arch.id)
+        // Before ANY starter is chosen: highlight all 3 free starters
+        const isPreSelection = isFreeStarter && !starterArchId
+        // After a starter is chosen: the other 2 free starters become level-10 locked
+        const isLevel10Locked = isFreeStarter && starterArchId && arch.id !== starterArchId
+
         const wheelLabel = isSelected ? 'SELECTED'
+          : isPreSelection ? 'FREE STARTER'
+          : isLevel10Locked ? 'UNLOCK 50 CP'
           : !isPremium ? 'FREE STARTER'
           : arch.unlockCost === 0 ? 'SPECIAL UNLOCK'
           : `UNLOCK ${arch.unlockCost} CP`
+
+        // Free starters pulse with a brighter glow ring before selection
+        const glowR = highlight ? 62 : isPreSelection ? 58 : 54
+        const strokeW = isSelected ? 3.5 : isPreSelection ? 2.5 : highlight ? 3 : 2
+        const strokeOpacity = (isPremium || isLevel10Locked) && !highlight ? 0.6 : 1
+        const labelColor = isSelected ? arch.color : isPreSelection ? arch.color : '#475569'
+
         return (
           <g key={arch.id}
             onClick={() => onSelect(arch.id)}
             onMouseEnter={() => setHovered(arch.id)}
             onMouseLeave={() => setHovered(null)}
             style={{ cursor: 'pointer' }}>
+            {/* Extra pulse ring for un-chosen free starters */}
+            {isPreSelection && (
+              <circle cx={pos.x} cy={pos.y} r={64}
+                fill="none" stroke={arch.color} strokeWidth={1} strokeOpacity={0.3}
+                strokeDasharray="4 4" />
+            )}
             {/* Outer glow */}
-            <circle cx={pos.x} cy={pos.y} r={highlight ? 62 : 54} fill={arch.glowColor} />
+            <circle cx={pos.x} cy={pos.y} r={glowR} fill={arch.glowColor} />
             {/* Main circle */}
             <circle cx={pos.x} cy={pos.y} r={48}
               fill={highlight ? '#111d30' : '#0d1520'}
-              stroke={arch.color} strokeWidth={isSelected ? 3.5 : highlight ? 3 : 2}
-              strokeOpacity={isPremium && !highlight ? 0.6 : 1} />
+              stroke={arch.color} strokeWidth={strokeW}
+              strokeOpacity={strokeOpacity} />
             {/* Archetype name */}
             <text x={pos.x} y={pos.y - 4} textAnchor="middle"
               fill={arch.color}
@@ -315,7 +341,7 @@ function ArchetypeWheel({ onSelect, selected }) {
               {arch.name.toUpperCase()}
             </text>
             <text x={pos.x} y={pos.y + 12} textAnchor="middle"
-              fill={isSelected ? arch.color : '#475569'}
+              fill={labelColor}
               style={{ fontSize: 9, letterSpacing: 1, pointerEvents: 'none' }}>
               {wheelLabel}
             </text>
@@ -328,7 +354,7 @@ function ArchetypeWheel({ onSelect, selected }) {
 
 // ─── DETAIL PANEL ─────────────────────────────────────────────────────────────
 
-function DetailPanel({ archetype, pkg, purchased, cpRemaining, onToggleTier, onSelectArchetype, onPreview, isElitePkg, isPreview }) {
+function DetailPanel({ archetype, pkg, purchased, cpRemaining, cpSpentByArchId, starterArchId, checkedReqs, archReqsMet, onToggleTier, onSelectArchetype, onUnlockArchetype, onToggleReqCheck, onPreview, isElitePkg, isPreview }) {
   if (!archetype && !pkg) {
     return (
       <div style={styles.detailEmpty}>
@@ -384,25 +410,56 @@ function DetailPanel({ archetype, pkg, purchased, cpRemaining, onToggleTier, onS
           <div style={styles.detailLabel}>UNLOCK REQUIREMENTS</div>
           {isPremium ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
-              {archetype.unlockReqs.map((req, i) => (
-                <div key={i}>
-                  {req.type === 'checkbox' ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 13, height: 13, border: '2px solid #334155', borderRadius: 3, background: '#0a0f1a', flexShrink: 0 }} />
-                      <span style={{ fontSize: 11, color: '#475569' }}>{req.label}</span>
-                    </div>
-                  ) : req.type === 'plain' ? (
-                    <div style={{ fontSize: 11, color: '#475569' }}>{req.label}</div>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: 11, color: '#475569', marginBottom: 4 }}>{req.label}</div>
-                      <div style={{ height: 3, background: '#1a2640', borderRadius: 2 }}>
-                        <div style={{ height: '100%', width: '0%', background: archetype.color, borderRadius: 2, opacity: 0.5 }} />
+              {archetype.unlockReqs.map((req, i) => {
+                // Compute current progress for spend-based requirements
+                let current = 0
+                if (req.type === 'progress' && req.archId) {
+                  if (req.archId.startsWith('__starter_')) {
+                    // "Unlock X first" — check if that archetype is the chosen starter or unlocked
+                    const targetId = req.archId.replace('__starter_', '')
+                    current = (starterArchId === targetId || purchased?.has?.(`__unlock_${targetId}`)) ? 1 : 0
+                  } else {
+                    current = cpSpentByArchId?.[req.archId] ?? 0
+                  }
+                }
+                const pct = req.total ? Math.min(100, (current / req.total) * 100) : (current ? 100 : 0)
+                const met = req.total ? current >= req.total : current > 0
+
+                const isChecked = req.type === 'checkbox' && checkedReqs?.has(`${archetype.id}::${req.label}`)
+                return (
+                  <div key={i}>
+                    {req.type === 'checkbox' ? (
+                      <div
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}
+                        onClick={() => onToggleReqCheck?.(archetype.id, req.label)}
+                      >
+                        <div style={{
+                          width: 13, height: 13,
+                          border: `2px solid ${isChecked ? archetype.color : '#334155'}`,
+                          borderRadius: 3, background: isChecked ? archetype.color : '#0a0f1a', flexShrink: 0,
+                        }} />
+                        <span style={{ fontSize: 11, color: isChecked ? archetype.color : '#475569' }}>{req.label}</span>
                       </div>
-                    </>
-                  )}
-                </div>
-              ))}
+                    ) : req.type === 'plain' ? (
+                      <div style={{ fontSize: 11, color: '#475569' }}>{req.label}</div>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                          <span style={{ fontSize: 11, color: met ? archetype.color : '#475569' }}>{req.label}</span>
+                          {req.total && (
+                            <span style={{ fontSize: 10, color: met ? archetype.color : '#334155' }}>
+                              {Math.min(current, req.total)}/{req.total}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ height: 3, background: '#1a2640', borderRadius: 2 }}>
+                          <div style={{ height: '100%', width: `${pct}%`, background: archetype.color, borderRadius: 2, opacity: met ? 1 : 0.6, transition: 'width 0.3s' }} />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )
+              })}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
                 <span style={{ fontSize: 11, color: '#d4a017' }}>&#9679;</span>
                 <span style={{ fontSize: 11, color: '#475569' }}>Purchase Price: <strong style={{ color: archetype.color }}>{archetype.unlockCost > 0 ? `${archetype.unlockCost} CP` : 'Free'}</strong></span>
@@ -413,24 +470,64 @@ function DetailPanel({ archetype, pkg, purchased, cpRemaining, onToggleTier, onS
           )}
         </div>
         <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <button onClick={() => onSelectArchetype(archetype.id)} style={{
-            ...styles.btnPrimary,
-            background: archetype.color,
-            width: '100%',
-          }}>
-            {isPremium ? `SELECT ${archetype.name.toUpperCase()}` : `START AS ${archetype.name.toUpperCase()}`}
-          </button>
-          {onPreview && (
-            <button onClick={() => onPreview(archetype.id)} style={{
+          {!archetype._isChosenStarter && (() => {
+            const needsUnlock = isPremium || archetype._isLevel10Unlock
+            const alreadyUnlocked = needsUnlock && purchased?.has?.(`__unlock_${archetype.id}`)
+            const canEnter = !needsUnlock || archReqsMet
+            const label = alreadyUnlocked
+              ? 'UNLOCKED'
+              : needsUnlock
+              ? `UNLOCK ${archetype.name.toUpperCase()}`
+              : `START AS ${archetype.name.toUpperCase()}`
+            return (
+              <>
+                <button
+                  disabled={alreadyUnlocked || (!canEnter)}
+                  onClick={() => canEnter && !alreadyUnlocked ? (needsUnlock ? onUnlockArchetype?.(archetype.id) : onSelectArchetype(archetype.id)) : null}
+                  style={{
+                    ...styles.btnPrimary,
+                    background: alreadyUnlocked ? '#0d2010' : canEnter ? archetype.color : '#1a2640',
+                    color: alreadyUnlocked ? '#22c55e' : canEnter ? '#fff' : '#334155',
+                    border: alreadyUnlocked ? '1px solid #16a34a' : canEnter ? 'none' : '1px solid #1e3352',
+                    cursor: alreadyUnlocked ? 'default' : canEnter ? 'pointer' : 'not-allowed',
+                    width: '100%',
+                  }}
+                >
+                  {label}
+                </button>
+                {needsUnlock && !canEnter && !alreadyUnlocked && (
+                  <div style={{ fontSize: 10, color: '#475569', textAlign: 'center', letterSpacing: 0.5 }}>
+                    Complete unlock requirements above
+                  </div>
+                )}
+              </>
+            )
+          })()}
+          {archetype._isChosenStarter ? (
+            <button onClick={() => onSelectArchetype(archetype.id)} style={{
               ...styles.btnPrimary,
-              background: 'transparent',
-              border: '1px solid #1e3352',
-              color: '#94a3b8',
+              background: archetype.color,
               width: '100%',
             }}>
-              PREVIEW TREE
+              ENTER TREE
             </button>
-          )}
+          ) : onPreview && (() => {
+            const isUnlocked = (isPremium || archetype._isLevel10Unlock) && purchased?.has?.(`__unlock_${archetype.id}`)
+            return (
+              <button
+                onClick={() => isUnlocked ? onSelectArchetype(archetype.id) : onPreview(archetype.id)}
+                style={{
+                  ...styles.btnPrimary,
+                  background: isUnlocked ? archetype.color : 'transparent',
+                  border: isUnlocked ? 'none' : '1px solid #1e3352',
+                  color: isUnlocked ? '#fff' : '#94a3b8',
+                  width: '100%',
+                }}
+              >
+                {isUnlocked ? 'ENTER TREE' : 'PREVIEW TREE'}
+              </button>
+            )
+          })()}
         </div>
       </div>
     )
@@ -522,73 +619,90 @@ function DetailPanel({ archetype, pkg, purchased, cpRemaining, onToggleTier, onS
 
 // ─── SUMMARY VIEW ─────────────────────────────────────────────────────────────
 
-function SummaryView({ archetype, packages, purchased, cpSpent, budget }) {
-  if (!archetype) {
-    return (
-      <div style={{ padding: 40, textAlign: 'center', color: '#334155' }}>
-        No archetype selected yet.
-      </div>
-    )
-  }
-
-  const purchasedItems = []
-  for (const pkg of packages) {
-    for (let ti = 0; ti < pkg.tiers.length; ti++) {
-      if (purchased.has(`${pkg.id}_${ti}`)) {
-        purchasedItems.push({ pkg, tier: pkg.tiers[ti], ti })
+function SummaryView({ dynamicArchetype, purchased, totalCpSpent, budget }) {
+  // Collect all purchased tiers across every archetype, grouped by archetype
+  const groups = []
+  let totalPerks = 0
+  for (const arch of ARCHETYPES) {
+    const pkgList = [...(PACKAGES[arch.id] || []), ...(PREMIUM[arch.id]?.packages || [])]
+    const items = []
+    for (const pkg of pkgList) {
+      for (let ti = 0; ti < pkg.tiers.length; ti++) {
+        if (purchased.has(`${pkg.id}_${ti}`)) {
+          items.push({ pkg, tier: pkg.tiers[ti], ti })
+          totalPerks++
+        }
       }
     }
+    if (items.length > 0) groups.push({ arch, items })
   }
+
+  const cpRemaining = budget - totalCpSpent
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: 700 }}>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: 3, color: archetype.color, marginBottom: 4 }}>
-          {archetype.name.toUpperCase()}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: 3, color: dynamicArchetype?.color || '#d4a017', marginBottom: 4 }}>
+          {dynamicArchetype ? dynamicArchetype.name.toUpperCase() : 'NO ARCHETYPE'}
         </div>
         <div style={{ fontSize: 12, color: '#64748b' }}>
-          {archetype.perk ? `${archetype.perk.name} — ${archetype.perk.desc}` : '—'}
+          {dynamicArchetype?.perk ? `${dynamicArchetype.perk.name} — ${dynamicArchetype.perk.desc}` : '—'}
         </div>
       </div>
 
       <div style={{ display: 'flex', gap: 24, marginBottom: 28 }}>
         <div style={styles.summaryStatBox}>
-          <div style={styles.summaryStatVal}>{cpSpent}</div>
+          <div style={styles.summaryStatVal}>{totalCpSpent}</div>
           <div style={styles.summaryStatLabel}>CP SPENT</div>
         </div>
         <div style={styles.summaryStatBox}>
-          <div style={styles.summaryStatVal}>{budget - cpSpent}</div>
+          <div style={{ ...styles.summaryStatVal, color: cpRemaining < 0 ? '#ef4444' : '#22c55e' }}>{cpRemaining}</div>
           <div style={styles.summaryStatLabel}>CP REMAINING</div>
         </div>
         <div style={styles.summaryStatBox}>
-          <div style={styles.summaryStatVal}>{purchasedItems.length}</div>
+          <div style={styles.summaryStatVal}>{totalPerks}</div>
           <div style={styles.summaryStatLabel}>PERKS OWNED</div>
         </div>
       </div>
 
-      {purchasedItems.length === 0 ? (
+      {groups.length === 0 ? (
         <div style={{ color: '#334155', fontSize: 13 }}>No perks purchased yet.</div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {purchasedItems.map(({ pkg, tier, ti }) => (
-            <div key={`${pkg.id}_${ti}`} style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              padding: '10px 14px', background: '#0d1520',
-              border: '1px solid #1a2640', borderRadius: 6,
-            }}>
-              <div style={{
-                minWidth: 36, fontSize: 10, fontWeight: 700, color: archetype.color,
-                background: '#0a1520', padding: '2px 6px', borderRadius: 3, textAlign: 'center',
-              }}>
-                {pkg.sub}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {groups.map(({ arch, items }) => {
+            const treeTotal = items.reduce((sum, { tier }) => sum + tier.cp, 0)
+            return (
+            <div key={arch.id}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <div style={{ fontSize: 10, color: arch.color, letterSpacing: 2, fontWeight: 700, textTransform: 'uppercase' }}>
+                  {arch.name}
+                </div>
+                <div style={{ fontSize: 11, color: arch.color, fontWeight: 700 }}>{treeTotal} CP</div>
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9' }}>{tier.name}</div>
-                <div style={{ fontSize: 11, color: '#475569' }}>{tier.desc}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {items.map(({ pkg, tier, ti }) => (
+                  <div key={`${pkg.id}_${ti}`} style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 14px', background: '#0d1520',
+                    border: `1px solid ${arch.color}22`, borderRadius: 6,
+                  }}>
+                    <div style={{
+                      minWidth: 36, fontSize: 10, fontWeight: 700, color: arch.color,
+                      background: '#0a1520', padding: '2px 6px', borderRadius: 3, textAlign: 'center',
+                    }}>
+                      {pkg.sub}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9' }}>{tier.name}</div>
+                      <div style={{ fontSize: 11, color: '#475569' }}>{tier.desc}</div>
+                    </div>
+                    <div style={{ fontSize: 11, color: arch.color, fontWeight: 700 }}>{tier.cp} CP</div>
+                  </div>
+                ))}
               </div>
-              <div style={{ fontSize: 11, color: '#d4a017', fontWeight: 700 }}>{tier.cp} CP</div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
@@ -696,6 +810,9 @@ function EliteSection({ archetype, premium, purchased, baseOnlyCpSpent, selected
   )
 }
 
+// The three archetypes available for free at coach creation
+const FREE_STARTERS = ['recruiter', 'motivator', 'tactician']
+
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 export default function CoachBuild() {
@@ -703,6 +820,27 @@ export default function CoachBuild() {
   const pathPrefix = usePathPrefix()
   const { id: dynastyId } = useParams()
   const storageKey = `coachBuild_${dynastyId}`
+  const { currentDynasty } = useDynasty()
+  const { user } = useAuth()
+
+  const coachName = useMemo(() => {
+    if (!currentDynasty || !user?.uid) return 'Your Coach'
+    return getCoachNameForUid(currentDynasty, user.uid, 'Your Coach') || 'Your Coach'
+  }, [currentDynasty, user?.uid])
+
+  const currentTeamName = useMemo(() => {
+    if (!currentDynasty) return null
+    const tid = currentDynasty.currentTid
+    if (tid == null) return null
+    return getMascotName(tid, currentDynasty.teams) || null
+  }, [currentDynasty])
+
+  const currentTeamLogoUrl = useMemo(() => {
+    if (!currentDynasty) return null
+    const tid = currentDynasty.currentTid
+    if (tid == null) return null
+    return getTeamLogoRobust(tid, currentDynasty.teams) || null
+  }, [currentDynasty])
 
   // Load persisted state once on mount
   const saved = useMemo(() => {
@@ -715,7 +853,9 @@ export default function CoachBuild() {
   const [preorder, setPreorder] = useState(saved.preorder ?? false)
   const [mvp, setMvp] = useState(saved.mvp ?? false)
   const [archetypeId, setArchetypeId] = useState(saved.archetypeId ?? null)
+  const [starterArchId, setStarterArchId] = useState(saved.starterArchId ?? null)
   const [purchased, setPurchased] = useState(() => new Set(saved.purchased ?? []))
+  const [checkedReqs, setCheckedReqs] = useState(() => new Set(saved.checkedReqs ?? []))
   const [selectedPkg, setSelectedPkg] = useState(null)
   const [hoveredArch, setHoveredArch] = useState(null)
   const [previewArchId, setPreviewArchId] = useState(null)
@@ -724,12 +864,14 @@ export default function CoachBuild() {
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify({
       archetypeId,
+      starterArchId,
       purchased: [...purchased],
+      checkedReqs: [...checkedReqs],
       coachLevel,
       preorder,
       mvp,
     }))
-  }, [archetypeId, purchased, coachLevel, preorder, mvp, storageKey])
+  }, [archetypeId, starterArchId, purchased, checkedReqs, coachLevel, preorder, mvp, storageKey])
 
   const archetype = ARCHETYPES.find(a => a.id === archetypeId) || null
   const previewArch = previewArchId ? ARCHETYPES.find(a => a.id === previewArchId) : null
@@ -741,6 +883,53 @@ export default function CoachBuild() {
 
   const budget = computeBudget(coachLevel, preorder, mvp)
 
+  // All packages across every archetype — used for global budget tracking
+  const allArchetypePackages = useMemo(() => {
+    const all = []
+    for (const pkgList of Object.values(PACKAGES)) all.push(...pkgList)
+    for (const prem of Object.values(PREMIUM)) all.push(...(prem?.packages || []))
+    return all
+  }, [])
+
+  // Total CP spent across ALL archetypes (drives the header budget counter)
+  const totalCpSpent = useMemo(() => {
+    let total = 0
+    for (const pkg of allArchetypePackages) {
+      for (let ti = 0; ti < pkg.tiers.length; ti++) {
+        if (purchased.has(`${pkg.id}_${ti}`)) total += pkg.tiers[ti].cp
+      }
+    }
+    // Archetype unlock costs (all archetypes that were explicitly unlocked)
+    for (const arch of ARCHETYPES) {
+      if (!purchased.has(`__unlock_${arch.id}`)) continue
+      if (FREE_STARTERS.includes(arch.id) && arch.id !== starterArchId) {
+        total += 50 // Level-10 free-starter unlock price
+      } else if (arch.unlockCost > 0) {
+        total += arch.unlockCost // Premium archetype unlock price
+      }
+    }
+    return total
+  }, [purchased, allArchetypePackages, starterArchId])
+
+  // CP spent per archetype — keyed by archId, plus '__total' for global sum
+  const cpSpentByArchId = useMemo(() => {
+    const map = {}
+    for (const arch of ARCHETYPES) {
+      const pkgList = PACKAGES[arch.id] || []
+      const premPkgs = PREMIUM[arch.id]?.packages || []
+      let total = 0
+      for (const pkg of [...pkgList, ...premPkgs]) {
+        for (let ti = 0; ti < pkg.tiers.length; ti++) {
+          if (purchased.has(`${pkg.id}_${ti}`)) total += pkg.tiers[ti].cp
+        }
+      }
+      map[arch.id] = total
+    }
+    map['__total'] = totalCpSpent
+    return map
+  }, [purchased, totalCpSpent])
+
+  // CP spent in the currently viewed archetype (for the per-tree summary display)
   const cpSpent = useMemo(() => {
     if (!archetypeId) return 0
     let total = 0
@@ -764,7 +953,24 @@ export default function CoachBuild() {
     return total
   }, [purchased, packages, archetypeId])
 
-  const cpRemaining = budget - cpSpent
+  const cpRemaining = budget - totalCpSpent
+
+  // Dynamic archetype label: CEO > Program Builder > Talent Developer > most CP spent
+  const dynamicArchetype = useMemo(() => {
+    const hierarchy = ['ceo', 'program_builder', 'talent_developer']
+    for (const id of hierarchy) {
+      if (purchased.has(`__unlock_${id}`)) return ARCHETYPES.find(a => a.id === id) || null
+    }
+    // Fall back to whichever archetype has the most CP spent
+    let bestArch = starterArchId ? ARCHETYPES.find(a => a.id === starterArchId) : null
+    let bestCp = cpSpentByArchId[starterArchId] ?? 0
+    for (const arch of ARCHETYPES) {
+      if (arch.id === starterArchId) continue
+      const cp = cpSpentByArchId[arch.id] ?? 0
+      if (cp > bestCp) { bestArch = arch; bestCp = cp }
+    }
+    return bestArch
+  }, [purchased, cpSpentByArchId, starterArchId])
 
   const selectedPackage = allPackages.find(p => p.id === selectedPkg) || null
 
@@ -792,6 +998,17 @@ export default function CoachBuild() {
   function handleSelectArchetype(id) {
     setSelectedPkg(null)
     setArchetypeId(id)
+    // First time choosing a free starter — mark it permanently
+    if (FREE_STARTERS.includes(id) && !starterArchId) setStarterArchId(id)
+    setPreviewArchId(null)
+    setHoveredArch(null)
+  }
+
+  // Spend the 50 CP unlock cost for a level-10 free-starter archetype
+  function handleUnlockArchetype(id) {
+    setPurchased(prev => new Set([...prev, `__unlock_${id}`]))
+    setSelectedPkg(null)
+    setArchetypeId(id)
     setPreviewArchId(null)
     setHoveredArch(null)
   }
@@ -805,14 +1022,56 @@ export default function CoachBuild() {
   function handleReset() {
     localStorage.removeItem(storageKey)
     setArchetypeId(null)
+    setStarterArchId(null)
     setPreviewArchId(null)
     setPurchased(new Set())
+    setCheckedReqs(new Set())
     setSelectedPkg(null)
     setHoveredArch(null)
     setCoachLevel(100)
     setLevelInput('100')
     setPreorder(false)
     setMvp(false)
+  }
+
+  function handleToggleReqCheck(archId, label) {
+    setCheckedReqs(prev => {
+      const key = `${archId}::${label}`
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key); else next.add(key)
+      return next
+    })
+  }
+
+  function isReqMet(archId, req) {
+    if (req.type === 'plain') return false
+    if (req.type === 'checkbox') return checkedReqs.has(`${archId}::${req.label}`)
+    if (req.type === 'progress') {
+      if (req.archId?.startsWith('__starter_')) {
+        const targetId = req.archId.replace('__starter_', '')
+        return starterArchId === targetId || purchased.has(`__unlock_${targetId}`)
+      }
+      const current = cpSpentByArchId[req.archId] ?? 0
+      return req.total ? current >= req.total : current > 0
+    }
+    return false
+  }
+
+  function allUnlockReqsMet(arch) {
+    if (!arch?.unlockReqs) return true
+    return arch.unlockReqs.every(req => isReqMet(arch.id, req))
+  }
+
+  // Returns arch with flags injected based on selection state
+  function getEffectiveArch(arch) {
+    if (!arch) return arch
+    if (starterArchId && FREE_STARTERS.includes(arch.id) && arch.id !== starterArchId) {
+      return { ...arch, unlockCost: 50, unlockReqs: [{ label: 'Coach level 10', type: 'checkbox' }], _isLevel10Unlock: true }
+    }
+    if (starterArchId && arch.id === starterArchId) {
+      return { ...arch, _isChosenStarter: true }
+    }
+    return arch
   }
 
   function handleSetLevel() {
@@ -822,14 +1081,17 @@ export default function CoachBuild() {
 
   // Purchased tier count for sidebar list
   const purchasedList = useMemo(() => {
-    if (!archetypeId) return []
     const out = []
-    for (const pkg of allPackages) {
-      const count = pkg.tiers.filter((_, ti) => purchased.has(`${pkg.id}_${ti}`)).length
-      if (count > 0) out.push({ pkg, count, total: pkg.tiers.length })
+    for (const arch of ARCHETYPES) {
+      const pkgList = PACKAGES[arch.id] || []
+      const premPkgs = PREMIUM[arch.id]?.packages || []
+      for (const pkg of [...pkgList, ...premPkgs]) {
+        const count = pkg.tiers.filter((_, ti) => purchased.has(`${pkg.id}_${ti}`)).length
+        if (count > 0) out.push({ pkg, count, total: pkg.tiers.length, archId: arch.id, archColor: arch.color, archName: arch.name })
+      }
     }
     return out
-  }, [purchased, allPackages, archetypeId])
+  }, [purchased])
 
   return (
     <div style={styles.root}>
@@ -877,7 +1139,7 @@ export default function CoachBuild() {
           </div>
 
           <div style={styles.cpCounter}>
-            <span style={{ color: '#d4a017', fontWeight: 700 }}>{budget - cpSpent}</span>
+            <span style={{ color: '#d4a017', fontWeight: 700 }}>{budget - totalCpSpent}</span>
             <span style={{ color: '#475569' }}> / {budget}</span>
             <span style={{ fontSize: 10, color: '#475569', marginLeft: 4, letterSpacing: 1 }}>CP</span>
           </div>
@@ -889,10 +1151,9 @@ export default function CoachBuild() {
       {activeTab === 'summary' ? (
         <div style={{ flex: 1, overflowY: 'auto' }}>
           <SummaryView
-            archetype={archetype}
-            packages={packages}
+            dynamicArchetype={dynamicArchetype}
             purchased={purchased}
-            cpSpent={cpSpent}
+            totalCpSpent={totalCpSpent}
             budget={budget}
           />
         </div>
@@ -901,16 +1162,27 @@ export default function CoachBuild() {
           {/* ── LEFT SIDEBAR ── */}
           <div style={styles.sidebar}>
             <div style={styles.sideCoachCard}>
-              <div style={styles.sideCoachAvatar} />
+              <div style={styles.sideCoachAvatar}>
+                {currentTeamLogoUrl && (
+                  <img
+                    src={currentTeamLogoUrl}
+                    alt=""
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%' }}
+                  />
+                )}
+              </div>
               <div>
                 <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: 2, color: '#f8fafc' }}>
-                  YOUR COACH
+                  {coachName}
                 </div>
-                <div style={{ fontSize: 11, color: '#64748b', letterSpacing: 1 }}>
-                  {archetype
-                    ? archetype.name.toUpperCase()
-                    : previewArch
-                    ? `${previewArch.name.toUpperCase()} (PREVIEW)`
+                {currentTeamName && (
+                  <div style={{ fontSize: 10, color: '#d4a017', letterSpacing: 1, marginBottom: 1 }}>
+                    {currentTeamName.toUpperCase()}
+                  </div>
+                )}
+                <div style={{ fontSize: 11, color: dynamicArchetype ? dynamicArchetype.color : '#64748b', letterSpacing: 1 }}>
+                  {dynamicArchetype
+                    ? dynamicArchetype.name.toUpperCase()
                     : 'NO ARCHETYPE'}
                 </div>
               </div>
@@ -920,8 +1192,18 @@ export default function CoachBuild() {
               <div style={styles.sideSectionLabel}>CP BUDGET</div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                 <span style={{ fontSize: 11, color: '#64748b' }}>Spent</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>{cpSpent}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>{totalCpSpent}</span>
               </div>
+              {archetypeId && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, color: archetype?.color || '#64748b' }}>
+                    In {archetype?.name || archetypeId}
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: archetype?.color || '#f1f5f9' }}>
+                    {cpSpentByArchId[archetypeId] ?? 0}
+                  </span>
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <span style={{ fontSize: 11, color: '#64748b' }}>Remaining</span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: cpRemaining < 0 ? '#ef4444' : '#22c55e' }}>
@@ -932,7 +1214,7 @@ export default function CoachBuild() {
               <div style={{ height: 4, background: '#1a2640', borderRadius: 2, overflow: 'hidden' }}>
                 <div style={{
                   height: '100%',
-                  width: `${Math.min(100, (cpSpent / budget) * 100)}%`,
+                  width: `${Math.min(100, (totalCpSpent / budget) * 100)}%`,
                   background: cpRemaining < 0 ? '#ef4444' : archetype?.color || '#d4a017',
                   transition: 'width 0.3s',
                 }} />
@@ -953,19 +1235,38 @@ export default function CoachBuild() {
               </div>
             )}
 
-            {purchasedList.length > 0 && (
-              <div style={styles.sideSection}>
-                <div style={styles.sideSectionLabel}>PURCHASED PACKAGES</div>
-                {purchasedList.map(({ pkg, count, total }) => (
-                  <div key={pkg.id} style={styles.sidePkgRow}>
-                    <span style={{ fontSize: 11, color: '#94a3b8' }}>{pkg.name}</span>
-                    <span style={{ fontSize: 11, color: archetype.color, fontWeight: 700 }}>
-                      {count}/{total}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+            {purchasedList.length > 0 && (() => {
+              // Group flat list by archetype
+              const groups = []
+              const seen = new Map()
+              for (const item of purchasedList) {
+                if (!seen.has(item.archId)) {
+                  const g = { archId: item.archId, archName: item.archName, archColor: item.archColor, items: [] }
+                  seen.set(item.archId, g)
+                  groups.push(g)
+                }
+                seen.get(item.archId).items.push(item)
+              }
+              return (
+                <div style={styles.sideSection}>
+                  <div style={styles.sideSectionLabel}>PURCHASED PACKAGES</div>
+                  {groups.map(({ archId, archName, archColor, items }) => (
+                    <div key={archId} style={{ marginBottom: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <span style={{ fontSize: 9, color: archColor, letterSpacing: 1, fontWeight: 700 }}>{archName.toUpperCase()}</span>
+                        <span style={{ fontSize: 10, color: archColor, fontWeight: 700 }}>{cpSpentByArchId[archId] ?? 0} CP</span>
+                      </div>
+                      {items.map(({ pkg, count, total, archColor: c }) => (
+                        <div key={pkg.id} style={styles.sidePkgRow}>
+                          <span style={{ fontSize: 11, color: '#94a3b8' }}>{pkg.name}</span>
+                          <span style={{ fontSize: 11, color: c, fontWeight: 700 }}>{count}/{total}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
           </div>
 
           {/* ── CENTER CANVAS ── */}
@@ -980,6 +1281,7 @@ export default function CoachBuild() {
                   <ArchetypeWheel
                     selected={hoveredArch}
                     onSelect={(id) => setHoveredArch(prev => prev === id ? null : id)}
+                    starterArchId={starterArchId}
                   />
                 </div>
               </div>
@@ -1024,19 +1326,29 @@ export default function CoachBuild() {
                         <strong style={{ color: '#94a3b8' }}>{previewArch.name}</strong> isn't unlocked yet — browse what you'd get.
                       </span>
                     </div>
-                    <button
-                      onClick={() => handleSelectArchetype(previewArch.id)}
-                      style={{
-                        ...styles.btnPrimary,
-                        background: previewArch.color,
-                        padding: '6px 14px',
-                        fontSize: 10,
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0,
-                      }}
-                    >
-                      START AS {previewArch.name.toUpperCase()}
-                    </button>
+                    {(() => {
+                      const isPrevPremium = !!previewArch.unlockReqs
+                      const prevAlreadyUnlocked = isPrevPremium && purchased.has(`__unlock_${previewArch.id}`)
+                      return (
+                        <button
+                          disabled={prevAlreadyUnlocked}
+                          onClick={() => prevAlreadyUnlocked ? null : isPrevPremium ? handleUnlockArchetype(previewArch.id) : handleSelectArchetype(previewArch.id)}
+                          style={{
+                            ...styles.btnPrimary,
+                            background: prevAlreadyUnlocked ? '#0d2010' : previewArch.color,
+                            color: prevAlreadyUnlocked ? '#22c55e' : '#fff',
+                            border: prevAlreadyUnlocked ? '1px solid #16a34a' : 'none',
+                            cursor: prevAlreadyUnlocked ? 'default' : 'pointer',
+                            padding: '6px 14px',
+                            fontSize: 10,
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {prevAlreadyUnlocked ? 'UNLOCKED' : isPrevPremium ? `UNLOCK ${previewArch.name.toUpperCase()}` : `START AS ${previewArch.name.toUpperCase()}`}
+                        </button>
+                      )
+                    })()}
                   </div>
                 )}
 
@@ -1076,15 +1388,22 @@ export default function CoachBuild() {
           {/* ── RIGHT DETAIL PANEL ── */}
           <div style={styles.rightPanel}>
             {/* Archetype selection screen: hovering an archetype node */}
-            {!archetypeId && !previewArchId && (
-              hoveredArch ? (
+            {!archetypeId && !previewArchId && (() => {
+              const effHovered = hoveredArch ? getEffectiveArch(ARCHETYPES.find(a => a.id === hoveredArch)) : null
+              return hoveredArch ? (
                 <DetailPanel
-                  archetype={ARCHETYPES.find(a => a.id === hoveredArch)}
+                  archetype={effHovered}
                   pkg={null}
                   purchased={purchased}
                   cpRemaining={cpRemaining}
+                  cpSpentByArchId={cpSpentByArchId}
+                  starterArchId={starterArchId}
+                  checkedReqs={checkedReqs}
+                  archReqsMet={allUnlockReqsMet(effHovered)}
                   onToggleTier={handleToggleTier}
                   onSelectArchetype={handleSelectArchetype}
+                  onUnlockArchetype={handleUnlockArchetype}
+                  onToggleReqCheck={handleToggleReqCheck}
                   onPreview={handlePreview}
                 />
               ) : (
@@ -1094,7 +1413,7 @@ export default function CoachBuild() {
                   </div>
                 </div>
               )
-            )}
+            })()}
 
             {/* Preview mode: viewing a package */}
             {isPreviewMode && selectedPackage && (
@@ -1120,25 +1439,37 @@ export default function CoachBuild() {
             {/* Active archetype: viewing a package */}
             {archetypeId && selectedPackage && (
               <DetailPanel
-                archetype={archetype}
+                archetype={getEffectiveArch(archetype)}
                 pkg={selectedPackage}
                 purchased={purchased}
                 cpRemaining={cpRemaining}
+                cpSpentByArchId={cpSpentByArchId}
+                starterArchId={starterArchId}
                 onToggleTier={handleToggleTier}
                 onSelectArchetype={handleSelectArchetype}
+                onUnlockArchetype={handleUnlockArchetype}
                 isElitePkg={premium?.packages?.some(p => p.id === selectedPkg)}
               />
             )}
-            {archetypeId && !selectedPackage && (
-              <DetailPanel
-                archetype={archetype}
-                pkg={null}
-                purchased={purchased}
-                cpRemaining={cpRemaining}
-                onToggleTier={handleToggleTier}
-                onSelectArchetype={handleSelectArchetype}
-              />
-            )}
+            {archetypeId && !selectedPackage && (() => {
+              const effArch = getEffectiveArch(archetype)
+              return (
+                <DetailPanel
+                  archetype={effArch}
+                  pkg={null}
+                  purchased={purchased}
+                  cpRemaining={cpRemaining}
+                  cpSpentByArchId={cpSpentByArchId}
+                  starterArchId={starterArchId}
+                  checkedReqs={checkedReqs}
+                  archReqsMet={allUnlockReqsMet(effArch)}
+                  onToggleTier={handleToggleTier}
+                  onSelectArchetype={handleSelectArchetype}
+                  onUnlockArchetype={handleUnlockArchetype}
+                  onToggleReqCheck={handleToggleReqCheck}
+                />
+              )
+            })()}
           </div>
         </div>
       )}
@@ -1287,6 +1618,10 @@ const styles = {
     borderRadius: '50%',
     background: '#1a2640',
     flexShrink: 0,
+    overflow: 'hidden',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sideSection: {
     padding: '12px 0',

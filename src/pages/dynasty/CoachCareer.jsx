@@ -659,7 +659,7 @@ export default function CoachCareer() {
                     alignSelf: 'center',
                   }}
                 >
-                  Coach Build
+                  Coach Builder
                 </button>
               </div>
               <div
