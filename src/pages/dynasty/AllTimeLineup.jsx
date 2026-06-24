@@ -3,11 +3,12 @@ import { Link } from 'react-router-dom'
 import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useAuth } from '../../context/AuthContext'
-import { Card, Tabs } from '../../components/ui'
 import { normalizeAwardName } from '../../utils/playerHeal'
 import { getTeamLogoByTid } from '../../data/teams'
 import { getColorsFromTid, getTidFromAbbr } from '../../data/teamRegistry'
 import { proxyImageUrl } from '../../utils/imageProxy'
+import { getContrastTextColor } from '../../utils/colorUtils'
+import { computeCareerAV } from '../../utils/approximateValue'
 
 // ─── Slot definitions ─────────────────────────────────────────────────────────
 
@@ -65,11 +66,11 @@ const DEFAULT_LAYOUT = {
     ['WR1', 'QB1', 'HB1', 'TE1', 'WR2'],
   ],
   defense: [
-    ['FS1', 'SS1'],
-    ['CB1', 'OLB1', 'MLB1', 'OLB2', 'CB2'],
     ['EDGE1', 'DT1', 'DT2', 'EDGE2'],
+    ['OLB1', 'MLB1', 'OLB2'],
+    ['CB1', 'FS1', 'SS1', 'CB2'],
   ],
-  st: [['K1', 'P1']],
+  st: [['K1', 'P1', 'KR1', 'PR1']],
 }
 
 function getTileLabel(key) {
@@ -79,6 +80,30 @@ function getTileLabel(key) {
   const match = key.match(/^(.+?)(\d+)$/)
   if (!match) return slot.label
   return match[2] === '1' ? slot.label : slot.label + match[2]
+}
+
+// Firestore can't store nested arrays, and the layout is rows-of-keys
+// (`{ offense: [['LT1',…], …] }`) — a nested array. Writing it straight to the
+// dynasty doc throws ("Nested arrays are not supported"), so a cloud user's
+// custom Positions layout silently failed to save and reverted to default on
+// reload. The fix: persist the layout as a JSON string (allTimeTeam.layoutJSON)
+// and decode it here. Falls back to a legacy nested-array `layout` field (old
+// local-only saves) and finally DEFAULT_LAYOUT.
+function readLayout(att) {
+  if (att?.layoutJSON) {
+    try {
+      const p = JSON.parse(att.layoutJSON)
+      if (p && (p.offense || p.defense || p.st)) {
+        return {
+          offense: p.offense || DEFAULT_LAYOUT.offense,
+          defense: p.defense || DEFAULT_LAYOUT.defense,
+          st:      p.st      || DEFAULT_LAYOUT.st,
+        }
+      }
+    } catch { /* fall through */ }
+  }
+  if (att?.layout?.offense) return att.layout
+  return DEFAULT_LAYOUT
 }
 
 // ─── Award helpers ────────────────────────────────────────────────────────────
@@ -253,6 +278,113 @@ function getBestReturnStats(player, returnType) {
   if (avg > 0) stats.push(`${Number(avg).toFixed(1)} ${label} Avg`)
   if (td  > 0) stats.push(`${td} ${label} TD`)
   return { stats: stats.slice(0, 3), year: bestYear }
+}
+
+// Career totals across every season (counting stats summed), top 3 for the
+// player's position. Powers the stat line on the All-Time Team cards.
+function getCareerStats(player) {
+  const seasons = Object.values(player.statsByYear || {}).filter(Boolean)
+  const pos = (player.position || '').toUpperCase()
+  const sum = (fn) => seasons.reduce((t, ys) => t + Number(fn(ys) || 0), 0)
+  const n = (v) => v.toLocaleString()
+  const stats = []
+  if (pos === 'QB') {
+    const yds = sum(ys => ys.passing?.yds ?? ys.passing?.yards)
+    const td = sum(ys => ys.passing?.td ?? ys.passing?.tds)
+    const int = sum(ys => ys.passing?.int ?? ys.passing?.ints)
+    if (yds) stats.push(`${n(yds)} Yds`)
+    if (td) stats.push(`${td} TD`)
+    if (int) stats.push(`${int} INT`)
+  } else if (['HB', 'RB', 'FB'].includes(pos)) {
+    const ry = sum(ys => ys.rushing?.yds ?? ys.rushing?.yards)
+    const rt = sum(ys => ys.rushing?.td ?? ys.rushing?.tds)
+    const recy = sum(ys => ys.receiving?.yds ?? ys.receiving?.yards)
+    if (ry) stats.push(`${n(ry)} Rush Yds`)
+    if (rt) stats.push(`${rt} Rush TD`)
+    if (recy) stats.push(`${n(recy)} Rec Yds`)
+  } else if (['WR', 'TE'].includes(pos)) {
+    const rec = sum(ys => ys.receiving?.rec ?? ys.receiving?.receptions)
+    const yds = sum(ys => ys.receiving?.yds ?? ys.receiving?.yards)
+    const td = sum(ys => ys.receiving?.td ?? ys.receiving?.tds)
+    if (rec) stats.push(`${rec} Rec`)
+    if (yds) stats.push(`${n(yds)} Yds`)
+    if (td) stats.push(`${td} TD`)
+  } else if (['LT', 'LG', 'C', 'RG', 'RT', 'OT', 'OG', 'OL'].includes(pos)) {
+    const p = sum(ys => ys.blocking?.pancakes ?? ys.blocking?.pcks)
+    if (p) stats.push(`${n(p)} Pancakes`)
+  } else if (['DT', 'NT', 'DL', 'DE', 'LEDG', 'REDG', 'EDGE', 'LE', 'RE'].includes(pos)) {
+    const s = sum(ys => ys.defense?.sacks)
+    const t = sum(ys => ys.defense?.tck ?? ys.defense?.tackles)
+    const tfl = sum(ys => ys.defense?.tfl ?? ys.defense?.tacklesForLoss)
+    if (s) stats.push(`${s} Sacks`)
+    if (t) stats.push(`${n(t)} Tckl`)
+    if (tfl) stats.push(`${tfl} TFL`)
+  } else if (['LB', 'OLB', 'MLB', 'ILB', 'SAM', 'WILL', 'MIKE', 'LOLB', 'ROLB'].includes(pos)) {
+    const t = sum(ys => ys.defense?.tck ?? ys.defense?.tackles)
+    const s = sum(ys => ys.defense?.sacks)
+    const i = sum(ys => ys.defense?.int ?? ys.defense?.interceptions)
+    if (t) stats.push(`${n(t)} Tckl`)
+    if (s) stats.push(`${s} Sacks`)
+    if (i) stats.push(`${i} INT`)
+  } else if (['CB', 'FS', 'SS', 'S', 'DB'].includes(pos)) {
+    const i = sum(ys => ys.defense?.int ?? ys.defense?.interceptions)
+    const t = sum(ys => ys.defense?.tck ?? ys.defense?.tackles)
+    const pd = sum(ys => ys.defense?.pd ?? ys.defense?.passDeflections)
+    if (i) stats.push(`${i} INT`)
+    if (t) stats.push(`${n(t)} Tckl`)
+    if (pd) stats.push(`${pd} PD`)
+  } else if (pos === 'K') {
+    const fgm = sum(ys => ys.kicking?.fgm)
+    const fga = sum(ys => ys.kicking?.fga)
+    const pts = sum(ys => ys.kicking?.pts ?? ys.kicking?.points)
+    if (fgm) stats.push(`${fgm}${fga ? `/${fga}` : ''} FG`)
+    if (pts) stats.push(`${n(pts)} Pts`)
+  } else if (pos === 'P') {
+    const i20 = sum(ys => ys.punting?.inside20)
+    const avgs = seasons.map(ys => Number(ys.punting?.avg || 0)).filter(v => v > 0)
+    const avg = avgs.length ? avgs.reduce((a, b) => a + b, 0) / avgs.length : 0
+    if (avg) stats.push(`${avg.toFixed(1)} Avg`)
+    if (i20) stats.push(`${i20} In 20`)
+  }
+  return stats.slice(0, 3)
+}
+
+function getCareerReturnStats(player, returnType) {
+  const seasons = Object.values(player.statsByYear || {}).filter(Boolean)
+  const label = returnType === 'kickReturn' ? 'KR' : 'PR'
+  const sum = (fn) => seasons.reduce((t, ys) => t + Number(fn(ys?.[returnType]) || 0), 0)
+  const att = sum(r => r?.att ?? r?.returns)
+  const yds = sum(r => r?.yds ?? r?.yards)
+  const td = sum(r => r?.td ?? r?.tds)
+  const stats = []
+  if (yds) stats.push(`${yds.toLocaleString()} ${label} Yds`)
+  if (td) stats.push(`${td} ${label} TD`)
+  if (att) stats.push(`${att} ${label}`)
+  return stats.slice(0, 3)
+}
+
+// Career AV from ONE return type only (kick OR punt returns), using the same
+// weights as the AV util's returnValue(). Used to rank the KR / PR slots so a
+// returner is chosen on return production, not their main-position AV.
+function getCareerReturnAV(player, returnType) {
+  const seasons = Object.values(player.statsByYear || {}).filter(Boolean)
+  const yardMult = returnType === 'kickReturn' ? 0.005 : 0.008
+  let av = 0
+  for (const ys of seasons) {
+    const r = ys?.[returnType]
+    if (!r) continue
+    av += (Number(r.yds ?? r.yards ?? 0)) * yardMult
+    av += (Number(r.td ?? r.tds ?? 0)) * 1.5
+  }
+  return av
+}
+
+// Career span, e.g. "2031–35" (or a single year).
+function getSeasonSpan(player) {
+  const years = Object.keys(player.statsByYear || {}).map(Number).filter(Number.isFinite).sort((a, b) => a - b)
+  if (!years.length) return null
+  const a = years[0], b = years[years.length - 1]
+  return a === b ? String(a) : `${a}–${String(b).slice(-2)}`
 }
 
 function getTopStat(player) {
@@ -596,274 +728,39 @@ function LayoutEditorModal({ layout, onSave, onClose }) {
 
 // ─── Player select dropdown ───────────────────────────────────────────────────
 
-function PlayerSelectOption({ player, isSelected, onSelect, placeholderImages, returnType }) {
-  const photoUrl = player.pictureUrl && !placeholderImages.has(player.pictureUrl) ? player.pictureUrl : null
-  const initial  = (player.name || '?').trim().charAt(0).toUpperCase()
-  const awards           = returnType ? [] : getTop3Awards(player)
-  const { stats, year } = returnType
-    ? getBestReturnStats(player, returnType)
-    : getBestSeasonStats(player)
-  const [hovered, setHovered] = useState(false)
-
-  return (
-    <div
-      onClick={onSelect}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="flex items-start gap-2.5 px-3 py-2 cursor-pointer"
-      style={{
-        borderBottom: '1px solid var(--surface-3)',
-        backgroundColor: isSelected ? 'var(--surface-4)' : hovered ? 'var(--surface-2)' : 'transparent',
-      }}
-    >
-      {/* Photo */}
-      <div className="flex-shrink-0 w-9 h-12 rounded overflow-hidden" style={{ backgroundColor: 'var(--surface-4)' }}>
-        {photoUrl ? (
-          <img src={proxyImageUrl(photoUrl, 80)} alt="" className="w-full h-full object-cover object-top" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center font-black" style={{ fontSize: '16px', color: 'var(--text-secondary)' }}>
-            {initial}
-          </div>
-        )}
-      </div>
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="font-bold text-txt-primary leading-tight" style={{ fontSize: '13px' }}>{player.name}</span>
-          <span className="font-black rounded px-1 py-0.5" style={{ fontSize: '9px', backgroundColor: 'var(--surface-4)', color: 'var(--text-secondary)', letterSpacing: '0.5px' }}>
-            {player.position}
-          </span>
-          <span className="font-black" style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{player._peakOvr} OVR</span>
-        </div>
-        {awards.length > 0 && (
-          <div className="truncate mt-0.5" style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
-            {awards.join(' · ')}
-          </div>
-        )}
-        {stats.length > 0 && (
-          <div className="truncate mt-0.5 flex items-center gap-1.5" style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
-            {year && (
-              <span className="flex-shrink-0 font-bold" style={{ color: 'var(--text-tertiary)' }}>{year}</span>
-            )}
-            <span className="truncate">{stats.join(' · ')}</span>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function PlayerSelectDropdown({ slotKey, pid, onSelect, eligible, placeholderImages, isChange, returnType }) {
-  const [open, setOpen] = useState(false)
-  const [panelStyle, setPanelStyle] = useState({})
-  const [hovered, setHovered] = useState(false)
-  const [pressed, setPressed] = useState(false)
-  const triggerRef = useRef(null)
-  const panelRef   = useRef(null)
-
-  useEffect(() => {
-    if (!open) return
-    function onDown(e) {
-      if (
-        triggerRef.current && !triggerRef.current.contains(e.target) &&
-        panelRef.current   && !panelRef.current.contains(e.target)
-      ) setOpen(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [open])
-
-  // Re-anchor the panel to the trigger whenever the page scrolls
-  useEffect(() => {
-    if (!open) return
-    let raf = null
-    function reposition() {
-      if (raf) return
-      raf = requestAnimationFrame(() => {
-        raf = null
-        if (!triggerRef.current) return
-        const rect = triggerRef.current.getBoundingClientRect()
-        const availableH = window.innerHeight - rect.bottom - 16
-        setPanelStyle(prev => ({
-          ...prev,
-          left: Math.max(4, Math.min(rect.left, window.innerWidth - 300)),
-          top: rect.bottom + 4,
-          maxHeight: Math.max(200, availableH),
-        }))
-      })
-    }
-    // capture:true catches scroll on any ancestor, not just window
-    window.addEventListener('scroll', reposition, { capture: true, passive: true })
-    return () => {
-      window.removeEventListener('scroll', reposition, { capture: true })
-      if (raf) cancelAnimationFrame(raf)
-    }
-  }, [open])
-
-  function handleOpen() {
-    if (!triggerRef.current) return
-    const rect = triggerRef.current.getBoundingClientRect()
-    const availableH = window.innerHeight - rect.bottom - 16
-    setPanelStyle({
-      position: 'fixed',
-      left: Math.max(4, Math.min(rect.left, window.innerWidth - 300)),
-      top: rect.bottom + 4,
-      width: Math.max(rect.width, 296),
-      maxHeight: Math.max(200, availableH),
-      zIndex: 10000,
-    })
-    setOpen(v => !v)
+function PlayerSelectDropdown({ slotKey, pid, onSelect, eligible, isChange }) {
+  // Native <select> so the device's own picker is used — far better on
+  // mobile/touch and zero custom positioning to break. Options are text-only
+  // ("Name · OVR"). The select keeps a fixed "Change…/Select…" prompt (value
+  // stays empty) since the card already shows who's in the slot; picking an
+  // option fires onSelect, and "Remove player" clears it.
+  const handleChange = (e) => {
+    const v = e.target.value
+    if (!v) return
+    onSelect(slotKey, v === '__remove__' ? null : v)
   }
-
   return (
-    <>
-      <button
-        ref={triggerRef}
-        onClick={handleOpen}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => { setHovered(false); setPressed(false) }}
-        onMouseDown={() => setPressed(true)}
-        onMouseUp={() => setPressed(false)}
-        className="w-full rounded px-2 py-1 text-left"
-        style={{
-          fontSize: '10px',
-          backgroundColor: pressed
-            ? 'var(--surface-5)'
-            : open || hovered
-              ? 'var(--surface-4)'
-              : 'var(--surface-3)',
-          border: `1px solid ${open ? 'var(--text-primary)' : hovered ? 'var(--surface-6, var(--surface-5))' : 'var(--surface-5)'}`,
-          color: open || hovered ? 'var(--text-primary)' : 'var(--text-secondary)',
-          cursor: 'pointer',
-          transform: pressed ? 'scale(0.97)' : 'scale(1)',
-          transition: 'background-color 0.1s, border-color 0.1s, color 0.1s, transform 0.08s',
-          fontWeight: open ? 600 : 400,
-        }}
+    <div className="relative w-full">
+      <select
+        value=""
+        onChange={handleChange}
+        onClick={(e) => e.stopPropagation()}
+        aria-label={isChange ? 'Change player' : 'Select player'}
+        className="w-full appearance-none rounded bg-surface-3 border border-surface-5 text-txt-secondary hover:text-txt-primary hover:border-surface-4 focus:border-[color:var(--text-primary)] focus:outline-none transition-colors cursor-pointer text-[10px] sm:text-xs font-medium pl-1.5 pr-5 py-1"
       >
-        <span className="flex items-center justify-between gap-1">
-          <span>{isChange ? 'Change' : 'Select Player'}</span>
-          <svg
-            width="8" height="8" viewBox="0 0 8 8" fill="none"
-            style={{ flexShrink: 0, transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}
-          >
-            <path d="M1 2.5L4 5.5L7 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </span>
-      </button>
-
-      {open && (
-        <div
-          ref={panelRef}
-          className="rounded-lg shadow-2xl"
-          style={{ ...panelStyle, backgroundColor: 'var(--surface-1)', border: '1px solid var(--surface-4)', overflowY: 'auto' }}
-          onWheel={e => e.stopPropagation()}
-          onTouchMove={e => e.stopPropagation()}
-        >
-          {pid && (
-            <button
-              onClick={() => { onSelect(slotKey, null); setOpen(false) }}
-              className="w-full px-3 py-2 text-left transition-colors"
-              style={{ fontSize: '12px', color: 'var(--text-secondary)', borderBottom: '1px solid var(--surface-3)' }}
-              onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--surface-2)'}
-              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-            >
-              Clear player
-            </button>
-          )}
-          {eligible.length === 0 ? (
-            <div className="px-3 py-3 italic" style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-              No eligible players from coached teams
-            </div>
-          ) : eligible.map(p => (
-            <PlayerSelectOption
-              key={p.pid}
-              player={p}
-              isSelected={p.pid === pid}
-              onSelect={() => { onSelect(slotKey, p.pid); setOpen(false) }}
-              placeholderImages={placeholderImages}
-              returnType={returnType}
-            />
-          ))}
-        </div>
-      )}
-    </>
-  )
-}
-
-// ─── Panel ceiling background ─────────────────────────────────────────────────
-
-// Recessed can-light positions (x/y as 0-100 viewBox units)
-const PANEL_LIGHTS = [
-  { x:  7, y:  8, s: 1.0  },
-  { x: 20, y:  6, s: 0.88 },
-  { x: 34, y:  9, s: 1.1  },
-  { x: 48, y:  6, s: 0.95 },
-  { x: 61, y:  9, s: 1.05 },
-  { x: 75, y:  6, s: 0.85 },
-  { x: 89, y:  8, s: 0.9  },
-  { x: 13, y: 22, s: 0.72 },
-  { x: 27, y: 24, s: 0.78 },
-  { x: 41, y: 21, s: 0.68 },
-  { x: 55, y: 24, s: 0.75 },
-  { x: 68, y: 21, s: 0.7  },
-  { x: 82, y: 23, s: 0.65 },
-]
-
-// Absolute-fill overlay — place inside a `position: relative overflow-hidden` parent
-function CeilingLights({ team = 'first' }) {
-  const isGold   = team === 'first'
-  // Panel stripe: subtle horizontal slat lines
-  const panelBg  = isGold
-    ? 'repeating-linear-gradient(180deg,#1e1a10 0px,#1e1a10 26px,#161308 26px,#161308 28px)'
-    : 'repeating-linear-gradient(180deg,#14161e 0px,#14161e 26px,#0e1018 26px,#0e1018 28px)'
-  // Glow color per team
-  const bloom    = isGold ? [210, 155, 25]  : [175, 185, 210]
-  const coreClr  = isGold ? '#f0d060'       : '#dde2f5'
-  const fid      = `pl-${team}`
-
-  const gc = (a) => `rgba(${bloom[0]},${bloom[1]},${bloom[2]},${a.toFixed(2)})`
-
-  return (
-    <div style={{
-      position: 'absolute', inset: 0,
-      background: panelBg,
-      opacity: 0.38,
-      pointerEvents: 'none',
-      zIndex: 0,
-      overflow: 'hidden',
-    }}>
-      {/* SVG lights — viewBox 0-100 so x/y positions are already percentages */}
+        <option value="" disabled hidden>{isChange ? 'Change…' : 'Select…'}</option>
+        {pid && <option value="__remove__">Remove player</option>}
+        {eligible.length === 0
+          ? <option value="" disabled>No eligible players</option>
+          : eligible.map(p => (
+              <option key={p.pid} value={p.pid}>{p.name} · {p._peakOvr} OVR</option>
+            ))}
+      </select>
       <svg
-        viewBox="0 0 100 100"
-        preserveAspectRatio="xMidYMin slice"
-        width="100%" height="100%"
-        style={{ position: 'absolute', inset: 0 }}
+        className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2"
+        width="8" height="8" viewBox="0 0 8 8" fill="none" style={{ color: 'var(--text-tertiary)' }}
       >
-        <defs>
-          <filter id={`${fid}-bloom`} x="-300%" y="-300%" width="700%" height="700%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="4.5"/>
-          </filter>
-          <filter id={`${fid}-mid`} x="-150%" y="-150%" width="400%" height="400%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="1.8" result="b"/>
-            <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-          </filter>
-        </defs>
-
-        {PANEL_LIGHTS.map((l, i) => (
-          <g key={i}>
-            {/* Outer ambient bloom */}
-            <circle cx={l.x} cy={l.y} r={7 * l.s}
-              fill={gc(0.28 * l.s)} filter={`url(#${fid}-bloom)`} />
-            {/* Mid glow halo */}
-            <circle cx={l.x} cy={l.y} r={2.2 * l.s}
-              fill={gc(0.7 * l.s)} filter={`url(#${fid}-mid)`} />
-            {/* Bright core (the bulb) */}
-            <circle cx={l.x} cy={l.y} r={0.55 * l.s} fill={coreClr} />
-            {/* Housing ring — recessed trim */}
-            <circle cx={l.x} cy={l.y} r={0.9 * l.s}
-              fill="none" stroke="rgba(90,85,75,0.7)" strokeWidth="0.18" />
-          </g>
-        ))}
+        <path d="M1 2.5L4 5.5L7 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </div>
   )
@@ -871,58 +768,6 @@ function CeilingLights({ team = 'first' }) {
 
 // ─── Position column ──────────────────────────────────────────────────────────
 
-const PRESTIGE_STYLES = {
-  first: {
-    border:    '#c8972a',
-    lineColor: '#d4a030',
-    boxShadow: [
-      'inset 0 1px 0 rgba(255,235,120,0.10)',
-      '0 0 0 1px rgba(175,125,18,0.28)',
-      '0 0 10px 0px rgba(218,162,22,0.38)',
-      '0 0 22px 0px rgba(188,132,8,0.22)',
-      '0 3px 30px 0px rgba(158,105,0,0.14)',
-    ].join(', '),
-    cardBg: (primary) => [
-      // Strong overhead spotlight beam
-      'radial-gradient(ellipse 115% 80% at 50% -18%, rgba(255,210,55,0.42) 0%, rgba(205,155,12,0.18) 38%, transparent 65%)',
-      // Secondary fill light mid-card
-      'radial-gradient(ellipse 75% 55% at 50% 35%, rgba(195,145,10,0.1) 0%, transparent 72%)',
-      // Floor glow at bottom
-      'radial-gradient(ellipse 55% 18% at 50% 118%, rgba(185,132,8,0.22) 0%, transparent 100%)',
-      `linear-gradient(180deg, ${hexA(primary, 0.22)} 0%, ${hexA(primary, 0.06)} 100%)`,
-      '#050402',
-    ].join(', '),
-    // Overlay applied on top of the player photo
-    photoSpotlight: [
-      'radial-gradient(ellipse 100% 75% at 50% -10%, rgba(255,220,70,0.32) 0%, rgba(200,148,15,0.1) 45%, transparent 70%)',
-      'linear-gradient(0deg, rgba(0,0,0,0.55) 0%, transparent 22%)',
-    ].join(', '),
-    awardColor: '#ffd740',
-  },
-  second: {
-    border:    '#a8aaae',
-    lineColor: '#b8babe',
-    boxShadow: [
-      'inset 0 1px 0 rgba(255,255,255,0.10)',
-      '0 0 0 1px rgba(148,152,165,0.28)',
-      '0 0 10px 0px rgba(192,196,212,0.38)',
-      '0 0 22px 0px rgba(162,166,182,0.22)',
-      '0 3px 30px 0px rgba(130,134,148,0.14)',
-    ].join(', '),
-    cardBg: (primary) => [
-      'radial-gradient(ellipse 115% 80% at 50% -18%, rgba(225,230,248,0.38) 0%, rgba(178,183,205,0.15) 38%, transparent 65%)',
-      'radial-gradient(ellipse 75% 55% at 50% 35%, rgba(168,172,192,0.08) 0%, transparent 72%)',
-      'radial-gradient(ellipse 55% 18% at 50% 118%, rgba(158,163,185,0.2) 0%, transparent 100%)',
-      `linear-gradient(180deg, ${hexA(primary, 0.18)} 0%, ${hexA(primary, 0.05)} 100%)`,
-      '#060708',
-    ].join(', '),
-    photoSpotlight: [
-      'radial-gradient(ellipse 100% 75% at 50% -10%, rgba(215,220,245,0.28) 0%, rgba(170,175,200,0.08) 45%, transparent 70%)',
-      'linear-gradient(0deg, rgba(0,0,0,0.55) 0%, transparent 22%)',
-    ].join(', '),
-    awardColor: '#e8eaed',
-  },
-}
 
 function PositionCol({ slot, pid, onSelect, eligible, pathPrefix, playerMap, placeholderImages, dynastyTeams, isViewOnly, activeTeam, allTimeTeam, coachedTids }) {
   const coachedSet = useMemo(() => new Set((coachedTids || []).map(Number)), [coachedTids])
@@ -946,11 +791,11 @@ function PositionCol({ slot, pid, onSelect, eligible, pathPrefix, playerMap, pla
   const initial  = player ? (player.name || '?').trim().charAt(0).toUpperCase() : null
   const peakOvr  = player ? getPeakOverall(player) : null
   const awards   = (player && !returnType) ? getTop3Awards(player) : []
-  const { stats, year } = player
-    ? (returnType ? getBestReturnStats(player, returnType) : getBestSeasonStats(player))
-    : { stats: [], year: null }
+  const stats = player ? (returnType ? getCareerReturnStats(player, returnType) : getCareerStats(player)) : []
+  const span  = player ? getSeasonSpan(player) : null
 
-  const prestige = PRESTIGE_STYLES[activeTeam] || PRESTIGE_STYLES.first
+  // Card text color picked for contrast against the player's team color.
+  const txt = getContrastTextColor(primary)
 
   // Pids already used across both teams (excluding this slot so current player remains selectable)
   const excludePids = useMemo(() => {
@@ -970,143 +815,128 @@ function PositionCol({ slot, pid, onSelect, eligible, pathPrefix, playerMap, pla
   )
 
   return (
-    <div className="flex flex-col min-w-0" style={{ minWidth: '130px' }}>
-      {/* Position label with prestige-colored glow line */}
-      <div className="mb-1.5">
-        <span className="font-black" style={{ fontSize: '11px', letterSpacing: '2.5px', color: prestige.lineColor, textShadow: `0 0 8px ${hexA(prestige.border, 0.5)}` }}>
-          {slot.tileLabel || slot.label}
+    <div className="flex flex-col min-w-0">
+      {/* Position label — compact broadcast chip (shows WR2 / HB2, not bare WR) */}
+      <div className="mb-1.5 sm:mb-2">
+        <span
+          className="inline-flex items-center font-display font-bold uppercase rounded text-[8px] sm:text-[10px] px-1.5 py-0.5"
+          style={{ letterSpacing: '1px', color: 'var(--text-secondary)', backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
+        >
+          {getTileLabel(slot.key)}
         </span>
       </div>
-      <div style={{
-        height: '1px',
-        background: `linear-gradient(90deg, transparent 0%, ${prestige.lineColor} 25%, ${prestige.lineColor} 75%, transparent 100%)`,
-        boxShadow: `0 0 5px ${hexA(prestige.border, 0.55)}`,
-        marginBottom: '8px',
-      }} />
 
       {player ? (
-        <div className="flex flex-col">
-          {/* Visual card — clip-path contained here so dropdown panel (position:fixed) isn't clipped */}
-          <div
-            className="rounded"
-            style={{
-              background: prestige.cardBg(primary),
-              border: `1px solid ${hexA(prestige.border, 0.55)}`,
-              boxShadow: prestige.boxShadow,
-              overflow: 'hidden',
-              position: 'relative',
-              clipPath: 'inset(0 -4px -16px -4px round 4px)',
-            }}
-          >
-            {/* Portrait photo — full width, with text overlay */}
-            <div style={{ position: 'relative', height: '185px', overflow: 'hidden', flexShrink: 0, background: '#000' }}>
-              {photoUrl ? (
-                <>
-                  {/* Blurred cover layer — auto-matches whatever background the EA photo has */}
-                  <img
-                    src={proxyImageUrl(photoUrl, 80)} alt=""
-                    style={{
-                      position: 'absolute', inset: 0, width: '100%', height: '100%',
-                      objectFit: 'cover', objectPosition: 'center',
-                      filter: 'blur(14px) saturate(1.3) brightness(0.4)',
-                      transform: 'scale(1.12)',
-                    }}
-                  />
-                  {/* Main portrait — contained so nothing is cut off */}
-                  <img
-                    src={proxyImageUrl(photoUrl, 400)} alt=""
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center' }}
-                  />
-                </>
-              ) : (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: hexA(primary, 0.22) }}>
-                  <span style={{ fontSize: '46px', fontWeight: 900, color: hexA(secondary, 0.88), textShadow: `0 2px 12px rgba(0,0,0,0.7)` }}>{initial}</span>
-                </div>
-              )}
-              {/* Dramatic spotlight */}
-              <div style={{ position: 'absolute', inset: 0, background: prestige.photoSpotlight, pointerEvents: 'none' }} />
-              {/* Bottom text fade */}
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(0deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 38%, transparent 62%)', pointerEvents: 'none' }} />
-              {/* OVR badge — top right */}
-              <div style={{
-                position: 'absolute', top: '6px', right: '6px',
-                background: 'rgba(0,0,0,0.72)',
-                border: `1px solid ${hexA(prestige.border, 0.75)}`,
-                borderRadius: '3px',
-                padding: '1px 5px',
-                fontSize: '11px', fontWeight: 900,
-                color: prestige.awardColor,
-                letterSpacing: '0.3px',
-                boxShadow: `0 0 6px ${hexA(prestige.border, 0.4)}`,
-              }}>
-                {peakOvr}
+        // Dark media-card with a team-colored photo header + name band. The
+        // team color anchors the identity (header wash, name band, logo chip)
+        // while the body stays on the app's standard dark surface — so a roster
+        // of mixed teams reads as a cohesive set, not a wall of saturation.
+        <div className="media-card relative overflow-hidden">
+          {/* Whole-card link to the player page (transparent overlay). The only
+              interactive bit on top of it is the Change dropdown (z-[2] below). */}
+          <Link to={`${pathPrefix}/player/${player.pid}`} aria-label={player.name} className="absolute inset-0 z-[1]" />
+          {/* Photo header — DESKTOP/TABLET only. On phones the cards are too
+              narrow for a photo + readable text, so the photo is dropped and the
+              team-color name block (below) carries the OVR + logo + name. */}
+          <div className="hidden sm:block relative aspect-square" style={{ backgroundColor: hexA(primary, 0.92) }}>
+            {photoUrl ? (
+              <img
+                src={proxyImageUrl(photoUrl, 300)} alt=""
+                className="absolute inset-0 w-full h-full object-cover"
+                style={{ objectPosition: '50% 4%' }}
+              />
+            ) : teamLogo ? (
+              <img
+                src={teamLogo} alt=""
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 object-contain"
+                style={{ width: '48px', height: '48px', opacity: 0.5, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.5))' }}
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '44px', color: hexA(txt, 0.85) }}>{initial}</span>
               </div>
-              {/* Team logo — top left */}
-              {teamLogo && (
-                <img src={teamLogo} alt="" style={{
-                  position: 'absolute', top: '7px', left: '7px',
-                  width: '18px', height: '18px', objectFit: 'contain',
-                  filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.9))',
-                }} />
-              )}
-              {/* Name / awards / stats — pinned to bottom of photo */}
-              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '6px 8px 6px' }}>
-                <Link
-                  to={`${pathPrefix}/player/${player.pid}`}
-                  className="font-bold hover:underline leading-tight"
-                  style={{ fontSize: '11.5px', color: '#fff', display: 'block', lineHeight: '1.3', marginBottom: '2px' }}
-                >
-                  {player.name}
-                </Link>
-                {awards.length > 0 && (
-                  <div style={{ fontSize: '9px', color: prestige.awardColor, fontWeight: 700, lineHeight: '1.4' }}>
-                    {awards.map((a, i) => <div key={i} className="truncate">{a}</div>)}
-                  </div>
-                )}
-                {stats.length > 0 && (
-                  <div style={{ fontSize: '9px', color: 'rgba(215,215,215,0.75)', lineHeight: '1.3', marginTop: '2px' }}>
-                    {year && <span style={{ color: 'rgba(195,195,195,0.5)', marginRight: '3px' }}>{year}</span>}
-                    {stats.join(' · ')}
-                  </div>
-                )}
+            )}
+            <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.14) 0%, transparent 32%, rgba(0,0,0,0.20) 100%)' }} />
+            <div
+              className="absolute top-1.5 right-1.5 rounded tabular-nums text-[16px]"
+              style={{ backgroundColor: 'rgba(0,0,0,0.78)', padding: '0 5px', fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, color: '#fff', letterSpacing: '0.5px', lineHeight: 1.6 }}
+            >
+              {peakOvr}
+            </div>
+            {photoUrl && teamLogo && (
+              <div
+                className="absolute bottom-1.5 left-1.5 rounded-full flex items-center justify-center"
+                style={{ width: '22px', height: '22px', backgroundColor: 'rgba(255,255,255,0.94)', boxShadow: '0 1px 3px rgba(0,0,0,0.45)' }}
+              >
+                <img src={teamLogo} alt="" style={{ width: '15px', height: '15px', objectFit: 'contain' }} />
               </div>
+            )}
+          </div>
+
+          {/* Name block — team color. On phones it carries the logo + OVR (no
+              photo there) and the name WRAPS to 2 lines so it's fully readable;
+              on desktop it's the slim single-line name band under the photo. */}
+          <div className="px-1.5 sm:px-2 py-1 sm:py-1.5" style={{ backgroundColor: primary }}>
+            <div className="sm:hidden flex items-center justify-between mb-0.5">
+              {teamLogo ? (
+                <img src={teamLogo} alt="" className="w-3.5 h-3.5 object-contain flex-shrink-0" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+              ) : <span />}
+              <span className="tabular-nums font-bold flex-shrink-0" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '12px', color: txt, letterSpacing: '0.5px', lineHeight: 1 }}>{peakOvr}</span>
+            </div>
+            <div
+              className="font-display font-bold block leading-tight text-[10px] sm:text-[13px] break-words whitespace-normal sm:whitespace-nowrap sm:truncate"
+              style={{ color: txt, letterSpacing: '0.01em' }}
+            >
+              {player.name}
             </div>
           </div>
 
-          {/* Dropdown outside the clipped div so position:fixed panel isn't clipped */}
+          {/* Info shelf — dark surface */}
+          <div className="px-1.5 pt-1 pb-1.5 sm:px-2 sm:pt-1.5 sm:pb-2">
+            {awards.length > 0 && (
+              <div className="truncate font-bold uppercase text-[7px] sm:text-[9px]" style={{ letterSpacing: '0.4px', color: 'var(--accent-warning)' }}>
+                {awards.join(' · ')}
+              </div>
+            )}
+            {(stats.length > 0 || span) && (
+              <div className="text-txt-tertiary text-[8px] sm:text-[10px] break-words leading-snug" style={{ marginTop: awards.length > 0 ? '2px' : 0 }}>
+                {span && <span className="hidden sm:inline text-txt-muted" style={{ marginRight: '4px' }}>{span}</span>}
+                {stats.join(' · ')}
+              </div>
+            )}
+            {!isViewOnly && (
+              <div className="relative z-[2]" style={{ marginTop: (awards.length > 0 || stats.length > 0) ? '7px' : 0 }}>
+                <PlayerSelectDropdown
+                  slotKey={slot.key}
+                  pid={pid}
+                  onSelect={onSelect}
+                  eligible={filteredEligible}
+                  placeholderImages={placeholderImages}
+                  isChange
+                  returnType={returnType}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        // Empty slot — dark dashed placeholder (stretches to the row height)
+        <div
+          className="rounded-lg flex flex-col items-center justify-center gap-2 px-2 py-4"
+          style={{ background: 'var(--surface-2)', border: '1px dashed var(--surface-4)', minHeight: '120px' }}
+        >
+          <span className="text-txt-tertiary" style={{ fontSize: '11px' }}>—</span>
           {!isViewOnly && (
-            <div style={{ padding: '4px 6px' }}>
+            <div className="w-full">
               <PlayerSelectDropdown
                 slotKey={slot.key}
-                pid={pid}
+                pid={null}
                 onSelect={onSelect}
                 eligible={filteredEligible}
                 placeholderImages={placeholderImages}
-                isChange
                 returnType={returnType}
               />
             </div>
-          )}
-        </div>
-      ) : (
-        <div
-          className="rounded flex flex-col items-center justify-center py-3 px-2 gap-2"
-          style={{
-            background: 'rgba(0,0,0,0.35)',
-            border: `1px dashed ${hexA(prestige.border, 0.3)}`,
-            minHeight: '105px',
-          }}
-        >
-          <span className="italic" style={{ fontSize: '11px', color: hexA(prestige.border, 0.4) }}>—</span>
-          {!isViewOnly && (
-            <PlayerSelectDropdown
-              slotKey={slot.key}
-              pid={null}
-              onSelect={onSelect}
-              eligible={filteredEligible}
-              placeholderImages={placeholderImages}
-              returnType={returnType}
-            />
           )}
         </div>
       )}
@@ -1114,30 +944,57 @@ function PositionCol({ slot, pid, onSelect, eligible, pathPrefix, playerMap, pla
   )
 }
 
+// ─── Docked tab bar — matches the leaderboard header tab style so the team /
+// section tabs read as an extension of it. ─────────────────────────────────────
+
+function DockedTabs({ tabs, active, onChange }) {
+  return (
+    <div className="flex overflow-x-auto no-scrollbar -mb-px">
+      {tabs.map(t => {
+        const isActive = active === t.key
+        return (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => onChange(t.key)}
+            className="relative flex-shrink-0 px-3 sm:px-4 lg:px-5 py-2.5 font-display font-bold uppercase whitespace-nowrap transition-opacity hover:opacity-100"
+            style={{ fontSize: '0.8rem', letterSpacing: '0.06em', color: 'var(--text-primary)', opacity: isActive ? 1 : 0.5 }}
+          >
+            {t.label}
+            {isActive && (
+              <span aria-hidden="true" className="absolute left-2 right-2 bottom-0 h-[2px] rounded-t-sm" style={{ backgroundColor: 'var(--text-primary)' }} />
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 // ─── Section grid ─────────────────────────────────────────────────────────────
 
-function SectionGrid({ title, rows, teamData, onSelect, eligibleBySlot, pathPrefix, playerMap, placeholderImages, dynastyTeams, isViewOnly, activeTeam, allTimeTeam, coachedTids }) {
-  const prestige = PRESTIGE_STYLES[activeTeam] || PRESTIGE_STYLES.first
+function SectionGrid({ rows, hideTitle, title, teamData, onSelect, eligibleBySlot, pathPrefix, playerMap, placeholderImages, dynastyTeams, isViewOnly, activeTeam, allTimeTeam, coachedTids }) {
   return (
     <div>
-      <div className="flex items-center gap-4 mb-5">
-        <div style={{ flex: 1, height: '1px', background: `linear-gradient(90deg, transparent, ${hexA(prestige.border, 0.5)})` }} />
-        <span className="font-black" style={{
-          fontSize: '12px', letterSpacing: '3.5px',
-          color: prestige.awardColor,
-          textShadow: `0 0 12px ${hexA(prestige.border, 0.65)}, 0 0 24px ${hexA(prestige.border, 0.3)}`,
-        }}>
-          {title.toUpperCase()}
-        </span>
-        <div style={{ flex: 1, height: '1px', background: `linear-gradient(90deg, ${hexA(prestige.border, 0.5)}, transparent)` }} />
-      </div>
-      <div className="space-y-3">
+      {!hideTitle && title && (
+        <div className="flex items-center gap-4 mb-5">
+          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, transparent, var(--surface-4))' }} />
+          <span className="font-black uppercase text-txt-secondary" style={{ fontSize: '12px', letterSpacing: '3px' }}>
+            {title.toUpperCase()}
+          </span>
+          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, var(--surface-4), transparent)' }} />
+        </div>
+      )}
+      <div className="space-y-6">
         {rows.map((rowKeys, rowIdx) => {
           const slots = rowKeys.map(key => slotByKey[key]).filter(Boolean)
           if (!slots.length) return null
           return (
-            <div key={rowIdx} className="overflow-x-auto">
-              <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${slots.length}, minmax(120px, 1fr))` }}>
+            <div key={rowIdx}>
+              {/* Cards cap at 188px on wide screens (short rows stay centered,
+                  not giant) but shrink to fit on narrow ones — so every row
+                  fits the screen with no horizontal scroll on any size. */}
+              <div className="grid gap-1.5 sm:gap-3 justify-center" style={{ gridTemplateColumns: `repeat(${slots.length}, minmax(0, 188px))` }}>
                 {slots.map(slot => (
                   <PositionCol
                     key={slot.key}
@@ -1166,22 +1023,36 @@ function SectionGrid({ title, rows, teamData, onSelect, eligibleBySlot, pathPref
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function AllTimeLineup() {
+export default function AllTimeLineup({ embedded = false }) {
   const { currentDynasty, updateDynasty, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
   const { user } = useAuth()
   const [activeTeam, setActiveTeam] = useState('first')
   const [saving, setSaving] = useState(false)
   const [showLayoutEditor, setShowLayoutEditor] = useState(false)
+  const [activeSection, setActiveSection] = useState('offense')
+  const [confirmReset, setConfirmReset] = useState(false)
+
+  // Optimistic local copy of the saved lineup. Mirrors how the depth chart
+  // (TeamOutlook) keeps a draft: edits apply here instantly so the UI updates
+  // without waiting on the persist round-trip, then re-sync whenever the saved
+  // value actually changes (our own save landing, a cloud push, or a dynasty
+  // switch). This is what fixes "had to refresh to see the change."
+  const persistedAllTimeStr = useMemo(
+    () => JSON.stringify(currentDynasty?.allTimeTeam || {}),
+    [currentDynasty?.allTimeTeam]
+  )
+  const [allTimeTeam, setAllTimeTeam] = useState(() => currentDynasty?.allTimeTeam || {})
+  useEffect(() => {
+    setAllTimeTeam(currentDynasty?.allTimeTeam || {})
+  }, [persistedAllTimeStr])
 
   if (!currentDynasty) return null
 
   const uid = user?.uid || currentDynasty.userId || ''
   const players = currentDynasty.players || []
   const dynastyTeams = currentDynasty.teams || {}
-  const allTimeTeam = currentDynasty.allTimeTeam || {}
-  const teamData = allTimeTeam[activeTeam] || {}
-  const layout = allTimeTeam.layout || DEFAULT_LAYOUT
+  const layout = readLayout(allTimeTeam)
 
   const coachedTids = useMemo(() => getAllCoachedTids(currentDynasty), [currentDynasty])
 
@@ -1228,41 +1099,113 @@ export default function AllTimeLineup() {
     return result
   }, [players, coachedTids])
 
-  const handleSelect = async (slotKey, pid) => {
-    if (isViewOnly || saving) return
-    const updated = { ...allTimeTeam, [activeTeam]: { ...teamData, [slotKey]: pid || null } }
+  // Is the active team in live "auto-fill by AV" mode?
+  const autoAV = allTimeTeam.autoAV || {}
+  const isAuto = !!autoAV[activeTeam]
+
+  // Effective lineup per team. A team with auto-AV on is computed LIVE from
+  // career AV (best eligible per slot, no dupes) so it stays current as
+  // production changes; a manual team uses its saved picks. Manual picks are
+  // reserved first so auto never steals them; teams fill in order (1st, 2nd).
+  const effectiveTeams = useMemo(() => {
+    const flags = allTimeTeam.autoAV || {}
+    const lay = readLayout(allTimeTeam)
+    const slotKeys = [...(lay.offense || []), ...(lay.defense || []), ...(lay.st || [])].flat()
+    const used = new Set()
+    for (const teamKey of ['first', 'second']) {
+      if (!flags[teamKey]) for (const v of Object.values(allTimeTeam[teamKey] || {})) if (v) used.add(v)
+    }
+    const avCache = new Map()
+    const avOf = (p) => {
+      if (!avCache.has(p.pid)) avCache.set(p.pid, computeCareerAV(p))
+      return avCache.get(p.pid)
+    }
+    const retCache = new Map()
+    const retAvOf = (p, rt) => {
+      const k = `${p.pid}:${rt}`
+      if (!retCache.has(k)) retCache.set(k, getCareerReturnAV(p, rt))
+      return retCache.get(k)
+    }
+    const out = {}
+    for (const teamKey of ['first', 'second']) {
+      if (!flags[teamKey]) { out[teamKey] = allTimeTeam[teamKey] || {}; continue }
+      const filled = {}
+      for (const key of slotKeys) {
+        const slot = slotByKey[key]
+        if (!slot) continue
+        const pool = (eligibleBySlot[key] || []).filter(p => !used.has(p.pid))
+        if (!pool.length) continue
+        // KR / PR are ranked by that return type's AV only; everyone else by
+        // overall career AV.
+        const pick = slot.returnType
+          ? pool.reduce((best, p) => (retAvOf(p, slot.returnType) > retAvOf(best, slot.returnType) ? p : best), pool[0])
+          : pool.reduce((best, p) => (avOf(p) > avOf(best) ? p : best), pool[0])
+        filled[key] = pick.pid
+        used.add(pick.pid)
+      }
+      out[teamKey] = filled
+    }
+    return out
+  }, [allTimeTeam, eligibleBySlot])
+
+  // What the grid renders from: effective (live-AV or saved) picks for both teams.
+  const displayAllTime = useMemo(() => ({ ...allTimeTeam, ...effectiveTeams }), [allTimeTeam, effectiveTeams])
+  const teamData = displayAllTime[activeTeam] || {}
+
+  // Single persistence path: optimistically update the local draft so the UI
+  // reflects the change immediately, then persist in the background.
+  const commit = async (updated) => {
+    // Firestore rejects nested arrays — the rows-of-keys `layout` must never be
+    // written raw. Carry it as a JSON string and strip the nested-array form so
+    // EVERY save (picks, auto-fill, layout) is a clean, persistable write.
+    const safe = { ...updated }
+    if (safe.layout && !safe.layoutJSON) {
+      try { safe.layoutJSON = JSON.stringify(safe.layout) } catch { /* drop it */ }
+    }
+    delete safe.layout
+    setAllTimeTeam(safe)
     setSaving(true)
-    try { await updateDynasty(currentDynasty.id, { allTimeTeam: updated }) }
+    try { await updateDynasty(currentDynasty.id, { allTimeTeam: safe }) }
     finally { setSaving(false) }
   }
 
-  const [confirmReset, setConfirmReset] = useState(false)
-
-  const handleReset = async () => {
-    if (isViewOnly || saving) return
-    const updated = { ...allTimeTeam, [activeTeam]: {} }
-    setSaving(true)
-    try { await updateDynasty(currentDynasty.id, { allTimeTeam: updated }) }
-    finally { setSaving(false); setConfirmReset(false) }
+  const handleSelect = (slotKey, pid) => {
+    if (isViewOnly || isAuto || saving) return
+    commit({ ...allTimeTeam, [activeTeam]: { ...(allTimeTeam[activeTeam] || {}), [slotKey]: pid || null } })
   }
 
-  const handleSaveLayout = async (newLayout) => {
+  const handleReset = () => {
     if (isViewOnly || saving) return
-    const updated = { ...allTimeTeam, layout: newLayout }
-    setSaving(true)
-    try { await updateDynasty(currentDynasty.id, { allTimeTeam: updated }) }
-    finally { setSaving(false) }
+    setConfirmReset(false)
+    commit({ ...allTimeTeam, [activeTeam]: {} })
+  }
+
+  // Toggle live "auto-fill by AV" for the active team. When on, the lineup is
+  // computed from AV on every render (above) and stays filled automatically;
+  // saved manual picks are preserved underneath for when it's switched off.
+  const toggleAutoAV = () => {
+    if (isViewOnly || saving) return
+    commit({ ...allTimeTeam, autoAV: { ...(allTimeTeam.autoAV || {}), [activeTeam]: !isAuto } })
+  }
+
+  const handleSaveLayout = (newLayout) => {
+    if (isViewOnly || saving) return
     setShowLayoutEditor(false)
+    commit({ ...allTimeTeam, layoutJSON: JSON.stringify(newLayout) })
   }
 
   const sharedProps = {
     teamData, onSelect: handleSelect, eligibleBySlot,
-    pathPrefix, playerMap, placeholderImages, dynastyTeams, isViewOnly, activeTeam, allTimeTeam, coachedTids,
+    pathPrefix, playerMap, placeholderImages, dynastyTeams,
+    // Auto mode is read-only per slot (no Change dropdowns).
+    isViewOnly: isViewOnly || isAuto,
+    activeTeam, allTimeTeam: displayAllTime, coachedTids,
   }
 
   return (
     <div className="space-y-6">
-      {/* Hero */}
+      {/* Hero — skipped when embedded (the Leaderboards tab supplies its own page header). */}
+      {!embedded && (
       <section
         className="card overflow-hidden relative reveal"
         style={{ background: heroGradient, borderTop: `3px solid ${heroBorderColor}` }}
@@ -1290,20 +1233,19 @@ export default function AllTimeLineup() {
           </div>
         </div>
       </section>
+      )}
 
-      {/* Tabs + Positions button */}
-      <div className="flex items-center justify-between gap-3">
-        <Tabs
-          variant="pill"
-          value={activeTeam}
-          onChange={v => { setActiveTeam(v); setConfirmReset(false) }}
-          options={[
-            { value: 'first',  label: '1st Team' },
-            { value: 'second', label: '2nd Team' },
-          ]}
+      <div className="space-y-2">
+      {/* Team tabs (1st / 2nd) + controls — docked-tab style, reads as an
+          extension of the leaderboard header tabs. */}
+      <div className="flex items-end justify-between gap-3 flex-wrap border-b pl-3 sm:pl-5" style={{ borderColor: 'var(--surface-4)' }}>
+        <DockedTabs
+          tabs={[{ key: 'first', label: '1st Team' }, { key: 'second', label: '2nd Team' }]}
+          active={activeTeam}
+          onChange={(k) => { setActiveTeam(k); setConfirmReset(false) }}
         />
         {!isViewOnly && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pb-2">
             {confirmReset ? (
               <>
                 <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
@@ -1327,16 +1269,38 @@ export default function AllTimeLineup() {
               </>
             ) : (
               <>
+                {/* Live toggle — when checked, this team stays auto-filled by AV */}
                 <button
-                  onClick={() => setConfirmReset(true)}
-                  className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
-                  style={{ border: '1px solid var(--surface-4)', color: 'var(--text-secondary)' }}
+                  onClick={toggleAutoAV}
+                  disabled={saving}
+                  className="flex items-center gap-1 sm:gap-2 px-1.5 sm:px-3 py-0.5 sm:py-1.5 rounded-md text-[10px] sm:text-sm font-medium transition-colors disabled:opacity-50 hover:bg-surface-3"
+                  style={{ backgroundColor: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--surface-4)' }}
+                  title="Keep this team automatically filled with the best players by Approximate Value (updates live)"
                 >
-                  Reset Team
+                  <span
+                    className="flex items-center justify-center rounded-sm flex-shrink-0 w-3 h-3 sm:w-[15px] sm:h-[15px]"
+                    style={{ border: `1.5px solid ${isAuto ? 'var(--text-secondary)' : 'var(--surface-5)'}`, backgroundColor: isAuto ? 'var(--text-secondary)' : 'transparent' }}
+                  >
+                    {isAuto && (
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--surface-1)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                  </span>
+                  Auto-fill by AV
                 </button>
+                {!isAuto && (
+                  <button
+                    onClick={() => setConfirmReset(true)}
+                    className="px-1.5 sm:px-3 py-0.5 sm:py-1.5 rounded-md text-[10px] sm:text-sm font-medium transition-colors"
+                    style={{ border: '1px solid var(--surface-4)', color: 'var(--text-secondary)' }}
+                  >
+                    Reset Team
+                  </button>
+                )}
                 <button
                   onClick={() => setShowLayoutEditor(true)}
-                  className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+                  className="px-1.5 sm:px-3 py-0.5 sm:py-1.5 rounded-md text-[10px] sm:text-sm font-medium transition-colors"
                   style={{ border: '1px solid var(--surface-4)', color: 'var(--text-secondary)' }}
                 >
                   Positions
@@ -1347,14 +1311,28 @@ export default function AllTimeLineup() {
         )}
       </div>
 
-      <Card className="relative overflow-hidden">
-        <CeilingLights team={activeTeam} />
-        <div className="space-y-8" style={{ position: 'relative', zIndex: 1 }}>
-          <SectionGrid title="Offense"       rows={layout.offense || DEFAULT_LAYOUT.offense} {...sharedProps} />
-          <SectionGrid title="Defense"       rows={layout.defense || DEFAULT_LAYOUT.defense} {...sharedProps} />
-          <SectionGrid title="Special Teams" rows={layout.st      || DEFAULT_LAYOUT.st}      {...sharedProps} />
-        </div>
-      </Card>
+      {/* Section tabs (Offense / Defense / Special Teams) */}
+      <div className="border-b pl-3 sm:pl-5" style={{ borderColor: 'var(--surface-4)' }}>
+        <DockedTabs
+          tabs={[
+            { key: 'offense', label: 'Offense' },
+            { key: 'defense', label: 'Defense' },
+            { key: 'st', label: 'Special Teams' },
+          ]}
+          active={activeSection}
+          onChange={setActiveSection}
+        />
+      </div>
+      </div>
+
+      {/* Cards render straight onto the page background — no surface box. */}
+      <div className="pt-2">
+        <SectionGrid
+          rows={layout[activeSection] || DEFAULT_LAYOUT[activeSection]}
+          hideTitle
+          {...sharedProps}
+        />
+      </div>
 
       {showLayoutEditor && (
         <LayoutEditorModal

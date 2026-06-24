@@ -22,6 +22,7 @@ import buildRecapLinks from '../../utils/buildRecapLinks'
 import { getRivalryTrophyForTeams } from '../../utils/trophyEngine'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import PositionBattles from '../../components/PositionBattles'
+import { TabBar } from '../../components/CfbUI'
 
 const REGULAR_SEASON_WEEKS = Array.from({ length: 16 }, (_, i) => i)  // 0-15
 

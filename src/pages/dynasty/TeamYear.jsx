@@ -7,7 +7,7 @@ import DynastyBlueprintPanel from '../../components/DynastyBlueprintPanel'
 import { getCoachByRole } from '../../data/coachModel'
 import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamConferenceForDynasty, calculateTeamRecordFromGames, getTeamRanking, getRecruitingCommitments, getPlayerPositionForYear, getPlayerOverallForYear, lookupByTeamYear, getPlayersLeaving } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { StatRings } from '../../components/CfbUI'
+import { StatRings, TabBar } from '../../components/CfbUI'
 // Team colors are derived from the viewed team, not the user's team
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { canonicalBoxScore, getPlayerStatsForTid, getTeamStatsForTid, hasAnyTeamStats } from '../../utils/boxScoreHelpers'
