@@ -12,6 +12,7 @@ import { saveGamesToSubcollection } from '../../services/dynastyService'
 import { matchAndRankPlayers } from '../../utils/playerTagSearch'
 import CardComposer from '../../components/CardComposer'
 import GamedayPicks from '../../components/GamedayPicks'
+import SportsbookPanel from '../../components/SportsbookPanel'
 import ProgressiveLightboxImage from '../../components/ProgressiveLightboxImage'
 import { getCardsForGame } from '../../utils/playerCards'
 import { getTeamLogoRobust } from '../../utils/teamLogo'
@@ -928,6 +929,19 @@ export default function Game() {
     loadSocial(currentDynasty.id).catch(() => {})
   }, [currentDynasty?.id, currentDynasty?.socialFeedByYear, loadSocial])
 
+  // ESPN Classic rank — hoisted above early-return guards so this hook always
+  // runs (Rules of Hooks). Uses currentTid instead of userTid which isn't
+  // available until after the guards. Null-safe: returns null when game is
+  // undefined or dynasty has no games.
+  const espnClassicInfo = useMemo(() => {
+    if (!game || !currentDynasty?.games) return null
+    const uTid = currentDynasty?.currentTid ?? null
+    if (!uTid) return null
+    const classics = getClassicGames(currentDynasty.games, uTid, currentDynasty?.teams)
+    const entry = classics.find(c => c.game.id === game.id || c.game === game)
+    return entry || null
+  }, [game, currentDynasty])
+
   if (!currentDynasty) {
     return <LoadingState message="Loading dynasty..." />
   }
@@ -1258,14 +1272,6 @@ export default function Game() {
   // Get user and opponent tids
   const userTid = perspective?.userTid || resolveTid(displayTeamAbbr, teams)
   const oppTid = perspective?.opponentTid || resolveTid(opponentAbbr, teams)
-
-  // ESPN Classic rank for this game
-  const espnClassicInfo = useMemo(() => {
-    if (!game || !userTid || !currentDynasty?.games) return null
-    const classics = getClassicGames(currentDynasty.games, userTid, currentDynasty?.teams)
-    const entry = classics.find(c => c.game.id === game.id || (c.game === game))
-    return entry || null
-  }, [game, userTid, currentDynasty])
 
   // Get seeds for user/opponent. We CANNOT trust game.seed1 → user,
   // game.seed2 → opp, because seed1/seed2 align with team1/team2 in
@@ -2098,16 +2104,8 @@ export default function Game() {
         </div>
       )}
 
-      {/* The below-xl quarter-by-quarter band that used to live here was
-          replaced by the compact per-quarter line score tucked under each
-          team's score in the stacked scorebug above. The xl+ layout keeps
-          its integrated center quarter table. */}
-
-      {/* Score Graphic used to live here as a giant full-width visual.
-          It's now a small clickable thumbnail inside the Gamecast tab —
-          on mobile it sits above the grid; on desktop it lives at the
-          top of the right column (above Scoring). Click → full-screen
-          lightbox via the existing PhotoLightbox component. */}
+      {/* Sportsbook — betting lines, futures, and win totals for this week */}
+      <SportsbookPanel dynasty={currentDynasty} game={game} />
 
       {/* ESPN-Style Tab Navigation and Content */}
       {gameIsPlayed && (
