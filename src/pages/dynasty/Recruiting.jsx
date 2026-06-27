@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, lazy, Suspense } from 'react'
 import { proxyImageUrl } from '../../utils/imageProxy'
 import { Link, useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useDynasty, getRecruitingCommitments, lookupByTeamYear, isPlayerOnRoster } from '../../context/DynastyContext'
@@ -18,7 +18,9 @@ import { finePositionGroup } from '../../data/positionGroups'
 import TeamPermissionBanner from '../../components/TeamPermissionBanner'
 import { partitionRecruitingRows, reconcileRecruitingRows, isOpenTarget, resolveTargetCommitment, buildCommitmentRecord } from '../../utils/recruitingTargets'
 import { carryRecruitingNilForward } from '../../data/playerNilModel'
-import ScoutBoard from './ScoutBoard'
+// Scout Staff is an opt-in (League Preferences) tab. Lazy-loaded so its chunk
+// only ships when a dynasty enables it.
+const ScoutStaff = lazy(() => import('../../components/ScoutStaff'))
 import TargetResolutionModal from '../../components/TargetResolutionModal'
 import RecruitCard from '../../components/RecruitCard'
 
@@ -139,9 +141,10 @@ export default function Recruiting() {
   const viewMode = searchParams.get('view') || defaultView
   const setViewMode = (v) => setParam('view', v, defaultView)
 
-  // Commitments / Targets tab (persisted in the URL like the other filters).
-  const activeTab = searchParams.get('tab') === 'targets' ? 'targets' : 'commitments'
-  const setActiveTab = (t) => setParam('tab', t === 'targets' ? 'targets' : null, null)
+  // Commitments / Targets / Scout Staff tab (persisted in the URL).
+  const rawTab = searchParams.get('tab')
+  const activeTab = rawTab === 'targets' ? 'targets' : rawTab === 'scoutstaff' ? 'scoutstaff' : 'commitments'
+  const setActiveTab = (t) => setParam('tab', t === 'commitments' ? null : t, null)
 
   // In-app target resolution (Phase 4). openTargets is defined below, once
   // selectedYear exists.
@@ -172,8 +175,8 @@ export default function Recruiting() {
 
   const currentTeamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty?.teamName
   const currentTeamTid = resolveTid(currentTeamAbbr, TEAMS)
-
   const selectedTid = tidParam ? parseInt(tidParam, 10) : currentTeamTid
+  const isOwnTeam = Number(selectedTid) === Number(currentTeamTid)
 
   const baseTeam = TEAMS[selectedTid]
   const dynastyTeam = currentDynasty?.teams?.[selectedTid]
@@ -1037,6 +1040,30 @@ export default function Recruiting() {
     return rows.sort((a, b) => b.year - a.year)
   }, [availableYears, currentDynasty, selectedTid, teamAbbr])
 
+  // Uncommitted targeted recruits for the Targets tab — same filtering/sorting
+  // pipeline as allCommitments but sourced from tracked target players.
+  const allTargets = useMemo(() => {
+    const players = currentDynasty?.players || []
+    let targets = players.filter(p => isOpenTarget(p) && Number(p.targetYear) === Number(selectedYear))
+    if (viewMode === 'portal') targets = targets.filter(p => p.isPortal || p.previousTeam)
+    else if (viewMode === 'hs') targets = targets.filter(p => !p.isPortal && !p.previousTeam)
+    if (selectedStars.length > 0) targets = targets.filter(p => selectedStars.includes(Number(p.stars)))
+    if (positionFilter !== 'all') targets = targets.filter(p => matchesPositionFilter(positionFilter, p.position))
+    const natRank = (c) => Number(c.nationalRank) || 9999
+    const starOf = (c) => Number(c.stars) || 0
+    const byRank = (a, b) => (natRank(a) - natRank(b)) || (starOf(b) - starOf(a))
+    const posIdx = (c) => {
+      const i = RECRUIT_POSITION_ORDER.indexOf((c.position || '').toUpperCase())
+      return i === -1 ? RECRUIT_POSITION_ORDER.length : i
+    }
+    const devOf = (c) => DEV_TRAIT_RANK[(c.devTrait || '').toLowerCase()] || 0
+    const sorted = [...targets]
+    if (sortBy === 'position') sorted.sort((a, b) => { const d = posIdx(a) - posIdx(b); return d !== 0 ? d : byRank(a, b) })
+    else if (sortBy === 'dev') sorted.sort((a, b) => (devOf(b) - devOf(a)) || byRank(a, b))
+    else sorted.sort(byRank)
+    return sorted
+  }, [currentDynasty?.players, selectedYear, viewMode, selectedStars, positionFilter, sortBy])
+
   if (!currentDynasty) return null
 
   const findPlayerByName = (name, recruitYear) => {
@@ -1170,9 +1197,13 @@ export default function Recruiting() {
           )}
         </div>
 
-        {/* Commitments / Targets tabs — docked under the hero title */}
+        {/* Commitments / Targets / Scout Staff tabs — docked under the hero title */}
         <div className="flex gap-1 px-3 sm:px-5" style={{ borderTop: '1px solid rgba(255,255,255,0.18)' }}>
-          {[{ k: 'commitments', l: 'Commitments' }, { k: 'targets', l: 'Targets' }].map(t => (
+          {[
+            { k: 'commitments', l: 'Commitments' },
+            { k: 'targets', l: 'Targets' },
+            ...(currentDynasty?.scoutStaffEnabled ? [{ k: 'scoutstaff', l: 'Scout Staff' }] : [])
+          ].map(t => (
             <button
               key={t.k}
               type="button"
@@ -1186,7 +1217,7 @@ export default function Recruiting() {
           ))}
         </div>
 
-        {activeTab === 'commitments' && (
+        {(activeTab === 'commitments' || activeTab === 'targets') && (
         <div
           className="relative"
           style={{
@@ -1200,37 +1231,58 @@ export default function Recruiting() {
             cramming together and wrapping awkwardly. From md: up they sit
             side-by-side with vertical dividers. */}
         <div className="flex flex-col md:flex-row md:flex-wrap md:items-stretch divide-y md:divide-y-0 md:divide-x divide-white/15">
-          {/* Metrics — entire block opens the class history modal */}
-          {!isAllSeasons ? (
-            <button
-              type="button"
-              onClick={() => setShowHistoryModal(true)}
-              disabled={classHistory.length <= 1}
-              className="flex items-center gap-4 sm:gap-6 px-3 sm:px-5 py-3 flex-shrink-0 text-left transition-colors hover:bg-white/10 disabled:cursor-default disabled:hover:bg-transparent"
-              title={classHistory.length > 1 ? 'View class scores by season' : 'NCAA Football 25 class score formula'}
-              aria-label="View recruiting class history"
-            >
-              <span className="flex items-baseline gap-2">
-                <span className="text-2xl font-black tabular leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-                  {nationalRank ? `#${nationalRank}` : '—'}
+          {/* Metrics */}
+          {activeTab === 'commitments' ? (
+            !isAllSeasons ? (
+              <button
+                type="button"
+                onClick={() => setShowHistoryModal(true)}
+                disabled={classHistory.length <= 1}
+                className="flex items-center gap-4 sm:gap-6 px-3 sm:px-5 py-3 flex-shrink-0 text-left transition-colors hover:bg-white/10 disabled:cursor-default disabled:hover:bg-transparent"
+                title={classHistory.length > 1 ? 'View class scores by season' : 'NCAA Football 25 class score formula'}
+                aria-label="View recruiting class history"
+              >
+                <span className="flex items-baseline gap-2">
+                  <span className="text-2xl font-black tabular leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                    {nationalRank ? `#${nationalRank}` : '—'}
+                  </span>
+                  <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Natl Rank</span>
                 </span>
-                <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Natl Rank</span>
-              </span>
-              <span className="flex items-baseline gap-2">
-                <span className="text-2xl font-black tabular leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-                  {formatRecruitingClassScore(classScore)}
+                <span className="flex items-baseline gap-2">
+                  <span className="text-2xl font-black tabular leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                    {formatRecruitingClassScore(classScore)}
+                  </span>
+                  <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Score</span>
                 </span>
-                <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Score</span>
-              </span>
-            </button>
+              </button>
+            ) : (
+              <div className="flex items-center gap-4 sm:gap-6 px-3 sm:px-5 py-3 flex-shrink-0">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-black tabular leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                    {classStats.total}
+                  </span>
+                  <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Commits</span>
+                </div>
+              </div>
+            )
           ) : (
             <div className="flex items-center gap-4 sm:gap-6 px-3 sm:px-5 py-3 flex-shrink-0">
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-black tabular leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-                  {classStats.total}
+                  {openTargets.length}
                 </span>
-                <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Commits</span>
+                <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Targets</span>
               </div>
+              {!isViewOnly && openTargets.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowResolveModal(true)}
+                  className="px-2.5 py-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider transition-colors hover:bg-white/10"
+                  style={{ color: teamBgText }}
+                >
+                  Resolve ({openTargets.length})
+                </button>
+              )}
             </div>
           )}
 
@@ -1239,11 +1291,14 @@ export default function Recruiting() {
             <div className="flex items-center gap-1 px-3 sm:px-4 py-3 flex-shrink-0">
               {VIEW_MODE_OPTIONS.map(opt => {
                 const active = viewMode === opt.value
+                const base = activeTab === 'targets'
+                  ? (currentDynasty?.players || []).filter(p => isOpenTarget(p) && Number(p.targetYear) === Number(selectedYear))
+                  : allCommitmentsUnfiltered
                 const count = opt.value === 'both'
-                  ? allCommitmentsUnfiltered.length
+                  ? base.length
                   : opt.value === 'hs'
-                    ? allCommitmentsUnfiltered.filter(c => !c.previousTeam).length
-                    : allCommitmentsUnfiltered.filter(c => c.previousTeam).length
+                    ? base.filter(c => !c.previousTeam && !c.isPortal).length
+                    : base.filter(c => c.previousTeam || c.isPortal).length
                 return (
                   <button
                     key={opt.value}
@@ -1260,11 +1315,7 @@ export default function Recruiting() {
             </div>
           )}
 
-          {/* Star filter — single dropdown (All / 5 / 4 / …) so the toolbar
-              stays one row tall instead of stacking five star chips. Drives
-              the same selectedStars filter: [] = All, [n] = that tier.
-              flex-shrink-0 (not flex-1 min-w-0) so the select sizes to its
-              content and doesn't get squeezed/clipped. */}
+          {/* Star filter */}
           <div className="flex items-center gap-1.5 px-3 sm:px-4 py-3 flex-shrink-0">
             <span className="label-xs text-txt-tertiary hidden sm:inline" style={{ letterSpacing: '1.5px' }}>Stars</span>
             <Select
@@ -1283,7 +1334,7 @@ export default function Recruiting() {
             </Select>
           </div>
 
-          {/* Position filter — Offense/Defense/Special Teams plus finer groups. */}
+          {/* Position filter */}
           <div className="flex items-center gap-1.5 px-3 sm:px-4 py-3 flex-shrink-0">
             <span className="label-xs text-txt-tertiary hidden sm:inline" style={{ letterSpacing: '1.5px' }}>Pos</span>
             <Select
@@ -1324,14 +1375,8 @@ export default function Recruiting() {
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 stagger-reveal">
           {allCommitments.map((recruit, index) => {
             const player = findPlayerByName(recruit.name, recruit.recruitYear)
-            // pid is resolved two ways: the lenient _findPlayer match baked
-            // onto the commitment during construction (recruit.pid), and the
-            // stricter name lookup above. Use whichever resolves so the whole
-            // tile links to the recruit's player page.
             const linkPid = recruit.pid || player?.pid
             const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
-            // The card itself (identity → ranks → scouting → footer) is the
-            // shared RecruitCard; the Targets tab renders the exact same card.
             const cardContent = (
               <RecruitCard
                 recruit={recruit}
@@ -1345,13 +1390,8 @@ export default function Recruiting() {
                 model={scoutModel}
               />
             )
-
             return linkPid ? (
-              <Link
-                key={`${recruit.name}-${index}`}
-                to={`${pathPrefix}/player/${linkPid}`}
-                className="block"
-              >
+              <Link key={`${recruit.name}-${index}`} to={`${pathPrefix}/player/${linkPid}`} className="block">
                 {cardContent}
               </Link>
             ) : (
@@ -1366,15 +1406,44 @@ export default function Recruiting() {
           />
         </Card>
         )
+      ) : activeTab === 'targets' ? (
+        allTargets.length > 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 stagger-reveal">
+          {allTargets.map((target, index) => {
+            const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
+            const cardContent = (
+              <RecruitCard
+                recruit={target}
+                player={target}
+                bg={teamAccent}
+                text={teamBgText}
+                teamsData={teamsData}
+                isAllSeasons={isAllSeasons}
+                interactive={!!target.pid}
+                playStyle={playStyle}
+                model={scoutModel}
+              />
+            )
+            return target.pid ? (
+              <Link key={`target-${target.pid}-${index}`} to={`${pathPrefix}/player/${target.pid}`} className="block">
+                {cardContent}
+              </Link>
+            ) : (
+              <div key={`target-${index}`}>{cardContent}</div>
+            )
+          })}
+        </div>
       ) : (
-        <ScoutBoard
-          dynasty={currentDynasty}
-          year={selectedYear}
-          userTid={selectedTid}
-          pathPrefix={pathPrefix}
-          onResolveTargets={!isViewOnly && openTargets.length > 0 ? () => setShowResolveModal(true) : null}
-          resolveCount={openTargets.length}
-        />
+        <Card>
+          <EmptyState
+            title={viewMode === 'portal' ? 'No Portal Targets' : viewMode === 'hs' ? 'No HS Targets' : 'No Targets Yet'}
+          />
+        </Card>
+        )
+      ) : (
+        <Suspense fallback={<div className="py-12 text-center text-sm text-txt-tertiary">Loading Scout Staff…</div>}>
+          <ScoutStaff year={selectedYear} />
+        </Suspense>
       )}
 
       <TargetResolutionModal

@@ -34,7 +34,7 @@ function Avatar({ c, size = 36 }) {
 const inputCls = 'rounded-md border border-surface-4 bg-surface-2 text-txt-primary text-sm p-2 focus:outline-none focus:ring-2 focus:ring-surface-5'
 
 export default function LeaguePreferences() {
-  const { currentDynasty, loadSocial, saveSocialCharacters, deleteSocialCharacters, importSocialUniverse, upgradeSocialUniverseToLatest, isViewOnly } = useDynasty()
+  const { currentDynasty, loadSocial, saveSocialCharacters, deleteSocialCharacters, importSocialUniverse, upgradeSocialUniverseToLatest, updateDynasty, isViewOnly } = useDynasty()
   const { toast } = useToast()
   const pathPrefix = usePathPrefix()
   const fileRef = useRef(null)
@@ -49,6 +49,23 @@ export default function LeaguePreferences() {
   const [selected, setSelected] = useState(() => new Set())
   const [editingId, setEditingId] = useState(null)
   const [creating, setCreating] = useState(false)
+  const scoutStaffEnabled = !!currentDynasty?.scoutStaffEnabled
+  const [savingScoutStaff, setSavingScoutStaff] = useState(false)
+  const toggleScoutStaff = async () => {
+    if (isViewOnly) { toast.error('Read-only mode.'); return }
+    if (savingScoutStaff) return
+    const next = !scoutStaffEnabled
+    setSavingScoutStaff(true)
+    try {
+      await updateDynasty(currentDynasty.id, { scoutStaffEnabled: next })
+      toast.success(next ? 'Scout Staff enabled — the Targets tab now uses Scout Staff.' : 'Scout Staff disabled — back to MaxPlaysCFB ScoutScore.')
+    } catch (err) {
+      console.error('[LeaguePreferences] scout staff toggle failed:', err)
+      toast.error(`Could not update: ${err?.message || 'Unknown error'}`)
+    } finally {
+      setSavingScoutStaff(false)
+    }
+  }
 
   // Bulk-edit fields (only applied when set)
   const [bulkVerified, setBulkVerified] = useState('')  // '' | 'yes' | 'no'
@@ -424,7 +441,7 @@ export default function LeaguePreferences() {
                 {c.xUrl && (
                   <a href={c.xUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="px-3 py-1 rounded-lg text-xs font-semibold border border-surface-4 text-txt-secondary hover:text-txt-primary flex-shrink-0">X</a>
                 )}
-                {!isViewOnly && (
+                {import.meta.env.DEV && !isViewOnly && (
                   <button
                     onClick={() => pasteImageInto(c, 'avatar')}
                     disabled={!!pasting}
@@ -434,13 +451,15 @@ export default function LeaguePreferences() {
                     {pasting === `${c.id}:avatar` ? 'Uploading…' : 'Paste PFP'}
                   </button>
                 )}
-                <button
-                  onClick={() => copyPfpPrompt(c)}
-                  title={c.avatarPrompt ? "Copy this account's AI PFP-generation prompt" : 'Copy a generated PFP prompt based on account details'}
-                  className="px-3 py-1 rounded-lg text-xs font-semibold border border-surface-4 text-txt-secondary hover:text-txt-primary flex-shrink-0"
-                >
-                  Copy PFP Prompt
-                </button>
+                {import.meta.env.DEV && (
+                  <button
+                    onClick={() => copyPfpPrompt(c)}
+                    title={c.avatarPrompt ? "Copy this account's AI PFP-generation prompt" : 'Copy a generated PFP prompt based on account details'}
+                    className="px-3 py-1 rounded-lg text-xs font-semibold border border-surface-4 text-txt-secondary hover:text-txt-primary flex-shrink-0"
+                  >
+                    Copy PFP Prompt
+                  </button>
+                )}
                 {!isViewOnly && (
                   <button onClick={() => setEditingId(c.id)} className="px-3 py-1 rounded-lg text-xs font-semibold border border-surface-4 text-txt-secondary hover:text-txt-primary flex-shrink-0">Edit</button>
                 )}
@@ -493,6 +512,39 @@ export default function LeaguePreferences() {
       {creating && (
         <SocialCharacterEditModal isOpen={creating} onClose={() => setCreating(false)} character={{}} />
       )}
+
+      {/* Scout Staff — opt-in alternative to MaxPlaysCFB ScoutScore. Default OFF. */}
+      <section className="rounded-xl border border-surface-4 overflow-hidden" style={{ background: 'var(--surface-1)' }}>
+        <div className="px-4 py-4 flex items-start justify-between gap-4 flex-wrap">
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold text-txt-primary">Use Scout Staff instead of MaxPlaysCFB ScoutScore</div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={scoutStaffEnabled}
+            onClick={toggleScoutStaff}
+            disabled={isViewOnly || savingScoutStaff}
+            className="relative inline-flex items-center rounded-full transition-colors flex-shrink-0 disabled:opacity-50"
+            style={{
+              width: 46,
+              height: 26,
+              backgroundColor: scoutStaffEnabled ? 'var(--text-primary)' : 'var(--surface-4)',
+            }}
+            title={scoutStaffEnabled ? 'Disable Scout Staff' : 'Enable Scout Staff'}
+          >
+            <span
+              className="inline-block rounded-full transition-transform"
+              style={{
+                width: 20,
+                height: 20,
+                background: 'var(--surface-1)',
+                transform: scoutStaffEnabled ? 'translateX(23px)' : 'translateX(3px)',
+              }}
+            />
+          </button>
+        </div>
+      </section>
     </div>
   )
 }

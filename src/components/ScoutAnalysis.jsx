@@ -417,7 +417,7 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots) 
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dynasty, committedRecruits = [] }) {
+export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dynasty, committedRecruits = [], onBack }) {
   const p = teamColors?.primary || '#374151';
   const [activePos, setActivePos]   = useState('QB');
   const [activeArch, setActiveArch] = useState(null); // null = hub view
@@ -582,9 +582,13 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
     <div className="max-w-4xl mx-auto space-y-4">
 
       {/* Header strip */}
-      <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: '#080c14', border: `1px solid ${p}22` }}>
-        {teamLogo && <img src={teamLogo} alt="" className="w-6 h-6 object-contain flex-shrink-0" style={{ opacity: 0.7 }} />}
-        <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(1.1rem, 3vw, 1.5rem)', color: p, letterSpacing: '0.08em', lineHeight: 1 }}>DATA ANALYSIS</p>
+      <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-surface-4">
+        <p className="text-sm font-display font-bold uppercase text-txt-primary">Recruiting Analysis</p>
+        {onBack && (
+          <button onClick={onBack} className="text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3 flex-shrink-0">
+            ← Main Hub
+          </button>
+        )}
       </div>
 
       {/* Portrait + Info row */}
@@ -593,7 +597,7 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
         <div className="relative rounded-xl overflow-hidden w-full h-40 sm:w-[110px] sm:h-[280px] sm:flex-shrink-0">
           {analystImg
             ? <img src={analystImg} alt="" className="absolute inset-0 w-full h-full object-cover object-top" />
-            : <div className="absolute inset-0 flex items-center justify-center text-[10px] text-slate-500" style={{ background: '#0a0f1a' }}>N/A</div>
+            : <div className="absolute inset-0 bg-surface-3" />
           }
           <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.82) 68%, rgba(0,0,0,0.92) 100%)' }} />
           <div className="absolute inset-0 pointer-events-none" style={{ background: `linear-gradient(to bottom, transparent 45%, ${p}55 100%)` }} />
@@ -604,20 +608,19 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
               const fn = parts.length > 1 ? parts.slice(0, -1).join(' ') : '';
               const ln = parts[parts.length - 1];
               return <>
-                {fn && <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(0.7rem, 1.5vw, 0.9rem)', color: 'rgba(255,255,255,0.75)', letterSpacing: '0.06em', lineHeight: 1, textShadow: '0 1px 8px rgba(0,0,0,1), 0 2px 16px rgba(0,0,0,1)' }}>{fn}</p>}
-                <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(1.4rem, 3.5vw, 2rem)', color: 'white', letterSpacing: '0.04em', lineHeight: 1, textShadow: '0 1px 8px rgba(0,0,0,1), 0 2px 16px rgba(0,0,0,1)' }}>{ln}</p>
-                <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '0.6rem', color: p, letterSpacing: '0.1em', lineHeight: 1.4, textShadow: '0 1px 8px rgba(0,0,0,1)' }}>DATA ANALYST</p>
+                {fn && <p className="text-[0.7rem] font-semibold leading-none" style={{ color: 'rgba(255,255,255,0.75)', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{fn}</p>}
+                <p className="text-xl font-bold leading-tight" style={{ color: 'white', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{ln}</p>
+                <p className="text-[0.6rem] font-semibold tracking-wider leading-snug" style={{ color: p, textShadow: '0 1px 8px rgba(0,0,0,1)' }}>DATA ANALYST</p>
               </>;
             })()}
           </div>
         </div>
 
         {/* Info card */}
-        <div className="flex-1 relative rounded-xl overflow-hidden p-4 flex flex-col gap-2" style={{ background: '#080c14', border: `1px solid ${p}22` }}>
-          {teamLogo && <img src={teamLogo} alt="" className="absolute right-3 top-3 w-16 h-16 object-contain pointer-events-none select-none" style={{ opacity: 0.06 }} />}
-          <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(1.4rem, 3vw, 2rem)', color: 'white', letterSpacing: '0.06em', lineHeight: 1 }}>RECRUITING ANALYSIS</p>
-          <p className="text-[9px] text-slate-500 leading-snug">Roster depth analysis with recruiting recommendations based on current squad composition. Benchmarks update as more players are scouted.</p>
-          <p className="text-[10px] text-slate-400 italic leading-snug mt-auto">{globalQuote(players)}</p>
+        <div className="flex-1 rounded-xl p-4 flex flex-col gap-2 bg-surface-2 border border-surface-4">
+          <p className="text-base font-semibold text-txt-primary">Recruiting Analysis</p>
+          <p className="text-xs text-txt-tertiary leading-snug">Roster depth analysis with recruiting recommendations based on current squad composition. Benchmarks update as more players are scouted.</p>
+          <p className="text-xs text-txt-secondary italic leading-snug mt-auto">{globalQuote(players)}</p>
         </div>
       </div>
 
@@ -630,45 +633,45 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                         : available >= 8  ? 'bg-amber-950 border border-amber-700 text-amber-400'
                         : 'bg-red-950 border border-red-700 text-red-400';
         return (
-          <div className="rounded-xl p-4 space-y-2.5" style={{ background: '#080c14', border: `1px solid ${p}22` }}>
+          <div className="rounded-xl p-4 space-y-2.5 bg-surface-2 border border-surface-4">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Roster Capacity</p>
+              <p className="text-[9px] font-semibold uppercase tracking-widest text-txt-tertiary">Roster Capacity</p>
               <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded shrink-0 ${badgeCls}`}>
                 {available} spot{available !== 1 ? 's' : ''} available
               </span>
             </div>
             {/* Fill bar */}
-            <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+            <div className="w-full bg-surface-4 rounded-full h-1.5 overflow-hidden">
               <div className="h-1.5 rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
             </div>
             {/* Stat row */}
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[9px]">
-              <span className="font-bold text-white">{returning} / 85 returning</span>
-              {leaving > 0 && <span className="text-amber-500"><span className="text-slate-700 mr-1.5">·</span>{leaving} graduating this year</span>}
-              <span className={`font-bold ${spotColor}`}><span className="text-slate-700 mr-1.5">·</span>{available} open {available === 1 ? 'spot' : 'spots'} to fill</span>
-              {total !== returning + leaving && <span className="text-slate-600"><span className="text-slate-700 mr-1.5">·</span>{total} currently on roster</span>}
+              <span className="font-semibold text-txt-primary">{returning} / 85 returning</span>
+              {leaving > 0 && <span className="text-amber-500"><span className="text-txt-tertiary mr-1.5">·</span>{leaving} graduating this year</span>}
+              <span className={`font-semibold ${spotColor}`}><span className="text-txt-tertiary mr-1.5">·</span>{available} open {available === 1 ? 'spot' : 'spots'} to fill</span>
+              {total !== returning + leaving && <span className="text-txt-tertiary"><span className="text-txt-tertiary mr-1.5">·</span>{total} currently on roster</span>}
             </div>
           </div>
         );
       })()}
 
       {/* Main panel */}
-      <div className="rounded-xl overflow-hidden flex flex-col md:flex-row min-h-[560px]" style={{ background: '#080c14', border: `1px solid ${p}22` }}>
+      <div className="rounded-xl overflow-hidden flex flex-col md:flex-row min-h-[560px] bg-surface-2 border border-surface-4">
 
         {/* Position nav */}
-        <div className="w-full md:w-28 bg-slate-950/40 border-b md:border-b-0 md:border-r border-slate-800 p-2 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible scrollbar-none shrink-0">
+        <div className="w-full md:w-28 bg-surface-3 border-b md:border-b-0 md:border-r border-surface-4 p-2 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible scrollbar-none shrink-0">
           {/* Overview button */}
           <button
             onClick={() => { setIsOverview(true); setActiveArch(null); }}
-            className={`text-[10px] font-black uppercase tracking-wider px-2 py-2 rounded-lg transition shrink-0 text-center ${
+            className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-2 rounded-lg transition shrink-0 text-center ${
               isOverview
                 ? 'bg-sky-600 text-white'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                : 'text-txt-tertiary hover:bg-surface-4 hover:text-txt-primary'
             }`}
           >
             Overview
           </button>
-          <div className="w-full h-px bg-slate-800 shrink-0 md:block hidden" />
+          <div className="w-full h-px bg-surface-4 shrink-0 md:block hidden" />
           {POSITIONS.map(pos => {
             const posCount = players.filter(pl => pl.position === pos).length;
             const hasT1    = players.some(pl => pl.position === pos && getTier(computeScore(pl)) === 0);
@@ -678,10 +681,10 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
               <button
                 key={pos}
                 onClick={() => handlePosChange(pos)}
-                className={`relative text-[10px] font-black uppercase tracking-wider px-2 py-2 rounded-lg transition shrink-0 text-center ${
+                className={`relative text-[10px] font-semibold uppercase tracking-wider px-2 py-2 rounded-lg transition shrink-0 text-center ${
                   !isOverview && activePos === pos
                     ? 'bg-emerald-500 text-slate-950'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                    : 'text-txt-tertiary hover:bg-surface-4 hover:text-txt-primary'
                 }`}
               >
                 {pos}
@@ -713,18 +716,18 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
               <div className="p-4 space-y-4 flex-1 overflow-y-auto">
 
                 {/* Roster capacity banner */}
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 px-3 py-2.5 rounded-lg bg-slate-950/60 border border-slate-800 text-[9px]">
-                  <span className="font-bold text-white">{returning} / 85 returning</span>
-                  {leaving > 0 && <span className="text-amber-400"><span className="text-slate-700 mr-1">·</span>{leaving} graduating</span>}
-                  <span className={`font-bold ${available >= 15 ? 'text-emerald-400' : available >= 8 ? 'text-amber-400' : 'text-red-400'}`}><span className="text-slate-700 mr-1">·</span>{available} open spot{available !== 1 ? 's' : ''}</span>
-                  {portals.length > 0 && <span className="text-sky-400"><span className="text-slate-700 mr-1">·</span>{portals.length} position{portals.length !== 1 ? 's' : ''} with portal need</span>}
-                  <span className="text-slate-400 ml-auto"><span className="text-slate-700 mr-1">·</span>Recommended class: {totalMin === totalMax ? totalMin : `${totalMin}–${totalMax}`} recruits</span>
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 px-3 py-2.5 rounded-lg bg-surface-3 border border-surface-4 text-[9px]">
+                  <span className="font-semibold text-txt-primary">{returning} / 85 returning</span>
+                  {leaving > 0 && <span className="text-amber-400"><span className="text-txt-tertiary mr-1">·</span>{leaving} graduating</span>}
+                  <span className={`font-semibold ${available >= 15 ? 'text-emerald-400' : available >= 8 ? 'text-amber-400' : 'text-red-400'}`}><span className="text-txt-tertiary mr-1">·</span>{available} open spot{available !== 1 ? 's' : ''}</span>
+                  {portals.length > 0 && <span className="text-sky-400"><span className="text-txt-tertiary mr-1">·</span>{portals.length} position{portals.length !== 1 ? 's' : ''} with portal need</span>}
+                  <span className="text-txt-secondary ml-auto"><span className="text-txt-tertiary mr-1">·</span>Recommended class: {totalMin === totalMax ? totalMin : `${totalMin}–${totalMax}`} recruits</span>
                 </div>
 
                 {/* Critical needs */}
                 {criticals.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-red-500">Critical Needs</p>
+                    <p className="text-[9px] font-semibold uppercase tracking-widest text-red-500">Critical Needs</p>
                     {criticals.map(pos => {
                       const h = allHubs[pos];
                       const rc = rosterContext[pos];
@@ -752,7 +755,7 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                 {/* Portal-priority searching positions */}
                 {searching.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-amber-500">Portal Priority</p>
+                    <p className="text-[9px] font-semibold uppercase tracking-widest text-amber-500">Portal Priority</p>
                     {searching.map(pos => {
                       const h = allHubs[pos];
                       return (
@@ -771,7 +774,7 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
 
                 {/* Full position snapshot */}
                 <div className="space-y-2">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">All Positions</p>
+                  <p className="text-[9px] font-semibold uppercase tracking-widest text-txt-tertiary">All Positions</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                     {positions.map(pos => {
                       const h   = allHubs[pos];
@@ -781,23 +784,23 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                       const rowBorder = vk === 'critical' ? 'border-red-900/40' : vk === 'keep-search' ? 'border-amber-900/30' : 'border-slate-800';
                       return (
                         <button key={pos} onClick={() => handlePosChange(pos)}
-                          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border ${rowBorder} hover:bg-slate-800/50 transition text-left`}>
-                          <span className={`text-[10px] font-black uppercase w-8 shrink-0 ${
-                            vk === 'critical' ? 'text-red-400' : vk === 'keep-search' ? 'text-amber-300' : vk === 'covered' || vk === 'close-target' ? 'text-emerald-400' : 'text-slate-400'
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border ${rowBorder} hover:bg-surface-3 transition text-left`}>
+                          <span className={`text-[10px] font-semibold uppercase w-8 shrink-0 ${
+                            vk === 'critical' ? 'text-red-400' : vk === 'keep-search' ? 'text-amber-300' : vk === 'covered' || vk === 'close-target' ? 'text-emerald-400' : 'text-txt-tertiary'
                           }`}>{pos}</span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${h.verdict.badge}`}>{h.verdict.label}</span>
                               {rc?.needsPortal && <span className="text-[7px] font-black uppercase px-1 py-0.5 rounded bg-sky-950 border border-sky-800 text-sky-400">Portal</span>}
                             </div>
-                            <div className="flex items-center gap-2 mt-0.5 text-[8px] text-slate-500">
+                            <div className="flex items-center gap-2 mt-0.5 text-[8px] text-txt-tertiary">
                               <span>{rc?.returningCount ?? 0} returning</span>
                               {(rc?.seniorCount ?? 0) > 0 && <span className="text-amber-600">{rc.seniorCount} leaving</span>}
                               {(committedByPos[pos] ?? 0) > 0 && <span className="text-emerald-500 font-bold">{committedByPos[pos]} committed</span>}
                             </div>
                           </div>
-                          <span className={`text-[8px] font-bold shrink-0 text-right ${
-                            h.recruitTarget?.min === 0 && h.recruitTarget?.max === 0 ? 'text-slate-600' : 'text-slate-300'
+                          <span className={`text-[8px] font-semibold shrink-0 text-right ${
+                            h.recruitTarget?.min === 0 && h.recruitTarget?.max === 0 ? 'text-txt-tertiary' : 'text-txt-secondary'
                           }`}>
                             {h.recruitTarget?.label ?? '—'}
                           </span>
@@ -808,16 +811,16 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                 </div>
 
                 {/* Class size summary */}
-                <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3 flex items-center justify-between gap-3 flex-wrap">
+                <div className="rounded-xl border border-surface-4 bg-surface-3 p-3 flex items-center justify-between gap-3 flex-wrap">
                   <div>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Recommended Class Size</p>
-                    <p className="text-lg font-black text-white mt-0.5">
+                    <p className="text-[9px] font-semibold uppercase tracking-widest text-txt-tertiary">Recommended Class Size</p>
+                    <p className="text-lg font-bold text-txt-primary mt-0.5">
                       {totalMin === totalMax ? totalMin : `${totalMin}–${totalMax}`}
-                      <span className="text-sm font-normal text-slate-500 ml-1.5">recruits</span>
+                      <span className="text-sm font-normal text-txt-tertiary ml-1.5">recruits</span>
                     </p>
                   </div>
                   <div className="text-right space-y-0.5">
-                    <p className="text-[8px] text-slate-500">{available} spots available of 85</p>
+                    <p className="text-[8px] text-txt-tertiary">{available} spots available of 85</p>
                     {portals.length > 0 && <p className="text-[8px] text-sky-400 font-bold">{portals.length} position{portals.length !== 1 ? 's' : ''} need portal attention</p>}
                     {criticals.length > 0 && <p className="text-[8px] text-red-400 font-bold">{criticals.length} critical position{criticals.length !== 1 ? 's' : ''}</p>}
                   </div>
@@ -829,13 +832,13 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
 
           {/* Position-specific views (hidden in overview mode) */}
           {!isOverview && (<>
-          <div className="border-b border-slate-800 px-4 py-2 flex flex-wrap gap-1.5">
+          <div className="border-b border-surface-4 px-4 py-2 flex flex-wrap gap-1.5">
             <button
               onClick={() => setActiveArch(null)}
-              className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition uppercase tracking-wide ${
+              className={`text-[10px] font-semibold px-2.5 py-1 rounded-md transition uppercase tracking-wide ${
                 activeArch === null
                   ? 'bg-emerald-600 text-white'
-                  : 'text-slate-500 hover:text-slate-200 hover:bg-slate-800'
+                  : 'text-txt-tertiary hover:text-txt-secondary hover:bg-surface-3'
               }`}
             >
               Overview
@@ -850,10 +853,10 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                 <button
                   key={arch}
                   onClick={() => setActiveArch(arch)}
-                  className={`relative text-[10px] font-bold px-2.5 py-1 rounded-md transition uppercase tracking-wide ${
+                  className={`relative text-[10px] font-semibold px-2.5 py-1 rounded-md transition uppercase tracking-wide ${
                     activeArch === arch
-                      ? 'bg-slate-700 text-white'
-                      : 'text-slate-500 hover:text-slate-200 hover:bg-slate-800'
+                      ? 'bg-surface-4 text-txt-primary'
+                      : 'text-txt-tertiary hover:text-txt-secondary hover:bg-surface-3'
                   }`}
                 >
                   {arch}
@@ -866,8 +869,8 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
           </div>
 
           {/* Sub-header */}
-          <div className="px-5 py-2.5 border-b border-slate-800/50 flex items-center justify-between gap-3">
-            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">
+          <div className="px-5 py-2.5 border-b border-surface-4 flex items-center justify-between gap-3">
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-txt-tertiary">
               {activePos}{activeArch ? ` · ${activeArch}` : ' · Position Overview'}
             </p>
             {urgencyBadge && (
@@ -886,7 +889,7 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
 
                 {/* Header row */}
                 <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">{activePos} · Position Need</p>
+                  <p className="text-[9px] font-semibold uppercase tracking-widest text-txt-tertiary">{activePos} · Position Need</p>
                   <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
                     {hub.recruitTarget && (
                       <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${
@@ -965,8 +968,8 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                             <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-lg border ${pl.isSenior ? 'opacity-60' : ''} ${q.bg}`}>
                               <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${q.dot}`} />
                               <span className={`text-[10px] font-bold flex-1 min-w-0 truncate ${q.text}`}>{pl.name}</span>
-                              <span className="text-[9px] text-slate-500 font-mono shrink-0">{pl.ovr > 0 ? pl.ovr : '—'} OVR</span>
-                              <span className="text-[9px] text-slate-500 font-mono shrink-0 w-8 text-right">{pl.cls}</span>
+                              <span className="text-[9px] text-slate-500 tabular-nums shrink-0">{pl.ovr > 0 ? pl.ovr : '—'} OVR</span>
+                              <span className="text-[9px] text-slate-500 tabular-nums shrink-0 w-8 text-right">{pl.cls}</span>
                               {pl.isSenior && (
                                 <span className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-950 border border-amber-700 text-amber-400 shrink-0">Leaving</span>
                               )}
@@ -1000,7 +1003,7 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                           <span className="text-[11px] font-bold text-white flex-1 min-w-0 truncate">{pl.name}</span>
                           <span className="text-[9px] text-slate-500 shrink-0 truncate max-w-[90px]">{archName || '—'}</span>
                           <span className="text-[9px] text-slate-500">{pl.stars}★</span>
-                          <span className={`text-[9px] font-mono ${t.text}`}>{pl.score.toFixed(0)}</span>
+                          <span className={`text-[9px] tabular-nums ${t.text}`}>{pl.score.toFixed(0)}</span>
                           <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${g.cls}`}>{g.grade}</span>
                         </button>
                       );
@@ -1138,7 +1141,7 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                   <p key={i} className="text-[11px] text-slate-300 leading-relaxed">{para}</p>
                 ))}
                 {rec.target && (
-                  <div className="mt-1 inline-block bg-slate-950 border border-slate-700 px-3 py-1.5 rounded-lg text-[9px] font-mono text-slate-300">
+                  <div className="mt-1 inline-block bg-slate-950 border border-slate-700 px-3 py-1.5 rounded-lg text-[9px] tabular-nums text-slate-300">
                     <span className="text-slate-600 uppercase mr-1.5">Target:</span>{rec.target}
                   </div>
                 )}
@@ -1173,9 +1176,9 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                         <div key={i} className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2">
                           <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${t.dot}`} />
                           <span className="text-[11px] font-bold text-white flex-1 min-w-0 truncate">{pl.name}</span>
-                          <span className="text-[10px] text-slate-500 font-mono">{pl.stars}★</span>
+                          <span className="text-[10px] text-slate-500 tabular-nums">{pl.stars}★</span>
                           <span className="text-[10px] text-slate-500">{pl.devTrait || 'Hidden'}</span>
-                          <span className={`text-[10px] font-mono ${t.text}`}>{pl.score.toFixed(1)}</span>
+                          <span className={`text-[10px] tabular-nums ${t.text}`}>{pl.score.toFixed(1)}</span>
                           <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${g.cls}`}>{g.grade}</span>
                         </div>
                       );
@@ -1209,7 +1212,7 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                           <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${t.dot}`} />
                           <span className="text-[10px] font-bold text-slate-300 flex-1 truncate">{arch}</span>
                           <span className="text-[9px] text-slate-500">{archMatches.length} prospect{archMatches.length !== 1 ? 's' : ''}</span>
-                          <span className={`text-[9px] font-mono ${t.text}`}>{bestScore.toFixed(0)}</span>
+                          <span className={`text-[9px] tabular-nums ${t.text}`}>{bestScore.toFixed(0)}</span>
                           <span className={`text-[9px] font-black px-1 py-0.5 rounded border ${g.cls}`}>{g.grade}</span>
                         </button>
                       );

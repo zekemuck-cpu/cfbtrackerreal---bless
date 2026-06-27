@@ -536,7 +536,7 @@ const PROFILES = {
 export const POSITIONS = ['QB','HB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','ATH'];
 export { PROFILES };
 
-export default function ThresholdLookup({ players = [], teamColors, teamLogo, onGoToDatabase }) {
+export default function ThresholdLookup({ players = [], teamColors, teamLogo, onGoToDatabase, onBack }) {
   const p = teamColors?.primary || '#374151';
   const [activePos, setActivePos] = useState('QB');
   const [activeArch, setActiveArch] = useState('Pocket Passer');
@@ -626,14 +626,21 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
   return (
     <div className="max-w-4xl mx-auto space-y-4">
       {/* Header strip */}
-      <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: '#080c14', border: `1px solid ${p}22` }}>
-        {onGoToDatabase && (
-          <button onClick={onGoToDatabase} className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-md transition hover:opacity-80" style={{ background: `${p}18`, color: `${p}cc`, border: `1px solid ${p}30` }}>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-2.5 h-2.5"><polyline points="15 18 9 12 15 6"/></svg>
-            Player Database
+      <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-surface-4">
+        <div className="flex items-center gap-3 min-w-0">
+          {onGoToDatabase && (
+            <button onClick={onGoToDatabase} className="flex items-center gap-1 text-xs text-txt-secondary hover:text-txt-primary px-2 py-1 rounded-md border border-surface-4 hover:bg-surface-3 transition flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-2.5 h-2.5"><polyline points="15 18 9 12 15 6"/></svg>
+              Player Database
+            </button>
+          )}
+          <p className="text-sm font-display font-bold uppercase text-txt-primary">Threshold Benchmarks</p>
+        </div>
+        {onBack && (
+          <button onClick={onBack} className="text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3 flex-shrink-0">
+            ← Main Hub
           </button>
         )}
-        {teamLogo && <img src={teamLogo} alt="" className="w-6 h-6 object-contain flex-shrink-0" style={{ opacity: 0.7 }} />}
       </div>
 
       {/* Portrait + Info row */}
@@ -642,7 +649,7 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
         <div className="relative rounded-xl overflow-hidden w-full h-40 sm:w-[110px] sm:h-[280px] sm:flex-shrink-0">
           {analystImg
             ? <img src={analystImg} alt="" className="absolute inset-0 w-full h-full object-cover object-top" />
-            : <div className="absolute inset-0 flex items-center justify-center text-[10px] text-slate-500" style={{ background: '#0a0f1a' }}>N/A</div>
+            : <div className="absolute inset-0 bg-surface-3" />
           }
           <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.82) 68%, rgba(0,0,0,0.92) 100%)' }} />
           <div className="absolute inset-0 pointer-events-none" style={{ background: `linear-gradient(to bottom, transparent 45%, ${p}55 100%)` }} />
@@ -653,36 +660,35 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
               const fn = parts.length > 1 ? parts.slice(0, -1).join(' ') : '';
               const ln = parts[parts.length - 1];
               return <>
-                {fn && <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(0.7rem, 1.5vw, 0.9rem)', color: 'rgba(255,255,255,0.75)', letterSpacing: '0.06em', lineHeight: 1, textShadow: '0 1px 8px rgba(0,0,0,1), 0 2px 16px rgba(0,0,0,1)' }}>{fn}</p>}
-                <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(1.4rem, 3.5vw, 2rem)', color: 'white', letterSpacing: '0.04em', lineHeight: 1, textShadow: '0 1px 8px rgba(0,0,0,1), 0 2px 16px rgba(0,0,0,1)' }}>{ln}</p>
-                <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '0.6rem', color: p, letterSpacing: '0.1em', lineHeight: 1.4, textShadow: '0 1px 8px rgba(0,0,0,1)' }}>DATA ANALYST</p>
+                {fn && <p className="text-[0.7rem] font-semibold leading-none" style={{ color: 'rgba(255,255,255,0.75)', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{fn}</p>}
+                <p className="text-xl font-bold leading-tight" style={{ color: 'white', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{ln}</p>
+                <p className="text-[0.6rem] font-semibold tracking-wider leading-snug" style={{ color: p, textShadow: '0 1px 8px rgba(0,0,0,1)' }}>DATA ANALYST</p>
               </>;
             })()}
           </div>
         </div>
 
         {/* Info card */}
-        <div className="flex-1 relative rounded-xl overflow-hidden p-4 flex flex-col gap-2" style={{ background: '#080c14', border: `1px solid ${p}22` }}>
-          {teamLogo && <img src={teamLogo} alt="" className="absolute right-3 top-3 w-16 h-16 object-contain pointer-events-none select-none" style={{ opacity: 0.06 }} />}
-          <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(1.4rem, 3vw, 2rem)', color: 'white', letterSpacing: '0.06em', lineHeight: 1 }}>THRESHOLD BENCHMARKS</p>
-          <p className="text-[9px] text-slate-500 leading-snug">With the current data compiled, these are the thresholds to target at each tier. Benchmarks adjust as more players are added to the board.</p>
-          <p className="text-[10px] text-slate-400 italic leading-snug mt-auto">{quote}</p>
+        <div className="flex-1 rounded-xl p-4 flex flex-col gap-2 bg-surface-2 border border-surface-4">
+          <p className="text-base font-semibold text-txt-primary">Threshold Benchmarks</p>
+          <p className="text-xs text-txt-tertiary leading-snug">With the current data compiled, these are the thresholds to target at each tier. Benchmarks adjust as more players are added to the board.</p>
+          <p className="text-xs text-txt-secondary italic leading-snug mt-auto">{quote}</p>
         </div>
       </div>
 
       {/* Main Panel — position nav left, archetype + tiers right */}
-      <div className="rounded-xl overflow-hidden flex flex-col md:flex-row min-h-[520px]" style={{ background: '#080c14', border: `1px solid ${p}22` }}>
+      <div className="rounded-xl overflow-hidden flex flex-col md:flex-row min-h-[520px] bg-surface-2 border border-surface-4">
 
         {/* Position Nav */}
-        <div className="w-full md:w-28 bg-slate-950/40 border-b md:border-b-0 md:border-r border-slate-800 p-2 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible scrollbar-none shrink-0">
+        <div className="w-full md:w-28 bg-surface-3 border-b md:border-b-0 md:border-r border-surface-4 p-2 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible scrollbar-none shrink-0">
           {POSITIONS.map(pos => (
             <button
               key={pos}
               onClick={() => handlePosChange(pos)}
-              className={`text-[10px] font-black uppercase tracking-wider px-2 py-2 rounded-lg transition shrink-0 text-center ${
+              className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-2 rounded-lg transition shrink-0 text-center ${
                 activePos === pos
                   ? 'bg-emerald-500 text-slate-950'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  : 'text-txt-tertiary hover:bg-surface-4 hover:text-txt-primary'
               }`}
             >
               {pos}
@@ -693,15 +699,15 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
         {/* Right panel */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Archetype tabs */}
-          <div className="border-b border-slate-800 px-4 py-2 flex flex-wrap gap-1.5">
+          <div className="border-b border-surface-4 px-4 py-2 flex flex-wrap gap-1.5">
             {profile.archetypes.map(arch => (
               <button
                 key={arch}
                 onClick={() => { setActiveArch(arch); setActiveTierIdx(null); }}
-                className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition uppercase tracking-wide ${
+                className={`text-[10px] font-semibold px-2.5 py-1 rounded-md transition uppercase tracking-wide ${
                   activeArch === arch
-                    ? 'bg-slate-700 text-white'
-                    : 'text-slate-500 hover:text-slate-200 hover:bg-slate-800'
+                    ? 'bg-surface-4 text-txt-primary'
+                    : 'text-txt-tertiary hover:text-txt-secondary hover:bg-surface-3'
                 }`}
               >
                 {arch}
@@ -710,8 +716,8 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
           </div>
 
           {/* Position + archetype label */}
-          <div className="px-5 py-3 border-b border-slate-800/50">
-            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">
+          <div className="px-5 py-3 border-b border-surface-4">
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-txt-tertiary">
               {activePos} · {activeArch}
             </p>
           </div>
@@ -736,8 +742,8 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className={`text-[11px] font-black uppercase tracking-wide ${style.heading}`}>{style.label}</h4>
                           <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${style.pill}`}>{style.score}</span>
-                          <span className={`ml-auto text-[8px] font-black uppercase px-2 py-0.5 rounded border ${
-                            isOpen ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-950/60 border-slate-700 text-slate-500'
+                          <span className={`ml-auto text-[8px] font-semibold uppercase px-2 py-0.5 rounded border ${
+                            isOpen ? 'bg-surface-4 border-surface-5 text-txt-primary' : 'bg-surface-3 border-surface-4 text-txt-tertiary'
                           }`}>
                             {isOpen ? 'Hide' : 'Stats'}
                           </span>
@@ -746,31 +752,31 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
                         {names.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1.5">
                             {names.map((n, ni) => (
-                              <span key={ni} className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${style.pill} opacity-80`}>{n}</span>
+                              <span key={ni} className={`text-[9px] px-1.5 py-0.5 rounded border ${style.pill} opacity-80`}>{n}</span>
                             ))}
                           </div>
                         )}
                       </div>
                       <div className="flex sm:flex-col gap-1.5 shrink-0">
-                        <div className="bg-slate-950/80 border border-slate-800 px-2.5 py-1 rounded-lg text-[9px] font-mono text-slate-300 whitespace-nowrap">
-                          <span className="text-slate-600 uppercase mr-1">Key:</span>{tier.k1}
+                        <div className="bg-surface-3 border border-surface-4 px-2.5 py-1 rounded-lg text-[9px] tabular-nums text-txt-secondary whitespace-nowrap">
+                          <span className="text-txt-tertiary uppercase mr-1">Key:</span>{tier.k1}
                         </div>
-                        <div className="bg-slate-950/80 border border-slate-800 px-2.5 py-1 rounded-lg text-[9px] font-mono text-slate-500 whitespace-nowrap">
-                          <span className="text-slate-600 uppercase mr-1">Alt:</span>{tier.k2}
+                        <div className="bg-surface-3 border border-surface-4 px-2.5 py-1 rounded-lg text-[9px] tabular-nums text-txt-tertiary whitespace-nowrap">
+                          <span className="text-txt-tertiary uppercase mr-1">Alt:</span>{tier.k2}
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Attribute stats — toggled by clicking the card */}
-                  {isOpen && <div className="border-t border-slate-800/60 px-4 pb-4 pt-3">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                  {isOpen && <div className="border-t border-surface-4 px-4 pb-4 pt-3">
+                    <p className="text-[9px] font-semibold uppercase tracking-widest text-txt-tertiary mb-2">
                       {attrData.count > 0
                         ? <>Attribute Breakdown · {attrData.count} prospect{attrData.count !== 1 ? 's' : ''}</>
                         : <>Attribute Benchmarks · No data yet</>
                       }
-                      <span className="ml-2 normal-case font-normal text-slate-700">
-                        (<span className="text-red-500/70">min</span> · <span className="text-slate-400">avg</span> · <span className="text-emerald-400/70">max</span>)
+                      <span className="ml-2 normal-case font-normal text-txt-tertiary">
+                        (<span className="text-red-500/70">min</span> · <span className="text-txt-secondary">avg</span> · <span className="text-emerald-400/70">max</span>)
                       </span>
                     </p>
                     <div className="grid grid-cols-2 gap-x-3 gap-y-1">
@@ -781,13 +787,13 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
                             const w = attrData.weights[attr];
                             const label = ATTR_SHORT[attr] || attr;
                             return (
-                              <div key={attr} className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg ${w > 0 ? 'bg-slate-950/70' : 'bg-slate-950/20 opacity-40'}`}>
-                                <span className="text-[9px] font-bold text-slate-300 w-16 shrink-0 truncate">{label}</span>
-                                <span className={`text-[7px] font-black w-6 shrink-0 ${w > 0 ? 'text-slate-500' : 'text-slate-700'}`}>
+                              <div key={attr} className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg ${w > 0 ? 'bg-surface-3' : 'bg-surface-3 opacity-40'}`}>
+                                <span className="text-[9px] font-semibold text-txt-secondary w-16 shrink-0 truncate">{label}</span>
+                                <span className={`text-[7px] font-semibold w-6 shrink-0 ${w > 0 ? 'text-txt-tertiary' : 'text-txt-tertiary/50'}`}>
                                   {w > 0 ? `${Math.round(w * 100)}%` : '—'}
                                 </span>
                                 {stat ? (
-                                  <div className="flex items-center gap-0.5 text-[8px] font-mono">
+                                  <div className="flex items-center gap-0.5 text-[8px] tabular-nums">
                                     <span className="text-red-400/80">{stat.min}</span>
                                     <span className="text-slate-700 mx-0.5">/</span>
                                     <span className="text-slate-200 font-bold">{stat.avg.toFixed(0)}</span>
@@ -795,7 +801,7 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
                                     <span className="text-emerald-400/80">{stat.max}</span>
                                   </div>
                                 ) : (
-                                  <span className="text-[8px] text-slate-600 font-mono">— / — / —</span>
+                                  <span className="text-[8px] text-slate-600 tabular-nums">— / — / —</span>
                                 )}
                               </div>
                             );

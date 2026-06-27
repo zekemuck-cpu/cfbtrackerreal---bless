@@ -76,7 +76,15 @@ window.addEventListener('vite:preloadError', (event) => {
   // Vite gives us the URL directly on the event payload.
   reloadIfStale(event?.payload)
 })
+function isFirestoreInternalAssertion(e) {
+  const msg = e?.reason?.message || e?.message || ''
+  // Known non-fatal Firestore SDK race: transaction aborted then retry timer fires
+  // into already-cleaned-up state. The SDK recovers on its own.
+  return msg.includes('INTERNAL ASSERTION FAILED') && msg.includes('b815')
+}
+
 window.addEventListener('unhandledrejection', (e) => {
+  if (isFirestoreInternalAssertion(e)) { e.preventDefault(); return }
   if (isStaleChunkError(e)) reloadIfStale(extractUrlFromError(e?.reason || e))
 })
 window.addEventListener('error', (e) => {

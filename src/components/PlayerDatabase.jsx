@@ -834,14 +834,14 @@ function EditModal({ player, onSave, onClose }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function PlayerDatabase({ players, roleContext, teamColors, teamLogo, onDelete, onEdit, onGoToInput, onGoToThresholds }) {
+export default function PlayerDatabase({ players, roleContext, teamColors, teamLogo, onDelete, onEdit, onGoToInput, onGoToThresholds, onBack }) {
   const p = teamColors?.primary || '#374151';
   const [filterPos, setFilterPos] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [editingPlayer, setEditingPlayer] = useState(null);
   const [editingDevFor, setEditingDevFor] = useState(null);
-  const [sortConfig, setSortConfig] = useState({ key: 'score', dir: 'desc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'recency', dir: 'desc' });
   const [analystImg, setAnalystImg] = useState('');
   const [analystName, setAnalystName] = useState('Data Analyst');
 
@@ -873,6 +873,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
   const sortedPlayers = [...filteredPlayers].sort((a, b) => {
     let av, bv;
     switch (sortConfig.key) {
+      case 'recency':   av = a.addedIndex ?? 0;                            bv = b.addedIndex ?? 0;                            break;
       case 'name':      av = a.name;                                       bv = b.name;                                       break;
       case 'score':     av = computeScore(a);                              bv = computeScore(b);                              break;
       case 'group':     av = a.group;                                      bv = b.group;                                      break;
@@ -930,36 +931,22 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
       )}
 
       {/* Header strip */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          {teamLogo && (
-            <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ background: `${p}22`, border: `1px solid ${p}44` }}>
-              <img src={teamLogo} alt="" className="w-8 h-8 object-contain" />
-            </div>
-          )}
-          <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] leading-none" style={{ color: `${p}bb` }}>Scout Staff Intelligence Engine</p>
-            <h2 className="text-white font-black leading-none mt-0.5" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(1.4rem, 3vw, 2rem)', letterSpacing: '0.04em' }}>
-              PLAYER DATABASE
-            </h2>
-          </div>
-        </div>
-        {/* Nav buttons */}
+      <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-surface-4">
+        <h2 className="text-sm font-display font-bold uppercase text-txt-primary">Player Database</h2>
         <div className="flex items-center gap-2 flex-shrink-0">
           {onGoToInput && (
-            <button onClick={onGoToInput} className="text-[9px] font-black uppercase tracking-wider px-3 py-1.5 rounded-lg transition" style={{ background: '#080c14', border: `1px solid ${p}25`, color: '#94a3b8' }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = `${p}55`; e.currentTarget.style.color = '#fff'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = `${p}25`; e.currentTarget.style.color = '#94a3b8'; }}
-            >
+            <button onClick={onGoToInput} className="text-xs text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
               + New Report
             </button>
           )}
           {onGoToThresholds && (
-            <button onClick={onGoToThresholds} className="text-[9px] font-black uppercase tracking-wider px-3 py-1.5 rounded-lg transition" style={{ background: '#080c14', border: `1px solid ${p}25`, color: '#94a3b8' }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = `${p}55`; e.currentTarget.style.color = '#fff'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = `${p}25`; e.currentTarget.style.color = '#94a3b8'; }}
-            >
+            <button onClick={onGoToThresholds} className="text-xs text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
               Thresholds
+            </button>
+          )}
+          {onBack && (
+            <button onClick={onBack} className="text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
+              ← Main Hub
             </button>
           )}
         </div>
@@ -973,9 +960,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
           {analystImg ? (
             <img src={analystImg} alt="Data Analyst" className="absolute inset-0 w-full h-full object-cover object-top" />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center" style={{ background: `linear-gradient(160deg, #10b98133 0%, #020617 100%)` }}>
-              {teamLogo && <img src={teamLogo} alt="" className="w-12 h-12 object-contain select-none pointer-events-none" style={{ opacity: 0.12 }} />}
-            </div>
+            <div className="absolute inset-0 bg-surface-3" />
           )}
           <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.82) 68%, rgba(0,0,0,0.92) 100%)' }} />
           <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 45%, #10b98155 100%)' }} />
@@ -990,8 +975,8 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
               const first = parts.join(' ');
               return (
                 <>
-                  {first && <p className="leading-none text-[7px] font-black uppercase tracking-[0.12em]" style={{ color: 'rgba(255,255,255,0.7)', textShadow: '0 1px 6px rgba(0,0,0,1)' }}>{first}</p>}
-                  <p className="text-white leading-none font-black" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.05rem', letterSpacing: '0.04em', textShadow: '0 2px 10px rgba(0,0,0,1)' }}>{last.toUpperCase()}</p>
+                  {first && <p className="leading-none text-[7px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.7)', textShadow: '0 1px 6px rgba(0,0,0,1)' }}>{first}</p>}
+                  <p className="text-white leading-none font-bold text-base" style={{ textShadow: '0 2px 10px rgba(0,0,0,1)' }}>{last}</p>
                 </>
               );
             })()}
@@ -1006,38 +991,29 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
         <div className="flex-1 space-y-3 min-w-0">
 
           {/* Analyst quip */}
-          <div className="relative rounded-xl overflow-hidden" style={{ background: '#080c14', border: '1px solid #10b98120' }}>
-            {teamLogo && <img src={teamLogo} alt="" className="absolute right-2 top-1/2 -translate-y-1/2 w-14 h-14 object-contain pointer-events-none select-none" style={{ opacity: 0.06 }} />}
-            <div className="relative p-3.5">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] leading-none text-emerald-600">Analysis</p>
-              <p className="text-[11px] text-slate-300 italic leading-snug mt-1">"{analystQuip}"</p>
-              <p className="text-[9px] text-slate-600 mt-1">— {analystName}</p>
-            </div>
+          <div className="rounded-xl p-3.5 bg-surface-2 border border-surface-4">
+            <p className="text-[8px] font-semibold uppercase tracking-widest leading-none text-emerald-500">Analysis</p>
+            <p className="text-[11px] text-txt-secondary italic leading-snug mt-1">"{analystQuip}"</p>
+            <p className="text-[9px] text-txt-tertiary mt-1">— {analystName}</p>
           </div>
 
           {/* Search + position filters */}
-          <div className="rounded-xl p-3.5 space-y-2.5" style={{ background: '#080c14', border: `1px solid ${p}20` }}>
+          <div className="rounded-xl p-3.5 space-y-2.5 bg-surface-2 border border-surface-4">
             <input
               type="text"
               placeholder="Search prospect name or archetype..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg text-xs p-2.5 text-slate-200 placeholder-slate-600 focus:outline-none transition"
-              style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${p}22`, caretColor: 'white' }}
-              onFocus={e => e.currentTarget.style.borderColor = `${p}55`}
-              onBlur={e => e.currentTarget.style.borderColor = `${p}22`}
+              className="w-full rounded-lg text-xs p-2.5 text-txt-primary placeholder-txt-tertiary bg-surface-3 border border-surface-4 focus:outline-none focus:border-surface-5 transition"
             />
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[8px] font-black uppercase tracking-[0.18em] text-slate-600 flex-shrink-0">Pos:</span>
+              <span className="text-[8px] font-semibold uppercase tracking-widest text-txt-tertiary flex-shrink-0">Pos:</span>
               {positionsList.map(pos => (
                 <button
                   key={pos}
                   onClick={() => setFilterPos(pos)}
-                  className="text-[9px] font-black px-2 py-0.5 rounded transition uppercase tracking-wider"
-                  style={filterPos === pos
-                    ? { background: p, color: '#fff' }
-                    : { background: 'rgba(255,255,255,0.04)', color: '#64748b', border: `1px solid ${p}18` }
-                  }
+                  className={`text-[9px] font-bold px-2 py-0.5 rounded transition uppercase tracking-wider ${filterPos === pos ? '' : 'text-txt-tertiary border border-surface-4 hover:bg-surface-3'}`}
+                  style={filterPos === pos ? { background: p, color: '#fff' } : undefined}
                 >
                   {pos}
                 </button>
@@ -1049,11 +1025,12 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
       </div>
 
       {/* Table */}
-      <div className="rounded-xl overflow-hidden shadow-xl" style={{ background: '#080c14', border: `1px solid ${p}20` }}>
+      <div className="rounded-xl overflow-hidden bg-surface-2 border border-surface-4">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500" style={{ background: '#040711', borderBottom: `1px solid ${p}18` }}>
+              <tr className="text-[10px] font-semibold uppercase tracking-widest text-txt-tertiary bg-surface-3 border-b border-surface-4">
+                <SortTh sortKey="recency">Recent</SortTh>
                 <SortTh sortKey="name">Prospect</SortTh>
                 <SortTh sortKey="score" className="text-center">Grade</SortTh>
                 <SortTh sortKey="group">Group</SortTh>
@@ -1066,10 +1043,10 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                 <th className="p-3.5 w-8"></th>
               </tr>
             </thead>
-            <tbody className="divide-y text-xs" style={{ borderColor: `${p}10` }}>
+            <tbody className="divide-y divide-surface-4 text-xs">
               {filteredPlayers.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="p-12 text-center text-slate-600 uppercase tracking-widest font-bold text-[10px]">
+                  <td colSpan="10" className="p-12 text-center text-txt-tertiary text-xs">
                     No scouting logs found matching active criteria.
                   </td>
                 </tr>
@@ -1083,25 +1060,23 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                     <tr
                       key={i}
                       onClick={() => setSelectedPlayer(pl)}
-                      className="transition group cursor-pointer"
-                      style={{ borderColor: `${p}10` }}
-                      onMouseEnter={e => e.currentTarget.style.background = `${p}0a`}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      className="transition group cursor-pointer border-b border-surface-4 hover:bg-surface-3"
                     >
-                      <td className="p-3.5 font-bold text-slate-300 group-hover:text-white transition">{pl.name}</td>
+                      <td className="p-3.5 text-center text-[10px] tabular-nums text-txt-tertiary">{pl.addedIndex != null ? pl.addedIndex + 1 : '—'}</td>
+                      <td className="p-3.5 font-semibold text-txt-secondary group-hover:text-txt-primary transition">{pl.name}</td>
                       <td className="p-3.5 text-center">
                         <div className="inline-flex flex-col items-center gap-0.5">
                           <span className={`font-black tracking-wide text-xs px-2 py-0.5 rounded border ${tier.badgeCls}`}>{tier.grade}</span>
-                          <span className="text-[9px] font-mono text-slate-600">{score.toFixed(1)}</span>
+                          <span className="text-[9px] tabular-nums text-slate-600">{score.toFixed(1)}</span>
                         </div>
                       </td>
-                      <td className="p-3.5 uppercase font-black text-slate-600 text-[10px] tracking-wider">{pl.group}</td>
+                      <td className="p-3.5 uppercase font-semibold text-txt-tertiary text-[10px] tracking-wider">{pl.group}</td>
                       <td className="p-3.5">
                         <span className="px-2 py-0.5 rounded text-[10px] font-black text-emerald-400" style={{ background: '#022c22', border: '1px solid #10b98130' }}>
                           {pl.position}
                         </span>
                       </td>
-                      <td className="p-3.5 text-slate-400 font-medium">{pl.archetype}</td>
+                      <td className="p-3.5 text-txt-secondary font-medium">{pl.archetype}</td>
                       <td className="p-3.5 text-center font-black text-amber-400 tracking-wide">{pl.stars}★</td>
                       <td className="p-3.5" onClick={e => e.stopPropagation()}>
                         {editingDevFor === pl ? (
@@ -1132,11 +1107,11 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                       <td className="p-3.5 text-center">
                         <span className={`text-xs font-bold ${parseFloat(gpa) >= 3.5 ? 'text-emerald-400' : parseFloat(gpa) >= 2.5 ? 'text-sky-400' : 'text-amber-400'}`}>{gpa}</span>
                       </td>
-                      <td className="p-3.5 font-mono text-[10px] text-slate-500 max-w-sm">
+                      <td className="p-3.5 tabular-nums text-[10px] text-txt-tertiary max-w-sm">
                         <div className="flex flex-wrap gap-1">
                           {Object.entries(pl.attributes).map(([key, val]) => (
-                            <span key={key} className="px-1.5 py-0.5 rounded text-slate-400 shrink-0" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${p}15` }}>
-                              <strong className="text-slate-600 font-normal mr-0.5">{key}:</strong>{val}
+                            <span key={key} className="px-1.5 py-0.5 rounded text-txt-secondary shrink-0 bg-surface-3 border border-surface-4">
+                              <strong className="text-txt-tertiary font-normal mr-0.5">{key}:</strong>{val}
                             </span>
                           ))}
                         </div>

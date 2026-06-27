@@ -88,6 +88,13 @@ const POS_ALIAS = {
   CB: 'CB', FS: 'FS', SS: 'SS', S: 'FS', DB: 'CB', ATH: 'ATH',
 }
 
+// Game position → the position bucket the Scout Staff grading engine expects.
+// Unknown positions (e.g. K/P) pass through unchanged.
+export function positionBucket(position) {
+  const up = (position || '').toUpperCase()
+  return POS_ALIAS[up] || up
+}
+
 // The ordered list of 10 attribute names for a position+archetype, matching the
 // scouting form: exact archetype override → "Archetype (POS)" (OL raw strength)
 // → "ATH - Archetype" → position base. Returns null for positions with no

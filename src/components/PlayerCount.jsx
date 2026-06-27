@@ -14,7 +14,7 @@ const CLASS_GROUPS = [
   { key: 'DB',   label: 'DB',   positions: ['CB', 'FS', 'SS', 'S', 'DB'],                       min: 2, max: 3 },
 ];
 
-export default function PlayerCount({ players, roleContext, teamColors, teamLogo, committedRecruits = [], currentYear }) {
+export default function PlayerCount({ players, roleContext, teamColors, teamLogo, committedRecruits = [], currentYear, onBack }) {
   const p = teamColors?.primary || '#374151';
   const [scoutImg, setScoutImg] = useState('');
   const [scoutName, setScoutName] = useState('Regional Scout');
@@ -72,9 +72,13 @@ export default function PlayerCount({ players, roleContext, teamColors, teamLogo
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header strip */}
-      <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: '#080c14', border: `1px solid ${p}22` }}>
-        {teamLogo && <img src={teamLogo} alt="" className="w-6 h-6 object-contain flex-shrink-0" style={{ opacity: 0.7 }} />}
-        <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(1.1rem, 3vw, 1.5rem)', color: p, letterSpacing: '0.08em', lineHeight: 1 }}>ROSTER PIPELINE</p>
+      <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-surface-4">
+        <p className="text-sm font-display font-bold uppercase text-txt-primary">Roster Pipeline</p>
+        {onBack && (
+          <button onClick={onBack} className="text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3 flex-shrink-0">
+            ← Main Hub
+          </button>
+        )}
       </div>
 
       {/* Portrait + Aggregate row */}
@@ -83,7 +87,7 @@ export default function PlayerCount({ players, roleContext, teamColors, teamLogo
         <div className="relative rounded-xl overflow-hidden w-full h-40 sm:w-[110px] sm:h-[280px] sm:flex-shrink-0">
           {scoutImg
             ? <img src={scoutImg} alt="" className="absolute inset-0 w-full h-full object-cover object-top" />
-            : <div className="absolute inset-0 flex items-center justify-center text-[10px] text-slate-500" style={{ background: '#0a0f1a' }}>N/A</div>
+            : <div className="absolute inset-0 bg-surface-3" />
           }
           <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.82) 68%, rgba(0,0,0,0.92) 100%)' }} />
           <div className="absolute inset-0 pointer-events-none" style={{ background: `linear-gradient(to bottom, transparent 45%, ${p}55 100%)` }} />
@@ -94,34 +98,33 @@ export default function PlayerCount({ players, roleContext, teamColors, teamLogo
               const fn = parts.length > 1 ? parts.slice(0, -1).join(' ') : '';
               const ln = parts[parts.length - 1];
               return <>
-                {fn && <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(0.7rem, 1.5vw, 0.9rem)', color: 'rgba(255,255,255,0.75)', letterSpacing: '0.06em', lineHeight: 1, textShadow: '0 1px 8px rgba(0,0,0,1), 0 2px 16px rgba(0,0,0,1)' }}>{fn}</p>}
-                <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(1.4rem, 3.5vw, 2rem)', color: 'white', letterSpacing: '0.04em', lineHeight: 1, textShadow: '0 1px 8px rgba(0,0,0,1), 0 2px 16px rgba(0,0,0,1)' }}>{ln}</p>
-                <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '0.6rem', color: p, letterSpacing: '0.1em', lineHeight: 1.4, textShadow: '0 1px 8px rgba(0,0,0,1)' }}>REGIONAL SCOUT</p>
+                {fn && <p className="text-[0.7rem] font-semibold leading-none" style={{ color: 'rgba(255,255,255,0.75)', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{fn}</p>}
+                <p className="text-xl font-bold leading-tight" style={{ color: 'white', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{ln}</p>
+                <p className="text-[0.6rem] font-semibold tracking-wider leading-snug" style={{ color: p, textShadow: '0 1px 8px rgba(0,0,0,1)' }}>REGIONAL SCOUT</p>
               </>;
             })()}
           </div>
         </div>
 
         {/* Aggregate card */}
-        <div className="flex-1 relative rounded-xl overflow-hidden p-4 flex flex-col justify-between" style={{ background: '#080c14', border: `1px solid ${p}22` }}>
-          {teamLogo && <img src={teamLogo} alt="" className="absolute right-3 top-3 w-16 h-16 object-contain pointer-events-none select-none" style={{ opacity: 0.06 }} />}
+        <div className="flex-1 rounded-xl p-4 flex flex-col justify-between bg-surface-2 border border-surface-4">
           <div>
-            <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(1.2rem, 2.5vw, 1.7rem)', color: 'white', letterSpacing: '0.06em', lineHeight: 1 }}>ROSTER POOL AGGREGATES</p>
-            <p className="text-[9px] text-slate-500 mt-0.5">Live quantitative tracking distribution mapping all stored data profiles</p>
+            <p className="text-base font-semibold text-txt-primary">Roster Pool Aggregates</p>
+            <p className="text-xs text-txt-tertiary mt-0.5">Live quantitative tracking distribution mapping all stored data profiles</p>
           </div>
           <div className="flex items-end gap-6">
             <div>
-              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(2.5rem, 5vw, 3.5rem)', color: '#10b981', lineHeight: 1, letterSpacing: '0.02em' }}>{totalScouted}</div>
-              <div className="text-[9px] font-black uppercase tracking-widest text-slate-600">Scouted</div>
+              <div className="text-4xl font-bold tabular-nums text-emerald-400 leading-none">{totalScouted}</div>
+              <div className="text-[9px] font-semibold uppercase tracking-widest text-txt-tertiary mt-0.5">Scouted</div>
             </div>
             {hasCommits && (
               <div>
-                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(2.5rem, 5vw, 3.5rem)', color: p, lineHeight: 1, letterSpacing: '0.02em' }}>{totalCommitted}</div>
-                <div className="text-[9px] font-black uppercase tracking-widest text-slate-600">Committed</div>
+                <div className="text-4xl font-bold tabular-nums leading-none" style={{ color: p }}>{totalCommitted}</div>
+                <div className="text-[9px] font-semibold uppercase tracking-widest text-txt-tertiary mt-0.5">Committed</div>
               </div>
             )}
           </div>
-          <p className="text-[10px] text-slate-400 italic leading-snug">{(() => {
+          <p className="text-xs text-txt-secondary italic leading-snug">{(() => {
             if (!players.length) return "Board is empty — I'll start filing reports as soon as I find talent worth tracking, boss.";
             const five = players.filter(pl => pl.stars === '5').length;
             const four = players.filter(pl => pl.stars === '4').length;
@@ -144,8 +147,8 @@ export default function PlayerCount({ players, roleContext, teamColors, teamLogo
                 {card.label}
               </div>
               <div className="flex items-baseline justify-between mt-4">
-                <span className="text-3xl font-black font-mono tracking-tight">{card.count}</span>
-                <span className="text-[10px] font-mono font-bold opacity-40">{percentage}%</span>
+                <span className="text-3xl font-display font-black">{card.count}</span>
+                <span className="text-[10px] font-bold tabular-nums opacity-40">{percentage}%</span>
               </div>
             </div>
           );
@@ -155,11 +158,11 @@ export default function PlayerCount({ players, roleContext, teamColors, teamLogo
       {/* Class Progress Dashboard */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-500">
+          <h3 className="text-[9px] font-semibold uppercase tracking-widest text-txt-tertiary">
             {currentYear ? `${currentYear} Class Progress` : 'Class Progress'} — Committed vs. Target
           </h3>
           {hasCommits && (
-            <span className="text-[9px] text-slate-500">
+            <span className="text-[9px] text-txt-tertiary">
               {totalCommitted} total · {committedRecruits.filter(r => r.isPortal || r.previousTeam).length} portal
             </span>
           )}
@@ -169,25 +172,24 @@ export default function PlayerCount({ players, roleContext, teamColors, teamLogo
             const { status, committed, portalCommits, min, max, label } = group;
             const barPct = max > 0 ? Math.min(100, (committed / max) * 100) : 0;
             const barColor = status === 'full' ? '#10b981' : status === 'ok' ? '#3b82f6' : status === 'low' ? '#f59e0b' : '#334155';
-            const textColor = status === 'full' ? 'text-emerald-400' : status === 'ok' ? 'text-sky-400' : status === 'low' ? 'text-amber-400' : 'text-slate-600';
-            const borderColor = status === 'full' ? 'border-emerald-900/40' : status === 'ok' ? 'border-sky-900/30' : status === 'low' ? 'border-amber-900/30' : 'border-slate-800';
+            const textColor = status === 'full' ? 'text-emerald-400' : status === 'ok' ? 'text-sky-400' : status === 'low' ? 'text-amber-400' : 'text-txt-tertiary';
+            const borderColor = status === 'full' ? 'border-emerald-900/40' : status === 'ok' ? 'border-sky-900/30' : status === 'low' ? 'border-amber-900/30' : 'border-surface-4';
 
             return (
               <div key={group.key}
-                className={`rounded-xl border p-3 space-y-2 ${borderColor}`}
-                style={{ background: '#080c14' }}
+                className={`rounded-xl border p-3 space-y-2 bg-surface-2 ${borderColor}`}
               >
                 <div className="flex items-center justify-between gap-1">
-                  <span className={`text-[11px] font-black uppercase ${textColor}`}>{label}</span>
+                  <span className={`text-[11px] font-semibold uppercase ${textColor}`}>{label}</span>
                   <span className={`text-[10px] font-bold tabular-nums ${textColor}`}>{committed}</span>
                 </div>
                 {/* Progress bar */}
-                <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-1 bg-surface-4 rounded-full overflow-hidden">
                   <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, backgroundColor: barColor }} />
                 </div>
-                <div className="text-[8px] text-slate-600 tabular-nums">
+                <div className="text-[8px] text-txt-tertiary tabular-nums">
                   Target {min === max ? min : `${min}–${max}`}
-                  {portalCommits > 0 && <span className="text-sky-700 ml-1">· {portalCommits} portal</span>}
+                  {portalCommits > 0 && <span className="text-sky-600 ml-1">· {portalCommits} portal</span>}
                 </div>
               </div>
             );

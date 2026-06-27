@@ -347,13 +347,10 @@ export default function GamedayPicks({
             </div>
           </div>
         ) : (
-          <div
-            className="label-xs text-center"
-            style={{ width: '100%', fontSize: '10px', color: 'var(--text-tertiary)', letterSpacing: '1px' }}
-          >
-            <span style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>Gameday Picks</span>
-            {' · Hover an analyst to hear their take'}
-          </div>
+          <h2 className="font-bold text-txt-primary m-0 text-sm" style={{ width: '100%' }}>
+            Gameday Picks
+            <span className="font-normal text-txt-tertiary">{' · Hover an analyst to hear their take'}</span>
+          </h2>
         )}
       </div>
 
@@ -427,21 +424,6 @@ export default function GamedayPicks({
                 )}
               </div>
 
-              {/* Team abbr */}
-              <div
-                className="text-center font-bold uppercase w-full px-0.5"
-                style={{
-                  fontSize: 10,
-                  letterSpacing: '1px',
-                  color: txt,
-                  textShadow: '0 1px 2px rgba(0,0,0,0.25)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {teamAbbr}
-              </div>
             </div>
           )
         })}

@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { computeScore } from './archetypeWeights';
 
 // =========================================================================
 // LIGHTWEIGHT INDEXEDDB MANAGER (Permanently Bypasses the 5MB Quota Limit)
 // =========================================================================
 import { getStaffData, saveStaffData, deleteStaffData } from './staffDB';
 
-export default function ScoutStaffFrontPage({ setView, currentTeamName = 'college football team', currentYear, teamColors, teamLogo }) {
+export default function ScoutStaffFrontPage({ setView, currentTeamName = 'college football team', currentYear, coachName = '', teamColors, teamLogo, recruits = [], rosterWarnings = [] }) {
   const p = teamColors?.primary   || '#374151';
   const s = teamColors?.secondary || '#ffffff';
   // Live State Holders
@@ -27,21 +28,33 @@ export default function ScoutStaffFrontPage({ setView, currentTeamName = 'colleg
   const [activeModalImg, setActiveModalImg] = useState(null);
   const [nameEditSlot, setNameEditSlot] = useState(null);
   const [bioEditSlot, setBioEditSlot] = useState(null);
+  const [copiedKey, setCopiedKey] = useState(null);
+  const [pasteState, setPasteState] = useState({});
 
   const [showScoutUrlInput, setShowScoutUrlInput] = useState(false);
   const [showAnalystUrlInput, setShowAnalystUrlInput] = useState(false);
   const [scoutUrlText, setScoutUrlText] = useState('');
   const [analystUrlText, setAnalystUrlText] = useState('');
 
+  // localStorage keys used as backup for small text fields
+  const LS = {
+    scout_name:    'staff_scout_name',
+    analyst_name:  'staff_analyst_name',
+    scout_bio:     'staff_scout_bio',
+    analyst_bio:   'staff_analyst_bio',
+  };
+
   // Initial Boot-up: load names/images/bios immediately on mount
   useEffect(() => {
     async function loadBasicStaff() {
       const img1  = await getStaffData('scout_img');
       const img2  = await getStaffData('analyst_img');
-      const name1 = await getStaffData('scout_name');
-      const name2 = await getStaffData('analyst_name');
-      const bio1  = await getStaffData('scout_bio');
-      const bio2  = await getStaffData('analyst_bio');
+
+      // For text fields prefer IndexedDB; fall back to localStorage backup
+      const name1 = await getStaffData('scout_name')   || localStorage.getItem(LS.scout_name)   || '';
+      const name2 = await getStaffData('analyst_name') || localStorage.getItem(LS.analyst_name) || '';
+      const bio1  = await getStaffData('scout_bio')    || localStorage.getItem(LS.scout_bio)    || '';
+      const bio2  = await getStaffData('analyst_bio')  || localStorage.getItem(LS.analyst_bio)  || '';
 
       if (img1)  setScoutImg(img1);
       if (img2)  setAnalystImg(img2);
@@ -97,9 +110,11 @@ export default function ScoutStaffFrontPage({ setView, currentTeamName = 'colleg
   const handleNameChange = async (val, slot) => {
     if (slot === 1) {
       setScoutName(val);
+      localStorage.setItem(LS.scout_name, val);
       await saveStaffData('scout_name', val);
     } else {
       setAnalystName(val);
+      localStorage.setItem(LS.analyst_name, val);
       await saveStaffData('analyst_name', val);
     }
   };
@@ -107,9 +122,11 @@ export default function ScoutStaffFrontPage({ setView, currentTeamName = 'colleg
   const handleBioChange = async (val, slot) => {
     if (slot === 1) {
       setScoutBio(val);
+      localStorage.setItem(LS.scout_bio, val);
       await saveStaffData('scout_bio', val);
     } else {
       setAnalystBio(val);
+      localStorage.setItem(LS.analyst_bio, val);
       await saveStaffData('analyst_bio', val);
     }
   };
@@ -168,9 +185,10 @@ export default function ScoutStaffFrontPage({ setView, currentTeamName = 'colleg
     return `wearing a sharp modern ${currentTeamName}-branded ${clothing}${headwear}`;
   };
 
-  const handleCopy = (text, type) => {
+  const handleCopy = (text, key) => {
     navigator.clipboard.writeText(text);
-    alert(`${type} prompt copied to clipboard!`);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 1000);
   };
 
   const generateImgPrompt = (role) => {
@@ -182,13 +200,57 @@ export default function ScoutStaffFrontPage({ setView, currentTeamName = 'colleg
     COMPOSITION AND CLOSE-UP SCALE: Tightly frame and crop the subject so it focuses closely on their head and neck, showing only the very top apex of the shoulders. It should be a clear, close-up asset portrait that maximizes facial details without getting cut off, ensuring the character's face remains cleanly centered and highly visible when scaled down to a small card box icon.`;
   };
 
-  const generateBioPrompt = (role) => {
-    return `Generate a text biography for a college football staff member's dossier board. Output ONLY the following lines with no introduction sentences, no formatting markdown, no bullet symbols (-), and no extra text spaces, so it can be cleanly copied:
+  const generateBioPrompt = (role, otherName) => {
+    const isScout = role === 'scout';
+    const roleTitle   = isScout ? 'Regional Scout' : 'Data Analyst';
+    const roleContext = isScout
+      ? 'a Regional Scout who specializes in hands-on field evaluation, on-campus recruiting visits, building relationships with high school coaches, and identifying under-the-radar talent'
+      : 'a Data Analyst who specializes in player metrics, statistical modeling, film breakdown, and delivering data-driven insight to guide recruiting decisions and game planning';
 
-Suggested Name: (Generate a completely unique first and last name. CRITICAL STIPULATION: Do not use common default names like Marcus, David, John, Michael, or typical baseline choices. Cycle through a massive variety of naming data, choosing distinct, uncommon, or ethnically appropriate names that logically align with the specific race, ancestral heritage, body build, and age expression generated in the headshot picture above to ensure an absolute 1-of-1 identity)
-Hometown: (Insert a randomized American town or city. To ensure a 100% unique feel across multiple iterations, draw from different states across the country, completely unrelated and geographically separated from the ${currentTeamName} region or state, bringing in someone from an entirely different local pipeline layout)
-Alma Mater: (Insert a randomized college football university program. Avoid choosing the same standard top-tier programs repeatedly; mix in mid-major, lower-tier, or far-away universities to represent a true country-wide coaching tree matrix, completely separate from ${currentTeamName})
-Staff Note: (Write a concise, high-impact summary statement. HARD LIMIT: The entire Staff Note MUST be 120 characters or fewer — count every character including spaces before writing. If your draft exceeds 120 characters, rewrite it shorter. Do NOT exceed this limit under any circumstance; going over will break the application layout. Additionally, weave in a clear background connection showing how their hometown region, their alma mater tree, or their past professional assignments explicitly link their skills back to the local history, staff, or pipelines of the ${currentTeamName})`;
+    // Randomly seed a geographic zone and conference group so each button press
+    // forces the AI into a different corner of the country / tier of football.
+    const zones = [
+      'Deep South (Alabama, Mississippi, Georgia, Louisiana, South Carolina)',
+      'Midwest (Ohio, Indiana, Illinois, Michigan, Wisconsin, Iowa, Missouri)',
+      'Mid-Atlantic (Pennsylvania, New Jersey, Maryland, Virginia, Delaware)',
+      'Texas (Houston suburbs, DFW suburbs, San Antonio area, East Texas)',
+      'Great Plains (Nebraska, Kansas, Oklahoma, South Dakota, North Dakota)',
+      'Appalachia (West Virginia, eastern Kentucky, western North Carolina, Tennessee)',
+      'Pacific Coast (Southern California, Central California, Pacific Northwest excluding Idaho)',
+      'Mountain West (Colorado, Utah, Nevada excluding Las Vegas, Arizona)',
+      'New England (Massachusetts, Connecticut, Rhode Island, upstate New York)',
+      'Gulf Coast (Florida Panhandle, coastal Mississippi, Alabama coast, east Texas coast)',
+      'Upper South (Arkansas, central Kentucky, western Virginia, middle Tennessee)',
+    ];
+    const conferences = [
+      'MAC (Ball State, Ohio, Akron, Kent State, Eastern Michigan, Bowling Green)',
+      'Sun Belt (Appalachian State, Arkansas State, Southern Miss, Georgia Southern, Old Dominion)',
+      'CUSA (UTEP, Louisiana Tech, Middle Tennessee, FAU, Charlotte, Western Kentucky)',
+      'Mountain West (Wyoming, San Jose State, Fresno State, Air Force, Colorado State, Hawaii)',
+      'American Athletic (Tulane, Memphis, ECU, Temple, Tulsa, UTSA)',
+      'Big South / Southland (Incarnate Word, Nicholls, Southeastern Louisiana, McNeese, Sam Houston)',
+      'SWAC (Grambling, Southern, Jackson State, Alabama A&M, Arkansas-Pine Bluff)',
+      'FCS Mid-Major (Furman, Wofford, Samford, Davidson, Western Illinois, Eastern Kentucky)',
+      'Missouri Valley (North Dakota State, South Dakota State, Illinois State, Missouri State)',
+      'OVC / Southern (Austin Peay, UT Martin, Eastern Illinois, Lindenwood, Central Arkansas)',
+    ];
+    const zone = zones[Math.floor(Math.random() * zones.length)];
+    const conf = conferences[Math.floor(Math.random() * conferences.length)];
+
+    const placeholderNames = ['Staff Slot #1', 'Staff Slot #2', ''];
+    const otherIsNamed = otherName && !placeholderNames.includes(otherName);
+    const uniquenessClause = otherIsNamed
+      ? `CRITICAL UNIQUENESS RULE: The other staff member on this board is already named "${otherName}". You MUST generate a completely different person — different first name, different last name, different state, different alma mater. Do NOT echo or rhyme with any part of their name or background.\n\n`
+      : '';
+
+    const coachLine = coachName
+      ? `The program's head coach is ${coachName}. `
+      : '';
+
+    return `Generate a text biography for a college football staff member's dossier board. This person is ${roleContext}. Output ONLY the following lines with no introduction, no markdown, no bullet symbols, and no extra blank lines:\n\n${uniquenessClause}Suggested Name: (CRITICAL — look at the headshot image carefully before writing anything. Identify the person's visible ethnic and racial background from their face, skin tone, and features. Then generate a name that authentically matches that specific person. The name must feel natural and believable for someone of that exact background who grew up in America. Examples by background: if they look Black/African-American → names like Darius Webb, Andre Collins, DeShawn Morris, Terrell Grant; if they look Hispanic/Latino → names like Carlos Reyes, Miguel Torres, Luis Mendez, Marco Rios; if they look East Asian → names like Kevin Park, Jason Chen, Tyler Nguyen, Daniel Kim — never a fully Black or European name for someone with Asian features; if they look white → names like Ryan Mitchell, Scott Henderson, Tyler Brooks, Brian Callahan. Common first names are fine as long as they match the face. Do not assign a name that would look wrong next to the headshot — the name and face must feel like the same real person.)
+Hometown: (THIS IS THE MOST IMPORTANT FIELD FOR VARIETY. You MUST draw this person's hometown from the following specific U.S. region for this generation: ${zone}. Pick a real, specific smaller city or town within that zone — NOT a major metro hub. Every generation should feel like it comes from a completely different part of the country. Lean toward towns that are not frequently chosen — the goal is geographic spread across the full breadth of America.)
+Alma Mater: (Draw this person's college from the following specific conference tier for this generation: ${conf}. Pick a specific school from that group. The goal is a country-wide coaching tree that goes deep into mid-major and lower-tier football. Be specific — name the actual school, not just the conference. Favor less commonly chosen schools within the tier to maximize variety across generations.)
+Staff Note: (${coachLine}Write a tight one-liner that tells the mini origin story of how this person landed this job — how they crossed paths with ${coachName || 'the head coach'} or the ${currentTeamName} program. Make it feel like a real backstory: maybe they coached against each other, worked at the same school years ago, were referred through a mutual contact, got noticed at a clinic or combine, or their recruiting region overlapped with the program's needs at the right time. It should read like a fact from their dossier file, not a generic job description. HARD LIMIT: 120 characters maximum including spaces — count before writing. Rewrite shorter if over. Do not exceed this limit.)`;
   };
 
   const processRawFile = (file, slot) => {
@@ -226,31 +288,33 @@ Staff Note: (Write a concise, high-impact summary statement. HARD LIMIT: The ent
 
   const handleImageUpload = (e, slot) => processRawFile(e.target.files[0], slot);
 
-  const handlePaste = (e, slot) => {
-    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf('image') !== -1) {
-        processRawFile(items[i].getAsFile(), slot);
-        break;
-      }
-    }
+  const flashPaste = (slot, status) => {
+    setPasteState(s => ({ ...s, [slot]: status }));
+    setTimeout(() => setPasteState(s => ({ ...s, [slot]: null })), 1500);
   };
 
   const pasteFromBtn = async (slot) => {
+    if (!navigator.clipboard?.read) {
+      flashPaste(slot, 'unsupported');
+      return;
+    }
     try {
       const clipboardItems = await navigator.clipboard.read();
+      let found = false;
       for (const item of clipboardItems) {
         for (const type of item.types) {
           if (type.startsWith('image/')) {
             const blob = await item.getType(type);
             processRawFile(blob, slot);
-            return;
+            found = true;
+            break;
           }
         }
+        if (found) break;
       }
-      alert("No image detected on clipboard!");
-    } catch (err) {
-      alert("Please check browser clipboard permissions.");
+      flashPaste(slot, found ? 'ok' : 'noimg');
+    } catch {
+      flashPaste(slot, 'denied');
     }
   };
 
@@ -280,6 +344,8 @@ Staff Note: (Write a concise, high-impact summary statement. HARD LIMIT: The ent
       setScoutBio('');
       setScoutContractLength(0);
       setScoutContractStartYear(0);
+      localStorage.removeItem(LS.scout_name);
+      localStorage.removeItem(LS.scout_bio);
       await deleteStaffData('scout_img');
       await deleteStaffData('scout_name');
       await deleteStaffData('scout_bio');
@@ -292,6 +358,8 @@ Staff Note: (Write a concise, high-impact summary statement. HARD LIMIT: The ent
       setAnalystBio('');
       setAnalystContractLength(0);
       setAnalystContractStartYear(0);
+      localStorage.removeItem(LS.analyst_name);
+      localStorage.removeItem(LS.analyst_bio);
       await deleteStaffData('analyst_img');
       await deleteStaffData('analyst_name');
       await deleteStaffData('analyst_bio');
@@ -312,6 +380,71 @@ Staff Note: (Write a concise, high-impact summary statement. HARD LIMIT: The ent
   const scoutYearsRemaining   = Math.max(0, scoutContractLength   - scoutContractCurrent   + 1);
   const analystYearsRemaining = Math.max(0, analystContractLength - analystContractCurrent + 1);
 
+  const analysisData = useMemo(() => {
+    const scored = recruits.map(r => ({ ...r, score: computeScore(r) })).sort((a, b) => b.score - a.score);
+    const total  = scored.length;
+    const t1 = scored.filter(r => r.score >= 88).length;
+    const t2 = scored.filter(r => r.score >= 82 && r.score < 88).length;
+    const t4 = scored.filter(r => r.score <  76).length;
+    return { scored, total, t1, t2, t4 };
+  }, [recruits]);
+
+  const briefData = useMemo(() => {
+    const { scored, total, t1, t2, t4 } = analysisData;
+    if (!total) return null;
+
+    const hiddenDev = d => !d || d === 'Hidden' || d === 'hidden' || d === '';
+
+    const eliteDevs  = scored.filter(r => r.devTrait === 'Elite');
+    const starDevs   = scored.filter(r => r.devTrait === 'Star');
+    const hiddenDevs = scored.filter(r => hiddenDev(r.devTrait));
+    const portalCount = scored.filter(r => r.isPortal).length;
+
+    // Headline — single most important thing right now
+    let headline;
+    if (t1 >= 2) {
+      const names = scored.filter(r => r.score >= 88).slice(0, 2).map(r => r.name).join(' and ');
+      headline = `${names} are both elite-tier. Someone's getting them soon — make sure it's us.`;
+    } else if (t1 === 1) {
+      const top = scored.find(r => r.score >= 88);
+      headline = `${top.name} is the only elite prospect on the board. He's the whole conversation.`;
+    } else if (t1 === 0 && t2 === 0) {
+      headline = `No premium talent on this board. The entire class needs to be upgraded.`;
+    } else if (t4 > total * 0.6 && total > 3) {
+      headline = `Board's loaded with depth guys. Need to find ceiling talent before this class locks in.`;
+    } else {
+      const top = scored[0];
+      headline = `${top.name} leads the board at ${top.position}. ${t1 + t2} premium prospects — class is taking shape.`;
+    }
+
+    // Info bullets (green / neutral)
+    const info = [];
+
+    info.push({
+      text: `${total} prospects on file — ${t1} elite, ${t2} solid, ${t4} depth`,
+      flag: t1 > 0 ? 'good' : 'neutral',
+    });
+
+    const top = scored[0];
+    const topDevNote = top.devTrait && !hiddenDev(top.devTrait) ? ` — ${top.devTrait} dev` : '';
+    info.push({
+      text: `${top.name} (${top.position}) leads at ${top.score.toFixed(0)} composite${topDevNote}`,
+      flag: top.score >= 88 ? 'good' : 'neutral',
+    });
+
+    if (eliteDevs.length > 0) {
+      info.push({ text: `${eliteDevs.map(r => r.name).join(', ')} — Elite dev confirmed`, flag: 'good' });
+    } else if (starDevs.length > 0) {
+      info.push({ text: `${starDevs.length} Star dev${starDevs.length > 1 ? 's' : ''} — ${starDevs.slice(0, 2).map(r => r.name).join(', ')}`, flag: 'good' });
+    }
+
+    if (portalCount > 0 && portalCount <= total * 0.5) {
+      info.push({ text: `${portalCount} portal transfer${portalCount > 1 ? 's' : ''} in the mix`, flag: 'neutral' });
+    }
+
+    return { headline, info: info.slice(0, 3) };
+  }, [analysisData]);
+
   return (
     <div className="space-y-6 relative">
 
@@ -330,25 +463,11 @@ Staff Note: (Write a concise, high-impact summary statement. HARD LIMIT: The ent
         </div>
       )}
 
-      {/* ── HEADER STRIP ── Madden "2026: WEEK 1 / VS BROWNS" style */}
-      <div className="flex items-center gap-3">
-        {teamLogo && (
-          <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ background: `${p}22`, border: `1px solid ${p}44` }}>
-            <img src={teamLogo} alt="" className="w-8 h-8 object-contain" />
-          </div>
-        )}
-        <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.2em] leading-none" style={{ color: `${p}bb` }}>
-            Scout Staff Intelligence Engine
-          </p>
-          <h2 className="text-white font-black leading-none mt-0.5" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(1.4rem, 3vw, 2rem)', letterSpacing: '0.04em' }}>
-            {(currentTeamName || 'College Football').toUpperCase()}
-          </h2>
-        </div>
-      </div>
+      {/* ── HERO ROW: portrait cards + recommendations panel ── */}
+      <div className="flex flex-col md:flex-row gap-4 items-stretch">
 
-      {/* ── STAFF PORTRAIT CARDS ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Portrait cards — side by side, stretch to match right panel height */}
+        <div className="flex gap-2 sm:gap-3 shrink-0 md:w-[42%]">
         {[
           {
             slot: 1,
@@ -379,253 +498,242 @@ Staff Note: (Write a concise, high-impact summary statement. HARD LIMIT: The ent
             accentColor: s !== '#ffffff' ? s : p,
           },
         ].map(({ slot, img, name, bio, isExpired, yearsRemaining, contractLength, role, roleColor, showUrl, setShowUrl, urlText, setUrlText, accentColor }) => (
-          <div key={slot} className="relative rounded-2xl overflow-hidden shadow-2xl group" style={{ aspectRatio: '3/4', minHeight: '340px', maxHeight: '480px' }}>
+          <div key={slot} className="flex-1 flex flex-col rounded-xl overflow-hidden group min-h-[300px] bg-surface-2 border border-surface-4"
+            style={ isExpired ? { borderColor: 'rgba(239,68,68,0.25)', background: 'rgba(25,5,5,1)' } : {} }>
 
-            {/* Background: photo or team-color placeholder */}
-            {img ? (
-              <img
-                src={img}
-                alt={role}
-                className="absolute inset-0 w-full h-full object-cover cursor-zoom-in transition-transform duration-500 group-hover:scale-105"
-                onClick={() => { if (!isExpired) setActiveModalImg(img); }}
-              />
-            ) : (
-              <div
-                className="absolute inset-0 flex flex-col items-center justify-center"
-                style={{ background: `linear-gradient(160deg, ${accentColor}33 0%, #020617 100%)` }}
-              >
-                {teamLogo && <img src={teamLogo} alt="" className="w-32 h-32 object-contain select-none pointer-events-none" style={{ opacity: 0.12, filter: 'grayscale(30%)' }} />}
-              </div>
-            )}
-
-            {/* Gradient overlay — two layers: dark base always + team color tint on top */}
-            {/* Layer 1: dark base — guarantees text legibility regardless of photo brightness */}
+            {/* ── PHOTO — full face visible, no text overlay ── */}
             <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                background: isExpired
-                  ? 'linear-gradient(to bottom, rgba(80,0,0,0.1) 0%, rgba(20,0,0,0.92) 70%)'
-                  : 'linear-gradient(to bottom, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.82) 68%, rgba(0,0,0,0.92) 100%)',
-              }}
-            />
-            {/* Layer 2: team color tint — purely decorative, at reduced opacity */}
-            {!isExpired && (
-              <div
-                className="absolute inset-0 pointer-events-none"
-                style={{ background: `linear-gradient(to bottom, transparent 45%, ${accentColor}55 100%)` }}
-              />
-            )}
-
-            {/* Top badges */}
-            <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-2 pointer-events-none">
-              <span
-                className="text-[8px] font-black uppercase tracking-[0.15em] px-2 py-1 rounded"
-                style={{ background: 'rgba(0,0,0,0.55)', color: roleColor, backdropFilter: 'blur(4px)', border: `1px solid ${roleColor}44` }}
-              >
-                {role}
-              </span>
-              {contractLength > 0 && (
-                <span
-                  className={`text-[8px] font-black uppercase tracking-wider px-2 py-1 rounded ${isExpired ? 'animate-pulse' : ''}`}
-                  style={{
-                    background: isExpired ? 'rgba(127,29,29,0.8)' : 'rgba(0,0,0,0.55)',
-                    color: isExpired ? '#f87171' : '#94a3b8',
-                    backdropFilter: 'blur(4px)',
-                    border: isExpired ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(100,116,139,0.3)',
-                  }}
-                >
-                  {isExpired ? 'CONTRACT EXPIRED' : `${yearsRemaining}yr left`}
-                </span>
-              )}
-            </div>
-
-            {/* Bottom overlay — name + bio + controls */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 space-y-2">
-              {/* Name — display/edit toggle */}
-              {nameEditSlot === slot ? (
-                <input
-                  type="text"
-                  value={name}
-                  autoFocus
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (slot === 1) { setScoutName(val); } else { setAnalystName(val); }
-                    handleNameChange(val, slot);
-                  }}
-                  onBlur={() => setNameEditSlot(null)}
-                  className="bg-black/40 border-0 border-b-2 focus:outline-none focus:ring-0 w-full text-white leading-none"
-                  style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(1.6rem, 4vw, 2.2rem)', letterSpacing: '0.04em', caretColor: 'white', borderColor: accentColor, backdropFilter: 'blur(4px)' }}
+              className={`relative flex-shrink-0 overflow-hidden ${img && !isExpired ? 'cursor-zoom-in' : ''}`}
+              style={{ aspectRatio: '4/5' }}
+              onClick={() => { if (img && !isExpired) setActiveModalImg(img); }}
+            >
+              {img ? (
+                <img
+                  src={img}
+                  alt={role}
+                  className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
                 />
               ) : (
-                <div
-                  onClick={() => !isExpired && setNameEditSlot(slot)}
-                  className={`space-y-0 ${!isExpired ? 'cursor-text' : 'opacity-60'}`}
-                >
-                  {/* Accent bar */}
-                  <div className="w-8 h-0.5 mb-1 rounded-full" style={{ background: accentColor }} />
-                  {/* First name (everything before last word) */}
-                  {name.trim().includes(' ') && (
-                    <p
-                      className="text-white/80 leading-none"
-                      style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(0.85rem, 2vw, 1.1rem)', letterSpacing: '0.12em', textShadow: '0 1px 8px rgba(0,0,0,0.9)' }}
-                    >
-                      {name.trim().split(' ').slice(0, -1).join(' ').toUpperCase()}
-                    </p>
-                  )}
-                  {/* Last name (last word) — large */}
-                  <p
-                    className="text-white leading-none"
-                    style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(1.8rem, 5vw, 2.6rem)', letterSpacing: '0.04em', textShadow: '0 2px 16px rgba(0,0,0,0.95)' }}
-                  >
-                    {(name.trim().includes(' ') ? name.trim().split(' ').pop() : name.trim()).toUpperCase()}
-                  </p>
+                <div className="absolute inset-0 bg-surface-3 flex items-center justify-center">
+                  <p className="text-[9px] font-display font-bold uppercase text-txt-tertiary tracking-widest text-center px-3 leading-loose">{role}<br/>No Photo</p>
                 </div>
               )}
+              {/* Subtle bottom fade into info section */}
+              {img && <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.45) 100%)' }} />}
+              {img && !isExpired && <div className="absolute inset-0 pointer-events-none" style={{ background: `linear-gradient(to bottom, transparent 70%, ${accentColor}33 100%)` }} />}
+              {isExpired && <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(80,0,0,0.2) 0%, rgba(20,0,0,0.55) 100%)' }} />}
+              {/* Badges */}
+              <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-2 pointer-events-none">
+                <span className="text-[8px] font-black uppercase tracking-wide px-2 py-1 rounded whitespace-nowrap"
+                  style={{ background: 'rgba(0,0,0,0.55)', color: roleColor, backdropFilter: 'blur(4px)', border: `1px solid ${roleColor}44` }}>
+                  {role}
+                </span>
+                {contractLength > 0 && (
+                  <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-1 rounded ${isExpired ? 'animate-pulse' : ''}`}
+                    style={{
+                      background: isExpired ? 'rgba(127,29,29,0.8)' : 'rgba(0,0,0,0.55)',
+                      color: isExpired ? '#f87171' : '#94a3b8',
+                      backdropFilter: 'blur(4px)',
+                      border: isExpired ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(100,116,139,0.3)',
+                    }}>
+                    {isExpired ? 'CONTRACT EXPIRED' : `${yearsRemaining}yr left`}
+                  </span>
+                )}
+              </div>
+            </div>
 
-              {/* Bio display / edit */}
-              {!isExpired && (
-                bioEditSlot === slot ? (
-                  <textarea
+            {/* ── INFO SECTION — solid background, always readable ── */}
+            <div className="flex flex-col gap-2 p-3 border-t border-surface-4">
+              {/* Accent bar + Name */}
+              <div>
+                <div className="w-6 h-0.5 mb-1.5 rounded-full" style={{ background: accentColor }} />
+                {nameEditSlot === slot ? (
+                  <input
+                    type="text"
+                    value={name}
                     autoFocus
-                    value={bio}
-                    onChange={(e) => handleBioChange(e.target.value, slot)}
-                    onBlur={() => setBioEditSlot(null)}
-                    rows={4}
-                    placeholder="Paste bio here…"
-                    className="w-full rounded-lg text-[10px] text-white leading-snug resize-none focus:outline-none p-2"
-                    style={{ background: 'rgba(0,0,0,0.65)', border: `1px solid ${accentColor}55`, caretColor: 'white', backdropFilter: 'blur(6px)', scrollbarWidth: 'none' }}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (slot === 1) { setScoutName(val); } else { setAnalystName(val); }
+                      handleNameChange(val, slot);
+                    }}
+                    onBlur={() => setNameEditSlot(null)}
+                    className="bg-surface-3 border-0 border-b-2 focus:outline-none focus:ring-0 w-full text-txt-primary text-lg font-display font-black leading-none pb-0.5"
+                    style={{ caretColor: 'white', borderColor: accentColor }}
                   />
                 ) : (
-                  <div
-                    className="max-h-[72px] overflow-y-auto cursor-text"
-                    style={{ scrollbarWidth: 'none' }}
-                    onClick={() => setBioEditSlot(slot)}
-                  >
-                    {bio
-                      ? <p className="text-[10px] text-white leading-snug whitespace-pre-line" style={{ textShadow: '0 1px 8px rgba(0,0,0,1), 0 2px 16px rgba(0,0,0,1)' }}>{bio}</p>
-                      : <p className="text-[9px] italic" style={{ color: `${accentColor}66` }}>Tap to add bio…</p>
-                    }
+                  <div onClick={() => !isExpired && setNameEditSlot(slot)} className={!isExpired ? 'cursor-text' : 'opacity-50'}>
+                    {name.trim().includes(' ') && (
+                      <p className="text-txt-secondary text-[11px] font-display font-semibold uppercase leading-none mb-0.5">
+                        {name.trim().split(' ').slice(0, -1).join(' ')}
+                      </p>
+                    )}
+                    <p className="text-txt-primary text-xl font-display font-black leading-tight">
+                      {name.trim().includes(' ') ? name.trim().split(' ').pop() : name.trim()}
+                    </p>
                   </div>
-                )
-              )}
+                )}
+              </div>
 
               {/* Expired actions */}
               {isExpired && (
-                <div className="flex gap-2 pt-1">
-                  <button onClick={() => handleResignStaff(slot)} className="flex-1 py-1.5 rounded font-black text-[10px] uppercase tracking-wider transition" style={{ background: '#059669', color: '#fff' }}>
+                <div className="flex gap-2">
+                  <button onClick={() => handleResignStaff(slot)} className="flex-1 py-1.5 rounded font-display font-black text-[10px] uppercase tracking-wider transition" style={{ background: '#059669', color: '#fff' }}>
                     Re-sign
                   </button>
-                  <button onClick={() => { if (slot === 1) clearSlot(1); else clearSlot(2); }} className="flex-1 py-1.5 rounded font-black text-[10px] uppercase tracking-wider transition" style={{ background: 'rgba(127,29,29,0.8)', color: '#fca5a5' }}>
+                  <button onClick={() => { if (slot === 1) clearSlot(1); else clearSlot(2); }} className="flex-1 py-1.5 rounded font-display font-black text-[10px] uppercase tracking-wider transition" style={{ background: 'rgba(127,29,29,0.8)', color: '#fca5a5' }}>
                     Replace
                   </button>
                 </div>
               )}
 
-              {/* Upload/edit controls (shown when no photo or on hover) */}
-              {!isExpired && (
+              {!isExpired && (<>
+                {/* Bio */}
+                {bioEditSlot === slot ? (
+                  <textarea
+                    autoFocus
+                    value={bio}
+                    onChange={(e) => handleBioChange(e.target.value, slot)}
+                    onBlur={() => setBioEditSlot(null)}
+                    rows={3}
+                    placeholder="Paste bio here…"
+                    className="w-full rounded-lg text-[10px] text-txt-secondary leading-snug resize-none focus:outline-none p-2 bg-surface-3 border border-surface-5"
+                    style={{ caretColor: 'white', scrollbarWidth: 'none' }}
+                  />
+                ) : (
+                  <div className="cursor-text" onClick={() => setBioEditSlot(slot)}>
+                    {bio
+                      ? <p className="text-[10px] text-txt-secondary leading-snug whitespace-pre-line">{bio}</p>
+                      : <p className="text-[9px] italic" style={{ color: `${accentColor}55` }}>Tap to add bio…</p>
+                    }
+                  </div>
+                )}
+
+                {/* Upload/Paste/URL/Clear */}
                 <div className={`flex flex-wrap gap-1.5 transition-all duration-200 ${img ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
-                  <label className="cursor-pointer px-2 py-1 rounded text-[9px] font-bold uppercase tracking-wider transition" style={{ background: 'rgba(0,0,0,0.6)', color: roleColor, border: `1px solid ${roleColor}44`, backdropFilter: 'blur(4px)' }}>
+                  <label className="cursor-pointer px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider transition" style={{ background: 'rgba(0,0,0,0.6)', color: roleColor, border: `1px solid ${roleColor}44`, backdropFilter: 'blur(4px)' }}>
                     Upload
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, slot)} />
                   </label>
-                  <button
-                    onPaste={(e) => handlePaste(e, slot)}
-                    onClick={() => pasteFromBtn(slot)}
-                    className="px-2 py-1 rounded text-[9px] font-bold uppercase tracking-wider transition"
-                    style={{ background: 'rgba(0,0,0,0.6)', color: '#94a3b8', border: '1px solid rgba(100,116,139,0.3)', backdropFilter: 'blur(4px)' }}
-                  >
-                    Paste
+                  <button onClick={() => pasteFromBtn(slot)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider transition" style={{
+                    background: 'rgba(0,0,0,0.6)',
+                    color: pasteState[slot] === 'ok' ? '#34d399' : pasteState[slot] ? '#f87171' : '#94a3b8',
+                    border: pasteState[slot] === 'ok' ? '1px solid rgba(52,211,153,0.4)' : pasteState[slot] ? '1px solid rgba(248,113,113,0.4)' : '1px solid rgba(100,116,139,0.3)',
+                    backdropFilter: 'blur(4px)',
+                  }}>
+                    {pasteState[slot] === 'ok' ? 'Pasted' : pasteState[slot] === 'noimg' ? 'No Image' : pasteState[slot] === 'denied' ? 'Blocked' : pasteState[slot] === 'unsupported' ? 'Unsupported' : 'Paste'}
                   </button>
-                  <button
-                    onClick={() => setShowUrl(!showUrl)}
-                    className="px-2 py-1 rounded text-[9px] font-bold uppercase tracking-wider transition"
-                    style={{ background: 'rgba(0,0,0,0.6)', color: '#94a3b8', border: '1px solid rgba(100,116,139,0.3)', backdropFilter: 'blur(4px)' }}
-                  >
+                  <button onClick={() => setShowUrl(!showUrl)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider transition" style={{ background: 'rgba(0,0,0,0.6)', color: '#94a3b8', border: '1px solid rgba(100,116,139,0.3)', backdropFilter: 'blur(4px)' }}>
                     URL
                   </button>
                   {img && (
-                    <button
-                      onClick={() => { if (slot === 1) clearSlot(1); else clearSlot(2); }}
-                      className="px-2 py-1 rounded text-[9px] font-bold uppercase tracking-wider transition"
-                      style={{ background: 'rgba(127,29,29,0.6)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.3)', backdropFilter: 'blur(4px)' }}
-                    >
+                    <button onClick={() => { if (slot === 1) clearSlot(1); else clearSlot(2); }} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider transition" style={{ background: 'rgba(127,29,29,0.6)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.3)', backdropFilter: 'blur(4px)' }}>
                       Clear
                     </button>
                   )}
                 </div>
-              )}
 
-              {/* URL input */}
-              {showUrl && !isExpired && (
-                <div className="flex gap-2 rounded-lg overflow-hidden" style={{ background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(100,116,139,0.3)', backdropFilter: 'blur(4px)' }}>
-                  <input
-                    type="text"
-                    value={urlText}
-                    onChange={(e) => { if (slot === 1) setScoutUrlText(e.target.value); else setAnalystUrlText(e.target.value); }}
-                    placeholder="Paste image URL…"
-                    className="flex-1 bg-transparent text-[11px] font-mono text-slate-300 focus:outline-none px-2 py-1"
-                  />
-                  <button onClick={() => handleUrlSubmit(slot)} className="px-3 py-1 text-[9px] font-bold text-white uppercase" style={{ background: accentColor }}>
-                    Save
+                {/* URL input */}
+                {showUrl && (
+                  <div className="flex gap-2 rounded-lg overflow-hidden" style={{ background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(100,116,139,0.3)', backdropFilter: 'blur(4px)' }}>
+                    <input type="text" value={urlText}
+                      onChange={(e) => { if (slot === 1) setScoutUrlText(e.target.value); else setAnalystUrlText(e.target.value); }}
+                      placeholder="Paste image URL…"
+                      className="flex-1 bg-transparent text-[11px] font-mono text-slate-300 focus:outline-none px-2 py-1"
+                    />
+                    <button onClick={() => handleUrlSubmit(slot)} className="px-3 py-1 text-[9px] font-display font-bold text-white uppercase" style={{ background: accentColor }}>
+                      Save
+                    </button>
+                  </div>
+                )}
+
+                {/* AI prompt buttons */}
+                <div className="flex gap-1.5">
+                  <button onClick={() => handleCopy(generateImgPrompt(slot === 1 ? 'scout' : 'analyst'), `${slot}-img`)} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider transition" style={{ background: 'rgba(0,0,0,0.5)', color: roleColor, backdropFilter: 'blur(4px)' }}>
+                    {copiedKey === `${slot}-img` ? 'Copied' : 'IMG Prompt'}
+                  </button>
+                  <button onClick={() => handleCopy(generateBioPrompt(slot === 1 ? 'scout' : 'analyst', slot === 1 ? analystName : scoutName), `${slot}-bio`)} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider transition" style={{ background: 'rgba(0,0,0,0.5)', color: '#64748b', backdropFilter: 'blur(4px)' }}>
+                    {copiedKey === `${slot}-bio` ? 'Copied' : 'BIO Prompt'}
                   </button>
                 </div>
-              )}
-
-              {/* AI prompt buttons */}
-              {!isExpired && (
-                <div className="flex gap-1.5 pt-0.5">
-                  <button onClick={() => handleCopy(generateImgPrompt(slot === 1 ? 'scout' : 'analyst'), 'Image')} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider transition" style={{ background: 'rgba(0,0,0,0.5)', color: roleColor, backdropFilter: 'blur(4px)' }}>
-                    IMG Prompt
-                  </button>
-                  <button onClick={() => handleCopy(generateBioPrompt(slot === 1 ? 'scout' : 'analyst'), 'Bio')} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider transition" style={{ background: 'rgba(0,0,0,0.5)', color: '#64748b', backdropFilter: 'blur(4px)' }}>
-                    BIO Prompt
-                  </button>
-                </div>
-              )}
+              </>)}
             </div>
           </div>
         ))}
-      </div>
+        </div>{/* end portrait grid */}
 
+        {/* Daily Brief panel */}
+        <div className="flex-1 rounded-xl bg-surface-2 border border-surface-4 flex flex-col overflow-hidden">
 
-      {/* ── ACTION CARDS — Madden dark navy style ── */}
+          {/* Header */}
+          <div className="px-4 py-3 border-b border-surface-4 shrink-0 flex items-center justify-between gap-3">
+            <p className="text-[9px] font-black uppercase tracking-[0.15em] text-emerald-500">Daily Brief</p>
+            <p className="text-[9px] text-txt-tertiary">from {analystName}</p>
+          </div>
+
+          {!briefData ? (
+            <div className="flex-1 p-5 flex items-center justify-center">
+              <p className="text-[10px] text-txt-tertiary italic text-center leading-relaxed">
+                No prospects on file yet.<br/>Add targets on the Recruiting page to activate the brief.
+              </p>
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col min-h-0">
+              {/* Headline */}
+              <div className="px-5 pt-4 pb-3">
+                <p className="text-[13px] font-bold text-txt-primary leading-snug">{briefData.headline}</p>
+              </div>
+
+              {/* Board Intel bullets */}
+              <div className="px-5 pb-3 space-y-2">
+                {briefData.info.map((b, i) => (
+                  <div key={i} className="flex items-start gap-2.5">
+                    <span className={`mt-[5px] w-1.5 h-1.5 rounded-full shrink-0 ${b.flag === 'good' ? 'bg-emerald-400' : 'bg-slate-500'}`} />
+                    <p className="text-[11px] text-txt-secondary leading-snug">{b.text}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Roster Concerns */}
+              {rosterWarnings.length > 0 && (
+                <div className="mx-4 mb-3 rounded-lg px-3 py-2.5 space-y-2" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.12)' }}>
+                  <p className="text-[8px] font-black uppercase tracking-[0.12em] text-red-500/70">Roster Concerns</p>
+                  {rosterWarnings.map((w, i) => (
+                    <div key={i} className="flex items-start gap-2.5">
+                      <span className="mt-[5px] w-1.5 h-1.5 rounded-full shrink-0 bg-red-500/70" />
+                      <p className="text-[11px] text-red-300/70 leading-snug">{w}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Sign-off */}
+              <div className="mt-auto px-5 py-3 border-t border-surface-4">
+                <p className="text-[9px] text-txt-tertiary">— {analystName}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+      </div>{/* end hero row */}
+
+      {/* ── ACTION CARDS ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[
-          { view: 'input',      label: 'Scouting\nReport',    sub: 'Record Player Metrics' },
-          { view: 'database',   label: 'Player\nDatabase',    sub: 'Complete Data Storage' },
-          { view: 'thresholds', label: 'Threshold\nLookup',   sub: 'Player Comparison Tool' },
-          { view: 'analysis',   label: 'Data\nAnalysis',      sub: 'Staff Recommendations' },
-          { view: 'counts',     label: 'Player\nCount',       sub: 'Current Overview' },
-          { view: 'portal',     label: 'Portal\nBoard',       sub: 'Transfer Commits' },
+          { view: 'database',   label: 'Player Database',    sub: 'Complete Data Storage' },
+          { view: 'thresholds', label: 'Threshold Lookup',   sub: 'Player Comparison Tool' },
+          { view: 'analysis',   label: 'Data Analysis',      sub: 'Staff Recommendations' },
+          { view: 'counts',     label: 'Player Count',       sub: 'Current Overview' },
+          { view: 'portal',     label: 'Portal Board',       sub: 'Transfer Commits' },
         ].map(({ view, label, sub }) => (
           <button
             key={view}
             onClick={() => setView(view)}
-            className="relative rounded-xl overflow-hidden text-left transition-all duration-200 group"
-            style={{ background: '#080c14', border: `1px solid ${p}22`, minHeight: '100px' }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = `${p}66`; e.currentTarget.style.background = `${p}12`; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = `${p}22`; e.currentTarget.style.background = '#080c14'; }}
+            className="rounded-xl text-left transition-all duration-200 bg-surface-2 border border-surface-4 hover:bg-surface-3 hover:border-surface-5 p-4 flex flex-col gap-2"
+            style={{ minHeight: '88px' }}
           >
-            {/* Team logo watermark */}
-            {teamLogo && (
-              <img
-                src={teamLogo}
-                alt=""
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-16 h-16 object-contain pointer-events-none select-none"
-                style={{ opacity: 0.07, filter: 'grayscale(20%)' }}
-              />
-            )}
-            <div className="relative p-4 flex flex-col justify-between h-full gap-2">
-              <h4
-                className="text-white font-black leading-none whitespace-pre-line"
-                style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(1.15rem, 2.5vw, 1.5rem)', letterSpacing: '0.04em' }}
-              >
-                {label}
-              </h4>
-              <p className="text-[10px] font-semibold leading-tight" style={{ color: `${p}99` }}>
-                {sub}
-              </p>
-            </div>
+            <h4 className="text-sm font-display font-bold uppercase text-txt-primary leading-snug">{label}</h4>
+            <p className="text-xs text-txt-tertiary leading-tight">{sub}</p>
           </button>
         ))}
       </div>

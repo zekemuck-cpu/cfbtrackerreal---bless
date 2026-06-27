@@ -215,7 +215,7 @@ function Row({ r, rank, pathPrefix, playStyle, model, room = [] }) {
   )
 }
 
-export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, onResolveTargets = null, resolveCount = 0 }) {
+export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, viewingOwnTeam = true, onResolveTargets = null, resolveCount = 0 }) {
   const yearN = Number(year)
   const currentYear = Number(dynasty?.currentYear)
   const [deptOpen, setDeptOpen] = useState(false)
@@ -268,6 +268,7 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, onResol
   const model = useMemo(() => scoutCalibration(dynasty?.players || []), [dynasty?.players])
 
   const ranked = useMemo(() => {
+    if (!viewingOwnTeam) return []
     const rows = []
     for (const p of dynasty?.players || []) {
       if (!p.isTarget || Number(p.targetYear) !== yearN) continue
@@ -287,14 +288,16 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, onResol
       return (Number(b.p.stars) || 0) - (Number(a.p.stars) || 0)
     })
     return rows
-  }, [dynasty?.players, yearN, userTid, needsByGroup, playStyle, model])
+  }, [dynasty?.players, yearN, userTid, needsByGroup, playStyle, model, viewingOwnTeam])
 
   if (ranked.length === 0) {
     return (
       <Card>
         <EmptyState
-          title="No Targets to Scout"
-          message="Track prospects via the recruiting sheet (set their Commitment to “Uncommitted” and fill in attributes), and they'll be ranked here by grade against your roster needs."
+          title={viewingOwnTeam ? 'No Targets to Scout' : "Another team's recruiting class"}
+          message={viewingOwnTeam
+            ? "Track prospects via the recruiting sheet (set their Commitment to \"Uncommitted\" and fill in attributes), and they'll be ranked here by grade against your roster needs."
+            : "Targets are your own team's board. Switch back to your team's recruiting page to see them."}
         />
       </Card>
     )
