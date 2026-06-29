@@ -255,10 +255,10 @@ export default function ScoutStaff({ year } = {}) {
       {subView === 'home' && <FrontPage setView={setSubView} currentTeamName={currentDynasty?.teamName || 'college football team'} currentYear={currentDynasty?.currentYear || new Date().getFullYear()} coachName={currentDynasty?.coachName || ''} recruits={recruits} rosterWarnings={rosterWarnings} rosterSummary={rosterSummary} outlookSummary={outlookSummary} dynastyId={dynastyId} {...teamTheme} />}
 
       {/* Read-only: mirrors the recruiting Targets sheet. Freshmen and portal targets are split. */}
-      {subView === 'database'   && <PlayerDatabase players={freshmanRecruits} roleContext="Regional Scout" dynastyId={dynastyId} {...teamTheme} onGoToThresholds={() => setSubView('thresholds')} onBack={goHome} />}
+      {subView === 'database'   && <PlayerDatabase players={freshmanRecruits} roleContext="National Scout" dynastyId={dynastyId} {...teamTheme} onGoToThresholds={() => setSubView('thresholds')} onBack={goHome} />}
       {subView === 'thresholds' && <ThresholdLookup players={recruits} roleContext="Data Analyst" dynastyId={dynastyId} {...teamTheme} onGoToDatabase={() => setSubView('database')} onBack={goHome} />}
-      {subView === 'counts'     && <PlayerCount players={recruits} roleContext="Regional Scout" {...teamTheme} committedRecruits={committedRecruits} currentYear={currentDynasty?.currentYear} onBack={goHome} />}
-      {subView === 'portal'     && <PlayerDatabase players={portalRecruits} roleContext="Regional Scout" portalMode dynastyId={dynastyId} {...teamTheme} onGoToThresholds={() => setSubView('thresholds')} onBack={goHome} />}
+      {subView === 'counts'     && <PlayerCount players={recruits} roleContext="National Scout" {...teamTheme} committedRecruits={committedRecruits} currentYear={currentDynasty?.currentYear} onBack={goHome} />}
+      {subView === 'portal'     && <PlayerDatabase players={portalRecruits} roleContext="National Scout" portalMode dynastyId={dynastyId} {...teamTheme} onGoToThresholds={() => setSubView('thresholds')} onBack={goHome} />}
 
       {/* Always mounted so allHubs recomputes live whenever recruits or roster data changes.
           Hidden when not on the analysis view — UI is invisible but computation runs. */}

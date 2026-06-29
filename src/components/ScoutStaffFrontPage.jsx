@@ -179,19 +179,19 @@ export default function ScoutStaffFrontPage({ setView, currentTeamName = 'colleg
   };
 
   const generateImgPrompt = (role) => {
-    const roleTitle = role === 'scout' ? 'Regional Talent Scout/Recruiter' : 'Data Analyst/Statistical Evaluator';
-    return `A crisp, highly detailed 1:1 square ratio centered profile headshot of a college football ${roleTitle}, ${getDynamicAgeString()}, ${getDynamicAttireString()}. 
-    STYLE SPECIFICATIONS: The artwork must perfectly match the clean, premium, highly-polished 3D character asset style seen in EA Sports College Football menu selection screens. This is a clear 3D model render using realistic textures, natural skin details, and high-fidelity depth. It must NOT look like a cartoon, hand-drawn sketch, 2D vector, or stylized illustration. 
-    BACKGROUND AND COMPOSITION: Set against a realistic photoshoot background, featuring either a soft gradient canvas or blurred team-colored lighting matching ${currentTeamName} aesthetics. CRITICAL: The background must be completely clear of any typography, watermarks, floating logo elements, floating text strings, or overlaid graphic words. It must look like a clean, professional stadium or facility media-day headshot.
-    [DIVERSITY MANDATE - HYPER-VARIED INHERITANCE]: Intentionally generate an entirely randomized demographic combination. The person must feature a completely unique face shape, variable body weight (ranging from stocky, heavy-set, husky, or round builds to lean or average tracking builds), distinct skin tones (Black, Caucasian, Hispanic, Asian, Indigenous, Mixed-race), multi-ethnic features, diverse facial structures, varying nose/jawline shapes, and entirely unique hairstyles or facial hair setups. Avoid default baselines or repetitive character templates.
-    COMPOSITION AND CLOSE-UP SCALE: Tightly frame and crop the subject so it focuses closely on their head and neck, showing only the very top apex of the shoulders. It should be a clear, close-up asset portrait that maximizes facial details without getting cut off, ensuring the character's face remains cleanly centered and highly visible when scaled down to a small card box icon.`;
+    const roleTitle = role === 'scout' ? 'National Scout/Recruiter' : 'Data Analyst/Statistical Evaluator';
+    return `A crisp, highly detailed 1:1 square ratio centered profile headshot of a college football ${roleTitle}, ${getDynamicAgeString()}, ${getDynamicAttireString()}.
+    STYLE SPECIFICATIONS: The character must look exactly like a rendered character from EA Sports College Football 27 — the specific in-game 3D art style used for coaches and staff on sidelines and menu screens. This means: slightly stylized but highly detailed 3D rendering, smooth yet textured skin with subtle subsurface scattering, polished game-engine lighting, sharp facial features with a slight cinematic sheen, and the unmistakable look of a next-gen sports video game character model. It must NOT look photorealistic or like a real photograph. It must NOT look like a cartoon, anime, or 2D illustration. The target aesthetic is the EA CFB 27 in-game coach/staff character — think Brian Kelly or Dabo Swinney rendered in the game engine, leaning forward on the sideline.
+    BACKGROUND AND COMPOSITION: Set against a clean background with soft blurred stadium or facility lighting using ${currentTeamName} team colors. CRITICAL: The background must be completely clear of any typography, watermarks, logos, or overlaid graphic text. It must look like a clean in-game portrait asset.
+    [DIVERSITY MANDATE - HYPER-VARIED INHERITANCE]: Intentionally generate an entirely randomized demographic combination. The person must feature a completely unique face shape, variable body weight (ranging from stocky, heavy-set, husky, or round builds to lean or average builds), distinct skin tones (Black, Caucasian, Hispanic, Asian, Indigenous, Mixed-race), multi-ethnic features, diverse facial structures, varying nose/jawline shapes, and entirely unique hairstyles or facial hair setups. Avoid default baselines or repetitive character templates.
+    COMPOSITION AND CLOSE-UP SCALE: Tightly frame and crop the subject so it focuses closely on their head and neck, showing only the very top apex of the shoulders. It should be a clear, close-up portrait that maximizes facial details without getting cut off, ensuring the character's face remains cleanly centered and highly visible when scaled down to a small card box icon.`;
   };
 
   const generateBioPrompt = (role, otherName) => {
     const isScout = role === 'scout';
-    const roleTitle   = isScout ? 'Regional Scout' : 'Data Analyst';
+    const roleTitle   = isScout ? 'National Scout' : 'Data Analyst';
     const roleContext = isScout
-      ? 'a Regional Scout who specializes in hands-on field evaluation, on-campus recruiting visits, building relationships with high school coaches, and identifying under-the-radar talent'
+      ? 'a National Scout who specializes in hands-on field evaluation, on-campus recruiting visits, building relationships with high school coaches, and identifying under-the-radar talent'
       : 'a Data Analyst who specializes in player metrics, statistical modeling, film breakdown, and delivering data-driven insight to guide recruiting decisions and game planning';
 
     // Randomly seed a geographic zone and conference group so each button press
@@ -230,14 +230,20 @@ export default function ScoutStaffFrontPage({ setView, currentTeamName = 'colleg
       ? `CRITICAL UNIQUENESS RULE: The other staff member on this board is already named "${otherName}". You MUST generate a completely different person — different first name, different last name, different state, different alma mater. Do NOT echo or rhyme with any part of their name or background.\n\n`
       : '';
 
-    const coachLine = coachName
-      ? `The program's head coach is ${coachName}. `
-      : '';
+    const coachLastName = coachName ? coachName.trim().split(/\s+/).slice(-1)[0] : '';
+    const coachRef = coachLastName ? `Coach ${coachLastName}` : 'the head coach';
+    const programRef = currentTeamName || 'the program';
+
+    const scoutNoteContext = `This person is a National Scout. Their staff note must relate to scouting, talent evaluation, player character assessment, reading a prospect's upside, or their relationships with high school or junior college coaches. The backstory should feel grounded in the field — a coach's recommendation, a combine evaluation, a recruiting overlap, noticing a kid that nobody else was watching, or being trusted to evaluate character as much as ability.`;
+    const analystNoteContext = `This person is a Data Analyst. Their staff note must relate to data analysis, roster construction, player metrics, statistical modeling, film breakdown, or identifying roster inefficiencies. The backstory should feel grounded in the film room or the numbers — a metric system they built, a roster gap they identified, an analytics presentation that got noticed, or being brought in to modernize how the staff evaluates talent.`;
+    const noteContext = isScout ? scoutNoteContext : analystNoteContext;
+
+    const connectionInstruction = `The connection can be to ${coachRef} directly (they worked together before, were recommended by a mutual contact, crossed paths at a clinic or combine, or the coach sought them out specifically) OR to the ${programRef} program itself (they played here, have deep ties to this region, or were already embedded in the school's network). Either is valid — vary the angle.`;
 
     return `Generate a text biography for a college football staff member's dossier board. This person is ${roleContext}. Output ONLY the following lines with no introduction, no markdown, no bullet symbols, and no extra blank lines:\n\n${uniquenessClause}Suggested Name: (CRITICAL — look at the headshot image carefully before writing anything. Identify the person's visible ethnic and racial background from their face, skin tone, and features. Then generate a name that authentically matches that specific person. The name must feel natural and believable for someone of that exact background who grew up in America. Examples by background: if they look Black/African-American → names like Darius Webb, Andre Collins, DeShawn Morris, Terrell Grant; if they look Hispanic/Latino → names like Carlos Reyes, Miguel Torres, Luis Mendez, Marco Rios; if they look East Asian → names like Kevin Park, Jason Chen, Tyler Nguyen, Daniel Kim — never a fully Black or European name for someone with Asian features; if they look white → names like Ryan Mitchell, Scott Henderson, Tyler Brooks, Brian Callahan. Common first names are fine as long as they match the face. Do not assign a name that would look wrong next to the headshot — the name and face must feel like the same real person.)
 Hometown: (THIS IS THE MOST IMPORTANT FIELD FOR VARIETY. You MUST draw this person's hometown from the following specific U.S. region for this generation: ${zone}. Pick a real, specific smaller city or town within that zone — NOT a major metro hub. Every generation should feel like it comes from a completely different part of the country. Lean toward towns that are not frequently chosen — the goal is geographic spread across the full breadth of America.)
 Alma Mater: (Draw this person's college from the following specific conference tier for this generation: ${conf}. Pick a specific school from that group. The goal is a country-wide coaching tree that goes deep into mid-major and lower-tier football. Be specific — name the actual school, not just the conference. Favor less commonly chosen schools within the tier to maximize variety across generations.)
-Staff Note: (${coachLine}Write a tight one-liner that tells the mini origin story of how this person landed this job — how they crossed paths with ${coachName || 'the head coach'} or the ${currentTeamName} program. Make it feel like a real backstory: maybe they coached against each other, worked at the same school years ago, were referred through a mutual contact, got noticed at a clinic or combine, or their recruiting region overlapped with the program's needs at the right time. It should read like a fact from their dossier file, not a generic job description. HARD LIMIT: 120 characters maximum including spaces — count before writing. Rewrite shorter if over. Do not exceed this limit.)`;
+Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner origin story of how this person landed this specific job. It should read like a fact from their dossier file, not a generic job description. CRITICAL RULE: If you mention the head coach, NEVER use their full name — always write "${coachRef}" or just "Coach". HARD LIMIT: 120 characters maximum including spaces — count before writing. Rewrite shorter if over. Do not exceed this limit.)`;
   };
 
   const processRawFile = (file, slot) => {
@@ -513,7 +519,7 @@ Staff Note: (${coachLine}Write a tight one-liner that tells the mini origin stor
             isExpired: isScoutExpired,
             yearsRemaining: scoutYearsRemaining,
             contractLength: scoutContractLength,
-            role: 'Regional Scout',
+            role: 'National Scout',
             roleColor: '#38bdf8',
             showUrl: showScoutUrlInput, setShowUrl: setShowScoutUrlInput,
             urlText: scoutUrlText, setUrlText: setScoutUrlText,
@@ -703,7 +709,7 @@ Staff Note: (${coachLine}Write a tight one-liner that tells the mini origin stor
 
           {/* Header */}
           <div className="px-4 py-3 border-b border-surface-4 shrink-0 flex items-center justify-between gap-3">
-            <p className="text-[9px] font-black uppercase tracking-[0.15em] text-emerald-500">Daily Brief</p>
+            <p className="text-sm font-display font-bold uppercase text-txt-primary">Daily Brief</p>
             <p className="text-[9px] text-txt-tertiary">from {analystName}</p>
           </div>
 
@@ -825,11 +831,30 @@ Staff Note: (${coachLine}Write a tight one-liner that tells the mini origin stor
                   <div className="space-y-1.5">
                     {recent.map((r, i) => {
                       const showDev = r.devTrait && r.devTrait !== 'Hidden';
+                      const score = Math.round(computeScore(r));
+                      const gradeTiers = [
+                        { grade: 'A+', min: 95, cls: 'text-emerald-200' },
+                        { grade: 'A',  min: 90, cls: 'text-emerald-300' },
+                        { grade: 'A-', min: 86, cls: 'text-emerald-400' },
+                        { grade: 'B+', min: 82, cls: 'text-sky-200' },
+                        { grade: 'B',  min: 78, cls: 'text-sky-300' },
+                        { grade: 'B-', min: 74, cls: 'text-sky-400' },
+                        { grade: 'C+', min: 70, cls: 'text-yellow-300' },
+                        { grade: 'C',  min: 66, cls: 'text-amber-300' },
+                        { grade: 'C-', min: 62, cls: 'text-amber-400' },
+                        { grade: 'D+', min: 58, cls: 'text-orange-300' },
+                        { grade: 'D',  min: 54, cls: 'text-orange-400' },
+                        { grade: 'D-', min: 50, cls: 'text-red-400' },
+                        { grade: 'F',  min: 0,  cls: 'text-red-400' },
+                      ];
+                      const tier = gradeTiers.find(t => score >= t.min) ?? gradeTiers[gradeTiers.length - 1];
                       return (
                         <div key={i} className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 bg-slate-800/40 border border-slate-700/40">
                           <span className={`text-[8px] font-display font-black tracking-wide px-1.5 py-0.5 rounded shrink-0 ${r.isPortal ? 'bg-purple-950 border border-purple-800 text-purple-300' : 'bg-slate-700 border border-slate-600 text-slate-300'}`}>{r.position}</span>
                           <span className="text-[11px] font-bold text-txt-primary truncate flex-1">{r.name}</span>
-                          <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className={`text-[9px] font-black tabular-nums text-slate-400`}>{score}</span>
+                            <span className={`text-[10px] font-black ${tier.cls}`}>{tier.grade}</span>
                             {showDev && (
                               <span className={`text-[7px] font-black uppercase tracking-wide px-1 py-0.5 rounded border ${
                                 r.devTrait === 'Elite' ? 'bg-yellow-950 border-yellow-700 text-yellow-400'
@@ -860,18 +885,47 @@ Staff Note: (${coachLine}Write a tight one-liner that tells the mini origin stor
       {/* ── ACTION CARDS ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[
-          { view: 'database',   label: 'Recruiting Database', sub: 'True Freshmen Only' },
-          { view: 'thresholds', label: 'Threshold Lookup',   sub: 'Player Comparison Tool' },
-          { view: 'analysis',   label: 'Program Outlook',    sub: 'Staff Recommendations' },
-          { view: 'counts',     label: 'Player Count',       sub: 'Current Overview' },
-          { view: 'portal',     label: 'Portal Board',       sub: 'Transfer Commits' },
-        ].map(({ view, label, sub }) => (
+          { view: 'database',   label: 'Recruiting Database', sub: 'True Freshmen Only',      color: 'text-red-500',    icon: (
+            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
+              <ellipse cx="8" cy="4" rx="5" ry="2"/>
+              <path d="M3 4v4c0 1.1 2.24 2 5 2s5-.9 5-2V4"/>
+              <path d="M3 8v4c0 1.1 2.24 2 5 2s5-.9 5-2V8"/>
+            </svg>
+          )},
+          { view: 'thresholds', label: 'Threshold Lookup',   sub: 'Player Comparison Tool',   color: 'text-blue-400',   icon: (
+            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
+              <path d="M2 12l4-4 3 3 5-7"/>
+              <circle cx="14" cy="5" r="1.5" fill="currentColor" stroke="none"/>
+            </svg>
+          )},
+          { view: 'analysis',   label: 'Program Outlook',    sub: 'Staff Recommendations',    color: 'text-emerald-400', icon: (
+            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
+              <rect x="3" y="2" width="10" height="12" rx="1.5"/>
+              <path d="M5.5 5h5M5.5 7.5h5M5.5 10h3"/>
+            </svg>
+          )},
+          { view: 'counts',     label: 'Player Count',       sub: 'Current Overview',         color: 'text-orange-400', icon: (
+            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="6" cy="5" r="2"/>
+              <circle cx="11" cy="5" r="2"/>
+              <path d="M2 13c0-2.2 1.8-4 4-4h4c2.2 0 4 1.8 4 4"/>
+            </svg>
+          )},
+          { view: 'portal',     label: 'Portal Board',       sub: 'Transfer Commits',         color: 'text-purple-400', icon: (
+            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
+              <path d="M9 3l4 5-4 5"/>
+              <path d="M13 8H5"/>
+              <path d="M3 5v6"/>
+            </svg>
+          )},
+        ].map(({ view, label, sub, icon, color }) => (
           <button
             key={view}
             onClick={() => setView(view)}
-            className="rounded-xl text-left transition-all duration-200 bg-surface-2 border border-surface-4 hover:bg-surface-3 hover:border-surface-5 p-4 flex flex-col gap-2"
+            className="relative rounded-xl text-left transition-all duration-200 bg-surface-2 border border-surface-4 hover:bg-surface-3 hover:border-surface-5 p-4 flex flex-col gap-2"
             style={{ minHeight: '88px' }}
           >
+            <span className={`absolute top-3 right-3 opacity-60 ${color}`}>{icon}</span>
             <h4 className="text-sm font-display font-bold uppercase text-txt-primary leading-snug">{label}</h4>
             <p className="text-xs text-txt-tertiary leading-tight">{sub}</p>
           </button>

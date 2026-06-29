@@ -70,7 +70,7 @@ export default function ScoutingReport({ setView, players, setPlayers }) {
     attrs: Array(10).fill('')
   });
   const [scoutImg, setScoutImg] = useState('');
-  const [scoutName, setScoutName] = useState('Regional Scout');
+  const [scoutName, setScoutName] = useState('National Scout');
 
     useEffect(() => {
     async function loadScout() {
@@ -154,10 +154,10 @@ Do not include conversational filler, markdown bolding, or bullet points anywher
   return (
     <div className="max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
       <div className="flex items-center gap-4 p-4 bg-slate-950 border-b border-slate-800">
-        {scoutImg ? <img src={scoutImg} alt="Regional Scout" className="w-12 h-12 rounded-lg object-cover border border-slate-700" /> : <div className="w-12 h-12 bg-slate-800 rounded-lg flex items-center justify-center text-[8px] text-slate-500">N/A</div>}
+        {scoutImg ? <img src={scoutImg} alt="National Scout" className="w-12 h-12 rounded-lg object-cover border border-slate-700" /> : <div className="w-12 h-12 bg-slate-800 rounded-lg flex items-center justify-center text-[8px] text-slate-500">N/A</div>}
         <div>
           <h3 className="text-xs font-bold text-white">{scoutName}</h3>
-          <p className="text-[9px] font-black uppercase text-sky-500 tracking-wider">Regional Scout</p>
+          <p className="text-[9px] font-black uppercase text-sky-500 tracking-wider">National Scout</p>
         </div>
       </div>
       <form onSubmit={executeSubmit} className="p-5 space-y-4">

@@ -496,6 +496,9 @@ function buildAnalysisText(player, score, baseAvg, rank, total) {
 function GradeModal({ player, allPlayers, onClose }) {
   const score      = computeScore(player);
   const baseAvg    = calcWeightedAvg(player);
+  const archBase   = archetypeBaseScore(player);
+  const displayBase = archBase !== null ? archBase : baseAvg;
+  const usingArch  = archBase !== null;
   const tier       = getGradeTier(score);
   const hidden     = isHiddenDev(player.devTrait);
   const devBonus   = hidden ? estimateHiddenDev(player) : getDevBonus(player.devTrait);
@@ -561,9 +564,15 @@ function GradeModal({ player, allPlayers, onClose }) {
             <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Score Breakdown</h3>
             <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden divide-y divide-slate-800/50 text-xs">
               <div className="flex justify-between px-3 py-2">
-                <span className="text-slate-400">Weighted Attribute Avg</span>
-                <span className="font-bold text-white">{baseAvg.toFixed(1)}</span>
+                <span className="text-slate-400">{usingArch ? 'Archetype Base Score' : 'Weighted Attribute Avg'}</span>
+                <span className="font-bold text-white">{displayBase.toFixed(1)}</span>
               </div>
+              {usingArch && (
+                <div className="flex justify-between px-3 py-2 opacity-50">
+                  <span className="text-slate-500 text-[11px] italic">Attr avg (all entered)</span>
+                  <span className="text-slate-500 text-[11px]">{baseAvg.toFixed(1)}</span>
+                </div>
+              )}
               {hidden ? (
                 <div className="flex justify-between px-3 py-2">
                   <span className="text-amber-500/80 italic text-[11px]">Estimated Dev (pending reveal)</span>

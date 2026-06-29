@@ -834,23 +834,98 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
       `board answered the ${pos} question — lock it in`,
       `${pos} situation is strong — close the elite target and shift focus`,
     ]);
-    const t1Str = t1Names.length > 0
-      ? t1Names.join(' and ') + (t1Names.length>1 ? ' are exactly what we need' : ' is exactly what we need on the board')
-      : 'the elite target on the board takes care of this';
-    const covBase = retStr
+
+    // Build variables for personal memo style paragraphs
+    const startersSorted = [...retStarts].sort((a, b) => (b.ovr||0) - (a.ovr||0));
+    const nextUpPlayer   = startersSorted[0];
+    const depthPlayers   = startersSorted.slice(1);
+    const nextUpLN       = nextUpPlayer ? lastName(nextUpPlayer.name) : null;
+    const depthLN        = depthPlayers.length ? nameList(depthPlayers) : null;
+
+    const topT1Target = topTargets.find(p => p.tier === 0);
+    const t1LN   = topT1Target ? lastName(topT1Target.name) : (t1Names[0] ? t1Names[0].split(' ').slice(1).join(' ') || t1Names[0] : null);
+    const t1Dev  = topT1Target?.devTrait;
+    const t1IsE  = t1Dev === 'Elite', t1IsS = t1Dev === 'Star';
+    const t1Sc   = topT1Target?.score ?? 0;
+
+    const roomState = (eliteDevName || ninetyPlusName)
+      ? pick([`The ${pos} room is in great shape`, `${pos} is locked down`])
+      : retStarts.length >= 2
+      ? pick([`The ${pos} room is coming together`, `${pos} is shaping up nicely`, `The ${pos} room is in a good spot`])
+      : retStarts.length === 1
+      ? pick([`${pos} isn't deep but we have what we need`, `The ${pos} room is thinner than ideal but we're set`])
+      : null;
+
+    const starterLine = nextUpLN && depthLN
       ? pick([
-          `${retStr} anchor${retPlural?'':'s'} the position and ${t1Str}.`,
-          `${retStr} hold${retPlural?'':'s'} it down and ${t1Str} fills the pipeline — this room is in a strong spot.`,
-          `Between ${retStr} and ${t1Str}, this position is taken care of front to back.`,
-          `${retStr} ${retPlural?'are':'is'} the foundation and ${t1Str}. Can't ask for more than that.`,
+          `${nextUpLN} is next up and ${depthLN} give${depthPlayers.length===1?'s':''} us good depth`,
+          `${nextUpLN} is the guy and ${depthLN} back${depthPlayers.length===1?'s':''} him up`,
+          `${nextUpLN} leads the room with ${depthLN} giving us solid depth`,
         ])
-      : `${t1Str}. Good board work here.`;
-    paragraphs = [covBase, devNarrative || null, pick([
-      t1Archs.length>1 ? `Tier 1 options across ${t1Archs.length} archetypes — close whichever fits best and move the bandwidth.` : `Close the Tier 1 target and shift bandwidth to positions that actually need it.`,
-      `Don't overthink this one. The board answered it — get the commitment and put the energy somewhere else.`,
-      `This is a win. Close it and redirect to the spots that still have gaps.`,
-      `Board did its job here. Get the commitment and move on — other positions need the attention more.`,
-    ])].filter(Boolean);
+      : nextUpLN
+      ? pick([`${nextUpLN} is our guy at ${pos}`, `${nextUpLN} is the starter`])
+      : null;
+
+    const t1Assess = t1LN ? (
+      t1IsE ? pick([
+        `${t1LN} has an elite ceiling — he could be the future of this room`,
+        `${t1LN} is a potential elite player — I love him here long-term`,
+        `${t1LN} is elite-ceiling talent — exactly what we want in this pipeline`,
+      ]) : t1IsS ? pick([
+        `${t1LN} is a star-level talent — exactly the piece this pipeline needed`,
+        `${t1LN} has real star upside — a great find for this position`,
+        `${t1LN} is star-caliber and fits exactly what we're building`,
+      ]) : t1Sc >= 90 ? pick([
+        `${t1LN} grades out at the top of the board — this is a real find`,
+        `${t1LN} is a top-end prospect — don't let him slip`,
+      ]) : pick([
+        `${t1LN} fits exactly what we need here`,
+        `${t1LN} is the right piece for this room`,
+      ])
+    ) : null;
+
+    // P1: room state + starters + board target
+    const covP1Parts = [];
+    covP1Parts.push(starterLine
+      ? pick([
+          `${roomState ? roomState + ' — ' : ''}${starterLine}.`,
+          `${roomState ? roomState + '. ' + starterLine.charAt(0).toUpperCase() + starterLine.slice(1) : starterLine.charAt(0).toUpperCase() + starterLine.slice(1)}.`,
+        ])
+      : `${roomState || `${pos} is in decent shape`}.`
+    );
+    if (t1LN && t1Assess) covP1Parts.push(pick([
+      `Saw ${t1LN}'s file come across and he's exactly what we need on the board. ${t1Assess}.`,
+      `${t1LN} is exactly what we need on the board. ${t1Assess}.`,
+      `${t1LN} checks every box — he's what we want on this board. ${t1Assess}.`,
+    ]));
+    const covP1 = covP1Parts.join(' ');
+
+    // P2: dev pipeline + incoming
+    const covP2Parts = [];
+    if (devNarrative) covP2Parts.push(devNarrative);
+    if (comStr) covP2Parts.push(pick([
+      `We have ${comStr} coming in too — ${commits.length===1?'he was':'they were'} always a longer-term piece, keep that in mind.`,
+      `Don't forget ${comStr} ${comPlural?'are':'is'} joining the room — ${comPlural?'they\'re':'he\'s'} still developing and that was the plan from the start.`,
+      `${comStr} ${comPlural?'are':'is'} coming in as well — ${comPlural?'they were':'he was'} a project from day one.`,
+    ]));
+    const covP2 = covP2Parts.length ? covP2Parts.join(' ') : null;
+
+    // P3: close recommendation
+    const covP3 = t1LN ? pick([
+      `Getting ${t1LN} committed should be one of our top priorities right now. He is a game-changer for this room.`,
+      `My recommendation — push hard to close ${t1LN}. Don't pass on talent like this at ${pos}.`,
+      `${t1LN} is the kind of player you build around. Closing him should be at the top of the list.`,
+      `If we're being honest, ${t1LN} is a rare find at ${pos}. I want to fight to keep that spot for him.`,
+    ]) : null;
+
+    // P4: nuanced roster investment note
+    const covP4 = pick([
+      `No roster investment is technically needed at ${pos} this class. We are in good shape — if you need${t1LN?` ${t1LN}'s`:''} that spot elsewhere, use it in confidence. But my recommendation is we don't pass on a player like ${t1LN||'him'} at ${pos}.`,
+      `Technically ${pos} doesn't need a roster spot this class and we're fine either way. That said, ${t1LN?`I wouldn't pass on ${t1LN}`:'the right talent is worth the spot'} — talent like this doesn't wait.`,
+      `We are in good shape at ${pos} — no investment is required. But if the spot is open, ${t1LN||'this target'} is worth fighting for. Don't let him walk because we were comfortable.`,
+    ]);
+
+    paragraphs = [covP1, covP2, covP3, covP4].filter(Boolean);
   } else if (verdictKey === 'monitor') {
     headline = pick([
       `${pos} is stable — solid board depth, no elite target yet`,
