@@ -376,15 +376,17 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
   const eliteName1 = eliteStarters[0] ? lastName(eliteStarters[0].name) : null;
   const eliteStr = nameList(eliteStarters);
   const elitePlural = eliteStarters.length > 1;
-  // Elite and Star dev traits warrant their own narrative treatment
+  // Elite and Star dev traits warrant their own narrative treatment.
+  // Use case-insensitive matching — data from CFB/sheets can vary in casing.
+  const devT = (p) => (p.devTrait || '').trim().toLowerCase();
   // Tier 1: Elite dev trait — rarest, most dramatic narrative
-  const eliteDevStarters = retStarts.filter(p => p.devTrait === 'Elite');
+  const eliteDevStarters = retStarts.filter(p => devT(p) === 'elite');
   const eliteDevName = eliteDevStarters[0] ? lastName(eliteDevStarters[0].name) : null;
   // Tier 2: 90+ OVR (but not Elite dev) — elite performer, slightly less dramatic
-  const ninetyPlusStarters = retStarts.filter(p => p.ovr >= 90 && p.devTrait !== 'Elite');
+  const ninetyPlusStarters = retStarts.filter(p => p.ovr >= 90 && devT(p) !== 'elite');
   const ninetyPlusName = (!eliteDevName && ninetyPlusStarters[0]) ? lastName(ninetyPlusStarters[0].name) : null;
   // Tier 3: Star dev trait (not Elite, not 90+) — star-level, grounded
-  const starDevStarters = retStarts.filter(p => p.devTrait === 'Star' && p.ovr < 90);
+  const starDevStarters = retStarts.filter(p => devT(p) === 'star' && p.ovr < 90);
   const starDevName = (!eliteDevName && !ninetyPlusName && starDevStarters[0]) ? lastName(starDevStarters[0].name) : null;
   const commits   = allP.filter(p => p.isIncoming);
   // Sort developing players by projection year (yr1 first) then OVR desc — mention everyone
@@ -835,11 +837,25 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
       `${pos} situation is strong — close the elite target and shift focus`,
     ]);
 
-    // Build variables for personal memo style paragraphs
-    const startersSorted = [...retStarts].sort((a, b) => (b.ovr||0) - (a.ovr||0));
+    // Build variables for personal memo style paragraphs.
+    // Sort priority: Elite dev > Star dev > 90+ OVR > raw OVR.
+    // This ensures Elite/Star players are always the focal point of the narrative,
+    // not buried as "depth" behind someone with a slightly higher current OVR.
+    const starterTierScore = (p) => {
+      const o = p.ovr || 0;
+      const d = devT(p);
+      if (d === 'elite' && o >= 90) return 600 + o;
+      if (d === 'star'  && o >= 90) return 500 + o;
+      if (o >= 90)                  return 400 + o;
+      if (d === 'elite')            return 300 + o;
+      if (d === 'star')             return 200 + o;
+      return o;
+    };
+    const startersSorted = [...retStarts].sort((a, b) => starterTierScore(b) - starterTierScore(a));
     const nextUpPlayer   = startersSorted[0];
     const depthPlayers   = startersSorted.slice(1);
     const nextUpLN       = nextUpPlayer ? lastName(nextUpPlayer.name) : null;
+    const nextUpDevTier  = devT(nextUpPlayer || {});
     const depthLN        = depthPlayers.length ? nameList(depthPlayers) : null;
 
     const topT1Target = topTargets.find(p => p.tier === 0);
@@ -857,13 +873,29 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
       : null;
 
     const starterLine = nextUpLN && depthLN
-      ? pick([
-          `${nextUpLN} is next up and ${depthLN} give${depthPlayers.length===1?'s':''} us good depth`,
-          `${nextUpLN} is the guy and ${depthLN} back${depthPlayers.length===1?'s':''} him up`,
-          `${nextUpLN} leads the room with ${depthLN} giving us solid depth`,
-        ])
+      ? (nextUpDevTier === 'elite'
+          ? pick([
+              `${nextUpLN} is an elite dev talent — he's the anchor of this room, and ${depthLN} give${depthPlayers.length===1?'s':''} us real depth behind him`,
+              `${nextUpLN} has elite ceiling and he's the future of this position — ${depthLN} back${depthPlayers.length===1?'s':''} him up`,
+            ])
+          : nextUpDevTier === 'star'
+          ? pick([
+              `${nextUpLN} is a star dev player and he's the guy in this room — ${depthLN} give${depthPlayers.length===1?'s':''} us solid depth`,
+              `${nextUpLN} is the future here — star dev, and ${depthLN} round${depthPlayers.length===1?'s':''} out the depth`,
+            ])
+          : pick([
+              `${nextUpLN} is next up and ${depthLN} give${depthPlayers.length===1?'s':''} us good depth`,
+              `${nextUpLN} is the guy and ${depthLN} back${depthPlayers.length===1?'s':''} him up`,
+              `${nextUpLN} leads the room with ${depthLN} giving us solid depth`,
+            ])
+        )
       : nextUpLN
-      ? pick([`${nextUpLN} is our guy at ${pos}`, `${nextUpLN} is the starter`])
+      ? (nextUpDevTier === 'elite'
+          ? `${nextUpLN} is an elite dev talent and he's our anchor at ${pos}`
+          : nextUpDevTier === 'star'
+          ? `${nextUpLN} is a star dev player — he's the guy at ${pos}`
+          : pick([`${nextUpLN} is our guy at ${pos}`, `${nextUpLN} is the starter`])
+        )
       : null;
 
     const t1Assess = t1LN ? (
@@ -920,9 +952,9 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
 
     // P4: nuanced roster investment note
     const covP4 = pick([
-      `No roster investment is technically needed at ${pos} this class. We are in good shape — if you need${t1LN?` ${t1LN}'s`:''} that spot elsewhere, use it in confidence. But my recommendation is we don't pass on a player like ${t1LN||'him'} at ${pos}.`,
-      `Technically ${pos} doesn't need a roster spot this class and we're fine either way. That said, ${t1LN?`I wouldn't pass on ${t1LN}`:'the right talent is worth the spot'} — talent like this doesn't wait.`,
-      `We are in good shape at ${pos} — no investment is required. But if the spot is open, ${t1LN||'this target'} is worth fighting for. Don't let him walk because we were comfortable.`,
+      `No roster investment is required at ${pos} this class — we are in good shape. If that spot is needed elsewhere, use it. But my recommendation is we don't pass on a player like ${t1LN||'him'} at ${pos}.`,
+      `${pos} doesn't require a roster spot this class and we're fine either way. That said, ${t1LN?`I wouldn't pass on ${t1LN}`:'the right talent is worth the spot'} — talent like this doesn't wait.`,
+      `We are in good shape at ${pos} and no investment is required. But if the spot is available, ${t1LN||'this target'} is worth protecting. Don't let him walk just because we were comfortable.`,
     ]);
 
     paragraphs = [covP1, covP2, covP3, covP4].filter(Boolean);
@@ -1126,7 +1158,7 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
   } else if (spots <= 10 && rosterNeed) {
     const targetType = stratPortal && !stratHs ? 'portal target' : stratHs && !stratPortal ? 'recruit' : immediateNeed ? 'portal target' : 'spot';
     paragraphs.push(`Roster space is tight overall. Budget 1 ${targetType} for ${pos} — prioritize your highest-need positions with the remaining room.`);
-  } else if (!immediateNeed && rtMin === 0 && rtMax === 0 && extra === 0 && verdictKey !== 'no-investment') {
+  } else if (!immediateNeed && rtMin === 0 && rtMax === 0 && extra === 0 && verdictKey !== 'no-investment' && verdictKey !== 'covered') {
     paragraphs.push(`No roster investment needed at ${pos} this class. We are in good shape — spend those spots elsewhere.`);
   } else if (!immediateNeed && rtMin === 0 && rtMax === 0 && extra === 0) {
     // no-investment verdict already says this — skip

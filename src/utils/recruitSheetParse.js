@@ -85,33 +85,71 @@ export function parseAttributes(cell) {
   return Object.keys(out).length ? out : null
 }
 
+// Valid dev trait values — anything else in slot 13 means the row is misaligned.
+const VALID_DEV_TRAITS = new Set(['Elite', 'Star', 'Impact', 'Normal', 'Hidden', ''])
+
+// Height always looks like  5'9"  or  6'4"  — never a plain integer.
+const HEIGHT_RE = /^\d+'\d+(?:\.\d+)?"/
+
+// Detect and correct common AI TSV misalignments before positional parsing.
+//
+// Two known failure modes:
+//  1. Dev Trait + Prev Team both omitted when blank → row is 2 columns short.
+//     Symptom: slot 13 (Dev Trait) holds a commitment value.
+//  2. State Rank and/or Pos Rank omitted when blank → Height ends up in the
+//     wrong slot. Symptom: a height-like value appears at slot 6, 7 or earlier.
+function fixMisalignedRow(row) {
+  let r = row
+
+  // Fix #1: Dev Trait / Prev Team dropped
+  const devSlot = trim(r[13])
+  if (!VALID_DEV_TRAITS.has(devSlot)) {
+    r = [...r.slice(0, 13), '', '', ...r.slice(13)]
+  }
+
+  // Fix #2: State Rank and/or Pos Rank dropped — detected by Height ending up
+  // at the wrong index. Height (X'Y") should be at index 8.
+  for (let i = 6; i <= 7; i++) {
+    if (HEIGHT_RE.test(trim(r[i]))) {
+      // Height is at index i; it should be at index 8. Insert (8 - i) blank slots
+      // starting at index 6 (before State Rank) to push everything right.
+      const missing = 8 - i
+      r = [...r.slice(0, 6), ...Array(missing).fill(''), ...r.slice(6)]
+      break
+    }
+  }
+
+  return r
+}
+
 export function parseRecruitingRow(row) {
   if (!row || !trim(row[0])) return null
-  const recruitClass = trim(row[1]) || 'HS'
-  const pidRaw = row[PID_COL]
+  const r = fixMisalignedRow(row)
+  const recruitClass = trim(r[1]) || 'HS'
+  const pidRaw = r[PID_COL]
   return {
     // ── existing A–O fields (parsed exactly as the legacy reader) ──
-    name: trim(row[0]),
+    name: trim(r[0]),
     class: recruitClass,
-    position: trim(row[2]),
-    archetype: trim(row[3]),
-    stars: starsSymbolToNumber(row[4]),
-    nationalRank: intOrNull(row[5]),
-    stateRank: intOrNull(row[6]),
-    positionRank: intOrNull(row[7]),
-    height: trim(row[8]),
-    weight: intOrNull(row[9]),
-    hometown: trim(row[10]),
-    state: trim(row[11]),
-    gemBust: trim(row[12]),
-    devTrait: trim(row[13]), // blank stays blank — dev traits are hidden until signing day
-    previousTeam: trim(row[14]),
+    position: trim(r[2]),
+    archetype: trim(r[3]),
+    stars: starsSymbolToNumber(r[4]),
+    nationalRank: intOrNull(r[5]),
+    stateRank: intOrNull(r[6]),
+    positionRank: intOrNull(r[7]),
+    height: trim(r[8]),
+    weight: intOrNull(r[9]),
+    hometown: trim(r[10]),
+    state: trim(r[11]),
+    gemBust: trim(r[12]),
+    devTrait: trim(r[13]), // blank stays blank — dev traits are hidden until signing day
+    previousTeam: trim(r[14]),
     isPortal: !NON_PORTAL_CLASSES.includes(recruitClass),
     // ── Targets extension (harmless on a legacy sheet) ──
-    commitment: trim(row[COMMITMENT_COL]),
-    attributes: parseAttributes(row[ATTR_CELL_COL]),
+    commitment: trim(r[COMMITMENT_COL]),
+    attributes: parseAttributes(r[ATTR_CELL_COL]),
     pid: trim(pidRaw) !== '' ? Number(trim(pidRaw)) : undefined,
-    nil: intOrNull(row[NIL_COL]), // recruiting NIL offer (CFB 27+); null on a legacy sheet
+    nil: intOrNull(r[NIL_COL]), // recruiting NIL offer (CFB 27+); null on a legacy sheet
   }
 }
 

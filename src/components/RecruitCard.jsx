@@ -5,6 +5,25 @@ import { getTidFromAbbr } from '../data/teamRegistry'
 import { getTeamLogoByTid, stripMascotFromName } from '../data/teams'
 import { ATTRIBUTE_COLUMNS, ATTRIBUTE_ABBR } from '../utils/recruitAttributes'
 import { scoutGrade, scoutLetter, scoutReport } from '../utils/scoutGrade'
+import { computeScore } from './archetypeWeights'
+
+const SS_GRADES = [
+  { letter: 'A+', min: 95 }, { letter: 'A', min: 90 }, { letter: 'A-', min: 86 },
+  { letter: 'B+', min: 82 }, { letter: 'B', min: 78 }, { letter: 'B-', min: 74 },
+  { letter: 'C+', min: 70 }, { letter: 'C', min: 66 }, { letter: 'C-', min: 62 },
+  { letter: 'D+', min: 58 }, { letter: 'D', min: 54 }, { letter: 'D-', min: 50 },
+  { letter: 'F', min: 0 },
+]
+function ssGradeLetter(score) {
+  return SS_GRADES.find(g => score >= g.min)?.letter ?? 'F'
+}
+function ssGradeColor(score) {
+  if (score >= 86) return '#34d399'
+  if (score >= 74) return '#60a5fa'
+  if (score >= 62) return '#fbbf24'
+  if (score >= 50) return '#f97316'
+  return '#f87171'
+}
 
 // Madden-style rating color ramp for scouted attribute values.
 const ratingColor = (v) =>
@@ -38,18 +57,24 @@ const stateFullNames = {
   DC: 'Washington, D.C.',
 }
 
-export default function RecruitCard({ recruit, player, bg, text, teamsData, isAllSeasons = false, interactive = false, playStyle = 'balanced', model = null }) {
+export default function RecruitCard({ recruit, player, bg, text, teamsData, isAllSeasons = false, interactive = false, playStyle = 'balanced', model = null, scoutStaffEnabled = false }) {
   const teamBgText = text
   const teamAccent = bg
   const teamsSource = teamsData || {}
 
   const [showAttrs, setShowAttrs] = useState(false)
+  const [showStaff, setShowStaff] = useState(false)
   const attrEntries = ATTRIBUTE_COLUMNS
     .filter((name) => recruit.attributes?.[name] != null && recruit.attributes[name] !== '')
     .map((name) => ({ name, abbr: ATTRIBUTE_ABBR[name] || name, value: Number(recruit.attributes[name]) }))
   const hasAttrs = attrEntries.length > 0
   const grade = scoutGrade(recruit, model) // { score, tier } — null score when unscouted
   const report = scoutReport(recruit, playStyle, null, model) // generated blurb, null when unscouted
+
+  // Scout Staff grade (computeScore) — only when enabled and player has attrs
+  const ssScore = scoutStaffEnabled && hasAttrs ? Math.round(computeScore(recruit)) : null
+  const ssLetter = ssScore != null ? ssGradeLetter(ssScore) : null
+  const ssColor = ssScore != null ? ssGradeColor(ssScore) : null
 
   const hometownText = recruit.hometown
     ? `${recruit.hometown}${recruit.state ? `, ${recruit.state}` : ''}`
@@ -233,6 +258,38 @@ export default function RecruitCard({ recruit, player, bg, text, teamsData, isAl
               >
                 High School
               </span>
+            )}
+          </div>
+        )}
+
+        {/* === SCOUT STAFF SUMMARY === grade + report, shown when enabled */}
+        {scoutStaffEnabled && ssScore != null && (
+          <div className="pt-1.5" style={{ borderTop: `1px solid ${teamBgText}33` }}>
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowStaff((v) => !v) }}
+              className="w-full flex items-center justify-center gap-1.5 text-[9px] font-bold uppercase"
+              style={{ letterSpacing: '1.2px', color: teamBgText, opacity: 0.75 }}
+            >
+              Scout Staff
+              <span className="font-black" style={{ color: ssColor, opacity: 1 }}>{ssLetter} ({ssScore})</span>
+              <svg className="w-2.5 h-2.5 transition-transform" style={{ transform: showStaff ? 'rotate(180deg)' : 'none' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showStaff && (
+              <div className="mt-2 space-y-1.5">
+                {report && (
+                  <p className="text-[10px] leading-snug text-left" style={{ color: teamBgText, opacity: 0.85 }}>
+                    {report}
+                  </p>
+                )}
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[9px] font-bold uppercase" style={{ letterSpacing: '1px', color: teamBgText, opacity: 0.5 }}>Grade</span>
+                  <span className="font-display font-black tabular-nums" style={{ fontSize: '18px', color: ssColor }}>{ssLetter}</span>
+                  <span className="text-[10px] tabular-nums font-bold" style={{ color: teamBgText, opacity: 0.6 }}>{ssScore}</span>
+                </div>
+              </div>
             )}
           </div>
         )}

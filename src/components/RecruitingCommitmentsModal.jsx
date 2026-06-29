@@ -146,7 +146,7 @@ COLUMNS A–P  — paste at cell A${startRow} of the "Commitments" tab (first em
  F Nat. Rank  | integer        G State Rank | integer        H Pos. Rank | integer
  I Height     | Dropdown: 5'5" … 7'0" (straight quotes)      J Weight | integer lbs
  K Hometown   | text           L State | 2-letter code        M Gem/Bust | Gem, Bust, or blank
- N Dev Trait  | Elite, Star, Impact, Normal
+ N Dev Trait  | Elite, Star, Impact, Normal, Hidden (Hidden = trait not yet revealed; do not guess — use Hidden when trait is unknown)
  O Prev Team  | team ABBR (transfers only; blank for HS/JUCO or unknown)
  P Commitment | "Uncommitted" if uncommitted/still being recruited; otherwise the team ABBR they committed to (use YOUR team's abbr if they committed to you). Use ONLY abbreviations from the team mapping below.
 
@@ -163,33 +163,41 @@ State (L) — 2-letter US codes:
 ═══════════════════════════════════════════════════════════
 ATTRIBUTES — column Q, a SINGLE cell. Fill ONLY from a player-page "Attributes" tab. OPTIONAL.
 ═══════════════════════════════════════════════════════════
-Attributes go in ONE cell (column Q), NOT in separate columns. For each attribute the tab shows (~10), write its NAME (or its short code) then its 0–99 rating, separated by spaces, with the pairs separated by commas.
+Attributes go in ONE cell (column Q), NOT in separate columns. Use the SHORT CODE for each attribute (not the full name) so all values fit in one readable cell.
 
   EXAMPLE (an ATH whose tab shows Awareness 76, Speed 67, Acceleration 90, Strength 78, Play Recognition 74, Tackle 80, Hit Power 74, Pursuit 80, Man Coverage 76, Zone Coverage 74) →
-  the Q cell is:  Awareness 76, Speed 67, Acceleration 90, Strength 78, Play Recognition 74, Tackle 80, Hit Power 74, Pursuit 80, Man Coverage 76, Zone Coverage 74
+  the Q cell is:  AWR 76, SPD 67, ACC 90, STR 78, PREC 74, TAK 80, HIT 74, PUR 80, MCV 76, ZCV 74
 
 Rules for the Q cell:
-  - Just read each attribute off the tab and copy "<name> <rating>". Order does not matter; the app places each value by its name. You do NOT need to leave blanks for attributes the position lacks — only list what the tab shows.
-  - Use the attribute name EXACTLY as it appears, or its short code. Recognized names (code): ${attrNameRef}
+  - Use the SHORT CODE for every attribute (see reference below). Short codes keep the cell compact so all values are visible in the sheet.
+  - Order does not matter; the app places each value by its code. List only what the tab shows — no blanks for missing attributes.
+  - Recognized codes: ${attrNameRef}
   - One Q cell per scouted player. Leave it blank for un-scouted recruits.
 
 ═══════════════════════════════════════════════════════════
 OUTPUT FORMAT (TSV, paste at A${startRow})
 ═══════════════════════════════════════════════════════════
 === TARGETS — paste at cell A${startRow} of "Commitments" tab ===
-Board row (16 fields, A→P):
+Board row (16 fields, A→P) — blank fields are EMPTY TABS, never omitted:
 <Player>\\t<Class>\\t<Position>\\t<Archetype>\\t<Stars>\\t<Nat>\\t<StateRank>\\t<PosRank>\\t<Height>\\t<Weight>\\t<Hometown>\\t<State>\\t<Gem/Bust>\\t<Dev>\\t<PrevTeam>\\t<Commitment>
-Scouted row (17 fields — the 16 A→P fields, then the single Attributes cell Q):
-<...A→P...>\\t<Attributes, e.g. "Awareness 76, Speed 67, Tackle 80, ...">
+
+CONCRETE EXAMPLE (unknown state/pos rank, no gem, Hidden dev, no prev team, uncommitted, scouted):
+John Smith\\tHS\\tQB\\tPocket Passer\\t☆☆☆☆\\t15\\t\\t\\t6'3"\\t215\\tAustin\\tTX\\t\\tHidden\\t\\tUncommitted\\tTPW 87, SAC 82, MAC 79, DAC 74, AWR 71
+
+Notice: the 2 unknown ranks (State Rank, Pos Rank) are EMPTY TABS — they are NOT omitted. All 16 A→P fields are present even when blank.
+
+Scouted row (17 fields — the 16 A→P fields, then the single Attributes cell Q using SHORT CODES):
+<...A→P...>\\t<AWR 76, SPD 67, TAK 80, ...>
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK
 ═══════════════════════════════════════════════════════════
 [ ] Board rows have exactly 16 tab-separated fields (15 tabs); scouted rows have 17 (the Q Attributes cell added)
+[ ] NEVER skip a column even if it is blank — output an empty tab placeholder so the column count is always correct. A blank Dev Trait (N) is still a field; a blank Prev Team (O) is still a field.
 [ ] No header row; no commas in numbers; Stars use ☆ symbols
 [ ] B/C/D/E/I/L/M/N/O/P are literal dropdown values
 [ ] Column P is "Uncommitted" or a team abbreviation
-[ ] The Q cell is one cell of "<name> <rating>" pairs from the Attributes tab; blank when not scouted; pid/NIL never output`,
+[ ] The Q cell uses SHORT CODES (AWR, SPD, etc.) for compactness; blank when not scouted; pid/NIL never output`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
     notes: 'Column P (Commitment): "Uncommitted" for uncommitted recruits you are still pursuing, otherwise the team abbreviation the recruit committed to (your own team\'s abbr if they committed to you). The single Attributes cell (Q) is filled ONLY from a recruit\'s player-page "Attributes" tab, never from the recruiting board — leave it blank if the recruit has not been scouted.',

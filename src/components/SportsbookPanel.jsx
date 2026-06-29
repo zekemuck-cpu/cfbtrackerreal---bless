@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { getTeamConference } from '../data/conferenceTeams'
 import { isFCSPlaceholderAbbr } from '../data/teamRegistry'
 import { getCustomConferencesForYear } from '../context/DynastyContext'
+import { getSchoolName } from '../data/teams'
 
 // ─── Rounding ─────────────────────────────────────────────────────────────────
 
@@ -1022,6 +1023,183 @@ function WinTotalsPanel({ dynasty, game }) {
     </div>
   )
 }
+
+function getTeamName(dynasty, tid) {
+  const t = dynasty.teams?.[tid] || dynasty.teams?.[String(tid)];
+  return t?.name || getTeamAbbr(dynasty, tid);
+}
+
+function getTeamLogo(dynasty, tid) {
+  const t = dynasty.teams?.[tid] || dynasty.teams?.[String(tid)];
+  return t?.logo || '';
+}
+
+function buildMatchup(dynasty, g, year, week, normCtx) {
+  const tid1      = Number(g.team1Tid);
+  const tid2      = Number(g.team2Tid);
+  const isNeutral = g.homeTeamTid == null;
+  const homeTid   = g.homeTeamTid != null ? Number(g.homeTeamTid) : tid1;
+  const awayTid   = homeTid === tid1 ? tid2 : tid1;
+
+  const spreadVal = calcNormalizedSpread(
+    calcPowerScore(dynasty, homeTid, year, week),
+    calcPowerScore(dynasty, awayTid, year, week),
+    normCtx, isNeutral,
+  );
+  const absSp = Math.abs(spreadVal);
+  const { favML, dogML } = spreadToML(absSp);
+  const homeFav = spreadVal > 0;
+
+  const homeSpreadDisplay = spreadVal === 0 ? 'PK' : homeFav ? fmt(-absSp) : fmt(absSp);
+  const awaySpreadDisplay = spreadVal === 0 ? 'PK' : homeFav ? fmt(absSp) : fmt(-absSp);
+  const homeML = homeFav ? favML : dogML;
+  const awayML = homeFav ? dogML : favML;
+  const totalData = calcTotal(dynasty, homeTid, awayTid, year, week);
+
+  const homeScore = Number(homeTid === tid1 ? g.team1Score : g.team2Score);
+  const awayScore = Number(awayTid === tid1 ? g.team1Score : g.team2Score);
+  const isPlayed = (g.isPlayed || Number(g.team1Score) > 0 || Number(g.team2Score) > 0)
+    && Number.isFinite(homeScore) && Number.isFinite(awayScore);
+
+  let result = null;
+  if (isPlayed) {
+    const margin = homeScore - awayScore;
+    const cover = margin + (homeFav ? -absSp : absSp);
+    const combined = homeScore + awayScore;
+    result = {
+      spread: cover > 0 ? 'home' : cover < 0 ? 'away' : 'push',
+      ml: margin > 0 ? 'home' : margin < 0 ? 'away' : 'push',
+      total: combined > totalData.total ? 'over' : combined < totalData.total ? 'under' : 'push',
+    };
+  }
+
+  return {
+    id: g.id,
+    homeTid, awayTid, isNeutral, isPlayed, homeScore, awayScore, result,
+    homeName: getTeamName(dynasty, homeTid),
+    awayName: getTeamName(dynasty, awayTid),
+    homeSchool: getSchoolName(homeTid, dynasty?.teams) || getTeamAbbr(dynasty, homeTid),
+    awaySchool: getSchoolName(awayTid, dynasty?.teams) || getTeamAbbr(dynasty, awayTid),
+    homeAbbr: getTeamAbbr(dynasty, homeTid),
+    awayAbbr: getTeamAbbr(dynasty, awayTid),
+    homeLogo: getTeamLogo(dynasty, homeTid),
+    awayLogo: getTeamLogo(dynasty, awayTid),
+    homeSpreadDisplay, awaySpreadDisplay,
+    homeFav, awayFav: !homeFav && spreadVal !== 0,
+    homeML, awayML, totalData,
+  };
+}
+
+function OddsCell({ value, vig, hit }) {
+  return (
+    <div
+      className="flex flex-col items-center justify-center py-2 border-l border-surface-4"
+      style={hit ? { background: 'color-mix(in srgb, var(--accent-success) 20%, transparent)' } : undefined}
+    >
+      <div
+        className="tabular-nums text-xs"
+        style={hit
+          ? { color: 'var(--accent-success)', fontWeight: 800 }
+          : { color: 'var(--text-primary)', fontWeight: 600 }}
+      >
+        {value}
+      </div>
+      {vig != null && <div className="text-txt-muted text-[10px] tabular-nums">{vig}</div>}
+    </div>
+  );
+}
+
+function LinesHeader() {
+  return (
+    <div className="grid grid-cols-[1fr_repeat(3,64px)] border-b border-surface-4 text-txt-muted">
+      <div />
+      <div className="text-center text-[10px] font-semibold uppercase tracking-wide py-1.5 border-l border-surface-4">Spread</div>
+      <div className="text-center text-[10px] font-semibold uppercase tracking-wide py-1.5 border-l border-surface-4">ML</div>
+      <div className="text-center text-[10px] font-semibold uppercase tracking-wide py-1.5 border-l border-surface-4">Total</div>
+    </div>
+  );
+}
+
+function TeamRow({ logo, name, score, isPlayed, isWinner, fav, spread, ml, ou, total, vigOver, vigUnder, spreadHit, mlHit, totalHit, top }) {
+  return (
+    <div className={`grid grid-cols-[1fr_repeat(3,64px)] items-stretch ${top ? '' : 'border-t border-surface-3'}`}>
+      <div className="flex items-center gap-2 px-3 py-2.5 min-w-0">
+        {logo
+          ? <img src={logo} alt="" className="w-6 h-6 object-contain flex-shrink-0" />
+          : <span className="w-6 h-6 flex-shrink-0" />}
+        <span className={`text-[13px] truncate ${isPlayed && isWinner ? 'text-txt-primary font-bold' : isPlayed ? 'text-txt-secondary font-semibold' : 'text-txt-primary font-semibold'}`}>{name}</span>
+        {isPlayed && (
+          <span
+            className="ml-auto pl-2 font-display tabular-nums text-lg flex-shrink-0"
+            style={{ color: isWinner ? 'var(--text-primary)' : 'var(--text-tertiary)', fontWeight: isWinner ? 900 : 700 }}
+          >{score}</span>
+        )}
+      </div>
+      <OddsCell value={spread} vig="-110" hit={spreadHit} />
+      <OddsCell value={fmt(ml)} hit={mlHit} />
+      <OddsCell value={`${ou} ${total}`} vig={ou === 'O' ? vigOver : vigUnder} hit={totalHit} />
+    </div>
+  );
+}
+
+function MatchupRows({ m, compact }) {
+  const r = m.result;
+  return (
+    <div>
+      <TeamRow
+        top logo={m.awayLogo} name={compact ? m.awaySchool : m.awayName} score={m.awayScore} isPlayed={m.isPlayed}
+        isWinner={r?.ml === 'away'} fav={m.awayFav} spread={m.awaySpreadDisplay} ml={m.awayML}
+        ou="O" total={m.totalData.total} vigOver={fmt(m.totalData.overVig)} vigUnder={fmt(m.totalData.underVig)}
+        spreadHit={r?.spread === 'away'} mlHit={r?.ml === 'away'} totalHit={r?.total === 'over'}
+      />
+      <TeamRow
+        logo={m.homeLogo} name={compact ? m.homeSchool : m.homeName} score={m.homeScore} isPlayed={m.isPlayed}
+        isWinner={r?.ml === 'home'} fav={m.homeFav} spread={m.homeSpreadDisplay} ml={m.homeML}
+        ou="U" total={m.totalData.total} vigOver={fmt(m.totalData.overVig)} vigUnder={fmt(m.totalData.underVig)}
+        spreadHit={r?.spread === 'home'} mlHit={r?.ml === 'home'} totalHit={r?.total === 'under'}
+      />
+    </div>
+  );
+}
+
+export function GameOdds({ dynasty, game }) {
+  const year = game?.year;
+  const week = game?.week;
+
+  const m = useMemo(() => {
+    if (!dynasty || !game || week == null) return null;
+    const normCtx = buildNormSpreadContext(dynasty, year, week);
+    return buildMatchup(dynasty, game, year, week, normCtx);
+  }, [dynasty, game?.id, game?.team1Tid, game?.team2Tid, game?.homeTeamTid, game?.team1Score, game?.team2Score, year, week]);
+
+  if (!dynasty || !game) return null;
+  if (week == null || !m) {
+    return (
+      <div className="max-w-lg mx-auto rounded-xl border border-surface-4 overflow-hidden p-6 text-center text-sm text-txt-tertiary" style={{ background: 'var(--surface-1)' }}>
+        Betting lines are available for regular season games only.
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-lg mx-auto rounded-xl border border-surface-4 overflow-hidden" style={{ background: 'var(--surface-1)' }}>
+      <LinesHeader />
+      <MatchupRows m={m} />
+    </div>
+  );
+}
+
+export function isChampConference(c) {
+  const CHAMP_CONFS = ['SEC', 'Big Ten', 'ACC', 'Big 12', 'Pac-12', 'AAC', 'Mountain West', 'Sun Belt', 'MAC', 'CUSA', 'C-USA', 'MEAC', 'SWAC', 'CAA', 'MVFC', 'Big South', 'OVC'];
+  return CHAMP_CONFS.includes(c);
+}
+
+export const SPORTSBOOK_TABS = [
+  { value: 'lines',        label: 'Game Lines' },
+  { value: 'championship', label: 'Natl Championship' },
+  { value: 'cfp',          label: 'Conf. Champ' },
+  { value: 'wintotals',    label: 'Win Totals' },
+];
 
 // ─── Root component ───────────────────────────────────────────────────────────
 

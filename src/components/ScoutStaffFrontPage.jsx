@@ -6,6 +6,56 @@ import { computeScore } from './archetypeWeights';
 // =========================================================================
 import { createStaffAccessor } from './staffDB';
 
+// Deterministic seeded RNG — same name always produces the same signature style.
+function seededRng(seed) {
+  let s = (seed ^ 0x5f3759df) >>> 0
+  return () => { s ^= s << 13; s ^= s >> 17; s ^= s << 5; return ((s >>> 0) / 4294967296) }
+}
+function nameSeed(name) {
+  return name.split('').reduce((a, c, i) => ((a * 31 + c.charCodeAt(0) * (i + 1)) | 0) >>> 0, 0x12345678)
+}
+
+// Load Dancing Script (a high-quality handwriting font) once per session.
+let _sigFontInjected = false
+function ensureSigFont() {
+  if (_sigFontInjected || typeof document === 'undefined') return
+  _sigFontInjected = true
+  const link = document.createElement('link')
+  link.rel = 'stylesheet'
+  link.href = 'https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap'
+  document.head.appendChild(link)
+}
+
+// Per-person style variation derived from their name so it's always the same.
+function getSigVariant(name) {
+  const rng = seededRng(nameSeed(name || ''))
+  return {
+    rotate: (rng() * 6 - 3).toFixed(2),              // -3° to +3°
+    letterSpacing: (rng() * 0.03 - 0.01).toFixed(3), // slight spacing variation
+  }
+}
+
+// Renders a staff member's name in Dancing Script — guaranteed to look good.
+function Signature({ name, color = 'currentColor', fontSize = '1.45rem' }) {
+  ensureSigFont()
+  if (!name) return null
+  const v = getSigVariant(name)
+  return (
+    <span style={{
+      fontFamily: "'Great Vibes', cursive",
+      fontSize,
+      letterSpacing: `${v.letterSpacing}em`,
+      color,
+      display: 'inline-block',
+      transform: `rotate(${v.rotate}deg)`,
+      transformOrigin: 'left center',
+      lineHeight: 1.1,
+    }}>
+      {name}
+    </span>
+  )
+}
+
 export default function ScoutStaffFrontPage({ setView, currentTeamName = 'college football team', currentYear, coachName = '', teamColors, teamLogo, recruits = [], rosterWarnings = [], rosterSummary = null, outlookSummary = null, dynastyId = null }) {
   const { getStaffData, saveStaffData, deleteStaffData } = createStaffAccessor(dynastyId);
   const p = teamColors?.primary   || '#374151';
@@ -31,6 +81,8 @@ export default function ScoutStaffFrontPage({ setView, currentTeamName = 'colleg
   const [bioEditSlot, setBioEditSlot] = useState(null);
   const [copiedKey, setCopiedKey] = useState(null);
   const [pasteState, setPasteState] = useState({});
+
+  const [hiringMode, setHiringMode] = useState({ 1: false, 2: false });
 
   const [showScoutUrlInput, setShowScoutUrlInput] = useState(false);
   const [showAnalystUrlInput, setShowAnalystUrlInput] = useState(false);
@@ -337,8 +389,6 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
       setScoutBio('');
       setScoutContractLength(0);
       setScoutContractStartYear(0);
-      localStorage.removeItem(LS.scout_name);
-      localStorage.removeItem(LS.scout_bio);
       await deleteStaffData('scout_img');
       await deleteStaffData('scout_name');
       await deleteStaffData('scout_bio');
@@ -351,8 +401,6 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
       setAnalystBio('');
       setAnalystContractLength(0);
       setAnalystContractStartYear(0);
-      localStorage.removeItem(LS.analyst_name);
-      localStorage.removeItem(LS.analyst_bio);
       await deleteStaffData('analyst_img');
       await deleteStaffData('analyst_name');
       await deleteStaffData('analyst_bio');
@@ -539,57 +587,62 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
             urlText: analystUrlText, setUrlText: setAnalystUrlText,
             accentColor: s !== '#ffffff' ? s : p,
           },
-        ].map(({ slot, img, name, bio, isExpired, yearsRemaining, contractLength, role, roleColor, showUrl, setShowUrl, urlText, setUrlText, accentColor }) => (
-          <div key={slot} className="flex-1 flex flex-col rounded-xl overflow-hidden group min-h-[300px] bg-surface-2 border border-surface-4"
+        ].map(({ slot, img, name, bio, isExpired, yearsRemaining, contractLength, role, roleColor, showUrl, setShowUrl, urlText, setUrlText, accentColor }) => {
+          const PLACEHOLDER = slot === 1 ? 'Staff Slot #1' : 'Staff Slot #2';
+          const isHired = !!img || (name && name !== PLACEHOLDER) || !!bio;
+          const isEmptySlot = !isHired && !hiringMode[slot];
+          const isHiring   = !isHired && !!hiringMode[slot];
+          const fireStaff  = () => { clearSlot(slot); setHiringMode(prev => ({ ...prev, [slot]: false })); };
+          // Overlay color matches the role badge text color exactly — near-opaque so the
+          // true hex reads correctly (heavy alpha-blending over the dark card shifts the hue).
+          const overlayBg = `${roleColor}F5`;
+          return (
+          <div key={slot} className="relative flex-1 flex flex-col rounded-xl overflow-hidden group min-h-[300px] bg-surface-2 border border-surface-4"
             style={ isExpired ? { borderColor: 'rgba(239,68,68,0.25)', background: 'rgba(25,5,5,1)' } : {} }>
 
-            {/* ── PHOTO — full face visible, no text overlay ── */}
+            {/* ── PHOTO — always rendered (visible through overlay when empty) ── */}
             <div
-              className={`relative flex-shrink-0 overflow-hidden ${img && !isExpired ? 'cursor-zoom-in' : ''}`}
+              className={`relative flex-shrink-0 overflow-hidden ${img && !isExpired && !isEmptySlot ? 'cursor-zoom-in' : ''}`}
               style={{ aspectRatio: '4/5' }}
-              onClick={() => { if (img && !isExpired) setActiveModalImg(img); }}
+              onClick={() => { if (img && !isExpired && !isEmptySlot) setActiveModalImg(img); }}
             >
               {img ? (
-                <img
-                  src={img}
-                  alt={role}
-                  className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
-                />
+                <img src={img} alt={role} className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]" />
               ) : (
                 <div className="absolute inset-0 bg-surface-3 flex items-center justify-center">
                   <p className="text-[9px] font-display font-bold uppercase text-txt-tertiary tracking-widest text-center px-3 leading-loose">{role}<br/>No Photo</p>
                 </div>
               )}
-              {/* Subtle bottom fade into info section */}
               {img && <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.45) 100%)' }} />}
               {img && !isExpired && <div className="absolute inset-0 pointer-events-none" style={{ background: `linear-gradient(to bottom, transparent 70%, ${accentColor}33 100%)` }} />}
               {isExpired && <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(80,0,0,0.2) 0%, rgba(20,0,0,0.55) 100%)' }} />}
-              {/* Badges */}
-              <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-2 pointer-events-none">
-                <span className="text-[8px] font-black uppercase tracking-wide px-2 py-1 rounded whitespace-nowrap"
-                  style={{ background: 'rgba(0,0,0,0.55)', color: roleColor, backdropFilter: 'blur(4px)', border: `1px solid ${roleColor}44` }}>
-                  {role}
-                </span>
-                {contractLength > 0 && (
-                  <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-1 rounded ${isExpired ? 'animate-pulse' : ''}`}
-                    style={{
-                      background: isExpired ? 'rgba(127,29,29,0.8)' : 'rgba(0,0,0,0.55)',
-                      color: isExpired ? '#f87171' : '#94a3b8',
-                      backdropFilter: 'blur(4px)',
-                      border: isExpired ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(100,116,139,0.3)',
-                    }}>
-                    {isExpired ? 'CONTRACT EXPIRED' : `${yearsRemaining}yr left`}
+              {!isEmptySlot && (
+                <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-2 pointer-events-none">
+                  <span className="text-[8px] font-black uppercase tracking-wide px-2 py-1 rounded whitespace-nowrap"
+                    style={{ background: 'rgba(0,0,0,0.55)', color: roleColor, backdropFilter: 'blur(4px)', border: `1px solid ${roleColor}44` }}>
+                    {role}
                   </span>
-                )}
-              </div>
+                  {contractLength > 0 && (
+                    <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-1 rounded ${isExpired ? 'animate-pulse' : ''}`}
+                      style={{
+                        background: isExpired ? 'rgba(127,29,29,0.8)' : 'rgba(0,0,0,0.55)',
+                        color: isExpired ? '#f87171' : '#94a3b8',
+                        backdropFilter: 'blur(4px)',
+                        border: isExpired ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(100,116,139,0.3)',
+                      }}>
+                      {isExpired ? 'CONTRACT EXPIRED' : `${yearsRemaining}yr left`}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* ── INFO SECTION — solid background, always readable ── */}
+            {/* ── INFO SECTION — always rendered ── */}
             <div className="flex flex-col gap-2 p-3 border-t border-surface-4">
               {/* Accent bar + Name */}
               <div>
                 <div className="w-6 h-0.5 mb-1.5 rounded-full" style={{ background: accentColor }} />
-                {nameEditSlot === slot ? (
+                {nameEditSlot === slot && !isEmptySlot ? (
                   <input
                     type="text"
                     value={name}
@@ -604,7 +657,7 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
                     style={{ caretColor: 'white', borderColor: accentColor }}
                   />
                 ) : (
-                  <div onClick={() => !isExpired && setNameEditSlot(slot)} className={!isExpired ? 'cursor-text' : 'opacity-50'}>
+                  <div onClick={() => !isExpired && !isEmptySlot && setNameEditSlot(slot)} className={!isExpired && !isEmptySlot ? 'cursor-text' : 'opacity-50'}>
                     {name.trim().includes(' ') && (
                       <p className="text-txt-secondary text-[11px] font-display font-semibold uppercase leading-none mb-0.5">
                         {name.trim().split(' ').slice(0, -1).join(' ')}
@@ -623,22 +676,17 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
                   <button onClick={() => handleResignStaff(slot)} className="flex-1 py-1.5 rounded font-display font-black text-[10px] uppercase tracking-wider transition" style={{ background: '#059669', color: '#fff' }}>
                     Re-sign
                   </button>
-                  <button onClick={() => { if (slot === 1) clearSlot(1); else clearSlot(2); }} className="flex-1 py-1.5 rounded font-display font-black text-[10px] uppercase tracking-wider transition" style={{ background: 'rgba(127,29,29,0.8)', color: '#fca5a5' }}>
+                  <button onClick={() => { clearSlot(slot); setHiringMode(prev => ({ ...prev, [slot]: true })); }} className="flex-1 py-1.5 rounded font-display font-black text-[10px] uppercase tracking-wider transition" style={{ background: 'rgba(127,29,29,0.8)', color: '#fca5a5' }}>
                     Replace
                   </button>
                 </div>
               )}
 
-              {!isExpired && (<>
-                {/* Bio */}
+              {/* ── HIRED: bio (editable) + Fire button only ── */}
+              {!isExpired && isHired && (<>
                 {bioEditSlot === slot ? (
-                  <textarea
-                    autoFocus
-                    value={bio}
-                    onChange={(e) => handleBioChange(e.target.value, slot)}
-                    onBlur={() => setBioEditSlot(null)}
-                    rows={3}
-                    placeholder="Paste bio here…"
+                  <textarea autoFocus value={bio} onChange={(e) => handleBioChange(e.target.value, slot)} onBlur={() => setBioEditSlot(null)}
+                    rows={3} placeholder="Paste bio here…"
                     className="w-full rounded-lg text-[10px] text-txt-secondary leading-snug resize-none focus:outline-none p-2 bg-surface-3 border border-surface-5"
                     style={{ caretColor: 'white', scrollbarWidth: 'none' }}
                   />
@@ -650,14 +698,35 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
                     }
                   </div>
                 )}
+                <button onClick={fireStaff}
+                  className="w-full py-1.5 rounded font-display font-black text-[10px] uppercase tracking-wider mt-auto"
+                  style={{ background: 'rgba(127,29,29,0.45)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  Fire {slot === 1 ? 'Scout' : 'Analyst'}
+                </button>
+              </>)}
 
-                {/* Upload/Paste/URL/Clear */}
-                <div className={`flex flex-wrap gap-1.5 transition-all duration-200 ${img ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
-                  <label className="cursor-pointer px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider transition" style={{ background: 'rgba(0,0,0,0.6)', color: roleColor, border: `1px solid ${roleColor}44`, backdropFilter: 'blur(4px)' }}>
+              {/* ── HIRING MODE: full setup controls ── */}
+              {!isExpired && isHiring && (<>
+                {bioEditSlot === slot ? (
+                  <textarea autoFocus value={bio} onChange={(e) => handleBioChange(e.target.value, slot)} onBlur={() => setBioEditSlot(null)}
+                    rows={3} placeholder="Paste bio here…"
+                    className="w-full rounded-lg text-[10px] text-txt-secondary leading-snug resize-none focus:outline-none p-2 bg-surface-3 border border-surface-5"
+                    style={{ caretColor: 'white', scrollbarWidth: 'none' }}
+                  />
+                ) : (
+                  <div className="cursor-text" onClick={() => setBioEditSlot(slot)}>
+                    {bio
+                      ? <p className="text-[10px] text-txt-secondary leading-snug whitespace-pre-line">{bio}</p>
+                      : <p className="text-[9px] italic" style={{ color: `${accentColor}55` }}>Tap to add bio…</p>
+                    }
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-1.5">
+                  <label className="cursor-pointer px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.6)', color: roleColor, border: `1px solid ${roleColor}44`, backdropFilter: 'blur(4px)' }}>
                     Upload
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, slot)} />
                   </label>
-                  <button onClick={() => pasteFromBtn(slot)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider transition" style={{
+                  <button onClick={() => pasteFromBtn(slot)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider" style={{
                     background: 'rgba(0,0,0,0.6)',
                     color: pasteState[slot] === 'ok' ? '#34d399' : pasteState[slot] ? '#f87171' : '#94a3b8',
                     border: pasteState[slot] === 'ok' ? '1px solid rgba(52,211,153,0.4)' : pasteState[slot] ? '1px solid rgba(248,113,113,0.4)' : '1px solid rgba(100,116,139,0.3)',
@@ -665,17 +734,10 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
                   }}>
                     {pasteState[slot] === 'ok' ? 'Pasted' : pasteState[slot] === 'noimg' ? 'No Image' : pasteState[slot] === 'denied' ? 'Blocked' : pasteState[slot] === 'unsupported' ? 'Unsupported' : 'Paste'}
                   </button>
-                  <button onClick={() => setShowUrl(!showUrl)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider transition" style={{ background: 'rgba(0,0,0,0.6)', color: '#94a3b8', border: '1px solid rgba(100,116,139,0.3)', backdropFilter: 'blur(4px)' }}>
+                  <button onClick={() => setShowUrl(!showUrl)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.6)', color: '#94a3b8', border: '1px solid rgba(100,116,139,0.3)', backdropFilter: 'blur(4px)' }}>
                     URL
                   </button>
-                  {img && (
-                    <button onClick={() => { if (slot === 1) clearSlot(1); else clearSlot(2); }} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider transition" style={{ background: 'rgba(127,29,29,0.6)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.3)', backdropFilter: 'blur(4px)' }}>
-                      Clear
-                    </button>
-                  )}
                 </div>
-
-                {/* URL input */}
                 {showUrl && (
                   <div className="flex gap-2 rounded-lg overflow-hidden" style={{ background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(100,116,139,0.3)', backdropFilter: 'blur(4px)' }}>
                     <input type="text" value={urlText}
@@ -688,20 +750,45 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
                     </button>
                   </div>
                 )}
-
-                {/* AI prompt buttons */}
                 <div className="flex gap-1.5">
-                  <button onClick={() => handleCopy(generateImgPrompt(slot === 1 ? 'scout' : 'analyst'), `${slot}-img`)} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider transition" style={{ background: 'rgba(0,0,0,0.5)', color: roleColor, backdropFilter: 'blur(4px)' }}>
+                  <button onClick={() => handleCopy(generateImgPrompt(slot === 1 ? 'scout' : 'analyst'), `${slot}-img`)} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.5)', color: roleColor, backdropFilter: 'blur(4px)' }}>
                     {copiedKey === `${slot}-img` ? 'Copied' : 'IMG Prompt'}
                   </button>
-                  <button onClick={() => handleCopy(generateBioPrompt(slot === 1 ? 'scout' : 'analyst', slot === 1 ? analystName : scoutName), `${slot}-bio`)} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider transition" style={{ background: 'rgba(0,0,0,0.5)', color: '#64748b', backdropFilter: 'blur(4px)' }}>
+                  <button onClick={() => handleCopy(generateBioPrompt(slot === 1 ? 'scout' : 'analyst', slot === 1 ? analystName : scoutName), `${slot}-bio`)} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.5)', color: '#64748b', backdropFilter: 'blur(4px)' }}>
                     {copiedKey === `${slot}-bio` ? 'Copied' : 'BIO Prompt'}
                   </button>
                 </div>
               </>)}
             </div>
+
+            {/* ── EMPTY OVERLAY — colored glass on top, barely shows card beneath ── */}
+            {isEmptySlot && (
+              <div
+                className="absolute inset-0 flex items-center justify-center z-20"
+                style={{
+                  background: overlayBg,
+                  boxShadow: `inset 0 0 90px 18px ${roleColor}66, 0 0 45px 6px ${roleColor}55`,
+                }}
+              >
+                <button
+                  onClick={() => setHiringMode(prev => ({ ...prev, [slot]: true }))}
+                  className="px-8 py-3 rounded-xl font-display font-black text-[13px] uppercase tracking-widest transition-all"
+                  style={{
+                    background: 'rgba(255,255,255,0.15)',
+                    color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.35)',
+                    backdropFilter: 'blur(6px)',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.25)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; }}
+                >
+                  Hire {slot === 1 ? 'Scout' : 'Analyst'}
+                </button>
+              </div>
+            )}
           </div>
-        ))}
+        );})}
+
         </div>{/* end portrait grid */}
 
         {/* Daily Brief panel */}
@@ -783,8 +870,13 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
             {/* ── RECRUITING PLAN ── */}
             {outlookSummary && (() => {
               const POSITIONS = ['QB','HB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS'];
+              // Build a flag lookup from Position Status data
+              const flagMap = {};
+              if (briefData?.outlookRows?.actionRows) {
+                briefData.outlookRows.actionRows.forEach(r => { flagMap[r.pos] = r.flag; });
+              }
               const rows = POSITIONS
-                .map(pos => ({ pos, hs: outlookSummary[pos]?.hsMin ?? 0, portal: outlookSummary[pos]?.portalMin ?? 0 }))
+                .map(pos => ({ pos, hs: outlookSummary[pos]?.hsMin ?? 0, portal: outlookSummary[pos]?.portalMin ?? 0, flag: flagMap[pos] ?? null }))
                 .filter(r => r.hs > 0 || r.portal > 0);
               if (!rows.length) return null;
               const totalHs     = rows.reduce((s, r) => s + r.hs, 0);
@@ -800,23 +892,37 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
                     </div>
                   </div>
                   <div className="space-y-1">
-                    {rows.map((r, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <span className="text-[9px] font-display font-black tracking-wide text-slate-400 w-8 shrink-0">{r.pos}</span>
-                        <div className="flex items-center gap-1.5">
-                          {r.hs > 0 && (
-                            <span className="text-[8px] font-bold px-2 py-0.5 rounded bg-sky-950 border border-sky-700 text-sky-300">
-                              {r.hs} HS
-                            </span>
-                          )}
-                          {r.portal > 0 && (
-                            <span className="text-[8px] font-bold px-2 py-0.5 rounded bg-purple-950 border border-purple-800 text-purple-300">
-                              {r.portal} Portal
-                            </span>
-                          )}
+                    {rows.map((r, i) => {
+                      const isCritical = r.flag === 'critical';
+                      const isDepth    = r.flag === 'depth';
+                      const posColor   = isCritical ? 'text-red-400' : isDepth ? 'text-amber-400' : 'text-slate-400';
+                      // Badge styles: critical → red tint, depth → amber tint, normal → sky/purple
+                      const hsBg    = isCritical ? 'bg-red-950 border-red-800 text-red-300'
+                                    : isDepth    ? 'bg-amber-950 border-amber-800 text-amber-300'
+                                    : 'bg-sky-950 border-sky-700 text-sky-300';
+                      const portalBg = isCritical ? 'bg-red-950 border-red-800 text-red-300'
+                                     : isDepth    ? 'bg-amber-950 border-amber-800 text-amber-300'
+                                     : 'bg-purple-950 border-purple-800 text-purple-300';
+                      return (
+                        <div key={i} className="flex items-center gap-2">
+                          <span className={`text-[9px] font-display font-black tracking-wide w-8 shrink-0 ${posColor}`}>{r.pos}</span>
+                          <div className="flex items-center gap-1.5">
+                            {r.hs > 0 && (
+                              <span className={`text-[8px] font-bold px-2 py-0.5 rounded border ${hsBg}`}>
+                                {r.hs} HS
+                              </span>
+                            )}
+                            {r.portal > 0 && (
+                              <span className={`text-[8px] font-bold px-2 py-0.5 rounded border ${portalBg}`}>
+                                {r.portal} Portal
+                              </span>
+                            )}
+                            {isCritical && <span className="text-[7px] font-black uppercase tracking-wide text-red-500/60">critical</span>}
+                            {isDepth    && <span className="text-[7px] font-black uppercase tracking-wide text-amber-500/50">depth</span>}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -875,7 +981,7 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
 
             {/* Sign-off */}
             <div className="mt-auto px-4 py-3">
-              <p className="text-[9px] text-txt-tertiary">— {analystName}</p>
+              <span className="text-[9px] text-txt-tertiary flex items-center gap-1.5">— <Signature name={analystName} color="#94a3b8" fontSize="1.25rem" /></span>
             </div>
           </div>
         </div>

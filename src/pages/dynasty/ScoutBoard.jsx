@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, EmptyState, Button } from '../../components/ui'
 import { proxyImageUrl } from '../../utils/imageProxy'
@@ -6,6 +6,7 @@ import { getTargetStatus } from '../../utils/recruitingTargets'
 import { getScoutScoresFor, headlinePercentile, ordinal, predictRecruitOverall } from '../../utils/scoutScore'
 import { POSITION_FILTER_OPTIONS, matchesPositionFilter } from '../../utils/recruitFilters'
 import ScoutScorePanel from '../../components/ScoutScorePanel'
+import { computeScore } from '../../components/archetypeWeights'
 
 // Scout Board (the Targets tab): tracked recruiting targets benchmarked by
 // MaxPlaysCFB ScoutScore. Each row shows the recruit's ScoutScore overall
@@ -31,7 +32,25 @@ function pctColor(pct) {
   return 'var(--accent-danger, #f87171)'
 }
 
-function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy }) {
+const SS_GRADE_TIERS = [
+  { letter: 'A+', min: 95 }, { letter: 'A', min: 90 }, { letter: 'A-', min: 86 },
+  { letter: 'B+', min: 82 }, { letter: 'B', min: 78 }, { letter: 'B-', min: 74 },
+  { letter: 'C+', min: 70 }, { letter: 'C', min: 66 }, { letter: 'C-', min: 62 },
+  { letter: 'D+', min: 58 }, { letter: 'D', min: 54 }, { letter: 'D-', min: 50 },
+  { letter: 'F',  min: 0 },
+]
+function ssLetter(score) {
+  return SS_GRADE_TIERS.find(g => score >= g.min)?.letter ?? 'F'
+}
+function ssColor(score) {
+  if (score >= 86) return '#34d399'
+  if (score >= 74) return '#60a5fa'
+  if (score >= 62) return '#fbbf24'
+  if (score >= 50) return '#f97316'
+  return '#f87171'
+}
+
+function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy, localScore, useLocalScores, draggable: isDraggable, onDragStart, onDragOver, onDrop, isDragOver }) {
   const { p, status } = r
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
@@ -48,13 +67,30 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy }) {
   const badge = scoutResult ? (pct != null ? ordinal(pct) : '—') : (scoring ? '··' : '—')
   const proj = predictRecruitOverall(p)
 
+  // When Scout Staff grades are active, the row is non-expandable — all info is already visible.
+  const expandable = !useLocalScores
+
   return (
-    <div style={{ borderTop: rank > 1 ? '1px solid var(--surface-4)' : 'none', opacity: lost ? 0.55 : 1 }}>
+    <div
+      draggable={isDraggable}
+      onDragStart={isDraggable ? onDragStart : undefined}
+      onDragOver={isDraggable ? onDragOver : undefined}
+      onDrop={isDraggable ? onDrop : undefined}
+      onDragLeave={isDraggable ? (e) => e.preventDefault() : undefined}
+      style={{
+        borderTop: isDragOver ? '2px solid #60a5fa' : rank > 1 ? '1px solid var(--surface-4)' : 'none',
+        opacity: lost ? 0.55 : 1,
+        cursor: isDraggable ? 'grab' : undefined,
+      }}
+    >
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-3 sm:gap-3.5 px-4 py-3 hover:bg-surface-2 transition-colors text-left"
+        onClick={() => expandable && setOpen((o) => !o)}
+        className={`w-full flex items-center gap-3 sm:gap-3.5 px-4 py-3 transition-colors text-left${expandable ? ' hover:bg-surface-2' : ' cursor-default'}`}
       >
+        {isDraggable && (
+          <span className="flex-shrink-0 text-txt-tertiary select-none" style={{ fontSize: '0.65rem', letterSpacing: '-1px', lineHeight: 1 }}>⠿</span>
+        )}
         <span className="w-5 text-right tabular-nums font-display flex-shrink-0 leading-none text-txt-tertiary" style={{ fontSize: '1rem', fontWeight: 700 }}>
           {rank}
         </span>
@@ -101,9 +137,8 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy }) {
           </div>
         </div>
 
-        {/* Big metric — follows the active sort: ScoutScore percentile,
-            projected overall, or national rank. */}
-        <div className="text-right flex-shrink-0 w-12">
+        {/* Big metric — follows the active sort */}
+        <div className="text-right flex-shrink-0 w-16">
           {sortBy === 'projected' ? (
             <div className="font-display leading-none tabular-nums text-txt-primary" style={{ fontSize: '1.35rem', fontWeight: 800 }} title="Projected day-1 overall">
               {proj ? proj.overall : '—'}
@@ -112,6 +147,17 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy }) {
             <div className="font-display leading-none tabular-nums text-txt-primary" style={{ fontSize: '1.15rem', fontWeight: 800 }} title="National recruiting rank">
               {p.nationalRank ? `#${p.nationalRank}` : '—'}
             </div>
+          ) : useLocalScores ? (
+            localScore != null ? (
+              <div className="flex flex-col items-end gap-0" title="Scout grade">
+                <div className="font-display leading-none tabular-nums" style={{ fontSize: '1.35rem', fontWeight: 800, color: ssColor(Math.round(localScore)) }}>
+                  {ssLetter(Math.round(localScore))}
+                </div>
+                <div className="tabular-nums text-txt-tertiary" style={{ fontSize: '0.7rem', fontWeight: 700 }}>
+                  {Math.round(localScore)}
+                </div>
+              </div>
+            ) : <span className="text-txt-muted" style={{ fontSize: '1.35rem' }}>—</span>
           ) : (
             <div className="font-display leading-none tabular-nums" style={{ fontSize: '1.35rem', fontWeight: 800, color: pctColor(pct) }} title="ScoutScore overall percentile">
               {badge}
@@ -119,10 +165,10 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy }) {
           )}
         </div>
 
-        <Chevron open={open} />
+        {expandable && <Chevron open={open} />}
       </button>
 
-      {open && (
+      {open && !useLocalScores && (
         <div className="px-4 pb-4 pt-1 sm:pl-[4.5rem] sm:pr-6">
           <ScoutScorePanel recruit={p} />
         </div>
@@ -131,9 +177,9 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy }) {
   )
 }
 
-const SORT_OPTIONS = ['scoutscore', 'projected', 'national']
+const SORT_OPTIONS = ['scoutscore', 'projected', 'national', 'priority']
 
-export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positionFilter = 'all', onPositionFilterChange = null, viewingOwnTeam = true, onResolveTargets = null, resolveCount = 0 }) {
+export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positionFilter = 'all', onPositionFilterChange = null, viewingOwnTeam = true, onResolveTargets = null, resolveCount = 0, scoutStaffEnabled = false }) {
   const yearN = Number(year)
   // Sort choice persists per device.
   const [sortBy, setSortBy] = useState(() => {
@@ -145,6 +191,32 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
   const changeSortBy = (v) => {
     setSortBy(v)
     try { localStorage.setItem('scoutBoardSortBy', v) } catch { /* ignore */ }
+  }
+
+  // Manual priority order — array of pids in coach's preferred order.
+  const PRIORITY_KEY = dynasty?.id ? `targetPriority_${dynasty.id}_${yearN}` : null
+  const [priorityOrder, setPriorityOrder] = useState(() => {
+    if (!PRIORITY_KEY) return []
+    try { return JSON.parse(localStorage.getItem(PRIORITY_KEY)) || [] } catch { return [] }
+  })
+  const savePriority = (order) => {
+    setPriorityOrder(order)
+    if (PRIORITY_KEY) try { localStorage.setItem(PRIORITY_KEY, JSON.stringify(order)) } catch {}
+  }
+  const dragPid = useRef(null)
+  const [dragOverPid, setDragOverPid] = useState(null)
+  const reorderPriority = (fromPid, toPid) => {
+    if (fromPid == null || fromPid === toPid) return
+    // Build a full ordered list from current ranked rows, merging with any saved priority
+    const allPids = ranked.map((r) => r.p.pid)
+    const base = [...priorityOrder]
+    for (const pid of allPids) { if (!base.includes(pid)) base.push(pid) }
+    const fi = base.indexOf(fromPid)
+    const ti = base.indexOf(toPid)
+    if (fi === -1 || ti === -1) return
+    base.splice(fi, 1)
+    base.splice(ti, 0, fromPid)
+    savePriority(base)
   }
 
   // The tracked targets for this recruiting year. Targets belong to the user's
@@ -160,11 +232,21 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
     return out
   }, [dynasty?.players, yearN, userTid, viewingOwnTeam])
 
+  // Local scores (Scout Staff mode) — computed synchronously, no API needed.
+  const localScores = useMemo(() => {
+    if (!scoutStaffEnabled) return new Map()
+    const m = new Map()
+    for (const { p } of targets) m.set(p.pid, computeScore(p))
+    return m
+  }, [scoutStaffEnabled, targets])
+
   // Benchmark every target through ScoutScore (cached, concurrency-capped).
+  // Skipped entirely when Scout Staff is enabled — we use local scores instead.
   const [scores, setScores] = useState(() => new Map())
   const [scoring, setScoring] = useState(false)
 
   useEffect(() => {
+    if (scoutStaffEnabled) return
     let alive = true
     if (targets.length === 0) { setScores(new Map()); return }
     setScoring(true)
@@ -174,13 +256,14 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
       setScoring(false)
     })
     return () => { alive = false }
-  }, [targets])
+  }, [targets, scoutStaffEnabled])
 
   // Rank by the chosen sort (committed-elsewhere always sink to the bottom),
   // filtered by the active position dropdown.
   const ranked = useMemo(() => {
     const rows = targets.filter((t) => matchesPositionFilter(positionFilter, t.p.position))
     const pctOf = (pid) => {
+      if (scoutStaffEnabled) return localScores.get(pid) ?? null
       const res = scores.get(pid)
       return res?.ok ? headlinePercentile(res.data) : null
     }
@@ -189,26 +272,36 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
       return Number.isFinite(n) && n > 0 ? n : Infinity
     }
     const projOf = (p) => predictRecruitOverall(p)?.overall ?? null
-    rows.sort((a, b) => {
-      const aLost = a.status === 'committed_elsewhere' ? 1 : 0
-      const bLost = b.status === 'committed_elsewhere' ? 1 : 0
-      if (aLost !== bLost) return aLost - bLost
-      if (sortBy === 'national') {
-        const an = natOf(a.p)
-        const bn = natOf(b.p)
-        if (an !== bn) return an - bn
-      } else if (sortBy === 'projected') {
-        const ap = projOf(a.p) ?? -1
-        const bp = projOf(b.p) ?? -1
-        if (bp !== ap) return bp - ap
-      }
-      const av = pctOf(a.p.pid) ?? -1
-      const bv = pctOf(b.p.pid) ?? -1
-      if (bv !== av) return bv - av
-      return (Number(b.p.stars) || 0) - (Number(a.p.stars) || 0)
-    })
+    if (sortBy === 'priority') {
+      const idxOf = (pid) => { const i = priorityOrder.indexOf(pid); return i === -1 ? 99999 : i }
+      rows.sort((a, b) => {
+        const aLost = a.status === 'committed_elsewhere' ? 1 : 0
+        const bLost = b.status === 'committed_elsewhere' ? 1 : 0
+        if (aLost !== bLost) return aLost - bLost
+        return idxOf(a.p.pid) - idxOf(b.p.pid)
+      })
+    } else {
+      rows.sort((a, b) => {
+        const aLost = a.status === 'committed_elsewhere' ? 1 : 0
+        const bLost = b.status === 'committed_elsewhere' ? 1 : 0
+        if (aLost !== bLost) return aLost - bLost
+        if (sortBy === 'national') {
+          const an = natOf(a.p)
+          const bn = natOf(b.p)
+          if (an !== bn) return an - bn
+        } else if (sortBy === 'projected') {
+          const ap = projOf(a.p) ?? -1
+          const bp = projOf(b.p) ?? -1
+          if (bp !== ap) return bp - ap
+        }
+        const av = pctOf(a.p.pid) ?? -1
+        const bv = pctOf(b.p.pid) ?? -1
+        if (bv !== av) return bv - av
+        return (Number(b.p.stars) || 0) - (Number(a.p.stars) || 0)
+      })
+    }
     return rows
-  }, [targets, scores, sortBy, positionFilter])
+  }, [targets, scores, localScores, scoutStaffEnabled, sortBy, positionFilter, priorityOrder])
 
   if (targets.length === 0) {
     return (
@@ -252,9 +345,10 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
                 title="Sort targets"
                 className="w-full min-w-0 text-[11px] bg-surface-2 border border-surface-4 rounded-md px-1.5 py-1 text-txt-secondary hover:text-txt-primary focus:outline-none focus:border-surface-5"
               >
-                <option value="scoutscore">ScoutScore</option>
+                <option value="scoutscore">{scoutStaffEnabled ? 'Scout Grade' : 'ScoutScore'}</option>
                 <option value="projected">Projected Overall</option>
                 <option value="national">National Rank</option>
+                <option value="priority">My Priority</option>
               </select>
             </label>
             {onResolveTargets && (
@@ -269,7 +363,18 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
           {ranked.length === 0 ? (
             <div className="px-4 sm:px-5 py-8 text-center text-sm text-txt-tertiary">No targets at this position.</div>
           ) : ranked.map((r, i) => (
-            <Row key={r.p.pid} r={r} rank={i + 1} pathPrefix={pathPrefix} scoutResult={scores.get(r.p.pid)} scoring={scoring} sortBy={sortBy} />
+            <Row key={r.p.pid} r={r} rank={i + 1} pathPrefix={pathPrefix} scoutResult={scores.get(r.p.pid)} scoring={scoring} sortBy={sortBy} localScore={localScores.get(r.p.pid)} useLocalScores={scoutStaffEnabled}
+              draggable
+              onDragStart={() => { dragPid.current = r.p.pid }}
+              onDragOver={(e) => { e.preventDefault(); setDragOverPid(r.p.pid) }}
+              onDrop={() => {
+                reorderPriority(dragPid.current, r.p.pid)
+                dragPid.current = null
+                setDragOverPid(null)
+                if (sortBy !== 'priority') changeSortBy('priority')
+              }}
+              isDragOver={dragOverPid === r.p.pid}
+            />
           ))}
         </div>
       </section>

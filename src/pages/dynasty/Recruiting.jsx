@@ -128,7 +128,7 @@ export default function Recruiting() {
     && (currentDynasty?.players || []).some((p) => p?.isTarget && Number(p.targetYear) === viewingYear)
   const defaultTab = hasTargetsThisYear ? 'targets' : 'commitments'
   const tabParam = searchParams.get('tab')
-  const activeTab = tabParam === 'targets' ? 'targets' : tabParam === 'commitments' ? 'commitments' : defaultTab
+  const activeTab = tabParam === 'targets' ? 'targets' : tabParam === 'commitments' ? 'commitments' : tabParam === 'staff' ? 'staff' : defaultTab
   const setActiveTab = (t) => setParam('tab', t === defaultTab ? null : t, null)
 
   // In-app target resolution (Phase 4). openTargets is defined below, once
@@ -1162,7 +1162,7 @@ export default function Recruiting() {
 
         {/* Commitments / Targets tabs — docked under the hero title */}
         <div className="flex gap-1 px-3 sm:px-5" style={{ borderTop: '1px solid rgba(255,255,255,0.18)' }}>
-          {[{ k: 'commitments', l: 'Commitments' }, { k: 'targets', l: 'Targets' }].map(t => (
+          {[{ k: 'commitments', l: 'Commitments' }, { k: 'targets', l: 'Targets' }, { k: 'staff', l: 'Scout Staff' }].map(t => (
             <button
               key={t.k}
               type="button"
@@ -1333,6 +1333,7 @@ export default function Recruiting() {
                 interactive={!!linkPid}
                 playStyle={playStyle}
                 model={scoutModel}
+                scoutStaffEnabled={!!currentDynasty?.scoutStaffEnabled}
               />
             )
 
@@ -1356,10 +1357,16 @@ export default function Recruiting() {
           />
         </Card>
         )
-      ) : currentDynasty?.scoutStaffEnabled ? (
-        <Suspense fallback={<div className="py-12 text-center text-sm text-txt-tertiary">Loading Scout Staff…</div>}>
-          <ScoutStaff year={selectedYear} />
-        </Suspense>
+      ) : activeTab === 'staff' ? (
+        currentDynasty?.scoutStaffEnabled ? (
+          <Suspense fallback={<div className="py-12 text-center text-sm text-txt-tertiary">Loading Scout Staff…</div>}>
+            <ScoutStaff year={selectedYear} />
+          </Suspense>
+        ) : (
+          <Card>
+            <EmptyState title="Scout Staff is not enabled for this dynasty" />
+          </Card>
+        )
       ) : (
         <ScoutBoard
           dynasty={currentDynasty}
@@ -1371,6 +1378,7 @@ export default function Recruiting() {
           viewingOwnTeam={isOwnTeam}
           onResolveTargets={!isViewOnly && openTargets.length > 0 ? () => setShowResolveModal(true) : null}
           resolveCount={openTargets.length}
+          scoutStaffEnabled={!!currentDynasty?.scoutStaffEnabled}
         />
       )}
 
