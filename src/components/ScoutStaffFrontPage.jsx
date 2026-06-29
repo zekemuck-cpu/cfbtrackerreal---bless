@@ -4,9 +4,10 @@ import { computeScore } from './archetypeWeights';
 // =========================================================================
 // LIGHTWEIGHT INDEXEDDB MANAGER (Permanently Bypasses the 5MB Quota Limit)
 // =========================================================================
-import { getStaffData, saveStaffData, deleteStaffData } from './staffDB';
+import { createStaffAccessor } from './staffDB';
 
-export default function ScoutStaffFrontPage({ setView, currentTeamName = 'college football team', currentYear, coachName = '', teamColors, teamLogo, recruits = [], rosterWarnings = [], rosterSummary = null, outlookSummary = null }) {
+export default function ScoutStaffFrontPage({ setView, currentTeamName = 'college football team', currentYear, coachName = '', teamColors, teamLogo, recruits = [], rosterWarnings = [], rosterSummary = null, outlookSummary = null, dynastyId = null }) {
+  const { getStaffData, saveStaffData, deleteStaffData } = createStaffAccessor(dynastyId);
   const p = teamColors?.primary   || '#374151';
   const s = teamColors?.secondary || '#ffffff';
   // Live State Holders
@@ -36,25 +37,15 @@ export default function ScoutStaffFrontPage({ setView, currentTeamName = 'colleg
   const [scoutUrlText, setScoutUrlText] = useState('');
   const [analystUrlText, setAnalystUrlText] = useState('');
 
-  // localStorage keys used as backup for small text fields
-  const LS = {
-    scout_name:    'staff_scout_name',
-    analyst_name:  'staff_analyst_name',
-    scout_bio:     'staff_scout_bio',
-    analyst_bio:   'staff_analyst_bio',
-  };
-
   // Initial Boot-up: load names/images/bios immediately on mount
   useEffect(() => {
     async function loadBasicStaff() {
       const img1  = await getStaffData('scout_img');
       const img2  = await getStaffData('analyst_img');
-
-      // For text fields prefer IndexedDB; fall back to localStorage backup
-      const name1 = await getStaffData('scout_name')   || localStorage.getItem(LS.scout_name)   || '';
-      const name2 = await getStaffData('analyst_name') || localStorage.getItem(LS.analyst_name) || '';
-      const bio1  = await getStaffData('scout_bio')    || localStorage.getItem(LS.scout_bio)    || '';
-      const bio2  = await getStaffData('analyst_bio')  || localStorage.getItem(LS.analyst_bio)  || '';
+      const name1 = await getStaffData('scout_name')   || '';
+      const name2 = await getStaffData('analyst_name') || '';
+      const bio1  = await getStaffData('scout_bio')    || '';
+      const bio2  = await getStaffData('analyst_bio')  || '';
 
       if (img1)  setScoutImg(img1);
       if (img2)  setAnalystImg(img2);
@@ -110,11 +101,9 @@ export default function ScoutStaffFrontPage({ setView, currentTeamName = 'colleg
   const handleNameChange = async (val, slot) => {
     if (slot === 1) {
       setScoutName(val);
-      localStorage.setItem(LS.scout_name, val);
       await saveStaffData('scout_name', val);
     } else {
       setAnalystName(val);
-      localStorage.setItem(LS.analyst_name, val);
       await saveStaffData('analyst_name', val);
     }
   };
@@ -122,11 +111,9 @@ export default function ScoutStaffFrontPage({ setView, currentTeamName = 'colleg
   const handleBioChange = async (val, slot) => {
     if (slot === 1) {
       setScoutBio(val);
-      localStorage.setItem(LS.scout_bio, val);
       await saveStaffData('scout_bio', val);
     } else {
       setAnalystBio(val);
-      localStorage.setItem(LS.analyst_bio, val);
       await saveStaffData('analyst_bio', val);
     }
   };
@@ -459,45 +446,36 @@ Staff Note: (${coachLine}Write a tight one-liner that tells the mini origin stor
     }
 
     // Program Outlook summary rows
+    const ALL_POS = ['QB','HB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS'];
     let outlookRows = null;
+
     if (outlookSummary) {
-      const POSITIONS = ['QB','HB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS'];
+      // Full detail from Program Outlook — use its verdicts and labels
       const actionRows = [];
       const coveredList = [];
-
-      POSITIONS.forEach(pos => {
+      ALL_POS.forEach(pos => {
         const s = outlookSummary[pos];
         if (!s) return;
         const vk = s.verdictKey;
-        if (vk === 'no-investment' || !vk) {
+        if (!vk || vk === 'no-investment' || vk === 'covered' || vk === 'monitor') {
           coveredList.push(pos);
           return;
         }
-        if (vk === 'covered' || vk === 'monitor') {
-          coveredList.push(pos);
-          return;
-        }
-        // Has a sub-position summary — check individual sides
         if (s.subPositionSummary?.length >= 2) {
           const needsSides = s.subPositionSummary.filter(sg => sg.needsPortal);
           if (needsSides.length > 0 && needsSides.length < s.subPositionSummary.length) {
             needsSides.forEach(sg => {
               actionRows.push({ pos: sg.label, label: '1 portal target', flag: vk === 'critical' ? 'critical' : 'depth' });
             });
-            const okSides = s.subPositionSummary.filter(sg => !sg.needsPortal);
-            okSides.forEach(sg => coveredList.push(sg.label));
+            s.subPositionSummary.filter(sg => !sg.needsPortal).forEach(sg => coveredList.push(sg.label));
             return;
           }
         }
-        const label = s.label;
         const flag = vk === 'critical' ? 'critical' : 'depth';
-        if (label) actionRows.push({ pos, label, flag });
-        else if (vk === 'depth-needed') actionRows.push({ pos, label: 'depth work needed', flag: 'depth' });
+        const label = s.label || (vk === 'depth-needed' ? 'depth work needed' : 'needs attention');
+        actionRows.push({ pos, label, flag });
       });
-
-      if (actionRows.length > 0 || coveredList.length > 0) {
-        outlookRows = { actionRows, coveredList };
-      }
+      if (actionRows.length > 0 || coveredList.length > 0) outlookRows = { actionRows, coveredList };
     }
 
     return { headline, info: info.slice(0, 3), rosterLine, criticals, pipelines, outlookRows };
@@ -729,79 +707,152 @@ Staff Note: (${coachLine}Write a tight one-liner that tells the mini origin stor
             <p className="text-[9px] text-txt-tertiary">from {analystName}</p>
           </div>
 
-          {!briefData ? (
-            <div className="flex-1 p-5 flex items-center justify-center">
-              <p className="text-[10px] text-txt-tertiary italic text-center leading-relaxed">
-                No roster or board data yet.<br/>Add players and targets on the Recruiting page.
-              </p>
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+          <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
 
-              {/* Program Outlook notes */}
-              <div className="mx-4 mt-4 rounded-lg px-3 py-2.5 space-y-2" style={{ background: 'rgba(148,163,184,0.06)', border: '1px solid rgba(148,163,184,0.12)' }}>
-                <p className="text-[8px] font-black uppercase tracking-[0.12em] text-slate-400">Program Outlook</p>
-                {briefData.outlookRows ? (
-                  <>
-                    {briefData.outlookRows.actionRows.length > 0 && (
-                      <div className="space-y-1">
-                        {briefData.outlookRows.actionRows.map((row, i) => (
-                          <div key={i} className="flex items-start gap-2">
-                            <span className={`mt-[5px] w-1.5 h-1.5 rounded-full shrink-0 ${row.flag === 'critical' ? 'bg-red-500' : 'bg-amber-400'}`} />
-                            <p className={`text-[10px] leading-snug ${row.flag === 'critical' ? 'text-red-300/80' : 'text-amber-300/70'}`}>
-                              <span className="font-bold">{row.pos}</span> — {row.label}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {briefData.outlookRows.coveredList.length > 0 && (
-                      <div className={`flex items-start gap-2 ${briefData.outlookRows.actionRows.length > 0 ? 'pt-1 border-t border-slate-800/40' : ''}`}>
-                        <span className="mt-[5px] w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500" />
-                        <p className="text-[10px] text-emerald-400/60 leading-snug">
-                          {briefData.outlookRows.coveredList.join(', ')} — covered
-                        </p>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-[9px] text-txt-tertiary italic">Visit Program Outlook to generate position notes.</p>
-                )}
-              </div>
-
-              {/* Recent board additions */}
-              {recruits.length > 0 && (() => {
-                const recent = [...recruits].sort((a, b) => b.addedIndex - a.addedIndex).slice(0, 3);
+            {/* ── PROGRAM OUTLOOK SNAPSHOT ── */}
+            <div className="px-4 pt-4 pb-3 border-b border-surface-4">
+              <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-500 mb-3">Position Status</p>
+              {briefData?.outlookRows ? (() => {
+                const crits  = briefData.outlookRows.actionRows.filter(r => r.flag === 'critical');
+                const depths = briefData.outlookRows.actionRows.filter(r => r.flag === 'depth');
+                const nCovered = briefData.outlookRows.coveredList.length;
+                const allClear = crits.length === 0 && depths.length === 0;
                 return (
-                  <div className="mx-4 mt-3 mb-4 rounded-lg px-3 py-2.5 space-y-2" style={{ background: 'rgba(148,163,184,0.06)', border: '1px solid rgba(148,163,184,0.12)' }}>
-                    <p className="text-[8px] font-black uppercase tracking-[0.12em] text-slate-400">Recently Filed</p>
-                    <div className="space-y-1.5">
-                      {recent.map((r, i) => {
-                        const devNote = r.devTrait && r.devTrait !== 'Hidden' ? ` · ${r.devTrait}` : '';
-                        const typeNote = r.isPortal ? ' · Portal' : '';
-                        return (
-                          <div key={i} className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="text-[10px] font-bold text-txt-primary truncate">{r.name}</span>
-                              <span className="text-[9px] text-txt-tertiary shrink-0">{r.position}{devNote}{typeNote}</span>
-                            </div>
-                            {r.stars > 0 && (
-                              <span className="text-[9px] font-bold text-amber-400 shrink-0">{r.stars}★</span>
-                            )}
-                          </div>
-                        );
-                      })}
+                  <div className="space-y-3">
+                    {/* At-a-glance counts */}
+                    <div className="flex items-end gap-5">
+                      {crits.length > 0 && (
+                        <div>
+                          <p className="text-[26px] font-black leading-none text-red-400">{crits.length}</p>
+                          <p className="text-[7px] font-bold uppercase tracking-widest text-red-400/50 mt-0.5">critical</p>
+                        </div>
+                      )}
+                      {depths.length > 0 && (
+                        <div>
+                          <p className="text-[26px] font-black leading-none text-amber-400">{depths.length}</p>
+                          <p className="text-[7px] font-bold uppercase tracking-widest text-amber-400/50 mt-0.5">depth</p>
+                        </div>
+                      )}
+                      <div>
+                        <p className={`text-[26px] font-black leading-none ${allClear ? 'text-emerald-400' : 'text-slate-400'}`}>{nCovered}</p>
+                        <p className={`text-[7px] font-bold uppercase tracking-widest mt-0.5 ${allClear ? 'text-emerald-400/50' : 'text-slate-500'}`}>set</p>
+                      </div>
                     </div>
+
+                    {/* Summary sentences */}
+                    {allClear ? (
+                      <p className="text-[10px] text-slate-400 leading-snug">All positions are in good shape. Nothing urgent on the roster right now.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {crits.length > 0 && (
+                          <p className="text-[10px] leading-snug text-slate-300">
+                            <span className="text-red-400 font-semibold">{crits.map(r => r.pos).join(', ')}</span>
+                            {crits.length === 1 ? ' has a gap' : ' have gaps'} that need to be addressed before next season.
+                          </p>
+                        )}
+                        {depths.length > 0 && (
+                          <p className="text-[10px] leading-snug text-slate-400">
+                            <span className="text-amber-400/80 font-semibold">{depths.map(r => r.pos).join(', ')}</span>
+                            {depths.length === 1 ? ' is running light' : ' are running light'} on depth in the next couple years.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => setView('analysis')}
+                      className="text-[9px] text-slate-500 hover:text-slate-300 transition-colors font-medium tracking-wide"
+                    >
+                      Program Outlook →
+                    </button>
                   </div>
                 );
-              })()}
-
-              {/* Sign-off */}
-              <div className="mt-auto px-5 py-3 border-t border-surface-4">
-                <p className="text-[9px] text-txt-tertiary">— {analystName}</p>
-              </div>
+              })() : (
+                <button onClick={() => setView('analysis')} className="w-full rounded-lg px-3 py-3 border border-dashed border-slate-700 text-[9px] text-slate-500 hover:border-slate-500 hover:text-slate-400 transition-colors text-center">
+                  Open Program Outlook to generate position notes
+                </button>
+              )}
             </div>
-          )}
+
+            {/* ── RECRUITING PLAN ── */}
+            {outlookSummary && (() => {
+              const POSITIONS = ['QB','HB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS'];
+              const rows = POSITIONS
+                .map(pos => ({ pos, hs: outlookSummary[pos]?.hsMin ?? 0, portal: outlookSummary[pos]?.portalMin ?? 0 }))
+                .filter(r => r.hs > 0 || r.portal > 0);
+              if (!rows.length) return null;
+              const totalHs     = rows.reduce((s, r) => s + r.hs, 0);
+              const totalPortal = rows.reduce((s, r) => s + r.portal, 0);
+              return (
+                <div className="px-4 pt-3 pb-3 border-b border-surface-4">
+                  <div className="flex items-center justify-between mb-2.5">
+                    <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-500">Recruiting Plan</p>
+                    <div className="flex items-center gap-2">
+                      {totalHs > 0 && <span className="text-[7px] font-bold text-slate-400">{totalHs} HS</span>}
+                      {totalHs > 0 && totalPortal > 0 && <span className="text-slate-700 text-[7px]">·</span>}
+                      {totalPortal > 0 && <span className="text-[7px] font-bold text-purple-400">{totalPortal} Portal</span>}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    {rows.map((r, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="text-[9px] font-display font-black tracking-wide text-slate-400 w-8 shrink-0">{r.pos}</span>
+                        <div className="flex items-center gap-1.5">
+                          {r.hs > 0 && (
+                            <span className="text-[8px] font-bold px-2 py-0.5 rounded bg-sky-950 border border-sky-700 text-sky-300">
+                              {r.hs} HS
+                            </span>
+                          )}
+                          {r.portal > 0 && (
+                            <span className="text-[8px] font-bold px-2 py-0.5 rounded bg-purple-950 border border-purple-800 text-purple-300">
+                              {r.portal} Portal
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── RECENTLY FILED ── */}
+            {recruits.length > 0 && (() => {
+              const recent = [...recruits].sort((a, b) => b.addedIndex - a.addedIndex).slice(0, 3);
+              return (
+                <div className="px-4 pt-3 pb-4 border-b border-surface-4">
+                  <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-500 mb-2.5">Recently Filed</p>
+                  <div className="space-y-1.5">
+                    {recent.map((r, i) => {
+                      const showDev = r.devTrait && r.devTrait !== 'Hidden';
+                      return (
+                        <div key={i} className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 bg-slate-800/40 border border-slate-700/40">
+                          <span className={`text-[8px] font-display font-black tracking-wide px-1.5 py-0.5 rounded shrink-0 ${r.isPortal ? 'bg-purple-950 border border-purple-800 text-purple-300' : 'bg-slate-700 border border-slate-600 text-slate-300'}`}>{r.position}</span>
+                          <span className="text-[11px] font-bold text-txt-primary truncate flex-1">{r.name}</span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {showDev && (
+                              <span className={`text-[7px] font-black uppercase tracking-wide px-1 py-0.5 rounded border ${
+                                r.devTrait === 'Elite' ? 'bg-yellow-950 border-yellow-700 text-yellow-400'
+                                : r.devTrait === 'Star' ? 'bg-sky-950 border-sky-700 text-sky-400'
+                                : r.devTrait === 'Impact' ? 'bg-emerald-950 border-emerald-700 text-emerald-400'
+                                : 'bg-slate-800 border-slate-600 text-slate-400'
+                              }`}>{r.devTrait}</span>
+                            )}
+                            {r.stars > 0 && <span className="text-[10px] font-bold text-amber-400">{r.stars}★</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Sign-off */}
+            <div className="mt-auto px-4 py-3">
+              <p className="text-[9px] text-txt-tertiary">— {analystName}</p>
+            </div>
+          </div>
         </div>
 
       </div>{/* end hero row */}

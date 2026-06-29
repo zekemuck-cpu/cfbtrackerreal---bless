@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { getStaffData } from './staffDB';
+import { createStaffAccessor } from './staffDB';
 import FrontPage from './ScoutStaffFrontPage';
 import PlayerDatabase from './PlayerDatabase';
 import ScoutAnalysis from './ScoutAnalysis';
@@ -17,12 +17,15 @@ export default function ScoutStaff({ year } = {}) {
   const teamLogo   = currentDynasty?.teams?.[currentDynasty?.currentTid]?.logo || '';
   const [subView, setSubView] = useState('home');
   const [outlookSummary, setOutlookSummary] = useState(null);
+  const dynastyId = currentDynasty?.id ?? null;
 
   useEffect(() => {
+    if (!dynastyId) return;
+    const { getStaffData } = createStaffAccessor(dynastyId);
     getStaffData('analysis_outlook_summary').then(raw => {
       if (raw) try { setOutlookSummary(JSON.parse(raw)); } catch {}
     });
-  }, []);
+  }, [dynastyId]);
 
   // The recruit board IS the recruiting Targets board — a single shared source.
   // Targets entered via the recruiting sheet (dynasty.players, isTarget) flow
@@ -249,14 +252,19 @@ export default function ScoutStaff({ year } = {}) {
 
   return (
     <div className="w-full space-y-4">
-      {subView === 'home' && <FrontPage setView={setSubView} currentTeamName={currentDynasty?.teamName || 'college football team'} currentYear={currentDynasty?.currentYear || new Date().getFullYear()} coachName={currentDynasty?.coachName || ''} recruits={recruits} rosterWarnings={rosterWarnings} rosterSummary={rosterSummary} outlookSummary={outlookSummary} {...teamTheme} />}
+      {subView === 'home' && <FrontPage setView={setSubView} currentTeamName={currentDynasty?.teamName || 'college football team'} currentYear={currentDynasty?.currentYear || new Date().getFullYear()} coachName={currentDynasty?.coachName || ''} recruits={recruits} rosterWarnings={rosterWarnings} rosterSummary={rosterSummary} outlookSummary={outlookSummary} dynastyId={dynastyId} {...teamTheme} />}
 
       {/* Read-only: mirrors the recruiting Targets sheet. Freshmen and portal targets are split. */}
-      {subView === 'database'   && <PlayerDatabase players={freshmanRecruits} roleContext="Regional Scout" {...teamTheme} onGoToThresholds={() => setSubView('thresholds')} onBack={goHome} />}
-      {subView === 'thresholds' && <ThresholdLookup players={recruits} roleContext="Data Analyst" {...teamTheme} onGoToDatabase={() => setSubView('database')} onBack={goHome} />}
-      {subView === 'analysis'   && <ScoutAnalysis players={recruits} roleContext="Data Analyst" {...teamTheme} dynasty={currentDynasty} committedRecruits={committedRecruits} onBack={goHome} onOutlookReady={data => { setOutlookSummary(data); }} />}
+      {subView === 'database'   && <PlayerDatabase players={freshmanRecruits} roleContext="Regional Scout" dynastyId={dynastyId} {...teamTheme} onGoToThresholds={() => setSubView('thresholds')} onBack={goHome} />}
+      {subView === 'thresholds' && <ThresholdLookup players={recruits} roleContext="Data Analyst" dynastyId={dynastyId} {...teamTheme} onGoToDatabase={() => setSubView('database')} onBack={goHome} />}
       {subView === 'counts'     && <PlayerCount players={recruits} roleContext="Regional Scout" {...teamTheme} committedRecruits={committedRecruits} currentYear={currentDynasty?.currentYear} onBack={goHome} />}
-      {subView === 'portal'     && <PlayerDatabase players={portalRecruits} roleContext="Regional Scout" portalMode {...teamTheme} onGoToThresholds={() => setSubView('thresholds')} onBack={goHome} />}
+      {subView === 'portal'     && <PlayerDatabase players={portalRecruits} roleContext="Regional Scout" portalMode dynastyId={dynastyId} {...teamTheme} onGoToThresholds={() => setSubView('thresholds')} onBack={goHome} />}
+
+      {/* Always mounted so allHubs recomputes live whenever recruits or roster data changes.
+          Hidden when not on the analysis view — UI is invisible but computation runs. */}
+      <div className={subView === 'analysis' ? '' : 'hidden'}>
+        <ScoutAnalysis players={recruits} roleContext="Data Analyst" {...teamTheme} dynasty={currentDynasty} committedRecruits={committedRecruits} onBack={goHome} onOutlookReady={data => { setOutlookSummary(data); }} />
+      </div>
     </div>
   );
 }

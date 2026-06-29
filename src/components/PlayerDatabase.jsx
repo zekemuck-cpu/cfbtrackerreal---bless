@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getStaffData } from './staffDB';
+import { createStaffAccessor } from './staffDB';
 import { archetypeBaseScore } from './archetypeWeights';
 
 // ── Grade tier definitions ───────────────────────────────────────────────────
@@ -834,7 +834,8 @@ function EditModal({ player, onSave, onClose }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function PlayerDatabase({ players, roleContext, teamColors, teamLogo, onDelete, onEdit, onGoToInput, onGoToThresholds, onBack, portalMode = false }) {
+export default function PlayerDatabase({ players, roleContext, teamColors, teamLogo, onDelete, onEdit, onGoToInput, onGoToThresholds, onBack, portalMode = false, dynastyId = null }) {
+  const { getStaffData } = createStaffAccessor(dynastyId);
   const p = teamColors?.primary || '#374151';
   const [filterPos, setFilterPos] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');

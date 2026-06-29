@@ -64,3 +64,14 @@ export const deleteStaffData = async (key) => {
     console.warn('[staffDB] deleteStaffData failed for key:', key, err);
   }
 };
+
+// Returns prefixed versions of the three DB functions scoped to a specific dynasty.
+// Pass the result into components instead of importing the raw functions directly.
+export const createStaffAccessor = (dynastyId) => {
+  const k = key => dynastyId ? `${dynastyId}:${key}` : key;
+  return {
+    getStaffData:    (key)      => getStaffData(k(key)),
+    saveStaffData:   (key, val) => saveStaffData(k(key), val),
+    deleteStaffData: (key)      => deleteStaffData(k(key)),
+  };
+};

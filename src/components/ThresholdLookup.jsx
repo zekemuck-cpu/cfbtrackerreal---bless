@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getStaffData } from './staffDB';
+import { createStaffAccessor } from './staffDB';
 import { computeScore, topAttrs, normalizeArch, ARCHETYPE_WEIGHTS } from './archetypeWeights';
 import { RECRUIT_FORM_OVERRIDES, BASE_POSITION_CONFIG } from './ScoutingReport';
 
@@ -536,7 +536,8 @@ const PROFILES = {
 export const POSITIONS = ['QB','HB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','ATH'];
 export { PROFILES };
 
-export default function ThresholdLookup({ players = [], teamColors, teamLogo, onGoToDatabase, onBack }) {
+export default function ThresholdLookup({ players = [], teamColors, teamLogo, onGoToDatabase, onBack, dynastyId = null }) {
+  const { getStaffData } = createStaffAccessor(dynastyId);
   const p = teamColors?.primary || '#374151';
   const [activePos, setActivePos] = useState('QB');
   const [activeArch, setActiveArch] = useState('Pocket Passer');
