@@ -6,7 +6,7 @@ import { computeScore } from './archetypeWeights';
 // =========================================================================
 import { getStaffData, saveStaffData, deleteStaffData } from './staffDB';
 
-export default function ScoutStaffFrontPage({ setView, currentTeamName = 'college football team', currentYear, coachName = '', teamColors, teamLogo, recruits = [], rosterWarnings = [] }) {
+export default function ScoutStaffFrontPage({ setView, currentTeamName = 'college football team', currentYear, coachName = '', teamColors, teamLogo, recruits = [], rosterWarnings = [], rosterSummary = null, outlookSummary = null }) {
   const p = teamColors?.primary   || '#374151';
   const s = teamColors?.secondary || '#ffffff';
   // Live State Holders
@@ -391,59 +391,117 @@ Staff Note: (${coachLine}Write a tight one-liner that tells the mini origin stor
 
   const briefData = useMemo(() => {
     const { scored, total, t1, t2, t4 } = analysisData;
-    if (!total) return null;
+    const hasBoard = total > 0;
+    const hasRoster = rosterSummary && rosterSummary.total > 0;
+
+    if (!hasBoard && !hasRoster) return null;
 
     const hiddenDev = d => !d || d === 'Hidden' || d === 'hidden' || d === '';
 
-    const eliteDevs  = scored.filter(r => r.devTrait === 'Elite');
-    const starDevs   = scored.filter(r => r.devTrait === 'Star');
-    const hiddenDevs = scored.filter(r => hiddenDev(r.devTrait));
-    const portalCount = scored.filter(r => r.isPortal).length;
+    // Roster line (always shown when roster data exists)
+    let rosterLine = null;
+    if (hasRoster) {
+      const { returning, leaving, available } = rosterSummary;
+      rosterLine = `${returning} returning · ${leaving} graduating · ${available} open spot${available !== 1 ? 's' : ''}`;
+    }
 
-    // Headline — single most important thing right now
+    // Critical / pipeline position flags
+    const criticals = rosterSummary?.criticalPositions ?? [];
+    const pipelines = rosterSummary?.pipelinePositions ?? [];
+
+    // Headline — board-driven if board exists, roster-driven otherwise
     let headline;
-    if (t1 >= 2) {
-      const names = scored.filter(r => r.score >= 88).slice(0, 2).map(r => r.name).join(' and ');
-      headline = `${names} are both elite-tier. Someone's getting them soon — make sure it's us.`;
-    } else if (t1 === 1) {
-      const top = scored.find(r => r.score >= 88);
-      headline = `${top.name} is the only elite prospect on the board. He's the whole conversation.`;
-    } else if (t1 === 0 && t2 === 0) {
-      headline = `No premium talent on this board. The entire class needs to be upgraded.`;
-    } else if (t4 > total * 0.6 && total > 3) {
-      headline = `Board's loaded with depth guys. Need to find ceiling talent before this class locks in.`;
-    } else {
-      const top = scored[0];
-      headline = `${top.name} leads the board at ${top.position}. ${t1 + t2} premium prospects — class is taking shape.`;
+    if (hasBoard) {
+      if (t1 >= 2) {
+        const names = scored.filter(r => r.score >= 88).slice(0, 2).map(r => r.name).join(' and ');
+        headline = `${names} are both elite-tier. Someone's getting them soon — make sure it's us.`;
+      } else if (t1 === 1) {
+        const top = scored.find(r => r.score >= 88);
+        headline = `${top.name} is the only elite prospect on the board. He's the whole conversation.`;
+      } else if (t1 === 0 && t2 === 0) {
+        headline = `No premium talent on this board. The entire class needs to be upgraded.`;
+      } else if (t4 > total * 0.6 && total > 3) {
+        headline = `Board's loaded with depth guys. Need to find ceiling talent before this class locks in.`;
+      } else {
+        const top = scored[0];
+        headline = `${top.name} leads the board at ${top.position}. ${t1 + t2} premium prospects — class is taking shape.`;
+      }
+    } else if (criticals.length > 0) {
+      headline = `${criticals.slice(0, 2).join(' and ')} ${criticals.length === 1 ? 'is a critical need' : 'are critical needs'} — no targets on the board yet.`;
+    } else if (hasRoster) {
+      const { available } = rosterSummary;
+      headline = `${available} spot${available !== 1 ? 's' : ''} to fill this class. No targets filed yet — open the board.`;
     }
 
-    // Info bullets (green / neutral)
+    // Board intel bullets
     const info = [];
+    if (hasBoard) {
+      info.push({ text: `${total} prospects on file — ${t1} elite, ${t2} solid, ${t4} depth`, flag: t1 > 0 ? 'good' : 'neutral' });
 
-    info.push({
-      text: `${total} prospects on file — ${t1} elite, ${t2} solid, ${t4} depth`,
-      flag: t1 > 0 ? 'good' : 'neutral',
-    });
+      const top = scored[0];
+      if (top) {
+        const topDevNote = top.devTrait && !hiddenDev(top.devTrait) ? ` — ${top.devTrait} dev` : '';
+        info.push({ text: `${top.name} (${top.position}) leads at ${top.score.toFixed(0)} composite${topDevNote}`, flag: top.score >= 88 ? 'good' : 'neutral' });
+      }
 
-    const top = scored[0];
-    const topDevNote = top.devTrait && !hiddenDev(top.devTrait) ? ` — ${top.devTrait} dev` : '';
-    info.push({
-      text: `${top.name} (${top.position}) leads at ${top.score.toFixed(0)} composite${topDevNote}`,
-      flag: top.score >= 88 ? 'good' : 'neutral',
-    });
+      const eliteDevs = scored.filter(r => r.devTrait === 'Elite');
+      const starDevs  = scored.filter(r => r.devTrait === 'Star');
+      if (eliteDevs.length > 0) {
+        info.push({ text: `${eliteDevs.map(r => r.name).join(', ')} — Elite dev confirmed`, flag: 'good' });
+      } else if (starDevs.length > 0) {
+        info.push({ text: `${starDevs.length} Star dev${starDevs.length > 1 ? 's' : ''} — ${starDevs.slice(0, 2).map(r => r.name).join(', ')}`, flag: 'good' });
+      }
 
-    if (eliteDevs.length > 0) {
-      info.push({ text: `${eliteDevs.map(r => r.name).join(', ')} — Elite dev confirmed`, flag: 'good' });
-    } else if (starDevs.length > 0) {
-      info.push({ text: `${starDevs.length} Star dev${starDevs.length > 1 ? 's' : ''} — ${starDevs.slice(0, 2).map(r => r.name).join(', ')}`, flag: 'good' });
+      const portalCount = scored.filter(r => r.isPortal).length;
+      if (portalCount > 0 && portalCount <= total * 0.5) {
+        info.push({ text: `${portalCount} portal transfer${portalCount > 1 ? 's' : ''} in the mix`, flag: 'neutral' });
+      }
     }
 
-    if (portalCount > 0 && portalCount <= total * 0.5) {
-      info.push({ text: `${portalCount} portal transfer${portalCount > 1 ? 's' : ''} in the mix`, flag: 'neutral' });
+    // Program Outlook summary rows
+    let outlookRows = null;
+    if (outlookSummary) {
+      const POSITIONS = ['QB','HB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS'];
+      const actionRows = [];
+      const coveredList = [];
+
+      POSITIONS.forEach(pos => {
+        const s = outlookSummary[pos];
+        if (!s) return;
+        const vk = s.verdictKey;
+        if (vk === 'no-investment' || !vk) {
+          coveredList.push(pos);
+          return;
+        }
+        if (vk === 'covered' || vk === 'monitor') {
+          coveredList.push(pos);
+          return;
+        }
+        // Has a sub-position summary — check individual sides
+        if (s.subPositionSummary?.length >= 2) {
+          const needsSides = s.subPositionSummary.filter(sg => sg.needsPortal);
+          if (needsSides.length > 0 && needsSides.length < s.subPositionSummary.length) {
+            needsSides.forEach(sg => {
+              actionRows.push({ pos: sg.label, label: '1 portal target', flag: vk === 'critical' ? 'critical' : 'depth' });
+            });
+            const okSides = s.subPositionSummary.filter(sg => !sg.needsPortal);
+            okSides.forEach(sg => coveredList.push(sg.label));
+            return;
+          }
+        }
+        const label = s.label;
+        const flag = vk === 'critical' ? 'critical' : 'depth';
+        if (label) actionRows.push({ pos, label, flag });
+        else if (vk === 'depth-needed') actionRows.push({ pos, label: 'depth work needed', flag: 'depth' });
+      });
+
+      if (actionRows.length > 0 || coveredList.length > 0) {
+        outlookRows = { actionRows, coveredList };
+      }
     }
 
-    return { headline, info: info.slice(0, 3) };
-  }, [analysisData]);
+    return { headline, info: info.slice(0, 3), rosterLine, criticals, pipelines, outlookRows };
+  }, [analysisData, rosterSummary, outlookSummary]);
 
   return (
     <div className="space-y-6 relative">
@@ -674,38 +732,69 @@ Staff Note: (${coachLine}Write a tight one-liner that tells the mini origin stor
           {!briefData ? (
             <div className="flex-1 p-5 flex items-center justify-center">
               <p className="text-[10px] text-txt-tertiary italic text-center leading-relaxed">
-                No prospects on file yet.<br/>Add targets on the Recruiting page to activate the brief.
+                No roster or board data yet.<br/>Add players and targets on the Recruiting page.
               </p>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col min-h-0">
-              {/* Headline */}
-              <div className="px-5 pt-4 pb-3">
-                <p className="text-[13px] font-bold text-txt-primary leading-snug">{briefData.headline}</p>
+            <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+
+              {/* Program Outlook notes */}
+              <div className="mx-4 mt-4 rounded-lg px-3 py-2.5 space-y-2" style={{ background: 'rgba(148,163,184,0.06)', border: '1px solid rgba(148,163,184,0.12)' }}>
+                <p className="text-[8px] font-black uppercase tracking-[0.12em] text-slate-400">Program Outlook</p>
+                {briefData.outlookRows ? (
+                  <>
+                    {briefData.outlookRows.actionRows.length > 0 && (
+                      <div className="space-y-1">
+                        {briefData.outlookRows.actionRows.map((row, i) => (
+                          <div key={i} className="flex items-start gap-2">
+                            <span className={`mt-[5px] w-1.5 h-1.5 rounded-full shrink-0 ${row.flag === 'critical' ? 'bg-red-500' : 'bg-amber-400'}`} />
+                            <p className={`text-[10px] leading-snug ${row.flag === 'critical' ? 'text-red-300/80' : 'text-amber-300/70'}`}>
+                              <span className="font-bold">{row.pos}</span> — {row.label}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {briefData.outlookRows.coveredList.length > 0 && (
+                      <div className={`flex items-start gap-2 ${briefData.outlookRows.actionRows.length > 0 ? 'pt-1 border-t border-slate-800/40' : ''}`}>
+                        <span className="mt-[5px] w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500" />
+                        <p className="text-[10px] text-emerald-400/60 leading-snug">
+                          {briefData.outlookRows.coveredList.join(', ')} — covered
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-[9px] text-txt-tertiary italic">Visit Program Outlook to generate position notes.</p>
+                )}
               </div>
 
-              {/* Board Intel bullets */}
-              <div className="px-5 pb-3 space-y-2">
-                {briefData.info.map((b, i) => (
-                  <div key={i} className="flex items-start gap-2.5">
-                    <span className={`mt-[5px] w-1.5 h-1.5 rounded-full shrink-0 ${b.flag === 'good' ? 'bg-emerald-400' : 'bg-slate-500'}`} />
-                    <p className="text-[11px] text-txt-secondary leading-snug">{b.text}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Roster Concerns */}
-              {rosterWarnings.length > 0 && (
-                <div className="mx-4 mb-3 rounded-lg px-3 py-2.5 space-y-2" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.12)' }}>
-                  <p className="text-[8px] font-black uppercase tracking-[0.12em] text-red-500/70">Roster Concerns</p>
-                  {rosterWarnings.map((w, i) => (
-                    <div key={i} className="flex items-start gap-2.5">
-                      <span className="mt-[5px] w-1.5 h-1.5 rounded-full shrink-0 bg-red-500/70" />
-                      <p className="text-[11px] text-red-300/70 leading-snug">{w}</p>
+              {/* Recent board additions */}
+              {recruits.length > 0 && (() => {
+                const recent = [...recruits].sort((a, b) => b.addedIndex - a.addedIndex).slice(0, 3);
+                return (
+                  <div className="mx-4 mt-3 mb-4 rounded-lg px-3 py-2.5 space-y-2" style={{ background: 'rgba(148,163,184,0.06)', border: '1px solid rgba(148,163,184,0.12)' }}>
+                    <p className="text-[8px] font-black uppercase tracking-[0.12em] text-slate-400">Recently Filed</p>
+                    <div className="space-y-1.5">
+                      {recent.map((r, i) => {
+                        const devNote = r.devTrait && r.devTrait !== 'Hidden' ? ` · ${r.devTrait}` : '';
+                        const typeNote = r.isPortal ? ' · Portal' : '';
+                        return (
+                          <div key={i} className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-[10px] font-bold text-txt-primary truncate">{r.name}</span>
+                              <span className="text-[9px] text-txt-tertiary shrink-0">{r.position}{devNote}{typeNote}</span>
+                            </div>
+                            {r.stars > 0 && (
+                              <span className="text-[9px] font-bold text-amber-400 shrink-0">{r.stars}★</span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
-              )}
+                  </div>
+                );
+              })()}
 
               {/* Sign-off */}
               <div className="mt-auto px-5 py-3 border-t border-surface-4">
@@ -720,9 +809,9 @@ Staff Note: (${coachLine}Write a tight one-liner that tells the mini origin stor
       {/* ── ACTION CARDS ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[
-          { view: 'database',   label: 'Player Database',    sub: 'Complete Data Storage' },
+          { view: 'database',   label: 'Recruiting Database', sub: 'True Freshmen Only' },
           { view: 'thresholds', label: 'Threshold Lookup',   sub: 'Player Comparison Tool' },
-          { view: 'analysis',   label: 'Data Analysis',      sub: 'Staff Recommendations' },
+          { view: 'analysis',   label: 'Program Outlook',    sub: 'Staff Recommendations' },
           { view: 'counts',     label: 'Player Count',       sub: 'Current Overview' },
           { view: 'portal',     label: 'Portal Board',       sub: 'Transfer Commits' },
         ].map(({ view, label, sub }) => (

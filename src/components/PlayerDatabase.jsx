@@ -834,7 +834,7 @@ function EditModal({ player, onSave, onClose }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function PlayerDatabase({ players, roleContext, teamColors, teamLogo, onDelete, onEdit, onGoToInput, onGoToThresholds, onBack }) {
+export default function PlayerDatabase({ players, roleContext, teamColors, teamLogo, onDelete, onEdit, onGoToInput, onGoToThresholds, onBack, portalMode = false }) {
   const p = teamColors?.primary || '#374151';
   const [filterPos, setFilterPos] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -932,7 +932,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
 
       {/* Header strip */}
       <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-surface-4">
-        <h2 className="text-sm font-display font-bold uppercase text-txt-primary">Player Database</h2>
+        <h2 className="text-sm font-display font-bold uppercase text-txt-primary">{portalMode ? 'Transfer Portal Board' : 'Recruiting Database'}</h2>
         <div className="flex items-center gap-2 flex-shrink-0">
           {onGoToInput && (
             <button onClick={onGoToInput} className="text-xs text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
@@ -1032,6 +1032,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
               <tr className="text-[10px] font-semibold uppercase tracking-widest text-txt-tertiary bg-surface-3 border-b border-surface-4">
                 <SortTh sortKey="recency">Recent</SortTh>
                 <SortTh sortKey="name">Prospect</SortTh>
+                {portalMode && <th className="p-3.5 text-slate-500 whitespace-nowrap">From</th>}
                 <SortTh sortKey="score" className="text-center">Grade</SortTh>
                 <SortTh sortKey="group">Group</SortTh>
                 <SortTh sortKey="position">Pos</SortTh>
@@ -1046,8 +1047,12 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
             <tbody className="divide-y divide-surface-4 text-xs">
               {filteredPlayers.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="p-12 text-center text-txt-tertiary text-xs">
-                    No scouting logs found matching active criteria.
+                  <td colSpan={portalMode ? 11 : 10} className="p-12 text-center text-txt-tertiary text-xs">
+                    {players.length === 0
+                      ? portalMode
+                        ? 'No transfer targets on the board yet. Add portal players via the Recruiting page.'
+                        : 'No scouting logs found. Add freshman targets via the Recruiting page.'
+                      : 'No prospects matching active filters.'}
                   </td>
                 </tr>
               ) : (
@@ -1064,6 +1069,11 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                     >
                       <td className="p-3.5 text-center text-[10px] tabular-nums text-txt-tertiary">{pl.addedIndex != null ? pl.addedIndex + 1 : '—'}</td>
                       <td className="p-3.5 font-semibold text-txt-secondary group-hover:text-txt-primary transition">{pl.name}</td>
+                      {portalMode && (
+                        <td className="p-3.5 text-[10px] text-sky-400 font-bold whitespace-nowrap">
+                          {pl.previousTeam || '—'}
+                        </td>
+                      )}
                       <td className="p-3.5 text-center">
                         <div className="inline-flex flex-col items-center gap-0.5">
                           <span className={`font-black tracking-wide text-xs px-2 py-0.5 rounded border ${tier.badgeCls}`}>{tier.grade}</span>
