@@ -256,6 +256,17 @@ export function isRealAccount(c) {
   )
 }
 
+/**
+ * Whether an account is the OFFICIAL account of a team (the verified athletics
+ * handle, e.g. @OleMissFB), as opposed to a beat/fan/parody account. Identified
+ * by the canonical `Official Account` category on a team-affiliated character.
+ * The team's official post about a game is the one that carries the uploaded
+ * final-score graphic in the feed.
+ */
+export function isOfficialTeamAccount(c) {
+  return !!(c && c.kind === 'team' && c.teamTid != null && c.category === 'Official Account')
+}
+
 /** Build a handle(lowercased) -> id index over an existing characters map. */
 export function buildHandleIndex(charactersById) {
   const idx = {}
@@ -341,9 +352,15 @@ const SOCIAL_FENCE_OPEN_RE = /```\s*cfb-social\s*\n?([\s\S]+)/i
  * Pull the cfb-social fenced block out of a pasted AI response.
  * Handles: properly closed blocks, truncated responses (no closing ```),
  * spaces between backticks and language name, and case variations.
+ *
+ * `allowBareLines` (opt-in for the social-ingest modals): when no fence is
+ * present, accept the paste IF it already reads as bare social records — users
+ * commonly copy just the block's contents, or the AI emits the lines without a
+ * fence. Gated on "most non-empty lines parse as `scope | author | text`" so a
+ * fence-less prose recap is never mistaken for posts.
  * @returns {{ found, body, recapWithoutBlock }}
  */
-export function extractSocialBlock(recapText) {
+export function extractSocialBlock(recapText, { allowBareLines = false } = {}) {
   const text = String(recapText ?? '')
 
   // 1. Prefer a properly closed block
@@ -359,6 +376,15 @@ export function extractSocialBlock(recapText) {
   const open = text.match(SOCIAL_FENCE_OPEN_RE)
   if (open) {
     return { found: true, body: open[1] || '', recapWithoutBlock: text.slice(0, open.index).trim() }
+  }
+
+  // 3. Fence-less fallback — the paste itself may BE the social lines.
+  if (allowBareLines) {
+    const records = parseSocialLines(text)
+    const nonEmpty = text.split('\n').map((l) => l.trim()).filter(Boolean)
+    if (records.length > 0 && nonEmpty.length > 0 && records.length / nonEmpty.length >= 0.6) {
+      return { found: true, body: text, recapWithoutBlock: '' }
+    }
   }
 
   return { found: false, body: '', recapWithoutBlock: text }

@@ -296,7 +296,7 @@ export default function Home() {
     }
   }
 
-  const TEST_DYNASTY_URL = 'https://www.dropbox.com/scl/fi/y49gxbn427hi69hqw8pga/UK_2035_Week12.json?rlkey=n4wno8rs3c1al31edktemof6t&st=2yakp8n8&dl=0'
+  const TEST_DYNASTY_URL = 'https://www.dropbox.com/scl/fi/hk8bmx888q0u2vyop4kpe/UK_2036_Week4.json?rlkey=yf3rt22nt37nwpsj0kq8ownnl&st=tqay1bld&dl=0'
 
   const handleTestImport = async () => {
     setImporting(true)
@@ -732,10 +732,32 @@ export default function Home() {
                           <span>{dynasty.currentYear}</span>
                           {weekShort && (
                             <>
-                              
+
                               <span className="truncate">{weekShort}</span>
                             </>
                           )}
+                        </div>
+
+                        {/* Mobile-only: time + edition/storage badges. On desktop
+                            these live in the right-side column; on small screens
+                            that column squeezed the name, so they wrap here instead. */}
+                        <div className="flex sm:hidden items-center gap-1.5 flex-wrap mt-1.5">
+                          {relativeTime && (
+                            <span className="text-[10px] tabular-nums" style={{ color: cardText, opacity: 0.7 }}>
+                              {relativeTime}
+                            </span>
+                          )}
+                          {editionBadge && (
+                            <Badge variant="success" size="sm" title="Game edition">{editionBadge}</Badge>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => handleStorageClick(e, dynasty)}
+                            title={storageBadgeTitle}
+                            className="pointer-events-auto"
+                          >
+                            <Badge variant={storageBadgeVariant} size="sm">{storageBadgeText}</Badge>
+                          </button>
                         </div>
                       </div>
 

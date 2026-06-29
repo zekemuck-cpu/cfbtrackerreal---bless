@@ -78,13 +78,23 @@ export default function CardEditorModal({
       : ` Do NOT introduce any second team's colors as accents — only ${school}'s palette drives the design.`
     return `\n\nTEAM COLOR — ABSOLUTE: This is a ${school} card. ${school}'s team color (${c}${sec}) is THE accent for every colored design element — borders, frame, name plate, banners, panels, stat-table headers, card-number box, foil/refractor/chrome tint, and any background or color fill.${oppClause} Whenever it's unclear which color an element should be, use ${school}'s team color.`
   }, [variables])
+  // Appended to BOTH prompts: pin the conference to where the team sits IN THIS
+  // DYNASTY (the user may have realigned it), so the AI doesn't default to the
+  // team's real-world conference logo/wordmark (e.g. drawing C-USA for a North
+  // Texas card after the user moved them to the SEC).
+  const conferenceRule = useMemo(() => {
+    const conf = variables.conference
+    if (!conf) return ''
+    const school = variables.school || 'the featured team'
+    return `\n\nCONFERENCE — ABSOLUTE, NON-NEGOTIABLE: In THIS dynasty, ${school} plays in the ${conf} conference. ${conf} is the ONLY conference that may appear anywhere on the card. Treat the conference named here as the single source of truth and IGNORE any real-world, historical, or training-data knowledge about which conference ${school} "really" belongs to — that knowledge is wrong for this card. Make NO real-life conference-alignment assumptions. Every conference logo, wordmark, badge, abbreviation, or text label anywhere on the card (including footer or sponsor-style logos) MUST be ${conf} and nothing else — never ${school}'s real-world conference, and never any conference other than ${conf}. If you cannot render the ${conf} logo accurately, omit the conference logo and any conference label entirely rather than substituting a different conference's mark.`
+  }, [variables])
   const filledFrontPrompt = useMemo(
-    () => style?.frontPrompt ? interpolatePrompt(style.frontPrompt, variables) + teamColorRule : '',
-    [style?.frontPrompt, variables, teamColorRule]
+    () => style?.frontPrompt ? interpolatePrompt(style.frontPrompt, variables) + teamColorRule + conferenceRule : '',
+    [style?.frontPrompt, variables, teamColorRule, conferenceRule]
   )
   const filledBackPrompt = useMemo(
-    () => style?.backPrompt ? interpolatePrompt(style.backPrompt, variables) + teamColorRule : '',
-    [style?.backPrompt, variables, teamColorRule]
+    () => style?.backPrompt ? interpolatePrompt(style.backPrompt, variables) + teamColorRule + conferenceRule : '',
+    [style?.backPrompt, variables, teamColorRule, conferenceRule]
   )
 
   const playerGames = useMemo(() => listPlayerGames(player, dynasty), [player, dynasty])

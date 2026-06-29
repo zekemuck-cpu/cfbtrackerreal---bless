@@ -46,6 +46,7 @@ import {
   getSeasonsSubcollection,
   splitSeasonalUpdateByYear,
   writeSeasonalUpdate,
+  diffSeasonalDeletions,
   migrateSeasonalFieldsToSubcollection
 } from '../services/seasonSubcollection'
 
@@ -7260,7 +7261,9 @@ export function DynastyProvider({ children }) {
     let seededPlayers = []
     if (currentTid && !teams[currentTid]?.isCustom) {
       try {
-        seededPlayers = await buildDefaultRosterPlayers(currentTid, startYear, 1)
+        // cfb27 dynasties seed the attribute-rich CFB 27 launch rosters.
+        const editionKey = normalizeEditionKey(dynastyData.gameEdition || DEFAULT_EDITION)
+        seededPlayers = await buildDefaultRosterPlayers(currentTid, startYear, 1, editionKey)
       } catch (err) {
         console.warn('[createDynasty] default roster seed failed:', err)
         seededPlayers = []
@@ -7488,7 +7491,7 @@ export function DynastyProvider({ children }) {
   }
 
   const updateDynasty = async (dynastyId, updates, options = {}) => {
-    const { skipLastModified = false, forceOverwrite = false, skipGamesSubcollection = false, skipPlayersSubcollection = false, changedPlayerPids = null, replaceTeams = false } = options
+    const { skipLastModified = false, forceOverwrite = false, skipGamesSubcollection = false, skipPlayersSubcollection = false, changedPlayerPids = null, replaceTeams = false, replaceSeasonal = [] } = options
 
     // Read-only chokepoint: most mutations route through updateDynasty,
     // so guarding here catches every modal whose parent forgot to gate
@@ -7736,6 +7739,23 @@ export function DynastyProvider({ children }) {
       }
       if (Object.keys(seasonalCollect).length > 0) {
         const byYear = splitSeasonalUpdateByYear(seasonalCollect)
+        // For fields the caller is REPLACING (not just adding to), inject
+        // deleteField() sentinels for entries removed vs the current value —
+        // a merge-write can't otherwise clear a key that's simply absent now.
+        for (const field of replaceSeasonal) {
+          if (!(field in seasonalCollect)) continue
+          const delPatch = diffSeasonalDeletions(field, dynasty?.[field], seasonalCollect[field])
+          for (const [yr, fields] of Object.entries(delPatch)) {
+            if (!byYear[yr]) byYear[yr] = {}
+            for (const [sf, teamMap] of Object.entries(fields)) {
+              if (teamMap && typeof teamMap === 'object' && !Array.isArray(teamMap) && byYear[yr][sf] && typeof byYear[yr][sf] === 'object') {
+                byYear[yr][sf] = { ...byYear[yr][sf], ...teamMap }
+              } else {
+                byYear[yr][sf] = teamMap
+              }
+            }
+          }
+        }
         if (Object.keys(byYear).length > 0) {
           subcollectionPromises.push(writeSeasonalUpdate(dynastyId, byYear))
         }
@@ -7813,6 +7833,12 @@ export function DynastyProvider({ children }) {
       const mergeUpdates = (base) => {
         const merged = deepMerge(base, expandedUpdates)
         if (replaceTeams && expandedUpdates.teams) merged.teams = expandedUpdates.teams
+        // Same rationale as replaceTeams: deepMerge can't drop a removed key, so
+        // a cleared seasonal entry (e.g. a recruiting-class rank) would linger in
+        // the UI until reload. Replace the whole field with the new value.
+        for (const field of replaceSeasonal) {
+          if (field in expandedUpdates) merged[field] = expandedUpdates[field]
+        }
         return merged
       }
 
@@ -8240,32 +8266,40 @@ export function DynastyProvider({ children }) {
       setSharedDynasties(prev => prev.filter(d => String(d.id) !== String(dynastyId)))
       setDynasties(prev => prev.filter(d => String(d.id) !== String(dynastyId)))
       if (String(currentDynasty?.id) === String(dynastyId)) setCurrentDynasty(null)
-      leaveDynastyInFirestore(dynastyId, user.uid).catch(error => {
+      // Await the genuine leave so the dialog spinner holds until it's done.
+      try {
+        await leaveDynastyInFirestore(dynastyId, user.uid)
+      } catch (error) {
         console.error('Error leaving shared dynasty:', error)
         try { toast.error('Failed to leave dynasty — it may reappear. Try again.') } catch {}
-      })
+        throw error
+      }
       return
     }
 
-    // Cloud storage: optimistic UI + background Firestore wipe.
+    // Cloud storage: optimistic list removal, but AWAIT the genuine wipe.
     //
-    // Was: await deleteDynastyWithSubcollections, then remove from
-    // state. On a multi-year dynasty (5000+ players, 1000+ games)
-    // that single await blocked the UI for 5-10 seconds. Now the
-    // dynasty disappears from the user's list IMMEDIATELY and the
-    // Firestore tear-down runs in the background. If it fails, the
-    // listener brings the dynasty back on the next snapshot — and
-    // the catch block surfaces a toast so the user knows.
+    // The dynasty disappears from the user's list IMMEDIATELY (the card is
+    // gone the moment they confirm), so the page stays responsive. But we
+    // then AWAIT the Firestore tear-down so this promise only resolves once
+    // the dynasty is GENUINELY deleted — that lets the delete dialog keep its
+    // loading spinner up until the work actually finishes, instead of closing
+    // the instant the background task is kicked off. If the teardown fails,
+    // the listener brings the dynasty back on the next snapshot, we surface a
+    // toast, and we re-throw so the caller can react.
     const updated = dynasties.filter(d => String(d.id) !== String(dynastyId))
     setDynasties(updated)
     if (String(currentDynasty?.id) === String(dynastyId)) {
       setCurrentDynasty(null)
     }
 
-    deleteDynastyWithSubcollections(dynastyId).catch(error => {
+    try {
+      await deleteDynastyWithSubcollections(dynastyId)
+    } catch (error) {
       console.error('Error deleting dynasty from Firestore:', error)
       try { toast.error('Failed to delete dynasty — it may reappear. Try again.') } catch {}
-    })
+      throw error
+    }
   }
 
   const selectDynasty = async (dynastyId) => {
@@ -9704,6 +9738,8 @@ export function DynastyProvider({ children }) {
           ...(existing.photoTags ? { photoTags: existing.photoTags } : {}),
           ...(Array.isArray(existing.photos) && existing.photos.length ? { photos: existing.photos } : {}),
           ...(existing.scoreGraphic ? { scoreGraphic: existing.scoreGraphic } : {}),
+          ...(existing.scoreGraphics ? { scoreGraphics: existing.scoreGraphics } : {}),
+          ...(existing.scoreGraphicShown ? { scoreGraphicShown: existing.scoreGraphicShown } : {}),
           ...(existing.boxScore ? { boxScore: existing.boxScore } : {}),
           ...(existing.aiRecap ? { aiRecap: existing.aiRecap } : {}),
           ...(existing.gameNote ? { gameNote: existing.gameNote } : {}),
@@ -13934,6 +13970,11 @@ export function DynastyProvider({ children }) {
           // a value, so CFB 26 players never gain an empty nilByYear map.
           ...(player.nil != null && player.nil !== '' && !isNaN(parseInt(player.nil))
             ? { nilByYear: { ...(existingPlayer.nilByYear || {}), [year]: parseInt(player.nil) } }
+            : {}),
+          // IMMUTABLE per-season attribute history (CFB 27) — only when the sheet's
+          // Attributes cell parsed to something, so other seasons/players are untouched.
+          ...(player.attributes && Object.keys(player.attributes).length
+            ? { attributesByYear: { ...(existingPlayer.attributesByYear || {}), [year]: player.attributes } }
             : {})
           // ALL other fields (recruitYear, yearStarted, isRecruit, isPortal, stars, etc.)
           // are automatically preserved from ...existingPlayer and NOT overwritten
@@ -13963,6 +14004,11 @@ export function DynastyProvider({ children }) {
         // IMMUTABLE NIL history (CFB 27+) — only when the sheet provides a value.
         ...(player.nil != null && player.nil !== '' && !isNaN(parseInt(player.nil))
           ? { nilByYear: { [year]: parseInt(player.nil) } }
+          : {}),
+        // IMMUTABLE per-season attribute history (CFB 27) — only when the sheet's
+        // Attributes cell parsed to a non-empty map.
+        ...(player.attributes && Object.keys(player.attributes).length
+          ? { attributesByYear: { [year]: player.attributes } }
           : {}),
         // Canonical v2 movement record — was a legacy movements[] entry.
         movementByYear: {
@@ -14829,7 +14875,8 @@ export function DynastyProvider({ children }) {
         sheetInfo.spreadsheetId,
         dynasty.schedule,
         dynasty.players,
-        userTeamAbbr
+        userTeamAbbr,
+        dynasty.currentYear
       )
 
 
@@ -16498,19 +16545,7 @@ export function DynastyProvider({ children }) {
     return updateDynasty(dynastyId, { teamFuture: { ...tf, [tid]: dataForTid } })
   }
 
-  const savePlaybook = (dynastyId, playbook) => {
-    const playbooks = [...(currentDynasty?.playbooks || [])]
-    const idx = playbooks.findIndex(p => p.id === playbook.id)
-    if (idx >= 0) playbooks[idx] = playbook
-    else playbooks.push(playbook)
-    return updateDynasty(dynastyId, { playbooks })
-  }
-
-  const deletePlaybook = (dynastyId, playbookId) => {
-    const playbooks = (currentDynasty?.playbooks || []).filter(p => p.id !== playbookId)
-    return updateDynasty(dynastyId, { playbooks })
-  }
-
+  // Persist the user-curated rivalry list (formed rivalries, names, trophies).
   const saveRivalries = (dynastyId, rivalries) => {
     return updateDynasty(dynastyId, { rivalries })
   }
@@ -16864,8 +16899,6 @@ export function DynastyProvider({ children }) {
     addCustomTeam,
     migrateDynastyStorage,
     saveTeamFuture,
-    savePlaybook,
-    deletePlaybook,
     saveRivalries,
   }
 

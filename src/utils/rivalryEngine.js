@@ -4,19 +4,24 @@
  * Computes dynamic rivalry scores between a user's team and every other
  * team in the dynasty based on shared history. Points accumulate from:
  *   - Same state                              +3  (one-time, static)
- *   - Regular season game played (last 8yr)   +2  per game
- *   - Big game (bowl/CCG/CFP, last 8yr)       +5  per game
- *   - Star player (OVR ≥ 80) transferred away +4  per player
- *   - Head coach departed to that school       +6  per departure
+ *   - Regular season game played             +1  per game
+ *   - Big game (bowl/CCG/CFP)                +4  per game
+ *   - Annual matchup streak                  +3  per consecutive-year pair
+ *   - Player transferred away            +1 / +3 (80+) / +5 (85+)  (all years)
+ *   - Head coach departed to that school      +8  per departure (last 10 yr)
  *
- * 10+ points  → rivalry suggestion (ready to form)
- * 5–9 points  → developing
+ * Adapted to this app's data model:
+ *   - Big games are detected via game.gameType OR the isBowlGame /
+ *     isConferenceChampionship / isCFP* flags this app stores.
+ *   - Transfers read the canonical movementByYear model (with legacy
+ *     movements[] fallback) via rosterModel helpers.
  */
+
+import { getAllMovements, getPlayerTid } from '../data/rosterModel'
 
 // Abbreviation → US state name for all FBS teams in the registry.
 // Exported so prompt builders and UI can do state lookups without
-// re-importing the full engine computation.
-// Used for the "same state" bonus.
+// re-importing the full engine computation. Used for the "same state" bonus.
 export const TEAM_STATE = {
   // Alabama
   BAMA: 'Alabama', AUB: 'Alabama', UAB: 'Alabama', TROY: 'Alabama', USA: 'Alabama', JKST: 'Alabama',
@@ -178,15 +183,32 @@ export const RIVALRY_TROPHY_YEARS      = 10  // years formed before trophy unloc
 export const RIVALRY_TRANSFER_LOOKBACK = 12  // years back to count star transfers
 export const RIVALRY_COACH_LOOKBACK    = 10  // years back to count coach departures
 
+// A game is "big" when it's a bowl, conference championship, or playoff game.
+// This app marks those with explicit boolean flags and/or a gameType string,
+// so check both.
+function isBigGame(game) {
+  if (!game) return false
+  if (game.gameType && game.gameType !== 'regular') return true
+  return !!(
+    game.isBowlGame || game.bowlName ||
+    game.isConferenceChampionship ||
+    game.isCFPChampionship || game.isCFPSemifinal ||
+    game.isCFPQuarterfinal || game.isCFPFirstRound
+  )
+}
+
+// A game counts only once it's actually been played. A scheduled/upcoming
+// game sits at 0-0 and must not register as a meeting (or a tie).
+function isPlayedGame(game) {
+  if (!game) return false
+  if (game.team1Score == null || game.team2Score == null) return false
+  return !!(game.isPlayed || Number(game.team1Score) > 0 || Number(game.team2Score) > 0)
+}
+
 /**
  * Compute rivalry point scores for every other team relative to myTid.
  * Points build from the very first year of the dynasty with no rolling cutoff
  * on games — only transfers and coach departures have a lookback window.
- *
- * Typical timeline to hit 30 pts (formation candidate):
- *   • In-state rival played every year: ~15 yrs of games (15) + same state (3) = 18 pts
- *     → needs a big game (4) + star transfer (5) + coach departure (8) to cross 30
- *   • Out-of-state team: needs 20+ games or several dramatic events
  *
  * @param {object} dynasty  Full dynasty object
  * @param {number} myTid    The team we're computing from
@@ -220,32 +242,28 @@ export function computeRivalryScores(dynasty, myTid) {
 
   // ── 2. Games played — ALL dynasty games, no time cutoff ───────────────────
   // +1 per regular season game, +4 per big game (bowl/CCG/CFP).
-  // Accumulates slowly and intentionally — 10 yrs of annual play = 10 pts.
   ;(dynasty.games || []).forEach(game => {
-    if (!game) return
+    if (!isPlayedGame(game)) return
     const t1 = Number(game.team1Tid)
     const t2 = Number(game.team2Tid)
     if (t1 !== myTidNum && t2 !== myTidNum) return
     const opponentTid = t1 === myTidNum ? t2 : t1
     if (!opponentTid) return
 
-    const isBig = game.gameType && game.gameType !== 'regular'
-    addPoints(opponentTid, isBig ? 4 : 1, {
-      type: isBig ? 'big_game' : 'played_games',
+    const big = isBigGame(game)
+    addPoints(opponentTid, big ? 4 : 1, {
+      type: big ? 'big_game' : 'played_games',
       year: game.year,
-      description: isBig ? `Big game (${game.year})` : `Played (${game.year})`,
+      description: big ? `Big game (${game.year})` : `Played (${game.year})`,
     })
   })
 
   // ── 3. Annual matchup bonus — +3 per consecutive year pair ──────────────────
-  // Teams that play each other every single year (Ohio State–Michigan, Alabama–
-  // Auburn, etc.) earn a stacking bonus on top of the base game point. Each
-  // pair of back-to-back years they played awards +3. Playing 10 straight years
-  // earns 9 pairs × 3 = +27 bonus — enough to push an in-state annual matchup
-  // to rivalry status in ~8 yrs and a cross-state annual matchup in ~10 yrs.
+  // Teams that play each other every single year earn a stacking bonus on top
+  // of the base game point: each pair of back-to-back years awards +3.
   const gameYearsByOpponent = {}
   ;(dynasty.games || []).forEach(game => {
-    if (!game) return
+    if (!isPlayedGame(game)) return
     const t1 = Number(game.team1Tid)
     const t2 = Number(game.team2Tid)
     if (t1 !== myTidNum && t2 !== myTidNum) return
@@ -267,36 +285,54 @@ export function computeRivalryScores(dynasty, myTid) {
     }
   })
 
-  // ── 4. Star players (OVR 80+) transferred away — last 12 yrs, +5 each ─────
-  const transferCutoff = curYear - RIVALRY_TRANSFER_LOOKBACK
+  // ── 4. Players transferred away — ALL years; +1, or +3 (80+) / +5 (85+) ──
+  // Read the canonical movement model. A player leaves us for a rival when:
+  //   • a departure (transfer_out) with a destination tid happens in a year
+  //     the player was on our roster, OR
+  //   • an arrival (transfer_in) whose fromTid is us — the destination is the
+  //     team they landed on that year.
   ;(dynasty.players || []).forEach(player => {
-    if (!player?.movements) return
-    player.movements.forEach(m => {
-      const year = Number(m.year)
-      if (year < transferCutoff) return
-      const fromTid = Number(m.fromTid ?? m.fromTeamTid)
-      if (fromTid !== myTidNum) return
-      const toTid = Number(m.toTid ?? m.toTeamTid)
-      if (!toTid || toTid === myTidNum) return
+    if (!player) return
+    const movements = getAllMovements(player)
+    Object.entries(movements).forEach(([yearKey, mv]) => {
+      if (!mv) return
+      const year = Number(yearKey)
+      if (!Number.isFinite(year)) return
 
-      const ovr =
+      let destTid = null
+      if (mv.type === 'departure' && mv.departure === 'transfer_out' && mv.toTid != null) {
+        // Player left their current team for mv.toTid. Confirm that team was us.
+        const fromTid = Number(getPlayerTid(player, year, { currentYear: curYear }))
+        if (fromTid === myTidNum) destTid = Number(mv.toTid)
+      } else if (mv.type === 'arrival' && mv.arrival === 'transfer_in' && mv.fromTid != null) {
+        // Player arrived FROM us — the destination is wherever they are now.
+        if (Number(mv.fromTid) === myTidNum) {
+          const landed = Number(getPlayerTid(player, year, { currentYear: curYear }))
+          if (landed && landed !== myTidNum) destTid = landed
+        }
+      }
+      if (!destTid || destTid === myTidNum) return
+
+      const ovr = Number(
         player.overallByYear?.[year] ??
         player.overallByYear?.[year - 1] ??
         player.overall ?? 0
-      if (Number(ovr) < 80) return
+      )
+      // Tiered: any transfer +1, 80+ +3, 85+ +5.
+      const pts = ovr >= 85 ? 5 : ovr >= 80 ? 3 : 1
 
-      addPoints(toTid, 5, {
+      addPoints(destTid, pts, {
         type: 'transfer_star',
         year,
-        description: `${player.name || 'Star player'}${player.position ? ` (${player.position})` : ''} transferred to them`,
+        description: `${player.name || 'Player'}${player.position ? ` (${player.position})` : ''} transferred to them`,
       })
     })
   })
 
-  // ── 4. Head coach departed to that school — last 10 yrs, +8 ──────────────
+  // ── 5. Head coach departed to that school — last 10 yrs, +8 ──────────────
   const coachCutoff  = curYear - RIVALRY_COACH_LOOKBACK
   const coachHistory = dynasty.coachTeamByYear || {}
-  Object.keys(coachHistory).map(Number).sort().forEach(year => {
+  Object.keys(coachHistory).map(Number).sort((a, b) => a - b).forEach(year => {
     if (year < coachCutoff) return
     const entry = coachHistory[year]
     if (!entry || Number(entry.tid) !== myTidNum) return
@@ -316,6 +352,57 @@ export function computeRivalryScores(dynasty, myTid) {
 }
 
 /**
+ * Every player (all years) who transferred from myTid to rivalTid — i.e. the
+ * players behind the "transfer_star" rivalry points.
+ * Returns [{ pid, name, position, year, ovr, pictureUrl }], newest first.
+ */
+export function getStarTransfersTo(dynasty, myTid, rivalTid) {
+  const myTidNum    = Number(myTid)
+  const rivalTidNum = Number(rivalTid)
+  const curYear     = dynasty.currentYear || 2025
+  const out         = []
+
+  ;(dynasty.players || []).forEach(player => {
+    if (!player) return
+    const movements = getAllMovements(player)
+    Object.entries(movements).forEach(([yearKey, mv]) => {
+      if (!mv) return
+      const year = Number(yearKey)
+      if (!Number.isFinite(year)) return
+
+      let destTid = null
+      if (mv.type === 'departure' && mv.departure === 'transfer_out' && mv.toTid != null) {
+        const fromTid = Number(getPlayerTid(player, year, { currentYear: curYear }))
+        if (fromTid === myTidNum) destTid = Number(mv.toTid)
+      } else if (mv.type === 'arrival' && mv.arrival === 'transfer_in' && mv.fromTid != null) {
+        if (Number(mv.fromTid) === myTidNum) {
+          const landed = Number(getPlayerTid(player, year, { currentYear: curYear }))
+          if (landed && landed !== myTidNum) destTid = landed
+        }
+      }
+      if (destTid !== rivalTidNum) return
+
+      const ovr = Number(
+        player.overallByYear?.[year] ??
+        player.overallByYear?.[year - 1] ??
+        player.overall ?? 0
+      )
+
+      out.push({
+        pid: player.pid,
+        name: player.name || 'Unknown player',
+        position: player.position || '',
+        year,
+        ovr,
+        pictureUrl: player.pictureUrl || null,
+      })
+    })
+  })
+
+  return out.sort((a, b) => b.year - a.year)
+}
+
+/**
  * Compute the all-time head-to-head series record between myTid and rivalTid.
  * Only counts finished games (both scores present).
  */
@@ -325,12 +412,12 @@ export function computeSeriesRecord(dynasty, myTid, rivalTid) {
 
   const played = (dynasty.games || [])
     .filter(g => {
+      if (!isPlayedGame(g)) return false
       const t1 = Number(g.team1Tid)
       const t2 = Number(g.team2Tid)
       return (
-        ((t1 === myTidNum && t2 === rivalTidNum) ||
-         (t1 === rivalTidNum && t2 === myTidNum)) &&
-        g.team1Score != null && g.team2Score != null
+        (t1 === myTidNum && t2 === rivalTidNum) ||
+        (t1 === rivalTidNum && t2 === myTidNum)
       )
     })
     .sort((a, b) => Number(a.year) - Number(b.year))
@@ -371,7 +458,7 @@ export function rivalryEventLabel(type) {
     case 'played_games':   return 'Games played'
     case 'annual_matchup': return 'Annual matchup streak'
     case 'big_game':       return 'Big game (bowl/CCG/playoff)'
-    case 'transfer_star':  return 'Star player transferred away'
+    case 'transfer_star':  return 'Player transferred away'
     case 'coach_departure':return 'Head coach left for them'
     default:               return type
   }

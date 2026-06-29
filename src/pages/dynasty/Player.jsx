@@ -9,6 +9,7 @@ import PlayerErrorBoundary from '../../components/PlayerErrorBoundary'
 import MediaList from '../../components/MediaList'
 import ProgressiveLightboxImage from '../../components/ProgressiveLightboxImage'
 import { getPlayerCards } from '../../utils/playerCards'
+import { GRAPHIC_SIDES } from '../../utils/scoreGraphics'
 import { formatScoreHighLow } from '../../utils/scoreFormat'
 import { formatWeek, gameWeekLabel } from '../../utils/weekLabel'
 import { sortGamesNewestFirst, gameSeasonRank } from '../../utils/gameOrder'
@@ -21,6 +22,7 @@ import { getTeamLogo, getTeamLogoByTid, getMascotName as getMascotNameFromTeams,
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFromAbbr, getColorsFromTid } from '../../data/teamRegistry'
 import { sideOfPosition } from '../../utils/outlookBoard'
+import { displayGroups, displayLabel } from '../../utils/recruitAttributes'
 import { getTeamColors } from '../../data/teamColors'
 import { getAwardImage } from '../../data/awardImages'
 import OverallProgressionModal from '../../components/OverallProgressionModal'
@@ -32,6 +34,8 @@ import { sortPlaysChronologically } from '../../utils/scoringPlayOrder'
 import { healPlayer, PLAYER_HEAL_VERSION, normalizeAwardName } from '../../utils/playerHeal'
 import { buildTimelineEvents, eventsForYear, labelForEventKind } from '../../utils/playerTimeline'
 import { computeSeasonAV } from '../../utils/approximateValue'
+import ScoutScorePanel from '../../components/ScoutScorePanel'
+import { predictRecruitOverall } from '../../utils/scoutScore'
 import { getEditionConfig } from '../../editions'
 import { getPlayerNil } from '../../data/playerNilModel'
 import nilIcon from '../../assets/blueprint/points.png'
@@ -482,6 +486,15 @@ function PlayerInner() {
   // as source of truth. Value can be a tid (number, modern) or an abbr
   // (string, legacy) depending on when the entry was written.
   const currentYear = dynasty?.currentYear
+  // Attributes (CFB 27 launch ratings, stored per-season in attributesByYear).
+  // Show the current season if it has data, else the most recent season; fall
+  // back to the flat recruit `attributes` map for scouted recruits.
+  const attrSeasons = player?.attributesByYear && typeof player.attributesByYear === 'object' ? player.attributesByYear : {}
+  const attrYearKeys = Object.keys(attrSeasons).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b)
+  const attrDisplayYear = (currentYear != null && attrSeasons[currentYear]) ? Number(currentYear)
+    : (attrYearKeys.length ? attrYearKeys[attrYearKeys.length - 1] : null)
+  const displayAttributes = (attrDisplayYear != null ? attrSeasons[attrDisplayYear] : null) || player?.attributes || null
+  const hasAttributes = !!(displayAttributes && Object.keys(displayAttributes).length)
   // NIL (CFB 27+) — current-season earnings for the hero + per-year for timelines.
   const nilEnabled = !!getEditionConfig(dynasty)?.features?.nil
   const currentNil = nilEnabled ? getPlayerNil(player, currentYear) : null
@@ -531,6 +544,21 @@ function PlayerInner() {
   // name/logo/colors (that mislabel — and the resulting dead /team link — was
   // the M2 bug). Render it neutrally as a target instead.
   const isUncommittedTarget = isOpenTarget(player)
+
+  // ScoutScore tab lifecycle: while a recruit (tracked target, committed or not,
+  // not yet enrolled) ScoutScore leads — it IS the Overview tab. Once they enroll
+  // onto a roster, ScoutScore moves to a separate LAST tab and Overview returns.
+  // Scout Staff mode (League Preferences toggle) replaces all MaxPlaysCFB
+  // ScoutScore surfaces. When on, suppress the ScoutScore overview/tab entirely
+  // so the player page behaves as if ScoutScore didn't exist. When off, this is
+  // a no-op and ScoutScore behaves exactly as before.
+  const scoutStaffEnabled = !!dynasty?.scoutStaffEnabled
+  const hasScoutAttributes = !!(player?.attributes && Object.keys(player.attributes).length > 0)
+  const enrolledOnRoster = Object.keys(player?.teamsByYear || {})
+    .map(Number)
+    .some((y) => Number.isFinite(y) && y <= Number(currentYear))
+  const isRecruitPhase = !scoutStaffEnabled && !!player?.isTarget && !enrolledOnRoster
+  const scoutScoreAsLastTab = !scoutStaffEnabled && !isRecruitPhase && enrolledOnRoster && hasScoutAttributes
   const playerTeamName = playerTeam?.name
     || getMascotName(playerTeamAbbr, dynasty?.teams || dynasty?.customTeams)
     || (isUncommittedTarget ? '' : dynasty?.teamName)
@@ -1024,6 +1052,7 @@ function PlayerInner() {
       const urls = [
         ...(Array.isArray(g.photos) ? g.photos : []),
         ...(g.scoreGraphic ? [g.scoreGraphic] : []),
+        ...GRAPHIC_SIDES.map(s => g.scoreGraphics?.[s]).filter(Boolean),
       ]
       // Resolve the opponent relative to the player's team that season so the
       // lightbox can label each photo "YYYY Wk n vs/@ OPP".
@@ -1080,6 +1109,8 @@ function PlayerInner() {
   // Default tab: overview if any games are entered, otherwise stats if any
   // stats exist, otherwise timeline. Explicit ?tab= in the URL overrides.
   const defaultTab = (() => {
+    // Recruiting targets lead with ScoutScore (the renamed Overview tab).
+    if (isRecruitPhase) return 'overview'
     const hasGames = (playerGameLog?.length || 0) > 0
     if (hasGames) return 'overview'
     // "has stats" = at least one category has non-zero data, not just the
@@ -1093,6 +1124,9 @@ function PlayerInner() {
       })
     })
     if (hasAnyStats) return 'stats'
+    // A player with attributes but no games/stats (e.g. a freshly imported
+    // roster) leads with Attributes rather than an empty Timeline.
+    if (hasAttributes) return 'attributes'
     return 'timeline'
   })()
   const activeTab = explicitTab || defaultTab
@@ -1816,8 +1850,12 @@ function PlayerInner() {
         <div className="relative overflow-hidden p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 cfb-watermark">
           {/* LEFT: photo + identity */}
           <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0 flex-1">
-            <div className="flex flex-col items-center gap-2 flex-shrink-0">
-              {player.pictureUrl && (
+            {/* LEFT photo column — only when the player actually has a photo.
+                Without it, the name starts at the edge and the Edit button moves
+                inline to the right of the name (below) instead of pushing
+                everything over from the left. */}
+            {player.pictureUrl && (
+              <div className="flex flex-col items-center gap-2 flex-shrink-0">
                 <img
                   src={proxyImageUrl(player.pictureUrl, 300)}
                   alt={player.name}
@@ -1832,22 +1870,22 @@ function PlayerInner() {
                     else e.currentTarget.style.display = 'none'
                   }}
                 />
-              )}
-              {/* Mobile Edit — tucked into the empty space under the photo. */}
-              {!isViewOnly && (
-                <button
-                  onClick={() => navigate(`${pathPrefix}/player/${pid}/edit`)}
-                  className="sm:hidden w-20 flex items-center justify-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide hover:bg-black/20 transition-colors"
-                  style={{ color: teamBgText, border: `1px solid ${teamBgText}45` }}
-                  title="Edit Player"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Edit
-                </button>
-              )}
-            </div>
+                {/* Mobile Edit — tucked into the empty space under the photo. */}
+                {!isViewOnly && (
+                  <button
+                    onClick={() => navigate(`${pathPrefix}/player/${pid}/edit`)}
+                    className="sm:hidden w-20 flex items-center justify-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide hover:bg-black/20 transition-colors"
+                    style={{ color: teamBgText, border: `1px solid ${teamBgText}45` }}
+                    title="Edit Player"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit
+                  </button>
+                )}
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               {/* Name + captain (extra right padding on mobile clears the
                   pinned OVR ring; desktop clears the edit button) */}
@@ -1861,11 +1899,13 @@ function PlayerInner() {
                 {player.isCaptain && (
                   <img src={CAPTAIN_PATCH_URL} alt="Team Captain" title="Team Captain" className="w-7 h-7 sm:w-8 sm:h-8 object-contain flex-shrink-0 self-center" />
                 )}
-                {/* Edit — inline right after the name on tablet/desktop. */}
+                {/* Edit — inline right after the name on tablet/desktop, and also
+                    on mobile when there's no photo (so it sits to the RIGHT of the
+                    name instead of pushing it over from the left). */}
                 {!isViewOnly && (
                   <button
                     onClick={() => navigate(`${pathPrefix}/player/${pid}/edit`)}
-                    className="hidden sm:inline-flex items-center justify-center p-1.5 rounded-lg hover:bg-black/20 transition-colors flex-shrink-0 self-center"
+                    className={`${player.pictureUrl ? 'hidden sm:inline-flex' : 'inline-flex'} items-center justify-center p-1.5 rounded-lg hover:bg-black/20 transition-colors flex-shrink-0 self-center`}
                     style={{ color: teamBgText, border: `1px solid ${teamBgText}40` }}
                     title="Edit Player"
                     aria-label="Edit Player"
@@ -1880,14 +1920,22 @@ function PlayerInner() {
               {/* Team link + status badges */}
               <div className="flex flex-wrap items-center gap-2 mt-2">
                 {isUncommittedTarget ? (
-                  // An uncommitted target has no team — show a neutral identity,
-                  // never a team logo or a (dead) /team link.
-                  <span
-                    className="inline-flex items-center gap-2 font-display font-bold"
-                    style={{ color: teamBgText, fontSize: 'clamp(0.95rem, 1.5vw, 1.1rem)' }}
-                  >
-                    Recruiting Target
-                  </span>
+                  // An uncommitted target has no team — show a neutral identity
+                  // that links back to that class's Targets board on the
+                  // recruiting page (never a team logo or a dead /team link).
+                  (() => {
+                    const tTid = currentDynasty?.currentTid ?? getTidFromAbbr(getCurrentTeamAbbr(currentDynasty), currentDynasty?.teams)
+                    const tYear = player.targetYear || currentDynasty?.currentYear
+                    const href = tTid && tYear ? `${pathPrefix}/recruiting/${tTid}/${tYear}?tab=targets` : null
+                    const style = { color: teamBgText, fontSize: 'clamp(0.95rem, 1.5vw, 1.1rem)' }
+                    return href ? (
+                      <Link to={href} className="inline-flex items-center gap-2 font-display font-bold hover:opacity-80 transition-opacity" style={style}>
+                        Recruiting Target
+                      </Link>
+                    ) : (
+                      <span className="inline-flex items-center gap-2 font-display font-bold" style={style}>Recruiting Target</span>
+                    )
+                  })()
                 ) : (
                 <Link
                   to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}?tab=depthchart&player=${pid}&side=${sideOfPosition(player.position) || 'offense'}`}
@@ -2122,8 +2170,9 @@ function PlayerInner() {
         <div className="relative border-t" style={{ borderColor: 'rgba(255,255,255,0.16)' }}>
           <div className="flex overflow-x-auto no-scrollbar">
             {[
-              { key: 'overview', label: 'Overview' },
+              { key: 'overview', label: isRecruitPhase ? 'ScoutScore' : 'Overview' },
               { key: 'stats', label: 'Stats' },
+              ...(hasAttributes ? [{ key: 'attributes', label: 'Attributes' }] : []),
               { key: 'gamelog', label: 'Game Log' },
               { key: 'timeline', label: 'Timeline' },
               { key: 'awards', label: 'Awards' },
@@ -2132,6 +2181,8 @@ function PlayerInner() {
                 : []),
               ...(getPlayerCards(player).length > 0 ? [{ key: 'card', label: 'Cards' }] : []),
               ...(taggedPhotos.length > 0 ? [{ key: 'photos', label: 'Photos' }] : []),
+              // Enrolled players who were scouted keep ScoutScore as the LAST tab.
+              ...(scoutScoreAsLastTab ? [{ key: 'scoutscore', label: 'ScoutScore' }] : []),
             ].map(tab => {
               const isActive = activeTab === tab.key
               return (
@@ -2165,6 +2216,83 @@ function PlayerInner() {
 
       {/* Tab content — keyed so the whole subtree fades up on each switch */}
       <div key={activeTab} className="reveal">
+
+      {/* Attributes — full per-season rating set (CFB 27 launch ratings), laid out
+          like the in-game player card: sectioned, each rating a name + value with
+          a proportional, color-graded fill bar. Reads attributesByYear[displayYear],
+          falling back to the flat recruit map. */}
+      {activeTab === 'attributes' && hasAttributes && (() => {
+        // Three-tier ramp matching the in-game card: green (strong), amber (mid),
+        // red (weak). Bar fill width is proportional to the rating.
+        const barColor = (v) => v >= 75 ? '#5bc56b' : v >= 50 ? '#e0a52e' : '#d65f54'
+        const groups = displayGroups()
+          .map(g => ({ ...g, entries: g.attrs.filter(a => displayAttributes[a] != null && displayAttributes[a] !== '') }))
+          .filter(g => g.entries.length)
+        return (
+          <div className="media-card p-3 sm:p-5 mb-4">
+            <div className="flex items-baseline justify-between gap-2 mb-3">
+              <h3 className="font-display font-black uppercase tracking-wide text-txt-primary" style={{ fontSize: '1.05rem' }}>Attributes</h3>
+              {attrDisplayYear != null && (
+                <span className="text-xs font-semibold text-txt-tertiary uppercase tracking-wide">{attrDisplayYear} Season</span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-5 sm:gap-x-7 gap-y-4 items-start">
+              {groups.map(g => (
+                <div key={g.label}>
+                  <h4 className="font-display font-black text-txt-primary mb-2" style={{ fontSize: '0.95rem' }}>{g.label}</h4>
+                  <div className="space-y-1.5">
+                    {g.entries.map(name => {
+                      const val = Number(displayAttributes[name])
+                      const color = barColor(val)
+                      return (
+                        <div key={name}>
+                          <div className="flex items-baseline justify-between gap-1.5 leading-tight">
+                            <span className="text-[12px] text-txt-secondary truncate" title={displayLabel(name)}>{displayLabel(name)}</span>
+                            <span className="font-display font-bold tabular-nums text-txt-primary text-[12px]">{val}</span>
+                          </div>
+                          <div className="mt-0.5 h-[2px] w-full rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                            <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, val))}%`, backgroundColor: color }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ScoutScore — recruit benchmarking (MaxPlaysCFB). Leads on the Overview
+          tab while the player is a recruit (committed or not); once enrolled it
+          lives on its own ScoutScore tab. */}
+      {((activeTab === 'overview' && isRecruitPhase) || (activeTab === 'scoutscore' && scoutScoreAsLastTab)) && (
+        <div className="media-card p-4 sm:p-5 mb-4">
+          <div className="flex items-baseline justify-between gap-2 mb-3">
+            <div className="flex items-baseline gap-2.5 min-w-0">
+              <h3 className="font-display font-black uppercase leading-none text-txt-primary shrink-0" style={{ fontSize: '14px', letterSpacing: '0.02em' }}>ScoutScore</h3>
+              {(() => {
+                const proj = predictRecruitOverall(player)
+                return proj ? (
+                  <span className="text-[11px] text-txt-tertiary tabular-nums truncate">
+                    Proj <span className="font-bold text-txt-secondary">{proj.overall}</span> ({proj.low}–{proj.high})
+                  </span>
+                ) : null
+              })()}
+            </div>
+            <a
+              href="https://maxplayscfb.com/tools/scoutscore/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-txt-tertiary hover:text-txt-primary underline underline-offset-2 shrink-0"
+            >
+              powered by MaxPlaysCFB
+            </a>
+          </div>
+          <ScoutScorePanel recruit={player} />
+        </div>
+      )}
 
       {/* Overview - 3-column summary with inline scoring highlights */}
       {activeTab === 'overview' && (() => {
@@ -2227,7 +2355,7 @@ function PlayerInner() {
         })
 
         const sectionHeader = (label, right) => (
-          <CardSectionHeader label={label} accent={teamInfo.backgroundColor} right={right} />
+          <CardSectionHeader label={label} right={right} />
         )
 
         const statRow = (label, value) => (

@@ -10,6 +10,10 @@
 // the user's team JSON is fetched at dynasty-creation time — not the full
 // 4.3 MB of all 136 teams.
 const rosterFiles = import.meta.glob('./defaultRosters/*.json')
+// CFB 27 launch rosters carry the full per-player attribute set (parsed from the
+// CFB27 Player Ratings workbook). Selected only for cfb27 dynasties; every team
+// is its own lazy chunk, so only the user's team file is fetched at creation.
+const cfb27RosterFiles = import.meta.glob('./cfb27Rosters/*.json')
 
 /**
  * Build app-schema player objects for a team's bundled default roster.
@@ -17,13 +21,16 @@ const rosterFiles = import.meta.glob('./defaultRosters/*.json')
  * @param {number|string} tid    - team id whose roster to load
  * @param {number}        year    - the dynasty's start year (immutable history key)
  * @param {number}        startPID - first pid to assign (createDynasty starts at 1)
+ * @param {string|null}   edition - edition key; 'cfb27' loads the attribute-rich
+ *                                   launch rosters, anything else the base set
  * @returns {Promise<Array>} player objects, or [] if no bundled roster exists
  */
-export async function buildDefaultRosterPlayers(tid, year, startPID = 1) {
+export async function buildDefaultRosterPlayers(tid, year, startPID = 1, edition = null) {
   const numTid = Number(tid)
   if (!Number.isFinite(numTid)) return []
 
-  const loader = rosterFiles[`./defaultRosters/${numTid}.json`]
+  const cfb27Loader = edition === 'cfb27' ? cfb27RosterFiles[`./cfb27Rosters/${numTid}.json`] : null
+  const loader = cfb27Loader || rosterFiles[`./defaultRosters/${numTid}.json`]
   if (!loader) return [] // teambuilder/custom team, or no bundled roster
 
   let data
@@ -47,6 +54,12 @@ export async function buildDefaultRosterPlayers(tid, year, startPID = 1) {
       const devTrait = p.devTrait || 'Normal'
       const overall = Number.isFinite(Number(p.overall)) ? Number(p.overall) : 0
       const name = (p.name || `${p.firstName || ''} ${p.lastName || ''}`).trim()
+      // CFB 27 launch rosters ship a per-player attribute map. Seed it into the
+      // starting season so the player page / editor Attributes tabs show ratings
+      // from day one. Other editions have no attributes here (left empty).
+      const attrs = p.attributes && typeof p.attributes === 'object' && Object.keys(p.attributes).length
+        ? p.attributes
+        : null
 
       return {
         // --- editable fields (mirror readRosterFromRosterSheet row shape) ---
@@ -77,6 +90,7 @@ export async function buildDefaultRosterPlayers(tid, year, startPID = 1) {
         classByYear: { [year]: klass },
         overallByYear: overall ? { [year]: overall } : {},
         devTraitByYear: devTrait ? { [year]: devTrait } : {},
+        ...(attrs ? { attributesByYear: { [year]: attrs } } : {}),
         // No arrival movement. These are the dynasty's STARTING roster, not
         // portal transfers — stamping a `transfer_in` arrival (as saveRoster's
         // sheet path does for newly-typed players) made the player page badge

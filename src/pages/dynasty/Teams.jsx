@@ -122,7 +122,7 @@ export default function Teams() {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2 sm:gap-2.5">
                   {teams.map(team => {
                     const color = team.primaryColor || '#374151'
                     const txt = getContrastTextColor(color)
@@ -138,9 +138,9 @@ export default function Teams() {
                     >
                       <Link
                         to={`${pathPrefix}/team/${team.tid}/${currentDynasty.currentYear}`}
-                        className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 p-3 no-underline text-center"
+                        className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-2.5 no-underline text-center"
                       >
-                        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white flex items-center justify-center p-2 shadow-md flex-shrink-0 transition-transform duration-200 group-hover:scale-105">
+                        <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white flex items-center justify-center p-1.5 shadow-md flex-shrink-0 transition-transform duration-200 group-hover:scale-105">
                           {team.logo ? (
                             <img src={team.logo} alt="" className="w-full h-full object-contain" loading="lazy" decoding="async" />
                           ) : (
@@ -149,19 +149,11 @@ export default function Teams() {
                         </div>
                         <span
                           className="font-display font-bold leading-tight line-clamp-2"
-                          style={{ color: txt, fontSize: 'clamp(0.75rem, 1vw, 0.9375rem)', textShadow: '0 1px 2px rgba(0,0,0,0.35)' }}
+                          style={{ color: txt, fontSize: 'clamp(0.6875rem, 0.85vw, 0.875rem)', textShadow: '0 1px 2px rgba(0,0,0,0.35)' }}
                         >
                           {school}
                         </span>
                       </Link>
-                      {team.isCustom && (
-                        <span
-                          className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase"
-                          style={{ letterSpacing: '1px', backgroundColor: 'rgba(0,0,0,0.35)', color: txt }}
-                        >
-                          Custom
-                        </span>
-                      )}
                       {!isViewOnly && (
                         <button
                           type="button"

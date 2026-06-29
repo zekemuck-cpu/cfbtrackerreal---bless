@@ -10,8 +10,8 @@ import { getContrastTextColor } from '../../utils/colorUtils'
 import { StatRings } from '../../components/CfbUI'
 import { getPlayerStatsForTid, getTeamStatsForTid, hasAnyPlayerStats, hasAnyTeamStats } from '../../utils/boxScoreHelpers'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
-import { TEAMS, resolveTid, getTeamByAbbr, getTidFromAbbr, getTidFromTeamName, setTeamYearField, getCurrentTeamTid, getCurrentTeamAbbr, getOriginalTeamAbbr, getGameTeamInfo, getGameOpponentInfo, getAbbrFromTeamName, getNameByAbbr, setPendingUserTeam, clearPendingUserTeam, getPendingUserTeamTid, getUserTeamTid } from '../../data/teamRegistry'
-import { getTeamLogo, teams } from '../../data/teams'
+import { TEAMS, getFBSTeamTids, resolveTid, getTeamByAbbr, getTidFromAbbr, getTidFromTeamName, setTeamYearField, getCurrentTeamTid, getCurrentTeamAbbr, getOriginalTeamAbbr, getGameTeamInfo, getGameOpponentInfo, getAbbrFromTeamName, getNameByAbbr, setPendingUserTeam, clearPendingUserTeam, getPendingUserTeamTid, getUserTeamTid } from '../../data/teamRegistry'
+import { getTeamLogo } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { getTeamConference } from '../../data/conferenceTeams'
 import { getConferenceLogo } from '../../data/conferenceLogos'
@@ -199,6 +199,18 @@ export default function Dashboard() {
   // Use team-centric helper functions for all team-specific data
   // getScheduleWithGameData merges game records into schedule entries
   const teamSchedule = useMemo(() => getScheduleWithGameData(currentDynasty), [currentDynasty])
+
+  // FBS team names for in-dynasty pickers (conference-championship opponent,
+  // "who is your opponent", "which team are you coaching now"). Derived from
+  // THIS dynasty's own teams — the single per-dynasty source of truth — so the
+  // list matches the dynasty's edition (CFB 27 includes North Dakota State /
+  // Sacramento State, CFB 26 does not) and reflects any TeamBuilder renames.
+  // Never the global static list.
+  const dynastyTeamNames = useMemo(() => {
+    const src = currentDynasty?.teams || TEAMS
+    return getFBSTeamTids(src).map(tid => src[tid]?.name).filter(Boolean)
+  }, [currentDynasty?.teams])
+
   const teamRoster = getCurrentRoster(currentDynasty)
   const teamPreseasonSetup = getCurrentPreseasonSetup(currentDynasty)
   const teamRatings = getCurrentTeamRatings(currentDynasty)
@@ -3684,7 +3696,7 @@ export default function Dashboard() {
                 done: recapDone,
                 title: 'Generate Preseason CFB Recap',
                 subtitle: recapDone
-                  ? 'Saved. View it on the Weekly Recap page'
+                  ? 'Saved. View it on the Around the Country page'
                   : 'AI-written season preview based on past dynasty data',
                 viewTo: recapDone ? `${pathPrefix}/weekly-scores/${yearNum}/-1?tab=recap` : null,
                 onAction: () => setRecapModalContext({ year: yearNum, week: -1 }),
@@ -3943,24 +3955,6 @@ export default function Dashboard() {
                     : null,
                   onAction: handleEnterGame,
                   actionLabel: gameDone ? 'Edit' : 'Enter',
-                  // Mini Gameday Picks (5 analyst boxes) under an upcoming game.
-                  belowContent: (!gameDone && oppTid) ? (
-                    <GamedayPicks
-                      mini
-                      dynasty={currentDynasty}
-                      userTid={userTeamTid}
-                      opponentTid={oppTid}
-                      isHome={!userIsAway && !isNeutral}
-                      isNeutral={isNeutral}
-                      gameKey={`${currentDynasty.currentYear}-W${currentDynasty.currentWeek}-${userTeamTid}-${oppTid}-${gameRecord?.gamedayPicksSeed || 0}`}
-                      userTeamName={userTeamName}
-                      opponentName={opponentName}
-                      userLogoUrl={userLogoUrl}
-                      oppLogoUrl={oppLogoUrl}
-                      year={currentDynasty.currentYear}
-                      week={currentDynasty.currentWeek}
-                    />
-                  ) : null,
                 })
               }
               // Bye weeks for the user's team are no longer surfaced as a
@@ -4228,7 +4222,7 @@ export default function Dashboard() {
                 customActions: !ccOpponent && !ccGame && !isViewOnly ? (
                   <div className="flex-shrink-0 w-44 sm:w-48">
                     <SearchableSelect
-                      options={teams}
+                      options={dynastyTeamNames}
                       value=""
                       onChange={(teamName) => {
                         // Resolve the picked team straight to its tid — the only
@@ -5043,7 +5037,7 @@ export default function Dashboard() {
                         </div>
                         <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Who is your opponent?</p>
                         <SearchableSelect
-                          options={teams}
+                          options={dynastyTeamNames}
                           value=""
                           onChange={async (value) => {
                             // Resolve the picked team to its tid immediately — tid is
@@ -5182,7 +5176,7 @@ export default function Dashboard() {
               bw1Todos.push({
                 key: 'recruiting-bw1',
                 done: bw1HasCommitmentsData,
-                title: bw1HasCommitmentsData ? 'Recruiting Commitments' : 'New targets/commitments?',
+                title: bw1HasCommitmentsData ? 'Targets & Commitments' : 'New targets/commitments?',
                 subtitle: bw1HasCommitmentsData
                   ? bw1CommitmentsCount > 0
                     ? `${bw1CommitmentsCount} commitment${bw1CommitmentsCount !== 1 ? 's' : ''} recorded`
@@ -5216,7 +5210,7 @@ export default function Dashboard() {
                       <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Which team?</p>
                       <div className="max-w-xs">
                         <SearchableSelect
-                          options={teams}
+                          options={dynastyTeamNames}
                           value={newJobTeam}
                           onChange={async (value) => {
                             setNewJobTeam(value)
@@ -5535,7 +5529,7 @@ export default function Dashboard() {
               bw2Todos.push({
                 key: 'recruiting-bw2',
                 done: bw2HasCommitmentsData,
-                title: bw2HasCommitmentsData ? 'Recruiting Commitments' : 'New targets/commitments?',
+                title: bw2HasCommitmentsData ? 'Targets & Commitments' : 'New targets/commitments?',
                 subtitle: bw2HasCommitmentsData
                   ? bw2CommitmentsCount > 0
                     ? `${bw2CommitmentsCount} commitment${bw2CommitmentsCount !== 1 ? 's' : ''} recorded`
@@ -5569,7 +5563,7 @@ export default function Dashboard() {
                       <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Which team?</p>
                       <div className="max-w-xs">
                         <SearchableSelect
-                          options={teams}
+                          options={dynastyTeamNames}
                           value={newJobTeam}
                           onChange={async (value) => {
                             setNewJobTeam(value)
@@ -6299,7 +6293,7 @@ export default function Dashboard() {
             w34Todos.push({
               key: 'recruiting-bw34',
               done: w34HasCommitmentsData,
-              title: w34HasCommitmentsData ? 'Recruiting Commitments' : 'New targets/commitments?',
+              title: w34HasCommitmentsData ? 'Targets & Commitments' : 'New targets/commitments?',
               subtitle: w34HasCommitmentsData
                 ? w34CommitmentsCount > 0
                   ? `${w34CommitmentsCount} commitment${w34CommitmentsCount !== 1 ? 's' : ''} recorded`
@@ -6333,7 +6327,7 @@ export default function Dashboard() {
                     <p className="mb-2 text-xs sm:text-sm text-txt-secondary">Which team?</p>
                     <div className="max-w-xs">
                       <SearchableSelect
-                        options={teams}
+                        options={dynastyTeamNames}
                         value={newJobTeam}
                         onChange={async (value) => {
                           setNewJobTeam(value)
@@ -6590,7 +6584,7 @@ export default function Dashboard() {
                 o26Todos.push({
                   key: 'recruiting-week',
                   done: hasCommitmentsData,
-                  title: hasCommitmentsData ? 'Recruiting Commitments' : 'New targets/commitments?',
+                  title: hasCommitmentsData ? 'Targets & Commitments' : 'New targets/commitments?',
                   subtitle: hasCommitmentsData
                     ? commitmentsCount > 0
                       ? `${commitmentsCount} commitment${commitmentsCount !== 1 ? 's' : ''} recorded`
@@ -7105,7 +7099,7 @@ export default function Dashboard() {
                 <Link
                   to={`${pathPrefix}/weekly-scores/${Number(currentDynasty.currentYear)}/${Number(currentDynasty.currentWeek) - 1}?tab=recap`}
                   className="absolute top-3 right-3 z-10 p-1.5 rounded-lg text-txt-tertiary hover:text-txt-secondary hover:bg-surface-3 transition-colors"
-                  title="Open recap on Weekly Recap page"
+                  title="Open recap on Around the Country page"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -7295,7 +7289,11 @@ export default function Dashboard() {
                     ? <Link to={`${pathPrefix}/game/${playedGame.id}`} className="block">{renderGameRow(true)}</Link>
                     : renderGameRow(false)
                   return (
-                    <div key={weekNum}>
+                    <div
+                      key={weekNum}
+                      className="rounded-xl overflow-hidden my-2 relative z-10"
+                      style={{ border: '2px solid var(--text-primary)' }}
+                    >
                       {row}
                       {gpOppTid && (
                         <GamedayPicks
@@ -7939,7 +7937,11 @@ export default function Dashboard() {
                           ? <Link to={`${pathPrefix}/game/${playedGame.id}`} className="block">{renderMobileGameRow(true)}</Link>
                           : renderMobileGameRow(false)
                         return (
-                          <div key={weekNum}>
+                          <div
+                            key={weekNum}
+                            className="rounded-xl overflow-hidden my-2 relative z-10"
+                            style={{ border: '2px solid var(--text-primary)' }}
+                          >
                             {row}
                             {gpOppTid && (
                               <GamedayPicks

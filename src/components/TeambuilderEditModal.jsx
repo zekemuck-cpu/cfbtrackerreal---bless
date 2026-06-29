@@ -41,8 +41,11 @@ export default function TeambuilderEditModal({
   const [saving, setSaving] = useState(false)
   const [abbrError, setAbbrError] = useState('')
 
-  // Get all FBS team abbreviations for conflict checking
-  const allFbsAbbreviations = getSelectableTeamsList()
+  // Get all FBS team abbreviations for conflict checking. Prefer THIS dynasty's
+  // own teams (the per-dynasty source of truth) so the check matches the
+  // dynasty's edition and any TeamBuilder renames; fall back to the static list
+  // only when no dynasty context was passed.
+  const allFbsAbbreviations = getSelectableTeamsList(dynastyTeams)
 
   // Get the original team that was replaced
   const originalTeamAbbr = getOriginalTeamAbbr(tid)

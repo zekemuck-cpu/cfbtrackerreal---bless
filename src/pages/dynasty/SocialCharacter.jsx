@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { getEffectiveCharacters, DEFAULT_SOCIAL_PLATFORM } from '../../data/socialModel'
+import { getEffectiveCharacters, DEFAULT_SOCIAL_PLATFORM, isOfficialTeamAccount } from '../../data/socialModel'
+import { getTeamScoreGraphic } from '../../utils/scoreGraphics'
+import { proxyImageUrl } from '../../utils/imageProxy'
 import SocialCharacterEditModal from '../../components/SocialCharacterEditModal'
 import FormattedRecap from '../../components/FormattedRecap'
 import buildRecapLinks from '../../utils/buildRecapLinks'
@@ -86,6 +88,14 @@ export default function SocialCharacter() {
     out.sort((a, b) => (b.year - a.year) || (b.week - a.week) || ((b.createdAt || 0) - (a.createdAt || 0)))
     return out
   }, [currentDynasty?.socialFeedByYear, id])
+
+  // Games keyed by id, so the official team account's game posts can carry the
+  // uploaded final-score graphic (mirrors the feed behavior).
+  const gamesById = useMemo(() => {
+    const out = {}
+    for (const g of (currentDynasty?.games || [])) if (g?.id) out[g.id] = g
+    return out
+  }, [currentDynasty?.games])
 
   const playerLinks = useMemo(() => {
     if (!currentDynasty) return []
@@ -206,6 +216,9 @@ export default function SocialCharacter() {
               : (p.year != null && p.week != null
                 ? `${pathPrefix}/weekly-scores/${p.year}/${p.week}?tab=social`
                 : null)
+            const pg = p.gameId ? gamesById[p.gameId] : null
+            const teamGraphic = isOfficialTeamAccount(character) ? getTeamScoreGraphic(pg, character.teamTid) : ''
+            const showScoreGraphic = !!teamGraphic
             return (
             <div
               key={p.id}
@@ -222,6 +235,17 @@ export default function SocialCharacter() {
               <div className="text-sm break-words mt-0.5 [&_a]:text-[#1d9bf0] [&_a:hover]:underline [&_a]:underline-offset-2" style={{ lineHeight: 1.5 }}>
                 <FormattedRecap text={p.text} playerLinks={playerLinks} caseInsensitive className="text-txt-primary" />
               </div>
+              {showScoreGraphic && (
+                <div className="mt-2 rounded-2xl overflow-hidden" style={{ border: '1px solid var(--surface-4)', width: '100%', maxWidth: 200 }}>
+                  <img
+                    src={proxyImageUrl(teamGraphic, 400)}
+                    alt="Final score graphic"
+                    loading="lazy"
+                    className="w-full h-auto block"
+                    onError={(e) => { if (e.target.src !== teamGraphic) { e.target.src = teamGraphic } else { e.target.style.display = 'none' } }}
+                  />
+                </div>
+              )}
             </div>
             )
           })}

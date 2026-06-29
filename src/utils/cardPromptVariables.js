@@ -31,7 +31,8 @@
 
 import { stripMascotFromName } from '../data/teams'
 import { TEAMS } from '../data/teamRegistry'
-import { detectGameType, GAME_TYPES, getTeamRanking, calculateTeamRecordFromGames } from '../context/DynastyContext'
+import { detectGameType, GAME_TYPES, getTeamRanking, calculateTeamRecordFromGames, getCustomConferencesForYear } from '../context/DynastyContext'
+import { getTeamConference } from '../data/conferenceTeams'
 import { WEEKLY_AWARDS } from '../data/cardStyles'
 
 // Award keys → human display name. Mirrors the labels the player profile
@@ -905,6 +906,12 @@ export function buildCardPromptVariables({ player, dynasty, card }) {
   const teamColor = colors.primary || team?.primaryColor || ''
   const teamSecondaryColor = colors.secondary || team?.secondaryColor || ''
   const teamLogoUrl = team?.logo || ''
+  // The team's conference IN THIS DYNASTY (honors manual realignment / custom
+  // conferences), not the team's real-world conference — so a card's conference
+  // logo matches where the user actually placed the team.
+  const conference = teamTid != null
+    ? (getTeamConference(teamTid, getCustomConferencesForYear(dynasty, year), teamsSrc) || '')
+    : ''
 
   // Identity bits.
   const firstName = (player.firstName || (player.name || '').split(' ')[0] || '').trim()
@@ -1143,6 +1150,7 @@ export function buildCardPromptVariables({ player, dynasty, card }) {
     teamColor,
     teamSecondaryColor,
     teamLogoUrl,
+    conference,
     // {{teamLogo}} appears in ~70 front templates ("a team helmet icon
     // for {{teamLogo}}") and was never provided — it resolved to empty,
     // leaving the team unnamed. Name the team so the art has a referent.

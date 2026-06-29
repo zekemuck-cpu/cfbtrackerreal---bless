@@ -13,9 +13,14 @@
 // blank/absent column (legacy sheet) yields commitment:'' (→ committed to you),
 // attributes:null, pid:undefined.
 
-import { ATTRIBUTE_COLUMNS } from './recruitAttributes'
+import { ATTRIBUTE_COLUMNS, ATTRIBUTE_ABBR } from './recruitAttributes'
 
 export const COMMITMENT_COL = 15
+// Attributes are now a SINGLE labeled cell at ATTR_COL_START (the AI fills it
+// with "<code> <rating>" pairs, e.g. "AWR 76, SPD 67, TAK 80"). The remaining
+// legacy attribute-column slots stay blank so pid/NIL keep their positions and
+// existing sheets round-trip structurally.
+export const ATTR_CELL_COL = 16
 export const ATTR_COL_START = 16
 export const ATTR_COL_END = ATTR_COL_START + ATTRIBUTE_COLUMNS.length // exclusive
 export const PID_COL = ATTR_COL_END
@@ -44,13 +49,38 @@ const starsSymbolToNumber = (s) => (s ? (String(s).match(/☆/g) || []).length :
 const trim = (v) => (v != null ? String(v).trim() : '')
 const intOrNull = (v) => (v ? parseInt(v, 10) : null)
 
-function parseAttributes(row) {
+// Map a normalized label (the short code OR the full attribute name) to its
+// canonical attribute name. Built once from ATTRIBUTE_COLUMNS + ATTRIBUTE_ABBR.
+const normLabel = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '')
+const ATTR_BY_LABEL = (() => {
+  const m = {}
+  for (const name of ATTRIBUTE_COLUMNS) {
+    m[normLabel(name)] = name
+    const abbr = ATTRIBUTE_ABBR[name]
+    if (abbr) m[normLabel(abbr)] = name
+  }
+  return m
+})()
+
+// Parse the single "Attributes" cell — a list of "<label> <rating>" pairs the
+// AI fills by reading each attribute off the player's Attributes tab (e.g.
+// "AWR 76, SPD 67, TAK 80"). Labels may be the 3-letter code or the full name;
+// separators (comma / semicolon / newline / space) don't matter. A legacy cell
+// holding a bare number (old per-named-column layout) has no label and yields
+// no attributes.
+export function parseAttributes(cell) {
+  if (cell == null) return null
+  const text = String(cell).trim()
+  if (!text) return null
   const out = {}
-  for (let i = 0; i < ATTRIBUTE_COLUMNS.length; i++) {
-    const raw = row[ATTR_COL_START + i]
-    if (raw == null || String(raw).trim() === '') continue
-    const n = Number(String(raw).trim())
-    if (Number.isFinite(n)) out[ATTRIBUTE_COLUMNS[i]] = n
+  // Each pair = a letter-led label immediately followed by a 1–3 digit rating.
+  const re = /([A-Za-z][A-Za-z .'/&-]*?)\s*[:=]?\s*(\d{1,3})/g
+  let match
+  while ((match = re.exec(text)) !== null) {
+    const value = Number(match[2])
+    if (!Number.isFinite(value) || value < 0 || value > 99) continue
+    const name = ATTR_BY_LABEL[normLabel(match[1])]
+    if (name && out[name] == null) out[name] = value
   }
   return Object.keys(out).length ? out : null
 }
@@ -79,7 +109,7 @@ export function parseRecruitingRow(row) {
     isPortal: !NON_PORTAL_CLASSES.includes(recruitClass),
     // ── Targets extension (harmless on a legacy sheet) ──
     commitment: trim(row[COMMITMENT_COL]),
-    attributes: parseAttributes(row),
+    attributes: parseAttributes(row[ATTR_CELL_COL]),
     pid: trim(pidRaw) !== '' ? Number(trim(pidRaw)) : undefined,
     nil: intOrNull(row[NIL_COL]), // recruiting NIL offer (CFB 27+); null on a legacy sheet
   }

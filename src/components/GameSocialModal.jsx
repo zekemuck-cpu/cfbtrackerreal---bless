@@ -123,10 +123,10 @@ export default function GameSocialModal({ isOpen, onClose, game }) {
     if (isViewOnly) { toast.error('Read-only mode.'); return }
     const text = pasteText.trim()
     if (!text) { toast.error('Paste the AI response first.'); return }
-    const { found, body } = extractSocialBlock(text)
-    if (!found) { toast.error('No cfb-social block found in the pasted text.'); return }
+    const { found, body } = extractSocialBlock(text, { allowBareLines: true })
+    if (!found) { toast.error('No posts found. Paste the AI’s full response, or just the post lines (G1 | @handle | text).'); return }
     const lines = parseSocialLines(body)
-    if (!lines.length) { toast.error('No valid post lines found in the block.'); return }
+    if (!lines.length) { toast.error('No valid post lines found. Each line should look like: G1 | @handle | text.'); return }
     setBusy(true)
     try {
       await ensureUniverseLoaded()
@@ -227,10 +227,10 @@ export default function GameSocialModal({ isOpen, onClose, game }) {
                   value={pasteText}
                   onChange={(e) => setPasteText(e.target.value)}
                   className="w-full h-44 rounded-md border border-surface-4 bg-surface-2 text-txt-primary text-sm font-mono p-3 resize-y focus:outline-none focus:ring-2 focus:ring-surface-5"
-                  placeholder="Paste the AI's full response. We pull out the cfb-social block automatically."
+                  placeholder="Paste the AI's full response, or just the post lines (G1 | @handle | text)."
                 />
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-txt-tertiary">Paste the whole response — only the fenced cfb-social block is read.</p>
+                  <p className="text-xs text-txt-tertiary">Paste the whole response, or just the post lines — both work.</p>
                   <button
                     onClick={handleParseAndSave}
                     disabled={busy || !pasteText.trim()}

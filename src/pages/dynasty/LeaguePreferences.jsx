@@ -49,23 +49,6 @@ export default function LeaguePreferences() {
   const [selected, setSelected] = useState(() => new Set())
   const [editingId, setEditingId] = useState(null)
   const [creating, setCreating] = useState(false)
-  const scoutStaffEnabled = !!currentDynasty?.scoutStaffEnabled
-  const [savingScoutStaff, setSavingScoutStaff] = useState(false)
-  const toggleScoutStaff = async () => {
-    if (isViewOnly) { toast.error('Read-only mode.'); return }
-    if (savingScoutStaff) return
-    const next = !scoutStaffEnabled
-    setSavingScoutStaff(true)
-    try {
-      await updateDynasty(currentDynasty.id, { scoutStaffEnabled: next })
-      toast.success(next ? 'Scout Staff enabled — the Targets tab now uses Scout Staff.' : 'Scout Staff disabled — back to MaxPlaysCFB ScoutScore.')
-    } catch (err) {
-      console.error('[LeaguePreferences] scout staff toggle failed:', err)
-      toast.error(`Could not update: ${err?.message || 'Unknown error'}`)
-    } finally {
-      setSavingScoutStaff(false)
-    }
-  }
 
   // Bulk-edit fields (only applied when set)
   const [bulkVerified, setBulkVerified] = useState('')  // '' | 'yes' | 'no'
@@ -308,20 +291,41 @@ export default function LeaguePreferences() {
     }
   }
 
+  // Scout Staff mode — opt-in replacement for the MaxPlaysCFB ScoutScore tools.
+  // Default OFF: when off, nothing about MaxPlaysCFB changes. When on, the
+  // Recruiting "Targets" tab becomes the Scout Staff hub and the MaxPlaysCFB
+  // ScoutScore surfaces are hidden. Fully reversible — toggling back off
+  // restores the normal MaxPlaysCFB behavior.
+  const scoutStaffEnabled = !!currentDynasty?.scoutStaffEnabled
+  const [savingScoutStaff, setSavingScoutStaff] = useState(false)
+  const toggleScoutStaff = async () => {
+    if (isViewOnly) { toast.error('Read-only mode.'); return }
+    if (savingScoutStaff) return
+    const next = !scoutStaffEnabled
+    setSavingScoutStaff(true)
+    try {
+      await updateDynasty(currentDynasty.id, { scoutStaffEnabled: next })
+      toast.success(next ? 'Scout Staff enabled — the Targets tab now uses Scout Staff.' : 'Scout Staff disabled — back to MaxPlaysCFB ScoutScore.')
+    } catch (err) {
+      console.error('[LeaguePreferences] scout staff toggle failed:', err)
+      toast.error(`Could not update: ${err?.message || 'Unknown error'}`)
+    } finally {
+      setSavingScoutStaff(false)
+    }
+  }
+
   if (!currentDynasty) return null
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
       <div>
         <h1 className="text-display-md text-txt-primary m-0">League Preferences</h1>
-        <p className="text-txt-secondary text-sm mt-1">Dynasty-wide customization.</p>
       </div>
 
       <section className="rounded-xl border border-surface-4 overflow-hidden" style={{ background: 'var(--surface-1)' }}>
         <div className="px-4 py-3 border-b border-surface-4 flex items-start justify-between gap-2 flex-wrap">
           <div>
             <h2 className="font-bold text-txt-primary m-0">Social Media Universe</h2>
-            <p className="text-xs text-txt-tertiary mt-0.5">{Object.keys(characters).length.toLocaleString()} accounts. Edit one, or select many to mass-edit.</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {!isViewOnly && (
@@ -441,6 +445,10 @@ export default function LeaguePreferences() {
                 {c.xUrl && (
                   <a href={c.xUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="px-3 py-1 rounded-lg text-xs font-semibold border border-surface-4 text-txt-secondary hover:text-txt-primary flex-shrink-0">X</a>
                 )}
+                {/* Dev-only tooling: Paste PFP / Copy PFP Prompt are local
+                    authoring helpers. import.meta.env.DEV is true under `npm run
+                    dev` and false in the production `vite build`, so users on the
+                    deployed site never see these. */}
                 {import.meta.env.DEV && !isViewOnly && (
                   <button
                     onClick={() => pasteImageInto(c, 'avatar')}
@@ -506,14 +514,8 @@ export default function LeaguePreferences() {
         })()}
       </section>
 
-      {editingChar && (
-        <SocialCharacterEditModal isOpen={!!editingChar} onClose={() => setEditingId(null)} character={editingChar} />
-      )}
-      {creating && (
-        <SocialCharacterEditModal isOpen={creating} onClose={() => setCreating(false)} character={{}} />
-      )}
-
-      {/* Scout Staff — opt-in alternative to MaxPlaysCFB ScoutScore. Default OFF. */}
+      {/* Scout Staff — opt-in alternative to MaxPlaysCFB ScoutScore. Kept at the
+          very bottom of League Preferences. Default OFF. */}
       <section className="rounded-xl border border-surface-4 overflow-hidden" style={{ background: 'var(--surface-1)' }}>
         <div className="px-4 py-4 flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0 flex-1">
@@ -545,6 +547,13 @@ export default function LeaguePreferences() {
           </button>
         </div>
       </section>
+
+      {editingChar && (
+        <SocialCharacterEditModal isOpen={!!editingChar} onClose={() => setEditingId(null)} character={editingChar} />
+      )}
+      {creating && (
+        <SocialCharacterEditModal isOpen={creating} onClose={() => setCreating(false)} character={{}} />
+      )}
     </div>
   )
 }

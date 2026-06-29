@@ -66,7 +66,7 @@ export const preloadByNavName = {
   'CC History': ConferenceChampionshipHistory.preload,
   'Conf. Standings': ConferenceStandings.preload,
   'Top 25': Rankings.preload,
-  'Weekly Recap': WeeklyScores.preload,
+  'Around the Country': WeeklyScores.preload,
   'All Teams': Teams.preload,
   'All Players': Players.preload,
   'Danger Zone': DangerZone.preload,

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Analytics } from '@vercel/analytics/react'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { DynastyProvider } from './context/DynastyContext'
+import FaviconManager from './components/FaviconManager'
 import Layout from './components/Layout'
 import { ToastProvider, ConfirmProvider } from './components/ui'
 import ScrollToTop from './components/ScrollToTop'
@@ -106,6 +107,7 @@ function AppRoutes() {
           {/* All other routes wrapped in DynastyProvider */}
           <Route path="/*" element={
             <DynastyProvider>
+              <FaviconManager />
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/" element={

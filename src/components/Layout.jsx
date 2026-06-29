@@ -6,11 +6,11 @@ import { useCurrentTeamColors } from '../hooks/useTeamColors'
 import { getTeamLogoByTid } from '../data/teams'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { TEAMS, getCurrentTeamAbbr, getCurrentTeamTid, getCurrentTeamName } from '../data/teamRegistry'
+import { warmScoutScoresForDynasty } from '../utils/scoutScore'
 import ClassAdvancementModal from './ClassAdvancementModal'
 import DynastyMigrationModal from './DynastyMigrationModal'
 import { needsV2Migration, isCleanButUnstamped } from '../data/migrateDynastyV2'
 import { useToast, useConfirm } from './ui'
-import logo from '../assets/logo.png'
 import { preloadCommonDynastyPages } from '../routes/lazyPages'
 
 // Build-time version stamp injected by vite.config.js. Format is
@@ -58,7 +58,13 @@ export default function Layout({ children }) {
   useEffect(() => {
     const el = headerRef.current
     if (!el) return
-    const measure = () => setHeaderHeight(el.offsetHeight)
+    const measure = () => {
+      const h = el.offsetHeight
+      setHeaderHeight(h)
+      // Publish the real header height so fixed-position chrome (e.g. the
+      // dynasty sidebar) can sit flush under it instead of guessing a value.
+      document.documentElement.style.setProperty('--app-header-height', `${h}px`)
+    }
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
@@ -148,6 +154,30 @@ export default function Layout({ children }) {
       }
     }
   }, [])
+
+  // Warm the ScoutScore cache for this dynasty's current-year recruiting targets
+  // so the Scout Board is already populated when the user opens Recruiting
+  // (instead of a few-second fetch on first click). Scheduled during browser
+  // IDLE time so it never competes with the initial load — the first few seconds
+  // stay smooth. Runs once per dynasty; the shared cache dedupes the rest.
+  const warmedDynastyRef = useRef(null)
+  useEffect(() => {
+    const dyn = currentDynasty
+    if (!dyn?.id || !(dyn.players?.length > 0)) return
+    // Scout Staff mode replaces the MaxPlaysCFB ScoutScore surfaces, so don't
+    // warm (or hit) the ScoutScore cache for those dynasties.
+    if (dyn.scoutStaffEnabled) return
+    if (warmedDynastyRef.current === dyn.id) return
+    warmedDynastyRef.current = dyn.id
+
+    const run = () => warmScoutScoresForDynasty(dyn)
+    if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(run, { timeout: 5000 })
+      return () => window.cancelIdleCallback?.(id)
+    }
+    const t = setTimeout(run, 3000)
+    return () => clearTimeout(t)
+  }, [currentDynasty?.id, currentDynasty?.players?.length])
 
   // Detect dynasties that need the v2 roster-data migration and prompt.
   // New / already-clean dynasties are silently stamped with _schemaVersion: 2
@@ -622,7 +652,7 @@ export default function Layout({ children }) {
       >
         {/* Header is always neutral — no team-color accent stripe. */}
         <div className="w-full px-2 sm:px-4">
-          <div className="flex items-center justify-between py-3">
+          <div className="flex items-center justify-between py-2 relative">
             {/* Left: Burger menu + Home button (dynasty pages only) */}
             <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
               {useTeamTheme && (
@@ -653,31 +683,26 @@ export default function Layout({ children }) {
               )}
             </div>
 
-            {/* Center: Logo + Team info - centered */}
-            <div className="flex-1 flex items-center justify-center gap-2 sm:gap-3 min-w-0">
+            {/* Center: Logo + Team info - centered.
+                On dynasty pages both sides carry content, so flex-1/justify-center
+                lands the logo in the middle. On the dynasty-LIST page the left
+                slot is empty (no burger/home), which would pull a flex-centered
+                logo left of true center — so there we absolutely center it to the
+                header instead. */}
+            <div className={useTeamTheme
+              ? "flex-1 flex items-center justify-center gap-2 sm:gap-3 min-w-0"
+              : "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center"}>
               <Link
                 to="/"
                 className="flex-shrink-0 relative inline-block"
-                aria-label="Dynasty Tracker (beta)"
+                aria-label="CFB Dynasty Tracker"
               >
-                <img src={logo} alt="Dynasty Tracker" className="h-8 sm:h-10 object-contain" />
-                {/* BETA tag — sits on top of the logo's upper-right corner
-                    like a sticker. Slight rotation gives it "tag" energy. */}
-                <span
-                  aria-hidden="true"
-                  className="absolute -top-1 -right-2 sm:-top-1.5 sm:-right-3 px-1.5 py-[1px] sm:px-2 sm:py-[2px] rounded-[3px] text-[8px] sm:text-[9px] font-black uppercase tracking-[0.15em] text-white shadow-md pointer-events-none select-none"
-                  style={{
-                    fontFamily: "'Inter', system-ui, sans-serif",
-                    background: 'linear-gradient(135deg, #f59e0b 0%, #f97316 55%, #ef4444 100%)',
-                    textShadow: '0 1px 1px rgba(0,0,0,0.35)',
-                    boxShadow: '0 2px 6px rgba(239, 68, 68, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    transform: 'rotate(8deg)',
-                    animation: 'beta-pulse-wiggle 3.2s ease-in-out infinite',
-                  }}
-                >
-                  Beta
-                </span>
+                <img
+                  src="/header-logo.png"
+                  alt="CFB Dynasty Tracker"
+                  className="h-9 sm:h-11 object-contain"
+                  onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://i.imgur.com/e1iYDSZ.png' }}
+                />
               </Link>
 
               {useTeamTheme && (() => {

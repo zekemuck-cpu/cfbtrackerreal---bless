@@ -9,6 +9,44 @@ import { useToast } from './ui'
 import { preloadByNavName } from '../routes/lazyPages'
 import { useAuth } from '../context/AuthContext'
 import { getEditionConfig } from '../editions'
+import {
+  DndContext, MouseSensor, TouchSensor, KeyboardSensor,
+  useSensor, useSensors, closestCenter,
+} from '@dnd-kit/core'
+import { SortableContext, useSortable, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+
+// Per-device sidebar nav order. Stored as an array of item *names* (stable
+// across dynasties / param changes) under a single global key so the user's
+// chosen order follows them to every dynasty on this device.
+const SIDEBAR_ORDER_KEY = 'sidebarNavOrder'
+
+const loadSidebarOrder = () => {
+  try {
+    const raw = localStorage.getItem(SIDEBAR_ORDER_KEY)
+    const parsed = raw ? JSON.parse(raw) : null
+    return Array.isArray(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+// Reorder `items` to match the saved name order. Names not in `order` (new
+// nav links shipped after the user last sorted) are appended in their
+// default position so nothing ever disappears.
+const applySidebarOrder = (items, order) => {
+  if (!order || !order.length) return items
+  const byName = new Map(items.map((i) => [i.name, i]))
+  const result = []
+  order.forEach((name) => {
+    if (byName.has(name)) {
+      result.push(byName.get(name))
+      byName.delete(name)
+    }
+  })
+  items.forEach((i) => { if (byName.has(i.name)) result.push(i) })
+  return result
+}
 
 export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, currentYear, isViewOnly, shareCode, dynasty: dynastyProp }) {
   const location = useLocation()
@@ -29,6 +67,39 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
   const { isPremium, user } = useAuth()
   const [showShareModal, setShowShareModal] = useState(false)
   const [copying, setCopying] = useState(false)
+
+  // Sidebar reordering (per-device). `navOrder` is the saved name order;
+  // `reordering` flips the main nav into drag mode; `locking` drives the
+  // brief lock-in pulse when entering that mode.
+  const [navOrder, setNavOrder] = useState(() => loadSidebarOrder())
+  const [reordering, setReordering] = useState(false)
+  const [locking, setLocking] = useState(false)
+  const lockTimerRef = useRef(null)
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+    useSensor(KeyboardSensor),
+  )
+
+  useEffect(() => () => { if (lockTimerRef.current) clearTimeout(lockTimerRef.current) }, [])
+
+  const enterReorder = () => {
+    setReordering(true)
+    setLocking(true)
+    if (lockTimerRef.current) clearTimeout(lockTimerRef.current)
+    lockTimerRef.current = setTimeout(() => setLocking(false), 650)
+  }
+
+  const persistOrder = (names) => {
+    setNavOrder(names)
+    try { localStorage.setItem(SIDEBAR_ORDER_KEY, JSON.stringify(names)) } catch {}
+  }
+
+  const resetOrder = () => {
+    setNavOrder(null)
+    try { localStorage.removeItem(SIDEBAR_ORDER_KEY) } catch {}
+  }
 
   // Get current team tid - prefer currentTid (new), fallback to lookup (old)
   const teamsSource = currentDynasty?.teams || TEAMS
@@ -93,7 +164,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
   const navItems = [
     { name: 'Dashboard', path: pathPrefix },
     ...(showBlueprint ? [{ name: 'Dynasty Blueprint', path: `${pathPrefix}/team/${teamTid}/${currentYear}?tab=blueprint` }] : []),
-    { name: 'Weekly Recap', path: `${pathPrefix}/weekly-scores` },
+    { name: 'Around the Country', path: `${pathPrefix}/weekly-scores` },
     { name: 'Top 25', path: `${pathPrefix}/rankings` },
     { name: 'CFP Bracket', path: `${pathPrefix}/cfp-bracket` },
     { name: 'Conf. Standings', path: `${pathPrefix}/conference-standings` },
@@ -119,6 +190,20 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
       ? [{ name: 'Dev Tools', path: `${pathPrefix}/dev`, isAdmin: true }]
       : []),
   ]
+
+  // Main (non-admin) nav links, reordered to the user's saved preference.
+  // Only this primary list is reorderable; the Settings/admin group stays
+  // pinned so the reorder controls keep a stable home.
+  const mainItems = navItems.filter((item) => !item.isAdmin)
+  const orderedMain = applySidebarOrder(mainItems, navOrder)
+
+  const handleDragEnd = ({ active, over }) => {
+    if (!over || active.id === over.id) return
+    const oldIndex = orderedMain.findIndex((i) => i.name === active.id)
+    const newIndex = orderedMain.findIndex((i) => i.name === over.id)
+    if (oldIndex < 0 || newIndex < 0) return
+    persistOrder(arrayMove(orderedMain, oldIndex, newIndex).map((i) => i.name))
+  }
 
   const isActive = (path) => {
     if (path === pathPrefix) {
@@ -197,32 +282,48 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
       <aside
         className={`fixed left-0 z-40 transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        } w-56 overflow-y-auto top-[64px] h-[calc(100dvh-64px)]`}
+        } w-56 overflow-y-auto`}
         style={{
+          // Sit flush under the real (measured) header height, not a hardcoded
+          // 64px — the header is taller on mobile (logo + padding + safe area).
+          top: 'var(--app-header-height, 64px)',
+          height: 'calc(100dvh - var(--app-header-height, 64px))',
           backgroundColor: 'var(--surface-1)',
           borderRight: '1px solid var(--surface-4)',
         }}
       >
         <nav className="px-2 pt-4 pb-24 lg:pb-16">
-          <div className="flex flex-col">
-            {navItems.filter(item => !item.isAdmin).map((item) => {
-              const active = isActive(item.path)
-              return (
-                <Link
-                  key={item.name}
-                  to={item.path}
-                  onClick={handleNavClick}
-                  onMouseEnter={() => handleNavPrefetch(item.name)}
-                  onFocus={() => handleNavPrefetch(item.name)}
-                  onTouchStart={() => handleNavPrefetch(item.name)}
-                  className={navItemClass(active)}
-                  style={navItemStyle(active)}
-                >
-                  {item.name}
-                </Link>
-              )
-            })}
-          </div>
+          {reordering ? (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={orderedMain.map((i) => i.name)} strategy={verticalListSortingStrategy}>
+                <div className={`flex flex-col ${locking ? 'animate-pulse' : ''}`}>
+                  {orderedMain.map((item) => (
+                    <SortableNavRow key={item.name} name={item.name} />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          ) : (
+            <div className="flex flex-col">
+              {orderedMain.map((item) => {
+                const active = isActive(item.path)
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.path}
+                    onClick={handleNavClick}
+                    onMouseEnter={() => handleNavPrefetch(item.name)}
+                    onFocus={() => handleNavPrefetch(item.name)}
+                    onTouchStart={() => handleNavPrefetch(item.name)}
+                    className={navItemClass(active)}
+                    style={navItemStyle(active)}
+                  >
+                    {item.name}
+                  </Link>
+                )
+              })}
+            </div>
+          )}
 
           {/* Admin Section */}
           {!isViewOnly && (
@@ -230,6 +331,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
               <div className="px-4 mb-2">
                 <span className="label-xs text-txt-tertiary">Settings</span>
               </div>
+
               <div className="flex flex-col">
                 {navItems.filter(item => item.isAdmin).map((item) => {
                   const active = isActive(item.path)
@@ -246,6 +348,41 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
                   )
                 })}
               </div>
+
+              {/* Sidebar Order — per-device drag-to-reorder for the main nav.
+                  Sits at the bottom of the Settings group by default. */}
+              {reordering ? (
+                <div className="px-2 mt-1">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setReordering(false)}
+                      className="flex-1 flex items-center justify-center px-3 py-2 rounded-md text-sm font-semibold transition-colors hover:opacity-90"
+                      style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
+                    >
+                      Done
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetOrder}
+                      className="px-3 py-2 rounded-md text-sm font-medium text-txt-secondary hover:text-txt-primary hover:bg-surface-3 transition-colors"
+                      style={{ border: '1px solid var(--surface-4)' }}
+                      title="Restore the default order"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={enterReorder}
+                  className={navItemClass(false)}
+                  style={{ width: '100%', textAlign: 'left' }}
+                >
+                  Sidebar Order
+                </button>
+              )}
             </div>
           )}
 
@@ -337,5 +474,44 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
         />
       )}
     </>
+  )
+}
+
+// A single draggable nav row shown while reordering. The burger handle (three
+// stacked lines) carries the drag listeners; `touch-action: none` on it lets
+// the TouchSensor grab without the scroll container stealing the gesture.
+function SortableNavRow({ name }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: name })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    zIndex: isDragging ? 20 : undefined,
+    position: 'relative',
+  }
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        ...style,
+        backgroundColor: 'var(--surface-2)',
+        border: '1px dashed var(--surface-4)',
+      }}
+      className="flex items-center gap-2 my-0.5 pl-2 pr-3 py-2 rounded-md select-none"
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label={`Drag ${name}`}
+        className="flex flex-col justify-center gap-[3px] shrink-0 px-1 py-1 -ml-1 rounded text-txt-tertiary hover:text-txt-primary cursor-grab active:cursor-grabbing"
+        style={{ touchAction: 'none' }}
+      >
+        <span className="block w-3.5 h-px bg-current" />
+        <span className="block w-3.5 h-px bg-current" />
+        <span className="block w-3.5 h-px bg-current" />
+      </button>
+      <span className="text-sm font-medium text-txt-primary truncate">{name}</span>
+    </div>
   )
 }

@@ -20,7 +20,7 @@ import {
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
-import { ATTRIBUTE_COLUMNS } from '../utils/recruitAttributes'
+import { ATTRIBUTE_COLUMNS, ATTRIBUTE_ABBR } from '../utils/recruitAttributes'
 import SheetLoadingHint from './SheetLoadingHint'
 
 const isMobileDevice = () => {
@@ -109,22 +109,25 @@ export default function RecruitingCommitmentsModal({
   // ever differed by the attribute columns and the "Uncommitted" sentinel, so
   // the superset prompt does both. (A BLANK Commitment still means "committed
   // to your team" for back-compat — see classifyCommitment.)
-  const ATTR_N = ATTRIBUTE_COLUMNS.length
   const startRow = prefillRecruits.length + 2
+
+  // Recognized attribute names + their short codes. The AI may use either when
+  // filling the single Attributes cell; the app reads them back by name/code.
+  const attrNameRef = ATTRIBUTE_COLUMNS.map(n => `${n} (${ATTRIBUTE_ABBR[n] || n})`).join(', ')
   const recruitingPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Recruiting: ${recruitingLabel || ''}`.trim(),
     structure: `This sheet has ONE tab: "Commitments". Row 1 is a PROTECTED header. Output ONLY the NEW rows visible in THIS request's screenshots, pasted BELOW the rows already entered; never re-output existing rows.
 
 You may get any of these screenshots. Handle each:
-  • A RECRUITING BOARD or weekly COMMIT LIST: output each recruit's columns A–P (recruit info + Commitment). Leave ALL attribute columns blank.
-  • A recruit's PLAYER PAGE "Attributes" tab: output that ONE recruit's full row, columns A–P PLUS the ${ATTR_N} attribute columns filled from the tab.
-Attributes appear ONLY on the player-page Attributes tab, never on the board. If you only have the board, every attribute stays blank (not every recruit is scouted, and that is expected).
+  • A RECRUITING BOARD or weekly COMMIT LIST: output each recruit's columns A–P (recruit info + Commitment). Leave the Attributes cell (Q) blank.
+  • A recruit's PLAYER PAGE "Attributes" tab: output that ONE recruit's row, columns A–P PLUS the single Attributes cell (Q) filled from the tab.
+Attributes appear ONLY on the player-page Attributes tab, never on the board. If you only have the board, the Attributes cell stays blank (not every recruit is scouted, and that is expected).
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES
 ═══════════════════════════════════════════════════════════
 1. Output ONLY data rows for NEW recruits. NEVER output the header row or re-output existing rows.
-2. Tab-separated. Columns in EXACT order A→P (then the attribute columns when filling them).
+2. Tab-separated. Columns in EXACT order A→P (then the single Attributes cell Q when scouted).
 3. One row per recruit; keep screenshot order.
 4. NO COMMAS in numbers ("1234", not "1,234"). Integers have no decimal point. No quotes around numbers.
 5. BLANK for unknown — never guess, never 0/"-"/"N/A". Blank ≠ zero.
@@ -158,14 +161,17 @@ State (L) — 2-letter US codes:
   AK, AL, AR, AZ, CA, CO, CT, DC, DE, FL, GA, HI, IA, ID, IL, IN, KS, KY, LA, MA, MD, ME, MI, MN, MO, MS, MT, NC, ND, NE, NH, NJ, NM, NV, NY, OH, OK, OR, PA, RI, SC, SD, TN, TX, UT, VA, VT, WA, WI, WV, WY
 
 ═══════════════════════════════════════════════════════════
-ATTRIBUTE COLUMNS (Q onward) — fill ONLY from a player-page "Attributes" tab. OPTIONAL.
+ATTRIBUTES — column Q, a SINGLE cell. Fill ONLY from a player-page "Attributes" tab. OPTIONAL.
 ═══════════════════════════════════════════════════════════
-In THIS EXACT order, one column each (${ATTR_N} total):
-${ATTRIBUTE_COLUMNS.join(', ')}
+Attributes go in ONE cell (column Q), NOT in separate columns. For each attribute the tab shows (~10), write its NAME (or its short code) then its 0–99 rating, separated by spaces, with the pairs separated by commas.
 
-  - For each attribute shown on the tab, put its 0–99 rating in the matching named column (exact name match).
-  - The game shows only the position's relevant attributes — leave EVERY other attribute column blank.
-  - When you fill attributes, output ALL ${ATTR_N} attribute fields in the order above (blank where not applicable) — do not drop trailing blanks.
+  EXAMPLE (an ATH whose tab shows Awareness 76, Speed 67, Acceleration 90, Strength 78, Play Recognition 74, Tackle 80, Hit Power 74, Pursuit 80, Man Coverage 76, Zone Coverage 74) →
+  the Q cell is:  Awareness 76, Speed 67, Acceleration 90, Strength 78, Play Recognition 74, Tackle 80, Hit Power 74, Pursuit 80, Man Coverage 76, Zone Coverage 74
+
+Rules for the Q cell:
+  - Just read each attribute off the tab and copy "<name> <rating>". Order does not matter; the app places each value by its name. You do NOT need to leave blanks for attributes the position lacks — only list what the tab shows.
+  - Use the attribute name EXACTLY as it appears, or its short code. Recognized names (code): ${attrNameRef}
+  - One Q cell per scouted player. Leave it blank for un-scouted recruits.
 
 ═══════════════════════════════════════════════════════════
 OUTPUT FORMAT (TSV, paste at A${startRow})
@@ -173,21 +179,21 @@ OUTPUT FORMAT (TSV, paste at A${startRow})
 === TARGETS — paste at cell A${startRow} of "Commitments" tab ===
 Board row (16 fields, A→P):
 <Player>\\t<Class>\\t<Position>\\t<Archetype>\\t<Stars>\\t<Nat>\\t<StateRank>\\t<PosRank>\\t<Height>\\t<Weight>\\t<Hometown>\\t<State>\\t<Gem/Bust>\\t<Dev>\\t<PrevTeam>\\t<Commitment>
-Scouted row (16 + ${ATTR_N} fields, A→P then the attribute columns in order):
-<...A→P...>\\t<${ATTRIBUTE_COLUMNS[0]}>\\t<${ATTRIBUTE_COLUMNS[1]}>\\t…\\t<${ATTRIBUTE_COLUMNS[ATTR_N - 1]}>
+Scouted row (17 fields — the 16 A→P fields, then the single Attributes cell Q):
+<...A→P...>\\t<Attributes, e.g. "Awareness 76, Speed 67, Tackle 80, ...">
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK
 ═══════════════════════════════════════════════════════════
-[ ] Board rows have exactly 16 tab-separated fields (15 tabs); fully-scouted rows have 16 + ${ATTR_N} fields
+[ ] Board rows have exactly 16 tab-separated fields (15 tabs); scouted rows have 17 (the Q Attributes cell added)
 [ ] No header row; no commas in numbers; Stars use ☆ symbols
 [ ] B/C/D/E/I/L/M/N/O/P are literal dropdown values
 [ ] Column P is "Uncommitted" or a team abbreviation
-[ ] Attributes filled ONLY from a player-page Attributes tab; blank when not scouted; pid column never output`,
+[ ] The Q cell is one cell of "<name> <rating>" pairs from the Attributes tab; blank when not scouted; pid/NIL never output`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
-    notes: 'Column P (Commitment): "Uncommitted" for uncommitted recruits you are still pursuing, otherwise the team abbreviation the recruit committed to (your own team\'s abbr if they committed to you). Attribute columns are filled ONLY from a recruit\'s player-page "Attributes" tab, never from the recruiting board — leave them blank if the recruit has not been scouted.',
-  }), [currentYear, recruitingLabel, currentDynasty?.teams, ATTR_N, startRow, prefillRecruits])
+    notes: 'Column P (Commitment): "Uncommitted" for uncommitted recruits you are still pursuing, otherwise the team abbreviation the recruit committed to (your own team\'s abbr if they committed to you). The single Attributes cell (Q) is filled ONLY from a recruit\'s player-page "Attributes" tab, never from the recruiting board — leave it blank if the recruit has not been scouted.',
+  }), [currentYear, recruitingLabel, currentDynasty?.teams, startRow, prefillRecruits])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -425,7 +431,7 @@ FINAL CHECK
         }`}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <SheetModalHeader eyebrow="Recruiting" title={`Commitments: ${recruitingLabel}`} onClose={handleClose} />
+        <SheetModalHeader eyebrow="Recruiting" title={recruitingLabel} onClose={handleClose} />
 
         <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
         {currentPhase !== 'offseason' && (

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import circleLogo from '../assets/circleLogo.png'
 
 // Sign up at https://web3forms.com, paste your access key here. The key is
 // safe to ship to the browser — it only identifies the destination inbox
@@ -115,7 +116,7 @@ export default function Contact() {
           <div className="relative flex items-center gap-4 p-5 sm:p-7">
             <div className="relative flex-shrink-0">
               <img
-                src="https://i.imgur.com/UWHOKXh.png"
+                src={circleLogo}
                 alt=""
                 className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl transition-transform duration-300 group-hover:scale-105"
               />

@@ -6,8 +6,8 @@ import { conferenceTeams as CANONICAL_CONFERENCES } from '../data/conferenceTeam
 import { STAT_TABS, STAT_TAB_ORDER, SCORING_SUMMARY, SCORE_TYPES, PAT_RESULTS, QUARTERS, DOWNS, PLAY_TYPES, AI_UNIFIED_TAB, computeUnifiedTabLayout } from '../data/boxScoreConstants'
 import { isPlayerOnRoster, getPlayerClassForYear } from '../context/DynastyContext'
 import { OAuthError } from '../utils/authErrors'
-import { parseRecruitingRows, RECRUITING_READ_RANGE, TOTAL_COLS, PID_COL, NIL_COL } from '../utils/recruitSheetParse'
-import { ATTRIBUTE_COLUMNS, ATTRIBUTE_ABBR } from '../utils/recruitAttributes'
+import { parseRecruitingRows, parseAttributes, RECRUITING_READ_RANGE, TOTAL_COLS, PID_COL, NIL_COL } from '../utils/recruitSheetParse'
+import { ATTRIBUTE_COLUMNS, ATTRIBUTE_ABBR, attributeNamesFor, serializeAttributes } from '../utils/recruitAttributes'
 
 const SHEETS_API_BASE = 'https://sheets.googleapis.com/v4/spreadsheets'
 const DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3/files'
@@ -500,7 +500,7 @@ async function initializeSheetHeaders(spreadsheetId, accessToken, scheduleSheetI
           fields: 'userEnteredValue'
         }
       }] : []),
-      // Roster headers (13 columns)
+      // Roster headers (15 columns)
       {
         updateCells: {
           range: {
@@ -508,7 +508,7 @@ async function initializeSheetHeaders(spreadsheetId, accessToken, scheduleSheetI
             startRowIndex: 0,
             endRowIndex: 1,
             startColumnIndex: 0,
-            endColumnIndex: 14
+            endColumnIndex: 15
           },
           rows: [{
             values: [
@@ -525,7 +525,8 @@ async function initializeSheetHeaders(spreadsheetId, accessToken, scheduleSheetI
               { userEnteredValue: { stringValue: 'Hometown' } },
               { userEnteredValue: { stringValue: 'State' } },
               { userEnteredValue: { stringValue: 'Image URL' } },
-              { userEnteredValue: { stringValue: 'NIL' } }
+              { userEnteredValue: { stringValue: 'NIL' } },
+              { userEnteredValue: { stringValue: 'Attributes' } }
             ]
           }],
           fields: 'userEnteredValue'
@@ -986,7 +987,7 @@ async function initializeSheetHeaders(spreadsheetId, accessToken, scheduleSheetI
             startRowIndex: 0,
             endRowIndex: 86,
             startColumnIndex: 0,
-            endColumnIndex: 13
+            endColumnIndex: 15
           }
         }
       }
@@ -1384,7 +1385,7 @@ async function initializeRosterSheetOnly(spreadsheetId, accessToken, rosterSheet
   try {
 
     const requests = [
-      // Roster headers (13 columns)
+      // Roster headers (15 columns)
       {
         updateCells: {
           range: {
@@ -1392,7 +1393,7 @@ async function initializeRosterSheetOnly(spreadsheetId, accessToken, rosterSheet
             startRowIndex: 0,
             endRowIndex: 1,
             startColumnIndex: 0,
-            endColumnIndex: 14
+            endColumnIndex: 15
           },
           rows: [{
             values: [
@@ -1409,7 +1410,8 @@ async function initializeRosterSheetOnly(spreadsheetId, accessToken, rosterSheet
               { userEnteredValue: { stringValue: 'Hometown' } },
               { userEnteredValue: { stringValue: 'State' } },
               { userEnteredValue: { stringValue: 'Image URL' } },
-              { userEnteredValue: { stringValue: 'NIL' } }
+              { userEnteredValue: { stringValue: 'NIL' } },
+              { userEnteredValue: { stringValue: 'Attributes' } }
             ]
           }],
           fields: 'userEnteredValue'
@@ -1714,7 +1716,7 @@ async function initializeRosterSheetOnly(spreadsheetId, accessToken, rosterSheet
               startRowIndex: 0,
               endRowIndex: 86,
               startColumnIndex: 0,
-              endColumnIndex: 13
+              endColumnIndex: 15
             }
           }
         }
@@ -1808,7 +1810,7 @@ export async function readRosterFromRosterSheet(spreadsheetId) {
     const accessToken = await getAccessToken()
 
     const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/Roster!A2:N100`,
+      `${SHEETS_API_BASE}/${spreadsheetId}/values/Roster!A2:O100`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -1859,7 +1861,8 @@ export async function readRosterFromRosterSheet(spreadsheetId) {
         hometown: row[10] || '',                          // K: Hometown
         state: row[11] || '',                             // L: State
         pictureUrl: row[12] || '',                         // M: Image URL
-        nil: (row[13] != null && String(row[13]).trim() !== '') ? parseInt(row[13]) : null  // N: NIL (CFB 27+)
+        nil: (row[13] != null && String(row[13]).trim() !== '') ? parseInt(row[13]) : null,  // N: NIL (CFB 27+)
+        attributes: parseAttributes(row[14])              // O: Attributes (single-cell, CFB 27)
       }))
   } catch (error) {
     console.error('Error reading roster:', error)
@@ -1883,8 +1886,15 @@ export async function prefillRosterSheet(spreadsheetId, players, year = null) {
     }
 
     // Prepare roster data
-    // Columns: First Name | Last Name | Position | Class | Dev Trait | Jersey # | Archetype | Overall | Height | Weight | Hometown | State | Image URL | NIL
+    // Columns: First Name | Last Name | Position | Class | Dev Trait | Jersey # | Archetype | Overall | Height | Weight | Hometown | State | Image URL | NIL | Attributes
     const nilFor = (p) => (year != null ? (p.nilByYear?.[year] ?? p.nilByYear?.[String(year)] ?? '') : '')
+    // Attributes are stored per-season; pre-fill the selected season's map (or the
+    // flat recruit map as a fallback) as a single compact "AWR 88, SPD 90" cell.
+    const attrsFor = (p) => {
+      const byYear = (year != null && p.attributesByYear)
+        ? (p.attributesByYear[year] ?? p.attributesByYear[String(year)]) : null
+      return serializeAttributes(byYear || p.attributes || null)
+    }
     const rosterValues = players.map(p => {
       const { firstName, lastName } = p.firstName ? { firstName: p.firstName, lastName: p.lastName || '' } : splitName(p.name)
       return [
@@ -1901,21 +1911,22 @@ export async function prefillRosterSheet(spreadsheetId, players, year = null) {
         p.hometown || '',
         p.state || '',
         p.pictureUrl || '',
-        nilFor(p)
+        nilFor(p),
+        attrsFor(p)
       ]
     })
 
     // Add 5 extra empty rows for adding new players
     const EXTRA_ROWS = 5
     for (let i = 0; i < EXTRA_ROWS; i++) {
-      rosterValues.push(['', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+      rosterValues.push(['', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
     }
 
     if (rosterValues.length === 0) return
 
     // Write roster data starting at row 2 (after header)
     const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/Roster!A2:N${rosterValues.length + 1}?valueInputOption=RAW`,
+      `${SHEETS_API_BASE}/${spreadsheetId}/values/Roster!A2:O${rosterValues.length + 1}?valueInputOption=RAW`,
       {
         method: 'PUT',
         headers: {
@@ -2142,7 +2153,7 @@ export async function readRosterFromSheet(spreadsheetId, dynastyTeams = null) {
     const accessToken = await getAccessToken()
 
     const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/Roster!A2:N100`,
+      `${SHEETS_API_BASE}/${spreadsheetId}/values/Roster!A2:O100`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -2219,7 +2230,8 @@ export async function readRosterFromSheet(spreadsheetId, dynastyTeams = null) {
         hometown: row[10] || '',                          // K: Hometown
         state: row[11] || '',                             // L: State
         pictureUrl: row[12] || '',                         // M: Image URL
-        nil: (row[13] != null && String(row[13]).trim() !== '') ? parseInt(row[13]) : null  // N: NIL (CFB 27+)
+        nil: (row[13] != null && String(row[13]).trim() !== '') ? parseInt(row[13]) : null,  // N: NIL (CFB 27+)
+        attributes: parseAttributes(row[14])              // O: Attributes (single-cell, CFB 27)
       }))
   } catch (error) {
     console.error('Error reading roster:', error)
@@ -2228,7 +2240,7 @@ export async function readRosterFromSheet(spreadsheetId, dynastyTeams = null) {
 }
 
 // Write existing schedule and roster data to a sheet
-export async function writeExistingDataToSheet(spreadsheetId, schedule, players, userTeamAbbr) {
+export async function writeExistingDataToSheet(spreadsheetId, schedule, players, userTeamAbbr, year = null) {
   try {
     // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
@@ -2287,7 +2299,12 @@ export async function writeExistingDataToSheet(spreadsheetId, schedule, players,
       return { firstName: parts[0], lastName: parts.slice(1).join(' ') }
     }
 
-    // Prepare roster data (rows 2-86, columns A-M, 13 columns)
+    // Prepare roster data (rows 2-86, columns A-O, 15 columns)
+    const attrsFor = (player) => {
+      const byYear = (year != null && player.attributesByYear)
+        ? (player.attributesByYear[year] ?? player.attributesByYear[String(year)]) : null
+      return serializeAttributes(byYear || player.attributes || null)
+    }
     const rosterValues = players?.map(player => {
       const { firstName, lastName } = player.firstName ? { firstName: player.firstName, lastName: player.lastName || '' } : splitName(player.name)
       return [
@@ -2304,14 +2321,15 @@ export async function writeExistingDataToSheet(spreadsheetId, schedule, players,
         player.hometown || '',                // K: Hometown
         player.state || '',                   // L: State
         player.pictureUrl || '',              // M: Image URL
-        ''                                    // N: NIL (filled by the user; CFB 27+)
+        '',                                   // N: NIL (filled by the user; CFB 27+)
+        attrsFor(player)                      // O: Attributes (single-cell, CFB 27)
       ]
     }) || []
 
     // Add 5 extra empty rows for adding new players
     const EXTRA_ROWS = 5
     for (let i = 0; i < EXTRA_ROWS; i++) {
-      rosterValues.push(['', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+      rosterValues.push(['', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
     }
 
     // Batch update both sheets
@@ -2333,10 +2351,10 @@ export async function writeExistingDataToSheet(spreadsheetId, schedule, players,
       )
     }
 
-    // Write roster data (14 columns)
+    // Write roster data (15 columns)
     if (rosterValues.length > 0) {
       requests.push(
-        fetch(`${SHEETS_API_BASE}/${spreadsheetId}/values/Roster!A2:N${rosterValues.length + 1}?valueInputOption=RAW`, {
+        fetch(`${SHEETS_API_BASE}/${spreadsheetId}/values/Roster!A2:O${rosterValues.length + 1}?valueInputOption=RAW`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -11234,11 +11252,12 @@ export async function createRecruitingSheet(dynastyName, year, dynastyTeams = nu
             { userEnteredValue: { stringValue: 'Gem/Bust' }, userEnteredFormat: headerStyle },
             { userEnteredValue: { stringValue: 'Dev Trait' }, userEnteredFormat: headerStyle },
             { userEnteredValue: { stringValue: 'Prev Team' }, userEnteredFormat: headerStyle },
-            // ── Targets extension: Commitment + one column per attribute (shown
-            // as a short CFB abbreviation, full name on hover) + hidden pid ──
+            // ── Targets extension: Commitment + a single "Attributes" cell
+            // (the AI fills it with "<code> <rating>" pairs) + hidden pid ──
             ...[
               { label: 'Commitment' },
-              ...ATTRIBUTE_COLUMNS.map(name => ({ label: ATTRIBUTE_ABBR[name] || name, note: name })),
+              { label: 'Attributes', note: "Scouted attributes — list each as '<code> <rating>', e.g. AWR 76, SPD 67, TAK 80. The app reads them by code/name." },
+              ...ATTRIBUTE_COLUMNS.slice(1).map(() => ({ label: '' })),
               { label: 'pid' },
               { label: 'NIL', note: 'Recruiting NIL offer (CFB 27)' },
             ].map(h => ({
@@ -11254,7 +11273,7 @@ export async function createRecruitingSheet(dynastyName, year, dynastyTeams = nu
 
     // Set column widths (A–O commit fields, then Commitment, the named attrs, pid, NIL)
     const columnWidths = [150, 70, 70, 140, 80, 70, 70, 70, 60, 60, 120, 50, 70, 70, 80,
-      100, ...ATTRIBUTE_COLUMNS.map(() => 52), 50, 70]
+      100, 340, ...ATTRIBUTE_COLUMNS.slice(1).map(() => 8), 50, 70]
     columnWidths.forEach((width, idx) => {
       requests.push({
         updateDimensionProperties: {
@@ -11475,6 +11494,17 @@ export async function createRecruitingSheet(dynastyName, year, dynastyTeams = nu
       const numOrBlank = (v) => (v === null || v === undefined || v === '')
         ? { userEnteredValue: { stringValue: '' } }
         : { userEnteredValue: { numberValue: Number(v) } }
+      // Existing recruit's attributes → one labeled cell ("AWR 76, SPD 67, …")
+      // in the order the game lists them (matches what the AI would type).
+      const attrsToLabeledCell = (recruit) => {
+        const attrs = recruit.attributes
+        if (!attrs || typeof attrs !== 'object') return ''
+        const order = attributeNamesFor(recruit.position, recruit.archetype) || Object.keys(attrs)
+        return order
+          .filter(n => attrs[n] != null && attrs[n] !== '')
+          .map(n => `${ATTRIBUTE_ABBR[n] || n} ${attrs[n]}`)
+          .join(', ')
+      }
       const dataRows = existingCommitments.map(recruit => ({
         values: [
           { userEnteredValue: { stringValue: str(recruit.name) } },
@@ -11493,7 +11523,10 @@ export async function createRecruitingSheet(dynastyName, year, dynastyTeams = nu
           { userEnteredValue: { stringValue: str(recruit.devTrait || '') } },
           { userEnteredValue: { stringValue: previousTeamAsAbbr(recruit.previousTeam) } },
           { userEnteredValue: { stringValue: str(recruit.commitment) } },
-          ...ATTRIBUTE_COLUMNS.map(name => numOrBlank(recruit.attributes ? recruit.attributes[name] : undefined)),
+          // Single "Attributes" cell — labeled "<code> <rating>" pairs in the
+          // recruit's on-screen order, then blanks for the legacy column slots.
+          { userEnteredValue: { stringValue: attrsToLabeledCell(recruit) } },
+          ...ATTRIBUTE_COLUMNS.slice(1).map(() => ({ userEnteredValue: { stringValue: '' } })),
           numOrBlank(recruit.pid),
           numOrBlank(recruit.nilByYear?.[year] ?? recruit.nilByYear?.[String(year)])
         ]

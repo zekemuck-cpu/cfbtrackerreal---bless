@@ -19,7 +19,7 @@ import path from 'path'
 // `new Date().toISOString().slice(0, 10)` below, so the date itself
 // flips automatically at UTC midnight — only the counter needs the
 // manual reset.
-const MANUAL_BUILD = '0001'
+const MANUAL_BUILD = '0008'
 
 function buildAppVersion() {
   const today = new Date().toISOString().slice(0, 10)
@@ -52,6 +52,17 @@ export default defineConfig({
     port: 5000,
     strictPort: true,
     allowedHosts: true,
-    hmr: false
+    hmr: false,
+    // Dev-only: the ScoutScore proxy is a Vercel serverless function that
+    // doesn't run under plain `npm run dev`. Forward that path straight to
+    // MaxPlaysCFB's API so the feature is fully testable locally (server-side
+    // hop, so no browser CORS). Production uses the real function instead.
+    proxy: {
+      '/api/scoutscore-preview': {
+        target: 'https://maxplayscfb.com',
+        changeOrigin: true,
+        rewrite: () => '/api/recruit-percentiles/preview',
+      },
+    },
   }
 })

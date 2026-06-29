@@ -12,7 +12,7 @@
  * convention and auto-instantiated by the parser.
  */
 
-import { buildGameTagMap, getEffectiveCharacters, DEFAULT_SOCIAL_SETTINGS, DEFAULT_SOCIAL_PLATFORM } from '../data/socialModel'
+import { buildGameTagMap, getEffectiveCharacters, DEFAULT_SOCIAL_SETTINGS, DEFAULT_SOCIAL_PLATFORM, isOfficialTeamAccount, isRealAccount } from '../data/socialModel'
 import { canonicalBoxScore } from './boxScoreHelpers'
 import { collapsePatRowsIntoTDs, sortPlaysChronologically } from './scoringPlayOrder'
 import { getRecordAsOfGame } from '../context/DynastyContext'
@@ -58,9 +58,25 @@ function nationalSample(charactersById, n) {
     .slice(0, n)
 }
 
+// Posting-priority tier: official team account first, then any real-world
+// person/brand account, then fictional universe accounts. Drives the order the
+// AI is asked to emit posts in (official → real → fictional).
+function accountTier(c) {
+  if (isOfficialTeamAccount(c)) return 0
+  if (isRealAccount(c)) return 1
+  return 2
+}
+const TIER_LABEL = ['Official', 'Real', 'Fictional']
+
+function byPostPriority(a, b) {
+  const t = accountTier(a) - accountTier(b)
+  if (t) return t
+  return (Number(b.followerCount) || 0) - (Number(a.followerCount) || 0)
+}
+
 function rosterLine(c) {
   const p = (c.personality || '').trim() || c.role || c.category || 'a college football account'
-  return `${c.handle} — ${p}`
+  return `${c.handle} [${TIER_LABEL[accountTier(c)]}] — ${p}`
 }
 
 function playedGamesForWeek(dynasty, yearN, weekN) {
@@ -119,7 +135,7 @@ export function buildSocialSection(dynasty, year, week) {
   }
   const teamRosterLines = []
   for (const tid of teamTids) {
-    const accounts = charsForTeam(charactersById, tid)
+    const accounts = charsForTeam(charactersById, tid).sort(byPostPriority)
     const { abbr, name } = teamLabel(dynasty, tid)
     if (accounts.length > 0) {
       for (const c of accounts) teamRosterLines.push(`${rosterLine(c)} [${abbr}]`)
@@ -136,8 +152,11 @@ SOCIAL POSTS — a SECOND output block
 ═══════════════════════════════════════════════════════════
 These are posts on a mock social media platform similar to X/Twitter. Write in-character as the accounts below.
 - For EACH game tag, write ${settings.postsPerGame} ${post}s from accounts that would care (the two teams' beat and fan accounts, plus an occasional national voice for notable results).
+- ORDER OF POSTS PER GAME: lead with the team's [Official] account if one is listed, then any [Real] accounts, then [Fictional] accounts. Always emit the official account's ${post} first.
 - Then write ${settings.nationalCount} national ${post}s reacting to the week overall (rankings, playoff race, standout performances).
 - Match each account's personality. Keep each ${post} realistic (a sentence or two). Only react to the games/scores shown; invent nothing.
+
+Each account below is tagged [Official] (a team's verified athletics account), [Real] (a real-world person/brand), or [Fictional] (a made-up universe account). Post in that priority order: Official, then Real, then Fictional.
 
 GAMES (use the tag exactly as shown, e.g. G1, as the first field in each output line):
 ${gameLines || '(no games this week)'}
@@ -398,7 +417,7 @@ export function buildGameSocialSection(dynasty, game, count = 8) {
 
   const teamRosterLines = []
   for (const [tid, name, abbr] of [[game.team1Tid, t1.name, t1.abbr], [game.team2Tid, t2.name, t2.abbr]]) {
-    const accounts = charsForTeam(charactersById, Number(tid))
+    const accounts = charsForTeam(charactersById, Number(tid)).sort(byPostPriority)
     if (accounts.length) for (const c of accounts) teamRosterLines.push(`${rosterLine(c)} [${abbr}]`)
     else teamRosterLines.push(`(no listed ${name} accounts — post as beat:${abbr} or fan:${abbr})`)
   }
@@ -409,9 +428,12 @@ SOCIAL POSTS — a SECOND output block
 ═══════════════════════════════════════════════════════════
 These are posts on a mock social media platform similar to X/Twitter. Write in-character as the accounts below.
 - Write ${count} ${post}s about this game. Mix the two teams' beat and fan accounts with a few national voices.
+- ORDER OF POSTS: emit the team [Official] account(s) FIRST, then any [Real] accounts, then [Fictional] accounts. The very first ${post} must be from an official team account whenever one is listed below.
 - DIG INTO THE DETAIL: pull from every section of GAME DATA — the score, records, team ratings, coaches, quarter-by-quarter flow, player stats, scoring drives, and any recap/notes provided. The richer your references, the better.
 - Calibrate tone to the game type and stakes: bowl games / CFP rounds / conference championships warrant urgency and national attention; regular season blowouts produce frustration or swagger; close finishes produce disbelief and drama.
 - Match each account's personality. Vary tone and length; keep each ${post} realistic. Invent nothing outside the data provided.
+
+Each account below is tagged [Official] (a team's verified athletics account), [Real] (a real-world person/brand), or [Fictional] (a made-up universe account). Emit posts in that priority order: Official first, then Real, then Fictional.
 
 GAME DATA:
 ${gameDataBlock(dynasty, game)}

@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import SearchableSelect from '../components/SearchableSelect'
 import DropdownSelect from '../components/DropdownSelect'
 import TeambuilderTeamFields from '../components/TeambuilderTeamFields'
-import { teams } from '../data/teams'
-import { getSelectableTeamsList, getTeamName } from '../data/teamAbbreviations'
+import { initializeDynastyTeams, getFBSTeamTids } from '../data/teamRegistry'
+import { getTeamName } from '../data/teamAbbreviations'
 import { useDynasty } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { Card, Button, Input } from '../components/ui'
 import { useToast } from '../components/ui/Toast'
-import { EDITIONS, DEFAULT_EDITION } from '../editions'
+import { EDITIONS, DEFAULT_EDITION, getEditionConfig } from '../editions'
 
 const newBlankTeambuilder = () => ({
   name: '',
@@ -32,7 +32,10 @@ export default function CreateDynasty() {
     teamName: '',
     coachName: '',
     coachPosition: 'HC',
-    startYear: '2025',
+    // Starting Year defaults to the selected edition's release year (CFB 26 →
+    // 2025, CFB 27 → 2026). Switching editions updates it as long as it's still
+    // an edition default (a manually-typed custom year is preserved).
+    startYear: String(getEditionConfig(DEFAULT_EDITION).releaseYear),
     gameEdition: DEFAULT_EDITION,
   })
 
@@ -62,11 +65,37 @@ export default function CreateDynasty() {
 
   const [creating, setCreating] = useState(false)
 
-  const allFbsAbbreviations = getSelectableTeamsList()
-  const fbsTeamOptions = allFbsAbbreviations.map(abbr => ({
-    value: abbr,
-    label: `${getTeamName(abbr)} (${abbr})`,
-  }))
+  // FBS team-name options for the picker, gated to the chosen edition so
+  // edition-only programs (e.g. CFB 27's North Dakota State / Sacramento State,
+  // which reclassified to FBS) appear only when that edition is selected.
+  // Derived from the registry (not the static name list) so it stays in sync
+  // with edition gating automatically. Sorted by name to match prior ordering.
+  const teamNameOptions = useMemo(() => {
+    const editionTeams = initializeDynastyTeams(formData.gameEdition)
+    return getFBSTeamTids(editionTeams).map(tid => editionTeams[tid].name)
+  }, [formData.gameEdition])
+
+  // If the picked team isn't available in the newly-selected edition (e.g. the
+  // user chose an edition-only team, then switched editions), clear it so the
+  // form can't submit a team that doesn't exist in that edition.
+  useEffect(() => {
+    if (formData.teamName && !teamNameOptions.includes(formData.teamName)) {
+      setFormData(prev => ({ ...prev, teamName: '' }))
+    }
+  }, [teamNameOptions, formData.teamName])
+
+  // FBS teams a TeamBuilder team can replace — gated to the chosen edition from
+  // the registry (the single source of truth), so e.g. North Dakota State /
+  // Sacramento State are only replaceable in CFB 27. Mirrors teamNameOptions.
+  const editionFbsTeams = useMemo(() => {
+    const editionTeams = initializeDynastyTeams(formData.gameEdition)
+    return getFBSTeamTids(editionTeams).map(tid => editionTeams[tid])
+  }, [formData.gameEdition])
+  const allFbsAbbreviations = useMemo(() => editionFbsTeams.map(t => t.abbr), [editionFbsTeams])
+  const fbsTeamOptions = useMemo(() => editionFbsTeams.map(t => ({
+    value: t.abbr,
+    label: `${t.name} (${t.abbr})`,
+  })), [editionFbsTeams])
 
   // ── helpers ────────────────────────────────────────────────────────
 
@@ -332,7 +361,18 @@ export default function CreateDynasty() {
                 <button
                   key={ed.key}
                   type="button"
-                  onClick={() => setFormData({ ...formData, gameEdition: ed.key })}
+                  onClick={() => setFormData(prev => {
+                    // Move the Starting Year to the new edition's release year,
+                    // but only if the current value is still an edition default
+                    // (don't clobber a year the user deliberately typed).
+                    const editionDefaultYears = EDITIONS.map(e => String(e.releaseYear))
+                    const yearIsDefault = editionDefaultYears.includes(String(prev.startYear))
+                    return {
+                      ...prev,
+                      gameEdition: ed.key,
+                      startYear: yearIsDefault ? String(ed.releaseYear) : prev.startYear,
+                    }
+                  })}
                   aria-pressed={active}
                   className={`flex-1 py-2 rounded-md text-sm font-semibold transition-colors ${
                     active ? 'text-txt-primary' : 'text-txt-tertiary hover:text-txt-secondary'
@@ -374,7 +414,7 @@ export default function CreateDynasty() {
             <div>
               <SearchableSelect
                 label="Team Name"
-                options={teams}
+                options={teamNameOptions}
                 value={formData.teamName}
                 onChange={(value) => setFormData({ ...formData, teamName: value })}
                 placeholder="Search for your team..."

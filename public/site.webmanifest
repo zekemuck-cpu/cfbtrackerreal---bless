@@ -1,0 +1,14 @@
+{
+  "name": "CFB Dynasty Tracker",
+  "short_name": "CFB Tracker",
+  "description": "Track your College Football dynasty — schedules, rosters, recruiting, stats, and more.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#1f2937",
+  "theme_color": "#1f2937",
+  "icons": [
+    { "src": "/favicon.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/favicon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

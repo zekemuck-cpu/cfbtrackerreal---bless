@@ -50,15 +50,22 @@ describe('parseRecruitingRow — Targets extension (P–AA)', () => {
     expect(parseRecruitingRow(row).pid).toBe(4042)
   })
 
-  it('maps attribute columns by FIXED named order (position-independent)', () => {
+  it('parses attributes from the single labeled cell (codes or full names)', () => {
     const row = [...legacyRow]
-    // The first three attribute columns are always Awareness, Speed, Acceleration
-    // regardless of the row's position — that's the whole point of named columns.
-    expect(ATTRIBUTE_COLUMNS.slice(0, 3)).toEqual(['Awareness', 'Speed', 'Acceleration'])
-    row[ATTR_COL_START + 0] = '70'
-    row[ATTR_COL_START + 1] = '95'
-    row[ATTR_COL_START + 2] = '88'
+    row[ATTR_COL_START] = 'AWR 70, Speed 95, ACC 88'
     expect(parseRecruitingRow(row).attributes).toEqual({ Awareness: 70, Speed: 95, Acceleration: 88 })
+  })
+
+  it('handles multi-word names and skips unrecognized labels', () => {
+    const row = [...legacyRow]
+    row[ATTR_COL_START] = 'Awareness 76, Man Coverage 76, Play Recognition 74, Bogus 50'
+    expect(parseRecruitingRow(row).attributes).toEqual({ Awareness: 76, 'Man Coverage': 76, 'Play Recognition': 74 })
+  })
+
+  it('treats a bare-number legacy cell as no attributes', () => {
+    const row = [...legacyRow]
+    row[ATTR_COL_START] = '76'
+    expect(parseRecruitingRow(row).attributes).toBeNull()
   })
 
   it('leaves attributes null when none are filled (unscouted target)', () => {

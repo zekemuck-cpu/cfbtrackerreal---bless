@@ -7,7 +7,7 @@ import DynastyBlueprintPanel from '../../components/DynastyBlueprintPanel'
 import { getCoachByRole } from '../../data/coachModel'
 import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamConferenceForDynasty, calculateTeamRecordFromGames, getTeamRanking, getRecruitingCommitments, getPlayerPositionForYear, getPlayerOverallForYear, lookupByTeamYear, getPlayersLeaving } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { StatRings, TabBar } from '../../components/CfbUI'
+import { StatRings } from '../../components/CfbUI'
 // Team colors are derived from the viewed team, not the user's team
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { canonicalBoxScore, getPlayerStatsForTid, getTeamStatsForTid, hasAnyTeamStats } from '../../utils/boxScoreHelpers'
@@ -37,7 +37,6 @@ import { formatScoreHighLow } from '../../utils/scoreFormat'
 import { getCoachStints } from '../../data/coachStats'
 import { getRivalryTrophyForTeams } from '../../utils/trophyEngine'
 import TeamOutlook from '../../components/TeamOutlook'
-import { calcDramaScore, getTier, getClassicGames, TIER_CONFIG, ESPN_CLASSIC_BADGE_STYLE } from '../../utils/espnClassic'
 import RivalriesTab from '../../components/RivalriesTab'
 
 // Map abbreviation to mascot name for logo lookup
@@ -482,7 +481,7 @@ export default function TeamYear() {
   const { id, tid: tidParam, year } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { currentDynasty: _dyn, loadingDynastyId, updateDynasty, updatePlayer, addGame, saveRoster, isViewOnly, saveTeamYearInfo, saveSchedule, saveRivalries } = useDynasty()
+  const { currentDynasty: _dyn, loadingDynastyId, updateDynasty, updatePlayer, addGame, saveRoster, isViewOnly, saveTeamYearInfo, saveSchedule } = useDynasty()
   // Shadow with a non-null alias so intermediate useMemos and non-hook
   // computations below don't have to constantly null-check. The real
   // null gate sits at the end of the component, AFTER all hooks have
@@ -585,6 +584,9 @@ export default function TeamYear() {
   // Roster sorting state — rosterSort/rosterSortDir/positionFilter are now
   // URL-persisted above so back-button navigation preserves them.
   const [showRosterModal, setShowRosterModal] = useState(false)
+  // DOM node for the extended header sub-bar that hosts the Depth Chart controls
+  // (side tabs / season / edit buttons) — TeamOutlook portals its controls here.
+  const [depthCtrlSlot, setDepthCtrlSlot] = useState(null)
   const [rosterCollapsed, setRosterCollapsed] = useState(false)
   const [scheduleCollapsed, setScheduleCollapsed] = useState(false)
   const [showRecordTooltip, setShowRecordTooltip] = useState(false)
@@ -3173,6 +3175,7 @@ export default function TeamYear() {
               { key: 'recruiting', label: 'Recruiting' },
               ...(departures.length > 0 ? [{ key: 'departures', label: 'Departures' }] : []),
               { key: 'history', label: 'History' },
+              { key: 'rivalries', label: 'Rivalries' },
             ].map(tab => {
               const isActive = activeTab === tab.key
               return (
@@ -3202,6 +3205,17 @@ export default function TeamYear() {
             })}
           </div>
         </div>
+
+        {/* Extended header section — Depth Chart controls (side tabs / season /
+            edit buttons) dock here so they read as part of the team header.
+            TeamOutlook portals its control bar into this slot. */}
+        {activeTab === 'depthchart' && (
+          <div
+            ref={setDepthCtrlSlot}
+            className="relative px-3 sm:px-4 lg:px-5 py-2.5 border-t"
+            style={{ borderColor: 'rgba(255,255,255,0.16)', backgroundColor: 'rgba(0,0,0,0.24)' }}
+          />
+        )}
       </div>
 
       {/* Team-color wash — only on Home, where the team-colored sections sit on
@@ -3220,27 +3234,11 @@ export default function TeamYear() {
         />
       )}
 
-      {/* Tab Navigation — single sliding underline. Departures tab
-          is hidden when this team has nothing to show for the year
-          (most commonly the current season before the leaving sheet
-          is filled in) so it doesn't clutter the bar with an empty
-          page the user can't usefully navigate to. */}
-      <TabBar
-        tabs={[
-          { key: 'home', label: 'Home' },
-          { key: 'schedule', label: 'Schedule' },
-          { key: 'stats', label: 'Stats' },
-          { key: 'depthchart', label: 'Depth Chart' },
-          { key: 'roster', label: 'Roster' },
-          { key: 'recruiting', label: 'Recruiting' },
-          ...(departures.length > 0 ? [{ key: 'departures', label: 'Departures' }] : []),
-          { key: 'history', label: 'History' },
-          { key: 'rivalries', label: 'Rivalries' },
-        ]}
-        activeKey={activeTab}
-        onSelect={setActiveTab}
-        accentColor={teamInfo.backgroundColor}
-      />
+      {activeTab === 'blueprint' && (
+        <div className="px-3 sm:px-4 pt-4">
+          <DynastyBlueprintPanel year={year} tid={tid} />
+        </div>
+      )}
 
       <div key={activeTab} className="reveal">
 
@@ -4423,6 +4421,7 @@ export default function TeamYear() {
       {/* DEPTH CHART TAB */}
       {activeTab === 'depthchart' && (
         <TeamOutlook tid={tid} guardRef={outlookGuardRef}
+          controlsSlot={depthCtrlSlot}
           pageYear={selectedYear}
           focusPid={searchParams.get('player')}
           side={searchParams.get('side') || 'offense'}
@@ -5312,12 +5311,6 @@ export default function TeamYear() {
                        game.isConferenceChampionship ? 'CCG' :
                        `Week ${game.week}`
 
-              // ESPN Classic check for this game
-              const gameDramaScore = (hasResult && game.team1Score != null && game.team2Score != null)
-                ? calcDramaScore(game, tid, teamsSource)
-                : null
-              const gameTier = gameDramaScore ? getTier(gameDramaScore.total) : null
-
               // Content for the detailed game display - matches Dashboard style
               // Home games: left accent bar in team color, Away games: plain background
               const isHomeGame = displayLocation === 'home' || displayLocation === 'Home'
@@ -5400,19 +5393,6 @@ export default function TeamYear() {
                         <span className="text-sm" style={{ color: `${rowText}40` }}>—</span>
                       )}
                     </div>
-
-                    {/* ESPN Classic badge on the game row */}
-                    {gameTier && (
-                      <div className="flex-shrink-0 flex items-center gap-1">
-                        <div style={{ display: 'inline-flex', alignItems: 'center', userSelect: 'none' }}>
-                          <div style={ESPN_CLASSIC_BADGE_STYLE.espn}>ESPN</div>
-                          <div style={ESPN_CLASSIC_BADGE_STYLE.classic}>CLASSIC</div>
-                        </div>
-                        <span style={{ fontSize: '9px', fontWeight: 700, color: gameTier.color, letterSpacing: '0.5px' }}>
-                          {gameTier.label}
-                        </span>
-                      </div>
-                    )}
 
                     {/* Stat Leaders - Desktop: flex columns that fill remaining space */}
                     <div className="hidden md:flex flex-1 items-center ml-3 pl-3 min-w-0 overflow-hidden">
@@ -6372,6 +6352,10 @@ export default function TeamYear() {
       })()}
 
       {/* History Tab */}
+      {activeTab === 'rivalries' && (
+        <RivalriesTab dynasty={currentDynasty} tid={tid} />
+      )}
+
       {activeTab === 'history' && (() => {
         // Calculate records for each year
         const yearRecords = availableYears.map(year => {
@@ -7094,158 +7078,9 @@ export default function TeamYear() {
               )
             })()}
 
-            {/* ── ESPN Classic Engine ────────────────────────────────── */}
-            {(() => {
-              // Build classic games list from all dynasty games involving this team
-              const classicGames = getClassicGames(currentDynasty.games || [], tid, teamsSource)
-
-              const ESPNBadge = () => (
-                <div style={{ display: 'inline-flex', alignItems: 'center', userSelect: 'none', flexShrink: 0 }}>
-                  <div style={ESPN_CLASSIC_BADGE_STYLE.espn}>ESPN</div>
-                  <div style={ESPN_CLASSIC_BADGE_STYLE.classic}>CLASSIC</div>
-                </div>
-              )
-
-              return (
-                <div className="card overflow-hidden cfb-texture">
-                  {/* Header */}
-                  <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px] flex items-center justify-between gap-3 flex-wrap" style={{ borderLeftColor: teamInfo.backgroundColor }}>
-                    <div className="flex items-center gap-3">
-                      <h3 className="font-display font-bold leading-none text-txt-primary m-0" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', textTransform: 'uppercase' }}>ESPN Classics</h3>
-                      <ESPNBadge />
-                    </div>
-                    <span className="text-[10px] font-semibold uppercase tabular-nums text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
-                      {classicGames.length} {classicGames.length === 1 ? 'classic' : 'classics'}
-                    </span>
-                  </div>
-
-                  {classicGames.length === 0 ? (
-                    <div className="px-4 py-10 text-center">
-                      <div className="text-txt-tertiary text-sm">No ESPN Classic games yet.</div>
-                      <div className="text-txt-tertiary text-xs mt-1">Close games, comebacks, and ranked matchups earn Classic status.</div>
-                    </div>
-                  ) : (
-                    <div>
-                      {classicGames.map(({ game, ds, tier, rank }) => {
-                        const idx = rank - 1
-                        const isTeam1 = (game.team1Tid || resolveTid(game.team1, teamsSource)) === tid
-                        const myScore   = isTeam1 ? game.team1Score  : game.team2Score
-                        const oppScore  = isTeam1 ? game.team2Score  : game.team1Score
-                        const myRank    = isTeam1 ? game.team1Rank   : game.team2Rank
-                        const oppRank   = isTeam1 ? game.team2Rank   : game.team1Rank
-                        const oppTid    = isTeam1 ? (game.team2Tid || resolveTid(game.team2, teamsSource)) : (game.team1Tid || resolveTid(game.team1, teamsSource))
-                        const oppName   = getMascotName(oppTid, teamsSource) || (isTeam1 ? game.team2 : game.team1) || 'Opponent'
-                        const oppLogo   = getTeamLogoByTid(oppTid, teamsSource)
-                        const won       = myScore > oppScore
-                        const isOT      = ds.otCount > 0
-
-                        const gameLabel = game.bowlName
-                          ? game.bowlName
-                          : game.isConferenceChampionship
-                            ? 'Conf. Championship'
-                            : game.isCFPChampionship
-                              ? 'CFP Championship'
-                              : game.isCFPSemifinal
-                                ? 'CFP Semifinal'
-                                : game.isCFPQuarterfinal
-                                  ? 'CFP Quarterfinal'
-                                  : game.isCFPFirstRound
-                                    ? 'CFP First Round'
-                                    : `Wk ${game.week}`
-
-                        return (
-                          <Link
-                            key={game.id || idx}
-                            to={game.id ? `${pathPrefix}/game/${game.id}` : '#'}
-                            className="block transition-colors hover:bg-surface-2"
-                            style={{ borderBottom: '1px solid var(--surface-4)', textDecoration: 'none' }}
-                          >
-                            <div className="px-4 py-3 flex items-center gap-3">
-                              {/* Rank number */}
-                              <div className="flex-shrink-0 w-6 text-center">
-                                <span className="text-xs font-bold tabular-nums" style={{ color: idx === 0 ? tier.color : 'var(--text-tertiary)' }}>
-                                  #{idx + 1}
-                                </span>
-                              </div>
-
-                              {/* Tier badge */}
-                              <div className="flex-shrink-0" style={{
-                                background: `${tier.glow}`,
-                                border: `1px solid ${tier.border}`,
-                                borderRadius: '3px',
-                                padding: '2px 6px',
-                                minWidth: '62px', textAlign: 'center',
-                              }}>
-                                <span className="font-display font-black" style={{ fontSize: '9px', letterSpacing: '1.5px', color: tier.color }}>{tier.label}</span>
-                              </div>
-
-                              {/* Opponent logo + matchup */}
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                {oppLogo && (
-                                  <img src={oppLogo} alt="" style={{ width: '22px', height: '22px', objectFit: 'contain', flexShrink: 0, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
-                                )}
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="font-bold text-txt-primary truncate" style={{ fontSize: '12px' }}>
-                                      {won ? 'vs.' : 'at'} {oppRank ? `#${oppRank} ` : ''}{oppName}
-                                    </span>
-                                    {myRank && (
-                                      <span className="text-[10px] font-semibold" style={{ color: 'var(--text-tertiary)' }}>(#{myRank})</span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2 mt-0.5">
-                                    <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{game.year} · {gameLabel}{isOT ? ` · ${ds.otCount > 1 ? ds.otCount + 'OT' : 'OT'}` : ''}</span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Score */}
-                              <div className="flex-shrink-0 text-right">
-                                <div className="font-display font-black tabular-nums" style={{ fontSize: '14px', color: won ? '#4ade80' : '#f87171', letterSpacing: '0.5px' }}>
-                                  {won ? 'W' : 'L'} {myScore}–{oppScore}
-                                </div>
-                              </div>
-
-                              {/* Drama Score */}
-                              <div className="flex-shrink-0 text-right" style={{ minWidth: '56px' }}>
-                                <div className="font-display font-black tabular-nums" style={{ fontSize: '13px', color: tier.color }}>{ds.total.toLocaleString()}</div>
-                                <div className="text-[9px] font-bold uppercase" style={{ letterSpacing: '1px', color: 'var(--text-tertiary)' }}>Drama</div>
-                              </div>
-                            </div>
-                          </Link>
-                        )
-                      })}
-                    </div>
-                  )}
-
-                  {/* Legend */}
-                  <div className="px-4 py-2 flex items-center gap-4 flex-wrap border-t border-surface-4">
-                    <span className="text-[9px] font-bold uppercase" style={{ letterSpacing: '1.5px', color: 'var(--text-tertiary)' }}>Tiers:</span>
-                    {Object.values(TIER_CONFIG).map(t => (
-                      <div key={t.label} className="flex items-center gap-1">
-                        <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: t.color, opacity: 0.85 }} />
-                        <span className="text-[9px] font-semibold" style={{ color: 'var(--text-tertiary)' }}>{t.label} ({t.min.toLocaleString()}+)</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })()}
-
           </div>
         )
       })()}
-
-      {/* RIVALRIES TAB */}
-      {activeTab === 'rivalries' && (
-        <RivalriesTab
-          dynasty={currentDynasty}
-          tid={tid}
-          selectedYear={selectedYear}
-          dynastyId={currentDynasty.id}
-          saveRivalries={saveRivalries}
-        />
-      )}
 
       {/* GameEntryModal removed - now using game pages instead */}
 

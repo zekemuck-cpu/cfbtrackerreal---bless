@@ -6,7 +6,6 @@ import { useTeamColors } from '../hooks/useTeamColors'
 import { getTeamLogo } from '../data/teams'
 import Sidebar from '../components/Sidebar'
 import NewsTicker from '../components/NewsTicker/NewsTicker'
-import logo from '../assets/logo.png'
 import { Card, Button, Badge, LoadingState } from '../components/ui'
 
 const isDesktop = () => typeof window !== 'undefined' && window.innerWidth >= 1024
@@ -104,7 +103,12 @@ function ViewDynastyContent() {
                 </svg>
               </button>
               <Link to="/" className="flex-shrink-0">
-                <img src={logo} alt="Dynasty Tracker" className="h-10 sm:h-12 object-contain" />
+                <img
+                  src="/header-logo.png"
+                  alt="Dynasty Tracker"
+                  className="h-10 sm:h-12 object-contain"
+                  onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://i.imgur.com/e1iYDSZ.png' }}
+                />
               </Link>
             </div>
 

@@ -37,6 +37,10 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
   const [syncing, setSyncing] = useState(false)
   const [deletingSheet, setDeletingSheet] = useState(false)
   const [creatingSheet, setCreatingSheet] = useState(false)
+  // Set when sheet creation fails for a non-auth reason. Stops the effect
+  // from immediately re-trying (which presented as an endless spinner) and
+  // surfaces a real error + manual "Try again" instead.
+  const [createError, setCreateError] = useState(null)
   const [regenerating, setRegenerating] = useState(false)
   const [sheetId, setSheetId] = useState(null)
   const [showDeletedNote, setShowDeletedNote] = useState(false)
@@ -241,7 +245,9 @@ FINAL CHECK before you send
   // Create a CC sheet when modal opens if user is authenticated
   useEffect(() => {
     const createSheet = async () => {
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
+      // Wait for manual retry after a failed attempt — re-firing on every
+      // render presented as an endless spinner.
+      if (isOpen && user && !sheetId && !creatingSheetRef.current && !showDeletedNote && !createError) {
         // Set ref immediately to prevent concurrent calls (state updates are async)
         creatingSheetRef.current = true
         setCreatingSheet(true)
@@ -313,7 +319,12 @@ FINAL CHECK before you send
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {
           console.error('Failed to create CC sheet:', error)
-          auth.handleError(error)
+          // Auth errors open the re-auth modal. Anything else (timeout,
+          // 403 insufficient scope, quota, network) gets surfaced inline
+          // with a retry instead of silently re-looping the creation.
+          if (!auth.handleError(error)) {
+            setCreateError(error?.message || 'Could not set up the sheet. Please try again.')
+          }
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false
@@ -322,13 +333,14 @@ FINAL CHECK before you send
     }
 
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote])
+  }, [isOpen, user, sheetId, createError, currentDynasty?.id, auth.retryCount, showDeletedNote])
 
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
       setSheetId(null)
+      setCreateError(null)
       creatingSheetRef.current = false
     }
   }, [isOpen])
@@ -514,7 +526,31 @@ FINAL CHECK before you send
               onToggleEmbedded={() => { const newValue = !useEmbedded; setUseEmbedded(newValue); localStorage.setItem('sheetEmbedPreference', newValue.toString()); }}
             />
           </div>
-        ) : null}
+        ) : (
+          // Recovery state when creation failed: auth modal handles its own
+          // recovery; anything else gets an inline error + manual retry so
+          // the modal never just sits blank or spins forever.
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center text-sm text-txt-secondary max-w-sm">
+              {auth.showAuthError ? (
+                'Refresh your session to continue.'
+              ) : createError ? (
+                <>
+                  <p className="mb-3 text-txt-primary">{createError}</p>
+                  <button
+                    onClick={() => setCreateError(null)}
+                    className="px-4 py-2 rounded-lg font-semibold"
+                    style={{ backgroundColor: teamColors?.primary || 'var(--text-primary)', color: '#fff' }}
+                  >
+                    Try again
+                  </button>
+                </>
+              ) : (
+                'Setting up sheet…'
+              )}
+            </div>
+          </div>
+        )}
         </div>
       </div>
 

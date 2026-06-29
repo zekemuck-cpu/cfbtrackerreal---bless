@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useLayoutEffect } from 'react'
+import { useState, useMemo, useEffect, useRef, useLayoutEffect, useCallback } from 'react'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, GAME_TYPES, detectGameType, getCustomConferencesForYear, getTeamRankForWeek } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -21,8 +21,7 @@ import { DEFAULT_SOCIAL_PLATFORM, getEffectiveCharacters } from '../../data/soci
 import buildRecapLinks from '../../utils/buildRecapLinks'
 import { getRivalryTrophyForTeams } from '../../utils/trophyEngine'
 import { useTeamColors } from '../../hooks/useTeamColors'
-import PositionBattles from '../../components/PositionBattles'
-import { TabBar } from '../../components/CfbUI'
+import SportsbookPanel, { SPORTSBOOK_TABS, isChampConference } from '../../components/SportsbookPanel'
 
 const REGULAR_SEASON_WEEKS = Array.from({ length: 16 }, (_, i) => i)  // 0-15
 
@@ -430,13 +429,12 @@ export default function WeeklyScores() {
     return latestPlayedWeekForYear(currentDynasty?.games, displayYear) ?? 16
   })()
 
-  // Tab state lives in the URL (?tab=scores|recap|podcast) so deep-links from the
+  // Tab state lives in the URL (?tab=scores|recap) so deep-links from the
   // dashboard's recap to-do land directly on the recap view, and so the
   // user's choice survives navigating into a game and back.
   const rawTab = searchParams.get('tab')
-  const isPreseasonWeek = displayWeek === -1 || displayWeek === 0 || displayWeek === 1
-  const tabParam = (rawTab === 'battles' && isPreseasonWeek) ? 'battles'
-    : (rawTab === 'recap' || displayWeek === -1) ? 'recap'
+  const tabParam = displayWeek === -1 ? 'recap'
+    : (rawTab === 'recap' || rawTab === 'social' || rawTab === 'sportsbook') ? rawTab
     : 'scores'
   const setTab = (next) => {
     setSearchParams(prev => {
@@ -446,6 +444,23 @@ export default function WeeklyScores() {
       return params
     }, { replace: true })
   }
+
+  // Generic URL-param setter (shared by the sportsbook sub-tab + conference row)
+  // so the whole sportsbook view is link-routable, stacked on ?tab=sportsbook.
+  const setParam = (key, value) => {
+    setSearchParams(prev => {
+      const params = new URLSearchParams(prev)
+      if (value == null || value === '') params.delete(key)
+      else params.set(key, value)
+      return params
+    }, { replace: true })
+  }
+  // Sportsbook market sub-tab (Game Lines / futures) + the conference picked in
+  // the third header row — both in the URL.
+  const sbSubTab = SPORTSBOOK_TABS.some(t => t.value === searchParams.get('sb')) ? searchParams.get('sb') : 'lines'
+  const setSbSubTab = (v) => setParam('sb', v === 'lines' ? null : v)
+  const sbConf = searchParams.get('sbconf') || ''
+  const setSbConf = (v) => setParam('sbconf', v)
 
   // Lazy-load social data (characters + week feed) the first time the Social
   // tab is opened for a dynasty — it's opt-in, so kept off the hot load path.
@@ -738,6 +753,29 @@ export default function WeeklyScores() {
     })
   }, [playedThisWeek, filter, currentDynasty, displayYear, teams])
 
+  // Same filter, exposed as predicates the Sportsbook tab reuses so its boards
+  // match the Scores tab (all / top25 / rivalries / conference).
+  const customConfsForYear = useMemo(() => getCustomConferencesForYear(currentDynasty, displayYear), [currentDynasty, displayYear])
+  const isRanked = (r) => Number.isFinite(r) && r >= 1 && r <= 25
+  // Per-GAME predicate (Game Lines board).
+  const gameMatchesFilter = useCallback((g) => {
+    if (filter === 'all') return true
+    if (filter === 'top25') {
+      const rk = (rank, tid) => { const d = parseInt(rank, 10); return isRanked(d) ? d : getTeamRankForWeek(currentDynasty, tid, displayYear, displayWeek) }
+      return isRanked(rk(g.team1Rank, g.team1Tid)) || isRanked(rk(g.team2Rank, g.team2Tid))
+    }
+    if (filter === 'rivalries') return !!getRivalryTrophyForTeams(currentDynasty, g.team1Tid, g.team2Tid)
+    return getTeamConference(g.team1Tid, customConfsForYear, teams) === filter
+      || getTeamConference(g.team2Tid, customConfsForYear, teams) === filter
+  }, [filter, currentDynasty, displayYear, displayWeek, customConfsForYear, teams])
+  // Per-TEAM predicate (the team-level futures boards). Rivalries is pairwise,
+  // so it doesn't narrow a futures board.
+  const teamMatchesFilter = useCallback((tid) => {
+    if (filter === 'all' || filter === 'rivalries') return true
+    if (filter === 'top25') return isRanked(getTeamRankForWeek(currentDynasty, tid, displayYear, displayWeek))
+    return getTeamConference(tid, customConfsForYear, teams) === filter
+  }, [filter, currentDynasty, displayYear, displayWeek, customConfsForYear, teams])
+
   // Sort: ranked games first, then alphabetical by team1 name
   const sortedGames = [...filteredGames].sort((a, b) => {
     const nameA = teams[a.team1Tid]?.name || ''
@@ -881,6 +919,7 @@ export default function WeeklyScores() {
                 ...(displayWeek !== -1 ? [{ key: 'scores', label: 'Scores' }] : []),
                 { key: 'recap', label: displayWeek === -1 ? 'Preseason Recap' : 'Recap' },
                 ...(displayWeek !== -1 ? [{ key: 'social', label: 'Social' }] : []),
+                ...(displayWeek !== -1 ? [{ key: 'sportsbook', label: 'Sportsbook' }] : []),
               ].map(tab => {
                 const isActive = tabParam === tab.key
                 return (
@@ -909,24 +948,65 @@ export default function WeeklyScores() {
               })}
             </div>
           </div>
+          {/* Second tab row — Sportsbook market sub-tabs, an extension of the
+              header directly under the main tabs (only while Sportsbook is on). */}
+          {tabParam === 'sportsbook' && (
+            <div className="relative border-t" style={{ borderColor: 'rgba(255,255,255,0.10)' }}>
+              <div className="flex overflow-x-auto no-scrollbar px-4 sm:px-5">
+                {SPORTSBOOK_TABS.map(t => {
+                  const isActive = sbSubTab === t.value
+                  return (
+                    <button
+                      key={t.value}
+                      onClick={() => setSbSubTab(t.value)}
+                      className="relative flex-shrink-0 px-3 sm:px-4 py-2.5 font-bold uppercase whitespace-nowrap transition-opacity hover:opacity-100"
+                      style={{ fontFamily: 'var(--font-display)', fontSize: '0.72rem', letterSpacing: '0.06em', color: 'var(--text-primary)', opacity: isActive ? 1 : 0.45 }}
+                    >
+                      {t.label}
+                      {isActive && (
+                        <span aria-hidden="true" className="absolute left-2 right-2 bottom-0 h-[2px] rounded-t-sm" style={{ backgroundColor: 'var(--text-primary)' }} />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          {/* Third tab row — conference selector for Conf. Champ / Win Totals,
+              shown only when no specific conference is chosen up top. Win Totals
+              gets an extra "ALL" tab (the default). */}
+          {tabParam === 'sportsbook' && (sbSubTab === 'cfp' || sbSubTab === 'wintotals') && ['all', 'top25', 'rivalries'].includes(filter) && (() => {
+            const champConfs = conferenceList.filter(isChampConference)
+            const confs = sbSubTab === 'wintotals' ? ['ALL', ...conferenceList] : champConfs
+            if (confs.length === 0) return null
+            const fallback = sbSubTab === 'wintotals' ? 'ALL' : (champConfs[0] || '')
+            const active = confs.includes(sbConf) ? sbConf : fallback
+            return (
+              <div className="relative border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+                <div className="flex overflow-x-auto no-scrollbar px-4 sm:px-5">
+                  {confs.map(c => {
+                    const isActive = c === active
+                    return (
+                      <button
+                        key={c}
+                        onClick={() => setSbConf(c)}
+                        className="relative flex-shrink-0 px-2.5 sm:px-3 py-2 font-bold uppercase whitespace-nowrap transition-opacity hover:opacity-100"
+                        style={{ fontFamily: 'var(--font-display)', fontSize: '0.62rem', letterSpacing: '0.05em', color: 'var(--text-primary)', opacity: isActive ? 0.95 : 0.4 }}
+                      >
+                        {c}
+                        {isActive && (
+                          <span aria-hidden="true" className="absolute left-2 right-2 bottom-0 h-[2px] rounded-t-sm" style={{ backgroundColor: 'var(--text-primary)' }} />
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
         </div>
         )
       })()}
-
-
-      {/* Tab bar — Scores / Recap, shared sliding-underline bar. Neutral
-          accent (light), since this page is not about the user's team. */}
-      <TabBar
-        tabs={[
-          ...(displayWeek !== -1 ? [{ key: 'scores', label: 'Scores' }] : []),
-          { key: 'recap', label: displayWeek === -1 ? 'Preseason Recap' : 'Recap' },
-...(isPreseasonWeek ? [{ key: 'battles', label: 'Position Battles' }] : []),
-        ]}
-        activeKey={tabParam}
-        onSelect={setTab}
-        accentColor="#e2e8f0"
-      />
-
 
       {/* Tab content — keyed so it fades up on each switch */}
       <div key={tabParam} className="reveal">
@@ -975,10 +1055,6 @@ export default function WeeklyScores() {
         )
       )}
 
-{tabParam === 'battles' && isPreseasonWeek && (
-        <PositionBattles year={displayYear} week={displayWeek} />
-      )}
-
       {tabParam === 'recap' && (() => {
         const recap = currentDynasty.weekRecapsByYear?.[displayYear]?.[displayWeek]
         const recapText = recap?.text
@@ -1023,6 +1099,28 @@ export default function WeeklyScores() {
           <div className="max-w-2xl mx-auto">
             <SocialFeed posts={weekPosts} charactersById={charactersById} platform={platform} gamesById={gamesById} teams={teams} dynasty={currentDynasty} year={displayYear} />
           </div>
+        )
+      })()}
+
+      {tabParam === 'sportsbook' && (() => {
+        const confScope = ['all', 'top25', 'rivalries'].includes(filter) ? null : filter
+        const champConfs = conferenceList.filter(isChampConference)
+        const winConfs = ['ALL', ...conferenceList]
+        const confChampConf = confScope || (champConfs.includes(sbConf) ? sbConf : (champConfs[0] || ''))
+        const winTotalConf = confScope || (winConfs.includes(sbConf) ? sbConf : 'ALL')
+        return (
+          <SportsbookPanel
+            dynasty={currentDynasty}
+            game={{ year: displayYear, week: displayWeek }}
+            pathPrefix={pathPrefix}
+            hideHeader
+            subTab={sbSubTab}
+            onSubTabChange={setSbSubTab}
+            gameFilter={gameMatchesFilter}
+            teamFilter={teamMatchesFilter}
+            confChampConf={confChampConf}
+            winTotalConf={winTotalConf}
+          />
         )
       })()}
       </div>

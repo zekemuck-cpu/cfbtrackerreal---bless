@@ -1661,6 +1661,23 @@ const BATCH_3 = {
     shortNickname: "Mean Green",
     confidence: "high"
   },
+  "North Dakota State Bison": {
+    primaryPMS: "PMS 342 C",
+    primaryHex: "#006633",
+    secondaryPMS: "PMS 1235 C",
+    secondaryHex: "#FFC72C",
+    tertiaryHex: "#FFFFFF",
+    motifs: ["charging bison", "interlocking ND monogram"],
+    helmet: { baseColor: "kelly green", logoMark: "interlocking 'ND' or charging bison", stripe: "yellow-gold center stripe", finish: "glossy" },
+    logoDescription: "An interlocking 'ND' monogram in kelly green outlined in yellow-gold, paired with a charging bison silhouette. The bison — head down, powering forward in green with gold detailing — is the primary athletic mark, with kelly green dominant and yellow-gold accents.",
+    wordmarkStyle: "Bold athletic block 'NDSU' / 'BISON' wordmark in kelly green; the charging bison dominates athletic marks.",
+    visualEra: "modern/athletic",
+    homeJerseyColor: "kelly green",
+    awayJerseyColor: "white",
+    graphicNotes: "NDSU uses kelly green (PMS 342, #006633) — a true green, not forest or hunter — with yellow-gold (PMS 1235, #FFC72C). The charging bison and interlocking 'ND' are the core marks. FCS dynasty powerhouse reclassified to FBS (Mountain West) for CFB 27.",
+    shortNickname: "Bison",
+    confidence: "high"
+  },
   "Northern Illinois Huskies": {
     primaryPMS: "PMS 200 C",
     primaryHex: "#C8102E",
@@ -1931,6 +1948,23 @@ const BATCH_3 = {
     awayJerseyColor: "white",
     graphicNotes: "SCARLET (PMS 186) — NEVER 'red' or 'crimson'. Rutgers fiercely guards the term. Knight imagery references the November 6, 1869 first-ever college football game (Rutgers 6, Princeton 4). Rutgers is the 'Birthplace of College Football'. Chrome knight-head alternate helmets used.",
     shortNickname: "Knights",
+    confidence: "high"
+  },
+  "Sacramento State Hornets": {
+    primaryPMS: "PMS 3435 C",
+    primaryHex: "#00563F",
+    secondaryPMS: "PMS 4525 C",
+    secondaryHex: "#C4B581",
+    tertiaryHex: "#FFFFFF",
+    motifs: ["hornet/stinger mark", "interlocking 'Sac State' / block S"],
+    helmet: { baseColor: "forest green", logoMark: "hornet or block 'S'", stripe: "gold center stripe", finish: "glossy" },
+    logoDescription: "A stylized hornet in forest green and vegas gold, wings back and stinger forward in an aggressive pose, often paired with a block 'S' or 'SAC STATE' wordmark. Forest green is dominant with vegas-gold accents and white outlining.",
+    wordmarkStyle: "Bold collegiate block 'SAC STATE' / 'HORNETS' wordmark in forest green; the hornet mark anchors athletic branding.",
+    visualEra: "modern/athletic",
+    homeJerseyColor: "forest green",
+    awayJerseyColor: "white",
+    graphicNotes: "Sacramento State uses forest green (PMS 3435, #00563F) — a deep dark green — with vegas gold (#C4B581), not bright yellow. The hornet/stinger is the core athletic mark. Reclassified from FCS to FBS (MAC) for CFB 27.",
+    shortNickname: "Hornets",
     confidence: "high"
   },
   "Sam Houston Bearkats": {

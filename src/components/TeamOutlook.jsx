@@ -112,7 +112,7 @@ function sameContainers(a, b) {
   return true
 }
 
-export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, onSideChange, dcYear, pageYear, onYearChange, onFocusConsumed }) {
+export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, onSideChange, dcYear, pageYear, onYearChange, onFocusConsumed, controlsSlot = null }) {
   const { id: dynastyId } = useParams()
   const navigate = useNavigate()
   const pathPrefix = usePathPrefix()
@@ -627,17 +627,9 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
     onTileClick,
   }
 
-  return (
-    <div className="space-y-4">
-      {showPositions && (
-        <DepthChartPositionsModal
-          layoutMap={depthLayoutMap}
-          positionsMap={depthPositions}
-          onSave={saveLayout}
-          onClose={() => setShowPositions(false)}
-        />
-      )}
-      {/* Controls */}
+  // Controls (side tabs + season + edit buttons). Rendered inline by default, or
+  // portaled into an extended header section when the page provides a slot.
+  const controls = (
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <Tabs variant="pill" value={side} onChange={setSide} options={SIDE_OPTIONS} />
         <div className="flex items-center gap-3 flex-wrap">
@@ -682,6 +674,20 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
           )}
         </div>
       </div>
+  )
+
+  return (
+    <div className="space-y-4">
+      {showPositions && (
+        <DepthChartPositionsModal
+          layoutMap={depthLayoutMap}
+          positionsMap={depthPositions}
+          onSave={saveLayout}
+          onClose={() => setShowPositions(false)}
+        />
+      )}
+      {/* Controls — in the page's extended header section when available, else inline. */}
+      {controlsSlot ? createPortal(controls, controlsSlot) : controls}
 
       {/* Scheme + Playbook selectors — offense/defense only */}
       {side !== 'st' && (

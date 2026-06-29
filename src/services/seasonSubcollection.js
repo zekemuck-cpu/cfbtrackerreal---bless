@@ -250,6 +250,48 @@ export function splitSeasonalUpdateByYear(updates) {
 }
 
 /**
+ * Build a year-keyed patch of `deleteField()` sentinels for entries that exist
+ * in `prevValue` but are gone from `nextValue`. Needed because writeSeasonalUpdate
+ * uses setDoc({merge:true}) — a plain map with a key removed can't delete that key
+ * (merge only adds/overwrites). Callers that REPLACE a seasonal field (not just
+ * add to it) merge this into the split patch so removed entries are truly cleared.
+ *
+ *   field      — the legacy main-doc field name (e.g. 'recruitingClassRankByTeamYear')
+ *   prevValue  — the field's current value on the dynasty
+ *   nextValue  — the field's new (replacement) value
+ */
+export function diffSeasonalDeletions(field, prevValue, nextValue) {
+  const out = {}
+  const perTeamYear = PER_TEAM_YEAR_TO_SEASON_FIELD[field]
+  const perYear = PER_YEAR_TO_SEASON_FIELD[field]
+  if (perTeamYear) {
+    // prev shape: { [teamKey]: { [year]: data } }
+    for (const [teamKey, yearMap] of Object.entries(prevValue || {})) {
+      if (!yearMap || typeof yearMap !== 'object') continue
+      for (const yearKey of Object.keys(yearMap)) {
+        const stillThere = nextValue?.[teamKey] && nextValue[teamKey][yearKey] !== undefined
+        if (stillThere) continue
+        const y = Number(yearKey)
+        if (!Number.isFinite(y)) continue
+        if (!out[y]) out[y] = {}
+        if (!out[y][perTeamYear]) out[y][perTeamYear] = {}
+        out[y][perTeamYear][teamKey] = deleteField()
+      }
+    }
+  } else if (perYear) {
+    // prev shape: { [year]: data }
+    for (const yearKey of Object.keys(prevValue || {})) {
+      if (nextValue?.[yearKey] !== undefined) continue
+      const y = Number(yearKey)
+      if (!Number.isFinite(y)) continue
+      if (!out[y]) out[y] = {}
+      out[y][perYear] = deleteField()
+    }
+  }
+  return out
+}
+
+/**
  * Write the year-keyed season patch produced by splitSeasonalUpdateByYear.
  * Each season doc is `setDoc(..., { merge: true })` so concurrent writes
  * to different fields on the same season don't clobber each other.

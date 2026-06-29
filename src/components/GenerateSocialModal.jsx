@@ -77,10 +77,10 @@ export default function GenerateSocialModal({ isOpen, onClose, year, week }) {
     if (isViewOnly) { toast.error('Read-only mode, cannot save.'); return }
     const trimmed = (text || '').trim()
     if (!trimmed) { toast.error('Nothing to read — copy the AI response first.'); return }
-    const { found, body } = extractSocialBlock(trimmed)
-    if (!found) { toast.error('No cfb-social block found in that text.'); return }
+    const { found, body } = extractSocialBlock(trimmed, { allowBareLines: true })
+    if (!found) { toast.error('No posts found. Paste the AI’s full response, or just the post lines (G1 | @handle | text).'); return }
     const lines = parseSocialLines(body)
-    if (!lines.length) { toast.error('No valid post lines found in the block.'); return }
+    if (!lines.length) { toast.error('No valid post lines found. Each line should look like: G1 | @handle | text.'); return }
 
     setBusy(true)
     try {
@@ -220,7 +220,7 @@ export default function GenerateSocialModal({ isOpen, onClose, year, week }) {
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   className="w-full h-40 rounded-md border border-surface-4 bg-surface-2 text-txt-primary text-sm font-mono p-3 resize-y focus:outline-none focus:ring-2 focus:ring-surface-5"
-                  placeholder="Paste the AI's full response here, then Add posts. Only the cfb-social block is read."
+                  placeholder="Paste the AI's full response, or just the post lines (G1 | @handle | text). Then Add posts."
                 />
                 <button
                   onClick={() => ingest(draft)}

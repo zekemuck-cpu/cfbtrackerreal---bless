@@ -9,6 +9,7 @@ import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamLogo } from '../../data/teams'
 import { getNameFromTid } from '../../data/teamRegistry'
 import { getCoach, getCoachCareer, COACH_ROLE_LABELS } from '../../data/coachModel'
+import pointsIcon from '../../assets/blueprint/points.png'
 
 const fmt = (n) => (n == null || n === '' || isNaN(n) ? '—' : Number(n).toLocaleString())
 
@@ -145,7 +146,12 @@ export default function CoachProfile() {
 
           {current?.salary != null && (
             <div className="hidden sm:block sm:self-center flex-shrink-0 text-right">
-              <div className="label-xs" style={{ color: `${teamBgText}cc`, letterSpacing: '1px' }}>{currentSeasonYear} {features?.dynastyPoints ? 'DP' : 'Salary'}</div>
+              <div className="label-xs flex items-center justify-end gap-1" style={{ color: `${teamBgText}cc`, letterSpacing: '1px' }}>
+                <span>{currentSeasonYear}</span>
+                {features?.dynastyPoints
+                  ? <img src={pointsIcon} alt="Dynasty Points" className="w-3.5 h-3.5 object-contain" />
+                  : <span>Salary</span>}
+              </div>
               <div className="font-display font-black tabular-nums leading-none" style={{ color: teamBgText, fontSize: 'clamp(1.5rem, 3vw, 2.25rem)' }}>
                 {fmt(current.salary)}
               </div>

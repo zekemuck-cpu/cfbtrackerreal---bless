@@ -152,7 +152,7 @@ export function buildScoreGraphicPrompt({
   const photoDirective = [
     `PHOTO RULE — there are TWO separate paths. Pick ONE based on a single fact: did the user attach an actual image file to THIS request?`,
     ``,
-    `• IF NO IMAGE WAS ATTACHED → GRAPHICS ONLY. Do NOT generate, create, illustrate, paint, imagine, composite, or fabricate ANY photographic or photo-realistic imagery of any kind — no players, faces, people, action shots, crowds, stadiums, fields, sidelines, or backgrounds, not even faint, blurred, or faded. Inventing a player or any photo is an automatic failure. Build the ENTIRE 1080×1080 graphic from team logos, typography, color, and clean geometric/graphic-design elements ONLY. If you are unsure whether an image is attached, you are in THIS path.`,
+    `• IF NO IMAGE WAS ATTACHED → design the full 1080×1080 as a polished, professionally rendered score graphic, the kind a major athletics program actually posts. This is a finished, high-fidelity image — NOT a flat clip-art or plain SVG. Rich typography, depth, lighting, subtle texture, and gradients are all welcome. The ONLY thing off-limits is fabricated photo-realistic imagery of people — no made-up players, faces, or action shots. Build it from team logos, typography, color, and graphic-design elements. If you're unsure whether an image is attached, you're in THIS path.`,
     ``,
     `• IF THE USER ATTACHED AN IMAGE → that attached photo IS the graphic. It fills the entire 1080×1080 canvas, bleeding corner to corner — no gaps, bars, or panels eating into it. Score numbers, logos, ranks, and records overlay the photo directly as floating elements. Do NOT place any solid/near-solid rectangular panel over the photo covering more than ~15% of the canvas (no heavy opaque score bar, no full-width color slab). Keep the photo's own natural colors; the team palette comes through the score, logos, and type, NOT a color wash, gradient, or tint laid over the image. The photo breathes across the whole canvas: a team photographer's best shot with a handful of graphic elements placed tastefully on top. You MAY make subtle enhancements (slight contrast, saturation, or brightness; minor crop or straighten) but keep the original composition intact. Work ONLY with the attached photo — do not invent or composite additional people or scenery.`,
   ].join('\n')
@@ -191,7 +191,7 @@ export function buildScoreGraphicPrompt({
     const homeScore = homeTeam === 1 ? s1        : homeTeam === 2 ? s2        : null
 
     const lines = [
-      `Post-game score graphic (1080×1080) for a neutral sports media outlet — not either team's branded post.`,
+      `Generate a post-game score graphic image (1080×1080) for a neutral sports media outlet — not either team's branded post.`,
       ``,
       `You are a senior designer at a major sports network. Both teams are represented equally in color, logo placement, and type weight.`,
       ``,
@@ -300,7 +300,7 @@ export function buildScoreGraphicPrompt({
   const homeScore = featuredIsHome ? sf           : so
 
   const lines = [
-    `Post-game social media score graphic (1080×1080) for ${featuredName}'s official account.`,
+    `Generate a post-game social media score graphic image (1080×1080) for ${featuredName}'s official account.`,
     ``,
     `You are the creative director for ${featuredName} football's social media. This goes out on Instagram and Twitter within minutes of the final whistle.`,
     ``,

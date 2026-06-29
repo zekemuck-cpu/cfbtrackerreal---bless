@@ -88,14 +88,14 @@ export const SCOUT_WEIGHTS = {
   // tackling etc. are noise for a kicker/punter and must not drag the score) ──
   ...['K', 'P'].reduce((o, p) => ({
     ...o,
-    [`${p}_Accurate`]: { 'Kick Accuracy': 9, 'Punt Accuracy': 9, 'Kick Power': 6, 'Punt Power': 6, Awareness: 3 },
-    [`${p}_Power`]:    { 'Kick Power': 9, 'Punt Power': 9, 'Kick Accuracy': 6, 'Punt Accuracy': 6, Awareness: 3 },
+    [`${p}_Accurate`]: { 'Kick Accuracy': 9, 'Kick Power': 6, Awareness: 3 },
+    [`${p}_Power`]:    { 'Kick Power': 9, 'Kick Accuracy': 6, Awareness: 3 },
   }), {}),
 }
 
 // Leg-only fallback for a K/P recruit whose archetype is blank/unrecognized, so
 // the grade still ignores non-kicking attributes instead of flat-averaging them.
-const KP_FALLBACK_WEIGHTS = { 'Kick Power': 8, 'Kick Accuracy': 8, 'Punt Power': 8, 'Punt Accuracy': 8, Awareness: 3 }
+const KP_FALLBACK_WEIGHTS = { 'Kick Power': 8, 'Kick Accuracy': 8, Awareness: 3 }
 const isKickerPunter = (player) => ['K', 'P'].includes((player?.position || '').toUpperCase())
 
 // Adjustments — our own calibration (kept modest so scouted attributes dominate).
@@ -403,7 +403,7 @@ const ATTR_BLURB = {
   'Block Shedding': 'block-shedding', Tackle: 'tackling', 'Hit Power': 'pop on contact', 'Power Moves': 'power rush',
   'Finesse Moves': 'finesse rush', Pursuit: 'pursuit and motor', 'Play Recognition': 'play recognition',
   'Man Coverage': 'man coverage', 'Zone Coverage': 'zone instincts', Press: 'press technique',
-  'Kick Power': 'leg strength', 'Kick Accuracy': 'kicking accuracy', 'Punt Power': 'punt leg', 'Punt Accuracy': 'punt placement',
+  'Kick Power': 'leg strength', 'Kick Accuracy': 'kicking accuracy',
 }
 const blurb = (name) => ATTR_BLURB[name] || String(name).toLowerCase()
 // How a single attribute value reads as a tier word.

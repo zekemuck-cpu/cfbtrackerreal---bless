@@ -15,16 +15,6 @@ import {
   deleteAccount,
 } from '../services/subscriptionService'
 
-const PLAN_FEATURES = [
-  { name: 'Dynasty Tracking', free: true, premium: true },
-  { name: 'Player Stats & Records', free: true, premium: true },
-  { name: 'Google Sheets Import', free: true, premium: true },
-  { name: 'Storage Location', free: 'Device Only', premium: 'Cloud' },
-  { name: 'Multi-Device Sync', free: false, premium: true },
-  { name: 'Automatic Backups', free: false, premium: true },
-  { name: 'Share Dynasties', free: false, premium: true },
-]
-
 // Hard-coded admin allowlist for the dev tools panel. The server enforces
 // the same allowlist on /api/admin/* endpoints, so this is just a UI
 // nicety — the panel's buttons are inert for non-admins.
@@ -46,17 +36,12 @@ const BETA_GRANT_EMAILS = new Set([
   'yepeza23@gmail.com',
   'tylerhorn30@gmail.com',
   'jpj1226@gmail.com',
+  'bryceth24@gmail.com',
+  'cwilsonsimons@gmail.com',
+  'abohannon1991@gmail.com',
+  'coreyethan114@gmail.com',
 ])
 
-function PlanCell({ value }) {
-  if (value === true) {
-    return <span className="tabular" style={{ color: 'var(--accent-success)' }}>Yes</span>
-  }
-  if (value === false) {
-    return <span className="text-txt-tertiary">–</span>
-  }
-  return <span className="text-txt-secondary">{value}</span>
-}
 
 export default function Account() {
   const { user, isPremium, upgradeToPremium, manageSubscription, subscription, signOut } = useAuth()
@@ -157,7 +142,7 @@ export default function Account() {
       // below, but if it slips through, show the error rather than failing
       // silently — the previous build had this onClick swallow the error.
       const msg = err?.message?.includes('no subscription')
-        ? 'No Stripe subscription on this account — nothing to manage.'
+        ? 'No Stripe subscription on this account, nothing to manage.'
         : (err?.message || 'Could not open the subscription portal. Try again later.')
       toast.error(msg)
     }
@@ -235,8 +220,8 @@ export default function Account() {
     <div className="relative min-h-[calc(100dvh-4rem)] overflow-hidden">
       <BouncingLogos />
 
-      <div className="relative z-10 max-w-4xl mx-auto px-4 py-6 space-y-4">
-        {/* Profile Card */}
+      <div className="relative z-10 max-w-xl mx-auto px-4 py-6 space-y-4">
+        {/* Profile — identity, status, and the shareable User ID in one card. */}
         <Card>
           <div className="flex items-center gap-3">
             {user.photoURL ? (
@@ -244,10 +229,7 @@ export default function Account() {
             ) : (
               <div
                 className="w-12 h-12 rounded-full flex items-center justify-center font-bold"
-                style={{
-                  backgroundColor: 'var(--surface-3)',
-                  color: 'var(--text-primary)',
-                }}
+                style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-primary)' }}
               >
                 {(user.displayName || user.email || 'U')[0].toUpperCase()}
               </div>
@@ -259,74 +241,65 @@ export default function Account() {
               <div className="text-sm text-txt-tertiary truncate">{user.email}</div>
             </div>
             <Badge variant={isPremium ? 'warning' : 'outline'}>
-              {isPremium ? 'Premium' : 'Free'}
+              {isPremium ? 'Cloud saves' : 'Local only'}
             </Badge>
           </div>
-        </Card>
 
-        {/* Your User ID — used to be granted access to a friend's
-            shared dynasty. */}
-        <Card>
-          <div className="flex items-center justify-between mb-2">
-            <div className="label-sm text-txt-primary">Your User ID</div>
-            <button
-              type="button"
-              className="text-xs px-2 py-1 rounded-md border border-surface-4 text-txt-secondary hover:bg-surface-3 transition-colors"
-              onClick={() => {
-                navigator.clipboard?.writeText(user.uid).then(
-                  () => toast.success('Copied to clipboard'),
-                  () => toast.error('Copy failed'),
-                )
-              }}
-            >
-              Copy
-            </button>
-          </div>
-          <code className="block px-3 py-2 rounded-md bg-surface-2 text-txt-primary text-xs font-mono break-all border border-surface-4">
-            {user.uid}
-          </code>
-          <p className="text-xs text-txt-tertiary mt-2">
-            Share this ID with a dynasty owner to be granted edit access to their dynasty.
-          </p>
-        </Card>
-
-        {/* Premium Member Card. Two variants:
-            - Real Stripe subscribers (have stripeCustomerId): show billing
-              date + amount and a working "Manage Subscription" button that
-              opens the Stripe portal.
-            - Dev/beta-granted users (no stripeCustomerId): show grant
-              expiry only. No portal button — there's no Stripe customer
-              to manage, and the previous build's button failed silently. */}
-        {isPremium && (
-          <Card accent="top">
-            <div className="flex items-center justify-between mb-3">
-              <div className="label-sm text-txt-primary">Premium Member</div>
-              {subscription?.cancelAtPeriodEnd ? (
-                <span className="label-xs" style={{ color: 'var(--accent-warning)' }}>Canceling</span>
-              ) : subscription?._devGranted ? (
-                <span className="label-xs" style={{ color: 'var(--accent-warning)' }}>Beta access</span>
-              ) : (
-                <span className="label-xs text-txt-tertiary">Thanks for your support</span>
-              )}
+          <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--surface-4)' }}>
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <span className="label-xs text-txt-tertiary">User ID</span>
+              <button
+                type="button"
+                className="text-xs px-2 py-0.5 rounded-md border border-surface-4 text-txt-secondary hover:bg-surface-3 transition-colors"
+                onClick={() => {
+                  navigator.clipboard?.writeText(user.uid).then(
+                    () => toast.success('Copied to clipboard'),
+                    () => toast.error('Copy failed'),
+                  )
+                }}
+              >
+                Copy
+              </button>
             </div>
+            <code className="block px-3 py-2 rounded-md bg-surface-2 text-txt-primary text-xs font-mono break-all border border-surface-4">
+              {user.uid}
+            </code>
+            <p className="text-xs text-txt-tertiary mt-2">
+              Share this ID with a dynasty owner to get edit access to their dynasty.
+            </p>
+          </div>
+        </Card>
 
-            <div className="mb-4 p-3 rounded-lg text-sm" style={{ backgroundColor: 'var(--surface-3)' }}>
+        {/* Cloud Saves — the single source of truth for the one paid add-on:
+            the pitch, current status/billing, and the upgrade / beta CTA, all
+            unified into one card. */}
+        <Card>
+          <h2 className="label-sm text-txt-primary mb-3 text-center">Cloud Saves</h2>
+          <p className="text-sm text-txt-primary text-center font-semibold mb-2">
+            Everything on the site is completely free, forever.
+          </p>
+          <p className="text-sm text-txt-secondary text-center">
+            The only paid add-on is <span className="text-txt-primary font-medium">cloud saves</span>: sync your
+            dynasties live across all your devices, with automatic backups, instead of storing them only on this
+            device. It&apos;s free during beta; eventually it&apos;ll be about $1-2/month, just enough to cover server
+            costs (I&apos;m not looking to profit).
+          </p>
+
+          {isPremium ? (
+            <div className="mt-4 p-3 rounded-lg text-sm" style={{ backgroundColor: 'var(--surface-3)' }}>
               {subscription?.cancelAtPeriodEnd ? (
                 <div style={{ color: 'var(--accent-warning)' }}>
-                  <div className="font-medium mb-1">Subscription ending</div>
-                  <div>
-                    Your premium access expires on{' '}
-                    <span className="font-semibold tabular">{billingEnd}</span>
-                  </div>
+                  <div className="font-medium mb-1">Cloud saves ending</div>
+                  <div>Access ends on <span className="font-semibold tabular">{billingEnd}</span>.</div>
                   <div className="text-xs mt-1 opacity-80">
-                    When premium ends, your cloud dynasties will be auto-copied to local storage.
+                    When it ends, your cloud dynasties are auto-copied to local storage.
                   </div>
                 </div>
               ) : subscription?._devGranted ? (
-                <div className="text-txt-secondary space-y-1">
+                <div className="space-y-1 text-txt-secondary">
                   <div className="flex justify-between">
-                    <span>Access type</span>
-                    <span className="font-medium text-txt-primary">Beta (free)</span>
+                    <span>Status</span>
+                    <span className="font-medium" style={{ color: 'var(--accent-success)' }}>Enabled, free (beta)</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Expires</span>
@@ -334,9 +307,13 @@ export default function Account() {
                   </div>
                 </div>
               ) : (
-                <div className="text-txt-secondary space-y-1">
+                <div className="space-y-1 text-txt-secondary">
                   <div className="flex justify-between">
-                    <span>Next billing date</span>
+                    <span>Status</span>
+                    <span className="font-medium" style={{ color: 'var(--accent-success)' }}>Enabled</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Next billing</span>
                     <span className="font-medium text-txt-primary tabular">{billingEnd}</span>
                   </div>
                   <div className="flex justify-between">
@@ -345,52 +322,15 @@ export default function Account() {
                   </div>
                 </div>
               )}
+              {!subscription?._devGranted && (
+                <Button variant="outline" className="w-full mt-3" onClick={handleManageSubscription}>
+                  Manage Subscription
+                </Button>
+              )}
             </div>
-
-            {!subscription?._devGranted && (
-              <Button variant="outline" className="w-full" onClick={handleManageSubscription}>
-                Manage Subscription
-              </Button>
-            )}
-          </Card>
-        )}
-
-        {/* Feature Comparison & Upgrade Card */}
-        <Card>
-          <h2 className="label-sm text-txt-primary mb-4 text-center">
-            {isPremium ? 'Your Plan' : 'Compare Plans'}
-          </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--surface-4)' }}>
-                  <th className="text-left py-2 pr-4 label-xs text-txt-tertiary">Feature</th>
-                  <th className="text-center py-2 px-3 label-xs text-txt-tertiary">Free</th>
-                  <th className="text-center py-2 px-3 label-xs text-txt-tertiary">Premium</th>
-                </tr>
-              </thead>
-              <tbody>
-                {PLAN_FEATURES.map((feature, idx) => (
-                  <tr
-                    key={feature.name}
-                    style={{ borderBottom: idx < PLAN_FEATURES.length - 1 ? '1px solid var(--surface-4)' : 'none' }}
-                  >
-                    <td className="py-2.5 pr-4 text-txt-secondary">{feature.name}</td>
-                    <td className="text-center py-2.5 px-3"><PlanCell value={feature.free} /></td>
-                    <td className="text-center py-2.5 px-3"><PlanCell value={feature.premium} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {!isPremium && (
+          ) : (
             <div className="mt-5 pt-5" style={{ borderTop: '1px solid var(--surface-4)' }}>
-              <div className="mb-4">
-                <span className="label-sm text-txt-primary">Premium Access</span>
-              </div>
               {PAYWALL_ENABLED ? (
-                /* LIVE MODE — real Stripe checkout. */
                 <>
                   <Button
                     variant="primary"
@@ -408,33 +348,21 @@ export default function Account() {
                       }
                     }}
                   >
-                    {upgrading ? 'Loading…' : `Upgrade — ${PREMIUM_PRICE_PER_MO}`}
+                    {upgrading ? 'Loading…' : `Enable cloud saves for ${PREMIUM_PRICE_PER_MO}`}
                   </Button>
                   <p className="text-center text-txt-tertiary text-xs mt-3">
                     Cancel anytime. Secure checkout via Stripe.
                   </p>
                 </>
               ) : (
-                /* BETA MODE — premium is free; Stripe checkout hidden. Users
-                   email the dev to be added to the BETA_GRANT_EMAILS allowlist
-                   and then self-grant via the "Beta Premium Access" card. */
                 <>
-                  <div className="rounded-lg p-4 mb-3" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
-                    <p className="text-sm text-txt-primary mb-2">
-                      <span className="font-semibold">Beta is free.</span>
-                    </p>
-                    <p className="text-sm text-txt-secondary">
-                      While the app is in beta, premium is on me. Reach out from the Contact page with the
-                      email you sign in with and I&apos;ll get you access.
-                    </p>
-                  </div>
                   <Link to="/contact" className="block">
                     <Button variant="primary" className="w-full">
-                      Contact Me for Free Premium
+                      Get free access during beta
                     </Button>
                   </Link>
                   <p className="text-center text-txt-tertiary text-xs mt-3">
-                    No payment required during beta.
+                    Free during beta. Message me from the Contact page with the email you sign in with.
                   </p>
                 </>
               )}
@@ -442,85 +370,42 @@ export default function Account() {
           )}
         </Card>
 
-        {/* Beta Premium Access card — visible to anyone allowed to
-            self-grant (BETA_GRANT_EMAILS + admins). Single source of
-            truth for granting / revoking the 30-day beta pass; the Dev
-            Tools panel below no longer duplicates these buttons. */}
+        {/* Beta access — self-serve grant/revoke for the beta allowlist. */}
         {canBetaGrant && (
           <Card>
-            <h2 className="label-sm text-txt-primary mb-2">Beta Premium Access</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="label-sm text-txt-primary">Beta Access</h2>
+              <span className="label-xs text-txt-tertiary">{subscription?.subscriptionStatus || 'none'}</span>
+            </div>
             <p className="text-sm text-txt-secondary mb-4">
               {isPremium
-                ? 'Your beta pass is active. When it expires, come back here and grant yourself another 30 days, no charge during beta.'
-                : "You're on the beta allowlist. Click below to grant yourself 30 days of premium. After it expires, just come back and grant again."}
+                ? 'Your beta pass is active. When it expires, grant yourself another 30 days here, free during beta.'
+                : "You're on the beta allowlist. Grant yourself 30 days of cloud saves, free during beta."}
             </p>
-            <div className="p-3 rounded-lg text-xs space-y-1 mb-4" style={{ backgroundColor: 'var(--surface-3)' }}>
-              <div className="flex justify-between">
-                <span className="text-txt-tertiary">Tier</span>
-                <span className={isPremium ? '' : 'text-txt-primary'} style={isPremium ? { color: 'var(--accent-warning)' } : undefined}>
-                  {subscription?.tier || 'free'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-txt-tertiary">Status</span>
-                <span className="text-txt-primary">{subscription?.subscriptionStatus || 'none'}</span>
-              </div>
-              {subscription?.currentPeriodEnd && (
-                <div className="flex justify-between">
-                  <span className="text-txt-tertiary">Expires</span>
-                  <span className="text-txt-primary tabular">
-                    {subscription.currentPeriodEnd.toDate?.()?.toLocaleDateString() ||
-                      new Date(subscription.currentPeriodEnd).toLocaleDateString()}
-                  </span>
-                </div>
-              )}
-            </div>
             {!isPremium ? (
-              <Button
-                variant="primary"
-                className="w-full"
-                onClick={handleGrantPremium}
-                disabled={devStatus === 'granting'}
-              >
-                {devStatus === 'granting' ? 'Granting...' : 'Grant Myself 30 Days Premium'}
+              <Button variant="primary" className="w-full" onClick={handleGrantPremium} disabled={devStatus === 'granting'}>
+                {devStatus === 'granting' ? 'Granting...' : 'Grant myself 30 days'}
               </Button>
             ) : (
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={handleRevokePremium}
-                disabled={devStatus === 'revoking'}
-              >
-                {devStatus === 'revoking' ? 'Revoking...' : 'Revoke My Beta Pass'}
+              <Button variant="outline" className="w-full" onClick={handleRevokePremium} disabled={devStatus === 'revoking'}>
+                {devStatus === 'revoking' ? 'Revoking...' : 'Revoke my beta pass'}
               </Button>
             )}
             {devStatus === 'granted' && (
               <p className="text-sm text-center mt-3" style={{ color: 'var(--accent-success)' }}>
-                Premium granted for 30 days. Refresh the page to see it everywhere.
+                Granted for 30 days. Refresh to see it everywhere.
               </p>
             )}
             {devStatus === 'revoked' && (
-              <p className="text-sm text-center mt-3 text-txt-secondary">
-                Beta pass revoked. Refresh to see it everywhere.
-              </p>
+              <p className="text-sm text-center mt-3 text-txt-secondary">Revoked. Refresh to see it everywhere.</p>
             )}
             {devStatus === 'error' && (
               <p className="text-sm text-center mt-3 text-red-400">
-                Action failed. Make sure the email you signed in with matches the allowlist.
+                Action failed. Make sure your signed-in email matches the allowlist.
               </p>
             )}
           </Card>
         )}
-
-        {/* Transparency Note */}
-        <Card>
-          <p className="text-sm text-txt-secondary text-center">
-            <span className="font-medium text-txt-primary">Why charge for Premium?</span>
-            <br />
-            This app is a passion project, not a money-maker. Cloud storage costs real money to maintain,
-            so Premium simply covers those server costs. All core features remain free forever.
-          </p>
-        </Card>
 
         {/* Dev Tools — admin allowlist only. Non-admins don't even see the
             section header. The server enforces the same gate, so even if a
@@ -600,7 +485,7 @@ export default function Account() {
                       className="w-full text-xs px-2 py-1.5 rounded border bg-surface-2 text-txt-primary"
                       style={{ borderColor: 'var(--surface-5)' }}
                     >
-                      <option value="">— pick a dynasty —</option>
+                      <option value="">Select a dynasty</option>
                       {(dynasties || []).map(d => (
                         <option key={d.id} value={d.id}>
                           {(d.dynastyName || d.teamName || d.id)} {d.storageType} {d.id.slice(0, 8)}…

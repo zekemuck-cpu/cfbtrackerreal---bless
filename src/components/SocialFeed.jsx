@@ -2,6 +2,9 @@ import { useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { usePathPrefix } from '../hooks/usePathPrefix'
 import { getTeamLogoByTid } from '../data/teams'
+import { isOfficialTeamAccount } from '../data/socialModel'
+import { getTeamScoreGraphic } from '../utils/scoreGraphics'
+import { proxyImageUrl } from '../utils/imageProxy'
 import FormattedRecap from './FormattedRecap'
 import buildRecapLinks from '../utils/buildRecapLinks'
 import buildSocialPlayerLinks from '../utils/socialPlayerLinks'
@@ -49,6 +52,11 @@ function PostRow({ post, character, platform, game, teams, playerLinks }) {
   const color = character?.color || '#657786'
   const profileTo = character ? `${pathPrefix}/social/${encodeURIComponent(character.id)}` : null
 
+  // The official team account's post carries THAT team's uploaded score graphic
+  // (the slot branded to the account's team, when one exists for this game).
+  const teamGraphic = isOfficialTeamAccount(character) ? getTeamScoreGraphic(game, character.teamTid) : ''
+  const showScoreGraphic = !!teamGraphic
+
   const Avatar = (
     <div
       className="flex items-center justify-center rounded-full flex-shrink-0 overflow-hidden"
@@ -91,6 +99,17 @@ function PostRow({ post, character, platform, game, teams, playerLinks }) {
         <div className="text-sm break-words mt-0.5 [&_a]:text-[#1d9bf0] [&_a:hover]:underline [&_a]:underline-offset-2" style={{ lineHeight: 1.5 }} onClick={(e) => { if (e.target.closest('a')) e.stopPropagation() }}>
           <FormattedRecap text={post.text} playerLinks={playerLinks} caseInsensitive className="text-txt-primary" />
         </div>
+        {showScoreGraphic && (
+          <div className="mt-2 rounded-2xl overflow-hidden" style={{ border: '1px solid var(--surface-4)', width: '100%', maxWidth: 200 }}>
+            <img
+              src={proxyImageUrl(teamGraphic, 400)}
+              alt="Final score graphic"
+              loading="lazy"
+              className="w-full h-auto block"
+              onError={(e) => { if (e.target.src !== teamGraphic) { e.target.src = teamGraphic } else { e.target.style.display = 'none' } }}
+            />
+          </div>
+        )}
       </div>
     </div>
   )

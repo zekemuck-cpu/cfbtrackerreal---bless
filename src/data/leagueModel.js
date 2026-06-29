@@ -255,6 +255,26 @@ export function setMemberLabelValue(dynasty, uid, label) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Member metadata: per-uid coach photo. Parallels memberLabels — keyed
+// by uid so every surface (Coach Career hero, leaderboard) can show the
+// same picture for a coach. Stored as a hosted image URL string.
+// ─────────────────────────────────────────────────────────────────────
+
+export function getMemberPhoto(dynasty, uid) {
+  if (!dynasty || !uid) return ''
+  return dynasty.memberPhotos?.[uid] || ''
+}
+
+/** Returns the next memberPhotos map with `uid` set to `url` (or cleared). */
+export function setMemberPhotoValue(dynasty, uid, url) {
+  const map = { ...(dynasty?.memberPhotos || {}) }
+  const trimmed = (url || '').trim()
+  if (!trimmed) delete map[uid]
+  else map[uid] = trimmed
+  return map
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Member team assignments.
 //
 // Each user can be assigned one or more tids (the teams they "control"
@@ -319,12 +339,14 @@ export function setMemberTeam(dynasty, uid, tid) {
 export function dropMemberMetadata(dynasty, uid) {
   const labels = { ...(dynasty?.memberLabels || {}) }
   const teams = { ...(dynasty?.memberTeams || {}) }
+  const photos = { ...(dynasty?.memberPhotos || {}) }
   delete labels[uid]
   delete teams[uid]
+  delete photos[uid]
   // memberTeamHistory is intentionally PRESERVED — even after a member
   // is removed, their historical record remains so the Coach Career
   // view can still show their past stints.
-  return { memberLabels: labels, memberTeams: teams }
+  return { memberLabels: labels, memberTeams: teams, memberPhotos: photos }
 }
 
 // ─────────────────────────────────────────────────────────────────────

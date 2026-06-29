@@ -42,6 +42,10 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
   const [syncing, setSyncing] = useState(false)
   const [deletingSheet, setDeletingSheet] = useState(false)
   const [creatingSheet, setCreatingSheet] = useState(false)
+  // Set when sheet creation fails for a non-auth reason. Stops the effect
+  // from immediately re-trying (which presented as an endless spinner) and
+  // surfaces a real error + manual "Try again" instead.
+  const [createError, setCreateError] = useState(null)
   const [sheetId, setSheetId] = useState(null)
   const [showDeletedNote, setShowDeletedNote] = useState(false)
   const [useEmbedded, setUseEmbedded] = useState(() => {
@@ -180,12 +184,14 @@ FINAL CHECK before you send the answer
       // "Refresh Session" button in AuthErrorModal handles both
       // first-time Google sign-in and expired-token re-auth, so the
       // same recovery flow works for both cases.
-      if (isOpen && !user && !sheetId && !creatingSheet && !showDeletedNote) {
+      if (isOpen && !user && !sheetId && !creatingSheetRef.current && !showDeletedNote && !createError) {
         auth.setShowAuthError(true)
         return
       }
-      // Don't create a new sheet if we just deleted one (showing success message)
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
+      // Don't create a new sheet if we just deleted one (showing success
+      // message), or if a prior attempt failed (wait for manual retry —
+      // otherwise the effect re-fires on every render and spins forever).
+      if (isOpen && user && !sheetId && !creatingSheetRef.current && !showDeletedNote && !createError) {
         // Set ref immediately to prevent concurrent calls (state updates are async)
         creatingSheetRef.current = true
         setCreatingSheet(true)
@@ -253,7 +259,12 @@ FINAL CHECK before you send the answer
           })
         } catch (error) {
           console.error('Failed to create schedule sheet:', error)
-          auth.handleError(error)
+          // Auth errors open the re-auth modal. Anything else (timeout,
+          // 403 insufficient scope, quota, network) gets surfaced inline
+          // with a retry instead of silently re-looping the creation.
+          if (!auth.handleError(error)) {
+            setCreateError(error?.message || 'Could not set up the sheet. Please try again.')
+          }
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false
@@ -262,12 +273,13 @@ FINAL CHECK before you send the answer
     }
 
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote, teamTid, currentYear, displayTeamName, targetTeamAbbr])
+  }, [isOpen, user, sheetId, createError, currentDynasty?.id, auth.retryCount, showDeletedNote, teamTid, currentYear, displayTeamName, targetTeamAbbr])
 
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
+      setCreateError(null)
       creatingSheetRef.current = false
     }
   }, [isOpen])
@@ -550,11 +562,26 @@ FINAL CHECK before you send the answer
           </div>
         ) : (
           // Fallback placeholder for the brief moment between modal
-          // open and initSheet completing — or when initSheet failed
-          // and AuthErrorModal is up to handle the recovery action.
+          // open and initSheet completing — or a recovery state when
+          // creation failed (auth modal, or an inline error + retry).
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center text-sm text-txt-secondary">
-              {auth.showAuthError ? 'Refresh your session to continue.' : 'Setting up sheet…'}
+            <div className="text-center text-sm text-txt-secondary max-w-sm">
+              {auth.showAuthError ? (
+                'Refresh your session to continue.'
+              ) : createError ? (
+                <>
+                  <p className="mb-3 text-txt-primary">{createError}</p>
+                  <button
+                    onClick={() => setCreateError(null)}
+                    className="px-4 py-2 rounded-lg font-semibold"
+                    style={{ backgroundColor: teamColors?.primary || 'var(--text-primary)', color: '#fff' }}
+                  >
+                    Try again
+                  </button>
+                </>
+              ) : (
+                'Setting up sheet…'
+              )}
             </div>
           </div>
         )}

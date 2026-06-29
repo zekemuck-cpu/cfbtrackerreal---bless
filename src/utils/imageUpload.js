@@ -72,27 +72,52 @@ function coerceToBlob(input) {
 // original to serve any size, and the grid fires a dozen of those at once.
 //
 // Sizing choices (tuned for storage cost over many years of uploads):
-//   • MAX_UPLOAD_DIMENSION 2560 — past any display size these photos/cards are
-//     shown at (the largest view, the enlarged card, renders ~1600px), so a
-//     2560 cap is visually lossless here while cutting 4K screenshots down hard.
-//   • UPLOAD_QUALITY 0.82 — webp at 0.82 is visually near-identical to the
-//     source for screenshots/photos but roughly half the bytes of 0.92.
+//   • MAX_UPLOAD_DIMENSION 1600 — matches the largest on-screen view (the
+//     enlarged card renders ~1600px), so this cap is visually lossless at the
+//     sizes these images are actually displayed while cutting 4K screenshots
+//     down hard. Screenshots are the bulk of uploads and the main storage cost.
+//   • UPLOAD_QUALITY 0.72 — webp at 0.72 is visually near-identical to the
+//     source for screenshots/photos (faint softening only on heavy zoom) at
+//     roughly a third the bytes of the source, prioritizing storage cost.
 //
 // Defensive: any failure (or an animated GIF, which a canvas would flatten)
 // returns the original untouched, and we keep whichever blob is smaller.
-const MAX_UPLOAD_DIMENSION = 2560
-const UPLOAD_QUALITY = 0.82
+const MAX_UPLOAD_DIMENSION = 1600
+const UPLOAD_QUALITY = 0.72
 
-// Exported so the admin recompress tool can re-encode already-stored images
-// with these same settings.
-export async function compressImageBlob(blob) {
+// Compression decodes the source onto a canvas (createImageBitmap + a full
+// canvas), which is memory-heavy for multi-MB screenshots. When a batch runs
+// these in parallel (UPLOAD_CONCURRENCY), memory spikes until createImageBitmap
+// throws — and the catch below then uploads the ORIGINAL full-res file, so the
+// image silently lands UNCOMPRESSED. We serialize the decode step through this
+// one-at-a-time queue so only a single bitmap exists at any moment; the network
+// uploads still pipeline. This is why the sequential admin recompress tool
+// always succeeds where a parallel upload batch did not.
+let _compressQueue = Promise.resolve()
+function runSerialized(task) {
+  const result = _compressQueue.then(task, task)
+  // Keep the chain alive regardless of any single task's outcome.
+  _compressQueue = result.then(() => {}, () => {})
+  return result
+}
+
+// Exported so the admin recompress tool can re-encode already-stored images.
+// opts.quality overrides UPLOAD_QUALITY; opts.maxDim overrides MAX_UPLOAD_DIMENSION.
+export function compressImageBlob(blob, opts = {}) {
+  return runSerialized(() => _compressImageBlobInner(blob, opts))
+}
+
+async function _compressImageBlobInner(blob, opts = {}) {
   try {
     if (typeof document === 'undefined' || typeof createImageBitmap !== 'function') return blob
     if (!blob || !blob.type || !blob.type.startsWith('image/')) return blob
     if (blob.type === 'image/gif') return blob // preserve animation
 
+    const quality = opts.quality ?? UPLOAD_QUALITY
+    const maxDim = opts.maxDim ?? MAX_UPLOAD_DIMENSION
+
     const bmp = await createImageBitmap(blob)
-    const scale = Math.min(1, MAX_UPLOAD_DIMENSION / Math.max(bmp.width, bmp.height))
+    const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height))
     const w = Math.max(1, Math.round(bmp.width * scale))
     const h = Math.max(1, Math.round(bmp.height * scale))
 
@@ -104,7 +129,10 @@ export async function compressImageBlob(blob) {
     ctx.drawImage(bmp, 0, 0, w, h)
     bmp.close?.()
 
-    const out = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', UPLOAD_QUALITY))
+    const out = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', quality))
+    // Release the canvas backing store before the next queued image decodes.
+    canvas.width = 0
+    canvas.height = 0
     // Keep whichever is smaller (re-encoding an already-tiny image can grow it).
     return (out && out.size > 0 && out.size < blob.size) ? out : blob
   } catch {
@@ -215,13 +243,10 @@ export async function uploadImage(input, { signal } = {}) {
   }
 }
 
-// Max images compressed+uploaded at once. Compression decodes each source
-// onto a canvas, which is memory-heavy for multi-MB game screenshots. Running
-// the whole batch at once (e.g. 50 photos) spikes memory until the canvas /
-// createImageBitmap calls throw — and compressImageBlob's catch then uploads
-// the ORIGINAL full-res file. A small pool keeps memory bounded so every image
-// actually gets compressed. Uploads themselves are fast (direct to R2), so the
-// throttle costs little wall-clock.
+// Network throttle for the upload step. The memory-heavy compression step is
+// now serialized inside compressImageBlob (one decode at a time, regardless of
+// this pool), so a batch can no longer spike memory and silently fall back to
+// uploading full-res originals. This pool only bounds concurrent network PUTs.
 const UPLOAD_CONCURRENCY = 3
 
 /**
