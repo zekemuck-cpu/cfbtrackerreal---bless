@@ -1,8 +1,43 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
+import {
+  DndContext, DragOverlay, MouseSensor, TouchSensor, KeyboardSensor,
+  useSensor, useSensors, pointerWithin, useDroppable, useDraggable,
+} from '@dnd-kit/core';
 import { createStaffAccessor } from './staffDB';
 import { PROFILES, POSITIONS } from './ThresholdLookup';
 import { archetypeBaseScore, normalizeArch } from './archetypeWeights';
 import { isPlayerOnRoster } from '../context/DynastyContext';
+import { buildRevealedPool, buildWeightsMap } from '../utils/devTraitLearning';
+
+// Drop target for a sub-position group in the Current Roster list — the whole
+// group section (header + its rows) accepts a dropped player tile.
+function RosterDropArea({ id, children }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div ref={setNodeRef} className={`rounded-lg transition ${isOver ? 'ring-1 ring-emerald-700/60 bg-emerald-950/10' : ''}`}>
+      {children}
+    </div>
+  );
+}
+
+// Draggable wrapper for a single roster row — click-hold and drag onto another
+// sub-position group's section to reassign. Defined at module scope (not nested
+// in the parent's render) so dnd-kit's drag identity stays stable across drags.
+function RosterDraggableRow({ id, className, dimmed = false, children }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={className}
+      style={{ opacity: isDragging ? 0.25 : dimmed ? 0.6 : 1, cursor: 'grab', touchAction: 'none' }}
+    >
+      {children}
+    </div>
+  );
+}
 
 // ── ATH archetype → default position mapping ─────────────────────────────────
 const ATH_ARCH_TO_POS = {
@@ -99,9 +134,9 @@ function estimateHiddenDev(player) {
   return base + (physMax >= 96 ? 3 : physMax >= 92 ? 1 : 0);
 }
 
-function computeScore(player) {
+function computeScore(player, weightsMap = null) {
   const devBonus = isHiddenDev(player.devTrait) ? estimateHiddenDev(player) : getDevBonus(player.devTrait);
-  const archBase = archetypeBaseScore(player);
+  const archBase = archetypeBaseScore(player, weightsMap);
   // Fallback: simple unweighted average of all attributes
   const fallback = (() => {
     const vals = Object.values(player.attributes ?? {}).filter(v => typeof v === 'number');
@@ -146,7 +181,7 @@ const URGENCY_UI = {
 };
 
 // ── Recommendation engine ─────────────────────────────────────────────────────
-function buildRec(pos, arch, matchingPlayers) {
+function buildRec(pos, arch, matchingPlayers, weightsMap = null) {
   const profile = PROFILES[pos]?.[arch];
   const t1Data  = profile?.tiers[0];
   const t2Data  = profile?.tiers[1];
@@ -161,7 +196,7 @@ function buildRec(pos, arch, matchingPlayers) {
   }
 
   const scored = matchingPlayers.map(p => {
-    const s = computeScore(p);
+    const s = computeScore(p, weightsMap);
     return { ...p, score: s, tier: getTier(s) };
   }).sort((a, b) => b.score - a.score);
 
@@ -178,22 +213,22 @@ function buildRec(pos, arch, matchingPlayers) {
       type: 'empty', urgency: 'empty',
       headline: `No ${arch} ${pos}s on the board yet`,
       paragraphs: [
-        `Nothing filed at this archetype. Here's what the model is looking for to hit elite range:`,
+        `Nothing filed at this archetype. Here's what we're looking for to call someone a real difference-maker here:`,
         t1Data?.cond ?? `Target prospects with the defining attributes for the ${arch} archetype.`,
-        t2Data ? `If a true Tier 1 isn't available, a Tier 2 target needs: ${t2Data.k1}.` : null,
+        t2Data ? `If we can't find that kind of talent, a solid depth piece at minimum needs: ${t2Data.k1}.` : null,
       ].filter(Boolean),
-      target: t1Data ? `T1 benchmark: ${t1Data.k1}` : null,
+      target: t1Data ? `Benchmark: ${t1Data.k1}` : null,
       scored,
     };
   }
 
   if (t1.length >= 2) {
-    const extra = t2.length > 0 ? ` ${names(t2)} give solid Tier 2 depth behind them.` : ' No Tier 2 depth yet but that\'s a secondary concern.';
+    const extra = t2.length > 0 ? ` ${names(t2)} give us solid depth behind them.` : ' No depth behind them yet, but that\'s a secondary concern.';
     return {
       type: 'elite', urgency: 'low',
       headline: `Elite depth — ${arch} is locked in`,
       paragraphs: [
-        `${names(t1, 3)} ${t1.length > 1 ? 'are both' : 'is'} Tier 1 caliber at ${arch}. That's a rare pipeline — close either one and this position group is built for multiple seasons.`,
+        `${names(t1, 3)} ${t1.length > 1 ? 'are both real difference-makers' : 'is a real difference-maker'} at ${arch}. That's a rare pipeline — close either one and this position group is built for multiple seasons.`,
         `${extra} Shift recruiting bandwidth to positions that need it more. This unit doesn't.`,
       ],
       target: null,
@@ -207,12 +242,12 @@ function buildRec(pos, arch, matchingPlayers) {
       type: 'good', urgency: 'low',
       headline: `Elite target on board — protect the commitment`,
       paragraphs: [
-        `${t1[0].name} is a Tier 1 ${arch} and your anchor for this position. Closing that commitment is the top priority here.`,
+        `${t1[0].name} looks like the real deal at ${arch} and is our anchor for this position. Closing that commitment is the top priority here.`,
         hasDepth
-          ? `${names(t2)} provide Tier 2 depth — the pipeline is in solid shape. One more insurance option would make this airtight.`
-          : `No Tier 2 depth behind ${t1[0].name} yet. Add at least one backup who hits: ${t2Data?.k1}.`,
+          ? `${names(t2)} give us solid depth behind him — the pipeline is in good shape. One more insurance option would make this airtight.`
+          : `No depth behind ${t1[0].name} yet. Add at least one backup who hits: ${t2Data?.k1}.`,
       ],
-      target: !hasDepth ? `T2 fallback: ${t2Data?.k1}` : null,
+      target: !hasDepth ? `Fallback benchmark: ${t2Data?.k1}` : null,
       scored,
     };
   }
@@ -220,12 +255,12 @@ function buildRec(pos, arch, matchingPlayers) {
   if (t2.length >= 2) {
     return {
       type: 'ok', urgency: 'medium',
-      headline: `Solid Tier 2 base — no elite target yet`,
+      headline: `Solid base — no real difference-maker yet`,
       paragraphs: [
         `${names(t2, 3)} ${t2.length > 1 ? 'give you' : 'gives you'} a reliable foundation at ${arch}. These are legitimate contributors, but this class is missing a true separator.`,
-        `To push into Tier 1 you need: ${t1Data?.k1}. ${firstSentence(t1Data?.cond)}`,
+        `To find that separator you need: ${t1Data?.k1}. ${firstSentence(t1Data?.cond)}`,
       ],
-      target: `T1 push: ${t1Data?.k1}`,
+      target: `Looking for: ${t1Data?.k1}`,
       scored,
     };
   }
@@ -235,68 +270,47 @@ function buildRec(pos, arch, matchingPlayers) {
       type: 'needs-work', urgency: 'high',
       headline: `Thin at ${arch} — one player isn't depth`,
       paragraphs: [
-        `${t2[0].name} is a solid Tier 2 ${arch} but that's all you have. One player at a position group is never enough — injuries, decommits, and competition for reps all demand a deeper board.`,
-        `Target at least one more this cycle. If you can find Tier 1: ${t1Data?.k1}. At minimum, another Tier 2: ${t2Data?.k1}.`,
+        `${t2[0].name} is solid at ${arch} but that's all you have. One player at a position group is never enough — injuries, decommits, and competition for reps all demand a deeper board.`,
+        `Target at least one more this cycle. Ideally someone who hits: ${t1Data?.k1}. At minimum, another name who hits: ${t2Data?.k1}.`,
       ],
-      target: `T1 target: ${t1Data?.k1}`,
+      target: `Looking for: ${t1Data?.k1}`,
       scored,
     };
   }
 
-  // All T3/T4
+  // Nobody on the board clears even the depth bar
   const names34 = names(scored, 3);
   return {
     type: 'weak', urgency: 'high',
     headline: `Below standard at ${arch} — upgrade required`,
     paragraphs: [
-      `${scored.length > 0 ? `${names34} ${scored.length > 1 ? 'don\'t' : 'doesn\'t'} hit the benchmarks needed to contribute at a high level in this archetype.` : 'No meaningful prospects at this archetype.'} Current ceiling is Tier 3 depth.`,
-      `Reallocate recruiting effort here immediately. Elite ${arch} target: ${t1Data?.k1}. ${firstSentence(t1Data?.cond)}`,
+      `${scored.length > 0 ? `${names34} ${scored.length > 1 ? 'don\'t' : 'doesn\'t'} hit the benchmarks needed to contribute at a high level in this archetype.` : 'No meaningful prospects at this archetype.'} Right now this is depth at best.`,
+      `Reallocate recruiting effort here immediately. We're looking for: ${t1Data?.k1}. ${firstSentence(t1Data?.cond)}`,
     ],
-    target: `T1 target: ${t1Data?.k1}`,
+    target: `Looking for: ${t1Data?.k1}`,
     scored,
   };
 }
 
-// ── Global header quote ───────────────────────────────────────────────────────
-function globalQuote(players) {
-  if (!players.length) return "Board is empty — give me some data and I'll tell you exactly where the gaps are.";
-
-  const posGroups = {};
-  players.forEach(p => {
-    posGroups[p.position] = posGroups[p.position] || [];
-    posGroups[p.position].push(p);
-  });
-
-  const t1Count = players.filter(p => getTier(computeScore(p)) === 0).length;
-  const weakPos = Object.entries(posGroups)
-    .filter(([, arr]) => arr.every(p => getTier(computeScore(p)) >= 2))
-    .map(([pos]) => pos);
-
-  if (t1Count === 0) return `${players.length} prospects on the board and not one hits Tier 1 thresholds yet. Need to move on higher-rated targets.`;
-  if (weakPos.length > 2) return `${t1Count} Tier 1 targets tracked but ${weakPos.slice(0,2).join(', ')} and others are running below standard. Spread isn't balanced.`;
-  if (t1Count >= 5) return `Strong board — ${t1Count} Tier 1 targets across the class. Depth at the premium tiers is where this class separates itself.`;
-  return `${t1Count} Tier 1 targets in the pipeline. Pick a position below to see where you need to push harder.`;
-}
-
 // ── Verdict style map ─────────────────────────────────────────────────────────
 const VERDICT_STYLES = {
-  critical:        { border: 'border-red-900/50 bg-red-950/10',        head: 'text-red-400',     badge: 'bg-red-950 border border-red-700 text-red-400' },
-  'keep-search':   { border: 'border-amber-900/50 bg-amber-950/10',    head: 'text-amber-300',   badge: 'bg-amber-950 border border-amber-700 text-amber-400' },
-  'close-target':  { border: 'border-emerald-800/40 bg-emerald-950/10', head: 'text-emerald-300', badge: 'bg-emerald-950 border border-emerald-700 text-emerald-400' },
-  monitor:         { border: 'border-sky-900/40 bg-sky-950/10',         head: 'text-sky-300',     badge: 'bg-sky-950 border border-sky-700 text-sky-400' },
-  covered:         { border: 'border-emerald-800/40 bg-emerald-950/10', head: 'text-emerald-300', badge: 'bg-emerald-950 border border-emerald-700 text-emerald-400' },
-  'no-board':      { border: 'border-slate-800 bg-slate-900/30',         head: 'text-slate-400',   badge: 'bg-slate-800 border border-slate-600 text-slate-400' },
-  'depth-needed':  { border: 'border-amber-900/50 bg-amber-950/10',    head: 'text-amber-300',   badge: 'bg-amber-950 border border-amber-700 text-amber-400' },
-  'no-investment': { border: 'border-emerald-800/40 bg-emerald-950/10', head: 'text-emerald-300', badge: 'bg-emerald-950 border border-emerald-700 text-emerald-400' },
+  critical:        { head: 'text-red-400',     badge: 'bg-red-950 border border-red-700 text-red-400' },
+  'keep-search':   { head: 'text-amber-300',   badge: 'bg-amber-950 border border-amber-700 text-amber-400' },
+  'close-target':  { head: 'text-emerald-300', badge: 'bg-emerald-950 border border-emerald-700 text-emerald-400' },
+  monitor:         { head: 'text-sky-300',     badge: 'bg-sky-950 border border-sky-700 text-sky-400' },
+  covered:         { head: 'text-emerald-300', badge: 'bg-emerald-950 border border-emerald-700 text-emerald-400' },
+  'no-board':      { head: 'text-slate-400',   badge: 'bg-slate-800 border border-slate-600 text-slate-400' },
+  'depth-needed':  { head: 'text-amber-300',   badge: 'bg-amber-950 border border-amber-700 text-amber-400' },
+  'no-investment': { head: 'text-emerald-300', badge: 'bg-emerald-950 border border-emerald-700 text-emerald-400' },
 };
 
 // ── Position hub builder ──────────────────────────────────────────────────────
-function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, recruitStrategy, extraTargets, calendarCtx = {}) {
+function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, recruitStrategy, extraTargets, calendarCtx = {}, weightsMap = null) {
   const { portalOpen = true, currentWeek = 8 } = calendarCtx;
   const archStats = archList.map(arch => {
     const matches = posPlayers.filter(pl => normalizeArch(pl.archetype) === arch);
     if (!matches.length) return { arch, count: 0, bestScore: null, bestTier: null, urgency: 'empty', scored: [], t1c: 0, t2c: 0 };
-    const scored = matches.map(p => { const s = computeScore(p); return { ...p, score: s, tier: getTier(s) }; }).sort((a, b) => b.score - a.score);
+    const scored = matches.map(p => { const s = computeScore(p, weightsMap); return { ...p, score: s, tier: getTier(s) }; }).sort((a, b) => b.score - a.score);
     const best = scored[0].score;
     const t1c = scored.filter(s => s.tier === 0).length;
     const t2c = scored.filter(s => s.tier === 1).length;
@@ -309,7 +323,7 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
   const emptyArchs = archStats.filter(a => a.count === 0);
 
   const topTargets = posPlayers
-    .map(p => { const s = computeScore(p); return { ...p, score: s, tier: getTier(s) }; })
+    .map(p => { const s = computeScore(p, weightsMap); return { ...p, score: s, tier: getTier(s) }; })
     .sort((a, b) => b.score - a.score)
     .slice(0, 5);
 
@@ -448,12 +462,19 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
     const regulars = players.filter(p => !specials.some(s => (s.pid || s.name) === (p.pid || p.name)));
     const descs = specials.map(p => {
       const n = lastName(p.name);
-      const isE = p.devTrait === 'Elite', isS = p.devTrait === 'Star', is90 = p.ovr >= 90;
-      if (is90 && isE)      return `${n} has an elite ceiling at 90+ overall — ${timeline}`;
-      else if (is90 && isS) return `${n} is a star at 90+ overall — ${timeline}`;
-      else if (is90)        return `${n} is 90+ overall — ${timeline}`;
-      else if (isE)         return `${n} has an elite ceiling — ${timeline}`;
-      else                  return `${n} has star-level upside — ${timeline}`;
+      const isE = p.devTrait === 'Elite', isS = p.devTrait === 'Star';
+      if (isE) {
+        return p1pick([
+          `${n} looks like the real deal — he could be the guy ${timeline}`,
+          `${n} has a chance to be special — watch for him to take over ${timeline}`,
+          `${n} is the one I'm most excited about in this room — trending toward a starting role ${timeline}`,
+        ]);
+      }
+      return p2pick([
+        `${n}'s got real upside — keep an eye on him ${timeline}`,
+        `${n} is trending up fast and could factor in ${timeline}`,
+        `${n} has the look of a difference-maker ${timeline}`,
+      ]);
     });
     if (regulars.length) {
       const rs = nameList(regulars);
@@ -524,13 +545,10 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
     const sorted = [...players].sort((a, b) => tierRank(b) - tierRank(a));
     const descs = sorted.map(p => {
       const n = lastName(p.name);
-      const is90 = p.ovr >= 90, isE = p.devTrait === 'Elite', isS = p.devTrait === 'Star';
-      if (is90 && isE)      return `${n} is elite at 90+ overall`;
-      else if (is90 && isS) return `${n} is a star at 90+ overall`;
-      else if (is90)        return `${n} is 90+ overall too`;
-      else if (isE)         return `${n} has an elite ceiling`;
-      else if (isS)         return `${n} is a star too`;
-      else                  return `${n} rounds out the room`;
+      const rank = tierRank(p);
+      if (rank >= 4) return p1pick([`${n} is right there with him`, `${n} is just as good`, `${n}'s the real deal too`]);
+      if (rank >= 2) return p2pick([`${n}'s no slouch either`, `${n} brings real talent too`, `${n} holds his own in that room`]);
+      return `${n} rounds out the room`;
     });
     if (descs.length === 1) return descs[0];
     return descs.slice(0, -1).join(', ') + ', and ' + descs[descs.length - 1];
@@ -780,7 +798,7 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
           `Elite ${pos} target on the board — get this one committed`,
           `${pos} board is set with the right guy on it — lock it in`,
         ]);
-    const t1Str = t1Names.length > 0 ? t1Names.join(' and ') : 'the Tier 1 target';
+    const t1Str = t1Names.length > 0 ? t1Names.join(' and ') : 'the top name on the board';
     const closeBase = retStr
       ? pick([
           `${retStr} anchor the position and ${t1Str} on the board directly addresses the gap ahead.`,
@@ -806,26 +824,26 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
     paragraphs = [p1, devNarrative || null, p2].filter(Boolean);
   } else if (verdictKey === 'keep-search') {
     headline = pick([
-      `${pos} needs a starter next year — only Tier 2 options on the board`,
+      `${pos} needs a starter next year — board isn't good enough yet`,
       `${pos} board has depth but no elite answer yet`,
-      `need to upgrade the ${pos} board — Tier 2 isn't good enough for year 1`,
+      `need to upgrade the ${pos} board — what's filed isn't good enough for year 1`,
       `${pos} is a gap next year and the board doesn't solve it yet`,
       `${pos} board is incomplete — good options, but not the year-1 answer we need`,
     ]);
-    const t2Str = t2Names.length > 0 ? `${t2Names[0]} is a solid Tier 2 option` : 'Tier 2 depth is there';
+    const t2Str = t2Names.length > 0 ? `${t2Names[0]} is a solid name to keep on file` : 'there are a couple decent names on file';
     const p1 = depStr
       ? pick([
-          `With ${depStr} leaving, ${pos} needs a starter next year. ${t2Str}, but no Tier 1 answer has surfaced yet.`,
+          `With ${depStr} leaving, ${pos} needs a starter next year. ${t2Str}, but nobody on the board has answered that yet.`,
           `${depStr} ${allDeps.length>1?'are':'is'} leaving and the board doesn't have the answer. ${t2Str}, but that's not the level we need for year 1.`,
-          `Lose ${depStr} and we need a starter — the board has ${t2Str ? `${t2Names[0]}` : 'some options'} but nothing that screams year-1 starter.`,
+          `Lose ${depStr} and we need a starter — the board has ${t2Names.length > 0 ? t2Names[0] : 'some options'} but nothing that screams year-1 starter.`,
         ])
       : rosterDesc
-        ? `${rosterDesc}. ${t2Str}, but no Tier 1 answer yet.`
-        : `Tier 2 options on file at ${pos} — no elite target yet.`;
+        ? `${rosterDesc}. ${t2Str}, but no real answer yet.`
+        : `Some depth on file at ${pos} — no real difference-maker yet.`;
     paragraphs = [p1, pick([
-      `Tier 2 alone doesn't solve a year-1 starter need. Portal is the better path for immediate help — run the HS board in parallel for the long-term pipeline.`,
+      `That depth alone doesn't solve a year-1 starter need. Portal is the better path for immediate help — run the HS board in parallel for the long-term pipeline.`,
       `We need a better answer for year 1. Hit the portal hard while keeping the HS board active.`,
-      `A Tier 2 commit doesn't solve the immediate gap. Portal first, HS board in parallel.`,
+      `What's on file doesn't solve the immediate gap. Portal first, HS board in parallel.`,
       `Keep searching. This board isn't there yet and we need it to be better before the window closes.`,
     ])];
   } else if (verdictKey === 'covered') {
@@ -875,13 +893,13 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
     const starterLine = nextUpLN && depthLN
       ? (nextUpDevTier === 'elite'
           ? pick([
-              `${nextUpLN} is an elite dev talent — he's the anchor of this room, and ${depthLN} give${depthPlayers.length===1?'s':''} us real depth behind him`,
-              `${nextUpLN} has elite ceiling and he's the future of this position — ${depthLN} back${depthPlayers.length===1?'s':''} him up`,
+              `${nextUpLN} is the anchor of this room, and ${depthLN} give${depthPlayers.length===1?'s':''} us real depth behind him`,
+              `${nextUpLN} is the future of this position — ${depthLN} back${depthPlayers.length===1?'s':''} him up`,
             ])
           : nextUpDevTier === 'star'
           ? pick([
-              `${nextUpLN} is a star dev player and he's the guy in this room — ${depthLN} give${depthPlayers.length===1?'s':''} us solid depth`,
-              `${nextUpLN} is the future here — star dev, and ${depthLN} round${depthPlayers.length===1?'s':''} out the depth`,
+              `${nextUpLN} is the guy in this room — ${depthLN} give${depthPlayers.length===1?'s':''} us solid depth`,
+              `${nextUpLN} is the future here — ${depthLN} round${depthPlayers.length===1?'s':''} out the depth`,
             ])
           : pick([
               `${nextUpLN} is next up and ${depthLN} give${depthPlayers.length===1?'s':''} us good depth`,
@@ -891,22 +909,22 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
         )
       : nextUpLN
       ? (nextUpDevTier === 'elite'
-          ? `${nextUpLN} is an elite dev talent and he's our anchor at ${pos}`
+          ? `${nextUpLN} is our anchor at ${pos}`
           : nextUpDevTier === 'star'
-          ? `${nextUpLN} is a star dev player — he's the guy at ${pos}`
+          ? `${nextUpLN} is the guy at ${pos}`
           : pick([`${nextUpLN} is our guy at ${pos}`, `${nextUpLN} is the starter`])
         )
       : null;
 
     const t1Assess = t1LN ? (
       t1IsE ? pick([
-        `${t1LN} has an elite ceiling — he could be the future of this room`,
-        `${t1LN} is a potential elite player — I love him here long-term`,
-        `${t1LN} is elite-ceiling talent — exactly what we want in this pipeline`,
+        `${t1LN} looks like the real deal — I could see him being the guy here long-term`,
+        `${t1LN} has a chance to be special for this room`,
+        `${t1LN} is the kind of talent you build a room around`,
       ]) : t1IsS ? pick([
-        `${t1LN} is a star-level talent — exactly the piece this pipeline needed`,
-        `${t1LN} has real star upside — a great find for this position`,
-        `${t1LN} is star-caliber and fits exactly what we're building`,
+        `${t1LN} has real upside — exactly the piece this pipeline needed`,
+        `${t1LN} could be a difference-maker here`,
+        `${t1LN} fits exactly what we're building`,
       ]) : t1Sc >= 90 ? pick([
         `${t1LN} grades out at the top of the board — this is a real find`,
         `${t1LN} is a top-end prospect — don't let him slip`,
@@ -963,7 +981,7 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
       `${pos} is stable — solid board depth, no elite target yet`,
       `${pos} is okay — board has options but nothing elite`,
       `${pos} has depth on the board, but keep an eye out for an upgrade`,
-      `${pos} is in decent shape — Tier 2 depth but no Tier 1 answer yet`,
+      `${pos} is in decent shape — solid depth but no real difference-maker yet`,
       `${pos} board has pieces, nothing elite — stay alert`,
     ]);
     const monitorParts = [];
@@ -979,13 +997,13 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
     ]));
     const p1 = monitorParts.length
       ? monitorParts.join(' ') + pick([
-          ' Board adds Tier 2 depth on top of that. Nothing here is urgent.',
-          ' Tier 2 options on the board round it out. No alarm bells.',
+          ' Board adds some solid depth on top of that. Nothing here is urgent.',
+          ' A few good names round out the board. No alarm bells.',
           ' Position group is stable. Not urgent.',
         ])
       : rosterDesc
-        ? `${rosterDesc}. Board adds Tier 2 options to work with. Nothing urgent here.`
-        : `Tier 2 board depth at ${pos}. No Tier 1 target yet.`;
+        ? `${rosterDesc}. Board has some solid names to work with. Nothing urgent here.`
+        : `Decent depth on the board at ${pos}. No standout target yet.`;
     paragraphs = [p1, pick([
       `Stay alert for an elite upgrade if one surfaces. Otherwise the focus belongs at positions with actual gaps.`,
       `If an elite target shows up here we'd take a look — but don't chase one. Put the energy where the real needs are.`,
@@ -1097,6 +1115,9 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
   else if (spots <= 10) { rtMax = Math.min(rtMax, hasHsNeed ? 2 : (depthGap > 0 ? 1 : 0)); }
   rtMin = Math.max(0, rtMin);
   rtMax = Math.max(rtMin, Math.min(rtMax, 5));
+  // Verdict already declared this position needs nothing — don't let the raw
+  // body-count gap formula above contradict that with a "budget N spots" ask.
+  if (verdictKey === 'no-investment') { rtMin = 0; rtMax = 0; }
 
   // ── Split: portal (immediate starter gap) vs HS recruit (depth/pipeline) ─
   const autoPortalMin = immediateNeed ? 1 : 0;
@@ -1111,37 +1132,50 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
   const stratHs     = hasManualHs     ? (recruitStrategy.hs     ?? false) : (rosterNeed && !immediateNeed);
   // anyManual already declared above the cross-reference block — do not redeclare here
 
-  // When the user has manually toggled a type, the base is always 1 so the extra-targets
-  // counter directly represents the total (display = extraTargets + 1).  When auto-driven,
-  // the system's own recommendation is used as the base.
+  // When the user manually confirms a type the system already recommended, keep that
+  // type's own auto min/max (e.g. "3-5") as the baseline instead of collapsing it to a
+  // flat 1 — the extra-targets stepper then adjusts up from the real recommendation.
+  // Only fall back to a flat 1 when the user turns on a type the system had no count for.
   let portalMin, portalMax, hsMin, hsMax;
   if (anyManual) {
     if (stratPortal && !stratHs) {
-      const base = hasManualPortal ? 1 : Math.max(autoPortalMin + autoHsMin, rosterNeed ? 1 : 0);
-      portalMin = base; portalMax = base;
+      const baseMin = hasManualPortal ? (autoPortalMin > 0 ? autoPortalMin : 1) : Math.max(autoPortalMin + autoHsMin, rosterNeed ? 1 : 0);
+      const baseMax = hasManualPortal ? (autoPortalMin > 0 ? autoPortalMax : 1) : baseMin;
+      portalMin = baseMin; portalMax = baseMax;
       hsMin = 0; hsMax = 0;
     } else if (stratHs && !stratPortal) {
-      const base = hasManualHs ? 1 : Math.max(autoPortalMin + autoHsMin, rosterNeed ? 1 : 0);
+      const baseMin = hasManualHs ? (autoHsMin > 0 ? autoHsMin : 1) : Math.max(autoPortalMin + autoHsMin, rosterNeed ? 1 : 0);
+      const baseMax = hasManualHs ? (autoHsMin > 0 ? autoHsMax : 1) : baseMin;
       portalMin = 0; portalMax = 0;
-      hsMin = base; hsMax = base;
+      hsMin = baseMin; hsMax = baseMax;
     } else {
-      // Both selected — 1 of each as the manual baseline
-      portalMin = hasManualPortal ? 1 : Math.max(autoPortalMin, rosterNeed ? 1 : 0);
-      portalMax = portalMin;
-      hsMin     = hasManualHs     ? 1 : Math.max(autoHsMin,     rosterNeed ? 1 : 0);
-      hsMax     = hsMin;
+      // Both selected — each type keeps its own auto range as the manual baseline
+      portalMin = hasManualPortal ? (autoPortalMin > 0 ? autoPortalMin : 1) : Math.max(autoPortalMin, rosterNeed ? 1 : 0);
+      portalMax = hasManualPortal ? (autoPortalMin > 0 ? autoPortalMax : 1) : portalMin;
+      hsMin     = hasManualHs     ? (autoHsMin > 0 ? autoHsMin : 1)     : Math.max(autoHsMin,     rosterNeed ? 1 : 0);
+      hsMax     = hasManualHs     ? (autoHsMin > 0 ? autoHsMax : 1)     : hsMin;
     }
   } else {
     portalMin = autoPortalMin; portalMax = autoPortalMax;
     hsMin = autoHsMin;        hsMax = autoHsMax;
   }
 
-  // Apply user-requested extra targets independently per bucket
+  // Pre-extra baseline — the UI stepper uses this to know how far it can
+  // subtract before the resolved count would go negative.
+  const hsBase = hsMin;
+  const portalBase = portalMin;
+
+  // Apply user-requested extra targets independently per bucket. Once the
+  // user nudges a count away from the auto recommendation, collapse any
+  // min-max spread to the single number they landed on instead of shifting
+  // both ends and still showing a range.
   const extraHs     = extraTargets?.hs     ?? 0;
   const extraPortal = extraTargets?.portal ?? 0;
   const extra       = extraHs + extraPortal;
-  portalMin += extraPortal; portalMax += extraPortal;
-  hsMin     += extraHs;     hsMax     += extraHs;
+  portalMin += extraPortal;
+  portalMax = extraPortal !== 0 ? portalMin : portalMax + extraPortal;
+  hsMin     += extraHs;
+  hsMax     = extraHs !== 0 ? hsMin : hsMax + extraHs;
 
   const portalLabel = portalMin > 0
     ? `${portalMin} portal target${portalMax !== 1 ? 's' : ''}`
@@ -1160,13 +1194,16 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
     paragraphs.push(`Roster space is tight overall. Budget 1 ${targetType} for ${pos} — prioritize your highest-need positions with the remaining room.`);
   } else if (!immediateNeed && rtMin === 0 && rtMax === 0 && extra === 0 && verdictKey !== 'no-investment' && verdictKey !== 'covered') {
     paragraphs.push(`No roster investment needed at ${pos} this class. We are in good shape — spend those spots elsewhere.`);
-  } else if (!immediateNeed && rtMin === 0 && rtMax === 0 && extra === 0) {
-    // no-investment verdict already says this — skip
-  } else if (!immediateNeed && rtMin === 0 && rtMax === 0 && extra > 0) {
+  } else if (!immediateNeed && rtMin === 0 && rtMax === 0 && (portalMin > 0 || hsMin > 0)) {
+    // Auto verdict says nothing's needed, but the user manually turned on a
+    // strategy toggle anyway — acknowledge what they actually asked for instead
+    // of repeating the static "not asking for anything" no-investment copy.
     const parts = [];
     if (portalMin > 0) parts.push(`${portalMin} portal target${portalMin !== 1 ? 's' : ''}`);
     if (hsMin > 0)     parts.push(`${hsMin} HS recruit${hsMin !== 1 ? 's' : ''}`);
-    paragraphs.push(`Position is in good shape, but you want to add ${parts.join(' and ')} at ${pos}. Extra investment now builds depth and competition for the 2–3 year window.`);
+    paragraphs.push(`The position didn't need anything, but you've asked for ${parts.join(' and ')} at ${pos}. Extra investment now builds depth and competition for the 2–3 year window.`);
+  } else if (!immediateNeed && rtMin === 0 && rtMax === 0) {
+    // no-investment verdict already says this — skip
   } else if (immediateNeed && stratHs && stratPortal) {
     paragraphs.push(`Targeting both the portal and a HS recruit at ${pos}. Hit the portal first for an immediate starter, then bring in a freshman to build long-term depth.`);
   } else if (immediateNeed && !stratHs) {
@@ -1179,10 +1216,14 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
   } else if (stratPortal) {
     // no extra paragraph — portal strategy is visible from the recruiting section
   } else {
+    // Use the final post-adjustment counts (not the raw auto rtMin/rtMax) so this
+    // stays in sync once the user nudges the target count via the stepper.
+    const finalMin = portalMin + hsMin;
+    const finalMax = portalMax + hsMax;
     paragraphs.push(
-      rtMin === rtMax
-        ? `Recommendation: target ${rtMin} recruit${rtMin !== 1 ? 's' : ''} at ${pos} this class to hit the right depth.`
-        : `Recommendation: budget ${rtMin}–${rtMax} spots for ${pos} this class — the low end covers the gap, the high end adds depth and competition.`
+      finalMin === finalMax
+        ? `Recommendation: target ${finalMin} recruit${finalMin !== 1 ? 's' : ''} at ${pos} this class to hit the right depth.`
+        : `Recommendation: budget ${finalMin}–${finalMax} spots for ${pos} this class — the low end covers the gap, the high end adds depth and competition.`
     );
   }
 
@@ -1194,6 +1235,60 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
     if (portalMin > 0) buckets.push(`${portalMin} portal target${portalMin !== 1 ? 's' : ''}`);
     if (hsMin > 0)     buckets.push(`${hsMin} HS recruit${hsMin !== 1 ? 's' : ''}`);
     paragraphs.push(`We can bring in ${buckets.join(' and ')} here, but really only need ${autoTotal}. Bringing in ${userTotal} could take a spot away from somewhere else we could really use it — but I trust you, boss.`);
+  }
+
+  // Final audit: guarantee every player in the position group is named
+  // somewhere in the narrative. The branches above weave names in
+  // inconsistently — some verdict paths skip commits/devs/even returning
+  // starters depending on which template fired — so instead of trying to
+  // re-derive per-branch inclusion, check the assembled text directly for
+  // each player's last name and call out anyone who slipped through.
+  const assembledText = `${headline} ${paragraphs.join(' ')}`;
+  const unmentioned = allP.filter(p => !assembledText.includes(lastName(p.name)));
+  if (unmentioned.length) {
+    const sentences = [];
+    const unmLeaving = unmentioned.filter(p => p.isLeaving && !p.isIncoming);
+    const unmCommits = unmentioned.filter(p => p.isIncoming);
+    const unmDepth    = unmentioned.filter(p => !p.isLeaving && !p.isIncoming);
+
+    // Leaving players: name once, no further elaboration beyond the departure itself.
+    if (unmLeaving.length) {
+      const ls = nameList(unmLeaving);
+      sentences.push(pick([
+        `${ls} ${unmLeaving.length > 1 ? 'are' : 'is'} leaving after this year too.`,
+        `Also losing ${ls} after this season.`,
+      ]));
+    }
+    // Incoming commits: tone varies with how highly regarded the prospect is.
+    if (unmCommits.length) {
+      const high = unmCommits.filter(p => (p.stars || 0) >= 4);
+      const rest = unmCommits.filter(p => (p.stars || 0) < 4);
+      if (high.length) {
+        const hs = nameList(high);
+        sentences.push(pick([
+          `We're bringing in ${hs} to round the room out — really excited about ${high.length > 1 ? 'them' : 'him'}.`,
+          `${hs} ${high.length > 1 ? 'are' : 'is'} the future here at ${pos}.`,
+          `Also adding ${hs} to the room — ${high.length > 1 ? "they're" : "he's"} a name to know.`,
+        ]));
+      }
+      if (rest.length) {
+        const rs = nameList(rest);
+        sentences.push(pick([
+          `${rs} ${rest.length > 1 ? 'round' : 'rounds'} out the class — ${rest.length > 1 ? 'they look' : 'he looks'} like ${rest.length > 1 ? 'projects' : 'a project'}, but we develop here.`,
+          `${rs} ${rest.length > 1 ? 'are' : 'is'} also coming in — depth piece${rest.length > 1 ? 's' : ''} for now, we'll see how ${rest.length > 1 ? 'they' : 'he'} develop${rest.length > 1 ? '' : 's'}.`,
+        ]));
+      }
+    }
+    // Returning depth players who didn't fit any other bucket: matter-of-fact framing.
+    if (unmDepth.length) {
+      const ds = nameList(unmDepth);
+      sentences.push(pick([
+        `${ds} ${unmDepth.length > 1 ? 'round' : 'rounds'} out the room — depth for now.`,
+        `Also in the room: ${ds} — depth pieces, nothing more to add right now.`,
+        `${ds} ${unmDepth.length > 1 ? 'are' : 'is'} also in the mix — not part of the plan, just depth.`,
+      ]));
+    }
+    if (sentences.length) paragraphs.push(sentences.join(' '));
   }
 
   // Sub-position specific callout (OT/OG/DE/OLB with LT/RT etc.)
@@ -1226,12 +1321,19 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
     nextYearStarters: sg.nextYearStarters, needsPortal: sg.needsPortal, isThin: sg.isThin,
   })) ?? null;
 
+  // The board's #1 target at this position (Tier 0) — lets the Daily Brief
+  // Recruiting Plan show the actual recruit's name instead of a generic count
+  // once there's someone the analyst actually wants here.
+  const topRecTarget = topTargets.find(p => p.tier === 0) || null;
+
   const recruitTarget = {
     min: portalMin + hsMin, max: portalMax + hsMax,
-    portalMin, portalMax, hsMin, hsMax,
+    portalMin, portalMax, hsMin, hsMax, hsBase, portalBase,
     hasPortal: portalMin > 0, hasRecruit: hsMax > 0,
     label: combinedLabel, portalLabel, hsLabel,
     tight: spots < 10,
+    topTargetName: topRecTarget ? lastName(topRecTarget.name) : null,
+    topTargetIsPortal: topRecTarget ? !!topRecTarget.isPortal : false,
   };
 
   const autoStrategy = { portal: immediateNeed, hs: rosterNeed && !immediateNeed };
@@ -1265,6 +1367,17 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
   const [posExtraTargets, setPosExtraTargets]     = useState({}); // pos → extra count beyond system rec
   const [subPosOverrides, setSubPosOverrides]     = useState({}); // pid → sub-position label ('LE'|'RE' etc)
   const [showConfig, setShowConfig]             = useState(false);
+
+  // Revealed-devTrait HS recruit pool — nudges archetype grading once enough data exists.
+  const revealedPool = useMemo(() => buildRevealedPool(players), [players]);
+  const weightsMap = useMemo(() => buildWeightsMap(revealedPool, players), [revealedPool, players]);
+  const [activeDragId, setActiveDragId]         = useState(null); // pid currently being dragged in Current Roster
+
+  const rosterDndSensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),
+    useSensor(KeyboardSensor),
+  );
 
   useEffect(() => {
     async function load() {
@@ -1306,8 +1419,12 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
   };
 
   const adjustExtraTargets = async (pos, type, delta) => {
+    const hub = allHubs[pos];
+    // Floor is whatever keeps the resolved count from going below 0 — the
+    // base is the auto/manual recommendation before any extra is applied.
+    const base = type === 'hs' ? (hub?.recruitTarget?.hsBase ?? 0) : (hub?.recruitTarget?.portalBase ?? 0);
     const cur = posExtraTargets[pos] ?? { hs: 0, portal: 0 };
-    const next = { ...cur, [type]: Math.max(0, Math.min(4, (cur[type] ?? 0) + delta)) };
+    const next = { ...cur, [type]: Math.max(-base, Math.min(4, (cur[type] ?? 0) + delta)) };
     const updated = { ...posExtraTargets, [pos]: next };
     if (next.hs === 0 && next.portal === 0) delete updated[pos];
     setPosExtraTargets(updated);
@@ -1352,12 +1469,18 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
     await saveStaffData('analysis_ath_positions', JSON.stringify(updated));
   };
 
-  const cycleSubPos = async (pid, currentLabel, labels) => {
-    const idx = labels.indexOf(currentLabel);
-    const next = labels[(idx + 1) % labels.length];
-    const updated = { ...subPosOverrides, [pid]: next };
+  const assignSubPos = async (pid, label) => {
+    const updated = { ...subPosOverrides, [pid]: label };
     setSubPosOverrides(updated);
     await saveStaffData('analysis_subpos_overrides', JSON.stringify(updated));
+  };
+
+  const onRosterDragEnd = ({ active, over }) => {
+    setActiveDragId(null);
+    if (!over) return;
+    const overId = String(over.id);
+    if (!overId.startsWith('subpos:')) return;
+    assignSubPos(active.id, overId.slice('subpos:'.length));
   };
 
   const cycleLeaving = async pid => {
@@ -1380,7 +1503,7 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
 
     const STAR_OVR = { 5: 78, 4: 73, 3: 68, 2: 63, 1: 58 };
 
-    const makePlayerEntry = (pl, ovr, cls, ovrThreshold, isIncoming = false) => {
+    const makePlayerEntry = (pl, ovr, cls, ovrThreshold, isIncoming = false, stars = null) => {
       const naturalYl  = isIncoming ? 4 : yearsLeft(cls);
       const isSenior   = !isIncoming && naturalYl === 0;
       const leavingType = isIncoming ? null : (leavingFlags[pl.pid] || null);
@@ -1415,6 +1538,7 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
         quality, effectiveProj,
         isManualProj: manualProj !== undefined,
         pos: rawPos,
+        stars,
       };
     };
 
@@ -1458,7 +1582,7 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
           }
           return false;
         })
-        .map(cr => makePlayerEntry(cr, STAR_OVR[Number(cr.stars)] ?? 68, 'Commit', ovrThreshold, true));
+        .map(cr => makePlayerEntry(cr, STAR_OVR[Number(cr.stars)] ?? 68, 'Commit', ovrThreshold, true, Number(cr.stars) || null));
       const allPlayers = [...rosterPlayers, ...incomingPlayers];
       const seniorCount    = allPlayers.filter(p => p.isLeaving).length;
       const returningCount = rosterPlayers.length - allPlayers.filter(p => !p.isIncoming && p.isLeaving).length;
@@ -1471,12 +1595,19 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
       const nextYearCount    = allPlayers.filter(p => p.yearsLeft >= 1).length;
       const needsPortal      = nextYearStarters < minStarter;
       const needsRecruit     = yr2Starters < minStarter || yr3Starters < minStarter;
-      // Sub-position breakdown for positions with left/right sides
+      // Sub-position breakdown for positions with left/right sides — manual
+      // drag-and-drop overrides (subPosOverrides) take priority over the
+      // player's raw position field so the badges stay in sync with the
+      // Current Roster list after a user reassigns someone's side.
       const subgroupDef = POS_SUBGROUPS[pos];
       let subPositions = null;
       if (subgroupDef) {
+        const validLabels = new Set(subgroupDef.map(sg => sg.label));
         const built = subgroupDef.map(({ label, specific, minDepth: subMin, minStarter: subStart }) => {
-          const subP = allPlayers.filter(p => specific.has(p.pos));
+          const subP = allPlayers.filter(p => {
+            const ov = subPosOverrides[p.pid];
+            return ov && validLabels.has(ov) ? ov === label : specific.has(p.pos);
+          });
           if (!subP.length) return null;
           const subNextYr    = subP.filter(p => p.yearsLeft >= 1 && (p.quality === 'starter' || projByYr(p, 1))).length;
           const subReturning = subP.filter(p => !p.isIncoming && !p.isLeaving).length;
@@ -1528,7 +1659,7 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
       : 'balanced';
 
     return result;
-  }, [dynasty, starterOvr, leavingFlags, starterProjections, committedRecruits, athPositions]);
+  }, [dynasty, starterOvr, leavingFlags, starterProjections, committedRecruits, athPositions, subPosOverrides]);
 
   const handlePosChange = pos => {
     setActivePos(pos);
@@ -1589,10 +1720,11 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
         posRecruitStrategy[pos] ?? null,
         posExtraTargets[pos] ?? 0,
         calendarCtx,
+        weightsMap,
       );
     });
     return result;
-  }, [players, rosterContext, rosterCapacity, posRecruitStrategy, posExtraTargets, calendarCtx]);
+  }, [players, rosterContext, rosterCapacity, posRecruitStrategy, posExtraTargets, calendarCtx, weightsMap]);
 
   // Save compact summary whenever allHubs updates so Daily Brief can read it
   useEffect(() => {
@@ -1608,6 +1740,8 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
         hasRecruit: hub.recruitTarget?.hasRecruit ?? false,
         portalMin: hub.recruitTarget?.portalMin ?? 0,
         hsMin: hub.recruitTarget?.hsMin ?? 0,
+        topTargetName: hub.recruitTarget?.topTargetName ?? null,
+        topTargetIsPortal: hub.recruitTarget?.topTargetIsPortal ?? false,
         subPositionSummary: hub.subPositionSummary ?? null,
       };
     });
@@ -1627,18 +1761,18 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
   });
 
   // Hub data (always computed)
-  const hub = buildPositionHub(activePos, posPlayers, archList, rosterContext[activePos], rosterCapacity.available, posRecruitStrategy[activePos] ?? null, posExtraTargets[activePos] ?? 0, calendarCtx);
+  const hub = buildPositionHub(activePos, posPlayers, archList, rosterContext[activePos], rosterCapacity.available, posRecruitStrategy[activePos] ?? null, posExtraTargets[activePos] ?? 0, calendarCtx, weightsMap);
 
   // Archetype-specific data (only when an arch is selected)
   const matching = activeArch
     ? players.filter(pl => pl.position === activePos && normalizeArch(pl.archetype) === activeArch)
     : [];
-  const rec = activeArch ? buildRec(activePos, activeArch, matching) : null;
+  const rec = activeArch ? buildRec(activePos, activeArch, matching, weightsMap) : null;
   const urgencyBadge = rec ? URGENCY_UI[rec.urgency] : null;
   const tierCounts = rec ? [0,1,2,3].map(ti => rec.scored?.filter(s => s.tier === ti).length ?? 0) : [];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4">
+    <div className="space-y-4">
 
       {/* Header strip */}
       <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-surface-4">
@@ -1665,15 +1799,15 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
       {/* Portrait + Info row */}
       <div className="flex flex-col sm:flex-row gap-4 items-stretch">
         {/* Analyst portrait card */}
-        <div className="relative rounded-xl overflow-hidden w-full h-40 sm:w-[110px] sm:h-[280px] sm:flex-shrink-0">
+        <div className="relative rounded-xl overflow-hidden w-full h-32 sm:w-[110px] sm:h-[130px] sm:flex-shrink-0">
           {analystImg
             ? <img src={analystImg} alt="" className="absolute inset-0 w-full h-full object-cover object-top" />
             : <div className="absolute inset-0 bg-surface-3" />
           }
           <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.82) 68%, rgba(0,0,0,0.92) 100%)' }} />
-          <div className="absolute inset-0 pointer-events-none" style={{ background: `linear-gradient(to bottom, transparent 45%, ${p}55 100%)` }} />
+          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 45%, #34d39955 100%)' }} />
           <div className="absolute bottom-0 left-0 right-0 p-2.5 pointer-events-none">
-            <div className="w-6 h-0.5 mb-1 rounded-full" style={{ background: p }} />
+            <div className="w-6 h-0.5 mb-1 rounded-full" style={{ background: '#34d399' }} />
             {(() => {
               const parts = analystName.trim().split(/\s+/);
               const fn = parts.length > 1 ? parts.slice(0, -1).join(' ') : '';
@@ -1681,52 +1815,46 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
               return <>
                 {fn && <p className="text-[0.7rem] font-semibold leading-none" style={{ color: 'rgba(255,255,255,0.75)', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{fn}</p>}
                 <p className="text-xl font-bold leading-tight" style={{ color: 'white', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{ln}</p>
-                <p className="text-[0.6rem] font-semibold tracking-wider leading-snug" style={{ color: p, textShadow: '0 1px 8px rgba(0,0,0,1)' }}>DATA ANALYST</p>
+                <p className="text-[0.6rem] font-semibold tracking-wider leading-snug" style={{ color: '#34d399', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>DATA ANALYST</p>
               </>;
             })()}
           </div>
         </div>
 
-        {/* Info card */}
-        <div className="flex-1 rounded-xl p-4 flex flex-col gap-2 bg-surface-2 border border-surface-4">
-          <p className="text-base font-semibold text-txt-primary">Recruiting Analysis</p>
-          <p className="text-xs text-txt-tertiary leading-snug">Roster depth analysis with recruiting recommendations based on current squad composition. Benchmarks update as more players are scouted.</p>
-          <p className="text-xs text-txt-secondary italic leading-snug mt-auto">{globalQuote(players)}</p>
-        </div>
+        {/* Roster Capacity — moved into the info card's former slot, next to the portrait */}
+        {rosterCapacity.total > 0 && (() => {
+          const { total, leaving, returning, committed, available, pct } = rosterCapacity;
+          const spotColor = available >= 15 ? 'text-emerald-400' : available >= 8 ? 'text-amber-400' : 'text-red-400';
+          const barColor  = pct >= 95 ? '#ef4444' : pct >= 85 ? '#f59e0b' : '#10b981';
+          const badgeCls  = available >= 15 ? 'bg-emerald-950 border border-emerald-700 text-emerald-400'
+                          : available >= 8  ? 'bg-amber-950 border border-amber-700 text-amber-400'
+                          : 'bg-red-950 border border-red-700 text-red-400';
+          return (
+            <div className="flex-1 rounded-xl overflow-hidden bg-surface-2 border border-surface-4">
+              <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-surface-4">
+                <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-txt-tertiary">Roster Capacity</p>
+                <span className={`text-[8px] font-display font-black uppercase px-2 py-0.5 rounded shrink-0 ${badgeCls}`}>
+                  {available} spot{available !== 1 ? 's' : ''} available
+                </span>
+              </div>
+              <div className="px-4 py-3 space-y-2.5">
+              {/* Fill bar */}
+              <div className="w-full bg-surface-4 rounded-full h-2 overflow-hidden">
+                <div className="h-2 rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
+              </div>
+              {/* Stat row */}
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
+                <span className="font-display font-bold text-txt-primary">{returning} / {total} Returning</span>
+                {leaving > 0 && <span className="font-display font-semibold text-amber-400"><span className="text-txt-tertiary mr-1.5">·</span>{leaving} Departures</span>}
+                {committed > 0 && <span className="font-display font-semibold text-sky-400"><span className="text-txt-tertiary mr-1.5">·</span>{committed} Commits</span>}
+                <span className={`font-display font-bold ${spotColor}`}><span className="text-txt-tertiary mr-1.5">·</span>{available} Open {available === 1 ? 'Spot' : 'Spots'}</span>
+                <span className="font-display font-black text-sm text-txt-primary"><span className="text-txt-tertiary mr-1.5 font-bold">·</span>{returning + committed} / 85 Projected Roster</span>
+              </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
-
-      {/* ── Roster Capacity ── */}
-      {rosterCapacity.total > 0 && (() => {
-        const { total, leaving, returning, committed, available, pct } = rosterCapacity;
-        const spotColor = available >= 15 ? 'text-emerald-400' : available >= 8 ? 'text-amber-400' : 'text-red-400';
-        const barColor  = pct >= 95 ? '#ef4444' : pct >= 85 ? '#f59e0b' : '#10b981';
-        const badgeCls  = available >= 15 ? 'bg-emerald-950 border border-emerald-700 text-emerald-400'
-                        : available >= 8  ? 'bg-amber-950 border border-amber-700 text-amber-400'
-                        : 'bg-red-950 border border-red-700 text-red-400';
-        return (
-          <div className="rounded-xl overflow-hidden bg-surface-2 border border-surface-4">
-            <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-surface-4">
-              <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-txt-tertiary">Roster Capacity</p>
-              <span className={`text-[8px] font-display font-black uppercase px-2 py-0.5 rounded shrink-0 ${badgeCls}`}>
-                {available} spot{available !== 1 ? 's' : ''} available
-              </span>
-            </div>
-            <div className="px-4 py-3 space-y-2.5">
-            {/* Fill bar */}
-            <div className="w-full bg-surface-4 rounded-full h-2 overflow-hidden">
-              <div className="h-2 rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
-            </div>
-            {/* Stat row */}
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
-              <span className="font-display font-bold text-txt-primary">{returning} / 85 returning</span>
-              {leaving > 0 && <span className="font-display font-semibold text-amber-400"><span className="text-txt-tertiary mr-1.5">·</span>{leaving} graduating this year</span>}
-              {committed > 0 && <span className="font-display font-semibold text-sky-400"><span className="text-txt-tertiary mr-1.5">·</span>{committed} committed</span>}
-              <span className={`font-display font-bold ${spotColor}`}><span className="text-txt-tertiary mr-1.5">·</span>{available} open {available === 1 ? 'spot' : 'spots'} to fill ({returning + committed}/85)</span>
-            </div>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Main panel */}
       <div className="rounded-xl overflow-hidden flex flex-col md:flex-row min-h-[560px] bg-surface-2 border border-surface-4">
@@ -1746,7 +1874,7 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
           <div className="w-full h-px bg-surface-4 shrink-0 md:block hidden" />
           {POSITIONS.map(pos => {
             const posCount = players.filter(pl => pl.position === pos).length;
-            const hasT1    = players.some(pl => pl.position === pos && getTier(computeScore(pl)) === 0);
+            const hasT1    = players.some(pl => pl.position === pos && getTier(computeScore(pl, weightsMap)) === 0);
             const posHub   = allHubs[pos];
             const isCritical    = posHub?.verdict?.key === 'critical';
             const isDepthNeeded = posHub?.verdict?.key === 'depth-needed';
@@ -2063,7 +2191,7 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                             <span className={`text-[8px] font-display font-black uppercase px-1.5 py-0.5 rounded ${h.verdict.badge}`}>{h.verdict.label}</span>
                             {rc?.needsPortal && <span className="text-[8px] font-display font-black uppercase px-1 py-0.5 rounded bg-sky-950 border border-sky-800 text-sky-400">Portal</span>}
                             <span className="text-[10px] text-txt-tertiary">
-                              {rc?.returningCount ?? 0} ret
+                              {rc?.returningCount ?? 0} Ret
                               {(rc?.seniorCount ?? 0) > 0 && <span className="text-amber-500"> · {rc.seniorCount} out</span>}
                               {(committedByPos[pos] ?? 0) > 0 && <span className="text-emerald-400"> · {committedByPos[pos]} committed</span>}
                             </span>
@@ -2092,7 +2220,7 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
           <div className="p-4 space-y-3 flex-1 overflow-y-auto">
 
               {/* ── Situation Card: verdict + roster + analyst read ── */}
-              <div className={`rounded-xl border p-4 space-y-3 ${hub.verdict.border}`}>
+              <div className="rounded-xl border border-surface-4 bg-surface-2 p-4 space-y-3">
 
                 {/* Header row */}
                 <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -2214,11 +2342,11 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                     if (!effHs && !effPortal) return null;
                     return (
                     <div className="mt-2 space-y-1.5">
-                      <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-slate-500">Need more than 1?</p>
+                      <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-slate-500">Adjust target count</p>
                       {[
-                        { type: 'hs',     label: 'HS Recruit',    color: 'text-emerald-400', show: effHs },
-                        { type: 'portal', label: 'Portal Target',  color: 'text-purple-400',  show: effPortal },
-                      ].filter(r => r.show).map(({ type, label, color }) => {
+                        { type: 'hs',     label: 'HS Recruit',    color: 'text-emerald-400', show: effHs,     resolved: hub.recruitTarget.hsMin },
+                        { type: 'portal', label: 'Portal Target',  color: 'text-purple-400',  show: effPortal, resolved: hub.recruitTarget.portalMin },
+                      ].filter(r => r.show).map(({ type, label, color, resolved }) => {
                         const val = posExtraTargets[activePos]?.[type] ?? 0;
                         return (
                           <div key={type} className="flex items-center gap-2">
@@ -2226,10 +2354,10 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                             <div className="flex items-center gap-1">
                               <button
                                 onClick={() => adjustExtraTargets(activePos, type, -1)}
-                                disabled={val === 0}
+                                disabled={resolved <= 0}
                                 className="w-5 h-5 flex items-center justify-center rounded border border-slate-700 text-slate-400 text-xs font-black hover:border-slate-500 disabled:opacity-30 disabled:cursor-not-allowed transition"
                               >−</button>
-                              <span className="text-[10px] font-display font-black text-slate-300 w-4 text-center tabular-nums">{val + 1}</span>
+                              <span className="text-[10px] font-display font-black text-slate-300 w-4 text-center tabular-nums">{resolved}</span>
                               <button
                                 onClick={() => adjustExtraTargets(activePos, type, 1)}
                                 disabled={val >= 4}
@@ -2277,122 +2405,163 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                     ) : (
                       <div className="space-y-1">
                         {(() => {
-                          const displayItems = [];
-                          if (rc.subPositions) {
-                            const labels = rc.subPositions.map(sg => sg.label);
-                            const groups = {};
-                            labels.forEach(l => { groups[l] = []; });
-                            const assigned = new Set();
-                            // Apply overrides first
-                            rc.allPlayers.forEach(pl => {
-                              const ov = subPosOverrides[pl.pid];
-                              if (ov && groups[ov]) {
-                                groups[ov].push({ ...pl, _subLabel: ov });
+                          // Shared row body — used both inside draggable sub-position
+                          // groups and the plain (no sub-position) list, so the row
+                          // markup only lives in one place.
+                          const renderRowInner = pl => {
+                            const q = QUALITY_CFG[pl.quality];
+                            return (
+                              <>
+                                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${pl.isIncoming ? 'bg-sky-500' : q.dot}`} />
+                                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                  <span className={`text-[10px] font-bold min-w-0 truncate ${pl.isIncoming ? 'text-sky-300' : q.text}`}>{pl.name}</span>
+                                  {pl._subLabel !== undefined && rc.subPositions ? (
+                                    <span
+                                      title="Drag this row onto another sub-position group to reassign"
+                                      className="text-[7px] font-display font-black uppercase px-1 py-0.5 rounded border shrink-0 text-slate-500 border-slate-700 bg-slate-900"
+                                    >
+                                      {pl._subLabel || pl.pos}
+                                    </span>
+                                  ) : (
+                                    pl.pos && <span className="text-[8px] font-display font-black text-slate-600 shrink-0">{pl.pos}</span>
+                                  )}
+                                </div>
+                                {pl.isATH && <span className="text-[7px] font-black uppercase px-1 py-0.5 rounded bg-purple-950 border border-purple-800 text-purple-400 shrink-0">ATH</span>}
+                                {pl.isIncoming && <span className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded bg-sky-950 border border-sky-700 text-sky-400 shrink-0">Incoming</span>}
+                                {!pl.isIncoming && <span className="text-[9px] text-slate-500 tabular-nums shrink-0">{pl.ovr > 0 ? pl.ovr : '—'} OVR</span>}
+                                <span className="text-[9px] text-slate-500 tabular-nums shrink-0 w-8 text-right">{pl.isIncoming ? `${pl.devTrait || pl.cls}` : pl.cls}</span>
+                                {!pl.isIncoming && pl.devTrait && (() => {
+                                  const dtCls = pl.devTrait === 'Elite'  ? 'text-yellow-400 border-yellow-800 bg-yellow-950/40'
+                                             : pl.devTrait === 'Star'    ? 'text-sky-400 border-sky-800 bg-sky-950/40'
+                                             : pl.devTrait === 'Impact'  ? 'text-emerald-400 border-emerald-800 bg-emerald-950/40'
+                                             : 'text-slate-500 border-slate-700 bg-slate-900';
+                                  return (
+                                    <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 ${dtCls}`}>
+                                      {pl.devTrait}
+                                    </span>
+                                  );
+                                })()}
+                                {/* Starter projection button — developing/raw players (not incoming commits) */}
+                                {(pl.quality === 'developing' || pl.quality === 'raw') && !pl.isIncoming && (() => {
+                                  const ep = pl.effectiveProj;
+                                  const manual = pl.isManualProj;
+                                  const projCfg =
+                                    ep === 1 ? { text: '1YR', cls: manual ? 'bg-emerald-950 border-emerald-700 text-emerald-400' : 'bg-slate-800 border-slate-600 text-slate-400 opacity-70' }
+                                  : ep === 2 ? { text: '2YR', cls: manual ? 'bg-sky-950 border-sky-700 text-sky-400'             : 'bg-slate-800 border-slate-600 text-slate-400 opacity-70' }
+                                  : ep === 3 ? { text: '3YR', cls: manual ? 'bg-amber-950 border-amber-700 text-amber-400'       : 'bg-slate-800 border-slate-600 text-slate-500 opacity-70' }
+                                  : ep === 0 ? { text: 'No Start', cls: 'bg-red-950 border-red-900 text-red-600 opacity-70' }
+                                  :            { text: '—', cls: 'bg-slate-900 border-slate-800 text-slate-700' };
+                                  return (
+                                    <button
+                                      onClick={e => { e.stopPropagation(); cycleProjection(pl.pid); }}
+                                      title="Projected starter timeline — click to cycle: 1YR → 2YR → 3YR → No Start → default"
+                                      className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 transition hover:opacity-75 ${projCfg.cls}`}
+                                    >
+                                      {projCfg.text}
+                                    </button>
+                                  );
+                                })()}
+                                {pl.isSenior && !pl.leavingType && !pl.isIncoming && (
+                                  <span className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-950 border border-amber-700 text-amber-400 shrink-0">Leaving</span>
+                                )}
+                                {!pl.isSenior && !pl.isIncoming && (
+                                  <button
+                                    onClick={e => { e.stopPropagation(); cycleLeaving(pl.pid); }}
+                                    title="Departure risk — click to cycle: Draft Risk → Transfer Risk → Cut → clear"
+                                    className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 transition ${
+                                      pl.leavingType === 'draft'
+                                        ? 'bg-orange-950 border-orange-700 text-orange-400 hover:opacity-75'
+                                        : pl.leavingType === 'transfer'
+                                        ? 'bg-purple-950 border-purple-700 text-purple-400 hover:opacity-75'
+                                        : pl.leavingType === 'cut'
+                                        ? 'bg-red-950 border-red-700 text-red-400 hover:opacity-75'
+                                        : 'bg-slate-900 border-slate-700 text-slate-700 hover:text-slate-400 hover:border-slate-500'
+                                    }`}
+                                  >
+                                    {pl.leavingType === 'draft' ? 'Draft Risk' : pl.leavingType === 'transfer' ? 'Transfer Risk' : pl.leavingType === 'cut' ? 'Cut' : 'Leaving'}
+                                  </button>
+                                )}
+                              </>
+                            );
+                          };
+                          const rowClassName = pl => `flex items-center gap-3 px-3 py-2 rounded-lg border ${pl.isLeaving ? 'opacity-60' : ''} ${pl.isIncoming ? 'border-sky-900/40 bg-sky-950/10' : QUALITY_CFG[pl.quality].bg}`;
+
+                          if (!rc.subPositions) {
+                            return rc.allPlayers.map((pl, i) => (
+                              <div key={i} className={rowClassName(pl)}>{renderRowInner(pl)}</div>
+                            ));
+                          }
+
+                          const labels = rc.subPositions.map(sg => sg.label);
+                          const groups = {};
+                          labels.forEach(l => { groups[l] = []; });
+                          const assigned = new Set();
+                          // Apply overrides first
+                          rc.allPlayers.forEach(pl => {
+                            const ov = subPosOverrides[pl.pid];
+                            if (ov && groups[ov]) {
+                              groups[ov].push({ ...pl, _subLabel: ov });
+                              assigned.add(pl.pid || pl.name);
+                            }
+                          });
+                          // Natural assignment for the rest
+                          rc.subPositions.forEach(sg => {
+                            sg.players.forEach(pl => {
+                              if (!assigned.has(pl.pid || pl.name)) {
+                                groups[sg.label].push({ ...pl, _subLabel: sg.label });
                                 assigned.add(pl.pid || pl.name);
                               }
                             });
-                            // Natural assignment for the rest
-                            rc.subPositions.forEach(sg => {
-                              sg.players.forEach(pl => {
-                                if (!assigned.has(pl.pid || pl.name)) {
-                                  groups[sg.label].push({ ...pl, _subLabel: sg.label });
-                                  assigned.add(pl.pid || pl.name);
-                                }
-                              });
-                            });
-                            // Sort each group by OVR desc
-                            labels.forEach(l => groups[l].sort((a, b) => b.ovr - a.ovr));
-                            // Build flat list with headers
-                            labels.forEach(l => {
-                              if (!groups[l].length) return;
-                              displayItems.push({ _header: l });
-                              groups[l].forEach(pl => displayItems.push(pl));
-                            });
-                            // Unassigned (shouldn't happen often)
-                            rc.allPlayers.filter(p => !assigned.has(p.pid || p.name)).forEach(pl => displayItems.push({ ...pl, _subLabel: null }));
-                          } else {
-                            rc.allPlayers.forEach(pl => displayItems.push(pl));
-                          }
-                          return displayItems.map((pl, i) => {
-                          if (pl._header) return (
-                            <p key={`hdr-${pl._header}`} className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-slate-500 pt-2 pb-0.5 border-t border-slate-800/60 first:border-t-0 first:pt-0">{pl._header}</p>
-                          );
-                          const q = QUALITY_CFG[pl.quality];
+                          });
+                          // Sort each group by OVR desc
+                          labels.forEach(l => groups[l].sort((a, b) => b.ovr - a.ovr));
+                          const unassigned = rc.allPlayers
+                            .filter(p => !assigned.has(p.pid || p.name))
+                            .map(pl => ({ ...pl, _subLabel: null }));
+
                           return (
-                            <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-lg border ${pl.isLeaving ? 'opacity-60' : ''} ${pl.isIncoming ? 'border-sky-900/40 bg-sky-950/10' : q.bg}`}>
-                              <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${pl.isIncoming ? 'bg-sky-500' : q.dot}`} />
-                              <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                                <span className={`text-[10px] font-bold min-w-0 truncate ${pl.isIncoming ? 'text-sky-300' : q.text}`}>{pl.name}</span>
-                                {pl._subLabel !== undefined && rc.subPositions ? (
-                                  <button
-                                    onClick={e => { e.stopPropagation(); cycleSubPos(pl.pid, pl._subLabel, rc.subPositions.map(sg => sg.label)); }}
-                                    title="Click to move to next sub-position"
-                                    className="text-[7px] font-display font-black uppercase px-1 py-0.5 rounded border shrink-0 text-slate-500 border-slate-700 bg-slate-900 hover:text-slate-300 hover:border-slate-500 transition"
-                                  >
-                                    {pl._subLabel || pl.pos}
-                                  </button>
-                                ) : (
-                                  pl.pos && <span className="text-[8px] font-display font-black text-slate-600 shrink-0">{pl.pos}</span>
-                                )}
+                            <DndContext
+                              sensors={rosterDndSensors}
+                              collisionDetection={pointerWithin}
+                              onDragStart={e => setActiveDragId(e.active.id)}
+                              onDragEnd={onRosterDragEnd}
+                              onDragCancel={() => setActiveDragId(null)}
+                            >
+                              <div className="space-y-1">
+                                {labels.map(l => {
+                                  if (!groups[l].length) return null;
+                                  return (
+                                    <RosterDropArea key={l} id={`subpos:${l}`}>
+                                      <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-slate-500 pt-2 pb-0.5 border-t border-slate-800/60 first:border-t-0 first:pt-0">{l}</p>
+                                      <div className="space-y-1">
+                                        {groups[l].map((pl, i) => (
+                                          <RosterDraggableRow key={pl.pid || `${l}-${i}`} id={pl.pid || `${l}-${i}`} className={rowClassName(pl)} dimmed={pl.isLeaving}>
+                                            {renderRowInner(pl)}
+                                          </RosterDraggableRow>
+                                        ))}
+                                      </div>
+                                    </RosterDropArea>
+                                  );
+                                })}
+                                {unassigned.map((pl, i) => (
+                                  <div key={`unassigned-${i}`} className={rowClassName(pl)}>{renderRowInner(pl)}</div>
+                                ))}
                               </div>
-                              {pl.isATH && <span className="text-[7px] font-black uppercase px-1 py-0.5 rounded bg-purple-950 border border-purple-800 text-purple-400 shrink-0">ATH</span>}
-                              {pl.isIncoming && <span className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded bg-sky-950 border border-sky-700 text-sky-400 shrink-0">Incoming</span>}
-                              {!pl.isIncoming && <span className="text-[9px] text-slate-500 tabular-nums shrink-0">{pl.ovr > 0 ? pl.ovr : '—'} OVR</span>}
-                              <span className="text-[9px] text-slate-500 tabular-nums shrink-0 w-8 text-right">{pl.isIncoming ? `${pl.devTrait || pl.cls}` : pl.cls}</span>
-                              {!pl.isIncoming && pl.devTrait && (() => {
-                                const dtCls = pl.devTrait === 'Elite'  ? 'text-yellow-400 border-yellow-800 bg-yellow-950/40'
-                                           : pl.devTrait === 'Star'    ? 'text-sky-400 border-sky-800 bg-sky-950/40'
-                                           : pl.devTrait === 'Impact'  ? 'text-emerald-400 border-emerald-800 bg-emerald-950/40'
-                                           : 'text-slate-500 border-slate-700 bg-slate-900';
-                                return (
-                                  <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 ${dtCls}`}>
-                                    {pl.devTrait}
-                                  </span>
-                                );
-                              })()}
-                              {/* Starter projection button — developing/raw players (not incoming commits) */}
-                              {(pl.quality === 'developing' || pl.quality === 'raw') && !pl.isIncoming && (() => {
-                                const ep = pl.effectiveProj;
-                                const manual = pl.isManualProj;
-                                const projCfg =
-                                  ep === 1 ? { text: '1YR', cls: manual ? 'bg-emerald-950 border-emerald-700 text-emerald-400' : 'bg-slate-800 border-slate-600 text-slate-400 opacity-70' }
-                                : ep === 2 ? { text: '2YR', cls: manual ? 'bg-sky-950 border-sky-700 text-sky-400'             : 'bg-slate-800 border-slate-600 text-slate-400 opacity-70' }
-                                : ep === 3 ? { text: '3YR', cls: manual ? 'bg-amber-950 border-amber-700 text-amber-400'       : 'bg-slate-800 border-slate-600 text-slate-500 opacity-70' }
-                                : ep === 0 ? { text: 'No Start', cls: 'bg-red-950 border-red-900 text-red-600 opacity-70' }
-                                :            { text: '—', cls: 'bg-slate-900 border-slate-800 text-slate-700' };
-                                return (
-                                  <button
-                                    onClick={e => { e.stopPropagation(); cycleProjection(pl.pid); }}
-                                    title="Projected starter timeline — click to cycle: 1YR → 2YR → 3YR → No Start → default"
-                                    className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 transition hover:opacity-75 ${projCfg.cls}`}
-                                  >
-                                    {projCfg.text}
-                                  </button>
-                                );
-                              })()}
-                              {pl.isSenior && !pl.leavingType && !pl.isIncoming && (
-                                <span className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-950 border border-amber-700 text-amber-400 shrink-0">Leaving</span>
+                              {createPortal(
+                                <DragOverlay zIndex={10000} dropAnimation={null}>
+                                  {activeDragId ? (() => {
+                                    const dragged = rc.allPlayers.find(p => (p.pid || p.name) === activeDragId);
+                                    return dragged ? (
+                                      <div className="px-3 py-2 rounded-lg border border-slate-600 bg-slate-800 shadow-2xl text-[10px] font-bold text-white whitespace-nowrap">
+                                        {dragged.name}
+                                      </div>
+                                    ) : null;
+                                  })() : null}
+                                </DragOverlay>,
+                                document.body
                               )}
-                              {!pl.isSenior && !pl.isIncoming && (
-                                <button
-                                  onClick={e => { e.stopPropagation(); cycleLeaving(pl.pid); }}
-                                  title="Departure risk — click to cycle: Draft Risk → Transfer Risk → Cut → clear"
-                                  className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 transition ${
-                                    pl.leavingType === 'draft'
-                                      ? 'bg-orange-950 border-orange-700 text-orange-400 hover:opacity-75'
-                                      : pl.leavingType === 'transfer'
-                                      ? 'bg-purple-950 border-purple-700 text-purple-400 hover:opacity-75'
-                                      : pl.leavingType === 'cut'
-                                      ? 'bg-red-950 border-red-700 text-red-400 hover:opacity-75'
-                                      : 'bg-slate-900 border-slate-700 text-slate-700 hover:text-slate-400 hover:border-slate-500'
-                                  }`}
-                                >
-                                  {pl.leavingType === 'draft' ? 'Draft Risk' : pl.leavingType === 'transfer' ? 'Transfer Risk' : pl.leavingType === 'cut' ? 'Cut' : 'Leaving'}
-                                </button>
-                              )}
-                            </div>
+                            </DndContext>
                           );
-                        });
                         })()}
                       </div>
                     )}

@@ -16880,6 +16880,7 @@ export function DynastyProvider({ children }) {
     saveCoachingStaff,
     updatePlayer,
     deletePlayer,
+    getDynastyPlayers,
     syncAllPlayersStats,
     createGoogleSheetForDynasty,
     createTempSheetWithData,

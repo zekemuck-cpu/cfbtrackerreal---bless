@@ -246,7 +246,10 @@ export function reconcileRecruitingRows({
     } else {
       const pid = nextPID++
       record = mergeRecruitFields(
-        { pid, id: `player-${pid}`, name: row.name, jerseyNumber: '', overall: null },
+        // scoutedAt stamps the real wall-clock moment this target was first added —
+        // unlike pid (a small per-dynasty counter), it's comparable across dynasties,
+        // which is what lets the shared Recruiting Database show true add order.
+        { pid, id: `player-${pid}`, name: row.name, jerseyNumber: '', overall: null, scoutedAt: Date.now() },
         row,
       )
     }

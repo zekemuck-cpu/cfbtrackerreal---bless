@@ -1,12 +1,14 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, EmptyState, Button } from '../../components/ui'
+import { useDynasty } from '../../context/DynastyContext'
 import { proxyImageUrl } from '../../utils/imageProxy'
 import { getTargetStatus } from '../../utils/recruitingTargets'
 import { getScoutScoresFor, headlinePercentile, ordinal, predictRecruitOverall } from '../../utils/scoutScore'
 import { POSITION_FILTER_OPTIONS, matchesPositionFilter } from '../../utils/recruitFilters'
 import ScoutScorePanel from '../../components/ScoutScorePanel'
 import { computeScore } from '../../components/archetypeWeights'
+import { buildRevealedPool, buildWeightsMap } from '../../utils/devTraitLearning'
 
 // Scout Board (the Targets tab): tracked recruiting targets benchmarked by
 // MaxPlaysCFB ScoutScore. Each row shows the recruit's ScoutScore overall
@@ -50,12 +52,13 @@ function ssColor(score) {
   return '#f87171'
 }
 
-function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy, localScore, useLocalScores, draggable: isDraggable, onDragStart, onDragOver, onDrop, isDragOver }) {
+function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy, localScore, useLocalScores, draggable: isDraggable, onDragStart, onDragOver, onDrop, isDragOver, onToggleRemove, canEdit }) {
   const { p, status } = r
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const lost = status === 'committed_elsewhere'
   const committed = status === 'committed_us'
+  const removed = !!p.boardRemoved
 
   // Sub-line: the recruit's national / position / state recruiting ranks.
   const ranks = []
@@ -79,13 +82,15 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy, localScore, us
       onDragLeave={isDraggable ? (e) => e.preventDefault() : undefined}
       style={{
         borderTop: isDragOver ? '2px solid #60a5fa' : rank > 1 ? '1px solid var(--surface-4)' : 'none',
-        opacity: lost ? 0.55 : 1,
+        opacity: lost ? 0.55 : removed ? 0.4 : 1,
         cursor: isDraggable ? 'grab' : undefined,
       }}
     >
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => expandable && setOpen((o) => !o)}
+        onKeyDown={(e) => { if (expandable && (e.key === 'Enter' || e.key === ' ')) setOpen((o) => !o) }}
         className={`w-full flex items-center gap-3 sm:gap-3.5 px-4 py-3 transition-colors text-left${expandable ? ' hover:bg-surface-2' : ' cursor-default'}`}
       >
         {isDraggable && (
@@ -115,13 +120,16 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy, localScore, us
             {Number(p.stars) > 0 && <span className="text-[10px] flex-shrink-0 tracking-tight" style={{ color: 'var(--accent-warning)' }}>{STAR(p.stars)}</span>}
             {committed && <span className="text-[9px] font-bold uppercase text-txt-tertiary tracking-wide flex-shrink-0">· Committed</span>}
             {lost && <span className="text-[9px] font-bold uppercase text-txt-tertiary tracking-wide flex-shrink-0">· Lost</span>}
+            {removed && (
+              <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider text-slate-500 border border-slate-700 bg-slate-900 flex-shrink-0">Removed</span>
+            )}
           </div>
           <div className="flex flex-wrap items-baseline gap-x-1.5 sm:gap-x-3 gap-y-0.5 mt-1 text-[9px] sm:text-[11px]" style={{ letterSpacing: '0.3px' }}>
             <span className="uppercase text-txt-secondary font-semibold flex-shrink-0">{p.position || 'ATH'}</span>
             {p.archetype && <span className="uppercase text-txt-tertiary flex-shrink-0">{p.archetype}</span>}
             {proj && (
               <span className="flex-shrink-0 tabular-nums text-txt-tertiary normal-case">
-                Proj <span className="font-bold text-txt-secondary">{proj.overall}</span> ({proj.low}–{proj.high})
+                Proj. Ovr <span className="font-bold text-txt-secondary">{proj.overall}</span> ({proj.low}–{proj.high})
               </span>
             )}
             {ranks.length > 0 && (
@@ -165,8 +173,27 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy, localScore, us
           )}
         </div>
 
+        {canEdit && onToggleRemove && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onToggleRemove(p) }}
+            className={`flex-shrink-0 p-1.5 rounded transition ${removed ? 'text-slate-600 hover:text-emerald-400 hover:bg-emerald-950/40' : 'text-slate-600 hover:text-red-400 hover:bg-red-950/40'}`}
+            title={removed ? 'Restore to board' : 'Remove from board'}
+          >
+            {removed ? (
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                <circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/>
+              </svg>
+            )}
+          </button>
+        )}
+
         {expandable && <Chevron open={open} />}
-      </button>
+      </div>
 
       {open && !useLocalScores && (
         <div className="px-4 pb-4 pt-1 sm:pl-[4.5rem] sm:pr-6">
@@ -180,6 +207,14 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy, localScore, us
 const SORT_OPTIONS = ['scoutscore', 'projected', 'national', 'priority']
 
 export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positionFilter = 'all', onPositionFilterChange = null, viewingOwnTeam = true, onResolveTargets = null, resolveCount = 0, scoutStaffEnabled = false }) {
+  const { updateDynasty, isViewOnly } = useDynasty()
+  const canEdit = viewingOwnTeam && !isViewOnly
+  const handleToggleRemove = async (pl) => {
+    if (!dynasty) return
+    const players = dynasty.players || []
+    const newPlayers = players.map(p => p.pid === pl.pid ? { ...p, boardRemoved: !p.boardRemoved } : p)
+    await updateDynasty(dynasty.id, { players: newPlayers }, { changedPlayerPids: [pl.pid] })
+  }
   const yearN = Number(year)
   // Sort choice persists per device.
   const [sortBy, setSortBy] = useState(() => {
@@ -232,13 +267,17 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
     return out
   }, [dynasty?.players, yearN, userTid, viewingOwnTeam])
 
+  // Revealed-devTrait HS recruit pool — nudges archetype grading once enough data exists.
+  const revealedPool = useMemo(() => buildRevealedPool(dynasty?.players || []), [dynasty?.players])
+  const weightsMap = useMemo(() => buildWeightsMap(revealedPool, dynasty?.players || []), [revealedPool, dynasty?.players])
+
   // Local scores (Scout Staff mode) — computed synchronously, no API needed.
   const localScores = useMemo(() => {
     if (!scoutStaffEnabled) return new Map()
     const m = new Map()
-    for (const { p } of targets) m.set(p.pid, computeScore(p))
+    for (const { p } of targets) m.set(p.pid, computeScore(p, weightsMap))
     return m
-  }, [scoutStaffEnabled, targets])
+  }, [scoutStaffEnabled, targets, weightsMap])
 
   // Benchmark every target through ScoutScore (cached, concurrency-capped).
   // Skipped entirely when Scout Staff is enabled — we use local scores instead.
@@ -303,13 +342,16 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
     return rows
   }, [targets, scores, localScores, scoutStaffEnabled, sortBy, positionFilter, priorityOrder])
 
+  const activeRanked = useMemo(() => ranked.filter((r) => !r.p.boardRemoved), [ranked])
+  const removedRanked = useMemo(() => ranked.filter((r) => r.p.boardRemoved), [ranked])
+
   if (targets.length === 0) {
     return (
       <Card>
         <EmptyState
           title={viewingOwnTeam ? 'No Targets to Scout' : 'Another team’s recruiting class'}
           message={viewingOwnTeam
-            ? 'Track prospects via the recruiting sheet (set their Commitment to “Uncommitted” and fill in attributes), and they\'ll be ranked here by ScoutScore.'
+            ? `Track prospects via the recruiting sheet (set their Commitment to “Uncommitted” and fill in attributes), and they'll be ranked here by ${scoutStaffEnabled ? 'your Staff' : 'ScoutScore'}.`
             : 'Targets are your own team\'s board. Switch back to your team\'s recruiting page to see them.'}
         />
       </Card>
@@ -360,10 +402,12 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
           </div>
         </div>
         <div>
-          {ranked.length === 0 ? (
+          {activeRanked.length === 0 ? (
             <div className="px-4 sm:px-5 py-8 text-center text-sm text-txt-tertiary">No targets at this position.</div>
-          ) : ranked.map((r, i) => (
+          ) : activeRanked.map((r, i) => (
             <Row key={r.p.pid} r={r} rank={i + 1} pathPrefix={pathPrefix} scoutResult={scores.get(r.p.pid)} scoring={scoring} sortBy={sortBy} localScore={localScores.get(r.p.pid)} useLocalScores={scoutStaffEnabled}
+              canEdit={canEdit}
+              onToggleRemove={handleToggleRemove}
               draggable
               onDragStart={() => { dragPid.current = r.p.pid }}
               onDragOver={(e) => { e.preventDefault(); setDragOverPid(r.p.pid) }}
@@ -378,6 +422,23 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
           ))}
         </div>
       </section>
+
+      {removedRanked.length > 0 && (
+        <section className="media-card overflow-hidden">
+          <div className="px-3 sm:px-5 py-3 flex items-center gap-2 border-b" style={{ borderColor: 'var(--surface-4)' }}>
+            <h3 className="font-display font-black uppercase leading-none text-txt-tertiary flex-shrink-0 whitespace-nowrap" style={{ fontSize: '14px', letterSpacing: '0.02em' }}>Removed</h3>
+            <span className="text-[11px] text-txt-tertiary">Taken off the Big Board — restore to bring them back.</span>
+          </div>
+          <div>
+            {removedRanked.map((r, i) => (
+              <Row key={r.p.pid} r={r} rank={i + 1} pathPrefix={pathPrefix} scoutResult={scores.get(r.p.pid)} scoring={scoring} sortBy={sortBy} localScore={localScores.get(r.p.pid)} useLocalScores={scoutStaffEnabled}
+                canEdit={canEdit}
+                onToggleRemove={handleToggleRemove}
+              />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   )
 }

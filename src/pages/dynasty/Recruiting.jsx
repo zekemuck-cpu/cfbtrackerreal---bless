@@ -25,6 +25,7 @@ import ScoutBoard from './ScoutBoard'
 const ScoutStaff = lazy(() => import('../../components/ScoutStaff'))
 import TargetResolutionModal from '../../components/TargetResolutionModal'
 import RecruitCard from '../../components/RecruitCard'
+import { buildRevealedPool, buildWeightsMap } from '../../utils/devTraitLearning'
 
 const stateFullNames = {
   'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas', 'CA': 'California',
@@ -131,6 +132,12 @@ export default function Recruiting() {
   const activeTab = tabParam === 'targets' ? 'targets' : tabParam === 'commitments' ? 'commitments' : tabParam === 'staff' ? 'staff' : defaultTab
   const setActiveTab = (t) => setParam('tab', t === defaultTab ? null : t, null)
 
+  // Tab switches only touch the URL's query string, not its pathname, so the
+  // route-level ScrollToTop never fires — land at the top of each tab manually.
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [activeTab])
+
   // In-app target resolution (Phase 4). openTargets is defined below, once
   // selectedYear exists.
   const [showResolveModal, setShowResolveModal] = useState(false)
@@ -181,6 +188,11 @@ export default function Recruiting() {
   // Self-calibrating scout model (learned from past recruit outcomes) so the
   // commitment cards grade on the same sharpened scale as the Targets board.
   const scoutModel = useMemo(() => scoutCalibration(currentDynasty?.players || []), [currentDynasty?.players])
+
+  // Revealed-devTrait HS recruit pool — nudges Scout Staff archetype grading
+  // once enough real data exists.
+  const revealedPool = useMemo(() => buildRevealedPool(currentDynasty?.players || []), [currentDynasty?.players])
+  const weightsMap = useMemo(() => buildWeightsMap(revealedPool, currentDynasty?.players || []), [revealedPool, currentDynasty?.players])
 
   const teamFullName = team?.name || baseTeam?.name || teamAbbr
 
@@ -1334,6 +1346,7 @@ export default function Recruiting() {
                 playStyle={playStyle}
                 model={scoutModel}
                 scoutStaffEnabled={!!currentDynasty?.scoutStaffEnabled}
+                weightsMap={weightsMap}
               />
             )
 

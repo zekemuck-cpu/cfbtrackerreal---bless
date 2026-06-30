@@ -130,11 +130,14 @@ function estimateHiddenDev(player) {
   return base + (physMax >= 96 ? 3 : physMax >= 92 ? 1 : 0);
 }
 
-export function computeScore(player) {
+// weightsMap (optional): { archKey: { star: { weights, conf, n, level } } },
+// built by devTraitLearning.buildWeightsMap — pass it through when the caller
+// has a pool of revealed-dev-trait recruits, omit for plain static scoring.
+export function computeScore(player, weightsMap = null) {
   const devBonus = isHiddenDev(player.devTrait)
     ? estimateHiddenDev(player)
     : (DEV_BONUS[player.devTrait] ?? 0);
-  const archBase = archetypeBaseScore(player);
+  const archBase = archetypeBaseScore(player, weightsMap);
   const vals     = Object.values(player.attributes ?? {}).filter(v => typeof v === 'number');
   const fallback = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 75;
   return (archBase ?? fallback) + devBonus + (STAR_BONUS[String(player.stars)] ?? 0) + physOutlierBonus(player);
@@ -152,7 +155,7 @@ const ATH_FALLBACK_POS = {
   'Pure Possession':     'TE',
 };
 
-function resolveWeights(position, arch) {
+export function resolveWeights(position, arch) {
   const key = `${position}_${arch}`;
   if (ARCHETYPE_WEIGHTS[key]) return ARCHETYPE_WEIGHTS[key];
   if (position === 'ATH') {
@@ -164,9 +167,12 @@ function resolveWeights(position, arch) {
 
 // Compute archetype-specific weighted base score (0–99 range, weighted avg of attrs).
 // Returns null if no weights are registered for this player's archetype.
-export function archetypeBaseScore(player) {
-  const arch    = normalizeArch(player.archetype || '');
-  const weights = resolveWeights(player.position, arch);
+export function archetypeBaseScore(player, weightsMap = null) {
+  const arch     = normalizeArch(player.archetype || '');
+  const archKey  = `${player.position}_${arch}`;
+  const star     = String(player.stars ?? '');
+  const learned  = weightsMap?.[archKey]?.[star]?.weights;
+  const weights  = learned || resolveWeights(player.position, arch);
   if (!weights) return null;
   let sum = 0;
   Object.entries(weights).forEach(([attr, w]) => {
@@ -176,9 +182,12 @@ export function archetypeBaseScore(player) {
 }
 
 // Returns the top-weighted attribute names for display (sorted by weight desc, non-zero only).
-export function topAttrs(pos, arch, n = 3) {
+// Pass weightsMap + star to reflect learned weights once enough data exists for that bucket.
+export function topAttrs(pos, arch, n = 3, weightsMap = null, star = null) {
   const normalized = normalizeArch(arch);
-  const weights    = resolveWeights(pos, normalized);
+  const archKey    = `${pos}_${normalized}`;
+  const learned    = star != null ? weightsMap?.[archKey]?.[String(star)]?.weights : null;
+  const weights    = learned || resolveWeights(pos, normalized);
   if (!weights) return [];
   return Object.entries(weights)
     .filter(([, w]) => w > 0)

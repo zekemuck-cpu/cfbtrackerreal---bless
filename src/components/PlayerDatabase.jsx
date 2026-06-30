@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createStaffAccessor } from './staffDB';
 import { archetypeBaseScore } from './archetypeWeights';
+import { buildRevealedPool, buildWeightsMap, predictDevTrait } from '../utils/devTraitLearning';
 
 // ── Grade tier definitions ───────────────────────────────────────────────────
 const GRADE_TIERS = [
@@ -109,9 +110,9 @@ function estimateHiddenDev(player) {
   return base + physBump;
 }
 
-function computeScore(player) {
+function computeScore(player, weightsMap = null) {
   const devBonus  = isHiddenDev(player.devTrait) ? estimateHiddenDev(player) : getDevBonus(player.devTrait);
-  const archBase  = archetypeBaseScore(player);
+  const archBase  = archetypeBaseScore(player, weightsMap);
   const base      = archBase !== null ? archBase : calcWeightedAvg(player);
   return base + devBonus + (STAR_BONUS[String(player.stars)] ?? 0) + physOutlierBonus(player);
 }
@@ -121,9 +122,9 @@ function getGradeTier(score) {
 }
 
 // ── Pool context ─────────────────────────────────────────────────────────────
-function getPoolRank(player, allPlayers) {
+function getPoolRank(player, allPlayers, weightsMap = null) {
   const group = allPlayers.filter(p => p.position === player.position);
-  const sorted = [...group].sort((a, b) => computeScore(b) - computeScore(a));
+  const sorted = [...group].sort((a, b) => computeScore(b, weightsMap) - computeScore(a, weightsMap));
   const rank = sorted.findIndex(p => p.name === player.name) + 1;
   return { rank, total: group.length };
 }
@@ -493,10 +494,10 @@ function buildAnalysisText(player, score, baseAvg, rank, total) {
 }
 
 // ── Grade Breakdown Modal ────────────────────────────────────────────────────
-function GradeModal({ player, allPlayers, onClose }) {
-  const score      = computeScore(player);
+function GradeModal({ player, allPlayers, weightsMap, onClose }) {
+  const score      = computeScore(player, weightsMap);
   const baseAvg    = calcWeightedAvg(player);
-  const archBase   = archetypeBaseScore(player);
+  const archBase   = archetypeBaseScore(player, weightsMap);
   const displayBase = archBase !== null ? archBase : baseAvg;
   const usingArch  = archBase !== null;
   const tier       = getGradeTier(score);
@@ -507,7 +508,7 @@ function GradeModal({ player, allPlayers, onClose }) {
   const combine  = generateCombine(player);
   const { gpa, major } = generateAcademic(player);
   const quote    = generateQuote(player);
-  const { rank, total } = getPoolRank(player, allPlayers);
+  const { rank, total } = getPoolRank(player, allPlayers, weightsMap);
   const poolAvg  = getPoolAvg(player.position, allPlayers);
   const analysis = buildAnalysisText(player, score, baseAvg, rank, total);
 
@@ -525,7 +526,8 @@ function GradeModal({ player, allPlayers, onClose }) {
       onClick={onClose}
     >
       <div
-        className="bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className="bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-y-auto"
+        style={{ maxHeight: 'calc(100dvh - var(--app-header-height, 64px) * 2)' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -700,7 +702,7 @@ function GradeModal({ player, allPlayers, onClose }) {
 const POSITIONS_LIST = ['QB','HB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','ATH'];
 const DEV_TRAITS = ['Hidden', 'Normal', 'Impact', 'Star', 'Elite'];
 
-function EditModal({ player, onSave, onClose }) {
+function EditModal({ player, pool, weightsMap, onSave, onClose }) {
   const [form, setForm] = useState({
     name: player.name,
     position: player.position,
@@ -712,6 +714,14 @@ function EditModal({ player, onSave, onClose }) {
 
   const setField = (field, val) => setForm(f => ({ ...f, [field]: val }));
   const setAttr  = (key, val)   => setForm(f => ({ ...f, attributes: { ...f.attributes, [key]: val } }));
+
+  // Nearest-centroid suggestion from revealed HS recruits at this archetype+star
+  // — only meaningful while the real dev trait isn't locked in yet.
+  const prediction = useMemo(() => {
+    if (form.devTrait !== 'Hidden' || !form.position || !form.archetype) return null;
+    const numericAttrs = Object.fromEntries(Object.entries(form.attributes).map(([k, v]) => [k, parseInt(v, 10) || 0]));
+    return predictDevTrait(pool, form.position, form.archetype, String(form.stars), numericAttrs, weightsMap);
+  }, [pool, weightsMap, form.devTrait, form.position, form.archetype, form.stars, form.attributes]);
 
   const handleSave = () => {
     const updated = {
@@ -735,7 +745,8 @@ function EditModal({ player, onSave, onClose }) {
       onClick={onClose}
     >
       <div
-        className="bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className="bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-y-auto"
+        style={{ maxHeight: 'calc(100dvh - var(--app-header-height, 64px) * 2)' }}
         onClick={e => e.stopPropagation()}
       >
         <div className="p-5 border-b border-slate-800 flex items-center justify-between">
@@ -789,6 +800,11 @@ function EditModal({ player, onSave, onClose }) {
                 >
                   {DEV_TRAITS.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
+                {prediction && (
+                  <p className="text-[9px] text-emerald-400 mt-1">
+                    Predicted: {prediction.closest} (closest match · {prediction.availableGroups} group{prediction.availableGroups !== 1 ? 's' : ''} of data, n={prediction.n})
+                  </p>
+                )}
               </div>
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Archetype</label>
@@ -843,7 +859,7 @@ function EditModal({ player, onSave, onClose }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function PlayerDatabase({ players, roleContext, teamColors, teamLogo, onDelete, onEdit, onGoToInput, onGoToThresholds, onBack, portalMode = false, dynastyId = null }) {
+export default function PlayerDatabase({ players, roleContext, teamColors, teamLogo, onDelete, onEdit, onGoToInput, onGoToThresholds, onBack, dynastyId = null, recruitingDbIsolated = false, onToggleIsolated = null }) {
   const { getStaffData } = createStaffAccessor(dynastyId);
   const p = teamColors?.primary || '#374151';
   const [filterPos, setFilterPos] = useState('ALL');
@@ -852,20 +868,25 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
   const [editingPlayer, setEditingPlayer] = useState(null);
   const [editingDevFor, setEditingDevFor] = useState(null);
   const [sortConfig, setSortConfig] = useState({ key: 'recency', dir: 'desc' });
-  const [analystImg, setAnalystImg] = useState('');
-  const [analystName, setAnalystName] = useState('Data Analyst');
+  const [scoutImg, setScoutImg] = useState('');
+  const [scoutName, setScoutName] = useState('National Scout');
 
   useEffect(() => {
-    async function loadAnalyst() {
-      const img  = await getStaffData('analyst_img');
-      const name = await getStaffData('analyst_name');
-      if (img)  setAnalystImg(img);
-      if (name) setAnalystName(name);
+    async function loadScout() {
+      const img  = await getStaffData('scout_img');
+      const name = await getStaffData('scout_name');
+      if (img)  setScoutImg(img);
+      if (name) setScoutName(name);
     }
-    loadAnalyst();
+    loadScout();
   }, []);
 
   const positionsList = ['ALL', 'QB', 'HB', 'WR', 'TE', 'OT', 'OG', 'C', 'DE', 'DT', 'OLB', 'MIKE', 'CB', 'FS', 'SS', 'ATH'];
+
+  // Revealed-devTrait HS recruit pool — nudges archetype grading toward what
+  // actually separates Elite/Star/Impact/Normal once enough data exists.
+  const pool = useMemo(() => buildRevealedPool(players), [players]);
+  const weightsMap = useMemo(() => buildWeightsMap(pool, players), [pool, players]);
 
   const filteredPlayers = players.filter(p => {
     const matchesPos = filterPos === 'ALL' || p.position === filterPos;
@@ -883,9 +904,9 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
   const sortedPlayers = [...filteredPlayers].sort((a, b) => {
     let av, bv;
     switch (sortConfig.key) {
-      case 'recency':   av = a.addedIndex ?? 0;                            bv = b.addedIndex ?? 0;                            break;
+      case 'recency':   av = a.recentRank ?? a.addedIndex ?? 0;             bv = b.recentRank ?? b.addedIndex ?? 0;            break;
       case 'name':      av = a.name;                                       bv = b.name;                                       break;
-      case 'score':     av = computeScore(a);                              bv = computeScore(b);                              break;
+      case 'score':     av = computeScore(a, weightsMap);                  bv = computeScore(b, weightsMap);                  break;
       case 'group':     av = a.group;                                      bv = b.group;                                      break;
       case 'position':  av = a.position;                                   bv = b.position;                                   break;
       case 'archetype': av = a.archetype;                                  bv = b.archetype;                                  break;
@@ -916,34 +937,30 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     );
   };
 
-  const analystQuip = (() => {
-    if (!players.length) return "Nothing in the system yet — waiting on the scout to get me some data to work with.";
-    const hiddenCount = players.filter(pl => isHiddenDev(pl.devTrait)).length;
-    if (hiddenCount >= 3) return `${hiddenCount} dev traits still sealed — those signing day reveals could flip this whole class ranking.`;
-    if (hiddenCount > 0) return `${hiddenCount} dev trait${hiddenCount > 1 ? 's' : ''} still hidden — holding off on final grades until those come in.`;
-    const topCount = players.filter(pl => ['A+','A','A-'].includes(getGradeTier(computeScore(pl)).grade)).length;
-    const lowCount = players.filter(pl => ['D+','D','D-','F'].includes(getGradeTier(computeScore(pl)).grade)).length;
-    if (topCount >= Math.ceil(players.length * 0.4)) return "Elite-heavy class on this board — if those dev traits hold, this group is special.";
-    if (lowCount >= Math.ceil(players.length * 0.35)) return "A lot of low-ceiling prospects here — need higher dev traits to lift this board's grade.";
-    const posCounts = {};
-    players.forEach(pl => posCounts[pl.position] = (posCounts[pl.position] || 0) + 1);
-    const top = Object.entries(posCounts).sort((a,b) => b[1]-a[1])[0];
-    return `${top[0]} leads the board at ${top[1]} — watching the full class balance as more prospects come in.`;
-  })();
-
   return (
     <div className="space-y-4">
       {selectedPlayer && (
-        <GradeModal player={selectedPlayer} allPlayers={players} onClose={() => setSelectedPlayer(null)} />
+        <GradeModal player={selectedPlayer} allPlayers={players} weightsMap={weightsMap} onClose={() => setSelectedPlayer(null)} />
       )}
       {editingPlayer && (
-        <EditModal player={editingPlayer} onSave={updated => onEdit && onEdit(updated, editingPlayer)} onClose={() => setEditingPlayer(null)} />
+        <EditModal player={editingPlayer} pool={pool} weightsMap={weightsMap} onSave={updated => onEdit && onEdit(updated, editingPlayer)} onClose={() => setEditingPlayer(null)} />
       )}
 
       {/* Header strip */}
       <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-surface-4">
-        <h2 className="text-sm font-display font-bold uppercase text-txt-primary">{portalMode ? 'Transfer Portal Board' : 'Recruiting Database'}</h2>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <h2 className="text-sm font-display font-bold uppercase text-txt-primary">Recruiting Database</h2>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {onToggleIsolated && (
+            <label className="flex items-center gap-1.5 text-[10px] text-txt-tertiary hover:text-txt-secondary transition cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={recruitingDbIsolated}
+                onChange={onToggleIsolated}
+                className="w-3 h-3 accent-current"
+              />
+              Start from scratch (this dynasty only)
+            </label>
+          )}
           {onGoToInput && (
             <button onClick={onGoToInput} className="text-xs text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
               + New Report
@@ -965,22 +982,19 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
       {/* Analyst identity + filters row */}
       <div className="flex flex-col sm:flex-row gap-3 items-start">
 
-        {/* Analyst portrait card */}
-        <div className="relative rounded-xl overflow-hidden shadow-xl w-full h-40 sm:w-[110px] sm:h-[280px] sm:flex-shrink-0">
-          {analystImg ? (
-            <img src={analystImg} alt="Data Analyst" className="absolute inset-0 w-full h-full object-cover object-top" />
+        {/* Scout portrait card */}
+        <div className="relative rounded-xl overflow-hidden shadow-xl w-full h-32 sm:w-[110px] sm:h-[130px] sm:flex-shrink-0">
+          {scoutImg ? (
+            <img src={scoutImg} alt="National Scout" className="absolute inset-0 w-full h-full object-cover object-top" />
           ) : (
             <div className="absolute inset-0 bg-surface-3" />
           )}
           <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.82) 68%, rgba(0,0,0,0.92) 100%)' }} />
-          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 45%, #10b98155 100%)' }} />
-          <div className="absolute top-2 left-2 pointer-events-none">
-            <span className="text-[7px] font-black uppercase tracking-[0.15em] px-1.5 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.6)', color: '#34d399', backdropFilter: 'blur(4px)', border: '1px solid #34d39944' }}>Analyst</span>
-          </div>
+          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 45%, #38bdf855 100%)' }} />
           <div className="absolute bottom-0 left-0 right-0 p-2">
-            <div className="w-4 h-0.5 mb-1 rounded-full bg-emerald-400" />
+            <div className="w-4 h-0.5 mb-1 rounded-full bg-sky-400" />
             {(() => {
-              const parts = analystName.trim().split(' ');
+              const parts = scoutName.trim().split(' ');
               const last = parts.pop() || '';
               const first = parts.join(' ');
               return (
@@ -990,7 +1004,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                 </>
               );
             })()}
-            <p className="text-[6px] font-black uppercase tracking-[0.12em] mt-0.5 text-emerald-400">Data Analyst</p>
+            <p className="text-[6px] font-black uppercase tracking-[0.12em] mt-0.5 text-sky-400">National Scout</p>
             <p className="text-[8px] text-white/55 italic leading-snug mt-1" style={{ textShadow: '0 1px 6px rgba(0,0,0,1)' }}>
               {players.length} prospect{players.length !== 1 ? 's' : ''} on file
             </p>
@@ -999,13 +1013,6 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
 
         {/* Right column: quip card + filters */}
         <div className="flex-1 space-y-3 min-w-0">
-
-          {/* Analyst quip */}
-          <div className="rounded-xl p-3.5 bg-surface-2 border border-surface-4">
-            <p className="text-[8px] font-semibold uppercase tracking-widest leading-none text-emerald-500">Analysis</p>
-            <p className="text-[11px] text-txt-secondary italic leading-snug mt-1">"{analystQuip}"</p>
-            <p className="text-[9px] text-txt-tertiary mt-1">— {analystName}</p>
-          </div>
 
           {/* Search + position filters */}
           <div className="rounded-xl p-3.5 space-y-2.5 bg-surface-2 border border-surface-4">
@@ -1042,7 +1049,6 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
               <tr className="text-[10px] font-semibold uppercase tracking-widest text-txt-tertiary bg-surface-3 border-b border-surface-4">
                 <SortTh sortKey="recency">Recent</SortTh>
                 <SortTh sortKey="name">Prospect</SortTh>
-                {portalMode && <th className="p-3.5 text-slate-500 whitespace-nowrap">From</th>}
                 <SortTh sortKey="score" className="text-center">Grade</SortTh>
                 <SortTh sortKey="group">Group</SortTh>
                 <SortTh sortKey="position">Pos</SortTh>
@@ -1057,17 +1063,15 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
             <tbody className="divide-y divide-surface-4 text-xs">
               {filteredPlayers.length === 0 ? (
                 <tr>
-                  <td colSpan={portalMode ? 11 : 10} className="p-12 text-center text-txt-tertiary text-xs">
+                  <td colSpan={10} className="p-12 text-center text-txt-tertiary text-xs">
                     {players.length === 0
-                      ? portalMode
-                        ? 'No transfer targets on the board yet. Add portal players via the Recruiting page.'
-                        : 'No scouting logs found. Add freshman targets via the Recruiting page.'
+                      ? 'No scouting logs found. Add freshman targets via the Recruiting page.'
                       : 'No prospects matching active filters.'}
                   </td>
                 </tr>
               ) : (
                 sortedPlayers.map((pl, i) => {
-                  const score = computeScore(pl);
+                  const score = computeScore(pl, weightsMap);
                   const tier  = getGradeTier(score);
                   const { gpa } = generateAcademic(pl);
                   const hiddenDev = isHiddenDev(pl.devTrait);
@@ -1077,13 +1081,10 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                       onClick={() => setSelectedPlayer(pl)}
                       className="transition group cursor-pointer border-b border-surface-4 hover:bg-surface-3"
                     >
-                      <td className="p-3.5 text-center text-[10px] tabular-nums text-txt-tertiary">{pl.addedIndex != null ? pl.addedIndex + 1 : '—'}</td>
-                      <td className="p-3.5 font-semibold text-txt-secondary group-hover:text-txt-primary transition">{pl.name}</td>
-                      {portalMode && (
-                        <td className="p-3.5 text-[10px] text-sky-400 font-bold whitespace-nowrap">
-                          {pl.previousTeam || '—'}
-                        </td>
-                      )}
+                      <td className="p-3.5 text-center text-[10px] tabular-nums text-txt-tertiary">{pl.recentRank ?? (pl.addedIndex != null ? pl.addedIndex + 1 : '—')}</td>
+                      <td className="p-3.5 font-semibold text-txt-secondary group-hover:text-txt-primary transition">
+                        {pl.name}
+                      </td>
                       <td className="p-3.5 text-center">
                         <div className="inline-flex flex-col items-center gap-0.5">
                           <span className={`font-black tracking-wide text-xs px-2 py-0.5 rounded border ${tier.badgeCls}`}>{tier.grade}</span>

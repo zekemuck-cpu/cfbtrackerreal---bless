@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { computeScore } from './archetypeWeights';
+import { buildRevealedPool, buildWeightsMap } from '../utils/devTraitLearning';
 
 // =========================================================================
 // LIGHTWEIGHT INDEXEDDB MANAGER (Permanently Bypasses the 5MB Quota Limit)
@@ -70,6 +71,11 @@ export default function ScoutStaffFrontPage({ setView, currentTeamName = 'colleg
   const [scoutBio, setScoutBio] = useState('');
   const [analystBio, setAnalystBio] = useState('');
 
+  // A slot only counts as "hired" once the user explicitly confirms — not just
+  // because a photo happened to get uploaded first.
+  const [scoutConfirmed, setScoutConfirmed] = useState(false);
+  const [analystConfirmed, setAnalystConfirmed] = useState(false);
+
   // Contracts: store start year so the current year is auto-derived from dynasty year
   const [scoutContractLength, setScoutContractLength] = useState(0);
   const [scoutContractStartYear, setScoutContractStartYear] = useState(0);
@@ -81,6 +87,7 @@ export default function ScoutStaffFrontPage({ setView, currentTeamName = 'colleg
   const [bioEditSlot, setBioEditSlot] = useState(null);
   const [copiedKey, setCopiedKey] = useState(null);
   const [pasteState, setPasteState] = useState({});
+  const [bioPasteState, setBioPasteState] = useState({});
 
   const [hiringMode, setHiringMode] = useState({ 1: false, 2: false });
 
@@ -105,6 +112,22 @@ export default function ScoutStaffFrontPage({ setView, currentTeamName = 'colleg
       if (name2) setAnalystName(name2);
       if (bio1)  setScoutBio(bio1);
       if (bio2)  setAnalystBio(bio2);
+
+      const conf1 = await getStaffData('scout_confirmed');
+      const conf2 = await getStaffData('analyst_confirmed');
+      if (conf1) {
+        setScoutConfirmed(true);
+      } else if (img1 && name1 && name1 !== 'Staff Slot #1' && bio1) {
+        // Migration: this slot was fully filled out before the confirm step existed — honor it as hired.
+        setScoutConfirmed(true);
+        await saveStaffData('scout_confirmed', true);
+      }
+      if (conf2) {
+        setAnalystConfirmed(true);
+      } else if (img2 && name2 && name2 !== 'Staff Slot #2' && bio2) {
+        setAnalystConfirmed(true);
+        await saveStaffData('analyst_confirmed', true);
+      }
 
       // Contract lengths load without needing the dynasty year
       const len1 = await getStaffData('scout_contract_len');
@@ -231,12 +254,29 @@ export default function ScoutStaffFrontPage({ setView, currentTeamName = 'colleg
   };
 
   const generateImgPrompt = (role) => {
-    const roleTitle = role === 'scout' ? 'National Scout/Recruiter' : 'Data Analyst/Statistical Evaluator';
-    return `A crisp, highly detailed 1:1 square ratio centered profile headshot of a college football ${roleTitle}, ${getDynamicAgeString()}, ${getDynamicAttireString()}.
-    STYLE SPECIFICATIONS: The character must look exactly like a rendered character from EA Sports College Football 27 — the specific in-game 3D art style used for coaches and staff on sidelines and menu screens. This means: slightly stylized but highly detailed 3D rendering, smooth yet textured skin with subtle subsurface scattering, polished game-engine lighting, sharp facial features with a slight cinematic sheen, and the unmistakable look of a next-gen sports video game character model. It must NOT look photorealistic or like a real photograph. It must NOT look like a cartoon, anime, or 2D illustration. The target aesthetic is the EA CFB 27 in-game coach/staff character — think Brian Kelly or Dabo Swinney rendered in the game engine, leaning forward on the sideline.
-    BACKGROUND AND COMPOSITION: Set against a clean background with soft blurred stadium or facility lighting using ${currentTeamName} team colors. CRITICAL: The background must be completely clear of any typography, watermarks, logos, or overlaid graphic text. It must look like a clean in-game portrait asset.
-    [DIVERSITY MANDATE - HYPER-VARIED INHERITANCE]: Intentionally generate an entirely randomized demographic combination. The person must feature a completely unique face shape, variable body weight (ranging from stocky, heavy-set, husky, or round builds to lean or average builds), distinct skin tones (Black, Caucasian, Hispanic, Asian, Indigenous, Mixed-race), multi-ethnic features, diverse facial structures, varying nose/jawline shapes, and entirely unique hairstyles or facial hair setups. Avoid default baselines or repetitive character templates.
-    COMPOSITION AND CLOSE-UP SCALE: Tightly frame and crop the subject so it focuses closely on their head and neck, showing only the very top apex of the shoulders. It should be a clear, close-up portrait that maximizes facial details without getting cut off, ensuring the character's face remains cleanly centered and highly visible when scaled down to a small card box icon.`;
+    const roleTitle = role === 'scout' ? 'National Scout' : 'Data Analyst';
+    return `Generate one image of a college football staff member. Two rules below are the most important and are broken most often — follow them exactly, in order, before anything else in this prompt.
+
+RULE 1 — CROP AND CANVAS (the #1 mistake: cropping too tight and cutting off the head):
+- Portrait orientation, 4:5 aspect ratio (width:height = 4:5 — e.g. 1024 wide x 1280 tall). Never square (1:1), never landscape.
+- Leave a clearly visible gap of empty background between the top of the hair and the top edge of the canvas — about 10% of the total image height. The hair/head must NEVER touch, crop into, or come close to the top edge.
+- The bottom edge of the canvas must show the neck and the top of the shoulders/upper chest — not the chin, not just the apex of the shoulders.
+- Center the person left-to-right with equal empty margin on both sides.
+- Think "staff directory ID photo" framing: head-and-shoulders, with breathing room on all four sides — not a tight face-only crop, not a zoomed-out waist-up shot.
+
+RULE 2 — ART STYLE (the #2 mistake: rendering a realistic photo instead of a video game character):
+- The output must look like a 3D real-time VIDEO GAME character model — the in-engine portrait style used by current-gen sports video games (comparable to EA Sports College Football's coach/staff portraits). It must NOT look like a photograph of a real human being, no matter what your default rendering style is.
+- Do not produce a photo, photorealistic image, corporate headshot, stock photo, or DSLR-style portrait. Do not produce real photographic skin pores, camera grain, or camera bokeh.
+- Skin: smooth, semi-matte, slightly synthetic game-engine PBR shader look, visibly cleaner and less detailed than real human skin. Eyes: glassy stylized game-render catchlight, not photoreal depth. Hair: rendered hair-card/hair-strand geometry in defined clumps, not photographic frizz.
+- Lighting: even, stylized three-point in-game cutscene lighting with a soft rim light separating the subject from the background — not natural or studio photography lighting.
+
+SUBJECT: A ${roleTitle} for ${currentTeamName}, ${getDynamicAgeString()}, ${getDynamicAttireString()}.
+
+BACKGROUND: Soft, blurred stadium or facility background using ${currentTeamName} team colors, blurred with the same stylized in-game depth-of-field look as Rule 2 — not real camera bokeh. No text, watermarks, or logos overlaid anywhere on the image.
+
+DIVERSITY: Randomize the person's ethnicity, skin tone, face shape, body build, and hairstyle/facial hair every time this prompt is used — avoid repeating the same look across generations.
+
+BEFORE FINALIZING, CHECK BOTH RULES AGAIN: (1) Is this a 4:5 portrait canvas with visible headroom above the hair and the shoulders/upper chest visible at the bottom — not cropped tight to the face? (2) Does this look like an obvious video game render and NOT a real photograph? If either check fails, redo the image until both pass.`;
   };
 
   const generateBioPrompt = (role, otherName) => {
@@ -262,16 +302,16 @@ export default function ScoutStaffFrontPage({ setView, currentTeamName = 'colleg
       'Upper South (Arkansas, central Kentucky, western Virginia, middle Tennessee)',
     ];
     const conferences = [
-      'MAC (Ball State, Ohio, Akron, Kent State, Eastern Michigan, Bowling Green)',
-      'Sun Belt (Appalachian State, Arkansas State, Southern Miss, Georgia Southern, Old Dominion)',
-      'CUSA (UTEP, Louisiana Tech, Middle Tennessee, FAU, Charlotte, Western Kentucky)',
-      'Mountain West (Wyoming, San Jose State, Fresno State, Air Force, Colorado State, Hawaii)',
-      'American Athletic (Tulane, Memphis, ECU, Temple, Tulsa, UTSA)',
-      'Big South / Southland (Incarnate Word, Nicholls, Southeastern Louisiana, McNeese, Sam Houston)',
-      'SWAC (Grambling, Southern, Jackson State, Alabama A&M, Arkansas-Pine Bluff)',
-      'FCS Mid-Major (Furman, Wofford, Samford, Davidson, Western Illinois, Eastern Kentucky)',
-      'Missouri Valley (North Dakota State, South Dakota State, Illinois State, Missouri State)',
-      'OVC / Southern (Austin Peay, UT Martin, Eastern Illinois, Lindenwood, Central Arkansas)',
+      'MAC (Ball State, Ohio, Akron, Kent State, Eastern Michigan, Bowling Green, Toledo, Buffalo, Western Michigan)',
+      'Sun Belt (Appalachian State, Arkansas State, Southern Miss, Georgia Southern, Old Dominion, Coastal Carolina, Troy, James Madison)',
+      'Conference USA (UTEP, Louisiana Tech, Middle Tennessee, FAU, Liberty, Western Kentucky, Jacksonville State, Sam Houston)',
+      'Mountain West (Wyoming, San Jose State, Fresno State, Air Force, Colorado State, Hawaii, UNLV, Boise State)',
+      'American Athletic (Tulane, Memphis, ECU, Temple, Tulsa, UTSA, Navy, Rice, South Florida)',
+      'ACC (Wake Forest, Boston College, Duke, Virginia, Syracuse, Georgia Tech, NC State, Pittsburgh)',
+      'Big 12 (Kansas, Kansas State, Iowa State, West Virginia, Cincinnati, Houston, TCU, Baylor)',
+      'SEC and Big Ten lower-profile programs (Vanderbilt, Mississippi State, Purdue, Rutgers, Northwestern, Illinois, Minnesota, Kentucky)',
+      'Pac-12 and independents (Oregon State, Washington State, Notre Dame, UConn, UMass)',
+      'Group of Five overlooked programs (New Mexico State, Kennesaw State, Delaware, Missouri State, Charlotte)',
     ];
     const zone = zones[Math.floor(Math.random() * zones.length)];
     const conf = conferences[Math.floor(Math.random() * conferences.length)];
@@ -286,16 +326,16 @@ export default function ScoutStaffFrontPage({ setView, currentTeamName = 'colleg
     const coachRef = coachLastName ? `Coach ${coachLastName}` : 'the head coach';
     const programRef = currentTeamName || 'the program';
 
-    const scoutNoteContext = `This person is a National Scout. Their staff note must relate to scouting, talent evaluation, player character assessment, reading a prospect's upside, or their relationships with high school or junior college coaches. The backstory should feel grounded in the field — a coach's recommendation, a combine evaluation, a recruiting overlap, noticing a kid that nobody else was watching, or being trusted to evaluate character as much as ability.`;
-    const analystNoteContext = `This person is a Data Analyst. Their staff note must relate to data analysis, roster construction, player metrics, statistical modeling, film breakdown, or identifying roster inefficiencies. The backstory should feel grounded in the film room or the numbers — a metric system they built, a roster gap they identified, an analytics presentation that got noticed, or being brought in to modernize how the staff evaluates talent.`;
+    const scoutNoteContext = `This person is a National Scout. Their staff note must name the SPECIFIC real program or organization they worked at immediately before this job — an actual real FBS college football program's scouting/recruiting department, a specific high school football powerhouse, or a named scouting organization. Do not describe their skills in the abstract ("sharp evaluations", "trusted connections") — name the actual prior school or organization.`;
+    const analystNoteContext = `This person is a Data Analyst. Their staff note must name the SPECIFIC real program or organization they worked at immediately before this job — an actual real FBS college football program's analytics department, a pro football front office, or a named sports-analytics firm. Do not describe their skills in the abstract ("an analytics presentation that got noticed") — name the actual prior school or organization.`;
     const noteContext = isScout ? scoutNoteContext : analystNoteContext;
 
-    const connectionInstruction = `The connection can be to ${coachRef} directly (they worked together before, were recommended by a mutual contact, crossed paths at a clinic or combine, or the coach sought them out specifically) OR to the ${programRef} program itself (they played here, have deep ties to this region, or were already embedded in the school's network). Either is valid — vary the angle.`;
+    const connectionInstruction = `Then state the SPECIFIC, concrete event or place where the connection to ${coachRef} or ${programRef} was made — e.g. "on staff together at [a specific real FBS school] in [a specific year]", "at the [a specific named combine, bowl game, or recruiting camp]", "during a shared coaching stint at [a specific real school]". Pick either the ${coachRef} angle or the ${programRef} angle, but make it a real, named, concrete detail — never a vague phrase like "a mutual contact" or "impressed the staff."`;
 
-    return `Generate a text biography for a college football staff member's dossier board. This person is ${roleContext}. Output ONLY the following lines with no introduction, no markdown, no bullet symbols, and no extra blank lines:\n\n${uniquenessClause}Suggested Name: (CRITICAL — look at the headshot image carefully before writing anything. Identify the person's visible ethnic and racial background from their face, skin tone, and features. Then generate a name that authentically matches that specific person. The name must feel natural and believable for someone of that exact background who grew up in America. Examples by background: if they look Black/African-American → names like Darius Webb, Andre Collins, DeShawn Morris, Terrell Grant; if they look Hispanic/Latino → names like Carlos Reyes, Miguel Torres, Luis Mendez, Marco Rios; if they look East Asian → names like Kevin Park, Jason Chen, Tyler Nguyen, Daniel Kim — never a fully Black or European name for someone with Asian features; if they look white → names like Ryan Mitchell, Scott Henderson, Tyler Brooks, Brian Callahan. Common first names are fine as long as they match the face. Do not assign a name that would look wrong next to the headshot — the name and face must feel like the same real person.)
+    return `Generate a text biography for a college football staff member's dossier board. This person is ${roleContext}. Output ONLY the following lines with no introduction, no markdown, no bullet symbols, and no extra blank lines:\n\n${uniquenessClause}Suggested Name: (CRITICAL — look at the headshot image carefully before writing anything. First identify TWO things from the face: (1) apparent gender — male or female, and (2) visible ethnic/racial background from skin tone and features. Then invent an original, realistic first and last name that authentically matches BOTH the gender AND the background you identified. Hard rule: never give a clearly female face a male name, and never give a clearly male face a female name — check the photo's gender before finalizing the name. Do NOT pull from a small mental list of "go-to" names for a given ethnicity or gender — in real life there are thousands of realistic names within any one background, not a handful of obvious ones. Treat this like meeting a random real person of that background: the name should feel completely natural and unremarkable for someone of that exact gender and ethnicity who grew up in America, but should NOT be the first, most stereotypical, or most overused name that comes to mind for that demographic. Actively avoid repeating a name you've used before. The full realistic range — common names, less common names, regionally varied names, generational-cohort-varied names — is all fair game, as long as it would never look out of place on a real person of that background.)
 Hometown: (THIS IS THE MOST IMPORTANT FIELD FOR VARIETY. You MUST draw this person's hometown from the following specific U.S. region for this generation: ${zone}. Pick a real, specific smaller city or town within that zone — NOT a major metro hub. Every generation should feel like it comes from a completely different part of the country. Lean toward towns that are not frequently chosen — the goal is geographic spread across the full breadth of America.)
-Alma Mater: (Draw this person's college from the following specific conference tier for this generation: ${conf}. Pick a specific school from that group. The goal is a country-wide coaching tree that goes deep into mid-major and lower-tier football. Be specific — name the actual school, not just the conference. Favor less commonly chosen schools within the tier to maximize variety across generations.)
-Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner origin story of how this person landed this specific job. It should read like a fact from their dossier file, not a generic job description. CRITICAL RULE: If you mention the head coach, NEVER use their full name — always write "${coachRef}" or just "Coach". HARD LIMIT: 120 characters maximum including spaces — count before writing. Rewrite shorter if over. Do not exceed this limit.)`;
+Alma Mater: (Draw this person's college from the following specific conference tier for this generation: ${conf}. Pick a specific school from that group. CRITICAL: this must be a real, currently active FBS (Football Bowl Subdivision) program — one of the actual ~134-138 FBS schools. NEVER name an FCS, Division II, Division III, NAIA, or junior college school as the alma mater. Be specific — name the actual school, not just the conference. Favor less commonly chosen schools within the tier to maximize variety across generations.)
+Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence that reads like a real resume bullet — concrete and factual, built entirely out of the specific prior school/organization name and the specific event/place named above, not vague flavor text. CRITICAL RULE: If you mention the head coach, NEVER use their full name — always write "${coachRef}" or just "Coach". HARD LIMIT: 160 characters maximum including spaces — count before writing. Rewrite shorter if over. Do not exceed this limit.)`;
   };
 
   const processRawFile = (file, slot) => {
@@ -363,6 +403,26 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
     }
   };
 
+  const flashBioPaste = (slot, status) => {
+    setBioPasteState(s => ({ ...s, [slot]: status }));
+    setTimeout(() => setBioPasteState(s => ({ ...s, [slot]: null })), 1500);
+  };
+
+  const pasteBioFromBtn = async (slot) => {
+    if (!navigator.clipboard?.readText) {
+      flashBioPaste(slot, 'unsupported');
+      return;
+    }
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text?.trim()) { flashBioPaste(slot, 'empty'); return; }
+      handleBioChange(text, slot);
+      flashBioPaste(slot, 'ok');
+    } catch {
+      flashBioPaste(slot, 'denied');
+    }
+  };
+
   const handleUrlSubmit = async (slot) => {
     const targetUrl = slot === 1 ? scoutUrlText.trim() : analystUrlText.trim();
     if (!targetUrl) return;
@@ -389,24 +449,38 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
       setScoutBio('');
       setScoutContractLength(0);
       setScoutContractStartYear(0);
+      setScoutConfirmed(false);
       await deleteStaffData('scout_img');
       await deleteStaffData('scout_name');
       await deleteStaffData('scout_bio');
       await deleteStaffData('scout_contract_len');
       await deleteStaffData('scout_contract_start_year');
       await deleteStaffData('scout_contract_cur');
+      await deleteStaffData('scout_confirmed');
     } else {
       setAnalystImg('');
       setAnalystName('Staff Slot #2');
       setAnalystBio('');
       setAnalystContractLength(0);
       setAnalystContractStartYear(0);
+      setAnalystConfirmed(false);
       await deleteStaffData('analyst_img');
       await deleteStaffData('analyst_name');
       await deleteStaffData('analyst_bio');
       await deleteStaffData('analyst_contract_len');
       await deleteStaffData('analyst_contract_start_year');
       await deleteStaffData('analyst_contract_cur');
+      await deleteStaffData('analyst_confirmed');
+    }
+  };
+
+  const confirmHire = async (slot) => {
+    if (slot === 1) {
+      setScoutConfirmed(true);
+      await saveStaffData('scout_confirmed', true);
+    } else {
+      setAnalystConfirmed(true);
+      await saveStaffData('analyst_confirmed', true);
     }
   };
 
@@ -421,14 +495,18 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
   const scoutYearsRemaining   = Math.max(0, scoutContractLength   - scoutContractCurrent   + 1);
   const analystYearsRemaining = Math.max(0, analystContractLength - analystContractCurrent + 1);
 
+  // Revealed-devTrait HS recruit pool — nudges archetype grading once enough data exists.
+  const revealedPool = useMemo(() => buildRevealedPool(recruits), [recruits]);
+  const weightsMap = useMemo(() => buildWeightsMap(revealedPool, recruits), [revealedPool, recruits]);
+
   const analysisData = useMemo(() => {
-    const scored = recruits.map(r => ({ ...r, score: computeScore(r) })).sort((a, b) => b.score - a.score);
+    const scored = recruits.map(r => ({ ...r, score: computeScore(r, weightsMap) })).sort((a, b) => b.score - a.score);
     const total  = scored.length;
     const t1 = scored.filter(r => r.score >= 88).length;
     const t2 = scored.filter(r => r.score >= 82 && r.score < 88).length;
     const t4 = scored.filter(r => r.score <  76).length;
     return { scored, total, t1, t2, t4 };
-  }, [recruits]);
+  }, [recruits, weightsMap]);
 
   const briefData = useMemo(() => {
     const { scored, total, t1, t2, t4 } = analysisData;
@@ -556,8 +634,10 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
       {/* ── HERO ROW: portrait cards + recommendations panel ── */}
       <div className="flex flex-col md:flex-row gap-4 items-stretch">
 
-        {/* Portrait cards — side by side, stretch to match right panel height */}
-        <div className="flex gap-2 sm:gap-3 shrink-0 md:w-[42%]">
+        {/* Left column — portrait cards, with action shortcuts filling the space below
+            them whenever they're shorter than the Daily Brief panel beside them */}
+        <div className="flex flex-col gap-4 shrink-0 md:w-[42%]">
+        <div className="flex gap-2 sm:gap-3">
         {[
           {
             slot: 1,
@@ -567,6 +647,7 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
             isExpired: isScoutExpired,
             yearsRemaining: scoutYearsRemaining,
             contractLength: scoutContractLength,
+            confirmed: scoutConfirmed,
             role: 'National Scout',
             roleColor: '#38bdf8',
             showUrl: showScoutUrlInput, setShowUrl: setShowScoutUrlInput,
@@ -581,21 +662,22 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
             isExpired: isAnalystExpired,
             yearsRemaining: analystYearsRemaining,
             contractLength: analystContractLength,
+            confirmed: analystConfirmed,
             role: 'Data Analyst',
             roleColor: '#34d399',
             showUrl: showAnalystUrlInput, setShowUrl: setShowAnalystUrlInput,
             urlText: analystUrlText, setUrlText: setAnalystUrlText,
             accentColor: s !== '#ffffff' ? s : p,
           },
-        ].map(({ slot, img, name, bio, isExpired, yearsRemaining, contractLength, role, roleColor, showUrl, setShowUrl, urlText, setUrlText, accentColor }) => {
+        ].map(({ slot, img, name, bio, isExpired, yearsRemaining, contractLength, confirmed, role, roleColor, showUrl, setShowUrl, urlText, setUrlText, accentColor }) => {
           const PLACEHOLDER = slot === 1 ? 'Staff Slot #1' : 'Staff Slot #2';
-          const isHired = !!img || (name && name !== PLACEHOLDER) || !!bio;
+          const isHired = !!confirmed;
+          const readyToConfirm = !!img && !!name?.trim() && name.trim() !== PLACEHOLDER && !!bio?.trim();
           const isEmptySlot = !isHired && !hiringMode[slot];
           const isHiring   = !isHired && !!hiringMode[slot];
           const fireStaff  = () => { clearSlot(slot); setHiringMode(prev => ({ ...prev, [slot]: false })); };
-          // Overlay color matches the role badge text color exactly — near-opaque so the
-          // true hex reads correctly (heavy alpha-blending over the dark card shifts the hue).
-          const overlayBg = `${roleColor}F5`;
+          // Overlay matches the role badge treatment — dark glass with the role color
+          // glowing through the border/text, instead of a flat color fill.
           return (
           <div key={slot} className="relative flex-1 flex flex-col rounded-xl overflow-hidden group min-h-[300px] bg-surface-2 border border-surface-4"
             style={ isExpired ? { borderColor: 'rgba(239,68,68,0.25)', background: 'rgba(25,5,5,1)' } : {} }>
@@ -687,15 +769,38 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
                 {bioEditSlot === slot ? (
                   <textarea autoFocus value={bio} onChange={(e) => handleBioChange(e.target.value, slot)} onBlur={() => setBioEditSlot(null)}
                     rows={3} placeholder="Paste bio here…"
-                    className="w-full rounded-lg text-[10px] text-txt-secondary leading-snug resize-none focus:outline-none p-2 bg-surface-3 border border-surface-5"
-                    style={{ caretColor: 'white', scrollbarWidth: 'none' }}
+                    className="w-full rounded-lg text-[10px] text-txt-secondary leading-snug resize-none focus:outline-none p-2 bg-surface-3 border-2"
+                    style={{ caretColor: 'white', scrollbarWidth: 'none', borderColor: accentColor }}
                   />
+                ) : bio ? (
+                  <p
+                    onClick={() => setBioEditSlot(slot)}
+                    className="cursor-text text-[10px] text-txt-secondary leading-snug whitespace-pre-line"
+                  >
+                    {bio}
+                  </p>
                 ) : (
-                  <div className="cursor-text" onClick={() => setBioEditSlot(slot)}>
-                    {bio
-                      ? <p className="text-[10px] text-txt-secondary leading-snug whitespace-pre-line">{bio}</p>
-                      : <p className="text-[9px] italic" style={{ color: `${accentColor}55` }}>Tap to add bio…</p>
-                    }
+                  <div
+                    onClick={() => setBioEditSlot(slot)}
+                    className="cursor-text rounded-lg p-2 min-h-[44px]"
+                    style={{ background: 'rgba(0,0,0,0.35)', border: `1.5px dashed ${accentColor}` }}
+                  >
+                    <p className="text-[10px] font-bold" style={{ color: accentColor }}>+ Click to add bio…</p>
+                  </div>
+                )}
+                {!bio && (
+                  <div className="flex flex-wrap gap-1.5">
+                    <button onClick={() => handleCopy(generateBioPrompt(slot === 1 ? 'scout' : 'analyst', slot === 1 ? analystName : scoutName), `${slot}-bio`)} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.5)', color: '#64748b', backdropFilter: 'blur(4px)' }}>
+                      {copiedKey === `${slot}-bio` ? 'Copied' : 'BIO Prompt'}
+                    </button>
+                    <button onClick={() => pasteBioFromBtn(slot)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider" style={{
+                      background: 'rgba(0,0,0,0.6)',
+                      color: bioPasteState[slot] === 'ok' ? '#34d399' : bioPasteState[slot] ? '#f87171' : '#94a3b8',
+                      border: bioPasteState[slot] === 'ok' ? '1px solid rgba(52,211,153,0.4)' : bioPasteState[slot] ? '1px solid rgba(248,113,113,0.4)' : '1px solid rgba(100,116,139,0.3)',
+                      backdropFilter: 'blur(4px)',
+                    }}>
+                      {bioPasteState[slot] === 'ok' ? 'Bio Pasted' : bioPasteState[slot] === 'empty' ? 'Clipboard Empty' : bioPasteState[slot] === 'denied' ? 'Blocked' : bioPasteState[slot] === 'unsupported' ? 'Unsupported' : 'Paste Bio'}
+                    </button>
                   </div>
                 )}
                 <button onClick={fireStaff}
@@ -710,20 +815,34 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
                 {bioEditSlot === slot ? (
                   <textarea autoFocus value={bio} onChange={(e) => handleBioChange(e.target.value, slot)} onBlur={() => setBioEditSlot(null)}
                     rows={3} placeholder="Paste bio here…"
-                    className="w-full rounded-lg text-[10px] text-txt-secondary leading-snug resize-none focus:outline-none p-2 bg-surface-3 border border-surface-5"
-                    style={{ caretColor: 'white', scrollbarWidth: 'none' }}
+                    className="w-full rounded-lg text-[10px] text-txt-secondary leading-snug resize-none focus:outline-none p-2 bg-surface-3 border-2"
+                    style={{ caretColor: 'white', scrollbarWidth: 'none', borderColor: accentColor }}
                   />
+                ) : bio ? (
+                  <p
+                    onClick={() => setBioEditSlot(slot)}
+                    className="cursor-text text-[10px] text-txt-secondary leading-snug whitespace-pre-line"
+                  >
+                    {bio}
+                  </p>
                 ) : (
-                  <div className="cursor-text" onClick={() => setBioEditSlot(slot)}>
-                    {bio
-                      ? <p className="text-[10px] text-txt-secondary leading-snug whitespace-pre-line">{bio}</p>
-                      : <p className="text-[9px] italic" style={{ color: `${accentColor}55` }}>Tap to add bio…</p>
-                    }
+                  <div
+                    onClick={() => setBioEditSlot(slot)}
+                    className="cursor-text rounded-lg p-2 min-h-[44px]"
+                    style={{ background: 'rgba(0,0,0,0.35)', border: `1.5px dashed ${accentColor}` }}
+                  >
+                    <p className="text-[10px] font-bold" style={{ color: accentColor }}>+ Click to add bio…</p>
                   </div>
                 )}
                 <div className="flex flex-wrap gap-1.5">
+                  <button onClick={() => handleCopy(generateImgPrompt(slot === 1 ? 'scout' : 'analyst'), `${slot}-img`)} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.5)', color: roleColor, backdropFilter: 'blur(4px)' }}>
+                    {copiedKey === `${slot}-img` ? 'Copied' : 'IMG Prompt'}
+                  </button>
+                  <button onClick={() => handleCopy(generateBioPrompt(slot === 1 ? 'scout' : 'analyst', slot === 1 ? analystName : scoutName), `${slot}-bio`)} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.5)', color: '#64748b', backdropFilter: 'blur(4px)' }}>
+                    {copiedKey === `${slot}-bio` ? 'Copied' : 'BIO Prompt'}
+                  </button>
                   <label className="cursor-pointer px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.6)', color: roleColor, border: `1px solid ${roleColor}44`, backdropFilter: 'blur(4px)' }}>
-                    Upload
+                    Upload Img
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, slot)} />
                   </label>
                   <button onClick={() => pasteFromBtn(slot)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider" style={{
@@ -732,11 +851,24 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
                     border: pasteState[slot] === 'ok' ? '1px solid rgba(52,211,153,0.4)' : pasteState[slot] ? '1px solid rgba(248,113,113,0.4)' : '1px solid rgba(100,116,139,0.3)',
                     backdropFilter: 'blur(4px)',
                   }}>
-                    {pasteState[slot] === 'ok' ? 'Pasted' : pasteState[slot] === 'noimg' ? 'No Image' : pasteState[slot] === 'denied' ? 'Blocked' : pasteState[slot] === 'unsupported' ? 'Unsupported' : 'Paste'}
+                    {pasteState[slot] === 'ok' ? 'Pasted' : pasteState[slot] === 'noimg' ? 'No Image' : pasteState[slot] === 'denied' ? 'Blocked' : pasteState[slot] === 'unsupported' ? 'Unsupported' : 'Paste Img'}
                   </button>
                   <button onClick={() => setShowUrl(!showUrl)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.6)', color: '#94a3b8', border: '1px solid rgba(100,116,139,0.3)', backdropFilter: 'blur(4px)' }}>
-                    URL
+                    Img URL
                   </button>
+                  <button onClick={() => pasteBioFromBtn(slot)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider" style={{
+                    background: 'rgba(0,0,0,0.6)',
+                    color: bioPasteState[slot] === 'ok' ? '#34d399' : bioPasteState[slot] ? '#f87171' : '#94a3b8',
+                    border: bioPasteState[slot] === 'ok' ? '1px solid rgba(52,211,153,0.4)' : bioPasteState[slot] ? '1px solid rgba(248,113,113,0.4)' : '1px solid rgba(100,116,139,0.3)',
+                    backdropFilter: 'blur(4px)',
+                  }}>
+                    {bioPasteState[slot] === 'ok' ? 'Bio Pasted' : bioPasteState[slot] === 'empty' ? 'Clipboard Empty' : bioPasteState[slot] === 'denied' ? 'Blocked' : bioPasteState[slot] === 'unsupported' ? 'Unsupported' : 'Paste Bio'}
+                  </button>
+                  {(!!img || (!!name?.trim() && name.trim() !== PLACEHOLDER) || !!bio?.trim()) && (
+                    <button onClick={() => clearSlot(slot)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.6)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)', backdropFilter: 'blur(4px)' }}>
+                      Clear
+                    </button>
+                  )}
                 </div>
                 {showUrl && (
                   <div className="flex gap-2 rounded-lg overflow-hidden" style={{ background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(100,116,139,0.3)', backdropFilter: 'blur(4px)' }}>
@@ -750,37 +882,45 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
                     </button>
                   </div>
                 )}
-                <div className="flex gap-1.5">
-                  <button onClick={() => handleCopy(generateImgPrompt(slot === 1 ? 'scout' : 'analyst'), `${slot}-img`)} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.5)', color: roleColor, backdropFilter: 'blur(4px)' }}>
-                    {copiedKey === `${slot}-img` ? 'Copied' : 'IMG Prompt'}
-                  </button>
-                  <button onClick={() => handleCopy(generateBioPrompt(slot === 1 ? 'scout' : 'analyst', slot === 1 ? analystName : scoutName), `${slot}-bio`)} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.5)', color: '#64748b', backdropFilter: 'blur(4px)' }}>
-                    {copiedKey === `${slot}-bio` ? 'Copied' : 'BIO Prompt'}
-                  </button>
-                </div>
+                <button
+                  onClick={() => readyToConfirm && confirmHire(slot)}
+                  disabled={!readyToConfirm}
+                  className={`w-full py-1.5 rounded font-display font-black text-[10px] uppercase tracking-wider mt-auto transition-all ${readyToConfirm ? '' : 'cursor-not-allowed'}`}
+                  style={readyToConfirm
+                    ? { background: roleColor, color: '#04131a' }
+                    : { background: 'rgba(100,116,139,0.2)', color: '#64748b', border: '1px solid rgba(100,116,139,0.25)' }
+                  }
+                >
+                  {readyToConfirm ? `Save & Confirm Hire` : `Add Photo, Name & Bio to Confirm`}
+                </button>
               </>)}
             </div>
 
-            {/* ── EMPTY OVERLAY — colored glass on top, barely shows card beneath ── */}
+            {/* ── EMPTY OVERLAY — dark glass + role-colored glow, matching the title badge look ── */}
             {isEmptySlot && (
               <div
                 className="absolute inset-0 flex items-center justify-center z-20"
-                style={{
-                  background: overlayBg,
-                  boxShadow: `inset 0 0 90px 18px ${roleColor}66, 0 0 45px 6px ${roleColor}55`,
-                }}
+                style={{ background: 'rgba(3,7,13,0.86)', backdropFilter: 'blur(1px)' }}
               >
+                <div
+                  className="absolute rounded-full pointer-events-none"
+                  style={{
+                    width: 160, height: 160,
+                    background: `radial-gradient(circle, ${roleColor}3d 0%, ${roleColor}00 70%)`,
+                  }}
+                />
                 <button
                   onClick={() => setHiringMode(prev => ({ ...prev, [slot]: true }))}
-                  className="px-8 py-3 rounded-xl font-display font-black text-[13px] uppercase tracking-widest transition-all"
+                  className="relative px-8 py-3 rounded-xl font-display font-black text-[13px] uppercase tracking-widest transition-all"
                   style={{
-                    background: 'rgba(255,255,255,0.15)',
-                    color: '#fff',
-                    border: '1px solid rgba(255,255,255,0.35)',
+                    background: 'rgba(0,0,0,0.5)',
+                    color: roleColor,
+                    border: `1.5px solid ${roleColor}`,
+                    boxShadow: `0 0 10px 2px ${roleColor}99, 0 0 22px 4px ${roleColor}4d, inset 0 0 8px ${roleColor}33`,
                     backdropFilter: 'blur(6px)',
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.25)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.65)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.5)'; }}
                 >
                   Hire {slot === 1 ? 'Scout' : 'Analyst'}
                 </button>
@@ -790,6 +930,52 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
         );})}
 
         </div>{/* end portrait grid */}
+
+        {/* Action shortcuts — sits under the portrait cards and grows to fill the rest of
+            the column, so the bottom of the last row locks to the Daily Brief's bottom */}
+        <div className="grid grid-cols-2 gap-3 flex-1 auto-rows-fr">
+          {[
+            { view: 'database',   label: 'Recruiting Database', sub: 'True Freshmen Only',      color: 'text-red-500',    icon: (
+              <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
+                <ellipse cx="8" cy="4" rx="5" ry="2"/>
+                <path d="M3 4v4c0 1.1 2.24 2 5 2s5-.9 5-2V4"/>
+                <path d="M3 8v4c0 1.1 2.24 2 5 2s5-.9 5-2V8"/>
+              </svg>
+            )},
+            { view: 'analysis',   label: 'Program Outlook',    sub: 'Staff Recommendations',    color: 'text-emerald-400', icon: (
+              <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
+                <rect x="3" y="2" width="10" height="12" rx="1.5"/>
+                <path d="M5.5 5h5M5.5 7.5h5M5.5 10h3"/>
+              </svg>
+            )},
+            { view: 'thresholds', label: 'Threshold Lookup',   sub: 'Player Comparison Tool',   color: 'text-blue-400',   icon: (
+              <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
+                <path d="M2 12l4-4 3 3 5-7"/>
+                <circle cx="14" cy="5" r="1.5" fill="currentColor" stroke="none"/>
+              </svg>
+            )},
+            { view: 'counts',     label: 'Player Count',       sub: 'Current Overview',         color: 'text-orange-400', icon: (
+              <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="6" cy="5" r="2"/>
+                <circle cx="11" cy="5" r="2"/>
+                <path d="M2 13c0-2.2 1.8-4 4-4h4c2.2 0 4 1.8 4 4"/>
+              </svg>
+            )},
+          ].map(({ view, label, sub, icon, color }) => (
+            <button
+              key={view}
+              onClick={() => setView(view)}
+              className="relative rounded-xl text-left transition-all duration-200 bg-surface-2 border border-surface-4 hover:bg-surface-3 hover:border-surface-5 p-4 flex flex-col gap-2"
+              style={{ minHeight: '88px' }}
+            >
+              <span className={`absolute top-3 right-3 opacity-60 ${color}`}>{icon}</span>
+              <h4 className="text-sm font-display font-bold uppercase text-txt-primary leading-snug">{label}</h4>
+              <p className="text-xs text-txt-tertiary leading-tight">{sub}</p>
+            </button>
+          ))}
+        </div>
+
+        </div>{/* end left column */}
 
         {/* Daily Brief panel */}
         <div className="flex-1 rounded-xl bg-surface-2 border border-surface-4 flex flex-col overflow-hidden">
@@ -804,7 +990,7 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
 
             {/* ── PROGRAM OUTLOOK SNAPSHOT ── */}
             <div className="px-4 pt-4 pb-3 border-b border-surface-4">
-              <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-500 mb-3">Position Status</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 mb-3">Position Status</p>
               {briefData?.outlookRows ? (() => {
                 const crits  = briefData.outlookRows.actionRows.filter(r => r.flag === 'critical');
                 const depths = briefData.outlookRows.actionRows.filter(r => r.flag === 'depth');
@@ -817,34 +1003,34 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
                       {crits.length > 0 && (
                         <div>
                           <p className="text-[26px] font-black leading-none text-red-400">{crits.length}</p>
-                          <p className="text-[7px] font-bold uppercase tracking-widest text-red-400/50 mt-0.5">critical</p>
+                          <p className="text-[9px] font-bold uppercase tracking-widest text-red-400/50 mt-0.5">critical</p>
                         </div>
                       )}
                       {depths.length > 0 && (
                         <div>
                           <p className="text-[26px] font-black leading-none text-amber-400">{depths.length}</p>
-                          <p className="text-[7px] font-bold uppercase tracking-widest text-amber-400/50 mt-0.5">depth</p>
+                          <p className="text-[9px] font-bold uppercase tracking-widest text-amber-400/50 mt-0.5">depth</p>
                         </div>
                       )}
                       <div>
                         <p className={`text-[26px] font-black leading-none ${allClear ? 'text-emerald-400' : 'text-slate-400'}`}>{nCovered}</p>
-                        <p className={`text-[7px] font-bold uppercase tracking-widest mt-0.5 ${allClear ? 'text-emerald-400/50' : 'text-slate-500'}`}>set</p>
+                        <p className={`text-[9px] font-bold uppercase tracking-widest mt-0.5 ${allClear ? 'text-emerald-400/50' : 'text-slate-500'}`}>set</p>
                       </div>
                     </div>
 
                     {/* Summary sentences */}
                     {allClear ? (
-                      <p className="text-[10px] text-slate-400 leading-snug">All positions are in good shape. Nothing urgent on the roster right now.</p>
+                      <p className="text-[13px] text-slate-400 leading-snug">All positions are in good shape. Nothing urgent on the roster right now.</p>
                     ) : (
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         {crits.length > 0 && (
-                          <p className="text-[10px] leading-snug text-slate-300">
+                          <p className="text-[13px] leading-snug text-slate-300">
                             <span className="text-red-400 font-semibold">{crits.map(r => r.pos).join(', ')}</span>
                             {crits.length === 1 ? ' has a gap' : ' have gaps'} that need to be addressed before next season.
                           </p>
                         )}
                         {depths.length > 0 && (
-                          <p className="text-[10px] leading-snug text-slate-400">
+                          <p className="text-[13px] leading-snug text-slate-400">
                             <span className="text-amber-400/80 font-semibold">{depths.map(r => r.pos).join(', ')}</span>
                             {depths.length === 1 ? ' is running light' : ' are running light'} on depth in the next couple years.
                           </p>
@@ -854,14 +1040,14 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
 
                     <button
                       onClick={() => setView('analysis')}
-                      className="text-[9px] text-slate-500 hover:text-slate-300 transition-colors font-medium tracking-wide"
+                      className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors font-medium tracking-wide"
                     >
                       Program Outlook →
                     </button>
                   </div>
                 );
               })() : (
-                <button onClick={() => setView('analysis')} className="w-full rounded-lg px-3 py-3 border border-dashed border-slate-700 text-[9px] text-slate-500 hover:border-slate-500 hover:text-slate-400 transition-colors text-center">
+                <button onClick={() => setView('analysis')} className="w-full rounded-lg px-3 py-3 border border-dashed border-slate-700 text-[11px] text-slate-500 hover:border-slate-500 hover:text-slate-400 transition-colors text-center">
                   Open Program Outlook to generate position notes
                 </button>
               )}
@@ -876,26 +1062,56 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
                 briefData.outlookRows.actionRows.forEach(r => { flagMap[r.pos] = r.flag; });
               }
               const rows = POSITIONS
-                .map(pos => ({ pos, hs: outlookSummary[pos]?.hsMin ?? 0, portal: outlookSummary[pos]?.portalMin ?? 0, flag: flagMap[pos] ?? null }))
+                .map(pos => {
+                  const o = outlookSummary[pos] || {};
+                  let hs = o.hsMin ?? 0;
+                  let portal = o.portalMin ?? 0;
+                  const targetName = o.topTargetName || null;
+                  const targetIsPortal = !!o.topTargetIsPortal;
+                  // A named board target counts toward its bucket's total even if the
+                  // roster math alone didn't call for an investment here.
+                  if (targetName) {
+                    if (targetIsPortal) portal = Math.max(portal, 1);
+                    else hs = Math.max(hs, 1);
+                  }
+                  return { pos, hs, portal, targetName, targetIsPortal, flag: flagMap[pos] ?? null };
+                })
                 .filter(r => r.hs > 0 || r.portal > 0);
               if (!rows.length) return null;
               const totalHs     = rows.reduce((s, r) => s + r.hs, 0);
               const totalPortal = rows.reduce((s, r) => s + r.portal, 0);
               return (
-                <div className="px-4 pt-3 pb-3 border-b border-surface-4">
-                  <div className="flex items-center justify-between mb-2.5">
-                    <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-500">Recruiting Plan</p>
-                    <div className="flex items-center gap-2">
-                      {totalHs > 0 && <span className="text-[7px] font-bold text-slate-400">{totalHs} HS</span>}
-                      {totalHs > 0 && totalPortal > 0 && <span className="text-slate-700 text-[7px]">·</span>}
-                      {totalPortal > 0 && <span className="text-[7px] font-bold text-purple-400">{totalPortal} Portal</span>}
+                <div className="px-4 pt-4 pb-4 border-b border-surface-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 mb-3">Recruiting Plan</p>
+
+                  {/* At-a-glance totals — sized to match Position Status above */}
+                  <div className="flex items-end gap-5 mb-4">
+                    {totalHs > 0 && (
+                      <div>
+                        <p className="text-[26px] font-black leading-none text-sky-400">{totalHs}</p>
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-sky-400/50 mt-0.5">HS Targets</p>
+                      </div>
+                    )}
+                    {totalPortal > 0 && (
+                      <div>
+                        <p className="text-[26px] font-black leading-none text-purple-400">{totalPortal}</p>
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-purple-400/50 mt-0.5">Portal</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-[26px] font-black leading-none text-slate-400">{rows.length}</p>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">positions</p>
                     </div>
                   </div>
-                  <div className="space-y-1">
+
+                  <div className="space-y-1.5">
                     {rows.map((r, i) => {
                       const isCritical = r.flag === 'critical';
                       const isDepth    = r.flag === 'depth';
-                      const posColor   = isCritical ? 'text-red-400' : isDepth ? 'text-amber-400' : 'text-slate-400';
+                      const posColor   = isCritical ? 'text-red-400' : isDepth ? 'text-amber-400' : 'text-slate-300';
+                      const rowBg      = isCritical ? 'bg-red-950/20 border-red-900/40'
+                                        : isDepth    ? 'bg-amber-950/20 border-amber-900/40'
+                                        : 'bg-surface-3 border-surface-4';
                       // Badge styles: critical → red tint, depth → amber tint, normal → sky/purple
                       const hsBg    = isCritical ? 'bg-red-950 border-red-800 text-red-300'
                                     : isDepth    ? 'bg-amber-950 border-amber-800 text-amber-300'
@@ -904,22 +1120,22 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
                                      : isDepth    ? 'bg-amber-950 border-amber-800 text-amber-300'
                                      : 'bg-purple-950 border-purple-800 text-purple-300';
                       return (
-                        <div key={i} className="flex items-center gap-2">
-                          <span className={`text-[9px] font-display font-black tracking-wide w-8 shrink-0 ${posColor}`}>{r.pos}</span>
-                          <div className="flex items-center gap-1.5">
+                        <div key={i} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 border ${rowBg}`}>
+                          <span className={`text-sm font-display font-black tracking-wide w-9 shrink-0 ${posColor}`}>{r.pos}</span>
+                          <div className="flex items-center gap-1.5 flex-wrap flex-1">
                             {r.hs > 0 && (
-                              <span className={`text-[8px] font-bold px-2 py-0.5 rounded border ${hsBg}`}>
-                                {r.hs} HS
+                              <span className={`text-[11px] font-bold px-2.5 py-1 rounded-md border ${hsBg}`}>
+                                {r.targetName && !r.targetIsPortal ? r.targetName : `${r.hs} HS`}
                               </span>
                             )}
                             {r.portal > 0 && (
-                              <span className={`text-[8px] font-bold px-2 py-0.5 rounded border ${portalBg}`}>
-                                {r.portal} Portal
+                              <span className={`text-[11px] font-bold px-2.5 py-1 rounded-md border ${portalBg}`}>
+                                {r.targetName && r.targetIsPortal ? r.targetName : `${r.portal} Portal`}
                               </span>
                             )}
-                            {isCritical && <span className="text-[7px] font-black uppercase tracking-wide text-red-500/60">critical</span>}
-                            {isDepth    && <span className="text-[7px] font-black uppercase tracking-wide text-amber-500/50">depth</span>}
                           </div>
+                          {isCritical && <span className="text-[10px] font-black uppercase tracking-wide text-red-400 shrink-0">Critical</span>}
+                          {isDepth    && <span className="text-[10px] font-black uppercase tracking-wide text-amber-400 shrink-0">Depth</span>}
                         </div>
                       );
                     })}
@@ -937,7 +1153,7 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
                   <div className="space-y-1.5">
                     {recent.map((r, i) => {
                       const showDev = r.devTrait && r.devTrait !== 'Hidden';
-                      const score = Math.round(computeScore(r));
+                      const score = Math.round(computeScore(r, weightsMap));
                       const gradeTiers = [
                         { grade: 'A+', min: 95, cls: 'text-emerald-200' },
                         { grade: 'A',  min: 90, cls: 'text-emerald-300' },
@@ -987,56 +1203,6 @@ Staff Note: (${noteContext} ${connectionInstruction} Write a tight one-liner ori
         </div>
 
       </div>{/* end hero row */}
-
-      {/* ── ACTION CARDS ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {[
-          { view: 'database',   label: 'Recruiting Database', sub: 'True Freshmen Only',      color: 'text-red-500',    icon: (
-            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
-              <ellipse cx="8" cy="4" rx="5" ry="2"/>
-              <path d="M3 4v4c0 1.1 2.24 2 5 2s5-.9 5-2V4"/>
-              <path d="M3 8v4c0 1.1 2.24 2 5 2s5-.9 5-2V8"/>
-            </svg>
-          )},
-          { view: 'thresholds', label: 'Threshold Lookup',   sub: 'Player Comparison Tool',   color: 'text-blue-400',   icon: (
-            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
-              <path d="M2 12l4-4 3 3 5-7"/>
-              <circle cx="14" cy="5" r="1.5" fill="currentColor" stroke="none"/>
-            </svg>
-          )},
-          { view: 'analysis',   label: 'Program Outlook',    sub: 'Staff Recommendations',    color: 'text-emerald-400', icon: (
-            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
-              <rect x="3" y="2" width="10" height="12" rx="1.5"/>
-              <path d="M5.5 5h5M5.5 7.5h5M5.5 10h3"/>
-            </svg>
-          )},
-          { view: 'counts',     label: 'Player Count',       sub: 'Current Overview',         color: 'text-orange-400', icon: (
-            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
-              <circle cx="6" cy="5" r="2"/>
-              <circle cx="11" cy="5" r="2"/>
-              <path d="M2 13c0-2.2 1.8-4 4-4h4c2.2 0 4 1.8 4 4"/>
-            </svg>
-          )},
-          { view: 'portal',     label: 'Portal Board',       sub: 'Transfer Commits',         color: 'text-purple-400', icon: (
-            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
-              <path d="M9 3l4 5-4 5"/>
-              <path d="M13 8H5"/>
-              <path d="M3 5v6"/>
-            </svg>
-          )},
-        ].map(({ view, label, sub, icon, color }) => (
-          <button
-            key={view}
-            onClick={() => setView(view)}
-            className="relative rounded-xl text-left transition-all duration-200 bg-surface-2 border border-surface-4 hover:bg-surface-3 hover:border-surface-5 p-4 flex flex-col gap-2"
-            style={{ minHeight: '88px' }}
-          >
-            <span className={`absolute top-3 right-3 opacity-60 ${color}`}>{icon}</span>
-            <h4 className="text-sm font-display font-bold uppercase text-txt-primary leading-snug">{label}</h4>
-            <p className="text-xs text-txt-tertiary leading-tight">{sub}</p>
-          </button>
-        ))}
-      </div>
     </div>
   );
 }

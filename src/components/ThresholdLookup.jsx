@@ -1,22 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createStaffAccessor } from './staffDB';
-import { computeScore, topAttrs, normalizeArch, ARCHETYPE_WEIGHTS } from './archetypeWeights';
-import { RECRUIT_FORM_OVERRIDES, BASE_POSITION_CONFIG } from './ScoutingReport';
-
-// Resolve the exact attribute list a player at pos/arch actually has stored —
-// matching the scouting form's input order rather than ARCHETYPE_WEIGHTS keys.
-function getFormAttrs(pos, arch) {
-  // Exact match (WR archetype overrides, ATH overrides stored with "ATH - " prefix)
-  if (RECRUIT_FORM_OVERRIDES[arch]) return RECRUIT_FORM_OVERRIDES[arch];
-  // OL archetypes stored as "Raw Strength (OT)" etc.
-  const withSuffix = `${arch} (${pos})`;
-  if (RECRUIT_FORM_OVERRIDES[withSuffix]) return RECRUIT_FORM_OVERRIDES[withSuffix];
-  // ATH archetypes stored as "ATH - Thumper" etc.
-  const withAth = `ATH - ${arch}`;
-  if (RECRUIT_FORM_OVERRIDES[withAth]) return RECRUIT_FORM_OVERRIDES[withAth];
-  // Fall back to position-level list
-  return BASE_POSITION_CONFIG[pos] ?? Object.keys(ARCHETYPE_WEIGHTS[`${pos}_${arch}`] ?? {});
-}
+import { normalizeArch } from './archetypeWeights';
+import {
+  DEV_TRAITS, getFormAttrs, buildRevealedPool, buildWeightsMap,
+  getAllTierProfiles, getLearnedWeightsForDisplay,
+} from '../utils/devTraitLearning';
 
 // ── Attribute short-name display map ─────────────────────────────────────────
 const ATTR_SHORT = {
@@ -34,12 +22,16 @@ const ATTR_SHORT = {
 };
 
 // ── Tier style definitions ────────────────────────────────────────────────────
+// Each tier now maps 1:1 to a literal revealed devTrait value (DEV_TRAITS order),
+// not a computeScore band — see devTraitLearning.js.
 const TIER_STYLES = [
-  { label: 'Tier 1: Elite Target',          score: 'Score 88+',   border: 'border-emerald-800/60', heading: 'text-emerald-300', bg: 'bg-emerald-950/20', pill: 'bg-emerald-950 border border-emerald-700 text-emerald-300' },
-  { label: 'Tier 2: Premium Star Pipeline', score: 'Score 82–87', border: 'border-sky-800/60',     heading: 'text-sky-300',     bg: 'bg-sky-950/20',     pill: 'bg-sky-950 border border-sky-700 text-sky-300' },
-  { label: 'Tier 3: Core Contribution',     score: 'Score 76–81', border: 'border-amber-800/60',   heading: 'text-amber-300',   bg: 'bg-amber-950/20',   pill: 'bg-amber-950 border border-amber-700 text-amber-300' },
-  { label: 'Tier 4: Roster Depth',          score: 'Under 76',    border: 'border-red-900/60',     heading: 'text-red-400',     bg: 'bg-red-950/20',     pill: 'bg-red-950 border border-red-800 text-red-400' },
+  { label: 'Tier 1: Elite',  devTrait: 'Elite',  border: 'border-emerald-800/60', heading: 'text-emerald-300', bg: 'bg-emerald-950/20', pill: 'bg-emerald-950 border border-emerald-700 text-emerald-300' },
+  { label: 'Tier 2: Star',   devTrait: 'Star',   border: 'border-sky-800/60',     heading: 'text-sky-300',     bg: 'bg-sky-950/20',     pill: 'bg-sky-950 border border-sky-700 text-sky-300' },
+  { label: 'Tier 3: Impact', devTrait: 'Impact', border: 'border-amber-800/60',   heading: 'text-amber-300',   bg: 'bg-amber-950/20',   pill: 'bg-amber-950 border border-amber-700 text-amber-300' },
+  { label: 'Tier 4: Normal', devTrait: 'Normal', border: 'border-red-900/60',     heading: 'text-red-400',     bg: 'bg-red-950/20',     pill: 'bg-red-950 border border-red-800 text-red-400' },
 ];
+
+const STAR_TABS = ['5', '4', '3', '2', '1'];
 
 // t(key1, key2, condition) shorthand
 const t = (k1, k2, cond) => ({ k1, k2, cond });
@@ -536,12 +528,38 @@ const PROFILES = {
 export const POSITIONS = ['QB','HB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','ATH'];
 export { PROFILES };
 
-export default function ThresholdLookup({ players = [], teamColors, teamLogo, onGoToDatabase, onBack, dynastyId = null }) {
+// Top N positive-weight attribute entries, sorted descending.
+function topAttrEntries(weights, n = 4) {
+  return Object.entries(weights || {})
+    .filter(([, w]) => w > 0)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, n);
+}
+
+// Build "Attr 92+ / Attr2 89+" from a tier's observed 25th-percentile values —
+// only used once that tier has real revealed-devTrait data (see profile below).
+function dynamicBadgeText(profile, attrEntries) {
+  if (!profile || !attrEntries.length) return null;
+  const parts = attrEntries.map(([attr]) => {
+    const stat = profile.stats[attr];
+    if (!stat || stat.p25 == null) return null;
+    return `${ATTR_SHORT[attr] || attr} ${Math.round(stat.p25)}+`;
+  }).filter(Boolean);
+  return parts.length ? parts.join(' / ') : null;
+}
+
+export default function ThresholdLookup({ players = [], teamColors, teamLogo, onGoToDatabase, onBack, dynastyId = null, recruitingDbIsolated = false, onToggleIsolated = null }) {
   const { getStaffData } = createStaffAccessor(dynastyId);
   const p = teamColors?.primary || '#374151';
   const [activePos, setActivePos] = useState('QB');
   const [activeArch, setActiveArch] = useState('Pocket Passer');
-  const [activeTierIdx, setActiveTierIdx] = useState(null);
+  const [activeStar, setActiveStar] = useState('5');
+  const [openTiers, setOpenTiers] = useState(() => new Set());
+  const toggleTier = i => setOpenTiers(prev => {
+    const next = new Set(prev);
+    next.has(i) ? next.delete(i) : next.add(i);
+    return next;
+  });
   const [analystImg, setAnalystImg] = useState('');
   const [analystName, setAnalystName] = useState('Data Analyst');
 
@@ -561,101 +579,86 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
   const handlePosChange = pos => {
     setActivePos(pos);
     setActiveArch(PROFILES[pos].archetypes[0]);
-    setActiveTierIdx(null);
+    setOpenTiers(new Set());
   };
 
   const tierData = profile[activeArch]?.tiers ?? [];
+  const archNorm = normalizeArch(activeArch);
+  const formAttrs = useMemo(() => getFormAttrs(activePos, archNorm), [activePos, archNorm]);
 
-  // Compute archetype-weighted scores for players matching active position/archetype
-  const TIER_SCORE_RANGES = [
-    { min: 88, max: Infinity },
-    { min: 82, max: 87.99 },
-    { min: 76, max: 81.99 },
-    { min: 0,  max: 75.99 },
-  ];
+  // Revealed-devTrait-only HS recruit pool — feeds badges, stats, and learned weights.
+  const pool = useMemo(() => buildRevealedPool(players), [players]);
+  const weightsMap = useMemo(() => buildWeightsMap(pool, players), [pool, players]);
 
-  const tierPlayerNames = useMemo(() => {
-    if (!players.length) return [[], [], [], []];
-    const matching = players.filter(pl => {
-      if (pl.position !== activePos) return false;
-      const arch = normalizeArch(pl.archetype ?? pl.arch ?? '');
-      return arch === activeArch || arch === normalizeArch(activeArch);
-    });
-    const scored = matching.map(pl => ({ name: pl.name, score: computeScore(pl) }));
-    return TIER_SCORE_RANGES.map(({ min, max }) =>
-      scored.filter(p => p.score >= min && p.score <= max)
-            .sort((a, b) => b.score - a.score)
-            .map(p => `${p.name} (${p.score.toFixed(0)})`)
-    );
-  }, [players, activePos, activeArch]);
+  // One profile per dev trait (Elite/Star/Impact/Normal), each independently
+  // qualifying once it has n >= MIN_N samples at the active star. Star levels
+  // are never pooled together.
+  const tierProfiles = useMemo(
+    () => getAllTierProfiles(pool, activePos, archNorm, activeStar, formAttrs),
+    [pool, activePos, archNorm, activeStar, formAttrs]
+  );
 
-  // Compute min / avg / max per attribute for each tier
-  const tierAttrStats = useMemo(() => {
-    const arch    = normalizeArch(activeArch);
-    const weights = ARCHETYPE_WEIGHTS[`${activePos}_${arch}`] ?? {};
-    // Use the scouting form's attribute list — this is exactly what's stored in player.attributes
-    const formAttrs = getFormAttrs(activePos, arch);
+  const weightsInfo = useMemo(
+    () => getLearnedWeightsForDisplay(pool, activePos, archNorm, activeStar),
+    [pool, activePos, archNorm, activeStar]
+  );
 
-    const matching = players.filter(pl => {
-      if (pl.position !== activePos) return false;
-      return normalizeArch(pl.archetype ?? '') === arch;
-    }).map(pl => ({ ...pl, _score: computeScore(pl) }));
-
-    return TIER_SCORE_RANGES.map(({ min, max }) => {
-      const group = matching.filter(p => p._score >= min && p._score <= max);
-      const stats = {};
-      formAttrs.forEach(attr => {
-        const vals = group.map(p => p.attributes?.[attr]).filter(v => typeof v === 'number' && v > 0);
-        stats[attr] = vals.length
-          ? { min: Math.min(...vals), avg: vals.reduce((a, b) => a + b, 0) / vals.length, max: Math.max(...vals) }
-          : null;
-      });
-      return { count: group.length, attrs: formAttrs, weights, stats };
-    });
-  }, [players, activePos, activeArch]);
-
-  const quote = (() => {
-    if (!players.length) return "No class data to benchmark yet — get me some prospects and I'll run the tier analysis.";
-    const avgs = players.map(pl => { const vals = Object.values(pl.attributes).filter(v => typeof v === 'number'); return vals.length ? vals.reduce((a,b) => a+b,0)/vals.length : 0; });
-    const classAvg = avgs.reduce((a,b) => a+b,0) / avgs.length;
-    if (classAvg >= 85) return `Class averaging ${classAvg.toFixed(1)} on raw attributes — squarely Tier 1 range.`;
-    if (classAvg >= 78) return `Averaging ${classAvg.toFixed(1)} — Tier 2-3 range. Solid foundation, room to push higher.`;
-    if (classAvg >= 70) return `Class sits at ${classAvg.toFixed(1)} — Tier 3 territory. Need more premium targets.`;
-    return `Averaging ${classAvg.toFixed(1)} — most of this class is Tier 4. Need significantly higher-caliber prospects.`;
-  })();
+  const tierAttrStats = TIER_STYLES.map(({ devTrait }) => {
+    const prof = tierProfiles[devTrait];
+    return {
+      count: prof?.n ?? 0,
+      level: prof?.level ?? 'none',
+      attrs: formAttrs,
+      weights: weightsInfo.weights ?? {},
+      stats: prof?.stats ?? {},
+    };
+  });
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4">
+    <div className="space-y-4">
       {/* Header strip */}
       <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-surface-4">
         <div className="flex items-center gap-3 min-w-0">
           {onGoToDatabase && (
             <button onClick={onGoToDatabase} className="flex items-center gap-1 text-xs text-txt-secondary hover:text-txt-primary px-2 py-1 rounded-md border border-surface-4 hover:bg-surface-3 transition flex-shrink-0">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-2.5 h-2.5"><polyline points="15 18 9 12 15 6"/></svg>
-              Player Database
+              Recruiting Database
             </button>
           )}
           <p className="text-sm font-display font-bold uppercase text-txt-primary">Threshold Benchmarks</p>
         </div>
-        {onBack && (
-          <button onClick={onBack} className="text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3 flex-shrink-0">
-            ← Main Hub
-          </button>
-        )}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {onToggleIsolated && (
+            <label className="flex items-center gap-1.5 text-[10px] text-txt-tertiary hover:text-txt-secondary transition cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={recruitingDbIsolated}
+                onChange={onToggleIsolated}
+                className="w-3 h-3 accent-current"
+              />
+              Start from scratch (this dynasty only)
+            </label>
+          )}
+          {onBack && (
+            <button onClick={onBack} className="text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
+              ← Main Hub
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Portrait + Info row */}
       <div className="flex flex-col sm:flex-row gap-4 items-stretch">
         {/* Analyst portrait card */}
-        <div className="relative rounded-xl overflow-hidden w-full h-40 sm:w-[110px] sm:h-[280px] sm:flex-shrink-0">
+        <div className="relative rounded-xl overflow-hidden w-full h-32 sm:w-[110px] sm:h-[130px] sm:flex-shrink-0">
           {analystImg
             ? <img src={analystImg} alt="" className="absolute inset-0 w-full h-full object-cover object-top" />
             : <div className="absolute inset-0 bg-surface-3" />
           }
           <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.82) 68%, rgba(0,0,0,0.92) 100%)' }} />
-          <div className="absolute inset-0 pointer-events-none" style={{ background: `linear-gradient(to bottom, transparent 45%, ${p}55 100%)` }} />
+          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 45%, #34d39955 100%)' }} />
           <div className="absolute bottom-0 left-0 right-0 p-2.5 pointer-events-none">
-            <div className="w-6 h-0.5 mb-1 rounded-full" style={{ background: p }} />
+            <div className="w-6 h-0.5 mb-1 rounded-full" style={{ background: '#34d399' }} />
             {(() => {
               const parts = analystName.trim().split(/\s+/);
               const fn = parts.length > 1 ? parts.slice(0, -1).join(' ') : '';
@@ -663,17 +666,16 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
               return <>
                 {fn && <p className="text-[0.7rem] font-semibold leading-none" style={{ color: 'rgba(255,255,255,0.75)', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{fn}</p>}
                 <p className="text-xl font-bold leading-tight" style={{ color: 'white', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{ln}</p>
-                <p className="text-[0.6rem] font-semibold tracking-wider leading-snug" style={{ color: p, textShadow: '0 1px 8px rgba(0,0,0,1)' }}>DATA ANALYST</p>
+                <p className="text-[0.6rem] font-semibold tracking-wider leading-snug" style={{ color: '#34d399', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>DATA ANALYST</p>
               </>;
             })()}
           </div>
         </div>
 
         {/* Info card */}
-        <div className="flex-1 rounded-xl p-4 flex flex-col gap-2 bg-surface-2 border border-surface-4">
+        <div className="flex-1 rounded-xl p-3 flex flex-col justify-center gap-1.5 bg-surface-2 border border-surface-4">
           <p className="text-base font-semibold text-txt-primary">Threshold Benchmarks</p>
           <p className="text-xs text-txt-tertiary leading-snug">With the current data compiled, these are the thresholds to target at each tier. Benchmarks adjust as more players are added to the board.</p>
-          <p className="text-xs text-txt-secondary italic leading-snug mt-auto">{quote}</p>
         </div>
       </div>
 
@@ -686,9 +688,10 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
             <button
               key={pos}
               onClick={() => handlePosChange(pos)}
+              style={activePos === pos ? { backgroundColor: p, color: '#fff' } : undefined}
               className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-2 rounded-lg transition shrink-0 text-center ${
                 activePos === pos
-                  ? 'bg-emerald-500 text-slate-950'
+                  ? ''
                   : 'text-txt-tertiary hover:bg-surface-4 hover:text-txt-primary'
               }`}
             >
@@ -704,7 +707,7 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
             {profile.archetypes.map(arch => (
               <button
                 key={arch}
-                onClick={() => { setActiveArch(arch); setActiveTierIdx(null); }}
+                onClick={() => { setActiveArch(arch); setOpenTiers(new Set()); }}
                 className={`text-[10px] font-semibold px-2.5 py-1 rounded-md transition uppercase tracking-wide ${
                   activeArch === arch
                     ? 'bg-surface-4 text-txt-primary'
@@ -716,11 +719,31 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
             ))}
           </div>
 
-          {/* Position + archetype label */}
-          <div className="px-5 py-3 border-b border-surface-4">
+          {/* Position + archetype label, star filter, weights indicator */}
+          <div className="px-5 py-3 border-b border-surface-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <p className="text-[9px] font-semibold uppercase tracking-widest text-txt-tertiary">
               {activePos} · {activeArch}
+              <span className="ml-2 normal-case font-normal">
+                {weightsInfo.learned
+                  ? `Weights: Learned · ${weightsInfo.n} sample${weightsInfo.n !== 1 ? 's' : ''}`
+                  : 'Weights: Static defaults'}
+              </span>
             </p>
+            <div className="flex gap-1">
+              {STAR_TABS.map(s => (
+                <button
+                  key={s}
+                  onClick={() => setActiveStar(s)}
+                  className={`text-[9px] font-semibold px-2 py-1 rounded-md transition ${
+                    activeStar === s
+                      ? 'bg-surface-4 text-txt-primary'
+                      : 'text-txt-tertiary hover:text-txt-secondary hover:bg-surface-3'
+                  }`}
+                >
+                  {s}★
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* 4 Tier Cards */}
@@ -728,13 +751,20 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
             {TIER_STYLES.map((style, i) => {
               const tier = tierData[i];
               if (!tier) return null;
-              const names = tierPlayerNames[i] ?? [];
-              const isOpen = activeTierIdx === i;
+              const isOpen = openTiers.has(i);
               const attrData = tierAttrStats[i];
+              const attrEntries = topAttrEntries(attrData.weights, 4);
+              const dynK1 = dynamicBadgeText(tierProfiles[style.devTrait], attrEntries.slice(0, 2));
+              const dynK2 = dynamicBadgeText(tierProfiles[style.devTrait], attrEntries.slice(2, 4));
+              const k1 = dynK1 || tier.k1;
+              const k2 = dynK2 || tier.k2;
+              const badgeText = attrData.count > 0
+                ? `${attrData.count} recruit${attrData.count !== 1 ? 's' : ''}`
+                : 'No data yet';
               return (
                 <div
                   key={i}
-                  onClick={() => setActiveTierIdx(isOpen ? null : i)}
+                  onClick={() => toggleTier(i)}
                   className={`rounded-xl border cursor-pointer transition-opacity hover:opacity-90 ${style.border} ${style.bg}`}
                 >
                   <div className="p-4">
@@ -742,7 +772,7 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
                       <div className="space-y-1.5 flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className={`text-[11px] font-black uppercase tracking-wide ${style.heading}`}>{style.label}</h4>
-                          <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${style.pill}`}>{style.score}</span>
+                          <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${style.pill}`}>{badgeText}</span>
                           <span className={`ml-auto text-[8px] font-semibold uppercase px-2 py-0.5 rounded border ${
                             isOpen ? 'bg-surface-4 border-surface-5 text-txt-primary' : 'bg-surface-3 border-surface-4 text-txt-tertiary'
                           }`}>
@@ -750,20 +780,13 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-300 leading-relaxed">{tier.cond}</p>
-                        {names.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1.5">
-                            {names.map((n, ni) => (
-                              <span key={ni} className={`text-[9px] px-1.5 py-0.5 rounded border ${style.pill} opacity-80`}>{n}</span>
-                            ))}
-                          </div>
-                        )}
                       </div>
                       <div className="flex sm:flex-col gap-1.5 shrink-0">
                         <div className="bg-surface-3 border border-surface-4 px-2.5 py-1 rounded-lg text-[9px] tabular-nums text-txt-secondary whitespace-nowrap">
-                          <span className="text-txt-tertiary uppercase mr-1">Key:</span>{tier.k1}
+                          <span className="text-txt-tertiary uppercase mr-1">Key:</span>{k1}
                         </div>
                         <div className="bg-surface-3 border border-surface-4 px-2.5 py-1 rounded-lg text-[9px] tabular-nums text-txt-tertiary whitespace-nowrap">
-                          <span className="text-txt-tertiary uppercase mr-1">Alt:</span>{tier.k2}
+                          <span className="text-txt-tertiary uppercase mr-1">Alt:</span>{k2}
                         </div>
                       </div>
                     </div>
