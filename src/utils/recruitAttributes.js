@@ -99,13 +99,14 @@ export const ATTRIBUTE_COLUMNS = [
 
 // Game positions → the position bucket used by BASE_POSITION_CONFIG.
 const POS_ALIAS = {
-  QB: 'QB', HB: 'HB', RB: 'HB', FB: 'HB', WR: 'WR', TE: 'TE',
+  QB: 'QB', HB: 'HB', RB: 'HB', FB: 'FB', WR: 'WR', TE: 'TE',
   LT: 'OT', RT: 'OT', OT: 'OT', LG: 'OG', RG: 'OG', OG: 'OG', C: 'C', OL: 'OT',
   DE: 'DE', LE: 'DE', RE: 'DE', LEDG: 'DE', REDG: 'DE', EDGE: 'DE',
   DT: 'DT', NT: 'DT', DL: 'DT',
   SAM: 'OLB', WILL: 'OLB', OLB: 'OLB', LOLB: 'OLB', ROLB: 'OLB',
   MIKE: 'MIKE', MLB: 'MIKE', ILB: 'MIKE', LB: 'OLB',
-  CB: 'CB', FS: 'FS', SS: 'SS', S: 'FS', DB: 'CB', ATH: 'ATH',
+  CB: 'CB', FS: 'FS', SS: 'SS', S: 'FS', DB: 'CB',
+  K: 'K', P: 'P', ATH: 'ATH',
 }
 
 // Game position → the position bucket the Scout Staff grading engine expects

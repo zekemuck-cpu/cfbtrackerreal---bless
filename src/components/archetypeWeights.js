@@ -97,6 +97,18 @@ export const ARCHETYPE_WEIGHTS = {
   'ATH_Speed Rusher':         { Awareness:0.05, Strength:0.05, Acceleration:0.25, 'Block Shedding':0.05, Tackle:0.05, 'Hit Power':0.05, 'Power Moves':0.00, 'Finesse Moves':0.20, Speed:0.25, Pursuit:0.05 },
   'ATH_Contested Specialist': { Awareness:0.10, Speed:0.05, Acceleration:0.00, Catching:0.15, 'Catch In Traffic':0.25, 'Spectacular Catch':0.25, 'Short Route':0.00, 'Medium Route':0.05, 'Deep Route':0.15, Release:0.00 },
   'ATH_Lurker':               { Awareness:0.10, Speed:0.20, Acceleration:0.15, Strength:0.00, 'Play Recognition':0.15, Tackle:0.05, 'Hit Power':0.00, Pursuit:0.05, 'Man Coverage':0.05, 'Zone Coverage':0.25 },
+
+  // ── FB (TBD — attributes to be configured) ───────────────────────────────────
+  'FB_Blocking': { Strength:0.25, 'Run Block':0.25, 'Pass Block':0.20, Awareness:0.15, Acceleration:0.05, Speed:0.05, Agility:0.05 },
+  'FB_Utility':  { Strength:0.15, 'Run Block':0.15, Catching:0.15, Awareness:0.15, Speed:0.15, Acceleration:0.10, 'Pass Block':0.10, Carrying:0.05 },
+
+  // ── K (TBD — attributes to be configured) ────────────────────────────────────
+  'K_Accurate': { 'Kick Accuracy':0.50, 'Kick Power':0.30, Awareness:0.20 },
+  'K_Power':    { 'Kick Power':0.50, 'Kick Accuracy':0.30, Awareness:0.20 },
+
+  // ── P (TBD — attributes to be configured) ────────────────────────────────────
+  'P_Accurate': { 'Punt Accuracy':0.50, 'Punt Power':0.30, Awareness:0.20 },
+  'P_Power':    { 'Punt Power':0.50, 'Punt Accuracy':0.30, Awareness:0.20 },
 };
 
 // Normalize stored archetype name → ARCHETYPE_WEIGHTS key suffix.

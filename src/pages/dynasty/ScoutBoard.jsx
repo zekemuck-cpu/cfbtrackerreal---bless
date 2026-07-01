@@ -80,10 +80,10 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy, localScore, us
       onDragOver={isDraggable ? onDragOver : undefined}
       onDrop={isDraggable ? onDrop : undefined}
       onDragLeave={isDraggable ? (e) => e.preventDefault() : undefined}
+      className={isDraggable ? 'cursor-grab active:cursor-grabbing' : undefined}
       style={{
         borderTop: isDragOver ? '2px solid #60a5fa' : rank > 1 ? '1px solid var(--surface-4)' : 'none',
         opacity: lost ? 0.55 : removed ? 0.4 : 1,
-        cursor: isDraggable ? 'grab' : undefined,
       }}
     >
       <div
@@ -91,7 +91,11 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy, localScore, us
         tabIndex={0}
         onClick={() => expandable && setOpen((o) => !o)}
         onKeyDown={(e) => { if (expandable && (e.key === 'Enter' || e.key === ' ')) setOpen((o) => !o) }}
-        className={`w-full flex items-center gap-3 sm:gap-3.5 px-4 py-3 transition-colors text-left${expandable ? ' hover:bg-surface-2' : ' cursor-default'}`}
+        className={[
+          'w-full flex items-center gap-3 sm:gap-3.5 px-4 py-3 transition-colors text-left',
+          isDraggable ? 'cursor-grab active:cursor-grabbing' : expandable ? '' : 'cursor-default',
+          expandable ? 'hover:bg-surface-2' : '',
+        ].filter(Boolean).join(' ')}
       >
         {isDraggable && (
           <span className="flex-shrink-0 text-txt-tertiary select-none" style={{ fontSize: '0.65rem', letterSpacing: '-1px', lineHeight: 1 }}>⠿</span>
@@ -103,7 +107,7 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy, localScore, us
         <div className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center overflow-hidden border" style={{ backgroundColor: 'var(--surface-3)', borderColor: 'var(--surface-4)' }}>
           {p.pictureUrl
             ? <img src={proxyImageUrl(p.pictureUrl, 200)} alt="" className="w-full h-full object-cover" />
-            : <span className="text-[10px] font-black uppercase text-txt-secondary" style={{ letterSpacing: '0.04em' }}>{(p.position || 'ATH').slice(0, 3)}</span>}
+            : <span className={`font-black uppercase text-txt-secondary ${(p.position || 'ATH').length > 3 ? 'text-[8px]' : 'text-[10px]'}`} style={{ letterSpacing: '0.04em' }}>{p.position || 'ATH'}</span>}
         </div>
 
         <div className="flex-1 min-w-0">
@@ -239,7 +243,9 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
     if (PRIORITY_KEY) try { localStorage.setItem(PRIORITY_KEY, JSON.stringify(order)) } catch {}
   }
   const dragPid = useRef(null)
+  const dragFromRemoved = useRef(false)
   const [dragOverPid, setDragOverPid] = useState(null)
+  const [dragOverRemoved, setDragOverRemoved] = useState(false)
   const reorderPriority = (fromPid, toPid) => {
     if (fromPid == null || fromPid === toPid) return
     // Build a full ordered list from current ranked rows, merging with any saved priority
@@ -312,12 +318,20 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
     }
     const projOf = (p) => predictRecruitOverall(p)?.overall ?? null
     if (sortBy === 'priority') {
-      const idxOf = (pid) => { const i = priorityOrder.indexOf(pid); return i === -1 ? 99999 : i }
+      const idxOf = (pid) => priorityOrder.indexOf(pid)
       rows.sort((a, b) => {
         const aLost = a.status === 'committed_elsewhere' ? 1 : 0
         const bLost = b.status === 'committed_elsewhere' ? 1 : 0
         if (aLost !== bLost) return aLost - bLost
-        return idxOf(a.p.pid) - idxOf(b.p.pid)
+        const ai = idxOf(a.p.pid)
+        const bi = idxOf(b.p.pid)
+        const aNew = ai === -1
+        const bNew = bi === -1
+        // Targets never manually placed float to the top, newest first — drag
+        // them into the ranked order below to "place" them permanently.
+        if (aNew !== bNew) return aNew ? -1 : 1
+        if (aNew && bNew) return (b.p.scoutedAt ?? 0) - (a.p.scoutedAt ?? 0)
+        return ai - bi
       })
     } else {
       rows.sort((a, b) => {
@@ -409,11 +423,20 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
               canEdit={canEdit}
               onToggleRemove={handleToggleRemove}
               draggable
-              onDragStart={() => { dragPid.current = r.p.pid }}
-              onDragOver={(e) => { e.preventDefault(); setDragOverPid(r.p.pid) }}
+              onDragStart={() => { dragPid.current = r.p.pid; dragFromRemoved.current = false }}
+              onDragOver={(e) => { e.preventDefault(); setDragOverPid(r.p.pid); setDragOverRemoved(false) }}
               onDrop={() => {
-                reorderPriority(dragPid.current, r.p.pid)
+                if (dragFromRemoved.current) {
+                  // Restore the dragged-from-removed player, then place it here
+                  const pid = dragPid.current
+                  const pl = targets.find(t => t.p.pid === pid)?.p
+                  if (pl) handleToggleRemove(pl)
+                  reorderPriority(pid, r.p.pid)
+                } else {
+                  reorderPriority(dragPid.current, r.p.pid)
+                }
                 dragPid.current = null
+                dragFromRemoved.current = false
                 setDragOverPid(null)
                 if (sortBy !== 'priority') changeSortBy('priority')
               }}
@@ -423,19 +446,41 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
         </div>
       </section>
 
-      {removedRanked.length > 0 && (
-        <section className="media-card overflow-hidden">
+      {(removedRanked.length > 0 || dragOverRemoved) && (
+        <section
+          className={`media-card overflow-hidden transition-colors ${dragOverRemoved ? 'ring-1 ring-red-900/40' : ''}`}
+          onDragOver={(e) => { e.preventDefault(); setDragOverRemoved(true) }}
+          onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOverRemoved(false) }}
+          onDrop={(e) => {
+            e.preventDefault()
+            const pid = dragPid.current
+            if (pid && !dragFromRemoved.current) {
+              const pl = targets.find(t => t.p.pid === pid)?.p
+              if (pl) handleToggleRemove(pl)
+            }
+            dragPid.current = null
+            dragFromRemoved.current = false
+            setDragOverRemoved(false)
+            setDragOverPid(null)
+          }}
+        >
           <div className="px-3 sm:px-5 py-3 flex items-center gap-2 border-b" style={{ borderColor: 'var(--surface-4)' }}>
             <h3 className="font-display font-black uppercase leading-none text-txt-tertiary flex-shrink-0 whitespace-nowrap" style={{ fontSize: '14px', letterSpacing: '0.02em' }}>Removed</h3>
-            <span className="text-[11px] text-txt-tertiary">Taken off the Big Board — restore to bring them back.</span>
+            <span className="text-[11px] text-txt-tertiary">Taken off the Big Board — drag back or use the restore button.</span>
           </div>
           <div>
             {removedRanked.map((r, i) => (
               <Row key={r.p.pid} r={r} rank={i + 1} pathPrefix={pathPrefix} scoutResult={scores.get(r.p.pid)} scoring={scoring} sortBy={sortBy} localScore={localScores.get(r.p.pid)} useLocalScores={scoutStaffEnabled}
                 canEdit={canEdit}
                 onToggleRemove={handleToggleRemove}
+                draggable
+                onDragStart={() => { dragPid.current = r.p.pid; dragFromRemoved.current = true }}
+                onDragEnd={() => { dragPid.current = null; dragFromRemoved.current = false; setDragOverRemoved(false) }}
               />
             ))}
+            {dragOverRemoved && removedRanked.length === 0 && (
+              <div className="px-4 py-6 text-center text-sm text-txt-tertiary">Drop here to remove</div>
+            )}
           </div>
         </section>
       )}

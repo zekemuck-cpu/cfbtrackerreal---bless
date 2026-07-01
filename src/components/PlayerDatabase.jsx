@@ -1,23 +1,23 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createStaffAccessor } from './staffDB';
 import { archetypeBaseScore } from './archetypeWeights';
 import { buildRevealedPool, buildWeightsMap, predictDevTrait } from '../utils/devTraitLearning';
 
 // ── Grade tier definitions ───────────────────────────────────────────────────
 const GRADE_TIERS = [
-  { grade: 'A+', min: 95, badgeCls: 'bg-emerald-950 border-emerald-500 text-emerald-200' },
-  { grade: 'A',  min: 90, badgeCls: 'bg-emerald-950 border-emerald-700 text-emerald-300' },
-  { grade: 'A-', min: 86, badgeCls: 'bg-emerald-950/70 border-emerald-800 text-emerald-400' },
-  { grade: 'B+', min: 82, badgeCls: 'bg-sky-950 border-sky-600 text-sky-200' },
-  { grade: 'B',  min: 78, badgeCls: 'bg-sky-950 border-sky-700 text-sky-300' },
-  { grade: 'B-', min: 74, badgeCls: 'bg-sky-950/70 border-sky-800 text-sky-400' },
-  { grade: 'C+', min: 70, badgeCls: 'bg-yellow-950 border-yellow-700 text-yellow-300' },
-  { grade: 'C',  min: 66, badgeCls: 'bg-amber-950 border-amber-700 text-amber-300' },
-  { grade: 'C-', min: 62, badgeCls: 'bg-amber-950/70 border-amber-800 text-amber-400' },
-  { grade: 'D+', min: 58, badgeCls: 'bg-orange-950 border-orange-700 text-orange-300' },
-  { grade: 'D',  min: 54, badgeCls: 'bg-orange-950/70 border-orange-800 text-orange-400' },
-  { grade: 'D-', min: 50, badgeCls: 'bg-red-950/70 border-red-800 text-red-400' },
-  { grade: 'F',  min: 0,  badgeCls: 'bg-red-950 border-red-700 text-red-400' },
+  { grade: 'A+', min: 95, badgeCls: 'bg-surface-3 border-[#0E7A2A] text-[#3DD65A]' },
+  { grade: 'A',  min: 90, badgeCls: 'bg-surface-3 border-[#0E7A2A] text-[#2FC44E]' },
+  { grade: 'A-', min: 86, badgeCls: 'bg-surface-3 border-[#0A6020] text-[#22A83E]' },
+  { grade: 'B+', min: 82, badgeCls: 'bg-surface-3 border-[#8B7A40] text-[#F5E8A0]' },
+  { grade: 'B',  min: 78, badgeCls: 'bg-surface-3 border-[#8B7A40] text-[#DDD090]' },
+  { grade: 'B-', min: 74, badgeCls: 'bg-surface-3 border-[#6E6030] text-[#C4B475]' },
+  { grade: 'C+', min: 70, badgeCls: 'bg-surface-3 border-[#6B7275] text-[#D8E0E2]' },
+  { grade: 'C',  min: 66, badgeCls: 'bg-surface-3 border-[#6B7275] text-[#BEC8CA]' },
+  { grade: 'C-', min: 62, badgeCls: 'bg-surface-3 border-[#505558] text-[#A0A8AA]' },
+  { grade: 'D+', min: 58, badgeCls: 'bg-surface-3 border-[#7F6533] text-[#DDB870]' },
+  { grade: 'D',  min: 54, badgeCls: 'bg-surface-3 border-[#7F6533] text-[#C9A85C]' },
+  { grade: 'D-', min: 50, badgeCls: 'bg-surface-3 border-[#664E25] text-[#A88040]' },
+  { grade: 'F',  min: 0,  badgeCls: 'bg-surface-3 border-[#7F6533] text-[#C9A85C]' },
 ];
 
 // ── Grading constants ────────────────────────────────────────────────────────
@@ -526,12 +526,12 @@ function GradeModal({ player, allPlayers, weightsMap, onClose }) {
       onClick={onClose}
     >
       <div
-        className="bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-y-auto"
+        className="bg-surface-2 border border-surface-4 rounded-2xl shadow-2xl w-full max-w-lg overflow-y-auto"
         style={{ maxHeight: 'calc(100dvh - var(--app-header-height, 64px) * 2)' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-5 border-b border-slate-800 flex items-start justify-between gap-4">
+        <div className="p-5 border-b border-surface-4 flex items-start justify-between gap-4">
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">
               {player.position} · {player.archetype}
@@ -542,9 +542,9 @@ function GradeModal({ player, allPlayers, weightsMap, onClose }) {
               {hidden
                 ? <span className="text-slate-500 italic">Dev Trait Hidden</span>
                 : <span className={
-                    player.devTrait === 'Elite'  ? 'text-yellow-300 font-black' :
-                    player.devTrait === 'Star'   ? 'text-blue-300 font-bold' :
-                    player.devTrait === 'Impact' ? 'text-orange-300 font-bold' :
+                    player.devTrait === 'Elite'  ? 'text-[#CFA6D8] font-black' :
+                    player.devTrait === 'Star'   ? 'text-[#C4B880] font-bold' :
+                    player.devTrait === 'Impact' ? 'text-[#BEC8CA] font-bold' :
                     'text-slate-400'
                   }>{player.devTrait} Dev</span>
               }
@@ -559,12 +559,12 @@ function GradeModal({ player, allPlayers, weightsMap, onClose }) {
         <div className="p-5 space-y-5">
 
           {/* Analysis summary */}
-          <p className="text-xs text-slate-400 leading-relaxed">{analysis}</p>
+          <p className="text-xs text-txt-secondary leading-relaxed">{analysis}</p>
 
           {/* Score breakdown */}
           <section>
             <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Score Breakdown</h3>
-            <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden divide-y divide-slate-800/50 text-xs">
+            <div className="bg-surface-3 border border-surface-4 rounded-lg overflow-hidden divide-y divide-surface-4 text-xs">
               <div className="flex justify-between px-3 py-2">
                 <span className="text-slate-400">{usingArch ? 'Archetype Base Score' : 'Weighted Attribute Avg'}</span>
                 <span className="font-bold text-white">{displayBase.toFixed(1)}</span>
@@ -577,13 +577,13 @@ function GradeModal({ player, allPlayers, weightsMap, onClose }) {
               )}
               {hidden ? (
                 <div className="flex justify-between px-3 py-2">
-                  <span className="text-amber-500/80 italic text-[11px]">Estimated Dev (pending reveal)</span>
-                  <span className="font-bold text-amber-400">+{devBonus.toFixed(1)}</span>
+                  <span className="text-txt-tertiary italic text-[11px]">Estimated Dev (pending reveal)</span>
+                  <span className="font-bold text-txt-secondary">+{devBonus.toFixed(1)}</span>
                 </div>
               ) : (
                 <div className="flex justify-between px-3 py-2">
                   <span className="text-slate-400">{player.devTrait} Dev Adjustment</span>
-                  <span className={`font-bold ${devBonus > 0 ? 'text-emerald-400' : devBonus < 0 ? 'text-red-400' : 'text-slate-400'}`}>
+                  <span className={'font-bold text-txt-secondary'}>
                     {devBonus > 0 ? '+' : ''}{devBonus}
                   </span>
                 </div>
@@ -591,18 +591,18 @@ function GradeModal({ player, allPlayers, weightsMap, onClose }) {
               {ceilBonus > 0 && (
                 <div className="flex justify-between px-3 py-2">
                   <span className="text-slate-400">Physical Ceiling Bonus</span>
-                  <span className="font-bold text-violet-400">+{ceilBonus.toFixed(1)}</span>
+                  <span className="font-bold text-txt-secondary">+{ceilBonus.toFixed(1)}</span>
                 </div>
               )}
               {starBonus !== 0 && (
                 <div className="flex justify-between px-3 py-2">
                   <span className="text-slate-400">{player.stars}-Star Rating Bonus</span>
-                  <span className={`font-bold ${starBonus > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  <span className={'font-bold text-txt-secondary'}>
                     {starBonus > 0 ? '+' : ''}{starBonus}
                   </span>
                 </div>
               )}
-              <div className="flex justify-between px-3 py-2 bg-slate-900/60">
+              <div className="flex justify-between px-3 py-2 bg-surface-4">
                 <span className="text-slate-300 font-bold">Composite Score</span>
                 <span className="font-black text-white">{score.toFixed(1)}</span>
               </div>
@@ -619,23 +619,23 @@ function GradeModal({ player, allPlayers, weightsMap, onClose }) {
           {/* Strengths / Needs Work */}
           <section className="grid grid-cols-2 gap-3">
             <div>
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mb-2">Strengths</h3>
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-txt-tertiary mb-2">Strengths</h3>
               <div className="space-y-1.5">
                 {strengths.map(([k, v]) => (
-                  <div key={k} className="flex justify-between items-center bg-slate-900 border border-emerald-900/50 rounded px-2.5 py-1.5">
-                    <span className="text-[10px] text-slate-300 font-medium">{k}</span>
-                    <span className="text-[10px] font-black text-emerald-400">{v}</span>
+                  <div key={k} className="flex justify-between items-center bg-surface-3 border border-surface-4 rounded px-2.5 py-1.5">
+                    <span className="text-[10px] text-txt-secondary font-medium">{k}</span>
+                    <span className="text-[10px] font-black text-txt-secondary">{v}</span>
                   </div>
                 ))}
               </div>
             </div>
             <div>
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-red-500 mb-2">Needs Work</h3>
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-txt-tertiary mb-2">Needs Work</h3>
               <div className="space-y-1.5">
                 {weaknesses.map(([k, v]) => (
-                  <div key={k} className="flex justify-between items-center bg-slate-900 border border-red-900/50 rounded px-2.5 py-1.5">
-                    <span className="text-[10px] text-slate-300 font-medium">{k}</span>
-                    <span className="text-[10px] font-black text-red-400">{v}</span>
+                  <div key={k} className="flex justify-between items-center bg-surface-3 border border-surface-4 rounded px-2.5 py-1.5">
+                    <span className="text-[10px] text-txt-secondary font-medium">{k}</span>
+                    <span className="text-[10px] font-black text-txt-secondary">{v}</span>
                   </div>
                 ))}
               </div>
@@ -653,7 +653,7 @@ function GradeModal({ player, allPlayers, weightsMap, onClose }) {
                 { label: '3-Cone',   value: `${combine.cone}s` },
                 { label: 'Broad',    value: `${combine.broad}"` },
               ].map(({ label, value }) => (
-                <div key={label} className="bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-center">
+                <div key={label} className="bg-surface-3 border border-surface-4 rounded-lg p-2.5 text-center">
                   <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1">{label}</p>
                   <p className="text-xs font-black text-white">{value}</p>
                 </div>
@@ -662,22 +662,19 @@ function GradeModal({ player, allPlayers, weightsMap, onClose }) {
           </section>
 
           {/* Academic profile */}
-          <section className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-lg px-4 py-3">
+          <section className="flex items-center justify-between bg-surface-3 border border-surface-4 rounded-lg px-4 py-3">
             <div>
               <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Academic Profile</p>
               <p className="text-sm font-bold text-white mt-0.5">{major}</p>
             </div>
             <div className="text-right">
               <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">GPA</p>
-              <p className={`text-xl font-black ${
-                parseFloat(gpa) >= 3.5 ? 'text-emerald-400' :
-                parseFloat(gpa) >= 2.8 ? 'text-sky-400' : 'text-amber-400'
-              }`}>{gpa}</p>
+              <p className="text-xl font-black text-txt-secondary">{gpa}</p>
             </div>
           </section>
 
           {/* Scout interview */}
-          <section className="bg-slate-900/60 border border-slate-800 rounded-lg p-4 space-y-2">
+          <section className="bg-surface-3 border border-surface-4 rounded-lg p-4 space-y-2">
             <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Scout: "Describe your game for me."</p>
             <p className="text-xs text-slate-200 leading-relaxed italic">"{quote}"</p>
             <p className="text-[9px] text-slate-500 mt-1">— {player.name}</p>
@@ -745,7 +742,7 @@ function EditModal({ player, pool, weightsMap, onSave, onClose }) {
       onClick={onClose}
     >
       <div
-        className="bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-y-auto"
+        className="bg-surface-2 border border-surface-4 rounded-2xl shadow-2xl w-full max-w-lg overflow-y-auto"
         style={{ maxHeight: 'calc(100dvh - var(--app-header-height, 64px) * 2)' }}
         onClick={e => e.stopPropagation()}
       >
@@ -859,12 +856,13 @@ function EditModal({ player, pool, weightsMap, onSave, onClose }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function PlayerDatabase({ players, roleContext, teamColors, teamLogo, onDelete, onEdit, onGoToInput, onGoToThresholds, onBack, dynastyId = null, recruitingDbIsolated = false, onToggleIsolated = null }) {
+export default function PlayerDatabase({ players, roleContext, teamColors, teamLogo, onDelete, onEdit, onGoToInput, onGoToThresholds, onBack, dynastyId = null, recruitingDbIsolated = false, onToggleIsolated = null, highlightPid = null }) {
   const { getStaffData } = createStaffAccessor(dynastyId);
   const p = teamColors?.primary || '#374151';
   const [filterPos, setFilterPos] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const rowRefs = useRef({});
   const [editingPlayer, setEditingPlayer] = useState(null);
   const [editingDevFor, setEditingDevFor] = useState(null);
   const [sortConfig, setSortConfig] = useState({ key: 'recency', dir: 'desc' });
@@ -880,6 +878,20 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     }
     loadScout();
   }, []);
+
+  // Auto-select and scroll to a specific player when navigated here via a link.
+  useEffect(() => {
+    if (!highlightPid || !players.length) return;
+    const match = players.find(pl => String(pl.pid) === String(highlightPid));
+    if (match) {
+      setSelectedPlayer(match);
+      // Slight delay so the row ref is rendered before we scroll
+      setTimeout(() => {
+        const el = rowRefs.current[highlightPid];
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 150);
+    }
+  }, [highlightPid, players]);
 
   const positionsList = ['ALL', 'QB', 'HB', 'WR', 'TE', 'OT', 'OG', 'C', 'DE', 'DT', 'OLB', 'MIKE', 'CB', 'FS', 'SS', 'ATH'];
 
@@ -958,7 +970,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                 onChange={onToggleIsolated}
                 className="w-3 h-3 accent-current"
               />
-              Start from scratch (this dynasty only)
+              Reset Database (This Dynasty Only)
             </label>
           )}
           {onGoToInput && (
@@ -966,14 +978,16 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
               + New Report
             </button>
           )}
-          {onGoToThresholds && (
-            <button onClick={onGoToThresholds} className="text-xs text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
-              Thresholds
+          {onBack && (
+            <button onClick={onBack} className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><polyline points="15 18 9 12 15 6"/></svg>
+              Main Hub
             </button>
           )}
-          {onBack && (
-            <button onClick={onBack} className="text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
-              ← Main Hub
+          {onGoToThresholds && (
+            <button onClick={onGoToThresholds} className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
+              Threshold Lookup
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
           )}
         </div>
@@ -1005,9 +1019,6 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
               );
             })()}
             <p className="text-[6px] font-black uppercase tracking-[0.12em] mt-0.5 text-sky-400">National Scout</p>
-            <p className="text-[8px] text-white/55 italic leading-snug mt-1" style={{ textShadow: '0 1px 6px rgba(0,0,0,1)' }}>
-              {players.length} prospect{players.length !== 1 ? 's' : ''} on file
-            </p>
           </div>
         </div>
 
@@ -1078,8 +1089,9 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                   return (
                     <tr
                       key={i}
+                      ref={el => { if (el) rowRefs.current[pl.pid] = el; }}
                       onClick={() => setSelectedPlayer(pl)}
-                      className="transition group cursor-pointer border-b border-surface-4 hover:bg-surface-3"
+                      className={`transition group cursor-pointer border-b border-surface-4 hover:bg-surface-3 ${String(pl.pid) === String(highlightPid) ? 'bg-surface-3' : ''}`}
                     >
                       <td className="p-3.5 text-center text-[10px] tabular-nums text-txt-tertiary">{pl.recentRank ?? (pl.addedIndex != null ? pl.addedIndex + 1 : '—')}</td>
                       <td className="p-3.5 font-semibold text-txt-secondary group-hover:text-txt-primary transition">
@@ -1093,7 +1105,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                       </td>
                       <td className="p-3.5 uppercase font-semibold text-txt-tertiary text-[10px] tracking-wider">{pl.group}</td>
                       <td className="p-3.5">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-black text-emerald-400" style={{ background: '#022c22', border: '1px solid #10b98130' }}>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-black text-txt-tertiary bg-surface-4 border border-surface-4">
                           {pl.position}
                         </span>
                       </td>
@@ -1115,18 +1127,18 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                             onClick={() => setEditingDevFor(pl)}
                             title="Click to update dev trait"
                             className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer hover:ring-1 hover:ring-emerald-600/60 transition ${
-                              pl.devTrait === 'Elite'  ? 'bg-yellow-950/50 border border-yellow-700 text-yellow-300' :
-                              pl.devTrait === 'Star'   ? 'bg-blue-950/40 border border-blue-900 text-blue-300' :
-                              pl.devTrait === 'Impact' ? 'bg-orange-950/40 border border-orange-900 text-orange-300' :
-                              pl.devTrait === 'Normal' ? 'bg-slate-950 border border-slate-800 text-slate-500' :
+                              pl.devTrait === 'Elite'  ? 'bg-surface-3 border border-[#0E7A2A] text-[#2FC44E] shadow-[0_0_16px_rgba(14,122,42,0.85)]' :
+                              pl.devTrait === 'Star'   ? 'bg-surface-3 border border-[#8B7A40] text-[#DDD090] shadow-[0_0_14px_rgba(139,122,64,0.8)]' :
+                              pl.devTrait === 'Impact' ? 'bg-surface-3 border border-[#6B7275] text-[#BEC8CA]' :
+                              pl.devTrait === 'Normal' ? 'bg-surface-3 border border-[#7F6533] text-[#C9A85C]' :
                                                          'bg-slate-950 border border-slate-700 text-slate-600 italic'
                             }`}>
-                            {hiddenDev ? 'Hidden' : pl.devTrait}
+                            {hiddenDev ? 'HIDDEN' : pl.devTrait.toUpperCase()}
                           </span>
                         )}
                       </td>
                       <td className="p-3.5 text-center">
-                        <span className={`text-xs font-bold ${parseFloat(gpa) >= 3.5 ? 'text-emerald-400' : parseFloat(gpa) >= 2.5 ? 'text-sky-400' : 'text-amber-400'}`}>{gpa}</span>
+                        <span className={'text-xs font-bold text-txt-tertiary'}>{gpa}</span>
                       </td>
                       <td className="p-3.5 tabular-nums text-[10px] text-txt-tertiary max-w-sm">
                         <div className="flex flex-wrap gap-1">
@@ -1140,14 +1152,14 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                       <td className="p-3.5 text-center" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-1 justify-center opacity-0 group-hover:opacity-100 transition">
                           {onEdit && (
-                            <button onClick={() => setEditingPlayer(pl)} className="p-1.5 rounded text-slate-600 hover:text-sky-400 hover:bg-sky-950/40 transition" title="Edit prospect">
+                            <button onClick={() => setEditingPlayer(pl)} className="p-1.5 rounded text-slate-600 hover:text-sky-400 hover:bg-surface-3 transition" title="Edit prospect">
                               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
                                 <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
                               </svg>
                             </button>
                           )}
                           {onDelete && (
-                            <button onClick={() => onDelete(pl)} className="p-1.5 rounded text-slate-600 hover:text-red-400 hover:bg-red-950/40 transition" title="Delete prospect">
+                            <button onClick={() => onDelete(pl)} className="p-1.5 rounded text-slate-600 hover:text-red-400 hover:bg-surface-3 transition" title="Delete prospect">
                               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
                                 <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
                               </svg>

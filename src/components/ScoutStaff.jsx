@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { createStaffAccessor } from './staffDB';
 import FrontPage from './ScoutStaffFrontPage';
 import PlayerDatabase from './PlayerDatabase';
@@ -43,18 +44,24 @@ export default function ScoutStaff({ year } = {}) {
   const { currentDynasty, dynasties, getDynastyPlayers, updateDynasty, updatePlayer, isViewOnly } = useDynasty();
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams);
   const teamLogo   = currentDynasty?.teams?.[currentDynasty?.currentTid]?.logo || '';
-  const [subView, setSubView] = useState('home');
+  const [searchParams] = useSearchParams();
+  const [subView, setSubView] = useState(() => {
+    const v = searchParams.get('view');
+    return v === 'database' || v === 'thresholds' || v === 'analysis' ? v : 'home';
+  });
+  const [dbHighlightPid, setDbHighlightPid] = useState(searchParams.get('pid') ?? null);
+  const highlightPid = dbHighlightPid;
+
+  const openDatabase = (pid) => {
+    setDbHighlightPid(pid ?? null);
+    setSubView('database');
+  };
+  // outlookSummary is populated entirely by the live onOutlookReady callback from
+  // ScoutAnalysis — never from stale staffDB data, which caused a visible flash of
+  // wrong numbers on every Scout Staff load.
   const [outlookSummary, setOutlookSummary] = useState(null);
   const dynastyId = currentDynasty?.id ?? null;
   const dbIsolated = !!currentDynasty?.recruitingDbIsolated;
-
-  useEffect(() => {
-    if (!dynastyId) return;
-    const { getStaffData } = createStaffAccessor(dynastyId);
-    getStaffData('analysis_outlook_summary').then(raw => {
-      if (raw) try { setOutlookSummary(JSON.parse(raw)); } catch {}
-    });
-  }, [dynastyId]);
 
   // Sub-navigation doesn't change the URL, so the route-level ScrollToTop never
   // fires — land at the top of each page whenever the user switches tabs.
@@ -356,11 +363,11 @@ export default function ScoutStaff({ year } = {}) {
 
   return (
     <div className="w-full space-y-4">
-      {subView === 'home' && <FrontPage setView={setSubView} currentTeamName={currentDynasty?.teamName || 'college football team'} currentYear={currentDynasty?.currentYear || new Date().getFullYear()} coachName={currentDynasty?.coachName || ''} recruits={recruits} rosterWarnings={rosterWarnings} rosterSummary={rosterSummary} outlookSummary={outlookSummary} dynastyId={dynastyId} {...teamTheme} />}
+      {subView === 'home' && <FrontPage setView={setSubView} onViewDatabase={openDatabase} currentTeamName={currentDynasty?.teamName || 'college football team'} currentYear={currentDynasty?.currentYear || new Date().getFullYear()} coachName={currentDynasty?.coachName || ''} recruits={recruits} databaseRecruits={freshmanRecruits} rosterWarnings={rosterWarnings} rosterSummary={rosterSummary} outlookSummary={outlookSummary} committedRecruits={committedRecruits} dynastyId={dynastyId} {...teamTheme} />}
 
       {/* Read-only: mirrors the recruiting Targets sheet. Freshmen and portal targets are split.
           Uses the unfiltered list so a target removed from the board still shows up here. */}
-      {subView === 'database'   && <PlayerDatabase players={freshmanRecruits} roleContext="National Scout" dynastyId={dynastyId} {...teamTheme} recruitingDbIsolated={dbIsolated} onToggleIsolated={isViewOnly ? null : handleToggleIsolated} onEdit={isViewOnly ? null : handleEditDatabasePlayer} onGoToThresholds={() => setSubView('thresholds')} onBack={goHome} />}
+      {subView === 'database'   && <PlayerDatabase players={freshmanRecruits} roleContext="National Scout" dynastyId={dynastyId} {...teamTheme} recruitingDbIsolated={dbIsolated} onToggleIsolated={isViewOnly ? null : handleToggleIsolated} onEdit={isViewOnly ? null : handleEditDatabasePlayer} onGoToThresholds={() => setSubView('thresholds')} onBack={goHome} highlightPid={highlightPid} />}
       {subView === 'thresholds' && <ThresholdLookup players={thresholdRecruits} roleContext="Data Analyst" dynastyId={dynastyId} {...teamTheme} recruitingDbIsolated={dbIsolated} onToggleIsolated={isViewOnly ? null : handleToggleIsolated} onGoToDatabase={() => setSubView('database')} onBack={goHome} />}
       {subView === 'counts'     && <PlayerCount onBack={goHome} />}
 

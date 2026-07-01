@@ -25,10 +25,10 @@ const ATTR_SHORT = {
 // Each tier now maps 1:1 to a literal revealed devTrait value (DEV_TRAITS order),
 // not a computeScore band — see devTraitLearning.js.
 const TIER_STYLES = [
-  { label: 'Tier 1: Elite',  devTrait: 'Elite',  border: 'border-emerald-800/60', heading: 'text-emerald-300', bg: 'bg-emerald-950/20', pill: 'bg-emerald-950 border border-emerald-700 text-emerald-300' },
-  { label: 'Tier 2: Star',   devTrait: 'Star',   border: 'border-sky-800/60',     heading: 'text-sky-300',     bg: 'bg-sky-950/20',     pill: 'bg-sky-950 border border-sky-700 text-sky-300' },
-  { label: 'Tier 3: Impact', devTrait: 'Impact', border: 'border-amber-800/60',   heading: 'text-amber-300',   bg: 'bg-amber-950/20',   pill: 'bg-amber-950 border border-amber-700 text-amber-300' },
-  { label: 'Tier 4: Normal', devTrait: 'Normal', border: 'border-red-900/60',     heading: 'text-red-400',     bg: 'bg-red-950/20',     pill: 'bg-red-950 border border-red-800 text-red-400' },
+  { label: 'Tier 1: Elite',  devTrait: 'Elite',  border: 'border-surface-4', heading: 'text-[#CFA6D8]',  bg: 'bg-surface-3', pill: 'bg-surface-3 border-[#6E4398] text-[#CFA6D8]' },
+  { label: 'Tier 2: Star',   devTrait: 'Star',   border: 'border-surface-4',     heading: 'text-[#C4B880]',  bg: 'bg-surface-3',     pill: 'bg-surface-3 border-[#8B7A40] text-[#C4B880]' },
+  { label: 'Tier 3: Impact', devTrait: 'Impact', border: 'border-surface-4',   heading: 'text-amber-300',   bg: 'bg-surface-3',   pill: 'bg-surface-3 border-[#6B7275] text-[#BEC8CA]' },
+  { label: 'Tier 4: Normal', devTrait: 'Normal', border: 'border-surface-4',     heading: 'text-[#C9A85C]',     bg: 'bg-surface-3',     pill: 'bg-red-950 border border-red-800 text-red-400' },
 ];
 
 const STAR_TABS = ['5', '4', '3', '2', '1'];
@@ -523,9 +523,57 @@ const PROFILES = {
       t('Below contact benchmarks', 'Under 76 composite', 'Break tackle and physicality not yet sufficient for the contact seeker role from the ATH position.'),
     ]},
   },
+
+  FB: {
+    archetypes: ['Blocking', 'Utility'],
+    'Blocking': { tiers: [
+      t('TBD', 'TBD', 'Elite blocking fullback — sets the tone in the run game and provides a reliable checkdown in pass protection. Scouting benchmarks TBD.'),
+      t('TBD', 'TBD', 'Solid blocking specialist who wins more often than not at the point of attack. Reliable in short-yardage and goal-line sets. Scouting benchmarks TBD.'),
+      t('TBD', 'TBD', 'Functional blocker but inconsistency limits reliability. Adequate in scheme-specific roles with limited passing demand. Scouting benchmarks TBD.'),
+      t('TBD', 'TBD', 'Blocking technique and physicality need significant development. Not yet a reliable in-line option. Scouting benchmarks TBD.'),
+    ]},
+    'Utility': { tiers: [
+      t('TBD', 'TBD', 'Elite dual-role fullback — dangerous as a receiver, lead blocker, and ball carrier. A matchup problem in every offensive concept. Scouting benchmarks TBD.'),
+      t('TBD', 'TBD', 'Versatile contributor who can be used in multiple ways without being a liability in any. Adds genuine dimension to the offense. Scouting benchmarks TBD.'),
+      t('TBD', 'TBD', 'Shows utility traits but isn\'t dominant in any single area. Best as a rotational piece in limited packages. Scouting benchmarks TBD.'),
+      t('TBD', 'TBD', 'Raw athlete at the position — needs to develop a clear role before contributing at this level. Scouting benchmarks TBD.'),
+    ]},
+  },
+
+  K: {
+    archetypes: ['Accurate', 'Power'],
+    'Accurate': { tiers: [
+      t('TBD', 'TBD', 'Elite accuracy kicker — high percentage from distance with reliable technique. Automatic inside 50. Scouting benchmarks TBD.'),
+      t('TBD', 'TBD', 'Consistent kicker who connects at a strong rate. Trusted in high-leverage situations with room to push range as development continues. Scouting benchmarks TBD.'),
+      t('TBD', 'TBD', 'Serviceable accuracy but inconsistency from distance limits reliability in late-game situations. Better from short range. Scouting benchmarks TBD.'),
+      t('TBD', 'TBD', 'Accuracy not yet at the level required to be a reliable kicker. Needs significant development before being counted on. Scouting benchmarks TBD.'),
+    ]},
+    'Power': { tiers: [
+      t('TBD', 'TBD', 'Elite leg strength — stretches the field with range others don\'t have. A weapon on kickoffs and long field goals that changes field position. Scouting benchmarks TBD.'),
+      t('TBD', 'TBD', 'Strong leg who can push range beyond 50 yards. Creates kickoff and field position advantages. Needs accuracy consistency to unlock full potential. Scouting benchmarks TBD.'),
+      t('TBD', 'TBD', 'Above-average power but range and accuracy trade-off limits usage. Best deployed selectively to maximize his leg. Scouting benchmarks TBD.'),
+      t('TBD', 'TBD', 'Leg strength not yet translating to consistent performance. Range limitations reduce his value as a field goal and kickoff weapon. Scouting benchmarks TBD.'),
+    ]},
+  },
+
+  P: {
+    archetypes: ['Accurate', 'Power'],
+    'Accurate': { tiers: [
+      t('TBD', 'TBD', 'Elite placement punter — consistently pins opponents deep and drops kicks in the coffin corner. Field position weapon that wins the punting battle. Scouting benchmarks TBD.'),
+      t('TBD', 'TBD', 'Strong directional punter who consistently avoids touchbacks and creates field position. Reliable and consistent from week to week. Scouting benchmarks TBD.'),
+      t('TBD', 'TBD', 'Decent placement but inconsistency limits his impact as a field position weapon. Serviceable in most situations. Scouting benchmarks TBD.'),
+      t('TBD', 'TBD', 'Placement inconsistency allows opponents to return punts and negate field position advantage. Needs significant development. Scouting benchmarks TBD.'),
+    ]},
+    'Power': { tiers: [
+      t('TBD', 'TBD', 'Elite power punter — big leg that pins opponents back and creates hangtime that eliminates returns. A true field-flipping weapon. Scouting benchmarks TBD.'),
+      t('TBD', 'TBD', 'Strong leg that consistently generates distance and hangtime. Difficult to return effectively and creates field position advantages. Scouting benchmarks TBD.'),
+      t('TBD', 'TBD', 'Above-average power but needs better consistency. Distance is there but hangtime and coverage coordination need refinement. Scouting benchmarks TBD.'),
+      t('TBD', 'TBD', 'Leg strength doesn\'t create the field position advantage needed. Susceptible to returns when distance and hangtime fall short. Scouting benchmarks TBD.'),
+    ]},
+  },
 };
 
-export const POSITIONS = ['QB','HB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','ATH'];
+export const POSITIONS = ['QB','HB','FB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','K','P','ATH'];
 export { PROFILES };
 
 // Top N positive-weight attribute entries, sorted descending.
@@ -636,7 +684,7 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
                 onChange={onToggleIsolated}
                 className="w-3 h-3 accent-current"
               />
-              Start from scratch (this dynasty only)
+              Reset Database (This Dynasty Only)
             </label>
           )}
           {onBack && (

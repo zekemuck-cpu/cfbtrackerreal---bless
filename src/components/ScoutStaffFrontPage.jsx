@@ -6,6 +6,7 @@ import { buildRevealedPool, buildWeightsMap } from '../utils/devTraitLearning';
 // LIGHTWEIGHT INDEXEDDB MANAGER (Permanently Bypasses the 5MB Quota Limit)
 // =========================================================================
 import { createStaffAccessor } from './staffDB';
+import RecruitingPlanRow from './RecruitingPlanRow';
 
 // Deterministic seeded RNG — same name always produces the same signature style.
 function seededRng(seed) {
@@ -57,7 +58,7 @@ function Signature({ name, color = 'currentColor', fontSize = '1.45rem' }) {
   )
 }
 
-export default function ScoutStaffFrontPage({ setView, currentTeamName = 'college football team', currentYear, coachName = '', teamColors, teamLogo, recruits = [], rosterWarnings = [], rosterSummary = null, outlookSummary = null, dynastyId = null }) {
+export default function ScoutStaffFrontPage({ setView, onViewDatabase, currentTeamName = 'college football team', currentYear, coachName = '', teamColors, teamLogo, recruits = [], databaseRecruits = [], rosterWarnings = [], rosterSummary = null, outlookSummary = null, committedRecruits = [], dynastyId = null }) {
   const { getStaffData, saveStaffData, deleteStaffData } = createStaffAccessor(dynastyId);
   const p = teamColors?.primary   || '#374151';
   const s = teamColors?.secondary || '#ffffff';
@@ -578,7 +579,7 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
     }
 
     // Program Outlook summary rows
-    const ALL_POS = ['QB','HB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS'];
+    const ALL_POS = ['QB','HB','FB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','K','P'];
     let outlookRows = null;
 
     if (outlookSummary) {
@@ -589,8 +590,14 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
         const s = outlookSummary[pos];
         if (!s) return;
         const vk = s.verdictKey;
-        if (!vk || vk === 'no-investment' || vk === 'covered' || vk === 'monitor') {
+        if (!vk || vk === 'no-investment') {
           coveredList.push(pos);
+          return;
+        }
+        // 'extra' positions have a voluntary recruiting plan but no roster need —
+        // add them to actionRows with flag 'extra' so their row gets emerald styling.
+        if (vk === 'extra') {
+          actionRows.push({ pos, label: s.label || 'extra', flag: 'extra' });
           return;
         }
         if (s.subPositionSummary?.length >= 2) {
@@ -649,7 +656,7 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
             contractLength: scoutContractLength,
             confirmed: scoutConfirmed,
             role: 'National Scout',
-            roleColor: '#38bdf8',
+            roleColor: '#94a3b8',
             showUrl: showScoutUrlInput, setShowUrl: setShowScoutUrlInput,
             urlText: scoutUrlText, setUrlText: setScoutUrlText,
             accentColor: p,
@@ -664,7 +671,7 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
             contractLength: analystContractLength,
             confirmed: analystConfirmed,
             role: 'Data Analyst',
-            roleColor: '#34d399',
+            roleColor: '#94a3b8',
             showUrl: showAnalystUrlInput, setShowUrl: setShowAnalystUrlInput,
             urlText: analystUrlText, setUrlText: setAnalystUrlText,
             accentColor: s !== '#ffffff' ? s : p,
@@ -696,7 +703,7 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                 </div>
               )}
               {img && <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.45) 100%)' }} />}
-              {img && !isExpired && <div className="absolute inset-0 pointer-events-none" style={{ background: `linear-gradient(to bottom, transparent 70%, ${accentColor}33 100%)` }} />}
+              {img && !isExpired && <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 70%, rgba(0,0,0,0.3) 100%)' }} />}
               {isExpired && <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(80,0,0,0.2) 0%, rgba(20,0,0,0.55) 100%)' }} />}
               {!isEmptySlot && (
                 <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-2 pointer-events-none">
@@ -723,7 +730,7 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
             <div className="flex flex-col gap-2 p-3 border-t border-surface-4">
               {/* Accent bar + Name */}
               <div>
-                <div className="w-6 h-0.5 mb-1.5 rounded-full" style={{ background: accentColor }} />
+                <div className="w-6 h-0.5 mb-1.5 rounded-full bg-slate-600" />
                 {nameEditSlot === slot && !isEmptySlot ? (
                   <input
                     type="text"
@@ -783,9 +790,9 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                   <div
                     onClick={() => setBioEditSlot(slot)}
                     className="cursor-text rounded-lg p-2 min-h-[44px]"
-                    style={{ background: 'rgba(0,0,0,0.35)', border: `1.5px dashed ${accentColor}` }}
+                    style={{ background: 'rgba(0,0,0,0.35)', border: '1.5px dashed #475569' }}
                   >
-                    <p className="text-[10px] font-bold" style={{ color: accentColor }}>+ Click to add bio…</p>
+                    <p className="text-[10px] font-bold text-slate-400">+ Click to add bio…</p>
                   </div>
                 )}
                 {!bio && (
@@ -829,9 +836,9 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                   <div
                     onClick={() => setBioEditSlot(slot)}
                     className="cursor-text rounded-lg p-2 min-h-[44px]"
-                    style={{ background: 'rgba(0,0,0,0.35)', border: `1.5px dashed ${accentColor}` }}
+                    style={{ background: 'rgba(0,0,0,0.35)', border: '1.5px dashed #475569' }}
                   >
-                    <p className="text-[10px] font-bold" style={{ color: accentColor }}>+ Click to add bio…</p>
+                    <p className="text-[10px] font-bold text-slate-400">+ Click to add bio…</p>
                   </div>
                 )}
                 <div className="flex flex-wrap gap-1.5">
@@ -935,26 +942,26 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
             the column, so the bottom of the last row locks to the Daily Brief's bottom */}
         <div className="grid grid-cols-2 gap-3 flex-1 auto-rows-fr">
           {[
-            { view: 'database',   label: 'Recruiting Database', sub: 'True Freshmen Only',      color: 'text-red-500',    icon: (
+            { view: 'database',   label: 'Recruiting Database', sub: 'True Freshmen Only',      color: 'text-txt-tertiary',    icon: (
               <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
                 <ellipse cx="8" cy="4" rx="5" ry="2"/>
                 <path d="M3 4v4c0 1.1 2.24 2 5 2s5-.9 5-2V4"/>
                 <path d="M3 8v4c0 1.1 2.24 2 5 2s5-.9 5-2V8"/>
               </svg>
             )},
-            { view: 'analysis',   label: 'Program Outlook',    sub: 'Staff Recommendations',    color: 'text-emerald-400', icon: (
+            { view: 'analysis',   label: 'Program Outlook',    sub: 'Staff Recommendations',    color: 'text-txt-tertiary', icon: (
               <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
                 <rect x="3" y="2" width="10" height="12" rx="1.5"/>
                 <path d="M5.5 5h5M5.5 7.5h5M5.5 10h3"/>
               </svg>
             )},
-            { view: 'thresholds', label: 'Threshold Lookup',   sub: 'Player Comparison Tool',   color: 'text-blue-400',   icon: (
+            { view: 'thresholds', label: 'Threshold Lookup',   sub: 'Player Comparison Tool',   color: 'text-txt-tertiary',   icon: (
               <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
                 <path d="M2 12l4-4 3 3 5-7"/>
                 <circle cx="14" cy="5" r="1.5" fill="currentColor" stroke="none"/>
               </svg>
             )},
-            { view: 'counts',     label: 'Player Count',       sub: 'Current Overview',         color: 'text-orange-400', icon: (
+            { view: 'counts',     label: 'Player Count',       sub: 'Current Overview',         color: 'text-txt-tertiary', icon: (
               <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
                 <circle cx="6" cy="5" r="2"/>
                 <circle cx="11" cy="5" r="2"/>
@@ -991,10 +998,11 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
             {/* ── PROGRAM OUTLOOK SNAPSHOT ── */}
             <div className="px-4 pt-4 pb-3 border-b border-surface-4">
               <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 mb-3">Position Status</p>
-              {briefData?.outlookRows ? (() => {
-                const crits  = briefData.outlookRows.actionRows.filter(r => r.flag === 'critical');
-                const depths = briefData.outlookRows.actionRows.filter(r => r.flag === 'depth');
-                const nCovered = briefData.outlookRows.coveredList.length;
+              {outlookSummary ? (() => {
+                // Read directly from outlookSummary verdictKey — same source as Program Outlook
+                const ALL_TRACKED = ['QB','HB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','FB','K','P'];
+                const crits  = ALL_TRACKED.filter(pos => outlookSummary[pos]?.verdictKey === 'critical').map(pos => ({ pos }));
+                const depths = ALL_TRACKED.filter(pos => outlookSummary[pos]?.verdictKey === 'depth-needed').map(pos => ({ pos }));
                 const allClear = crits.length === 0 && depths.length === 0;
                 return (
                   <div className="space-y-3">
@@ -1002,20 +1010,16 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                     <div className="flex items-end gap-5">
                       {crits.length > 0 && (
                         <div>
-                          <p className="text-[26px] font-black leading-none text-red-400">{crits.length}</p>
-                          <p className="text-[9px] font-bold uppercase tracking-widest text-red-400/50 mt-0.5">critical</p>
+                          <p className="text-[26px] font-black leading-none text-txt-primary">{crits.length}</p>
+                          <p className="text-[9px] font-bold uppercase tracking-widest text-red-400 mt-0.5">Critical</p>
                         </div>
                       )}
                       {depths.length > 0 && (
                         <div>
-                          <p className="text-[26px] font-black leading-none text-amber-400">{depths.length}</p>
-                          <p className="text-[9px] font-bold uppercase tracking-widest text-amber-400/50 mt-0.5">depth</p>
+                          <p className="text-[26px] font-black leading-none text-txt-primary">{depths.length}</p>
+                          <p className="text-[9px] font-bold uppercase tracking-widest text-amber-400 mt-0.5">Depth</p>
                         </div>
                       )}
-                      <div>
-                        <p className={`text-[26px] font-black leading-none ${allClear ? 'text-emerald-400' : 'text-slate-400'}`}>{nCovered}</p>
-                        <p className={`text-[9px] font-bold uppercase tracking-widest mt-0.5 ${allClear ? 'text-emerald-400/50' : 'text-slate-500'}`}>set</p>
-                      </div>
                     </div>
 
                     {/* Summary sentences */}
@@ -1048,14 +1052,14 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                 );
               })() : (
                 <button onClick={() => setView('analysis')} className="w-full rounded-lg px-3 py-3 border border-dashed border-slate-700 text-[11px] text-slate-500 hover:border-slate-500 hover:text-slate-400 transition-colors text-center">
-                  Open Program Outlook to generate position notes
+                  Open Program Outlook to generate position data
                 </button>
               )}
             </div>
 
             {/* ── RECRUITING PLAN ── */}
             {outlookSummary && (() => {
-              const POSITIONS = ['QB','HB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS'];
+              const POSITIONS = ['QB','HB','FB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','K','P'];
               // Build a flag lookup from Position Status data
               const flagMap = {};
               if (briefData?.outlookRows?.actionRows) {
@@ -1084,69 +1088,73 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                 <div className="px-4 pt-4 pb-4 border-b border-surface-4">
                   <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 mb-3">Recruiting Plan</p>
 
-                  {/* At-a-glance totals — sized to match Position Status above */}
-                  <div className="flex items-end gap-5 mb-4">
+                  {/* At-a-glance totals */}
+                  <div className="flex items-end gap-4 mb-3">
                     {totalHs > 0 && (
                       <div>
-                        <p className="text-[26px] font-black leading-none text-sky-400">{totalHs}</p>
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-sky-400/50 mt-0.5">HS Targets</p>
+                        <p className="text-[20px] font-black leading-none text-txt-primary">{totalHs}</p>
+                        <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5">HS Targets</p>
                       </div>
                     )}
                     {totalPortal > 0 && (
                       <div>
-                        <p className="text-[26px] font-black leading-none text-purple-400">{totalPortal}</p>
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-purple-400/50 mt-0.5">Portal</p>
+                        <p className="text-[20px] font-black leading-none text-txt-primary">{totalPortal}</p>
+                        <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5">Portal</p>
                       </div>
                     )}
                     <div>
-                      <p className="text-[26px] font-black leading-none text-slate-400">{rows.length}</p>
-                      <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">positions</p>
+                      <p className="text-[20px] font-black leading-none text-slate-400">{totalHs + totalPortal}</p>
+                      <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">Total</p>
                     </div>
+                    {rosterSummary?.returning != null && (
+                      <div className="ml-auto text-right">
+                        <p className="text-[20px] font-black leading-none text-slate-400">
+                          {rosterSummary.returning + (committedRecruits?.length ?? 0)}<span className="text-[13px] text-slate-600">/85</span>
+                        </p>
+                        <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">Proj. Roster</p>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="space-y-1.5">
-                    {rows.map((r, i) => {
-                      const isCritical = r.flag === 'critical';
-                      const isDepth    = r.flag === 'depth';
-                      const posColor   = isCritical ? 'text-red-400' : isDepth ? 'text-amber-400' : 'text-slate-300';
-                      const rowBg      = isCritical ? 'bg-red-950/20 border-red-900/40'
-                                        : isDepth    ? 'bg-amber-950/20 border-amber-900/40'
-                                        : 'bg-surface-3 border-surface-4';
-                      // Badge styles: critical → red tint, depth → amber tint, normal → sky/purple
-                      const hsBg    = isCritical ? 'bg-red-950 border-red-800 text-red-300'
-                                    : isDepth    ? 'bg-amber-950 border-amber-800 text-amber-300'
-                                    : 'bg-sky-950 border-sky-700 text-sky-300';
-                      const portalBg = isCritical ? 'bg-red-950 border-red-800 text-red-300'
-                                     : isDepth    ? 'bg-amber-950 border-amber-800 text-amber-300'
-                                     : 'bg-purple-950 border-purple-800 text-purple-300';
-                      return (
-                        <div key={i} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 border ${rowBg}`}>
-                          <span className={`text-sm font-display font-black tracking-wide w-9 shrink-0 ${posColor}`}>{r.pos}</span>
-                          <div className="flex items-center gap-1.5 flex-wrap flex-1">
-                            {r.hs > 0 && (
-                              <span className={`text-[11px] font-bold px-2.5 py-1 rounded-md border ${hsBg}`}>
-                                {r.targetName && !r.targetIsPortal ? r.targetName : `${r.hs} HS`}
-                              </span>
-                            )}
-                            {r.portal > 0 && (
-                              <span className={`text-[11px] font-bold px-2.5 py-1 rounded-md border ${portalBg}`}>
-                                {r.targetName && r.targetIsPortal ? r.targetName : `${r.portal} Portal`}
-                              </span>
-                            )}
-                          </div>
-                          {isCritical && <span className="text-[10px] font-black uppercase tracking-wide text-red-400 shrink-0">Critical</span>}
-                          {isDepth    && <span className="text-[10px] font-black uppercase tracking-wide text-amber-400 shrink-0">Depth</span>}
+                  {(() => {
+                    const OFF_POS = new Set(['QB','HB','FB','WR','TE','OT','OG','C']);
+                    const DEF_POS = new Set(['DE','DT','OLB','MIKE','CB','FS','SS']);
+                    const offRows = rows.filter(r => OFF_POS.has(r.pos));
+                    const defRows = rows.filter(r => DEF_POS.has(r.pos));
+                    const stRows  = rows.filter(r => !OFF_POS.has(r.pos) && !DEF_POS.has(r.pos));
+                    const col = (label, colRows) => colRows.length ? (
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[8px] font-black uppercase tracking-[0.12em] text-slate-600 mb-1.5">{label}</p>
+                        <div className="space-y-1">
+                          {colRows.map((r, i) => <RecruitingPlanRow key={i} {...r} />)}
                         </div>
-                      );
-                    })}
-                  </div>
+                      </div>
+                    ) : null;
+                    return (
+                      <div className="space-y-2">
+                        <div className="flex gap-3">
+                          {col('Offense', offRows)}
+                          {col('Defense', defRows)}
+                        </div>
+                        {stRows.length > 0 && (
+                          <div>
+                            <p className="text-[8px] font-black uppercase tracking-[0.12em] text-slate-600 mb-1.5">Special Teams</p>
+                            <div className="space-y-1">
+                              {stRows.map((r, i) => <RecruitingPlanRow key={i} {...r} />)}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })()}
 
             {/* ── RECENTLY FILED ── */}
-            {recruits.length > 0 && (() => {
-              const recent = [...recruits].sort((a, b) => b.addedIndex - a.addedIndex).slice(0, 3);
+            {databaseRecruits.length > 0 && (() => {
+              // Sort by recentRank descending — highest rank = most recently added to the database
+              const recent = [...databaseRecruits].sort((a, b) => (b.recentRank ?? 0) - (a.recentRank ?? 0)).slice(0, 3);
               return (
                 <div className="px-4 pt-3 pb-4 border-b border-surface-4">
                   <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-500 mb-2.5">Recently Filed</p>
@@ -1154,38 +1162,43 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                     {recent.map((r, i) => {
                       const showDev = r.devTrait && r.devTrait !== 'Hidden';
                       const score = Math.round(computeScore(r, weightsMap));
+                      // Same grade tiers + glows as Recruiting Database
                       const gradeTiers = [
-                        { grade: 'A+', min: 95, cls: 'text-emerald-200' },
-                        { grade: 'A',  min: 90, cls: 'text-emerald-300' },
-                        { grade: 'A-', min: 86, cls: 'text-emerald-400' },
-                        { grade: 'B+', min: 82, cls: 'text-sky-200' },
-                        { grade: 'B',  min: 78, cls: 'text-sky-300' },
-                        { grade: 'B-', min: 74, cls: 'text-sky-400' },
-                        { grade: 'C+', min: 70, cls: 'text-yellow-300' },
-                        { grade: 'C',  min: 66, cls: 'text-amber-300' },
-                        { grade: 'C-', min: 62, cls: 'text-amber-400' },
-                        { grade: 'D+', min: 58, cls: 'text-orange-300' },
-                        { grade: 'D',  min: 54, cls: 'text-orange-400' },
-                        { grade: 'D-', min: 50, cls: 'text-red-400' },
-                        { grade: 'F',  min: 0,  cls: 'text-red-400' },
+                        { grade: 'A+', min: 95, cls: 'bg-surface-3 border border-[#0E7A2A] text-[#3DD65A]' },
+                        { grade: 'A',  min: 90, cls: 'bg-surface-3 border border-[#0E7A2A] text-[#2FC44E]' },
+                        { grade: 'A-', min: 86, cls: 'bg-surface-3 border border-[#0A6020] text-[#22A83E]' },
+                        { grade: 'B+', min: 82, cls: 'bg-surface-3 border border-[#8B7A40] text-[#F5E8A0]' },
+                        { grade: 'B',  min: 78, cls: 'bg-surface-3 border border-[#8B7A40] text-[#DDD090]' },
+                        { grade: 'B-', min: 74, cls: 'bg-surface-3 border border-[#6E6030] text-[#C4B475]' },
+                        { grade: 'C+', min: 70, cls: 'bg-surface-3 border border-[#6B7275] text-[#D8E0E2]' },
+                        { grade: 'C',  min: 66, cls: 'bg-surface-3 border border-[#6B7275] text-[#BEC8CA]' },
+                        { grade: 'C-', min: 62, cls: 'bg-surface-3 border border-[#505558] text-[#A0A8AA]' },
+                        { grade: 'D+', min: 58, cls: 'bg-surface-3 border border-[#7F6533] text-[#DDB870]' },
+                        { grade: 'D',  min: 54, cls: 'bg-surface-3 border border-[#7F6533] text-[#C9A85C]' },
+                        { grade: 'D-', min: 50, cls: 'bg-surface-3 border border-[#664E25] text-[#A88040]' },
+                        { grade: 'F',  min: 0,  cls: 'bg-surface-3 border border-[#7F6533] text-[#C9A85C]' },
                       ];
                       const tier = gradeTiers.find(t => score >= t.min) ?? gradeTiers[gradeTiers.length - 1];
                       return (
-                        <div key={i} className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 bg-slate-800/40 border border-slate-700/40">
-                          <span className={`text-[8px] font-display font-black tracking-wide px-1.5 py-0.5 rounded shrink-0 ${r.isPortal ? 'bg-purple-950 border border-purple-800 text-purple-300' : 'bg-slate-700 border border-slate-600 text-slate-300'}`}>{r.position}</span>
+                        <div
+                          key={i}
+                          onClick={() => onViewDatabase && onViewDatabase(r.pid)}
+                          className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 bg-surface-3 border border-surface-4 transition-colors ${onViewDatabase ? 'cursor-pointer hover:bg-surface-4' : ''}`}
+                        >
+                          <span className="text-[8px] font-display font-black tracking-wide px-1.5 py-0.5 rounded shrink-0 bg-surface-4 border border-surface-5 text-txt-tertiary">{r.position}</span>
                           <span className="text-[11px] font-bold text-txt-primary truncate flex-1">{r.name}</span>
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className={`text-[9px] font-black tabular-nums text-slate-400`}>{score}</span>
-                            <span className={`text-[10px] font-black ${tier.cls}`}>{tier.grade}</span>
+                            <span className="text-[9px] font-black tabular-nums text-slate-400">{score}</span>
+                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${tier.cls}`}>{tier.grade}</span>
                             {showDev && (
                               <span className={`text-[7px] font-black uppercase tracking-wide px-1 py-0.5 rounded border ${
-                                r.devTrait === 'Elite' ? 'bg-yellow-950 border-yellow-700 text-yellow-400'
-                                : r.devTrait === 'Star' ? 'bg-sky-950 border-sky-700 text-sky-400'
-                                : r.devTrait === 'Impact' ? 'bg-emerald-950 border-emerald-700 text-emerald-400'
-                                : 'bg-slate-800 border-slate-600 text-slate-400'
+                                r.devTrait === 'Elite'  ? 'bg-surface-3 border-[#0E7A2A] text-[#2FC44E] shadow-[0_0_16px_rgba(14,122,42,0.85)]'
+                                : r.devTrait === 'Star'   ? 'bg-surface-3 border-[#8B7A40] text-[#DDD090] shadow-[0_0_14px_rgba(139,122,64,0.8)]'
+                                : r.devTrait === 'Impact' ? 'bg-surface-3 border-[#6B7275] text-[#BEC8CA]'
+                                : 'bg-surface-3 border-[#7F6533] text-[#C9A85C]'
                               }`}>{r.devTrait}</span>
                             )}
-                            {r.stars > 0 && <span className="text-[10px] font-bold text-amber-400">{r.stars}★</span>}
+                            {r.stars > 0 && <span className="text-[10px] font-bold text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.9)]">{r.stars}★</span>}
                           </div>
                         </div>
                       );

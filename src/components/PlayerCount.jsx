@@ -10,10 +10,10 @@ import { createStaffAccessor } from './staffDB';
 const POS_ORDER = ['QB','HB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','ATH'];
 
 const STAR_CONFIG = [
-  { key: '5', label: 'Five Star',  gradient: 'from-amber-500/20',  border: 'border-amber-500/30',  color: '#fbbf24' },
+  { key: '5', label: 'Five Star',  gradient: 'from-transparent',  border: 'border-surface-4',  color: '#fbbf24' },
   { key: '4', label: 'Four Star',  gradient: 'from-slate-300/10',  border: 'border-slate-600/40',  color: '#cbd5e1' },
-  { key: '3', label: 'Three Star', gradient: 'from-orange-600/10', border: 'border-orange-900/40', color: '#fb923c' },
-  { key: '2', label: 'Two Star',   gradient: 'from-teal-600/10',   border: 'border-teal-900/40',   color: '#2dd4bf' },
+  { key: '3', label: 'Three Star', gradient: 'from-transparent', border: 'border-surface-4', color: '#fb923c' },
+  { key: '2', label: 'Two Star',   gradient: 'from-transparent',   border: 'border-surface-4',   color: '#2dd4bf' },
   { key: '1', label: 'One Star',   gradient: 'from-slate-700/20',  border: 'border-slate-800',     color: '#64748b' },
 ];
 
@@ -152,9 +152,6 @@ export default function PlayerCount({ onBack }) {
               );
             })()}
             <p className="text-[6px] font-black uppercase tracking-[0.12em] mt-0.5 text-sky-400">National Scout</p>
-            <p className="text-[8px] text-white/55 italic leading-snug mt-1" style={{ textShadow: '0 1px 6px rgba(0,0,0,1)' }}>
-              {total} prospect{total !== 1 ? 's' : ''} on file
-            </p>
           </div>
         </div>
 
@@ -175,7 +172,7 @@ export default function PlayerCount({ onBack }) {
                   onChange={handleToggleIsolated}
                   className="w-3 h-3 accent-current"
                 />
-                Start from scratch (this dynasty only)
+                Reset Database (This Dynasty Only)
               </label>
             )}
             {onBack && (
