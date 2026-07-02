@@ -1,23 +1,78 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { createStaffAccessor } from './staffDB';
 import { archetypeBaseScore } from './archetypeWeights';
-import { buildRevealedPool, buildWeightsMap, predictDevTrait } from '../utils/devTraitLearning';
+import { buildRevealedPool, buildWeightsMap, predictDevTrait, getFormAttrs } from '../utils/devTraitLearning';
+import { ATTRIBUTE_ABBR } from '../utils/recruitAttributes';
+import { OPTIONS_REGISTRY } from './ScoutingReport';
+import GemBustIcon from './GemBustIcon';
+
+// Places the gem/bust icon at the diagonal right end of the name's actual
+// FIRST rendered line — whether that line ends up being the whole name (short
+// name, fits on one line) or just the first word (long name that wraps).
+// Text wrapping depends on the live column width, so we can't know which case
+// applies just from the string — render once, measure, and only re-anchor to
+// the first word if the browser actually wrapped it to a second line.
+function ProspectName({ name, gemBust }) {
+  const hiddenRef = useRef(null);
+  const [wrapped, setWrapped] = useState(false);
+  const splitAt = name.indexOf(' ');
+
+  // Range.getClientRects() returns one rect per visual line a run of content
+  // occupies — a direct, font/line-height-agnostic way to tell whether the
+  // name actually wrapped under the live column width. (An earlier version of
+  // this check compared el.offsetHeight against getComputedStyle(el).lineHeight,
+  // which silently breaks whenever line-height resolves to the non-numeric
+  // keyword "normal" instead of a pixel value — that's why the split-name
+  // anchor stopped working in the running app despite working in isolation.)
+  // The measurement runs against an invisible clone, kept separate from the
+  // visible markup below, so switching which branch is displayed can never
+  // invalidate what's being measured.
+  useLayoutEffect(() => {
+    const el = hiddenRef.current;
+    if (!el || splitAt === -1) return;
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const isWrapped = range.getClientRects().length > 1;
+    setWrapped(prev => (prev !== isWrapped ? isWrapped : prev));
+  });
+
+  if (splitAt === -1) {
+    return <span className="relative inline-block">{name}<GemBustIcon type={gemBust} /></span>;
+  }
+
+  const firstWord = name.slice(0, splitAt);
+  const rest = name.slice(splitAt);
+
+  return (
+    <span className="relative block">
+      <span ref={hiddenRef} aria-hidden="true" className="invisible absolute inset-0 pointer-events-none">{name}</span>
+      {wrapped ? (
+        <>
+          <span className="relative inline-block">{firstWord}<GemBustIcon type={gemBust} /></span>
+          {rest}
+        </>
+      ) : (
+        <span className="relative inline-block">{name}<GemBustIcon type={gemBust} /></span>
+      )}
+    </span>
+  );
+}
 
 // ── Grade tier definitions ───────────────────────────────────────────────────
 const GRADE_TIERS = [
-  { grade: 'A+', min: 95, badgeCls: 'bg-surface-3 border-[#0E7A2A] text-[#3DD65A]' },
-  { grade: 'A',  min: 90, badgeCls: 'bg-surface-3 border-[#0E7A2A] text-[#2FC44E]' },
-  { grade: 'A-', min: 86, badgeCls: 'bg-surface-3 border-[#0A6020] text-[#22A83E]' },
-  { grade: 'B+', min: 82, badgeCls: 'bg-surface-3 border-[#8B7A40] text-[#F5E8A0]' },
-  { grade: 'B',  min: 78, badgeCls: 'bg-surface-3 border-[#8B7A40] text-[#DDD090]' },
-  { grade: 'B-', min: 74, badgeCls: 'bg-surface-3 border-[#6E6030] text-[#C4B475]' },
-  { grade: 'C+', min: 70, badgeCls: 'bg-surface-3 border-[#6B7275] text-[#D8E0E2]' },
-  { grade: 'C',  min: 66, badgeCls: 'bg-surface-3 border-[#6B7275] text-[#BEC8CA]' },
-  { grade: 'C-', min: 62, badgeCls: 'bg-surface-3 border-[#505558] text-[#A0A8AA]' },
-  { grade: 'D+', min: 58, badgeCls: 'bg-surface-3 border-[#7F6533] text-[#DDB870]' },
-  { grade: 'D',  min: 54, badgeCls: 'bg-surface-3 border-[#7F6533] text-[#C9A85C]' },
-  { grade: 'D-', min: 50, badgeCls: 'bg-surface-3 border-[#664E25] text-[#A88040]' },
-  { grade: 'F',  min: 0,  badgeCls: 'bg-surface-3 border-[#7F6533] text-[#C9A85C]' },
+  { grade: 'A+', min: 95, badgeCls: 'bg-surface-3 border-[#0F9D3E] text-[#3DFF7F]' },
+  { grade: 'A',  min: 90, badgeCls: 'bg-surface-3 border-[#0E7A2A] text-[#22E065]' },
+  { grade: 'A-', min: 86, badgeCls: 'bg-surface-3 border-[#0B6420] text-[#17C454]' },
+  { grade: 'B+', min: 82, badgeCls: 'bg-surface-3 border-[#B8860B] text-[#FFDD33]' },
+  { grade: 'B',  min: 78, badgeCls: 'bg-surface-3 border-[#9C7209] text-[#FFD100]' },
+  { grade: 'B-', min: 74, badgeCls: 'bg-surface-3 border-[#7A5C08] text-[#E8B923]' },
+  { grade: 'C+', min: 70, badgeCls: 'bg-surface-3 border-[#9BA7AF] text-[#F0F5F7]' },
+  { grade: 'C',  min: 66, badgeCls: 'bg-surface-3 border-[#7C8991] text-[#D6DEE2]' },
+  { grade: 'C-', min: 62, badgeCls: 'bg-surface-3 border-[#606B73] text-[#AEB7BC]' },
+  { grade: 'D+', min: 58, badgeCls: 'bg-surface-3 border-[#B35900] text-[#FF9F40]' },
+  { grade: 'D',  min: 54, badgeCls: 'bg-surface-3 border-[#8C5524] text-[#CD7F32]' },
+  { grade: 'D-', min: 50, badgeCls: 'bg-surface-3 border-[#7A4210] text-[#C86A1E]' },
+  { grade: 'F',  min: 0,  badgeCls: 'bg-surface-3 border-[#8C5524] text-[#CD7F32]' },
 ];
 
 // ── Grading constants ────────────────────────────────────────────────────────
@@ -542,9 +597,9 @@ function GradeModal({ player, allPlayers, weightsMap, onClose }) {
               {hidden
                 ? <span className="text-slate-500 italic">Dev Trait Hidden</span>
                 : <span className={
-                    player.devTrait === 'Elite'  ? 'text-[#CFA6D8] font-black' :
-                    player.devTrait === 'Star'   ? 'text-[#C4B880] font-bold' :
-                    player.devTrait === 'Impact' ? 'text-[#BEC8CA] font-bold' :
+                    player.devTrait === 'Elite'  ? 'text-[#D89EFF] font-black' :
+                    player.devTrait === 'Star'   ? 'text-[#FFD100] font-bold' :
+                    player.devTrait === 'Impact' ? 'text-[#D6DEE2] font-bold' :
                     'text-slate-400'
                   }>{player.devTrait} Dev</span>
               }
@@ -705,34 +760,87 @@ function EditModal({ player, pool, weightsMap, onSave, onClose }) {
     position: player.position,
     archetype: player.archetype,
     devTrait: player.devTrait || 'Hidden',
+    gemBust: player.gemBust || '',
     stars: player.stars,
-    attributes: { ...player.attributes },
+    // A superset of every attribute value ever entered in this session — kept
+    // separate from what's currently DISPLAYED so cycling archetypes back and
+    // forth never permanently discards a value. Only the fields relevant to
+    // the current position+archetype are shown (see visibleAttrKeys below),
+    // but switching away and back just changes which subset is visible; the
+    // underlying values for a temporarily-hidden field are still sitting here.
+    allAttributes: { ...player.attributes },
   });
 
   const setField = (field, val) => setForm(f => ({ ...f, [field]: val }));
-  const setAttr  = (key, val)   => setForm(f => ({ ...f, attributes: { ...f.attributes, [key]: val } }));
+  const setAttr  = (key, val)   => setForm(f => ({ ...f, allAttributes: { ...f.allAttributes, [key]: val } }));
+
+  // Archetype choices are position-specific — same registry ScoutingReport's
+  // add-prospect form uses, so Edit stays consistent with how a player would
+  // have been entered fresh.
+  const availableArchetypes = useMemo(
+    () => OPTIONS_REGISTRY.find(item => item.position === form.position)?.archetypes || [],
+    [form.position]
+  );
+  const visibleAttrKeys = useMemo(
+    () => getFormAttrs(form.position, form.archetype),
+    [form.position, form.archetype]
+  );
+  const setPosition = (pos) => {
+    const opts = OPTIONS_REGISTRY.find(item => item.position === pos)?.archetypes || [];
+    setForm(f => ({ ...f, position: pos, archetype: opts.includes(f.archetype) ? f.archetype : (opts[0] || f.archetype) }));
+  };
+  const setArchetype = (arch) => {
+    setForm(f => ({ ...f, archetype: arch }));
+  };
+
+  // The subset of allAttributes relevant to the CURRENTLY selected position +
+  // archetype — this is what's shown, scored, and ultimately saved. Reading
+  // through allAttributes (rather than storing this subset directly) is what
+  // lets cycling back to a previous archetype restore values that were
+  // temporarily hidden while a different archetype was selected.
+  const visibleAttrs = useMemo(() => {
+    const obj = {};
+    visibleAttrKeys.forEach(k => { obj[k] = form.allAttributes[k] ?? ''; });
+    return obj;
+  }, [visibleAttrKeys, form.allAttributes]);
 
   // Nearest-centroid suggestion from revealed HS recruits at this archetype+star
   // — only meaningful while the real dev trait isn't locked in yet.
   const prediction = useMemo(() => {
     if (form.devTrait !== 'Hidden' || !form.position || !form.archetype) return null;
-    const numericAttrs = Object.fromEntries(Object.entries(form.attributes).map(([k, v]) => [k, parseInt(v, 10) || 0]));
+    const numericAttrs = Object.fromEntries(Object.entries(visibleAttrs).map(([k, v]) => [k, parseInt(v, 10) || 0]));
     return predictDevTrait(pool, form.position, form.archetype, String(form.stars), numericAttrs, weightsMap);
-  }, [pool, weightsMap, form.devTrait, form.position, form.archetype, form.stars, form.attributes]);
+  }, [pool, weightsMap, form.devTrait, form.position, form.archetype, form.stars, visibleAttrs]);
 
-  const handleSave = () => {
+  // Live grade/score preview — recomputed from the in-progress form state so
+  // editing attributes or dev trait visibly moves the grade before saving,
+  // instead of only updating once the modal closes and the table re-renders.
+  const liveScore = useMemo(() => {
+    const numericAttrs = Object.fromEntries(Object.entries(visibleAttrs).map(([k, v]) => [k, parseInt(v, 10) || 0]));
+    return computeScore({ position: form.position, archetype: form.archetype, devTrait: form.devTrait, stars: form.stars, attributes: numericAttrs }, weightsMap);
+  }, [weightsMap, form.position, form.archetype, form.devTrait, form.stars, visibleAttrs]);
+  const liveTier = useMemo(() => getGradeTier(liveScore), [liveScore]);
+
+  const [saving, setSaving] = useState(false);
+  const handleSave = async () => {
     const updated = {
       ...player,
       name:      form.name.trim(),
       position:  form.position,
       archetype: form.archetype.trim(),
       devTrait:  form.devTrait,
+      gemBust:   form.gemBust,
       stars:     form.stars,
       group:     form.position === 'ATH' ? 'Athlete Pipeline' : ['QB','HB','WR','TE','OT','OG','C'].includes(form.position) ? 'Offense' : 'Defense',
-      attributes: Object.fromEntries(Object.entries(form.attributes).map(([k, v]) => [k, parseInt(v, 10) || 0])),
+      attributes: Object.fromEntries(Object.entries(visibleAttrs).map(([k, v]) => [k, parseInt(v, 10) || 0])),
     };
-    onSave(updated);
-    onClose();
+    setSaving(true);
+    // onSave resolves false (and shows its own error toast) if the write
+    // failed — keep the modal open with the user's edits intact so nothing
+    // is lost and they can just retry, instead of closing on a failed save.
+    const ok = await onSave(updated);
+    setSaving(false);
+    if (ok !== false) onClose();
   };
 
   return (
@@ -746,12 +854,23 @@ function EditModal({ player, pool, weightsMap, onSave, onClose }) {
         style={{ maxHeight: 'calc(100dvh - var(--app-header-height, 64px) * 2)' }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+        <div className="p-5 border-b border-surface-4 flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-0.5">Edit Prospect</p>
-            <h2 className="text-lg font-black text-white">{player.name}</h2>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Edit Prospect</p>
+            {/* Same name+icon markup as the database row/Recently Filed, bound to the
+                live form state — so the icon's position here is guaranteed to match
+                exactly what saving will produce, instead of a bare name with no preview. */}
+            <h2 className="text-lg font-black text-white">
+              <ProspectName name={form.name} gemBust={form.gemBust} />
+            </h2>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-white transition text-lg font-bold">✕</button>
+          <div className="flex items-center gap-3">
+            <div className="inline-flex flex-col items-center gap-0.5" title="Live grade — updates as you edit">
+              <span className={`font-black tracking-wide text-xs px-2 py-0.5 rounded border ${liveTier.badgeCls}`}>{liveTier.grade}</span>
+              <span className="text-[9px] tabular-nums text-slate-500">{liveScore.toFixed(1)}</span>
+            </div>
+            <button onClick={onClose} className="text-slate-500 hover:text-white transition text-lg font-bold">✕</button>
+          </div>
         </div>
 
         <div className="p-5 space-y-5">
@@ -765,15 +884,15 @@ function EditModal({ player, pool, weightsMap, onSave, onClose }) {
                   type="text"
                   value={form.name}
                   onChange={e => setField('name', e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 text-xs p-2.5 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
+                  className="w-full bg-surface-3 border border-surface-4 text-xs p-2.5 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-surface-5 transition"
                 />
               </div>
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Position</label>
                 <select
                   value={form.position}
-                  onChange={e => setField('position', e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 text-xs p-2.5 rounded-lg text-white focus:outline-none focus:border-emerald-500 transition"
+                  onChange={e => setPosition(e.target.value)}
+                  className="w-full bg-surface-3 border border-surface-4 text-xs p-2.5 rounded-lg text-white focus:outline-none focus:border-surface-5 transition"
                 >
                   {POSITIONS_LIST.map(pos => <option key={pos} value={pos}>{pos}</option>)}
                 </select>
@@ -783,7 +902,7 @@ function EditModal({ player, pool, weightsMap, onSave, onClose }) {
                 <select
                   value={form.stars}
                   onChange={e => setField('stars', e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 text-xs p-2.5 rounded-lg text-white focus:outline-none focus:border-emerald-500 transition"
+                  className="w-full bg-surface-3 border border-surface-4 text-xs p-2.5 rounded-lg text-white focus:outline-none focus:border-surface-5 transition"
                 >
                   {['5','4','3','2','1'].map(s => <option key={s} value={s}>{s} Star</option>)}
                 </select>
@@ -793,24 +912,40 @@ function EditModal({ player, pool, weightsMap, onSave, onClose }) {
                 <select
                   value={form.devTrait}
                   onChange={e => setField('devTrait', e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 text-xs p-2.5 rounded-lg text-white focus:outline-none focus:border-emerald-500 transition"
+                  className="w-full bg-surface-3 border border-surface-4 text-xs p-2.5 rounded-lg text-white focus:outline-none focus:border-surface-5 transition"
                 >
                   {DEV_TRAITS.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
                 {prediction && (
-                  <p className="text-[9px] text-emerald-400 mt-1">
+                  <p className="text-[9px] text-txt-secondary mt-1">
                     Predicted: {prediction.closest} (closest match · {prediction.availableGroups} group{prediction.availableGroups !== 1 ? 's' : ''} of data, n={prediction.n})
                   </p>
                 )}
               </div>
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Archetype</label>
-                <input
-                  type="text"
+                <select
                   value={form.archetype}
-                  onChange={e => setField('archetype', e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 text-xs p-2.5 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
-                />
+                  onChange={e => setArchetype(e.target.value)}
+                  className="w-full bg-surface-3 border border-surface-4 text-xs p-2.5 rounded-lg text-white focus:outline-none focus:border-surface-5 transition"
+                >
+                  {!availableArchetypes.includes(form.archetype) && form.archetype && (
+                    <option value={form.archetype}>{form.archetype}</option>
+                  )}
+                  {availableArchetypes.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Gem/Bust</label>
+                <select
+                  value={form.gemBust}
+                  onChange={e => setField('gemBust', e.target.value)}
+                  className="w-full bg-surface-3 border border-surface-4 text-xs p-2.5 rounded-lg text-white focus:outline-none focus:border-surface-5 transition"
+                >
+                  <option value="">None</option>
+                  <option value="Gem">Gem</option>
+                  <option value="Bust">Bust</option>
+                </select>
               </div>
             </div>
           </section>
@@ -819,16 +954,16 @@ function EditModal({ player, pool, weightsMap, onSave, onClose }) {
           <section>
             <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Attributes</h3>
             <div className="grid grid-cols-2 gap-2">
-              {Object.entries(form.attributes).map(([key, val]) => (
-                <div key={key} className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2">
-                  <label className="text-[10px] text-slate-400 flex-1 truncate">{key}</label>
+              {Object.entries(visibleAttrs).map(([key, val]) => (
+                <div key={key} className="flex items-center gap-2 bg-surface-3 border border-surface-4 rounded-lg px-3 py-2">
+                  <label className="text-[10px] uppercase text-slate-400 flex-1 truncate">{key}</label>
                   <input
                     type="number"
                     min="0"
                     max="99"
                     value={val}
                     onChange={e => setAttr(key, e.target.value)}
-                    className="w-14 bg-slate-950 border border-slate-700 text-xs p-1.5 rounded text-white text-center font-bold focus:outline-none focus:border-emerald-500 transition"
+                    className="w-14 bg-surface-4 border border-surface-5 text-xs p-1.5 rounded text-white text-center font-bold focus:outline-none focus:border-surface-5 transition"
                   />
                 </div>
               ))}
@@ -839,9 +974,10 @@ function EditModal({ player, pool, weightsMap, onSave, onClose }) {
         <div className="px-5 pb-5 flex gap-3">
           <button
             onClick={handleSave}
-            className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-xs font-black text-white transition"
+            disabled={saving}
+            className="flex-1 py-2.5 bg-surface-4 hover:bg-surface-5 disabled:opacity-60 disabled:cursor-not-allowed border border-surface-5 rounded-lg text-xs font-black text-white transition"
           >
-            Save Changes
+            {saving ? 'Saving…' : 'Save Changes'}
           </button>
           <button
             onClick={onClose}
@@ -879,12 +1015,15 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     loadScout();
   }, []);
 
-  // Auto-select and scroll to a specific player when navigated here via a link.
+  // Surface a specific player when navigated here via a link (e.g. Recently
+  // Filed, Actively Targeting, Removed) — drop their name into the search bar
+  // so the table filters straight down to them, rather than popping their
+  // report open unasked.
   useEffect(() => {
     if (!highlightPid || !players.length) return;
     const match = players.find(pl => String(pl.pid) === String(highlightPid));
     if (match) {
-      setSelectedPlayer(match);
+      setSearchQuery(match.name);
       // Slight delay so the row ref is rendered before we scroll
       setTimeout(() => {
         const el = rowRefs.current[highlightPid];
@@ -936,12 +1075,12 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     const active = sortConfig.key === sortKey;
     return (
       <th
-        className={`p-3.5 cursor-pointer select-none hover:text-white transition-colors ${active ? 'text-emerald-400' : ''} ${className}`}
+        className={`px-2 py-3.5 cursor-pointer select-none hover:text-white transition-colors overflow-hidden ${className}`}
         onClick={() => toggleSort(sortKey)}
       >
-        <span className="inline-flex items-center gap-1">
-          {children}
-          <span className="text-[8px] opacity-60">
+        <span className="inline-flex items-center gap-1 max-w-full overflow-hidden whitespace-nowrap">
+          <span className="truncate">{children}</span>
+          <span className="text-[8px] opacity-60 shrink-0">
             {active ? (sortConfig.dir === 'desc' ? '▼' : '▲') : '⇅'}
           </span>
         </span>
@@ -994,10 +1133,10 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
       </div>
 
       {/* Analyst identity + filters row */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start">
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch">
 
         {/* Scout portrait card */}
-        <div className="relative rounded-xl overflow-hidden shadow-xl w-full h-32 sm:w-[110px] sm:h-[130px] sm:flex-shrink-0">
+        <div className="relative rounded-xl overflow-hidden shadow-xl w-full h-32 sm:w-[110px] sm:h-[100px] sm:flex-shrink-0">
           {scoutImg ? (
             <img src={scoutImg} alt="National Scout" className="absolute inset-0 w-full h-full object-cover object-top" />
           ) : (
@@ -1026,7 +1165,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
         <div className="flex-1 space-y-3 min-w-0">
 
           {/* Search + position filters */}
-          <div className="rounded-xl p-3.5 space-y-2.5 bg-surface-2 border border-surface-4">
+          <div className="rounded-xl p-3.5 space-y-2.5 bg-surface-2 border border-surface-4 sm:h-[100px]">
             <input
               type="text"
               placeholder="Search prospect name or archetype..."
@@ -1054,8 +1193,21 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
 
       {/* Table */}
       <div className="rounded-xl overflow-hidden bg-surface-2 border border-surface-4">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        <div className="overflow-hidden">
+          <table className="w-full table-fixed text-left border-collapse">
+            <colgroup>
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '11%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '12%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '7%' }} />
+              <col style={{ width: '14%' }} />
+              <col style={{ width: '4%' }} />
+            </colgroup>
             <thead>
               <tr className="text-[10px] font-semibold uppercase tracking-widest text-txt-tertiary bg-surface-3 border-b border-surface-4">
                 <SortTh sortKey="recency">Recent</SortTh>
@@ -1067,14 +1219,14 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                 <SortTh sortKey="stars" className="text-center">Stars</SortTh>
                 <SortTh sortKey="dev">Dev</SortTh>
                 <SortTh sortKey="gpa" className="text-center">GPA</SortTh>
-                <th className="p-3.5 text-slate-500">Attributes</th>
-                <th className="p-3.5 w-8"></th>
+                <th className="px-2 py-3.5 text-slate-500">Attributes</th>
+                <th className="px-2 py-3.5"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-4 text-xs">
               {filteredPlayers.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="p-12 text-center text-txt-tertiary text-xs">
+                  <td colSpan={11} className="p-12 text-center text-txt-tertiary text-xs">
                     {players.length === 0
                       ? 'No scouting logs found. Add freshman targets via the Recruiting page.'
                       : 'No prospects matching active filters.'}
@@ -1086,6 +1238,13 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                   const tier  = getGradeTier(score);
                   const { gpa } = generateAcademic(pl);
                   const hiddenDev = isHiddenDev(pl.devTrait);
+                  const formOrder = getFormAttrs(pl.position, pl.archetype);
+                  const orderedAttrs = formOrder.length
+                    ? [
+                        ...formOrder.filter(k => pl.attributes[k] != null).map(k => [k, pl.attributes[k]]),
+                        ...Object.entries(pl.attributes).filter(([k]) => !formOrder.includes(k)),
+                      ]
+                    : Object.entries(pl.attributes);
                   return (
                     <tr
                       key={i}
@@ -1093,25 +1252,25 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                       onClick={() => setSelectedPlayer(pl)}
                       className={`transition group cursor-pointer border-b border-surface-4 hover:bg-surface-3 ${String(pl.pid) === String(highlightPid) ? 'bg-surface-3' : ''}`}
                     >
-                      <td className="p-3.5 text-center text-[10px] tabular-nums text-txt-tertiary">{pl.recentRank ?? (pl.addedIndex != null ? pl.addedIndex + 1 : '—')}</td>
-                      <td className="p-3.5 font-semibold text-txt-secondary group-hover:text-txt-primary transition">
-                        {pl.name}
+                      <td className="px-2 py-3.5 text-center text-[10px] tabular-nums text-txt-tertiary overflow-hidden">{pl.recentRank ?? (pl.addedIndex != null ? pl.addedIndex + 1 : '—')}</td>
+                      <td className="px-2 py-3.5 font-semibold text-txt-secondary group-hover:text-txt-primary transition overflow-hidden">
+                        <ProspectName name={pl.name} gemBust={pl.gemBust} />
                       </td>
-                      <td className="p-3.5 text-center">
+                      <td className="px-2 py-3.5 text-center overflow-hidden">
                         <div className="inline-flex flex-col items-center gap-0.5">
                           <span className={`font-black tracking-wide text-xs px-2 py-0.5 rounded border ${tier.badgeCls}`}>{tier.grade}</span>
                           <span className="text-[9px] tabular-nums text-slate-600">{score.toFixed(1)}</span>
                         </div>
                       </td>
-                      <td className="p-3.5 uppercase font-semibold text-txt-tertiary text-[10px] tracking-wider">{pl.group}</td>
-                      <td className="p-3.5">
+                      <td className="px-2 py-3.5 uppercase font-semibold text-txt-tertiary text-[10px] tracking-wider overflow-hidden truncate">{pl.group}</td>
+                      <td className="px-2 py-3.5 overflow-hidden">
                         <span className="px-2 py-0.5 rounded text-[10px] font-black text-txt-tertiary bg-surface-4 border border-surface-4">
                           {pl.position}
                         </span>
                       </td>
-                      <td className="p-3.5 text-txt-secondary font-medium">{pl.archetype}</td>
-                      <td className="p-3.5 text-center font-black text-amber-400 tracking-wide">{pl.stars}★</td>
-                      <td className="p-3.5" onClick={e => e.stopPropagation()}>
+                      <td className="px-2 py-3.5 text-txt-secondary font-medium overflow-hidden">{pl.archetype}</td>
+                      <td className="px-2 py-3.5 text-center font-black text-amber-400 tracking-wide overflow-hidden">{pl.stars}★</td>
+                      <td className="px-2 py-3.5 overflow-hidden" onClick={e => e.stopPropagation()}>
                         {editingDevFor === pl ? (
                           <select
                             autoFocus
@@ -1127,32 +1286,32 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                             onClick={() => setEditingDevFor(pl)}
                             title="Click to update dev trait"
                             className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer hover:ring-1 hover:ring-emerald-600/60 transition ${
-                              pl.devTrait === 'Elite'  ? 'bg-surface-3 border border-[#0E7A2A] text-[#2FC44E] shadow-[0_0_16px_rgba(14,122,42,0.85)]' :
-                              pl.devTrait === 'Star'   ? 'bg-surface-3 border border-[#8B7A40] text-[#DDD090] shadow-[0_0_14px_rgba(139,122,64,0.8)]' :
-                              pl.devTrait === 'Impact' ? 'bg-surface-3 border border-[#6B7275] text-[#BEC8CA]' :
-                              pl.devTrait === 'Normal' ? 'bg-surface-3 border border-[#7F6533] text-[#C9A85C]' :
+                              pl.devTrait === 'Elite'  ? 'bg-surface-3 border border-[#0E7A2A] text-[#22E065] shadow-[0_0_16px_rgba(14,122,42,0.85)]' :
+                              pl.devTrait === 'Star'   ? 'bg-surface-3 border border-[#9C7209] text-[#FFD100] shadow-[0_0_14px_rgba(156,114,9,0.8)]' :
+                              pl.devTrait === 'Impact' ? 'bg-surface-3 border border-[#7C8991] text-[#D6DEE2]' :
+                              pl.devTrait === 'Normal' ? 'bg-surface-3 border border-[#8C5524] text-[#CD7F32]' :
                                                          'bg-slate-950 border border-slate-700 text-slate-600 italic'
                             }`}>
                             {hiddenDev ? 'HIDDEN' : pl.devTrait.toUpperCase()}
                           </span>
                         )}
                       </td>
-                      <td className="p-3.5 text-center">
+                      <td className="px-2 py-3.5 text-center overflow-hidden">
                         <span className={'text-xs font-bold text-txt-tertiary'}>{gpa}</span>
                       </td>
-                      <td className="p-3.5 tabular-nums text-[10px] text-txt-tertiary max-w-sm">
-                        <div className="flex flex-wrap gap-1">
-                          {Object.entries(pl.attributes).map(([key, val]) => (
-                            <span key={key} className="px-1.5 py-0.5 rounded text-txt-secondary shrink-0 bg-surface-3 border border-surface-4">
-                              <strong className="text-txt-tertiary font-normal mr-0.5">{key}:</strong>{val}
+                      <td className="px-2 py-3.5 tabular-nums text-[10px] text-txt-tertiary overflow-hidden">
+                        <div className="grid grid-flow-col grid-rows-5 auto-cols-max gap-x-1 gap-y-1">
+                          {orderedAttrs.map(([key, val]) => (
+                            <span key={key} title={key} className="px-1 py-0.5 rounded text-txt-secondary whitespace-nowrap bg-surface-3 border border-surface-4">
+                              <strong className="text-txt-tertiary font-normal mr-px">{ATTRIBUTE_ABBR[key] || key}:</strong>{val}
                             </span>
                           ))}
                         </div>
                       </td>
-                      <td className="p-3.5 text-center" onClick={e => e.stopPropagation()}>
+                      <td className="py-3.5 px-1 text-center overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-1 justify-center opacity-0 group-hover:opacity-100 transition">
                           {onEdit && (
-                            <button onClick={() => setEditingPlayer(pl)} className="p-1.5 rounded text-slate-600 hover:text-sky-400 hover:bg-surface-3 transition" title="Edit prospect">
+                            <button onClick={() => setEditingPlayer(pl)} className="p-1.5 rounded text-slate-600 hover:text-txt-primary hover:bg-surface-3 transition" title="Edit prospect">
                               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
                                 <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
                               </svg>

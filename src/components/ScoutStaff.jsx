@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { createStaffAccessor } from './staffDB';
 import FrontPage from './ScoutStaffFrontPage';
@@ -11,6 +11,7 @@ import { flattenClassCommitments } from '../utils/recruitingScore';
 import { positionBucket } from '../utils/recruitAttributes';
 import { useTeamColors } from '../hooks/useTeamColors';
 import { getSiblingScoutedPlayers } from '../utils/sharedRecruitingDb';
+import { useToast } from './ui';
 
 // Shapes a raw dynasty.players record into the grading-ready recruit shape Scout Staff uses.
 // sourceDynastyId + pid together form a globally unique identity — pid alone is only a
@@ -28,6 +29,7 @@ function shapeRecruit(pl, addedIndex, sourceDynastyId) {
     position,
     archetype: pl.archetype || '',
     devTrait: pl.devTrait || '',
+    gemBust: pl.gemBust || '',
     stars: pl.stars,
     attributes: pl.attributes || {},
     group,
@@ -40,27 +42,102 @@ function shapeRecruit(pl, addedIndex, sourceDynastyId) {
   };
 }
 
+// Module-scoped (not component state): stays true for the lifetime of this
+// page load once Scout Staff has mounted, and resets to false only on a real
+// browser reload — see the subView/dbHighlightPid initializers below.
+let scoutStaffHydrated = false;
+
 export default function ScoutStaff({ year } = {}) {
   const { currentDynasty, dynasties, getDynastyPlayers, updateDynasty, updatePlayer, isViewOnly } = useDynasty();
+  const { toast } = useToast();
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams);
   const teamLogo   = currentDynasty?.teams?.[currentDynasty?.currentTid]?.logo || '';
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // A page refresh or first visit should always land on the home hub — never
+  // silently reopen a player card because a stale ?view=/&pid= was still
+  // sitting in the address bar from a previous visit. Internal navigation
+  // within an already-mounted Scout Staff (e.g. clicking a prospect from
+  // Actively Targeting) still needs those params to work, so we only ignore
+  // them on the very first mount of a fresh page load — tracked with a
+  // module-level flag that resets whenever the page itself reloads.
   const [subView, setSubView] = useState(() => {
+    if (!scoutStaffHydrated) return 'home';
     const v = searchParams.get('view');
-    return v === 'database' || v === 'thresholds' || v === 'analysis' ? v : 'home';
+    return v === 'database' || v === 'thresholds' || v === 'analysis' || v === 'counts' ? v : 'home';
   });
-  const [dbHighlightPid, setDbHighlightPid] = useState(searchParams.get('pid') ?? null);
+  const [dbHighlightPid, setDbHighlightPid] = useState(() => (
+    scoutStaffHydrated ? (searchParams.get('pid') ?? null) : null
+  ));
   const highlightPid = dbHighlightPid;
+
+  useEffect(() => {
+    scoutStaffHydrated = true;
+  }, []);
 
   const openDatabase = (pid) => {
     setDbHighlightPid(pid ?? null);
     setSubView('database');
   };
-  // outlookSummary is populated entirely by the live onOutlookReady callback from
-  // ScoutAnalysis — never from stale staffDB data, which caused a visible flash of
-  // wrong numbers on every Scout Staff load.
+
+  // subView/dbHighlightPid above only seed from the URL once, at mount. If
+  // ScoutStaff is already mounted (e.g. the user is sitting on Program Outlook)
+  // and something navigates here again with new ?view=/&pid= params — like
+  // clicking a prospect name in Actively Targeting — those lazy initializers
+  // never re-run, so the visible subView silently stayed put even though the
+  // URL changed. Mirror the URL on every change instead of just on mount. The
+  // very first firing (at mount) is skipped so it doesn't immediately undo the
+  // fresh-load reset above by re-reading whatever stale params were already
+  // sitting in the URL.
+  const skippedFirstSearchParamsSync = useRef(false);
+  useEffect(() => {
+    if (!skippedFirstSearchParamsSync.current) {
+      skippedFirstSearchParamsSync.current = true;
+      return;
+    }
+    const v = searchParams.get('view');
+    if (v === 'database' || v === 'thresholds' || v === 'analysis' || v === 'counts') {
+      setSubView(v);
+    }
+    const pid = searchParams.get('pid');
+    if (pid) setDbHighlightPid(pid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Mirror subView/dbHighlightPid back into the URL as real history entries so
+  // the native browser/OS swipe-back gesture works within Scout Staff the same
+  // way it already does on the rest of the site. Params are omitted entirely
+  // when at their default so a refresh (which ignores stale params anyway,
+  // see above) can't reopen anything unexpected.
+  useEffect(() => {
+    const wantView = subView === 'home' ? null : subView;
+    const wantPid  = subView === 'database' ? dbHighlightPid : null;
+    if (searchParams.get('view') === wantView && searchParams.get('pid') === wantPid) return;
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (wantView) next.set('view', wantView); else next.delete('view');
+      if (wantPid)  next.set('pid', wantPid);   else next.delete('pid');
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subView, dbHighlightPid]);
+  // outlookSummary is populated by the live onOutlookReady callback from
+  // ScoutAnalysis. That callback only fires once every staffDB-backed config
+  // it depends on has finished loading (see ScoutAnalysis's strategiesLoaded
+  // gate), so it's always correct — but it's still async, which left a brief
+  // empty Daily Brief on every mount. localStorage is synchronous, so we seed
+  // from the last confirmed-correct result for THIS dynasty immediately, then
+  // let the live computation silently replace it once it resolves.
   const [outlookSummary, setOutlookSummary] = useState(null);
   const dynastyId = currentDynasty?.id ?? null;
+  const cachedOutlookSummary = useMemo(() => {
+    if (!dynastyId) return null;
+    try {
+      const raw = localStorage.getItem(`cfb_outlook_summary_${dynastyId}`);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }, [dynastyId]);
   const dbIsolated = !!currentDynasty?.recruitingDbIsolated;
 
   // Sub-navigation doesn't change the URL, so the route-level ScrollToTop never
@@ -90,6 +167,20 @@ export default function ScoutStaff({ year } = {}) {
   // Active board — excludes anything removed via the Targets tab's remove toggle. Drives
   // Program Outlook and Threshold Lookup, scoped to this dynasty's current class only.
   const boardRecruits = useMemo(() => recruits.filter(r => !r.boardRemoved), [recruits]);
+  // The other half of the same split — feeds Program Outlook's "Removed" section so it
+  // mirrors the Targets tab's Big Board/Removed view exactly (same boardRemoved field).
+  const removedBoardRecruits = useMemo(() => recruits.filter(r => r.boardRemoved), [recruits]);
+
+  // Toggles a recruit's boardRemoved flag — identical to ScoutBoard.jsx's own
+  // handleToggleRemove, so Program Outlook's targeting toggle and the Targets
+  // tab always agree (same dynasty field, same write path). `recruits` here is
+  // scoped to this dynasty only (no sibling merge), so no cross-dynasty case.
+  const handleToggleBoardRemoved = async (pl) => {
+    if (!currentDynasty || isViewOnly) return;
+    const players = currentDynasty.players || [];
+    const newPlayers = players.map(p => p.pid === pl.pid ? { ...p, boardRemoved: !p.boardRemoved } : p);
+    await updateDynasty(currentDynasty.id, { players: newPlayers }, { changedPlayerPids: [pl.pid] });
+  };
 
   // Cross-dynasty scouted players (other non-isolated dynasties this user owns), pulled in
   // for the Recruiting Database view only — not year-scoped, since "year" numbering isn't
@@ -327,6 +418,23 @@ export default function ScoutStaff({ year } = {}) {
 
   const goHome = () => setSubView('home')
 
+  // Deep-link from a Daily Brief "Recruiting Plan" row straight to that
+  // position's tab in Program Outlook.
+  const [analysisJumpPos, setAnalysisJumpPos] = useState(null);
+  const goToAnalysisPosition = (pos) => {
+    setAnalysisJumpPos({ pos, ts: Date.now() });
+    setSubView('analysis');
+  };
+  // One-shot: analysisJumpPos never went back to null after being consumed, so
+  // every later plain "Program Outlook" nav (main-hub button, tabs, etc.) also
+  // mounted ScoutAnalysis with the old jumpToPos still set, re-triggering the
+  // jump instead of defaulting to Overview. React runs child effects before
+  // parent effects in the same commit, so ScoutAnalysis's own jumpToPos effect
+  // has already fired (and jumped) by the time this clears it back to null.
+  useEffect(() => {
+    if (subView === 'analysis' && analysisJumpPos) setAnalysisJumpPos(null);
+  }, [subView, analysisJumpPos]);
+
   const handleToggleIsolated = () => {
     if (!currentDynasty || isViewOnly) return;
     updateDynasty(currentDynasty.id, { recruitingDbIsolated: !dbIsolated });
@@ -337,45 +445,62 @@ export default function ScoutStaff({ year } = {}) {
   // dynasty.players record — by sourceDynastyId, since the database also
   // shows recruits scouted in sibling dynasties — so every other surface
   // reading that player's data (board, thresholds, roster) picks it up too.
+  // Returns true on success, false on failure — callers use this to decide
+  // whether it's safe to discard the edit form (never close/clear on failure,
+  // so a failed save never costs the user their in-progress edit).
   const handleEditDatabasePlayer = async (updated) => {
-    if (isViewOnly) return;
-    const targetDynastyId = updated.sourceDynastyId || dynastyId;
-    const fields = {
-      name: updated.name,
-      position: updated.position,
-      archetype: updated.archetype,
-      devTrait: updated.devTrait,
-      stars: updated.stars,
-      attributes: updated.attributes,
-    };
-    const targetDynasty = targetDynastyId === dynastyId
-      ? currentDynasty
-      : dynasties.find(d => String(d.id) === String(targetDynastyId));
-    if (!targetDynasty) return;
-    const players = targetDynastyId === dynastyId ? (currentDynasty?.players || []) : await getDynastyPlayers(targetDynasty);
-    const original = players.find(p => p.pid === updated.pid);
-    if (!original) return;
-    await updatePlayer(targetDynastyId, { ...original, ...fields });
-    if (targetDynastyId !== dynastyId) {
-      getSiblingScoutedPlayers(currentDynasty, dynasties, getDynastyPlayers).then(setSiblingPlayers);
+    if (isViewOnly) return false;
+    try {
+      const targetDynastyId = updated.sourceDynastyId || dynastyId;
+      const fields = {
+        name: updated.name,
+        position: updated.position,
+        archetype: updated.archetype,
+        devTrait: updated.devTrait,
+        gemBust: updated.gemBust,
+        stars: updated.stars,
+        attributes: updated.attributes,
+      };
+      const targetDynasty = targetDynastyId === dynastyId
+        ? currentDynasty
+        : dynasties.find(d => String(d.id) === String(targetDynastyId));
+      if (!targetDynasty) {
+        toast.error('Could not save — that dynasty could not be found. Your edit was not saved.');
+        return false;
+      }
+      const players = targetDynastyId === dynastyId ? (currentDynasty?.players || []) : await getDynastyPlayers(targetDynasty);
+      const original = players.find(p => p.pid === updated.pid);
+      if (!original) {
+        toast.error('Could not save — that prospect could not be found. Your edit was not saved.');
+        return false;
+      }
+      await updatePlayer(targetDynastyId, { ...original, ...fields });
+      if (targetDynastyId !== dynastyId) {
+        getSiblingScoutedPlayers(currentDynasty, dynasties, getDynastyPlayers).then(setSiblingPlayers);
+      }
+      return true;
+    } catch (err) {
+      console.error('Failed to save prospect edit:', err);
+      toast.error('Failed to save your edit. Please try again — if this keeps happening, export your dynasty as a backup.');
+      return false;
     }
   };
 
   return (
     <div className="w-full space-y-4">
-      {subView === 'home' && <FrontPage setView={setSubView} onViewDatabase={openDatabase} currentTeamName={currentDynasty?.teamName || 'college football team'} currentYear={currentDynasty?.currentYear || new Date().getFullYear()} coachName={currentDynasty?.coachName || ''} recruits={recruits} databaseRecruits={freshmanRecruits} rosterWarnings={rosterWarnings} rosterSummary={rosterSummary} outlookSummary={outlookSummary} committedRecruits={committedRecruits} dynastyId={dynastyId} {...teamTheme} />}
+      {subView === 'home' && <FrontPage setView={setSubView} onViewDatabase={openDatabase} onJumpToPosition={goToAnalysisPosition} currentTeamName={currentDynasty?.teamName || 'college football team'} currentYear={currentDynasty?.currentYear || new Date().getFullYear()} coachName={currentDynasty?.coachName || ''} recruits={recruits} databaseRecruits={freshmanRecruits} rosterWarnings={rosterWarnings} rosterSummary={rosterSummary} outlookSummary={outlookSummary || cachedOutlookSummary} committedRecruits={committedRecruits} dynastyId={dynastyId} {...teamTheme} />}
 
       {/* Read-only: mirrors the recruiting Targets sheet. Freshmen and portal targets are split.
           Uses the unfiltered list so a target removed from the board still shows up here. */}
       {subView === 'database'   && <PlayerDatabase players={freshmanRecruits} roleContext="National Scout" dynastyId={dynastyId} {...teamTheme} recruitingDbIsolated={dbIsolated} onToggleIsolated={isViewOnly ? null : handleToggleIsolated} onEdit={isViewOnly ? null : handleEditDatabasePlayer} onGoToThresholds={() => setSubView('thresholds')} onBack={goHome} highlightPid={highlightPid} />}
-      {subView === 'thresholds' && <ThresholdLookup players={thresholdRecruits} roleContext="Data Analyst" dynastyId={dynastyId} {...teamTheme} recruitingDbIsolated={dbIsolated} onToggleIsolated={isViewOnly ? null : handleToggleIsolated} onGoToDatabase={() => setSubView('database')} onBack={goHome} />}
-      {subView === 'counts'     && <PlayerCount onBack={goHome} />}
+      {subView === 'thresholds' && <ThresholdLookup players={thresholdRecruits} roleContext="Data Analyst" dynastyId={dynastyId} {...teamTheme} recruitingDbIsolated={dbIsolated} onToggleIsolated={isViewOnly ? null : handleToggleIsolated} onGoToDatabase={() => { setDbHighlightPid(null); setSubView('database'); }} onBack={goHome} />}
+      {subView === 'counts'     && <PlayerCount onBack={goHome} onGoToDatabase={() => { setDbHighlightPid(null); setSubView('database'); }} />}
 
       {/* Always mounted so allHubs recomputes live whenever recruits or roster data changes.
           Hidden when not on the analysis view — UI is invisible but computation runs.
           Uses boardRecruits so removed targets are no longer discussed in Program Outlook. */}
       <div className={subView === 'analysis' ? '' : 'hidden'}>
-        <ScoutAnalysis players={boardRecruits} roleContext="Data Analyst" {...teamTheme} dynasty={currentDynasty} committedRecruits={committedRecruits} onBack={goHome} onOutlookReady={data => { setOutlookSummary(data); }} />
+        <ScoutAnalysis players={boardRecruits} removedRecruits={removedBoardRecruits} onToggleBoardRemoved={isViewOnly ? null : handleToggleBoardRemoved} roleContext="Data Analyst" {...teamTheme} dynasty={currentDynasty} committedRecruits={committedRecruits} onBack={goHome} onOutlookReady={data => { setOutlookSummary(data); }} jumpToPos={analysisJumpPos} />
       </div>
     </div>
   );

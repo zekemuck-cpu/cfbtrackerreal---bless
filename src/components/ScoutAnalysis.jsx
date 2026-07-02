@@ -299,9 +299,11 @@ function buildRec(pos, arch, matchingPlayers, weightsMap = null) {
 // Exactly 4 states — driven only by actual roster composition + committed
 // recruits (rosterContext.needsPortal / needsRecruit), never by uncommitted
 // board leads. A great scouted target doesn't resolve a need until he signs.
+// Critical/Depth-Needed colors match the Daily Brief's Position Status counts
+// exactly (#E3242B / #FFC72C) — same two verdicts, same meaning, one palette.
 const VERDICT_STYLES = {
-  critical:        { head: 'text-red-400',     badge: 'bg-red-950 border border-red-700 text-red-400' },
-  'depth-needed':  { head: 'text-yellow-300',  badge: 'bg-yellow-950 border border-yellow-700 text-yellow-400' },
+  critical:        { head: 'text-[#E3242B]',   badge: 'bg-surface-3 border border-[#7A1F1F] text-[#E3242B]' },
+  'depth-needed':  { head: 'text-[#FFC72C]',   badge: 'bg-surface-3 border border-[#8A6D1A] text-[#FFC72C]' },
   extra:           { head: 'text-emerald-300', badge: 'bg-emerald-950 border border-emerald-700 text-emerald-400' },
   'no-investment': { head: 'text-slate-400',   badge: 'bg-slate-800 border border-slate-600 text-slate-400' },
 };
@@ -361,8 +363,16 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
   // formal need classification (badge, Overview groupings, Daily Brief) is
   // computed separately, further down, from roster + committed recruits only.
   // Critical = hole next year only. Depth Needed = 2-3 year window only. No Investment = set.
+  // K/P/FB are single-slot positions — depth is never needed there, and a
+  // strong-looking board name shouldn't turn "no investment" into "covered"/
+  // "monitor". They're binary: Critical if the room goes empty next year
+  // (which, for FB, only happens once Configure sets its starter slot to 1 —
+  // otherwise needsPortal never trips), No Investment otherwise. (Same
+  // single-slot check the portal/HS default logic further down uses.)
+  const isSingleSlotPosForVerdict = pos === 'K' || pos === 'P' || pos === 'FB';
   let verdictKey;
-  if (immediateNeed && !hasBoard)    verdictKey = 'critical';
+  if (isSingleSlotPosForVerdict)      verdictKey = immediateNeed ? 'critical' : 'no-investment';
+  else if (immediateNeed && !hasBoard) verdictKey = 'critical';
   else if (immediateNeed && hasT1)   verdictKey = 'close-target';
   else if (immediateNeed && hasT2)   verdictKey = 'keep-search';
   else if (immediateNeed)            verdictKey = 'critical';
@@ -670,11 +680,25 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
           `${pos} needs reinforcement — we're short on proven starters`,
         ]);
   } else if (pipelineNeed) {
-    headline = pick([
-      `${pos} depth thins out in the 2–3 year window — start building the pipeline now`,
-      `No immediate ${pos} problem, but the depth situation in 2–3 years needs attention`,
-      `${pos} is fine right now but we need to build behind the current group`,
-    ]);
+    // Depth Needed — the room is fine right now (name the starter to show
+    // that), but the focus of the headline has to be the 2–3 year pipeline.
+    headline = retStar
+      ? pick([
+          `${retStar} has ${pos} covered right now, but the pipeline thins out in 2–3 years — start building behind him`,
+          `No issue at ${pos} today with ${retStar} in the room, but we need depth for the 2–3 year window`,
+          `${retStar} anchors ${pos} for now — the real focus needs to be finding prospects for the years behind him`,
+        ])
+      : retStr
+      ? pick([
+          `${retStr} ${retPlural ? 'have' : 'has'} ${pos} covered right now, but depth thins out in 2–3 years — start building the pipeline`,
+          `${retStr} ${retPlural ? 'are' : 'is'} fine at ${pos} today — the depth in 2–3 years is what needs attention`,
+          `No immediate issue with ${retStr} at ${pos}, but the focus has to shift to prospects for the pipeline`,
+        ])
+      : pick([
+          `${pos} depth thins out in the 2–3 year window — start building the pipeline now`,
+          `No immediate ${pos} problem, but the depth situation in 2–3 years needs attention`,
+          `${pos} is fine right now but we need to build behind the current group`,
+        ]);
   } else if (roomRatingNarrative === 'Loaded') {
     headline = eliteDevName
       ? pick([`${pos} is loaded — ${eliteDevName} leads a deep, talented room`, `${pos} room is stacked — ${eliteDevName} with real depth behind him`])
@@ -684,8 +708,19 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
   } else if (roomRatingNarrative === 'Deep') {
     headline = pick([`${pos} is in good shape — solid starters with real depth behind them`, `${pos} room is deep — starters covered and a pipeline building`]);
   } else {
-    headline = retStarts.length
-      ? pick([`${pos} situation is strong — close the target and shift focus`, `${pos} is set — board answered it, get the commitment`])
+    // No Investment Needed — name the starter(s) and describe the room
+    // behind them as strong, rather than a generic "no urgent needs" line.
+    headline = eliteDevName
+      ? pick([`${eliteDevName} has ${pos} locked down, and the room behind him is strong — no investment needed`, `${pos} is set — ${eliteDevName} leads a strong room from top to bottom`])
+      : ninetyPlusName
+      ? pick([`${ninetyPlusName} has ${pos} covered, with a strong room behind him — no investment needed`, `${pos} is in great hands with ${ninetyPlusName}, and the depth behind him holds up`])
+      : starDevName
+      ? pick([`${starDevName} has ${pos} handled, and the room behind him is solid — no investment needed`, `${pos} is set with ${starDevName} leading a solid group behind him`])
+      : retStr
+      ? pick([
+          `${retStr} ${retPlural ? 'have' : 'has'} ${pos} handled, and the room behind ${retPlural ? 'them' : 'him'} is solid — no investment needed`,
+          `${retStr} ${retPlural ? 'are' : 'is'} set at ${pos} with real depth behind ${retPlural ? 'them' : 'him'}`,
+        ])
       : pick([`${pos} is stable — no investment required this class`, `${pos} is in decent shape — no urgent needs`]);
   }
 
@@ -854,16 +889,21 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
   if (verdictKey === 'no-investment') { rtMin = 0; rtMax = 0; }
 
   // ── Split: portal (immediate starter gap) vs HS recruit (depth/pipeline) ─
-  const autoPortalMin = immediateNeed ? 1 : 0;
-  const autoPortalMax = immediateNeed ? 1 : 0;
-  const autoHsMin = rtMin;
-  const autoHsMax = rtMax;
+  // K, P, and FB (once its Configure target is on) default to an HS recruit
+  // when critical, not a portal target — a single open slot at these spots
+  // is filled by recruiting a freshman, not raiding the portal. The user can
+  // still flip this to portal manually, same as any other position.
+  const isSingleSlotPos = pos === 'K' || pos === 'P' || pos === 'FB';
+  const autoPortalMin = (immediateNeed && !isSingleSlotPos) ? 1 : 0;
+  const autoPortalMax = (immediateNeed && !isSingleSlotPos) ? 1 : 0;
+  const autoHsMin = (immediateNeed && isSingleSlotPos) ? 1 : rtMin;
+  const autoHsMax = (immediateNeed && isSingleSlotPos) ? 1 : rtMax;
 
   // Strategy: null = no preference saved (use auto); { portal: false } = explicitly turned off
   const hasManualPortal = recruitStrategy !== null && recruitStrategy?.portal !== undefined;
   const hasManualHs     = recruitStrategy !== null && recruitStrategy?.hs     !== undefined;
-  const stratPortal = hasManualPortal ? (recruitStrategy.portal ?? false) : immediateNeed;
-  const stratHs     = hasManualHs     ? (recruitStrategy.hs     ?? false) : (rosterNeed && !immediateNeed);
+  const stratPortal = hasManualPortal ? (recruitStrategy.portal ?? false) : (immediateNeed && !isSingleSlotPos);
+  const stratHs     = hasManualHs     ? (recruitStrategy.hs     ?? false) : (isSingleSlotPos ? immediateNeed : (rosterNeed && !immediateNeed));
   // anyManual already declared above the cross-reference block — do not redeclare here
 
   // When the user manually confirms a type the system already recommended, keep that
@@ -1051,8 +1091,13 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
   // Formal need classification — driven by roster need AND room rating.
   // Bare/Thin rooms escalate: Thin with no pipeline need → still depth-needed.
   // Loaded rooms de-escalate: pipelineNeed + Loaded → extra (room can absorb it).
+  // K/P/FB are binary (Critical or No Investment only, see verdictKey above) —
+  // depthNeeded's own floor of 1 means an inactive, 0-player single-slot room
+  // always fails hasAnyDepth and would otherwise escalate to "Thin"/Depth
+  // Needed even with nothing actually required there.
   const roomRating = rc?.depthTag; // Loaded / Deep / Solid / Thin / Bare
-  const needKey = immediateNeed ? 'critical'
+  const needKey = isSingleSlotPos ? (immediateNeed ? 'critical' : 'no-investment')
+    : immediateNeed ? 'critical'
     : pipelineNeed && roomRating !== 'Loaded' ? 'depth-needed'
     : pipelineNeed && roomRating === 'Loaded' ? 'extra'        // depth-needed but room is Loaded → just extra investment
     : roomRating === 'Bare'   ? 'critical'                     // no formal need but room is Bare → treat as critical
@@ -1072,7 +1117,7 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dynasty, committedRecruits = [], onBack, onOutlookReady }) {
+export default function ScoutAnalysis({ players = [], removedRecruits = [], onToggleBoardRemoved = null, teamColors, teamLogo, dynasty, committedRecruits = [], onBack, onOutlookReady, jumpToPos = null }) {
   const { getStaffData, saveStaffData } = createStaffAccessor(dynasty?.id ?? null);
   const navigate = useNavigate();
   const p = teamColors?.primary || '#374151';
@@ -1108,31 +1153,45 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
 
   useEffect(() => {
     async function load() {
-      const img   = await getStaffData('analyst_img');
-      const name  = await getStaffData('analyst_name');
-      const ovr   = await getStaffData('analysis_starter_ovr');
-      const archs = await getStaffData('analysis_preferred_archs');
-      const flags = await getStaffData('analysis_leaving_flags');
+      // Fire every staffDB read in parallel instead of chaining them one
+      // after another — each is a separate IndexedDB round-trip, so awaiting
+      // them sequentially compounded into a real, visible delay before the
+      // Daily Brief could show anything. Promise.all collapses that to the
+      // cost of a single round-trip.
+      const [
+        img, name, ovr, archs, flags, projs, athPos, strategy, extras, subPos, ord, starterTgt,
+      ] = await Promise.all([
+        getStaffData('analyst_img'),
+        getStaffData('analyst_name'),
+        getStaffData('analysis_starter_ovr'),
+        getStaffData('analysis_preferred_archs'),
+        getStaffData('analysis_leaving_flags'),
+        getStaffData('analysis_starter_projections'),
+        getStaffData('analysis_ath_positions'),
+        getStaffData('analysis_recruit_strategy'),
+        getStaffData('analysis_extra_targets'),
+        getStaffData('analysis_subpos_overrides'),
+        getStaffData('analysis_player_order'),
+        getStaffData('analysis_starter_target'),
+      ]);
       if (img)   setAnalystImg(img);
       if (name)  setAnalystName(name);
       if (ovr)   try { setStarterOvr(JSON.parse(ovr)); } catch {}
       if (archs) try { setPreferredArchs(JSON.parse(archs)); } catch {}
       if (flags) try { setLeavingFlags(JSON.parse(flags)); } catch {}
-      const projs = await getStaffData('analysis_starter_projections');
       if (projs) try { setStarterProjections(JSON.parse(projs)); } catch {}
-      const athPos = await getStaffData('analysis_ath_positions');
       if (athPos) try { setAthPositions(JSON.parse(athPos)); } catch {}
-      const strategy = await getStaffData('analysis_recruit_strategy');
       if (strategy) try { setPosRecruitStrategy(JSON.parse(strategy)); } catch {}
-      const extras = await getStaffData('analysis_extra_targets');
       if (extras) try { setPosExtraTargets(JSON.parse(extras)); } catch {}
-      setStrategiesLoaded(true);
-      const subPos = await getStaffData('analysis_subpos_overrides');
       if (subPos) try { setSubPosOverrides(JSON.parse(subPos)); } catch {}
-      const ord = await getStaffData('analysis_player_order');
       if (ord) try { setPlayerOrder(JSON.parse(ord)); } catch {}
-      const starterTgt = await getStaffData('analysis_starter_target');
       if (starterTgt) try { setStarterTarget(JSON.parse(starterTgt)); } catch {}
+      // Only now — after every override that feeds rosterContext/allHubs has
+      // loaded — is it safe to let the outlook-summary effect fire. Flipping
+      // this early (before subPosOverrides/starterTarget resolved) was why the
+      // Daily Brief would briefly show Critical/Depth Needed flags computed
+      // from default settings, then flash to the real ones a moment later.
+      setStrategiesLoaded(true);
     }
     load();
   }, []);
@@ -1202,9 +1261,6 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
     await saveStaffData('analysis_starter_projections', JSON.stringify(updated));
   };
 
-  const [dragOverBucket, setDragOverBucket]   = useState(null);
-  const [draggingPid, setDraggingPid]         = useState(null);
-  const [draggingOverPid, setDraggingOverPid] = useState(null);
   const [playerOrder, setPlayerOrder]         = useState({});
 
   const savePlayerOrder = async (updated) => {
@@ -1265,13 +1321,25 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
       const naturalYl  = isIncoming ? 4 : yearsLeft(cls);
       const isSenior   = !isIncoming && naturalYl === 0;
       const leavingType = isIncoming ? null : (leavingFlags[pl.pid] || null);
-      const yl = (isSenior || leavingType) ? 0 : naturalYl;
+      const rawPos = isIncoming ? (pl.position || '').toUpperCase()
+        : (pl.positionByYear?.[year] ?? pl.positionByYear?.[String(year)] ?? pl.position ?? '').toUpperCase();
+      // K/P/FB always default to assuming their current player sticks around
+      // unless truly graduating — a Draft/Transfer/Cut risk flag alone is
+      // speculative and never removes them from next year's count at these
+      // single-slot positions, only an actual graduating senior does.
+      const isSingleSlotPosHere = rawPos === 'K' || rawPos === 'P' || rawPos === 'FB';
+      const yl = (isSenior || (leavingType && !isSingleSlotPosHere)) ? 0 : naturalYl;
       const quality = ovr >= ovrThreshold ? 'starter' : ovr >= 70 ? 'developing' : 'raw';
       const manualProj = starterProjections[pl.pid || pl.name];
-      // Auto-project based on OVR gap + dev trait growth rate
+      // Auto-project based on OVR gap + dev trait growth rate. Incoming commits
+      // have no roster history to project from, so they default to a flat
+      // 3-year runway (matching how they were always treated as a "Development
+      // Project" by default before a manual override was set) rather than
+      // showing as unprojected.
       const devGrowthRate = { Elite: 7, Star: 5, Impact: 3, Normal: 2 }[pl.devTrait || ''] ?? 2;
       const ovrGap = ovrThreshold - ovr;
-      const autoProj = (!isIncoming && quality !== 'starter' && ovrGap > 0)
+      const autoProj = isIncoming ? 3
+        : (quality !== 'starter' && ovrGap > 0)
         ? (yr => {
             const devTrait = pl.devTrait || '';
             if (devTrait === 'Elite' || devTrait === 'Star') return Math.min(yr, 2);
@@ -1281,12 +1349,13 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
         : null;
       // Manual override wins for ALL players — starters and incoming included.
       // Without this, clicking the projection button on a starter or commit has no effect.
+      // K/P/FB always default to yr1 regardless of OVR/dev trait — there's no
+      // real development pipeline concept at these single-slot spots.
       const effectiveProj = manualProj !== undefined ? manualProj
-        : isIncoming ? null
+        : isSingleSlotPosHere ? 1
+        : isIncoming ? autoProj
         : quality === 'starter' ? 1
         : autoProj;
-      const rawPos = isIncoming ? (pl.position || '').toUpperCase()
-        : (pl.positionByYear?.[year] ?? pl.positionByYear?.[String(year)] ?? pl.position ?? '').toUpperCase();
       return {
         pid: pl.pid || pl.name,
         name: pl.name, ovr, cls: isIncoming ? 'Commit' : cls,
@@ -1357,8 +1426,14 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
       // Committed incoming recruits count as pipeline depth for yr3 window
       const yr3Starters      = allPlayers.filter(p => p.yearsLeft >= 3 && !notStartingYr(p, 3) && (p.quality === 'starter' || projByYr(p, 3) || p.isIncoming)).length;
       const nextYearCount    = allPlayers.filter(p => p.yearsLeft >= 1).length;
-      const needsPortal      = nextYearStarters < minStarter;
-      const needsRecruit     = yr2Starters < minStarter || yr3Starters < minStarter;
+      // K and P (and FB once its Configure target is raised to 1) only ever need a
+      // single body in the room. Judge them purely on next-year headcount — a
+      // departure that leaves the room at zero — never on the generic OVR-based
+      // "starter quality" bar those positions rarely clear. They should also never
+      // show Depth Needed, since a second body at the position is never required.
+      const isSingleSlotPos = pos === 'K' || pos === 'P' || (pos === 'FB' && minStarter >= 1);
+      const needsPortal      = isSingleSlotPos ? nextYearCount === 0 : nextYearStarters < minStarter;
+      const needsRecruit     = isSingleSlotPos ? false : (yr2Starters < minStarter || yr3Starters < minStarter);
       // Sub-position breakdown for positions with left/right sides — manual
       // drag-and-drop overrides (subPosOverrides) take priority over the
       // player's raw position field so the badges stay in sync with the
@@ -1427,6 +1502,7 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
         isThin: group.length < minDepth,
         nextYearThin: nextYearCount < minDepth,
         depthTag,
+        minStarter,
         lacksStarter: starterCount < minStarter,
         allPlayers,
         seniorCount,
@@ -1454,13 +1530,22 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
       : 'balanced';
 
     return result;
-  }, [dynasty, starterOvr, leavingFlags, starterProjections, committedRecruits, athPositions, subPosOverrides]);
+  }, [dynasty, starterOvr, starterTarget, leavingFlags, starterProjections, committedRecruits, athPositions, subPosOverrides]);
 
   const handlePosChange = pos => {
     setActivePos(pos);
     setActiveArch(null);
     setIsOverview(false);
   };
+
+  // External deep-link — e.g. clicking a Recruiting Plan row on the Daily Brief
+  // jumps straight to that position's tab here. Keyed off a fresh object each
+  // time (not just the pos string) so re-clicking the same position after
+  // navigating elsewhere in Program Outlook still re-triggers the jump.
+  useEffect(() => {
+    if (jumpToPos?.pos) handlePosChange(jumpToPos.pos);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jumpToPos]);
 
   // Total roster capacity across all positions
   const rosterCapacity = useMemo(() => {
@@ -1478,18 +1563,6 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
     const pct        = Math.min(100, Math.round(((returning + committed) / 85) * 100));
     return { total, leaving, returning, committed, available, pct };
   }, [rosterContext]);
-
-  // Count committed recruits per position group (for Overview grid)
-  const committedByPos = useMemo(() => {
-    const counts = {};
-    POSITIONS.forEach(pos => { counts[pos] = 0; });
-    (committedRecruits || []).forEach(r => {
-      const rp = (r.position || '').toUpperCase();
-      const match = POSITIONS.find(pos => (POS_TO_POSITIONS[pos] || [pos]).includes(rp));
-      if (match) counts[match] = (counts[match] || 0) + 1;
-    });
-    return counts;
-  }, [committedRecruits]);
 
   // Portal is only open during postseason and offseason — not during regular season or CCG
   const calendarCtx = useMemo(() => {
@@ -1540,17 +1613,40 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
         subPositionSummary: hub.subPositionSummary ?? null,
       };
     });
+    // Overall roster capacity — the SAME numbers behind Program Outlook's own
+    // "X / 85 Projected Roster" bar, so the Daily Brief can't drift from it by
+    // computing its own separate (and different) roster count.
+    summary._rosterCapacity = { returning: rosterCapacity.returning, committed: rosterCapacity.committed };
     // Only fire once posRecruitStrategy + posExtraTargets are fully loaded from
     // staffDB — prevents the Daily Brief from briefly showing wrong target counts
     // while those async loads are still in flight.
     if (!strategiesLoaded) return;
     saveStaffData('analysis_outlook_summary', JSON.stringify(summary));
+    // Also cache synchronously (localStorage) so the Daily Brief can seed
+    // itself instantly on the next mount instead of showing empty while this
+    // effect's async staffDB-backed inputs reload — this summary is only ever
+    // written after strategiesLoaded, so the cache is always correct.
+    if (dynasty?.id) {
+      try { localStorage.setItem(`cfb_outlook_summary_${dynasty.id}`, JSON.stringify(summary)); } catch {}
+    }
     if (onOutlookReadyRef.current) onOutlookReadyRef.current(summary);
-  }, [allHubs, strategiesLoaded]);
+  }, [allHubs, rosterCapacity, strategiesLoaded, dynasty?.id]);
 
   const profile = PROFILES[activePos];
   const archList = profile.archetypes;
   const posPlayers = players.filter(pl => {
+    if (pl.position === activePos) return true;
+    if (pl.position === 'ATH') {
+      const override = athPositions[pl.pid || pl.name];
+      return override ? override === activePos : ATH_ARCH_TO_POS[pl.archetype || ''] === activePos;
+    }
+    return false;
+  });
+
+  // Same position filter, applied to the recruits removed from the Big Board —
+  // feeds the "Removed" section beneath Actively Targeting so it mirrors the
+  // Targets tab's own Big Board/Removed split for this position.
+  const posRemovedPlayers = removedRecruits.filter(pl => {
     if (pl.position === activePos) return true;
     if (pl.position === 'ATH') {
       const override = athPositions[pl.pid || pl.name];
@@ -1575,8 +1671,8 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
 
       {/* Header strip */}
       <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-surface-4">
-        <p className="text-sm font-display font-bold uppercase text-txt-primary">Program Outlook</p>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <h2 className="text-sm font-display font-bold uppercase text-txt-primary">Program Outlook</h2>
+        <div className="flex items-center gap-3 flex-shrink-0">
           <button
             onClick={() => setShowConfig(c => !c)}
             className={`text-xs font-display font-bold uppercase px-3 py-1.5 rounded-lg border transition ${
@@ -1588,8 +1684,9 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
             Configure
           </button>
           {onBack && (
-            <button onClick={onBack} className="text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
-              ← Main Hub
+            <button onClick={onBack} className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><polyline points="15 18 9 12 15 6"/></svg>
+              Main Hub
             </button>
           )}
         </div>
@@ -1612,9 +1709,9 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
               const fn = parts.length > 1 ? parts.slice(0, -1).join(' ') : '';
               const ln = parts[parts.length - 1];
               return <>
-                {fn && <p className="text-[0.7rem] font-semibold leading-none" style={{ color: 'rgba(255,255,255,0.75)', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{fn}</p>}
-                <p className="text-xl font-bold leading-tight" style={{ color: 'white', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{ln}</p>
-                <p className="text-[0.6rem] font-semibold tracking-wider leading-snug" style={{ color: '#34d399', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>DATA ANALYST</p>
+                {fn && <p className="text-[7px] font-semibold leading-none" style={{ color: 'rgba(255,255,255,0.75)', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{fn}</p>}
+                <p className="text-base font-bold leading-tight" style={{ color: 'white', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{ln}</p>
+                <p className="text-[6px] font-semibold tracking-wider leading-snug" style={{ color: '#34d399', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>DATA ANALYST</p>
               </>;
             })()}
           </div>
@@ -1630,7 +1727,6 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
             return s + (rt?.hsMin ?? 0) + (rt?.portalMin ?? 0);
           }, 0);
           const unaccounted = Math.max(0, available - planned);
-          const spotColor = available >= 15 ? 'text-emerald-400' : available >= 8 ? 'text-amber-400' : 'text-red-400';
           const barColor  = pct >= 95 ? '#ef4444' : pct >= 85 ? '#f59e0b' : '#10b981';
           const badgeCls  = available >= 15 ? 'bg-emerald-950 border border-emerald-700 text-emerald-400'
                           : available >= 8  ? 'bg-amber-950 border border-amber-700 text-amber-400'
@@ -1652,9 +1748,8 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
               <div className="flex items-center text-xs">
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-1 flex-1">
                   <span className="font-display font-bold uppercase text-txt-primary">{returning} / {total} Returning</span>
-                  {leaving > 0 && <span className="font-display font-semibold uppercase text-amber-400"><span className="text-txt-tertiary mr-1.5">·</span>{leaving} Departures</span>}
-                  {committed > 0 && <span className="font-display font-semibold uppercase text-sky-400"><span className="text-txt-tertiary mr-1.5">·</span>{committed} Commits</span>}
-                  <span className={`font-display font-bold uppercase ${spotColor}`}><span className="text-txt-tertiary mr-1.5">·</span>{available} Open {available === 1 ? 'Spot' : 'Spots'}</span>
+                  {leaving > 0 && <span className="font-display font-bold uppercase text-txt-primary"><span className="text-txt-tertiary mr-1.5">·</span>{leaving} Departures</span>}
+                  {committed > 0 && <span className="font-display font-bold uppercase text-txt-primary"><span className="text-txt-tertiary mr-1.5">·</span>{committed} Commits</span>}
                 </div>
                 <span className="font-display font-black uppercase text-sm text-txt-primary shrink-0 ml-4">{returning + committed} / 85 Projected Roster</span>
               </div>
@@ -1853,42 +1948,22 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
             const positions = POSITIONS.filter(p => p !== 'ATH');
             const criticals    = positions.filter(p => allHubs[p]?.verdict?.key === 'critical');
             const depthNeeded  = positions.filter(p => allHubs[p]?.verdict?.key === 'depth-needed');
-            const portals      = positions.filter(p => rosterContext[p]?.needsPortal);
-            const totalPortalMin = positions.reduce((s, p) => s + (allHubs[p]?.recruitTarget?.portalMin ?? 0), 0);
             const totalPortalMax = positions.reduce((s, p) => s + (allHubs[p]?.recruitTarget?.portalMax ?? 0), 0);
-            const totalHsMin     = positions.reduce((s, p) => s + (allHubs[p]?.recruitTarget?.hsMin ?? 0), 0);
             const totalHsMax     = positions.reduce((s, p) => s + (allHubs[p]?.recruitTarget?.hsMax ?? 0), 0);
-            const totalMin = totalPortalMin + totalHsMin;
             const totalMax = totalPortalMax + totalHsMax;
             const { available, returning, leaving } = rosterCapacity;
 
             return (
+              <div className="flex-1 flex overflow-hidden">
               <div className="flex-1 overflow-y-auto divide-y divide-surface-4">
 
                 {/* Class size summary strip */}
                 <div className="px-5 py-3 flex items-center justify-between gap-4 flex-wrap bg-surface-3">
-                  <div className="flex items-center gap-5 flex-wrap text-[11px]">
-                    {criticals.length > 0 && <span className="font-display font-bold uppercase text-red-400">{criticals.length} Critical</span>}
-                    {depthNeeded.length > 0 && <span className="font-display font-bold uppercase text-yellow-400">{depthNeeded.length} Depth Needed</span>}
-                    {portals.length > 0 && <span className="font-display font-bold uppercase text-purple-400">{portals.length} Portal</span>}
-                    {criticals.length === 0 && depthNeeded.length === 0 && portals.length === 0 && (
-                      <span className="font-display font-bold uppercase text-emerald-400">All Positions Covered</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap justify-end">
-                    {totalPortalMax > 0 && (
-                      <span className="text-[10px] font-display font-bold uppercase text-purple-400">
-                        {Math.max(1, totalPortalMin)} Portal
-                      </span>
-                    )}
-                    {totalPortalMax > 0 && totalHsMax > 0 && <span className="text-txt-tertiary text-[10px]">+</span>}
-                    {totalHsMax > 0 && (
-                      <span className="text-[10px] font-display font-bold uppercase text-txt-secondary">
-                        {Math.max(1, totalHsMin)} Recruits
-                      </span>
-                    )}
-                    {totalPortalMax === 0 && totalHsMax === 0 && (
-                      <span className="text-[10px] font-display text-txt-tertiary">No investment needed</span>
+                  <div className="flex items-center gap-5 flex-wrap text-[11px] font-display font-black uppercase tracking-wide">
+                    {criticals.length > 0 && <span className="text-[#E3242B]">{criticals.length} Critical</span>}
+                    {depthNeeded.length > 0 && <span className="text-[#FFC72C]">{depthNeeded.length} Depth Needed</span>}
+                    {criticals.length === 0 && depthNeeded.length === 0 && (
+                      <span className="text-emerald-400">All Positions Covered</span>
                     )}
                   </div>
                 </div>
@@ -1898,26 +1973,21 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                 {/* Critical needs */}
                 {criticals.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-red-500">Critical Needs</p>
+                    <span className={`inline-block text-[10px] font-black uppercase px-2.5 py-1 rounded-md ${VERDICT_STYLES.critical.badge}`}>Critical Need</span>
                     {criticals.map(pos => {
                       const h  = allHubs[pos];
-                      const rc = rosterContext[pos];
                       return (
                         <button key={pos} onClick={() => handlePosChange(pos)}
                           className="w-full text-left rounded-xl border border-surface-4 bg-surface-3 overflow-hidden hover:bg-surface-4 transition">
                           <div className="px-4 py-2.5 border-b border-surface-4 flex items-center justify-between gap-3">
-                            <span className="text-sm font-display font-black uppercase text-red-400">{pos}</span>
+                            <span className="text-sm font-display font-black uppercase tracking-wide text-[#E3242B]">{pos}</span>
                             <div className="flex items-center gap-1.5">
                               {(h.recruitTarget?.portalMin ?? 0) > 0 && <span className="text-[10px] font-display font-black uppercase px-2.5 py-1 rounded-md bg-surface-4 border border-surface-4 text-txt-secondary">{h.recruitTarget.portalMin} Portal</span>}
                               {(h.recruitTarget?.hsMin ?? 0) > 0 && <span className="text-[10px] font-display font-black uppercase px-2.5 py-1 rounded-md bg-surface-4 border border-surface-4 text-txt-secondary">{h.recruitTarget.hsMin} HS</span>}
                             </div>
                           </div>
-                          <div className="px-4 py-3 space-y-1.5">
+                          <div className="px-4 py-2.5">
                             <p className="text-xs font-display font-bold uppercase text-txt-primary leading-snug">{h.headline}</p>
-                            <p className="text-[11px] text-txt-secondary leading-relaxed">{h.paragraphs[0]}</p>
-                            {h.topTargets.length > 0 && (
-                              <p className="text-[10px] font-display font-semibold text-emerald-400 mt-0.5">Board: {h.topTargets[0].name} · {normalizeArch(h.topTargets[0].archetype) || '?'}</p>
-                            )}
                           </div>
                         </button>
                       );
@@ -1928,22 +1998,21 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                 {/* Depth Needed */}
                 {depthNeeded.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-yellow-400">Depth Needed · 2–3 Years</p>
+                    <span className={`inline-block text-[10px] font-black uppercase px-2.5 py-1 rounded-md ${VERDICT_STYLES['depth-needed'].badge}`}>Depth Needed · 2–3 Years</span>
                     {depthNeeded.map(pos => {
                       const h = allHubs[pos];
                       return (
                         <button key={pos} onClick={() => handlePosChange(pos)}
                           className="w-full text-left rounded-xl border border-surface-4 bg-surface-3 overflow-hidden hover:bg-surface-4 transition">
                           <div className="px-4 py-2.5 border-b border-surface-4 flex items-center justify-between gap-3">
-                            <span className="text-sm font-display font-black uppercase text-amber-300">{pos}</span>
+                            <span className="text-sm font-display font-black uppercase tracking-wide text-[#FFC72C]">{pos}</span>
                             <div className="flex items-center gap-1.5">
                               {(h.recruitTarget?.portalMin ?? 0) > 0 && <span className="text-[10px] font-display font-black uppercase px-2.5 py-1 rounded-md bg-surface-4 border border-surface-4 text-txt-secondary">{h.recruitTarget.portalMin} Portal</span>}
                               {(h.recruitTarget?.hsMin ?? 0) > 0 && <span className="text-[10px] font-display font-black uppercase px-2.5 py-1 rounded-md bg-surface-4 border border-surface-4 text-txt-secondary">{h.recruitTarget.hsMin} HS</span>}
                             </div>
                           </div>
-                          <div className="px-4 py-3">
+                          <div className="px-4 py-2.5">
                             <p className="text-xs font-display font-bold uppercase text-txt-primary leading-snug">{h.headline}</p>
-                            <p className="text-[11px] text-txt-secondary leading-relaxed mt-1">{h.paragraphs[0]}</p>
                           </div>
                         </button>
                       );
@@ -1952,41 +2021,77 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                 )}
 
 
-                {/* All Positions */}
-                <div className="space-y-2">
-                  <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-txt-tertiary">All Positions</p>
-                  <div className="rounded-xl border border-surface-4 overflow-hidden divide-y divide-surface-4">
-                    {positions.map(pos => {
-                      const h  = allHubs[pos];
-                      const rc = rosterContext[pos];
-                      if (!h) return null;
-                      const vk = h.verdict.key;
-                      const posColor = 'text-txt-secondary';
-                      return (
-                        <button key={pos} onClick={() => handlePosChange(pos)}
-                          className="w-full flex items-center gap-4 px-4 py-2.5 hover:bg-surface-3 transition text-left">
-                          <span className={`text-xs font-display font-black uppercase w-9 shrink-0 ${posColor}`}>{pos}</span>
-                          <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
-                            <span className={`text-[8px] font-display font-black uppercase px-1.5 py-0.5 rounded ${h.verdict.badge}`}>{h.verdict.label}</span>
-                            {rc?.needsPortal && <span className="text-[8px] font-display font-black uppercase px-1 py-0.5 rounded bg-purple-950 border border-purple-800 text-purple-300">Portal</span>}
-                            <span className="text-[10px] text-txt-tertiary">
-                              {rc?.returningCount ?? 0} Ret
-                              {(rc?.seniorCount ?? 0) > 0 && <span className="text-amber-500"> · {rc.seniorCount} out</span>}
-                              {(committedByPos[pos] ?? 0) > 0 && <span className="text-emerald-400"> · {committedByPos[pos]} committed</span>}
-                            </span>
-                          </div>
-                          <span className={`text-[10px] font-display font-bold shrink-0 ${
-                            h.recruitTarget?.min === 0 && h.recruitTarget?.max === 0 ? 'text-txt-tertiary' : 'text-txt-secondary'
-                          }`}>
-                            {h.recruitTarget?.label ?? '—'}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
                 </div>
+              </div>
 
-                </div>
+              {/* Right: aggregate Recruiting Plan across every position that needs investment */}
+              <div className="w-56 shrink-0 border-l border-surface-4 overflow-y-auto p-3 space-y-3">
+                <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-txt-tertiary">Recruiting Plan</p>
+                {totalMax === 0 ? (
+                  <p className="text-[10px] font-display text-txt-tertiary">No investment needed</p>
+                ) : (() => {
+                  const needPositions = positions.filter(pos => (allHubs[pos]?.recruitTarget?.hsMin ?? 0) > 0 || (allHubs[pos]?.recruitTarget?.portalMin ?? 0) > 0);
+                  const totalHs     = needPositions.reduce((s, pos) => s + (allHubs[pos]?.recruitTarget?.hsMin ?? 0), 0);
+                  const totalPortal = needPositions.reduce((s, pos) => s + (allHubs[pos]?.recruitTarget?.portalMin ?? 0), 0);
+                  return (
+                  <>
+                  <div className="flex items-end gap-4">
+                    {totalHs > 0 && (
+                      <div>
+                        <p className="text-[20px] font-black leading-none text-txt-primary">{totalHs}</p>
+                        <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5">HS Targets</p>
+                      </div>
+                    )}
+                    {totalPortal > 0 && (
+                      <div>
+                        <p className="text-[20px] font-black leading-none text-txt-primary">{totalPortal}</p>
+                        <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5">Portal</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-[20px] font-black leading-none text-slate-400">{totalHs + totalPortal}</p>
+                      <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">Total</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {needPositions
+                      .map(pos => {
+                        const h = allHubs[pos];
+                        const planHs = h.recruitTarget?.hsMin ?? 0;
+                        const planPortal = h.recruitTarget?.portalMin ?? 0;
+                        const topName = h.recruitTarget?.topTargetName;
+                        const topPortal = h.recruitTarget?.topTargetIsPortal;
+                        const hsPills = [];
+                        if (planHs > 0) {
+                          const named = topName && !topPortal;
+                          if (named) hsPills.push(topName);
+                          for (let i = 0; i < (named ? planHs - 1 : planHs); i++) hsPills.push('1 HS');
+                        }
+                        const portalPills = [];
+                        if (planPortal > 0) {
+                          const named = topName && topPortal;
+                          if (named) portalPills.push(topName);
+                          for (let i = 0; i < (named ? planPortal - 1 : planPortal); i++) portalPills.push('1 Portal');
+                        }
+                        const posColor = h.verdict.key === 'critical' ? 'text-[#E3242B]' : h.verdict.key === 'depth-needed' ? 'text-[#FFC72C]' : 'text-txt-secondary';
+                        return (
+                          <div key={pos} className="space-y-1.5">
+                            <p className={`text-sm font-display font-black tracking-wide ${posColor}`}>{pos}</p>
+                            {hsPills.map((label, i) => (
+                              <div key={`hs-${i}`} className={`text-[11px] font-bold px-2.5 py-1 rounded-md border bg-surface-4 border-surface-4 text-txt-secondary ${label === '1 HS' ? 'uppercase' : ''}`}>{label}</div>
+                            ))}
+                            {portalPills.map((label, i) => (
+                              <div key={`p-${i}`} className={`text-[11px] font-bold px-2.5 py-1 rounded-md border bg-surface-4 border-surface-4 text-txt-secondary ${label === '1 Portal' ? 'uppercase' : ''}`}>{label}</div>
+                            ))}
+                          </div>
+                        );
+                      })}
+                  </div>
+                  </>
+                  );
+                })()}
+              </div>
+
               </div>
             );
           })()}
@@ -2004,7 +2109,7 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                 const planHs     = hub.recruitTarget?.hsMin     ?? 0;
                 const planPortal = hub.recruitTarget?.portalMin ?? 0;
                 const planFlag   = vkey === 'critical' ? 'critical' : vkey === 'depth-needed' ? 'depth' : null;
-                const posColor   = vkey === 'critical' ? 'text-red-400' : vkey === 'depth-needed' ? 'text-amber-400' : 'text-slate-400';
+                const posColor   = vkey === 'critical' ? 'text-[#E3242B]' : vkey === 'depth-needed' ? 'text-[#FFC72C]' : 'text-slate-400';
                 const boxBg = 'bg-surface-2 border-surface-4';
                 return (
               <div className="rounded-xl border border-surface-4 bg-surface-2 p-4 flex gap-4">
@@ -2013,34 +2118,22 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                 <div className="flex-1 min-w-0 space-y-3">
 
                 {/* Header */}
-                <div className="flex items-start gap-3 flex-wrap">
-                  <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-txt-tertiary">{activePos} · Position Overview</p>
-                </div>
-
-                {/* Roster summary line — all counts are next-year only (leavers excluded) */}
-                {rosterContext[activePos] && (() => {
-                  const rc = rosterContext[activePos];
-                  return (
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2 border-y border-slate-800/60 text-xs">
-                      <span className={`font-display font-bold uppercase ${rc.nextYearThin ? 'text-red-400' : rc.needsPortal ? 'text-amber-400' : 'text-emerald-400'}`}>
-                        {rc.returningCount === 0 ? 'No players returning' : `${rc.returningCount} on roster`}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <p className="text-sm font-display font-black uppercase tracking-wide text-txt-primary">{activePos} · Position Overview</p>
+                  {rosterContext[activePos]?.depthTag && (() => {
+                    const tag = rosterContext[activePos].depthTag;
+                    const tagCls = tag === 'Loaded' ? 'text-emerald-400 border-emerald-800 bg-surface-3'
+                      : tag === 'Deep'   ? 'text-green-300 border-green-800 bg-surface-3'
+                      : tag === 'Solid'  ? 'text-txt-secondary border-surface-4 bg-surface-3'
+                      : tag === 'Thin'   ? 'text-txt-secondary border-surface-4 bg-surface-3'
+                      : 'text-txt-secondary border-surface-4 bg-surface-3'; // Bare
+                    return (
+                      <span className={`font-display font-black text-[8px] uppercase tracking-widest px-1.5 py-0.5 rounded border ${tagCls}`}>
+                        {tag}
                       </span>
-                      {rc.returningStarters > 0 && <span className="font-display uppercase text-slate-400"><span className="text-slate-600 mr-1">·</span>{rc.returningStarters} starter-caliber</span>}
-                      {rc.depthTag && (() => {
-                        const tagCls = rc.depthTag === 'Loaded' ? 'text-emerald-400 border-emerald-800 bg-surface-3'
-                          : rc.depthTag === 'Deep'   ? 'text-green-300 border-green-800 bg-surface-3'
-                          : rc.depthTag === 'Solid'  ? 'text-txt-secondary border-surface-4 bg-surface-3'
-                          : rc.depthTag === 'Thin'   ? 'text-txt-secondary border-surface-4 bg-surface-3'
-                          : 'text-txt-secondary border-surface-4 bg-surface-3'; // Bare
-                        return (
-                          <span className={`font-display font-black text-[8px] uppercase tracking-widest px-1.5 py-0.5 rounded border ${tagCls}`}>
-                            {rc.depthTag}
-                          </span>
-                        );
-                      })()}
-                    </div>
-                  );
-                })()}
+                    );
+                  })()}
+                </div>
 
                 {/* Sub-position breakdown (OT/OG/DE/OLB) */}
                 {hub.subPositionSummary && hub.subPositionSummary.length >= 2 && (
@@ -2066,98 +2159,13 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                 {/* Analyst headline */}
                 <h4 className={`text-xs font-display font-black uppercase tracking-wide ${hub.verdict.head}`}>{hub.headline}</h4>
 
-                {/* Player category boxes — driven entirely by the 1YR/2YR/3YR/No Start projection buttons */}
-                {rosterContext[activePos] && (() => {
-                  const allP = rosterContext[activePos].allPlayers.filter(p => !p.isLeaving);
-                  const isSuperstar = p => p.ovr >= 90 || (p.ovr >= 85 && (p.devTrait === 'Star' || p.devTrait === 'Elite'));
-                  const buckets = [
-                    { key: 'superstar', projValue: 5,    label: 'Superstars',            sub: 'Elite Talent, Program Cornerstone',   pred: p => p.effectiveProj === 5 || (isSuperstar(p) && p.effectiveProj !== 2 && p.effectiveProj !== 3 && p.effectiveProj !== 0),      border: 'border-surface-4', bg: 'bg-surface-3', head: 'text-txt-secondary', sub2: 'text-slate-500', pill: 'bg-surface-4 border-surface-4 text-txt-tertiary' },
-                    { key: 'starter',   projValue: 1,    label: 'Starter-Caliber',        sub: 'Reliable Every Week Starter',         pred: p => p.effectiveProj !== 5 && (p.effectiveProj === 1 || (p.effectiveProj === null && p.quality === 'starter')) && !isSuperstar(p), border: 'border-surface-4', bg: 'bg-surface-3', head: 'text-emerald-400', sub2: 'text-slate-500', pill: 'bg-surface-4 border-surface-4 text-emerald-300' },
-                    { key: 'prospect',  projValue: 2,    label: 'Prospects',               sub: 'Potential Superstars',                pred: p => p.effectiveProj === 2 && (p.devTrait === 'Star' || p.devTrait === 'Elite'),                                            border: 'border-surface-4', bg: 'bg-surface-3', head: 'text-sky-400',     sub2: 'text-slate-500', pill: 'bg-surface-4 border-surface-4 text-sky-300' },
-                    { key: 'devproj',   projValue: 3,    label: 'Development Projects',    sub: 'Long-Term Investment, High Ceiling',  pred: p => p.effectiveProj === 3 || (p.effectiveProj === null && p.isIncoming) || (p.effectiveProj === 2 && p.devTrait !== 'Star' && p.devTrait !== 'Elite'), border: 'border-surface-4', bg: 'bg-surface-3', head: 'text-amber-400',   sub2: 'text-slate-500', pill: 'bg-surface-4 border-surface-4 text-amber-300' },
-                    { key: 'reserve',   projValue: 0,    label: 'Career Reserves',         sub: 'Depth Only, Unlikely to Start',       pred: p => p.effectiveProj === 0,                                                                                                    border: 'border-surface-4', bg: 'bg-surface-3', head: 'text-txt-secondary', sub2: 'text-slate-500', pill: 'bg-surface-4 border-surface-4 text-txt-tertiary' },
-                  ];
-                  // Sort players within each bucket by saved playerOrder for this position
-                  const posOrd = (playerOrder[activePos] || []).map(String);
-                  const sortByOrder = (players) => [...players].sort((a, b) => {
-                    const ai = posOrd.indexOf(String(a.pid || a.name));
-                    const bi = posOrd.indexOf(String(b.pid || b.name));
-                    if (ai === -1 && bi === -1) return 0;
-                    if (ai === -1) return 1;
-                    if (bi === -1) return -1;
-                    return ai - bi;
-                  });
-
-                  return (
-                    <div className="grid grid-cols-2 gap-2">
-                      {buckets.map(b => {
-                        const players = sortByOrder(allP.filter(b.pred));
-                        const isOver = dragOverBucket === b.key;
-                        return (
-                          <div
-                            key={b.key}
-                            onDragOver={e => { e.preventDefault(); if (!draggingOverPid) setDragOverBucket(b.key); }}
-                            onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) { setDragOverBucket(null); } }}
-                            onDrop={e => {
-                              e.preventDefault();
-                              if (draggingPid && !draggingOverPid) {
-                                setProjectionDirectly(draggingPid, b.projValue);
-                              }
-                              setDragOverBucket(null);
-                              setDraggingPid(null);
-                              setDraggingOverPid(null);
-                            }}
-                            className={`rounded-lg border p-2.5 space-y-1.5 min-h-[60px] transition-colors ${b.border} ${isOver ? 'bg-surface-4' : b.bg}`}
-                          >
-                            <div>
-                              <p className={`text-[11px] font-black uppercase tracking-[0.12em] ${b.head}`}>{b.label}</p>
-                              <p className={`text-[9px] font-semibold ${b.sub2}`}>{b.sub}</p>
-                            </div>
-                            <div className="flex flex-wrap gap-1">
-                              {players.map((pl, i) => {
-                                const plKey = String(pl.pid || pl.name);
-                                const isDropTarget = draggingOverPid === plKey && draggingPid !== plKey;
-                                return (
-                                  <span
-                                    key={i}
-                                    draggable
-                                    onDragStart={() => { setDraggingPid(plKey); setDragOverBucket(null); }}
-                                    onDragEnd={() => { setDraggingPid(null); setDraggingOverPid(null); }}
-                                    onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDraggingOverPid(plKey); setDragOverBucket(null); }}
-                                    onDragLeave={() => setDraggingOverPid(null)}
-                                    onDrop={e => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      if (draggingPid && draggingPid !== plKey) {
-                                        setProjectionDirectly(draggingPid, b.projValue);
-                                        reorderPlayers(activePos, draggingPid, plKey);
-                                      }
-                                      setDraggingPid(null);
-                                      setDraggingOverPid(null);
-                                      setDragOverBucket(null);
-                                    }}
-                                    className={`text-[12px] font-bold px-3 py-1 rounded-md border cursor-grab active:cursor-grabbing select-none transition-all ${b.pill} ${isDropTarget ? 'ring-1 ring-white/40 scale-105' : ''}`}
-                                  >
-                                    {pl.name.split(' ').slice(-1)[0]}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })()}
-
-
                 {/* ── Recruit strategy toggle ── */}
                 <div className="pt-1">
                   <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-slate-500 mb-1.5">Targeting Strategy</p>
                   <div className="flex gap-2 items-center flex-wrap">
                     {[
-                      { key: 'hs',     label: 'HS Recruit',    activeClass: 'bg-sky-950 border-sky-700 text-sky-300', autoClass: 'bg-surface-3 border-sky-800 text-sky-400' },
-                      { key: 'portal', label: 'Portal Target',  activeClass: 'bg-purple-950 border-purple-700 text-purple-300',   autoClass: 'bg-surface-3 border-purple-800 text-purple-400'   },
+                      { key: 'hs',     label: 'HS Recruit',    activeClass: 'bg-surface-4 border-surface-5 text-txt-primary', autoClass: 'bg-surface-3 border-surface-4 text-txt-secondary' },
+                      { key: 'portal', label: 'Portal Target',  activeClass: 'bg-surface-4 border-surface-5 text-txt-primary',   autoClass: 'bg-surface-3 border-surface-4 text-txt-secondary'   },
                     ].map(({ key, label, activeClass, autoClass }) => {
                       const saved = posRecruitStrategy[activePos];
                       const isManuallySet = saved?.[key] !== undefined;
@@ -2196,8 +2204,8 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                     <div className="mt-2 space-y-1.5">
                       <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-slate-500">Adjust target count</p>
                       {[
-                        { type: 'hs',     label: 'HS Recruit',    color: 'text-sky-400',     show: effHs,     resolved: hub.recruitTarget.hsMin },
-                        { type: 'portal', label: 'Portal Target',  color: 'text-purple-400',  show: effPortal, resolved: hub.recruitTarget.portalMin },
+                        { type: 'hs',     label: 'HS Recruit',    color: 'text-txt-secondary',     show: effHs,     resolved: hub.recruitTarget.hsMin },
+                        { type: 'portal', label: 'Portal Target',  color: 'text-txt-secondary',  show: effPortal, resolved: hub.recruitTarget.portalMin },
                       ].filter(r => r.show).map(({ type, label, color, resolved }) => {
                         const val = posExtraTargets[activePos]?.[type] ?? 0;
                         return (
@@ -2252,10 +2260,10 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                   <div className="space-y-1.5">
                     <p className={`text-sm font-display font-black tracking-wide ${posColor}`}>{activePos}</p>
                     {hsPills.map((label, i) => (
-                      <div key={`hs-${i}`} className="text-[11px] font-bold px-2.5 py-1 rounded-md border bg-sky-950 border-sky-700 text-sky-300">{label}</div>
+                      <div key={`hs-${i}`} className={`text-[11px] font-bold px-2.5 py-1 rounded-md border bg-surface-4 border-surface-4 text-txt-secondary ${label === '1 HS' ? 'uppercase' : ''}`}>{label}</div>
                     ))}
                     {portalPills.map((label, i) => (
-                      <div key={`p-${i}`} className="text-[11px] font-bold px-2.5 py-1 rounded-md border bg-purple-950 border-purple-800 text-purple-300">{label}</div>
+                      <div key={`p-${i}`} className={`text-[11px] font-bold px-2.5 py-1 rounded-md border bg-surface-4 border-surface-4 text-txt-secondary ${label === '1 Portal' ? 'uppercase' : ''}`}>{label}</div>
                     ))}
                   </div>
                 </div>
@@ -2277,20 +2285,13 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                 return (
                   <div className="bg-surface-3 border border-slate-800 rounded-xl p-4 space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-slate-500">
+                      <p className="text-sm font-display font-black uppercase tracking-wide text-txt-primary">
                         Current Roster · {activePos}
                       </p>
                       <div className="flex items-center gap-3 flex-wrap justify-end">
-                        {rc.seniorCount > 0 && (
-                          <span className="text-[8px] text-amber-500 font-display font-bold uppercase tracking-wide">
-                            {rc.returningCount} returning after {rc.seniorCount} departure{rc.seniorCount !== 1 ? 's' : ''}
-                          </span>
-                        )}
-                        {rc.committedCount > 0 && (
-                          <span className="text-[8px] text-sky-400 font-display font-bold uppercase tracking-wide">
-                            {rc.committedCount} incoming
-                          </span>
-                        )}
+                        <span className="text-sm font-display font-black uppercase tracking-wide text-txt-primary">
+                          {(rc.returningCount + (rc.committedCount ?? 0)) === 0 ? 'No players returning' : `${rc.returningCount + (rc.committedCount ?? 0)} on roster`}
+                        </span>
                       </div>
                     </div>
                     {rc.allPlayers.length === 0 ? (
@@ -2316,7 +2317,7 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                                         navigate(`/dynasty/${dynasty?.id}/player/${pl.pid}`);
                                       }
                                     }}
-                                    className={`text-[10px] font-bold min-w-0 truncate cursor-pointer hover:underline ${pl.isIncoming ? 'text-sky-300' : q.text}`}
+                                    className={`text-[10px] font-bold min-w-0 truncate cursor-pointer hover:underline ${q.text}`}
                                   >{pl.name}</span>
                                   {pl._subLabel !== undefined && rc.subPositions ? (
                                     <span
@@ -2328,33 +2329,51 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                                   ) : (
                                     pl.pos && <span className="text-[8px] font-display font-black text-slate-600 shrink-0">{pl.pos}</span>
                                   )}
+                                  {(() => {
+                                    const dtCls = pl.devTrait === 'Elite'  ? 'bg-surface-3 border-[#0E7A2A] text-[#22E065] shadow-[0_0_16px_rgba(14,122,42,0.85)]'
+                                               : pl.devTrait === 'Star'    ? 'bg-surface-3 border-[#9C7209] text-[#FFD100] shadow-[0_0_14px_rgba(156,114,9,0.8)]'
+                                               : pl.devTrait === 'Impact'  ? 'bg-surface-3 border-[#7C8991] text-[#D6DEE2]'
+                                               : pl.devTrait === 'Normal'  ? 'bg-surface-3 border-[#8C5524] text-[#CD7F32]'
+                                               : 'bg-slate-950 border-slate-700 text-slate-600 italic';
+                                    return (
+                                      <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 ${dtCls}`}>
+                                        {pl.devTrait || 'Hidden'}
+                                      </span>
+                                    );
+                                  })()}
                                 </div>
-                                {pl.isATH && <span className="text-[7px] font-black uppercase px-1 py-0.5 rounded bg-purple-950 border border-purple-800 text-purple-400 shrink-0">ATH</span>}
+                                {pl.isATH && !pl.isIncoming && <span className="text-[7px] font-black uppercase px-1 py-0.5 rounded bg-purple-950 border border-purple-800 text-purple-400 shrink-0">ATH</span>}
                                 {!pl.isIncoming && <span className="text-[9px] text-slate-500 tabular-nums shrink-0">{pl.ovr > 0 ? pl.ovr : '—'} OVR</span>}
-                                <span className="text-[9px] text-slate-500 tabular-nums shrink-0 w-8 text-right">{pl.isIncoming ? `${pl.devTrait || pl.cls}` : pl.cls}</span>
-                                {!pl.isIncoming && pl.devTrait && (() => {
-                                  const dtCls = pl.devTrait === 'Elite'  ? 'bg-purple-950 border-purple-700 text-purple-300'
-                                             : pl.devTrait === 'Star'    ? 'bg-yellow-950 border-yellow-600 text-yellow-300'
-                                             : pl.devTrait === 'Impact'  ? 'bg-slate-800 border-slate-500 text-slate-300'
-                                             : 'bg-orange-950 border-orange-700 text-orange-400';
-                                  return (
-                                    <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 ${dtCls}`}>
-                                      {pl.devTrait}
-                                    </span>
-                                  );
-                                })()}
+                                {!pl.isIncoming && <span className="text-[9px] text-slate-500 tabular-nums shrink-0 w-8 text-right">{pl.cls}</span>}
                                 {pl.isIncoming && (
-                                  <span className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded bg-surface-4 border border-surface-4 text-txt-tertiary shrink-0">Incoming</span>
+                                  <span className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded bg-surface-3 border border-[#0E7A2A] text-[#22E065] shrink-0">Incoming</span>
+                                )}
+                                {!pl.isLeaving && (
+                                  <button
+                                    onClick={e => { e.stopPropagation(); cycleProjection(pl.pid); }}
+                                    title={`${
+                                      pl.effectiveProj === 1 || pl.effectiveProj === 5 ? 'Projected Starter-Caliber in 1 year'
+                                        : pl.effectiveProj === 2 ? 'Projected Starter-Caliber in 2 years'
+                                        : pl.effectiveProj === 3 ? 'Projected Starter-Caliber in 3 years'
+                                        : pl.effectiveProj === 0 ? 'Projected Non-Starter'
+                                        : 'Projected Starter-Caliber in _ years'
+                                    } — click to cycle: 1yr → 2yr → 3yr → Non-Starter → clear`}
+                                    className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 transition ${
+                                      pl.isManualProj ? 'bg-surface-4 border-surface-5 text-txt-secondary hover:opacity-75' : 'bg-surface-3 border-surface-4 text-txt-tertiary hover:text-txt-secondary'
+                                    }`}
+                                  >
+                                    {pl.effectiveProj === 1 || pl.effectiveProj === 5 ? '1YR' : pl.effectiveProj === 2 ? '2YR' : pl.effectiveProj === 3 ? '3YR' : pl.effectiveProj === 0 ? 'Non-Starter' : 'Project'}
+                                  </button>
                                 )}
                                 {pl.isSenior && !pl.leavingType && !pl.isIncoming && (
-                                  <span className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded bg-surface-4 border border-surface-4 text-txt-tertiary shrink-0">Leaving</span>
+                                  <span className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded bg-surface-3 border border-[#7A1F1F] text-[#E3242B] shrink-0">Leaving</span>
                                 )}
                                 {!pl.isSenior && !pl.isIncoming && (
                                   <button
                                     onClick={e => { e.stopPropagation(); cycleLeaving(pl.pid); }}
                                     title="Departure risk — click to cycle: Draft Risk → Transfer Risk → Cut → clear"
                                     className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 transition ${
-                                      pl.leavingType ? 'bg-surface-4 border-surface-4 text-txt-secondary hover:opacity-75' : 'bg-surface-3 border-surface-4 text-txt-tertiary hover:text-txt-secondary'
+                                      pl.leavingType ? 'bg-surface-3 border-[#7A1F1F] text-[#E3242B] hover:opacity-75' : 'bg-surface-3 border-surface-4 text-txt-tertiary hover:text-txt-secondary'
                                     }`}
                                   >
                                     {pl.leavingType === 'draft' ? 'Draft Risk' : pl.leavingType === 'transfer' ? 'Transfer Risk' : pl.leavingType === 'cut' ? 'Cut' : 'Leaving'}
@@ -2448,37 +2467,81 @@ export default function ScoutAnalysis({ players = [], teamColors, teamLogo, dyna
                 );
               })()}
 
-              {/* ── Best Targets on Board ── */}
-              {hub.topTargets.length > 0 && (
-                <div className="bg-surface-3 border border-slate-800 rounded-xl p-4 space-y-2">
-                  <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-slate-500">
-                    Best Targets on Board · {posPlayers.length} prospect{posPlayers.length !== 1 ? 's' : ''}
-                  </p>
-                  <div className="space-y-1">
-                    {hub.topTargets.map((pl, i) => {
-                      const t = TIER_UI[pl.tier];
-                      const g = getGrade(pl.score);
-                      const archName = normalizeArch(pl.archetype ?? '');
-                      return (
-                        <div
-                          key={i}
-                          className="w-full flex items-center gap-3 text-left px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-600 hover:bg-surface-3 transition"
+              {/* ── Actively Targeting (directly tied to the Big Board in Targets — same
+                  boardRemoved field, same toggle) ── */}
+              {(() => {
+                const scoreAndSort = list => list
+                  .map(p => { const s = computeScore(p, weightsMap); return { ...p, score: s, tier: getTier(s) }; })
+                  .sort((a, b) => b.score - a.score);
+                const activeScored  = scoreAndSort(posPlayers);
+                const removedScored = scoreAndSort(posRemovedPlayers);
+
+                const renderRow = (pl, { removed }) => {
+                  const t = TIER_UI[pl.tier];
+                  const g = getGrade(pl.score);
+                  const archName = normalizeArch(pl.archetype ?? '');
+                  return (
+                    <div
+                      key={pl.pid}
+                      className="w-full flex items-center gap-3 text-left px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-600 hover:bg-surface-3 transition"
+                      style={{ opacity: removed ? 0.6 : 1 }}
+                    >
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${t.dot}`} />
+                      <span
+                        className="text-[11px] font-bold text-white flex-1 min-w-0 truncate hover:underline cursor-pointer"
+                        onClick={e => { e.stopPropagation(); navigate(`/dynasty/${dynasty?.id}/recruiting/${dynasty?.currentTid}/${dynasty?.currentYear}?tab=staff&view=database&pid=${pl.pid}`); }}
+                      >{pl.name}</span>
+                      <span className="text-[9px] text-slate-500 shrink-0 truncate max-w-[90px]">{archName || '—'}</span>
+                      <span className="text-[9px] text-slate-500">{pl.stars}★</span>
+                      <span className={`text-[9px] tabular-nums ${t.text}`}>{pl.score.toFixed(0)}</span>
+                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${g.cls}`}>{g.grade}</span>
+                      {onToggleBoardRemoved && (
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); onToggleBoardRemoved(pl); }}
+                          className={`shrink-0 p-1 rounded transition ${removed ? 'text-slate-600 hover:text-emerald-400 hover:bg-emerald-950/40' : 'text-slate-600 hover:text-red-400 hover:bg-red-950/40'}`}
+                          title={removed ? 'Restore to board' : 'Remove from board'}
                         >
-                          <div className={`w-2 h-2 rounded-full shrink-0 ${t.dot}`} />
-                          <span
-                            className="text-[11px] font-bold text-white flex-1 min-w-0 truncate hover:underline cursor-pointer"
-                            onClick={e => { e.stopPropagation(); navigate(`/dynasty/${dynasty?.id}/scout-staff?view=database&pid=${pl.pid}`); }}
-                          >{pl.name}</span>
-                          <span className="text-[9px] text-slate-500 shrink-0 truncate max-w-[90px]">{archName || '—'}</span>
-                          <span className="text-[9px] text-slate-500">{pl.stars}★</span>
-                          <span className={`text-[9px] tabular-nums ${t.text}`}>{pl.score.toFixed(0)}</span>
-                          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${g.cls}`}>{g.grade}</span>
+                          {removed ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+                            </svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                              <circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/>
+                            </svg>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  );
+                };
+
+                return (
+                  <>
+                    {activeScored.length > 0 && (
+                      <div className="bg-surface-3 border border-slate-800 rounded-xl p-4 space-y-2">
+                        <p className="text-sm font-display font-black uppercase tracking-wide text-txt-primary">
+                          Actively Targeting · {activeScored.length} prospect{activeScored.length !== 1 ? 's' : ''}
+                        </p>
+                        <div className="space-y-1">
+                          {activeScored.map(pl => renderRow(pl, { removed: false }))}
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                      </div>
+                    )}
+                    {removedScored.length > 0 && (
+                      <div className="bg-surface-3 border border-slate-800 rounded-xl p-4 space-y-2">
+                        <p className="text-sm font-display font-black uppercase tracking-wide text-txt-primary">
+                          Removed · {removedScored.length} prospect{removedScored.length !== 1 ? 's' : ''}
+                        </p>
+                        <div className="space-y-1">
+                          {removedScored.map(pl => renderRow(pl, { removed: true }))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               {/* Archetype recommendations removed per user request */}
               {false && (() => {

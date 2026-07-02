@@ -75,3 +75,61 @@ export const createStaffAccessor = (dynastyId) => {
     deleteStaffData: (key)      => deleteStaffData(k(key)),
   };
 };
+
+// Reads every key stored for a given dynasty (staff hires, Program Outlook
+// config, etc.) and returns them as a plain object with the dynastyId prefix
+// stripped. Used by dynasty export so Scout Staff's local-only config travels
+// with a backup instead of being silently left out of it.
+export const getAllStaffDataForDynasty = async (dynastyId) => {
+  if (!dynastyId) return {};
+  try {
+    const db = await initStaffDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME], 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const prefix = `${dynastyId}:`;
+      const result = {};
+      const request = store.openCursor();
+      request.onsuccess = (e) => {
+        const cursor = e.target.result;
+        if (cursor) {
+          if (typeof cursor.key === 'string' && cursor.key.startsWith(prefix)) {
+            result[cursor.key.slice(prefix.length)] = cursor.value;
+          }
+          cursor.continue();
+        } else {
+          resolve(result);
+        }
+      };
+      request.onerror = (e) => reject(e.target.error);
+    });
+  } catch (err) {
+    console.warn('[staffDB] getAllStaffDataForDynasty failed:', err);
+    return {};
+  }
+};
+
+// Writes a plain { key: value } object back into staff_records, prefixed for
+// the given dynastyId — the counterpart to getAllStaffDataForDynasty, used
+// when restoring a dynasty from a backup.
+export const setAllStaffDataForDynasty = async (dynastyId, data) => {
+  if (!dynastyId || !data || typeof data !== 'object') return;
+  const entries = Object.entries(data);
+  if (!entries.length) return;
+  try {
+    const db = await initStaffDB();
+    await new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME], 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      for (const [key, value] of entries) {
+        store.put(value, `${dynastyId}:${key}`);
+      }
+      transaction.oncomplete = () => resolve(true);
+      transaction.onerror    = (e) => reject(e.target.error);
+      transaction.onabort    = (e) => reject(e.target.error ?? new Error('Transaction aborted'));
+    });
+  } catch (err) {
+    console.error('[staffDB] setAllStaffDataForDynasty failed:', err);
+    throw err;
+  }
+};

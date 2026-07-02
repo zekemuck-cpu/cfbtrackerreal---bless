@@ -7,6 +7,7 @@ import { buildRevealedPool, buildWeightsMap } from '../utils/devTraitLearning';
 // =========================================================================
 import { createStaffAccessor } from './staffDB';
 import RecruitingPlanRow from './RecruitingPlanRow';
+import GemBustIcon from './GemBustIcon';
 
 // Deterministic seeded RNG — same name always produces the same signature style.
 function seededRng(seed) {
@@ -58,7 +59,7 @@ function Signature({ name, color = 'currentColor', fontSize = '1.45rem' }) {
   )
 }
 
-export default function ScoutStaffFrontPage({ setView, onViewDatabase, currentTeamName = 'college football team', currentYear, coachName = '', teamColors, teamLogo, recruits = [], databaseRecruits = [], rosterWarnings = [], rosterSummary = null, outlookSummary = null, committedRecruits = [], dynastyId = null }) {
+export default function ScoutStaffFrontPage({ setView, onViewDatabase, onJumpToPosition, currentTeamName = 'college football team', currentYear, coachName = '', teamColors, teamLogo, recruits = [], databaseRecruits = [], rosterWarnings = [], rosterSummary = null, outlookSummary = null, committedRecruits = [], dynastyId = null }) {
   const { getStaffData, saveStaffData, deleteStaffData } = createStaffAccessor(dynastyId);
   const p = teamColors?.primary   || '#374151';
   const s = teamColors?.secondary || '#ffffff';
@@ -657,6 +658,7 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
             confirmed: scoutConfirmed,
             role: 'National Scout',
             roleColor: '#94a3b8',
+            glowColor: '#94a3b8',
             showUrl: showScoutUrlInput, setShowUrl: setShowScoutUrlInput,
             urlText: scoutUrlText, setUrlText: setScoutUrlText,
             accentColor: p,
@@ -672,11 +674,12 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
             confirmed: analystConfirmed,
             role: 'Data Analyst',
             roleColor: '#94a3b8',
+            glowColor: '#94a3b8',
             showUrl: showAnalystUrlInput, setShowUrl: setShowAnalystUrlInput,
             urlText: analystUrlText, setUrlText: setAnalystUrlText,
             accentColor: s !== '#ffffff' ? s : p,
           },
-        ].map(({ slot, img, name, bio, isExpired, yearsRemaining, contractLength, confirmed, role, roleColor, showUrl, setShowUrl, urlText, setUrlText, accentColor }) => {
+        ].map(({ slot, img, name, bio, isExpired, yearsRemaining, contractLength, confirmed, role, roleColor, glowColor, showUrl, setShowUrl, urlText, setUrlText, accentColor }) => {
           const PLACEHOLDER = slot === 1 ? 'Staff Slot #1' : 'Staff Slot #2';
           const isHired = !!confirmed;
           const readyToConfirm = !!img && !!name?.trim() && name.trim() !== PLACEHOLDER && !!bio?.trim();
@@ -699,7 +702,10 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                 <img src={img} alt={role} className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]" />
               ) : (
                 <div className="absolute inset-0 bg-surface-3 flex items-center justify-center">
-                  <p className="text-[9px] font-display font-bold uppercase text-txt-tertiary tracking-widest text-center px-3 leading-loose">{role}<br/>No Photo</p>
+                  {teamLogo && (
+                    <img src={teamLogo} alt="" className="absolute inset-0 w-full h-full object-contain p-6 opacity-20" />
+                  )}
+                  <p className="relative text-[9px] font-display font-bold uppercase text-txt-tertiary tracking-widest text-center px-3 leading-loose">{role}<br/>No Photo</p>
                 </div>
               )}
               {img && <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.45) 100%)' }} />}
@@ -913,21 +919,30 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                   className="absolute rounded-full pointer-events-none"
                   style={{
                     width: 160, height: 160,
-                    background: `radial-gradient(circle, ${roleColor}3d 0%, ${roleColor}00 70%)`,
+                    background: `radial-gradient(circle, ${glowColor}3d 0%, ${glowColor}00 70%)`,
                   }}
                 />
                 <button
                   onClick={() => setHiringMode(prev => ({ ...prev, [slot]: true }))}
-                  className="relative px-8 py-3 rounded-xl font-display font-black text-[13px] uppercase tracking-widest transition-all"
+                  className="relative px-8 py-3 rounded-xl font-display font-black text-[13px] uppercase tracking-widest transition-all cursor-pointer"
                   style={{
                     background: 'rgba(0,0,0,0.5)',
-                    color: roleColor,
-                    border: `1.5px solid ${roleColor}`,
-                    boxShadow: `0 0 10px 2px ${roleColor}99, 0 0 22px 4px ${roleColor}4d, inset 0 0 8px ${roleColor}33`,
+                    color: glowColor,
+                    border: `1.5px solid ${glowColor}`,
+                    boxShadow: `0 0 10px 2px ${glowColor}99, 0 0 22px 4px ${glowColor}4d, inset 0 0 8px ${glowColor}33`,
                     backdropFilter: 'blur(6px)',
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.65)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.5)'; }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = 'rgba(0,0,0,0.65)';
+                    e.currentTarget.style.boxShadow = `0 0 16px 4px ${glowColor}cc, 0 0 34px 8px ${glowColor}80, inset 0 0 10px ${glowColor}55`;
+                    e.currentTarget.style.borderColor = glowColor;
+                    e.currentTarget.style.transform = 'scale(1.03)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'rgba(0,0,0,0.5)';
+                    e.currentTarget.style.boxShadow = `0 0 10px 2px ${glowColor}99, 0 0 22px 4px ${glowColor}4d, inset 0 0 8px ${glowColor}33`;
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
                 >
                   Hire {slot === 1 ? 'Scout' : 'Analyst'}
                 </button>
@@ -942,14 +957,14 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
             the column, so the bottom of the last row locks to the Daily Brief's bottom */}
         <div className="grid grid-cols-2 gap-3 flex-1 auto-rows-fr">
           {[
-            { view: 'database',   label: 'Recruiting Database', sub: 'True Freshmen Only',      color: 'text-txt-tertiary',    icon: (
+            { view: 'database',   label: 'Recruiting Database', sub: 'Data Storage',      color: 'text-txt-tertiary',    icon: (
               <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
                 <ellipse cx="8" cy="4" rx="5" ry="2"/>
                 <path d="M3 4v4c0 1.1 2.24 2 5 2s5-.9 5-2V4"/>
                 <path d="M3 8v4c0 1.1 2.24 2 5 2s5-.9 5-2V8"/>
               </svg>
             )},
-            { view: 'analysis',   label: 'Program Outlook',    sub: 'Staff Recommendations',    color: 'text-txt-tertiary', icon: (
+            { view: 'analysis',   label: 'Program Outlook',    sub: 'Roster Management',    color: 'text-txt-tertiary', icon: (
               <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
                 <rect x="3" y="2" width="10" height="12" rx="1.5"/>
                 <path d="M5.5 5h5M5.5 7.5h5M5.5 10h3"/>
@@ -990,13 +1005,13 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
           {/* Header */}
           <div className="px-4 py-3 border-b border-surface-4 shrink-0 flex items-center justify-between gap-3">
             <p className="text-sm font-display font-bold uppercase text-txt-primary">Daily Brief</p>
-            <p className="text-[9px] text-txt-tertiary">from {analystName}</p>
           </div>
 
           <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
 
-            {/* ── PROGRAM OUTLOOK SNAPSHOT ── */}
-            <div className="px-4 pt-4 pb-3 border-b border-surface-4">
+            {/* ── PROGRAM OUTLOOK SNAPSHOT + RECRUITING PLAN — side by side ── */}
+            <div className="flex border-b border-surface-4">
+            <div className="w-1/2 min-w-0 px-4 pt-4 pb-3 border-r border-surface-4">
               <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 mb-3">Position Status</p>
               {outlookSummary ? (() => {
                 // Read directly from outlookSummary verdictKey — same source as Program Outlook
@@ -1011,13 +1026,13 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                       {crits.length > 0 && (
                         <div>
                           <p className="text-[26px] font-black leading-none text-txt-primary">{crits.length}</p>
-                          <p className="text-[9px] font-bold uppercase tracking-widest text-red-400 mt-0.5">Critical</p>
+                          <p className="text-[9px] font-bold uppercase tracking-widest text-[#E3242B] mt-0.5">Critical</p>
                         </div>
                       )}
                       {depths.length > 0 && (
                         <div>
                           <p className="text-[26px] font-black leading-none text-txt-primary">{depths.length}</p>
-                          <p className="text-[9px] font-bold uppercase tracking-widest text-amber-400 mt-0.5">Depth</p>
+                          <p className="text-[9px] font-bold uppercase tracking-widest text-[#FFC72C] mt-0.5">Depth</p>
                         </div>
                       )}
                     </div>
@@ -1029,13 +1044,13 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                       <div className="space-y-2">
                         {crits.length > 0 && (
                           <p className="text-[13px] leading-snug text-slate-300">
-                            <span className="text-red-400 font-semibold">{crits.map(r => r.pos).join(', ')}</span>
+                            <span className="text-[#E3242B] font-semibold">{crits.map(r => r.pos).join(', ')}</span>
                             {crits.length === 1 ? ' has a gap' : ' have gaps'} that need to be addressed before next season.
                           </p>
                         )}
                         {depths.length > 0 && (
                           <p className="text-[13px] leading-snug text-slate-400">
-                            <span className="text-amber-400/80 font-semibold">{depths.map(r => r.pos).join(', ')}</span>
+                            <span className="text-[#FFC72C]/80 font-semibold">{depths.map(r => r.pos).join(', ')}</span>
                             {depths.length === 1 ? ' is running light' : ' are running light'} on depth in the next couple years.
                           </p>
                         )}
@@ -1058,6 +1073,7 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
             </div>
 
             {/* ── RECRUITING PLAN ── */}
+            <div className="w-1/2 min-w-0">
             {outlookSummary && (() => {
               const POSITIONS = ['QB','HB','FB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','K','P'];
               // Build a flag lookup from Position Status data
@@ -1065,19 +1081,18 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
               if (briefData?.outlookRows?.actionRows) {
                 briefData.outlookRows.actionRows.forEach(r => { flagMap[r.pos] = r.flag; });
               }
+              // hs/portal are read straight from outlookSummary's own recruitTarget
+              // math — the exact same numbers Program Outlook's aggregate Recruiting
+              // Plan sums up — so the two can never drift apart. A named board
+              // target only relabels an already-needed slot (matching Program
+              // Outlook's own convention); it never invents additional need.
               const rows = POSITIONS
                 .map(pos => {
                   const o = outlookSummary[pos] || {};
-                  let hs = o.hsMin ?? 0;
-                  let portal = o.portalMin ?? 0;
+                  const hs = o.hsMin ?? 0;
+                  const portal = o.portalMin ?? 0;
                   const targetName = o.topTargetName || null;
                   const targetIsPortal = !!o.topTargetIsPortal;
-                  // A named board target counts toward its bucket's total even if the
-                  // roster math alone didn't call for an investment here.
-                  if (targetName) {
-                    if (targetIsPortal) portal = Math.max(portal, 1);
-                    else hs = Math.max(hs, 1);
-                  }
                   return { pos, hs, portal, targetName, targetIsPortal, flag: flagMap[pos] ?? null };
                 })
                 .filter(r => r.hs > 0 || r.portal > 0);
@@ -1085,33 +1100,33 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
               const totalHs     = rows.reduce((s, r) => s + r.hs, 0);
               const totalPortal = rows.reduce((s, r) => s + r.portal, 0);
               return (
-                <div className="px-4 pt-4 pb-4 border-b border-surface-4">
+                <div className="px-4 pt-4 pb-4">
                   <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 mb-3">Recruiting Plan</p>
 
                   {/* At-a-glance totals */}
-                  <div className="flex items-end gap-4 mb-3">
+                  <div className="flex items-end justify-between gap-2 mb-3">
                     {totalHs > 0 && (
                       <div>
                         <p className="text-[20px] font-black leading-none text-txt-primary">{totalHs}</p>
-                        <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5">HS Targets</p>
+                        <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5 whitespace-nowrap">HS Targets</p>
                       </div>
                     )}
                     {totalPortal > 0 && (
                       <div>
                         <p className="text-[20px] font-black leading-none text-txt-primary">{totalPortal}</p>
-                        <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5">Portal</p>
+                        <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5 whitespace-nowrap">Portal</p>
                       </div>
                     )}
                     <div>
                       <p className="text-[20px] font-black leading-none text-slate-400">{totalHs + totalPortal}</p>
-                      <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">Total</p>
+                      <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5 whitespace-nowrap">Total</p>
                     </div>
-                    {rosterSummary?.returning != null && (
-                      <div className="ml-auto text-right">
+                    {outlookSummary._rosterCapacity && (
+                      <div className="text-right">
                         <p className="text-[20px] font-black leading-none text-slate-400">
-                          {rosterSummary.returning + (committedRecruits?.length ?? 0)}<span className="text-[13px] text-slate-600">/85</span>
+                          {outlookSummary._rosterCapacity.returning + outlookSummary._rosterCapacity.committed}<span className="text-[13px] text-slate-600">/85</span>
                         </p>
-                        <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">Proj. Roster</p>
+                        <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5 whitespace-nowrap">Proj. Roster</p>
                       </div>
                     )}
                   </div>
@@ -1126,21 +1141,19 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                       <div className="flex-1 min-w-0">
                         <p className="text-[8px] font-black uppercase tracking-[0.12em] text-slate-600 mb-1.5">{label}</p>
                         <div className="space-y-1">
-                          {colRows.map((r, i) => <RecruitingPlanRow key={i} {...r} />)}
+                          {colRows.map((r, i) => <RecruitingPlanRow key={i} {...r} onClick={onJumpToPosition ? () => onJumpToPosition(r.pos) : null} />)}
                         </div>
                       </div>
                     ) : null;
                     return (
                       <div className="space-y-2">
-                        <div className="flex gap-3">
-                          {col('Offense', offRows)}
-                          {col('Defense', defRows)}
-                        </div>
+                        {col('Offense', offRows)}
+                        {col('Defense', defRows)}
                         {stRows.length > 0 && (
                           <div>
                             <p className="text-[8px] font-black uppercase tracking-[0.12em] text-slate-600 mb-1.5">Special Teams</p>
                             <div className="space-y-1">
-                              {stRows.map((r, i) => <RecruitingPlanRow key={i} {...r} />)}
+                              {stRows.map((r, i) => <RecruitingPlanRow key={i} {...r} onClick={onJumpToPosition ? () => onJumpToPosition(r.pos) : null} />)}
                             </div>
                           </div>
                         )}
@@ -1150,6 +1163,8 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                 </div>
               );
             })()}
+            </div>
+            </div>
 
             {/* ── RECENTLY FILED ── */}
             {databaseRecruits.length > 0 && (() => {
@@ -1160,23 +1175,22 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                   <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-500 mb-2.5">Recently Filed</p>
                   <div className="space-y-1.5">
                     {recent.map((r, i) => {
-                      const showDev = r.devTrait && r.devTrait !== 'Hidden';
                       const score = Math.round(computeScore(r, weightsMap));
                       // Same grade tiers + glows as Recruiting Database
                       const gradeTiers = [
-                        { grade: 'A+', min: 95, cls: 'bg-surface-3 border border-[#0E7A2A] text-[#3DD65A]' },
-                        { grade: 'A',  min: 90, cls: 'bg-surface-3 border border-[#0E7A2A] text-[#2FC44E]' },
-                        { grade: 'A-', min: 86, cls: 'bg-surface-3 border border-[#0A6020] text-[#22A83E]' },
-                        { grade: 'B+', min: 82, cls: 'bg-surface-3 border border-[#8B7A40] text-[#F5E8A0]' },
-                        { grade: 'B',  min: 78, cls: 'bg-surface-3 border border-[#8B7A40] text-[#DDD090]' },
-                        { grade: 'B-', min: 74, cls: 'bg-surface-3 border border-[#6E6030] text-[#C4B475]' },
-                        { grade: 'C+', min: 70, cls: 'bg-surface-3 border border-[#6B7275] text-[#D8E0E2]' },
-                        { grade: 'C',  min: 66, cls: 'bg-surface-3 border border-[#6B7275] text-[#BEC8CA]' },
-                        { grade: 'C-', min: 62, cls: 'bg-surface-3 border border-[#505558] text-[#A0A8AA]' },
-                        { grade: 'D+', min: 58, cls: 'bg-surface-3 border border-[#7F6533] text-[#DDB870]' },
-                        { grade: 'D',  min: 54, cls: 'bg-surface-3 border border-[#7F6533] text-[#C9A85C]' },
-                        { grade: 'D-', min: 50, cls: 'bg-surface-3 border border-[#664E25] text-[#A88040]' },
-                        { grade: 'F',  min: 0,  cls: 'bg-surface-3 border border-[#7F6533] text-[#C9A85C]' },
+                        { grade: 'A+', min: 95, cls: 'bg-surface-3 border border-[#0F9D3E] text-[#3DFF7F]' },
+                        { grade: 'A',  min: 90, cls: 'bg-surface-3 border border-[#0E7A2A] text-[#22E065]' },
+                        { grade: 'A-', min: 86, cls: 'bg-surface-3 border border-[#0B6420] text-[#17C454]' },
+                        { grade: 'B+', min: 82, cls: 'bg-surface-3 border border-[#B8860B] text-[#FFDD33]' },
+                        { grade: 'B',  min: 78, cls: 'bg-surface-3 border border-[#9C7209] text-[#FFD100]' },
+                        { grade: 'B-', min: 74, cls: 'bg-surface-3 border border-[#7A5C08] text-[#E8B923]' },
+                        { grade: 'C+', min: 70, cls: 'bg-surface-3 border border-[#9BA7AF] text-[#F0F5F7]' },
+                        { grade: 'C',  min: 66, cls: 'bg-surface-3 border border-[#7C8991] text-[#D6DEE2]' },
+                        { grade: 'C-', min: 62, cls: 'bg-surface-3 border border-[#606B73] text-[#AEB7BC]' },
+                        { grade: 'D+', min: 58, cls: 'bg-surface-3 border border-[#B35900] text-[#FF9F40]' },
+                        { grade: 'D',  min: 54, cls: 'bg-surface-3 border border-[#8C5524] text-[#CD7F32]' },
+                        { grade: 'D-', min: 50, cls: 'bg-surface-3 border border-[#7A4210] text-[#C86A1E]' },
+                        { grade: 'F',  min: 0,  cls: 'bg-surface-3 border border-[#8C5524] text-[#CD7F32]' },
                       ];
                       const tier = gradeTiers.find(t => score >= t.min) ?? gradeTiers[gradeTiers.length - 1];
                       return (
@@ -1185,20 +1199,16 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                           onClick={() => onViewDatabase && onViewDatabase(r.pid)}
                           className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 bg-surface-3 border border-surface-4 transition-colors ${onViewDatabase ? 'cursor-pointer hover:bg-surface-4' : ''}`}
                         >
+                          {r.stars > 0 && <span className="text-[10px] font-black text-amber-400 tracking-wide shrink-0">{r.stars}★</span>}
                           <span className="text-[8px] font-display font-black tracking-wide px-1.5 py-0.5 rounded shrink-0 bg-surface-4 border border-surface-5 text-txt-tertiary">{r.position}</span>
-                          <span className="text-[11px] font-bold text-txt-primary truncate flex-1">{r.name}</span>
+                          <span className="relative inline-block min-w-0 max-w-[45%] shrink">
+                            <span className="text-[11px] font-bold text-txt-primary truncate block">{r.name}</span>
+                            <GemBustIcon type={r.gemBust} />
+                          </span>
+                          <div className="flex-1" />
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-[9px] font-black tabular-nums text-slate-400">{score}</span>
                             <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${tier.cls}`}>{tier.grade}</span>
-                            {showDev && (
-                              <span className={`text-[7px] font-black uppercase tracking-wide px-1 py-0.5 rounded border ${
-                                r.devTrait === 'Elite'  ? 'bg-surface-3 border-[#0E7A2A] text-[#2FC44E] shadow-[0_0_16px_rgba(14,122,42,0.85)]'
-                                : r.devTrait === 'Star'   ? 'bg-surface-3 border-[#8B7A40] text-[#DDD090] shadow-[0_0_14px_rgba(139,122,64,0.8)]'
-                                : r.devTrait === 'Impact' ? 'bg-surface-3 border-[#6B7275] text-[#BEC8CA]'
-                                : 'bg-surface-3 border-[#7F6533] text-[#C9A85C]'
-                              }`}>{r.devTrait}</span>
-                            )}
-                            {r.stars > 0 && <span className="text-[10px] font-bold text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.9)]">{r.stars}★</span>}
+                            <span className="text-[9px] font-black tabular-nums text-slate-400">{score}</span>
                           </div>
                         </div>
                       );

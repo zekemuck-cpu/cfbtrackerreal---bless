@@ -10,11 +10,11 @@ import { createStaffAccessor } from './staffDB';
 const POS_ORDER = ['QB','HB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','ATH'];
 
 const STAR_CONFIG = [
-  { key: '5', label: 'Five Star',  gradient: 'from-transparent',  border: 'border-surface-4',  color: '#fbbf24' },
-  { key: '4', label: 'Four Star',  gradient: 'from-slate-300/10',  border: 'border-slate-600/40',  color: '#cbd5e1' },
-  { key: '3', label: 'Three Star', gradient: 'from-transparent', border: 'border-surface-4', color: '#fb923c' },
-  { key: '2', label: 'Two Star',   gradient: 'from-transparent',   border: 'border-surface-4',   color: '#2dd4bf' },
-  { key: '1', label: 'One Star',   gradient: 'from-slate-700/20',  border: 'border-slate-800',     color: '#64748b' },
+  { key: '5' },
+  { key: '4' },
+  { key: '3' },
+  { key: '2' },
+  { key: '1' },
 ];
 
 // Full canonical archetype list keyed by bucketed position
@@ -24,13 +24,14 @@ ARCHETYPE_REGISTRY.forEach(({ position, archetype }) => {
   ARCHETYPES_BY_POS[position].push(archetype);
 });
 
-export default function PlayerCount({ onBack }) {
+export default function PlayerCount({ onBack, onGoToDatabase }) {
   const { currentDynasty, dynasties, getDynastyPlayers, updateDynasty, isViewOnly } = useDynasty();
   const [selectedPos, setSelectedPos] = useState(null);
+  const [selectedStar, setSelectedStar] = useState('5');
   const [siblingPlayers, setSiblingPlayers] = useState([]);
 
   const teamColors = useCurrentTeamColors(currentDynasty);
-  const positionBar = `linear-gradient(90deg, ${teamColors.primary}, ${teamColors.secondary})`;
+  const positionBar = teamColors.primary;
 
   const [scoutImg, setScoutImg] = useState('');
   const [scoutName, setScoutName] = useState('National Scout');
@@ -55,22 +56,44 @@ export default function PlayerCount({ onBack }) {
     [dynasties]
   );
 
+  // getSiblingScoutedPlayers is async (reads every sibling dynasty), so on
+  // every mount this page would show counts computed from just this dynasty's
+  // own recruits, then jump a moment later once siblings load in — the same
+  // flash-of-wrong-data issue fixed on the Daily Brief. Seed from the last
+  // confirmed-correct sibling list (localStorage, synchronous) instead of an
+  // empty array while the real fetch is in flight.
+  const cachedSiblingPlayers = useMemo(() => {
+    if (!currentDynasty?.id) return [];
+    try {
+      const raw = localStorage.getItem(`cfb_sibling_players_${currentDynasty.id}`);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }, [currentDynasty?.id]);
+
   useEffect(() => {
     let alive = true;
     getSiblingScoutedPlayers(currentDynasty, dynasties, getDynastyPlayers).then(list => {
-      if (alive) setSiblingPlayers(list);
+      if (!alive) return;
+      setSiblingPlayers(list);
+      if (currentDynasty?.id) {
+        try { localStorage.setItem(`cfb_sibling_players_${currentDynasty.id}`, JSON.stringify(list)); } catch {}
+      }
     });
     return () => { alive = false };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDynasty?.id, isolated, dynastiesKey]);
 
+  const effectiveSiblingPlayers = siblingPlayers.length ? siblingPlayers : cachedSiblingPlayers;
+
   // HS recruits only (matches Recruiting Database) — portal/transfer targets are a
   // different evaluation context and shouldn't skew freshman class counts.
   const allRecruits = useMemo(() => {
     const own = currentDynasty?.players || [];
-    const pool = isolated ? own : [...own, ...siblingPlayers];
+    const pool = isolated ? own : [...own, ...effectiveSiblingPlayers];
     return pool.filter(p => p.isTarget && p.name && !p.isPortal && !p.previousTeam);
-  }, [currentDynasty?.players, siblingPlayers, isolated]);
+  }, [currentDynasty?.players, effectiveSiblingPlayers, isolated]);
 
   const handleToggleIsolated = () => {
     if (!currentDynasty || isViewOnly) return;
@@ -86,6 +109,20 @@ export default function PlayerCount({ onBack }) {
       if (s in counts) counts[s]++;
     });
     return counts;
+  }, [allRecruits]);
+
+  // Star-tier counts scoped to each position — drives the star pill counts
+  // in Archetypes by Position, which should reflect only the active position's
+  // recruits, not the database-wide totals in `byStars`.
+  const starCountsByPos = useMemo(() => {
+    const result = {};
+    allRecruits.forEach(r => {
+      const pos = positionBucket(r.position) || r.position || 'Other';
+      const s = String(r.stars ?? '');
+      if (!result[pos]) result[pos] = { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 };
+      if (s in result[pos]) result[pos][s]++;
+    });
+    return result;
   }, [allRecruits]);
 
   const byPosition = useMemo(() => {
@@ -115,7 +152,21 @@ export default function PlayerCount({ onBack }) {
     return result;
   }, [allRecruits]);
 
-  const maxPos = Math.max(...byPosition.map(([, c]) => c), 1);
+  // Same shape as archCountsByPos, but scoped to the selected star tier —
+  // drives the Archetypes by Position breakdown only, so the position tabs
+  // above it keep showing overall totals regardless of the star filter.
+  const archCountsByPosStar = useMemo(() => {
+    const result = {};
+    allRecruits.forEach(r => {
+      if (String(r.stars ?? '') !== selectedStar) return;
+      const pos  = positionBucket(r.position) || r.position || 'Other';
+      const norm = normalizeArch(r.archetype?.trim() || '');
+      if (!norm) return;
+      if (!result[pos]) result[pos] = {};
+      result[pos][norm] = (result[pos][norm] || 0) + 1;
+    });
+    return result;
+  }, [allRecruits, selectedStar]);
 
   // Only positions with a defined archetype list get a tab
   const archPositions = byPosition.filter(([pos]) => ARCHETYPES_BY_POS[pos]?.length);
@@ -126,11 +177,41 @@ export default function PlayerCount({ onBack }) {
   return (
     <div className="space-y-5">
 
-      {/* Scout identity + header row */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start">
+      {/* Header strip */}
+      <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-surface-4">
+        <h2 className="text-sm font-display font-bold uppercase text-txt-primary">Player Count</h2>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {!isViewOnly && (
+            <label className="flex items-center gap-1.5 text-[10px] text-txt-tertiary hover:text-txt-secondary transition cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isolated}
+                onChange={handleToggleIsolated}
+                className="w-3 h-3 accent-current"
+              />
+              Reset Database (This Dynasty Only)
+            </label>
+          )}
+          {onBack && (
+            <button onClick={onBack} className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><polyline points="15 18 9 12 15 6"/></svg>
+              Main Hub
+            </button>
+          )}
+          {onGoToDatabase && (
+            <button onClick={onGoToDatabase} className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
+              Recruiting Database
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Scout portrait + info row */}
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch">
 
         {/* Scout portrait card */}
-        <div className="relative rounded-xl overflow-hidden shadow-xl w-full h-32 sm:w-[110px] sm:h-[130px] sm:flex-shrink-0">
+        <div className="relative rounded-xl overflow-hidden shadow-xl w-full h-32 sm:w-[110px] sm:h-[100px] sm:flex-shrink-0">
           {scoutImg ? (
             <img src={scoutImg} alt="National Scout" className="absolute inset-0 w-full h-full object-cover object-top" />
           ) : (
@@ -155,32 +236,12 @@ export default function PlayerCount({ onBack }) {
           </div>
         </div>
 
-        {/* Header */}
-        <div className="flex-1 min-w-0 flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-surface-4 h-32 sm:h-[130px]">
-          <div>
-            <p className="text-sm font-display font-bold uppercase text-txt-primary">Recruiting Database</p>
-            <p className="text-[10px] text-txt-tertiary mt-0.5">
-              {total > 0 ? `${total} recruits in the database across all seasons` : 'No recruits in the database yet'}
-            </p>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            {!isViewOnly && (
-              <label className="flex items-center gap-1.5 text-[10px] text-txt-tertiary hover:text-txt-secondary transition cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={isolated}
-                  onChange={handleToggleIsolated}
-                  className="w-3 h-3 accent-current"
-                />
-                Reset Database (This Dynasty Only)
-              </label>
-            )}
-            {onBack && (
-              <button onClick={onBack} className="text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3 shrink-0">
-                Back
-              </button>
-            )}
-          </div>
+        {/* Info card */}
+        <div className="flex-1 min-w-0 rounded-xl p-3 flex flex-col justify-center gap-1.5 bg-surface-2 border border-surface-4 sm:h-[100px]">
+          <p className="text-base font-semibold text-txt-primary">Player Count</p>
+          <p className="text-xs text-txt-tertiary leading-snug">
+            {total > 0 ? `${total} recruits in the database across all seasons` : 'No recruits in the database yet'}
+          </p>
         </div>
       </div>
 
@@ -192,14 +253,14 @@ export default function PlayerCount({ onBack }) {
         <>
           {/* Star tier breakdown */}
           <div className="grid grid-cols-5 gap-2">
-            {STAR_CONFIG.map(({ key, label, gradient, border, color }) => {
+            {STAR_CONFIG.map(({ key }) => {
               const count = byStars[key];
               const pct   = total > 0 ? ((count / total) * 100).toFixed(0) : 0;
               return (
-                <div key={key} className={`bg-gradient-to-b ${gradient} to-transparent ${border} border rounded-xl p-3 flex flex-col gap-1.5`}>
-                  <p className="text-[8px] font-display font-black uppercase tracking-wide leading-tight" style={{ color: `${color}99` }}>{label}</p>
-                  <p className="text-3xl font-display font-black tabular-nums leading-none" style={{ color }}>{count}</p>
-                  <p className="text-[9px] font-display font-bold tabular-nums" style={{ color: `${color}55` }}>{pct}%</p>
+                <div key={key} className="bg-surface-2 border border-surface-4 rounded-xl p-3 flex flex-col gap-1.5">
+                  <p className="text-[11px] font-black text-txt-secondary leading-tight">{key}★</p>
+                  <p className="text-3xl font-display font-black tabular-nums leading-none text-txt-primary">{count}</p>
+                  <p className="text-[9px] font-display font-bold tabular-nums text-txt-tertiary">{pct}%</p>
                 </div>
               );
             })}
@@ -216,7 +277,7 @@ export default function PlayerCount({ onBack }) {
                   <span className="text-[13px] font-display font-black uppercase w-10 shrink-0 text-txt-secondary">{pos}</span>
                   <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
                     {count > 0 && (
-                      <div className="h-full rounded-full" style={{ width: `${(count / maxPos) * 100}%`, background: positionBar }} />
+                      <div className="h-full rounded-full" style={{ width: `${(count / total) * 100}%`, background: positionBar }} />
                     )}
                   </div>
                   <span className="text-[13px] font-display font-bold tabular-nums text-txt-tertiary w-5 text-right shrink-0">{count}</span>
@@ -246,21 +307,40 @@ export default function PlayerCount({ onBack }) {
                 </button>
               ))}
             </div>
+            {/* Offset so the first star pill starts at the QB pill's horizontal
+                midpoint above it, instead of flush with the position row. */}
+            <div className="pr-4 pt-2 flex flex-wrap gap-1.5" style={{ paddingLeft: '43px' }}>
+              {STAR_CONFIG.map(({ key }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setSelectedStar(key)}
+                  className={`px-2.5 py-1 rounded-md text-[10px] font-display font-black transition ${
+                    key === selectedStar
+                      ? 'bg-surface-4 text-txt-primary'
+                      : 'text-txt-tertiary hover:text-txt-secondary hover:bg-surface-3'
+                  }`}
+                >
+                  {key}★ <span className="opacity-60">{starCountsByPos[activePos]?.[key] ?? 0}</span>
+                </button>
+              ))}
+            </div>
             {activePos && (() => {
               const registryArchs = ARCHETYPES_BY_POS[activePos];
-              const normCounts = archCountsByPos[activePos] || {};
-              const maxCount = Math.max(...registryArchs.map(a => normCounts[normalizeArch(a)] || 0), 1);
+              const normCounts = archCountsByPosStar[activePos] || {};
+              const normTotals = archCountsByPos[activePos] || {};
               return (
                 <div className="p-4 space-y-2.5">
                   {registryArchs.map(arch => {
                     const displayName = normalizeArch(arch);
                     const count = normCounts[normalizeArch(arch)] || 0;
+                    const archTotal = normTotals[normalizeArch(arch)] || 0;
                     return (
                       <div key={arch} className="flex items-center gap-2.5">
                         <span className="text-[13px] w-44 shrink-0 truncate" style={{ color: count > 0 ? 'var(--txt-secondary)' : 'var(--txt-tertiary)' }}>{displayName}</span>
                         <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                          {count > 0 && (
-                            <div className="h-full rounded-full" style={{ width: `${(count / maxCount) * 100}%`, background: positionBar }} />
+                          {count > 0 && archTotal > 0 && (
+                            <div className="h-full rounded-full" style={{ width: `${(count / archTotal) * 100}%`, background: positionBar }} />
                           )}
                         </div>
                         <span className="text-[13px] font-display font-bold tabular-nums w-5 text-right shrink-0" style={{ color: count > 0 ? 'var(--txt-tertiary)' : 'rgba(100,116,139,0.35)' }}>{count}</span>

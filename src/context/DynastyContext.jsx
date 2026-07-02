@@ -101,6 +101,7 @@ import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId, CFP_BRACKET_S
 import { migrateDynastyToEditors, needsEditorsMigration, getMemberTeams, snapshotAllMembersForYear, getCoachNameForUid, canManageMembers } from '../data/leagueModel'
 import { isSameWeek, isSameYear } from '../utils/compareUtils'
 import { normalizeEditionKey, DEFAULT_EDITION } from '../editions'
+import { getAllStaffDataForDynasty, setAllStaffDataForDynasty } from '../components/staffDB'
 
 const DynastyContext = createContext()
 
@@ -15316,6 +15317,21 @@ export function DynastyProvider({ children }) {
     const exportData = { ...dynasty }
     delete exportData._firestoreId
 
+    // Scout Staff's config (staff hires, Program Outlook settings — starter
+    // targets, leaving flags, recruit strategy, etc.) lives in a separate
+    // local-only IndexedDB store, not on the dynasty object, so it's pulled
+    // in here explicitly — otherwise a restored backup would come back with
+    // the Recruiting Database's prospects intact but Scout Staff reset to
+    // a blank slate.
+    try {
+      const scoutStaffData = await getAllStaffDataForDynasty(dynasty.id)
+      if (Object.keys(scoutStaffData).length > 0) {
+        exportData._scoutStaffData = scoutStaffData
+      }
+    } catch (err) {
+      console.warn('Failed to include Scout Staff data in export:', err)
+    }
+
     // Convert to JSON string with pretty formatting
     const jsonString = JSON.stringify(exportData, null, 2)
 
@@ -15391,6 +15407,7 @@ export function DynastyProvider({ children }) {
       isPublic: oldIsPublic,
       googleSheetsByTeam: oldGoogleSheets,
       favorite: oldFavorite, // Don't carry over starred status
+      _scoutStaffData: importedScoutStaffData, // restored separately below, not a dynasty field
       ...cleanDynastyData
     } = dynastyData
 
@@ -15473,6 +15490,11 @@ export function DynastyProvider({ children }) {
 
       await indexedDBStorage.saveDynasties(migratedDynasties)
       setDynasties(migratedDynasties)
+
+      if (importedScoutStaffData && Object.keys(importedScoutStaffData).length > 0) {
+        try { await setAllStaffDataForDynasty(newId, importedScoutStaffData) }
+        catch (err) { console.warn('Failed to restore Scout Staff data on import:', err) }
+      }
 
       reportProgress('complete', 'Import complete!', 100)
     } else {
@@ -15609,6 +15631,11 @@ export function DynastyProvider({ children }) {
           const gameProgress = 65 + Math.round((batchEnd / gameCount) * 30)
           reportProgress('games', `Importing games (${batchEnd}/${gameCount})...`, gameProgress, `${batchEnd} of ${gameCount} games`)
         }
+      }
+
+      if (importedScoutStaffData && Object.keys(importedScoutStaffData).length > 0) {
+        try { await setAllStaffDataForDynasty(result.id, importedScoutStaffData) }
+        catch (err) { console.warn('Failed to restore Scout Staff data on import:', err) }
       }
 
       // For local state, include players and games

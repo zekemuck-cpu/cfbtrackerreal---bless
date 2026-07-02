@@ -446,44 +446,48 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
         </div>
       </section>
 
-      {(removedRanked.length > 0 || dragOverRemoved) && (
-        <section
-          className={`media-card overflow-hidden transition-colors ${dragOverRemoved ? 'ring-1 ring-red-900/40' : ''}`}
-          onDragOver={(e) => { e.preventDefault(); setDragOverRemoved(true) }}
-          onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOverRemoved(false) }}
-          onDrop={(e) => {
-            e.preventDefault()
-            const pid = dragPid.current
-            if (pid && !dragFromRemoved.current) {
-              const pl = targets.find(t => t.p.pid === pid)?.p
-              if (pl) handleToggleRemove(pl)
-            }
-            dragPid.current = null
-            dragFromRemoved.current = false
-            setDragOverRemoved(false)
-            setDragOverPid(null)
-          }}
-        >
-          <div className="px-3 sm:px-5 py-3 flex items-center gap-2 border-b" style={{ borderColor: 'var(--surface-4)' }}>
-            <h3 className="font-display font-black uppercase leading-none text-txt-tertiary flex-shrink-0 whitespace-nowrap" style={{ fontSize: '14px', letterSpacing: '0.02em' }}>Removed</h3>
-            <span className="text-[11px] text-txt-tertiary">Taken off the Big Board — drag back or use the restore button.</span>
-          </div>
-          <div>
-            {removedRanked.map((r, i) => (
-              <Row key={r.p.pid} r={r} rank={i + 1} pathPrefix={pathPrefix} scoutResult={scores.get(r.p.pid)} scoring={scoring} sortBy={sortBy} localScore={localScores.get(r.p.pid)} useLocalScores={scoutStaffEnabled}
-                canEdit={canEdit}
-                onToggleRemove={handleToggleRemove}
-                draggable
-                onDragStart={() => { dragPid.current = r.p.pid; dragFromRemoved.current = true }}
-                onDragEnd={() => { dragPid.current = null; dragFromRemoved.current = false; setDragOverRemoved(false) }}
-              />
-            ))}
-            {dragOverRemoved && removedRanked.length === 0 && (
-              <div className="px-4 py-6 text-center text-sm text-txt-tertiary">Drop here to remove</div>
-            )}
-          </div>
-        </section>
-      )}
+      <section
+        className={`media-card overflow-hidden transition-colors ${dragOverRemoved ? 'ring-1 ring-red-900/40' : ''}`}
+        onDragOver={(e) => { e.preventDefault(); setDragOverRemoved(true) }}
+        onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOverRemoved(false) }}
+        onDrop={(e) => {
+          e.preventDefault()
+          const pid = dragPid.current
+          if (pid && !dragFromRemoved.current) {
+            const pl = targets.find(t => t.p.pid === pid)?.p
+            if (pl) handleToggleRemove(pl)
+          }
+          dragPid.current = null
+          dragFromRemoved.current = false
+          setDragOverRemoved(false)
+          setDragOverPid(null)
+        }}
+      >
+        <div className="px-3 sm:px-5 py-3 flex items-center gap-2 border-b" style={{ borderColor: 'var(--surface-4)' }}>
+          <h3 className="font-display font-black uppercase leading-none text-txt-tertiary flex-shrink-0 whitespace-nowrap" style={{ fontSize: '14px', letterSpacing: '0.02em' }}>Removed</h3>
+          <span className="text-[11px] text-txt-tertiary">Taken off the Big Board — drag back or use the restore button.</span>
+        </div>
+        <div>
+          {removedRanked.length === 0 && !dragOverRemoved ? (
+            <div className="px-4 sm:px-5 py-8 text-center text-sm text-txt-tertiary">No removed targets.</div>
+          ) : (
+            <>
+              {removedRanked.map((r, i) => (
+                <Row key={r.p.pid} r={r} rank={i + 1} pathPrefix={pathPrefix} scoutResult={scores.get(r.p.pid)} scoring={scoring} sortBy={sortBy} localScore={localScores.get(r.p.pid)} useLocalScores={scoutStaffEnabled}
+                  canEdit={canEdit}
+                  onToggleRemove={handleToggleRemove}
+                  draggable
+                  onDragStart={() => { dragPid.current = r.p.pid; dragFromRemoved.current = true }}
+                  onDragEnd={() => { dragPid.current = null; dragFromRemoved.current = false; setDragOverRemoved(false) }}
+                />
+              ))}
+              {dragOverRemoved && removedRanked.length === 0 && (
+                <div className="px-4 py-6 text-center text-sm text-txt-tertiary">Drop here to remove</div>
+              )}
+            </>
+          )}
+        </div>
+      </section>
     </div>
   )
 }

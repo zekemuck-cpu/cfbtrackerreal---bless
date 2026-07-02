@@ -46,7 +46,7 @@ export const BASE_POSITION_CONFIG = {
   ATH: ["Awareness", "Speed", "Acceleration", "Strength", "Agility", "Change of Direction", "Catching", "Tackle", "Zone Coverage", "Man Coverage"]
 };
 
-const OPTIONS_REGISTRY = [
+export const OPTIONS_REGISTRY = [
   { position: "QB", archetypes: ["Pocket Passer", "Dual Threat", "Backfield Creator", "Pure Runner"] },
   { position: "HB", archetypes: ["Elusive Bruiser", "East/West Playmaker", "Contact Seeker", "Backfield Threat", "North/South Receiver", "North/South Blocker"] },
   { position: "WR", archetypes: ["Speedster", "Route Artist", "Elusive Route Runner", "Physical Route Runner", "Gritty Possession", "Contested Specialist", "Gadget"] },
