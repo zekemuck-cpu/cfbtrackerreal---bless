@@ -218,12 +218,19 @@ export default function ScoutStaffFrontPage({ setView, onViewDatabase, onJumpToP
   // used" set survives reloads, not just the current session. Hometown zone
   // gets the same treatment for geographic spread.
   const bioBagsRef = useRef({ schools: [], zones: [], scenarios: [] });
-  const drawFromBag = async (bagName, pool, dbKey) => {
+  // Synchronous on purpose — generateBioPrompt (below) has to stay synchronous
+  // so its caller can call navigator.clipboard.writeText() directly inside the
+  // click handler. Clipboard writes only work when triggered synchronously
+  // from a user gesture (Safari enforces this strictly); an await anywhere
+  // before the write breaks it silently — the UI still flashes "Copied" but
+  // nothing actually lands on the clipboard. The bag's persistence save still
+  // happens, it just isn't awaited.
+  const drawFromBag = (bagName, pool, dbKey) => {
     let bag = bioBagsRef.current[bagName];
     if (!bag || bag.length === 0) bag = shuffleArray(pool);
     const [picked, ...rest] = bag;
     bioBagsRef.current[bagName] = rest;
-    await saveStaffData(dbKey, JSON.stringify(rest));
+    saveStaffData(dbKey, JSON.stringify(rest));
     return picked;
   };
 
@@ -454,7 +461,7 @@ DIVERSITY: Randomize the person's ethnicity, skin tone, face shape, body build, 
 BEFORE FINALIZING, CHECK BOTH RULES AGAIN: (1) Is this a 4:5 portrait canvas with visible headroom above the hair and the shoulders/upper chest visible at the bottom — not cropped tight to the face? (2) Does this look like an obvious video game render and NOT a real photograph? If either check fails, redo the image until both pass.`;
   };
 
-  const generateBioPrompt = async (role, otherName) => {
+  const generateBioPrompt = (role, otherName) => {
     const isScout = role === 'scout';
     const roleContext = isScout
       ? 'a National Scout who specializes in hands-on field evaluation, on-campus recruiting visits, building relationships with high school coaches, and identifying under-the-radar talent'
@@ -465,9 +472,9 @@ BEFORE FINALIZING, CHECK BOTH RULES AGAIN: (1) Is this a 4:5 portrait canvas wit
     // every option in each pool comes up once before any of them repeat —
     // guaranteed variety across however many staff get generated, not just a
     // statistical chance of it.
-    const zone   = await drawFromBag('zones',     HOMETOWN_ZONES,   'bio_zone_bag');
-    const school = await drawFromBag('schools',   FBS_TEAMS,        'bio_school_bag');
-    const scenarioTemplate = await drawFromBag('scenarios', CONNECTION_SCENARIOS, 'bio_scenario_bag');
+    const zone   = drawFromBag('zones',     HOMETOWN_ZONES,   'bio_zone_bag');
+    const school = drawFromBag('schools',   FBS_TEAMS,        'bio_school_bag');
+    const scenarioTemplate = drawFromBag('scenarios', CONNECTION_SCENARIOS, 'bio_scenario_bag');
 
     const coachLastName = coachName ? coachName.trim().split(/\s+/).slice(-1)[0] : '';
     const coachRef = coachLastName ? `Coach ${coachLastName}` : 'the head coach';
@@ -974,7 +981,7 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
                 )}
                 {!bio && (
                   <div className="flex flex-wrap gap-1.5">
-                    <button onClick={async () => handleCopy(await generateBioPrompt(slot === 1 ? 'scout' : 'analyst', slot === 1 ? analystName : scoutName), `${slot}-bio`)} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.5)', color: '#64748b', backdropFilter: 'blur(4px)' }}>
+                    <button onClick={() => handleCopy(generateBioPrompt(slot === 1 ? 'scout' : 'analyst', slot === 1 ? analystName : scoutName), `${slot}-bio`)} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.5)', color: '#64748b', backdropFilter: 'blur(4px)' }}>
                       {copiedKey === `${slot}-bio` ? 'Copied' : 'BIO Prompt'}
                     </button>
                     <button onClick={() => pasteBioFromBtn(slot)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider" style={{
@@ -1022,7 +1029,7 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
                   <button onClick={() => handleCopy(generateImgPrompt(slot === 1 ? 'scout' : 'analyst'), `${slot}-img`)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider text-center" style={{ background: 'rgba(0,0,0,0.5)', color: roleColor, backdropFilter: 'blur(4px)' }}>
                     {copiedKey === `${slot}-img` ? 'Copied' : 'IMG Prompt'}
                   </button>
-                  <button onClick={async () => handleCopy(await generateBioPrompt(slot === 1 ? 'scout' : 'analyst', slot === 1 ? analystName : scoutName), `${slot}-bio`)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider text-center" style={{ background: 'rgba(0,0,0,0.5)', color: '#64748b', backdropFilter: 'blur(4px)' }}>
+                  <button onClick={() => handleCopy(generateBioPrompt(slot === 1 ? 'scout' : 'analyst', slot === 1 ? analystName : scoutName), `${slot}-bio`)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider text-center" style={{ background: 'rgba(0,0,0,0.5)', color: '#64748b', backdropFilter: 'blur(4px)' }}>
                     {copiedKey === `${slot}-bio` ? 'Copied' : 'BIO Prompt'}
                   </button>
                   <button onClick={() => pasteFromBtn(slot)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider text-center" style={{
