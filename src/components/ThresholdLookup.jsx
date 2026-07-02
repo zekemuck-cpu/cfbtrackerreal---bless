@@ -26,11 +26,13 @@ const ATTR_SHORT = {
 // not a computeScore band — see devTraitLearning.js.
 // Tier heading colors match the dev trait badge colors used in the
 // Recruiting Database exactly (Elite/Star/Impact/Normal).
+// Border/glow match the dev trait badges in the Recruiting Database exactly
+// (PlayerDatabase.jsx's Current Roster dev trait pills), not just the heading text.
 const TIER_STYLES = [
-  { label: 'Tier 1: Elite',  devTrait: 'Elite',  border: 'border-surface-4', heading: 'text-[#22E065]', bg: 'bg-surface-3' },
-  { label: 'Tier 2: Star',   devTrait: 'Star',   border: 'border-surface-4', heading: 'text-[#FFD100]', bg: 'bg-surface-3' },
-  { label: 'Tier 3: Impact', devTrait: 'Impact', border: 'border-surface-4', heading: 'text-[#D6DEE2]', bg: 'bg-surface-3' },
-  { label: 'Tier 4: Normal', devTrait: 'Normal', border: 'border-surface-4', heading: 'text-[#CD7F32]', bg: 'bg-surface-3' },
+  { label: 'Tier 1: Elite',  devTrait: 'Elite',  border: 'border-[#0E7A2A]', heading: 'text-[#22E065]', bg: 'bg-surface-3', glow: 'shadow-[0_0_16px_rgba(14,122,42,0.85)]' },
+  { label: 'Tier 2: Star',   devTrait: 'Star',   border: 'border-[#9C7209]', heading: 'text-[#FFD100]', bg: 'bg-surface-3', glow: 'shadow-[0_0_14px_rgba(156,114,9,0.8)]' },
+  { label: 'Tier 3: Impact', devTrait: 'Impact', border: 'border-[#7C8991]', heading: 'text-[#D6DEE2]', bg: 'bg-surface-3', glow: '' },
+  { label: 'Tier 4: Normal', devTrait: 'Normal', border: 'border-[#8C5524]', heading: 'text-[#CD7F32]', bg: 'bg-surface-3', glow: '' },
 ];
 
 const STAR_TABS = ['5', '4', '3', '2', '1'];
@@ -740,8 +742,9 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
             ? <img src={analystImg} alt="" className="absolute inset-0 w-full h-full object-cover object-top" />
             : <div className="absolute inset-0 bg-surface-3" />
           }
-          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.82) 68%, rgba(0,0,0,0.92) 100%)' }} />
-          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 45%, #34d39955 100%)' }} />
+          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 82%, rgba(0,0,0,0.85) 90%, rgba(0,0,0,0.95) 100%)' }} />
+          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 85%, #34d39955 100%)' }} />
+          <p className="absolute top-2 right-2 text-[5px] font-semibold tracking-wider leading-snug pointer-events-none" style={{ color: '#34d399', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>DATA ANALYST</p>
           <div className="absolute bottom-0 left-0 right-0 p-2.5 pointer-events-none">
             <div className="w-6 h-0.5 mb-1 rounded-full" style={{ background: '#34d399' }} />
             {(() => {
@@ -749,9 +752,8 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
               const fn = parts.length > 1 ? parts.slice(0, -1).join(' ') : '';
               const ln = parts[parts.length - 1];
               return <>
-                {fn && <p className="text-[7px] font-semibold leading-none" style={{ color: 'rgba(255,255,255,0.75)', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{fn}</p>}
-                <p className="text-base font-bold leading-tight" style={{ color: 'white', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{ln}</p>
-                <p className="text-[6px] font-semibold tracking-wider leading-snug" style={{ color: '#34d399', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>DATA ANALYST</p>
+                {fn && <p className="text-[6px] font-semibold leading-none" style={{ color: 'rgba(255,255,255,0.75)', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{fn}</p>}
+                <p className="text-xs font-bold leading-tight" style={{ color: 'white', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{ln}</p>
               </>;
             })()}
           </div>
@@ -882,7 +884,7 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
                 <div
                   key={i}
                   onClick={() => toggleTier(i)}
-                  className={`rounded-xl border cursor-pointer transition-colors hover:bg-surface-4 hover:border-surface-5 ${style.border} ${style.bg}`}
+                  className={`rounded-xl border cursor-pointer transition-colors hover:bg-surface-4 ${style.border} ${style.bg} ${style.glow}`}
                 >
                   <div className="p-4">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">

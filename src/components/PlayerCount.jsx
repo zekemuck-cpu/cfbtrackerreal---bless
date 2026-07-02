@@ -217,8 +217,9 @@ export default function PlayerCount({ onBack, onGoToDatabase }) {
           ) : (
             <div className="absolute inset-0 bg-surface-3" />
           )}
-          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.82) 68%, rgba(0,0,0,0.92) 100%)' }} />
-          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 45%, #38bdf855 100%)' }} />
+          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 82%, rgba(0,0,0,0.85) 90%, rgba(0,0,0,0.95) 100%)' }} />
+          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 85%, #38bdf855 100%)' }} />
+          <p className="absolute top-2 right-2 text-[5px] font-black uppercase tracking-[0.12em] text-sky-400" style={{ textShadow: '0 1px 6px rgba(0,0,0,1)' }}>National Scout</p>
           <div className="absolute bottom-0 left-0 right-0 p-2">
             <div className="w-4 h-0.5 mb-1 rounded-full bg-sky-400" />
             {(() => {
@@ -227,12 +228,11 @@ export default function PlayerCount({ onBack, onGoToDatabase }) {
               const first = parts.join(' ');
               return (
                 <>
-                  {first && <p className="leading-none text-[7px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.7)', textShadow: '0 1px 6px rgba(0,0,0,1)' }}>{first}</p>}
-                  <p className="text-white leading-none font-bold text-base" style={{ textShadow: '0 2px 10px rgba(0,0,0,1)' }}>{last}</p>
+                  {first && <p className="leading-none text-[6px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.7)', textShadow: '0 1px 6px rgba(0,0,0,1)' }}>{first}</p>}
+                  <p className="text-white leading-none font-bold text-xs" style={{ textShadow: '0 2px 10px rgba(0,0,0,1)' }}>{last}</p>
                 </>
               );
             })()}
-            <p className="text-[6px] font-black uppercase tracking-[0.12em] mt-0.5 text-sky-400">National Scout</p>
           </div>
         </div>
 

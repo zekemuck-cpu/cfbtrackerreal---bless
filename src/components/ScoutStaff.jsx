@@ -425,6 +425,27 @@ export default function ScoutStaff({ year } = {}) {
     setAnalysisJumpPos({ pos, ts: Date.now() });
     setSubView('analysis');
   };
+  // ScoutAnalysis stays mounted (CSS-hidden) the whole time Scout Staff is
+  // open, so its own activePos/isOverview state otherwise just sits wherever
+  // it was last left — e.g. a QB detail page — and silently reappears the
+  // next time the user presses the plain "Program Outlook" nav button. That
+  // button should ALWAYS land on Overview; only an explicit deep link
+  // (goToAnalysisPosition above) should ever open straight to a position.
+  const [analysisResetKey, setAnalysisResetKey] = useState(0);
+  const goToAnalysisOverview = () => {
+    setAnalysisResetKey(k => k + 1);
+    setSubView('analysis');
+  };
+
+  // ScoutAnalysis is always mounted (see below), so it's the single source of
+  // truth for posExtraTargets — rather than duplicating that state here, it
+  // hands its own adjustExtraTargets function up through this ref once
+  // mounted, and this stable wrapper is what Daily Brief calls to decrement a
+  // generic "1 HS"/"1 Portal" pill straight from the Recruiting Plan, exactly
+  // as if the coach had clicked the "−" stepper inside Program Outlook itself.
+  const analysisActionsRef = useRef({});
+  const adjustExtraTargetsFromBrief = (key, type, delta, resolved) =>
+    analysisActionsRef.current.adjustExtraTargets?.(key, type, delta, resolved);
   // One-shot: analysisJumpPos never went back to null after being consumed, so
   // every later plain "Program Outlook" nav (main-hub button, tabs, etc.) also
   // mounted ScoutAnalysis with the old jumpToPos still set, re-triggering the
@@ -488,7 +509,7 @@ export default function ScoutStaff({ year } = {}) {
 
   return (
     <div className="w-full space-y-4">
-      {subView === 'home' && <FrontPage setView={setSubView} onViewDatabase={openDatabase} onJumpToPosition={goToAnalysisPosition} currentTeamName={currentDynasty?.teamName || 'college football team'} currentYear={currentDynasty?.currentYear || new Date().getFullYear()} coachName={currentDynasty?.coachName || ''} recruits={recruits} databaseRecruits={freshmanRecruits} rosterWarnings={rosterWarnings} rosterSummary={rosterSummary} outlookSummary={outlookSummary || cachedOutlookSummary} committedRecruits={committedRecruits} dynastyId={dynastyId} {...teamTheme} />}
+      {subView === 'home' && <FrontPage setView={setSubView} onViewDatabase={openDatabase} onJumpToPosition={goToAnalysisPosition} onGoToAnalysisOverview={goToAnalysisOverview} onRemoveFromBoard={isViewOnly ? null : handleToggleBoardRemoved} onAdjustTarget={isViewOnly ? null : adjustExtraTargetsFromBrief} currentTeamName={currentDynasty?.teamName || 'college football team'} currentYear={currentDynasty?.currentYear || new Date().getFullYear()} coachName={currentDynasty?.coachName || ''} recruits={recruits} databaseRecruits={freshmanRecruits} rosterWarnings={rosterWarnings} rosterSummary={rosterSummary} outlookSummary={outlookSummary || cachedOutlookSummary} committedRecruits={committedRecruits} dynastyId={dynastyId} {...teamTheme} />}
 
       {/* Read-only: mirrors the recruiting Targets sheet. Freshmen and portal targets are split.
           Uses the unfiltered list so a target removed from the board still shows up here. */}
@@ -500,7 +521,7 @@ export default function ScoutStaff({ year } = {}) {
           Hidden when not on the analysis view — UI is invisible but computation runs.
           Uses boardRecruits so removed targets are no longer discussed in Program Outlook. */}
       <div className={subView === 'analysis' ? '' : 'hidden'}>
-        <ScoutAnalysis players={boardRecruits} removedRecruits={removedBoardRecruits} onToggleBoardRemoved={isViewOnly ? null : handleToggleBoardRemoved} roleContext="Data Analyst" {...teamTheme} dynasty={currentDynasty} committedRecruits={committedRecruits} onBack={goHome} onOutlookReady={data => { setOutlookSummary(data); }} jumpToPos={analysisJumpPos} />
+        <ScoutAnalysis players={boardRecruits} removedRecruits={removedBoardRecruits} onToggleBoardRemoved={isViewOnly ? null : handleToggleBoardRemoved} roleContext="Data Analyst" {...teamTheme} dynasty={currentDynasty} committedRecruits={committedRecruits} onBack={goHome} onOutlookReady={data => { setOutlookSummary(data); }} jumpToPos={analysisJumpPos} resetToOverviewKey={analysisResetKey} actionsRef={analysisActionsRef} />
       </div>
     </div>
   );

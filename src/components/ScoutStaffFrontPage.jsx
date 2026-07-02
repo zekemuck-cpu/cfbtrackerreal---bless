@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { computeScore } from './archetypeWeights';
 import { buildRevealedPool, buildWeightsMap } from '../utils/devTraitLearning';
 
@@ -8,6 +8,132 @@ import { buildRevealedPool, buildWeightsMap } from '../utils/devTraitLearning';
 import { createStaffAccessor } from './staffDB';
 import RecruitingPlanRow from './RecruitingPlanRow';
 import GemBustIcon from './GemBustIcon';
+
+// Full FBS membership — used so a generated staff member's alma mater is picked
+// directly from this real list (in JS, not left to the AI) and cycled through a
+// shuffle-bag so no school repeats until every program has come up once.
+// Hometown regions a generated staff member can be drawn from — shuffle-bagged
+// so all zones cycle through before any repeats, giving real geographic spread.
+// Each zone explicitly allows major cities AND small towns (previously smaller
+// towns only), since real people come from both.
+const HOMETOWN_ZONES = [
+  'Deep South (Alabama, Mississippi, Georgia, Louisiana, South Carolina) — anywhere from Birmingham or Atlanta down to the smallest county-seat towns',
+  'Midwest (Ohio, Indiana, Illinois, Michigan, Wisconsin, Iowa, Missouri) — anywhere from Chicago or Detroit down to small farm towns',
+  'Mid-Atlantic (Pennsylvania, New Jersey, Maryland, Virginia, Delaware) — anywhere from Philadelphia or Baltimore down to small towns',
+  'Texas (all of Texas) — anywhere from Houston, Dallas, San Antonio, or Austin down to small East/West Texas towns',
+  'Great Plains (Nebraska, Kansas, Oklahoma, South Dakota, North Dakota) — anywhere from Oklahoma City or Omaha down to tiny towns',
+  'Appalachia (West Virginia, eastern Kentucky, western North Carolina, Tennessee) — anywhere from Knoxville or Charleston down to small mountain towns',
+  'Pacific Coast (Southern California, Central California, Pacific Northwest excluding Idaho) — anywhere from Los Angeles or Seattle down to small coastal towns',
+  'Mountain West (Colorado, Utah, Nevada, Arizona) — anywhere from Denver, Phoenix, or Las Vegas down to small towns',
+  'New England (Massachusetts, Connecticut, Rhode Island, upstate New York) — anywhere from Boston down to small towns',
+  'Gulf Coast (Florida Panhandle, coastal Mississippi, Alabama coast, east Texas coast) — anywhere from Mobile or Pensacola down to small coastal towns',
+  'Upper South (Arkansas, central Kentucky, western Virginia, middle Tennessee) — anywhere from Nashville or Louisville down to small towns',
+  'Florida (all of Florida) — anywhere from Miami, Tampa, Jacksonville, or Orlando down to small towns',
+  'New York Metro / Northeast Corridor (New York City, Long Island, northern New Jersey, southern Connecticut) — big-city neighborhoods and small suburban towns alike',
+  'Great Lakes (western New York, northern Ohio, northern Indiana) — anywhere from Cleveland or Buffalo down to small towns',
+  'Southwest (New Mexico, West Texas, southern Arizona) — anywhere from Albuquerque or El Paso down to small desert towns',
+  'Carolinas (North Carolina and South Carolina, coast to piedmont) — anywhere from Charlotte or Charleston down to small towns',
+  'Ohio Valley (southern Indiana, southern Ohio, northern Kentucky) — anywhere from Cincinnati or Louisville down to small river towns',
+  'Hawaii and Pacific (Hawaii, or a small Pacific Northwest coastal town) — Honolulu or a small island/coastal town',
+];
+
+const FBS_TEAMS = [
+  // SEC
+  'Alabama', 'Arkansas', 'Auburn', 'Florida', 'Georgia', 'Kentucky', 'LSU',
+  'Mississippi State', 'Missouri', 'Ole Miss', 'Oklahoma', 'South Carolina',
+  'Tennessee', 'Texas', 'Texas A&M', 'Vanderbilt',
+  // Big Ten
+  'Illinois', 'Indiana', 'Iowa', 'Maryland', 'Michigan', 'Michigan State',
+  'Minnesota', 'Nebraska', 'Northwestern', 'Ohio State', 'Oregon', 'Penn State',
+  'Purdue', 'Rutgers', 'UCLA', 'USC', 'Washington', 'Wisconsin',
+  // ACC
+  'Boston College', 'California', 'Clemson', 'Duke', 'Florida State',
+  'Georgia Tech', 'Louisville', 'Miami (FL)', 'NC State', 'North Carolina',
+  'Pittsburgh', 'SMU', 'Stanford', 'Syracuse', 'Virginia', 'Virginia Tech',
+  'Wake Forest',
+  // Big 12
+  'Arizona', 'Arizona State', 'Baylor', 'BYU', 'Cincinnati', 'Colorado',
+  'Houston', 'Iowa State', 'Kansas', 'Kansas State', 'Oklahoma State', 'TCU',
+  'Texas Tech', 'UCF', 'Utah', 'West Virginia',
+  // American
+  'Army', 'Charlotte', 'East Carolina', 'FAU', 'Memphis', 'Navy', 'North Texas',
+  'Rice', 'South Florida', 'Temple', 'Tulane', 'Tulsa', 'UAB', 'UTSA',
+  // Mountain West
+  'Air Force', 'Boise State', 'Colorado State', 'Fresno State', 'Hawaii',
+  'Nevada', 'New Mexico', 'San Diego State', 'San Jose State', 'UNLV',
+  'Utah State', 'Wyoming',
+  // Sun Belt
+  'Appalachian State', 'Arkansas State', 'Coastal Carolina', 'Georgia Southern',
+  'Georgia State', 'James Madison', 'Louisiana', 'Louisiana-Monroe', 'Marshall',
+  'Old Dominion', 'South Alabama', 'Southern Miss', 'Texas State', 'Troy',
+  // MAC
+  'Akron', 'Ball State', 'Bowling Green', 'Buffalo', 'Central Michigan',
+  'Eastern Michigan', 'Kent State', 'Miami (OH)', 'Northern Illinois', 'Ohio',
+  'Toledo', 'Western Michigan',
+  // Conference USA
+  'Delaware', 'FIU', 'Jacksonville State', 'Kennesaw State', 'Liberty',
+  'Louisiana Tech', 'Middle Tennessee', 'Missouri State', 'New Mexico State',
+  'Sam Houston', 'UTEP', 'Western Kentucky',
+  // Independents
+  'Notre Dame', 'UConn', 'UMass',
+];
+
+// Distinct TYPES of encounter a coach-connection could be — deliberately varied
+// (shared staff, recruiting trail, combine, bowl game, rivalry, front office,
+// coaching clinic, etc.) so back-to-back bios never read the same way. {school}
+// and {year} are filled in with values WE pick (shuffle-bagged / randomized in
+// JS), never left for the AI to invent, since that's what was clustering on
+// "met in 2025" every time.
+const CONNECTION_SCENARIOS = [
+  'They were on the same coaching/scouting staff at {school} in {year}.',
+  'They were grad assistants together at {school} in {year}.',
+  'They coached against each other when {school} played {coachRef}\'s team in a {year} rivalry game.',
+  'They worked the same regional combine circuit together in {year}.',
+  'They crossed paths at the Senior Bowl in Mobile in {year}.',
+  'They were both on staff at {school} during a bowl run in {year}.',
+  'They met at a coaching clinic in {year} while {coachRef} was breaking down film with the {school} staff.',
+  'They worked together in the {school} recruiting office in {year}.',
+  'They overlapped in a pro scouting department together around {year}.',
+  '{coachRef} hired them onto a staff at {school} back in {year}.',
+  'They were both assistants on the same {school} staff during the {year} season.',
+  'They met on the recruiting trail chasing the same prospect out of the same region in {year}.',
+  'They worked the same National Football Foundation event in {year}.',
+  'They were on opposing sidelines for a {school} game {coachRef} coached in during {year}.',
+  'They shared an office at {school} while breaking down opponent film in {year}.',
+  'They met through a mutual staff connection at {school}\'s Pro Day in {year}.',
+  'They worked a summer camp together on the {school} campus in {year}.',
+  'They were both in the building at {school} during a coaching search in {year}.',
+];
+
+// Fisher–Yates shuffle — used to build no-repeat-until-exhausted draw bags.
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function ExpandIcon({ className = 'w-3 h-3' }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <polyline points="15 3 21 3 21 9" />
+      <polyline points="9 21 3 21 3 15" />
+      <line x1="21" y1="3" x2="14" y2="10" />
+      <line x1="3" y1="21" x2="10" y2="14" />
+    </svg>
+  );
+}
+
+function CloseIcon({ className = 'w-4 h-4' }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
 
 // Deterministic seeded RNG — same name always produces the same signature style.
 function seededRng(seed) {
@@ -59,10 +185,48 @@ function Signature({ name, color = 'currentColor', fontSize = '1.45rem' }) {
   )
 }
 
-export default function ScoutStaffFrontPage({ setView, onViewDatabase, onJumpToPosition, currentTeamName = 'college football team', currentYear, coachName = '', teamColors, teamLogo, recruits = [], databaseRecruits = [], rosterWarnings = [], rosterSummary = null, outlookSummary = null, committedRecruits = [], dynastyId = null }) {
+export default function ScoutStaffFrontPage({ setView, onViewDatabase, onJumpToPosition, onGoToAnalysisOverview, onRemoveFromBoard, onAdjustTarget, currentTeamName = 'college football team', currentYear, coachName = '', teamColors, teamLogo, recruits = [], databaseRecruits = [], rosterWarnings = [], rosterSummary = null, outlookSummary = null, committedRecruits = [], dynastyId = null }) {
+  // Program Outlook should always land on Overview when reached via a plain
+  // nav button — falls back to setView if the dedicated handler isn't wired up.
+  const goToAnalysisOverview = onGoToAnalysisOverview || (() => setView('analysis'));
   const { getStaffData, saveStaffData, deleteStaffData } = createStaffAccessor(dynastyId);
   const p = teamColors?.primary   || '#374151';
   const s = teamColors?.secondary || '#ffffff';
+
+  // Daily Brief's box height is locked to the staff slot cards row's own
+  // natural height (NOT including the nav buttons row below it) so Daily
+  // Brief's bottom edge lines up with the staff slot cards specifically.
+  // Daily Brief's inner content scrolls internally (overflow-y-auto below)
+  // for whatever doesn't fit.
+  const leftColRef = useRef(null);
+  const [leftColHeight, setLeftColHeight] = useState(null);
+  const [planExpanded, setPlanExpanded] = useState(false);
+  useLayoutEffect(() => {
+    const el = leftColRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(entries => {
+      const h = entries[0]?.contentRect?.height;
+      if (h) setLeftColHeight(h);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const photoInputRefs = useRef({});
+
+  // No-repeat-until-exhausted draw bags for the bio prompt's alma mater and
+  // coach-connection scenario. Persisted per dynasty (staffDB) so the "already
+  // used" set survives reloads, not just the current session. Hometown zone
+  // gets the same treatment for geographic spread.
+  const bioBagsRef = useRef({ schools: [], zones: [], scenarios: [] });
+  const drawFromBag = async (bagName, pool, dbKey) => {
+    let bag = bioBagsRef.current[bagName];
+    if (!bag || bag.length === 0) bag = shuffleArray(pool);
+    const [picked, ...rest] = bag;
+    bioBagsRef.current[bagName] = rest;
+    await saveStaffData(dbKey, JSON.stringify(rest));
+    return picked;
+  };
+
   // Live State Holders
   const [scoutImg, setScoutImg] = useState('');
   const [analystImg, setAnalystImg] = useState('');
@@ -142,6 +306,15 @@ export default function ScoutStaffFrontPage({ setView, onViewDatabase, onJumpToP
       const sy2 = await getStaffData('analyst_contract_start_year');
       if (sy1) setScoutContractStartYear(Number(sy1));
       if (sy2) setAnalystContractStartYear(Number(sy2));
+
+      // Bio prompt draw bags — whatever's left unused from last time, so the
+      // no-repeat guarantee survives a reload instead of resetting every visit.
+      const schoolBag   = await getStaffData('bio_school_bag');
+      const zoneBag      = await getStaffData('bio_zone_bag');
+      const scenarioBag = await getStaffData('bio_scenario_bag');
+      try { if (schoolBag)   bioBagsRef.current.schools   = JSON.parse(schoolBag); } catch {}
+      try { if (zoneBag)      bioBagsRef.current.zones     = JSON.parse(zoneBag); } catch {}
+      try { if (scenarioBag) bioBagsRef.current.scenarios = JSON.parse(scenarioBag); } catch {}
     }
     loadBasicStaff();
   }, []);
@@ -281,63 +454,49 @@ DIVERSITY: Randomize the person's ethnicity, skin tone, face shape, body build, 
 BEFORE FINALIZING, CHECK BOTH RULES AGAIN: (1) Is this a 4:5 portrait canvas with visible headroom above the hair and the shoulders/upper chest visible at the bottom — not cropped tight to the face? (2) Does this look like an obvious video game render and NOT a real photograph? If either check fails, redo the image until both pass.`;
   };
 
-  const generateBioPrompt = (role, otherName) => {
+  const generateBioPrompt = async (role, otherName) => {
     const isScout = role === 'scout';
-    const roleTitle   = isScout ? 'National Scout' : 'Data Analyst';
     const roleContext = isScout
       ? 'a National Scout who specializes in hands-on field evaluation, on-campus recruiting visits, building relationships with high school coaches, and identifying under-the-radar talent'
       : 'a Data Analyst who specializes in player metrics, statistical modeling, film breakdown, and delivering data-driven insight to guide recruiting decisions and game planning';
 
-    // Randomly seed a geographic zone and conference group so each button press
-    // forces the AI into a different corner of the country / tier of football.
-    const zones = [
-      'Deep South (Alabama, Mississippi, Georgia, Louisiana, South Carolina)',
-      'Midwest (Ohio, Indiana, Illinois, Michigan, Wisconsin, Iowa, Missouri)',
-      'Mid-Atlantic (Pennsylvania, New Jersey, Maryland, Virginia, Delaware)',
-      'Texas (Houston suburbs, DFW suburbs, San Antonio area, East Texas)',
-      'Great Plains (Nebraska, Kansas, Oklahoma, South Dakota, North Dakota)',
-      'Appalachia (West Virginia, eastern Kentucky, western North Carolina, Tennessee)',
-      'Pacific Coast (Southern California, Central California, Pacific Northwest excluding Idaho)',
-      'Mountain West (Colorado, Utah, Nevada excluding Las Vegas, Arizona)',
-      'New England (Massachusetts, Connecticut, Rhode Island, upstate New York)',
-      'Gulf Coast (Florida Panhandle, coastal Mississippi, Alabama coast, east Texas coast)',
-      'Upper South (Arkansas, central Kentucky, western Virginia, middle Tennessee)',
-    ];
-    const conferences = [
-      'MAC (Ball State, Ohio, Akron, Kent State, Eastern Michigan, Bowling Green, Toledo, Buffalo, Western Michigan)',
-      'Sun Belt (Appalachian State, Arkansas State, Southern Miss, Georgia Southern, Old Dominion, Coastal Carolina, Troy, James Madison)',
-      'Conference USA (UTEP, Louisiana Tech, Middle Tennessee, FAU, Liberty, Western Kentucky, Jacksonville State, Sam Houston)',
-      'Mountain West (Wyoming, San Jose State, Fresno State, Air Force, Colorado State, Hawaii, UNLV, Boise State)',
-      'American Athletic (Tulane, Memphis, ECU, Temple, Tulsa, UTSA, Navy, Rice, South Florida)',
-      'ACC (Wake Forest, Boston College, Duke, Virginia, Syracuse, Georgia Tech, NC State, Pittsburgh)',
-      'Big 12 (Kansas, Kansas State, Iowa State, West Virginia, Cincinnati, Houston, TCU, Baylor)',
-      'SEC and Big Ten lower-profile programs (Vanderbilt, Mississippi State, Purdue, Rutgers, Northwestern, Illinois, Minnesota, Kentucky)',
-      'Pac-12 and independents (Oregon State, Washington State, Notre Dame, UConn, UMass)',
-      'Group of Five overlooked programs (New Mexico State, Kennesaw State, Delaware, Missouri State, Charlotte)',
-    ];
-    const zone = zones[Math.floor(Math.random() * zones.length)];
-    const conf = conferences[Math.floor(Math.random() * conferences.length)];
+    // Hometown zone, alma mater, and connection scenario are each drawn from a
+    // shuffle-bag (see drawFromBag above) instead of plain Math.random(), so
+    // every option in each pool comes up once before any of them repeat —
+    // guaranteed variety across however many staff get generated, not just a
+    // statistical chance of it.
+    const zone   = await drawFromBag('zones',     HOMETOWN_ZONES,   'bio_zone_bag');
+    const school = await drawFromBag('schools',   FBS_TEAMS,        'bio_school_bag');
+    const scenarioTemplate = await drawFromBag('scenarios', CONNECTION_SCENARIOS, 'bio_scenario_bag');
+
+    const coachLastName = coachName ? coachName.trim().split(/\s+/).slice(-1)[0] : '';
+    const coachRef = coachLastName ? `Coach ${coachLastName}` : 'the head coach';
+
+    // The year is picked here (JS), never left for the AI — that's what was
+    // clustering on "2025" every time. Spread across a realistic ~4-25 year
+    // career window before the current year.
+    const nowYear = new Date().getFullYear();
+    const connectionYear = nowYear - (4 + Math.floor(Math.random() * 22));
+
+    const connectionFact = scenarioTemplate
+      .replace(/\{school\}/g, school)
+      .replace(/\{year\}/g, String(connectionYear))
+      .replace(/\{coachRef\}/g, coachRef);
 
     const placeholderNames = ['Staff Slot #1', 'Staff Slot #2', ''];
     const otherIsNamed = otherName && !placeholderNames.includes(otherName);
     const uniquenessClause = otherIsNamed
-      ? `CRITICAL UNIQUENESS RULE: The other staff member on this board is already named "${otherName}". You MUST generate a completely different person — different first name, different last name, different state, different alma mater. Do NOT echo or rhyme with any part of their name or background.\n\n`
+      ? `CRITICAL UNIQUENESS RULE: The other staff member on this board is already named "${otherName}". You MUST generate a completely different person — different first name, different last name, different state. Do NOT echo or rhyme with any part of their name or background.\n\n`
       : '';
 
-    const coachLastName = coachName ? coachName.trim().split(/\s+/).slice(-1)[0] : '';
-    const coachRef = coachLastName ? `Coach ${coachLastName}` : 'the head coach';
-    const programRef = currentTeamName || 'the program';
-
-    const scoutNoteContext = `This person is a National Scout. Their staff note must name the SPECIFIC real program or organization they worked at immediately before this job — an actual real FBS college football program's scouting/recruiting department, a specific high school football powerhouse, or a named scouting organization. Do not describe their skills in the abstract ("sharp evaluations", "trusted connections") — name the actual prior school or organization.`;
-    const analystNoteContext = `This person is a Data Analyst. Their staff note must name the SPECIFIC real program or organization they worked at immediately before this job — an actual real FBS college football program's analytics department, a pro football front office, or a named sports-analytics firm. Do not describe their skills in the abstract ("an analytics presentation that got noticed") — name the actual prior school or organization.`;
+    const scoutNoteContext = `This person is a National Scout.`;
+    const analystNoteContext = `This person is a Data Analyst.`;
     const noteContext = isScout ? scoutNoteContext : analystNoteContext;
 
-    const connectionInstruction = `Then state the SPECIFIC, concrete event or place where the connection to ${coachRef} or ${programRef} was made — e.g. "on staff together at [a specific real FBS school] in [a specific year]", "at the [a specific named combine, bowl game, or recruiting camp]", "during a shared coaching stint at [a specific real school]". Pick either the ${coachRef} angle or the ${programRef} angle, but make it a real, named, concrete detail — never a vague phrase like "a mutual contact" or "impressed the staff."`;
-
     return `Generate a text biography for a college football staff member's dossier board. This person is ${roleContext}. Output ONLY the following lines with no introduction, no markdown, no bullet symbols, and no extra blank lines:\n\n${uniquenessClause}Suggested Name: (CRITICAL — look at the headshot image carefully before writing anything. First identify TWO things from the face: (1) apparent gender — male or female, and (2) visible ethnic/racial background from skin tone and features. Then invent an original, realistic first and last name that authentically matches BOTH the gender AND the background you identified. Hard rule: never give a clearly female face a male name, and never give a clearly male face a female name — check the photo's gender before finalizing the name. Do NOT pull from a small mental list of "go-to" names for a given ethnicity or gender — in real life there are thousands of realistic names within any one background, not a handful of obvious ones. Treat this like meeting a random real person of that background: the name should feel completely natural and unremarkable for someone of that exact gender and ethnicity who grew up in America, but should NOT be the first, most stereotypical, or most overused name that comes to mind for that demographic. Actively avoid repeating a name you've used before. The full realistic range — common names, less common names, regionally varied names, generational-cohort-varied names — is all fair game, as long as it would never look out of place on a real person of that background.)
-Hometown: (THIS IS THE MOST IMPORTANT FIELD FOR VARIETY. You MUST draw this person's hometown from the following specific U.S. region for this generation: ${zone}. Pick a real, specific smaller city or town within that zone — NOT a major metro hub. Every generation should feel like it comes from a completely different part of the country. Lean toward towns that are not frequently chosen — the goal is geographic spread across the full breadth of America.)
-Alma Mater: (Draw this person's college from the following specific conference tier for this generation: ${conf}. Pick a specific school from that group. CRITICAL: this must be a real, currently active FBS (Football Bowl Subdivision) program — one of the actual ~134-138 FBS schools. NEVER name an FCS, Division II, Division III, NAIA, or junior college school as the alma mater. Be specific — name the actual school, not just the conference. Favor less commonly chosen schools within the tier to maximize variety across generations.)
-Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence that reads like a real resume bullet — concrete and factual, built entirely out of the specific prior school/organization name and the specific event/place named above, not vague flavor text. CRITICAL RULE: If you mention the head coach, NEVER use their full name — always write "${coachRef}" or just "Coach". HARD LIMIT: 160 characters maximum including spaces — count before writing. Rewrite shorter if over. Do not exceed this limit.)`;
+Hometown: (This person's hometown must come from this specific U.S. region: ${zone}. Pick ONE specific real city or town within that region — major cities and small towns are both fair game, whichever feels right for this person. Just be specific and real.)
+Alma Mater: (Their college is ${school}. Use this exact school — do not substitute a different one.)
+Staff Note: (${noteContext} The specific true fact behind this line is: ${connectionFact} Write one tight sentence that reads like a real resume bullet, built entirely out of that fact — do not invent a different school, year, or scenario, and do not add vague flavor text ("sharp evaluations", "trusted connections", "an analytics presentation that got noticed"). CRITICAL RULE: If you mention the head coach, NEVER use their full name — always write "${coachRef}" or just "Coach". HARD LIMIT: 160 characters maximum including spaces — count before writing. Rewrite shorter if over. Do not exceed this limit.)`;
   };
 
   const processRawFile = (file, slot) => {
@@ -640,12 +799,12 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
       )}
 
       {/* ── HERO ROW: portrait cards + recommendations panel ── */}
-      <div className="flex flex-col md:flex-row gap-4 items-stretch">
+      <div className="flex flex-col md:flex-row gap-4 items-start">
 
-        {/* Left column — portrait cards, with action shortcuts filling the space below
-            them whenever they're shorter than the Daily Brief panel beside them */}
+        {/* Left column — portrait cards + a single row of nav shortcuts.
+            Daily Brief's height is locked to this column's height (see leftColHeight above). */}
         <div className="flex flex-col gap-4 shrink-0 md:w-[42%]">
-        <div className="flex gap-2 sm:gap-3">
+        <div ref={leftColRef} className="flex gap-2 sm:gap-3">
         {[
           {
             slot: 1,
@@ -694,10 +853,22 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
 
             {/* ── PHOTO — always rendered (visible through overlay when empty) ── */}
             <div
-              className={`relative flex-shrink-0 overflow-hidden ${img && !isExpired && !isEmptySlot ? 'cursor-zoom-in' : ''}`}
+              className={`relative flex-shrink-0 overflow-hidden ${isHiring ? 'cursor-pointer' : (img && !isExpired && !isEmptySlot ? 'cursor-zoom-in' : '')}`}
               style={{ aspectRatio: '4/5' }}
-              onClick={() => { if (img && !isExpired && !isEmptySlot) setActiveModalImg(img); }}
+              onClick={() => {
+                if (isHiring) { photoInputRefs.current[slot]?.click(); }
+                else if (img && !isExpired && !isEmptySlot) { setActiveModalImg(img); }
+              }}
             >
+              {isHiring && (
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  ref={el => { photoInputRefs.current[slot] = el; }}
+                  onChange={(e) => handleImageUpload(e, slot)}
+                />
+              )}
               {img ? (
                 <img src={img} alt={role} className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]" />
               ) : (
@@ -705,7 +876,7 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                   {teamLogo && (
                     <img src={teamLogo} alt="" className="absolute inset-0 w-full h-full object-contain p-6 opacity-20" />
                   )}
-                  <p className="relative text-[9px] font-display font-bold uppercase text-txt-tertiary tracking-widest text-center px-3 leading-loose">{role}<br/>No Photo</p>
+                  <p className="relative text-[9px] font-display font-bold uppercase text-txt-tertiary tracking-widest text-center px-3 leading-loose">{role}<br/>{isHiring ? 'Click to Upload' : 'No Photo'}</p>
                 </div>
               )}
               {img && <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.45) 100%)' }} />}
@@ -733,7 +904,7 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
             </div>
 
             {/* ── INFO SECTION — always rendered ── */}
-            <div className="flex flex-col gap-2 p-3 border-t border-surface-4">
+            <div className="flex-1 flex flex-col gap-2 p-3 border-t border-surface-4">
               {/* Accent bar + Name */}
               <div>
                 <div className="w-6 h-0.5 mb-1.5 rounded-full bg-slate-600" />
@@ -803,7 +974,7 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                 )}
                 {!bio && (
                   <div className="flex flex-wrap gap-1.5">
-                    <button onClick={() => handleCopy(generateBioPrompt(slot === 1 ? 'scout' : 'analyst', slot === 1 ? analystName : scoutName), `${slot}-bio`)} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.5)', color: '#64748b', backdropFilter: 'blur(4px)' }}>
+                    <button onClick={async () => handleCopy(await generateBioPrompt(slot === 1 ? 'scout' : 'analyst', slot === 1 ? analystName : scoutName), `${slot}-bio`)} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.5)', color: '#64748b', backdropFilter: 'blur(4px)' }}>
                       {copiedKey === `${slot}-bio` ? 'Copied' : 'BIO Prompt'}
                     </button>
                     <button onClick={() => pasteBioFromBtn(slot)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider" style={{
@@ -847,18 +1018,14 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                     <p className="text-[10px] font-bold text-slate-400">+ Click to add bio…</p>
                   </div>
                 )}
-                <div className="flex flex-wrap gap-1.5">
-                  <button onClick={() => handleCopy(generateImgPrompt(slot === 1 ? 'scout' : 'analyst'), `${slot}-img`)} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.5)', color: roleColor, backdropFilter: 'blur(4px)' }}>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button onClick={() => handleCopy(generateImgPrompt(slot === 1 ? 'scout' : 'analyst'), `${slot}-img`)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider text-center" style={{ background: 'rgba(0,0,0,0.5)', color: roleColor, backdropFilter: 'blur(4px)' }}>
                     {copiedKey === `${slot}-img` ? 'Copied' : 'IMG Prompt'}
                   </button>
-                  <button onClick={() => handleCopy(generateBioPrompt(slot === 1 ? 'scout' : 'analyst', slot === 1 ? analystName : scoutName), `${slot}-bio`)} className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.5)', color: '#64748b', backdropFilter: 'blur(4px)' }}>
+                  <button onClick={async () => handleCopy(await generateBioPrompt(slot === 1 ? 'scout' : 'analyst', slot === 1 ? analystName : scoutName), `${slot}-bio`)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider text-center" style={{ background: 'rgba(0,0,0,0.5)', color: '#64748b', backdropFilter: 'blur(4px)' }}>
                     {copiedKey === `${slot}-bio` ? 'Copied' : 'BIO Prompt'}
                   </button>
-                  <label className="cursor-pointer px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.6)', color: roleColor, border: `1px solid ${roleColor}44`, backdropFilter: 'blur(4px)' }}>
-                    Upload Img
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, slot)} />
-                  </label>
-                  <button onClick={() => pasteFromBtn(slot)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider" style={{
+                  <button onClick={() => pasteFromBtn(slot)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider text-center" style={{
                     background: 'rgba(0,0,0,0.6)',
                     color: pasteState[slot] === 'ok' ? '#34d399' : pasteState[slot] ? '#f87171' : '#94a3b8',
                     border: pasteState[slot] === 'ok' ? '1px solid rgba(52,211,153,0.4)' : pasteState[slot] ? '1px solid rgba(248,113,113,0.4)' : '1px solid rgba(100,116,139,0.3)',
@@ -866,10 +1033,7 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                   }}>
                     {pasteState[slot] === 'ok' ? 'Pasted' : pasteState[slot] === 'noimg' ? 'No Image' : pasteState[slot] === 'denied' ? 'Blocked' : pasteState[slot] === 'unsupported' ? 'Unsupported' : 'Paste Img'}
                   </button>
-                  <button onClick={() => setShowUrl(!showUrl)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.6)', color: '#94a3b8', border: '1px solid rgba(100,116,139,0.3)', backdropFilter: 'blur(4px)' }}>
-                    Img URL
-                  </button>
-                  <button onClick={() => pasteBioFromBtn(slot)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider" style={{
+                  <button onClick={() => pasteBioFromBtn(slot)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider text-center" style={{
                     background: 'rgba(0,0,0,0.6)',
                     color: bioPasteState[slot] === 'ok' ? '#34d399' : bioPasteState[slot] ? '#f87171' : '#94a3b8',
                     border: bioPasteState[slot] === 'ok' ? '1px solid rgba(52,211,153,0.4)' : bioPasteState[slot] ? '1px solid rgba(248,113,113,0.4)' : '1px solid rgba(100,116,139,0.3)',
@@ -877,8 +1041,11 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                   }}>
                     {bioPasteState[slot] === 'ok' ? 'Bio Pasted' : bioPasteState[slot] === 'empty' ? 'Clipboard Empty' : bioPasteState[slot] === 'denied' ? 'Blocked' : bioPasteState[slot] === 'unsupported' ? 'Unsupported' : 'Paste Bio'}
                   </button>
+                  <button onClick={() => setShowUrl(!showUrl)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider text-center" style={{ background: 'rgba(0,0,0,0.6)', color: '#94a3b8', border: '1px solid rgba(100,116,139,0.3)', backdropFilter: 'blur(4px)' }}>
+                    Img URL
+                  </button>
                   {(!!img || (!!name?.trim() && name.trim() !== PLACEHOLDER) || !!bio?.trim()) && (
-                    <button onClick={() => clearSlot(slot)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider" style={{ background: 'rgba(0,0,0,0.6)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)', backdropFilter: 'blur(4px)' }}>
+                    <button onClick={() => clearSlot(slot)} className="px-2 py-1 rounded text-[9px] font-display font-bold uppercase tracking-wider text-center" style={{ background: 'rgba(0,0,0,0.6)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)', backdropFilter: 'blur(4px)' }}>
                       Clear
                     </button>
                   )}
@@ -953,54 +1120,13 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
 
         </div>{/* end portrait grid */}
 
-        {/* Action shortcuts — sits under the portrait cards and grows to fill the rest of
-            the column, so the bottom of the last row locks to the Daily Brief's bottom */}
-        <div className="grid grid-cols-2 gap-3 flex-1 auto-rows-fr">
-          {[
-            { view: 'database',   label: 'Recruiting Database', sub: 'Data Storage',      color: 'text-txt-tertiary',    icon: (
-              <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
-                <ellipse cx="8" cy="4" rx="5" ry="2"/>
-                <path d="M3 4v4c0 1.1 2.24 2 5 2s5-.9 5-2V4"/>
-                <path d="M3 8v4c0 1.1 2.24 2 5 2s5-.9 5-2V8"/>
-              </svg>
-            )},
-            { view: 'analysis',   label: 'Program Outlook',    sub: 'Roster Management',    color: 'text-txt-tertiary', icon: (
-              <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
-                <rect x="3" y="2" width="10" height="12" rx="1.5"/>
-                <path d="M5.5 5h5M5.5 7.5h5M5.5 10h3"/>
-              </svg>
-            )},
-            { view: 'thresholds', label: 'Threshold Lookup',   sub: 'Player Comparison Tool',   color: 'text-txt-tertiary',   icon: (
-              <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
-                <path d="M2 12l4-4 3 3 5-7"/>
-                <circle cx="14" cy="5" r="1.5" fill="currentColor" stroke="none"/>
-              </svg>
-            )},
-            { view: 'counts',     label: 'Player Count',       sub: 'Current Overview',         color: 'text-txt-tertiary', icon: (
-              <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
-                <circle cx="6" cy="5" r="2"/>
-                <circle cx="11" cy="5" r="2"/>
-                <path d="M2 13c0-2.2 1.8-4 4-4h4c2.2 0 4 1.8 4 4"/>
-              </svg>
-            )},
-          ].map(({ view, label, sub, icon, color }) => (
-            <button
-              key={view}
-              onClick={() => setView(view)}
-              className="relative rounded-xl text-left transition-all duration-200 bg-surface-2 border border-surface-4 hover:bg-surface-3 hover:border-surface-5 p-4 flex flex-col gap-2"
-              style={{ minHeight: '88px' }}
-            >
-              <span className={`absolute top-3 right-3 opacity-60 ${color}`}>{icon}</span>
-              <h4 className="text-sm font-display font-bold uppercase text-txt-primary leading-snug">{label}</h4>
-              <p className="text-xs text-txt-tertiary leading-tight">{sub}</p>
-            </button>
-          ))}
-        </div>
-
         </div>{/* end left column */}
 
-        {/* Daily Brief panel */}
-        <div className="flex-1 rounded-xl bg-surface-2 border border-surface-4 flex flex-col overflow-hidden">
+        {/* Daily Brief panel — height locked to the left column's height (see leftColHeight above) */}
+        <div
+          className="flex-1 rounded-xl bg-surface-2 border border-surface-4 flex flex-col overflow-hidden"
+          style={leftColHeight ? { height: `${leftColHeight}px` } : undefined}
+        >
 
           {/* Header */}
           <div className="px-4 py-3 border-b border-surface-4 shrink-0 flex items-center justify-between gap-3">
@@ -1058,7 +1184,7 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                     )}
 
                     <button
-                      onClick={() => setView('analysis')}
+                      onClick={() => goToAnalysisOverview()}
                       className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors font-medium tracking-wide"
                     >
                       Program Outlook →
@@ -1066,7 +1192,7 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                   </div>
                 );
               })() : (
-                <button onClick={() => setView('analysis')} className="w-full rounded-lg px-3 py-3 border border-dashed border-slate-700 text-[11px] text-slate-500 hover:border-slate-500 hover:text-slate-400 transition-colors text-center">
+                <button onClick={() => goToAnalysisOverview()} className="w-full rounded-lg px-3 py-3 border border-dashed border-slate-700 text-[11px] text-slate-500 hover:border-slate-500 hover:text-slate-400 transition-colors text-center">
                   Open Program Outlook to generate position data
                 </button>
               )}
@@ -1093,15 +1219,55 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                   const portal = o.portalMin ?? 0;
                   const targetName = o.topTargetName || null;
                   const targetIsPortal = !!o.topTargetIsPortal;
-                  return { pos, hs, portal, targetName, targetIsPortal, flag: flagMap[pos] ?? null };
+                  const targetPid = o.topTargetPid || null;
+                  return { pos, hs, portal, targetName, targetIsPortal, targetPid, flag: flagMap[pos] ?? null };
                 })
                 .filter(r => r.hs > 0 || r.portal > 0);
               if (!rows.length) return null;
               const totalHs     = rows.reduce((s, r) => s + r.hs, 0);
               const totalPortal = rows.reduce((s, r) => s + r.portal, 0);
+              const currentRoster = outlookSummary._rosterCapacity
+                ? outlookSummary._rosterCapacity.returning + outlookSummary._rosterCapacity.committed
+                : null;
+              const projRoster = currentRoster !== null ? currentRoster + totalHs + totalPortal : null;
+
+              const OFF_POS = new Set(['QB','HB','FB','WR','TE','OT','OG','C']);
+              const DEF_POS = new Set(['DE','DT','OLB','MIKE','CB','FS','SS']);
+              const offRows = rows.filter(r => OFF_POS.has(r.pos));
+              const defRows = rows.filter(r => DEF_POS.has(r.pos));
+              const stRows  = rows.filter(r => !OFF_POS.has(r.pos) && !DEF_POS.has(r.pos));
+
+              const col = (label, colRows) => colRows.length ? (
+                <div className="flex-1 min-w-0">
+                  <p className="text-[8px] font-black uppercase tracking-[0.12em] text-slate-600 mb-1.5">{label}</p>
+                  <div className="space-y-1">
+                    {colRows.map((r, i) => <RecruitingPlanRow key={i} {...r} onClick={onJumpToPosition ? () => onJumpToPosition(r.pos) : null} onRemove={onRemoveFromBoard ? (pid) => onRemoveFromBoard({ pid }) : null} onRemoveGeneric={onAdjustTarget ? (type) => onAdjustTarget(r.pos, type, -1, type === 'hs' ? r.hs : r.portal) : null} />)}
+                  </div>
+                </div>
+              ) : null;
+
+              const gridCol = (label, colRows) => colRows.length ? (
+                <div>
+                  <p className="text-xs font-display font-black uppercase tracking-[0.12em] text-slate-500 mb-3 pb-2 border-b border-surface-4">{label}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {colRows.map((r, i) => <RecruitingPlanRow key={i} {...r} onClick={onJumpToPosition ? () => onJumpToPosition(r.pos) : null} onRemove={onRemoveFromBoard ? (pid) => onRemoveFromBoard({ pid }) : null} onRemoveGeneric={onAdjustTarget ? (type) => onAdjustTarget(r.pos, type, -1, type === 'hs' ? r.hs : r.portal) : null} />)}
+                  </div>
+                </div>
+              ) : null;
+
               return (
                 <div className="px-4 pt-4 pb-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 mb-3">Recruiting Plan</p>
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500">Recruiting Plan</p>
+                    <button
+                      type="button"
+                      onClick={() => setPlanExpanded(true)}
+                      title="Expand Recruiting Plan"
+                      className="p-1 -m-1 rounded text-slate-500 hover:text-txt-primary hover:bg-surface-4 transition"
+                    >
+                      <ExpandIcon className="w-3 h-3" />
+                    </button>
+                  </div>
 
                   {/* At-a-glance totals */}
                   <div className="flex items-end justify-between gap-2 mb-3">
@@ -1121,45 +1287,110 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
                       <p className="text-[20px] font-black leading-none text-slate-400">{totalHs + totalPortal}</p>
                       <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5 whitespace-nowrap">Total</p>
                     </div>
-                    {outlookSummary._rosterCapacity && (
+                    {projRoster !== null && (
                       <div className="text-right">
-                        <p className="text-[20px] font-black leading-none text-slate-400">
-                          {outlookSummary._rosterCapacity.returning + outlookSummary._rosterCapacity.committed}<span className="text-[13px] text-slate-600">/85</span>
+                        <p className={`text-[20px] font-black leading-none ${projRoster > 85 ? 'text-red-400' : 'text-slate-400'}`}>
+                          {projRoster}<span className="text-[13px] text-slate-600">/85</span>
                         </p>
                         <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5 whitespace-nowrap">Proj. Roster</p>
                       </div>
                     )}
                   </div>
 
-                  {(() => {
-                    const OFF_POS = new Set(['QB','HB','FB','WR','TE','OT','OG','C']);
-                    const DEF_POS = new Set(['DE','DT','OLB','MIKE','CB','FS','SS']);
-                    const offRows = rows.filter(r => OFF_POS.has(r.pos));
-                    const defRows = rows.filter(r => DEF_POS.has(r.pos));
-                    const stRows  = rows.filter(r => !OFF_POS.has(r.pos) && !DEF_POS.has(r.pos));
-                    const col = (label, colRows) => colRows.length ? (
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[8px] font-black uppercase tracking-[0.12em] text-slate-600 mb-1.5">{label}</p>
+                  <div className="space-y-2">
+                    {col('Offense', offRows)}
+                    {col('Defense', defRows)}
+                    {stRows.length > 0 && (
+                      <div>
+                        <p className="text-[8px] font-black uppercase tracking-[0.12em] text-slate-600 mb-1.5">Special Teams</p>
                         <div className="space-y-1">
-                          {colRows.map((r, i) => <RecruitingPlanRow key={i} {...r} onClick={onJumpToPosition ? () => onJumpToPosition(r.pos) : null} />)}
+                          {stRows.map((r, i) => <RecruitingPlanRow key={i} {...r} onClick={onJumpToPosition ? () => onJumpToPosition(r.pos) : null} onRemove={onRemoveFromBoard ? (pid) => onRemoveFromBoard({ pid }) : null} onRemoveGeneric={onAdjustTarget ? (type) => onAdjustTarget(r.pos, type, -1, type === 'hs' ? r.hs : r.portal) : null} />)}
                         </div>
                       </div>
-                    ) : null;
-                    return (
-                      <div className="space-y-2">
-                        {col('Offense', offRows)}
-                        {col('Defense', defRows)}
-                        {stRows.length > 0 && (
-                          <div>
-                            <p className="text-[8px] font-black uppercase tracking-[0.12em] text-slate-600 mb-1.5">Special Teams</p>
-                            <div className="space-y-1">
-                              {stRows.map((r, i) => <RecruitingPlanRow key={i} {...r} onClick={onJumpToPosition ? () => onJumpToPosition(r.pos) : null} />)}
-                            </div>
-                          </div>
+                    )}
+                  </div>
+
+                  {planExpanded && (
+                    <div
+                      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+                      style={{ margin: 0 }}
+                      onClick={() => setPlanExpanded(false)}
+                    >
+                      <div
+                        className="relative bg-surface-2 border border-surface-4 rounded-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-6"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        {teamLogo && (
+                          <img src={teamLogo} alt="" className="absolute inset-0 w-full h-full object-contain p-10 opacity-[0.05] pointer-events-none select-none" />
                         )}
+                        {/* Centered summary stack — the "/" in each roster fraction, and
+                            Portal's number, all share the exact same center X as the
+                            "Recruiting Plan" title via equal-width grid columns on either
+                            side of each, regardless of how wide each number/label is. */}
+                        <div className="relative mb-8">
+                          <button
+                            type="button"
+                            onClick={() => setPlanExpanded(false)}
+                            title="Close"
+                            className="absolute top-0 right-0 p-1.5 rounded text-txt-tertiary hover:text-txt-primary hover:bg-surface-4 transition"
+                          >
+                            <CloseIcon className="w-4 h-4" />
+                          </button>
+                          <div className="flex flex-col items-center text-center gap-5">
+                            {currentYear && (
+                              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-600">{currentYear}</p>
+                            )}
+                            <p className="text-sm font-display font-black uppercase tracking-[0.12em] text-txt-tertiary">Recruiting Plan</p>
+                            {currentRoster !== null && (
+                              <div className="flex flex-col items-center">
+                                <div className="inline-grid grid-cols-2">
+                                  <span className="text-[20px] font-black leading-none text-slate-400 text-right">{currentRoster}</span>
+                                  <span className="text-[20px] font-black leading-none text-left"><span className="text-slate-600">/85</span></span>
+                                </div>
+                                <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">Current Roster</p>
+                              </div>
+                            )}
+                            <div className="w-80 grid grid-cols-[1fr_auto_1fr] items-end">
+                              <div className="text-center">
+                                {totalHs > 0 && (
+                                  <>
+                                    <p className="text-[20px] font-black leading-none text-txt-primary">{totalHs}</p>
+                                    <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5">HS Targets</p>
+                                  </>
+                                )}
+                              </div>
+                              <div className="text-center px-6">
+                                {totalPortal > 0 && (
+                                  <>
+                                    <p className="text-[20px] font-black leading-none text-txt-primary">{totalPortal}</p>
+                                    <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5">Portal</p>
+                                  </>
+                                )}
+                              </div>
+                              <div className="text-center">
+                                <p className="text-[20px] font-black leading-none text-slate-400">{totalHs + totalPortal}</p>
+                                <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">Total</p>
+                              </div>
+                            </div>
+                            {projRoster !== null && (
+                              <div className="flex flex-col items-center">
+                                <div className="inline-grid grid-cols-2">
+                                  <span className={`text-[20px] font-black leading-none text-right ${projRoster > 85 ? 'text-red-400' : 'text-slate-400'}`}>{projRoster}</span>
+                                  <span className={`text-[20px] font-black leading-none text-left ${projRoster > 85 ? 'text-red-400' : 'text-slate-400'}`}><span className="text-slate-600">/85</span></span>
+                                </div>
+                                <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">Proj. Roster</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="space-y-6">
+                          {gridCol('Offense', offRows)}
+                          {gridCol('Defense', defRows)}
+                          {gridCol('Special Teams', stRows)}
+                        </div>
                       </div>
-                    );
-                  })()}
+                    </div>
+                  )}
                 </div>
               );
             })()}
@@ -1226,6 +1457,50 @@ Staff Note: (${noteContext} ${connectionInstruction} Write one tight sentence th
         </div>
 
       </div>{/* end hero row */}
+
+      {/* Action shortcuts — full-width row below the staff cards / Daily Brief,
+          4 equal columns spanning the entire row */}
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { view: 'database',   label: 'Recruiting Database', sub: 'Data Storage',      color: 'text-txt-tertiary',    icon: (
+            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
+              <ellipse cx="8" cy="4" rx="5" ry="2"/>
+              <path d="M3 4v4c0 1.1 2.24 2 5 2s5-.9 5-2V4"/>
+              <path d="M3 8v4c0 1.1 2.24 2 5 2s5-.9 5-2V8"/>
+            </svg>
+          )},
+          { view: 'analysis',   label: 'Program Outlook',    sub: 'Roster Management',    color: 'text-txt-tertiary', icon: (
+            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
+              <rect x="3" y="2" width="10" height="12" rx="1.5"/>
+              <path d="M5.5 5h5M5.5 7.5h5M5.5 10h3"/>
+            </svg>
+          )},
+          { view: 'thresholds', label: 'Threshold Lookup',   sub: 'Player Comparison Tool',   color: 'text-txt-tertiary',   icon: (
+            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
+              <path d="M2 12l4-4 3 3 5-7"/>
+              <circle cx="14" cy="5" r="1.5" fill="currentColor" stroke="none"/>
+            </svg>
+          )},
+          { view: 'counts',     label: 'Player Count',       sub: 'Current Overview',         color: 'text-txt-tertiary', icon: (
+            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="6" cy="5" r="2"/>
+              <circle cx="11" cy="5" r="2"/>
+              <path d="M2 13c0-2.2 1.8-4 4-4h4c2.2 0 4 1.8 4 4"/>
+            </svg>
+          )},
+        ].map(({ view, label, sub, icon, color }) => (
+          <button
+            key={view}
+            onClick={() => (view === 'analysis' ? goToAnalysisOverview() : setView(view))}
+            className="relative rounded-xl text-left transition-all duration-200 bg-surface-2 border border-surface-4 hover:bg-surface-3 hover:border-surface-5 p-4 flex flex-col gap-2"
+            style={{ minHeight: '88px' }}
+          >
+            <span className={`absolute top-3 right-3 opacity-60 ${color}`}>{icon}</span>
+            <h4 className="text-sm font-display font-bold uppercase text-txt-primary leading-snug">{label}</h4>
+            <p className="text-xs text-txt-tertiary leading-tight">{sub}</p>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
