@@ -43,7 +43,10 @@ export const BASE_POSITION_CONFIG = {
   CB: ["Awareness", "Speed", "Acceleration", "Change of Direction", "Agility", "Man Coverage", "Zone Coverage", "Press", "Catching", "Tackle"],
   FS: ["Awareness", "Speed", "Acceleration", "Change of Direction", "Agility", "Man Coverage", "Zone Coverage", "Press", "Catching", "Tackle"],
   SS: ["Awareness", "Speed", "Acceleration", "Change of Direction", "Agility", "Man Coverage", "Zone Coverage", "Press", "Catching", "Tackle"],
-  ATH: ["Awareness", "Speed", "Acceleration", "Strength", "Agility", "Change of Direction", "Catching", "Tackle", "Zone Coverage", "Man Coverage"]
+  ATH: ["Awareness", "Speed", "Acceleration", "Strength", "Agility", "Change of Direction", "Catching", "Tackle", "Zone Coverage", "Man Coverage"],
+  FB: ["Lead Block", "Awareness", "Run Block", "Strength", "Trucking", "Impact Blocking", "Break Tackle", "Carrying", "Short Route", "Run Block Power"],
+  K:  ["Awareness", "Kick Power", "Kick Accuracy", "Speed", "Acceleration", "Agility", "Break Tackle", "Throw Power", "Throw On Run", "Short Accuracy"],
+  P:  ["Awareness", "Kick Power", "Kick Accuracy", "Speed", "Acceleration", "Agility", "Break Tackle", "Throw Power", "Throw On Run", "Short Accuracy"]
 };
 
 export const OPTIONS_REGISTRY = [
@@ -61,7 +64,10 @@ export const OPTIONS_REGISTRY = [
   { position: "CB", archetypes: ["Field", "Bump and Run", "Boundary", "Zone"] },
   { position: "FS", archetypes: ["Hybrid", "Coverage Specialist", "Box Specialist"] },
   { position: "SS", archetypes: ["Hybrid", "Coverage Specialist", "Box Specialist"] },
-  { position: "ATH", archetypes: ["ATH - Power Rusher", "ATH - East/West Playmaker", "ATH - Contested Specialist", "ATH - Agile", "ATH - Pure Runner", "ATH - Dual Threat", "ATH - Contact Seeker", "ATH - Lurker", "ATH - Pure Possession", "ATH - Thumper", "ATH - Backfield Threat", "ATH - Physical Route Runner"] }
+  { position: "ATH", archetypes: ["ATH - Power Rusher", "ATH - East/West Playmaker", "ATH - Contested Specialist", "ATH - Agile", "ATH - Pure Runner", "ATH - Dual Threat", "ATH - Contact Seeker", "ATH - Lurker", "ATH - Pure Possession", "ATH - Thumper", "ATH - Backfield Threat", "ATH - Physical Route Runner"] },
+  { position: "FB", archetypes: ["Blocking", "Utility"] },
+  { position: "K", archetypes: ["Accurate", "Power"] },
+  { position: "P", archetypes: ["Accurate", "Power"] },
 ];
 
 export default function ScoutingReport({ setView, players, setPlayers }) {

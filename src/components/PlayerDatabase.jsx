@@ -113,6 +113,9 @@ const PRIORITY_ATTRS = {
   FS:   ['Zone Coverage', 'Man Coverage', 'Speed', 'Play Recognition', 'Catching'],
   SS:   ['Man Coverage', 'Tackle', 'Hit Power', 'Zone Coverage', 'Speed'],
   ATH:  ['Speed', 'Acceleration', 'Agility', 'Catching', 'Tackle'],
+  FB:   ['Lead Block', 'Run Block', 'Trucking', 'Break Tackle', 'Carrying'],
+  K:    ['Kick Power', 'Kick Accuracy', 'Awareness'],
+  P:    ['Kick Power', 'Kick Accuracy', 'Awareness'],
 };
 
 // ── Combine projections base times / reps ────────────────────────────────────
@@ -762,7 +765,7 @@ function GradeModal({ player, allPlayers, weightsMap, onClose }) {
 }
 
 // ── Edit Modal ───────────────────────────────────────────────────────────────
-const POSITIONS_LIST = ['QB','HB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','ATH'];
+const POSITIONS_LIST = ['QB','HB','FB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','ATH','K','P'];
 const DEV_TRAITS = ['Hidden', 'Normal', 'Impact', 'Star', 'Elite'];
 
 function EditModal({ player, pool, weightsMap, onSave, onClose }) {
@@ -1097,7 +1100,21 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
   // as soon as something changes here, and manual Save exists for the case
   // nothing local changed but the sheet itself was hand-edited (auto-push
   // never fires from a sheet-only edit).
-  const syncNow = async ({ silent = false } = {}) => {
+  // Auto-push and manual Save both call syncNow, and can genuinely overlap
+  // (a click landing mid-debounce). Two full syncs running concurrently
+  // against the same Sheet would race — both reading the same starting
+  // state, both writing back, one clobbering the other's result. syncNow is
+  // the public entry point; it serializes every call through a queue so
+  // syncs always run one at a time, never dropped, never overlapping.
+  const syncQueueRef = useRef(Promise.resolve());
+  const syncNow = (opts) => {
+    const run = () => syncNowInner(opts);
+    const next = syncQueueRef.current.then(run, run);
+    syncQueueRef.current = next.catch(() => {});
+    return next;
+  };
+
+  const syncNowInner = async ({ silent = false } = {}) => {
     if (!currentDynasty) return;
     if (!silent) setSaving(true);
     try {
@@ -1384,7 +1401,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     }
   }, [highlightPid, combinedPlayers]);
 
-  const positionsList = ['ALL', 'QB', 'HB', 'WR', 'TE', 'OT', 'OG', 'C', 'DE', 'DT', 'OLB', 'MIKE', 'CB', 'FS', 'SS', 'ATH'];
+  const positionsList = ['ALL', 'QB', 'HB', 'FB', 'WR', 'TE', 'OT', 'OG', 'C', 'DE', 'DT', 'OLB', 'MIKE', 'CB', 'FS', 'SS', 'ATH', 'K', 'P'];
 
   // Revealed-devTrait HS recruit pool — nudges archetype grading toward what
   // actually separates Elite/Star/Impact/Normal once enough data exists.
@@ -1790,11 +1807,22 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                         <span className={'text-xs font-bold text-txt-tertiary'}>{gpa}</span>
                       </td>
                       <td className="px-2 py-3.5 tabular-nums text-[10px] text-txt-tertiary overflow-hidden">
+                        {/* Same first-half/second-half column split as the Edit
+                            modal — NOT a row-major grid (which would zigzag
+                            attrs 1&2, 3&4, ... across the two columns instead
+                            of grouping 1-5 and 6-10 together). */}
                         <div className="grid grid-cols-2 gap-1">
-                          {orderedAttrs.map(([key, val]) => (
-                            <span key={key} title={key} className="px-1 py-0.5 rounded text-txt-secondary truncate bg-surface-3 border border-surface-4">
-                              <strong className="text-txt-tertiary font-normal mr-px">{ATTRIBUTE_ABBR[key] || key}:</strong>{val}
-                            </span>
+                          {(() => {
+                            const half = Math.ceil(orderedAttrs.length / 2);
+                            return [orderedAttrs.slice(0, half), orderedAttrs.slice(half)];
+                          })().map((col, colIdx) => (
+                            <div key={colIdx} className="space-y-1">
+                              {col.map(([key, val]) => (
+                                <span key={key} title={key} className="block px-1 py-0.5 rounded text-txt-secondary truncate bg-surface-3 border border-surface-4">
+                                  <strong className="text-txt-tertiary font-normal mr-px">{ATTRIBUTE_ABBR[key] || key}:</strong>{val}
+                                </span>
+                              ))}
+                            </div>
                           ))}
                         </div>
                       </td>

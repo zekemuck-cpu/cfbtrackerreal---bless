@@ -514,11 +514,14 @@ const PROFILES = {
       t('CTH 76+ / CIT 74+', 'SHORT RTE 73+', 'Reliable catcher; useful.'),
       t('Below possession benchmarks', 'Under 76 composite', 'Average possession athlete.'),
     ]},
+    // ATH - Agile shares OT/OG/C's blocking-oriented attribute list (Run
+    // Block / Pass Block family + Agility/Acceleration), not an open-field
+    // movement profile — these benchmarks match OT's own 'Agile' tiers.
     'Agile': { tiers: [
-      t('AGI 90+ / ACC 88+', 'SPD 86+ / AWR 84+', 'Elite quickness and athleticism; mirrors and moves in space for rapid, versatile growth.'),
-      t('AGI 84+ / ACC 83+', 'SPD 81+ / AWR 79+', 'Highly agile athlete; fast development.'),
-      t('AGI 77+ / ACC 75+', 'SPD 73+', 'Good mover; a solid contributor.'),
-      t('Below agile benchmarks', 'Under 76 composite', 'Average agility; slow growth.'),
+      t('PB FIN 90+ / RB FIN 88+', 'AGI 87+ / ACC 84+', 'Athletic mover who pulls and mirrors; elite quickness drives dynamic development.'),
+      t('PB FIN 84+ / RB FIN 82+', 'AGI 81+ / ACC 80+', 'Quick, reactive blocker.'),
+      t('PB FIN 77+ / RB FIN 75+', 'AGI 73+', 'Athletic contributor.'),
+      t('Below agile benchmarks', 'Under 76 composite', 'Average agility.'),
     ]},
     'Contact Seeker': { tiers: [
       t('BRK TKL 91+ / CAR 89+', 'BC VIS 85+ / AWR 83+', 'Downhill physical beast; elite power and trucking develop a dominant runner/hitter.'),
@@ -531,48 +534,48 @@ const PROFILES = {
   FB: {
     archetypes: ['Blocking', 'Utility'],
     'Blocking': { tiers: [
-      t('TBD', 'TBD', 'Pancake machine and elite lead blocker; rare dominance in the run game.'),
-      t('TBD', 'TBD', 'Outstanding blocker with toughness; a strong contributor.'),
-      t('TBD', 'TBD', 'Reliable lead blocker; a good starter.'),
-      t('TBD', 'TBD', 'Basic blocker; limited impact.'),
+      t('LBK 91+ / RUN BLK 88+', 'IMP BLK 86+ / STR 84+', 'Pancake machine and elite lead blocker; rare dominance in the run game.'),
+      t('LBK 85+ / RUN BLK 82+', 'IMP BLK 80+ / STR 79+', 'Outstanding blocker with toughness; a strong contributor.'),
+      t('LBK 78+ / RUN BLK 76+', 'STR 74+', 'Reliable lead blocker; a good starter.'),
+      t('Below blocking benchmarks', 'Under 76 composite', 'Basic blocker; limited impact.'),
     ]},
     'Utility': { tiers: [
-      t('TBD', 'TBD', 'Versatile do-it-all FB who blocks, runs, and catches; a rare multi-tool threat.'),
-      t('TBD', 'TBD', 'Good all-around contributor; solid development.'),
-      t('TBD', 'TBD', 'Flexible role player; useful.'),
-      t('TBD', 'TBD', 'Average utility; slow growth.'),
+      t('CAR 89+ / TRK 87+', 'BRK TKL 85+ / SHORT RTE 83+', 'Versatile do-it-all FB who blocks, runs, and catches; a rare multi-tool threat.'),
+      t('CAR 83+ / TRK 81+', 'BRK TKL 79+ / SHORT RTE 77+', 'Good all-around contributor; solid development.'),
+      t('CAR 76+ / TRK 74+', 'BRK TKL 73+', 'Flexible role player; useful.'),
+      t('Below utility benchmarks', 'Under 76 composite', 'Average utility; slow growth.'),
     ]},
   },
 
   K: {
     archetypes: ['Accurate', 'Power'],
     'Accurate': { tiers: [
-      t('TBD', 'TBD', 'Clutch precision leg with elite consistency; a rare, automatic weapon.'),
-      t('TBD', 'TBD', 'Highly reliable.'),
-      t('TBD', 'TBD', 'Good accuracy.'),
-      t('TBD', 'TBD', 'Average.'),
+      t('KAC 92+ / AWR 87+', 'KPW 82+', 'Clutch precision leg with elite consistency; a rare, automatic weapon.'),
+      t('KAC 86+ / AWR 81+', 'KPW 78+', 'Highly reliable.'),
+      t('KAC 79+ / AWR 75+', 'KPW 73+', 'Good accuracy.'),
+      t('Below accuracy benchmarks', 'Under 76 composite', 'Average.'),
     ]},
     'Power': { tiers: [
-      t('TBD', 'TBD', 'Cannon leg for distance and hang time; elite power drives game-changing development.'),
-      t('TBD', 'TBD', 'Big-legged specialist.'),
-      t('TBD', 'TBD', 'Strong distance.'),
-      t('TBD', 'TBD', 'Average power.'),
+      t('KPW 93+ / AWR 84+', 'KAC 82+', 'Cannon leg for distance and hang time; elite power drives game-changing development.'),
+      t('KPW 87+ / AWR 79+', 'KAC 77+', 'Big-legged specialist.'),
+      t('KPW 80+ / AWR 74+', 'KAC 73+', 'Strong distance.'),
+      t('Below power benchmarks', 'Under 76 composite', 'Average power.'),
     ]},
   },
 
   P: {
     archetypes: ['Accurate', 'Power'],
     'Accurate': { tiers: [
-      t('TBD', 'TBD', 'Clutch precision leg with elite consistency; a rare, automatic weapon.'),
-      t('TBD', 'TBD', 'Highly reliable.'),
-      t('TBD', 'TBD', 'Good accuracy.'),
-      t('TBD', 'TBD', 'Average.'),
+      t('KAC 92+ / AWR 87+', 'KPW 82+', 'Clutch precision leg with elite hang-time control; a rare, automatic weapon.'),
+      t('KAC 86+ / AWR 81+', 'KPW 78+', 'Highly reliable.'),
+      t('KAC 79+ / AWR 75+', 'KPW 73+', 'Good accuracy.'),
+      t('Below accuracy benchmarks', 'Under 76 composite', 'Average.'),
     ]},
     'Power': { tiers: [
-      t('TBD', 'TBD', 'Cannon leg for distance and hang time; elite power drives game-changing development.'),
-      t('TBD', 'TBD', 'Big-legged specialist.'),
-      t('TBD', 'TBD', 'Strong distance.'),
-      t('TBD', 'TBD', 'Average power.'),
+      t('KPW 93+ / AWR 84+', 'KAC 82+', 'Booming leg with elite distance and hang time; drives game-changing field position.'),
+      t('KPW 87+ / AWR 79+', 'KAC 77+', 'Big-legged specialist.'),
+      t('KPW 80+ / AWR 74+', 'KAC 73+', 'Strong distance.'),
+      t('Below power benchmarks', 'Under 76 composite', 'Average power.'),
     ]},
   },
 };

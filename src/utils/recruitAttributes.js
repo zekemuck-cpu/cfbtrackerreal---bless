@@ -22,6 +22,9 @@ export const BASE_POSITION_CONFIG = {
   FS: ['Awareness', 'Speed', 'Acceleration', 'Change of Direction', 'Agility', 'Man Coverage', 'Zone Coverage', 'Press', 'Catching', 'Tackle'],
   SS: ['Awareness', 'Speed', 'Acceleration', 'Change of Direction', 'Agility', 'Man Coverage', 'Zone Coverage', 'Press', 'Catching', 'Tackle'],
   ATH: ['Awareness', 'Speed', 'Acceleration', 'Strength', 'Agility', 'Change of Direction', 'Catching', 'Tackle', 'Zone Coverage', 'Man Coverage'],
+  FB: ['Lead Block', 'Awareness', 'Run Block', 'Strength', 'Trucking', 'Impact Blocking', 'Break Tackle', 'Carrying', 'Short Route', 'Run Block Power'],
+  K:  ['Awareness', 'Kick Power', 'Kick Accuracy', 'Speed', 'Acceleration', 'Agility', 'Break Tackle', 'Throw Power', 'Throw On Run', 'Short Accuracy'],
+  P:  ['Awareness', 'Kick Power', 'Kick Accuracy', 'Speed', 'Acceleration', 'Agility', 'Break Tackle', 'Throw Power', 'Throw On Run', 'Short Accuracy'],
 }
 
 export const RECRUIT_FORM_OVERRIDES = {
