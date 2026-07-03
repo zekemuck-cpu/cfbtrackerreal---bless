@@ -9,7 +9,7 @@ import { useDynasty } from '../context/DynastyContext';
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler';
 import AuthErrorModal from './AuthErrorModal';
 import { createRecruitingDatabaseSheet, readRecruitingDatabaseSheet, writeRecruitingDatabaseRows, sheetExists, sheetHasRecruitingDatabaseTab } from '../services/sheetsService';
-import { mergeRecruitingDatabaseRows, reconcileRecruitingDatabaseSync } from '../utils/recruitingDatabaseSync';
+import { mergeRecruitingDatabaseRows, reconcileRecruitingDatabaseSync, snapshotKey } from '../utils/recruitingDatabaseSync';
 import { useToast } from './ui/Toast';
 import { useConfirm } from './ui/ConfirmDialog';
 
@@ -1134,7 +1134,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
         const sheetInfo = await createRecruitingDatabaseSheet('CFB 27 - Recruiting Database', combinedPlayers, currentDynasty.teams);
         sheetId = sheetInfo.spreadsheetId;
         const seedSnapshot = {};
-        combinedPlayers.forEach(p => { if (p.pid != null) seedSnapshot[String(p.pid)] = JSON.stringify(p); });
+        combinedPlayers.forEach(p => { if (p.pid != null) seedSnapshot[String(p.pid)] = snapshotKey(p); });
         await updateDynasty(currentDynasty.id, {
           recruitingDatabaseSheetId: sheetId,
           recruitingDatabaseSyncedSnapshot: seedSnapshot,

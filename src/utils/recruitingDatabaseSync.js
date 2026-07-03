@@ -10,7 +10,12 @@
 
 import { serializeRecruitingDatabaseRow } from './recruitingDatabaseSheetFormat'
 
-const snapshotKey = (recruit) => JSON.stringify(serializeRecruitingDatabaseRow(recruit))
+// Exported so any code seeding a syncedSnapshot (e.g. PlayerDatabase.jsx when
+// creating a brand-new sheet) uses the exact same serialization the reconcile
+// comparison below does — a seed in a different format (e.g. a raw
+// JSON.stringify of the recruit object) would never match, making every
+// recruit look "changed" on the very next sync no matter what actually changed.
+export const snapshotKey = (recruit) => JSON.stringify(serializeRecruitingDatabaseRow(recruit))
 
 // Whole-record, most-recent-edit-wins merge of a read-back Google Sheet
 // against the current local Recruiting Database. Local-only recruits (not
