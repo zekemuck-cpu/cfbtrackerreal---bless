@@ -11202,6 +11202,7 @@ const US_STATES = [
 
 const GEM_BUST_OPTIONS = ['Gem', 'Bust']
 const DEV_TRAITS = ['Elite', 'Star', 'Impact', 'Normal']
+const RECRUITING_DATABASE_DEV_TRAITS = ['Hidden', 'Normal', 'Impact', 'Star', 'Elite']
 
 // Convert stars number to symbols
 function starsNumberToSymbol(num) {
@@ -11848,7 +11849,10 @@ export async function createRecruitingDatabaseSheet(title, recruits = [], dynast
     requests.push(dropdown(8, HEIGHTS))
     requests.push(dropdown(11, US_STATES))
     requests.push(dropdown(12, GEM_BUST_OPTIONS))
-    requests.push(dropdown(13, DEV_TRAITS))
+    // Recruiting Database-specific list (not the shared DEV_TRAITS the
+    // Targets Commitments sheet uses) — 'Hidden' is a real, common state
+    // here (an unrevealed dev trait), unlike the Targets flow.
+    requests.push(dropdown(13, RECRUITING_DATABASE_DEV_TRAITS))
     requests.push(dropdown(14, ['', ...teamAbbrs]))
 
     // Hidden pid/Updated columns — round-trip bookkeeping the app manages;

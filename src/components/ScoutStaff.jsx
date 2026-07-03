@@ -39,6 +39,16 @@ function shapeRecruit(pl, addedIndex, sourceDynastyId) {
     isPortal: pl.isPortal,
     previousTeam: pl.previousTeam,
     nationalRank: pl.nationalRank,
+    // These four + class were captured on the recruit at entry but were
+    // missing from this shape entirely — silently dropped between the entry
+    // form and every surface (Recruiting Database, its Sheet sync) that reads
+    // recruits through shapeRecruit rather than the raw dynasty.players record.
+    stateRank: pl.stateRank,
+    height: pl.height || '',
+    weight: pl.weight || null,
+    hometown: pl.hometown || '',
+    state: pl.state || '',
+    class: getPlayerClassForYear(pl, pl.recruitYear) || 'HS',
     positionRank: pl.positionRank,
     addedIndex,
     boardRemoved: !!pl.boardRemoved,

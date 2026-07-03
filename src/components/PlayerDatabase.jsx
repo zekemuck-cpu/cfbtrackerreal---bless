@@ -599,16 +599,20 @@ function GradeModal({ player, allPlayers, weightsMap, onClose }) {
               {player.position} · {player.archetype}
             </p>
             <h2 className="text-xl font-black text-white">{player.name}</h2>
-            <p className="text-[10px] text-slate-400 mt-0.5">
-              {player.stars}★ ·{' '}
+            <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1.5">
+              {player.stars}★
+              {/* Same badge styling (color + border + glow) as the dev trait
+                  pill in the Recruiting Database table, not just plain
+                  colored text — a bare span can't reproduce the pill's glow
+                  since that's a box-shadow on an actual box. */}
               {hidden
-                ? <span className="text-slate-500 italic">Dev Trait Hidden</span>
-                : <span className={
-                    player.devTrait === 'Elite'  ? 'text-[#D89EFF] font-black' :
-                    player.devTrait === 'Star'   ? 'text-[#FFD100] font-bold' :
-                    player.devTrait === 'Impact' ? 'text-[#D6DEE2] font-bold' :
-                    'text-slate-400'
-                  }>{player.devTrait} Dev</span>
+                ? <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-950 border border-slate-700 text-slate-600 italic">HIDDEN</span>
+                : <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    player.devTrait === 'Elite'  ? 'bg-surface-3 border border-[#0E7A2A] text-[#22E065] shadow-[0_0_16px_rgba(14,122,42,0.85)]' :
+                    player.devTrait === 'Star'   ? 'bg-surface-3 border border-[#9C7209] text-[#FFD100] shadow-[0_0_14px_rgba(156,114,9,0.8)]' :
+                    player.devTrait === 'Impact' ? 'bg-surface-3 border border-[#7C8991] text-[#D6DEE2]' :
+                                                    'bg-surface-3 border border-[#8C5524] text-[#CD7F32]'
+                  }`}>{player.devTrait.toUpperCase()}</span>
               }
             </p>
           </div>
@@ -960,18 +964,30 @@ function EditModal({ player, pool, weightsMap, onSave, onClose }) {
           {/* Attributes */}
           <section>
             <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Attributes</h3>
+            {/* First half of the position's canonical form order down the left
+                column, the rest down the right — NOT a row-major interleave
+                (which would zigzag AWR/THP, SAC/MAC, ... across the two
+                columns instead of grouping attrs 1-5 and 6-10 together). */}
             <div className="grid grid-cols-2 gap-2">
-              {Object.entries(visibleAttrs).map(([key, val]) => (
-                <div key={key} className="flex items-center gap-2 bg-surface-3 border border-surface-4 rounded-lg px-3 py-2">
-                  <label className="text-[10px] uppercase text-slate-400 flex-1 truncate">{key}</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="99"
-                    value={val}
-                    onChange={e => setAttr(key, e.target.value)}
-                    className="w-14 bg-surface-4 border border-surface-5 text-xs p-1.5 rounded text-white text-center font-bold focus:outline-none focus:border-surface-5 transition"
-                  />
+              {(() => {
+                const entries = Object.entries(visibleAttrs);
+                const half = Math.ceil(entries.length / 2);
+                return [entries.slice(0, half), entries.slice(half)];
+              })().map((col, colIdx) => (
+                <div key={colIdx} className="space-y-2">
+                  {col.map(([key, val]) => (
+                    <div key={key} className="flex items-center gap-2 bg-surface-3 border border-surface-4 rounded-lg px-3 py-2">
+                      <label className="text-[10px] uppercase text-slate-400 flex-1 truncate">{key}</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="99"
+                        value={val}
+                        onChange={e => setAttr(key, e.target.value)}
+                        className="w-14 bg-surface-4 border border-surface-5 text-xs p-1.5 rounded text-white text-center font-bold focus:outline-none focus:border-surface-5 transition"
+                      />
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
@@ -1054,27 +1070,36 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     return [...basePlayers, ...extra];
   }, [players, recruitingDatabasePlayers, excludedPids]);
 
-  // "Save" is a real sync, not a fire-and-forget push. If a sheet is already
-  // linked, we read its current contents FIRST and reconcile per recruit
-  // before writing anything back — otherwise a manual edit made directly in
-  // the sheet would just get silently clobbered by whatever the app already
-  // had. This can't be judged by comparing timestamps (a human editing a
-  // cell in Sheets never bumps any per-row "last edited" marker — only the
-  // app's own writes do), so reconcileRecruitingDatabaseSync instead diffs
-  // each pid's current content against a snapshot of what was last confirmed
-  // synced (dynasty.recruitingDatabaseSyncedSnapshot): if only the sheet
-  // changed since then, the sheet wins; otherwise local wins, so a deliberate
-  // in-app edit is never silently overwritten. A recruit whose pid matches a
-  // real target is routed through the same save path the Edit modal uses, so
-  // a sheet edit to an existing target updates that record instead of
-  // forking a duplicate; anything else lands in recruitingDatabasePlayers. A
-  // recruit missing from the sheet that was synced before was deleted there
-  // on purpose and is dropped locally too — unless it's a real target, which
-  // this sync can never delete. After writing, we read the sheet back once
-  // more and confirm every recruit actually landed.
-  const handleSave = async () => {
+  // The actual sync engine — shared by the manual "Save" button and the
+  // automatic push effect below. If a sheet is already linked, we read its
+  // current contents FIRST and reconcile per recruit before writing anything
+  // back — otherwise a manual edit made directly in the sheet would just get
+  // silently clobbered by whatever the app already had. This can't be judged
+  // by comparing timestamps (a human editing a cell in Sheets never bumps any
+  // per-row "last edited" marker — only the app's own writes do), so
+  // reconcileRecruitingDatabaseSync instead diffs each pid's current content
+  // against a snapshot of what was last confirmed synced
+  // (dynasty.recruitingDatabaseSyncedSnapshot): if only the sheet changed
+  // since then, the sheet wins; otherwise local wins, so a deliberate in-app
+  // edit is never silently overwritten. A recruit whose pid matches a real
+  // target is routed through the same save path the Edit modal uses, so a
+  // sheet edit to an existing target updates that record instead of forking a
+  // duplicate; anything else lands in recruitingDatabasePlayers. A recruit
+  // missing from the sheet that was synced before was deleted there on
+  // purpose and is dropped locally too — unless it's a real target, which
+  // this sync can never delete.
+  //
+  // Running the SAME full reconcile automatically (below) as well as on
+  // manual Save is deliberate: a naive one-way "push local on every change"
+  // auto-sync would silently clobber a pending manual sheet edit the moment
+  // any unrelated local change fired it. Reconciling both directions every
+  // time means there's no unsafe window — auto-push keeps the sheet current
+  // as soon as something changes here, and manual Save exists for the case
+  // nothing local changed but the sheet itself was hand-edited (auto-push
+  // never fires from a sheet-only edit).
+  const syncNow = async ({ silent = false } = {}) => {
     if (!currentDynasty) return;
-    setSaving(true);
+    if (!silent) setSaving(true);
     try {
       // Treat a linked sheet from before this feature's current format (e.g.
       // an early trial sheet with no dedicated "Recruiting Database" tab) the
@@ -1150,23 +1175,34 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
         await writeRecruitingDatabaseRows(sheetId, mergedRecruits);
       }
 
-      const confirmRows = await readRecruitingDatabaseSheet(sheetId);
-      const expectedNames = finalRecruits.map(p => p.name).filter(Boolean).sort();
-      const actualNames = confirmRows.map(r => r.name).filter(Boolean).sort();
-      const confirmed = expectedNames.length === actualNames.length
-        && expectedNames.every((name, i) => name === actualNames[i]);
-      if (!confirmed) throw new Error('Sheet contents did not match after saving.');
-
-      toast.success('Saved to Google Sheets');
+      // Skip the read-back confirmation on a silent auto-push — it's an
+      // extra API call on every background sync, and a failure there isn't
+      // actionable without a UI to show it; the next auto-push (or a manual
+      // Save) just retries.
+      if (!silent) {
+        const confirmRows = await readRecruitingDatabaseSheet(sheetId);
+        const expectedNames = finalRecruits.map(p => p.name).filter(Boolean).sort();
+        const actualNames = confirmRows.map(r => r.name).filter(Boolean).sort();
+        const confirmed = expectedNames.length === actualNames.length
+          && expectedNames.every((name, i) => name === actualNames[i]);
+        if (!confirmed) throw new Error('Sheet contents did not match after saving.');
+        toast.success('Synced with Google Sheets');
+      }
     } catch (error) {
+      if (silent) {
+        console.warn('Recruiting Database auto-sync failed:', error?.message || error);
+        return;
+      }
       if (!auth.handleError(error)) {
         console.error('Recruiting Database save error:', error);
         toast.error('Error Saving : Please Try Again');
       }
     } finally {
-      setSaving(false);
+      if (!silent) setSaving(false);
     }
   };
+
+  const handleSave = () => syncNow({ silent: false });
 
   const extractSheetId = (input) => {
     const s = (input || '').trim();
@@ -1224,21 +1260,29 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     }
   };
 
-  // First recruit ever added to a dynasty with no linked sheet yet auto-
-  // provisions one — "CFB 27 - Recruiting Database" becomes the sheet this
-  // dynasty syncs against from here on, with no manual Save click required
-  // to bootstrap it. One attempt per dynasty per mount; if it fails (e.g. no
-  // cached Google auth), handleSave's own error handling surfaces the normal
-  // sign-in prompt and the next manual Save retries it.
-  const autoCreateAttemptedFor = useRef(null);
+  // Auto-push: the moment the Recruiting Database's content actually changes
+  // (a recruit added, edited, imported, deleted), sync it out to the linked
+  // Sheet automatically — no manual Save click needed to keep the Sheet
+  // current. Debounced so a burst of edits collapses into one sync instead of
+  // one per keystroke. This runs syncNow's full reconcile, not a one-way
+  // push, so it can never clobber a pending manual sheet edit (see syncNow's
+  // comment). Also creates the sheet automatically on the very first recruit.
+  const lastAutoSyncedSignatureRef = useRef(null);
+  const autoSyncTimerRef = useRef(null);
   useEffect(() => {
-    if (!currentDynasty || currentDynasty.recruitingDatabaseSheetId) return;
-    if (!players.length) return;
-    if (autoCreateAttemptedFor.current === currentDynasty.id) return;
-    autoCreateAttemptedFor.current = currentDynasty.id;
-    handleSave();
+    if (!currentDynasty || !combinedPlayers.length) return;
+    const signature = combinedPlayers.map(p => `${p.pid}:${p.updatedAt || 0}`).sort().join('|');
+    if (signature === lastAutoSyncedSignatureRef.current) return;
+
+    if (autoSyncTimerRef.current) clearTimeout(autoSyncTimerRef.current);
+    autoSyncTimerRef.current = setTimeout(() => {
+      lastAutoSyncedSignatureRef.current = signature;
+      syncNow({ silent: true });
+    }, 2000);
+
+    return () => { if (autoSyncTimerRef.current) clearTimeout(autoSyncTimerRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDynasty?.id, currentDynasty?.recruitingDatabaseSheetId, players.length]);
+  }, [combinedPlayers, currentDynasty?.id]);
 
   const importCandidates = (dynasties || []).filter(
     d => d.id !== currentDynasty?.id && d.recruitingDatabaseSheetId
@@ -1277,19 +1321,37 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
   const isFromRecruitingDatabase = (pl) =>
     pl?.pid != null && recruitingDatabasePlayers.some(p => String(p.pid) === String(pl.pid));
 
-  const handleEditSave = (updated, original) => {
+  // Must be async and must return/await the underlying write — EditModal's
+  // own handleSave does `const ok = await onSave(updated); if (ok !== false)
+  // onClose()`. A version that fires the write and returns undefined
+  // synchronously (the previous bug here) makes the modal think every save
+  // succeeded and close immediately, whether or not anything actually
+  // persisted or a write error was silently swallowed.
+  const handleEditSave = async (updated, original) => {
     if (isFromRecruitingDatabase(original)) {
-      const next = recruitingDatabasePlayers.map(p => String(p.pid) === String(original.pid) ? { ...updated, updatedAt: Date.now() } : p);
-      updateDynasty(currentDynasty.id, { recruitingDatabasePlayers: next });
-      return;
+      try {
+        const next = recruitingDatabasePlayers.map(p => String(p.pid) === String(original.pid) ? { ...updated, updatedAt: Date.now() } : p);
+        await updateDynasty(currentDynasty.id, { recruitingDatabasePlayers: next });
+        return true;
+      } catch (error) {
+        console.error('Recruiting Database edit save error:', error);
+        toast.error('Failed to save your edit. Please try again.');
+        return false;
+      }
     }
-    onEdit && onEdit(updated, original);
+    if (!onEdit) return false;
+    return await onEdit(updated, original);
   };
 
-  const handleDelete = (pl) => {
+  const handleDelete = async (pl) => {
     if (isFromRecruitingDatabase(pl)) {
-      const next = recruitingDatabasePlayers.filter(p => String(p.pid) !== String(pl.pid));
-      updateDynasty(currentDynasty.id, { recruitingDatabasePlayers: next });
+      try {
+        const next = recruitingDatabasePlayers.filter(p => String(p.pid) !== String(pl.pid));
+        await updateDynasty(currentDynasty.id, { recruitingDatabasePlayers: next });
+      } catch (error) {
+        console.error('Recruiting Database delete error:', error);
+        toast.error('Failed to delete. Please try again.');
+      }
       return;
     }
     onDelete && onDelete(pl);
@@ -1468,7 +1530,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
             <button
               onClick={handleSave}
               disabled={saving}
-              title="Save the Recruiting Database to a linked Google Sheet"
+              title="Pull in any edits made directly in the linked Google Sheet (local changes already auto-sync out as you make them)"
               className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? 'Saving…' : 'Save'}
@@ -1499,9 +1561,11 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                       except when you deliberately edit one of your own targets through here.
                     </p>
                     <p>
-                      It can mirror itself into a Google Sheet so you can browse or bulk-edit it
-                      outside the app, and so a brand-new dynasty can pick up an old one's database
-                      instead of starting from zero.
+                      It mirrors itself into a Google Sheet automatically — any change you make here
+                      (a recruit added, edited, imported, or removed) syncs out to the Sheet on its
+                      own within a couple seconds, so you can browse or bulk-edit it outside the app,
+                      or let a brand-new dynasty pick up an old one's database instead of starting
+                      from zero.
                     </p>
                     <p>
                       <strong className="text-txt-primary">Import</strong> pulls recruits in from a
@@ -1514,11 +1578,11 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                       currently linked to this dynasty's Recruiting Database in a new tab.
                     </p>
                     <p>
-                      <strong className="text-txt-primary">Save</strong> is a real two-way sync: it
-                      reads the linked Sheet, reconciles it against what's shown here (creating the
-                      Sheet first if none is linked yet), and writes the result back to both sides.
-                      Edits made directly in the Sheet are picked up; a recruit deleted from the Sheet
-                      is removed here too — except a real Target, which Save can never delete.
+                      <strong className="text-txt-primary">Save</strong> pulls in edits made directly
+                      in the Sheet — local changes already sync out on their own, so Save exists for
+                      the case where nothing changed here but you hand-edited the Sheet itself. A
+                      recruit deleted from the Sheet is removed here too, except a real Target, which
+                      this can never delete.
                     </p>
                   </div>
 
@@ -1726,9 +1790,9 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                         <span className={'text-xs font-bold text-txt-tertiary'}>{gpa}</span>
                       </td>
                       <td className="px-2 py-3.5 tabular-nums text-[10px] text-txt-tertiary overflow-hidden">
-                        <div className="flex flex-wrap gap-1">
+                        <div className="grid grid-cols-2 gap-1">
                           {orderedAttrs.map(([key, val]) => (
-                            <span key={key} title={key} className="max-w-[88px] px-1 py-0.5 rounded text-txt-secondary truncate bg-surface-3 border border-surface-4">
+                            <span key={key} title={key} className="px-1 py-0.5 rounded text-txt-secondary truncate bg-surface-3 border border-surface-4">
                               <strong className="text-txt-tertiary font-normal mr-px">{ATTRIBUTE_ABBR[key] || key}:</strong>{val}
                             </span>
                           ))}
