@@ -636,7 +636,7 @@ function dynamicBadgeText(profile, attrEntries, direction = 'above') {
   return parts.length ? parts.join(' / ') : null;
 }
 
-export default function ThresholdLookup({ players = [], teamColors, teamLogo, onGoToDatabase, onBack, dynastyId = null, recruitingDbIsolated = false, onToggleIsolated = null }) {
+export default function ThresholdLookup({ players = [], teamColors, teamLogo, onGoToDatabase, onBack, dynastyId = null }) {
   const { getStaffData } = createStaffAccessor(dynastyId);
   const p = teamColors?.primary || '#374151';
   const [activePos, setActivePos] = useState('QB');
@@ -708,17 +708,6 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
       <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-surface-4">
         <h2 className="text-sm font-display font-bold uppercase text-txt-primary">Threshold Benchmarks</h2>
         <div className="flex items-center gap-3 flex-shrink-0">
-          {onToggleIsolated && (
-            <label className="flex items-center gap-1.5 text-[10px] text-txt-tertiary hover:text-txt-secondary transition cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={recruitingDbIsolated}
-                onChange={onToggleIsolated}
-                className="w-3 h-3 accent-current"
-              />
-              Reset Database (This Dynasty Only)
-            </label>
-          )}
           {onBack && (
             <button onClick={onBack} className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><polyline points="15 18 9 12 15 6"/></svg>

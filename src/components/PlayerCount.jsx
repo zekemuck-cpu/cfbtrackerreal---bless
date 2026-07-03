@@ -25,7 +25,7 @@ ARCHETYPE_REGISTRY.forEach(({ position, archetype }) => {
 });
 
 export default function PlayerCount({ onBack, onGoToDatabase }) {
-  const { currentDynasty, dynasties, getDynastyPlayers, updateDynasty, isViewOnly } = useDynasty();
+  const { currentDynasty, dynasties, getDynastyPlayers } = useDynasty();
   const [selectedPos, setSelectedPos] = useState(null);
   const [selectedStar, setSelectedStar] = useState('5');
   const [siblingPlayers, setSiblingPlayers] = useState([]);
@@ -94,11 +94,6 @@ export default function PlayerCount({ onBack, onGoToDatabase }) {
     const pool = isolated ? own : [...own, ...effectiveSiblingPlayers];
     return pool.filter(p => p.isTarget && p.name && !p.isPortal && !p.previousTeam);
   }, [currentDynasty?.players, effectiveSiblingPlayers, isolated]);
-
-  const handleToggleIsolated = () => {
-    if (!currentDynasty || isViewOnly) return;
-    updateDynasty(currentDynasty.id, { recruitingDbIsolated: !isolated });
-  };
 
   const total = allRecruits.length;
 
@@ -181,17 +176,6 @@ export default function PlayerCount({ onBack, onGoToDatabase }) {
       <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-surface-4">
         <h2 className="text-sm font-display font-bold uppercase text-txt-primary">Player Count</h2>
         <div className="flex items-center gap-3 flex-shrink-0">
-          {!isViewOnly && (
-            <label className="flex items-center gap-1.5 text-[10px] text-txt-tertiary hover:text-txt-secondary transition cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={isolated}
-                onChange={handleToggleIsolated}
-                className="w-3 h-3 accent-current"
-              />
-              Reset Database (This Dynasty Only)
-            </label>
-          )}
           {onBack && (
             <button onClick={onBack} className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><polyline points="15 18 9 12 15 6"/></svg>

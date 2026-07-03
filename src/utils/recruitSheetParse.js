@@ -28,8 +28,14 @@ export const PID_COL = ATTR_COL_END
 // pre-NIL sheet still round-trips its pid byte-for-byte (the parser just reads
 // nil:null). It's a visible trailing column the user fills with the offer.
 export const NIL_COL = PID_COL + 1
-// Total column count A..NIL (used to size the sheet grid).
-export const TOTAL_COLS = NIL_COL + 1
+// Last-edited timestamp (epoch ms) — appended AFTER NIL for the same
+// round-tripping reason NIL was appended after the hidden pid column: a
+// pre-Updated sheet still parses fine (updatedAt:null), and this is what lets
+// the Recruiting Database's Google Sheet sync do most-recent-wins conflict
+// resolution per recruit.
+export const UPDATED_AT_COL = NIL_COL + 1
+// Total column count A..Updated (used to size the sheet grid).
+export const TOTAL_COLS = UPDATED_AT_COL + 1
 
 // Convert a 0-based column index to an A1 letter (0→A, 26→AA, 58→BG).
 function colLetter(idx) {
@@ -40,8 +46,9 @@ function colLetter(idx) {
   return s
 }
 
-// Read range wide enough for A..NIL and tall enough for a full season of targets.
-export const RECRUITING_READ_RANGE = `Commitments!A2:${colLetter(NIL_COL)}600`
+// Read range wide enough for A..Updated and tall enough for a full season of targets.
+export const RECRUITING_READ_RANGE = `Commitments!A2:${colLetter(UPDATED_AT_COL)}600`
+export { colLetter }
 
 const NON_PORTAL_CLASSES = ['HS', 'JUCO Fr', 'JUCO So', 'JUCO Jr']
 
@@ -150,6 +157,7 @@ export function parseRecruitingRow(row) {
     attributes: parseAttributes(r[ATTR_CELL_COL]),
     pid: trim(pidRaw) !== '' ? Number(trim(pidRaw)) : undefined,
     nil: intOrNull(r[NIL_COL]), // recruiting NIL offer (CFB 27+); null on a legacy sheet
+    updatedAt: intOrNull(r[UPDATED_AT_COL]), // epoch ms; null on a sheet with no Updated column yet
   }
 }
 

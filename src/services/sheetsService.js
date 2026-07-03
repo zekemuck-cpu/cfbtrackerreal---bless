@@ -6,8 +6,14 @@ import { conferenceTeams as CANONICAL_CONFERENCES } from '../data/conferenceTeam
 import { STAT_TABS, STAT_TAB_ORDER, SCORING_SUMMARY, SCORE_TYPES, PAT_RESULTS, QUARTERS, DOWNS, PLAY_TYPES, AI_UNIFIED_TAB, computeUnifiedTabLayout } from '../data/boxScoreConstants'
 import { isPlayerOnRoster, getPlayerClassForYear } from '../context/DynastyContext'
 import { OAuthError } from '../utils/authErrors'
-import { parseRecruitingRows, parseAttributes, RECRUITING_READ_RANGE, TOTAL_COLS, PID_COL, NIL_COL } from '../utils/recruitSheetParse'
+import { parseRecruitingRows, parseAttributes, RECRUITING_READ_RANGE, TOTAL_COLS, PID_COL, NIL_COL, UPDATED_AT_COL, colLetter } from '../utils/recruitSheetParse'
 import { ATTRIBUTE_COLUMNS, ATTRIBUTE_ABBR, attributeNamesFor, serializeAttributes } from '../utils/recruitAttributes'
+import {
+  RECRUITING_DATABASE_SHEET_TAB, TOTAL_COLS as RECRUITING_DATABASE_TOTAL_COLS,
+  PID_COL as RECRUITING_DATABASE_PID_COL, UPDATED_AT_COL as RECRUITING_DATABASE_UPDATED_AT_COL,
+  READ_RANGE as RECRUITING_DATABASE_READ_RANGE, HEADERS as RECRUITING_DATABASE_HEADERS,
+  parseRecruitingDatabaseRows, serializeRecruitingDatabaseRow,
+} from '../utils/recruitingDatabaseSheetFormat'
 
 const SHEETS_API_BASE = 'https://sheets.googleapis.com/v4/spreadsheets'
 const DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3/files'
@@ -2099,6 +2105,33 @@ export async function sheetExists(spreadsheetId) {
     if (error?.isAuthError) throw error
     console.warn('sheetExists probe failed, assuming sheet is still live:', error?.message || error)
     return true
+  }
+}
+
+/**
+ * Check whether a stored Recruiting Database sheet ID actually has the
+ * dedicated "Recruiting Database" tab this feature reads/writes. A dynasty
+ * that linked a sheet before this format existed (e.g. an early Commitments-
+ * style sheet from testing) would otherwise silently fail every Save/Import —
+ * the app would try to read/write a tab that was never created on that file.
+ * Callers treat `false` the same as "no sheet linked yet" so a fresh, correctly-
+ * formatted sheet gets created and the stale link gets replaced.
+ */
+export async function sheetHasRecruitingDatabaseTab(spreadsheetId) {
+  if (!spreadsheetId) return false
+  try {
+    const accessToken = await getAccessToken()
+    const response = await fetchWithTimeout(
+      `${SHEETS_API_BASE}/${spreadsheetId}?fields=sheets.properties.title`,
+      { headers: { 'Authorization': `Bearer ${accessToken}` } }
+    )
+    if (!response.ok) return false
+    const data = await response.json()
+    return (data.sheets || []).some(s => s.properties?.title === RECRUITING_DATABASE_SHEET_TAB)
+  } catch (error) {
+    if (error?.isAuthError) throw error
+    console.warn('sheetHasRecruitingDatabaseTab probe failed, assuming tab is missing:', error?.message || error)
+    return false
   }
 }
 
@@ -11178,7 +11211,7 @@ function starsNumberToSymbol(num) {
 
 // Create Recruiting Commitments sheet
 // Max scholarships per class is 35, so we use 35 rows
-export async function createRecruitingSheet(dynastyName, year, dynastyTeams = null, existingCommitments = []) {
+export async function createRecruitingSheet(dynastyName, year, dynastyTeams = null, existingCommitments = [], titleOverride = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -11199,7 +11232,7 @@ export async function createRecruitingSheet(dynastyName, year, dynastyTeams = nu
       },
       body: JSON.stringify({
         properties: {
-          title: `${dynastyName} - ${year} Recruiting Class`
+          title: titleOverride || `${dynastyName} - ${year} Recruiting Class`
         },
         sheets: [
           {
@@ -11260,6 +11293,7 @@ export async function createRecruitingSheet(dynastyName, year, dynastyTeams = nu
               ...ATTRIBUTE_COLUMNS.slice(1).map(() => ({ label: '' })),
               { label: 'pid' },
               { label: 'NIL', note: 'Recruiting NIL offer (CFB 27)' },
+              { label: 'Updated', note: 'Last-edited timestamp — used for most-recent-wins sync with the app. Leave this alone; the app manages it.' },
             ].map(h => ({
               userEnteredValue: { stringValue: h.label },
               userEnteredFormat: headerStyle,
@@ -11528,7 +11562,8 @@ export async function createRecruitingSheet(dynastyName, year, dynastyTeams = nu
           { userEnteredValue: { stringValue: attrsToLabeledCell(recruit) } },
           ...ATTRIBUTE_COLUMNS.slice(1).map(() => ({ userEnteredValue: { stringValue: '' } })),
           numOrBlank(recruit.pid),
-          numOrBlank(recruit.nilByYear?.[year] ?? recruit.nilByYear?.[String(year)])
+          numOrBlank(recruit.nilByYear?.[year] ?? recruit.nilByYear?.[String(year)]),
+          numOrBlank(recruit.updatedAt)
         ]
       }))
 
@@ -11627,6 +11662,267 @@ export async function readRecruitingFromSheet(spreadsheetId, dynastyTeams = null
     return parseRecruitingRows(rows)
   } catch (error) {
     console.error('Error reading recruiting data:', error)
+    throw error
+  }
+}
+
+// Push the app's own recruiting records into an EXISTING recruiting sheet's
+// Commitments body — a full-range overwrite (not a partial batchUpdate) so
+// recruits added/removed between syncs are handled for free, same pattern as
+// prefillRosterSheet. This is the write half of the Recruiting Database's
+// two-way Google Sheets sync (readRecruitingFromSheet is the read half);
+// the caller (syncRecruitingDatabase in recruitingTargets.js) is what merges
+// local + sheet state by most-recent updatedAt before calling this.
+export async function writeRecruitingRows(spreadsheetId, recruits, userTid, dynastyTeams = null) {
+  try {
+    const accessToken = await getAccessToken()
+    const teams = getTeamsWithCustom(dynastyTeams)
+
+    const str = (v) => (v === null || v === undefined) ? '' : String(v)
+    const tidToAbbr = (tid) => {
+      for (const [abbr, t] of Object.entries(teams)) {
+        if (Number(t?.tid) === Number(tid)) return abbr
+      }
+      return ''
+    }
+    // Reverse of classifyCommitment() in recruitingTargets.js: '' = committed
+    // to you, 'Uncommitted' = open/unresolved target, else the destination
+    // team's abbr.
+    const commitmentCell = (recruit) => {
+      if (recruit.commitmentTid == null) return 'Uncommitted'
+      if (Number(recruit.commitmentTid) === Number(userTid)) return ''
+      return tidToAbbr(recruit.commitmentTid) || 'Uncommitted'
+    }
+    const attrsToLabeledCell = (recruit) => {
+      const attrs = recruit.attributes
+      if (!attrs || typeof attrs !== 'object') return ''
+      const order = attributeNamesFor(recruit.position, recruit.archetype) || Object.keys(attrs)
+      return order
+        .filter(n => attrs[n] != null && attrs[n] !== '')
+        .map(n => `${ATTRIBUTE_ABBR[n] || n} ${attrs[n]}`)
+        .join(', ')
+    }
+
+    const values = recruits.map(recruit => ([
+      str(recruit.name),
+      str(recruit.class || 'HS'),
+      str(recruit.position),
+      str(recruit.archetype),
+      starsNumberToSymbol(recruit.stars),
+      recruit.nationalRank || '',
+      recruit.stateRank || '',
+      recruit.positionRank || '',
+      str(recruit.height),
+      recruit.weight || '',
+      str(recruit.hometown),
+      str(recruit.state),
+      str(recruit.gemBust),
+      str(recruit.devTrait || ''),
+      tidToAbbr(recruit.previousTeam) || str(recruit.previousTeam),
+      commitmentCell(recruit),
+      attrsToLabeledCell(recruit),
+      ...ATTRIBUTE_COLUMNS.slice(1).map(() => ''),
+      recruit.pid ?? '',
+      recruit.nilByYear?.[recruit.targetYear] ?? '',
+      recruit.updatedAt ?? '',
+    ]))
+
+    if (values.length === 0) return
+
+    const response = await fetchWithTimeout(
+      `${SHEETS_API_BASE}/${spreadsheetId}/values/Commitments!A2:${colLetter(UPDATED_AT_COL)}${values.length + 1}?valueInputOption=RAW`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ values }),
+      }
+    )
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(`Failed to write recruiting data: ${error.error?.message || 'Unknown error'}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error('Error writing recruiting data:', error)
+    throw error
+  }
+}
+
+// ==================== RECRUITING DATABASE SHEET ====================
+// Scout Staff's Recruiting Database sync (Save/Import/Open). Deliberately
+// separate from the Commitments-sheet functions above — no Commitment/NIL
+// columns, no team-color formatting, and every attribute a recruit has is
+// preserved (see serializeAttributes), not just the ones typical for their
+// position. This is a pure scouting-reference mirror; it has no concept of
+// commitment status at all.
+
+export async function createRecruitingDatabaseSheet(title, recruits = [], dynastyTeams = null) {
+  try {
+    const accessToken = await getAccessToken()
+    const teams = getTeamsWithCustom(dynastyTeams)
+    const teamAbbrs = Object.keys(teams).sort()
+    const totalRows = Math.max(120, recruits.length + 25)
+
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        properties: { title },
+        sheets: [
+          {
+            properties: {
+              title: RECRUITING_DATABASE_SHEET_TAB,
+              gridProperties: {
+                rowCount: totalRows + 1,
+                columnCount: RECRUITING_DATABASE_TOTAL_COLS,
+                frozenRowCount: 1,
+              },
+            },
+          },
+        ],
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(`Failed to create Recruiting Database sheet: ${error.error?.message || 'Unknown error'}`)
+    }
+
+    const spreadsheet = await response.json()
+    const spreadsheetId = spreadsheet.spreadsheetId
+    const sheetId = spreadsheet.sheets[0].properties.sheetId
+
+    const requests = []
+    const headerStyle = { textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } }, backgroundColor: { red: 0.2, green: 0.2, blue: 0.2 }, horizontalAlignment: 'CENTER' }
+    requests.push({
+      updateCells: {
+        range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: RECRUITING_DATABASE_TOTAL_COLS },
+        rows: [{
+          values: RECRUITING_DATABASE_HEADERS.map(label => ({
+            userEnteredValue: { stringValue: label },
+            userEnteredFormat: headerStyle,
+          })),
+        }],
+        fields: 'userEnteredValue,userEnteredFormat',
+      },
+    })
+
+    const columnWidths = [150, 70, 70, 140, 80, 70, 70, 70, 60, 60, 120, 50, 70, 70, 80, 340, 50, 70]
+    columnWidths.forEach((width, idx) => {
+      requests.push({
+        updateDimensionProperties: {
+          range: { sheetId, dimension: 'COLUMNS', startIndex: idx, endIndex: idx + 1 },
+          properties: { pixelSize: width },
+          fields: 'pixelSize',
+        },
+      })
+    })
+
+    // Non-strict everywhere: these are suggestion dropdowns for a user
+    // manually editing the sheet, not a validation gate on the app's own
+    // writes. Real recruit data legitimately has blanks (unrevealed dev
+    // trait, ungraded gem/bust) or values outside a fixed list — a strict
+    // rule rejects the entire write the moment one cell doesn't match,
+    // which silently broke every Save for a roster with any unrevealed recruit.
+    const dropdown = (colIndex, values) => ({
+      setDataValidation: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: totalRows + 1, startColumnIndex: colIndex, endColumnIndex: colIndex + 1 },
+        rule: {
+          condition: { type: 'ONE_OF_LIST', values: values.map(v => ({ userEnteredValue: v })) },
+          showCustomUi: true, strict: false,
+        },
+      },
+    })
+    requests.push(dropdown(1, RECRUIT_CLASSES))
+    requests.push(dropdown(2, RECRUIT_POSITIONS))
+    requests.push(dropdown(3, RECRUIT_ARCHETYPES))
+    requests.push(dropdown(4, STAR_RATINGS))
+    requests.push(dropdown(8, HEIGHTS))
+    requests.push(dropdown(11, US_STATES))
+    requests.push(dropdown(12, GEM_BUST_OPTIONS))
+    requests.push(dropdown(13, DEV_TRAITS))
+    requests.push(dropdown(14, ['', ...teamAbbrs]))
+
+    // Hidden pid/Updated columns — round-trip bookkeeping the app manages;
+    // users never need to touch them.
+    requests.push({
+      updateDimensionProperties: {
+        range: { sheetId, dimension: 'COLUMNS', startIndex: RECRUITING_DATABASE_PID_COL, endIndex: RECRUITING_DATABASE_UPDATED_AT_COL + 1 },
+        properties: { hiddenByUser: true },
+        fields: 'hiddenByUser',
+      },
+    })
+
+    const formatResponse = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests }),
+    })
+    if (!formatResponse.ok) {
+      const error = await formatResponse.json()
+      throw new Error(`Failed to format Recruiting Database sheet: ${error.error?.message || 'Unknown error'}`)
+    }
+
+    if (recruits.length > 0) {
+      await writeRecruitingDatabaseRows(spreadsheetId, recruits)
+    }
+
+    return { spreadsheetId, spreadsheetUrl: spreadsheet.spreadsheetUrl }
+  } catch (error) {
+    console.error('Error creating Recruiting Database sheet:', error)
+    throw error
+  }
+}
+
+export async function readRecruitingDatabaseSheet(spreadsheetId) {
+  try {
+    const accessToken = await getAccessToken()
+    const response = await fetchWithTimeout(
+      `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(RECRUITING_DATABASE_READ_RANGE)}`,
+      { headers: { 'Authorization': `Bearer ${accessToken}` } }
+    )
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(`Failed to read Recruiting Database sheet: ${error.error?.message || 'Unknown error'}`)
+    }
+    const data = await response.json()
+    return parseRecruitingDatabaseRows(data.values || [])
+  } catch (error) {
+    console.error('Error reading Recruiting Database sheet:', error)
+    throw error
+  }
+}
+
+export async function writeRecruitingDatabaseRows(spreadsheetId, recruits) {
+  try {
+    const accessToken = await getAccessToken()
+    const values = (recruits || []).map(serializeRecruitingDatabaseRow)
+    if (values.length === 0) return
+
+    const range = `${RECRUITING_DATABASE_SHEET_TAB}!A2:${colLetter(RECRUITING_DATABASE_UPDATED_AT_COL)}${values.length + 1}`
+    const response = await fetchWithTimeout(
+      `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
+      {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values }),
+      }
+    )
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(`Failed to write Recruiting Database sheet: ${error.error?.message || 'Unknown error'}`)
+    }
+    return await response.json()
+  } catch (error) {
+    console.error('Error writing Recruiting Database sheet:', error)
     throw error
   }
 }

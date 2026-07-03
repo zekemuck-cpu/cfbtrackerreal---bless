@@ -155,10 +155,16 @@ export async function redirectToPortal() {
 // ─────────────────────────────────────────────────────────────────────
 
 export async function adminGrantPremium() {
+  if (isLocalDev()) {
+    throw new Error('Admin grant/revoke is only available in production (it needs Firebase Admin credentials). Deploy to Vercel to test it.');
+  }
   return postAuthed('/api/admin/grant-premium', { action: 'grant' });
 }
 
 export async function adminRevokePremium() {
+  if (isLocalDev()) {
+    throw new Error('Admin grant/revoke is only available in production (it needs Firebase Admin credentials). Deploy to Vercel to test it.');
+  }
   return postAuthed('/api/admin/grant-premium', { action: 'revoke' });
 }
 

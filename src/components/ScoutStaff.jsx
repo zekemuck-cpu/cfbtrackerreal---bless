@@ -25,6 +25,9 @@ function shapeRecruit(pl, addedIndex, sourceDynastyId) {
     pid: pl.pid,
     sourceDynastyId,
     scoutedAt: typeof pl.scoutedAt === 'number' ? pl.scoutedAt : null,
+    // Needed by the Recruiting Database's Google Sheet sync to tell whether
+    // a sheet edit is actually newer than this record before writing it back.
+    updatedAt: typeof pl.updatedAt === 'number' ? pl.updatedAt : null,
     name: pl.name,
     position,
     archetype: pl.archetype || '',
@@ -456,11 +459,6 @@ export default function ScoutStaff({ year } = {}) {
     if (subView === 'analysis' && analysisJumpPos) setAnalysisJumpPos(null);
   }, [subView, analysisJumpPos]);
 
-  const handleToggleIsolated = () => {
-    if (!currentDynasty || isViewOnly) return;
-    updateDynasty(currentDynasty.id, { recruitingDbIsolated: !dbIsolated });
-  };
-
   // Recruiting Database's edit modal hands back a shaped recruit (a trimmed
   // view of the raw player). Merge just the edited fields into the real
   // dynasty.players record — by sourceDynastyId, since the database also
@@ -513,8 +511,8 @@ export default function ScoutStaff({ year } = {}) {
 
       {/* Read-only: mirrors the recruiting Targets sheet. Freshmen and portal targets are split.
           Uses the unfiltered list so a target removed from the board still shows up here. */}
-      {subView === 'database'   && <PlayerDatabase players={freshmanRecruits} roleContext="National Scout" dynastyId={dynastyId} {...teamTheme} recruitingDbIsolated={dbIsolated} onToggleIsolated={isViewOnly ? null : handleToggleIsolated} onEdit={isViewOnly ? null : handleEditDatabasePlayer} onGoToThresholds={() => setSubView('thresholds')} onBack={goHome} highlightPid={highlightPid} />}
-      {subView === 'thresholds' && <ThresholdLookup players={thresholdRecruits} roleContext="Data Analyst" dynastyId={dynastyId} {...teamTheme} recruitingDbIsolated={dbIsolated} onToggleIsolated={isViewOnly ? null : handleToggleIsolated} onGoToDatabase={() => { setDbHighlightPid(null); setSubView('database'); }} onBack={goHome} />}
+      {subView === 'database'   && <PlayerDatabase players={freshmanRecruits} roleContext="National Scout" dynastyId={dynastyId} {...teamTheme} onEdit={isViewOnly ? null : handleEditDatabasePlayer} onGoToThresholds={() => setSubView('thresholds')} onBack={goHome} highlightPid={highlightPid} />}
+      {subView === 'thresholds' && <ThresholdLookup players={thresholdRecruits} roleContext="Data Analyst" dynastyId={dynastyId} {...teamTheme} onGoToDatabase={() => { setDbHighlightPid(null); setSubView('database'); }} onBack={goHome} />}
       {subView === 'counts'     && <PlayerCount onBack={goHome} onGoToDatabase={() => { setDbHighlightPid(null); setSubView('database'); }} />}
 
       {/* Always mounted so allHubs recomputes live whenever recruits or roster data changes.

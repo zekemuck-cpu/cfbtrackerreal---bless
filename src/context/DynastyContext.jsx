@@ -14469,6 +14469,12 @@ export function DynastyProvider({ children }) {
       }
     }
 
+    // Per-record edit timestamp — the only place we don't have one already
+    // (dynasty.lastModified is doc-level only). This is what lets the
+    // Recruiting Database's Google Sheet sync do most-recent-wins conflict
+    // resolution per recruit instead of guessing.
+    finalPlayer.updatedAt = Date.now()
+
     if (yearStats && yearStats.year) {
       const year = Number(yearStats.year)
       const existingStatsByYear = { ...(finalPlayer.statsByYear || {}) }

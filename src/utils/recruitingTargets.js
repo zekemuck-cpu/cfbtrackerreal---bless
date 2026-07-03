@@ -256,6 +256,11 @@ export function reconcileRecruitingRows({
 
     record = applyStatus(record, { status, commitmentTid, classYear: yearN, weekKey })
 
+    // This row is landing in the app right now (paste/AI-fill/import), so it's
+    // the freshest version of this recruit — same field the Recruiting
+    // Database's Google Sheet sync uses for most-recent-wins conflict resolution.
+    record.updatedAt = Date.now()
+
     // Recruiting NIL offer (CFB 27+): stamp this class year's nilByYear from the
     // sheet's NIL column. Absence-safe — a blank cell never creates the map.
     if (row.nil != null && !isNaN(Number(row.nil))) {
