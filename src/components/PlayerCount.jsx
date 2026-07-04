@@ -241,10 +241,12 @@ export default function PlayerCount({ onBack, onGoToDatabase }) {
               const count = byStars[key];
               const pct   = total > 0 ? ((count / total) * 100).toFixed(0) : 0;
               return (
-                <div key={key} className="bg-surface-2 border border-surface-4 rounded-xl p-3 flex flex-col gap-1.5">
-                  <p className="text-[11px] font-black text-txt-secondary leading-tight">{key}★</p>
-                  <p className="text-3xl font-display font-black tabular-nums leading-none text-txt-primary">{count}</p>
-                  <p className="text-[9px] font-display font-bold tabular-nums text-txt-tertiary">{pct}%</p>
+                <div key={key} className="bg-surface-2 border border-surface-4 rounded-xl p-3 flex items-center justify-between gap-2">
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-xl font-display font-black text-txt-secondary leading-none">{key}★</p>
+                    <p className="text-[9px] font-display font-bold tabular-nums text-txt-tertiary">{pct}%</p>
+                  </div>
+                  <p className="text-4xl font-display font-black tabular-nums leading-none text-txt-primary">{count}</p>
                 </div>
               );
             })}

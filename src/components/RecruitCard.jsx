@@ -57,7 +57,7 @@ const stateFullNames = {
   DC: 'Washington, D.C.',
 }
 
-export default function RecruitCard({ recruit, player, bg, text, teamsData, isAllSeasons = false, interactive = false, playStyle = 'balanced', model = null, scoutStaffEnabled = false, weightsMap = null }) {
+export default function RecruitCard({ recruit, player, bg, text, teamsData, isAllSeasons = false, interactive = false, playStyle = 'balanced', model = null, scoutStaffEnabled = false, weightsMap = null, pool = null }) {
   const teamBgText = text
   const teamAccent = bg
   const teamsSource = teamsData || {}
@@ -72,7 +72,7 @@ export default function RecruitCard({ recruit, player, bg, text, teamsData, isAl
   const report = scoutReport(recruit, playStyle, null, model) // generated blurb, null when unscouted
 
   // Scout Staff grade (computeScore) — only when enabled and player has attrs
-  const ssScore = scoutStaffEnabled && hasAttrs ? Math.round(computeScore(recruit, weightsMap)) : null
+  const ssScore = scoutStaffEnabled && hasAttrs ? Math.round(computeScore(recruit, weightsMap, pool)) : null
   const ssLetter = ssScore != null ? ssGradeLetter(ssScore) : null
   const ssColor = ssScore != null ? ssGradeColor(ssScore) : null
 

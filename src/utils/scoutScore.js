@@ -85,10 +85,33 @@ const OVR_POSITION_MAP = {
   CB: 'CB', DB: 'CB', FS: 'FS', S: 'FS', SS: 'SS', K: 'K', P: 'P',
 }
 
+// MaxPlaysCFB's predictor has no ATH entry of its own (ATH isn't a real
+// position in their model) — so an ATH recruit is projected through whichever
+// real position their specific archetype plays closest to, same idea as
+// ATH_FALLBACK_POS in archetypeWeights.js (which does this for grading
+// weights). Covers every archetype in OPTIONS_REGISTRY's ATH list.
+const ATH_ARCHETYPE_TO_OVR_POSITION = {
+  'Power Rusher': 'DE',
+  'East/West Playmaker': 'HB',
+  'Contested Specialist': 'WR',
+  'Agile': 'OT',
+  'Pure Runner': 'QB',
+  'Dual Threat': 'QB',
+  'Contact Seeker': 'HB',
+  'Lurker': 'OLB',
+  'Pure Possession': 'TE',
+  'Thumper': 'OLB',
+  'Backfield Threat': 'HB',
+  'Physical Route Runner': 'TE',
+}
+
 // { overall, low, high } projected day-1 overall, or null when not predictable
-// (unknown position, e.g. ATH, or missing star).
+// (unknown position or missing star).
 export function predictRecruitOverall(recruit) {
-  const posKey = OVR_POSITION_MAP[(recruit?.position || '').toUpperCase()]
+  const rawPos = (recruit?.position || '').toUpperCase()
+  const posKey = rawPos === 'ATH'
+    ? ATH_ARCHETYPE_TO_OVR_POSITION[normalizeArch(recruit?.archetype || '')]
+    : OVR_POSITION_MAP[rawPos]
   const star = Number(recruit?.stars)
   const pm = posKey && OVR_POSITION_MODIFIERS[posKey]
   const sm = OVR_STAR_MODIFIERS[star]

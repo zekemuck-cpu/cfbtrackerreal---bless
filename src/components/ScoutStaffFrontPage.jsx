@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { computeScore } from './archetypeWeights';
-import { buildRevealedPool, buildWeightsMap } from '../utils/devTraitLearning';
+import { buildRevealedPool } from '../utils/devTraitLearning';
+import { buildAttributeQualityMap } from '../utils/devPrediction';
 
 // =========================================================================
 // LIGHTWEIGHT INDEXEDDB MANAGER (Permanently Bypasses the 5MB Quota Limit)
@@ -185,32 +186,15 @@ function Signature({ name, color = 'currentColor', fontSize = '1.45rem' }) {
   )
 }
 
-export default function ScoutStaffFrontPage({ setView, onViewDatabase, onJumpToPosition, onGoToAnalysisOverview, onRemoveFromBoard, onAdjustTarget, currentTeamName = 'college football team', currentYear, coachName = '', teamColors, teamLogo, recruits = [], databaseRecruits = [], rosterWarnings = [], rosterSummary = null, outlookSummary = null, committedRecruits = [], dynastyId = null }) {
+export default function ScoutStaffFrontPage({ onViewDatabase, onJumpToPosition, onGoToAnalysisOverview, onRemoveFromBoard, onAdjustTarget, currentTeamName = 'college football team', currentYear, coachName = '', teamColors, teamLogo, recruits = [], databaseRecruits = [], rosterWarnings = [], rosterSummary = null, outlookSummary = null, committedRecruits = [], dynastyId = null }) {
   // Program Outlook should always land on Overview when reached via a plain
-  // nav button — falls back to setView if the dedicated handler isn't wired up.
-  const goToAnalysisOverview = onGoToAnalysisOverview || (() => setView('analysis'));
+  // nav button.
+  const goToAnalysisOverview = onGoToAnalysisOverview || (() => {});
   const { getStaffData, saveStaffData, deleteStaffData } = createStaffAccessor(dynastyId);
   const p = teamColors?.primary   || '#374151';
   const s = teamColors?.secondary || '#ffffff';
 
-  // Daily Brief's box height is locked to the staff slot cards row's own
-  // natural height (NOT including the nav buttons row below it) so Daily
-  // Brief's bottom edge lines up with the staff slot cards specifically.
-  // Daily Brief's inner content scrolls internally (overflow-y-auto below)
-  // for whatever doesn't fit.
-  const leftColRef = useRef(null);
-  const [leftColHeight, setLeftColHeight] = useState(null);
   const [planExpanded, setPlanExpanded] = useState(false);
-  useLayoutEffect(() => {
-    const el = leftColRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(entries => {
-      const h = entries[0]?.contentRect?.height;
-      if (h) setLeftColHeight(h);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
   const photoInputRefs = useRef({});
 
   // No-repeat-until-exhausted draw bags for the bio prompt's alma mater and
@@ -665,16 +649,16 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
 
   // Revealed-devTrait HS recruit pool — nudges archetype grading once enough data exists.
   const revealedPool = useMemo(() => buildRevealedPool(recruits), [recruits]);
-  const weightsMap = useMemo(() => buildWeightsMap(revealedPool, recruits), [revealedPool, recruits]);
+  const weightsMap = useMemo(() => buildAttributeQualityMap(revealedPool, recruits), [revealedPool, recruits]);
 
   const analysisData = useMemo(() => {
-    const scored = recruits.map(r => ({ ...r, score: computeScore(r, weightsMap) })).sort((a, b) => b.score - a.score);
+    const scored = recruits.map(r => ({ ...r, score: computeScore(r, weightsMap, revealedPool) })).sort((a, b) => b.score - a.score);
     const total  = scored.length;
     const t1 = scored.filter(r => r.score >= 88).length;
     const t2 = scored.filter(r => r.score >= 82 && r.score < 88).length;
     const t4 = scored.filter(r => r.score <  76).length;
     return { scored, total, t1, t2, t4 };
-  }, [recruits, weightsMap]);
+  }, [recruits, weightsMap, revealedPool]);
 
   const briefData = useMemo(() => {
     const { scored, total, t1, t2, t4 } = analysisData;
@@ -808,10 +792,9 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
       {/* ── HERO ROW: portrait cards + recommendations panel ── */}
       <div className="flex flex-col md:flex-row gap-4 items-start">
 
-        {/* Left column — portrait cards + a single row of nav shortcuts.
-            Daily Brief's height is locked to this column's height (see leftColHeight above). */}
+        {/* Left column — portrait cards. */}
         <div className="flex flex-col gap-4 shrink-0 md:w-[42%]">
-        <div ref={leftColRef} className="flex gap-2 sm:gap-3">
+        <div className="flex gap-2 sm:gap-3">
         {[
           {
             slot: 1,
@@ -1129,18 +1112,16 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
 
         </div>{/* end left column */}
 
-        {/* Daily Brief panel — height locked to the left column's height (see leftColHeight above) */}
-        <div
-          className="flex-1 rounded-xl bg-surface-2 border border-surface-4 flex flex-col overflow-hidden"
-          style={leftColHeight ? { height: `${leftColHeight}px` } : undefined}
-        >
+        {/* Daily Brief panel — grows to fit its own content; no fixed height,
+            no internal scroll. */}
+        <div className="flex-1 rounded-xl bg-surface-2 border border-surface-4 flex flex-col">
 
           {/* Header */}
           <div className="px-4 py-3 border-b border-surface-4 shrink-0 flex items-center justify-between gap-3">
             <p className="text-sm font-display font-bold uppercase text-txt-primary">Daily Brief</p>
           </div>
 
-          <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+          <div className="flex flex-col">
 
             {/* ── PROGRAM OUTLOOK SNAPSHOT + RECRUITING PLAN — side by side ── */}
             <div className="flex border-b border-surface-4">
@@ -1413,7 +1394,7 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
                   <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-500 mb-2.5">Recently Filed</p>
                   <div className="space-y-1.5">
                     {recent.map((r, i) => {
-                      const score = Math.round(computeScore(r, weightsMap));
+                      const score = Math.round(computeScore(r, weightsMap, revealedPool));
                       // Same grade tiers + glows as Recruiting Database
                       const gradeTiers = [
                         { grade: 'A+', min: 95, cls: 'bg-surface-3 border border-[#0F9D3E] text-[#3DFF7F]' },
@@ -1464,50 +1445,6 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
         </div>
 
       </div>{/* end hero row */}
-
-      {/* Action shortcuts — full-width row below the staff cards / Daily Brief,
-          4 equal columns spanning the entire row */}
-      <div className="grid grid-cols-4 gap-3">
-        {[
-          { view: 'database',   label: 'Recruiting Database', sub: 'Data Storage',      color: 'text-txt-tertiary',    icon: (
-            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
-              <ellipse cx="8" cy="4" rx="5" ry="2"/>
-              <path d="M3 4v4c0 1.1 2.24 2 5 2s5-.9 5-2V4"/>
-              <path d="M3 8v4c0 1.1 2.24 2 5 2s5-.9 5-2V8"/>
-            </svg>
-          )},
-          { view: 'analysis',   label: 'Program Outlook',    sub: 'Roster Management',    color: 'text-txt-tertiary', icon: (
-            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
-              <rect x="3" y="2" width="10" height="12" rx="1.5"/>
-              <path d="M5.5 5h5M5.5 7.5h5M5.5 10h3"/>
-            </svg>
-          )},
-          { view: 'thresholds', label: 'Threshold Lookup',   sub: 'Player Comparison Tool',   color: 'text-txt-tertiary',   icon: (
-            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
-              <path d="M2 12l4-4 3 3 5-7"/>
-              <circle cx="14" cy="5" r="1.5" fill="currentColor" stroke="none"/>
-            </svg>
-          )},
-          { view: 'counts',     label: 'Player Count',       sub: 'Current Overview',         color: 'text-txt-tertiary', icon: (
-            <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
-              <circle cx="6" cy="5" r="2"/>
-              <circle cx="11" cy="5" r="2"/>
-              <path d="M2 13c0-2.2 1.8-4 4-4h4c2.2 0 4 1.8 4 4"/>
-            </svg>
-          )},
-        ].map(({ view, label, sub, icon, color }) => (
-          <button
-            key={view}
-            onClick={() => (view === 'analysis' ? goToAnalysisOverview() : setView(view))}
-            className="relative rounded-xl text-left transition-all duration-200 bg-surface-2 border border-surface-4 hover:bg-surface-3 hover:border-surface-5 p-4 flex flex-col gap-2"
-            style={{ minHeight: '88px' }}
-          >
-            <span className={`absolute top-3 right-3 opacity-60 ${color}`}>{icon}</span>
-            <h4 className="text-sm font-display font-bold uppercase text-txt-primary leading-snug">{label}</h4>
-            <p className="text-xs text-txt-tertiary leading-tight">{sub}</p>
-          </button>
-        ))}
-      </div>
     </div>
   );
 }

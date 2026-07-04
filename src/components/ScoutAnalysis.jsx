@@ -9,9 +9,10 @@ import { createStaffAccessor } from './staffDB';
 import RecruitingPlanRow from './RecruitingPlanRow';
 import GemBustIcon from './GemBustIcon';
 import { PROFILES, POSITIONS } from './ThresholdLookup';
-import { archetypeBaseScore, normalizeArch } from './archetypeWeights';
+import { archetypeBaseScore, normalizeArch, computeScore } from './archetypeWeights';
 import { isPlayerOnRoster } from '../context/DynastyContext';
-import { buildRevealedPool, buildWeightsMap } from '../utils/devTraitLearning';
+import { buildRevealedPool } from '../utils/devTraitLearning';
+import { buildAttributeQualityMap } from '../utils/devPrediction';
 
 // Drop target for a sub-position group in the Current Roster list — the whole
 // group section (header + its rows) accepts a dropped player tile.
@@ -213,43 +214,6 @@ function buildSubHub(subLabel, subPlayers, stats, recruitStrategy, extraTargets,
   };
 }
 
-// ── Scoring engine ────────────────────────────────────────────────────────────
-const DEV_BONUS  = { Elite: 20, Star: 10, Impact: 5, Normal: -10 };
-const STAR_BONUS = { '5': 3, '4': 2, '3': 1, '2': 0, '1': -1 };
-const PHYSICAL_ATTRS_ARR = ['Speed', 'Acceleration', 'Strength', 'Agility', 'Change of Direction'];
-
-function isHiddenDev(d) { return !d || d === 'Hidden' || d === 'hidden' || d === ''; }
-function getDevBonus(d)  { return isHiddenDev(d) ? 0 : (DEV_BONUS[d] ?? 0); }
-
-function physOutlierBonus(player) {
-  let bonus = 0;
-  PHYSICAL_ATTRS_ARR.forEach(k => {
-    const v = player.attributes?.[k] ?? 0;
-    if      (v >= 96) bonus += 5;
-    else if (v >= 92) bonus += 2;
-    else if (v >= 88) bonus += 0.5;
-  });
-  return bonus;
-}
-
-function estimateHiddenDev(player) {
-  const stars   = parseInt(player.stars) || 3;
-  const physMax = Math.max(0, ...PHYSICAL_ATTRS_ARR.map(k => player.attributes?.[k] ?? 0));
-  const base    = { 5: 13, 4: 7, 3: 3, 2: 0, 1: -3 }[stars] ?? 3;
-  return base + (physMax >= 96 ? 3 : physMax >= 92 ? 1 : 0);
-}
-
-function computeScore(player, weightsMap = null) {
-  const devBonus = isHiddenDev(player.devTrait) ? estimateHiddenDev(player) : getDevBonus(player.devTrait);
-  const archBase = archetypeBaseScore(player, weightsMap);
-  // Fallback: simple unweighted average of all attributes
-  const fallback = (() => {
-    const vals = Object.values(player.attributes ?? {}).filter(v => typeof v === 'number');
-    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 75;
-  })();
-  return (archBase ?? fallback) + devBonus + (STAR_BONUS[String(player.stars)] ?? 0) + physOutlierBonus(player);
-}
-
 function getGrade(score) {
   if (score >= 95) return { grade: 'A+', cls: 'text-emerald-300 bg-emerald-950 border-emerald-600' };
   if (score >= 90) return { grade: 'A',  cls: 'text-emerald-300 bg-emerald-950 border-emerald-700' };
@@ -286,7 +250,7 @@ const URGENCY_UI = {
 };
 
 // ── Recommendation engine ─────────────────────────────────────────────────────
-function buildRec(pos, arch, matchingPlayers, weightsMap = null) {
+function buildRec(pos, arch, matchingPlayers, weightsMap = null, pool = null) {
   const profile = PROFILES[pos]?.[arch];
   const t1Data  = profile?.tiers[0];
   const t2Data  = profile?.tiers[1];
@@ -301,7 +265,7 @@ function buildRec(pos, arch, matchingPlayers, weightsMap = null) {
   }
 
   const scored = matchingPlayers.map(p => {
-    const s = computeScore(p, weightsMap);
+    const s = computeScore(p, weightsMap, pool);
     return { ...p, score: s, tier: getTier(s) };
   }).sort((a, b) => b.score - a.score);
 
@@ -469,12 +433,12 @@ function OverrideMenu({ options, current, onSelect, align = 'right' }) {
 }
 
 // ── Position hub builder ──────────────────────────────────────────────────────
-function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, recruitStrategy, extraTargets, calendarCtx = {}, weightsMap = null, verdictOverride = null, depthTagOverride = null) {
+function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, recruitStrategy, extraTargets, calendarCtx = {}, weightsMap = null, verdictOverride = null, depthTagOverride = null, pool = null) {
   const { portalOpen = true, currentWeek = 8 } = calendarCtx;
   const archStats = archList.map(arch => {
     const matches = posPlayers.filter(pl => normalizeArch(pl.archetype) === arch);
     if (!matches.length) return { arch, count: 0, bestScore: null, bestTier: null, urgency: 'empty', scored: [], t1c: 0, t2c: 0 };
-    const scored = matches.map(p => { const s = computeScore(p, weightsMap); return { ...p, score: s, tier: getTier(s) }; }).sort((a, b) => b.score - a.score);
+    const scored = matches.map(p => { const s = computeScore(p, weightsMap, pool); return { ...p, score: s, tier: getTier(s) }; }).sort((a, b) => b.score - a.score);
     const best = scored[0].score;
     const t1c = scored.filter(s => s.tier === 0).length;
     const t2c = scored.filter(s => s.tier === 1).length;
@@ -487,7 +451,7 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
   const emptyArchs = archStats.filter(a => a.count === 0);
 
   const topTargets = posPlayers
-    .map(p => { const s = computeScore(p, weightsMap); return { ...p, score: s, tier: getTier(s) }; })
+    .map(p => { const s = computeScore(p, weightsMap, pool); return { ...p, score: s, tier: getTier(s) }; })
     .sort((a, b) => b.score - a.score)
     .slice(0, 5);
 
@@ -1376,7 +1340,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
 
   // Revealed-devTrait HS recruit pool — nudges archetype grading once enough data exists.
   const revealedPool = useMemo(() => buildRevealedPool(players), [players]);
-  const weightsMap = useMemo(() => buildWeightsMap(revealedPool, players), [revealedPool, players]);
+  const weightsMap = useMemo(() => buildAttributeQualityMap(revealedPool, players), [revealedPool, players]);
   const [activeDragId, setActiveDragId]         = useState(null); // pid currently being dragged in Current Roster
 
   const rosterDndSensors = useSensors(
@@ -1911,10 +1875,11 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
         weightsMap,
         verdictOverrides[pos] ?? null,
         depthTagOverrides[pos] ?? null,
+        revealedPool,
       );
     });
     return result;
-  }, [players, rosterContext, rosterCapacity, posRecruitStrategy, posExtraTargets, calendarCtx, weightsMap, verdictOverrides, depthTagOverrides]);
+  }, [players, rosterContext, rosterCapacity, posRecruitStrategy, posExtraTargets, calendarCtx, weightsMap, verdictOverrides, depthTagOverrides, revealedPool]);
 
   // Save compact summary whenever allHubs updates so Daily Brief can read it
   useEffect(() => {
@@ -1979,13 +1944,13 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
   });
 
   // Hub data (always computed)
-  const hub = buildPositionHub(activePos, posPlayers, archList, rosterContext[activePos], rosterCapacity.available, posRecruitStrategy[activePos] ?? null, posExtraTargets[activePos] ?? 0, calendarCtx, weightsMap, verdictOverrides[activePos] ?? null, depthTagOverrides[activePos] ?? null);
+  const hub = buildPositionHub(activePos, posPlayers, archList, rosterContext[activePos], rosterCapacity.available, posRecruitStrategy[activePos] ?? null, posExtraTargets[activePos] ?? 0, calendarCtx, weightsMap, verdictOverrides[activePos] ?? null, depthTagOverrides[activePos] ?? null, revealedPool);
 
   // Archetype-specific data (only when an arch is selected)
   const matching = activeArch
     ? players.filter(pl => pl.position === activePos && normalizeArch(pl.archetype) === activeArch)
     : [];
-  const rec = activeArch ? buildRec(activePos, activeArch, matching, weightsMap) : null;
+  const rec = activeArch ? buildRec(activePos, activeArch, matching, weightsMap, revealedPool) : null;
   const urgencyBadge = rec ? URGENCY_UI[rec.urgency] : null;
   const tierCounts = rec ? [0,1,2,3].map(ti => rec.scored?.filter(s => s.tier === ti).length ?? 0) : [];
 
@@ -2065,7 +2030,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
           <div className="w-full h-px bg-surface-4 shrink-0 md:block hidden" />
           {POSITIONS.map(pos => {
             const posCount = players.filter(pl => pl.position === pos).length;
-            const hasT1    = players.some(pl => pl.position === pos && getTier(computeScore(pl, weightsMap)) === 0);
+            const hasT1    = players.some(pl => pl.position === pos && getTier(computeScore(pl, weightsMap, revealedPool)) === 0);
             const posHub   = allHubs[pos];
             // Any immediate (next-year) roster hole reads as critical, whether or not
             // there's already a strong target on the board to close it with.
@@ -2966,7 +2931,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                   boardRemoved field, same toggle) ── */}
               {(() => {
                 const scoreAndSort = list => list
-                  .map(p => { const s = computeScore(p, weightsMap); return { ...p, score: s, tier: getTier(s) }; })
+                  .map(p => { const s = computeScore(p, weightsMap, revealedPool); return { ...p, score: s, tier: getTier(s) }; })
                   .sort((a, b) => b.score - a.score);
                 const activeScored  = scoreAndSort(posPlayers);
                 const removedScored = scoreAndSort(posRemovedPlayers);

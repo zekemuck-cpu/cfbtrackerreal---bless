@@ -1,130 +1,80 @@
-// Archetype-specific attribute weights, keyed by "POS_Archetype Name".
-// Weights sum to 1.0 per archetype. Used as the primary scoring foundation.
-// Zero-weight entries are included for reference; they contribute nothing to score.
+// This file used to also own a ~75-archetype hand-authored ARCHETYPE_WEIGHTS
+// table, used as a static scoring fallback whenever no learned data existed
+// yet. Removed — no hand-authored fallback, ever; a brand-new archetype/
+// position/star combo with zero scouted history now grades on calcWeightedAvg
+// (below) until real comps accumulate. Attribute weights are now derived
+// entirely from devPrediction.js's separation-clarity computation.
+//
+// Circular import with devPrediction.js — this file imports
+// predictHiddenDevBonus from there, and devPrediction.js imports normalizeArch
+// from here. Safe because both sides only touch the other's export from
+// inside a function body, never at module-evaluation time. (Other callers
+// needing devPrediction.js's buildAttributeQualityMap/computeKnownTierStrength
+// import them directly from '../utils/devPrediction', not through here.)
+import { predictHiddenDevBonus } from '../utils/devPrediction';
 
-export const ARCHETYPE_WEIGHTS = {
-  // ── QB ──────────────────────────────────────────────────────────────────────
-  'QB_Pocket Passer': { Awareness:0.15, 'Throw Power':0.20, 'Short Accuracy':0.15, 'Medium Accuracy':0.15, 'Deep Accuracy':0.15, 'Throw On Run':0.05, 'Under Pressure':0.10, 'Break Sack':0.05, Speed:0.00, Acceleration:0.00 },
-  'QB_Dual Threat':   { Awareness:0.05, 'Throw Power':0.15, 'Short Accuracy':0.10, 'Medium Accuracy':0.10, 'Deep Accuracy':0.05, 'Throw On Run':0.15, 'Under Pressure':0.00, 'Break Sack':0.05, Speed:0.20, Acceleration:0.15 },
-  'QB_Backfield Creator': { Awareness:0.10, 'Throw Power':0.15, 'Short Accuracy':0.15, 'Medium Accuracy':0.10, 'Deep Accuracy':0.00, 'Throw On Run':0.20, 'Under Pressure':0.05, 'Break Sack':0.15, Speed:0.05, Acceleration:0.05 },
-  'QB_Pure Runner':   { Awareness:0.05, 'Throw Power':0.10, 'Short Accuracy':0.10, 'Medium Accuracy':0.05, 'Deep Accuracy':0.00, 'Throw On Run':0.10, 'Under Pressure':0.00, 'Break Sack':0.15, Speed:0.25, Acceleration:0.20 },
-
-  // ── HB ──────────────────────────────────────────────────────────────────────
-  'HB_Elusive Bruiser':       { Awareness:0.05, Speed:0.15, Acceleration:0.15, Carrying:0.10, 'Break Tackle':0.20, 'Change of Direction':0.10, 'Juke Move':0.15, 'Spin Move':0.05, 'BC Vision':0.05, Catching:0.00 },
-  'HB_East/West Playmaker':   { Awareness:0.05, Speed:0.20, Acceleration:0.20, Carrying:0.05, 'Break Tackle':0.00, 'Change of Direction':0.15, 'Juke Move':0.15, 'Spin Move':0.10, 'BC Vision':0.10, Catching:0.00 },
-  'HB_Contact Seeker':        { Awareness:0.10, Speed:0.10, Acceleration:0.10, Carrying:0.20, 'Break Tackle':0.25, 'Change of Direction':0.05, 'Juke Move':0.05, 'Spin Move':0.00, 'BC Vision':0.15, Catching:0.00 },
-  'HB_Backfield Threat':      { Awareness:0.05, Speed:0.15, Acceleration:0.15, Carrying:0.05, 'Break Tackle':0.05, 'Change of Direction':0.10, 'Juke Move':0.10, 'Spin Move':0.00, 'BC Vision':0.10, Catching:0.25 },
-  'HB_North/South Receiver':  { Awareness:0.05, Speed:0.20, Acceleration:0.15, Carrying:0.10, 'Break Tackle':0.10, 'Change of Direction':0.05, 'Juke Move':0.00, 'Spin Move':0.00, 'BC Vision':0.15, Catching:0.20 },
-  'HB_North/South Blocker':   { Awareness:0.15, Speed:0.10, Acceleration:0.10, Carrying:0.25, 'Break Tackle':0.20, 'Change of Direction':0.00, 'Juke Move':0.00, 'Spin Move':0.00, 'BC Vision':0.15, Catching:0.05 },
-
-  // ── WR ──────────────────────────────────────────────────────────────────────
-  'WR_Speedster':             { Awareness:0.05, Speed:0.25, Acceleration:0.20, Catching:0.10, 'Catch In Traffic':0.05, 'Spectacular Catch':0.10, 'Short Route':0.05, 'Medium Route':0.05, 'Deep Route':0.15, Agility:0.00 },
-  'WR_Route Artist':          { Awareness:0.05, Speed:0.05, Acceleration:0.05, Catching:0.15, 'Catch In Traffic':0.05, 'Spectacular Catch':0.00, 'Short Route':0.20, 'Medium Route':0.20, 'Deep Route':0.15, Agility:0.10 },
-  'WR_Elusive Route Runner':  { Awareness:0.05, Speed:0.15, Acceleration:0.10, Catching:0.10, 'Catch In Traffic':0.00, 'Spectacular Catch':0.00, 'Short Route':0.20, 'Medium Route':0.15, 'Deep Route':0.05, Agility:0.20 },
-  'WR_Physical Route Runner': { Awareness:0.10, Speed:0.05, Acceleration:0.05, Catching:0.15, 'Catch In Traffic':0.20, 'Spectacular Catch':0.15, 'Short Route':0.05, 'Medium Route':0.20, 'Deep Route':0.05, Agility:0.00 },
-  'WR_Gritty Possession':     { Awareness:0.10, Speed:0.05, Acceleration:0.00, Catching:0.20, 'Catch In Traffic':0.25, 'Spectacular Catch':0.05, 'Short Route':0.20, 'Medium Route':0.15, 'Deep Route':0.00, Agility:0.00 },
-  'WR_Contested Specialist':  { Awareness:0.10, Speed:0.05, Acceleration:0.00, Catching:0.15, 'Catch In Traffic':0.25, 'Spectacular Catch':0.25, 'Short Route':0.00, 'Medium Route':0.05, 'Deep Route':0.15, Agility:0.00 },
-  'WR_Gadget':                { Awareness:0.05, Speed:0.20, Acceleration:0.20, Catching:0.15, 'Catch In Traffic':0.05, 'Spectacular Catch':0.00, 'Short Route':0.10, 'Medium Route':0.05, 'Deep Route':0.00, Agility:0.20 },
-
-  // ── TE ──────────────────────────────────────────────────────────────────────
-  'TE_Vertical Threat':       { Awareness:0.05, Speed:0.25, Strength:0.05, Acceleration:0.20, 'Run Block':0.00, 'Pass Block':0.00, Catching:0.15, 'Catch In Traffic':0.10, 'Short Route':0.05, 'Medium Route':0.15 },
-  'TE_Pure Possession':       { Awareness:0.10, Speed:0.05, Strength:0.05, Acceleration:0.00, 'Run Block':0.00, 'Pass Block':0.00, Catching:0.25, 'Catch In Traffic':0.20, 'Short Route':0.20, 'Medium Route':0.15 },
-  'TE_Gritty Possession':     { Awareness:0.05, Speed:0.00, Strength:0.15, Acceleration:0.00, 'Run Block':0.15, 'Pass Block':0.05, Catching:0.10, 'Catch In Traffic':0.25, 'Short Route':0.20, 'Medium Route':0.05 },
-  'TE_Physical Route Runner': { Awareness:0.05, Speed:0.05, Strength:0.15, Acceleration:0.05, 'Run Block':0.00, 'Pass Block':0.00, Catching:0.15, 'Catch In Traffic':0.20, 'Short Route':0.10, 'Medium Route':0.25 },
-  'TE_Pure Blocker':          { Awareness:0.10, Speed:0.00, Strength:0.20, Acceleration:0.00, 'Run Block':0.30, 'Pass Block':0.20, Catching:0.05, 'Catch In Traffic':0.10, 'Short Route':0.05, 'Medium Route':0.00 },
-
-  // ── OT ──────────────────────────────────────────────────────────────────────
-  'OT_Well Rounded':    { Awareness:0.10, 'Run Block':0.20, 'Run Block Power':0.10, 'Run Block Finesse':0.05, 'Pass Block':0.20, 'Pass Block Power':0.10, 'Pass Block Finesse':0.05, 'Impact Blocking':0.10, Agility:0.05, Acceleration:0.05 },
-  'OT_Pass Protector':  { Awareness:0.10, 'Run Block':0.05, 'Run Block Power':0.05, 'Run Block Finesse':0.05, 'Pass Block':0.25, 'Pass Block Power':0.20, 'Pass Block Finesse':0.20, 'Impact Blocking':0.05, Agility:0.05, Acceleration:0.00 },
-  'OT_Agile':           { Awareness:0.10, 'Run Block':0.10, 'Run Block Power':0.00, 'Run Block Finesse':0.20, 'Pass Block':0.10, 'Pass Block Power':0.00, 'Pass Block Finesse':0.20, 'Impact Blocking':0.05, Agility:0.15, Acceleration:0.10 },
-  'OT_Raw Strength':    { Awareness:0.05, 'Run Block':0.10, 'Run Block Power':0.25, 'Run Block Finesse':0.00, 'Pass Block':0.10, 'Pass Block Power':0.25, 'Pass Block Finesse':0.00, 'Impact Blocking':0.15, Agility:0.05, Acceleration:0.05 },
-
-  // ── OG ──────────────────────────────────────────────────────────────────────
-  'OG_Well Rounded':    { Awareness:0.10, 'Run Block':0.20, 'Run Block Power':0.10, 'Run Block Finesse':0.05, 'Pass Block':0.20, 'Pass Block Power':0.10, 'Pass Block Finesse':0.05, 'Impact Blocking':0.10, Agility:0.05, Acceleration:0.05 },
-  'OG_Pass Protector':  { Awareness:0.10, 'Run Block':0.05, 'Run Block Power':0.05, 'Run Block Finesse':0.05, 'Pass Block':0.25, 'Pass Block Power':0.20, 'Pass Block Finesse':0.20, 'Impact Blocking':0.05, Agility:0.05, Acceleration:0.00 },
-  'OG_Agile':           { Awareness:0.10, 'Run Block':0.10, 'Run Block Power':0.00, 'Run Block Finesse':0.20, 'Pass Block':0.10, 'Pass Block Power':0.00, 'Pass Block Finesse':0.20, 'Impact Blocking':0.05, Agility:0.15, Acceleration:0.10 },
-  'OG_Raw Strength':    { Awareness:0.05, 'Run Block':0.10, 'Run Block Power':0.25, 'Run Block Finesse':0.00, 'Pass Block':0.10, 'Pass Block Power':0.25, 'Pass Block Finesse':0.00, 'Impact Blocking':0.15, Agility:0.05, Acceleration:0.05 },
-
-  // ── C ───────────────────────────────────────────────────────────────────────
-  'C_Well Rounded':     { Awareness:0.10, 'Run Block':0.20, 'Run Block Power':0.10, 'Run Block Finesse':0.05, 'Pass Block':0.20, 'Pass Block Power':0.10, 'Pass Block Finesse':0.05, 'Impact Blocking':0.10, Agility:0.05, Acceleration:0.05 },
-  'C_Pass Protector':   { Awareness:0.10, 'Run Block':0.05, 'Run Block Power':0.05, 'Run Block Finesse':0.05, 'Pass Block':0.25, 'Pass Block Power':0.20, 'Pass Block Finesse':0.20, 'Impact Blocking':0.05, Agility:0.05, Acceleration:0.00 },
-  'C_Agile':            { Awareness:0.10, 'Run Block':0.10, 'Run Block Power':0.00, 'Run Block Finesse':0.20, 'Pass Block':0.10, 'Pass Block Power':0.00, 'Pass Block Finesse':0.20, 'Impact Blocking':0.05, Agility:0.15, Acceleration:0.10 },
-  'C_Raw Strength':     { Awareness:0.05, 'Run Block':0.10, 'Run Block Power':0.25, 'Run Block Finesse':0.00, 'Pass Block':0.10, 'Pass Block Power':0.25, 'Pass Block Finesse':0.00, 'Impact Blocking':0.15, Agility:0.05, Acceleration:0.05 },
-
-  // ── DE ──────────────────────────────────────────────────────────────────────
-  'DE_Speed Rusher':  { Awareness:0.05, Strength:0.05, Acceleration:0.20, 'Block Shedding':0.05, Tackle:0.05, 'Hit Power':0.05, 'Power Moves':0.00, 'Finesse Moves':0.25, Speed:0.20, Pursuit:0.10 },
-  'DE_Power Rusher':  { Awareness:0.05, Strength:0.20, Acceleration:0.05, 'Block Shedding':0.15, Tackle:0.10, 'Hit Power':0.10, 'Power Moves':0.25, 'Finesse Moves':0.00, Speed:0.05, Pursuit:0.05 },
-  'DE_Edge Setter':   { Awareness:0.10, Strength:0.15, Acceleration:0.00, 'Block Shedding':0.25, Tackle:0.20, 'Hit Power':0.15, 'Power Moves':0.05, 'Finesse Moves':0.05, Speed:0.00, Pursuit:0.05 },
-  'DE_Pure Power':    { Awareness:0.05, Strength:0.25, Acceleration:0.00, 'Block Shedding':0.20, Tackle:0.10, 'Hit Power':0.10, 'Power Moves':0.30, 'Finesse Moves':0.00, Speed:0.00, Pursuit:0.00 },
-
-  // ── DT ──────────────────────────────────────────────────────────────────────
-  'DT_Speed Rusher':  { Awareness:0.05, Strength:0.05, Acceleration:0.20, 'Block Shedding':0.05, Tackle:0.05, 'Hit Power':0.05, 'Power Moves':0.00, 'Finesse Moves':0.25, Speed:0.20, Pursuit:0.10 },
-  'DT_Power Rusher':  { Awareness:0.05, Strength:0.20, Acceleration:0.05, 'Block Shedding':0.15, Tackle:0.10, 'Hit Power':0.10, 'Power Moves':0.25, 'Finesse Moves':0.00, Speed:0.05, Pursuit:0.05 },
-  'DT_Edge Setter':   { Awareness:0.10, Strength:0.15, Acceleration:0.00, 'Block Shedding':0.25, Tackle:0.20, 'Hit Power':0.15, 'Power Moves':0.05, 'Finesse Moves':0.05, Speed:0.00, Pursuit:0.05 },
-  'DT_Pure Power':    { Awareness:0.05, Strength:0.25, Acceleration:0.00, 'Block Shedding':0.20, Tackle:0.10, 'Hit Power':0.10, 'Power Moves':0.30, 'Finesse Moves':0.00, Speed:0.00, Pursuit:0.00 },
-  'DT_Gap Specialist':{ Awareness:0.10, Strength:0.20, Acceleration:0.00, 'Block Shedding':0.25, Tackle:0.20, 'Hit Power':0.15, 'Power Moves':0.05, 'Finesse Moves':0.05, Speed:0.00, Pursuit:0.00 },
-
-  // ── OLB ─────────────────────────────────────────────────────────────────────
-  'OLB_Thumper':       { Awareness:0.05, Speed:0.05, Acceleration:0.05, Strength:0.20, 'Play Recognition':0.10, Tackle:0.25, 'Hit Power':0.20, Pursuit:0.10, 'Man Coverage':0.00, 'Zone Coverage':0.00 },
-  'OLB_Signal Caller': { Awareness:0.20, Speed:0.05, Acceleration:0.05, Strength:0.00, 'Play Recognition':0.25, Tackle:0.15, 'Hit Power':0.05, Pursuit:0.15, 'Man Coverage':0.00, 'Zone Coverage':0.10 },
-  'OLB_Lurker':        { Awareness:0.10, Speed:0.20, Acceleration:0.15, Strength:0.00, 'Play Recognition':0.15, Tackle:0.05, 'Hit Power':0.00, Pursuit:0.05, 'Man Coverage':0.05, 'Zone Coverage':0.25 },
-
-  // ── MIKE ────────────────────────────────────────────────────────────────────
-  'MIKE_Thumper':       { Awareness:0.05, Speed:0.05, Acceleration:0.05, Strength:0.20, 'Play Recognition':0.10, Tackle:0.25, 'Hit Power':0.20, Pursuit:0.10, 'Man Coverage':0.00, 'Zone Coverage':0.00 },
-  'MIKE_Signal Caller': { Awareness:0.20, Speed:0.05, Acceleration:0.05, Strength:0.00, 'Play Recognition':0.25, Tackle:0.15, 'Hit Power':0.05, Pursuit:0.15, 'Man Coverage':0.00, 'Zone Coverage':0.10 },
-  'MIKE_Lurker':        { Awareness:0.10, Speed:0.20, Acceleration:0.15, Strength:0.00, 'Play Recognition':0.15, Tackle:0.05, 'Hit Power':0.00, Pursuit:0.05, 'Man Coverage':0.05, 'Zone Coverage':0.25 },
-
-  // ── CB ──────────────────────────────────────────────────────────────────────
-  'CB_Field':        { Awareness:0.05, Speed:0.15, Acceleration:0.15, 'Change of Direction':0.10, Agility:0.10, 'Man Coverage':0.20, 'Zone Coverage':0.20, Press:0.00, Catching:0.05, Tackle:0.00 },
-  'CB_Bump and Run': { Awareness:0.05, Speed:0.15, Acceleration:0.10, 'Change of Direction':0.10, Agility:0.10, 'Man Coverage':0.20, 'Zone Coverage':0.00, Press:0.25, Catching:0.05, Tackle:0.00 },
-  'CB_Boundary':     { Awareness:0.05, Speed:0.15, Acceleration:0.10, 'Change of Direction':0.10, Agility:0.10, 'Man Coverage':0.25, 'Zone Coverage':0.00, Press:0.20, Catching:0.05, Tackle:0.00 },
-  'CB_Zone':         { Awareness:0.10, Speed:0.15, Acceleration:0.15, 'Change of Direction':0.10, Agility:0.10, 'Man Coverage':0.00, 'Zone Coverage':0.25, Press:0.00, Catching:0.10, Tackle:0.05 },
-
-  // ── FS ──────────────────────────────────────────────────────────────────────
-  'FS_Hybrid':              { Awareness:0.05, Speed:0.15, Acceleration:0.15, 'Change of Direction':0.10, Agility:0.10, 'Man Coverage':0.05, 'Zone Coverage':0.20, Press:0.00, Catching:0.05, Tackle:0.15 },
-  'FS_Coverage Specialist': { Awareness:0.10, Speed:0.20, Acceleration:0.15, 'Change of Direction':0.10, Agility:0.10, 'Man Coverage':0.05, 'Zone Coverage':0.25, Press:0.00, Catching:0.05, Tackle:0.00 },
-  'FS_Box Specialist':      { Awareness:0.15, Speed:0.15, Acceleration:0.15, 'Change of Direction':0.10, Agility:0.10, 'Man Coverage':0.00, 'Zone Coverage':0.05, Press:0.00, Catching:0.00, Tackle:0.30 },
-
-  // ── SS ──────────────────────────────────────────────────────────────────────
-  'SS_Hybrid':              { Awareness:0.05, Speed:0.15, Acceleration:0.15, 'Change of Direction':0.10, Agility:0.10, 'Man Coverage':0.05, 'Zone Coverage':0.20, Press:0.00, Catching:0.05, Tackle:0.15 },
-  'SS_Coverage Specialist': { Awareness:0.10, Speed:0.20, Acceleration:0.15, 'Change of Direction':0.10, Agility:0.10, 'Man Coverage':0.05, 'Zone Coverage':0.25, Press:0.00, Catching:0.05, Tackle:0.00 },
-  'SS_Box Specialist':      { Awareness:0.15, Speed:0.15, Acceleration:0.15, 'Change of Direction':0.10, Agility:0.10, 'Man Coverage':0.00, 'Zone Coverage':0.05, Press:0.00, Catching:0.00, Tackle:0.30 },
-
-  // ── ATH ─────────────────────────────────────────────────────────────────────
-  'ATH_Pure Runner':          { Awareness:0.05, Speed:0.30, Acceleration:0.25, 'Break Sack':0.05, 'Short Accuracy':0.10, 'Throw On Run':0.15, 'Under Pressure':0.05, 'Throw Power':0.05, 'Medium Accuracy':0.00, 'Deep Accuracy':0.00 },
-  'ATH_Physical Route Runner':{ Awareness:0.05, Speed:0.20, Strength:0.10, Acceleration:0.10, 'Run Block':0.00, 'Pass Block':0.00, Catching:0.10, 'Catch In Traffic':0.15, 'Short Route':0.10, 'Medium Route':0.20 },
-  'ATH_Agile':                { Awareness:0.10, 'Run Block':0.10, Speed:0.10, 'Run Block Finesse':0.10, 'Pass Block':0.10, 'Pass Block Power':0.00, 'Pass Block Finesse':0.10, 'Impact Blocking':0.05, Agility:0.20, Acceleration:0.15 },
-  'ATH_Speed Rusher':         { Awareness:0.05, Strength:0.05, Acceleration:0.25, 'Block Shedding':0.05, Tackle:0.05, 'Hit Power':0.05, 'Power Moves':0.00, 'Finesse Moves':0.20, Speed:0.25, Pursuit:0.05 },
-  'ATH_Contested Specialist': { Awareness:0.10, Speed:0.05, Acceleration:0.00, Catching:0.15, 'Catch In Traffic':0.25, 'Spectacular Catch':0.25, 'Short Route':0.00, 'Medium Route':0.05, 'Deep Route':0.15, Release:0.00 },
-  'ATH_Lurker':               { Awareness:0.10, Speed:0.20, Acceleration:0.15, Strength:0.00, 'Play Recognition':0.15, Tackle:0.05, 'Hit Power':0.00, Pursuit:0.05, 'Man Coverage':0.05, 'Zone Coverage':0.25 },
-
-  // ── FB (TBD — attributes to be configured) ───────────────────────────────────
-  'FB_Blocking': { Strength:0.25, 'Run Block':0.25, 'Pass Block':0.20, Awareness:0.15, Acceleration:0.05, Speed:0.05, Agility:0.05 },
-  'FB_Utility':  { Strength:0.15, 'Run Block':0.15, Catching:0.15, Awareness:0.15, Speed:0.15, Acceleration:0.10, 'Pass Block':0.10, Carrying:0.05 },
-
-  // ── K (TBD — attributes to be configured) ────────────────────────────────────
-  'K_Accurate': { 'Kick Accuracy':0.50, 'Kick Power':0.30, Awareness:0.20 },
-  'K_Power':    { 'Kick Power':0.50, 'Kick Accuracy':0.30, Awareness:0.20 },
-
-  // ── P (TBD — attributes to be configured) ────────────────────────────────────
-  'P_Accurate': { 'Punt Accuracy':0.50, 'Punt Power':0.30, Awareness:0.20 },
-  'P_Power':    { 'Punt Power':0.50, 'Punt Accuracy':0.30, Awareness:0.20 },
-};
-
-// Normalize stored archetype name → ARCHETYPE_WEIGHTS key suffix.
+// Normalize stored archetype name → a stable archetype key suffix.
 // "Raw Strength (OT)" → "Raw Strength", "ATH - Thumper" → "Thumper"
 export function normalizeArch(arch = '') {
   return arch.replace(/^ATH\s*-\s*/i, '').replace(/\s*\([A-Z]+\)\s*$/, '').trim();
 }
 
-// ── Full scoring engine (shared by all scout pages) ──────────────────────────
-const DEV_BONUS  = { Elite: 20, Star: 10, Impact: 5, Normal: -10 };
-const STAR_BONUS = { '5': 3, '4': 2, '3': 1, '2': 0, '1': -1 };
+// ── Full scoring engine (single shared copy — every page that shows a Scout
+// Staff grade/composite score, from the Targets row badge to the Recruiting
+// Database report to Program Outlook's roster tiers, calls this same
+// function, so a given player always grades identically everywhere). ───────
+export const DEV_BONUS  = { Elite: 20, Star: 10, Impact: 5, Normal: -10 };
+export const STAR_BONUS = { '5': 3, '4': 2, '3': 1, '2': 0, '1': -1 };
+// A Gem develops beyond what his attributes/dev trait alone suggest; a Bust
+// develops below it. Sized like one strong physical-outlier attribute — a
+// real, visible swing, but not enough on its own to flip a grade tier.
+export const GEM_BUST_BONUS = { Gem: 5, Bust: -5 };
 const PHYS_ATTRS = ['Speed', 'Acceleration', 'Strength', 'Agility', 'Change of Direction'];
 
-function isHiddenDev(d) { return !d || d === 'Hidden' || d === 'hidden' || d === ''; }
+// Top 5 most critical attributes per position (weighted 2× vs the rest) —
+// used by calcWeightedAvg, the fallback base score when no archetype weight
+// profile is registered for this player's position+archetype.
+const PRIORITY_ATTRS = {
+  QB:   ['Throw Power', 'Short Accuracy', 'Medium Accuracy', 'Deep Accuracy', 'Under Pressure'],
+  HB:   ['Speed', 'Carrying', 'Juke Move', 'Break Tackle', 'BC Vision'],
+  WR:   ['Speed', 'Catching', 'Catch In Traffic', 'Short Route', 'Medium Route'],
+  TE:   ['Catching', 'Catch In Traffic', 'Run Block', 'Pass Block', 'Speed'],
+  OT:   ['Pass Block', 'Run Block', 'Pass Block Power', 'Run Block Power', 'Pass Block Finesse'],
+  OG:   ['Run Block', 'Pass Block', 'Run Block Power', 'Run Block Finesse', 'Pass Block Finesse'],
+  C:    ['Run Block', 'Pass Block', 'Run Block Power', 'Pass Block Finesse', 'Awareness'],
+  DE:   ['Block Shedding', 'Power Moves', 'Finesse Moves', 'Speed', 'Pursuit'],
+  DT:   ['Block Shedding', 'Power Moves', 'Strength', 'Tackle', 'Pursuit'],
+  OLB:  ['Play Recognition', 'Tackle', 'Man Coverage', 'Zone Coverage', 'Pursuit'],
+  MIKE: ['Play Recognition', 'Tackle', 'Hit Power', 'Zone Coverage', 'Strength'],
+  CB:   ['Man Coverage', 'Zone Coverage', 'Speed', 'Press', 'Change of Direction'],
+  FS:   ['Zone Coverage', 'Man Coverage', 'Speed', 'Play Recognition', 'Catching'],
+  SS:   ['Man Coverage', 'Tackle', 'Hit Power', 'Zone Coverage', 'Speed'],
+  ATH:  ['Speed', 'Acceleration', 'Agility', 'Catching', 'Tackle'],
+  FB:   ['Lead Block', 'Run Block', 'Trucking', 'Break Tackle', 'Carrying'],
+  K:    ['Kick Power', 'Kick Accuracy', 'Awareness'],
+  P:    ['Kick Power', 'Kick Accuracy', 'Awareness'],
+};
 
-function physOutlierBonus(player) {
+export function isHiddenDev(d) { return !d || d === 'Hidden' || d === 'hidden' || d === ''; }
+
+// Fallback base score when no archetype weight profile exists — every
+// entered attribute counted once, doubled for this position's 5 most
+// critical attributes, plus a small extra weight for the 5 uncoachable
+// physical attributes.
+export function calcWeightedAvg(player) {
+  const attrs = player.attributes ?? {};
+  const priority = PRIORITY_ATTRS[player.position] ?? [];
+  let sum = 0, weight = 0;
+  Object.entries(attrs).forEach(([k, v]) => {
+    const posW = priority.includes(k) ? 2 : 1;
+    const w = PHYS_ATTRS.includes(k) ? posW + 0.5 : posW;
+    sum += v * w;
+    weight += w;
+  });
+  return weight ? sum / weight : 0;
+}
+
+export function physOutlierBonus(player) {
   let b = 0;
   PHYS_ATTRS.forEach(k => {
     const v = player.attributes?.[k] ?? 0;
@@ -135,75 +85,54 @@ function physOutlierBonus(player) {
   return b;
 }
 
-function estimateHiddenDev(player) {
-  const stars   = parseInt(player.stars) || 3;
-  const physMax = Math.max(0, ...PHYS_ATTRS.map(k => player.attributes?.[k] ?? 0));
-  const base    = { 5: 13, 4: 7, 3: 3, 2: 0, 1: -3 }[stars] ?? 3;
-  return base + (physMax >= 96 ? 3 : physMax >= 92 ? 1 : 0);
+// A hidden dev trait is scored by PREDICTING a floor/ceiling range against
+// Threshold Lookup's own revealed-recruit pool — walking tier boundaries
+// within this exact position+archetype+star bucket only, never broadened —
+// and folding the resulting confidence into one expected-value bonus (see
+// devPrediction.js's predictFloorCeiling/blendDevBonus for the real
+// mechanism). When there isn't a single comparable revealed recruit in this
+// exact bucket, there's honestly nothing to predict from — trait stays null,
+// bonus 0, rather than guessing from star rating/physical traits alone.
+export function predictHiddenDev(player, weightsMap = null, pool = null) {
+  return predictHiddenDevBonus(player, weightsMap, pool, DEV_BONUS);
 }
 
-// weightsMap (optional): { archKey: { star: { weights, conf, n, level } } },
-// built by devTraitLearning.buildWeightsMap — pass it through when the caller
-// has a pool of revealed-dev-trait recruits, omit for plain static scoring.
-export function computeScore(player, weightsMap = null) {
-  const devBonus = isHiddenDev(player.devTrait)
-    ? estimateHiddenDev(player)
-    : (DEV_BONUS[player.devTrait] ?? 0);
+// A Gem/Bust scouting read is a direct, deliberate signal about how the
+// player will develop relative to what his attributes/dev trait alone
+// predict — so it applies regardless of dev trait, hidden or revealed.
+export function gemBustBonus(player) {
+  return GEM_BUST_BONUS[player?.gemBust] ?? 0;
+}
+
+// weightsMap (optional): devPrediction.buildAttributeQualityMap(...) result —
+// pass it through when the caller has a pool of revealed-dev-trait recruits,
+// omit to always fall back to calcWeightedAvg's plain attribute average.
+// pool (optional): devTraitLearning.buildRevealedPool(...) result — powers
+// the Threshold-comparison hidden-dev prediction above; omit to always treat
+// hidden-dev players as unpredictable (bonus 0).
+export function computeScore(player, weightsMap = null, pool = null) {
+  const devResult = isHiddenDev(player.devTrait)
+    ? predictHiddenDev(player, weightsMap, pool)
+    : { bonus: DEV_BONUS[player.devTrait] ?? 0 };
   const archBase = archetypeBaseScore(player, weightsMap);
-  const vals     = Object.values(player.attributes ?? {}).filter(v => typeof v === 'number');
-  const fallback = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 75;
-  return (archBase ?? fallback) + devBonus + (STAR_BONUS[String(player.stars)] ?? 0) + physOutlierBonus(player);
+  const base = archBase ?? calcWeightedAvg(player);
+  return base + devResult.bonus + (STAR_BONUS[String(player.stars)] ?? 0) + physOutlierBonus(player) + gemBustBonus(player);
 }
 
-// ATH archetypes not explicitly defined borrow weights from the matching
-// non-ATH position that uses the same attribute set.
-const ATH_FALLBACK_POS = {
-  'Power Rusher':        'DE',
-  'East/West Playmaker': 'HB',
-  'Dual Threat':         'QB',
-  'Contact Seeker':      'HB',
-  'Thumper':             'OLB',
-  'Backfield Threat':    'HB',
-  'Pure Possession':     'TE',
-};
-
-export function resolveWeights(position, arch) {
-  const key = `${position}_${arch}`;
-  if (ARCHETYPE_WEIGHTS[key]) return ARCHETYPE_WEIGHTS[key];
-  if (position === 'ATH') {
-    const fallback = ATH_FALLBACK_POS[arch];
-    if (fallback) return ARCHETYPE_WEIGHTS[`${fallback}_${arch}`] ?? null;
-  }
-  return null;
-}
-
-// Compute archetype-specific weighted base score (0–99 range, weighted avg of attrs).
-// Returns null if no weights are registered for this player's archetype.
+// Compute archetype-specific weighted base score using dynamically-learned
+// attribute weights (devPrediction.buildAttributeQualityMap's output) —
+// returns null when no learned weights exist yet for this exact
+// position+archetype+star bucket (no more hand-authored static fallback);
+// callers fall through to calcWeightedAvg in that case.
 export function archetypeBaseScore(player, weightsMap = null) {
-  const arch     = normalizeArch(player.archetype || '');
-  const archKey  = `${player.position}_${arch}`;
-  const star     = String(player.stars ?? '');
-  const learned  = weightsMap?.[archKey]?.[star]?.weights;
-  const weights  = learned || resolveWeights(player.position, arch);
+  const arch    = normalizeArch(player.archetype || '');
+  const archKey = `${player.position}_${arch}`;
+  const star    = String(player.stars ?? '');
+  const weights = weightsMap?.[archKey]?.[star]?.weights;
   if (!weights) return null;
   let sum = 0;
   Object.entries(weights).forEach(([attr, w]) => {
     if (w > 0) sum += (player.attributes?.[attr] ?? 0) * w;
   });
   return sum;
-}
-
-// Returns the top-weighted attribute names for display (sorted by weight desc, non-zero only).
-// Pass weightsMap + star to reflect learned weights once enough data exists for that bucket.
-export function topAttrs(pos, arch, n = 3, weightsMap = null, star = null) {
-  const normalized = normalizeArch(arch);
-  const archKey    = `${pos}_${normalized}`;
-  const learned    = star != null ? weightsMap?.[archKey]?.[String(star)]?.weights : null;
-  const weights    = learned || resolveWeights(pos, normalized);
-  if (!weights) return [];
-  return Object.entries(weights)
-    .filter(([, w]) => w > 0)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, n)
-    .map(([attr, w]) => ({ attr, pct: Math.round(w * 100) }));
 }

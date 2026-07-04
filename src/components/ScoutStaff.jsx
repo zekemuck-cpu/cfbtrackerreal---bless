@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { createStaffAccessor } from './staffDB';
 import FrontPage from './ScoutStaffFrontPage';
 import PlayerDatabase from './PlayerDatabase';
@@ -55,84 +54,25 @@ function shapeRecruit(pl, addedIndex, sourceDynastyId) {
   };
 }
 
-// Module-scoped (not component state): stays true for the lifetime of this
-// page load once Scout Staff has mounted, and resets to false only on a real
-// browser reload — see the subView/dbHighlightPid initializers below.
-let scoutStaffHydrated = false;
+// Recruiting.jsx owns the actual top-level tab (and its URL persistence);
+// this just translates that outer tab key to the internal view name this
+// component's JSX below still switches on.
+const SECTION_TO_VIEW = { staff: 'home', database: 'database', outlook: 'analysis', thresholds: 'thresholds', counts: 'counts' };
 
-export default function ScoutStaff({ year } = {}) {
+export default function ScoutStaff({ year, section = 'staff', onNavigate } = {}) {
   const { currentDynasty, dynasties, getDynastyPlayers, updateDynasty, updatePlayer, isViewOnly } = useDynasty();
   const { toast } = useToast();
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams);
   const teamLogo   = currentDynasty?.teams?.[currentDynasty?.currentTid]?.logo || '';
-  const [searchParams, setSearchParams] = useSearchParams();
-  // A page refresh or first visit should always land on the home hub — never
-  // silently reopen a player card because a stale ?view=/&pid= was still
-  // sitting in the address bar from a previous visit. Internal navigation
-  // within an already-mounted Scout Staff (e.g. clicking a prospect from
-  // Actively Targeting) still needs those params to work, so we only ignore
-  // them on the very first mount of a fresh page load — tracked with a
-  // module-level flag that resets whenever the page itself reloads.
-  const [subView, setSubView] = useState(() => {
-    if (!scoutStaffHydrated) return 'home';
-    const v = searchParams.get('view');
-    return v === 'database' || v === 'thresholds' || v === 'analysis' || v === 'counts' ? v : 'home';
-  });
-  const [dbHighlightPid, setDbHighlightPid] = useState(() => (
-    scoutStaffHydrated ? (searchParams.get('pid') ?? null) : null
-  ));
+  const subView = SECTION_TO_VIEW[section] || 'home';
+  const [dbHighlightPid, setDbHighlightPid] = useState(null);
   const highlightPid = dbHighlightPid;
-
-  useEffect(() => {
-    scoutStaffHydrated = true;
-  }, []);
 
   const openDatabase = (pid) => {
     setDbHighlightPid(pid ?? null);
-    setSubView('database');
+    onNavigate?.('database');
   };
 
-  // subView/dbHighlightPid above only seed from the URL once, at mount. If
-  // ScoutStaff is already mounted (e.g. the user is sitting on Program Outlook)
-  // and something navigates here again with new ?view=/&pid= params — like
-  // clicking a prospect name in Actively Targeting — those lazy initializers
-  // never re-run, so the visible subView silently stayed put even though the
-  // URL changed. Mirror the URL on every change instead of just on mount. The
-  // very first firing (at mount) is skipped so it doesn't immediately undo the
-  // fresh-load reset above by re-reading whatever stale params were already
-  // sitting in the URL.
-  const skippedFirstSearchParamsSync = useRef(false);
-  useEffect(() => {
-    if (!skippedFirstSearchParamsSync.current) {
-      skippedFirstSearchParamsSync.current = true;
-      return;
-    }
-    const v = searchParams.get('view');
-    if (v === 'database' || v === 'thresholds' || v === 'analysis' || v === 'counts') {
-      setSubView(v);
-    }
-    const pid = searchParams.get('pid');
-    if (pid) setDbHighlightPid(pid);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
-
-  // Mirror subView/dbHighlightPid back into the URL as real history entries so
-  // the native browser/OS swipe-back gesture works within Scout Staff the same
-  // way it already does on the rest of the site. Params are omitted entirely
-  // when at their default so a refresh (which ignores stale params anyway,
-  // see above) can't reopen anything unexpected.
-  useEffect(() => {
-    const wantView = subView === 'home' ? null : subView;
-    const wantPid  = subView === 'database' ? dbHighlightPid : null;
-    if (searchParams.get('view') === wantView && searchParams.get('pid') === wantPid) return;
-    setSearchParams(prev => {
-      const next = new URLSearchParams(prev);
-      if (wantView) next.set('view', wantView); else next.delete('view');
-      if (wantPid)  next.set('pid', wantPid);   else next.delete('pid');
-      return next;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subView, dbHighlightPid]);
   // outlookSummary is populated by the live onOutlookReady callback from
   // ScoutAnalysis. That callback only fires once every staffDB-backed config
   // it depends on has finished loading (see ScoutAnalysis's strategiesLoaded
@@ -152,12 +92,6 @@ export default function ScoutStaff({ year } = {}) {
     }
   }, [dynastyId]);
   const dbIsolated = !!currentDynasty?.recruitingDbIsolated;
-
-  // Sub-navigation doesn't change the URL, so the route-level ScrollToTop never
-  // fires — land at the top of each page whenever the user switches tabs.
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [subView]);
 
   // The recruit board IS the recruiting Targets board — a single shared source.
   // Targets entered via the recruiting sheet (dynasty.players, isTarget) flow
@@ -418,25 +352,16 @@ export default function ScoutStaff({ year } = {}) {
   // True freshmen only — no portal/transfer players
   const freshmanRecruits = useMemo(() => databaseRecruits.filter(r => !r.isPortal && !r.previousTeam), [databaseRecruits]);
 
-  const VIEW_META = {
-    home:      { title: 'Scout Staff Intelligence Engine', sub: 'Integrating field intelligence with structured positional data' },
-    database:  { title: 'Recruiting Database', sub: 'True Freshmen Only' },
-    thresholds:{ title: 'Threshold Lookup',  sub: 'Player Comparison Tool' },
-    analysis:  { title: 'Program Outlook',    sub: 'Staff Recommendations' },
-    counts:    { title: 'Player Count',      sub: 'Current Overview' },
-  };
-  const meta = VIEW_META[subView] || VIEW_META.home;
-
   const teamTheme = { teamColors, teamLogo };
 
-  const goHome = () => setSubView('home')
+  const goHome = () => onNavigate?.('staff')
 
   // Deep-link from a Daily Brief "Recruiting Plan" row straight to that
   // position's tab in Program Outlook.
   const [analysisJumpPos, setAnalysisJumpPos] = useState(null);
   const goToAnalysisPosition = (pos) => {
     setAnalysisJumpPos({ pos, ts: Date.now() });
-    setSubView('analysis');
+    onNavigate?.('outlook');
   };
   // ScoutAnalysis stays mounted (CSS-hidden) the whole time Scout Staff is
   // open, so its own activePos/isOverview state otherwise just sits wherever
@@ -447,7 +372,7 @@ export default function ScoutStaff({ year } = {}) {
   const [analysisResetKey, setAnalysisResetKey] = useState(0);
   const goToAnalysisOverview = () => {
     setAnalysisResetKey(k => k + 1);
-    setSubView('analysis');
+    onNavigate?.('outlook');
   };
 
   // ScoutAnalysis is always mounted (see below), so it's the single source of
@@ -517,13 +442,13 @@ export default function ScoutStaff({ year } = {}) {
 
   return (
     <div className="w-full space-y-4">
-      {subView === 'home' && <FrontPage setView={setSubView} onViewDatabase={openDatabase} onJumpToPosition={goToAnalysisPosition} onGoToAnalysisOverview={goToAnalysisOverview} onRemoveFromBoard={isViewOnly ? null : handleToggleBoardRemoved} onAdjustTarget={isViewOnly ? null : adjustExtraTargetsFromBrief} currentTeamName={currentDynasty?.teamName || 'college football team'} currentYear={currentDynasty?.currentYear || new Date().getFullYear()} coachName={currentDynasty?.coachName || ''} recruits={recruits} databaseRecruits={freshmanRecruits} rosterWarnings={rosterWarnings} rosterSummary={rosterSummary} outlookSummary={outlookSummary || cachedOutlookSummary} committedRecruits={committedRecruits} dynastyId={dynastyId} {...teamTheme} />}
+      {subView === 'home' && <FrontPage onViewDatabase={openDatabase} onJumpToPosition={goToAnalysisPosition} onGoToAnalysisOverview={goToAnalysisOverview} onRemoveFromBoard={isViewOnly ? null : handleToggleBoardRemoved} onAdjustTarget={isViewOnly ? null : adjustExtraTargetsFromBrief} currentTeamName={currentDynasty?.teamName || 'college football team'} currentYear={currentDynasty?.currentYear || new Date().getFullYear()} coachName={currentDynasty?.coachName || ''} recruits={recruits} databaseRecruits={freshmanRecruits} rosterWarnings={rosterWarnings} rosterSummary={rosterSummary} outlookSummary={outlookSummary || cachedOutlookSummary} committedRecruits={committedRecruits} dynastyId={dynastyId} {...teamTheme} />}
 
       {/* Read-only: mirrors the recruiting Targets sheet. Freshmen and portal targets are split.
           Uses the unfiltered list so a target removed from the board still shows up here. */}
-      {subView === 'database'   && <PlayerDatabase players={freshmanRecruits} roleContext="National Scout" dynastyId={dynastyId} {...teamTheme} onEdit={isViewOnly ? null : handleEditDatabasePlayer} onGoToThresholds={() => setSubView('thresholds')} onBack={goHome} highlightPid={highlightPid} />}
-      {subView === 'thresholds' && <ThresholdLookup players={thresholdRecruits} roleContext="Data Analyst" dynastyId={dynastyId} {...teamTheme} onGoToDatabase={() => { setDbHighlightPid(null); setSubView('database'); }} onBack={goHome} />}
-      {subView === 'counts'     && <PlayerCount onBack={goHome} onGoToDatabase={() => { setDbHighlightPid(null); setSubView('database'); }} />}
+      {subView === 'database'   && <PlayerDatabase players={freshmanRecruits} roleContext="National Scout" dynastyId={dynastyId} {...teamTheme} onEdit={isViewOnly ? null : handleEditDatabasePlayer} onGoToThresholds={() => onNavigate?.('thresholds')} onBack={goHome} highlightPid={highlightPid} />}
+      {subView === 'thresholds' && <ThresholdLookup players={thresholdRecruits} roleContext="Data Analyst" dynastyId={dynastyId} {...teamTheme} onGoToDatabase={() => { setDbHighlightPid(null); onNavigate?.('database'); }} onBack={goHome} />}
+      {subView === 'counts'     && <PlayerCount onBack={goHome} onGoToDatabase={() => { setDbHighlightPid(null); onNavigate?.('database'); }} />}
 
       {/* Always mounted so allHubs recomputes live whenever recruits or roster data changes.
           Hidden when not on the analysis view — UI is invisible but computation runs.

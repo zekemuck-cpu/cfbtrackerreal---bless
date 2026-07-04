@@ -2,9 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createStaffAccessor } from './staffDB';
 import { normalizeArch } from './archetypeWeights';
 import {
-  DEV_TRAITS, getFormAttrs, buildRevealedPool, buildWeightsMap,
-  getAllTierProfiles, getLearnedWeightsForDisplay,
+  DEV_TRAITS, getFormAttrs, buildRevealedPool, getAllTierProfiles,
 } from '../utils/devTraitLearning';
+import { computeAttributeQuality } from '../utils/devPrediction';
 
 // ── Attribute short-name display map ─────────────────────────────────────────
 const ATTR_SHORT = {
@@ -677,9 +677,8 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
   const archNorm = normalizeArch(activeArch);
   const formAttrs = useMemo(() => getFormAttrs(activePos, archNorm), [activePos, archNorm]);
 
-  // Revealed-devTrait-only HS recruit pool — feeds badges, stats, and learned weights.
+  // Revealed-devTrait-only HS recruit pool — feeds badges, stats, and derived weights.
   const pool = useMemo(() => buildRevealedPool(players), [players]);
-  const weightsMap = useMemo(() => buildWeightsMap(pool, players), [pool, players]);
 
   // One profile per dev trait (Elite/Star/Impact/Normal), each independently
   // qualifying once it has n >= MIN_N samples at the active star. Star levels
@@ -689,10 +688,20 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
     [pool, activePos, archNorm, activeStar, formAttrs]
   );
 
-  const weightsInfo = useMemo(
-    () => getLearnedWeightsForDisplay(pool, activePos, archNorm, activeStar),
-    [pool, activePos, archNorm, activeStar]
+  // Attribute weights derived live for whichever position+archetype+star the
+  // user has selected (not gated by whatever combos happen to already be in
+  // `players` — this is a browsing tool, not per-player scoring). No static
+  // fallback: `weights` is null until real 2-sided tier data exists somewhere
+  // in this exact bucket.
+  const attrQuality = useMemo(
+    () => computeAttributeQuality(pool, activePos, archNorm, activeStar, formAttrs),
+    [pool, activePos, archNorm, activeStar, formAttrs]
   );
+  const weightsInfo = {
+    learned: !!attrQuality.weights,
+    boundariesUsed: attrQuality.boundariesUsed,
+    weights: attrQuality.weights ?? {},
+  };
 
   const tierAttrStats = TIER_STYLES.map(({ devTrait }) => {
     const prof = tierProfiles[devTrait];
@@ -804,8 +813,8 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
               {activePos} · {activeArch}
               <span className="ml-2 normal-case font-normal">
                 {weightsInfo.learned
-                  ? `Weights: Learned · ${weightsInfo.n} sample${weightsInfo.n !== 1 ? 's' : ''}`
-                  : 'Weights: Static (Until Learned)'}
+                  ? `Attribute Weights: Learned · ${weightsInfo.boundariesUsed} boundar${weightsInfo.boundariesUsed !== 1 ? 'ies' : 'y'}`
+                  : 'Attribute Weights: Not enough data yet'}
               </span>
             </p>
             <div className="flex gap-1">
@@ -865,10 +874,13 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
                 lastAttrKeys = attrEntries.map(([attr]) => attr);
               }
 
+              // No hand-authored fallback, ever — a tier with no real 2-sided
+              // comparison data honestly says so instead of silently
+              // substituting the static tier.k1/tier.k2 placeholder text.
               const dynK1 = dynamicBadgeText(ownProfile, attrEntries.slice(0, 2), renderDirection);
               const dynK2 = dynamicBadgeText(ownProfile, attrEntries.slice(2, 4), renderDirection);
-              const k1 = dynK1 || tier.k1;
-              const k2 = dynK2 || tier.k2;
+              const k1 = dynK1 || 'Not enough data yet';
+              const k2 = dynK2 || null;
               const badgeText = attrData.count > 0
                 ? `${attrData.count} prospect${attrData.count !== 1 ? 's' : ''}`
                 : 'No data yet';
@@ -896,9 +908,11 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
                         <div className="bg-surface-3 border border-surface-4 px-2.5 py-1 rounded-lg text-[9px] tabular-nums text-txt-secondary uppercase whitespace-nowrap">
                           <span className="text-txt-tertiary mr-1">Key:</span>{k1}
                         </div>
-                        <div className="bg-surface-3 border border-surface-4 px-2.5 py-1 rounded-lg text-[9px] tabular-nums text-txt-tertiary uppercase whitespace-nowrap">
-                          <span className="text-txt-tertiary mr-1">Alt:</span>{k2}
-                        </div>
+                        {k2 && (
+                          <div className="bg-surface-3 border border-surface-4 px-2.5 py-1 rounded-lg text-[9px] tabular-nums text-txt-tertiary uppercase whitespace-nowrap">
+                            <span className="text-txt-tertiary mr-1">Alt:</span>{k2}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

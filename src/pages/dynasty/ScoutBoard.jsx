@@ -4,16 +4,19 @@ import { Card, EmptyState, Button } from '../../components/ui'
 import { useDynasty } from '../../context/DynastyContext'
 import { proxyImageUrl } from '../../utils/imageProxy'
 import { getTargetStatus } from '../../utils/recruitingTargets'
-import { getScoutScoresFor, headlinePercentile, ordinal, predictRecruitOverall } from '../../utils/scoutScore'
+import { getScoutScoresFor, headlinePercentile, predictRecruitOverall } from '../../utils/scoutScore'
 import { POSITION_FILTER_OPTIONS, matchesPositionFilter } from '../../utils/recruitFilters'
-import ScoutScorePanel from '../../components/ScoutScorePanel'
+import { GradeReportContent, getGradeTier, DevTraitPill } from '../../components/PlayerDatabase'
 import { computeScore } from '../../components/archetypeWeights'
-import { buildRevealedPool, buildWeightsMap } from '../../utils/devTraitLearning'
+import { buildRevealedPool } from '../../utils/devTraitLearning'
+import { buildAttributeQualityMap } from '../../utils/devPrediction'
+import GemBustIcon from '../../components/GemBustIcon'
 
-// Scout Board (the Targets tab): tracked recruiting targets benchmarked by
-// MaxPlaysCFB ScoutScore. Each row shows the recruit's ScoutScore overall
-// percentile; the board ranks by it, and expanding a row reveals the full
-// ScoutScore breakdown (overall + group + per-attribute percentiles).
+// Scout Board (the Targets tab): tracked recruiting targets. Each compact
+// row shows name, stars, ranks, and a grade + composite score (local Scout
+// Staff score when available, else the ScoutScore percentile mapped through
+// the same letter scale); expanding a row reveals archetype, Proj Ovr, and
+// the same scouting report used in the Recruiting Database (GradeReportContent).
 
 const STAR = (n) => '★'.repeat(Math.max(0, Math.min(5, Number(n) || 0)))
 
@@ -27,32 +30,7 @@ const Chevron = ({ open }) => (
   </svg>
 )
 
-function pctColor(pct) {
-  if (pct == null) return 'var(--text-muted)'
-  if (pct >= 75) return 'var(--accent-success, #34d399)'
-  if (pct >= 40) return 'var(--text-secondary)'
-  return 'var(--accent-danger, #f87171)'
-}
-
-const SS_GRADE_TIERS = [
-  { letter: 'A+', min: 95 }, { letter: 'A', min: 90 }, { letter: 'A-', min: 86 },
-  { letter: 'B+', min: 82 }, { letter: 'B', min: 78 }, { letter: 'B-', min: 74 },
-  { letter: 'C+', min: 70 }, { letter: 'C', min: 66 }, { letter: 'C-', min: 62 },
-  { letter: 'D+', min: 58 }, { letter: 'D', min: 54 }, { letter: 'D-', min: 50 },
-  { letter: 'F',  min: 0 },
-]
-function ssLetter(score) {
-  return SS_GRADE_TIERS.find(g => score >= g.min)?.letter ?? 'F'
-}
-function ssColor(score) {
-  if (score >= 86) return '#34d399'
-  if (score >= 74) return '#60a5fa'
-  if (score >= 62) return '#fbbf24'
-  if (score >= 50) return '#f97316'
-  return '#f87171'
-}
-
-function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy, localScore, useLocalScores, draggable: isDraggable, onDragStart, onDragOver, onDrop, isDragOver, onToggleRemove, canEdit }) {
+function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalScores, allPlayers, weightsMap, pool, draggable: isDraggable, onDragStart, onDragOver, onDrop, isDragOver, onToggleRemove, canEdit }) {
   const { p, status } = r
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
@@ -60,18 +38,25 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy, localScore, us
   const committed = status === 'committed_us'
   const removed = !!p.boardRemoved
 
-  // Sub-line: the recruit's national / position / state recruiting ranks.
+  // National/state/position rank now live in the always-visible row itself
+  // (alongside position); archetype + Proj Ovr stay in the expanded dropdown.
   const ranks = []
-  if (p.nationalRank) ranks.push({ v: p.nationalRank, l: 'Nat' })
-  if (p.positionRank) ranks.push({ v: p.positionRank, l: p.position || 'Pos' })
+  if (p.nationalRank) ranks.push({ v: p.nationalRank, l: 'National' })
   if (p.stateRank && p.state) ranks.push({ v: p.stateRank, l: p.state })
+  if (p.positionRank) ranks.push({ v: p.positionRank, l: p.position || 'Position' })
 
   const pct = scoutResult?.ok ? headlinePercentile(scoutResult.data) : null
-  const badge = scoutResult ? (pct != null ? ordinal(pct) : '—') : (scoring ? '··' : '—')
   const proj = predictRecruitOverall(p)
 
-  // When Scout Staff grades are active, the row is non-expandable — all info is already visible.
-  const expandable = !useLocalScores
+  // Compact "grade + composite" is always shown now, regardless of sort mode:
+  // the local Scout Staff score when available, else the ScoutScore
+  // percentile mapped through the same letter-tier scale, so every row shows
+  // some grade+number consistently instead of swapping metric by sort choice.
+  const compositeSource = useLocalScores ? localScore : pct
+  const hasComposite = compositeSource != null
+  // Same GRADE_TIERS the Recruiting Database grades against, so a given score
+  // renders as the exact same letter + color in both places.
+  const compositeTier = hasComposite ? getGradeTier(Math.round(compositeSource)) : null
 
   return (
     <div
@@ -89,12 +74,11 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy, localScore, us
       <div
         role="button"
         tabIndex={0}
-        onClick={() => expandable && setOpen((o) => !o)}
-        onKeyDown={(e) => { if (expandable && (e.key === 'Enter' || e.key === ' ')) setOpen((o) => !o) }}
+        onClick={() => setOpen((o) => !o)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpen((o) => !o) }}
         className={[
-          'w-full flex items-center gap-3 sm:gap-3.5 px-4 py-3 transition-colors text-left',
-          isDraggable ? 'cursor-grab active:cursor-grabbing' : expandable ? '' : 'cursor-default',
-          expandable ? 'hover:bg-surface-2' : '',
+          'w-full flex items-center gap-3 sm:gap-3.5 px-4 py-3 transition-colors text-left hover:bg-surface-2',
+          isDraggable ? 'cursor-grab active:cursor-grabbing' : '',
         ].filter(Boolean).join(' ')}
       >
         {isDraggable && (
@@ -112,14 +96,17 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy, localScore, us
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 min-w-0">
-            <span
-              role="link"
-              tabIndex={0}
-              onClick={(e) => { e.stopPropagation(); navigate(`${pathPrefix}/player/${p.pid}`) }}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); navigate(`${pathPrefix}/player/${p.pid}`) } }}
-              className="text-[13px] sm:text-[15px] font-bold text-txt-primary truncate hover:underline cursor-pointer"
-            >
-              {p.name}
+            <span className="relative inline-block">
+              <span
+                role="link"
+                tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); navigate(`${pathPrefix}/player/${p.pid}`) }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); navigate(`${pathPrefix}/player/${p.pid}`) } }}
+                className="text-[13px] sm:text-[15px] font-bold text-txt-primary truncate hover:underline cursor-pointer"
+              >
+                {p.name}
+              </span>
+              <GemBustIcon type={p.gemBust} />
             </span>
             {Number(p.stars) > 0 && <span className="text-[10px] flex-shrink-0 tracking-tight" style={{ color: 'var(--accent-warning)' }}>{STAR(p.stars)}</span>}
             {committed && <span className="text-[9px] font-bold uppercase text-txt-tertiary tracking-wide flex-shrink-0">· Committed</span>}
@@ -128,53 +115,30 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy, localScore, us
               <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider text-slate-500 border border-slate-700 bg-slate-900 flex-shrink-0">Removed</span>
             )}
           </div>
-          <div className="flex flex-wrap items-baseline gap-x-1.5 sm:gap-x-3 gap-y-0.5 mt-1 text-[9px] sm:text-[11px]" style={{ letterSpacing: '0.3px' }}>
-            <span className="uppercase text-txt-secondary font-semibold flex-shrink-0">{p.position || 'ATH'}</span>
-            {p.archetype && <span className="uppercase text-txt-tertiary flex-shrink-0">{p.archetype}</span>}
-            {proj && (
-              <span className="flex-shrink-0 tabular-nums text-txt-tertiary normal-case">
-                Proj. Ovr <span className="font-bold text-txt-secondary">{proj.overall}</span> ({proj.low}–{proj.high})
+          <div className="flex flex-wrap items-center gap-x-2.5 sm:gap-x-3 gap-y-0.5 mt-1 text-[9px] sm:text-[11px] tabular-nums" style={{ letterSpacing: '0.3px' }}>
+            <span className="uppercase text-txt-secondary font-semibold">{p.position || 'ATH'}</span>
+            {ranks.map((rk) => (
+              <span key={rk.l} className="inline-flex items-baseline gap-1 normal-case">
+                <span className="font-bold text-txt-secondary">#{rk.v}</span>
+                <span className="text-txt-tertiary uppercase">{rk.l}</span>
               </span>
-            )}
-            {ranks.length > 0 && (
-              <span className="inline-flex items-baseline gap-x-2.5 tabular-nums">
-                {ranks.map((rk) => (
-                  <span key={rk.l} className="inline-flex items-baseline gap-1">
-                    <span className="font-bold text-txt-secondary">#{rk.v}</span>
-                    <span className="text-txt-tertiary uppercase">{rk.l}</span>
-                  </span>
-                ))}
-              </span>
-            )}
+            ))}
+            {p.devTrait && <DevTraitPill devTrait={p.devTrait} />}
           </div>
         </div>
 
-        {/* Big metric — follows the active sort */}
+        {/* Always-visible: grade + composite score */}
         <div className="text-right flex-shrink-0 w-16">
-          {sortBy === 'projected' ? (
-            <div className="font-display leading-none tabular-nums text-txt-primary" style={{ fontSize: '1.35rem', fontWeight: 800 }} title="Projected day-1 overall">
-              {proj ? proj.overall : '—'}
-            </div>
-          ) : sortBy === 'national' ? (
-            <div className="font-display leading-none tabular-nums text-txt-primary" style={{ fontSize: '1.15rem', fontWeight: 800 }} title="National recruiting rank">
-              {p.nationalRank ? `#${p.nationalRank}` : '—'}
-            </div>
-          ) : useLocalScores ? (
-            localScore != null ? (
-              <div className="flex flex-col items-end gap-0" title="Scout grade">
-                <div className="font-display leading-none tabular-nums" style={{ fontSize: '1.35rem', fontWeight: 800, color: ssColor(Math.round(localScore)) }}>
-                  {ssLetter(Math.round(localScore))}
-                </div>
-                <div className="tabular-nums text-txt-tertiary" style={{ fontSize: '0.7rem', fontWeight: 700 }}>
-                  {Math.round(localScore)}
-                </div>
+          {hasComposite ? (
+            <div className="flex flex-col items-end gap-0" title={useLocalScores ? 'Scout grade' : 'ScoutScore percentile, shown as a grade'}>
+              <div className="font-display leading-none tabular-nums" style={{ fontSize: '1.35rem', fontWeight: 800, color: compositeTier.color }}>
+                {compositeTier.grade}
               </div>
-            ) : <span className="text-txt-muted" style={{ fontSize: '1.35rem' }}>—</span>
-          ) : (
-            <div className="font-display leading-none tabular-nums" style={{ fontSize: '1.35rem', fontWeight: 800, color: pctColor(pct) }} title="ScoutScore overall percentile">
-              {badge}
+              <div className="tabular-nums text-txt-tertiary" style={{ fontSize: '0.7rem', fontWeight: 700 }}>
+                {compositeSource.toFixed(1)}
+              </div>
             </div>
-          )}
+          ) : <span className="text-txt-muted" style={{ fontSize: '1.35rem' }}>—</span>}
         </div>
 
         {canEdit && onToggleRemove && (
@@ -196,12 +160,30 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, sortBy, localScore, us
           </button>
         )}
 
-        {expandable && <Chevron open={open} />}
+        <Chevron open={open} />
       </div>
 
-      {open && !useLocalScores && (
-        <div className="px-4 pb-4 pt-1 sm:pl-[4.5rem] sm:pr-6">
-          <ScoutScorePanel recruit={p} />
+      {open && (
+        <div className="px-4 pb-4 pt-1 sm:pl-[4.5rem] sm:pr-6 space-y-3">
+          {/* Archetype + Proj Ovr are added here specifically for the Targets
+              board — the embedded report itself (GradeReportContent, shared
+              verbatim with the Recruiting Database) doesn't include them in
+              its own (wide) header, since this row already covers it. Dev
+              trait lives on the always-visible row above instead (see the
+              position/ranks line), not gated behind the dropdown. */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] tabular-nums">
+            {p.archetype && (
+              <span className="normal-case"><span className="text-txt-tertiary uppercase">Archetype </span><span className="font-bold text-txt-secondary">{p.archetype}</span></span>
+            )}
+            {proj && (
+              <span className="normal-case text-txt-tertiary">
+                Proj. Ovr <span className="font-bold text-txt-secondary">{proj.overall}</span> ({proj.low}–{proj.high})
+              </span>
+            )}
+          </div>
+          <div className="bg-surface-2 border border-surface-4 rounded-2xl overflow-hidden">
+            <GradeReportContent player={p} allPlayers={allPlayers} weightsMap={weightsMap} pool={pool} wide />
+          </div>
         </div>
       )}
     </div>
@@ -275,15 +257,15 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
 
   // Revealed-devTrait HS recruit pool — nudges archetype grading once enough data exists.
   const revealedPool = useMemo(() => buildRevealedPool(dynasty?.players || []), [dynasty?.players])
-  const weightsMap = useMemo(() => buildWeightsMap(revealedPool, dynasty?.players || []), [revealedPool, dynasty?.players])
+  const weightsMap = useMemo(() => buildAttributeQualityMap(revealedPool, dynasty?.players || []), [revealedPool, dynasty?.players])
 
   // Local scores (Scout Staff mode) — computed synchronously, no API needed.
   const localScores = useMemo(() => {
     if (!scoutStaffEnabled) return new Map()
     const m = new Map()
-    for (const { p } of targets) m.set(p.pid, computeScore(p, weightsMap))
+    for (const { p } of targets) m.set(p.pid, computeScore(p, weightsMap, revealedPool))
     return m
-  }, [scoutStaffEnabled, targets, weightsMap])
+  }, [scoutStaffEnabled, targets, weightsMap, revealedPool])
 
   // Benchmark every target through ScoutScore (cached, concurrency-capped).
   // Skipped entirely when Scout Staff is enabled — we use local scores instead.
@@ -419,7 +401,7 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
           {activeRanked.length === 0 ? (
             <div className="px-4 sm:px-5 py-8 text-center text-sm text-txt-tertiary">No targets at this position.</div>
           ) : activeRanked.map((r, i) => (
-            <Row key={r.p.pid} r={r} rank={i + 1} pathPrefix={pathPrefix} scoutResult={scores.get(r.p.pid)} scoring={scoring} sortBy={sortBy} localScore={localScores.get(r.p.pid)} useLocalScores={scoutStaffEnabled}
+            <Row key={r.p.pid} r={r} rank={i + 1} pathPrefix={pathPrefix} scoutResult={scores.get(r.p.pid)} scoring={scoring} localScore={localScores.get(r.p.pid)} useLocalScores={scoutStaffEnabled} allPlayers={dynasty?.players || []} weightsMap={weightsMap} pool={revealedPool}
               canEdit={canEdit}
               onToggleRemove={handleToggleRemove}
               draggable
@@ -473,7 +455,7 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
           ) : (
             <>
               {removedRanked.map((r, i) => (
-                <Row key={r.p.pid} r={r} rank={i + 1} pathPrefix={pathPrefix} scoutResult={scores.get(r.p.pid)} scoring={scoring} sortBy={sortBy} localScore={localScores.get(r.p.pid)} useLocalScores={scoutStaffEnabled}
+                <Row key={r.p.pid} r={r} rank={i + 1} pathPrefix={pathPrefix} scoutResult={scores.get(r.p.pid)} scoring={scoring} localScore={localScores.get(r.p.pid)} useLocalScores={scoutStaffEnabled} allPlayers={dynasty?.players || []} weightsMap={weightsMap} pool={revealedPool}
                   canEdit={canEdit}
                   onToggleRemove={handleToggleRemove}
                   draggable
