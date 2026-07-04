@@ -3,17 +3,22 @@ import { createStaffAccessor } from './staffDB';
 import { archetypeBaseScore, computeScore, calcWeightedAvg, gemBustBonus, isHiddenDev, normalizeArch, STAR_BONUS, getScoreConfidence } from './archetypeWeights';
 import { buildRevealedPool, getFormAttrs } from '../utils/devTraitLearning';
 import { buildAttributeQualityMap, predictFloorCeiling, describeFloorCeilingPills } from '../utils/devPrediction';
-import { ATTRIBUTE_ABBR } from '../utils/recruitAttributes';
+import { ATTRIBUTE_ABBR, positionBucket } from '../utils/recruitAttributes';
 import { OPTIONS_REGISTRY } from './ScoutingReport';
 import GemBustIcon from './GemBustIcon';
 import { useDynasty } from '../context/DynastyContext';
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler';
 import AuthErrorModal from './AuthErrorModal';
-import { createRecruitingDatabaseSheet, readRecruitingDatabaseSheet, writeRecruitingDatabaseRows, sheetExists, sheetHasRecruitingDatabaseTab } from '../services/sheetsService';
-import { mergeRecruitingDatabaseRows, reconcileRecruitingDatabaseSync, snapshotKey } from '../utils/recruitingDatabaseSync';
+import { createRecruitingDatabaseSheet, readRecruitingDatabaseSheet, writeRecruitingDatabaseRows, sheetExists, sheetHasRecruitingDatabaseTab, fixRecruitingDatabasePositionValidation } from '../services/sheetsService';
+import { reconcileRecruitingDatabaseSync, snapshotKey } from '../utils/recruitingDatabaseSync';
 import { useToast } from './ui/Toast';
-import { useConfirm } from './ui/ConfirmDialog';
 import RecruitingDatabaseSheetModal from './RecruitingDatabaseSheetModal';
+import RecruitingDatabaseMigrationModal from './RecruitingDatabaseMigrationModal';
+import DuplicateReviewModal from './DuplicateReviewModal';
+import {
+  resolveRecruitingDatabaseHost, getPoolSiblings, renumberForMerge,
+  findDuplicateClusters, applyDuplicateResolution, downloadRecruitingDatabaseJson,
+} from '../utils/recruitingDatabasePool';
 
 // Places the gem/bust icon at the diagonal right end of the name's actual
 // FIRST rendered line — whether that line ends up being the whole name (short
@@ -118,6 +123,19 @@ function devTraitTextCls(devTrait) {
          devTrait === 'Impact' ? 'text-[#D6DEE2]' :
          devTrait === 'Normal' ? 'text-[#CD7F32]' :
                                   'text-white';
+}
+
+// Same per-trait border + glow as DevTraitPill's badge (and devTraitTextCls's
+// text color) — for a whole container (the Floor/Ceiling boxes) instead of
+// just the trait text inside it. Anything that isn't an exact single trait
+// name (e.g. a joined "Star/Elite" ceiling label, or no data at all) falls
+// through to the plain neutral outline, same reasoning as devTraitTextCls.
+function devTraitBoxCls(devTrait) {
+  return devTrait === 'Elite'  ? 'border-[#0E7A2A] shadow-[0_0_16px_rgba(14,122,42,0.85)]' :
+         devTrait === 'Star'   ? 'border-[#9C7209] shadow-[0_0_14px_rgba(156,114,9,0.8)]' :
+         devTrait === 'Impact' ? 'border-[#7C8991]' :
+         devTrait === 'Normal' ? 'border-[#8C5524]' :
+                                  'border-surface-4';
 }
 // ── Combine projections base times / reps ────────────────────────────────────
 const BASE_FORTY = {
@@ -574,7 +592,7 @@ export function GradeReportContent({ player: rawPlayer, allPlayers, weightsMap, 
           <div className="p-5 border-b border-surface-4 flex items-start justify-between gap-4">
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">
-                {player.position} · {player.archetype}
+                {player.rawPosition ?? player.position} · {player.archetype}
               </p>
               <h2 className="text-xl font-black text-white">{player.name}</h2>
               <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1.5">
@@ -611,11 +629,12 @@ export function GradeReportContent({ player: rawPlayer, allPlayers, weightsMap, 
                       <div className="flex items-center gap-2">
                         {confidence && (
                           <span
-                            title={`${confidence.usedWidening ? 'Widened to any star level within this archetype · ' : ''}${confidence.boundariesUsed} tier boundar${confidence.boundariesUsed !== 1 ? 'ies' : 'y'} of real data`}
-                            className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
-                              confidence.level === 'Strong'  ? 'text-emerald-400 border-emerald-800' :
-                              confidence.level === 'Limited' ? 'text-amber-400 border-amber-800' :
-                                                                'text-orange-400 border-orange-800'
+                            title={confidence.description}
+                            className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border transition-colors cursor-pointer ${
+                              confidence.level === 'Strong'  ? 'text-emerald-400 border-emerald-800 hover:bg-emerald-950/70 hover:border-emerald-600' :
+                              confidence.level === 'Broad'   ? 'text-sky-400 border-sky-800 hover:bg-sky-950/70 hover:border-sky-600' :
+                              confidence.level === 'Limited' ? 'text-amber-400 border-amber-800 hover:bg-amber-950/70 hover:border-amber-600' :
+                                                                'text-orange-400 border-orange-800 hover:bg-orange-950/70 hover:border-orange-600'
                             }`}
                           >
                             {confidence.level}
@@ -747,28 +766,34 @@ export function GradeReportContent({ player: rawPlayer, allPlayers, weightsMap, 
 
           return (
             <div className={wide ? 'p-4 space-y-3' : 'p-5 space-y-5'}>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-surface-3 border border-surface-4 rounded-lg px-4 py-4">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Floor · Higher Confidence</p>
-                  <p className="text-2xl font-black leading-none">
-                    {hidden
-                      ? (devPills
-                          ? <><span className={devTraitTextCls(devPills.floorLabel)}>{devPills.floorLabel}</span> <span className="text-slate-400 font-black">{devPills.floorPct}%</span></>
-                          : <span className="text-slate-500 italic text-lg">Hidden</span>)
-                      : <><span className={devTraitTextCls(player.devTrait)}>{player.devTrait}</span> <span className="text-slate-400 font-black">100%</span></>}
-                  </p>
-                </div>
-                <div className="bg-surface-3 border border-surface-4 rounded-lg px-4 py-4">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Ceiling · Lower Confidence</p>
-                  <p className="text-2xl font-black leading-none">
-                    {hidden
-                      ? (devPills
-                          ? <><span className={devTraitTextCls(devPills.ceilingLabel)}>{devPills.ceilingLabel}</span> <span className="text-slate-400 font-black">{devPills.ceilingPct}%</span></>
-                          : <span className="text-slate-500 italic text-lg">Hidden</span>)
-                      : <span className="text-slate-500 italic">—</span>}
-                  </p>
-                </div>
-              </div>
+              {(() => {
+                const floorTrait = hidden ? (devPills ? devPills.floorLabel : null) : player.devTrait;
+                const ceilingTrait = hidden ? (devPills ? devPills.ceilingLabel : null) : null;
+                return (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className={`bg-surface-3 border rounded-lg px-4 py-4 transition-colors ${devTraitBoxCls(floorTrait)}`}>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Floor · Higher Confidence</p>
+                      <p className="text-2xl font-black leading-none">
+                        {hidden
+                          ? (devPills
+                              ? <><span className={devTraitTextCls(devPills.floorLabel)}>{devPills.floorLabel}</span> <span className="text-slate-400 font-black">{devPills.floorPct}%</span></>
+                              : <span className="text-slate-500 italic text-lg">Hidden</span>)
+                          : <><span className={devTraitTextCls(player.devTrait)}>{player.devTrait}</span> <span className="text-slate-400 font-black">100%</span></>}
+                      </p>
+                    </div>
+                    <div className={`bg-surface-3 border rounded-lg px-4 py-4 transition-colors ${devTraitBoxCls(ceilingTrait)}`}>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Ceiling · Lower Confidence</p>
+                      <p className="text-2xl font-black leading-none">
+                        {hidden
+                          ? (devPills
+                              ? <><span className={devTraitTextCls(devPills.ceilingLabel)}>{devPills.ceilingLabel}</span> <span className="text-slate-400 font-black">{devPills.ceilingPct}%</span></>
+                              : <span className="text-slate-500 italic text-lg">Hidden</span>)
+                          : <span className="text-slate-500 italic">—</span>}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {wide ? (
                 <div className="grid lg:grid-cols-2 gap-4 items-stretch">
@@ -895,10 +920,16 @@ function EditModal({ player, pool, weightsMap, onSave, onClose }) {
 
   const [saving, setSaving] = useState(false);
   const handleSave = async () => {
+    // The edit form's Position dropdown only offers bucketed positions (no
+    // LT vs RT) — if the user actually changed it, the old raw sub-position
+    // no longer applies, so it collapses to the new bucket. Otherwise (the
+    // position field wasn't touched) the original raw value is preserved.
+    const originalBucket = positionBucket(player.rawPosition ?? player.position) || (player.rawPosition ?? player.position);
     const updated = {
       ...player,
       name:      form.name.trim(),
       position:  form.position,
+      rawPosition: form.position === originalBucket ? (player.rawPosition ?? form.position) : form.position,
       archetype: form.archetype.trim(),
       devTrait:  form.devTrait,
       gemBust:   form.gemBust,
@@ -1108,16 +1139,129 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
   const { currentDynasty, updateDynasty, dynasties } = useDynasty();
   const auth = useAuthErrorHandler();
   const { toast } = useToast();
-  const { confirm } = useConfirm();
   const [saving, setSaving] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [showImportPanel, setShowImportPanel] = useState(false);
-  const [importSheetInput, setImportSheetInput] = useState('');
   const [showHelpPanel, setShowHelpPanel] = useState(false);
-  const [resetting, setResetting] = useState(false);
   const [showSheetModal, setShowSheetModal] = useState(false);
 
-  const recruitingDatabasePlayers = currentDynasty?.recruitingDatabasePlayers || [];
+  // Every dynasty on the account shares ONE Recruiting Database — the actual data
+  // lives on whichever dynasty is the resolved "host" (see recruitingDatabasePool.js).
+  // `hostDynasty` is null only when a host pointer is set but that dynasty can't be
+  // found (data corruption, or a leave-pool handoff that didn't complete) — a real
+  // error state surfaced below, never silently treated as "start fresh."
+  const hostDynasty = useMemo(
+    () => resolveRecruitingDatabaseHost(currentDynasty, dynasties),
+    [currentDynasty, dynasties]
+  );
+  const hostMissing = !!currentDynasty?.recruitingDatabaseHostDynastyId && !hostDynasty;
+
+  // One-time "set up your shared Recruiting Database" flow — see
+  // recruitingDatabasePool.js. `null` = nothing to show; a lone dynasty with no
+  // siblings and no leftover data of its own gets silently self-hosted (no
+  // modal needed, nothing to merge or lose). Anything more involved (siblings
+  // exist, or this dynasty has its own leftover data to fold in) surfaces
+  // RecruitingDatabaseMigrationModal instead of writing anything automatically.
+  const [migrationProposal, setMigrationProposal] = useState(null);
+  const [migrationBusy, setMigrationBusy] = useState(false);
+  const autoResolvedRef = useRef(null);
+  useEffect(() => {
+    if (!currentDynasty || currentDynasty.recruitingDatabaseHostDynastyId) return;
+    if (autoResolvedRef.current === currentDynasty.id) return;
+
+    const poolSiblings = getPoolSiblings(currentDynasty, dynasties);
+    const existingHostSibling = poolSiblings.find(d => d.recruitingDatabaseHostDynastyId);
+    const hasOwnData = (currentDynasty.recruitingDatabasePlayers?.length > 0) || !!currentDynasty.recruitingDatabaseSheetId;
+
+    if (existingHostSibling && !hasOwnData) {
+      autoResolvedRef.current = currentDynasty.id;
+      updateDynasty(currentDynasty.id, { recruitingDatabaseHostDynastyId: existingHostSibling.recruitingDatabaseHostDynastyId });
+      return;
+    }
+    if (!existingHostSibling && poolSiblings.length === 0 && !hasOwnData) {
+      autoResolvedRef.current = currentDynasty.id;
+      updateDynasty(currentDynasty.id, { recruitingDatabaseHostDynastyId: currentDynasty.id });
+      return;
+    }
+
+    let candidates, hostDyn;
+    if (existingHostSibling) {
+      // A pool already exists — this run only folds THIS dynasty's own
+      // leftover data into it, no need to touch already-migrated siblings.
+      const existingHostId = existingHostSibling.recruitingDatabaseHostDynastyId;
+      hostDyn = dynasties.find(d => String(d.id) === String(existingHostId)) || existingHostSibling;
+      candidates = [currentDynasty];
+    } else {
+      // Pool's first migration — host is whichever candidate synced most
+      // recently (reusing its existing sheet), tie-broken by "already has a
+      // sheet at all."
+      const unmigrated = poolSiblings.filter(d => !d.recruitingDatabaseHostDynastyId);
+      candidates = [currentDynasty, ...unmigrated];
+      hostDyn = candidates.reduce((best, d) => {
+        if (!best) return d;
+        const bestTime = best.recruitingDatabaseLastSyncedAt || 0;
+        const dTime = d.recruitingDatabaseLastSyncedAt || 0;
+        if (dTime !== bestTime) return dTime > bestTime ? d : best;
+        if (!!d.recruitingDatabaseSheetId !== !!best.recruitingDatabaseSheetId) return d.recruitingDatabaseSheetId ? d : best;
+        return best;
+      }, null);
+    }
+
+    const lists = candidates.map(d => ({
+      dynastyId: d.id,
+      dynastyName: d.teamName || d.coachName || 'Dynasty',
+      players: d.recruitingDatabasePlayers || [],
+    }));
+    const mergedPlayers = renumberForMerge(lists);
+    const duplicateClusters = findDuplicateClusters(mergedPlayers);
+
+    setMigrationProposal({
+      hostId: hostDyn.id,
+      hostName: hostDyn.teamName || hostDyn.coachName || 'Dynasty',
+      hostSheetId: hostDyn.recruitingDatabaseSheetId || null,
+      foldingInNames: candidates.filter(d => String(d.id) !== String(hostDyn.id)).map(d => d.teamName || d.coachName || 'Dynasty'),
+      candidateIds: candidates.map(d => d.id),
+      mergedPlayers,
+      duplicateClusters,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDynasty?.id, currentDynasty?.recruitingDatabaseHostDynastyId, dynasties]);
+
+  // A plain local file download — no network/auth involved, so unlike the
+  // old Sheets-to-Sheets backup this can never fail on an expired Google
+  // token. Downloads the full merged set about to become the shared
+  // database, so if anything goes wrong there's a snapshot of exactly what
+  // was about to be written.
+  const handleMigrationBackupNow = () => {
+    if (!migrationProposal) return;
+    downloadRecruitingDatabaseJson(migrationProposal.mergedPlayers);
+    toast.success('Recruiting Database downloaded as a backup file.');
+  };
+
+  const handleConfirmMigration = async (deletedPids) => {
+    if (!migrationProposal) return;
+    setMigrationBusy(true);
+    try {
+      const finalPlayers = applyDuplicateResolution(migrationProposal.mergedPlayers, deletedPids)
+        .map(({ _mergedFromDynastyId, _mergedFromDynastyName, ...p }) => p);
+      await updateDynasty(migrationProposal.hostId, {
+        recruitingDatabasePlayers: finalPlayers,
+        recruitingDatabaseHostDynastyId: migrationProposal.hostId,
+      });
+      await Promise.all(
+        migrationProposal.candidateIds
+          .filter(id => String(id) !== String(migrationProposal.hostId))
+          .map(id => updateDynasty(id, { recruitingDatabaseHostDynastyId: migrationProposal.hostId }))
+      );
+      toast.success('Recruiting Database set up — every dynasty now shares one.');
+      setMigrationProposal(null);
+    } catch (error) {
+      console.error('Recruiting Database migration error:', error);
+      toast.error('Failed to set up the shared database. Please try again.');
+    } finally {
+      setMigrationBusy(false);
+    }
+  };
+
+  const recruitingDatabasePlayers = hostDynasty?.recruitingDatabasePlayers || [];
 
   // Everything the Recruiting Database currently shows — real targets/sibling
   // scouted players (the `players` prop) plus anything pulled in via Import.
@@ -1130,14 +1274,35 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
   // scouted player, sourced fresh from `players` every render) — this is the
   // only place that deletion can actually be enforced. A real Target's pid
   // never ends up in this list (handleSave never lets Save delete one).
-  const excludedPids = currentDynasty?.recruitingDatabaseExcludedPids || [];
+  const excludedPids = hostDynasty?.recruitingDatabaseExcludedPids || [];
   const combinedPlayers = useMemo(() => {
     const excluded = new Set(excludedPids.map(String));
     const basePlayers = excluded.size ? players.filter(p => !excluded.has(String(p.pid))) : players;
-    if (!recruitingDatabasePlayers.length) return basePlayers;
-    const seen = new Set(basePlayers.map(p => `${p.pid}`));
-    const extra = recruitingDatabasePlayers.filter(p => !seen.has(`${p.pid}`) && !excluded.has(String(p.pid)));
-    return [...basePlayers, ...extra];
+    const merged = !recruitingDatabasePlayers.length
+      ? basePlayers
+      : (() => {
+          const seen = new Set(basePlayers.map(p => `${p.pid}`));
+          const extra = recruitingDatabasePlayers.filter(p => !seen.has(`${p.pid}`) && !excluded.has(String(p.pid)));
+          return [...basePlayers, ...extra];
+        })();
+
+    // `players` only carries a partial recentRank — it's computed upstream in
+    // ScoutStaff.jsx from real Targets + sibling-dynasty recruits alone,
+    // before recruitingDatabasePlayers (Google Sheets AI-import entries) are
+    // merged in below, so those never got ranked at all. Recompute the rank
+    // here across the FULL combined set instead, using the same rule: earliest
+    // scoutedAt first (a permanent stamp set once, at first entry — see
+    // recruitingDatabaseSync.js), addedIndex as a tiebreak for anything
+    // scouted before that field existed. This is what keeps entry #1 forever
+    // #1 even as new recruits get added on top.
+    const ranked = [...merged].sort((a, b) => {
+      const at = a.scoutedAt ?? 0;
+      const bt = b.scoutedAt ?? 0;
+      if (at !== bt) return at - bt;
+      return (a.addedIndex ?? 0) - (b.addedIndex ?? 0);
+    });
+    const rankByKey = new Map(ranked.map((r, i) => [`${r.sourceDynastyId ?? ''}:${r.pid}`, i + 1]));
+    return merged.map(r => ({ ...r, recentRank: rankByKey.get(`${r.sourceDynastyId ?? ''}:${r.pid}`) }));
   }, [players, recruitingDatabasePlayers, excludedPids]);
 
   // The actual sync engine — shared by the manual "Save" button and the
@@ -1181,18 +1346,31 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     return next;
   };
 
+  // Belt-and-suspenders against creating a second, duplicate sheet. syncNow's
+  // queue already serializes execution, but each queued call's `run` closure
+  // still captures whatever `currentDynasty` THIS render saw at the moment it
+  // was queued — if two calls (e.g. the modal's auto-create effect and the
+  // debounced auto-push effect below) both got queued before either had
+  // actually run, both closures see recruitingDatabaseSheetId as null, and
+  // the second would create its OWN sheet once dequeued, even though the
+  // first already made one. A ref sidesteps this: it's the SAME mutable
+  // object across every render, so as soon as the first call resolves a real
+  // sheetId (created or reused) it writes it here synchronously — the second
+  // call, however stale its own closure, reads this ref fresh and reuses it.
+  const dbSheetIdRef = useRef(hostDynasty?.recruitingDatabaseSheetId || null);
+
   const syncNowInner = async ({ silent = false } = {}) => {
-    if (!currentDynasty) return;
+    if (!currentDynasty || !hostDynasty) return;
     if (!silent) setSaving(true);
     try {
       // Treat a linked sheet from before this feature's current format (e.g.
       // an early trial sheet with no dedicated "Recruiting Database" tab) the
       // same as no sheet at all — the stale link gets silently replaced with
       // a fresh, correctly-formatted one below instead of failing every save.
-      let sheetId = currentDynasty.recruitingDatabaseSheetId;
+      let sheetId = dbSheetIdRef.current || hostDynasty.recruitingDatabaseSheetId;
       if (sheetId) {
         const valid = (await sheetExists(sheetId)) && (await sheetHasRecruitingDatabaseTab(sheetId));
-        if (!valid) sheetId = null;
+        if (!valid) { sheetId = null; dbSheetIdRef.current = null; }
       }
 
       let finalRecruits = combinedPlayers;
@@ -1200,14 +1378,29 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
       if (!sheetId) {
         const sheetInfo = await createRecruitingDatabaseSheet('CFB 27 - Recruiting Database', combinedPlayers, currentDynasty.teams);
         sheetId = sheetInfo.spreadsheetId;
+        dbSheetIdRef.current = sheetId;
         const seedSnapshot = {};
         combinedPlayers.forEach(p => { if (p.pid != null) seedSnapshot[String(p.pid)] = snapshotKey(p); });
-        await updateDynasty(currentDynasty.id, {
+        await updateDynasty(hostDynasty.id, {
           recruitingDatabaseSheetId: sheetId,
           recruitingDatabaseSyncedSnapshot: seedSnapshot,
           recruitingDatabaseLastSyncedAt: Date.now(),
         });
       } else {
+        dbSheetIdRef.current = sheetId;
+        // One-time repair for the Position column's dropdown (see
+        // fixRecruitingDatabasePositionValidation) — matches it to the raw
+        // in-game position list (LT/RT/LEDG/SAM/etc.) the Database actually
+        // stores. The "V2" flag name (not V1) is deliberate: a since-reverted
+        // earlier version of this repair pushed a bucketed-only list (OT/OG/
+        // etc, no LT/RT), which needs this same repair to run AGAIN to
+        // correct it — reusing the V1 flag would have skipped anyone who'd
+        // already picked up that now-wrong fix. Gated so it only ever runs
+        // once per dynasty, not on every sync.
+        if (!hostDynasty.recruitingDatabasePositionValidationFixedV2) {
+          await fixRecruitingDatabasePositionValidation(sheetId);
+          await updateDynasty(hostDynasty.id, { recruitingDatabasePositionValidationFixedV2: true });
+        }
         const sheetRows = await readRecruitingDatabaseSheet(sheetId);
         // Deletion protection must be scoped to THIS dynasty's own real
         // Targets only (currentDynasty.players) — not the broader `players`
@@ -1220,8 +1413,8 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
           sheetRows,
           localRecruits: combinedPlayers,
           targetPids: targetPidSet,
-          syncedSnapshot: currentDynasty.recruitingDatabaseSyncedSnapshot || {},
-          lastSyncedAt: currentDynasty.recruitingDatabaseLastSyncedAt || 0,
+          syncedSnapshot: hostDynasty.recruitingDatabaseSyncedSnapshot || {},
+          lastSyncedAt: hostDynasty.recruitingDatabaseLastSyncedAt || 0,
         });
         finalRecruits = mergedRecruits;
 
@@ -1246,11 +1439,11 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
         // every render, independent of anything written here. Persist an
         // explicit exclusion list so the deletion actually sticks.
         const nextExcludedPids = Array.from(new Set([
-          ...(currentDynasty.recruitingDatabaseExcludedPids || []),
+          ...(hostDynasty.recruitingDatabaseExcludedPids || []),
           ...deletedPids,
         ]));
 
-        await updateDynasty(currentDynasty.id, {
+        await updateDynasty(hostDynasty.id, {
           recruitingDatabasePlayers: recruitingDatabaseUpdates,
           recruitingDatabaseSyncedSnapshot: nextSnapshot,
           recruitingDatabaseLastSyncedAt: Date.now(),
@@ -1286,53 +1479,60 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     }
   };
 
-  const handleSave = () => syncNow({ silent: false });
-
-  const extractSheetId = (input) => {
-    const s = (input || '').trim();
-    const m = s.match(/\/d\/([a-zA-Z0-9-_]+)/);
-    return m ? m[1] : s;
+  // Account-independent backup — a plain JSON file saved to the user's own
+  // computer, with no dependency on Google Sheets or even this Google account.
+  // Captures every field on every recruit currently shown (real Targets
+  // included, flattened to plain records) so restoring it rebuilds the exact
+  // same database from scratch under a brand-new account if this one is ever
+  // lost. Uses combinedPlayers directly — already the full, current, merged
+  // view — rather than re-deriving a subset.
+  const handleExportJson = () => {
+    downloadRecruitingDatabaseJson(combinedPlayers);
+    toast.success('Recruiting Database exported.');
   };
 
+  const jsonFileInputRef = useRef(null);
+  const [restoringJson, setRestoringJson] = useState(false);
+  const [pendingJsonRestore, setPendingJsonRestore] = useState(null);
 
-  // Wipes this dynasty's own Recruiting Database data and unlinks the
-  // current Google Sheet — the next Save/auto-create starts a brand new one.
-  // Real Targets (currentDynasty.players/isTarget) are never touched, same
-  // protection Save's deletion-sync already gives them — but everything ELSE
-  // currently shown (recruitingDatabasePlayers entries and sibling-dynasty
-  // scouted players, neither of which live in recruitingDatabasePlayers)
-  // needs to be explicitly excluded, not just have that store cleared —
-  // otherwise the table looks completely unchanged after "wiping it clean."
-  const handleReset = async () => {
-    if (!currentDynasty) return;
-    const confirmed = await confirm({
-      title: 'Reset the Recruiting Database?',
-      message: "This empties the Recruiting Database — everything imported plus any sibling-dynasty recruits shown here for reference — and unlinks the current Google Sheet so you can start fresh. Your real Targets aren't affected. The old Google Sheet itself isn't deleted, just disconnected. This cannot be undone.",
-      confirmLabel: 'Reset',
-      variant: 'danger',
-    });
-    if (!confirmed) return;
-    setResetting(true);
+  const finalizeJsonRestore = async (mergedPlayers, addedCount, deletedPids = new Set()) => {
+    const finalPlayers = applyDuplicateResolution(mergedPlayers, deletedPids)
+      .map(({ _mergedFromDynastyId, _mergedFromDynastyName, ...p }) => p);
+    await updateDynasty(hostDynasty.id, { recruitingDatabasePlayers: finalPlayers });
+    toast.success(`Restored ${addedCount} recruit${addedCount === 1 ? '' : 's'} from backup.`);
+    syncNow({ silent: true });
+    setPendingJsonRestore(null);
+  };
+
+  const handleJsonFileSelected = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !hostDynasty) return;
+    setRestoringJson(true);
     try {
-      const targetPidSet = new Set((currentDynasty.players || []).filter(p => p.pid != null).map(p => String(p.pid)));
-      const nonTargetPids = combinedPlayers
-        .filter(p => p.pid != null && !targetPidSet.has(String(p.pid)))
-        .map(p => String(p.pid));
-
-      await updateDynasty(currentDynasty.id, {
-        recruitingDatabasePlayers: [],
-        recruitingDatabaseSheetId: null,
-        recruitingDatabaseSyncedSnapshot: {},
-        recruitingDatabaseLastSyncedAt: null,
-        recruitingDatabaseExcludedPids: nonTargetPids,
-      });
-      toast.success('Recruiting Database reset.');
-      setShowHelpPanel(false);
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed)) throw new Error('Not a valid Recruiting Database backup file.');
+      // Renumber rather than pid-match-merge: a restored file's pids have no
+      // relationship to whatever's already in this (possibly different)
+      // database, so treating every restored entry as brand new (never
+      // silently "matched" onto an unrelated existing recruit that happens to
+      // share a pid) is the correct, safe behavior here.
+      const mergedRecruits = renumberForMerge([
+        { dynastyId: 'existing', dynastyName: 'Already in your database', players: hostDynasty.recruitingDatabasePlayers || [] },
+        { dynastyId: 'restored', dynastyName: 'From the restored file', players: parsed },
+      ]);
+      const clusters = findDuplicateClusters(mergedRecruits);
+      if (clusters.length > 0) {
+        setPendingJsonRestore({ mergedRecruits, addedCount: parsed.length, clusters });
+      } else {
+        await finalizeJsonRestore(mergedRecruits, parsed.length);
+      }
     } catch (error) {
-      console.error('Recruiting Database reset error:', error);
-      toast.error('Failed to reset. Please try again.');
+      console.error('Recruiting Database restore error:', error);
+      toast.error('Could not read that file — make sure it\'s a Recruiting Database export.');
     } finally {
-      setResetting(false);
+      setRestoringJson(false);
     }
   };
 
@@ -1360,36 +1560,6 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [combinedPlayers, currentDynasty?.id]);
 
-  const importCandidates = (dynasties || []).filter(
-    d => d.id !== currentDynasty?.id && d.recruitingDatabaseSheetId
-  );
-
-  const runImport = async (sheetId) => {
-    if (!currentDynasty || !sheetId) return;
-    setImporting(true);
-    try {
-      const sheetRows = await readRecruitingDatabaseSheet(sheetId);
-      const { mergedRecruits } = mergeRecruitingDatabaseRows({
-        sheetRows,
-        localRecruits: recruitingDatabasePlayers,
-      });
-      await updateDynasty(currentDynasty.id, {
-        recruitingDatabasePlayers: mergedRecruits,
-        ...(currentDynasty.recruitingDatabaseSheetId ? {} : { recruitingDatabaseSheetId: sheetId }),
-      });
-      toast.success(`Imported — ${mergedRecruits.length} recruit${mergedRecruits.length !== 1 ? 's' : ''} in the database.`);
-      setShowImportPanel(false);
-      setImportSheetInput('');
-    } catch (error) {
-      if (!auth.handleError(error)) {
-        console.error('Recruiting Database import error:', error);
-        toast.error('Error Importing : Please Try Again');
-      }
-    } finally {
-      setImporting(false);
-    }
-  };
-
   // Edits/deletes on a sheet-sourced recruit must stay inside
   // recruitingDatabasePlayers — never fall through to onEdit/onDelete, which
   // operate on dynasty.players/isTarget and would be the exact leak this
@@ -1407,7 +1577,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     if (isFromRecruitingDatabase(original)) {
       try {
         const next = recruitingDatabasePlayers.map(p => String(p.pid) === String(original.pid) ? { ...updated, updatedAt: Date.now() } : p);
-        await updateDynasty(currentDynasty.id, { recruitingDatabasePlayers: next });
+        await updateDynasty(hostDynasty.id, { recruitingDatabasePlayers: next });
         return true;
       } catch (error) {
         console.error('Recruiting Database edit save error:', error);
@@ -1423,7 +1593,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     if (isFromRecruitingDatabase(pl)) {
       try {
         const next = recruitingDatabasePlayers.filter(p => String(p.pid) !== String(pl.pid));
-        await updateDynasty(currentDynasty.id, { recruitingDatabasePlayers: next });
+        await updateDynasty(hostDynasty.id, { recruitingDatabasePlayers: next });
       } catch (error) {
         console.error('Recruiting Database delete error:', error);
         toast.error('Failed to delete. Please try again.');
@@ -1543,93 +1713,76 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
         onSync={syncNow}
         syncing={saving}
         teamColors={teamColors}
+        hostDynasty={hostDynasty}
       />
+      {migrationProposal && (
+        <RecruitingDatabaseMigrationModal
+          isOpen
+          onClose={() => setMigrationProposal(null)}
+          hostDynastyName={migrationProposal.hostName}
+          foldingInDynastyNames={migrationProposal.foldingInNames}
+          mergedCount={migrationProposal.mergedPlayers.length}
+          duplicateClusters={migrationProposal.duplicateClusters}
+          onBackupNow={handleMigrationBackupNow}
+          confirming={migrationBusy}
+          onConfirm={handleConfirmMigration}
+        />
+      )}
+      {pendingJsonRestore && (
+        <DuplicateReviewModal
+          isOpen
+          onClose={() => setPendingJsonRestore(null)}
+          duplicateClusters={pendingJsonRestore.clusters}
+          onConfirm={(deletedPids) => finalizeJsonRestore(pendingJsonRestore.mergedRecruits, pendingJsonRestore.addedCount, deletedPids)}
+        />
+      )}
+      {hostMissing && (
+        <div className="px-4 py-3 rounded-xl bg-red-950/40 border border-red-800 text-sm text-red-200">
+          Couldn't find your shared Recruiting Database. If you have a previously exported
+          backup file, use <strong>Restore from JSON</strong> below to rebuild it as your new database.
+        </div>
+      )}
 
       {/* Header strip */}
       <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-surface-4">
         <h2 className="text-sm font-display font-bold uppercase text-txt-primary">Recruiting Database</h2>
         <div className="flex items-center gap-3 flex-shrink-0">
           {currentDynasty && (
-            <div className="relative">
-              <button
-                onClick={() => setShowImportPanel(v => !v)}
-                title="Pick a Google Sheet to import as this dynasty's Recruiting Database"
-                className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3"
-              >
-                Import
-              </button>
-              {showImportPanel && (
-                <div
-                  className="absolute right-0 top-full mt-2 w-72 p-3 rounded-xl bg-surface-2 border border-surface-4 shadow-2xl z-50 space-y-3"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <p className="text-xs font-display font-bold uppercase text-txt-primary">Select a Sheet to Import</p>
-                  {currentDynasty?.recruitingDatabaseSheetId && (
-                    <div className="space-y-1.5">
-                      <p className="text-[10px] uppercase tracking-wider text-txt-tertiary">This dynasty's linked sheet</p>
-                      <button
-                        onClick={() => runImport(currentDynasty.recruitingDatabaseSheetId)}
-                        disabled={importing}
-                        className="w-full text-left text-xs text-txt-secondary hover:text-txt-primary transition px-2 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3 disabled:opacity-50"
-                      >
-                        Re-sync latest edits from linked sheet
-                      </button>
-                    </div>
-                  )}
-                  {importCandidates.length > 0 && (
-                    <div className="space-y-1.5">
-                      <p className="text-[10px] uppercase tracking-wider text-txt-tertiary">From another dynasty</p>
-                      {importCandidates.map(d => (
-                        <button
-                          key={d.id}
-                          onClick={() => runImport(d.recruitingDatabaseSheetId)}
-                          disabled={importing}
-                          className="w-full text-left text-xs text-txt-secondary hover:text-txt-primary transition px-2 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3 disabled:opacity-50"
-                        >
-                          {d.teamName || d.coachName || 'Dynasty'}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <div className="space-y-1.5">
-                    <p className="text-[10px] uppercase tracking-wider text-txt-tertiary">Or paste a Sheet link/ID</p>
-                    <input
-                      type="text"
-                      value={importSheetInput}
-                      onChange={e => setImportSheetInput(e.target.value)}
-                      placeholder="https://docs.google.com/spreadsheets/d/..."
-                      className="w-full text-xs bg-surface-3 border border-surface-4 rounded-lg px-2 py-1.5 text-txt-primary placeholder:text-txt-tertiary focus:outline-none"
-                    />
-                    <button
-                      onClick={() => runImport(extractSheetId(importSheetInput))}
-                      disabled={importing || !importSheetInput.trim()}
-                      className="w-full text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3 disabled:opacity-50"
-                    >
-                      {importing ? 'Importing…' : 'Import'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          {currentDynasty && (
             <button
               onClick={() => setShowSheetModal(true)}
               title="Open the Recruiting Database's Google Sheet, with an AI prompt to fill it from screenshots"
               className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3"
             >
-              Open
+              Edit
             </button>
           )}
           {currentDynasty && (
             <button
-              onClick={handleSave}
-              disabled={saving}
-              title="Pull in any edits made directly in the linked Google Sheet (local changes already auto-sync out as you make them)"
-              className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleExportJson}
+              title="Download every recruit in the database as a JSON file — independent of Google, for rebuilding under a new account if this one is ever lost"
+              className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3"
             >
-              {saving ? 'Saving…' : 'Save'}
+              Export JSON
             </button>
+          )}
+          {currentDynasty && (
+            <>
+              <input
+                ref={jsonFileInputRef}
+                type="file"
+                accept=".json"
+                onChange={handleJsonFileSelected}
+                className="hidden"
+              />
+              <button
+                onClick={() => jsonFileInputRef.current?.click()}
+                disabled={restoringJson}
+                title="Load a previously exported JSON backup file back into the database"
+                className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3 disabled:opacity-50"
+              >
+                {restoringJson ? 'Restoring…' : 'Restore from JSON'}
+              </button>
+            </>
           )}
           {currentDynasty && (
             <div className="relative">
@@ -1650,47 +1803,33 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                   <div className="space-y-2 text-xs text-txt-secondary leading-relaxed">
                     <p>
                       The Recruiting Database is a personal scouting reference for every recruit
-                      you've targeted — plus recruits scouted in your other dynasties on this
-                      account, and anything you bring in via Import. It's separate from the Targets
-                      page: editing or removing something here never changes your real Targets board,
-                      except when you deliberately edit one of your own targets through here.
+                      you've targeted, across every dynasty on your account. It's separate from the
+                      Targets page: editing or removing something here never changes your real Targets
+                      board, except when you deliberately edit one of your own targets through here.
                     </p>
                     <p>
                       It mirrors itself into a Google Sheet automatically — any change you make here
-                      (a recruit added, edited, imported, or removed) syncs out to the Sheet on its
-                      own within a couple seconds, so you can browse or bulk-edit it outside the app,
-                      or let a brand-new dynasty pick up an old one's database instead of starting
-                      from zero.
+                      (a recruit added, edited, or removed) syncs out to the Sheet on its own within a
+                      couple seconds, so you can browse or bulk-edit it outside the app.
                     </p>
                     <p>
-                      <strong className="text-txt-primary">Import</strong> pulls recruits in from a
-                      Google Sheet — either one already linked to another of your dynasties, or any
-                      Sheet link/ID you paste in. Imported recruits are added for reference only; they
-                      never become real Targets.
+                      <strong className="text-txt-primary">Edit</strong> opens the Google Sheet
+                      currently linked to your shared Recruiting Database in a new tab — local changes
+                      already sync out on their own, so this is also where you'd go to pull in edits
+                      made directly in the Sheet itself (its own "Save & keep" button). A recruit
+                      deleted from the Sheet is removed here too, except a real Target, which this can
+                      never delete.
                     </p>
                     <p>
-                      <strong className="text-txt-primary">Open</strong> opens the Google Sheet
-                      currently linked to this dynasty's Recruiting Database in a new tab.
+                      <strong className="text-txt-primary">Export JSON</strong> downloads a file with
+                      everything in the database — every field, exactly as stored — completely
+                      independent of Google. <strong className="text-txt-primary">Restore from JSON</strong>{' '}
+                      loads one of those files back in, so the database can be rebuilt from scratch
+                      under a brand-new Google account if this one is ever lost.
                     </p>
-                    <p>
-                      <strong className="text-txt-primary">Save</strong> pulls in edits made directly
-                      in the Sheet — local changes already sync out on their own, so Save exists for
-                      the case where nothing changed here but you hand-edited the Sheet itself. A
-                      recruit deleted from the Sheet is removed here too, except a real Target, which
-                      this can never delete.
-                    </p>
-                  </div>
-
-                  <div className="pt-3 border-t border-surface-4 space-y-2">
-                    <button
-                      onClick={handleReset}
-                      disabled={resetting}
-                      className="w-full text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3 disabled:opacity-50"
-                    >
-                      {resetting ? 'Resetting…' : 'Reset'}
-                    </button>
-                    <p className="text-[10px] text-txt-tertiary leading-relaxed">
-                      Having issues? Press the reset button to wipe the Recruiting Database clean.
+                    <p className="text-[10px] text-txt-tertiary leading-relaxed pt-2 border-t border-surface-4">
+                      Every dynasty on your account shares this exact same Recruiting Database — edit
+                      it from any of them and every other one sees the change.
                     </p>
                   </div>
                 </div>
@@ -1845,7 +1984,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                       <td className="px-2 py-3.5 uppercase font-semibold text-txt-tertiary text-[10px] tracking-wider overflow-hidden truncate">{pl.group}</td>
                       <td className="px-2 py-3.5 overflow-hidden">
                         <span className="px-2 py-0.5 rounded text-[10px] font-black text-txt-tertiary bg-surface-4 border border-surface-4">
-                          {pl.position}
+                          {pl.rawPosition ?? pl.position}
                         </span>
                       </td>
                       <td className="px-2 py-3.5 text-txt-secondary font-medium overflow-hidden">{pl.archetype}</td>

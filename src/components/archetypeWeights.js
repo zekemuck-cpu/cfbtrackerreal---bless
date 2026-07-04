@@ -159,6 +159,12 @@ export function archetypeBaseScore(player, weightsMap = null) {
 // widened any-star fallback was needed (a softer, less precise match).
 // Returns null right alongside computeScore's null — nothing to rate the
 // confidence of if there's no score at all.
+//
+// "Strong" is reserved for an exact position+archetype+star match — widening
+// always costs a full confidence step, so a widened bucket can reach at most
+// "Broad" (rich data, 3 boundaries, but pulled from a broader star range than
+// the exact bucket we'd actually want) even though the raw boundary count
+// alone would otherwise read as strong.
 export function getScoreConfidence(player, weightsMap = null) {
   const arch    = normalizeArch(player.archetype || '');
   const archKey = `${player.position}_${arch}`;
@@ -170,6 +176,28 @@ export function getScoreConfidence(player, weightsMap = null) {
   const usedWidening = !exact?.weights;
   const boundariesUsed = entry.boundariesUsed ?? 0;
   const strength = Math.max(0, boundariesUsed - (usedWidening ? 1 : 0));
-  const level = strength >= 2 ? 'Strong' : strength === 1 ? 'Limited' : 'Thin';
-  return { level, usedWidening, boundariesUsed };
+  const level = usedWidening && strength >= 2 ? 'Broad'
+    : strength >= 2 ? 'Strong'
+    : strength === 1 ? 'Limited'
+    : 'Thin';
+
+  // Description text is derived from the SAME level/usedWidening the pill
+  // color is derived from, so the tooltip can never drift out of sync with
+  // what's actually being shown (previously the tooltip only branched on
+  // usedWidening, so e.g. a rich "Broad" result and a starved "Thin" result —
+  // both reached via widening — rendered identical text despite being
+  // opposite ends of the confidence scale).
+  const exactLabel = `${player.stars}★ ${player.archetype} ${player.position}s`;
+  const anyStarLabel = `${player.archetype} ${player.position}s, any star`;
+  const description = usedWidening
+    ? (level === 'Broad'
+        ? `Tier 1 – Compared to all ${exactLabel} (Failed – too few scouted)\nTier 2 – Compared to all ${anyStarLabel} (Success – ample data)`
+        : `Tier 1 – Compared to all ${exactLabel} (Failed – too few scouted)\nTier 2 – Compared to all ${anyStarLabel} (Barely enough data – low confidence)`)
+    : (level === 'Strong'
+        ? `Compared to all ${exactLabel} (Success – ample data)`
+        : level === 'Limited'
+          ? `Compared to all ${exactLabel} (Success – thin data, low confidence)`
+          : `Compared to all ${exactLabel} (Barely enough data – low confidence)`);
+
+  return { level, usedWidening, boundariesUsed, description };
 }

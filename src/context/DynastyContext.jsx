@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { useAuth } from './AuthContext'
 import { useToast } from '../components/ui/Toast'
+import { useConfirm } from '../components/ui/ConfirmDialog'
+import { handleDynastyLeavingPool, downloadRecruitingDatabaseJson } from '../utils/recruitingDatabasePool'
 import {
   getUserDynasties,
   subscribeToDynasties,
@@ -5594,6 +5596,10 @@ export function useDynasty() {
 export function DynastyProvider({ children }) {
   const { user, isPremium, subscription } = useAuth()
   const { toast } = useToast()
+  // Only for the rare "this dynasty is the last one holding the shared
+  // Recruiting Database" guard below — falls back to window.confirm if no
+  // ConfirmProvider happens to be mounted above this point in the tree.
+  const { confirm } = useConfirm()
   const [dynasties, setDynasties] = useState([])
   const [currentDynasty, setCurrentDynasty] = useState(null)
   // Social Media data, kept OFF the dynasty object so the dynasty listener
@@ -8211,7 +8217,45 @@ export function DynastyProvider({ children }) {
     await updateDynasty(dynastyId, { socialPlatform: { ...cur, ...patch } })
   }
 
+  // Shared by deleteDynasty AND migrateDynastyStorage — both actually remove a
+  // dynasty ID for good (migration deletes the old-tier doc and creates a new
+  // one elsewhere). If dynastyId is hosting the account-wide shared Recruiting
+  // Database for its pool, hand it off to a sibling automatically (nothing
+  // lost, no prompt). If it's the ONLY dynasty in its pool, there's nowhere to
+  // hand off to — confirm with the user and download a JSON backup before
+  // allowing the caller to proceed, so the shared database is never silently
+  // orphaned. Returns false if the user cancels (the caller must abort).
+  const checkPoolBeforeDynastyLeaves = async (dynastyId) => {
+    const result = await handleDynastyLeavingPool(dynastyId, dynasties, updateDynasty)
+    if (result.ok || result.reason !== 'lone-host') return true
+
+    const proceed = await confirm({
+      title: 'Last Dynasty Holding Your Shared Recruiting Database',
+      message: "This is the only dynasty holding your account-wide Recruiting Database. Continuing would leave it with nowhere to live, so we'll download a JSON backup first — you can rebuild it in a new dynasty later via \"Restore from JSON.\"",
+      confirmLabel: 'Download Backup & Continue',
+      variant: 'danger',
+    })
+    if (!proceed) return false
+
+    try {
+      const ownPlayers = await getDynastyPlayers(result.dynasty)
+      const targets = (ownPlayers || []).filter(p => p?.isTarget)
+      const extras = result.dynasty.recruitingDatabasePlayers || []
+      const seen = new Set(targets.map(p => String(p.pid)))
+      const merged = [...targets, ...extras.filter(p => !seen.has(String(p.pid)))]
+      downloadRecruitingDatabaseJson(merged)
+      toast.success('Recruiting Database backed up to a JSON file.')
+      return true
+    } catch (err) {
+      console.error('Failed to back up Recruiting Database before removal:', err)
+      toast.error('Could not create the backup — cancelling to be safe.')
+      return false
+    }
+  }
+
   const deleteDynasty = async (dynastyId) => {
+    if (!(await checkPoolBeforeDynastyLeaves(dynastyId))) return
+
     // Find the dynasty to determine its storage type. The list exposed to
     // consumers is dynastiesWithShared (owner + shared), so a dynasty the
     // user can see may live in sharedDynasties — search both, same as
@@ -16534,6 +16578,13 @@ export function DynastyProvider({ children }) {
       if (!user) {
         return { success: false, error: 'Sign in required for cloud storage' }
       }
+    }
+
+    // Migrating a dynasty between storage tiers deletes its old-tier document
+    // and creates a brand-new one — the exact same "this ID is about to
+    // disappear from its pool" concern deleteDynasty already guards against.
+    if (!(await checkPoolBeforeDynastyLeaves(dynastyId))) {
+      return { success: false, cancelled: true }
     }
 
     try {

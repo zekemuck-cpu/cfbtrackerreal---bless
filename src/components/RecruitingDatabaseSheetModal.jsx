@@ -1,19 +1,43 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useDynasty } from '../context/DynastyContext'
+import { useToast } from './ui/Toast'
 import SheetModalHeader from './ui/SheetModalHeader'
 import SheetModalAIHero from './ui/SheetModalAIHero'
 import SheetManualEntry from './ui/SheetManualEntry'
 import SheetModalFooter from './ui/SheetModalFooter'
 import SheetToolbar from './SheetToolbar'
 import SheetLoadingHint from './SheetLoadingHint'
-import { getSingleSheetEmbedUrl } from '../services/sheetsService'
+import LocalDataEntry from './ui/LocalDataEntry'
+import { getSingleSheetEmbedUrl, RECRUIT_POSITIONS } from '../services/sheetsService'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import { ATTRIBUTE_COLUMNS, ATTRIBUTE_ABBR } from '../utils/recruitAttributes'
+import { splitTsv } from '../utils/tsvParse'
+import { parseRecruitingDatabaseRows } from '../utils/recruitingDatabaseSheetFormat'
+import { mergeRecruitingDatabaseRows } from '../utils/recruitingDatabaseSync'
+import { findDuplicateClusters, applyDuplicateResolution } from '../utils/recruitingDatabasePool'
+import DuplicateReviewModal from './DuplicateReviewModal'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
   return window.innerWidth < 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+}
+
+// Header labels for the local-paste grid, in the exact column order the AI
+// prompt emits and parseRecruitingDatabaseRow (recruitingDatabaseSheetFormat.js)
+// reads by position: A–O are the recruit fields, P is the single Attributes cell.
+const RECRUITING_DB_PASTE_COLUMNS = [
+  'Name', 'Class', 'Pos', 'Arch', 'Stars', 'Natl Rk', 'St Rk', 'Pos Rk',
+  'Height', 'Weight', 'Hometown', 'State', 'Gem/Bust', 'Dev', 'Prev Team', 'Attributes',
+]
+
+// Dropdown options for the paste grid's enumerated columns — same idea as
+// the Sheet's own data-validation dropdowns, so a pasted/typed value snaps
+// onto the canonical casing on the way in.
+const RECRUITING_DB_COLUMN_OPTIONS = {
+  'Pos': RECRUIT_POSITIONS,
+  'Gem/Bust': ['Gem', 'Bust'],
+  'Dev': ['Hidden', 'Normal', 'Impact', 'Star', 'Elite'],
 }
 
 // Same "AI Workflow Recommended" sheet-modal chrome as Recruiting Commitments/
@@ -23,12 +47,17 @@ const isMobileDevice = () => {
 // create-or-sync logic (`onSync`, passed in as PlayerDatabase's `syncNow`)
 // rather than duplicating the Sheets-API create/reconcile calls here — this
 // modal is just a richer UI shell around that already-tested flow.
-export default function RecruitingDatabaseSheetModal({ isOpen, onClose, combinedPlayers = [], onSync, syncing = false, teamColors }) {
-  const { currentDynasty } = useDynasty()
+export default function RecruitingDatabaseSheetModal({ isOpen, onClose, combinedPlayers = [], onSync, syncing = false, teamColors, hostDynasty }) {
+  const { currentDynasty, updateDynasty } = useDynasty()
+  const { toast } = useToast()
   const [isMobile, setIsMobile] = useState(false)
   const [useEmbedded, setUseEmbedded] = useState(() => localStorage.getItem('sheetEmbedPreference') === 'true')
   const [creating, setCreating] = useState(false)
   const creatingRef = useRef(false)
+  // Local paste is the DEFAULT ingest path — no Google auth/sheet needed just
+  // to type in a few recruits. "Use Google Sheet instead" is the opt-in
+  // escape hatch (matches the Recruiting Commitments/Preseason modals).
+  const [useLocal, setUseLocal] = useState(true)
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
@@ -37,21 +66,71 @@ export default function RecruitingDatabaseSheetModal({ isOpen, onClose, combined
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  const sheetId = currentDynasty?.recruitingDatabaseSheetId || null
+  // Reset to the local-paste default every time the modal is reopened, same
+  // as Recruiting Commitments — otherwise a prior "Use Google Sheet instead"
+  // choice would silently carry over to the next open.
+  useEffect(() => {
+    if (!isOpen) setUseLocal(true)
+  }, [isOpen])
+
+  const sheetId = hostDynasty?.recruitingDatabaseSheetId || null
 
   // Auto-create the moment the modal opens and nothing is linked yet — the
   // Recruiting Database already lazily creates its sheet on first Save
   // (see PlayerDatabase.jsx's syncNow); triggering that same call here means
   // this modal never opens to a dead end waiting on a manual Save first.
+  // Skipped entirely while local paste is active — no reason to force a
+  // Google Sheet (and its OAuth) into existence for someone who just wants to
+  // paste a few recruits in locally.
   useEffect(() => {
-    if (!isOpen || sheetId || creating || creatingRef.current) return
+    if (!isOpen || useLocal || sheetId || creating || creatingRef.current) return
     creatingRef.current = true
     setCreating(true)
     Promise.resolve(onSync?.({ silent: false })).finally(() => {
       setCreating(false)
       creatingRef.current = false
     })
-  }, [isOpen, sheetId])
+  }, [isOpen, useLocal, sheetId])
+
+  // Pending local-paste import awaiting duplicate review — { mergedRecruits,
+  // addedCount, clusters } | null.
+  const [pendingLocalImport, setPendingLocalImport] = useState(null)
+  const [confirmingLocalImport, setConfirmingLocalImport] = useState(false)
+
+  const finalizeLocalImport = async (mergedRecruits, addedCount, deletedPids = new Set()) => {
+    const finalRecruits = applyDuplicateResolution(mergedRecruits, deletedPids)
+    await updateDynasty(hostDynasty.id, { recruitingDatabasePlayers: finalRecruits })
+    toast.success(`Imported ${addedCount} recruit${addedCount === 1 ? '' : 's'}.`)
+    onSync?.({ silent: true })
+    setPendingLocalImport(null)
+  }
+
+  // Local paste import: parse the AI's (or hand-typed/uploaded) TSV reply into
+  // recruit objects via the SAME parser a real Sheet read uses, then merge them
+  // onto whatever's already in the shared Recruiting Database (pid-based, so
+  // re-importing an already-known recruit updates it instead of duplicating it
+  // — see mergeRecruitingDatabaseRows). Newly-incoming recruits are checked
+  // against the existing database for possible duplicates before finalizing —
+  // same conservative name+position+archetype+stars match the one-time pool
+  // migration uses. The linked sheet (if any) picks up the addition on its own
+  // via PlayerDatabase's auto-push effect; nudging a silent sync here just
+  // makes that feel immediate instead of waiting on the debounce.
+  const handleLocalImport = async (text) => {
+    if (!hostDynasty) throw new Error('No Recruiting Database to import into yet.')
+    const rows = splitTsv(text)
+    const parsed = parseRecruitingDatabaseRows(rows).filter(r => r.name)
+    if (!parsed.length) throw new Error('No recruits found in the pasted text.')
+    const { mergedRecruits } = mergeRecruitingDatabaseRows({
+      sheetRows: parsed,
+      localRecruits: hostDynasty.recruitingDatabasePlayers || [],
+    })
+    const clusters = findDuplicateClusters(mergedRecruits)
+    if (clusters.length > 0) {
+      setPendingLocalImport({ mergedRecruits, addedCount: parsed.length, clusters })
+    } else {
+      await finalizeLocalImport(mergedRecruits, parsed.length)
+    }
+  }
 
   // Recognized attribute names + short codes, same reference list the
   // Recruiting Commitments prompt uses — the Database sheet's single
@@ -180,7 +259,19 @@ FINAL CHECK
             )}
           </div>
 
-          {isLoading ? (
+          {useLocal ? (
+            <LocalDataEntry
+              aiPrompt={prompt}
+              onImport={handleLocalImport}
+              onUseGoogle={() => setUseLocal(false)}
+              onCancel={onClose}
+              importLabel="Import Recruits"
+              columns={RECRUITING_DB_PASTE_COLUMNS}
+              columnOptions={RECRUITING_DB_COLUMN_OPTIONS}
+              allowFileUpload
+              fileUploadAccept=".tsv,.txt"
+            />
+          ) : isLoading ? (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
                 <div
@@ -223,6 +314,23 @@ FINAL CHECK
           )}
         </div>
       </div>
+
+      {pendingLocalImport && (
+        <DuplicateReviewModal
+          isOpen
+          onClose={() => setPendingLocalImport(null)}
+          duplicateClusters={pendingLocalImport.clusters}
+          confirming={confirmingLocalImport}
+          onConfirm={async (deletedPids) => {
+            setConfirmingLocalImport(true)
+            try {
+              await finalizeLocalImport(pendingLocalImport.mergedRecruits, pendingLocalImport.addedCount, deletedPids)
+            } finally {
+              setConfirmingLocalImport(false)
+            }
+          }}
+        />
+      )}
     </div>,
     document.body,
   )

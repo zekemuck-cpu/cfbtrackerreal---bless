@@ -5,7 +5,7 @@
 // every attribute the recruit has is preserved (not just the position's
 // typical subset), so a save/import round trip never silently drops data.
 
-import { ATTRIBUTE_COLUMNS, ATTRIBUTE_ABBR, serializeAttributes } from './recruitAttributes'
+import { ATTRIBUTE_COLUMNS, ATTRIBUTE_ABBR, serializeAttributes, positionBucket } from './recruitAttributes'
 
 export const RECRUITING_DATABASE_SHEET_TAB = 'Recruiting Database'
 
@@ -28,12 +28,20 @@ export const PREVIOUS_TEAM_COL = 14
 export const ATTRIBUTES_COL = 15
 export const PID_COL = 16
 export const UPDATED_AT_COL = 17
-export const TOTAL_COLS = UPDATED_AT_COL + 1
+// Stamped once, the moment a recruit first enters the database (whether
+// scouted as a real Target or added here via the AI/Sheets import) — unlike
+// Updated (which changes on every edit), this never changes again, so it's
+// what "recent number" ordering (recentRank) is permanently anchored to. A
+// blank cell here (pre-existing rows synced before this column existed) gets
+// backfilled with a fresh timestamp on the next sync — see
+// recruitingDatabaseSync.js.
+export const SCOUTED_AT_COL = 18
+export const TOTAL_COLS = SCOUTED_AT_COL + 1
 
 export const HEADERS = [
   'Name', 'Class', 'Position', 'Archetype', 'Stars', 'National Rank', 'State Rank',
   'Position Rank', 'Height', 'Weight', 'Hometown', 'State', 'Gem/Bust', 'Dev Trait',
-  'Previous Team', 'Attributes', 'pid', 'Updated',
+  'Previous Team', 'Attributes', 'pid', 'Updated', 'Scouted At',
 ]
 
 function colLetter(idx) {
@@ -44,7 +52,7 @@ function colLetter(idx) {
   return s
 }
 
-export const READ_RANGE = `${RECRUITING_DATABASE_SHEET_TAB}!A2:${colLetter(UPDATED_AT_COL)}600`
+export const READ_RANGE = `${RECRUITING_DATABASE_SHEET_TAB}!A2:${colLetter(SCOUTED_AT_COL)}600`
 
 const NON_PORTAL_CLASSES = ['HS', 'JUCO Fr', 'JUCO So', 'JUCO Jr']
 const starsSymbolToNumber = (s) => (s ? (String(s).match(/☆/g) || []).length : 0)
@@ -87,10 +95,18 @@ export function parseRecruitingDatabaseRow(row) {
   if (!row || !trim(row[NAME_COL])) return null
   const recruitClass = trim(row[CLASS_COL]) || 'HS'
   const pidRaw = row[PID_COL]
+  // The Position cell holds the raw in-game label (LT, RT, SAM, LEDG, ...) —
+  // preserved as rawPosition so the Database can display/store it distinctly,
+  // while `position` is bucketed to the grading engine's scheme (OT, OLB, DE,
+  // ...) so archetype/threshold/composite-score lookups (which key off
+  // position+archetype) still resolve correctly regardless of which raw label
+  // was entered.
+  const rawPosition = trim(row[POSITION_COL])
   return {
     name: trim(row[NAME_COL]),
     class: recruitClass,
-    position: trim(row[POSITION_COL]),
+    position: positionBucket(rawPosition) || rawPosition,
+    rawPosition,
     archetype: trim(row[ARCHETYPE_COL]),
     stars: starsSymbolToNumber(row[STARS_COL]),
     nationalRank: intOrNull(row[NATIONAL_RANK_COL]),
@@ -107,6 +123,7 @@ export function parseRecruitingDatabaseRow(row) {
     attributes: parseAttributesCell(row[ATTRIBUTES_COL]),
     pid: trim(pidRaw) !== '' ? Number(trim(pidRaw)) : undefined,
     updatedAt: intOrNull(row[UPDATED_AT_COL]),
+    scoutedAt: intOrNull(row[SCOUTED_AT_COL]),
   }
 }
 
@@ -118,7 +135,7 @@ export function serializeRecruitingDatabaseRow(recruit) {
   const r = []
   r[NAME_COL] = str(recruit.name)
   r[CLASS_COL] = str(recruit.class || 'HS')
-  r[POSITION_COL] = str(recruit.position)
+  r[POSITION_COL] = str(recruit.rawPosition ?? recruit.position)
   r[ARCHETYPE_COL] = str(recruit.archetype)
   r[STARS_COL] = starsNumberToSymbol(recruit.stars)
   r[NATIONAL_RANK_COL] = recruit.nationalRank ?? ''
@@ -134,5 +151,6 @@ export function serializeRecruitingDatabaseRow(recruit) {
   r[ATTRIBUTES_COL] = serializeAttributes(recruit.attributes)
   r[PID_COL] = recruit.pid ?? ''
   r[UPDATED_AT_COL] = recruit.updatedAt ?? ''
+  r[SCOUTED_AT_COL] = recruit.scoutedAt ?? ''
   return r
 }

@@ -11,6 +11,7 @@ import { ATTRIBUTE_COLUMNS, ATTRIBUTE_ABBR, attributeNamesFor, serializeAttribut
 import {
   RECRUITING_DATABASE_SHEET_TAB, TOTAL_COLS as RECRUITING_DATABASE_TOTAL_COLS,
   PID_COL as RECRUITING_DATABASE_PID_COL, UPDATED_AT_COL as RECRUITING_DATABASE_UPDATED_AT_COL,
+  SCOUTED_AT_COL as RECRUITING_DATABASE_SCOUTED_AT_COL,
   READ_RANGE as RECRUITING_DATABASE_READ_RANGE, HEADERS as RECRUITING_DATABASE_HEADERS,
   parseRecruitingDatabaseRows, serializeRecruitingDatabaseRow,
 } from '../utils/recruitingDatabaseSheetFormat'
@@ -11165,7 +11166,13 @@ export async function readDraftResultsFromSheet(spreadsheetId, dynastyTeams = nu
 // Recruiting class options
 const RECRUIT_CLASSES = ['HS', 'JUCO Fr', 'JUCO So', 'JUCO Jr', 'Fr', 'RS Fr', 'So', 'RS So', 'Jr', 'RS Jr']
 
-const RECRUIT_POSITIONS = [
+// Raw in-game position labels — used by BOTH the Targets/Commitments sheet
+// and the Recruiting Database sheet's Position dropdown. The Database stores
+// this same raw granular value (not the grading engine's bucketed scheme —
+// see utils/recruitAttributes.js's positionBucket) so a scout can tell a left
+// tackle from a right tackle prospect apart; grading buckets LT/RT under OT
+// (etc.) at read time instead, via positionBucket in recruitingDatabaseSheetFormat.js.
+export const RECRUIT_POSITIONS = [
   'QB', 'HB', 'FB', 'WR', 'TE', 'LT', 'LG', 'C', 'RG', 'RT',
   'LEDG', 'REDG', 'DT', 'SAM', 'MIKE', 'WILL', 'CB', 'FS', 'SS', 'K', 'P', 'ATH'
 ]
@@ -11816,7 +11823,7 @@ export async function createRecruitingDatabaseSheet(title, recruits = [], dynast
       },
     })
 
-    const columnWidths = [150, 70, 70, 140, 80, 70, 70, 70, 60, 60, 120, 50, 70, 70, 80, 340, 50, 70]
+    const columnWidths = [150, 70, 70, 140, 80, 70, 70, 70, 60, 60, 120, 50, 70, 70, 80, 340, 50, 70, 70]
     columnWidths.forEach((width, idx) => {
       requests.push({
         updateDimensionProperties: {
@@ -11855,11 +11862,11 @@ export async function createRecruitingDatabaseSheet(title, recruits = [], dynast
     requests.push(dropdown(13, RECRUITING_DATABASE_DEV_TRAITS))
     requests.push(dropdown(14, ['', ...teamAbbrs]))
 
-    // Hidden pid/Updated columns — round-trip bookkeeping the app manages;
-    // users never need to touch them.
+    // Hidden pid/Updated/Scouted At columns — round-trip bookkeeping the app
+    // manages; users never need to touch them.
     requests.push({
       updateDimensionProperties: {
-        range: { sheetId, dimension: 'COLUMNS', startIndex: RECRUITING_DATABASE_PID_COL, endIndex: RECRUITING_DATABASE_UPDATED_AT_COL + 1 },
+        range: { sheetId, dimension: 'COLUMNS', startIndex: RECRUITING_DATABASE_PID_COL, endIndex: RECRUITING_DATABASE_SCOUTED_AT_COL + 1 },
         properties: { hiddenByUser: true },
         fields: 'hiddenByUser',
       },
@@ -11883,6 +11890,46 @@ export async function createRecruitingDatabaseSheet(title, recruits = [], dynast
   } catch (error) {
     console.error('Error creating Recruiting Database sheet:', error)
     throw error
+  }
+}
+
+// One-time repair for a Recruiting Database sheet whose Position column
+// dropdown doesn't match RECRUIT_POSITIONS (the raw in-game labels the
+// Database actually stores — see recruitingDatabaseSheetFormat.js's
+// positionBucket handling). Also fixes a sheet that briefly shipped with a
+// bucketed-only list (OT/OG/DE/etc, no LT/RT/LEDG/SAM) — that version
+// rejected the very raw values the AI prompt tells the user to enter. Safe to
+// call repeatedly — pushing the same validation rule twice is a no-op.
+export async function fixRecruitingDatabasePositionValidation(spreadsheetId) {
+  try {
+    const accessToken = await getAccessToken()
+    const metaResponse = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}?fields=sheets.properties`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    })
+    if (!metaResponse.ok) return
+    const meta = await metaResponse.json()
+    const sheet = (meta.sheets || []).find(s => s.properties?.title === RECRUITING_DATABASE_SHEET_TAB)
+    if (!sheet) return
+    const sheetId = sheet.properties.sheetId
+    const totalRows = Math.max(sheet.properties.gridProperties?.rowCount || 600, 600)
+
+    await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requests: [{
+          setDataValidation: {
+            range: { sheetId, startRowIndex: 1, endRowIndex: totalRows, startColumnIndex: 2, endColumnIndex: 3 },
+            rule: {
+              condition: { type: 'ONE_OF_LIST', values: RECRUIT_POSITIONS.map(v => ({ userEnteredValue: v })) },
+              showCustomUi: true, strict: false,
+            },
+          },
+        }],
+      }),
+    })
+  } catch (error) {
+    console.warn('Recruiting Database position validation repair failed:', error?.message || error)
   }
 }
 
@@ -11911,7 +11958,7 @@ export async function writeRecruitingDatabaseRows(spreadsheetId, recruits) {
     const values = (recruits || []).map(serializeRecruitingDatabaseRow)
     if (values.length === 0) return
 
-    const range = `${RECRUITING_DATABASE_SHEET_TAB}!A2:${colLetter(RECRUITING_DATABASE_UPDATED_AT_COL)}${values.length + 1}`
+    const range = `${RECRUITING_DATABASE_SHEET_TAB}!A2:${colLetter(RECRUITING_DATABASE_SCOUTED_AT_COL)}${values.length + 1}`
     const response = await fetchWithTimeout(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
       {

@@ -340,7 +340,23 @@ export const storageService = {
         _subcollectionsMigrated: true, // Mark as using subcollections
         // Store counts for reference
         _playerCount: players?.length || 0,
-        _gameCount: games?.length || 0
+        _gameCount: games?.length || 0,
+        // This dynasty is leaving its old (local) Recruiting Database pool —
+        // deleteDynasty/migrateDynastyStorage's checkPoolBeforeDynastyLeaves
+        // already handed off host duty for its OLD pool before this ran, if
+        // it was hosting one. The host pointer + sheet-sync bookkeeping
+        // describe a specific Sheet + sync state tied to that old (local)
+        // pool and would be meaningless (or actively wrong) in the new cloud
+        // pool — clearing them re-triggers the normal migration-trigger flow
+        // there instead, correctly treating recruitingDatabasePlayers (left
+        // intact below, via the mainDynastyData spread) as this dynasty's own
+        // leftover data to fold in.
+        recruitingDatabaseHostDynastyId: null,
+        recruitingDatabaseSheetId: null,
+        recruitingDatabaseSyncedSnapshot: null,
+        recruitingDatabaseLastSyncedAt: null,
+        recruitingDatabaseBackupSheetId: null,
+        recruitingDatabasePositionValidationFixedV2: false,
       });
 
       const cloudDynastyId = cloudDynasty.id;
@@ -422,13 +438,26 @@ export const storageService = {
         };
       }
 
-      // Create locally with the full payload embedded.
+      // Create locally with the full payload embedded. Recruiting-Database
+      // host/sheet-sync bookkeeping is deliberately reset (see the matching
+      // comment in migrateDynastyToCloud above) — this dynasty is joining the
+      // LOCAL pool, a different one than whatever cloud pool it came from, so
+      // a carried-over host pointer or sheet ID would be meaningless there.
+      // recruitingDatabasePlayers itself IS carried over via the `...dynasty`
+      // spread — the migration-trigger flow picks it up as this dynasty's own
+      // leftover data to fold into the local pool.
       const localDynasty = await indexedDBStorage.createDynasty({
         ...dynasty,
         players,
         games,
         storageType: STORAGE_TYPE.LOCAL,
         _subcollectionsMigrated: undefined, // local format doesn't use this flag
+        recruitingDatabaseHostDynastyId: null,
+        recruitingDatabaseSheetId: null,
+        recruitingDatabaseSyncedSnapshot: null,
+        recruitingDatabaseLastSyncedAt: null,
+        recruitingDatabaseBackupSheetId: null,
+        recruitingDatabasePositionValidationFixedV2: false,
       });
 
       // Only delete cloud copy after local save succeeded AND caller

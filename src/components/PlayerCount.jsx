@@ -47,12 +47,10 @@ export default function PlayerCount() {
     loadScout();
   }, [currentDynasty?.id]);
 
-  const isolated = !!currentDynasty?.recruitingDbIsolated;
-
-  // Stable key so the sibling fetch only reruns when dynasty membership or
-  // isolation flags actually change, not on every unrelated context re-render.
+  // Stable key so the sibling fetch only reruns when dynasty membership
+  // actually changes, not on every unrelated context re-render.
   const dynastiesKey = useMemo(
-    () => (dynasties || []).map(d => `${d.id}:${d.recruitingDbIsolated ? 1 : 0}`).join('|'),
+    () => (dynasties || []).map(d => d.id).join('|'),
     [dynasties]
   );
 
@@ -83,7 +81,7 @@ export default function PlayerCount() {
     });
     return () => { alive = false };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDynasty?.id, isolated, dynastiesKey]);
+  }, [currentDynasty?.id, dynastiesKey]);
 
   const effectiveSiblingPlayers = siblingPlayers.length ? siblingPlayers : cachedSiblingPlayers;
 
@@ -91,9 +89,9 @@ export default function PlayerCount() {
   // different evaluation context and shouldn't skew freshman class counts.
   const allRecruits = useMemo(() => {
     const own = currentDynasty?.players || [];
-    const pool = isolated ? own : [...own, ...effectiveSiblingPlayers];
+    const pool = [...own, ...effectiveSiblingPlayers];
     return pool.filter(p => p.isTarget && p.name && !p.isPortal && !p.previousTeam);
-  }, [currentDynasty?.players, effectiveSiblingPlayers, isolated]);
+  }, [currentDynasty?.players, effectiveSiblingPlayers]);
 
   const total = allRecruits.length;
 

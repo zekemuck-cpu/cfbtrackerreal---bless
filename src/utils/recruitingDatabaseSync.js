@@ -39,11 +39,17 @@ export function mergeRecruitingDatabaseRows({ sheetRows = [], localRecruits = []
       consumedPids.add(rowPid)
       const localTime = local.updatedAt || 0
       const sheetTime = row.updatedAt || 0
-      merged.push(sheetTime > localTime ? { ...row, pid: rowPid } : local)
+      merged.push(sheetTime > localTime ? { ...row, pid: rowPid, scoutedAt: row.scoutedAt ?? local.scoutedAt } : local)
     } else {
       const pid = rowPid != null ? rowPid : ++maxPid
       if (pid > maxPid) maxPid = pid
-      merged.push({ ...row, pid })
+      // Brand new to this dynasty — stamp a permanent "first entered" time now
+      // if the sheet didn't already carry one (e.g. an older sheet synced
+      // before this column existed). The `+ merged.length` nudge keeps a
+      // multi-row bulk import's relative order stable (top row = entered
+      // first) even though Date.now() alone could tie within one batch.
+      const scoutedAt = row.scoutedAt ?? (Date.now() + merged.length)
+      merged.push({ ...row, pid, scoutedAt })
     }
   }
 
@@ -102,8 +108,13 @@ export function reconcileRecruitingDatabaseSync({
       continue
     }
     if (!localRow) {
-      merged.push(sheetRow)
-      nextSnapshot[key] = snapshotKey(sheetRow)
+      // Brand new to this dynasty — stamp a permanent "first entered" time
+      // now if the sheet didn't already carry one (e.g. an older sheet synced
+      // before this column existed). This is what "recent number" ranking is
+      // permanently anchored to, so it has to be set exactly once, here.
+      const withScoutedAt = { ...sheetRow, scoutedAt: sheetRow.scoutedAt ?? (Date.now() + merged.length) }
+      merged.push(withScoutedAt)
+      nextSnapshot[key] = snapshotKey(withScoutedAt)
       continue
     }
     if (!sheetRow) {
@@ -114,7 +125,13 @@ export function reconcileRecruitingDatabaseSync({
 
     const sheetChanged = synced == null || snapshotKey(sheetRow) !== synced
     const localChangedSinceSync = synced == null || (localRow.updatedAt || 0) > lastSyncedAt
-    const winner = (sheetChanged && !localChangedSinceSync) ? { ...sheetRow, pid: Number(key) } : localRow
+    // scoutedAt is never allowed to move once set — even when the sheet wins
+    // the rest of the row's content, its own scoutedAt cell is only ever a
+    // read-back echo of what the app last wrote, never a fresher value to
+    // adopt over the local record's original stamp.
+    const winner = (sheetChanged && !localChangedSinceSync)
+      ? { ...sheetRow, pid: Number(key), scoutedAt: localRow.scoutedAt ?? sheetRow.scoutedAt }
+      : localRow
     merged.push(winner)
     nextSnapshot[key] = snapshotKey(winner)
   }
@@ -122,7 +139,7 @@ export function reconcileRecruitingDatabaseSync({
   for (const p of localRecruits) {
     if (p.pid != null) continue
     const pid = ++maxPid
-    const withPid = { ...p, pid }
+    const withPid = { ...p, pid, scoutedAt: p.scoutedAt ?? (Date.now() + merged.length) }
     merged.push(withPid)
     nextSnapshot[String(pid)] = snapshotKey(withPid)
   }
