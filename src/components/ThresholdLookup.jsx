@@ -5,6 +5,7 @@ import {
   DEV_TRAITS, getFormAttrs, buildRevealedPool, getAllTierProfiles,
 } from '../utils/devTraitLearning';
 import { computeAttributeQuality } from '../utils/devPrediction';
+import { useToast } from './ui/Toast';
 
 // ── Attribute short-name display map ─────────────────────────────────────────
 const ATTR_SHORT = {
@@ -639,12 +640,14 @@ function dynamicBadgeText(profile, attrEntries, direction = 'above') {
   return parts.length ? parts.join(' / ') : null;
 }
 
-export default function ThresholdLookup({ players = [], teamColors, teamLogo, onGoToDatabase, onBack, dynastyId = null }) {
+export default function ThresholdLookup({ players = [], teamColors, teamLogo, dynastyId = null }) {
   const { getStaffData } = createStaffAccessor(dynastyId);
+  const { toast } = useToast();
   const p = teamColors?.primary || '#374151';
   const [activePos, setActivePos] = useState('QB');
   const [activeArch, setActiveArch] = useState('Pocket Passer');
   const [activeStar, setActiveStar] = useState('5');
+  const [showLearned, setShowLearned] = useState(false);
   const [openTiers, setOpenTiers] = useState(() => new Set());
   const toggleTier = i => setOpenTiers(prev => {
     const next = new Set(prev);
@@ -679,6 +682,52 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
 
   // Revealed-devTrait-only HS recruit pool — feeds badges, stats, and derived weights.
   const pool = useMemo(() => buildRevealedPool(players), [players]);
+
+  // Full sweep across every position/archetype/star bucket for the "Learned"
+  // panel — only computed while that panel is actually open, since it's a
+  // full scan rather than the single active bucket the rest of this page
+  // reads. Nested shape doubles as the exact payload the Copy All button
+  // serializes, so what you see is what you copy.
+  const learnedWeightsData = useMemo(() => {
+    if (!showLearned) return {};
+    const result = {};
+    POSITIONS.forEach(pos => {
+      (PROFILES[pos]?.archetypes || []).forEach(arch => {
+        const archN = normalizeArch(arch);
+        const attrs = getFormAttrs(pos, archN);
+        STAR_TABS.forEach(star => {
+          const { weights, boundariesUsed } = computeAttributeQuality(pool, pos, archN, star, attrs);
+          if (weights) {
+            result[pos] ??= {};
+            result[pos][arch] ??= {};
+            result[pos][arch][star] = { boundariesUsed, weights };
+          }
+        });
+      });
+    });
+    return result;
+  }, [pool, showLearned]);
+
+  const learnedRows = useMemo(() => {
+    const rows = [];
+    Object.entries(learnedWeightsData).forEach(([pos, archs]) => {
+      Object.entries(archs).forEach(([arch, stars]) => {
+        Object.entries(stars).forEach(([star, data]) => {
+          rows.push({ pos, arch, star, ...data });
+        });
+      });
+    });
+    return rows;
+  }, [learnedWeightsData]);
+
+  const handleCopyLearned = async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(learnedWeightsData, null, 2));
+      toast.success('Learned weights copied to clipboard.');
+    } catch (err) {
+      toast.error('Could not copy — your browser may be blocking clipboard access.');
+    }
+  };
 
   // One profile per dev trait (Elite/Star/Impact/Normal), each independently
   // qualifying once it has n >= MIN_N samples at the active star. Star levels
@@ -716,25 +765,6 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
 
   return (
     <div className="space-y-4">
-      {/* Header strip */}
-      <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-surface-4">
-        <h2 className="text-sm font-display font-bold uppercase text-txt-primary">Threshold Benchmarks</h2>
-        <div className="flex items-center gap-3 flex-shrink-0">
-          {onBack && (
-            <button onClick={onBack} className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><polyline points="15 18 9 12 15 6"/></svg>
-              Main Hub
-            </button>
-          )}
-          {onGoToDatabase && (
-            <button onClick={onGoToDatabase} className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
-              Recruiting Database
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><polyline points="9 18 15 12 9 6"/></svg>
-            </button>
-          )}
-        </div>
-      </div>
-
       {/* Portrait + Info row */}
       <div className="flex flex-col sm:flex-row gap-4 items-stretch">
         {/* Analyst portrait card */}
@@ -761,11 +791,94 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
         </div>
 
         {/* Info card */}
-        <div className="flex-1 rounded-xl p-3 flex flex-col justify-center gap-1.5 bg-surface-2 border border-surface-4 sm:h-[100px]">
-          <p className="text-base font-semibold text-txt-primary">Threshold Benchmarks</p>
-          <p className="text-xs text-txt-tertiary leading-snug">With the current data compiled, these are the thresholds to target at each tier. Benchmarks adjust as more players are scouted.</p>
+        <div className="flex-1 rounded-xl p-3 flex items-start justify-between gap-3 bg-surface-2 border border-surface-4 sm:h-[100px]">
+          <div className="flex flex-col justify-center gap-1.5 h-full">
+            <p className="text-base font-semibold text-txt-primary">Threshold Benchmarks</p>
+            <p className="text-xs text-txt-tertiary leading-snug">With the current data compiled, these are the thresholds to target at each tier. Benchmarks adjust as more players are scouted.</p>
+          </div>
+          <button
+            onClick={() => setShowLearned(true)}
+            className="flex-shrink-0 text-[10px] font-display font-bold uppercase tracking-wider px-3 py-1.5 rounded-full border border-surface-4 text-txt-secondary hover:text-txt-primary hover:bg-surface-3 transition"
+          >
+            Learned
+          </button>
         </div>
       </div>
+
+      {showLearned && (
+        <div
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+          style={{ margin: 0 }}
+          onClick={() => setShowLearned(false)}
+        >
+          <div
+            className="bg-surface-2 border border-surface-4 rounded-xl w-full max-w-3xl max-h-[85vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-surface-4 flex-shrink-0">
+              <div>
+                <h2 className="text-sm font-display font-bold uppercase text-txt-primary">Learned Weights</h2>
+                <p className="text-[10px] text-txt-tertiary mt-0.5">
+                  {learnedRows.length} bucket{learnedRows.length !== 1 ? 's' : ''} with enough real comps to learn attribute weights
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={handleCopyLearned}
+                  disabled={learnedRows.length === 0}
+                  className="text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Copy All
+                </button>
+                <button
+                  onClick={() => setShowLearned(false)}
+                  className="text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="px-5 py-3 border-b border-surface-4 flex-shrink-0 bg-surface-3">
+              <p className="text-xs text-txt-secondary leading-relaxed">
+                These percentages show which attributes matter most for grading a recruit at this exact
+                position, archetype, and star level — learned entirely from real scouted comps, never
+                guessed. For every pair of adjacent dev-trait tiers with enough data (e.g. Impact vs.
+                Star), the system checks how cleanly each attribute's values separate the two groups: one
+                where the tiers barely overlap gets weighted heavily, one where they overlap a lot gets
+                weighted lightly — but never zero. Those results are summed and normalized into the
+                weights below, which power a recruit's "Learned Attribute Score" once a bucket has enough
+                real data to learn from.
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-3">
+              {learnedRows.length === 0 ? (
+                <p className="text-xs text-txt-tertiary italic text-center py-10">
+                  Not enough data yet — no position/archetype/star bucket has real 2-sided comps to learn weights from.
+                </p>
+              ) : (
+                learnedRows.map(({ pos, arch, star, boundariesUsed, weights }) => (
+                  <div key={`${pos}-${arch}-${star}`} className="bg-surface-3 border border-surface-4 rounded-lg p-3">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <p className="text-xs font-bold text-txt-primary">{pos} · {arch} · {star}★</p>
+                      <p className="text-[10px] text-txt-tertiary flex-shrink-0">{boundariesUsed} boundar{boundariesUsed !== 1 ? 'ies' : 'y'}</p>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                      {Object.entries(weights).sort((a, b) => b[1] - a[1]).map(([attr, w]) => (
+                        <div key={attr} className="flex justify-between items-center gap-1.5 bg-surface-2 border border-surface-4 rounded px-2 py-1">
+                          <span className="text-[10px] text-txt-secondary truncate" title={attr}>{attr}</span>
+                          <span className="text-[10px] font-bold text-txt-secondary flex-shrink-0">{(w * 100).toFixed(1)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Panel — position nav left, archetype + tiers right */}
       <div className="rounded-xl overflow-hidden flex flex-col md:flex-row min-h-[520px] bg-surface-2 border border-surface-4">
@@ -796,9 +909,10 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
               <button
                 key={arch}
                 onClick={() => { setActiveArch(arch); setOpenTiers(new Set()); }}
+                style={activeArch === arch ? { backgroundColor: p, color: '#fff' } : undefined}
                 className={`text-[10px] font-semibold px-2.5 py-1 rounded-md transition uppercase tracking-wide ${
                   activeArch === arch
-                    ? 'bg-surface-4 text-txt-primary'
+                    ? ''
                     : 'text-txt-tertiary hover:text-txt-secondary hover:bg-surface-3'
                 }`}
               >
@@ -822,9 +936,10 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, on
                 <button
                   key={s}
                   onClick={() => setActiveStar(s)}
-                  className={`text-[9px] font-semibold px-2 py-1 rounded-md transition ${
+                  style={activeStar === s ? { backgroundColor: p, color: '#fff' } : undefined}
+                  className={`text-[10px] font-semibold px-2.5 py-1 rounded-md transition ${
                     activeStar === s
-                      ? 'bg-surface-4 text-txt-primary'
+                      ? ''
                       : 'text-txt-tertiary hover:text-txt-secondary hover:bg-surface-3'
                   }`}
                 >

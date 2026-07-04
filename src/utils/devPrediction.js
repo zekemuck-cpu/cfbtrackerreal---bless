@@ -57,6 +57,27 @@ function attrRange(profile, attr) {
   return { min: s.min, max: s.max };
 }
 
+// Pseudo-star key used only for the archetype-wide widening below — never a
+// real recruit's star rating, so it can't collide with an actual '1'-'5' key.
+export const ANY_STAR = '__any__';
+
+// Merges every real star bucket for one archKey into a single ANY_STAR bucket
+// (same {devTrait: [players...]} shape resolveDevTraitSamples/getTierProfile
+// already expect), so the exact same separation-clarity machinery can walk it
+// unmodified — this widens WHICH ATTRIBUTES MATTER for an archetype across
+// star levels, it never touches a player's own attribute values or the
+// Star Rating Bonus, both of which are what actually keep a 1★ grading lower
+// than a 4★ at the same archetype.
+function widenPoolAcrossStars(pool, archKey) {
+  const merged = {};
+  Object.values(pool[archKey] || {}).forEach(devTraitBuckets => {
+    Object.entries(devTraitBuckets).forEach(([devTrait, samples]) => {
+      merged[devTrait] = (merged[devTrait] || []).concat(samples);
+    });
+  });
+  return { [archKey]: { [ANY_STAR]: merged } };
+}
+
 // ── Use #1: attribute weights ────────────────────────────────────────────────
 // NOT gem/bust-scoped — "which attributes matter for this archetype" is a
 // property of the bucket, not of any one player's scouting read. Always walks
@@ -91,9 +112,13 @@ export function computeAttributeQuality(pool, position, archetype, star, formAtt
 
 // Same outer cache shape as the old buildWeightsMap ({archKey: {star: {...}}})
 // so callers' useMemo patterns don't change, only what's inside each entry.
+// Also computes one ANY_STAR entry per archKey — the widened, any-star
+// fallback archetypeBaseScore reaches for when the exact star bucket has zero
+// comps (see widenPoolAcrossStars above for why this is still fair).
 export function buildAttributeQualityMap(pool, players) {
   const map = {};
   const seen = new Set();
+  const anyStarDone = new Set();
   (players || []).forEach(p => {
     if (!p.position || !p.archetype) return;
     const arch = normalizeArch(p.archetype);
@@ -101,13 +126,22 @@ export function buildAttributeQualityMap(pool, players) {
     const star = String(p.stars ?? '');
     if (!star) return;
     const cacheKey = `${archKey}::${star}`;
-    if (seen.has(cacheKey)) return;
-    seen.add(cacheKey);
+    if (!seen.has(cacheKey)) {
+      seen.add(cacheKey);
+      const formAttrs = getFormAttrs(p.position, arch);
+      const { weights, boundariesUsed } = computeAttributeQuality(pool, p.position, arch, star, formAttrs);
+      map[archKey] ??= {};
+      map[archKey][star] = { weights, boundariesUsed };
+    }
 
-    const formAttrs = getFormAttrs(p.position, arch);
-    const { weights, boundariesUsed } = computeAttributeQuality(pool, p.position, arch, star, formAttrs);
-    map[archKey] ??= {};
-    map[archKey][star] = { weights, boundariesUsed };
+    if (!anyStarDone.has(archKey)) {
+      anyStarDone.add(archKey);
+      const formAttrs = getFormAttrs(p.position, arch);
+      const widened = widenPoolAcrossStars(pool, archKey);
+      const { weights, boundariesUsed } = computeAttributeQuality(widened, p.position, arch, ANY_STAR, formAttrs);
+      map[archKey] ??= {};
+      map[archKey][ANY_STAR] = { weights, boundariesUsed };
+    }
   });
   return map;
 }
@@ -215,6 +249,40 @@ export function predictFloorCeiling(pool, position, archetype, star, player, for
   }
 
   return { status: 'resolved', floorTier, floorConfidence, ceilingTier, ceilingUndifferentiated: false, perBoundary, source: 'boundary-walk' };
+}
+
+// Two-pill display shape for predictFloorCeiling's output — e.g.
+// { floorLabel: 'Impact', floorPct: 66, ceilingLabel: 'Star/Elite', ceilingPct: 34 }.
+// Purely a display split of the same confidence number; the Composite Score
+// no longer folds dev trait in at all (see archetypeWeights.computeScore), so
+// this has no arithmetic relationship to the grade — it's shown for context
+// only. Returns null when there isn't a real confidence number to split
+// (no-data/same-tier-only, or a single-comp bucket with nothing to compare).
+export function describeFloorCeilingPills(result, gemBust) {
+  const { status, floorTier, floorConfidence, ceilingTier } = result;
+  if (status !== 'resolved' && status !== 'single-comp') return null;
+
+  // Fell short of the lone comp in the bucket — singleCompRead has no real
+  // confidence number for this case (nothing to compute a gap from yet), so
+  // this mirrors blendDevBonus's own even-split treatment of the same case.
+  if (status === 'single-comp' && floorConfidence == null) {
+    if (floorTier == null || ceilingTier == null) return null;
+    return { floorLabel: floorTier, floorPct: 50, ceilingLabel: ceilingTier, ceilingPct: 50 };
+  }
+
+  if (floorConfidence == null) return null;
+  const floorPct = Math.round(floorConfidence * 100);
+  const ceilingPct = 100 - floorPct;
+
+  let ceilingLabel = ceilingTier;
+  if (!ceilingLabel) {
+    const ladder = restrictLadder(gemBust);
+    const above = ladder.slice(ladder.indexOf(floorTier) + 1);
+    if (!above.length) return null; // floor is already the top of the ladder — nothing to show as a ceiling
+    ceilingLabel = above.join('/');
+  }
+
+  return { floorLabel: floorTier, floorPct, ceilingLabel, ceilingPct };
 }
 
 // ── Use #3: known-dev "strength within tier" ─────────────────────────────────

@@ -30,10 +30,10 @@ const Chevron = ({ open }) => (
   </svg>
 )
 
-function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalScores, allPlayers, weightsMap, pool, draggable: isDraggable, onDragStart, onDragOver, onDrop, isDragOver, onToggleRemove, canEdit }) {
+function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalScores, allPlayers, weightsMap, pool, draggable: isDraggable, onDragStart, onDragOver, onDrop, isDragOver, onToggleRemove, canEdit, isOpen, onToggleOpen }) {
   const { p, status } = r
   const navigate = useNavigate()
-  const [open, setOpen] = useState(false)
+  const open = isOpen
   const lost = status === 'committed_elsewhere'
   const committed = status === 'committed_us'
   const removed = !!p.boardRemoved
@@ -48,6 +48,12 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
   const pct = scoutResult?.ok ? headlinePercentile(scoutResult.data) : null
   const proj = predictRecruitOverall(p)
 
+  // Dragging is only meaningful for the collapsed row — once expanded, the
+  // row is tall and full of its own interactive content (the embedded grade
+  // report), and the drag handlers living on this same container would
+  // hijack clicks/selection inside it. Collapse first, then reorder.
+  const canDrag = isDraggable && !open
+
   // Compact "grade + composite" is always shown now, regardless of sort mode:
   // the local Scout Staff score when available, else the ScoutScore
   // percentile mapped through the same letter-tier scale, so every row shows
@@ -60,12 +66,12 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
 
   return (
     <div
-      draggable={isDraggable}
-      onDragStart={isDraggable ? onDragStart : undefined}
-      onDragOver={isDraggable ? onDragOver : undefined}
-      onDrop={isDraggable ? onDrop : undefined}
-      onDragLeave={isDraggable ? (e) => e.preventDefault() : undefined}
-      className={isDraggable ? 'cursor-grab active:cursor-grabbing' : undefined}
+      draggable={canDrag}
+      onDragStart={canDrag ? onDragStart : undefined}
+      onDragOver={canDrag ? onDragOver : undefined}
+      onDrop={canDrag ? onDrop : undefined}
+      onDragLeave={canDrag ? (e) => e.preventDefault() : undefined}
+      className={canDrag ? 'cursor-grab active:cursor-grabbing' : undefined}
       style={{
         borderTop: isDragOver ? '2px solid #60a5fa' : rank > 1 ? '1px solid var(--surface-4)' : 'none',
         opacity: lost ? 0.55 : removed ? 0.4 : 1,
@@ -74,15 +80,15 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
       <div
         role="button"
         tabIndex={0}
-        onClick={() => setOpen((o) => !o)}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpen((o) => !o) }}
+        onClick={onToggleOpen}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onToggleOpen() }}
         className={[
           'w-full flex items-center gap-3 sm:gap-3.5 px-4 py-3 transition-colors text-left hover:bg-surface-2',
-          isDraggable ? 'cursor-grab active:cursor-grabbing' : '',
+          canDrag ? 'cursor-grab active:cursor-grabbing' : '',
         ].filter(Boolean).join(' ')}
       >
         {isDraggable && (
-          <span className="flex-shrink-0 text-txt-tertiary select-none" style={{ fontSize: '0.65rem', letterSpacing: '-1px', lineHeight: 1 }}>⠿</span>
+          <span className={`flex-shrink-0 text-txt-tertiary select-none ${canDrag ? '' : 'opacity-30'}`} style={{ fontSize: '0.65rem', letterSpacing: '-1px', lineHeight: 1 }}>⠿</span>
         )}
         <span className="w-5 text-right tabular-nums font-display flex-shrink-0 leading-none text-txt-tertiary" style={{ fontSize: '1rem', fontWeight: 700 }}>
           {rank}
@@ -190,7 +196,7 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
   )
 }
 
-const SORT_OPTIONS = ['scoutscore', 'projected', 'national', 'priority']
+const SORT_OPTIONS = ['scoutscore', 'national', 'priority']
 
 export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positionFilter = 'all', onPositionFilterChange = null, viewingOwnTeam = true, onResolveTargets = null, resolveCount = 0, scoutStaffEnabled = false }) {
   const { updateDynasty, isViewOnly } = useDynasty()
@@ -202,6 +208,11 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
     await updateDynasty(dynasty.id, { players: newPlayers }, { changedPlayerPids: [pl.pid] })
   }
   const yearN = Number(year)
+  // Only one row's dropdown can be expanded at a time — shared across both
+  // the active Big Board list and the Removed list below it, since they're
+  // both built from the same Row component.
+  const [openPid, setOpenPid] = useState(null)
+  const toggleOpenPid = (pid) => setOpenPid(cur => (cur === pid ? null : pid))
   // Sort choice persists per device.
   const [sortBy, setSortBy] = useState(() => {
     try {
@@ -298,7 +309,6 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
       const n = Number(p.nationalRank)
       return Number.isFinite(n) && n > 0 ? n : Infinity
     }
-    const projOf = (p) => predictRecruitOverall(p)?.overall ?? null
     if (sortBy === 'priority') {
       const idxOf = (pid) => priorityOrder.indexOf(pid)
       rows.sort((a, b) => {
@@ -324,10 +334,6 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
           const an = natOf(a.p)
           const bn = natOf(b.p)
           if (an !== bn) return an - bn
-        } else if (sortBy === 'projected') {
-          const ap = projOf(a.p) ?? -1
-          const bp = projOf(b.p) ?? -1
-          if (bp !== ap) return bp - ap
         }
         const av = pctOf(a.p.pid) ?? -1
         const bv = pctOf(b.p.pid) ?? -1
@@ -384,7 +390,6 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
                 className="w-full min-w-0 text-[11px] bg-surface-2 border border-surface-4 rounded-md px-1.5 py-1 text-txt-secondary hover:text-txt-primary focus:outline-none focus:border-surface-5"
               >
                 <option value="scoutscore">{scoutStaffEnabled ? 'Scout Grade' : 'ScoutScore'}</option>
-                <option value="projected">Projected Overall</option>
                 <option value="national">National Rank</option>
                 <option value="priority">My Priority</option>
               </select>
@@ -402,6 +407,8 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
             <div className="px-4 sm:px-5 py-8 text-center text-sm text-txt-tertiary">No targets at this position.</div>
           ) : activeRanked.map((r, i) => (
             <Row key={r.p.pid} r={r} rank={i + 1} pathPrefix={pathPrefix} scoutResult={scores.get(r.p.pid)} scoring={scoring} localScore={localScores.get(r.p.pid)} useLocalScores={scoutStaffEnabled} allPlayers={dynasty?.players || []} weightsMap={weightsMap} pool={revealedPool}
+              isOpen={openPid === r.p.pid}
+              onToggleOpen={() => toggleOpenPid(r.p.pid)}
               canEdit={canEdit}
               onToggleRemove={handleToggleRemove}
               draggable
@@ -456,6 +463,8 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
             <>
               {removedRanked.map((r, i) => (
                 <Row key={r.p.pid} r={r} rank={i + 1} pathPrefix={pathPrefix} scoutResult={scores.get(r.p.pid)} scoring={scoring} localScore={localScores.get(r.p.pid)} useLocalScores={scoutStaffEnabled} allPlayers={dynasty?.players || []} weightsMap={weightsMap} pool={revealedPool}
+                  isOpen={openPid === r.p.pid}
+                  onToggleOpen={() => toggleOpenPid(r.p.pid)}
                   canEdit={canEdit}
                   onToggleRemove={handleToggleRemove}
                   draggable
@@ -470,6 +479,13 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
           )}
         </div>
       </section>
+
+      {/* Guaranteed trailing space: an expanded row's embedded grade report can
+          be tall, and whichever row happens to be LAST (in either section
+          above) has nothing else below it to push the fixed bottom ticker out
+          of the way. Without this, that row's own content — not just
+          whitespace — is what ends up scrolled underneath the ticker. */}
+      <div className="h-16" aria-hidden="true" />
     </div>
   )
 }

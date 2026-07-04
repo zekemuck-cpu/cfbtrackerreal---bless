@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { createStaffAccessor } from './staffDB';
-import { archetypeBaseScore, computeScore, calcWeightedAvg, predictHiddenDev, gemBustBonus, physOutlierBonus, isHiddenDev, normalizeArch, DEV_BONUS, STAR_BONUS } from './archetypeWeights';
+import { archetypeBaseScore, computeScore, calcWeightedAvg, gemBustBonus, isHiddenDev, normalizeArch, STAR_BONUS, getScoreConfidence } from './archetypeWeights';
 import { buildRevealedPool, getFormAttrs } from '../utils/devTraitLearning';
-import { buildAttributeQualityMap, predictFloorCeiling, computeKnownTierStrength } from '../utils/devPrediction';
+import { buildAttributeQualityMap, predictFloorCeiling, describeFloorCeilingPills } from '../utils/devPrediction';
 import { ATTRIBUTE_ABBR } from '../utils/recruitAttributes';
 import { OPTIONS_REGISTRY } from './ScoutingReport';
 import GemBustIcon from './GemBustIcon';
@@ -13,6 +13,7 @@ import { createRecruitingDatabaseSheet, readRecruitingDatabaseSheet, writeRecrui
 import { mergeRecruitingDatabaseRows, reconcileRecruitingDatabaseSync, snapshotKey } from '../utils/recruitingDatabaseSync';
 import { useToast } from './ui/Toast';
 import { useConfirm } from './ui/ConfirmDialog';
+import RecruitingDatabaseSheetModal from './RecruitingDatabaseSheetModal';
 
 // Places the gem/bust icon at the diagonal right end of the name's actual
 // FIRST rendered line — whether that line ends up being the whole name (short
@@ -104,28 +105,20 @@ export function DevTraitPill({ devTrait }) {
     }`}>{devTrait.toUpperCase()}</span>
   );
 }
-// Top 5 most critical attributes per position (weighted 2× vs the rest)
-const PRIORITY_ATTRS = {
-  QB:   ['Throw Power', 'Short Accuracy', 'Medium Accuracy', 'Deep Accuracy', 'Under Pressure'],
-  HB:   ['Speed', 'Carrying', 'Juke Move', 'Break Tackle', 'BC Vision'],
-  WR:   ['Speed', 'Catching', 'Catch In Traffic', 'Short Route', 'Medium Route'],
-  TE:   ['Catching', 'Catch In Traffic', 'Run Block', 'Pass Block', 'Speed'],
-  OT:   ['Pass Block', 'Run Block', 'Pass Block Power', 'Run Block Power', 'Pass Block Finesse'],
-  OG:   ['Run Block', 'Pass Block', 'Run Block Power', 'Run Block Finesse', 'Pass Block Finesse'],
-  C:    ['Run Block', 'Pass Block', 'Run Block Power', 'Pass Block Finesse', 'Awareness'],
-  DE:   ['Block Shedding', 'Power Moves', 'Finesse Moves', 'Speed', 'Pursuit'],
-  DT:   ['Block Shedding', 'Power Moves', 'Strength', 'Tackle', 'Pursuit'],
-  OLB:  ['Play Recognition', 'Tackle', 'Man Coverage', 'Zone Coverage', 'Pursuit'],
-  MIKE: ['Play Recognition', 'Tackle', 'Hit Power', 'Zone Coverage', 'Strength'],
-  CB:   ['Man Coverage', 'Zone Coverage', 'Speed', 'Press', 'Change of Direction'],
-  FS:   ['Zone Coverage', 'Man Coverage', 'Speed', 'Play Recognition', 'Catching'],
-  SS:   ['Man Coverage', 'Tackle', 'Hit Power', 'Zone Coverage', 'Speed'],
-  ATH:  ['Speed', 'Acceleration', 'Agility', 'Catching', 'Tackle'],
-  FB:   ['Lead Block', 'Run Block', 'Trucking', 'Break Tackle', 'Carrying'],
-  K:    ['Kick Power', 'Kick Accuracy', 'Awareness'],
-  P:    ['Kick Power', 'Kick Accuracy', 'Awareness'],
-};
 
+// Same per-trait color + glow as DevTraitPill above, but as plain text
+// classes (no pill background/border) — for spots like the Floor/Ceiling
+// boxes that print the trait name inline rather than as a badge. Anything
+// that isn't an exact single trait name (e.g. a joined "Star/Elite" ceiling
+// label) falls through to plain white, since there's no single color to
+// apply to a range.
+function devTraitTextCls(devTrait) {
+  return devTrait === 'Elite'  ? 'text-[#22E065] [text-shadow:0_0_16px_rgba(14,122,42,0.85)]' :
+         devTrait === 'Star'   ? 'text-[#FFD100] [text-shadow:0_0_14px_rgba(156,114,9,0.8)]' :
+         devTrait === 'Impact' ? 'text-[#D6DEE2]' :
+         devTrait === 'Normal' ? 'text-[#CD7F32]' :
+                                  'text-white';
+}
 // ── Combine projections base times / reps ────────────────────────────────────
 const BASE_FORTY = {
   QB: 4.68, HB: 4.46, WR: 4.44, TE: 4.72, OT: 5.28, OG: 5.25, C: 5.22,
@@ -143,28 +136,43 @@ function seeded(seed, min, max) {
   return min + x * (max - min);
 }
 
-// Physical traits that can't be coached — used by the analysis text's
-// "elite physical ceiling" callout below (the scoring engine's own copy of
-// this list now lives in archetypeWeights.js alongside computeScore).
-const PHYSICAL_ATTRS_ARR = ['Speed', 'Acceleration', 'Strength', 'Agility', 'Change of Direction'];
+// computeScore returns null when a recruit genuinely can't be graded yet (no
+// comps for this archetype at any star level, or he hasn't been scouted at
+// all) — this renders as a plain "-" everywhere a grade badge shows, same
+// shape as a real tier so every caller can keep using tier.grade/badgeCls
+// without a separate null-check.
+export const UNGRADED_TIER = { grade: '-', min: null, color: '#6B7280', badgeCls: 'bg-surface-3 border-surface-4 text-slate-500' };
 
 export function getGradeTier(score) {
+  if (score == null) return UNGRADED_TIER;
   return GRADE_TIERS.find(t => score >= t.min) ?? GRADE_TIERS[GRADE_TIERS.length - 1];
 }
 
 // ── Pool context ─────────────────────────────────────────────────────────────
-function getPoolRank(player, allPlayers, weightsMap = null, pool = null) {
-  const group = allPlayers.filter(p => p.position === player.position);
-  const sorted = [...group].sort((a, b) => computeScore(b, weightsMap, pool) - computeScore(a, weightsMap, pool));
-  const rank = sorted.findIndex(p => p.name === player.name) + 1;
-  return { rank, total: group.length };
-}
-
-function getPoolAvg(position, allPlayers) {
-  const group = allPlayers.filter(p => p.position === position);
-  if (!group.length) return null;
-  const avg = group.reduce((sum, p) => sum + calcWeightedAvg(p), 0) / group.length;
-  return avg.toFixed(1);
+// Rank + average Composite Score within some slice of the pool (everyone,
+// same position, or same position+archetype) — same computeScore every
+// prospect in the app is graded with, so the average is directly comparable
+// to the Composite Score shown above it. Matches by pid (falls back to name
+// for the rare caller without one) since two prospects can share a name.
+function getPoolStats(player, allPlayers, weightsMap, pool, filterFn) {
+  // allPlayers can be the WHOLE dynasty roster (e.g. the Targets board passes
+  // dynasty.players), not just scouted prospects — an un-scouted player's
+  // attributes get normalized to {} above, and computeScore on an empty
+  // attribute set used to come out near 0, dragging every average (and
+  // inflating every "of N total") down toward meaningless filler entries.
+  // computeScore now returns null for anyone it can't actually grade (not
+  // scouted, or zero real comps for his archetype anywhere) — filtering those
+  // out here keeps a comparison pool to only real, gradeable prospects.
+  const scoutedOnly = allPlayers.filter(p => Object.keys(p.attributes || {}).length > 0);
+  const group = filterFn ? scoutedOnly.filter(filterFn) : scoutedOnly;
+  const scored = group
+    .map(p => ({ p, score: computeScore(p, weightsMap, pool) }))
+    .filter(({ score }) => score != null)
+    .sort((a, b) => b.score - a.score);
+  if (!scored.length) return { rank: 0, total: 0, avg: null };
+  const rank = scored.findIndex(({ p }) => (player.pid != null ? p.pid === player.pid : p.name === player.name)) + 1;
+  const avg = scored.reduce((sum, { score }) => sum + score, 0) / scored.length;
+  return { rank, total: group.length, avg };
 }
 
 // ── Combine projections ──────────────────────────────────────────────────────
@@ -491,55 +499,6 @@ function generateQuote(player) {
   return pool[h % pool.length];
 }
 
-// ── Grade analysis text ──────────────────────────────────────────────────────
-function buildAnalysisText(player, score, baseAvg, rank, total, weightsMap, pool) {
-  let devLine;
-  if (isHiddenDev(player.devTrait)) {
-    const predicted = predictHiddenDev(player, weightsMap, pool);
-    if (predicted.source === 'no-data' || predicted.source === 'same-tier-only') {
-      devLine = `Dev trait sealed — not enough comparable scouted recruits at this archetype and star level yet to predict a range. This will sharpen once more real comps are scouted or the trait is revealed.`;
-    } else if (predicted.source === 'single-comp') {
-      devLine = predicted.ceilingTier != null
-        ? `Dev trait sealed — early read falls short of the one comparable recruit on file, suggesting a range from ${predicted.floorTier} up to ${predicted.ceilingTier}. This grade will be confirmed once the trait is revealed.`
-        : `Dev trait sealed — early read suggests at least ${predicted.floorTier} development, based on a single comparable recruit — anything above is still fully open. This grade will be confirmed once the trait is revealed.`;
-    } else {
-      const pct = predicted.floorConfidence != null ? Math.round(predicted.floorConfidence * 100) : null;
-      devLine = `Dev trait sealed — ${pct != null ? `${pct}% likely to have cleared ${predicted.floorTier} development` : `predicted around ${predicted.floorTier}`}, putting the realistic range at ${predicted.floorTier} to ${predicted.ceilingTier ?? 'higher'}. This grade will be confirmed once the trait is revealed.`;
-    }
-  } else {
-    devLine = {
-      Elite:  'ELITE development trait. This is a generational prospect — the kind every program in the country is chasing. Expect rapid, exceptional growth well beyond what the raw numbers show.',
-      Star:   'Star development trajectory projects significant growth from the current baseline. A high-priority target who will improve substantially with coaching.',
-      Impact: 'Impact development track signals above-average upside. Solid contributor who will develop reliably at this position.',
-      Normal: 'Normal development trait. These players rarely develop fast enough to contribute at a high-level program. Ceiling is largely what you see now — recruit with that expectation.',
-    }[player.devTrait] ?? '';
-  }
-
-  // Call out elite physical traits — the eye-test number that can't be coached
-  const physMax   = Math.max(0, ...PHYSICAL_ATTRS_ARR.map(k => player.attributes[k] ?? 0));
-  const physLabel = PHYSICAL_ATTRS_ARR.find(k => (player.attributes[k] ?? 0) === physMax) ?? 'Speed';
-  let physLine = '';
-  if (physMax >= 96)      physLine = `Elite-tier ${physLabel} (${physMax}) is a rare athletic ceiling — that kind of raw gift cannot be developed, it can only be found.`;
-  else if (physMax >= 92) physLine = `High-end ${physLabel} (${physMax}) gives this prospect a physical ceiling most prospects at this position simply don't have.`;
-
-  let attrLine;
-  if (baseAvg >= 85)      attrLine = `Exceptional attribute profile for the ${player.position} position.`;
-  else if (baseAvg >= 78) attrLine = `Solid attribute foundation showing clear position competency.`;
-  else if (baseAvg >= 70) attrLine = `Average attribute range — key position metrics need development.`;
-  else                    attrLine = `Raw prospect; will need significant coaching at ${player.position}.`;
-
-  let poolLine = '';
-  if (total > 1) {
-    const pct = rank / total;
-    if (pct <= 0.25)      poolLine = `Stands out as a top-tier ${player.position} in the current scouting pool.`;
-    else if (pct <= 0.50) poolLine = `Above average among the ${player.position} prospects currently on file.`;
-    else if (pct <= 0.75) poolLine = `Middle of the pack among scouted ${player.position} prospects.`;
-    else                  poolLine = `Below average relative to ${player.position} prospects currently on file.`;
-  }
-
-  return [devLine, physLine, attrLine, poolLine].filter(Boolean).join(' ');
-}
-
 // ── Grade Breakdown Modal ────────────────────────────────────────────────────
 // The report itself, with no modal chrome (backdrop/close button) around it —
 // extracted so other pages (e.g. the Targets board) can embed the exact same
@@ -550,52 +509,58 @@ export function GradeReportContent({ player: rawPlayer, allPlayers, weightsMap, 
   // A Recruiting Database entry always has attributes filled in, but a fresh
   // Targets recruit can genuinely have attributes: null (not scouted yet) —
   // normalize once here so every helper below (calcWeightedAvg,
-  // physOutlierBonus, generateCombine, etc.) sees a plain object instead of
-  // crashing on `player.attributes.Speed` against null.
+  // generateCombine, etc.) sees a plain object instead of crashing on
+  // `player.attributes.Speed` against null.
   const player = { ...rawPlayer, attributes: rawPlayer.attributes || {} };
-  // getPoolRank/getPoolAvg run computeScore/calcWeightedAvg over every OTHER
-  // player in the pool too — an unscouted Targets recruit elsewhere in
-  // allPlayers can have attributes: null just like the current player did
-  // above, so the same normalization has to apply to the whole pool, not
-  // just the one being displayed.
+  // getPoolStats runs computeScore over every OTHER player in the pool too —
+  // an unscouted Targets recruit elsewhere in allPlayers can have
+  // attributes: null just like the current player did above, so the same
+  // normalization has to apply to the whole pool, not just the one being
+  // displayed.
   const safeAllPlayers = (allPlayers || []).map(p => (p.attributes ? p : { ...p, attributes: {} }));
   const score      = computeScore(player, weightsMap, pool);
   const baseAvg    = calcWeightedAvg(player);
   const archBase   = archetypeBaseScore(player, weightsMap);
-  const displayBase = archBase !== null ? archBase : baseAvg;
   const usingArch  = archBase !== null;
+  // Visible alongside the grade itself — a score that JUST barely qualifies
+  // (thin data, or only reached via the any-star widening) renders as the
+  // exact same kind of number as one built from a well-populated bucket
+  // otherwise, unless this is shown.
+  const confidence = usingArch ? getScoreConfidence(player, weightsMap) : null;
   const tier       = getGradeTier(score);
-  const hidden     = isHiddenDev(player.devTrait);
-  // Hidden dev is scored by predicting a floor/ceiling range against Threshold
-  // Lookup's revealed-recruit pool (walking tier boundaries within this exact
-  // archetype+star bucket only) and blending the resulting confidence into one
-  // expected-value bonus — see archetypeWeights.predictHiddenDev /
-  // devPrediction.js. Known dev instead gets a "how strong an example of this
-  // tier" read (tierStrength below) — same underlying computation, applied to
-  // the boundaries on either side of the player's own confirmed tier.
-  const devResult  = hidden ? predictHiddenDev(player, weightsMap, pool) : { bonus: DEV_BONUS[player.devTrait] ?? 0 };
-  const devBonus   = devResult.bonus;
-  const tierStrength = (!hidden && pool) ? (() => {
+  // Floor/Ceiling confidence pills — informational only, no relationship to
+  // the Composite Score above (see archetypeWeights.computeScore). Only
+  // meaningful for a still-Hidden dev trait; a revealed one has nothing left
+  // to predict.
+  const hidden = isHiddenDev(player.devTrait);
+  const devPills = (hidden && pool) ? (() => {
     const arch = normalizeArch(player.archetype || '');
     const formAttrs = getFormAttrs(player.position, arch);
-    return computeKnownTierStrength(pool, player.position, arch, String(player.stars ?? ''), player, formAttrs);
+    const result = predictFloorCeiling(pool, player.position, arch, String(player.stars ?? ''), player, formAttrs);
+    return describeFloorCeilingPills(result, player.gemBust);
   })() : null;
-  const ceilBonus  = physOutlierBonus(player);
   const starBonus  = STAR_BONUS[String(player.stars)] ?? 0;
   const gemBonus   = gemBustBonus(player);
   const combine  = generateCombine(player);
   const { gpa, major } = generateAcademic(player);
   const quote    = generateQuote(player);
-  const { rank, total } = getPoolRank(player, safeAllPlayers, weightsMap, pool);
-  const poolAvg  = getPoolAvg(player.position, safeAllPlayers);
-  const analysis = buildAnalysisText(player, score, baseAvg, rank, total, weightsMap, pool);
+  const arch = normalizeArch(player.archetype || '');
+  const rankAll      = getPoolStats(player, safeAllPlayers, weightsMap, pool, null);
+  const rankPosition = getPoolStats(player, safeAllPlayers, weightsMap, pool, p => p.position === player.position);
+  const rankArchetype = getPoolStats(player, safeAllPlayers, weightsMap, pool, p => p.position === player.position && normalizeArch(p.archetype || '') === arch);
 
-  const priority = PRIORITY_ATTRS[player.position] ?? [];
-  const attrEntries = Object.entries(player.attributes || {}).sort((a, b) => b[1] - a[1]);
-  const priorityEntries = attrEntries.filter(([k]) => priority.includes(k));
-  const useList  = priorityEntries.length >= 2 ? priorityEntries : attrEntries;
-  const strengths  = useList.slice(0, 3);
-  const weaknesses = [...useList].reverse().slice(0, 2);
+  // Same form-entry order as the Recruiting Database table's Attributes
+  // column (getFormAttrs first, falling back to insertion order for any
+  // attribute outside that position/archetype's canonical list) — not
+  // sorted by value, so this always reads as "attribute 1 through 10" the
+  // way they were scouted, not a strengths/weaknesses ranking.
+  const formOrder = getFormAttrs(player.position, player.archetype);
+  const orderedAttrs = formOrder.length
+    ? [
+        ...formOrder.filter(k => player.attributes?.[k] != null).map(k => [k, player.attributes[k]]),
+        ...Object.entries(player.attributes || {}).filter(([k, v]) => !formOrder.includes(k) && v != null),
+      ]
+    : Object.entries(player.attributes || {}).filter(([, v]) => v != null);
 
   return (
     <>
@@ -629,114 +594,114 @@ export function GradeReportContent({ player: rawPlayer, allPlayers, weightsMap, 
           const scoreBreakdownEl = (
             <section>
               <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Score Breakdown</h3>
-              <div className="bg-surface-3 border border-surface-4 rounded-lg overflow-hidden divide-y divide-surface-4 text-xs">
-                <div className="flex justify-between px-3 py-2">
-                  <span className="text-slate-400">{usingArch ? 'Archetype Base Score' : 'Weighted Attribute Avg'}</span>
-                  <span className="font-bold text-white">{displayBase.toFixed(1)}</span>
+              {score == null ? (
+                <div className="bg-surface-3 border border-surface-4 rounded-lg p-4 text-center">
+                  <p className="text-xl font-black text-slate-500">-</p>
+                  <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+                    {Object.keys(player.attributes).length === 0
+                      ? 'Not scouted yet — enter attributes to grade this recruit.'
+                      : `Can't grade yet — no scouted comps exist for ${player.archetype || 'this archetype'} at any star level to compare his attributes against.`}
+                  </p>
                 </div>
-                {usingArch && (
-                  <div className="flex justify-between px-3 py-2 opacity-50">
-                    <span className="text-slate-500 text-[11px] italic">Attr avg (all entered)</span>
-                    <span className="text-slate-500 text-[11px]">{baseAvg.toFixed(1)}</span>
-                  </div>
-                )}
-                {hidden ? (
-                  (devResult.source === 'no-data' || devResult.source === 'same-tier-only') ? (
-                    <div className="flex justify-between px-3 py-2">
-                      <span className="text-txt-tertiary italic text-[11px]">Dev Trait — not enough comps yet</span>
-                      <span className="font-bold text-txt-secondary">+0.0</span>
+              ) : (
+                <>
+                  <div className="bg-surface-3 border border-surface-4 rounded-lg overflow-hidden divide-y divide-surface-4 text-xs">
+                    <div className="flex justify-between items-center px-3 py-2">
+                      <span className="text-slate-400">Learned Attribute Score</span>
+                      <div className="flex items-center gap-2">
+                        {confidence && (
+                          <span
+                            title={`${confidence.usedWidening ? 'Widened to any star level within this archetype · ' : ''}${confidence.boundariesUsed} tier boundar${confidence.boundariesUsed !== 1 ? 'ies' : 'y'} of real data`}
+                            className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                              confidence.level === 'Strong'  ? 'text-emerald-400 border-emerald-800' :
+                              confidence.level === 'Limited' ? 'text-amber-400 border-amber-800' :
+                                                                'text-orange-400 border-orange-800'
+                            }`}
+                          >
+                            {confidence.level}
+                          </span>
+                        )}
+                        <span className="font-bold text-white">{archBase.toFixed(1)}</span>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="flex justify-between px-3 py-2">
-                      <span className="text-txt-tertiary italic text-[11px]">
-                        Floor: {devResult.floorTier}
-                        {devResult.floorConfidence != null && ` (${Math.round(devResult.floorConfidence * 100)}%${devResult.source === 'single-comp' ? ', 1 comp' : ''})`}
-                        {' · '}Ceiling: {devResult.ceilingTier ?? 'open'}
-                      </span>
-                      <span className="font-bold text-txt-secondary">{devBonus > 0 ? '+' : ''}{devBonus.toFixed(1)}</span>
+                    <div className="flex justify-between px-3 py-2 opacity-50">
+                      <span className="text-slate-500 text-[11px] italic">Attr avg (all entered)</span>
+                      <span className="text-slate-500 text-[11px]">{baseAvg.toFixed(1)}</span>
                     </div>
-                  )
-                ) : (
-                  <>
-                    <div className="flex justify-between px-3 py-2">
-                      <span className="text-slate-400">{player.devTrait} Dev Adjustment</span>
-                      <span className={'font-bold text-txt-secondary'}>
-                        {devBonus > 0 ? '+' : ''}{devBonus}
-                      </span>
-                    </div>
-                    {tierStrength && tierStrength.label !== tierStrength.tier && (
-                      <div className="flex justify-between px-3 py-2 opacity-50">
-                        <span className="text-slate-500 text-[11px] italic">{tierStrength.label}</span>
+                    {starBonus !== 0 && (
+                      <div className="flex justify-between px-3 py-2">
+                        <span className="text-slate-400">{player.stars}-Star Rating Bonus</span>
+                        <span className={'font-bold text-txt-secondary'}>
+                          {starBonus > 0 ? '+' : ''}{starBonus}
+                        </span>
                       </div>
                     )}
-                  </>
-                )}
-                {ceilBonus > 0 && (
-                  <div className="flex justify-between px-3 py-2">
-                    <span className="text-slate-400">Physical Ceiling Bonus</span>
-                    <span className="font-bold text-txt-secondary">+{ceilBonus.toFixed(1)}</span>
+                    {gemBonus !== 0 && (
+                      <div className="flex justify-between px-3 py-2">
+                        <span className="text-slate-400">{player.gemBust} Adjustment</span>
+                        <span className={'font-bold text-txt-secondary'}>
+                          {gemBonus > 0 ? '+' : ''}{gemBonus}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between px-3 py-2 bg-surface-4">
+                      <span className="text-slate-300 font-bold">Composite Score</span>
+                      <span className="font-black text-white">{score.toFixed(1)}</span>
+                    </div>
                   </div>
-                )}
-                {starBonus !== 0 && (
-                  <div className="flex justify-between px-3 py-2">
-                    <span className="text-slate-400">{player.stars}-Star Rating Bonus</span>
-                    <span className={'font-bold text-txt-secondary'}>
-                      {starBonus > 0 ? '+' : ''}{starBonus}
-                    </span>
+                  <div className="grid grid-cols-3 gap-2 mt-3">
+                    {[
+                      { label: 'All Prospects', stat: rankAll },
+                      { label: `${player.position} Prospects`, stat: rankPosition },
+                      { label: player.archetype || 'Archetype', stat: rankArchetype },
+                    ].map(({ label, stat }) => stat.rank > 0 && (
+                      <div key={label} className="bg-surface-3 border border-surface-4 rounded-lg px-2.5 py-2.5 text-center">
+                        <p className="text-[8px] font-bold uppercase tracking-wider text-slate-500 mb-1 truncate" title={label}>{label}</p>
+                        <p className="text-lg font-black text-white leading-none">
+                          #{stat.rank}<span className="text-slate-500 font-bold text-[11px]"> / {stat.total}</span>
+                        </p>
+                        <p className="text-[10px] text-slate-500 mt-1">Avg <span className="text-slate-300 font-bold">{stat.avg.toFixed(1)}</span></p>
+                      </div>
+                    ))}
                   </div>
-                )}
-                {gemBonus !== 0 && (
-                  <div className="flex justify-between px-3 py-2">
-                    <span className="text-slate-400">{player.gemBust} Adjustment</span>
-                    <span className={'font-bold text-txt-secondary'}>
-                      {gemBonus > 0 ? '+' : ''}{gemBonus}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between px-3 py-2 bg-surface-4">
-                  <span className="text-slate-300 font-bold">Composite Score</span>
-                  <span className="font-black text-white">{score.toFixed(1)}</span>
-                </div>
-              </div>
-              {poolAvg && (
-                <p className="text-[10px] text-slate-500 mt-2">
-                  Ranks <span className="text-white font-bold">#{rank}</span> of{' '}
-                  <span className="text-white font-bold">{total}</span> {player.position} prospects in database
-                  {' '}· Pool weighted avg: <span className="text-white font-bold">{poolAvg}</span>
-                </p>
+                </>
               )}
             </section>
           );
 
-          const strengthsWeaknessesEl = (
-            <section className="grid grid-cols-2 gap-3">
-              <div>
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-txt-tertiary mb-2">Strengths</h3>
-                <div className="space-y-1.5">
-                  {strengths.map(([k, v]) => (
-                    <div key={k} className="flex justify-between items-center bg-surface-3 border border-surface-4 rounded px-2.5 py-1.5">
-                      <span className="text-[10px] text-txt-secondary font-medium">{k}</span>
-                      <span className="text-[10px] font-black text-txt-secondary">{v}</span>
+          const attributesEl = (() => {
+            const half = Math.ceil(orderedAttrs.length / 2);
+            const columns = [orderedAttrs.slice(0, half), orderedAttrs.slice(half)];
+            return (
+              <section className="h-full flex flex-col">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-txt-tertiary mb-2">Attributes</h3>
+                {/* flex-1 on the column (in the wide layout, where this
+                    section stretches to match Score Breakdown's height) lets
+                    the pills themselves grow to fill the column — each pill
+                    getting flex-1 too means the pills get taller, not the
+                    gaps between them, so spacing stays tight like the
+                    non-wide layout. In the non-wide stacked layout there's no
+                    extra height to fill, so this is a no-op there. */}
+                <div className="grid grid-cols-2 gap-3 flex-1">
+                  {columns.map((col, colIdx) => (
+                    <div key={colIdx} className="flex flex-col gap-1.5">
+                      {col.map(([k, v]) => (
+                        <div key={k} className="flex-1 flex justify-between items-center bg-surface-3 border border-surface-4 rounded px-2.5 py-1.5">
+                          <span className="text-xs text-txt-secondary font-medium">{k}</span>
+                          <span className="text-xs font-black text-txt-secondary">{v}</span>
+                        </div>
+                      ))}
                     </div>
                   ))}
                 </div>
-              </div>
-              <div>
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-txt-tertiary mb-2">Needs Work</h3>
-                <div className="space-y-1.5">
-                  {weaknesses.map(([k, v]) => (
-                    <div key={k} className="flex justify-between items-center bg-surface-3 border border-surface-4 rounded px-2.5 py-1.5">
-                      <span className="text-[10px] text-txt-secondary font-medium">{k}</span>
-                      <span className="text-[10px] font-black text-txt-secondary">{v}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-          );
+              </section>
+            );
+          })();
 
-          // Combine projections (+ Academic Profile folded in as a 6th stat
-          // card in the wide layout, instead of its own full-width row below)
+          // Combine projections. The non-wide (Recruiting Database) layout
+          // shows Academic Profile (GPA) separately below via academicEl — the
+          // wide Targets-board layout shows combine numbers only, no GPA
+          // anywhere in the report.
           const combineStats = [
             { label: '40 Dash',  value: `${combine.forty}s` },
             { label: 'Bench',    value: `${combine.bench} reps` },
@@ -748,19 +713,13 @@ export function GradeReportContent({ player: rawPlayer, allPlayers, weightsMap, 
           const combineEl = (
             <section>
               <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Combine Projections</h3>
-              <div className={`grid gap-2 ${wide ? 'grid-cols-6' : 'grid-cols-5'}`}>
+              <div className="grid grid-cols-5 gap-2">
                 {combineStats.map(({ label, value }) => (
                   <div key={label} className="bg-surface-3 border border-surface-4 rounded-lg p-2.5 text-center">
                     <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1">{label}</p>
                     <p className="text-xs font-black text-white">{value}</p>
                   </div>
                 ))}
-                {wide && (
-                  <div className="bg-surface-3 border border-surface-4 rounded-lg p-2.5 text-center">
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1 truncate" title={major}>GPA · {major}</p>
-                    <p className="text-xs font-black text-white">{gpa}</p>
-                  </div>
-                )}
               </div>
             </section>
           );
@@ -788,17 +747,38 @@ export function GradeReportContent({ player: rawPlayer, allPlayers, weightsMap, 
 
           return (
             <div className={wide ? 'p-4 space-y-3' : 'p-5 space-y-5'}>
-              <p className="text-xs text-txt-secondary leading-relaxed">{analysis}</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-surface-3 border border-surface-4 rounded-lg px-4 py-4">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Floor · Higher Confidence</p>
+                  <p className="text-2xl font-black leading-none">
+                    {hidden
+                      ? (devPills
+                          ? <><span className={devTraitTextCls(devPills.floorLabel)}>{devPills.floorLabel}</span> <span className="text-slate-400 font-black">{devPills.floorPct}%</span></>
+                          : <span className="text-slate-500 italic text-lg">Hidden</span>)
+                      : <><span className={devTraitTextCls(player.devTrait)}>{player.devTrait}</span> <span className="text-slate-400 font-black">100%</span></>}
+                  </p>
+                </div>
+                <div className="bg-surface-3 border border-surface-4 rounded-lg px-4 py-4">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Ceiling · Lower Confidence</p>
+                  <p className="text-2xl font-black leading-none">
+                    {hidden
+                      ? (devPills
+                          ? <><span className={devTraitTextCls(devPills.ceilingLabel)}>{devPills.ceilingLabel}</span> <span className="text-slate-400 font-black">{devPills.ceilingPct}%</span></>
+                          : <span className="text-slate-500 italic text-lg">Hidden</span>)
+                      : <span className="text-slate-500 italic">—</span>}
+                  </p>
+                </div>
+              </div>
 
               {wide ? (
-                <div className="grid lg:grid-cols-2 gap-4 items-start">
+                <div className="grid lg:grid-cols-2 gap-4 items-stretch">
                   {scoreBreakdownEl}
-                  {strengthsWeaknessesEl}
+                  {attributesEl}
                 </div>
               ) : (
                 <>
                   {scoreBreakdownEl}
-                  {strengthsWeaknessesEl}
+                  {attributesEl}
                 </>
               )}
 
@@ -959,7 +939,7 @@ function EditModal({ player, pool, weightsMap, onSave, onClose }) {
           <div className="flex items-center gap-3">
             <div className="inline-flex flex-col items-center gap-0.5" title="Live grade — updates as you edit">
               <span className={`font-black tracking-wide text-xs px-2 py-0.5 rounded border ${liveTier.badgeCls}`}>{liveTier.grade}</span>
-              <span className="text-[9px] tabular-nums text-slate-500">{liveScore.toFixed(1)}</span>
+              {liveScore != null && <span className="text-[9px] tabular-nums text-slate-500">{liveScore.toFixed(1)}</span>}
             </div>
             <button onClick={onClose} className="text-slate-500 hover:text-white transition text-lg font-bold">✕</button>
           </div>
@@ -1104,7 +1084,7 @@ function EditModal({ player, pool, weightsMap, onSave, onClose }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function PlayerDatabase({ players, roleContext, teamColors, teamLogo, onDelete, onEdit, onGoToInput, onGoToThresholds, onBack, dynastyId = null, highlightPid = null }) {
+export default function PlayerDatabase({ players, roleContext, teamColors, teamLogo, onDelete, onEdit, onGoToInput, dynastyId = null, highlightPid = null }) {
   const { getStaffData } = createStaffAccessor(dynastyId);
   const p = teamColors?.primary || '#374151';
   const [filterPos, setFilterPos] = useState('ALL');
@@ -1135,6 +1115,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
   const [importSheetInput, setImportSheetInput] = useState('');
   const [showHelpPanel, setShowHelpPanel] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [showSheetModal, setShowSheetModal] = useState(false);
 
   const recruitingDatabasePlayers = currentDynasty?.recruitingDatabasePlayers || [];
 
@@ -1313,14 +1294,6 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     return m ? m[1] : s;
   };
 
-  const handleOpenSheet = () => {
-    const sheetId = currentDynasty?.recruitingDatabaseSheetId;
-    if (!sheetId) {
-      toast.error('No Google Sheet linked yet — Save or Import one first.');
-      return;
-    }
-    window.open(`https://docs.google.com/spreadsheets/d/${sheetId}/edit`, '_blank', 'noopener,noreferrer');
-  };
 
   // Wipes this dynasty's own Recruiting Database data and unlinks the
   // current Google Sheet — the next Save/auto-create starts a brand new one.
@@ -1512,7 +1485,18 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     switch (sortConfig.key) {
       case 'recency':   av = a.recentRank ?? a.addedIndex ?? 0;             bv = b.recentRank ?? b.addedIndex ?? 0;            break;
       case 'name':      av = a.name;                                       bv = b.name;                                       break;
-      case 'score':     av = computeScore(a, weightsMap, pool);            bv = computeScore(b, weightsMap, pool);            break;
+      case 'score': {
+        // Ungraded (computeScore returns null) always sinks to the bottom of
+        // the list, regardless of sort direction — there's no meaningful
+        // position to give a "-" among real numeric grades.
+        const asRaw = computeScore(a, weightsMap, pool);
+        const bsRaw = computeScore(b, weightsMap, pool);
+        if (asRaw == null && bsRaw == null) return 0;
+        if (asRaw == null) return 1;
+        if (bsRaw == null) return -1;
+        av = asRaw; bv = bsRaw;
+        break;
+      }
       case 'group':     av = a.group;                                      bv = b.group;                                      break;
       case 'position':  av = a.position;                                   bv = b.position;                                   break;
       case 'archetype': av = a.archetype;                                  bv = b.archetype;                                  break;
@@ -1552,6 +1536,14 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
         <EditModal player={editingPlayer} pool={pool} weightsMap={weightsMap} onSave={updated => handleEditSave(updated, editingPlayer)} onClose={() => setEditingPlayer(null)} />
       )}
       <AuthErrorModal isOpen={auth.showAuthError} onClose={auth.closeAuthError} onRefresh={auth.retry} />
+      <RecruitingDatabaseSheetModal
+        isOpen={showSheetModal}
+        onClose={() => setShowSheetModal(false)}
+        combinedPlayers={combinedPlayers}
+        onSync={syncNow}
+        syncing={saving}
+        teamColors={teamColors}
+      />
 
       {/* Header strip */}
       <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-surface-4">
@@ -1622,8 +1614,8 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
           )}
           {currentDynasty && (
             <button
-              onClick={handleOpenSheet}
-              title="Open the Google Sheet linked to this Recruiting Database"
+              onClick={() => setShowSheetModal(true)}
+              title="Open the Recruiting Database's Google Sheet, with an AI prompt to fill it from screenshots"
               className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3"
             >
               Open
@@ -1708,18 +1700,6 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
           {onGoToInput && (
             <button onClick={onGoToInput} className="text-xs text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
               + New Report
-            </button>
-          )}
-          {onBack && (
-            <button onClick={onBack} className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><polyline points="15 18 9 12 15 6"/></svg>
-              Main Hub
-            </button>
-          )}
-          {onGoToThresholds && (
-            <button onClick={onGoToThresholds} className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
-              Threshold Lookup
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
           )}
         </div>
@@ -1859,7 +1839,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                       <td className="px-2 py-3.5 text-center overflow-hidden">
                         <div className="inline-flex flex-col items-center gap-0.5">
                           <span className={`font-black tracking-wide text-xs px-2 py-0.5 rounded border ${tier.badgeCls}`}>{tier.grade}</span>
-                          <span className="text-[9px] tabular-nums text-slate-600">{score.toFixed(1)}</span>
+                          {score != null && <span className="text-[9px] tabular-nums text-slate-600">{score.toFixed(1)}</span>}
                         </div>
                       </td>
                       <td className="px-2 py-3.5 uppercase font-semibold text-txt-tertiary text-[10px] tracking-wider overflow-hidden truncate">{pl.group}</td>

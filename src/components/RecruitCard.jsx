@@ -71,8 +71,11 @@ export default function RecruitCard({ recruit, player, bg, text, teamsData, isAl
   const grade = scoutGrade(recruit, model) // { score, tier } — null score when unscouted
   const report = scoutReport(recruit, playStyle, null, model) // generated blurb, null when unscouted
 
-  // Scout Staff grade (computeScore) — only when enabled and player has attrs
-  const ssScore = scoutStaffEnabled && hasAttrs ? Math.round(computeScore(recruit, weightsMap, pool)) : null
+  // Scout Staff grade (computeScore) — only when enabled and player has attrs.
+  // computeScore can still return null even with attrs on file (zero comps
+  // for this archetype at any star level) — hasAttrs alone isn't enough.
+  const rawSsScore = scoutStaffEnabled && hasAttrs ? computeScore(recruit, weightsMap, pool) : null
+  const ssScore = rawSsScore != null ? Math.round(rawSsScore) : null
   const ssLetter = ssScore != null ? ssGradeLetter(ssScore) : null
   const ssColor = ssScore != null ? ssGradeColor(ssScore) : null
 

@@ -174,10 +174,14 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate } = {})
   }, [recruits, siblingRecruits]);
 
   // Threshold Lookup's pool — same cross-dynasty merge as the Recruiting Database,
-  // minus anything removed from the board, so benchmark sample sizes grow across saves.
-  // HS recruits only (matches Recruiting Database) — portal/transfer targets are a
-  // different evaluation context and shouldn't skew freshman benchmark data.
-  const thresholdRecruits = useMemo(() => databaseRecruits.filter(r => !r.boardRemoved && !r.isPortal && !r.previousTeam), [databaseRecruits]);
+  // and deliberately NOT filtered by boardRemoved: a recruit dropped from the
+  // Targets board is a triage decision about this dynasty's recruiting class,
+  // not a signal that his scouted attributes/dev trait are bad data — he still
+  // counts toward benchmarks exactly like he still shows in the Recruiting
+  // Database. HS recruits only (matches Recruiting Database) — portal/transfer
+  // targets are a different evaluation context and shouldn't skew freshman
+  // benchmark data.
+  const thresholdRecruits = useMemo(() => databaseRecruits.filter(r => !r.isPortal && !r.previousTeam), [databaseRecruits]);
 
   // Committed recruits for the current team/year, pulled from dynasty recruiting data
   const committedRecruits = useMemo(() => {
@@ -354,8 +358,6 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate } = {})
 
   const teamTheme = { teamColors, teamLogo };
 
-  const goHome = () => onNavigate?.('staff')
-
   // Deep-link from a Daily Brief "Recruiting Plan" row straight to that
   // position's tab in Program Outlook.
   const [analysisJumpPos, setAnalysisJumpPos] = useState(null);
@@ -446,15 +448,15 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate } = {})
 
       {/* Read-only: mirrors the recruiting Targets sheet. Freshmen and portal targets are split.
           Uses the unfiltered list so a target removed from the board still shows up here. */}
-      {subView === 'database'   && <PlayerDatabase players={freshmanRecruits} roleContext="National Scout" dynastyId={dynastyId} {...teamTheme} onEdit={isViewOnly ? null : handleEditDatabasePlayer} onGoToThresholds={() => onNavigate?.('thresholds')} onBack={goHome} highlightPid={highlightPid} />}
-      {subView === 'thresholds' && <ThresholdLookup players={thresholdRecruits} roleContext="Data Analyst" dynastyId={dynastyId} {...teamTheme} onGoToDatabase={() => { setDbHighlightPid(null); onNavigate?.('database'); }} onBack={goHome} />}
-      {subView === 'counts'     && <PlayerCount onBack={goHome} onGoToDatabase={() => { setDbHighlightPid(null); onNavigate?.('database'); }} />}
+      {subView === 'database'   && <PlayerDatabase players={freshmanRecruits} roleContext="National Scout" dynastyId={dynastyId} {...teamTheme} onEdit={isViewOnly ? null : handleEditDatabasePlayer} highlightPid={highlightPid} />}
+      {subView === 'thresholds' && <ThresholdLookup players={thresholdRecruits} roleContext="Data Analyst" dynastyId={dynastyId} {...teamTheme} />}
+      {subView === 'counts'     && <PlayerCount />}
 
       {/* Always mounted so allHubs recomputes live whenever recruits or roster data changes.
           Hidden when not on the analysis view — UI is invisible but computation runs.
           Uses boardRecruits so removed targets are no longer discussed in Program Outlook. */}
       <div className={subView === 'analysis' ? '' : 'hidden'}>
-        <ScoutAnalysis players={boardRecruits} removedRecruits={removedBoardRecruits} onToggleBoardRemoved={isViewOnly ? null : handleToggleBoardRemoved} roleContext="Data Analyst" {...teamTheme} dynasty={currentDynasty} committedRecruits={committedRecruits} onBack={goHome} onOutlookReady={data => { setOutlookSummary(data); }} jumpToPos={analysisJumpPos} resetToOverviewKey={analysisResetKey} actionsRef={analysisActionsRef} />
+        <ScoutAnalysis players={boardRecruits} removedRecruits={removedBoardRecruits} onToggleBoardRemoved={isViewOnly ? null : handleToggleBoardRemoved} roleContext="Data Analyst" {...teamTheme} dynasty={currentDynasty} committedRecruits={committedRecruits} onOutlookReady={data => { setOutlookSummary(data); }} jumpToPos={analysisJumpPos} resetToOverviewKey={analysisResetKey} actionsRef={analysisActionsRef} />
       </div>
     </div>
   );

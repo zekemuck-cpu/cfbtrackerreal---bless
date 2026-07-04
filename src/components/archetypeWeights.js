@@ -1,9 +1,10 @@
 // This file used to also own a ~75-archetype hand-authored ARCHETYPE_WEIGHTS
 // table, used as a static scoring fallback whenever no learned data existed
-// yet. Removed — no hand-authored fallback, ever; a brand-new archetype/
-// position/star combo with zero scouted history now grades on calcWeightedAvg
-// (below) until real comps accumulate. Attribute weights are now derived
-// entirely from devPrediction.js's separation-clarity computation.
+// yet. Removed — no hand-authored fallback, ever. A brand-new archetype/
+// position/star combo widens to real comps at any star level within the same
+// archetype (see devPrediction.js's ANY_STAR); if even that has zero comps,
+// computeScore returns null rather than falling back to any hand-tuned
+// formula — "can't grade without real data to compare against."
 //
 // Circular import with devPrediction.js — this file imports
 // predictHiddenDevBonus from there, and devPrediction.js imports normalizeArch
@@ -11,7 +12,7 @@
 // inside a function body, never at module-evaluation time. (Other callers
 // needing devPrediction.js's buildAttributeQualityMap/computeKnownTierStrength
 // import them directly from '../utils/devPrediction', not through here.)
-import { predictHiddenDevBonus } from '../utils/devPrediction';
+import { predictHiddenDevBonus, ANY_STAR } from '../utils/devPrediction';
 
 // Normalize stored archetype name → a stable archetype key suffix.
 // "Raw Strength (OT)" → "Raw Strength", "ATH - Thumper" → "Thumper"
@@ -57,10 +58,10 @@ const PRIORITY_ATTRS = {
 
 export function isHiddenDev(d) { return !d || d === 'Hidden' || d === 'hidden' || d === ''; }
 
-// Fallback base score when no archetype weight profile exists — every
-// entered attribute counted once, doubled for this position's 5 most
-// critical attributes, plus a small extra weight for the 5 uncoachable
-// physical attributes.
+// A plain, unweighted-ish attribute average — no longer used as a substitute
+// grade (see computeScore below). Kept only as the dimmed "Attr avg (all
+// entered)" reference line shown alongside a real Learned Attribute Score,
+// for context on how much the learned weighting shifted the number.
 export function calcWeightedAvg(player) {
   const attrs = player.attributes ?? {};
   const priority = PRIORITY_ATTRS[player.position] ?? [];
@@ -72,17 +73,6 @@ export function calcWeightedAvg(player) {
     weight += w;
   });
   return weight ? sum / weight : 0;
-}
-
-export function physOutlierBonus(player) {
-  let b = 0;
-  PHYS_ATTRS.forEach(k => {
-    const v = player.attributes?.[k] ?? 0;
-    if      (v >= 96) b += 5;
-    else if (v >= 92) b += 2;
-    else if (v >= 88) b += 0.5;
-  });
-  return b;
 }
 
 // A hidden dev trait is scored by PREDICTING a floor/ceiling range against
@@ -104,35 +94,82 @@ export function gemBustBonus(player) {
   return GEM_BUST_BONUS[player?.gemBust] ?? 0;
 }
 
-// weightsMap (optional): devPrediction.buildAttributeQualityMap(...) result —
-// pass it through when the caller has a pool of revealed-dev-trait recruits,
-// omit to always fall back to calcWeightedAvg's plain attribute average.
-// pool (optional): devTraitLearning.buildRevealedPool(...) result — powers
-// the Threshold-comparison hidden-dev prediction above; omit to always treat
-// hidden-dev players as unpredictable (bonus 0).
+// weightsMap: devPrediction.buildAttributeQualityMap(...) result. pool:
+// devTraitLearning.buildRevealedPool(...) result. Both required for a real
+// score — without them there's nothing to compare against.
+//
+// Dev trait (known or predicted-hidden) deliberately does NOT add/subtract
+// points here — folding it in meant a Hidden recruit was structurally scored
+// against a partial, confidence-blended guess while a revealed recruit got
+// the full flat bonus, which skewed the two groups against each other. Dev
+// trait is still surfaced (badge, Floor/Ceiling, tier-strength) as
+// informational context — see buildAnalysisText/predictHiddenDev — it just
+// no longer moves the Composite Score.
+//
+// A flat "physical ceiling" bonus for elite Speed/Acceleration/Strength/
+// Agility/Change of Direction readings used to live here too — removed. Not
+// every position's scouting form even tracks all 5 (a Fullback's form only
+// has Strength; a QB's or WR's only has Speed/Acceleration), so the bonus
+// gave DBs and ATH recruits several times more ways to earn it than a QB,
+// WR, or FB could ever reach, independent of how physically gifted they
+// actually were — an unfair structural artifact of the forms, not a real
+// signal.
+//
+// Returns null when the recruit genuinely can't be graded — no comps exist
+// for this archetype at any star level, so there's nothing real to compare
+// his attributes against. No hand-authored formula steps in for that case
+// (the old calcWeightedAvg fallback used to); callers show "-" instead.
 export function computeScore(player, weightsMap = null, pool = null) {
-  const devResult = isHiddenDev(player.devTrait)
-    ? predictHiddenDev(player, weightsMap, pool)
-    : { bonus: DEV_BONUS[player.devTrait] ?? 0 };
   const archBase = archetypeBaseScore(player, weightsMap);
-  const base = archBase ?? calcWeightedAvg(player);
-  return base + devResult.bonus + (STAR_BONUS[String(player.stars)] ?? 0) + physOutlierBonus(player) + gemBustBonus(player);
+  if (archBase === null) return null;
+  return archBase + (STAR_BONUS[String(player.stars)] ?? 0) + gemBustBonus(player);
 }
 
 // Compute archetype-specific weighted base score using dynamically-learned
-// attribute weights (devPrediction.buildAttributeQualityMap's output) —
-// returns null when no learned weights exist yet for this exact
-// position+archetype+star bucket (no more hand-authored static fallback);
-// callers fall through to calcWeightedAvg in that case.
+// attribute weights (devPrediction.buildAttributeQualityMap's output).
+// Tries the exact position+archetype+star bucket first; if that has zero
+// comps, widens to the same archetype across ANY star level (still a fair
+// comparison — same attribute list either way, see devPrediction.js's
+// widenPoolAcrossStars). Returns null when neither has any real data (no
+// peers to compare against) OR when the player himself hasn't actually been
+// scouted yet — a missing attribute silently reads as 0 in the weighted sum
+// below, which used to score an un-scouted Targets recruit as a flat 0-ish
+// composite (an automatic F) instead of "not scored yet." Requiring real
+// attributes on file before scoring at all closes that gap.
 export function archetypeBaseScore(player, weightsMap = null) {
+  if (!player.attributes || Object.keys(player.attributes).length === 0) return null;
   const arch    = normalizeArch(player.archetype || '');
   const archKey = `${player.position}_${arch}`;
   const star    = String(player.stars ?? '');
-  const weights = weightsMap?.[archKey]?.[star]?.weights;
+  const weights = weightsMap?.[archKey]?.[star]?.weights ?? weightsMap?.[archKey]?.[ANY_STAR]?.weights;
   if (!weights) return null;
   let sum = 0;
   Object.entries(weights).forEach(([attr, w]) => {
     if (w > 0) sum += (player.attributes?.[attr] ?? 0) * w;
   });
   return sum;
+}
+
+// Visible confidence label for the Learned Attribute Score, separate from
+// the number itself — a bucket that JUST barely qualifies for a score (one
+// boundary, reached only via the any-star widening) renders identically to
+// one built from a well-populated exact-star bucket otherwise. Combines the
+// two signals already on hand: how many of the 3 possible tier boundaries
+// had real 2-sided data, and whether the exact star bucket sufficed or the
+// widened any-star fallback was needed (a softer, less precise match).
+// Returns null right alongside computeScore's null — nothing to rate the
+// confidence of if there's no score at all.
+export function getScoreConfidence(player, weightsMap = null) {
+  const arch    = normalizeArch(player.archetype || '');
+  const archKey = `${player.position}_${arch}`;
+  const star    = String(player.stars ?? '');
+  const exact   = weightsMap?.[archKey]?.[star];
+  const widened = weightsMap?.[archKey]?.[ANY_STAR];
+  const entry   = exact?.weights ? exact : (widened?.weights ? widened : null);
+  if (!entry) return null;
+  const usedWidening = !exact?.weights;
+  const boundariesUsed = entry.boundariesUsed ?? 0;
+  const strength = Math.max(0, boundariesUsed - (usedWidening ? 1 : 0));
+  const level = strength >= 2 ? 'Strong' : strength === 1 ? 'Limited' : 'Thin';
+  return { level, usedWidening, boundariesUsed };
 }

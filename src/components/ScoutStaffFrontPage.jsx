@@ -106,6 +106,16 @@ const CONNECTION_SCENARIOS = [
   'They were both in the building at {school} during a coaching search in {year}.',
 ];
 
+// Descending by score; ungraded (computeScore returns null — no comps for
+// this archetype at any star, or not scouted yet) always sinks last rather
+// than being coerced to 0 by plain subtraction.
+function compareByScoreDesc(a, b) {
+  if (a.score == null && b.score == null) return 0;
+  if (a.score == null) return 1;
+  if (b.score == null) return -1;
+  return b.score - a.score;
+}
+
 // Fisher–Yates shuffle — used to build no-repeat-until-exhausted draw bags.
 function shuffleArray(arr) {
   const a = [...arr];
@@ -652,11 +662,11 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
   const weightsMap = useMemo(() => buildAttributeQualityMap(revealedPool, recruits), [revealedPool, recruits]);
 
   const analysisData = useMemo(() => {
-    const scored = recruits.map(r => ({ ...r, score: computeScore(r, weightsMap, revealedPool) })).sort((a, b) => b.score - a.score);
+    const scored = recruits.map(r => ({ ...r, score: computeScore(r, weightsMap, revealedPool) })).sort(compareByScoreDesc);
     const total  = scored.length;
-    const t1 = scored.filter(r => r.score >= 88).length;
-    const t2 = scored.filter(r => r.score >= 82 && r.score < 88).length;
-    const t4 = scored.filter(r => r.score <  76).length;
+    const t1 = scored.filter(r => r.score != null && r.score >= 88).length;
+    const t2 = scored.filter(r => r.score != null && r.score >= 82 && r.score < 88).length;
+    const t4 = scored.filter(r => r.score != null && r.score <  76).length;
     return { scored, total, t1, t2, t4 };
   }, [recruits, weightsMap, revealedPool]);
 
@@ -712,7 +722,8 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
       const top = scored[0];
       if (top) {
         const topDevNote = top.devTrait && !hiddenDev(top.devTrait) ? ` — ${top.devTrait} dev` : '';
-        info.push({ text: `${top.name} (${top.position}) leads at ${top.score.toFixed(0)} composite${topDevNote}`, flag: top.score >= 88 ? 'good' : 'neutral' });
+        const scoreText = top.score != null ? ` at ${top.score.toFixed(0)} composite` : '';
+        info.push({ text: `${top.name} (${top.position}) leads${scoreText}${topDevNote}`, flag: top.score != null && top.score >= 88 ? 'good' : 'neutral' });
       }
 
       const eliteDevs = scored.filter(r => r.devTrait === 'Elite');
@@ -1394,7 +1405,8 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
                   <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-500 mb-2.5">Recently Filed</p>
                   <div className="space-y-1.5">
                     {recent.map((r, i) => {
-                      const score = Math.round(computeScore(r, weightsMap, revealedPool));
+                      const rawScore = computeScore(r, weightsMap, revealedPool);
+                      const score = rawScore != null ? Math.round(rawScore) : null;
                       // Same grade tiers + glows as Recruiting Database
                       const gradeTiers = [
                         { grade: 'A+', min: 95, cls: 'bg-surface-3 border border-[#0F9D3E] text-[#3DFF7F]' },
@@ -1411,7 +1423,9 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
                         { grade: 'D-', min: 50, cls: 'bg-surface-3 border border-[#7A4210] text-[#C86A1E]' },
                         { grade: 'F',  min: 0,  cls: 'bg-surface-3 border border-[#8C5524] text-[#CD7F32]' },
                       ];
-                      const tier = gradeTiers.find(t => score >= t.min) ?? gradeTiers[gradeTiers.length - 1];
+                      const tier = score != null
+                        ? (gradeTiers.find(t => score >= t.min) ?? gradeTiers[gradeTiers.length - 1])
+                        : { grade: '-', cls: 'bg-surface-3 border border-surface-4 text-slate-500' };
                       return (
                         <div
                           key={i}
@@ -1427,7 +1441,7 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
                           <div className="flex-1" />
                           <div className="flex items-center gap-2 shrink-0">
                             <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${tier.cls}`}>{tier.grade}</span>
-                            <span className="text-[9px] font-black tabular-nums text-slate-400">{score}</span>
+                            {score != null && <span className="text-[9px] font-black tabular-nums text-slate-400">{score}</span>}
                           </div>
                         </div>
                       );

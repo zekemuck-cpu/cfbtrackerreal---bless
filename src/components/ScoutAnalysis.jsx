@@ -215,6 +215,7 @@ function buildSubHub(subLabel, subPlayers, stats, recruitStrategy, extraTargets,
 }
 
 function getGrade(score) {
+  if (score == null) return { grade: '-', cls: 'text-slate-500 bg-surface-3 border-surface-4' };
   if (score >= 95) return { grade: 'A+', cls: 'text-emerald-300 bg-emerald-950 border-emerald-600' };
   if (score >= 90) return { grade: 'A',  cls: 'text-emerald-300 bg-emerald-950 border-emerald-700' };
   if (score >= 86) return { grade: 'A-', cls: 'text-emerald-400 bg-surface-3 border-emerald-800' };
@@ -227,11 +228,26 @@ function getGrade(score) {
   return { grade: 'D',  cls: 'text-orange-400 bg-orange-950 border-orange-700' };
 }
 
+// null (ungraded — no comps for this archetype at any star, or not scouted
+// yet) is deliberately NOT tier 3 ("Depth") — that would misrepresent "we
+// can't grade him" as "he's a weak prospect." Callers that filter by
+// tier === 0/1/2/3 naturally exclude null without special-casing it.
 function getTier(score) {
+  if (score == null) return null;
   if (score >= 88) return 0;
   if (score >= 82) return 1;
   if (score >= 76) return 2;
   return 3;
+}
+
+// Descending by score, ungraded (null) always last regardless of how the
+// scores around it compare — shown in the list like anyone else, just with
+// nothing to rank him against.
+function compareByScoreDesc(a, b) {
+  if (a.score == null && b.score == null) return 0;
+  if (a.score == null) return 1;
+  if (b.score == null) return -1;
+  return b.score - a.score;
 }
 
 // ── Tier UI config ────────────────────────────────────────────────────────────
@@ -267,7 +283,7 @@ function buildRec(pos, arch, matchingPlayers, weightsMap = null, pool = null) {
   const scored = matchingPlayers.map(p => {
     const s = computeScore(p, weightsMap, pool);
     return { ...p, score: s, tier: getTier(s) };
-  }).sort((a, b) => b.score - a.score);
+  }).sort(compareByScoreDesc);
 
   const t1 = scored.filter(s => s.tier === 0);
   const t2 = scored.filter(s => s.tier === 1);
@@ -438,7 +454,7 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
   const archStats = archList.map(arch => {
     const matches = posPlayers.filter(pl => normalizeArch(pl.archetype) === arch);
     if (!matches.length) return { arch, count: 0, bestScore: null, bestTier: null, urgency: 'empty', scored: [], t1c: 0, t2c: 0 };
-    const scored = matches.map(p => { const s = computeScore(p, weightsMap, pool); return { ...p, score: s, tier: getTier(s) }; }).sort((a, b) => b.score - a.score);
+    const scored = matches.map(p => { const s = computeScore(p, weightsMap, pool); return { ...p, score: s, tier: getTier(s) }; }).sort(compareByScoreDesc);
     const best = scored[0].score;
     const t1c = scored.filter(s => s.tier === 0).length;
     const t2c = scored.filter(s => s.tier === 1).length;
@@ -452,7 +468,7 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
 
   const topTargets = posPlayers
     .map(p => { const s = computeScore(p, weightsMap, pool); return { ...p, score: s, tier: getTier(s) }; })
-    .sort((a, b) => b.score - a.score)
+    .sort(compareByScoreDesc)
     .slice(0, 5);
 
   const rc            = rosterCtx;
@@ -462,8 +478,8 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
   const hasT1        = t1Archs.length > 0;
   const hasT2        = t2Archs.length > 0;
   const hasBoard     = posPlayers.length > 0;
-  const t1Names      = t1Archs.flatMap(a => a.scored.filter(s => s.tier === 0)).sort((a, b) => b.score - a.score).slice(0, 2).map(s => s.name);
-  const t2Names      = t2Archs.flatMap(a => a.scored.filter(s => s.tier === 1)).sort((a, b) => b.score - a.score).slice(0, 1).map(s => s.name);
+  const t1Names      = t1Archs.flatMap(a => a.scored.filter(s => s.tier === 0)).sort(compareByScoreDesc).slice(0, 2).map(s => s.name);
+  const t2Names      = t2Archs.flatMap(a => a.scored.filter(s => s.tier === 1)).sort(compareByScoreDesc).slice(0, 1).map(s => s.name);
 
   // Board target cross-reference helpers
   const portalTargetsOnBoard = posPlayers.filter(p => p.isPortal);
@@ -1274,7 +1290,7 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export default function ScoutAnalysis({ players = [], removedRecruits = [], onToggleBoardRemoved = null, teamColors, teamLogo, dynasty, committedRecruits = [], onBack, onOutlookReady, jumpToPos = null, resetToOverviewKey = null, actionsRef = null }) {
+export default function ScoutAnalysis({ players = [], removedRecruits = [], onToggleBoardRemoved = null, teamColors, teamLogo, dynasty, committedRecruits = [], onOutlookReady, jumpToPos = null, resetToOverviewKey = null, actionsRef = null }) {
   const { getStaffData, saveStaffData } = createStaffAccessor(dynasty?.id ?? null);
   const navigate = useNavigate();
 
@@ -1971,12 +1987,6 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
           >
             Configure
           </button>
-          {onBack && (
-            <button onClick={onBack} className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><polyline points="15 18 9 12 15 6"/></svg>
-              Main Hub
-            </button>
-          )}
         </div>
       </div>
 
@@ -2932,7 +2942,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
               {(() => {
                 const scoreAndSort = list => list
                   .map(p => { const s = computeScore(p, weightsMap, revealedPool); return { ...p, score: s, tier: getTier(s) }; })
-                  .sort((a, b) => b.score - a.score);
+                  .sort(compareByScoreDesc);
                 const activeScored  = scoreAndSort(posPlayers);
                 const removedScored = scoreAndSort(posRemovedPlayers);
 
@@ -2962,7 +2972,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${g.cls}`}>{g.grade}</span>
-                        <span className="text-[9px] font-black tabular-nums text-slate-400">{pl.score.toFixed(0)}</span>
+                        {pl.score != null && <span className="text-[9px] font-black tabular-nums text-slate-400">{pl.score.toFixed(0)}</span>}
                         {onToggleBoardRemoved && (
                           <button
                             type="button"
